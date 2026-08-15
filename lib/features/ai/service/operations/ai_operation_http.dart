@@ -15,8 +15,6 @@ import '../runtime/ai_transport_client.dart';
 final class AiOperationHttp {
   const AiOperationHttp._();
 
-  static const String _acceptHeader = 'accept';
-  static const String _authorizationHeader = 'authorization';
   static const String _jsonMimeType = kApplicationJsonMimeType;
   static const String _xApiKeyHeader = 'x-api-key';
   static const String _apiKeyHeader = 'api-key';
@@ -47,7 +45,7 @@ final class AiOperationHttp {
         : stringMap(extrasForFamily(model, family)[extrasHeadersKey]);
     final headers = <String, String>{
       if (includeJsonContentType) kContentTypeHeaderName: _jsonMimeType,
-      if (acceptJson) _acceptHeader: _jsonMimeType,
+      if (acceptJson) kAcceptHeaderName: _jsonMimeType,
       ...model.customHeaders,
       ...endpointHeaders,
       ...extraHeaders,
@@ -62,7 +60,7 @@ final class AiOperationHttp {
       AiAuthScheme.apiKey when model.protocolType == AiProtocolType.mimo =>
         _apiKeyHeader,
       AiAuthScheme.apiKey => _xApiKeyHeader,
-      _ => _authorizationHeader,
+      _ => kAuthorizationHeaderName,
     };
     headers[headerName] = model.authScheme.apply(token);
     return headers;

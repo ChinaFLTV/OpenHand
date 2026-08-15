@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_search_settings.dart';
@@ -61,7 +62,7 @@ class WebSearchDuckDuckGoEngine extends WebSearchEngine {
     final response = await sendWebEngineHttpRequest(
       'GET',
       uri,
-      headers: const {'user-agent': kWebEngineSafariUserAgent},
+      headers: const {kUserAgentHeaderName: kWebEngineSafariUserAgent},
       cancelSignal: req.cancelSignal,
     );
     if (isHttpFailureStatus(response.statusCode)) {
@@ -126,7 +127,7 @@ class WebSearchBingEngine extends WebSearchEngine {
     final response = await sendWebEngineHttpRequest(
       'GET',
       uri,
-      headers: const {'user-agent': kWebEngineChromeUserAgent},
+      headers: const {kUserAgentHeaderName: kWebEngineChromeUserAgent},
       cancelSignal: req.cancelSignal,
     );
     if (isHttpFailureStatus(response.statusCode)) {
@@ -163,7 +164,7 @@ class WebSearchSearxngEngine extends WebSearchEngine {
     final response = await sendWebEngineHttpRequest(
       'GET',
       uri,
-      headers: const {'user-agent': 'OpenHand/1.0 (+websearch)'},
+      headers: const {kUserAgentHeaderName: 'OpenHand/1.0 (+websearch)'},
       cancelSignal: req.cancelSignal,
     );
     if (isHttpFailureStatus(response.statusCode)) {

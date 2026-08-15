@@ -32,7 +32,7 @@ class WebFetchFirecrawlEngine extends WebFetchEngine {
               '/v1/scrape';
     final request = http.Request('POST', Uri.parse(endpoint))
       ..headers.addAll({
-        'authorization': 'Bearer ${config.apiKey}',
+        kAuthorizationHeaderName: 'Bearer ${config.apiKey}',
         kContentTypeHeaderName: kApplicationJsonMimeType,
       })
       ..body = jsonEncode({
@@ -133,8 +133,8 @@ class WebFetchJinaReaderEngine extends WebFetchEngine {
     );
     final request = http.Request('GET', readerUri)
       ..headers.addAll(const {
-        'accept': 'text/markdown,text/plain,*/*;q=0.8',
-        'user-agent': 'OpenHand-WebFetch/1.0',
+        kAcceptHeaderName: 'text/markdown,text/plain,*/*;q=0.8',
+        kUserAgentHeaderName: 'OpenHand-WebFetch/1.0',
       });
     final response = await sendBoundedWebEngineRequest(
       client: httpClient,

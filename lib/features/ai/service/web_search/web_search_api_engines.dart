@@ -118,7 +118,7 @@ class WebSearchLinkupEngine extends WebSearchEngine {
       'POST',
       Uri.parse('https://api.linkup.so/v1/search'),
       headers: {
-        'authorization': 'Bearer ${config.apiKey}',
+        kAuthorizationHeaderName: 'Bearer ${config.apiKey}',
         kContentTypeHeaderName: kApplicationJsonMimeType,
       },
       body: jsonEncode({
@@ -161,7 +161,7 @@ class WebSearchBochaEngine extends WebSearchEngine {
       'POST',
       Uri.parse('https://api.bochaai.com/v1/web-search'),
       headers: {
-        'authorization': 'Bearer ${config.apiKey}',
+        kAuthorizationHeaderName: 'Bearer ${config.apiKey}',
         kContentTypeHeaderName: kApplicationJsonMimeType,
       },
       body: jsonEncode({
@@ -207,7 +207,7 @@ class WebSearchBaiduEngine extends WebSearchEngine {
       'POST',
       Uri.parse('https://qianfan.baidubce.com/v2/ai_search'),
       headers: {
-        'authorization': 'Bearer ${config.apiKey}',
+        kAuthorizationHeaderName: 'Bearer ${config.apiKey}',
         kContentTypeHeaderName: kApplicationJsonMimeType,
       },
       body: jsonEncode({
@@ -255,7 +255,7 @@ class WebSearchKimiEngine extends WebSearchProviderKeyEngine {
       'POST',
       Uri.parse(kimiWebSearchEndpoint),
       headers: {
-        'authorization': 'Bearer $effectiveApiKey',
+        kAuthorizationHeaderName: 'Bearer $effectiveApiKey',
         kContentTypeHeaderName: kApplicationJsonMimeType,
       },
       body: buildKimiWebSearchRequestBody(req.query),

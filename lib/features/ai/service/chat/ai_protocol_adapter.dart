@@ -3542,7 +3542,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
     Map<String, String> endpointHeaders = const <String, String>{},
   }) {
     final headers = super.buildHeaders(model, endpointHeaders: endpointHeaders);
-    headers.remove('authorization');
+    headers.remove(kAuthorizationHeaderName);
     headers.remove('x-api-key');
     final token = nullIfBlank(model.token);
     if (token != null && model.authScheme == AiAuthScheme.apiKey) {

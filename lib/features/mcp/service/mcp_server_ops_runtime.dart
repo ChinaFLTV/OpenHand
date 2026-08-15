@@ -1751,7 +1751,7 @@ class McpServerOpsRuntime {
           'query': redactSensitiveStringMap(
             request.requestedUri.queryParameters,
           ),
-          'user_agent': request.headers['user-agent'],
+          'user_agent': request.headers[kUserAgentHeaderName],
           'mcp_protocol_version': request.headers[kMcpProtocolVersionHeader],
           'origin': redactSensitiveUriForLogging(request.headers['origin']),
           'referer': redactSensitiveUriForLogging(request.headers['referer']),
@@ -1935,7 +1935,7 @@ class McpServerOpsRuntime {
   String _requestToken(shelf.Request request) {
     final direct = nullIfBlank(request.headers['x-openhand-mcp-token']);
     if (direct != null) return direct;
-    final auth = request.headers['authorization'] ?? '';
+    final auth = request.headers[kAuthorizationHeaderName] ?? '';
     final lower = auth.toLowerCase();
     if (lower.startsWith('bearer ')) return auth.substring(7).trim();
     return '';
@@ -1962,7 +1962,7 @@ class McpServerOpsRuntime {
   String _clientName(shelf.Request request) {
     return nullIfBlank(request.headers['mcp-client-name']) ??
         nullIfBlank(request.headers['x-openhand-client']) ??
-        nullIfBlank(request.headers['user-agent']) ??
+        nullIfBlank(request.headers[kUserAgentHeaderName]) ??
         'unknown';
   }
 

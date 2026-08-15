@@ -93,8 +93,8 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
       }
       final request = http.Request('GET', current);
       request.followRedirects = false;
-      request.headers['user-agent'] = userAgent;
-      request.headers['accept'] = 'text/html,application/xhtml+xml,*/*;q=0.8';
+      request.headers[kUserAgentHeaderName] = userAgent;
+      request.headers[kAcceptHeaderName] = 'text/html,application/xhtml+xml,*/*;q=0.8';
       final stream = await sendAbortableHttpRequest(
         client: httpClient,
         request: request,

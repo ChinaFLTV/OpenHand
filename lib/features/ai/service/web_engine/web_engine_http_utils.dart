@@ -124,7 +124,7 @@ extension GrokLiveSearchRequest on BoundedWebEngineHttpClient {
       'POST',
       Uri.parse(kGrokChatCompletionsEndpoint),
       headers: {
-        'authorization': 'Bearer $key',
+        kAuthorizationHeaderName: 'Bearer $key',
         kContentTypeHeaderName: kApplicationJsonMimeType,
       },
       body: jsonEncode({

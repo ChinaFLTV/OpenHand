@@ -191,6 +191,15 @@ String? readResponseHeaderOrNull(Map<String, String> headers, String name) {
 /// `Content-Type` 头名，避免各处重复书写字面量后大小写不一致。
 const String kContentTypeHeaderName = 'content-type';
 
+/// `Authorization` 头名常量。
+const String kAuthorizationHeaderName = 'authorization';
+
+/// `Accept` 头名常量。
+const String kAcceptHeaderName = 'accept';
+
+/// `User-Agent` 头名常量。
+const String kUserAgentHeaderName = 'user-agent';
+
 /// JSON MIME 类型常量，避免全库重复书写字面量。
 const String kApplicationJsonMimeType = 'application/json';
 

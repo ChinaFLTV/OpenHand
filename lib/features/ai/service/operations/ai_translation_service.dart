@@ -516,7 +516,7 @@ class AiTranslationService {
       if (nullIfBlank(providerSettings.apiKey) case final apiKey?)
         'x-api-key': apiKey,
       if (nullIfBlank(providerSettings.accessToken) case final accessToken?)
-        'authorization': 'Bearer $accessToken',
+        kAuthorizationHeaderName: 'Bearer $accessToken',
     };
     final response = await _transport.sendJson(
       uri: Uri.parse(endpoint),
