@@ -15,6 +15,7 @@ import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 
@@ -202,8 +203,8 @@ class ThrottleCloudSyncService {
   static const int _maxConcurrentRequests = 4;
   static const int _maxQueuedRequests = 32;
   static const Duration _responseIdleTimeout = Duration(seconds: 5);
-  static const int _maxRequestBytes = 1024 * 1024;
-  static const int _maxResponseBytes = 2 * 1024 * 1024;
+  static const int _maxRequestBytes = kBytesPerMiB;
+  static const int _maxResponseBytes = 2 * kBytesPerMiB;
   static const int _httpErrorPreviewLength = 256;
   static const String _payloadKind = 'openhand.throttle_config';
   static const String _gistFileName = 'openhand_throttle.json';

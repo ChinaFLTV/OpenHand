@@ -10,6 +10,7 @@ import '../../shared/util/argument_guards.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/bounded_log_buffer.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/duration_bounds.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -65,7 +66,7 @@ const Duration _trackedChildrenCleanupPreparationTimeout = Duration(
 const Duration _maxTrackedChildrenGracefulTimeout = Duration(seconds: 5);
 const int _processGroupProbeConcurrency = 4;
 const int _maxDescendantProcesses = 256;
-const int _maxCapturedProcessBytesPerStream = 16 * 1024 * 1024;
+const int _maxCapturedProcessBytesPerStream = 16 * kBytesPerMiB;
 const int _posixExistenceProbeSignal = 0;
 
 typedef _NativePosixKill = Int32 Function(Int32 processId, Int32 signal);
@@ -1488,7 +1489,7 @@ typedef ProcessLogLineHandler = void Function(String line);
 // DWS Schema 目录可能包含数万行 JSON；仍以字符数上限控制内存，允许完整保留
 // 大型结构化输出，避免按行截断后无法解析。
 const int _maxCapturedProcessLinesPerStream = 65536;
-const int _maxCapturedProcessCharactersPerStream = 4 * 1024 * 1024;
+const int _maxCapturedProcessCharactersPerStream = 4 * kBytesPerMiB;
 const int _maxProcessLineCharacters = 64 * 1024;
 
 class TrackedProcessLineLogResult {

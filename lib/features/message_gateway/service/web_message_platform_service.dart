@@ -8991,7 +8991,7 @@ class WebMessagePlatformService {
     String key,
     String contentType,
   ) async {
-    if (!key.startsWith('assets/web/') || safeRelativePathError(key) != null) {
+    if (!key.startsWith('$_kWebAssetRoot/') || safeRelativePathError(key) != null) {
       return shelf.Response.notFound('asset_not_found');
     }
     try {
