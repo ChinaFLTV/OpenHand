@@ -1134,6 +1134,17 @@ class _ToolsDialogState extends State<_ToolsDialog> {
   void initState() {
     super.initState();
     _enabledSources = Set.of(context.read<ServicesController>().enabledSources);
+    context.read<ServicesController>().loadSourceCredentials().then(
+      (credentials) {
+        if (!mounted) return;
+        _githubToken.text = credentials['githubToken'] ?? '';
+        _giteeToken.text = credentials['giteeToken'] ?? '';
+        _gitcodeToken.text = credentials['gitcodeToken'] ?? '';
+        _fofaEmail.text = credentials['fofaEmail'] ?? '';
+        _fofaKey.text = credentials['fofaKey'] ?? '';
+        _shodanKey.text = credentials['shodanKey'] ?? '';
+      },
+    );
   }
 
   @override

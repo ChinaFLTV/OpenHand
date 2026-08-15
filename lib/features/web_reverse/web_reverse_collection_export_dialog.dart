@@ -157,7 +157,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
           if (e.requestPostData != null)
             'body': <String, Object?>{
               'mimeType':
-                  e.requestHeaders['content-type'] ?? kApplicationJsonMimeType,
+                  e.requestHeaders[kContentTypeHeaderName] ?? kApplicationJsonMimeType,
               'text': e.requestPostData,
             },
         };
@@ -243,7 +243,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
           if (e.requestPostData != null)
             'postData': <String, Object?>{
               'mimeType':
-                  e.requestHeaders['content-type'] ?? kApplicationJsonMimeType,
+                  e.requestHeaders[kContentTypeHeaderName] ?? kApplicationJsonMimeType,
               'text': e.requestPostData,
             },
           'headersSize': -1,

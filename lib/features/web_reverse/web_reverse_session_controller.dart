@@ -6485,7 +6485,7 @@ class WebReverseSessionController extends ChangeNotifier {
       final body = base64Encode(bytes);
       final headers = <Map<String, Object?>>[
         <String, Object?>{
-          'name': 'content-type',
+          'name': kContentTypeHeaderName,
           'value': rule.contentType.isEmpty
               ? kApplicationJsonUtf8ContentType
               : rule.contentType,

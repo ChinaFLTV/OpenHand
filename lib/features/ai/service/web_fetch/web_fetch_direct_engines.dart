@@ -58,7 +58,7 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
       responseTimeout: Duration(seconds: config.responseTimeoutSeconds),
     );
     final headers = boundedResponse.headers;
-    final contentType = (headers['content-type'] ?? '').toLowerCase();
+    final contentType = (headers[kContentTypeHeaderName] ?? '').toLowerCase();
     final body = boundedResponse.text();
     final isHtml = contentType.contains('html');
     final text = isHtml ? AiToolUtils.htmlToText(body) : body;

@@ -33,7 +33,7 @@ class WebFetchFirecrawlEngine extends WebFetchEngine {
     final request = http.Request('POST', Uri.parse(endpoint))
       ..headers.addAll({
         'authorization': 'Bearer ${config.apiKey}',
-        'content-type': kApplicationJsonMimeType,
+        kContentTypeHeaderName: kApplicationJsonMimeType,
       })
       ..body = jsonEncode({
         'url': req.url,
@@ -156,7 +156,7 @@ class WebFetchJinaReaderEngine extends WebFetchEngine {
         url: req.url,
         title: _extractReaderTitle(content) ?? targetUri.toString(),
         content: content,
-        contentType: response.headers['content-type'] ?? kTextMarkdownMimeType,
+        contentType: response.headers[kContentTypeHeaderName] ?? kTextMarkdownMimeType,
         statusCode: status,
         responseHeaders: Map<String, String>.from(response.headers),
       ),
@@ -209,7 +209,7 @@ class WebFetchTavilyEngine extends WebFetchEngine {
   Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
     final request =
         http.Request('POST', Uri.parse('https://api.tavily.com/extract'))
-          ..headers['content-type'] = kApplicationJsonMimeType
+          ..headers[kContentTypeHeaderName] = kApplicationJsonMimeType
           ..body = jsonEncode({
             'api_key': config.apiKey,
             'urls': [req.url],
@@ -255,7 +255,7 @@ class WebFetchExaEngine extends WebFetchEngine {
     final request =
         http.Request('POST', Uri.parse('https://api.exa.ai/contents'))
           ..headers.addAll({
-            'content-type': kApplicationJsonMimeType,
+            kContentTypeHeaderName: kApplicationJsonMimeType,
             'x-api-key': config.apiKey ?? '',
           })
           ..body = jsonEncode({

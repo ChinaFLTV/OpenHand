@@ -272,12 +272,12 @@ AiAttachmentKind aiAttachmentKindForPath(String path) {
 String aiMimeTypeForPath(String path) {
   final extension = p.extension(path).toLowerCase();
   return switch (extension) {
-    '.png' => 'image/png',
-    '.jpg' || '.jpeg' => 'image/jpeg',
-    '.gif' => 'image/gif',
-    '.webp' => 'image/webp',
+    '.png' => kImagePngMimeType,
+    '.jpg' || '.jpeg' => kImageJpegMimeType,
+    '.gif' => kImageGifMimeType,
+    '.webp' => kImageWebpMimeType,
     '.bmp' => 'image/bmp',
-    '.svg' => 'image/svg+xml',
+    '.svg' => kImageSvgXmlMimeType,
     '.mp4' => 'video/mp4',
     '.avi' => 'video/x-msvideo',
     '.mov' => 'video/mov',

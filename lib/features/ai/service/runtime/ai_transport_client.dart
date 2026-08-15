@@ -667,7 +667,7 @@ class AiTransportClient {
 
           final contentType = readResponseHeaderOrNull(
             streamed.headers,
-            'content-type',
+            kContentTypeHeaderName,
           );
           final responseLimit = isJsonMimeType(contentType)
               ? math.min(maxBytes, maxJsonBytes)

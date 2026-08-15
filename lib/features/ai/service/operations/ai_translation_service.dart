@@ -368,7 +368,7 @@ class AiTranslationService {
       uri: Uri.parse(_endpointOrDefault(providerSettings)),
       method: 'POST',
       headers: const <String, String>{
-        'content-type': kFormUrlEncodedMimeType,
+        kContentTypeHeaderName: kFormUrlEncodedMimeType,
       },
       body: <String, String>{
         'q': text,
@@ -424,7 +424,7 @@ class AiTranslationService {
       uri: uri,
       method: 'POST',
       headers: const <String, String>{
-        'content-type': kApplicationJsonUtf8ContentType,
+        kContentTypeHeaderName: kApplicationJsonUtf8ContentType,
       },
       body: body,
       timeout: timeout,
@@ -465,7 +465,7 @@ class AiTranslationService {
       uri: _withQuery(Uri.parse(_endpointOrDefault(providerSettings)), query),
       method: 'POST',
       headers: <String, String>{
-        'content-type': kApplicationJsonUtf8ContentType,
+        kContentTypeHeaderName: kApplicationJsonUtf8ContentType,
         'Ocp-Apim-Subscription-Key': providerSettings.apiKey,
         if (nullIfBlank(providerSettings.region) case final region?)
           'Ocp-Apim-Subscription-Region': region,
@@ -512,7 +512,7 @@ class AiTranslationService {
       );
     }
     final headers = <String, String>{
-      'content-type': kApplicationJsonUtf8ContentType,
+      kContentTypeHeaderName: kApplicationJsonUtf8ContentType,
       if (nullIfBlank(providerSettings.apiKey) case final apiKey?)
         'x-api-key': apiKey,
       if (nullIfBlank(providerSettings.accessToken) case final accessToken?)
@@ -555,7 +555,7 @@ class AiTranslationService {
       uri: Uri.parse(_endpointOrDefault(providerSettings)),
       method: 'POST',
       headers: const <String, String>{
-        'content-type': kFormUrlEncodedMimeType,
+        kContentTypeHeaderName: kFormUrlEncodedMimeType,
       },
       body: <String, String>{
         'q': text,
@@ -618,7 +618,7 @@ class AiTranslationService {
     if (corpus != null) body['corpus'] = corpus;
 
     final headers = <String, String>{
-      'content-type': kApplicationJsonUtf8ContentType,
+      kContentTypeHeaderName: kApplicationJsonUtf8ContentType,
       'X-Api-Resource-Id': resourceId,
       'X-Api-Request-Id': requestId,
       if (apiKey != null) 'X-Api-Key': apiKey,

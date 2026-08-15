@@ -1263,7 +1263,7 @@ class AiTtsPlaybackService {
     if (isHttpFailureStatus(response.statusCode)) {
       throw HttpException('百度 TTS 请求失败（HTTP ${response.statusCode}）', uri: uri);
     }
-    final contentType = response.headers['content-type'] ?? '';
+    final contentType = response.headers[kContentTypeHeaderName] ?? '';
     if (!contentType.startsWith('audio/')) {
       throw StateError('百度 TTS 返回了非音频响应。');
     }
@@ -1432,7 +1432,7 @@ class AiTtsPlaybackService {
         uri: uri,
       );
     }
-    final contentType = response.headers['content-type'] ?? '';
+    final contentType = response.headers[kContentTypeHeaderName] ?? '';
     if (!contentType.startsWith('audio/')) {
       throw StateError('有道 TTS 返回了非音频响应。');
     }

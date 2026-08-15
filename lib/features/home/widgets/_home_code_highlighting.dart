@@ -3787,7 +3787,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         acceptedTypeGroups: <XTypeGroup>[
           const XTypeGroup(
             label: 'SVG',
-            mimeTypes: <String>['image/svg+xml'],
+            mimeTypes: <String>[kImageSvgXmlMimeType],
             extensions: <String>['svg'],
           ),
         ],
@@ -3826,7 +3826,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         acceptedTypeGroups: <XTypeGroup>[
           const XTypeGroup(
             label: 'PNG',
-            mimeTypes: <String>['image/png'],
+            mimeTypes: <String>[kImagePngMimeType],
             extensions: <String>['png'],
           ),
         ],

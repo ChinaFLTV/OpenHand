@@ -1,4 +1,5 @@
 import '../../l10n/app_localizations.dart';
+import '../net/http_redirect_utils.dart';
 
 class ReaderFileType {
   const ReaderFileType._();
@@ -141,7 +142,7 @@ class ReaderFileType {
     'application/toml': toml,
     'application/xml': xml,
     'text/xml': xml,
-    'image/svg+xml': xml,
+    kImageSvgXmlMimeType: xml,
     'text/csv': csv,
     'text/tabseparatedvalues': tsv,
     'application/xlatex': latex,

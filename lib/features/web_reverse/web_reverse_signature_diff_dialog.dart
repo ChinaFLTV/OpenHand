@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/oh_pill.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
@@ -612,7 +613,7 @@ List<_FieldStat> _diffHeaders(List<CdpNetworkEntry> samples) {
   // 忽略浏览器自动注入 / cookie / 长度类 header；这些 noise 太大。
   const ignored = <String>{
     'content-length',
-    'content-type',
+    kContentTypeHeaderName,
     'accept',
     'accept-encoding',
     'accept-language',
@@ -651,7 +652,7 @@ List<_FieldStat> _diffBody(List<CdpNetworkEntry> samples) {
     if (body == null || body.isEmpty) continue;
     final ct =
         (e.requestHeaders['Content-Type'] ??
-                e.requestHeaders['content-type'] ??
+                e.requestHeaders[kContentTypeHeaderName] ??
                 '')
             .toLowerCase();
     if (ct.contains('json') || _looksLikeJson(body)) {

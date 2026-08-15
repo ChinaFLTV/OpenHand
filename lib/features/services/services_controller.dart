@@ -242,6 +242,9 @@ class ServicesController extends ChangeNotifier {
   Future<int> proxyRequestHistoryCount() =>
       _preferencesStore.countProxyRequestHistory();
 
+  Future<Map<String, String>> loadSourceCredentials() =>
+      _preferencesStore.loadSourceCredentials();
+
   Future<List<AiExposureProxyRequestRecord>> loadProxyRequestHistory({
     required int offset,
     required int limit,
@@ -403,6 +406,14 @@ class ServicesController extends ChangeNotifier {
   Future<void> startService() async {
     if (_busy || isRunning) return;
     if (!_useBundledEngine) {
+      final savedToken = await _preferencesStore.loadExternalAccessToken();
+      if (savedToken != null && _externalAddress.isNotEmpty) {
+        await connectExternal(
+          address: _externalAddress,
+          accessToken: savedToken,
+        );
+        return;
+      }
       _errorMessage = '外部服务模式需要在服务设置中填写访问令牌后连接。';
       _notify();
       return;
@@ -432,6 +443,7 @@ class ServicesController extends ChangeNotifier {
           at: DateTime.now(),
         ),
       );
+      await _restoreSourceCredentials(client);
       await refreshData();
       _scheduleProxyStatisticsSync();
     } catch (error, stack) {
@@ -481,6 +493,8 @@ class ServicesController extends ChangeNotifier {
       _proxyRuntimeSyncError = null;
       await _syncManagedDependencies();
       _lifecycle = AiExposureServiceLifecycle.running;
+      await _preferencesStore.saveExternalAccessToken(accessToken);
+      await _restoreSourceCredentials(client);
       await refreshData();
       _scheduleProxyStatisticsSync();
       return true;
@@ -784,6 +798,11 @@ class ServicesController extends ChangeNotifier {
       _notify();
       return false;
     }
+    if (_busy || _lifecycle != AiExposureServiceLifecycle.running) {
+      _errorMessage = '扫描服务尚未就绪，请等待服务启动完成。';
+      _notify();
+      return false;
+    }
     _scanBusy = true;
     _errorMessage = null;
     _notify();
@@ -862,6 +881,11 @@ class ServicesController extends ChangeNotifier {
     }
     if (hasActiveScan) {
       _errorMessage = '已有扫描任务正在运行。';
+      _notify();
+      return false;
+    }
+    if (_busy || _lifecycle != AiExposureServiceLifecycle.running) {
+      _errorMessage = '扫描服务尚未就绪，请等待服务启动完成。';
       _notify();
       return false;
     }
@@ -947,6 +971,20 @@ class ServicesController extends ChangeNotifier {
         await client.sourceStatus(),
       );
       _errorMessage = null;
+      await _preferencesStore.saveSourceCredentials(<String, String>{
+        if (githubToken != null && githubToken.trim().isNotEmpty)
+          'githubToken': githubToken.trim(),
+        if (giteeToken != null && giteeToken.trim().isNotEmpty)
+          'giteeToken': giteeToken.trim(),
+        if (gitcodeToken != null && gitcodeToken.trim().isNotEmpty)
+          'gitcodeToken': gitcodeToken.trim(),
+        if (fofaEmail != null && fofaEmail.trim().isNotEmpty)
+          'fofaEmail': fofaEmail.trim(),
+        if (fofaKey != null && fofaKey.trim().isNotEmpty)
+          'fofaKey': fofaKey.trim(),
+        if (shodanKey != null && shodanKey.trim().isNotEmpty)
+          'shodanKey': shodanKey.trim(),
+      });
       return true;
     } catch (error, stack) {
       _errorMessage = _reportServicesFailure('更新扫描数据源凭证', error, stack);
@@ -1992,6 +2030,26 @@ class ServicesController extends ChangeNotifier {
     } catch (error, stack) {
       _errorMessage = _reportServicesFailure('保存扫描服务设置', error, stack);
       return false;
+    }
+  }
+
+  Future<void> _restoreSourceCredentials(AiJunglerClient client) async {
+    try {
+      final credentials = await _preferencesStore.loadSourceCredentials();
+      if (credentials.isEmpty) return;
+      await client.updateSourceCredentials(
+        githubToken: credentials['githubToken'],
+        giteeToken: credentials['giteeToken'],
+        gitcodeToken: credentials['gitcodeToken'],
+        fofaEmail: credentials['fofaEmail'],
+        fofaKey: credentials['fofaKey'],
+        shodanKey: credentials['shodanKey'],
+      );
+      _sourceStatus = Map<String, bool>.unmodifiable(
+        await client.sourceStatus(),
+      );
+    } catch (error, stack) {
+      _reportServicesFailure('恢复扫描数据源凭证', error, stack);
     }
   }
 

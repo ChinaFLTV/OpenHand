@@ -48,6 +48,11 @@ pub fn identify_product(evidence: FingerprintEvidence<'_>) -> (String, Vec<Strin
         ("NVIDIA", &["integrate.api.nvidia.com", "nvcf.nvidia"]),
         ("Windsurf", &["windsurf", "codeium"]),
         ("AWS Bedrock", &["bedrock-runtime", "bedrock.amazonaws"]),
+        ("Ksyun", &["kspmas.ksyun", "ksyun"]),
+        ("Qoder", &["qoder.com", "qoder"]),
+        ("Kiro", &["kiro.dev", "kiro"]),
+        ("Cursor", &["cursor.com", "cursor"]),
+        ("OpenAI", &["openai.com", "oaiusercontent"]),
         ("Ollama", &["ollama", "/api/tags", "library/"]),
         ("vLLM", &["vllm", "served-model-name"]),
         (

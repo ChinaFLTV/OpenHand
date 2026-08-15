@@ -2697,13 +2697,34 @@ impl HuntEngine {
             .map(|artifact| format!("{text}\n{artifact}"))
             .unwrap_or_else(|| text.into_owned());
         let mut findings = rules.extract(&extraction_text);
-        if findings.is_empty() && gpt_assisted {
-            findings = self
-                .extract_with_ai(&extraction_text, rules.as_ref())
-                .await
-                .context("GPT 辅助提取失败")?;
-            if !findings.is_empty() {
-                evidence.push(format!("GPT 辅助提取命中 {} 条凭证线索。", findings.len()));
+        if gpt_assisted {
+            match self.extract_with_ai(&extraction_text, rules.as_ref()).await {
+                Ok(ai_findings) if !ai_findings.is_empty() => {
+                    let mut seen: std::collections::HashSet<(String, String)> = findings
+                        .iter()
+                        .map(|f| (f.vendor.clone(), f.secret.clone()))
+                        .collect();
+                    let mut merged = 0usize;
+                    for ai in ai_findings {
+                        if seen.insert((ai.vendor.clone(), ai.secret.clone())) {
+                            findings.push(ai);
+                            merged += 1;
+                        }
+                    }
+                    if merged > 0 {
+                        evidence.push(format!(
+                            "GPT 辅助提取额外命中 {merged} 条凭证线索。"
+                        ));
+                    }
+                }
+                Err(error) => {
+                    eprintln!(
+                        "[hunt-engine] GPT 辅助提取失败 target={} error={error:#}",
+                        target.canonical_url
+                    );
+                    evidence.push("GPT 辅助提取失败，已回退到正则提取。".to_owned());
+                }
+                _ => {}
             }
         }
         self.store

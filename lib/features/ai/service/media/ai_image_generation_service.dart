@@ -1756,7 +1756,7 @@ class AiImageGenerationService {
       final b64 = optionalStringFromValue(map['b64_json']);
       if (b64 != null) {
         final md = await saveInlineMediaToMarkdown(
-          AiInlineMedia(mimeType: 'image/png', base64Data: b64),
+          AiInlineMedia(mimeType: kImagePngMimeType, base64Data: b64),
           label: effectiveAlt,
         );
         if (md.isNotEmpty) {
@@ -2764,7 +2764,7 @@ class AiImageGenerationService {
 
   String _defaultMimeFor(_GeneratedMediaKind kind) {
     return switch (kind) {
-      _GeneratedMediaKind.image => 'image/png',
+      _GeneratedMediaKind.image => kImagePngMimeType,
       _GeneratedMediaKind.video => 'video/mp4',
       _GeneratedMediaKind.audio => 'audio/mpeg',
     };
@@ -2805,11 +2805,11 @@ class AiImageGenerationService {
     final path = parsedPath != null
         ? lowercaseStringFromValue(parsedPath)
         : lowercaseStringFromValue(url);
-    if (path.endsWith('.png')) return 'image/png';
-    if (path.endsWith('.webp')) return 'image/webp';
-    if (path.endsWith('.gif')) return 'image/gif';
-    if (path.endsWith('.jpg') || path.endsWith('.jpeg')) return 'image/jpeg';
-    return 'image/png';
+    if (path.endsWith('.png')) return kImagePngMimeType;
+    if (path.endsWith('.webp')) return kImageWebpMimeType;
+    if (path.endsWith('.gif')) return kImageGifMimeType;
+    if (path.endsWith('.jpg') || path.endsWith('.jpeg')) return kImageJpegMimeType;
+    return kImagePngMimeType;
   }
 
   String _extractError(String body) {

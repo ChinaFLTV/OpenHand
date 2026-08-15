@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/net/http_error_message.dart';
+import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_base64.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
@@ -2315,10 +2316,10 @@ void _validateMimoModelId(AiModelConfig model) {
 }
 
 const Set<String> _mimoImageMimeTypes = <String>{
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
+  kImageJpegMimeType,
+  kImagePngMimeType,
+  kImageGifMimeType,
+  kImageWebpMimeType,
   'image/bmp',
 };
 const Set<String> _mimoAudioExtensions = <String>{
@@ -4315,7 +4316,7 @@ Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
             if (commaIndex > 0) {
               final header = url.substring(0, commaIndex);
               final mimeMatch = _dataUriMimePattern.firstMatch(header);
-              final mimeType = mimeMatch?.group(1) ?? 'image/png';
+              final mimeType = mimeMatch?.group(1) ?? kImagePngMimeType;
               final base64Data = url.substring(commaIndex + 1);
               final md = await saveInlineMediaToMarkdown(
                 AiInlineMedia(mimeType: mimeType, base64Data: base64Data),
@@ -4498,11 +4499,11 @@ class AiInlineMedia {
   /// File extension inferred from the MIME type.
   String get fileExtension {
     return switch (mimeType) {
-      'image/png' => '.png',
-      'image/jpeg' || 'image/jpg' => '.jpg',
-      'image/gif' => '.gif',
-      'image/webp' => '.webp',
-      'image/svg+xml' => '.svg',
+      kImagePngMimeType => '.png',
+      kImageJpegMimeType || 'image/jpg' => '.jpg',
+      kImageGifMimeType => '.gif',
+      kImageWebpMimeType => '.webp',
+      kImageSvgXmlMimeType => '.svg',
       'audio/mp3' || 'audio/mpeg' => '.mp3',
       'audio/wav' || 'audio/x-wav' => '.wav',
       'audio/ogg' => '.ogg',

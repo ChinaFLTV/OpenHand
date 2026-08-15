@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/argument_guards.dart';
 import '../../../../shared/util/input_value_parsing.dart';
@@ -1041,14 +1042,14 @@ class AiResponsesService {
   String _defaultMediaMimeType(String itemType) {
     if (itemType.contains('audio')) return 'audio/mpeg';
     if (itemType.contains('video')) return 'video/mp4';
-    return 'image/png';
+    return kImagePngMimeType;
   }
 
   String _imageMimeTypeFromBase64(String value) {
-    if (value.startsWith('/9j/')) return 'image/jpeg';
-    if (value.startsWith('UklGR')) return 'image/webp';
-    if (value.startsWith('R0lGOD')) return 'image/gif';
-    return 'image/png';
+    if (value.startsWith('/9j/')) return kImageJpegMimeType;
+    if (value.startsWith('UklGR')) return kImageWebpMimeType;
+    if (value.startsWith('R0lGOD')) return kImageGifMimeType;
+    return kImagePngMimeType;
   }
 
   String _parseChatChoiceText(Map<String, Object?> decoded) {

@@ -29,7 +29,7 @@ class WebFetchKimiEngine extends WebFetchProviderKeyEngine {
       Uri.parse(kimiWebSearchEndpoint),
       headers: {
         'authorization': 'Bearer $effectiveApiKey',
-        'content-type': kApplicationJsonMimeType,
+        kContentTypeHeaderName: kApplicationJsonMimeType,
       },
       body: buildKimiWebSearchRequestBody(
         '请抓取 ${req.url} 的核心内容并原样返回（保留章节、列表、代码块）。',
@@ -77,7 +77,7 @@ class WebFetchBaiduEngine extends WebFetchEngine {
       Uri.parse('https://qianfan.baidubce.com/v2/ai_search'),
       headers: {
         'authorization': 'Bearer ${config.apiKey}',
-        'content-type': kApplicationJsonMimeType,
+        kContentTypeHeaderName: kApplicationJsonMimeType,
       },
       body: jsonEncode({
         'messages': [
@@ -125,7 +125,7 @@ class WebFetchLinkupEngine extends WebFetchEngine {
       Uri.parse('https://api.linkup.so/v1/search'),
       headers: {
         'authorization': 'Bearer ${config.apiKey}',
-        'content-type': kApplicationJsonMimeType,
+        kContentTypeHeaderName: kApplicationJsonMimeType,
       },
       body: jsonEncode({
         'q': req.url,
@@ -167,7 +167,7 @@ class WebFetchBochaEngine extends WebFetchEngine {
       Uri.parse('https://api.bochaai.com/v1/web-search'),
       headers: {
         'authorization': 'Bearer ${config.apiKey}',
-        'content-type': kApplicationJsonMimeType,
+        kContentTypeHeaderName: kApplicationJsonMimeType,
       },
       body: jsonEncode({'query': req.url, 'count': 5, 'summary': true}),
       cancelSignal: req.cancelSignal,

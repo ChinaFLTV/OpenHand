@@ -79,7 +79,6 @@ const String _kWebAssetRoot = 'assets/web';
 const String _kJavaScriptContentType = 'application/javascript; charset=utf-8';
 const String _kCssContentType = 'text/css; charset=utf-8';
 const String _kManifestContentType = 'application/manifest+json; charset=utf-8';
-const String _kPngContentType = 'image/png';
 
 class _WebWriteApprovalRequest {
   _WebWriteApprovalRequest({
@@ -2230,22 +2229,22 @@ class WebMessagePlatformService {
     router.get(
       '/openhand_logo.png',
       (shelf.Request _) =>
-          _serveBundleAsset('$_kWebAssetRoot/openhand_logo.png', _kPngContentType),
+          _serveBundleAsset('$_kWebAssetRoot/openhand_logo.png', kImagePngMimeType),
     );
     router.get(
       '/threads/openhand_logo.png',
       (shelf.Request _) =>
-          _serveBundleAsset('$_kWebAssetRoot/openhand_logo.png', _kPngContentType),
+          _serveBundleAsset('$_kWebAssetRoot/openhand_logo.png', kImagePngMimeType),
     );
     router.get(
       '/favicon.ico',
       (shelf.Request _) =>
-          _serveBundleAsset('$_kWebAssetRoot/openhand_logo.png', _kPngContentType),
+          _serveBundleAsset('$_kWebAssetRoot/openhand_logo.png', kImagePngMimeType),
     );
     router.get(
       '/threads/favicon.ico',
       (shelf.Request _) =>
-          _serveBundleAsset('$_kWebAssetRoot/openhand_logo.png', _kPngContentType),
+          _serveBundleAsset('$_kWebAssetRoot/openhand_logo.png', kImagePngMimeType),
     );
     // PWA: Service Worker 必须挂在站点根 scope, manifest.webmanifest 给浏览器
     // 装机使用. 两者通过 vite public/ 目录被 Flutter rootBundle 一并打包。
@@ -9039,11 +9038,11 @@ class WebMessagePlatformService {
     }
     if (lower.endsWith('.css')) return _kCssContentType;
     if (lower.endsWith('.json')) return kApplicationJsonUtf8ContentType;
-    if (lower.endsWith('.svg')) return 'image/svg+xml';
-    if (lower.endsWith('.png')) return _kPngContentType;
-    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
-    if (lower.endsWith('.webp')) return 'image/webp';
-    if (lower.endsWith('.gif')) return 'image/gif';
+    if (lower.endsWith('.svg')) return kImageSvgXmlMimeType;
+    if (lower.endsWith('.png')) return kImagePngMimeType;
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return kImageJpegMimeType;
+    if (lower.endsWith('.webp')) return kImageWebpMimeType;
+    if (lower.endsWith('.gif')) return kImageGifMimeType;
     if (lower.endsWith('.bmp')) return 'image/bmp';
     if (lower.endsWith('.heic')) return 'image/heic';
     if (lower.endsWith('.mp4')) return 'video/mp4';

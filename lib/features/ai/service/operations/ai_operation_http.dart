@@ -17,7 +17,6 @@ final class AiOperationHttp {
 
   static const String _acceptHeader = 'accept';
   static const String _authorizationHeader = 'authorization';
-  static const String _contentTypeHeader = 'content-type';
   static const String _jsonMimeType = kApplicationJsonMimeType;
   static const String _xApiKeyHeader = 'x-api-key';
   static const String _apiKeyHeader = 'api-key';
@@ -47,7 +46,7 @@ final class AiOperationHttp {
         ? const <String, String>{}
         : stringMap(extrasForFamily(model, family)[extrasHeadersKey]);
     final headers = <String, String>{
-      if (includeJsonContentType) _contentTypeHeader: _jsonMimeType,
+      if (includeJsonContentType) kContentTypeHeaderName: _jsonMimeType,
       if (acceptJson) _acceptHeader: _jsonMimeType,
       ...model.customHeaders,
       ...endpointHeaders,

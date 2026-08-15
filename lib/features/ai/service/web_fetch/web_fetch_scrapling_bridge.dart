@@ -236,7 +236,7 @@ class WebFetchScraplingBridge {
         title: '${response['title'] ?? ''}',
         content: '${response['content'] ?? ''}',
         contentType:
-            '${response['content_type'] ?? headers['content-type'] ?? kTextHtmlMimeType}',
+            '${response['content_type'] ?? headers[kContentTypeHeaderName] ?? kTextHtmlMimeType}',
         statusCode: webEngineHttpStatusFromValue(response['status_code']),
         responseHeaders: headers,
       );

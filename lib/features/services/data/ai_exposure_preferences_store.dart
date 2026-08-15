@@ -8,6 +8,8 @@ import '../model/ai_exposure_models.dart';
 
 class AiExposurePreferencesStore {
   static const String _key = 'ai_exposure_preferences_v1';
+  static const String _credentialsKey = 'ai_exposure_source_credentials_v1';
+  static const String _externalTokenKey = 'ai_exposure_external_token_v1';
   static const String _statisticsTable = 'ai_exposure_proxy_statistics';
   static const String _samplesTable = 'ai_exposure_proxy_samples';
   static const String _requestHistoryTable =
@@ -402,5 +404,88 @@ class AiExposurePreferencesStore {
               ),
       ],
     );
+  }
+
+  // ── 数据源凭证持久化 ──────────────────────────────────────────────
+
+  Future<Map<String, String>> loadSourceCredentials() async {
+    try {
+      final rows = await _database.query(
+        'app_settings',
+        columns: const <String>['value'],
+        where: 'key = ?',
+        whereArgs: const <Object?>[_credentialsKey],
+        limit: 1,
+      );
+      if (rows.isEmpty) return const <String, String>{};
+      final decoded = jsonDecode(rows.first['value'] as String);
+      if (decoded is! Map) return const <String, String>{};
+      return <String, String>{
+        for (final entry in decoded.entries)
+          if (entry.key is String &&
+              entry.value is String &&
+              (entry.value as String).isNotEmpty)
+            entry.key as String: entry.value as String,
+      };
+    } catch (error, stack) {
+      silentLog(
+        'ai_exposure_preferences_store',
+        '读取扫描数据源凭证',
+        error,
+        stack,
+      );
+      return const <String, String>{};
+    }
+  }
+
+  Future<void> saveSourceCredentials(Map<String, String> credentials) async {
+    final cleaned = <String, String>{
+      for (final entry in credentials.entries)
+        if (entry.value.trim().isNotEmpty) entry.key: entry.value.trim(),
+    };
+    await _database.insert('app_settings', <String, Object?>{
+      'key': _credentialsKey,
+      'value': jsonEncode(cleaned),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  // ── 外部服务令牌持久化 ────────────────────────────────────────────
+
+  Future<String?> loadExternalAccessToken() async {
+    try {
+      final rows = await _database.query(
+        'app_settings',
+        columns: const <String>['value'],
+        where: 'key = ?',
+        whereArgs: const <Object?>[_externalTokenKey],
+        limit: 1,
+      );
+      if (rows.isEmpty) return null;
+      final value = rows.first['value'] as String?;
+      return (value != null && value.trim().isNotEmpty) ? value.trim() : null;
+    } catch (error, stack) {
+      silentLog(
+        'ai_exposure_preferences_store',
+        '读取外部服务令牌',
+        error,
+        stack,
+      );
+      return null;
+    }
+  }
+
+  Future<void> saveExternalAccessToken(String? token) async {
+    if (token == null || token.trim().isEmpty) {
+      await _database.delete(
+        'app_settings',
+        where: 'key = ?',
+        whereArgs: const <Object?>[_externalTokenKey],
+      );
+      return;
+    }
+    await _database.insert('app_settings', <String, Object?>{
+      'key': _externalTokenKey,
+      'value': token.trim(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 }

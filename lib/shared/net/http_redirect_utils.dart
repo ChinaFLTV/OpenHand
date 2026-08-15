@@ -226,6 +226,21 @@ const String kApplicationJsonUtf8ContentType =
 const String kTextEventStreamUtf8ContentType =
     '$kTextEventStreamMimeType; charset=utf-8';
 
+/// PNG 图片 MIME 类型常量。
+const String kImagePngMimeType = 'image/png';
+
+/// JPEG 图片 MIME 类型常量。
+const String kImageJpegMimeType = 'image/jpeg';
+
+/// GIF 图片 MIME 类型常量。
+const String kImageGifMimeType = 'image/gif';
+
+/// WebP 图片 MIME 类型常量。
+const String kImageWebpMimeType = 'image/webp';
+
+/// SVG 图片 MIME 类型常量。
+const String kImageSvgXmlMimeType = 'image/svg+xml';
+
 /// 取 `Content-Type` 的 MIME 部分（丢掉 `; charset=...` 参数），统一转小写；
 /// 缺失时返回空字符串。
 String responseMimeType(Map<String, String> headers) {

@@ -142,8 +142,20 @@ fn validate_paths(rule_id: &str, field: &'static str, paths: &[String]) -> Resul
 
 pub fn default_rules() -> Vec<ScanRule> {
     [
-        ("anthropic", "Anthropic", "Anthropic", r#"(?i)(?:api[_-]?key|x-api-key)[\"' :=]+(?P<secret>sk-ant-[A-Za-z0-9_-]{20,})"#, &["anthropic", "claude", "x-api-key"][..], &["/v1/models"][..], &[][..]),
+        // ── 唯一前缀 provider（高精度，优先匹配）──────────────────────
+        ("anthropic", "Anthropic", "Anthropic", r#"(?i)(?:api[_-]?key|x-api-key|authorization)[\"' :=]+(?P<secret>sk-ant-[A-Za-z0-9_-]{20,})"#, &["anthropic", "claude", "x-api-key"][..], &["/v1/models"][..], &[][..]),
         ("gemini", "Gemini", "Google Gemini", r#"(?i)(?:api[_-]?key|key)[\"' :=]+(?P<secret>AIza[A-Za-z0-9_-]{24,})"#, &["gemini", "generativelanguage", "generatecontent"][..], &["/v1beta/models"][..], &[][..]),
+        ("openai_official", "OpenAI", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization)[\"' :=]+(?P<secret>sk-(?:proj|admin|svcacct)-[A-Za-z0-9_-]{20,})"#, &["openai"][..], &["/v1/models"][..], &[][..]),
+        ("grok", "Grok", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization)[\"' :=]+(?P<secret>xai-[A-Za-z0-9_-]{20,})"#, &["x.ai", "grok"][..], &["/v1/models"][..], &[][..]),
+        ("nvidia", "NVIDIA", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization)[\"' :=]+(?P<secret>nvapi-[A-Za-z0-9_-]{20,})"#, &["nvidia", "integrate.api.nvidia"][..], &["/v1/models"][..], &[][..]),
+        ("groq", "Groq", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization)[\"' :=]+(?P<secret>gsk_[A-Za-z0-9_-]{20,})"#, &["groq"][..], &["/openai/v1/models"][..], &[][..]),
+        ("openrouter", "OpenRouter", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization)[\"' :=]+(?P<secret>sk-or-[A-Za-z0-9_-]{20,})"#, &["openrouter"][..], &["/api/v1/models"][..], &[][..]),
+        ("replicate", "Replicate", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization)[\"' :=]+(?P<secret>r8_[A-Za-z0-9_-]{20,})"#, &["replicate"][..], &["/v1/models"][..], &[][..]),
+        ("qoder", "Qoder", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization)[\"' :=]+(?P<secret>pt-[A-Za-z0-9_-]{20,})"#, &["qoder"][..], &["/v1/models"][..], &[][..]),
+        ("kiro", "Kiro", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization)[\"' :=]+(?P<secret>ksk_[A-Za-z0-9_-]{20,})"#, &["kiro"][..], &[][..], &[][..]),
+        ("aws_bedrock", "AWS Bedrock", "AWS Bedrock", r#"(?i)(?:access[_-]?key|aws[_-]?key|secret[_-]?key)[\"' :=]+(?P<secret>ABSK[A-Za-z0-9_-]{16,})"#, &["bedrock", "amazonaws"][..], &[][..], &[][..]),
+        ("cursor", "Cursor", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization|token)[\"' :=]+(?P<secret>crsr_[A-Za-z0-9_-]{20,})"#, &["cursor"][..], &[][..], &[][..]),
+        // ── 上下文门控 provider（无唯一前缀，靠域名/产品名区分）────────
         ("azure_openai", "Azure OpenAI", "Azure OpenAI", r#"(?i)(?:api[_-]?key)[\"' :=]+(?P<secret>[A-Fa-f0-9]{32})"#, &["azure", "openai", "api-version"][..], &["/openai/models?api-version=2024-10-21"][..], &[][..]),
         ("deepseek", "DeepSeek", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization)[\"' :=]+(?P<secret>sk-[A-Za-z0-9]{24,})"#, &["deepseek"][..], &["/v1/models"][..], &["/user/balance"][..]),
         ("qwen", "Qwen", "OpenAI Compatible", r#"(?i)(?:dashscope[_-]?api[_-]?key|api[_-]?key)[\"' :=]+(?P<secret>sk-[A-Za-z0-9]{24,})"#, &["dashscope", "qwen"][..], &["/compatible-mode/v1/models"][..], &[][..]),
@@ -154,8 +166,14 @@ pub fn default_rules() -> Vec<ScanRule> {
         ("minimax", "MiniMax", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization)[\"' :=]+(?P<secret>[A-Za-z0-9_-]{24,})"#, &["minimax"][..], &["/v1/models"][..], &[][..]),
         ("kimi", "Kimi", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization)[\"' :=]+(?P<secret>sk-[A-Za-z0-9]{20,})"#, &["moonshot", "kimi"][..], &["/v1/models"][..], &["/v1/users/me/balance"][..]),
         ("longcat", "LongCat", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization)[\"' :=]+(?P<secret>[A-Za-z0-9_-]{24,})"#, &["longcat"][..], &["/v1/models"][..], &[][..]),
-        ("grok", "Grok", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization)[\"' :=]+(?P<secret>xai-[A-Za-z0-9_-]{20,})"#, &["x.ai", "grok"][..], &["/v1/models"][..], &[][..]),
         ("mistral", "Mistral", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization)[\"' :=]+(?P<secret>[A-Za-z0-9_-]{30,})"#, &["mistral"][..], &["/v1/models"][..], &[][..]),
+        ("cohere", "Cohere", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization|cohere[_-]?key)[\"' :=]+(?P<secret>[A-Za-z0-9_-]{30,})"#, &["cohere"][..], &["/v1/models"][..], &[][..]),
+        ("together", "Together", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization)[\"' :=]+(?P<secret>[A-Za-z0-9_-]{40,})"#, &["together"][..], &["/v1/models"][..], &[][..]),
+        ("fireworks", "Fireworks", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization)[\"' :=]+(?P<secret>[A-Za-z0-9_-]{30,})"#, &["fireworks"][..], &["/inference/v1/models"][..], &[][..]),
+        ("siliconflow", "SiliconFlow", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization)[\"' :=]+(?P<secret>sk-[A-Za-z0-9_-]{20,})"#, &["siliconflow"][..], &["/v1/models"][..], &[][..]),
+        ("windsurf", "Windsurf", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization|token)[\"' :=]+(?P<secret>[A-Za-z0-9_-]{24,})"#, &["windsurf", "codeium"][..], &[][..], &[][..]),
+        ("ksyun", "Ksyun", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization)[\"' :=]+(?P<secret>[A-Za-z0-9_-]{24,})"#, &["ksyun", "kspmas"][..], &["/v1/models"][..], &[][..]),
+        // ── 通用兜底（必须排在最后）──────────────────────────────────
         ("openai", "OpenAI Compatible", "OpenAI Compatible", r#"(?i)(?:api[_-]?key|authorization)[\"' :=]+(?P<secret>sk-[A-Za-z0-9_-]{20,})"#, &["openai", "chat/completions", "api_key"][..], &["/v1/models"][..], &[][..]),
     ]
     .into_iter()
@@ -366,5 +384,41 @@ mod tests {
             rules.extract(&format!(r#"{{"payload":"{}"}}"#, hex::encode(plain)))[0].vendor,
             "DeepSeek"
         );
+    }
+
+    #[test]
+    fn extracts_unique_prefix_providers() {
+        let rules = CompiledRuleSet::compile(default_rules()).unwrap();
+        let cases: &[(&str, &str, &str)] = &[
+            (r#"openai api_key = "sk-proj-abcdefghij1234567890ABCDEFGHIJ""#, "OpenAI", "openai_official"),
+            (r#"nvidia api_key = "nvapi-abcdefghij1234567890A""#, "NVIDIA", "nvidia"),
+            (r#"groq api_key = "gsk_abcdefghij1234567890A""#, "Groq", "groq"),
+            (r#"openrouter api_key = "sk-or-abcdefghij1234567890""#, "OpenRouter", "openrouter"),
+            (r#"replicate api_key = "r8_abcdefghij1234567890A""#, "Replicate", "replicate"),
+            (r#"qoder api_key = "pt-abcdefghij1234567890A""#, "Qoder", "qoder"),
+            (r#"kiro api_key = "ksk_abcdefghij1234567890A""#, "Kiro", "kiro"),
+            (r#"bedrock aws_key = "ABSKabcdefghij12345678""#, "AWS Bedrock", "aws_bedrock"),
+            (r#"cursor token = "crsr_abcdefghij1234567890A""#, "Cursor", "cursor"),
+        ];
+        for (input, expected_vendor, label) in cases {
+            let findings = rules.extract(input);
+            assert!(
+                !findings.is_empty(),
+                "{label}: 未提取到凭证"
+            );
+            assert_eq!(
+                findings[0].vendor, *expected_vendor,
+                "{label}: vendor 不匹配"
+            );
+        }
+    }
+
+    #[test]
+    fn openai_official_precedes_generic() {
+        let rules = CompiledRuleSet::compile(default_rules()).unwrap();
+        let findings = rules
+            .extract(r#"openai api_key = "sk-proj-abcdefghij1234567890ABCDEFGHIJ""#);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].vendor, "OpenAI");
     }
 }
