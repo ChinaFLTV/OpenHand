@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../data/knowledge_base_store.dart';
 import '../model/knowledge_base_settings.dart';
@@ -8,7 +9,7 @@ import 'qdrant_http_client.dart';
 const Duration _qdrantMonitoringConnectionTimeout = Duration(seconds: 3);
 const Duration _qdrantMonitoringRequestTimeout = Duration(seconds: 8);
 const Duration _qdrantMonitoringResponseIdleTimeout = Duration(seconds: 3);
-const int _qdrantMonitoringMaxResponseBytes = 8 * 1024 * 1024;
+const int _qdrantMonitoringMaxResponseBytes = 8 * kBytesPerMiB;
 
 class QdrantMonitoringSnapshot {
   const QdrantMonitoringSnapshot({

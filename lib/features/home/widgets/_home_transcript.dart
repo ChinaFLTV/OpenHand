@@ -341,7 +341,7 @@ class _MessageTranslationEntry {
 }
 
 const int _messageTranslationCacheMaxEntries = 128;
-const int _messageTranslationCacheMaxCharacters = 4 * 1024 * 1024;
+const int _messageTranslationCacheMaxCharacters = 4 * kBytesPerMiB;
 
 enum _TranscriptInitialRevealPhase {
   preparing,

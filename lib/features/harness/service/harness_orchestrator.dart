@@ -12,6 +12,7 @@ import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/platform_shell.dart';
 import '../../../shared/util/text_clip.dart';
@@ -31,7 +32,7 @@ const int _kMaxHarnessPhaseLogLines = 1000;
 const int _kMaxHarnessLogLineCharacters = 2000;
 const int _kMaxHarnessChangedFiles = 500;
 const int _kMaxHarnessDiffSideCharacters = 128 * 1024;
-const int _kMaxHarnessDiffTotalCharacters = 2 * 1024 * 1024;
+const int _kMaxHarnessDiffTotalCharacters = 2 * kBytesPerMiB;
 const int _kMaxHarnessStoredPathCharacters = 4096;
 const int _kMaxHarnessStorageValueCharacters = 64;
 const String _kHarnessLogTruncationMarker = '… 较早的阶段输出已截断 …';
@@ -1804,7 +1805,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     maxTextFiles: 40,
     maxDirectoryEntries: 1024,
     maxFileBytes: 512 * 1024,
-    maxTotalBytes: 4 * 1024 * 1024,
+    maxTotalBytes: 4 * kBytesPerMiB,
     totalTimeout: const Duration(seconds: 5),
     operationTimeout: const Duration(seconds: 1),
   );
@@ -2506,7 +2507,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     maxTextFiles: 5000,
     maxDirectoryEntries: 10000,
     maxFileBytes: _maxDiffFileSize,
-    maxTotalBytes: 16 * 1024 * 1024,
+    maxTotalBytes: 16 * kBytesPerMiB,
     totalTimeout: const Duration(seconds: 12),
     operationTimeout: const Duration(seconds: 2),
   );

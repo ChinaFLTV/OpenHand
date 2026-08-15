@@ -7,9 +7,10 @@ import 'package:path/path.dart' as p;
 import 'argument_guards.dart';
 import 'async_concurrency.dart';
 import 'bounded_file_io.dart';
+import 'byte_size_format.dart';
 import 'physical_path_safety.dart';
 
-const int kNodePackageManifestMaxBytes = 2 * 1024 * 1024;
+const int kNodePackageManifestMaxBytes = 2 * kBytesPerMiB;
 const Duration kNodePackageManifestIoTimeout = Duration(seconds: 3);
 
 /// 解析 Node 包声明的首个可执行文件，并阻止绝对路径或 `..` 逃逸包目录。

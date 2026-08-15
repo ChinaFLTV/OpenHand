@@ -15,6 +15,7 @@ import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -22,7 +23,7 @@ import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
-const int _kAccountSnapshotImportMaxChars = 8 * 1024 * 1024;
+const int _kAccountSnapshotImportMaxChars = 8 * kBytesPerMiB;
 
 Future<void> showWebReverseAccountSnapshotsDialog(
   BuildContext context, {

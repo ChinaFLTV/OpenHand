@@ -70,7 +70,7 @@ class AiTtsPlaybackService {
   static const int _defaultAiTtsSampleRate = 24000;
   static const int _defaultAiTtsBitRate = 128000;
   static const int _audioCacheMaxEntries = 48;
-  static const int _audioCacheMaxBytes = 64 * 1024 * 1024;
+  static const int _audioCacheMaxBytes = 64 * kBytesPerMiB;
   static const int _maxAudioResponseBytes = _audioCacheMaxBytes;
   static const int _maxAudioJsonResponseBytes = 96 * kBytesPerMiB;
   static const int _maxControlResponseBytes = kBytesPerMiB;

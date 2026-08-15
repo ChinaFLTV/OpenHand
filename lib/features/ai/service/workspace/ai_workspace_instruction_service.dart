@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/path_safety.dart';
@@ -25,7 +26,7 @@ class AiWorkspaceInstructionService {
   static const int _maxRuleDirectoryScanEntries = 512;
   static const int _maxDocuments = 256;
   static const int _maxCacheEntries = 64;
-  static const int _maxCachedCharacters = 2 * 1024 * 1024;
+  static const int _maxCachedCharacters = 2 * kBytesPerMiB;
   static const List<String> _workspaceInstructionFiles = <String>[
     'AGENTS.md',
     'CLAUDE.md',

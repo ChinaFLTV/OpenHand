@@ -10,6 +10,7 @@ import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/serial_task_queue.dart';
 import '../mcp_errors.dart';
@@ -292,7 +293,7 @@ class McpKeywordIndexService {
       <String, List<McpTool>>{};
 
   static const String _fileName = 'keyword_index.json';
-  static const int _defaultMaxPersistedBytes = 32 * 1024 * 1024;
+  static const int _defaultMaxPersistedBytes = 32 * kBytesPerMiB;
 
   File get _file => File(p.join(_storageDir.path, _fileName));
 

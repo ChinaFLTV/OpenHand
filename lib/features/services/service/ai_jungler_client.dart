@@ -7,12 +7,13 @@ import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/sse_line_parsing.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../model/ai_exposure_models.dart';
 
 const Duration _kAiJunglerRequestTimeout = Duration(seconds: 15);
 const Duration _kAiJunglerSseIdleTimeout = Duration(seconds: 45);
-const int _kAiJunglerMaxRequestBytes = 2 * 1024 * 1024;
-const int _kAiJunglerMaxJsonResponseBytes = 8 * 1024 * 1024;
+const int _kAiJunglerMaxRequestBytes = 2 * kBytesPerMiB;
+const int _kAiJunglerMaxJsonResponseBytes = 8 * kBytesPerMiB;
 const int _kAiJunglerMaxErrorResponseBytes = 64 * 1024;
 const int _kAiJunglerMaxSseLineBytes = 256 * 1024;
 

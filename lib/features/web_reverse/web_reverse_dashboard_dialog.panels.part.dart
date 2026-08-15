@@ -275,7 +275,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
       );
       return;
     }
-    if (json.length <= 8 * 1024 * 1024) {
+    if (json.length <= 8 * kBytesPerMiB) {
       _lastTraceJson = json;
       // 解析为 inline timeline；解析失败也不致命，只是显示空状态。
       try {
@@ -2739,7 +2739,7 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
   static const int _indexedDbDescribeConcurrency = 4;
   static const Duration _indexedDbDescribeTotalTimeout = Duration(seconds: 30);
   static const int _indexedDbMaxDescribedStores = 4096;
-  static const int _indexedDbMaxSchemaChars = 4 * 1024 * 1024;
+  static const int _indexedDbMaxSchemaChars = 4 * kBytesPerMiB;
 
   _AppTab _tab = _AppTab.cookies;
   String? _origin;

@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 
 /// 文件追踪器服务，用于检测脏写（dirty write）
@@ -15,7 +16,7 @@ import '../../../../shared/util/lifecycle_cache.dart';
 /// 3. 优先用内容指纹识别真实变化，避免时间戳抖动误报或容差漏报
 class AiFileTrackerService {
   static const Duration _timestampTolerance = Duration(seconds: 2);
-  static const int _maxFingerprintBytes = 4 * 1024 * 1024;
+  static const int _maxFingerprintBytes = 4 * kBytesPerMiB;
   static const int _maxTrackedFiles = 4096;
 
   /// 文件路径 → 读取时的文件快照

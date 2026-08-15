@@ -11,7 +11,7 @@ const Curve _kToolCardMotionCurve = Curves.easeOutCubic;
 
 /// 工具卡片阶段切换时新内容自下方滑入的相对幅度。
 const double _kToolStructureSlideOffsetY = 0.06;
-const int _kToolFullContentMaxBytes = 32 * 1024 * 1024;
+const int _kToolFullContentMaxBytes = 32 * kBytesPerMiB;
 
 class _ToolCallBody extends _ElapsedMessageWidget {
   const _ToolCallBody({
@@ -2789,7 +2789,7 @@ class _FormattedToolContentCacheEntry {
 // AI 流式响应约每 72ms 重建一次；缓存可避免相同工具输出反复执行
 // JSON/XML/YAML/TOML 检测。条目数和总字符数同时受限，防止大输出长期驻留。
 const int _formatToolContentCacheCap = 128;
-const int _formatToolContentCacheMaxCharacters = 4 * 1024 * 1024;
+const int _formatToolContentCacheMaxCharacters = 4 * kBytesPerMiB;
 final LifecycleLruCache<_FormattedToolContentCacheEntry>
 _formatToolContentCache = LifecycleLruCache<_FormattedToolContentCacheEntry>(
   maxEntries: _formatToolContentCacheCap,

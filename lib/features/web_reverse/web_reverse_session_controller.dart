@@ -155,16 +155,16 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int _maxWebSocketFramePayloadChars = 8192;
   static const int _maxHeapSnapshotBytes = 120 * kBytesPerMiB;
   static const int _maxTraceEvents = 120000;
-  static const int _maxTracePayloadChars = 48 * 1024 * 1024;
+  static const int _maxTracePayloadChars = 48 * kBytesPerMiB;
   static const Duration _maxTraceDuration = Duration(minutes: 5);
-  static const int _maxScreenshotBase64Chars = 64 * 1024 * 1024;
+  static const int _maxScreenshotBase64Chars = 64 * kBytesPerMiB;
   static const int _maxScreenshotDecodedBytes = 48 * kBytesPerMiB;
   static const int _maxScreenshotResponseCharacters =
       _maxScreenshotBase64Chars + 64 * kBytesPerKiB;
   static const int _maxScreencastFrameBytes = 6 * kBytesPerMiB;
   static const int maxRawCdpMethodChars = 256;
-  static const int _maxRawCdpParamsJsonChars = 2 * 1024 * 1024;
-  static const int maxReplExpressionChars = 2 * 1024 * 1024;
+  static const int _maxRawCdpParamsJsonChars = 2 * kBytesPerMiB;
+  static const int maxReplExpressionChars = 2 * kBytesPerMiB;
   static const int _maxReplHistoryExpressionChars = 64 * 1024;
   static const int _maxReplPreviewChars = 2048;
   static const int _maxConsoleTextChars = 64 * 1024;
@@ -189,7 +189,7 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int minCronIntervalSeconds = 5;
   static const int maxCronIntervalSeconds = 24 * 60 * 60;
   static const int _maxImportedUrlChars = 16 * 1024;
-  static const int _maxImportedBodyChars = 2 * 1024 * 1024;
+  static const int _maxImportedBodyChars = 2 * kBytesPerMiB;
   static const int _maxImportedHeaderValueChars = 16 * 1024;
   static const int _maxSourceMapCacheEntries = 16;
   static const int _maxSourceMapCacheChars = 32 * kBytesPerMiB;
@@ -886,8 +886,8 @@ class WebReverseSessionController extends ChangeNotifier {
     await cdp.send(
       'Network.enable',
       params: const <String, Object?>{
-        'maxResourceBufferSize': 16 * 1024 * 1024,
-        'maxTotalBufferSize': 64 * 1024 * 1024,
+        'maxResourceBufferSize': 16 * kBytesPerMiB,
+        'maxTotalBufferSize': 64 * kBytesPerMiB,
       },
       sessionId: _pageSessionId,
     );
@@ -7529,7 +7529,7 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 大于 4 MB 直接返回原文，避免阻塞 UI。设计为零依赖、纯 Dart 实现，
   /// 优先保证「能读」而不是 prettier 级别的精确。
   static String prettifyJs(String src) {
-    const maxSize = 4 * 1024 * 1024;
+    const maxSize = 4 * kBytesPerMiB;
     if (src.length >= maxSize) return src;
     final out = StringBuffer();
     var indent = 0;

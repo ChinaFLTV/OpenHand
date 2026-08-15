@@ -12,6 +12,7 @@ import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/path_safety.dart';
@@ -21,7 +22,7 @@ import '../../../shared/util/version_compare.dart';
 
 enum HarnessCliAuthProbeMode { commandExitCode, localStateFile }
 
-const int _localAuthStateMaxBytes = 2 * 1024 * 1024;
+const int _localAuthStateMaxBytes = 2 * kBytesPerMiB;
 const String _kDiagBeginMarker = '__OPENHAND_DIAG_BEGIN__';
 const String _kDiagEndMarker = '__OPENHAND_DIAG_END__';
 const BoundedDeletePolicy _localAuthStateDeletePolicy = BoundedDeletePolicy(

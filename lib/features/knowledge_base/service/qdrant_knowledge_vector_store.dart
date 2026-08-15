@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/knowledge_base_settings.dart';
 import 'knowledge_indexing_control.dart';
@@ -12,7 +13,7 @@ import 'knowledge_vector_store.dart';
 import 'qdrant_http_client.dart';
 
 const Uuid _qdrantPointUuid = Uuid();
-const int _qdrantVectorMaxResponseBytes = 32 * 1024 * 1024;
+const int _qdrantVectorMaxResponseBytes = 32 * kBytesPerMiB;
 const int _qdrantHealthMaxResponseBytes = 64 * 1024;
 const Duration _qdrantHealthMaxTimeout = Duration(seconds: 2);
 

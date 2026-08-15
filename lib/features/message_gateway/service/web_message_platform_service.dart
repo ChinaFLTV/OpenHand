@@ -29,6 +29,7 @@ import '../../../shared/util/bounded_base64.dart';
 import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/directory_cleanup.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -6236,7 +6237,7 @@ class WebMessagePlatformService {
       return _errorJson(HttpStatus.notFound, 'asset_missing');
     }
     // 简单上限: 单文件 ≤ 512 MiB, 覆盖常见生成视频同时防止误暴露超大文件。
-    const maxBytes = 512 * 1024 * 1024;
+    const maxBytes = 512 * kBytesPerMiB;
     if (stat.size > maxBytes) {
       return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'asset_too_large',

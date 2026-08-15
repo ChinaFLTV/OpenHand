@@ -75,8 +75,8 @@ const int _kEditorUnifiedDiffMaxMyersLineTotal = 10000;
 const int _kFileExplorerDirectoryEntryLimit = 5000;
 const int _kFileExplorerPopupEntryLimit = 500;
 const int _kFileExplorerSearchEntryLimit = 20000;
-const int _kProgrammingExplorerMaxEditableFileBytes = 2 * 1024 * 1024;
-const int _kProgrammingExplorerLspPreviewMaxBytes = 4 * 1024 * 1024;
+const int _kProgrammingExplorerMaxEditableFileBytes = 2 * kBytesPerMiB;
+const int _kProgrammingExplorerLspPreviewMaxBytes = 4 * kBytesPerMiB;
 const BoundedCopyPolicy _kProgrammingExplorerCopyPolicy = BoundedCopyPolicy(
   maxEntries: 100000,
   maxBytes: 4 * kBytesPerGiB,

@@ -126,6 +126,29 @@ abstract final class AiThinkingRequestPolicy {
       return;
     }
 
+    // Kimi K3 始终思考，仅接受顶层 reasoning_effort。
+    if (protocol == AiProtocolType.kimi &&
+        (normalizedModelId.contains('kimi-k3') ||
+            normalizedModelId == 'k3')) {
+      if (effortControlEnabled && effort != null) {
+        body[_reasoningEffortField] = effort;
+      }
+      body.remove(_thinkingField);
+      return;
+    }
+
+    // Qwen3.8-Max 的 reasoning_effort 与 thinking_budget 互斥。
+    if (protocol == AiProtocolType.qwen &&
+        (normalizedModelId.startsWith('qwen3.8-max') ||
+            normalizedModelId.startsWith('qwen3-8-max'))) {
+      _setEnableThinking(body, enabled);
+      if (enabled && effortControlEnabled && effort != null) {
+        body[_reasoningEffortField] = effort;
+      }
+      body.remove('thinking_budget');
+      return;
+    }
+
     if (_prefersEnableThinking(protocol) ||
         parameters.contains(_enableThinkingField)) {
       _setEnableThinking(body, enabled);
@@ -579,8 +602,6 @@ abstract final class AiThinkingRequestPolicy {
         id.contains('5-fable') ||
         id.contains('mythos-5') ||
         id.contains('5-mythos') ||
-        id.contains('haiku-5') ||
-        id.contains('5-haiku') ||
         id.contains('mythos-preview') ||
         id.contains('opus-4-8') ||
         id.contains('4-8-opus') ||
@@ -900,6 +921,9 @@ class AiPromptCacheAffinity {
   }
 
   static AiPromptCacheAffinityKind kindForModel(AiModelConfig model) {
+    if (model.apiDialect != AiApiDialect.openAiCompat) {
+      return AiPromptCacheAffinityKind.none;
+    }
     if (_isOpenRouterEndpoint(model.baseUrl)) {
       return AiPromptCacheAffinityKind.openRouterSession;
     }
@@ -2374,8 +2398,8 @@ const Set<String> _mimoAudioExtensions = <String>{
   '.ogg',
 };
 const Set<String> _mimoAsrExtensions = <String>{'.mp3', '.wav'};
-const int _mimoAsrMaxBase64Bytes = 10 * 1024 * 1024;
-const int aiMimoUnderstandingMaxBase64Bytes = 50 * 1024 * 1024;
+const int _mimoAsrMaxBase64Bytes = 10 * kBytesPerMiB;
+const int aiMimoUnderstandingMaxBase64Bytes = 50 * kBytesPerMiB;
 const int aiMimoUnderstandingMaxRawBytes =
     (aiMimoUnderstandingMaxBase64Bytes ~/ 4) * 3;
 const Duration _mimoMediaValidationIdleTimeout = Duration(seconds: 3);

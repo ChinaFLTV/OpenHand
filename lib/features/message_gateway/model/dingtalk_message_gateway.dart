@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../shared/model/dingtalk_multimodal_capability.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 
 String _normalizedDingTalkString(Object? value) {
@@ -426,7 +427,7 @@ enum DingTalkMediaResourceType { mediaId, fileId }
 
 /// DWS 当前按单文件消息发送本地附件，应用侧将多附件拆分为连续文件消息。
 const int kDingTalkMessageAttachmentLimit = 6;
-const int kDingTalkMessageAttachmentMaxBytes = 512 * 1024 * 1024;
+const int kDingTalkMessageAttachmentMaxBytes = 512 * kBytesPerMiB;
 
 extension DingTalkMediaKindX on DingTalkMediaKind {
   String get storageValue => name;

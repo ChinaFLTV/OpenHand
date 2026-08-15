@@ -10,6 +10,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/net/bounded_server_bind.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_file_io.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 
 /// mitmproxy 桥接：通过 spawn `mitmdump` 子进程 + 自定义 inline addon，
@@ -57,7 +58,7 @@ class WebReverseMitmproxyBridge {
   final Stream<Map<String, Object?>> eventStream;
 
   static const int _kMaxMitmBodyBytes = 256 * 1024;
-  static const int _kMaxCallbackPayloadBytes = 2 * 1024 * 1024;
+  static const int _kMaxCallbackPayloadBytes = 2 * kBytesPerMiB;
   static const Duration _kBindTimeout = Duration(seconds: 5);
   static const Duration _kProcessStartTimeout = Duration(seconds: 8);
   static const Duration _kCallbackBodyIdleTimeout = Duration(seconds: 5);

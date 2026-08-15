@@ -9,6 +9,7 @@ import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/date_time_format.dart';
 import '../../../../shared/util/serial_task_queue.dart';
 import '../../../../shared/util/text_clip.dart';
@@ -327,7 +328,7 @@ final class AiToolUsagePromotionStore {
   static const int _aggregateVersion = 2;
   static const int _legacyVersion = 1;
   static const Duration runtimeCleanupTimeout = Duration(seconds: 15);
-  static const int _maxStoreBytes = 8 * 1024 * 1024;
+  static const int _maxStoreBytes = 8 * kBytesPerMiB;
   static const int _maxSessions = 256;
   static const int _maxResourcesPerKind = 1024;
   static const int _maxIdentifierLength = 512;

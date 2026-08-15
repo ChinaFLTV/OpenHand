@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/serial_task_queue.dart';
 import '../../../shared/util/text_clip.dart';
@@ -16,7 +17,7 @@ class HarnessSessionStore {
   final SerialTaskQueue _operations = SerialTaskQueue();
 
   static const String _table = 'harness_sessions';
-  static const int _maxPayloadBytes = 32 * 1024 * 1024;
+  static const int _maxPayloadBytes = 32 * kBytesPerMiB;
   static const int _compactLogLinesPerPhase = 100;
   static const int _compactChangedFilesPerPhase = 200;
   static const String _payloadCompactionMarker =

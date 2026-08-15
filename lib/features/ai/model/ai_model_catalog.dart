@@ -1003,6 +1003,24 @@ class AiModelCatalog {
     }
 
     // ── GPT-5.6 系列 ───────────────────────────────────────────────────
+    if (id.startsWith('gpt-5.6-cyber')) {
+      return _p(
+        name: 'GPT-5.6 Cyber',
+        desc: '需单独审批的网络安全专用模型，面向授权漏洞研究与安全测试。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 400000,
+        output: 128000,
+        thinking: 128000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: AiReasoningEffortOption.openAiGpt56,
+        inputUsdPer1M: 12.50,
+        outputUsdPer1M: 75.00,
+        cacheReadUsdPer1M: 1.25,
+      );
+    }
     if (id.startsWith('gpt-5.6-luna')) {
       return _p(
         name: 'GPT-5.6 Luna',
@@ -1308,25 +1326,6 @@ class AiModelCatalog {
         reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
         inputUsdPer1M: 3.00,
         outputUsdPer1M: 15.00,
-      );
-    }
-    if (id.startsWith('claude-5') ||
-        id.startsWith('claude5') ||
-        id.contains('haiku-5') ||
-        id.contains('5-haiku')) {
-      return _p(
-        name: 'Claude 5',
-        desc: 'Anthropic 第五代 Claude 模型，支持视觉与自适应思考。',
-        multimodal: true,
-        supportsAttachments: true,
-        modalities: _textImage,
-        context: 1000000,
-        output: 128000,
-        thinking: 128000,
-        thinkingEnabled: true,
-        reasoningEffortControlEnabled: true,
-        reasoningEffort: 'high',
-        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
       );
     }
     if (id.contains('opus-4-8') || id.contains('4.8-opus')) {
@@ -2314,36 +2313,12 @@ class AiModelCatalog {
         modalities: _textImageVideo,
         context: 1000000,
         output: 131072,
-        thinking: 131072,
+        thinking: 262144,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'xhigh',
         reasoningEffortOptions: AiReasoningEffortOption.standardValues(
-          const <String>['minimal', 'low', 'medium', 'high', 'xhigh'],
+          const <String>['low', 'medium', 'xhigh'],
         ),
-      );
-    }
-    if (id.startsWith('qwen3.8-plus') || id.startsWith('qwen3-8-plus')) {
-      return _p(
-        name: 'Qwen3.8-Plus',
-        desc: '通义千问新一代高性价比多模态推理模型。',
-        multimodal: true,
-        supportsAttachments: true,
-        modalities: _textImage,
-        context: 1000000,
-        output: 131072,
-        thinking: 131072,
-      );
-    }
-    if (id.startsWith('qwen3.8-flash') || id.startsWith('qwen3-8-flash')) {
-      return _p(
-        name: 'Qwen3.8-Flash',
-        desc: '面向视觉智能体与低延迟任务的通义千问模型。',
-        multimodal: true,
-        supportsAttachments: true,
-        modalities: _textImageVideo,
-        context: 1000000,
-        output: 65536,
-        thinking: 65536,
       );
     }
     if (id.startsWith('qwen3.7-plus') || id.startsWith('qwen3-7-plus')) {
@@ -2352,10 +2327,10 @@ class AiModelCatalog {
         desc: '通义千问高性价比多模态推理模型。',
         multimodal: true,
         supportsAttachments: true,
-        modalities: _textImage,
+        modalities: _textImageVideo,
         context: 1000000,
         output: 131072,
-        thinking: 131072,
+        thinking: 262144,
       );
     }
     if (id.startsWith('qwen3.7-flash') || id.startsWith('qwen3-7-flash')) {
@@ -2366,17 +2341,31 @@ class AiModelCatalog {
         supportsAttachments: true,
         modalities: _textImageVideo,
         context: 1000000,
-        output: 65536,
-        thinking: 65536,
+        output: 131072,
+        thinking: 262144,
+      );
+    }
+    if (id.startsWith('qwen3.7-max-2026-06-08') ||
+        id.startsWith('qwen3-7-max-2026-06-08')) {
+      return _p(
+        name: 'Qwen3.7-Max 2026-06-08',
+        desc: '支持视觉理解、长程智能体与编程任务的 Qwen3.7 Max 快照。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImageVideo,
+        context: 1000000,
+        output: 131072,
+        thinking: 262144,
       );
     }
     if (id.startsWith('qwen3.7-max') || id.startsWith('qwen3-7-max')) {
       return _p(
         name: 'Qwen3.7-Max',
         desc: '面向智能体、编程与知识工作的通义千问旗舰模型。',
+        supportsAttachments: false,
         context: 1000000,
-        output: 65536,
-        thinking: 65536,
+        output: 131072,
+        thinking: 262144,
       );
     }
 
@@ -2673,8 +2662,10 @@ class AiModelCatalog {
         thinking: 128000,
         thinkingEnabled: true,
         reasoningEffortControlEnabled: true,
-        reasoningEffort: 'high',
-        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
+        reasoningEffort: 'max',
+        reasoningEffortOptions: AiReasoningEffortOption.standardValues(
+          const <String>['low', 'high', 'max'],
+        ),
       );
     }
     if (id.startsWith('glm-5.2') || id.startsWith('glm-5-2')) {
@@ -2800,11 +2791,12 @@ class AiModelCatalog {
     if (id.contains('kimi-k3') || id == 'k3') {
       return _p(
         name: 'Kimi K3',
-        desc: '支持视觉、长程编程与知识工作的 Kimi 旗舰推理模型。',
+        desc: '支持图像、视频、长程编程与知识工作的 Kimi 旗舰推理模型。',
         multimodal: true,
         supportsAttachments: true,
-        modalities: _textImage,
-        context: 1048576,
+        requiresReasoningEcho: true,
+        modalities: _textImageVideo,
+        context: 1000000,
         output: 131072,
         thinking: 131072,
         thinkingEnabled: true,
@@ -2816,6 +2808,7 @@ class AiModelCatalog {
         supportedParameters: const <String>[
           'reasoning_effort',
           'stream',
+          'max_completion_tokens',
           'max_tokens',
           'response_format',
           'tool_choice',

@@ -24,7 +24,7 @@ enum AiLspBackendAvailability {
   executableNotFound,
 }
 
-const int _maxLspDocumentBytes = 16 * 1024 * 1024;
+const int _maxLspDocumentBytes = 16 * kBytesPerMiB;
 const int _maxLspSessions = 8;
 const int _maxConcurrentLspSessionStarts = 4;
 const Duration _lspProcessStartTimeout = Duration(seconds: 10);
@@ -1952,8 +1952,8 @@ class _AiLspSession {
   // 限制异常 LSP 服务端造成的请求堆积；单次请求最长 15 秒，正常负载不会触及上限。
   static const int _maxPendingRequests = 256;
   static const int _maxOpenDocuments = 64;
-  static const int _maxOpenDocumentBytes = 32 * 1024 * 1024;
-  static const int _maxLspFrameBytes = 8 * 1024 * 1024;
+  static const int _maxOpenDocumentBytes = 32 * kBytesPerMiB;
+  static const int _maxLspFrameBytes = 8 * kBytesPerMiB;
   static const int _maxLspHeaderBytes = 64 * 1024;
   static const int _maxMessagesPerDrain = 64;
   static const int _maxQueuedServerRequests = 32;

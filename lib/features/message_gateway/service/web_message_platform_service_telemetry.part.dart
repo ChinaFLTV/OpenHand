@@ -34,7 +34,7 @@ int? _parseMacSwapBytes(String value) {
   if (number == null) return null;
   final unit = match.group(2) ?? '';
   final multiplier = unit == 'G'
-      ? 1024 * 1024 * 1024
+      ? 1024 * kBytesPerMiB
       : unit == 'M'
       ? 1024 * 1024
       : 1;

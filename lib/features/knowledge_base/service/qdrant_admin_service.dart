@@ -1,3 +1,4 @@
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/knowledge_base_settings.dart';
 import 'qdrant_http_client.dart';
@@ -5,7 +6,7 @@ import 'qdrant_http_client.dart';
 const Duration _qdrantAdminConnectionTimeout = Duration(seconds: 5);
 const Duration _qdrantAdminRequestTimeout = Duration(seconds: 15);
 const Duration _qdrantAdminResponseIdleTimeout = Duration(seconds: 5);
-const int _qdrantAdminMaxResponseBytes = 16 * 1024 * 1024;
+const int _qdrantAdminMaxResponseBytes = 16 * kBytesPerMiB;
 
 List<Map<String, Object?>> qdrantCollectionsFromResponse(Object? response) {
   final root = stringKeyedMapFromValue(response);

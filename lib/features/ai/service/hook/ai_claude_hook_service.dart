@@ -9,6 +9,7 @@ import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/path_safety.dart';
@@ -16,14 +17,14 @@ import '../../../../shared/util/platform_shell.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../model/ai_tool_execution_limit_policy.dart';
 
-const int _maxAiHookCapturedOutputBytes = 4 * 1024 * 1024;
+const int _maxAiHookCapturedOutputBytes = 4 * kBytesPerMiB;
 const int _minAiHookCapturedOutputBytes = 16 * 1024;
-const int _maxAiHookPayloadBytes = 4 * 1024 * 1024;
-const int _maxAiHookConfigBytes = 2 * 1024 * 1024;
+const int _maxAiHookPayloadBytes = 4 * kBytesPerMiB;
+const int _maxAiHookConfigBytes = 2 * kBytesPerMiB;
 const int _maxAiHookPresenceCacheEntries = 128;
 const int _maxAiHookCommandCharacters = 64 * 1024;
 const int _maxAiHookResultItems = 64;
-const int _maxAiHookResultCharacters = 4 * 1024 * 1024;
+const int _maxAiHookResultCharacters = 4 * kBytesPerMiB;
 const int _defaultMaxAiHookCommandsPerInvocation = 64;
 const Duration _defaultAiHookInvocationTimeout = Duration(minutes: 2);
 

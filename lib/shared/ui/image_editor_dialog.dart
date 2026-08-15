@@ -50,7 +50,7 @@ const List<String> kImageEditorSupportedExtensions = <String>[
 const int kImageEditorSourceMaxBytes = 32 * kBytesPerMiB;
 const int _imageEditorMaxOutputLongSide = 2048;
 const int _imageEditorMaxSourceDimension = 32768;
-const int _imageEditorMaxSourcePixels = 64 * 1024 * 1024;
+const int _imageEditorMaxSourcePixels = 64 * kBytesPerMiB;
 const Duration _imageEditorTempWriteTimeout = Duration(seconds: 30);
 
 /// 选择并限制源图片大小，然后通过统一动画弹窗完成编辑。

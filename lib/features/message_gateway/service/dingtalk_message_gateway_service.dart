@@ -12,6 +12,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart';
@@ -205,8 +206,8 @@ class DingTalkMessageGatewayService {
   static const int _batchSize = 30;
   static const int _detailConcurrency = 4;
   static const int _maxMediaCacheFiles = 512;
-  static const int _maxMediaCacheBytes = 1024 * 1024 * 1024;
-  static const int _maxMediaFileBytes = 512 * 1024 * 1024;
+  static const int _maxMediaCacheBytes = 1024 * kBytesPerMiB;
+  static const int _maxMediaFileBytes = 512 * kBytesPerMiB;
   static const int _maxAuthOutputLines = 256;
   static const int _maxAuthOutputCharacters = 32 * 1024;
   static const Duration _transientMediaFailureCooldown = Duration(minutes: 10);

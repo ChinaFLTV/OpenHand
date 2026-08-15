@@ -16,6 +16,7 @@ import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/bounded_text_buffer.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/storage_identifier.dart';
 import '../../shared/util/text_clip.dart';
@@ -78,7 +79,7 @@ const String _terminalExitFailureMessage = '无法读取终端退出状态，请
 const String _terminalStartFailureMessage = '终端启动失败，请检查 Shell 路径和工作目录。';
 const String _terminalRestoredFailureMessage = '上次终端运行异常，请重新启动终端。';
 const int _machineTerminalHistoryStorageSchemaVersion = 2;
-const int _machineTerminalHistoryMaxBytes = 32 * 1024 * 1024;
+const int _machineTerminalHistoryMaxBytes = 32 * kBytesPerMiB;
 const int _machineTerminalHistoryPayloadReserveBytes = 64 * 1024;
 const String _terminalBusyError = '已有其他终端命令正在运行。';
 const String _terminalNotRunningError = '终端未运行。';

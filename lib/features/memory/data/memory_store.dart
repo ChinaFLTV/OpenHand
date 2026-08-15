@@ -10,6 +10,7 @@ import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/db/database_service.dart';
 import '../../../shared/db/legacy_persistence.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../model/user_memory_entry.dart';
 
 class MemoryPersistenceIssue {
@@ -39,7 +40,7 @@ class MemoryStore {
   static const int _maxTagsJsonBytes =
       UserMemoryEntry.maxTags * (UserMemoryEntry.maxTagCharacters * 6 + 3) + 2;
   static const int maxEntries = 1024;
-  static const int maxTotalPayloadBytes = 16 * 1024 * 1024;
+  static const int maxTotalPayloadBytes = 16 * kBytesPerMiB;
   static const Set<String> _allowedTypes = <String>{
     UserMemoryEntry.userType,
     UserMemoryEntry.userProfileType,

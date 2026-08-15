@@ -7,6 +7,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/net/bounded_server_bind.dart';
 import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 
@@ -35,7 +36,7 @@ class WebReverseHarReplayServer {
   static const int _maxReplayEntries = 1000;
   static const int _maxReplayHeaders = 128;
   static const int _maxReplayHeaderValueChars = 8192;
-  static const int _maxReplayBodyBytes = 5 * 1024 * 1024;
+  static const int _maxReplayBodyBytes = 5 * kBytesPerMiB;
   static const int _maxConcurrentRequests = 64;
   static const Duration _bindTimeout = Duration(seconds: 3);
   static const Duration _closeTimeout = Duration(seconds: 2);

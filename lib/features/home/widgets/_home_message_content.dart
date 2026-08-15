@@ -26,7 +26,7 @@ const int _collapsedBodyScrollOffsetCacheLimit = 500;
 const int _markdownPlainTextSkipThresholdChars = 120 * 1024;
 const int _toolResultMarkdownCollapseLineThreshold = 32;
 const int _htmlPreparedCacheMaxEntries = 160;
-const int _htmlPreparedCacheMaxCost = 2 * 1024 * 1024;
+const int _htmlPreparedCacheMaxCost = 2 * kBytesPerMiB;
 const int _htmlProgressiveRenderCharThreshold = 14 * 1024;
 const int _htmlProgressiveRenderTagThreshold = 160;
 const int _htmlProgressiveRenderHighCostTagThreshold = 12;
@@ -1438,7 +1438,7 @@ class _MarkdownAstCache {
   _MarkdownAstCache();
 
   static const int _maxEntries = 512;
-  static const int _maxSourceChars = 4 * 1024 * 1024;
+  static const int _maxSourceChars = 4 * kBytesPerMiB;
   final LinkedHashMap<int, _MarkdownAstCacheEntry> _entries =
       LinkedHashMap<int, _MarkdownAstCacheEntry>();
   int _sourceChars = 0;
@@ -1548,7 +1548,7 @@ class _MarkdownSanitizeCache {
   // 单条准入阈值必须远小于总预算，否则一条超大消息插入后会把整个缓存
   // （连同它自己）全部淘汰，命中率恒为 0，比不加缓存更差。
   static const int _maxEntryChars = 256 * 1024;
-  static const int _maxTotalChars = 2 * 1024 * 1024;
+  static const int _maxTotalChars = 2 * kBytesPerMiB;
 
   final LinkedHashMap<String, String> _entries =
       LinkedHashMap<String, String>();

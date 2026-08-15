@@ -6,9 +6,10 @@ import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../app/support/openhand_paths.dart';
 import '../util/bounded_file_io.dart';
+import '../util/byte_size_format.dart';
 
-const int maxLegacySettingsBytes = 8 * 1024 * 1024;
-const int maxLegacyMemoryBytes = 64 * 1024 * 1024;
+const int maxLegacySettingsBytes = 8 * kBytesPerMiB;
+const int maxLegacyMemoryBytes = 64 * kBytesPerMiB;
 const String legacyMigrationMetaTable = 'migration_meta';
 const String legacyMigrationStatusNotFound = 'not_found';
 const String legacyMigrationStatusImported = 'imported';

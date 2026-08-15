@@ -2,8 +2,8 @@ part of 'web_reverse_dashboard_dialog.dart';
 
 /// 高级工具弹窗：列出"持久化 Header / CDP 命令面板 / 体检报告 / 反向脚本 /
 /// 调用图聚合 / 对比模式 / Service Worker 干预"等低频但有用的入口。
-const int _kWebcrackMaxInputChars = 2 * 1024 * 1024;
-const int _kWebcrackMaxOutputBytes = 8 * 1024 * 1024;
+const int _kWebcrackMaxInputChars = 2 * kBytesPerMiB;
+const int _kWebcrackMaxOutputBytes = 8 * kBytesPerMiB;
 const int _kWebcrackMaxOutputEntries = 512;
 const Duration _kWebcrackTempWriteTimeout = Duration(seconds: 10);
 const Duration _kWebcrackOutputReadTotalTimeout = Duration(seconds: 30);
@@ -2345,7 +2345,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
   static const int _maxConnections = kWebReverseMaxWebRtcConnections;
   static const int _maxIceEntriesPerConnection = 200;
   static const int _maxSdpChars = 128 * 1024;
-  static const int _maxSdpTotalChars = 2 * 1024 * 1024;
+  static const int _maxSdpTotalChars = 2 * kBytesPerMiB;
   final List<int> _connectionOrder = <int>[];
   int _sdpChars = 0;
   bool _disposed = false;

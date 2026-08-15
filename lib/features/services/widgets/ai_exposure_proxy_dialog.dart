@@ -25,6 +25,7 @@ import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
@@ -34,7 +35,7 @@ import '../services_controller.dart';
 import '../services_errors.dart';
 import 'service_dialog_controls.dart';
 
-const int _kMaxProxyImportBytes = 4 * 1024 * 1024;
+const int _kMaxProxyImportBytes = 4 * kBytesPerMiB;
 const int _kMaxProxyImportRecords = 20000;
 const int _kProxyHighLatencyThresholdMs = 350;
 const double _kProxyEndpointListMaxHeight = 420;

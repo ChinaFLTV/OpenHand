@@ -1,6 +1,6 @@
 part of 'harness_session_dashboard.dart';
 
-const int _harnessSteeringFileMaxBytes = 4 * 1024 * 1024;
+const int _harnessSteeringFileMaxBytes = 4 * kBytesPerMiB;
 const int _harnessSteeringDirectoryMaxEntries = 1000;
 const Duration _harnessSteeringDirectoryScanTimeout = Duration(seconds: 3);
 const Duration _harnessSteeringEntryStatTimeout = Duration(milliseconds: 250);

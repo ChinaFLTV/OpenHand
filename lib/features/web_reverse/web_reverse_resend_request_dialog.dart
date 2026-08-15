@@ -27,6 +27,7 @@ import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/text_clip.dart';
@@ -58,7 +59,7 @@ class _ResendRequestDialog extends StatefulWidget {
 }
 
 class _ResendRequestDialogState extends State<_ResendRequestDialog> {
-  static const int _kMaxResponseBytes = 2 * 1024 * 1024;
+  static const int _kMaxResponseBytes = 2 * kBytesPerMiB;
   static const int _kMaxHeaderRows = 128;
   static const int _kMaxUrlCharacters = 16 * 1024;
   static const int _kMaxHeaderCharacters = 64 * 1024;

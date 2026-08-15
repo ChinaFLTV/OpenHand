@@ -19,6 +19,7 @@ import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/serial_task_queue.dart';
 import '../../shared/util/text_clip.dart';
@@ -39,7 +40,7 @@ final SerialTaskQueue _issueBindingQueue = SerialTaskQueue(
 bool _issueDomainEnabled = false;
 const Duration _issueEnableTimeout = Duration(seconds: 5);
 const int _maxIssueEntries = 500;
-const int _maxIssueBufferCharacters = 8 * 1024 * 1024;
+const int _maxIssueBufferCharacters = 8 * kBytesPerMiB;
 const int _maxIssueCodeCharacters = 256;
 const int _maxIssueBriefCharacters = 2048;
 const int _maxIssueJsonPreviewCharacters = 64 * 1024;

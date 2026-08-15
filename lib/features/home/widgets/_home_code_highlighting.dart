@@ -49,7 +49,7 @@ final _FrameTaskScheduler _highlightFrameScheduler = _FrameTaskScheduler(
 class _HighlightSpanCache {
   _HighlightSpanCache({required this.maxEntries});
 
-  static const int _maxSourceChars = 4 * 1024 * 1024;
+  static const int _maxSourceChars = 4 * kBytesPerMiB;
   final int maxEntries;
   final LinkedHashMap<int, _HighlightSpanCacheEntry> _entries =
       LinkedHashMap<int, _HighlightSpanCacheEntry>();
@@ -2996,7 +2996,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   static const Duration _svgClipboardProcessTimeout = Duration(seconds: 2);
   static const int _maxPngDecodedBytes = 32 * kBytesPerMiB;
   static const int _svgClipboardVerificationMinBytes = 64 * 1024;
-  static const int _svgClipboardVerificationMaxBytes = 16 * 1024 * 1024;
+  static const int _svgClipboardVerificationMaxBytes = 16 * kBytesPerMiB;
   static const int _svgClipboardStderrMaxBytes = 8 * 1024;
 
   final GlobalKey _interactiveRegionKey = GlobalKey();

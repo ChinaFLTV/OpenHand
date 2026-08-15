@@ -68,15 +68,15 @@ class _WebGatewayRotatingLogger {
 
   static const int _maxExportFiles = 16;
   static const int _maxDirectoryEntries = 1024;
-  static const int _maxExportBytesPerFile = 8 * 1024 * 1024;
-  static const int _maxExportBundleBytes = 32 * 1024 * 1024;
+  static const int _maxExportBytesPerFile = 8 * kBytesPerMiB;
+  static const int _maxExportBundleBytes = 32 * kBytesPerMiB;
   static const Duration _exportReadIdleTimeout = Duration(seconds: 3);
   static const Duration _exportReadTotalTimeout = Duration(seconds: 10);
   static const Duration _metadataTimeout = Duration(seconds: 2);
   static const Duration _metadataTotalTimeout = Duration(seconds: 10);
   static const Duration _writeIoTimeout = Duration(seconds: 3);
   static const int _maxPendingWrites = 1024;
-  static const int _maxPendingWriteBytes = 4 * 1024 * 1024;
+  static const int _maxPendingWriteBytes = 4 * kBytesPerMiB;
   static const Duration _closeTimeout = Duration(seconds: 5);
   static const String _droppedBeforeKey = 'file_logger_dropped_before';
   static const String _diskOperationStoppedMessage = '文件日志器发生 I/O 超时，磁盘操作已停止。';

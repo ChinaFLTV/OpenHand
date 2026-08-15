@@ -14,6 +14,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/message_frame_scan.dart';
 import '../../../shared/util/text_clip.dart';
@@ -24,7 +25,7 @@ import '../../../shared/util/version_compare.dart';
 /// 当前 LSP 子进程状态。
 enum WebReverseLspStatus { idle, starting, ready, notInstalled, failed }
 
-const int _kMaxLspFrameBytes = 8 * 1024 * 1024;
+const int _kMaxLspFrameBytes = 8 * kBytesPerMiB;
 const int _kMaxLspHeaderBytes = 64 * 1024;
 const int _kMaxLspStderrCharacters = 256;
 const Duration _kDefaultLspRequestTimeout = Duration(seconds: 8);

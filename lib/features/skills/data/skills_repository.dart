@@ -34,7 +34,7 @@ class SkillsRepository {
   static const String _generatedEmojiIconFileName = 'skill-icon.svg';
   static const String _generatedImageIconFileName = 'skill-icon.png';
   static const int _maxArchiveEntries = 2000;
-  static const int _maxExtractedArchiveBytes = 160 * 1024 * 1024;
+  static const int _maxExtractedArchiveBytes = 160 * kBytesPerMiB;
   static const int _maxInstalledSkillScanEntries = 20000;
   static const int _maxSkillScanDepth = 32;
   static const Duration _skillScanIdleTimeout = Duration(seconds: 3);

@@ -8,6 +8,7 @@ import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/bounded_delete.dart';
 import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/directory_cleanup.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/physical_path_safety.dart';
@@ -34,7 +35,7 @@ class AiSkillManagerTool extends AiTool {
   );
   static const Duration _skillScanIdleTimeout = Duration(seconds: 3);
   static const Duration _skillScanTotalTimeout = Duration(seconds: 10);
-  static const int _maxSidecarContentLength = 2 * 1024 * 1024;
+  static const int _maxSidecarContentLength = 2 * kBytesPerMiB;
   static const List<String> _supportedActions = <String>[
     'create',
     'edit',
