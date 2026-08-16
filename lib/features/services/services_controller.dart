@@ -1797,6 +1797,13 @@ class ServicesController extends ChangeNotifier {
         ]);
       case 'log':
         _appendLog(AiExposureLogEntry.fromJson({...event, 'jobId': jobId}));
+      default:
+        silentLog(
+          'services_controller',
+          '处理扫描实时事件',
+          StateError('未知事件类型: ${event['type']}'),
+          StackTrace.current,
+        );
     }
     _notify();
   }

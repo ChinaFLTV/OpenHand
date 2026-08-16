@@ -545,7 +545,8 @@ Future<Uint8List> _readRawIdentityResponse(Socket socket) async {
       }
     }
   }
-  return buffer.takeBytes();
+  // Socket 在完整响应到达前关闭，视为不完整响应。
+  throw const FormatException('代理身份响应不完整');
 }
 
 AiExposureProxyIdentity _parseIdentity(Uint8List body) {

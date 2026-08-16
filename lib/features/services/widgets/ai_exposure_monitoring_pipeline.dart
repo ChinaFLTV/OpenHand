@@ -7,6 +7,17 @@ class _PipelinePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final history = controller.history;
+    var fullScanCount = 0;
+    var incrementalScanCount = 0;
+    var activeValidationCount = 0;
+    for (final item in history) {
+      if (item.mode == AiExposureScanMode.full) {
+        fullScanCount++;
+      } else {
+        incrementalScanCount++;
+      }
+      if (item.authorizedScope.isNotEmpty) activeValidationCount++;
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -28,25 +39,17 @@ class _PipelinePanel extends StatelessWidget {
               items: [
                 _DistributionItem(
                   '全量扫描',
-                  history
-                      .where((item) => item.mode == AiExposureScanMode.full)
-                      .length,
+                  fullScanCount,
                   Theme.of(context).colorScheme.primary,
                 ),
                 _DistributionItem(
                   '增量扫描',
-                  history
-                      .where(
-                        (item) => item.mode == AiExposureScanMode.incremental,
-                      )
-                      .length,
+                  incrementalScanCount,
                   OpenHandStatusColors.info,
                 ),
                 _DistributionItem(
                   '主动验证',
-                  history
-                      .where((item) => item.authorizedScope.isNotEmpty)
-                      .length,
+                  activeValidationCount,
                   OpenHandStatusColors.warning,
                 ),
               ],

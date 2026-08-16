@@ -25,9 +25,17 @@ class _StoragePanel extends StatelessWidget {
     final chronological = history
         .where((entry) => entry.createdAtReported)
         .take(24)
-        .toList()
+        .toList(growable: false)
         .reversed
-        .toList();
+        .toList(growable: false);
+    final chronologicalLabels = chronological
+        .map(
+          (entry) => _reportedShortDateTime(
+            entry.createdAt,
+            entry.createdAtReported,
+          ),
+        )
+        .toList(growable: false);
     final resultsByJobId = <String, int>{};
     for (final result in results) {
       resultsByJobId.update(result.jobId, (v) => v + 1, ifAbsent: () => 1);
@@ -90,14 +98,7 @@ class _StoragePanel extends StatelessWidget {
               icon: Icons.stacked_line_chart_rounded,
               title: '归档增长趋势',
               subtitle: '最近 ${chronological.length} 个任务的累计结果',
-              sampleLabels: chronological
-                  .map(
-                    (entry) => _reportedShortDateTime(
-                      entry.createdAt,
-                      entry.createdAtReported,
-                    ),
-                  )
-                  .toList(growable: false),
+              sampleLabels: chronologicalLabels,
               series: [
                 OpenHandChartSeries(
                   label: '结果',
@@ -113,27 +114,20 @@ class _StoragePanel extends StatelessWidget {
               icon: Icons.data_saver_on_rounded,
               title: '任务写入负载',
               subtitle: '已处理与发现记录',
-              sampleLabels: chronological
-                  .map(
-                    (entry) => _reportedShortDateTime(
-                      entry.createdAt,
-                      entry.createdAtReported,
-                    ),
-                  )
-                  .toList(growable: false),
+              sampleLabels: chronologicalLabels,
               series: [
                 OpenHandChartSeries(
                   label: '处理',
                   values: chronological
                       .map((entry) => entry.progress.processed.toDouble())
-                      .toList(),
+                      .toList(growable: false),
                   color: OpenHandStatusColors.info,
                 ),
                 OpenHandChartSeries(
                   label: '发现',
                   values: chronological
                       .map((entry) => entry.progress.discovered.toDouble())
-                      .toList(),
+                      .toList(growable: false),
                   color: OpenHandStatusColors.success,
                 ),
               ],
@@ -173,7 +167,7 @@ class _StoragePanel extends StatelessWidget {
                       },
                     ),
                   )
-                  .toList(),
+                  .toList(growable: false),
             ),
             _DistributionPanel(
               id: _DistributionInsightId.credentialState,
@@ -188,7 +182,7 @@ class _StoragePanel extends StatelessWidget {
                       _credentialStateColor(entry.key, colors),
                     ),
                   )
-                  .toList(),
+                  .toList(growable: false),
             ),
           ],
         ),
@@ -269,7 +263,7 @@ class _StoragePanel extends StatelessWidget {
                           ],
                         ),
                       );
-                    }).toList(),
+                    }).toList(growable: false),
                   ),
                 ),
         ),

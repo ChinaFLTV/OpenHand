@@ -309,9 +309,15 @@ class AiJunglerClient {
         try {
           decoded = jsonDecode(payload);
         } on FormatException {
-          throw const AiJunglerApiException('扫描引擎返回了无效的实时事件。');
+          // 跳过格式错误的 SSE 行而非终止整个事件流，
+          // 避免单条坏行导致扫描实时监控中断。
+          continue;
         }
-        if (decoded is Map) yield aiExposureJsonMap(decoded);
+        if (decoded is Map) {
+          yield aiExposureJsonMap(decoded);
+        }
+        // 非 Map 类型的 JSON payload（如标量、数组）静默跳过，
+        // SSE 事件约定为 JSON 对象，非对象 payload 无消费方。
       }
     } on TimeoutException {
       throw const AiJunglerApiException('扫描引擎实时事件长时间无响应。');

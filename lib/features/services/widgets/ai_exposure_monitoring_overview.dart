@@ -10,15 +10,48 @@ class _OverviewPanel extends StatelessWidget {
     final history = controller.history;
     final results = controller.results;
     final proxy = controller.proxyStatus;
-    final completed = history.where((item) => item.stage == 'completed').length;
-    final failed = history
-        .where((item) => item.stage == 'failed' && !_isTimeoutTask(item))
-        .length;
-    final timeout = history.where(_isTimeoutTask).length;
-    final cancelled = history.where((item) => item.stage == 'cancelled').length;
-    final valid = results
-        .where((item) => item.category == AiExposureResultCategory.valid)
-        .length;
+    // 单次遍历统计任务状态，避免多次 .where().length 的 O(n) 重复扫描。
+    var completed = 0;
+    var failed = 0;
+    var timeout = 0;
+    var cancelled = 0;
+    var running = 0;
+    final stageCounts = <String, int>{};
+    for (final item in history) {
+      final status = _taskStatusId(item);
+      stageCounts.update(status, (count) => count + 1, ifAbsent: () => 1);
+      switch (item.stage) {
+        case 'completed':
+          completed++;
+        case 'cancelled':
+          cancelled++;
+        case 'failed':
+          if (_isTimeoutTask(item)) {
+            timeout++;
+          } else {
+            failed++;
+          }
+        default:
+          if (_taskStatusId(item) == 'running') running++;
+      }
+    }
+    // 单次遍历统计结果分类。
+    var valid = 0;
+    var highValue = 0;
+    var suspicious = 0;
+    var honeypot = 0;
+    for (final item in results) {
+      switch (item.category) {
+        case AiExposureResultCategory.valid:
+          valid++;
+        case AiExposureResultCategory.highValue:
+          highValue++;
+        case AiExposureResultCategory.suspicious:
+          suspicious++;
+        case AiExposureResultCategory.honeypot:
+          honeypot++;
+      }
+    }
     final durations = history
         .map(_taskMeasuredDurationMs)
         .whereType<int>()
@@ -40,11 +73,7 @@ class _OverviewPanel extends StatelessWidget {
         .map(_sourceCredentialKey)
         .toSet()
         .length;
-    final stageCounts = <String, int>{};
-    for (final item in history) {
-      final status = _taskStatusId(item);
-      stageCounts.update(status, (count) => count + 1, ifAbsent: () => 1);
-    }
+    final enabledRuleCount = controller.rules.where((rule) => rule.enabled).length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -59,7 +88,7 @@ class _OverviewPanel extends StatelessWidget {
               Icons.work_history_outlined,
               '任务数量',
               '${history.length}',
-              '完成 $completed · 运行中 ${history.where((item) => _taskStatusId(item) == 'running').length} · 失败 $failed · 超时 $timeout · 取消 $cancelled',
+              '完成 $completed · 运行中 $running · 失败 $failed · 超时 $timeout · 取消 $cancelled',
               color: Theme.of(context).colorScheme.primary,
             ),
             _Metric(
@@ -99,7 +128,7 @@ class _OverviewPanel extends StatelessWidget {
               _MetricInsightId.overviewEnabledRules,
               Icons.rule_rounded,
               '启用规则',
-              '${controller.rules.where((item) => item.enabled).length}',
+              '$enabledRuleCount',
               '总计 ${controller.rules.length}',
               color: _kAiExposureColorTeal,
             ),
@@ -184,33 +213,17 @@ class _OverviewPanel extends StatelessWidget {
                 _DistributionItem('有效', valid, OpenHandStatusColors.success),
                 _DistributionItem(
                   '高价值',
-                  results
-                      .where(
-                        (item) =>
-                            item.category == AiExposureResultCategory.highValue,
-                      )
-                      .length,
+                  highValue,
                   _kAiExposureColorHighValue,
                 ),
                 _DistributionItem(
                   '可疑',
-                  results
-                      .where(
-                        (item) =>
-                            item.category ==
-                            AiExposureResultCategory.suspicious,
-                      )
-                      .length,
+                  suspicious,
                   OpenHandStatusColors.warning,
                 ),
                 _DistributionItem(
                   '蜜罐',
-                  results
-                      .where(
-                        (item) =>
-                            item.category == AiExposureResultCategory.honeypot,
-                      )
-                      .length,
+                  honeypot,
                   OpenHandStatusColors.error,
                 ),
               ],
@@ -354,16 +367,16 @@ class _Console extends StatelessWidget {
       children: [
         const TextSpan(
           text: '→ ',
-          style: TextStyle(color: Color(0xff28d17c)),
+          style: TextStyle(color: _kAiExposureConsoleSuccess),
         ),
         TextSpan(
           text: '$name ',
-          style: const TextStyle(color: Color(0xff6fa8ed)),
+          style: const TextStyle(color: _kAiExposureDarkJobId),
         ),
         TextSpan(
           text: value,
           style: TextStyle(
-            color: healthy ? _kAiExposureDarkOnSurface : const Color(0xffffb14e),
+            color: healthy ? _kAiExposureDarkOnSurface : _kAiExposureConsoleWarning,
           ),
         ),
       ],

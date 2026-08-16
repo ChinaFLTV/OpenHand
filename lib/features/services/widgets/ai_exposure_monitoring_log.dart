@@ -1,5 +1,7 @@
 part of 'ai_exposure_monitoring_dialogs.dart';
 
+const Set<String> _kLogLevels = <String>{'info', 'warning', 'error', 'runtime'};
+
 enum _LogScope { all, current, runtime, history }
 
 class _LogMonitorDialog extends StatefulWidget {
@@ -12,7 +14,7 @@ class _LogMonitorDialog extends StatefulWidget {
 class _LogMonitorDialogState extends State<_LogMonitorDialog> {
   final ScrollController _scroll = ScrollController();
   final TextEditingController _search = TextEditingController();
-  final Set<String> _levels = <String>{'info', 'warning', 'error', 'runtime'};
+  final Set<String> _levels = <String>{..._kLogLevels};
   _LogScope _scope = _LogScope.all;
   bool _autoFollow = true;
   bool _refreshing = false;
@@ -166,19 +168,14 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
             ),
           ),
           kOpenHandGap14,
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final search = TextField(
-                controller: _search,
-                onChanged: (_) => setState(() {}),
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  labelText: text(zh: '搜索日志', en: 'Search logs'),
-                  border: const OutlineInputBorder(),
-                ),
-              );
-              return search;
-            },
+          TextField(
+            controller: _search,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.search_rounded),
+              labelText: text(zh: '搜索日志', en: 'Search logs'),
+              border: const OutlineInputBorder(),
+            ),
           ),
           kOpenHandGap10,
           SingleChildScrollView(
@@ -192,7 +189,7 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: <String>['info', 'warning', 'error', 'runtime']
+            children: _kLogLevels
                 .map((level) {
                   final color = _logColor(level);
                   return ServiceFilterChip(
@@ -223,7 +220,7 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
                   ? const Center(
                       child: Text(
                         '没有符合条件的日志。',
-                        style: TextStyle(color: Color(0xff9aa4b2)),
+                        style: TextStyle(color: _kAiExposureDarkMutedText),
                       ),
                     )
                   : ListView.builder(
@@ -236,14 +233,31 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
             ),
           ),
           kOpenHandGap8,
-          Text(
-            text(
-              zh: '显示 ${logs.length} 条 · 信息 ${logs.where((item) => item.level == 'info').length} · 警告 ${logs.where((item) => item.level == 'warning').length} · 错误 ${logs.where((item) => item.level == 'error').length}',
-              en: 'Showing ${logs.length} · INFO ${logs.where((item) => item.level == 'info').length} · WARN ${logs.where((item) => item.level == 'warning').length} · ERROR ${logs.where((item) => item.level == 'error').length}',
-            ),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
+          Builder(
+            builder: (context) {
+              var infoCount = 0;
+              var warningCount = 0;
+              var errorCount = 0;
+              for (final item in logs) {
+                switch (item.level) {
+                  case 'info':
+                    infoCount++;
+                  case 'warning':
+                    warningCount++;
+                  case 'error':
+                    errorCount++;
+                }
+              }
+              return Text(
+                text(
+                  zh: '显示 ${logs.length} 条 · 信息 $infoCount · 警告 $warningCount · 错误 $errorCount',
+                  en: 'Showing ${logs.length} · INFO $infoCount · WARN $warningCount · ERROR $errorCount',
+                ),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -274,26 +288,33 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
   }
 
   Future<void> _saveLogs(List<AiExposureLogEntry> logs) async {
-    final location = await getSaveLocation(
-      suggestedName:
-          'openhand-ai-exposure-${DateTime.now().toIso8601String().replaceAll(':', '-')}.jsonl',
-      acceptedTypeGroups: const <XTypeGroup>[
-        XTypeGroup(label: 'JSONL', extensions: <String>['jsonl']),
-      ],
-    );
-    if (location == null) return;
-    final payload = logs
-        .map(
-          (entry) => jsonEncode(<String, Object?>{
-            if (entry.atReported) 'at': entry.at.toUtc().toIso8601String(),
-            'level': entry.level,
-            'jobId': entry.jobId,
-            'message': entry.message,
-          }),
-        )
-        .join('\n');
-    await writeFileAtomically(File(location.path), '$payload\n');
-    if (mounted) showOpenHandSuccessSnack(context, '日志已保存。');
+    try {
+      final location = await getSaveLocation(
+        suggestedName:
+            'openhand-ai-exposure-${DateTime.now().toIso8601String().replaceAll(':', '-')}.jsonl',
+        acceptedTypeGroups: const <XTypeGroup>[
+          XTypeGroup(label: 'JSONL', extensions: <String>['jsonl']),
+        ],
+      );
+      if (location == null) return;
+      final payload = logs
+          .map(
+            (entry) => jsonEncode(<String, Object?>{
+              if (entry.atReported) 'at': entry.at.toUtc().toIso8601String(),
+              'level': entry.level,
+              'jobId': entry.jobId,
+              'message': entry.message,
+            }),
+          )
+          .join('\n');
+      await writeFileAtomically(File(location.path), '$payload\n');
+      if (mounted) showOpenHandSuccessSnack(context, '日志已保存。');
+    } catch (error, stack) {
+      silentLog('service_log_monitor', '保存服务日志', error, stack);
+      if (mounted) {
+        showOpenHandErrorSnack(context, '保存日志失败，请检查文件路径或磁盘空间。');
+      }
+    }
   }
 }
 
@@ -325,7 +346,7 @@ class _LogRow extends StatelessWidget {
             child: Text(
               time,
               style: const TextStyle(
-                color: Color(0xff7e8998),
+                color: _kAiExposureDarkTimestamp,
                 fontFamily: 'monospace',
                 fontSize: 12,
               ),
@@ -355,7 +376,7 @@ class _LogRow extends StatelessWidget {
               child: Text(
                 entry.jobId.substring(0, entry.jobId.length.clamp(0, 8)),
                 style: const TextStyle(
-                  color: Color(0xff6fa8ed),
+                  color: _kAiExposureDarkJobId,
                   fontFamily: 'monospace',
                   fontSize: 12,
                 ),

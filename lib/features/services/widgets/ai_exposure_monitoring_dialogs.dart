@@ -58,6 +58,11 @@ const Color _kAiExposureColorCyan = Color(0xff0891b2);
 const Color _kAiExposureDarkSurface = Color(0xff0b0e12);
 const Color _kAiExposureColorSlate500 = Color(0xff64748b);
 const Color _kAiExposureDarkOnSurface = Color(0xffd5dae3);
+const Color _kAiExposureDarkMutedText = Color(0xff9aa4b2);
+const Color _kAiExposureDarkTimestamp = Color(0xff7e8998);
+const Color _kAiExposureDarkJobId = Color(0xff6fa8ed);
+const Color _kAiExposureConsoleSuccess = Color(0xff28d17c);
+const Color _kAiExposureConsoleWarning = Color(0xffffb14e);
 
 
 Future<void> showAiExposureOperationsDialog(BuildContext context) =>
