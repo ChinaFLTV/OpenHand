@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/interaction_timings.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -507,7 +508,7 @@ class _DynamicPegHandleState extends State<_DynamicPegHandle>
     super.initState();
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: kOpenHandMotion1400,
     );
   }
 

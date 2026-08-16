@@ -54,7 +54,7 @@ class _MicroPressFeedbackState extends State<MicroPressFeedback>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 80),
+      duration: kOpenHandMotion80,
       reverseDuration: kOpenHandMotion140,
     );
   }

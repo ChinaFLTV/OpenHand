@@ -317,7 +317,7 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
               ),
               icon: AnimatedRotation(
                 turns: _loading ? 1 : 0,
-                duration: openHandMotionDuration(context, const Duration(milliseconds: 520)),
+                duration: openHandMotionDuration(context, kOpenHandMotion520),
                 curve: kOpenHandSwitchInCurve,
                 child: const Icon(Icons.refresh_rounded),
               ),
@@ -1660,7 +1660,7 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
       left: left,
       top: 8,
       width: tooltipWidth,
-      duration: openHandMotionDuration(context, const Duration(milliseconds: 170)),
+      duration: openHandMotionDuration(context, kOpenHandMotion170),
       curve: kOpenHandSwitchInCurve,
       child: IgnorePointer(
         child: AnimatedOpacity(

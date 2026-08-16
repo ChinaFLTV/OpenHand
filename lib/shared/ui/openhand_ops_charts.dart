@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../shared/ui/openhand_spacing.dart';
+import 'motion_durations.dart';
 
 /// 图表四周留白与底部标签区高度。
 const double _kChartInset = 8;
@@ -1574,7 +1575,7 @@ class _ChartActionSurfaceState extends State<_ChartActionSurface> {
           onTapUp: (_) => setState(() => _pressed = false),
           onTap: widget.onTap,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
+            duration: kOpenHandMotion120,
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
             decoration: BoxDecoration(
               color: highlighted

@@ -8,7 +8,7 @@ class _HePhaseCardEntrance extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return OpenHandSpringEntrance(
-      duration: const Duration(milliseconds: 520),
+      duration: kOpenHandMotion520,
       opacityIntervalEnd: 0.60,
       slideBegin: const Offset(0.0, 0.06),
       child: child,
@@ -173,7 +173,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
     // running → completed). AnimatedContainer handles backgroundColor and
     // borderColor interpolation automatically.
     return AnimatedContainer(
-      duration: openHandMotionDuration(context, const Duration(milliseconds: 380)),
+      duration: openHandMotionDuration(context, kOpenHandMotion380),
       curve: kOpenHandSwitchInCurve,
       decoration: BoxDecoration(
         color: backgroundColor,

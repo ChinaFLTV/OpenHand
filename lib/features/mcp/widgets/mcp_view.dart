@@ -8988,7 +8988,7 @@ class _McpOpsStructuredField extends StatelessWidget {
       semanticKey: label,
     );
     return AnimatedContainer(
-      duration: openHandMotionDuration(context, const Duration(milliseconds: 170)),
+      duration: openHandMotionDuration(context, kOpenHandMotion170),
       curve: kOpenHandSwitchInCurve,
       decoration: BoxDecoration(
         color: depth == 0
@@ -10341,7 +10341,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                         : null,
                   ),
                   AnimatedSwitcher(
-                    duration: openHandMotionDuration(context, const Duration(milliseconds: 400)),
+                    duration: openHandMotionDuration(context, kOpenHandMotion400),
                     switchInCurve: Curves.easeOutBack,
                     switchOutCurve: Curves.easeInBack,
                     transitionBuilder: (child, animation) {
@@ -12141,7 +12141,7 @@ class _McpAnimatedProgressBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: value),
-      duration: openHandMotionDuration(context, const Duration(milliseconds: 520)),
+      duration: openHandMotionDuration(context, kOpenHandMotion520),
       curve: Curves.easeOutBack,
       builder: (context, animatedProgress, _) {
         return ClipRRect(

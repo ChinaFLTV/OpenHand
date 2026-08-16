@@ -13,9 +13,11 @@
 library;
 
 // ── 过渡档（进出场 / 状态切换） ──────────────────────────────────────────
+const Duration kOpenHandMotion80 = Duration(milliseconds: 80);
 const Duration kOpenHandMotion120 = Duration(milliseconds: 120);
 const Duration kOpenHandMotion140 = Duration(milliseconds: 140);
 const Duration kOpenHandMotion160 = Duration(milliseconds: 160);
+const Duration kOpenHandMotion170 = Duration(milliseconds: 170);
 const Duration kOpenHandMotion180 = Duration(milliseconds: 180);
 const Duration kOpenHandMotion200 = Duration(milliseconds: 200);
 const Duration kOpenHandMotion220 = Duration(milliseconds: 220);
@@ -24,10 +26,16 @@ const Duration kOpenHandMotion260 = Duration(milliseconds: 260);
 const Duration kOpenHandMotion280 = Duration(milliseconds: 280);
 const Duration kOpenHandMotion320 = Duration(milliseconds: 320);
 const Duration kOpenHandMotion340 = Duration(milliseconds: 340);
+const Duration kOpenHandMotion380 = Duration(milliseconds: 380);
+const Duration kOpenHandMotion400 = Duration(milliseconds: 400);
 const Duration kOpenHandMotion420 = Duration(milliseconds: 420);
+const Duration kOpenHandMotion520 = Duration(milliseconds: 520);
+const Duration kOpenHandMotion660 = Duration(milliseconds: 660);
+const Duration kOpenHandMotion950 = Duration(milliseconds: 950);
 
 // ── 环境循环档（shimmer / 呼吸脉冲 / 长渐变） ────────────────────────────
 const Duration kOpenHandMotion1200 = Duration(milliseconds: 1200);
+const Duration kOpenHandMotion1400 = Duration(milliseconds: 1400);
 const Duration kOpenHandMotion1600 = Duration(milliseconds: 1600);
 const Duration kOpenHandMotion1800 = Duration(milliseconds: 1800);
 const Duration kOpenHandMotion2200 = Duration(milliseconds: 2200);

@@ -8972,7 +8972,7 @@ class _TypewriterCaretState extends State<_TypewriterCaret>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 950),
+    duration: kOpenHandMotion950,
   );
 
   @override

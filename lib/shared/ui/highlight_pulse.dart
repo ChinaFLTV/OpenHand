@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/openhand_status_colors.dart';
 import '../util/input_value_parsing.dart';
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 
 /// 由外部计数信号驱动的高亮脉冲，遵循减少动态效果和 `TickerMode` 设置。
@@ -45,7 +46,7 @@ class _HighlightPulseState extends State<HighlightPulse>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 660),
+      duration: kOpenHandMotion660,
     );
     _lastSeen = widget.signal.value;
     widget.signal.addListener(_onSignal);
