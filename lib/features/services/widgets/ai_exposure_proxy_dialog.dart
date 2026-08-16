@@ -2161,7 +2161,7 @@ class _ProxyPoolOverview extends StatelessWidget {
       (sum, item) => sum + item.totalResponseTimeMs,
     );
     final requestSamples =
-        statistics.expand((item) => item.recentRequests).toList()
+        statistics.expand((item) => item.recentRequests).toList(growable: false)
           ..sort((left, right) => left.at.compareTo(right.at));
     final sortedLatencies =
         requestSamples
@@ -3107,22 +3107,22 @@ class _ProxyRequestTrendChart extends StatelessWidget {
       series: <OpenHandChartSeries>[
         OpenHandChartSeries(
           label: 'total',
-          values: trend.map((item) => item.total.toDouble()).toList(),
+          values: trend.map((item) => item.total.toDouble()).toList(growable: false),
           color: OpenHandStatusColors.info,
         ),
         OpenHandChartSeries(
           label: 'success',
-          values: trend.map((item) => item.successes.toDouble()).toList(),
+          values: trend.map((item) => item.successes.toDouble()).toList(growable: false),
           color: OpenHandStatusColors.success,
         ),
         OpenHandChartSeries(
           label: 'failure',
-          values: trend.map((item) => item.failures.toDouble()).toList(),
+          values: trend.map((item) => item.failures.toDouble()).toList(growable: false),
           color: OpenHandStatusColors.error,
         ),
         OpenHandChartSeries(
           label: 'timeout',
-          values: trend.map((item) => item.timeouts.toDouble()).toList(),
+          values: trend.map((item) => item.timeouts.toDouble()).toList(growable: false),
           color: OpenHandStatusColors.warning,
         ),
       ],
