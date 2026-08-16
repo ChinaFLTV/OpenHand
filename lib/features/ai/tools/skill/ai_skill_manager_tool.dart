@@ -26,7 +26,7 @@ class AiSkillManagerTool extends AiTool {
 
   static const String _toolName = 'SkillManager';
   static const int _maxNameLength = 64;
-  static const int _maxDescriptionLength = 1024;
+  static const int _maxDescriptionLength = kBytesPerKiB;
   static const int _maxSkillScanEntities = 5000;
   static const BoundedDeletePolicy _skillDeletePolicy = BoundedDeletePolicy(
     maxEntries: _maxSkillScanEntities,

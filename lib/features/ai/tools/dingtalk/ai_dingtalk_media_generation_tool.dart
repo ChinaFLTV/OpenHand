@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../../../../shared/model/dingtalk_multimodal_capability.dart';
 import '../../../../shared/util/async_concurrency.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../model/ai_creation_mode.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
@@ -27,7 +28,7 @@ class AiDingTalkMediaGenerationTool extends AiTool {
 
   static const int maxPromptCharacters = 12000;
   static const int maxReferenceImages = 8;
-  static const int maxReferencePathCharacters = 1024;
+  static const int maxReferencePathCharacters = kBytesPerKiB;
 
   final AiDingTalkMultimodalCapability capability;
 
