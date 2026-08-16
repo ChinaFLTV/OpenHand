@@ -6507,7 +6507,7 @@ class _WebOpsStatusChip extends StatelessWidget {
     return AnimatedContainer(
       duration: openHandMotionDurationMs(context, 180),
       curve: Curves.easeOutCubic,
-      constraints: const BoxConstraints(maxWidth: 360),
+      constraints: kOpenHandContentMaxWidth360,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: color.withValues(alpha: .10),
@@ -8105,7 +8105,7 @@ class _AccessibleUrlPill extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     return Container(
-      constraints: const BoxConstraints(maxWidth: 360),
+      constraints: kOpenHandContentMaxWidth360,
       decoration: BoxDecoration(
         color: cs.primaryContainer.withValues(alpha: 0.42),
         borderRadius: kOpenHandPillBorderRadius,

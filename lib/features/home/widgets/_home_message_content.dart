@@ -1042,7 +1042,7 @@ class _MessageCollapseToggleCapsuleState
       curve: kCardMotionCurve,
       alignment: Alignment.centerLeft,
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 360),
+        constraints: kOpenHandContentMaxWidth360,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: widget.color.withValues(alpha: 0.06),

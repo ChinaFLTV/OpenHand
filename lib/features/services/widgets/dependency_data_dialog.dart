@@ -1356,7 +1356,7 @@ class _DataRecordTile extends StatelessWidget {
                 .where((tag) => tag.isNotEmpty)
                 .map(
                   (tag) => Container(
-                    constraints: const BoxConstraints(maxWidth: 360),
+                    constraints: kOpenHandContentMaxWidth360,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 4,

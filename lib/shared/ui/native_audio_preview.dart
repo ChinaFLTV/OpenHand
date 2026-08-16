@@ -1487,7 +1487,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       color: cs.surface.withValues(alpha: 0.76),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 360),
+          constraints: kOpenHandContentMaxWidth360,
           child: Card(
             elevation: 0,
             shape: RoundedRectangleBorder(

@@ -1395,7 +1395,7 @@ class _MessageBubbleState extends State<_MessageBubble>
                       ),
                       if (_fullContentLoadError != null)
                         ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 360),
+                          constraints: kOpenHandContentMaxWidth360,
                           child: Text(
                             _fullContentLoadError!,
                             style: theme.textTheme.bodySmall?.copyWith(

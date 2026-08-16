@@ -1159,7 +1159,7 @@ class AiTtsPlaybackService {
           'common': <String, Object?>{'app_id': settings.appId},
           'business': <String, Object?>{
             'aue': '${settings.extra['aue'] ?? 'lame'}',
-            'auf': '${settings.extra['auf'] ?? 'audio/L16;rate=16000'}',
+            'auf': '${settings.extra['auf'] ?? kAudioL16Rate16000}',
             'vcn': settings.voice.isEmpty ? 'xiaoyan' : settings.voice,
             'speed': settings.speed.round().clamp(0, 100),
             'volume': settings.volume.round().clamp(0, 100),

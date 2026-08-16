@@ -1,3 +1,4 @@
+import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import 'ai_provider_settings_shared.dart';
 
@@ -118,7 +119,7 @@ class AiTtsProviderSettings extends AiProviderCoreSettings {
         volume: 50,
         pitch: 50,
         endpoint: 'wss://tts-api.xfyun.cn/v2/tts',
-        extra: <String, Object?>{'aue': 'lame', 'auf': 'audio/L16;rate=16000'},
+        extra: <String, Object?>{'aue': 'lame', 'auf': kAudioL16Rate16000},
       ),
       AiTtsProvider.youdao => const AiTtsProviderSettings._defaults(
         provider: AiTtsProvider.youdao,

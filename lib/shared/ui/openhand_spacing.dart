@@ -123,3 +123,8 @@ const BorderRadius kOpenHandBorderRadius26 = BorderRadius.all(
   Radius.circular(kOpenHandRadius26),
 );
 
+/// 全局布局约束 token —— 收敛重复的 BoxConstraints 字面量。
+const BoxConstraints kOpenHandContentMaxWidth360 = BoxConstraints(
+  maxWidth: 360,
+);
+

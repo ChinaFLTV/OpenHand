@@ -734,7 +734,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     final colorScheme = theme.colorScheme;
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
+        constraints: kOpenHandContentMaxWidth360,
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
