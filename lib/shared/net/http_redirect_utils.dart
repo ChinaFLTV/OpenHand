@@ -9,7 +9,7 @@ import '../util/input_value_parsing.dart';
 import 'abortable_http_request.dart';
 
 const Set<String> _sensitiveRedirectHeaderNames = <String>{
-  'authorization',
+  kAuthorizationHeaderName,
   'cookie',
   'host',
   'proxy-authorization',
@@ -22,7 +22,7 @@ const Set<String> _redirectEntityHeaderNames = <String>{
   'content-length',
   'content-location',
   'content-md5',
-  'content-type',
+  kContentTypeHeaderName,
   'digest',
   'expect',
   'trailer',

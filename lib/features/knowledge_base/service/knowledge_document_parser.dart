@@ -771,7 +771,7 @@ class PdfKnowledgeDocumentParser extends KnowledgeDocumentParser {
     return KnowledgeDocumentParseResult(
       text: '# $title\n\n$text',
       kind: 'pdf',
-      mimeType: 'application/pdf',
+      mimeType: kApplicationPdfMimeType,
       parserId: id,
       title: title,
       metadata: <String, Object?>{

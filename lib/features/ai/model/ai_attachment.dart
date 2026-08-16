@@ -288,10 +288,10 @@ String aiMimeTypeForPath(String path) {
     '.flac' => 'audio/flac',
     '.m4a' => 'audio/mp4',
     '.ogg' => 'audio/ogg',
-    '.md' || '.markdown' => 'text/markdown',
+    '.md' || '.markdown' => kTextMarkdownMimeType,
     '.txt' => kTextPlainMimeType,
     '.json' => kApplicationJsonMimeType,
-    '.yaml' || '.yml' => 'application/yaml',
+    '.yaml' || '.yml' => kApplicationYamlMimeType,
     '.toml' => 'application/toml',
     '.xml' => 'application/xml',
     '.csv' => 'text/csv',
@@ -311,7 +311,7 @@ String aiMimeTypeForPath(String path) {
     '.xlsx' =>
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     '.xls' => 'application/vnd.ms-excel',
-    '.pdf' => 'application/pdf',
+    '.pdf' => kApplicationPdfMimeType,
     _ => kApplicationOctetStreamMimeType,
   };
 }

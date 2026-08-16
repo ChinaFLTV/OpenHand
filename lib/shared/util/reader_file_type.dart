@@ -128,14 +128,14 @@ class ReaderFileType {
   static const Map<String, String> _normalizedAliases = <String, String>{
     'plaintext': text,
     kTextPlainMimeType: text,
-    'text/markdown': markdown,
+    kTextMarkdownMimeType: markdown,
     'text/xmarkdown': markdown,
-    'application/json': json,
+    kApplicationJsonMimeType: json,
     'application/jsonl': jsonl,
     'application/xjsonl': jsonl,
     'application/ndjson': jsonl,
     'application/xndjson': jsonl,
-    'application/yaml': yaml,
+    kApplicationYamlMimeType: yaml,
     'application/xyaml': yaml,
     'text/yaml': yaml,
     'text/xyaml': yaml,
@@ -148,7 +148,7 @@ class ReaderFileType {
     'application/xlatex': latex,
     'application/rtf': rtf,
     'text/rtf': rtf,
-    'application/pdf': pdf,
+    kApplicationPdfMimeType: pdf,
     'application/vnd.openxmlformatsofficedocument.wordprocessingml.document':
         docx,
     'application/vnd.openxmlformatsofficedocument.spreadsheetml.sheet': xlsx,
@@ -274,12 +274,12 @@ class ReaderFileType {
 
   static String mimeType(String value) {
     return switch (normalize(value)) {
-      markdown => 'text/markdown',
+      markdown => kTextMarkdownMimeType,
       text => kTextPlainMimeType,
-      html => 'text/html',
-      json => 'application/json',
+      html => kTextHtmlMimeType,
+      json => kApplicationJsonMimeType,
       jsonl => 'application/x-ndjson',
-      yaml => 'application/yaml',
+      yaml => kApplicationYamlMimeType,
       toml => 'application/toml',
       xml => 'application/xml',
       csv => 'text/csv',
@@ -293,7 +293,7 @@ class ReaderFileType {
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       pptx =>
         'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      pdf => 'application/pdf',
+      pdf => kApplicationPdfMimeType,
       _ => kTextPlainMimeType,
     };
   }
