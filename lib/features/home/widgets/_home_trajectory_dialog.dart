@@ -1189,7 +1189,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
     if (messageId == null) return;
     final generation = ++_metadataLoadGeneration;
     setState(() => _selectedMetadataLoading = true);
-    widget.controller
+    unawaited(widget.controller
         .loadFullSessionMessageMetadata(_session.id, messageId)
         .then((metadata) {
           if (!mounted ||
@@ -1201,7 +1201,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
             _selectedMetadata = metadata;
             _selectedMetadataLoading = false;
           });
-        });
+        }));
   }
 
   void _selectRecordFromTimeline(_TrajectoryRecord record) {

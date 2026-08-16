@@ -5509,14 +5509,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted) return;
     if (enabled) {
       // Show confirmation dialog before enabling full access.
-      _showFullAccessConfirmationDialog().then((confirmed) {
+      unawaited(_showFullAccessConfirmationDialog().then((confirmed) {
         if (confirmed && mounted) {
           setState(() {
             _heFullAccessPermission = true;
             _activeHarnessOrchestrator?.fullAccessPermission = true;
           });
         }
-      });
+      }));
     } else {
       setState(() {
         _heFullAccessPermission = false;
