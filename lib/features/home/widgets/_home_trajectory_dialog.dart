@@ -3308,6 +3308,23 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final accent = record.isError
+        ? colorScheme.error
+        : _trajectoryKindColor(colorScheme, record.kind);
+    final infoAccent = record.kind == _TrajectoryKind.system
+        ? colorScheme.primary
+        : accent;
+    final infoText = record.turn > 0
+        ? _trajectoryText(
+            context,
+            zh: '轮次 ${record.turn} · 步骤 ${record.step}',
+            zhHant: '輪次 ${record.turn} · 步驟 ${record.step}',
+            en: 'Turn ${record.turn} · Step ${record.step}',
+            fr: 'Tour ${record.turn} · Étape ${record.step}',
+            de: 'Durchlauf ${record.turn} · Schritt ${record.step}',
+            ja: 'ターン ${record.turn} · ステップ ${record.step}',
+          )
+        : record.preview;
     final tabs = _trajectoryDetailTabs(context, record);
     final effectiveTab = tabs.any((tab) => tab.$1 == activeTab)
         ? activeTab
@@ -3334,22 +3351,66 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
                   _TrajectoryKindTag(record: record),
                   kOpenHandHGap8,
                   Expanded(
-                    child: Text(
-                      record.turn > 0
-                          ? _trajectoryText(
-                              context,
-                              zh: '轮次 ${record.turn} · 步骤 ${record.step}',
-                              zhHant: '輪次 ${record.turn} · 步驟 ${record.step}',
-                              en: 'Turn ${record.turn} · Step ${record.step}',
-                              fr: 'Tour ${record.turn} · Étape ${record.step}',
-                              de: 'Durchlauf ${record.turn} · Schritt ${record.step}',
-                              ja: 'ターン ${record.turn} · ステップ ${record.step}',
-                            )
-                          : record.preview,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: AnimatedContainer(
+                        duration: tabMotion,
+                        curve: kCardDecorationMotionCurve,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Color.alphaBlend(
+                            infoAccent.withValues(alpha: 0.1),
+                            colorScheme.surfaceContainerHigh,
+                          ),
+                          border: Border.all(
+                            color: infoAccent.withValues(alpha: 0.26),
+                          ),
+                          borderRadius: kOpenHandBorderRadius8,
+                          boxShadow: [
+                            BoxShadow(
+                              color: infoAccent.withValues(alpha: 0.09),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              record.turn > 0
+                                  ? Icons.route_outlined
+                                  : Icons.description_outlined,
+                              size: 14,
+                              color: infoAccent,
+                            ),
+                            kOpenHandHGap5,
+                            Container(
+                              width: 1,
+                              height: 13,
+                              color: infoAccent.withValues(alpha: 0.3),
+                            ),
+                            kOpenHandHGap5,
+                            Flexible(
+                              child: Text(
+                                infoText,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: Color.lerp(
+                                    colorScheme.onSurfaceVariant,
+                                    infoAccent,
+                                    0.38,
+                                  ),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
