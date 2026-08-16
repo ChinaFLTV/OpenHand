@@ -1,6 +1,8 @@
 part of '../openhand_home_page.dart';
 
 const double _kTrajectoryRowHeight = 48;
+const double _kTrajectoryToolbarHeight = 48;
+const double _kTrajectoryToolbarControlHeight = 36;
 const double _kTrajectoryTurnRailWidth = 68;
 const double _kTrajectoryKindWidth = 112;
 const double _kTrajectoryDetailsMinWidth = 320;
@@ -1628,8 +1630,8 @@ class _TrajectoryToolbar extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      height: _kTrajectoryToolbarHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
         border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
@@ -1733,9 +1735,10 @@ class _TrajectoryToolbar extends StatelessWidget {
               const Spacer(),
               SizedBox(
                 width: compact ? 150 : 220,
-                height: 30,
+                height: _kTrajectoryToolbarControlHeight,
                 child: TextField(
                   controller: searchController,
+                  textAlignVertical: TextAlignVertical.center,
                   style: Theme.of(context).textTheme.bodySmall,
                   decoration: InputDecoration(
                     isDense: true,
@@ -1750,12 +1753,12 @@ class _TrajectoryToolbar extends StatelessWidget {
                     ),
                     prefixIcon: Icon(
                       Icons.search_rounded,
-                      size: 17,
+                      size: 18,
                       color: colorScheme.onSurfaceVariant,
                     ),
                     prefixIconConstraints: const BoxConstraints(
-                      minWidth: 32,
-                      maxWidth: 32,
+                      minWidth: _kTrajectoryToolbarControlHeight,
+                      maxWidth: _kTrajectoryToolbarControlHeight,
                     ),
                     suffixIcon: ValueListenableBuilder<TextEditingValue>(
                       valueListenable: searchController,
@@ -1789,14 +1792,14 @@ class _TrajectoryToolbar extends StatelessWidget {
                             ),
                     ),
                     suffixIconConstraints: const BoxConstraints(
-                      minWidth: 30,
-                      maxWidth: 30,
+                      minWidth: 32,
+                      maxWidth: 32,
                     ),
                     filled: true,
                     fillColor: colorScheme.surfaceContainer,
-                    contentPadding: const EdgeInsets.only(right: 3),
+                    contentPadding: const EdgeInsets.only(right: 4),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: kOpenHandPillBorderRadius,
                       borderSide: BorderSide(color: colorScheme.outlineVariant),
                     ),
                   ),
@@ -1841,7 +1844,7 @@ class _TrajectoryToolbarButton extends StatelessWidget {
             onTap: onPressed,
             borderRadius: kOpenHandBorderRadius5,
             child: SizedBox(
-              height: 28,
+              height: _kTrajectoryToolbarControlHeight,
               child: Padding(
                 padding: EdgeInsets.symmetric(
                   horizontal: label == null ? 7 : 8,

@@ -9477,12 +9477,12 @@ button.oh-composer-pill:not(:disabled):hover {
 
 .oh-trajectory-toolbar {
   display: flex;
-  min-height: 42px;
+  min-height: 48px;
   flex: none;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 5px 10px;
+  padding: 6px 10px;
   border-bottom: 1px solid var(--m3-outline-variant);
   background: var(--m3-surface-container-low);
 }
@@ -9496,7 +9496,7 @@ button.oh-composer-pill:not(:disabled):hover {
 
 .oh-trajectory-toolbar-actions button {
   display: inline-flex;
-  height: 30px;
+  height: 36px;
   align-items: center;
   gap: 6px;
   padding: 0 9px;
@@ -9544,14 +9544,14 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-trajectory-search {
   display: flex;
   width: min(280px, 34vw);
-  height: 30px;
+  height: 36px;
   flex: none;
   align-items: center;
   gap: 4px;
   box-sizing: border-box;
-  padding: 0 6px;
+  padding: 0 8px;
   border: 1px solid var(--m3-outline-variant);
-  border-radius: 5px;
+  border-radius: 999px;
   color: var(--m3-on-surface-variant);
   background: var(--m3-surface-container);
   transition: border-color 140ms ease, box-shadow 140ms ease;
@@ -9563,8 +9563,8 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 
 .oh-trajectory-search svg {
-  width: 15px;
-  height: 15px;
+  width: 17px;
+  height: 17px;
   flex: none;
   fill: none;
   stroke: currentColor;
@@ -9582,6 +9582,7 @@ button.oh-composer-pill:not(:disabled):hover {
   color: var(--m3-on-surface);
   background: transparent;
   font-size: 12px;
+  line-height: 20px;
 }
 
 .oh-trajectory-search input::-webkit-search-cancel-button {
