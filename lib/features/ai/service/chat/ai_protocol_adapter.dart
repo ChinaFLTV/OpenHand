@@ -2398,7 +2398,7 @@ const Set<String> _mimoImageMimeTypes = <String>{
   kImagePngMimeType,
   kImageGifMimeType,
   kImageWebpMimeType,
-  'image/bmp',
+  kImageBmpMimeType,
 };
 const Set<String> _mimoAudioExtensions = <String>{
   '.mp3',

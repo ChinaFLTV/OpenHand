@@ -558,7 +558,7 @@ class TomlKnowledgeDocumentParser extends KnowledgeDocumentParser {
     return KnowledgeDocumentParseResult(
       text: _tomlToMarkdown(title, raw),
       kind: 'structured',
-      mimeType: 'application/toml',
+      mimeType: kApplicationTomlMimeType,
       parserId: id,
       title: title,
       metadata: <String, Object?>{

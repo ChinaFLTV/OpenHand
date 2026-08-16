@@ -286,6 +286,12 @@ const String kVideoMatroskaMimeType = 'video/x-matroska';
 /// XML MIME 类型常量。
 const String kApplicationXmlMimeType = 'application/xml';
 
+/// TOML MIME 类型常量。
+const String kApplicationTomlMimeType = 'application/toml';
+
+/// BMP 图片 MIME 类型常量。
+const String kImageBmpMimeType = 'image/bmp';
+
 /// CSV MIME 类型常量。
 const String kTextCsvMimeType = 'text/csv';
 
