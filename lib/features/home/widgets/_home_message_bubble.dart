@@ -5912,15 +5912,15 @@ String _mimeTypeForGeneratedMedia(_GeneratedMediaSource source) {
 String _mimeTypeForExtension(String extension) {
   return switch (extension) {
     '.mp4' || '.m4v' => kVideoMp4MimeType,
-    '.webm' => 'video/webm',
-    '.mov' => 'video/quicktime',
-    '.mkv' => 'video/x-matroska',
+    '.webm' => kVideoWebmMimeType,
+    '.mov' => kVideoQuickTimeMimeType,
+    '.mkv' => kVideoMatroskaMimeType,
     '.mp3' => kAudioMpegMimeType,
-    '.wav' => 'audio/wav',
+    '.wav' => kAudioWavMimeType,
     '.m4a' => 'audio/mp4',
-    '.aac' => 'audio/aac',
-    '.ogg' || '.opus' => 'audio/ogg',
-    '.flac' => 'audio/flac',
+    '.aac' => kAudioAacMimeType,
+    '.ogg' || '.opus' => kAudioOggMimeType,
+    '.flac' => kAudioFlacMimeType,
     _ => kApplicationOctetStreamMimeType,
   };
 }

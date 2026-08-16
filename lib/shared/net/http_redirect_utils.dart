@@ -259,8 +259,29 @@ const String kTextPlainMimeType = 'text/plain';
 /// MP3 / MPEG 音频 MIME 类型常量。
 const String kAudioMpegMimeType = 'audio/mpeg';
 
+/// WAV 音频 MIME 类型常量。
+const String kAudioWavMimeType = 'audio/wav';
+
+/// OGG 音频 MIME 类型常量。
+const String kAudioOggMimeType = 'audio/ogg';
+
+/// FLAC 音频 MIME 类型常量。
+const String kAudioFlacMimeType = 'audio/flac';
+
+/// AAC 音频 MIME 类型常量。
+const String kAudioAacMimeType = 'audio/aac';
+
 /// MP4 视频 MIME 类型常量。
 const String kVideoMp4MimeType = 'video/mp4';
+
+/// WebM 视频 MIME 类型常量。
+const String kVideoWebmMimeType = 'video/webm';
+
+/// QuickTime 视频 MIME 类型常量。
+const String kVideoQuickTimeMimeType = 'video/quicktime';
+
+/// Matroska 视频 MIME 类型常量。
+const String kVideoMatroskaMimeType = 'video/x-matroska';
 
 /// 取 `Content-Type` 的 MIME 部分（丢掉 `; charset=...` 参数），统一转小写；
 /// 缺失时返回空字符串。

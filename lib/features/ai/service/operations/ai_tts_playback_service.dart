@@ -2530,7 +2530,7 @@ class AiTtsPlaybackService {
       case '.mp3':
         return kAudioMpegMimeType;
       case '.wav':
-        return 'audio/wav';
+        return kAudioWavMimeType;
       default:
         return null;
     }

@@ -2244,7 +2244,7 @@ String? _nativeAudioContainerKind(String extension, String? mimeType) {
       extension == '.mp3') {
     return 'mp3';
   }
-  if (mimeType == 'audio/wav' ||
+  if (mimeType == kAudioWavMimeType ||
       mimeType == 'audio/wave' ||
       mimeType == 'audio/x-wav' ||
       extension == '.wav') {
@@ -2753,11 +2753,11 @@ Duration _durationDistance(Duration a, Duration b) {
 
 String _extensionForAudioMime(String? mimeType) {
   return switch (mimeType?.toLowerCase()) {
-    'audio/wav' || 'audio/wave' || 'audio/x-wav' => 'wav',
+    kAudioWavMimeType || 'audio/wave' || 'audio/x-wav' => 'wav',
     'audio/mp4' || 'audio/m4a' || 'audio/x-m4a' => 'm4a',
-    'audio/aac' => 'aac',
-    'audio/ogg' || 'audio/opus' => 'ogg',
-    'audio/flac' || 'audio/x-flac' => 'flac',
+    kAudioAacMimeType => 'aac',
+    kAudioOggMimeType || 'audio/opus' => 'ogg',
+    kAudioFlacMimeType || 'audio/x-flac' => 'flac',
     _ => 'mp3',
   };
 }

@@ -46,17 +46,17 @@ import 'openhand_video_player_web_styles.dart';
 enum MediaPreviewKind { image, audio, video }
 
 const Map<String, String> _mediaExtensionsByMime = <String, String>{
-  'audio/aac': 'aac',
-  'audio/flac': 'flac',
+  kAudioAacMimeType: 'aac',
+  kAudioFlacMimeType: 'flac',
   'audio/mp4': 'm4a',
   kAudioMpegMimeType: 'mp3',
-  'audio/ogg': 'ogg',
-  'audio/wav': 'wav',
+  kAudioOggMimeType: 'ogg',
+  kAudioWavMimeType: 'wav',
   'audio/x-wav': 'wav',
   kVideoMp4MimeType: 'mp4',
-  'video/quicktime': 'mov',
-  'video/webm': 'webm',
-  'video/x-matroska': 'mkv',
+  kVideoQuickTimeMimeType: 'mov',
+  kVideoWebmMimeType: 'webm',
+  kVideoMatroskaMimeType: 'mkv',
 };
 final Set<String> _activeMediaPreviewTempPaths = <String>{};
 

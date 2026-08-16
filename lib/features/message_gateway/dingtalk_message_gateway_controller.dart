@@ -688,17 +688,17 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     String fallback = kApplicationOctetStreamMimeType,
   }) {
     return switch (p.extension(path).toLowerCase()) {
-      '.png' => 'image/png',
-      '.jpg' || '.jpeg' => 'image/jpeg',
-      '.webp' => 'image/webp',
-      '.gif' => 'image/gif',
-      '.mp4' => 'video/mp4',
-      '.mov' => 'video/quicktime',
-      '.webm' => 'video/webm',
-      '.wav' => 'audio/wav',
+      '.png' => kImagePngMimeType,
+      '.jpg' || '.jpeg' => kImageJpegMimeType,
+      '.webp' => kImageWebpMimeType,
+      '.gif' => kImageGifMimeType,
+      '.mp4' => kVideoMp4MimeType,
+      '.mov' => kVideoQuickTimeMimeType,
+      '.webm' => kVideoWebmMimeType,
+      '.wav' => kAudioWavMimeType,
       '.m4a' => 'audio/mp4',
-      '.ogg' => 'audio/ogg',
-      '.aac' => 'audio/aac',
+      '.ogg' => kAudioOggMimeType,
+      '.aac' => kAudioAacMimeType,
       _ => fallback,
     };
   }

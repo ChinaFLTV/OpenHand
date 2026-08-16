@@ -4542,10 +4542,10 @@ Future<String> _markdownFromOpenAiMediaPayload(
 String _audioFormatForMimeType(String mimeType) {
   return switch (lowercaseStringFromValue(mimeType)) {
     kAudioMpegMimeType || 'audio/mp3' => 'mp3',
-    'audio/wav' || 'audio/wave' || 'audio/x-wav' => 'wav',
-    'audio/flac' || 'audio/x-flac' => 'flac',
+    kAudioWavMimeType || 'audio/wave' || 'audio/x-wav' => 'wav',
+    kAudioFlacMimeType || 'audio/x-flac' => 'flac',
     'audio/mp4' || 'audio/m4a' || 'audio/x-m4a' => 'm4a',
-    'audio/ogg' || 'audio/opus' => 'ogg',
+    kAudioOggMimeType || 'audio/opus' => 'ogg',
     _ => 'wav',
   };
 }
@@ -4589,11 +4589,11 @@ class AiInlineMedia {
       kImageWebpMimeType => '.webp',
       kImageSvgXmlMimeType => '.svg',
       'audio/mp3' || kAudioMpegMimeType => '.mp3',
-      'audio/wav' || 'audio/x-wav' => '.wav',
-      'audio/ogg' => '.ogg',
-      'audio/aac' => '.aac',
+      kAudioWavMimeType || 'audio/x-wav' => '.wav',
+      kAudioOggMimeType => '.ogg',
+      kAudioAacMimeType => '.aac',
       kVideoMp4MimeType => '.mp4',
-      'video/webm' => '.webm',
+      kVideoWebmMimeType => '.webm',
       _ => '',
     };
   }
