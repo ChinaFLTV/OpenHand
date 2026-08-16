@@ -2151,6 +2151,53 @@ class AiSessionController extends ChangeNotifier {
     return task;
   }
 
+  /// 按需读取单条消息的完整遥测元数据，不改写当前会话快照。
+  Future<Map<String, Object?>> loadFullSessionMessageMetadata(
+    String sessionId,
+    String messageId,
+  ) async {
+    final normalizedSessionId = sessionId.trim();
+    final normalizedMessageId = messageId.trim();
+    if (normalizedSessionId.isEmpty || normalizedMessageId.isEmpty) {
+      return const <String, Object?>{};
+    }
+    final liveSession = _sessionById(normalizedSessionId);
+    if (liveSession == null) return const <String, Object?>{};
+    final liveMessage = _messageById(liveSession, normalizedMessageId);
+    if (liveMessage == null) return const <String, Object?>{};
+    if (!aiSessionMessageHasDeferredTelemetryMetadata(liveMessage.metadata)) {
+      return Map<String, Object?>.unmodifiable(liveMessage.metadata);
+    }
+    try {
+      final stored = await _runSessionHydrationRead(
+        () => _store.loadFullMessageMetadata(normalizedSessionId, <String>[
+          normalizedMessageId,
+        ]),
+      );
+      if (_isDisposed || _deletedSessionIds.contains(normalizedSessionId)) {
+        return const <String, Object?>{};
+      }
+      final fullMetadata = stored[normalizedMessageId];
+      if (fullMetadata == null) {
+        return aiSessionMessageMetadataWithoutDeferredTelemetryMarker(
+          liveMessage.metadata,
+        );
+      }
+      return Map<String, Object?>.unmodifiable(<String, Object?>{
+        for (final entry in liveMessage.metadata.entries)
+          if (entry.key != aiSessionMessageDeferredTelemetryMetadataKey)
+            entry.key: entry.value,
+        for (final key in aiSessionMessageDeferredTelemetryMetadataKeys)
+          if (fullMetadata.containsKey(key)) key: fullMetadata[key],
+      });
+    } catch (error, stack) {
+      silentLog('ai_session_controller', '读取完整消息遥测', error, stack);
+      return aiSessionMessageMetadataWithoutDeferredTelemetryMarker(
+        liveMessage.metadata,
+      );
+    }
+  }
+
   Future<AiSessionMessage?> _loadFullSessionMessageContent(
     String sessionId,
     String messageId, {

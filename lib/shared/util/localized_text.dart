@@ -1444,6 +1444,18 @@ String openHandGenerateAiTitleLabel(BuildContext context) {
   );
 }
 
+String openHandTrajectoryLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '轨迹',
+    zhHant: '軌跡',
+    en: 'Trajectory',
+    fr: 'Trajectoire',
+    de: 'Verlauf',
+    ja: '軌跡',
+  );
+}
+
 String openHandImportLabel(BuildContext context) {
   return openHandLocalizedText(
     context,

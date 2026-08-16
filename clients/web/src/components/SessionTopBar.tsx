@@ -63,6 +63,7 @@ type TopBarIconName = SessionToolbarIconName
   | 'check'
   | 'rename'
   | 'export'
+  | 'trajectory'
   | 'fullscreen'
   | 'fullscreenExit'
   | 'copy'
@@ -109,6 +110,8 @@ function TopBarIcon({ name, size = 16 }: { name: TopBarIconName; size?: number }
       return <svg {...common}><path d="M4 20h4.4L19 9.4a2.1 2.1 0 0 0-3-3L5.4 17H4z" /><path d="m14.8 7.6 1.6 1.6" /></svg>;
     case 'export':
       return <svg {...common}><path d="M12 4v10" /><path d="m8 10 4 4 4-4" /><path d="M5 19h14" /></svg>;
+    case 'trajectory':
+      return <svg {...common}><path d="M4 7h4M11 7h9M4 12h8M15 12h5M4 17h3M10 17h10" /><circle cx="9.5" cy="7" r="1.5" /><circle cx="13.5" cy="12" r="1.5" /><circle cx="8.5" cy="17" r="1.5" /></svg>;
     case 'fullscreen':
       return <BrowserFullscreenIcon active={false} size={size} className="oh-topbar-icon-svg" />;
     case 'fullscreenExit':
@@ -132,6 +135,7 @@ interface SessionTopBarProps {
   onDelete?: () => void;
   onExport?: () => void;
   onGenerateTitle?: () => void;
+  onOpenTrajectory?: () => void;
   onToggleFullscreen?: () => void;
   fullscreenActive?: boolean;
   sessionId?: string;
@@ -150,6 +154,7 @@ export function SessionTopBar(props: SessionTopBarProps) {
     onDelete,
     onExport,
     onGenerateTitle,
+    onOpenTrajectory,
     onToggleFullscreen,
     fullscreenActive = false,
     sessionId,
@@ -386,6 +391,11 @@ export function SessionTopBar(props: SessionTopBarProps) {
                   {onGenerateTitle ? (
                     <MenuItem icon="rename" onClick={() => { requestCloseMoreMenu(); onGenerateTitle(); }}>
                       {t('topbar.generateTitle', '获取 AI 摘要标题')}
+                    </MenuItem>
+                  ) : null}
+                  {onOpenTrajectory ? (
+                    <MenuItem icon="trajectory" onClick={() => { requestCloseMoreMenu(); onOpenTrajectory(); }}>
+                      {t('topbar.trajectory', '轨迹')}
                     </MenuItem>
                   ) : null}
                   {onToggleFullscreen ? (

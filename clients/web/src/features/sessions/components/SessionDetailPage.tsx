@@ -179,6 +179,7 @@ import { listSkills, type SkillSummary } from '../../../api/toolbox';
 import { ImageEditorDialog, type ImageEditorInput, type ImageEditorResult } from '../../../components/ImageEditorDialog';
 import { CreationOptionsDialog, type CreationOptions } from '../../../components/CreationOptionsDialog';
 import { TitleSummaryDialog } from '../../../components/TitleSummaryDialog';
+import { TrajectoryDialog } from '../../../components/TrajectoryDialog';
 import { MediaGeneratingPlaceholderTransition, type MediaGenerationMode } from '../../../components/MediaGeneratingPlaceholder';
 import {
   MESSAGE_LIST_DEFAULT_INITIAL_PAGE_SIZE,
@@ -3669,6 +3670,7 @@ export function SessionDetailPage() {
   const [showCreationOptions, setShowCreationOptions] = useState<'image' | 'video' | 'audio' | null>(null);
   const [creationOptions, setCreationOptions] = useState<CreationOptions>({});
   const [showTitleSummary, setShowTitleSummary] = useState(false);
+  const [showTrajectory, setShowTrajectory] = useState(false);
   const [permissionSaving, setPermissionSaving] = useState(false);
   const [pendingFullAccess, setPendingFullAccess] = useState<boolean | null>(null);
   const [pendingWriteApproval, setPendingWriteApproval] = useState<PendingWriteApproval | null>(null);
@@ -7684,6 +7686,7 @@ export function SessionDetailPage() {
             }
           }}
           onGenerateTitle={() => setShowTitleSummary(true)}
+          onOpenTrajectory={() => setShowTrajectory(true)}
           onToggleFullscreen={() => void browserFullscreen.toggle()}
           fullscreenActive={browserFullscreen.active}
           sessionId={sessionId}
@@ -8578,6 +8581,18 @@ export function SessionDetailPage() {
           onTitleUpdated={(title) => {
             setDetail((prev) => (prev ? { ...prev, session: { ...prev.session, title } } : prev));
           }}
+        />
+      ) : null}
+      {showTrajectory && session ? (
+        <TrajectoryDialog
+          sessionId={sessionId}
+          sessionTitle={session.title || t('sessions.untitled', '未命名会话')}
+          sessionCreatedAt={session.created_at}
+          messages={sortedMessages}
+          hasOlder={remainingOlder > 0}
+          loadingOlder={loadingOlder || olderRenderSettling}
+          onLoadOlder={loadOlder}
+          onClose={() => setShowTrajectory(false)}
         />
       ) : null}
       {/* 服务端会话已被删除时的友好提示弹窗。返回前先 ping 一次会话列表 API

@@ -1,0 +1,1413 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import type { JSX } from 'preact';
+import {
+  DEFERRED_MESSAGE_TELEMETRY_METADATA_KEY,
+  getSessionMessage,
+  type SessionMessage,
+} from '../api/sessions';
+import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import { t } from '../i18n';
+import { ignoreError } from '../shared/util/errors';
+import { Markdown } from './Markdown';
+import {
+  DIALOG_OVERLAY_CENTER_FLUSH_CLASS,
+  DIALOG_OVERLAY_FOCUSED_Z_INDEX,
+  DialogFrame,
+  createStandardDialogFrameAppearance,
+} from './DialogFrame';
+
+type TrajectoryKind =
+  | 'system'
+  | 'user'
+  | 'context'
+  | 'compacted'
+  | 'assistant'
+  | 'tool'
+  | 'subtool';
+
+interface TrajectoryUsage {
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
+  reasoningTokens?: number;
+}
+
+interface TrajectoryRecord {
+  id: string;
+  index: number;
+  turn: number;
+  step: number;
+  requestNumber: number;
+  kind: TrajectoryKind;
+  preview: string;
+  input: string;
+  output: string;
+  thinking: string;
+  startedAt: number | null;
+  durationMs: number | null;
+  running: boolean;
+  error: boolean;
+  usage: TrajectoryUsage | null;
+  sourceMessageId: string | null;
+  resultMessageId: string | null;
+  callId: string | null;
+  toolName: string | null;
+  metadata: Record<string, unknown>;
+}
+
+interface TrajectorySnapshot {
+  records: TrajectoryRecord[];
+  collapsibleTurns: Set<number>;
+  callCounts: Map<string, number>;
+  callAnchors: Map<string, string>;
+}
+
+interface TimelineSpan {
+  record: TrajectoryRecord;
+  start: number;
+  end: number;
+}
+
+interface TimelineRange {
+  start: number;
+  end: number;
+}
+
+interface TrajectoryDialogProps {
+  sessionId: string;
+  sessionTitle: string;
+  sessionCreatedAt?: string;
+  messages: readonly SessionMessage[];
+  hasOlder: boolean;
+  loadingOlder?: boolean;
+  onLoadOlder: () => Promise<void>;
+  onClose: () => void;
+}
+
+const TOOL_RESULT_KINDS = new Set(['tool', 'mcp', 'skill', 'hook']);
+const TOOL_ERROR_STATES = new Set([
+  'failed',
+  'cancelled',
+  'denied',
+  'rejected',
+  'timed_out',
+  'invalid_arguments',
+]);
+const TELEMETRY_KEYS = new Set([
+  'request_payload',
+  'response_raw',
+  'composed_prompt_text',
+  'request_started_at',
+  'first_token_at',
+  'duration_ms',
+]);
+const MIN_TIMELINE_VIEW = 0.04;
+const TIMELINE_DRAG_THRESHOLD_PX = 3;
+const DETAIL_DEFAULT_WIDTH = 390;
+const DETAIL_MIN_WIDTH = 320;
+const DETAIL_MAX_WIDTH = 560;
+
+function recordOf(value: unknown): Record<string, unknown> {
+  if (value == null || typeof value !== 'object' || Array.isArray(value)) return {};
+  return value as Record<string, unknown>;
+}
+
+function textOf(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : value == null ? '' : String(value).trim();
+}
+
+function finiteNumber(value: unknown): number | null {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function nonNegativeInteger(value: unknown): number | undefined {
+  const parsed = finiteNumber(value);
+  return parsed == null || parsed < 0 ? undefined : Math.round(parsed);
+}
+
+function firstNumber(metadata: Record<string, unknown>, keys: readonly string[]): number | null {
+  for (const key of keys) {
+    const value = finiteNumber(metadata[key]);
+    if (value != null && value >= 0) return value;
+  }
+  return null;
+}
+
+function timestampOf(value: unknown): number | null {
+  if (value == null) return null;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value < 10_000_000_000 ? value * 1000 : value;
+  }
+  const parsed = Date.parse(String(value));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function firstTimestamp(metadata: Record<string, unknown>, keys: readonly string[]): number | null {
+  for (const key of keys) {
+    const parsed = timestampOf(metadata[key]);
+    if (parsed != null) return parsed;
+  }
+  return null;
+}
+
+function collapseWhitespace(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function clipped(value: string, limit = 520): string {
+  const normalized = collapseWhitespace(value);
+  return normalized.length <= limit ? normalized : `${normalized.slice(0, limit - 1)}…`;
+}
+
+function usageOf(message: SessionMessage): TrajectoryUsage | null {
+  const usage = message.usage;
+  if (!usage) return null;
+  const normalized: TrajectoryUsage = {
+    promptTokens: nonNegativeInteger(usage.prompt_tokens),
+    completionTokens: nonNegativeInteger(usage.completion_tokens),
+    totalTokens: nonNegativeInteger(usage.total_tokens),
+    cacheReadTokens: nonNegativeInteger(usage.cache_read_tokens),
+    cacheCreationTokens: nonNegativeInteger(usage.cache_creation_tokens),
+    reasoningTokens: nonNegativeInteger(usage.reasoning_tokens),
+  };
+  return Object.values(normalized).some((value) => value != null) ? normalized : null;
+}
+
+function messageTiming(message: SessionMessage, kind: TrajectoryKind): [number | null, number | null] {
+  const metadata = recordOf(message.metadata);
+  const startKeys = kind === 'tool' || kind === 'subtool'
+    ? ['tool_execution_started_at', 'started_at']
+    : kind === 'assistant' && message.kind === 'reasoning'
+      ? ['reasoning_started_at', 'started_at', 'request_started_at']
+      : kind === 'assistant'
+        ? ['request_started_at', 'started_at']
+        : ['started_at'];
+  const endKeys = kind === 'tool' || kind === 'subtool'
+    ? ['tool_execution_finished_at', 'ended_at']
+    : kind === 'assistant' && message.kind === 'reasoning'
+      ? ['reasoning_ended_at', 'ended_at']
+      : ['ended_at'];
+  const durationKeys = kind === 'tool' || kind === 'subtool'
+    ? ['tool_execution_elapsed_ms', 'tool_execution_duration_ms', 'duration_ms']
+    : kind === 'assistant' && message.kind === 'reasoning'
+      ? ['reasoning_elapsed_ms', 'duration_ms']
+      : ['duration_ms'];
+  const startedAt = firstTimestamp(metadata, startKeys) ?? timestampOf(message.created_at);
+  const endedAt = firstTimestamp(metadata, endKeys);
+  const recordedDuration = firstNumber(metadata, durationKeys);
+  const duration = recordedDuration ?? (
+    startedAt != null && endedAt != null ? Math.max(0, endedAt - startedAt) : null
+  );
+  return [startedAt, duration];
+}
+
+function toolOutput(metadata: Record<string, unknown>): string {
+  for (const key of [
+    'tool_execution_result',
+    'result_text',
+    'tool_execution_stdout',
+    'tool_execution_stderr',
+  ]) {
+    const value = textOf(metadata[key]);
+    if (value) return value;
+  }
+  return '';
+}
+
+function toolPreview(name: string, input: string, output: string): string {
+  const label = name || 'tool';
+  const inputPreview = clipped(input, 260);
+  const outputPreview = clipped(output, 260);
+  if (!inputPreview && !outputPreview) return label;
+  if (!outputPreview) return `${label}  ${inputPreview}`;
+  if (!inputPreview) return `${label}  →  ${outputPreview}`;
+  return `${label}  ${inputPreview}  →  ${outputPreview}`;
+}
+
+function messageRecord(
+  message: SessionMessage,
+  index: number,
+  turn: number,
+  step: number,
+  requestNumber: number,
+  kind: TrajectoryKind,
+): TrajectoryRecord {
+  const metadata = recordOf(message.metadata);
+  const [startedAt, durationMs] = messageTiming(message, kind);
+  const content = (message.content ?? '').trim();
+  return {
+    id: `message-${message.id}`,
+    index,
+    turn,
+    step,
+    requestNumber,
+    kind,
+    preview: clipped(content) || (message.kind === 'file_mutation_summary' ? 'File mutation summary' : ''),
+    input: kind === 'user' || kind === 'context' ? content : '',
+    output: kind === 'assistant' || kind === 'compacted' ? content : '',
+    thinking: message.kind === 'reasoning' ? content : '',
+    startedAt,
+    durationMs,
+    running: metadata.streaming === true || metadata.telemetry_in_flight === true,
+    error: textOf(metadata.error) !== '',
+    usage: usageOf(message),
+    sourceMessageId: message.id,
+    resultMessageId: null,
+    callId: null,
+    toolName: null,
+    metadata,
+  };
+}
+
+function toolRecord(
+  message: SessionMessage,
+  result: SessionMessage | undefined,
+  index: number,
+  turn: number,
+  step: number,
+  requestNumber: number,
+): TrajectoryRecord {
+  const metadata = recordOf(message.metadata);
+  const callId = textOf(metadata.tool_call_id);
+  const toolName = textOf(metadata.tool_name ?? metadata.name);
+  const input = textOf(metadata.tool_arguments ?? metadata.arguments ?? message.content);
+  const output = (result?.content ?? toolOutput(metadata)).trim();
+  const status = textOf(metadata.tool_execution_status).toLowerCase();
+  const [startedAt, durationMs] = messageTiming(message, 'tool');
+  return {
+    id: callId ? `tool-${callId}` : `message-${message.id}`,
+    index,
+    turn,
+    step,
+    requestNumber,
+    kind: 'tool',
+    preview: toolPreview(toolName, input, output),
+    input,
+    output,
+    thinking: '',
+    startedAt,
+    durationMs,
+    running: status === 'running' || metadata.tool_arguments_streaming === true || (!result && !output && !status),
+    error: TOOL_ERROR_STATES.has(status) || textOf(result?.metadata?.error) !== '',
+    usage: usageOf(message),
+    sourceMessageId: message.id,
+    resultMessageId: result?.id ?? null,
+    callId: callId || null,
+    toolName: toolName || null,
+    metadata,
+  };
+}
+
+function standaloneToolRecord(
+  message: SessionMessage,
+  index: number,
+  turn: number,
+  step: number,
+  requestNumber: number,
+): TrajectoryRecord {
+  const metadata = recordOf(message.metadata);
+  const callId = textOf(metadata.tool_call_id);
+  const toolName = textOf(metadata.tool_name) || message.kind;
+  const status = textOf(metadata.tool_execution_status).toLowerCase();
+  return {
+    id: callId ? `tool-result-${callId}` : `result-${message.id}`,
+    index,
+    turn,
+    step,
+    requestNumber,
+    kind: 'tool',
+    preview: toolPreview(toolName, '', message.content),
+    input: '',
+    output: message.content,
+    thinking: '',
+    startedAt: timestampOf(message.created_at),
+    durationMs: firstNumber(metadata, [
+      'tool_execution_elapsed_ms',
+      'tool_execution_duration_ms',
+      'duration_ms',
+    ]),
+    running: status === 'running',
+    error: TOOL_ERROR_STATES.has(status),
+    usage: usageOf(message),
+    sourceMessageId: message.id,
+    resultMessageId: null,
+    callId: callId || null,
+    toolName: toolName || null,
+    metadata,
+  };
+}
+
+function hasRequestTelemetry(message: SessionMessage): boolean {
+  const metadata = recordOf(message.metadata);
+  if (metadata[DEFERRED_MESSAGE_TELEMETRY_METADATA_KEY] === true) return true;
+  return Object.keys(metadata).some((key) => TELEMETRY_KEYS.has(key));
+}
+
+function buildSnapshot(messages: readonly SessionMessage[], sessionCreatedAt?: string): TrajectorySnapshot {
+  const ordered = [...messages]
+    .filter((message) => recordOf(message.metadata).deleted !== true)
+    .sort((left, right) => (timestampOf(left.created_at) ?? 0) - (timestampOf(right.created_at) ?? 0));
+  const resultByCallId = new Map<string, SessionMessage>();
+  for (const message of ordered) {
+    if (!TOOL_RESULT_KINDS.has(message.kind)) continue;
+    const callId = textOf(message.metadata?.tool_call_id);
+    if (callId) resultByCallId.set(callId, message);
+  }
+  const records: TrajectoryRecord[] = [];
+  const pairedResults = new Set<string>();
+  const firstTelemetry = ordered.find(hasRequestTelemetry) ?? ordered[0];
+  records.push({
+    id: 'system-initial',
+    index: 1,
+    turn: 0,
+    step: 0,
+    requestNumber: 0,
+    kind: 'system',
+    preview: 'Initial System Prompt',
+    input: '',
+    output: '',
+    thinking: '',
+    startedAt: timestampOf(sessionCreatedAt) ?? timestampOf(firstTelemetry?.created_at),
+    durationMs: null,
+    running: false,
+    error: false,
+    usage: null,
+    sourceMessageId: firstTelemetry?.id ?? null,
+    resultMessageId: null,
+    callId: null,
+    toolName: null,
+    metadata: recordOf(firstTelemetry?.metadata),
+  });
+
+  let turn = 0;
+  let step = 0;
+  let requestNumber = 0;
+  let nextAssistantStartsStep = true;
+  for (const message of ordered) {
+    if (pairedResults.has(message.id)) continue;
+    const metadata = recordOf(message.metadata);
+    const callId = textOf(metadata.tool_call_id);
+    switch (message.kind) {
+      case 'user':
+        if (metadata.goal_evaluation === true || metadata.is_goal_evaluation_message === true) {
+          records.push(messageRecord(message, records.length + 1, Math.max(1, turn), step, requestNumber, 'context'));
+          break;
+        }
+        turn += 1;
+        step = 0;
+        nextAssistantStartsStep = true;
+        records.push(messageRecord(message, records.length + 1, turn, 0, requestNumber, 'user'));
+        break;
+      case 'reasoning':
+      case 'assistant':
+        if (turn === 0) turn = 1;
+        if (nextAssistantStartsStep || step === 0) {
+          step += 1;
+          requestNumber += 1;
+          nextAssistantStartsStep = false;
+        }
+        records.push(messageRecord(message, records.length + 1, turn, step, requestNumber, 'assistant'));
+        break;
+      case 'tool_call': {
+        if (turn === 0) turn = 1;
+        if (step === 0) {
+          step = 1;
+          requestNumber += 1;
+        }
+        const result = callId ? resultByCallId.get(callId) : undefined;
+        if (result) pairedResults.add(result.id);
+        records.push(toolRecord(message, result, records.length + 1, turn, step, requestNumber));
+        nextAssistantStartsStep = true;
+        break;
+      }
+      case 'tool':
+      case 'mcp':
+      case 'skill':
+      case 'hook':
+        if (turn === 0) turn = 1;
+        records.push(standaloneToolRecord(message, records.length + 1, turn, Math.max(1, step), requestNumber));
+        nextAssistantStartsStep = true;
+        break;
+      case 'compression_point':
+        records.push(messageRecord(message, records.length + 1, turn, step, requestNumber, 'compacted'));
+        break;
+      case 'status':
+      case 'self_learning':
+      case 'file_mutation_summary':
+        if (clipped(message.content)) {
+          records.push(messageRecord(message, records.length + 1, Math.max(1, turn), step, requestNumber, 'context'));
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  const recordsPerTurn = new Map<number, number>();
+  for (const record of records) {
+    if (record.turn > 0) recordsPerTurn.set(record.turn, (recordsPerTurn.get(record.turn) ?? 0) + 1);
+  }
+  const collapsibleTurns = new Set(
+    [...recordsPerTurn].filter(([, count]) => count > 1).map(([turnId]) => turnId),
+  );
+  const callCounts = new Map<string, number>();
+  const callAnchors = new Map<string, string>();
+  let anchor: TrajectoryRecord | null = null;
+  for (const record of records) {
+    if (record.kind === 'assistant') {
+      anchor = record;
+      continue;
+    }
+    if (record.kind === 'tool' || record.kind === 'subtool') {
+      if (anchor && anchor.turn === record.turn && anchor.step === record.step) {
+        callAnchors.set(record.id, anchor.id);
+        callCounts.set(anchor.id, (callCounts.get(anchor.id) ?? 0) + 1);
+      }
+      continue;
+    }
+    if (record.kind === 'user' || record.turn !== anchor?.turn || record.step !== anchor?.step) anchor = null;
+  }
+  return { records, collapsibleTurns, callCounts, callAnchors };
+}
+
+function kindLabel(kind: TrajectoryKind): string {
+  switch (kind) {
+    case 'system': return 'SYSTEM';
+    case 'user': return 'USER';
+    case 'context': return 'CONTEXT';
+    case 'compacted': return 'COMPACTED';
+    case 'assistant': return 'ASSISTANT';
+    case 'tool': return 'TOOL';
+    case 'subtool': return 'SUBTOOL';
+  }
+}
+
+function laneOf(kind: TrajectoryKind): number {
+  if (kind === 'system' || kind === 'user' || kind === 'context') return 0;
+  if (kind === 'assistant' || kind === 'compacted') return 1;
+  return 2;
+}
+
+function projectTimeline(records: readonly TrajectoryRecord[], actualDuration: boolean): TimelineSpan[] {
+  if (!records.length) return [];
+  const weights = records.map((record) => actualDuration
+    ? Math.max(20, record.durationMs ?? 20)
+    : 1);
+  const total = weights.reduce((sum, weight) => sum + weight, 0);
+  let cursor = 0;
+  return records.map((record, index) => {
+    const start = cursor / total;
+    cursor += weights[index] ?? 1;
+    return { record, start, end: cursor / total };
+  });
+}
+
+function formatDuration(milliseconds: number | null): string {
+  if (milliseconds == null) return '—';
+  if (milliseconds < 1000) return `${Math.round(milliseconds)} ms`;
+  const seconds = milliseconds / 1000;
+  return `${seconds.toFixed(seconds < 10 ? 2 : 1)} s`;
+}
+
+function formatTime(timestamp: number | null): string {
+  if (timestamp == null) return t('trajectory.notRecorded', '未记录');
+  return new Date(timestamp).toLocaleString(undefined, {
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    fractionalSecondDigits: 3,
+  });
+}
+
+function prettyValue(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+    try {
+      return JSON.stringify(JSON.parse(trimmed), null, 2);
+    } catch {
+      return trimmed;
+    }
+  }
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function requestPayload(metadata: Record<string, unknown>): Record<string, unknown> {
+  const raw = metadata.request_payload;
+  if (typeof raw === 'string') {
+    try {
+      return recordOf(JSON.parse(raw));
+    } catch {
+      return {};
+    }
+  }
+  return recordOf(raw);
+}
+
+function contentText(content: unknown): string {
+  if (typeof content === 'string') return content.trim();
+  if (!Array.isArray(content)) return textOf(content);
+  return content.map((item) => {
+    if (typeof item === 'string') return item.trim();
+    const block = recordOf(item);
+    return textOf(block.text ?? block.content);
+  }).filter(Boolean).join('\n');
+}
+
+function systemPrompt(metadata: Record<string, unknown>): string {
+  const messages = requestPayload(metadata).messages;
+  if (Array.isArray(messages)) {
+    const parts = messages.flatMap((item) => {
+      const message = recordOf(item);
+      return textOf(message.role).toLowerCase() === 'system' ? [contentText(message.content)] : [];
+    }).filter(Boolean);
+    if (parts.length) return parts.join('\n\n');
+  }
+  return textOf(metadata.composed_prompt_text);
+}
+
+function toolCatalog(metadata: Record<string, unknown>): string {
+  return prettyValue(requestPayload(metadata).tools);
+}
+
+function requestOptions(metadata: Record<string, unknown>): string {
+  const payload = { ...requestPayload(metadata) };
+  delete payload.messages;
+  delete payload.tools;
+  return Object.keys(payload).length ? prettyValue(payload) : '';
+}
+
+function schemaText(metadata: Record<string, unknown>): string {
+  for (const key of ['tool_schema', 'input_schema', 'parameters_schema', 'schema']) {
+    if (metadata[key] != null) return prettyValue(metadata[key]);
+  }
+  return '';
+}
+
+function rawRecordText(record: TrajectoryRecord): string {
+  if (record.kind === 'tool' || record.kind === 'subtool') {
+    return [record.input, record.output].filter((value) => value.trim()).join('\n\n');
+  }
+  return record.thinking || record.output || record.input;
+}
+
+function searchableText(record: TrajectoryRecord): string {
+  return [
+    record.preview,
+    record.input,
+    record.output,
+    record.thinking,
+    record.toolName ?? '',
+    record.callId ?? '',
+  ].join('\n').toLowerCase();
+}
+
+function recordTabs(record: TrajectoryRecord): Array<[string, string]> {
+  switch (record.kind) {
+    case 'system':
+      return [
+        ['system-prompt', t('trajectory.tab.systemPrompt', 'System Prompt')],
+        ['tools', t('trajectory.tab.tools', 'Tools')],
+      ];
+    case 'user':
+    case 'context':
+      return [
+        ['summary', t('trajectory.tab.summary', 'Summary')],
+        ['rendered', t('trajectory.tab.rendered', 'Rendered')],
+        ['raw', t('trajectory.tab.raw', 'Raw')],
+        ['source', t('trajectory.tab.source', 'Source')],
+        ['timing', t('trajectory.tab.timing', 'Timing')],
+      ];
+    case 'assistant':
+      return [
+        ['summary', t('trajectory.tab.summary', 'Summary')],
+        ['rendered', t('trajectory.tab.rendered', 'Rendered')],
+        ['raw', t('trajectory.tab.raw', 'Raw')],
+        ['options', t('trajectory.tab.options', 'Options')],
+        ['usage', t('trajectory.tab.usage', 'Usage')],
+        ['timing', t('trajectory.tab.timing', 'Timing')],
+      ];
+    case 'compacted':
+      return [
+        ['summary', t('trajectory.tab.summary', 'Summary')],
+        ['raw', t('trajectory.tab.rawOutput', 'Raw Output')],
+      ];
+    case 'tool':
+    case 'subtool':
+      return [
+        ['summary', t('trajectory.tab.summary', 'Summary')],
+        ['input', t('trajectory.tab.input', 'Input')],
+        ['output', t('trajectory.tab.output', 'Output')],
+        ['schema', t('trajectory.tab.schema', 'Schema')],
+        ['timing', t('trajectory.tab.timing', 'Timing')],
+      ];
+  }
+}
+
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m16.5 16.5 4 4" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m6 6 12 12M18 6 6 18" />
+    </svg>
+  );
+}
+
+function TrajectoryTimeline({
+  spans,
+  range,
+  selectedId,
+  searchMatches,
+  hasOlder,
+  loadingOlder,
+  onRangeChange,
+  onSelect,
+  onLoadOlder,
+}: {
+  spans: readonly TimelineSpan[];
+  range: TimelineRange | null;
+  selectedId: string | null;
+  searchMatches: ReadonlySet<string> | null;
+  hasOlder: boolean;
+  loadingOlder: boolean;
+  onRangeChange: (range: TimelineRange | null) => void;
+  onSelect: (record: TrajectoryRecord) => void;
+  onLoadOlder: () => Promise<void>;
+}) {
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const [viewport, setViewport] = useState<TimelineRange>({ start: 0, end: 1 });
+  const [hover, setHover] = useState<number | null>(null);
+  const dragRef = useRef<{
+    button: number;
+    pointerId: number;
+    startX: number;
+    anchor: number;
+    viewport: TimelineRange;
+  } | null>(null);
+  const suppressContextResetRef = useRef(false);
+
+  useEffect(() => {
+    setViewport({ start: 0, end: 1 });
+    onRangeChange(null);
+  }, [spans.length]);
+
+  const fractionAt = useCallback((clientX: number): number => {
+    const rect = trackRef.current?.getBoundingClientRect();
+    if (!rect || rect.width <= 0) return viewport.start;
+    const local = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    return viewport.start + local * (viewport.end - viewport.start);
+  }, [viewport]);
+
+  const recordAt = useCallback((fraction: number): TrajectoryRecord | null => {
+    const exact = spans.find((span) => fraction >= span.start && fraction <= span.end);
+    if (exact) return exact.record;
+    let nearest: TimelineSpan | null = null;
+    let distance = Number.POSITIVE_INFINITY;
+    for (const span of spans) {
+      const center = (span.start + span.end) / 2;
+      const nextDistance = Math.abs(center - fraction);
+      if (nextDistance < distance) {
+        nearest = span;
+        distance = nextDistance;
+      }
+    }
+    return nearest?.record ?? null;
+  }, [spans]);
+
+  const visibleWidth = viewport.end - viewport.start;
+  const positionStyle = (start: number, end: number): JSX.CSSProperties => ({
+    left: `${(start - viewport.start) / visibleWidth * 100}%`,
+    width: `${Math.max(0.18, (end - start) / visibleWidth * 100)}%`,
+  });
+  const visibleRange = range == null ? null : {
+    start: Math.max(viewport.start, range.start),
+    end: Math.min(viewport.end, range.end),
+  };
+
+  return (
+    <section class="oh-trajectory-timeline" aria-label={t('trajectory.timeline', '轨迹时间线')}>
+      <div class="oh-trajectory-lane-labels" aria-hidden="true">
+        <span>Input</span>
+        <span>Model</span>
+        <span>Tools</span>
+      </div>
+      <div
+        ref={trackRef}
+        class="oh-trajectory-track"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key !== 'Escape') return;
+          setViewport({ start: 0, end: 1 });
+          onRangeChange(null);
+        }}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          if (!suppressContextResetRef.current) {
+            setViewport({ start: 0, end: 1 });
+            onRangeChange(null);
+          }
+          suppressContextResetRef.current = false;
+        }}
+        onWheel={(event) => {
+          event.preventDefault();
+          const currentWidth = viewport.end - viewport.start;
+          const zoom = event.deltaY > 0 ? 1.16 : 0.84;
+          const nextWidth = Math.min(1, Math.max(MIN_TIMELINE_VIEW, currentWidth * zoom));
+          const focus = fractionAt(event.clientX);
+          const relative = currentWidth <= 0 ? 0.5 : (focus - viewport.start) / currentWidth;
+          const start = Math.min(1 - nextWidth, Math.max(0, focus - nextWidth * relative));
+          setViewport({ start, end: start + nextWidth });
+        }}
+        onPointerDown={(event) => {
+          if (event.button !== 0 && event.button !== 2) return;
+          event.currentTarget.setPointerCapture(event.pointerId);
+          dragRef.current = {
+            button: event.button,
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            anchor: fractionAt(event.clientX),
+            viewport,
+          };
+          if (event.button === 2) suppressContextResetRef.current = false;
+        }}
+        onPointerMove={(event) => {
+          setHover(fractionAt(event.clientX));
+          const drag = dragRef.current;
+          if (!drag || drag.pointerId !== event.pointerId) return;
+          if (drag.button === 2) {
+            const rect = trackRef.current?.getBoundingClientRect();
+            if (!rect || rect.width <= 0) return;
+            const width = drag.viewport.end - drag.viewport.start;
+            const delta = -(event.clientX - drag.startX) / rect.width * width;
+            if (Math.abs(event.clientX - drag.startX) >= TIMELINE_DRAG_THRESHOLD_PX) {
+              suppressContextResetRef.current = true;
+            }
+            const start = Math.min(1 - width, Math.max(0, drag.viewport.start + delta));
+            setViewport({ start, end: start + width });
+            return;
+          }
+          const current = fractionAt(event.clientX);
+          if (Math.abs(event.clientX - drag.startX) >= TIMELINE_DRAG_THRESHOLD_PX) {
+            onRangeChange({ start: Math.min(drag.anchor, current), end: Math.max(drag.anchor, current) });
+          }
+        }}
+        onPointerUp={(event) => {
+          const drag = dragRef.current;
+          dragRef.current = null;
+          if (!drag || drag.pointerId !== event.pointerId || drag.button !== 0) return;
+          if (Math.abs(event.clientX - drag.startX) < TIMELINE_DRAG_THRESHOLD_PX) {
+            const record = recordAt(fractionAt(event.clientX));
+            if (record) onSelect(record);
+          }
+        }}
+        onPointerCancel={() => { dragRef.current = null; }}
+        onPointerLeave={() => setHover(null)}
+      >
+        {hasOlder ? (
+          <button
+            type="button"
+            class="oh-trajectory-earlier"
+            disabled={loadingOlder}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => void onLoadOlder()}
+            title={loadingOlder
+              ? t('trajectory.loadingOlder', '正在加载更早记录…')
+              : t('trajectory.loadOlder', '加载更早记录')}
+          >
+            {loadingOlder ? <span class="oh-trajectory-spinner" /> : '…'}
+          </button>
+        ) : null}
+        <div class="oh-trajectory-turn-boundaries" aria-hidden="true">
+          {spans.filter((span, index) => index > 0 && span.record.turn !== spans[index - 1]?.record.turn).map((span) => (
+            <i key={`turn-${span.record.id}`} style={{ left: `${(span.start - viewport.start) / visibleWidth * 100}%` }} />
+          ))}
+        </div>
+        <div class="oh-trajectory-spans">
+          {spans.map((span) => {
+            if (span.end < viewport.start || span.start > viewport.end) return null;
+            const match = searchMatches == null || searchMatches.has(span.record.id);
+            return (
+              <i
+                key={span.record.id}
+                class={`is-${span.record.kind}${span.record.error ? ' is-error' : ''}`}
+                data-lane={laneOf(span.record.kind)}
+                data-selected={selectedId === span.record.id ? 'true' : undefined}
+                data-search-match={match ? 'true' : 'false'}
+                style={positionStyle(Math.max(span.start, viewport.start), Math.min(span.end, viewport.end))}
+                title={`${kindLabel(span.record.kind)}\n${formatTime(span.record.startedAt)}\n${formatDuration(span.record.durationMs)}`}
+              />
+            );
+          })}
+        </div>
+        {visibleRange && visibleRange.end >= visibleRange.start ? (
+          <div
+            class="oh-trajectory-selection"
+            style={positionStyle(visibleRange.start, visibleRange.end)}
+            aria-hidden="true"
+          />
+        ) : null}
+        {hover != null ? (
+          <i
+            class="oh-trajectory-hover-line"
+            style={{ left: `${(hover - viewport.start) / visibleWidth * 100}%` }}
+            aria-hidden="true"
+          />
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function DetailRows({ rows }: { rows: Array<[string, string, boolean?]> }) {
+  return (
+    <dl class="oh-trajectory-detail-rows">
+      {rows.map(([label, value, error]) => (
+        <div key={label}>
+          <dt>{label}</dt>
+          <dd class={error ? 'is-error' : undefined}>{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function EmptyDetail({ children }: { children: string }) {
+  return <p class="oh-trajectory-detail-empty">{children}</p>;
+}
+
+function TextDetail({ text, empty, error = false }: { text: string; empty: string; error?: boolean }) {
+  if (!text.trim()) return <EmptyDetail>{empty}</EmptyDetail>;
+  return <pre class={`oh-trajectory-detail-text${error ? ' is-error' : ''}`}>{text}</pre>;
+}
+
+function UsageDetail({ usage }: { usage: TrajectoryUsage | null }) {
+  if (!usage) return <EmptyDetail>{t('trajectory.usageMissing', '未报告用量')}</EmptyDetail>;
+  const contentTokens = usage.completionTokens != null && usage.reasoningTokens != null
+    ? Math.max(0, usage.completionTokens - usage.reasoningTokens)
+    : null;
+  return (
+    <DetailRows rows={[
+      ...(usage.promptTokens == null ? [] : [[t('trajectory.usage.input', 'Input'), `${usage.promptTokens} tok`] as [string, string]]),
+      ...(usage.cacheReadTokens == null ? [] : [[t('trajectory.usage.cached', 'Cached'), `${usage.cacheReadTokens} tok`] as [string, string]]),
+      ...(usage.cacheCreationTokens == null ? [] : [[t('trajectory.usage.created', 'Cache created'), `${usage.cacheCreationTokens} tok`] as [string, string]]),
+      ...(usage.completionTokens == null ? [] : [[t('trajectory.usage.output', 'Output'), `${usage.completionTokens} tok`] as [string, string]]),
+      ...(usage.reasoningTokens == null ? [] : [[t('trajectory.usage.reasoning', 'Reasoning'), `${usage.reasoningTokens} tok`] as [string, string]]),
+      ...(contentTokens == null ? [] : [[t('trajectory.usage.content', 'Content'), `${contentTokens} tok`] as [string, string]]),
+      ...(usage.totalTokens == null ? [] : [[t('trajectory.usage.total', 'Total'), `${usage.totalTokens} tok`] as [string, string]]),
+    ]} />
+  );
+}
+
+function TimingDetail({ record, metadata }: { record: TrajectoryRecord; metadata: Record<string, unknown> }) {
+  const firstToken = firstTimestamp(metadata, ['first_token_at', 'first_token_time', 'first_visible_at']);
+  const ttft = record.startedAt != null && firstToken != null ? Math.max(0, firstToken - record.startedAt) : null;
+  const generation = record.durationMs != null && ttft != null ? Math.max(0, record.durationMs - ttft) : null;
+  const throughput = record.usage?.completionTokens != null && generation != null && generation > 0
+    ? `${(record.usage.completionTokens / generation * 1000).toFixed(1)} tok/s`
+    : t('trajectory.notRecorded', '未记录');
+  return <DetailRows rows={[
+    [t('trajectory.timing.started', 'Started'), formatTime(record.startedAt)],
+    [t('trajectory.timing.total', 'Total duration'), formatDuration(record.durationMs)],
+    ['TTFT', ttft == null ? t('trajectory.notRecorded', '未记录') : formatDuration(ttft)],
+    [t('trajectory.timing.generation', 'Generation'), generation == null ? t('trajectory.notRecorded', '未记录') : formatDuration(generation)],
+    [t('trajectory.timing.throughput', 'Throughput'), throughput],
+  ]} />;
+}
+
+function DetailBody({
+  record,
+  metadata,
+  tab,
+}: {
+  record: TrajectoryRecord;
+  metadata: Record<string, unknown>;
+  tab: string;
+}) {
+  if (tab === 'usage') return <UsageDetail usage={record.usage} />;
+  if (tab === 'timing') return <TimingDetail record={record} metadata={metadata} />;
+  if (tab === 'system-prompt') {
+    const source = systemPrompt(metadata);
+    return source ? <div class="oh-trajectory-markdown"><Markdown source={source} /></div> : <EmptyDetail>{t('trajectory.systemPromptMissing', '本次请求未记录系统提示词')}</EmptyDetail>;
+  }
+  if (tab === 'tools') return <TextDetail text={toolCatalog(metadata)} empty={t('trajectory.toolsMissing', '本次请求未记录工具目录')} />;
+  if (tab === 'rendered') {
+    const source = rawRecordText(record);
+    return source ? <div class="oh-trajectory-markdown"><Markdown source={source} /></div> : <EmptyDetail>{t('trajectory.contentMissing', '无内容')}</EmptyDetail>;
+  }
+  if (tab === 'raw') return <TextDetail text={rawRecordText(record)} empty={t('trajectory.contentMissing', '无内容')} />;
+  if (tab === 'source') return <TextDetail text={prettyValue({
+    message_id: record.sourceMessageId,
+    turn: record.turn,
+    step: record.step,
+    request_number: record.requestNumber,
+    metadata,
+  })} empty={t('trajectory.sourceMissing', '未记录来源')} />;
+  if (tab === 'input') return <TextDetail text={record.input} empty={t('trajectory.inputMissing', '无输入载荷')} />;
+  if (tab === 'output') return <TextDetail text={record.output} empty={record.running ? t('trajectory.pending', '等待中') : t('trajectory.outputMissing', '无输出载荷')} error={record.error} />;
+  if (tab === 'schema') return <TextDetail text={schemaText(metadata)} empty={t('trajectory.schemaMissing', '未记录 Schema')} />;
+  if (tab === 'options') return <TextDetail text={requestOptions(metadata)} empty={t('trajectory.optionsMissing', '未记录请求选项')} />;
+
+  const status = record.error
+    ? t('trajectory.failed', '失败')
+    : record.running
+      ? t('trajectory.pending', '等待中')
+      : t('trajectory.completed', '已完成');
+  const model = textOf(record.metadata.model ?? record.metadata.model_id ?? metadata.model ?? metadata.model_id);
+  return (
+    <div class="oh-trajectory-summary">
+      <DetailRows rows={[
+        [t('trajectory.status', 'Status'), status, record.error],
+        ...(model ? [[t('trajectory.model', 'Model'), model] as [string, string]] : []),
+        ...(record.toolName ? [[t('trajectory.tool', 'Tool'), record.toolName] as [string, string]] : []),
+        ...(record.callId ? [['Call ID', record.callId] as [string, string]] : []),
+        ...(record.kind === 'assistant' ? [[t('trajectory.tokens', 'Tokens'), record.usage?.completionTokens == null ? '—' : `${record.usage.completionTokens} tok`] as [string, string]] : []),
+        [t('trajectory.duration', 'Duration'), formatDuration(record.durationMs)],
+      ]} />
+      {rawRecordText(record) ? (
+        <section>
+          <h4>{record.kind === 'tool' ? t('trajectory.result', 'Result') : t('trajectory.preview', 'Preview')}</h4>
+          <div class="oh-trajectory-summary-preview"><Markdown source={rawRecordText(record)} /></div>
+        </section>
+      ) : null}
+      {record.kind === 'assistant' ? (
+        <>
+          <section><h4>{t('trajectory.tab.usage', 'Usage')}</h4><UsageDetail usage={record.usage} /></section>
+          <section><h4>{t('trajectory.tab.timing', 'Timing')}</h4><TimingDetail record={record} metadata={metadata} /></section>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function DetailsPanel({
+  record,
+  metadata,
+  loading,
+  activeTab,
+  onTabChange,
+  onClose,
+}: {
+  record: TrajectoryRecord;
+  metadata: Record<string, unknown>;
+  loading: boolean;
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+  onClose: () => void;
+}) {
+  const tabs = recordTabs(record);
+  const effectiveTab = tabs.some(([key]) => key === activeTab) ? activeTab : tabs[0]?.[0] ?? 'summary';
+  return (
+    <aside class="oh-trajectory-details">
+      <header>
+        <span class={`oh-trajectory-kind is-${record.kind}`}>{kindLabel(record.kind)}</span>
+        <strong>{record.turn > 0 ? `Turn ${record.turn} · Step ${record.step}` : record.preview}</strong>
+        {loading ? <span class="oh-trajectory-spinner" /> : null}
+        <button type="button" class="oh-trajectory-icon-button" onClick={onClose} title={t('trajectory.closeDetails', '关闭详情')}>
+          <CloseIcon />
+        </button>
+      </header>
+      <nav aria-label={t('trajectory.detailsTabs', '轨迹详情标签')}>
+        {tabs.map(([key, label]) => (
+          <button
+            type="button"
+            key={key}
+            class={key === effectiveTab ? 'is-active' : undefined}
+            onClick={() => onTabChange(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+      <div class="oh-trajectory-detail-body">
+        <DetailBody record={record} metadata={metadata} tab={effectiveTab} />
+      </div>
+    </aside>
+  );
+}
+
+export function TrajectoryDialog({
+  sessionId,
+  sessionTitle,
+  sessionCreatedAt,
+  messages,
+  hasOlder,
+  loadingOlder = false,
+  onLoadOlder,
+  onClose,
+}: TrajectoryDialogProps) {
+  const { closing, requestClose } = useDialogExitMotion(onClose);
+  const snapshot = useMemo(() => buildSnapshot(messages, sessionCreatedAt), [messages, sessionCreatedAt]);
+  const [actualDuration, setActualDuration] = useState(false);
+  const [collapsedTurns, setCollapsedTurns] = useState<Set<number>>(() => new Set());
+  const [collapsedCalls, setCollapsedCalls] = useState<Set<string>>(() => new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [timelineRange, setTimelineRange] = useState<TimelineRange | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('summary');
+  const [detailWidth, setDetailWidth] = useState(DETAIL_DEFAULT_WIDTH);
+  const [hydratedMessages, setHydratedMessages] = useState<Map<string, SessionMessage>>(() => new Map());
+  const [metadataLoading, setMetadataLoading] = useState(false);
+  const tableRef = useRef<HTMLDivElement | null>(null);
+  const resizeRef = useRef<{ startX: number; startWidth: number; pointerId: number } | null>(null);
+  const loadingEarlierRef = useRef(false);
+  const spans = useMemo(() => projectTimeline(snapshot.records, actualDuration), [snapshot.records, actualDuration]);
+  const selectedRecord = useMemo(
+    () => snapshot.records.find((record) => record.id === selectedId) ?? null,
+    [selectedId, snapshot.records],
+  );
+  const searchMatches = useMemo<Set<string> | null>(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return null;
+    return new Set(snapshot.records.filter((record) => searchableText(record).includes(query)).map((record) => record.id));
+  }, [searchQuery, snapshot.records]);
+  const timelineFocus = useMemo<Set<string> | null>(() => {
+    if (!timelineRange) return null;
+    return new Set(spans.filter((span) => span.end >= timelineRange.start && span.start <= timelineRange.end).map((span) => span.record.id));
+  }, [spans, timelineRange]);
+  const allTurnsCollapsed = snapshot.collapsibleTurns.size > 0
+    && [...snapshot.collapsibleTurns].every((turn) => collapsedTurns.has(turn));
+  const allCallsCollapsed = snapshot.callCounts.size > 0
+    && [...snapshot.callCounts.keys()].every((id) => collapsedCalls.has(id));
+
+  useEffect(() => {
+    if (!selectedRecord) {
+      setMetadataLoading(false);
+      return;
+    }
+    setActiveTab(recordTabs(selectedRecord)[0]?.[0] ?? 'summary');
+    const sourceId = selectedRecord.sourceMessageId;
+    if (!sourceId || hydratedMessages.has(sourceId)) {
+      setMetadataLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setMetadataLoading(true);
+    getSessionMessage(sessionId, sourceId, { signal: controller.signal })
+      .then(({ message }) => {
+        if (controller.signal.aborted) return;
+        setHydratedMessages((current) => {
+          const next = new Map(current);
+          next.set(sourceId, message);
+          return next;
+        });
+      })
+      .catch(ignoreError)
+      .finally(() => {
+        if (!controller.signal.aborted) setMetadataLoading(false);
+      });
+    return () => controller.abort();
+  }, [selectedRecord?.id, sessionId]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    const element = tableRef.current?.querySelector<HTMLElement>(`[data-record-id="${CSS.escape(selectedId)}"]`);
+    element?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [selectedId]);
+
+  const selectRecord = useCallback((record: TrajectoryRecord) => {
+    setSelectedId(record.id);
+    setTimelineRange((current) => current && !timelineFocus?.has(record.id) ? null : current);
+  }, [timelineFocus]);
+
+  const loadEarlier = useCallback(async () => {
+    if (!hasOlder || loadingOlder || loadingEarlierRef.current) return;
+    const ledger = tableRef.current;
+    const beforeHeight = ledger?.scrollHeight ?? 0;
+    const beforeTop = ledger?.scrollTop ?? 0;
+    loadingEarlierRef.current = true;
+    try {
+      await onLoadOlder();
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (!ledger) return;
+        ledger.scrollTop = beforeTop + Math.max(0, ledger.scrollHeight - beforeHeight);
+      }));
+    } finally {
+      loadingEarlierRef.current = false;
+    }
+  }, [hasOlder, loadingOlder, onLoadOlder]);
+
+  const toggleAllTurns = () => {
+    setCollapsedTurns(() => allTurnsCollapsed ? new Set() : new Set(snapshot.collapsibleTurns));
+  };
+  const toggleAllCalls = () => {
+    setCollapsedCalls(() => allCallsCollapsed ? new Set() : new Set(snapshot.callCounts.keys()));
+  };
+  const selectedMetadata = selectedRecord
+    ? recordOf(hydratedMessages.get(selectedRecord.sourceMessageId ?? '')?.metadata ?? selectedRecord.metadata)
+    : {};
+
+  const renderedRows: JSX.Element[] = [];
+  const renderedTurnIds = new Set<number>();
+  let previousTurn: number | null = null;
+  for (let index = 0; index < snapshot.records.length; index += 1) {
+    const record = snapshot.records[index]!;
+    if (record.turn > 0 && collapsedTurns.has(record.turn)) {
+      if (previousTurn === record.turn) continue;
+      const count = snapshot.records.filter((candidate) => candidate.turn === record.turn).length;
+      const duration = snapshot.records
+        .filter((candidate) => candidate.turn === record.turn)
+        .reduce((sum, candidate) => sum + (candidate.durationMs ?? 0), 0);
+      renderedRows.push(
+        <button
+          type="button"
+          key={`collapsed-turn-${record.turn}`}
+          class="oh-trajectory-collapsed-row"
+          onClick={() => setCollapsedTurns((current) => {
+            const next = new Set(current);
+            next.delete(record.turn);
+            return next;
+          })}
+        >
+          <span>Turn {record.turn}</span>
+          <strong>{count} {t('trajectory.records', '条记录')}</strong>
+          <small>{formatDuration(duration || null)}</small>
+        </button>,
+      );
+      previousTurn = record.turn;
+      continue;
+    }
+    previousTurn = record.turn;
+    const anchorId = snapshot.callAnchors.get(record.id);
+    if (anchorId && collapsedCalls.has(anchorId)) continue;
+    const turnStart = record.turn > 0 && !renderedTurnIds.has(record.turn);
+    if (record.turn > 0) renderedTurnIds.add(record.turn);
+    const callCount = snapshot.callCounts.get(record.id) ?? 0;
+    const focused = timelineFocus == null || timelineFocus.has(record.id);
+    const matched = searchMatches == null || searchMatches.has(record.id);
+    renderedRows.push(
+      <div
+        role="button"
+        tabIndex={0}
+        key={record.id}
+        data-record-id={record.id}
+        data-selected={selectedId === record.id ? 'true' : undefined}
+        data-focused={focused ? 'true' : 'false'}
+        data-search-match={matched ? 'true' : 'false'}
+        data-error={record.error ? 'true' : undefined}
+        class="oh-trajectory-record-row"
+        onClick={() => selectRecord(record)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            selectRecord(record);
+          }
+        }}
+      >
+        <span class="oh-trajectory-turn-cell">
+          {turnStart ? (
+            <span class="oh-trajectory-turn-label">
+              Turn {record.turn}
+              {snapshot.collapsibleTurns.has(record.turn) ? (
+                <i
+                  role="button"
+                  tabIndex={0}
+                  title={t('trajectory.collapseTurn', '折叠本轮')}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setCollapsedTurns((current) => new Set(current).add(record.turn));
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      event.currentTarget.click();
+                    }
+                  }}
+                >−</i>
+              ) : null}
+            </span>
+          ) : null}
+          {record.turn > 0 ? <i class="oh-trajectory-turn-dot" /> : null}
+        </span>
+        <span class="oh-trajectory-event-cell">
+          <span class={`oh-trajectory-kind is-${record.kind}`}>{kindLabel(record.kind)}</span>
+          {record.requestNumber > 0 && (record.kind === 'assistant' || record.kind === 'compacted') ? (
+            <small title={`Request ${record.requestNumber}`}>#{record.requestNumber}</small>
+          ) : null}
+        </span>
+        <span class="oh-trajectory-content-cell">
+          <span>{record.preview || t('trajectory.noContent', '无内容')}</span>
+          {record.running ? <i class="oh-trajectory-running-dot" title={t('trajectory.running', '运行中')} /> : null}
+          {callCount > 0 ? (
+            <i
+              role="button"
+              tabIndex={0}
+              class="oh-trajectory-call-toggle"
+              onClick={(event) => {
+                event.stopPropagation();
+                setCollapsedCalls((current) => {
+                  const next = new Set(current);
+                  if (next.has(record.id)) next.delete(record.id); else next.add(record.id);
+                  return next;
+                });
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  event.currentTarget.click();
+                }
+              }}
+            >
+              {collapsedCalls.has(record.id) ? '+' : '−'} {callCount} calls
+            </i>
+          ) : null}
+        </span>
+        <span class="oh-trajectory-duration-cell">{formatDuration(record.durationMs)}</span>
+      </div>,
+    );
+  }
+
+  return (
+    <DialogFrame
+      closing={closing}
+      onRequestClose={requestClose}
+      {...createStandardDialogFrameAppearance({
+        overlayClassName: DIALOG_OVERLAY_CENTER_FLUSH_CLASS,
+        overlay: {
+          background: 'color-mix(in srgb, black 52%, transparent)',
+          blurPx: 7,
+        },
+        overlayZIndex: DIALOG_OVERLAY_FOCUSED_Z_INDEX,
+        panelClassName: 'oh-trajectory-dialog',
+        panelBorder: 'none',
+        panelSurface: {
+          width: 'min(1480px, calc(100vw - 32px))',
+          maxWidth: 'none',
+          maxHeight: 'calc(100dvh - 32px)',
+          overflow: 'hidden',
+          boxShadow: 'var(--m3-elev-4)',
+        },
+      })}
+      ariaLabel={t('trajectory.title', '轨迹')}
+    >
+      <div class="oh-trajectory-shell">
+        <header class="oh-trajectory-titlebar">
+          <div>
+            <h2>{t('trajectory.title', '轨迹')}</h2>
+            <p title={sessionTitle}>{sessionTitle}</p>
+          </div>
+          <span>{snapshot.records.length} {t('trajectory.records', '条记录')}</span>
+          <button type="button" class="oh-trajectory-icon-button" onClick={requestClose} title={t('common.close', '关闭')}>
+            <CloseIcon />
+          </button>
+        </header>
+        <div class="oh-trajectory-toolbar" role="toolbar" aria-label={t('trajectory.toolbar', '轨迹工具栏')}>
+          <div class="oh-trajectory-toolbar-actions">
+            <button
+              type="button"
+              class={actualDuration ? 'is-active' : undefined}
+              aria-pressed={actualDuration}
+              onClick={() => {
+                setActualDuration((current) => !current);
+                setTimelineRange(null);
+              }}
+              title={actualDuration ? t('trajectory.equalWidth', '使用等宽记录') : t('trajectory.actualDuration', '使用实际耗时')}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></svg>
+              {t('trajectory.duration', 'Duration')}
+            </button>
+            <button type="button" class={allTurnsCollapsed ? 'is-active' : undefined} onClick={toggleAllTurns}>
+              <span>{allTurnsCollapsed ? '⊞' : '⊟'}</span>{t('trajectory.turns', 'Turns')}
+            </button>
+            <button type="button" class={allCallsCollapsed ? 'is-active' : undefined} onClick={toggleAllCalls}>
+              <span>{allCallsCollapsed ? '⊞' : '⊟'}</span>{t('trajectory.calls', 'Calls')}
+            </button>
+          </div>
+          <label class="oh-trajectory-search">
+            <SearchIcon />
+            <input
+              type="search"
+              value={searchQuery}
+              onInput={(event) => setSearchQuery(event.currentTarget.value)}
+              placeholder={t('trajectory.search', '搜索')}
+              aria-label={t('trajectory.search', '搜索')}
+            />
+            {searchQuery ? <span>{searchMatches?.size ?? 0}</span> : null}
+          </label>
+        </div>
+        <TrajectoryTimeline
+          key={actualDuration ? 'duration' : 'equal'}
+          spans={spans}
+          range={timelineRange}
+          selectedId={selectedId}
+          searchMatches={searchMatches}
+          hasOlder={hasOlder}
+          loadingOlder={loadingOlder}
+          onRangeChange={setTimelineRange}
+          onSelect={selectRecord}
+          onLoadOlder={loadEarlier}
+        />
+        <div class="oh-trajectory-workspace">
+          <div
+            ref={tableRef}
+            class="oh-trajectory-ledger"
+            onScroll={(event) => {
+              if (event.currentTarget.scrollTop < 48) void loadEarlier();
+            }}
+          >
+            <div class="oh-trajectory-table-head" aria-hidden="true">
+              <span />
+              <span>{t('trajectory.event', 'Event')}</span>
+              <span>{t('trajectory.content', 'Content')}</span>
+              <span>{t('trajectory.duration', 'Duration')}</span>
+            </div>
+            {loadingOlder ? <div class="oh-trajectory-history-loading"><span class="oh-trajectory-spinner" />{t('trajectory.loadingOlder', '正在加载更早记录…')}</div> : null}
+            {hasOlder ? (
+              <button type="button" class="oh-trajectory-load-row" disabled={loadingOlder} onClick={() => void loadEarlier()}>
+                {loadingOlder ? <span class="oh-trajectory-spinner" /> : '↑'}
+                {loadingOlder ? t('trajectory.loadingOlder', '正在加载更早记录…') : t('trajectory.loadOlder', '加载更早记录')}
+              </button>
+            ) : null}
+            {renderedRows}
+          </div>
+          {selectedRecord ? (
+            <>
+              <div
+                class="oh-trajectory-resizer"
+                role="separator"
+                aria-orientation="vertical"
+                onPointerDown={(event) => {
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  resizeRef.current = { startX: event.clientX, startWidth: detailWidth, pointerId: event.pointerId };
+                }}
+                onPointerMove={(event) => {
+                  const resize = resizeRef.current;
+                  if (!resize || resize.pointerId !== event.pointerId) return;
+                  setDetailWidth(Math.min(DETAIL_MAX_WIDTH, Math.max(DETAIL_MIN_WIDTH, resize.startWidth + resize.startX - event.clientX)));
+                }}
+                onPointerUp={() => { resizeRef.current = null; }}
+                onPointerCancel={() => { resizeRef.current = null; }}
+              />
+              <div class="oh-trajectory-details-host" style={{ width: `${detailWidth}px` }}>
+                <DetailsPanel
+                  record={selectedRecord}
+                  metadata={selectedMetadata}
+                  loading={metadataLoading}
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                  onClose={() => setSelectedId(null)}
+                />
+              </div>
+            </>
+          ) : null}
+        </div>
+      </div>
+    </DialogFrame>
+  );
+}

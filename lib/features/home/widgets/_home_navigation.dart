@@ -73,6 +73,7 @@ class _NavigationPane extends StatefulWidget {
     required this.onDeleteSession,
     required this.onExportSession,
     this.onGenerateTitleForSession,
+    required this.onShowTrajectoryForSession,
     required this.onSectionSelected,
     this.activeHarnessOrchestrator,
     this.harnessSessionRecord,
@@ -96,6 +97,7 @@ class _NavigationPane extends StatefulWidget {
   final Future<void> Function(AiSession session) onDeleteSession;
   final Future<void> Function(AiSession session) onExportSession;
   final void Function(AiSession session)? onGenerateTitleForSession;
+  final void Function(AiSession session) onShowTrajectoryForSession;
   final ValueChanged<AppSection> onSectionSelected;
   final HarnessOrchestrator? activeHarnessOrchestrator;
   final HarnessSessionRecord? harnessSessionRecord;
@@ -271,6 +273,12 @@ class _NavigationPaneState extends State<_NavigationPane> {
               final latest = _visibleSession(sessionId);
               if (latest != null) {
                 widget.onGenerateTitleForSession?.call(latest);
+              }
+            },
+            onTrajectory: () {
+              final latest = _visibleSession(sessionId);
+              if (latest != null) {
+                widget.onShowTrajectoryForSession(latest);
               }
             },
           ),

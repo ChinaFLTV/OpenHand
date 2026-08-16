@@ -13,6 +13,7 @@ Future<void> _showSidebarThreadContextMenu(
   required VoidCallback onDelete,
   required VoidCallback onExport,
   VoidCallback? onGenerateTitle,
+  VoidCallback? onTrajectory,
 }) async {
   final selected = await showAnimatedMenu<String>(
     context: context,
@@ -64,6 +65,17 @@ Future<void> _showSidebarThreadContextMenu(
             ],
           ),
         ),
+      if (onTrajectory != null)
+        PopupMenuItem<String>(
+          value: 'trajectory',
+          child: Row(
+            children: [
+              const Icon(Icons.route_outlined, size: 18),
+              kOpenHandHGap8,
+              Text(openHandTrajectoryLabel(context)),
+            ],
+          ),
+        ),
     ],
   );
   if (!context.mounted) return;
@@ -72,6 +84,7 @@ Future<void> _showSidebarThreadContextMenu(
     'delete' => onDelete,
     'export' => onExport,
     'generate_title' => onGenerateTitle,
+    'trajectory' => onTrajectory,
     _ => null,
   };
   action?.call();
@@ -318,6 +331,7 @@ class _ThreadTile extends StatelessWidget {
     required this.onDelete,
     required this.onExport,
     this.onGenerateTitle,
+    this.onTrajectory,
   });
 
   final AiSession session;
@@ -328,6 +342,7 @@ class _ThreadTile extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback onExport;
   final VoidCallback? onGenerateTitle;
+  final VoidCallback? onTrajectory;
 
   @override
   Widget build(BuildContext context) {
@@ -360,6 +375,7 @@ class _ThreadTile extends StatelessWidget {
           onDelete: onDelete,
           onExport: onExport,
           onGenerateTitle: onGenerateTitle,
+          onTrajectory: onTrajectory,
         );
       },
       child: AnimatedContainer(

@@ -186,6 +186,7 @@ part 'widgets/_home_programming_expert_project_dialog.dart';
 part 'widgets/_home_programming_expert_file_explorer.dart';
 part 'widgets/_home_machine_terminal_panel.dart';
 part 'widgets/_home_harness_annotations.dart';
+part 'widgets/_home_trajectory_dialog.dart';
 part 'widgets/_home_motion_tokens.dart';
 part 'widgets/_openhand_home_page_helpers.dart';
 part 'widgets/_openhand_home_page_prelude.dart';
@@ -9560,6 +9561,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                           onDeleteSession: _deleteSession,
                           onExportSession: _exportSession,
                           onGenerateTitleForSession: _generateTitleForSession,
+                          onShowTrajectoryForSession: _showTrajectoryForSession,
                           onSectionSelected: _selectSection,
                           activeHarnessOrchestrator: _activeHarnessOrchestrator,
                           harnessSessionRecord: _persistedHarnessSession,
