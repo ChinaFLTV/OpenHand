@@ -744,6 +744,16 @@ function SearchIcon() {
   );
 }
 
+function TrajectoryIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="6" cy="19" r="3" />
+      <path d="M9 19h6.5a3.5 3.5 0 0 0 0-7h-8a3.5 3.5 0 0 1 0-7H15" />
+      <circle cx="18" cy="5" r="3" />
+    </svg>
+  );
+}
+
 function CloseIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -1714,6 +1724,7 @@ export function TrajectoryDialog({
     >
       <div class="oh-trajectory-shell">
         <header class="oh-trajectory-titlebar">
+          <span class="oh-trajectory-title-icon"><TrajectoryIcon /></span>
           <div>
             <h2>{t('trajectory.title', '轨迹')}</h2>
             <p title={sessionTitle}>{sessionTitle}</p>

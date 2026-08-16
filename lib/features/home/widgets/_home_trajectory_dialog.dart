@@ -3,6 +3,8 @@ part of '../openhand_home_page.dart';
 const double _kTrajectoryRowHeight = 48;
 const double _kTrajectoryToolbarHeight = 48;
 const double _kTrajectoryToolbarControlHeight = 36;
+const double _kTrajectoryHeaderIconSize = 46;
+const double _kTrajectoryHeaderActionSize = 40;
 const double _kTrajectoryTurnRailWidth = 68;
 const double _kTrajectoryKindWidth = 112;
 const double _kTrajectoryDetailsMinWidth = 320;
@@ -1278,45 +1280,56 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return Container(
-      height: 44,
-      padding: const EdgeInsets.only(left: 14, right: 6),
+      constraints: const BoxConstraints(minHeight: 70),
+      padding: const EdgeInsets.fromLTRB(18, 12, 10, 12),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
+        color: colorScheme.surface,
         border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
       ),
       child: Row(
         children: [
           Container(
-            width: 28,
-            height: 28,
+            width: _kTrajectoryHeaderIconSize,
+            height: _kTrajectoryHeaderIconSize,
             decoration: BoxDecoration(
-              color: colorScheme.tertiary.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(7),
-            ),
-            child: Icon(
-              Icons.route_outlined,
-              size: 17,
-              color: colorScheme.tertiary,
-            ),
-          ),
-          kOpenHandHGap10,
-          Text(
-            openHandTrajectoryLabel(context),
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          kOpenHandHGap10,
-          Expanded(
-            child: Text(
-              _session.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
+              color: colorScheme.primaryContainer,
+              borderRadius: kOpenHandBorderRadius8,
+              border: Border.all(
+                color: colorScheme.primary.withValues(alpha: 0.35),
               ),
             ),
+            child: Icon(
+              Icons.route_rounded,
+              size: 23,
+              color: colorScheme.onPrimaryContainer,
+            ),
           ),
+          kOpenHandHGap12,
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  openHandTrajectoryLabel(context),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  _session.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          kOpenHandHGap12,
           _TrajectoryCloseButton(
             tooltip: openHandCloseLabel(context),
             onPressed: () => Navigator.of(context).pop(),
@@ -1958,20 +1971,24 @@ class _TrajectoryCloseButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return IconButton(
-      constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+      constraints: const BoxConstraints.tightFor(
+        width: _kTrajectoryHeaderActionSize,
+        height: _kTrajectoryHeaderActionSize,
+      ),
       padding: EdgeInsets.zero,
       style: IconButton.styleFrom(
         foregroundColor: colorScheme.onSurfaceVariant,
-        backgroundColor: colorScheme.surfaceContainer,
-        hoverColor: colorScheme.onSurface.withValues(alpha: 0.08),
-        shape: RoundedRectangleBorder(
-          borderRadius: kOpenHandBorderRadius10,
-          side: BorderSide(color: colorScheme.outlineVariant),
+        backgroundColor: colorScheme.surfaceContainerHighest,
+        hoverColor: colorScheme.primary.withValues(alpha: 0.08),
+        focusColor: colorScheme.primary.withValues(alpha: 0.08),
+        highlightColor: colorScheme.primary.withValues(alpha: 0.12),
+        shape: const RoundedRectangleBorder(
+          borderRadius: kOpenHandBorderRadius8,
         ),
       ),
       tooltip: tooltip,
       onPressed: onPressed,
-      icon: const Icon(Icons.close_rounded, size: 19),
+      icon: const Icon(Icons.close_rounded, size: 20),
     );
   }
 }

@@ -9406,13 +9406,38 @@ button.oh-composer-pill:not(:disabled):hover {
 
 .oh-trajectory-titlebar {
   display: flex;
-  height: 52px;
+  min-height: 70px;
   flex: none;
   align-items: center;
   gap: 12px;
-  padding: 0 10px 0 16px;
+  box-sizing: border-box;
+  padding: 12px 10px 12px 18px;
   border-bottom: 1px solid var(--m3-outline-variant);
-  background: var(--m3-surface-container-low);
+  background: var(--m3-surface);
+}
+
+.oh-trajectory-title-icon {
+  display: inline-flex;
+  width: 46px;
+  height: 46px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--m3-primary) 35%, transparent);
+  border-radius: 8px;
+  color: var(--m3-on-primary-container);
+  background: var(--m3-primary-container);
+}
+
+.oh-trajectory-title-icon svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .oh-trajectory-titlebar > div {
@@ -9429,46 +9454,50 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 
 .oh-trajectory-titlebar h2 {
-  font-size: 15px;
-  font-weight: 750;
-  line-height: 20px;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 26px;
 }
 
 .oh-trajectory-titlebar p {
   color: var(--m3-on-surface-variant);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 16px;
 }
 
 .oh-trajectory-icon-button {
   display: inline-flex;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   flex: none;
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1px solid var(--m3-outline-variant);
-  border-radius: 10px;
+  border: 0;
+  border-radius: 8px;
   color: var(--m3-on-surface-variant);
-  background: var(--m3-surface-container);
+  background: var(--m3-surface-container-highest);
   cursor: pointer;
-  transition: color 140ms ease, background 140ms ease, border-color 140ms ease, transform 140ms ease;
+  transition: color 140ms ease, background 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
 
 .oh-trajectory-icon-button:hover {
   color: var(--m3-on-surface);
-  border-color: var(--m3-outline);
-  background: color-mix(in srgb, var(--m3-on-surface) 8%, var(--m3-surface-container));
+  background: color-mix(in srgb, var(--m3-primary) 8%, var(--m3-surface-container-highest));
 }
 
 .oh-trajectory-icon-button:active {
-  transform: scale(0.9);
+  transform: scale(0.94);
+}
+
+.oh-trajectory-icon-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--m3-primary) 42%, transparent);
 }
 
 .oh-trajectory-icon-button svg {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.9;
@@ -10647,7 +10676,8 @@ button.oh-trajectory-json-row:hover {
     max-height: 100dvh !important;
     border-radius: 0;
   }
-  .oh-trajectory-titlebar { height: 48px; padding-left: 12px; }
+  .oh-trajectory-titlebar { min-height: 66px; padding: 10px 8px 10px 12px; }
+  .oh-trajectory-titlebar h2 { font-size: 18px; line-height: 23px; }
   .oh-trajectory-toolbar { align-items: stretch; flex-direction: column; gap: 4px; padding: 5px 7px; }
   .oh-trajectory-toolbar-actions { overflow-x: auto; scrollbar-width: none; }
   .oh-trajectory-toolbar-actions::-webkit-scrollbar { display: none; }
