@@ -60,11 +60,9 @@ class MemoryView extends StatelessWidget {
       (controller) => controller.memoryEnabled,
     );
 
-    final actions = Wrap(
+    final actions = FeaturePageToolbar(
       spacing: 12,
-      runSpacing: 12,
-      alignment: WrapAlignment.end,
-      children: [
+      primaryActions: [
         FilledButton.tonalIcon(
           onPressed: memorySnapshot.isLoading
               ? null
