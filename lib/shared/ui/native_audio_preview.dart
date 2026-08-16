@@ -1677,7 +1677,7 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
       animation: _glowController,
       builder: (context, child) {
         final breath = widget.isPlaying && motionEnabled
-            ? Curves.easeInOutCubic.transform(_glowController.value)
+            ? kOpenHandEmphasizedTransitionCurve.transform(_glowController.value)
             : 0.0;
         final playLift = widget.isPlaying && motionEnabled ? 1.0 : 0.0;
         final scale = 1.0 + playLift * 0.012 + breath * 0.010;

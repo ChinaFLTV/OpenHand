@@ -338,7 +338,7 @@ double _capsuleMaxBlend(double progress) {
   final raw =
       ((progress - _kCapsuleMaxBlendStart) / (1 - _kCapsuleMaxBlendStart))
           .clamp(0.0, 1.0);
-  return Curves.easeInOutCubic.transform(raw);
+  return kOpenHandEmphasizedTransitionCurve.transform(raw);
 }
 
 /// Continuous 4-stop gradient: mid tiers ease through theme containers,
