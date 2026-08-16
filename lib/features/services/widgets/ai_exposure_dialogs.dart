@@ -3274,6 +3274,12 @@ class _HistoryLogDialogState extends State<_HistoryLogDialog> {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Center(child: CircularProgressIndicator());
         }
+        if (snapshot.hasError) {
+          return _InlineNotice(
+            icon: Icons.error_outline_rounded,
+            text: snapshot.error.toString(),
+          );
+        }
         return _LogList(logs: snapshot.data ?? const <AiExposureLogEntry>[]);
       },
     ),

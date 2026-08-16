@@ -2728,8 +2728,23 @@ Widget _taskThroughputTrendInsight(
       .where((task) => task.stage == 'failed' || task.stage == 'cancelled')
       .length;
   final sourceCounts = <AiExposureSource, int>{};
+  final sourceHighValueCounts = <AiExposureSource, int>{};
+  final sourceValidCounts = <AiExposureSource, int>{};
   for (final result in controller.results) {
     sourceCounts.update(result.source, (value) => value + 1, ifAbsent: () => 1);
+    if (result.category == AiExposureResultCategory.highValue) {
+      sourceHighValueCounts.update(
+        result.source,
+        (value) => value + 1,
+        ifAbsent: () => 1,
+      );
+    } else if (result.category == AiExposureResultCategory.valid) {
+      sourceValidCounts.update(
+        result.source,
+        (value) => value + 1,
+        ifAbsent: () => 1,
+      );
+    }
   }
   return _metricInsightPage([
     _InsightKpiBand(
@@ -4067,8 +4082,13 @@ Widget _taskSourceDistributionInsight(
                   color: OpenHandStatusColors.success,
                 ),
                 _InsightMatrixCell(
-                  label:
-                      '单任务产出 ${taskCounts[source] == null || taskCounts[source] == 0 ? '不适用' : ((resultCounts[source] ?? 0) / taskCounts[source]!).toStringAsFixed(1)}',
+                  label: () {
+                    final taskCount = taskCounts[source] ?? 0;
+                    final resultCount = resultCounts[source] ?? 0;
+                    return taskCount == 0
+                        ? '单任务产出 不适用'
+                        : '单任务产出 ${(resultCount / taskCount).toStringAsFixed(1)}';
+                  }(),
                   color: colors.tertiary,
                 ),
               ],
@@ -4533,7 +4553,7 @@ Widget _recordTypeDistributionInsight(
               records: controller.logs.map(_logInsightRecord).toList(),
               emptyLabel: '暂无日志记录。',
             ),
-            _ => const _InsightEmpty(label: '暂无记录。'),
+            _ => throw StateError('未知记录类型：${item.key}'),
           },
         ),
         _sqliteDatabaseDetailSection(controller, path, stats),

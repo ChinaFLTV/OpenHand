@@ -524,6 +524,10 @@ class _RedisRecordEditorState extends State<RedisRecordEditor> {
               _zsetEntries.add(
                 _RedisPairDraft(first: '$item', second: '${value[++index]}'),
               );
+            } else {
+              throw const FormatException(
+                'ZSet 扁平列表长度为奇数，最后一个元素缺少对应分数',
+              );
             }
           }
         }
@@ -734,7 +738,7 @@ class _RedisRecordEditorState extends State<RedisRecordEditor> {
       final field = draft.first.text.trim();
       if (field.isEmpty) throw FormatException('第 ${index + 1} 个 Hash 字段名不能为空');
       if (result.containsKey(field)) throw FormatException('Hash 字段“$field”重复');
-      result[field] = draft.second.text;
+      result[field] = draft.second.text.trim();
     }
     return result;
   }
@@ -744,7 +748,7 @@ class _RedisRecordEditorState extends State<RedisRecordEditor> {
     String emptyMessage,
   ) {
     if (entries.isEmpty) throw FormatException(emptyMessage);
-    return [for (final entry in entries) entry.value.text];
+    return [for (final entry in entries) entry.value.text.trim()];
   }
 
   List<String> _buildSetValue() {
@@ -767,7 +771,7 @@ class _RedisRecordEditorState extends State<RedisRecordEditor> {
     final values = <Map<String, Object>>[];
     for (var index = 0; index < _zsetEntries.length; index++) {
       final draft = _zsetEntries[index];
-      final member = draft.first.text;
+      final member = draft.first.text.trim();
       if (member.isEmpty) {
         throw FormatException('第 ${index + 1} 个 ZSet 成员不能为空');
       }

@@ -808,15 +808,22 @@ class _PostgresqlColumnSpec {
   final Object? defaultValue;
 
   bool get isJson => dataType.toLowerCase().contains('json');
-  bool get isBoolean => dataType.toLowerCase() == 'boolean';
+  bool get isBoolean {
+    final type = dataType.toLowerCase();
+    return type == 'boolean' || type == 'bool';
+  }
   bool get isDateTime {
     final type = dataType.toLowerCase();
-    return type.contains('timestamp') || type == 'date' || type == 'time';
+    return type.contains('timestamp') ||
+        type == 'date' ||
+        type.contains('time');
   }
 
   bool get isInteger {
     final type = dataType.toLowerCase();
-    return type.contains('int') || type.contains('serial');
+    // 排除 interval（含 "int" 子串但不是整数类型）。
+    return (type.contains('int') && type != 'interval') ||
+        type.contains('serial');
   }
 
   bool get isNumber {
@@ -1341,15 +1348,31 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
       _mode = mode;
       if (mode == _PostgresqlJsonRootMode.value) {
         _drafts.add(_PostgresqlJsonDraft.fromValue('', current));
-      } else if (mode == _PostgresqlJsonRootMode.object && current is Map) {
-        for (final entry in current.entries) {
-          _drafts.add(
-            _PostgresqlJsonDraft.fromValue('${entry.key}', entry.value),
-          );
+      } else if (mode == _PostgresqlJsonRootMode.object) {
+        // 从 Map 或 List 转换为对象模式：Map 直接展开，List 转为索引键。
+        if (current is Map) {
+          for (final entry in current.entries) {
+            _drafts.add(
+              _PostgresqlJsonDraft.fromValue('${entry.key}', entry.value),
+            );
+          }
+        } else if (current is List) {
+          for (var index = 0; index < current.length; index++) {
+            _drafts.add(
+              _PostgresqlJsonDraft.fromValue('$index', current[index]),
+            );
+          }
         }
-      } else if (mode == _PostgresqlJsonRootMode.array && current is List) {
-        for (final item in current) {
-          _drafts.add(_PostgresqlJsonDraft.fromValue('', item));
+      } else if (mode == _PostgresqlJsonRootMode.array) {
+        // 从 Map 或 List 转换为数组模式：List 直接展开，Map 取值列表。
+        if (current is List) {
+          for (final item in current) {
+            _drafts.add(_PostgresqlJsonDraft.fromValue('', item));
+          }
+        } else if (current is Map) {
+          for (final entry in current.entries) {
+            _drafts.add(_PostgresqlJsonDraft.fromValue('', entry.value));
+          }
         }
       }
       _error = null;

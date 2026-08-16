@@ -693,7 +693,11 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                                 : () => _editRedis(record: record),
                             onDelete: record['protected'] == true || _busy
                                 ? null
-                                : () => _deleteRedis('${record['key']}'),
+                                : () {
+                                    final key = '${record['key']}';
+                                    if (key.isEmpty || key == 'null') return;
+                                    _deleteRedis(key);
+                                  },
                           ),
                         )
                         .toList(growable: false),
@@ -815,7 +819,8 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
         _query.text,
       );
       if (mounted) {
-        setState(() => _queryRows = _list(result['rows']));
+        final rows = _list(result['rows']);
+        setState(() => _queryRows = rows);
         showOpenHandSuccessSnack(context, '查询完成 · ${_queryRows.length} 行');
       }
     } catch (error, stack) {

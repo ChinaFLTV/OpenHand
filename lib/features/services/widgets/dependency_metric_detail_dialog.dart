@@ -914,10 +914,10 @@ class _DependencyMetricDetailDialogState
         _postgresqlTelemetry(sample.overview)['transactionsRolledBack'],
       ),
     );
-    final peakTps = <double>[
-      ...commitRates,
-      ...rollbackRates,
-    ].fold<double>(0, math.max);
+    final peakTps = math.max(
+      commitRates.fold<double>(0, math.max),
+      rollbackRates.fold<double>(0, math.max),
+    );
     final durationBuckets = _stringIntMap(
       telemetry['transactionDurationBuckets'],
     );
@@ -1863,17 +1863,16 @@ class _DependencyMetricDetailDialogState
     final currentOutput =
         _numberOrNull(redis['networkOutputBytesPerSecond']) ??
         _lastValue(outputRates);
-    final peak = <double>[
-      ...inputRates,
-      ...outputRates,
-    ].fold<double>(0, math.max);
-    final average = inputRates.isEmpty && outputRates.isEmpty
+    final peak = math.max(
+      inputRates.fold<double>(0, math.max),
+      outputRates.fold<double>(0, math.max),
+    );
+    final totalRates = inputRates.length + outputRates.length;
+    final average = totalRates == 0
         ? 0.0
-        : ([
-                ...inputRates,
-                ...outputRates,
-              ].fold<double>(0, (sum, value) => sum + value) /
-              math.max(1, inputRates.length + outputRates.length));
+        : (inputRates.fold<double>(0, (sum, value) => sum + value) +
+                  outputRates.fold<double>(0, (sum, value) => sum + value)) /
+              totalRates;
     final anomalies = _networkAnomalies(samples, inputRates, outputRates);
     final sources = _objectMaps(redis['networkSources']);
     return Column(
@@ -2404,6 +2403,7 @@ class _KpiStrip extends StatelessWidget {
     final colors = theme.colorScheme;
     return LayoutBuilder(
       builder: (context, constraints) {
+        if (items.isEmpty) return const SizedBox.shrink();
         const stripInset = 12.0;
         final canFitSingleRow =
             constraints.maxWidth - stripInset >=
@@ -3215,6 +3215,7 @@ class _DonutBreakdown extends StatelessWidget {
       centerLabel: centerLabel,
       onSelectionChanged: null,
       onSegmentTap: (selection) {
+        if (selection.index < 0 || selection.index >= visible.length) return;
         final item = visible[selection.index];
         showServiceDetailsDialog(
           context,
@@ -3287,7 +3288,10 @@ class _HorizontalBars extends StatelessWidget {
       orientation: OpenHandComparisonBarOrientation.horizontal,
       emptyLabel: emptyLabel,
       onSegmentTap: (selected) {
-        final item = sorted.firstWhere((entry) => entry.key == selected.label);
+        final item = sorted
+            .where((entry) => entry.key == selected.label)
+            .firstOrNull;
+        if (item == null) return;
         showServiceDetailsDialog(
           context,
           title: item.key,
@@ -4089,18 +4093,26 @@ List<double> _seriesRate(
   List<DependencyTelemetrySample> samples,
   int Function(DependencyTelemetrySample sample) valueOf,
 ) {
-  final counters = samples
-      .map(
-        (sample) => DependencyTelemetrySample(
-          capturedAt: sample.capturedAt,
-          overview: <String, Object?>{'value': valueOf(sample)},
-        ),
-      )
-      .toList(growable: false);
-  return dependencyCounterRates(
-    counters,
-    (overview) => _integer(overview['value']),
-  );
+  if (samples.isEmpty) return const <double>[];
+  final rates = <double>[0];
+  for (var index = 1; index < samples.length; index++) {
+    final previous = valueOf(samples[index - 1]).toDouble();
+    final current = valueOf(samples[index]).toDouble();
+    final seconds = samples[index]
+        .capturedAt
+        .difference(samples[index - 1].capturedAt)
+        .inMilliseconds /
+        Duration.millisecondsPerSecond;
+    rates.add(
+      previous.isFinite &&
+              current.isFinite &&
+              seconds > 0 &&
+              current >= previous
+          ? (current - previous) / seconds
+          : 0,
+    );
+  }
+  return rates;
 }
 
 double _lastValue(List<double> values) => values.isEmpty ? 0 : values.last;
@@ -4278,7 +4290,9 @@ List<_BreakdownItem> _breakdownFromMap(
       .fold<int>(0, (sum, entry) => sum + entry.value);
   Color stableColor(String key) {
     final hash = key.codeUnits.fold<int>(0, (value, unit) => value * 31 + unit);
-    return palette[hash.abs() % palette.length];
+    // abs() 在 int.minValue 时仍返回负数，取无符号模避免负索引。
+    final index = hash.abs() % palette.length;
+    return palette[index < 0 ? index + palette.length : index];
   }
 
   return <_BreakdownItem>[
