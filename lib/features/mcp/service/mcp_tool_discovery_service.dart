@@ -2755,8 +2755,8 @@ class _StdioSession {
     // 导致解析器误判为 framed message 而无限等待。
     if (prefix.length < 4) return false;
     return prefix.isNotEmpty &&
-        ('content-length'.startsWith(prefix) ||
-            prefix.startsWith('content-length'));
+        (HttpHeaders.contentLengthHeader.startsWith(prefix) ||
+            prefix.startsWith(HttpHeaders.contentLengthHeader));
   }
 
   ({bool found, int? value}) _parseContentLength(String headers) {
@@ -2769,7 +2769,7 @@ class _StdioSession {
         continue;
       }
       final name = line.substring(0, separatorIndex).trim().toLowerCase();
-      if (name != 'content-length') {
+      if (name != HttpHeaders.contentLengthHeader) {
         continue;
       }
       if (found) return (found: true, value: null);

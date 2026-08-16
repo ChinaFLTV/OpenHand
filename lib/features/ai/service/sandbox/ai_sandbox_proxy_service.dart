@@ -1100,10 +1100,10 @@ class _HttpProxyRequest {
       final rawName = line.substring(0, separator);
       if (!_headerNamePattern.hasMatch(rawName)) return null;
       final name = lowercaseStringFromValue(rawName);
-      if (name == 'host' && headers.containsKey(name)) return null;
-      if ((name == 'connection' ||
-              name == 'content-length' ||
-              name == 'transfer-encoding') &&
+      if (name == HttpHeaders.hostHeader && headers.containsKey(name)) return null;
+      if ((name == HttpHeaders.connectionHeader ||
+              name == HttpHeaders.contentLengthHeader ||
+              name == HttpHeaders.transferEncodingHeader) &&
           headers.containsKey(name)) {
         return null;
       }
@@ -1111,11 +1111,11 @@ class _HttpProxyRequest {
       if (_containsInvalidHeaderText(value, allowTab: true)) return null;
       headers[name] = value;
     }
-    if (headers.containsKey('content-length') &&
-        headers.containsKey('transfer-encoding')) {
+    if (headers.containsKey(HttpHeaders.contentLengthHeader) &&
+        headers.containsKey(HttpHeaders.transferEncodingHeader)) {
       return null;
     }
-    final rawContentLength = headers['content-length'];
+    final rawContentLength = headers[HttpHeaders.contentLengthHeader];
     int? parsedContentLength;
     if (rawContentLength != null) {
       if (!_contentLengthPattern.hasMatch(rawContentLength)) return null;
@@ -1123,7 +1123,7 @@ class _HttpProxyRequest {
       if (parsedContentLength == null || parsedContentLength < 0) return null;
     }
     final transferEncoding = lowercaseStringFromValue(
-      headers['transfer-encoding'],
+      headers[HttpHeaders.transferEncodingHeader],
     );
     if (transferEncoding.isNotEmpty && transferEncoding != 'chunked') {
       return null;
@@ -1132,11 +1132,11 @@ class _HttpProxyRequest {
     if (isChunked && version == 'HTTP/1.0') return null;
     final isConnect = method.toUpperCase() == 'CONNECT';
     final connectionTokens = lowercaseStringFromValue(
-      headers['connection'],
+      headers[HttpHeaders.connectionHeader],
     ).split(',').map((item) => item.trim()).toSet();
-    if (connectionTokens.contains('host') ||
-        connectionTokens.contains('content-length') ||
-        connectionTokens.contains('transfer-encoding')) {
+    if (connectionTokens.contains(HttpHeaders.hostHeader) ||
+        connectionTokens.contains(HttpHeaders.contentLengthHeader) ||
+        connectionTokens.contains(HttpHeaders.transferEncodingHeader)) {
       return null;
     }
     if (!isConnect &&

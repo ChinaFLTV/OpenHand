@@ -2686,7 +2686,7 @@ class _AiLspSession {
       final separator = line.indexOf(':');
       if (separator <= 0 ||
           line.substring(0, separator).trim().toLowerCase() !=
-              'content-length') {
+              HttpHeaders.contentLengthHeader) {
         continue;
       }
       if (contentLength != null) return null;
