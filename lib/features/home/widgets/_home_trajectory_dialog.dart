@@ -1911,7 +1911,6 @@ class _TrajectoryTimelineState extends State<_TrajectoryTimeline> {
   double? _viewportStart;
   double? _viewportEnd;
   _TrajectoryRecord? _hoverRecord;
-  double _hoverX = 8;
   late final OpenHandDebouncer _hoverDebouncer = OpenHandDebouncer(
     delay: const Duration(milliseconds: 500),
   );
@@ -1958,7 +1957,6 @@ class _TrajectoryTimelineState extends State<_TrajectoryTimeline> {
     double width,
     _TrajectoryProjection projection,
   ) {
-    _hoverX = event.localPosition.dx;
     final value = _valueAt(event.localPosition.dx, width, projection);
     _scheduleHover(_spanAt(value, projection)?.record);
   }
@@ -2303,40 +2301,6 @@ class _TrajectoryTimelineState extends State<_TrajectoryTimeline> {
                                             context,
                                           ).textTheme.titleMedium,
                                         ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        if (_hoverRecord != null)
-                          Positioned(
-                            left: (_hoverX - 80).clamp(
-                              8,
-                              math.max(8, width - math.max(160, width * 0.48)),
-                            ),
-                            bottom: 2,
-                            child: IgnorePointer(
-                              child: Container(
-                                constraints: BoxConstraints(
-                                  maxWidth: math.max(120, width * 0.48),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 7,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: colorScheme.inverseSurface,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  '${_trajectoryKindLabel(context, _hoverRecord!.kind)} · '
-                                  '${_trajectoryDurationLabel(_hoverRecord!.durationMs)} · '
-                                  '${_hoverRecord!.preview}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.labelSmall
-                                      ?.copyWith(
-                                        color: colorScheme.onInverseSurface,
-                                      ),
                                 ),
                               ),
                             ),

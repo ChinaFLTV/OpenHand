@@ -919,7 +919,6 @@ function TrajectoryTimeline({
                 data-selected={selectedId === span.record.id ? 'true' : undefined}
                 data-search-match={match ? 'true' : 'false'}
                 style={positionStyle(Math.max(span.start, viewport.start), Math.min(span.end, viewport.end))}
-                title={`${kindLabel(span.record.kind)}\n${formatTime(span.record.startedAt)}\n${formatDuration(span.record.durationMs)}`}
               />
             );
           })}
