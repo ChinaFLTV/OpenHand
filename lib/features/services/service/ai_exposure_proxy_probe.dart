@@ -351,15 +351,16 @@ _ProxyProbeAttempt _statusFailure(int statusCode) {
       retryable: false,
     );
   }
-  if (statusCode == 403 || statusCode == 429) {
+  if (statusCode == HttpStatus.forbidden ||
+      statusCode == HttpStatus.tooManyRequests) {
     return _ProxyProbeAttempt.failure(
       gatewayReachable: true,
       statusCode: statusCode,
       failure: AiExposureProxyProbeFailure.access,
-      error: statusCode == 403
+      error: statusCode == HttpStatus.forbidden
           ? '代理拒绝转发，请检查 IP 白名单、套餐状态或目标限制。'
           : '代理请求受限，请检查套餐额度或并发限制。',
-      retryable: statusCode == 403,
+      retryable: statusCode == HttpStatus.forbidden,
     );
   }
   return _ProxyProbeAttempt.failure(

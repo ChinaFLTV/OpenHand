@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -137,7 +138,7 @@ class AiResponsesHttpException implements Exception {
 
   bool get isEndpointIncompatible {
     if (!isMissingEndpoint) return false;
-    if (statusCode != 404) return true;
+    if (statusCode != HttpStatus.notFound) return true;
     final normalized = body.toLowerCase();
     final resourceSpecificNotFound =
         const <String>['model', 'deployment'].any(normalized.contains) &&

@@ -155,7 +155,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         totalTimeout: remainingBudget(),
         allowMalformed: true,
       );
-      if (response.statusCode != 200) {
+      if (response.statusCode != HttpStatus.ok) {
         return AppUpdateCheckError(
           message: '更新服务返回 HTTP ${response.statusCode}。',
         );
@@ -232,7 +232,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       );
       final response = result.response;
       final downloadUri = result.uri;
-      if (response.statusCode != 200) {
+      if (response.statusCode != HttpStatus.ok) {
         await readBoundedHttpResponseText(
           response,
           maxBytes: _kUpdateMetadataMaxBytes,

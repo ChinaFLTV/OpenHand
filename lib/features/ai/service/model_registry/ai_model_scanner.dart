@@ -176,7 +176,8 @@ class AiModelScanner {
         timeout: timeout,
       );
 
-      if (response.statusCode == 401 || response.statusCode == 403) {
+      if (response.statusCode == HttpStatus.unauthorized ||
+          response.statusCode == HttpStatus.forbidden) {
         return AiModelScanResult(
           modelIds: const <String>[],
           error: _ScanErrorMessages.httpStatus(
@@ -186,7 +187,7 @@ class AiModelScanner {
           ),
         );
       }
-      if (response.statusCode == 200) {
+      if (response.statusCode == HttpStatus.ok) {
         final parsed = _parseOpenAiModelsResponse(
           response.body,
           url: modelsUrl,
@@ -204,7 +205,8 @@ class AiModelScanner {
           hint: modelsUrl,
         ),
       );
-      if (response.statusCode != 404 && response.statusCode != 405) {
+      if (response.statusCode != HttpStatus.notFound &&
+          response.statusCode != HttpStatus.methodNotAllowed) {
         break;
       }
     }
@@ -248,7 +250,7 @@ class AiModelScanner {
       timeout: timeout,
     );
 
-    if (response.statusCode != 200) {
+    if (response.statusCode != HttpStatus.ok) {
       return AiModelScanResult(
         modelIds: const <String>[],
         error: _ScanErrorMessages.httpStatus(response.statusCode),
@@ -324,7 +326,8 @@ class AiModelScanner {
         timeout: timeout,
       );
 
-      if (response.statusCode == 401 || response.statusCode == 403) {
+      if (response.statusCode == HttpStatus.unauthorized ||
+          response.statusCode == HttpStatus.forbidden) {
         return AiModelScanResult(
           modelIds: const <String>[],
           error: _ScanErrorMessages.httpStatus(
@@ -333,7 +336,7 @@ class AiModelScanner {
           ),
         );
       }
-      if (response.statusCode != 200) {
+      if (response.statusCode != HttpStatus.ok) {
         return AiModelScanResult(
           modelIds: const <String>[],
           error: _ScanErrorMessages.httpStatus(response.statusCode),
@@ -420,7 +423,8 @@ class AiModelScanner {
           timeout: timeout,
         );
 
-        if (response.statusCode == 401 || response.statusCode == 403) {
+        if (response.statusCode == HttpStatus.unauthorized ||
+            response.statusCode == HttpStatus.forbidden) {
           return AiModelScanResult(
             modelIds: const <String>[],
             error: _ScanErrorMessages.httpStatus(
@@ -429,7 +433,7 @@ class AiModelScanner {
             ),
           );
         }
-        if (response.statusCode != 200) {
+        if (response.statusCode != HttpStatus.ok) {
           // 部分 Anthropic 兼容代理不支持 /models。
           if (allIds.isNotEmpty) break;
           return AiModelScanResult(
@@ -565,13 +569,14 @@ class AiModelScanner {
       timeout: timeout,
     );
 
-    if (response.statusCode == 401 || response.statusCode == 403) {
+    if (response.statusCode == HttpStatus.unauthorized ||
+        response.statusCode == HttpStatus.forbidden) {
       return AiModelScanResult(
         modelIds: const <String>[],
         error: _ScanErrorMessages.httpStatus(response.statusCode, isAuth: true),
       );
     }
-    if (response.statusCode != 200) {
+    if (response.statusCode != HttpStatus.ok) {
       return AiModelScanResult(
         modelIds: const <String>[],
         error: _ScanErrorMessages.httpStatus(response.statusCode),

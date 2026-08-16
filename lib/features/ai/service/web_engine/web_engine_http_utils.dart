@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
@@ -59,7 +60,7 @@ Map<String, Object?> decodeSuccessfulWebEngineJsonResponse(
   required String engineLabel,
   String? source,
 }) {
-  if (response.statusCode != 200) {
+  if (response.statusCode != HttpStatus.ok) {
     throw WebEngineHttpException(
       '$engineLabel ${response.statusCode}: ${response.errorPreview()}',
     );

@@ -1,6 +1,8 @@
 /// AI 聊天与 MCP 工具发现共用的 HTTP 重定向工具。
 library;
 
+import 'dart:io';
+
 import 'package:http/http.dart' as http;
 
 import '../util/input_value_parsing.dart';
@@ -109,20 +111,21 @@ Future<http.StreamedResponse> sendHttpRequestFollowingRedirects({
 /// 301 / 302 对 POST 沿用浏览器兼容语义，303 则把除 GET / HEAD 外的方法转为 GET。
 bool _redirectUsesGet(int statusCode, String method) {
   final normalizedMethod = method.toUpperCase();
-  return (statusCode == 301 || statusCode == 302) &&
+  return (statusCode == HttpStatus.movedPermanently ||
+          statusCode == HttpStatus.found) &&
           normalizedMethod == 'POST' ||
-      statusCode == 303 &&
+      statusCode == HttpStatus.seeOther &&
           normalizedMethod != 'GET' &&
           normalizedMethod != 'HEAD';
 }
 
 /// 判断状态码是否为需要跟随的重定向响应。
 bool isRedirectStatusCode(int statusCode) {
-  return statusCode == 301 ||
-      statusCode == 302 ||
-      statusCode == 303 ||
-      statusCode == 307 ||
-      statusCode == 308;
+  return statusCode == HttpStatus.movedPermanently ||
+      statusCode == HttpStatus.found ||
+      statusCode == HttpStatus.seeOther ||
+      statusCode == HttpStatus.temporaryRedirect ||
+      statusCode == HttpStatus.permanentRedirect;
 }
 
 /// 判断目标地址是否跨越源、主机或有效端口边界。

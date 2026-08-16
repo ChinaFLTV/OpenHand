@@ -119,7 +119,7 @@ class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {
       cancelSignal: cancelSignal,
       retrySafe: true,
     );
-    if (existing.statusCode == 200) {
+    if (existing.statusCode == HttpStatus.ok) {
       _validateCollectionConfig(existing, collectionName, dimensions, distance);
       return;
     }
