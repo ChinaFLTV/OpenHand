@@ -667,7 +667,7 @@ class ThrottleCloudSyncService {
         HttpHeaders.contentTypeHeader: kApplicationJsonUtf8ContentType,
         HttpHeaders.authorizationHeader: 'Bearer $pat',
         'X-GitHub-Api-Version': _githubApiVersion,
-        'User-Agent': _githubUserAgent,
+        HttpHeaders.userAgentHeader: _githubUserAgent,
       };
       final id = nullIfBlank(gistId);
       final _ThrottleHttpResponse resp;
@@ -734,7 +734,7 @@ class ThrottleCloudSyncService {
           HttpHeaders.acceptHeader: 'application/vnd.github+json',
           HttpHeaders.authorizationHeader: 'Bearer $pat',
           'X-GitHub-Api-Version': _githubApiVersion,
-          'User-Agent': _githubUserAgent,
+          HttpHeaders.userAgentHeader: _githubUserAgent,
         },
         cancelSignal: cancelSignal,
       );

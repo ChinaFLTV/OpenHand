@@ -573,9 +573,9 @@ class AiImageGenerationService {
       endpointHeaders: endpoint.headers,
     );
     if (!model.customHeaders.keys.any(
-      (key) => lowercaseStringFromValue(key) == 'accept',
+      (key) => lowercaseStringFromValue(key) == kAcceptHeaderName,
     )) {
-      headers['accept'] = _acceptHeaderFor(kind);
+      headers[kAcceptHeaderName] = _acceptHeaderFor(kind);
     }
     // DashScope (Qwen) video generation is async-by-design: the request must
     // carry `X-DashScope-Async: enable` to be queued, otherwise it 400s

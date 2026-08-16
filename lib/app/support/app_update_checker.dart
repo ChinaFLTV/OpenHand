@@ -143,8 +143,8 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         connectionTimeout: _kUpdateCheckConnectionTimeout,
         remainingBudget: remainingBudget,
         headers: const <String, String>{
-          'Accept': _kGitHubReleaseAcceptHeader,
-          'User-Agent': _kUpdateCheckerUserAgent,
+          kAcceptHeaderName: _kGitHubReleaseAcceptHeader,
+          kUserAgentHeaderName: _kUpdateCheckerUserAgent,
         },
       );
       final response = result.response;
@@ -228,7 +228,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         initialUri: initialDownloadUri,
         connectionTimeout: _kUpdateDownloadConnectionTimeout,
         remainingBudget: remainingBudget,
-        headers: const <String, String>{'User-Agent': _kUpdateCheckerUserAgent},
+        headers: const <String, String>{kUserAgentHeaderName: _kUpdateCheckerUserAgent},
       );
       final response = result.response;
       final downloadUri = result.uri;

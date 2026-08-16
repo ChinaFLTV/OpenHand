@@ -1366,7 +1366,7 @@ class AiTtsPlaybackService {
         HttpHeaders.acceptHeader: 'audio/*',
         'Ocp-Apim-Subscription-Key': settings.apiKey,
         'X-Microsoft-OutputFormat': outputFormat,
-        'User-Agent': 'OpenHand',
+        HttpHeaders.userAgentHeader: 'OpenHand',
       },
       body: _bingSsml(text, settings),
       timeout: operation.remainingSynthesisTime(),
