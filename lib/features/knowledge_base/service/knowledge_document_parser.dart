@@ -422,7 +422,7 @@ class CsvKnowledgeDocumentParser extends KnowledgeDocumentParser {
     return KnowledgeDocumentParseResult(
       text: _tableToMarkdown(title, rows),
       kind: 'table',
-      mimeType: extension == 'tsv' ? 'text/tab-separated-values' : 'text/csv',
+      mimeType: extension == 'tsv' ? kTextTsvMimeType : kTextCsvMimeType,
       parserId: id,
       title: title,
       metadata: <String, Object?>{
@@ -1483,7 +1483,7 @@ String _mimeForExtension(String extension) {
     'go' => 'text/x-go',
     'rs' => 'text/x-rust',
     'sql' => 'application/sql',
-    'xml' => 'application/xml',
+    'xml' => kApplicationXmlMimeType,
     'css' || 'scss' || 'less' => 'text/css',
     _ => kTextPlainMimeType,
   };

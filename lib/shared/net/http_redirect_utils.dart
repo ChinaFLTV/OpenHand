@@ -283,6 +283,18 @@ const String kVideoQuickTimeMimeType = 'video/quicktime';
 /// Matroska 视频 MIME 类型常量。
 const String kVideoMatroskaMimeType = 'video/x-matroska';
 
+/// XML MIME 类型常量。
+const String kApplicationXmlMimeType = 'application/xml';
+
+/// CSV MIME 类型常量。
+const String kTextCsvMimeType = 'text/csv';
+
+/// TSV (Tab-Separated Values) MIME 类型常量。
+const String kTextTsvMimeType = 'text/tab-separated-values';
+
+/// NDJSON (Newline-Delimited JSON) MIME 类型常量。
+const String kApplicationNdjsonMimeType = 'application/x-ndjson';
+
 /// 取 `Content-Type` 的 MIME 部分（丢掉 `; charset=...` 参数），统一转小写；
 /// 缺失时返回空字符串。
 String responseMimeType(Map<String, String> headers) {
