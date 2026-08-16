@@ -20,6 +20,7 @@ import 'services_errors.dart';
 const int _kAiExposureMaxLogs = 5000;
 const int _kAiExposureMaxCachedHistoryJobs = 20;
 const int _kAiExposureMaxCachedLogsPerJob = 2000;
+const int _kAiExposureLogFetchBatchSize = 500;
 const int _kProxyInspectionCheckpointSize = 512;
 const int _kEventStreamReconnectLimit = 3;
 const Duration _kProxyInspectionFirstRunDelay = Duration(seconds: 10);
@@ -37,6 +38,8 @@ const List<String> _kScanReaderFailureMarkers = <String>[
   'Jina Reader',
   '页面读取失败',
 ];
+
+const String _kServiceStoppingMessage = '扫描服务正在停止。';
 
 typedef AiExposureProxyInspectionResultCallback =
     void Function(
@@ -1507,7 +1510,7 @@ class ServicesController extends ChangeNotifier {
         recent.map((entry) async {
           final cached = force ? null : _cachedHistoryLogs(entry.id);
           if (cached != null) return cached;
-          return client.logs(entry.id, limit: 500);
+          return client.logs(entry.id, limit: _kAiExposureLogFetchBatchSize);
         }),
       );
       if (!_isCurrentClient(client)) return;
@@ -1723,7 +1726,7 @@ class ServicesController extends ChangeNotifier {
   Future<void> _watchJob(String jobId, {bool reconnecting = false}) async {
     await _cancelEventSubscription();
     if (_disposed || _lifecycle == AiExposureServiceLifecycle.stopping) {
-      throw StateError('扫描服务正在停止。');
+      throw StateError(_kServiceStoppingMessage);
     }
     final client = _requireClient();
     if (!reconnecting) _eventStreamReconnectAttempts = 0;
@@ -1770,7 +1773,7 @@ class ServicesController extends ChangeNotifier {
         _lifecycle == AiExposureServiceLifecycle.stopping ||
         !_isCurrentClient(client)) {
       await _cancelEventSubscription();
-      throw StateError('扫描服务正在停止。');
+      throw StateError(_kServiceStoppingMessage);
     }
   }
 

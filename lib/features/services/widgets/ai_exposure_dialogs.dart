@@ -30,6 +30,16 @@ const EdgeInsets _kDialogPadding = EdgeInsets.all(22);
 const double _kSectionGap = 18;
 const double _kItemGap = 12;
 const double _kMetricBreakpoint = 720;
+
+/// 依赖状态语义色板。与 [OpenHandStatusColors] 保持区分：
+/// 托管依赖面板需要更沉稳的色调以区别于全局状态指示。
+const Color _kDependencyRunning = Color(0xff2e7d5b);
+const Color _kDependencyStopped = Color(0xffb26a00);
+
+/// 服务指标图标色调。用于 [_serviceMetricTone] 中按图标语义分配颜色。
+const Color _kMetricToneSuccess = Color(0xff16a34a);
+const Color _kMetricToneError = Color(0xffdc2626);
+const Color _kMetricToneStorage = Color(0xff0891b2);
 const List<AiExposureSource> _kCredentialSources = <AiExposureSource>[
   AiExposureSource.github,
   AiExposureSource.gitee,
@@ -2197,9 +2207,9 @@ class _ManagedDependencyTile extends StatelessWidget {
     final statusColor = isBusy
         ? colors.tertiary
         : running
-        ? const Color(0xff2e7d5b)
+        ? _kDependencyRunning
         : installed
-        ? const Color(0xffb26a00)
+        ? _kDependencyStopped
         : plugin?.status == PluginStatus.error
         ? colors.error
         : colors.onSurfaceVariant;
@@ -2594,15 +2604,15 @@ Color _serviceMetricTone(IconData icon, ColorScheme colors) {
       icon == Icons.check_circle_outline_rounded ||
       icon == Icons.verified_outlined ||
       icon == Icons.fact_check_outlined) {
-    return const Color(0xff16a34a);
+    return _kMetricToneSuccess;
   }
   if (icon == Icons.error_outline_rounded ||
       icon == Icons.cloud_off_outlined ||
       icon == Icons.warning_amber_rounded) {
-    return const Color(0xffdc2626);
+    return _kMetricToneError;
   }
   if (icon == Icons.storage_rounded || icon == Icons.dns_outlined) {
-    return const Color(0xff0891b2);
+    return _kMetricToneStorage;
   }
   if (icon == Icons.memory_rounded || icon == Icons.speed_rounded) {
     return colors.tertiary;

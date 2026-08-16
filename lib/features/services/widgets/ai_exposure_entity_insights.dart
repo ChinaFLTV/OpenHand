@@ -3546,7 +3546,7 @@ _entityDependencyHistoryTrend(
 Color _resultEntityColor(AiExposureResultCategory category) =>
     switch (category) {
       AiExposureResultCategory.valid => OpenHandStatusColors.success,
-      AiExposureResultCategory.highValue => OpenHandStatusColors.warning,
+      AiExposureResultCategory.highValue => _kAiExposureColorHighValue,
       AiExposureResultCategory.suspicious => OpenHandStatusColors.warning,
       AiExposureResultCategory.honeypot => OpenHandStatusColors.error,
     };

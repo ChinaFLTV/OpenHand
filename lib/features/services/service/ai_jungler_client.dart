@@ -16,6 +16,9 @@ const int _kAiJunglerMaxRequestBytes = 2 * kBytesPerMiB;
 const int _kAiJunglerMaxJsonResponseBytes = 8 * kBytesPerMiB;
 const int _kAiJunglerMaxErrorResponseBytes = 64 * kBytesPerKiB;
 const int _kAiJunglerMaxSseLineBytes = 256 * kBytesPerKiB;
+const int _kAiJunglerDefaultHistoryLimit = 500;
+const int _kAiJunglerDefaultLogLimit = 2000;
+const int _kAiJunglerDefaultResultLimit = 1000;
 
 class AiJunglerApiException implements Exception {
   const AiJunglerApiException(this.message, {this.statusCode});
@@ -67,21 +70,22 @@ class AiJunglerClient {
   Future<AiExposureProgress> progress(String jobId) async =>
       AiExposureProgress.fromJson(await _jsonRequest('GET', _jobPath(jobId)));
 
-  Future<List<AiExposureHistoryEntry>> history({int limit = 500}) async =>
-      _jsonList(
-        await _request('GET', '/v1/history?limit=$limit'),
-      ).map(AiExposureHistoryEntry.fromJson).toList(growable: false);
+  Future<List<AiExposureHistoryEntry>> history({
+    int limit = _kAiJunglerDefaultHistoryLimit,
+  }) async => _jsonList(
+    await _request('GET', '/v1/history?limit=$limit'),
+  ).map(AiExposureHistoryEntry.fromJson).toList(growable: false);
 
   Future<List<AiExposureLogEntry>> logs(
     String jobId, {
-    int limit = 2000,
+    int limit = _kAiJunglerDefaultLogLimit,
   }) async => _jsonList(
     await _request('GET', '${_jobPath(jobId, suffix: '/logs')}?limit=$limit'),
   ).map(AiExposureLogEntry.fromJson).toList(growable: false);
 
   Future<List<AiExposureResult>> results({
     String? jobId,
-    int limit = 1000,
+    int limit = _kAiJunglerDefaultResultLimit,
   }) async {
     final query = <String>[
       'limit=$limit',

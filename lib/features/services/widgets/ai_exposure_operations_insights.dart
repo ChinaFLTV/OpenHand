@@ -10,7 +10,7 @@ const InputDecoration _kTaskLedgerFilterDecoration = InputDecoration(
 );
 const double _kTaskLedgerDesktopRowHorizontalPadding = 6;
 const double _kTaskLedgerPipelineMinHeight = 520;
-const Duration _kTaskLedgerPageMotionDuration = Duration(milliseconds: 180);
+const Duration _kTaskLedgerPageMotionDuration = kOpenHandMotion180;
 const double _kTaskLedgerStatusWidth = 84;
 const double _kTaskLedgerCreatedWidth = 150;
 const double _kTaskLedgerStartedWidth = 150;

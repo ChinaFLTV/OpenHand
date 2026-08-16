@@ -42,6 +42,7 @@ const double _kProxyEndpointListMaxHeight = 420;
 // 为节点列表滚动条预留独立命中槽位，避免覆盖弹窗主滚动条。
 const double _kProxyEndpointScrollbarGutter = 28;
 const Duration _kProbeResultFlushDelay = Duration(milliseconds: 80);
+const Duration _kProxyTrendRefreshInterval = Duration(seconds: 8);
 const List<int> _kInspectionIntervals = <int>[5, 15, 30, 60, 180, 360];
 const List<int> _kInspectionConcurrencyOptions = <int>[
   1,
@@ -1826,7 +1827,7 @@ class _ProxyAverageResponseDialogState
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadTrend());
     _refreshTimer = startNonOverlappingPeriodicTimer(
-      const Duration(seconds: 8),
+      _kProxyTrendRefreshInterval,
       (_) {
         if (mounted && !_loading) return _loadTrend();
       },
@@ -3498,7 +3499,7 @@ class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
         );
         final motionDuration = openHandMotionDuration(
           context,
-          const Duration(milliseconds: 190),
+          kOpenHandMotion200,
         );
 
         return Semantics(
@@ -3654,7 +3655,7 @@ class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
                         child: AnimatedSwitcher(
                           duration: openHandMotionDuration(
                             context,
-                            const Duration(milliseconds: 230),
+                            kOpenHandMotion220,
                           ),
                           switchInCurve: Curves.easeOutBack,
                           switchOutCurve: Curves.easeInCubic,
@@ -4611,7 +4612,7 @@ class _ProxyEndpointDetailsDialogState
         })
         .toList(growable: false);
     final probePoints = _endpoint.samples
-        .where((item) => item.reachable)
+        .where((item) => item.reachable && item.latencyMs != null)
         .map(
           (item) => _ProxyDetailTrendPoint(
             at: item.checkedAt,
@@ -5751,7 +5752,7 @@ class _ProxyLatencyChartState extends State<_ProxyLatencyChart> {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final samples = widget.endpoint.samples
-        .where((sample) => sample.reachable)
+        .where((sample) => sample.reachable && sample.latencyMs != null)
         .toList(growable: false);
     final values = samples
         .map((sample) => sample.latencyMs!.toDouble())
@@ -6137,7 +6138,9 @@ _ProxyEndpointHealth _proxyEndpointHealth(AiExposureProxyEndpoint endpoint) {
         ? _ProxyEndpointHealth.forwardingFailed
         : _ProxyEndpointHealth.unavailable;
   }
-  return sample.latencyMs! <= _kProxyHighLatencyThresholdMs
+  final latencyMs = sample.latencyMs;
+  if (latencyMs == null) return _ProxyEndpointHealth.healthy;
+  return latencyMs <= _kProxyHighLatencyThresholdMs
       ? _ProxyEndpointHealth.healthy
       : _ProxyEndpointHealth.highLatency;
 }

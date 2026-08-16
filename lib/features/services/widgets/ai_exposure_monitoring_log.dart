@@ -402,7 +402,7 @@ class _LogRow extends StatelessWidget {
 Color _logColor(String level) => switch (level) {
   'error' => OpenHandStatusColors.error,
   'warning' => OpenHandStatusColors.warning,
-  'runtime' => const Color(0xff14b8a6),
+  'runtime' => _kAiExposureLogRuntime,
   _ => OpenHandStatusColors.info,
 };
 

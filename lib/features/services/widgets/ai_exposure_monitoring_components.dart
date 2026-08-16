@@ -634,21 +634,13 @@ class _TrendPanelState extends State<_TrendPanel> {
   late final ValueNotifier<List<String>> _liveSampleLabels = ValueNotifier(
     widget.sampleLabels,
   );
-  bool _syncScheduled = false;
 
   @override
   void didUpdateWidget(_TrendPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_syncScheduled) return;
-    _syncScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _syncScheduled = false;
-      _syncLiveValues();
-    });
-  }
-
-  void _syncLiveValues() {
+    // ValueNotifiers are only consumed by the insight dialog callback, not by
+    // build, so syncing immediately avoids a one-frame stale-data window without
+    // any rebuild-loop risk.
     _liveSeries.value = widget.series;
     _liveSampleLabels.value = widget.sampleLabels;
   }
@@ -1158,14 +1150,14 @@ class _OpsLegend extends StatelessWidget {
 Color _sourceColor(AiExposureSource source, ColorScheme colors) =>
     switch (source) {
       AiExposureSource.manual => colors.primary,
-      AiExposureSource.github => const Color(0xff475569),
+      AiExposureSource.github => _kAiExposureSourceGithub,
       AiExposureSource.githubArtifact => _kAiExposureColorSlate500,
       AiExposureSource.gitee => OpenHandStatusColors.error,
-      AiExposureSource.gitcode => const Color(0xff2563eb),
+      AiExposureSource.gitcode => _kAiExposureSourceGitcode,
       AiExposureSource.fofa => _kAiExposureColorCyan,
       AiExposureSource.shodan => OpenHandStatusColors.warning,
-      AiExposureSource.nodeseek => const Color(0xff7c3aed),
-      AiExposureSource.linuxDo => const Color(0xff16a34a),
+      AiExposureSource.nodeseek => _kAiExposureSourceNodeseek,
+      AiExposureSource.linuxDo => _kAiExposureSourceLinuxDo,
       AiExposureSource.v2ex => _kAiExposureColorSlate500,
     };
 
@@ -1222,6 +1214,7 @@ class _StageRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final color = completed || active ? cs.primary : cs.outline;
+    final t = timing;
     return ListTile(
       contentPadding: EdgeInsets.zero,
       onTap: () => _openInsightTarget(
@@ -1237,19 +1230,19 @@ class _StageRow extends StatelessWidget {
         color: color,
       ),
       title: Text(_stageName(stage)),
-      subtitle: timing == null
+      subtitle: t == null
           ? null
           : Text(
               [
-                if (timing!.startedAt != null)
-                  '开始 ${_shortDateTime(timing!.startedAt!)}',
-                if (timing!.finishedAt != null)
-                  '结束 ${_shortDateTime(timing!.finishedAt!)}',
-                if (timing!.durationMs != null) '${timing!.durationMs} ms',
-                if (timing!.inputCount != null) '输入 ${timing!.inputCount}',
-                if (timing!.outputCount != null) '输出 ${timing!.outputCount}',
-                if (timing!.message?.trim().isNotEmpty == true)
-                  timing!.message!.trim(),
+                if (t.startedAt != null)
+                  '开始 ${_shortDateTime(t.startedAt!)}',
+                if (t.finishedAt != null)
+                  '结束 ${_shortDateTime(t.finishedAt!)}',
+                if (t.durationMs != null) '${t.durationMs} ms',
+                if (t.inputCount != null) '输入 ${t.inputCount}',
+                if (t.outputCount != null) '输出 ${t.outputCount}',
+                if (t.message?.trim().isNotEmpty == true)
+                  t.message!.trim(),
               ].join(' · '),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
