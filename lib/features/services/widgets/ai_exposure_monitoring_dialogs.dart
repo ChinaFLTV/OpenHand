@@ -64,6 +64,36 @@ const Color _kAiExposureDarkJobId = Color(0xff6fa8ed);
 const Color _kAiExposureConsoleSuccess = Color(0xff28d17c);
 const Color _kAiExposureConsoleWarning = Color(0xffffb14e);
 
+// 实体脱敏正则：提升为顶层 final，避免每次调用 _entityRedactText 时重新编译。
+final RegExp _kRedactPrivateKey = RegExp(
+  r'-----BEGIN(?: [A-Z0-9]+)? PRIVATE KEY-----[\s\S]*?-----END(?: [A-Z0-9]+)? PRIVATE KEY-----',
+  caseSensitive: false,
+);
+final RegExp _kRedactAuthHeader = RegExp(
+  r'((?:authorization|proxy-authorization)\s*[:=]\s*)([^\r\n,;]+)',
+  caseSensitive: false,
+);
+final RegExp _kRedactSecretAssignment = RegExp(
+  r'((?:api[_-]?key|token|secret|password|credential|cookie)\s*[:=]\s*)([^\s,;]+)',
+  caseSensitive: false,
+);
+final RegExp _kRedactSecretJson = RegExp(
+  r'((?:"?(?:api[_-]?key|token|secret|password|authorization|credential|cookie)"?\s*:\s*"?))([^",\s}]+)',
+  caseSensitive: false,
+);
+final RegExp _kRedactUrlCredentials = RegExp(
+  r'([a-z][a-z0-9+.-]*://[^/\s:@]+:)([^@/\s]+)(@)',
+  caseSensitive: false,
+);
+final RegExp _kRedactSecretQuery = RegExp(
+  r'([?&](?:api[_-]?key|token|secret|password|authorization|credential|cookie)=)([^&#\s]+)',
+  caseSensitive: false,
+);
+final RegExp _kRedactBearerToken = RegExp(
+  r'(bearer\s+)([A-Za-z0-9._~+/-]+)',
+  caseSensitive: false,
+);
+
 
 Future<void> showAiExposureOperationsDialog(BuildContext context) =>
     showAnimatedDialog<void>(

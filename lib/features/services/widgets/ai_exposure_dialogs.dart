@@ -5,6 +5,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
@@ -1143,6 +1144,9 @@ class _ToolsDialogState extends State<_ToolsDialog> {
         _fofaEmail.text = credentials['fofaEmail'] ?? '';
         _fofaKey.text = credentials['fofaKey'] ?? '';
         _shodanKey.text = credentials['shodanKey'] ?? '';
+      },
+      onError: (Object error, StackTrace stack) {
+        silentLog('ai_exposure_dialogs', '加载数据源凭证', error, stack);
       },
     );
   }

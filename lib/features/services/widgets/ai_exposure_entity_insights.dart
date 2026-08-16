@@ -369,21 +369,20 @@ class _TaskEntityInsightBody extends StatelessWidget {
         child: Column(
           children: stages.indexed
               .map(
-                (entry) => _StageRow(
-                  stage: entry.$2,
-                  taskId: task.id,
-                  timing: task.stageTimings
+                (entry) {
+                  final timing = task.stageTimings
                       .where((timing) => timing.stage == entry.$2)
-                      .firstOrNull,
-                  completed: () {
-                    final timing = task.stageTimings
-                        .where((timing) => timing.stage == entry.$2)
-                        .firstOrNull;
-                    return timing?.finishedAt != null ||
-                        timing?.durationMs != null;
-                  }(),
-                  active: entry.$2 == task.stage && !task.isTerminal,
-                ),
+                      .firstOrNull;
+                  return _StageRow(
+                    stage: entry.$2,
+                    taskId: task.id,
+                    timing: timing,
+                    completed:
+                        timing?.finishedAt != null ||
+                        timing?.durationMs != null,
+                    active: entry.$2 == task.stage && !task.isTerminal,
+                  );
+                },
               )
               .toList(growable: false),
         ),
@@ -3255,50 +3254,29 @@ String _entitySafeUrl(String value) {
 }
 
 String _entityRedactText(String value) {
-  var redacted = value.replaceAll(
-    RegExp(
-      r'-----BEGIN(?: [A-Z0-9]+)? PRIVATE KEY-----[\s\S]*?-----END(?: [A-Z0-9]+)? PRIVATE KEY-----',
-      caseSensitive: false,
-    ),
-    '[私钥已隐藏]',
-  );
+  var redacted = value.replaceAll(_kRedactPrivateKey, '[私钥已隐藏]');
   redacted = redacted.replaceAllMapped(
-    RegExp(
-      r'((?:authorization|proxy-authorization)\s*[:=]\s*)([^\r\n,;]+)',
-      caseSensitive: false,
-    ),
+    _kRedactAuthHeader,
     (match) => '${match.group(1)}[已隐藏]',
   );
   redacted = redacted.replaceAllMapped(
-    RegExp(
-      r'((?:api[_-]?key|token|secret|password|credential|cookie)\s*[:=]\s*)([^\s,;]+)',
-      caseSensitive: false,
-    ),
+    _kRedactSecretAssignment,
     (match) => '${match.group(1)}[已隐藏]',
   );
   redacted = redacted.replaceAllMapped(
-    RegExp(
-      r'((?:"?(?:api[_-]?key|token|secret|password|authorization|credential|cookie)"?\s*:\s*"?))([^",\s}]+)',
-      caseSensitive: false,
-    ),
+    _kRedactSecretJson,
     (match) => '${match.group(1)}[已隐藏]',
   );
   redacted = redacted.replaceAllMapped(
-    RegExp(
-      r'([a-z][a-z0-9+.-]*://[^/\s:@]+:)([^@/\s]+)(@)',
-      caseSensitive: false,
-    ),
+    _kRedactUrlCredentials,
     (match) => '${match.group(1)}******${match.group(3)}',
   );
   redacted = redacted.replaceAllMapped(
-    RegExp(
-      r'([?&](?:api[_-]?key|token|secret|password|authorization|credential|cookie)=)([^&#\s]+)',
-      caseSensitive: false,
-    ),
+    _kRedactSecretQuery,
     (match) => '${match.group(1)}[已隐藏]',
   );
   return redacted.replaceAllMapped(
-    RegExp(r'(bearer\s+)([A-Za-z0-9._~+/-]+)', caseSensitive: false),
+    _kRedactBearerToken,
     (match) => '${match.group(1)}[已隐藏]',
   );
 }

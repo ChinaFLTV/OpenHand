@@ -782,10 +782,13 @@ class _TrendSampleTable extends StatelessWidget {
       (count, item) => item.values.length > count ? item.values.length : count,
     );
     if (maxSamples == 0) return const _InsightEmpty(label: '暂无趋势样本。');
+    // 仅生成最近30个索引，避免为大量样本分配完整列表后再截断。
+    final visibleCount = maxSamples < 30 ? maxSamples : 30;
     final indexes = List<int>.generate(
-      maxSamples,
-      (index) => index,
-    ).reversed.take(30).toList(growable: false);
+      visibleCount,
+      (index) => maxSamples - 1 - index,
+      growable: false,
+    );
     final truncationNotice = aiExposureListTruncationNotice(
       total: maxSamples,
       visible: indexes.length,
@@ -914,7 +917,9 @@ class _InsightTrendSection extends StatelessWidget {
     semanticLabel: '$title，${series.length} 个序列，${sampleLabels.length} 个样本',
     onSelectionChanged: (_) {},
     onSelectionActivated: (selection) {
-      if (selection.pointIndex >= targets.length) return;
+      if (selection.pointIndex < 0 || selection.pointIndex >= targets.length) {
+        return;
+      }
       final target = targets[selection.pointIndex];
       if (target != null) _openInsightTarget(context, target);
     },

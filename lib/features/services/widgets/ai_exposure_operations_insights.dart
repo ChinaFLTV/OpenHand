@@ -492,7 +492,7 @@ class _TaskTelemetryInsightState extends State<_TaskTelemetryInsight> {
       'cancelled': 0,
     };
     for (final task in history) {
-      counts.update(_taskStatusId(task), (value) => value + 1);
+      counts.update(_taskStatusId(task), (value) => value + 1, ifAbsent: () => 1);
     }
     final trend = _taskTrendBuckets(history);
     final labels = trend

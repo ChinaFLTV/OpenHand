@@ -814,7 +814,7 @@ class _DistributionPanelState extends State<_DistributionPanel> {
     final visible = widget.items
         .where((item) => item.value > 0)
         .take(8)
-        .toList();
+        .toList(growable: false);
     final maxValue = visible.fold<int>(
       1,
       (max, item) => item.value > max ? item.value : max,
@@ -1291,7 +1291,7 @@ class _DependencyLine extends StatelessWidget {
     ),
     leading: Icon(
       ready ? Icons.check_circle_outline_rounded : Icons.circle_outlined,
-      color: ready ? Colors.green : Theme.of(context).colorScheme.outline,
+      color: ready ? OpenHandStatusColors.success : Theme.of(context).colorScheme.outline,
     ),
     title: Text(name),
     subtitle: Text(detail, maxLines: 2, overflow: TextOverflow.ellipsis),
@@ -1308,9 +1308,9 @@ class _DependencyLine extends StatelessWidget {
 
 int _latencyPercentile(List<int> values, double percentile) {
   if (values.isEmpty) return 0;
-  values.sort();
-  final index = ((values.length - 1) * percentile.clamp(0, 1)).round();
-  return values[index];
+  final sorted = [...values]..sort();
+  final index = ((sorted.length - 1) * percentile.clamp(0, 1)).round();
+  return sorted[index];
 }
 
 String _proxyStrategyName(AiExposureProxyStrategy strategy) =>
