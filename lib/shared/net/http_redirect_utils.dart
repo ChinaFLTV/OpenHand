@@ -331,6 +331,10 @@ const String kTextTsvMimeType = 'text/tab-separated-values';
 /// NDJSON (Newline-Delimited JSON) MIME 类型常量。
 const String kApplicationNdjsonMimeType = 'application/x-ndjson';
 
+/// NDJSON UTF-8 Content-Type 常量。
+const String kApplicationNdjsonUtf8ContentType =
+    'application/x-ndjson; charset=utf-8';
+
 /// Word 文档（.docx）MIME 类型常量。
 const String kApplicationDocxMimeType =
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document';

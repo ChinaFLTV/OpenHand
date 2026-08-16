@@ -4665,7 +4665,7 @@ class WebMessagePlatformService {
         encodeAiSessionToJsonlByteStream(session: exportSession),
       ),
       headers: <String, String>{
-        HttpHeaders.contentTypeHeader: 'application/x-ndjson; charset=utf-8',
+        HttpHeaders.contentTypeHeader: kApplicationNdjsonUtf8ContentType,
         'content-disposition': _attachmentContentDisposition(filename),
         HttpHeaders.cacheControlHeader: kCacheControlNoStore,
       },

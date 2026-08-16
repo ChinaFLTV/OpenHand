@@ -608,7 +608,7 @@ Map<String, Object?> _buildMessageCardsPayload(AiSessionMessage message) {
 Map<String, Object?> _buildMessageToolPayload(AiSessionMessage message) {
   final metadata = message.metadata;
   const toolKeys = <String>[
-    'tool_call_id',
+    aiSessionMessageToolCallIdMetadataKey,
     'tool_name',
     'tool_source',
     'mcp_server_name',
