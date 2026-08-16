@@ -4018,9 +4018,9 @@ _StreamingGeneratedMedia? _streamingGeneratedMediaFromUrl(
 
 String? _streamingMediaKindFromMime(String mimeType) {
   final normalized = lowercaseStringFromValue(mimeType);
-  if (normalized.startsWith('image/')) return 'image';
-  if (normalized.startsWith('video/')) return 'video';
-  if (normalized.startsWith('audio/')) return 'audio';
+  if (isImageMimeType(normalized)) return 'image';
+  if (isVideoMimeType(normalized)) return 'video';
+  if (isAudioMimeType(normalized)) return 'audio';
   return null;
 }
 

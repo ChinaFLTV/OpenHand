@@ -38,6 +38,33 @@ abstract final class OpenHandConsolePalette {
 
   /// JSON-RPC 摘要行。
   static const Color jsonRpc = Color(0xFFA78BFA);
+
+  // ── GitHub 深色终端配色 ──────────────────────────────────────────
+  // 以下取自 GitHub Dark Default 主题，用于 LSP 安装终端与代码高亮。
+
+  /// GitHub 终端：命令行前缀（`$`）。
+  static const Color githubCommand = Color(0xFF79C0FF);
+
+  /// GitHub 终端：成功标记（`✓`）。
+  static const Color githubSuccess = Color(0xFF3FB950);
+
+  /// GitHub 终端：失败标记（`✗`）。
+  static const Color githubError = Color(0xFFF85149);
+
+  /// GitHub 终端：应用前缀（如 `OpenHand:`）。
+  static const Color githubNotice = Color(0xFFD29922);
+
+  /// GitHub 终端：默认正文。
+  static const Color githubText = Color(0xFFC9D1D9);
+
+  /// GitHub 终端：面板底色。
+  static const Color githubSurface = Color(0xFF161B22);
+
+  /// GitHub 终端：边框。
+  static const Color githubBorder = Color(0xFF30363D);
+
+  /// GitHub 终端：弱化文本。
+  static const Color githubMuted = Color(0xFF8B949E);
 }
 
 /// 控制台日志正文的字号与行高。

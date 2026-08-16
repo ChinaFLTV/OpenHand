@@ -80,7 +80,7 @@ class _HeComposer extends StatelessWidget {
             side: BorderSide(color: disabledBorder),
             padding: const EdgeInsets.symmetric(horizontal: 14),
             backgroundColor: disabledBg,
-            shape: const RoundedRectangleBorder(borderRadius: _br16),
+            shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius16),
           ),
         ),
       );
@@ -147,7 +147,7 @@ class _HeComposer extends StatelessWidget {
               backgroundColor: buttonBg,
               foregroundColor: buttonFg,
               side: BorderSide(color: buttonBorderColor),
-              shape: const RoundedRectangleBorder(borderRadius: _br16),
+              shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius16),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -216,7 +216,7 @@ class _HeComposer extends StatelessWidget {
         color: manualPhaseEnabled
             ? colorScheme.surfaceContainerLow
             : colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
-        borderRadius: _br16,
+        borderRadius: kOpenHandBorderRadius16,
         border: Border.all(
           color: manualPhaseEnabled
               ? colorScheme.primary.withValues(alpha: 0.28)
@@ -457,7 +457,7 @@ class _HeComposer extends StatelessWidget {
                   color: colorScheme.error.withValues(alpha: 0.5),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 14),
-                shape: const RoundedRectangleBorder(borderRadius: _br16),
+                shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius16),
               ),
             ),
           ),
@@ -574,7 +574,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: _br16,
+        borderRadius: kOpenHandBorderRadius16,
         border: Border.all(color: accent.withValues(alpha: 0.30)),
       ),
       child: Column(
@@ -633,7 +633,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
                   ),
                   colorScheme.surface,
                 ),
-                borderRadius: _br16,
+                borderRadius: kOpenHandBorderRadius16,
                 border: Border.all(color: accent.withValues(alpha: 0.24)),
               ),
               child: Row(
@@ -668,7 +668,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
                   ),
                   colorScheme.surface,
                 ),
-                borderRadius: _br16,
+                borderRadius: kOpenHandBorderRadius16,
                 border: Border.all(
                   color: colorScheme.primary.withValues(alpha: 0.20),
                 ),
@@ -706,7 +706,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
                   ),
                   colorScheme.surface,
                 ),
-                borderRadius: _br16,
+                borderRadius: kOpenHandBorderRadius16,
                 border: Border.all(
                   color: _heFailedTone.withValues(alpha: 0.24),
                 ),
@@ -848,7 +848,7 @@ class _HePendingPhaseEditor extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(alpha: 0.65),
-        borderRadius: _br16,
+        borderRadius: kOpenHandBorderRadius16,
         border: Border.all(color: colorScheme.primary.withValues(alpha: 0.15)),
       ),
       child: Column(

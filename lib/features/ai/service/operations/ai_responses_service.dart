@@ -1025,7 +1025,7 @@ class AiResponsesService {
         optionalStringFromValue(part['video_url']);
     if (url != null) {
       final safeLabel = sanitizeMarkdownAltText(label);
-      return (mimeType ?? _defaultMediaMimeType(itemType)).startsWith('image/')
+      return isImageMimeType(mimeType ?? _defaultMediaMimeType(itemType))
           ? '![$safeLabel]($url)'
           : '[$safeLabel]($url)';
     }

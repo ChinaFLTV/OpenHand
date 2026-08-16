@@ -2353,18 +2353,18 @@ class _EditorLspInstallRunnerDialogState
   Color _terminalLineColor(String line) {
     final trimmed = line.trimLeft();
     if (trimmed.startsWith('\$')) {
-      return const Color(0xFF79C0FF);
+      return OpenHandConsolePalette.githubCommand;
     }
     if (trimmed.startsWith('✓')) {
-      return const Color(0xFF3FB950);
+      return OpenHandConsolePalette.githubSuccess;
     }
     if (trimmed.startsWith('✗')) {
-      return const Color(0xFFF85149);
+      return OpenHandConsolePalette.githubError;
     }
     if (trimmed.startsWith('OpenHand:')) {
-      return const Color(0xFFD29922);
+      return OpenHandConsolePalette.githubNotice;
     }
-    return const Color(0xFFC9D1D9);
+    return OpenHandConsolePalette.githubText;
   }
 
   Widget _terminalDot(Color color) {
@@ -2384,9 +2384,9 @@ class _EditorLspInstallRunnerDialogState
       widget.plan.installRootPath,
     );
     const terminalBackground = OpenHandConsolePalette.deepSurface;
-    const terminalChrome = Color(0xFF161B22);
-    const terminalBorder = Color(0xFF30363D);
-    const terminalMuted = Color(0xFF8B949E);
+    const terminalChrome = OpenHandConsolePalette.githubSurface;
+    const terminalBorder = OpenHandConsolePalette.githubBorder;
+    const terminalMuted = OpenHandConsolePalette.githubMuted;
 
     return buildOpenHandAlertDialog(
       title: Text(

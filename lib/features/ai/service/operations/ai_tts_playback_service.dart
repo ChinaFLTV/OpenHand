@@ -1264,7 +1264,7 @@ class AiTtsPlaybackService {
       throw HttpException('百度 TTS 请求失败（HTTP ${response.statusCode}）', uri: uri);
     }
     final contentType = response.headers[kContentTypeHeaderName] ?? '';
-    if (!contentType.startsWith('audio/')) {
+    if (!isAudioMimeType(contentType)) {
       throw StateError('百度 TTS 返回了非音频响应。');
     }
     operation.throwIfCancelled();
@@ -1433,7 +1433,7 @@ class AiTtsPlaybackService {
       );
     }
     final contentType = response.headers[kContentTypeHeaderName] ?? '';
-    if (!contentType.startsWith('audio/')) {
+    if (!isAudioMimeType(contentType)) {
       throw StateError('有道 TTS 返回了非音频响应。');
     }
     operation.throwIfCancelled();
@@ -2471,7 +2471,7 @@ class AiTtsPlaybackService {
 
   static bool _isPlayableAudioContentType(String contentType) {
     return contentType.isEmpty ||
-        contentType.startsWith('audio/') ||
+        isAudioMimeType(contentType) ||
         contentType == kApplicationOctetStreamMimeType;
   }
 

@@ -1959,27 +1959,27 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
 
   bool _mimeTypeIsMultimedia(Object? value) {
     final normalized = _stringValue(value).toLowerCase();
-    return normalized.startsWith('image/') ||
-        normalized.startsWith('video/') ||
-        normalized.startsWith('audio/');
+    return isImageMimeType(normalized) ||
+        isVideoMimeType(normalized) ||
+        isAudioMimeType(normalized);
   }
 
   _TranscriptMultimediaKind? _multimediaKindFromHint(Object? value) {
     final normalized = _stringValue(value).toLowerCase();
     if (normalized.isEmpty) return null;
-    if (normalized.startsWith('image/') ||
+    if (isImageMimeType(normalized) ||
         normalized.startsWith('img/') ||
         normalized.contains('image') ||
         normalized.contains('picture') ||
         normalized.contains('photo')) {
       return _TranscriptMultimediaKind.image;
     }
-    if (normalized.startsWith('video/') ||
+    if (isVideoMimeType(normalized) ||
         normalized.contains('video') ||
         normalized.contains('movie')) {
       return _TranscriptMultimediaKind.video;
     }
-    if (normalized.startsWith('audio/') ||
+    if (isAudioMimeType(normalized) ||
         normalized.contains('audio') ||
         normalized.contains('sound') ||
         normalized.contains('speech') ||

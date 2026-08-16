@@ -2023,16 +2023,16 @@ class AiImageGenerationService {
       final contentType = responseMimeType(response.headers);
       if (contentType.isNotEmpty &&
           contentType != kApplicationOctetStreamMimeType &&
-          !(kind.isVideo && contentType.startsWith('video/')) &&
-          !(kind.isAudio && contentType.startsWith('audio/'))) {
+          !(kind.isVideo && isVideoMimeType(contentType)) &&
+          !(kind.isAudio && isAudioMimeType(contentType))) {
         await _deleteFileIfPresent(destination);
         return '';
       }
       final mimeType = kind.isVideo
-          ? contentType.startsWith('video/')
+          ? isVideoMimeType(contentType)
                 ? contentType
                 : kVideoMp4MimeType
-          : contentType.startsWith('audio/')
+          : isAudioMimeType(contentType)
           ? contentType
           : kAudioMpegMimeType;
       return inlineMediaFileMarkdown(
@@ -2486,7 +2486,7 @@ class AiImageGenerationService {
         await _deleteFileIfPresent(destination);
       }
     }
-    final effectiveMime = mimeType.startsWith('video/')
+    final effectiveMime = isVideoMimeType(mimeType)
         ? mimeType
         : kVideoMp4MimeType;
     return inlineMediaFileMarkdown(
@@ -2919,9 +2919,9 @@ class AiImageGenerationService {
     if (contentType.isEmpty || isJsonMimeType(contentType)) {
       return false;
     }
-    if (kind.isVideo) return contentType.startsWith('video/');
-    if (kind.isAudio) return contentType.startsWith('audio/');
-    if (kind.isImage) return contentType.startsWith('image/');
+    if (kind.isVideo) return isVideoMimeType(contentType);
+    if (kind.isAudio) return isAudioMimeType(contentType);
+    if (kind.isImage) return isImageMimeType(contentType);
     return false;
   }
 

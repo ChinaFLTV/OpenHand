@@ -31,7 +31,7 @@ class _HeLogSectionState extends State<_HeLogSection> {
     // 运行阶段每帧都会改变内容，AnimatedSize 在 SliverList 中无法稳定布局。
     return Material(
       color: colorScheme.surface.withValues(alpha: 0.78),
-      borderRadius: _br16,
+      borderRadius: kOpenHandBorderRadius16,
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -512,10 +512,10 @@ class _HeSubConversationViewState extends State<_HeSubConversationView> {
             padding: const EdgeInsets.only(bottom: 8),
             child: Material(
               color: colorScheme.surface.withValues(alpha: 0.82),
-              borderRadius: _br16,
+              borderRadius: kOpenHandBorderRadius16,
               child: InkWell(
                 onTap: () => setState(() => _showAllSegments = true),
-                borderRadius: _br16,
+                borderRadius: kOpenHandBorderRadius16,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,

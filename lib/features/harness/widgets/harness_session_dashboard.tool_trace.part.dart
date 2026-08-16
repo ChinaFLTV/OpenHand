@@ -638,10 +638,10 @@ class _HeStructuredToolSection extends StatelessWidget {
     final hasPreview = preview.trim().isNotEmpty;
     return Material(
       color: theme.colorScheme.surface.withValues(alpha: 0.82),
-      borderRadius: _br16,
+      borderRadius: kOpenHandBorderRadius16,
       child: InkWell(
         onTap: onToggle,
-        borderRadius: _br16,
+        borderRadius: kOpenHandBorderRadius16,
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: AnimatedSize(
@@ -749,7 +749,7 @@ class _HeToolTextPanelState extends State<_HeToolTextPanel> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: panelSurface,
-        borderRadius: _br16,
+        borderRadius: kOpenHandBorderRadius16,
         border: Border.all(
           color: widget.isError
               ? widget.colorScheme.error.withValues(alpha: 0.24)
@@ -832,7 +832,7 @@ class _HeToolTextPanelState extends State<_HeToolTextPanel> {
               color: widget.colorScheme.surfaceContainerHighest.withValues(
                 alpha: 0.66,
               ),
-              borderRadius: _br16,
+              borderRadius: kOpenHandBorderRadius16,
               border: Border.all(
                 color: widget.colorScheme.outlineVariant.withValues(alpha: 0.6),
               ),

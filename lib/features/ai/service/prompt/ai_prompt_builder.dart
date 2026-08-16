@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/bounded_line_budget.dart';
@@ -3825,7 +3826,7 @@ $tail''';
         final hasLocalVideoFile =
             _isTrustedAttachmentStoragePath(session, attachment) &&
             storagePath.isNotEmpty &&
-            mimeType.startsWith('video/') &&
+            isVideoMimeType(mimeType) &&
             attachmentAvailability[storagePath] == true;
         parts.add(AiChatContentPart.text(metadataText));
         if (!hasLocalVideoFile) {
@@ -3865,7 +3866,7 @@ $tail''';
         final hasLocalAudioFile =
             _isTrustedAttachmentStoragePath(session, attachment) &&
             storagePath.isNotEmpty &&
-            mimeType.startsWith('audio/') &&
+            isAudioMimeType(mimeType) &&
             attachmentAvailability[storagePath] == true;
         parts.add(AiChatContentPart.text(metadataText));
         if (!hasLocalAudioFile) {

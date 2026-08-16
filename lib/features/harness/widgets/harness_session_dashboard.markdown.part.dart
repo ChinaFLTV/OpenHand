@@ -415,7 +415,7 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
               padding: const EdgeInsets.symmetric(vertical: 9),
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerHighest,
-                borderRadius: _br16,
+                borderRadius: kOpenHandBorderRadius16,
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -887,11 +887,11 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
       margin: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
         color: containerColor,
-        borderRadius: _br16,
+        borderRadius: kOpenHandBorderRadius16,
         border: Border.all(color: borderColor),
       ),
       child: ClipRRect(
-        borderRadius: _br16,
+        borderRadius: kOpenHandBorderRadius16,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1055,7 +1055,7 @@ class _HeDiffBlock extends StatelessWidget {
           color: isDark
               ? Colors.white.withValues(alpha: 0.08)
               : colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-          borderRadius: _br16,
+          borderRadius: kOpenHandBorderRadius16,
           border: Border.all(
             color: isDark
                 ? Colors.white.withValues(alpha: 0.16)
@@ -1063,7 +1063,7 @@ class _HeDiffBlock extends StatelessWidget {
           ),
         ),
         child: ClipRRect(
-          borderRadius: _br16,
+          borderRadius: kOpenHandBorderRadius16,
           child: ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),

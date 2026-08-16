@@ -382,6 +382,21 @@ const Set<String> _jsonMimeTypes = <String>{
   'text/json',
 };
 
+/// MIME 是否为图片类型（image/*）。
+bool isImageMimeType(String? contentType) {
+  return mimeTypeFromContentType(contentType).startsWith('image/');
+}
+
+/// MIME 是否为音频类型（audio/*）。
+bool isAudioMimeType(String? contentType) {
+  return mimeTypeFromContentType(contentType).startsWith('audio/');
+}
+
+/// MIME 是否为视频类型（video/*）。
+bool isVideoMimeType(String? contentType) {
+  return mimeTypeFromContentType(contentType).startsWith('video/');
+}
+
 /// 删除跨域重定向时不得透传的敏感请求头。
 void stripSensitiveRedirectHeaders(
   Map<String, String> headers, {

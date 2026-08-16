@@ -3918,19 +3918,19 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
         final fileUri = '${fileData['file_uri'] ?? fileData['fileUri'] ?? ''}'
             .trim();
         if (fileUri.isNotEmpty) {
-          final label = mimeType.startsWith('image/')
+          final label = isImageMimeType(mimeType)
               ? 'AI Generated Image'
-              : mimeType.startsWith('video/')
+              : isVideoMimeType(mimeType)
               ? 'AI Generated Video'
-              : mimeType.startsWith('audio/')
+              : isAudioMimeType(mimeType)
               ? 'AI Generated Audio'
               : 'AI Generated File';
           if (buffer.isNotEmpty) buffer.writeln();
           buffer.writeln();
-          if (mimeType.startsWith('image/')) {
+          if (isImageMimeType(mimeType)) {
             buffer.write('![$label]($fileUri)');
-          } else if (mimeType.startsWith('video/') ||
-              mimeType.startsWith('audio/')) {
+          } else if (isVideoMimeType(mimeType) ||
+              isAudioMimeType(mimeType)) {
             buffer.write('[$label]($fileUri)');
           } else {
             buffer.write('[$label]($fileUri)');
@@ -4575,9 +4575,9 @@ class AiInlineMedia {
 
   /// Returns a short human-readable media type label.
   String get mediaKind {
-    if (mimeType.startsWith('image/')) return 'image';
-    if (mimeType.startsWith('audio/')) return 'audio';
-    if (mimeType.startsWith('video/')) return 'video';
+    if (isImageMimeType(mimeType)) return 'image';
+    if (isAudioMimeType(mimeType)) return 'audio';
+    if (isVideoMimeType(mimeType)) return 'video';
     return 'file';
   }
 
@@ -4708,13 +4708,13 @@ String inlineMediaFileMarkdown({
   final displayLabel = sanitizeMarkdownAltText(
     label ?? 'AI Generated ${media.mediaKind}',
   );
-  if (mimeType.startsWith('image/')) {
+  if (isImageMimeType(mimeType)) {
     return '![$displayLabel]($filePath)';
   }
-  if (mimeType.startsWith('audio/')) {
+  if (isAudioMimeType(mimeType)) {
     return '[🔊 $displayLabel]($filePath)';
   }
-  if (mimeType.startsWith('video/')) {
+  if (isVideoMimeType(mimeType)) {
     return '[🎬 $displayLabel]($filePath)';
   }
   return '[📎 $displayLabel]($filePath)';

@@ -14,7 +14,7 @@ class _HeChangedFilesList extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(alpha: 0.78),
-        borderRadius: _br16,
+        borderRadius: kOpenHandBorderRadius16,
       ),
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -286,13 +286,13 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                   color: colorScheme.surfaceContainerHighest.withValues(
                     alpha: 0.6,
                   ),
-                  borderRadius: _br16,
+                  borderRadius: kOpenHandBorderRadius16,
                   border: Border.all(
                     color: colorScheme.outlineVariant.withValues(alpha: 0.40),
                   ),
                 ),
                 child: ClipRRect(
-                  borderRadius: _br16,
+                  borderRadius: kOpenHandBorderRadius16,
                   child: _computing
                       ? Center(
                           child: Padding(

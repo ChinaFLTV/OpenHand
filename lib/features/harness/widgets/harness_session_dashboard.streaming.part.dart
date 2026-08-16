@@ -184,10 +184,10 @@ class _HeStreamingSubConversationState
             padding: const EdgeInsets.only(bottom: 8),
             child: Material(
               color: colorScheme.surface.withValues(alpha: 0.82),
-              borderRadius: _br16,
+              borderRadius: kOpenHandBorderRadius16,
               child: InkWell(
                 onTap: _toggleEarlierSegments,
-                borderRadius: _br16,
+                borderRadius: kOpenHandBorderRadius16,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,

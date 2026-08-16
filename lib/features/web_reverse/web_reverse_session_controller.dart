@@ -8515,13 +8515,13 @@ class WebReverseSessionController extends ChangeNotifier {
 
   static String _resourceTypeFromMime(String mime) {
     final m = mime.toLowerCase();
-    if (m.startsWith('image/')) return 'Image';
+    if (isImageMimeType(m)) return 'Image';
     if (m.contains('javascript')) return 'Script';
     if (m.contains('json')) return 'Fetch';
     if (m.contains('css')) return 'Stylesheet';
     if (m.contains('html')) return 'Document';
     if (m.contains('font')) return 'Font';
-    if (m.startsWith('audio/') || m.startsWith('video/')) return 'Media';
+    if (isAudioMimeType(m) || isVideoMimeType(m)) return 'Media';
     return 'Other';
   }
 

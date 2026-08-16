@@ -68,7 +68,7 @@ class _HeReviewVerdictCard extends StatelessWidget {
           verdictColor.withValues(alpha: bgAlpha),
           colorScheme.surface,
         ),
-        borderRadius: _br18,
+        borderRadius: kOpenHandBorderRadius18,
         border: Border.all(
           color: verdictColor.withValues(alpha: borderAlpha),
           width: 1.2,
@@ -241,7 +241,7 @@ class _HeSegmentBody extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 7),
                   decoration: BoxDecoration(
                     color: expandBg,
-                    borderRadius: _br16,
+                    borderRadius: kOpenHandBorderRadius16,
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -639,7 +639,7 @@ class _HeCommandStripState extends State<_HeCommandStrip>
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHighest,
-          borderRadius: _br16,
+          borderRadius: kOpenHandBorderRadius16,
           border: Border.all(
             color: colorScheme.outlineVariant.withValues(alpha: 0.30),
           ),
