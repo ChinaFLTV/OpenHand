@@ -1118,7 +1118,7 @@ class _FileMutationCardRow extends StatelessWidget {
       ),
       child: AnimatedSlide(
         duration: rowSlideDuration,
-        curve: Curves.easeOutBack,
+        curve: kOpenHandEntranceCurve,
         offset: Offset(view.cascadeUndone ? 0.025 : 0.0, 0.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

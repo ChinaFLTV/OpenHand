@@ -3662,7 +3662,7 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
   );
   late final Animation<double> _revealAnimation = CurvedAnimation(
     parent: _revealController,
-    curve: Curves.easeOutBack,
+    curve: kOpenHandEntranceCurve,
   );
 
   // 防止快速双击重复打开预览弹窗，避免重复创建 WebView。

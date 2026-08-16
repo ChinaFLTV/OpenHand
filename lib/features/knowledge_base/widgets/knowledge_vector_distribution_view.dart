@@ -1130,7 +1130,7 @@ class _KnowledgeVectorScenePainter extends CustomPainter {
       final selected = point.point.id == selectedId;
       final radius =
           point.radius *
-          Curves.easeOutBack.transform(localProgress) *
+          kOpenHandEntranceCurve.transform(localProgress) *
           (selected ? 1.45 : 1);
       final alpha = (0.18 + 0.82 * localProgress).clamp(0.0, 1.0);
       final shadowPaint = Paint()

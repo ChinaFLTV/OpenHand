@@ -2640,7 +2640,7 @@ class _TabStripState extends State<_TabStrip> {
                                     context,
                                     kOpenHandMotion260,
                                   ),
-                                  curve: Curves.easeOutBack,
+                                  curve: kOpenHandEntranceCurve,
                                   builder: (_, v, child) => Opacity(
                                     opacity: v.clamp(0, 1),
                                     child: Transform.scale(
@@ -2746,7 +2746,7 @@ class _TabStripState extends State<_TabStrip> {
                                                         duration:
                                                             kOpenHandMotion280,
                                                         switchInCurve:
-                                                            Curves.easeOutBack,
+                                                            kOpenHandEntranceCurve,
                                                         switchOutCurve:
                                                             kOpenHandSwitchOutCurve,
                                                         transitionBuilder: (child, animation) {

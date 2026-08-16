@@ -278,7 +278,7 @@ class _ReasoningEffortPopupEntryState
                       context,
                       _kProgressAnimDuration,
                     ),
-                    curve: Curves.easeOutBack,
+                    curve: kOpenHandEntranceCurve,
                     builder: (context, animatedProgress, _) =>
                         _AnimatedReasoningTrack(
                           progress: animatedProgress.clamp(0, 1),

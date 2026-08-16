@@ -221,7 +221,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
             final settleRaw = _settleBounceCtrl.value;
             final settleEased = !motionEnabled
                 ? 1.0
-                : Curves.easeOutBack.transform(settleRaw);
+                : kOpenHandEntranceCurve.transform(settleRaw);
             final radius = isPreExecution
                 ? 14.0
                 : 14.0 + (10.0 - 14.0) * settleEased.clamp(0.0, 1.0);

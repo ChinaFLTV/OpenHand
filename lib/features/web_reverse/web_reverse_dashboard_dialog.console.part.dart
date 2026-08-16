@@ -494,7 +494,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                                       duration: widget.reduceMotion
                                           ? Duration.zero
                                           : _kConsoleExitDuration,
-                                      curve: Curves.easeOutBack,
+                                      curve: kOpenHandEntranceCurve,
                                       alignment: Alignment.topLeft,
                                       child: SelectableText(
                                         displayText,

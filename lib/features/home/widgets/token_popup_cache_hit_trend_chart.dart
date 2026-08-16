@@ -1382,7 +1382,7 @@ class _CacheHitCompositionSummary extends StatelessWidget {
                 context,
                 const Duration(milliseconds: 520),
               ),
-              curve: Curves.easeOutBack,
+              curve: kOpenHandEntranceCurve,
               builder: (context, animatedCached, _) {
                 return TweenAnimationBuilder<double>(
                   tween: Tween<double>(begin: 0, end: readRatio),
@@ -1390,7 +1390,7 @@ class _CacheHitCompositionSummary extends StatelessWidget {
                     context,
                     const Duration(milliseconds: 520),
                   ),
-                  curve: Curves.easeOutBack,
+                  curve: kOpenHandEntranceCurve,
                   builder: (context, animatedRead, _) => SizedBox(
                     height: 8,
                     child: Stack(

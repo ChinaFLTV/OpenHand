@@ -271,7 +271,7 @@ class _SettingsSubsectionCard extends StatelessWidget {
             child: AnimatedSize(
               duration: revealDuration,
               reverseDuration: revealReverseDuration,
-              curve: Curves.easeOutBack,
+              curve: kOpenHandEntranceCurve,
               alignment: Alignment.topCenter,
               child: child,
             ),
@@ -2847,7 +2847,7 @@ class _AiProviderInsertionGuide extends StatelessWidget {
         reverseDuration: motionEnabled
             ? kOpenHandMotion180
             : Duration.zero,
-        curve: Curves.easeOutBack,
+        curve: kOpenHandEntranceCurve,
         child: AnimatedOpacity(
           duration: motionEnabled ? kOpenHandMotion180 : Duration.zero,
           opacity: visible ? 1 : 0,
@@ -3028,7 +3028,7 @@ class _AiProviderCardExpandButton extends StatelessWidget {
           icon: AnimatedRotation(
             turns: enabled && expanded ? 0 : 0.5,
             duration: duration,
-            curve: Curves.easeOutBack,
+            curve: kOpenHandEntranceCurve,
             child: const Icon(Icons.expand_less_rounded, size: 22),
           ),
         ),
@@ -4840,7 +4840,7 @@ class _SettingsElasticExpansion extends StatelessWidget {
         child: AnimatedSwitcher(
           duration: duration,
           reverseDuration: reverseDuration,
-          switchInCurve: Curves.easeOutBack,
+          switchInCurve: kOpenHandEntranceCurve,
           switchOutCurve: kOpenHandSwitchOutCurve,
           layoutBuilder: (currentChild, previousChildren) => Stack(
             alignment: Alignment.topLeft,
@@ -4856,7 +4856,7 @@ class _SettingsElasticExpansion extends StatelessWidget {
                 final raw = animation.value.clamp(0.0, 1.0);
                 final eased = animation.status == AnimationStatus.reverse
                     ? kOpenHandSwitchOutCurve.transform(raw)
-                    : Curves.easeOutBack.transform(raw);
+                    : kOpenHandEntranceCurve.transform(raw);
                 return FadeTransition(
                   opacity: animation,
                   child: SlideTransition(
@@ -4898,7 +4898,7 @@ class _SettingsExpandIcon extends StatelessWidget {
     return AnimatedRotation(
       turns: expanded ? 0.5 : 0,
       duration: openHandMotionDuration(context, kOpenHandMotion220),
-      curve: Curves.easeOutBack,
+      curve: kOpenHandEntranceCurve,
       child: const Icon(Icons.expand_more_rounded),
     );
   }
@@ -5577,7 +5577,7 @@ class _AiModelTileState extends State<_AiModelTile> {
                                   ),
                             icon: AnimatedSwitcher(
                               duration: openHandMotionDuration(context, kOpenHandMotion220),
-                              switchInCurve: Curves.easeOutBack,
+                              switchInCurve: kOpenHandEntranceCurve,
                               switchOutCurve: kOpenHandSwitchOutCurve,
                               transitionBuilder: (child, animation) =>
                                   FadeTransition(
@@ -5760,10 +5760,10 @@ class _AiModelTileState extends State<_AiModelTile> {
                           alignment: Alignment.topLeft,
                           duration: openHandMotionDuration(context, kOpenHandMotion420),
                           reverseDuration: openHandMotionDuration(context, kOpenHandMotion260),
-                          curve: Curves.easeOutBack,
+                          curve: kOpenHandEntranceCurve,
                           child: AnimatedSwitcher(
                             duration: openHandMotionDuration(context, kOpenHandMotion260),
-                            switchInCurve: Curves.easeOutBack,
+                            switchInCurve: kOpenHandEntranceCurve,
                             switchOutCurve: kOpenHandSwitchOutCurve,
                             layoutBuilder: (currentChild, previousChildren) {
                               return Stack(
@@ -6010,7 +6010,7 @@ class _AnimatedSettingReveal extends StatelessWidget {
       child: AnimatedSize(
         duration: sizeDuration,
         reverseDuration: sizeReverseDuration,
-        curve: Curves.easeOutBack,
+        curve: kOpenHandEntranceCurve,
         alignment: Alignment.topCenter,
         child: AnimatedSwitcher(
           duration: switcherDuration,
@@ -6022,7 +6022,7 @@ class _AnimatedSettingReveal extends StatelessWidget {
               animation: animation,
               builder: (context, _) {
                 final raw = animation.value.clamp(0.0, 1.0);
-                final slideT = Curves.easeOutBack.transform(raw);
+                final slideT = kOpenHandEntranceCurve.transform(raw);
                 final scaleT = kOpenHandSwitchInCurve.transform(raw);
                 return SlideTransition(
                   position: AlwaysStoppedAnimation<Offset>(

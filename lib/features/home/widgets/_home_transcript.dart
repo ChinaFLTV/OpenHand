@@ -2715,7 +2715,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
               context,
               _kTranscriptCardEntranceDuration,
             ),
-            curve: Curves.easeOutBack,
+            curve: kOpenHandEntranceCurve,
             builder: (_, t, child) {
               final clamped = t.clamp(0.0, 1.0);
               return Opacity(
@@ -4021,7 +4021,7 @@ class _PendingCreationPlaceholderCardState
       duration: widget.exiting
           ? _kCreationPlaceholderExitDuration
           : _kTranscriptCardEntranceDuration,
-      curve: widget.exiting ? kOpenHandSwitchOutCurve : Curves.easeOutBack,
+      curve: widget.exiting ? kOpenHandSwitchOutCurve : kOpenHandEntranceCurve,
       builder: (context, raw, child) {
         final t = raw.clamp(0.0, 1.0);
         final visible = widget.exiting ? 1 - t : t;
@@ -4265,7 +4265,7 @@ class _CreationFailureCardState extends State<_CreationFailureCard>
     );
     _fade = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeOutBack,
+      curve: kOpenHandEntranceCurve,
       reverseCurve: kOpenHandSwitchOutCurve,
     );
     _slide = Tween<Offset>(

@@ -95,7 +95,7 @@ class OpenHandBusyStatusIcon extends StatelessWidget {
     if (duration == Duration.zero) return child;
     return AnimatedSwitcher(
       duration: duration,
-      switchInCurve: Curves.easeOutBack,
+      switchInCurve: kOpenHandEntranceCurve,
       switchOutCurve: kOpenHandSwitchOutCurve,
       transitionBuilder: (child, animation) => FadeTransition(
         opacity: animation,

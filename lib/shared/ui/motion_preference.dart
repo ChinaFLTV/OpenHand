@@ -18,6 +18,10 @@ const Curve kOpenHandSwitchOutCurve = Curves.easeInCubic;
 const Curve kOpenHandTransitionCurve = Curves.easeOutCubic;
 const Curve kOpenHandEmphasizedTransitionCurve = Curves.easeInOutCubic;
 
+/// 全局共享的进场曲线 —— 带自然回弹的 overshoot，用于弹窗进场、列表项入场、
+/// 胶囊切换等需要 Q 弹出场感的场景。
+const Curve kOpenHandEntranceCurve = Curves.easeOutBack;
+
 enum OpenHandMotionSettingsScope { dialog, menu, page, panel, chip, listItem }
 
 bool openHandReduceMotionOf(BuildContext context) {

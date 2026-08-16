@@ -90,7 +90,7 @@ class _OpenHandSpringEntranceState extends State<OpenHandSpringEntrance>
     _scale = Tween<double>(
       begin: _safeScaleBegin(widget.scaleBegin),
       end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
+    ).animate(CurvedAnimation(parent: _controller, curve: kOpenHandEntranceCurve));
     _slide = Tween<Offset>(
       begin: _safeOffset(widget.slideBegin),
       end: Offset.zero,

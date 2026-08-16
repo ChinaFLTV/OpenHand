@@ -4657,7 +4657,7 @@ class _McpOpsConsoleHeader extends StatelessWidget {
             ),
             AnimatedSwitcher(
               duration: openHandMotionDuration(context, kOpenHandMotion180),
-              switchInCurve: Curves.easeOutBack,
+              switchInCurve: kOpenHandEntranceCurve,
               switchOutCurve: kOpenHandSwitchOutCurve,
               transitionBuilder: (child, animation) {
                 return FadeTransition(
@@ -5014,7 +5014,7 @@ class _McpOpsHeaderControls extends StatelessWidget {
             ),
             AnimatedSwitcher(
               duration: openHandMotionDuration(context, kOpenHandMotion180),
-              switchInCurve: Curves.easeOutBack,
+              switchInCurve: kOpenHandEntranceCurve,
               switchOutCurve: kOpenHandSwitchOutCurve,
               transitionBuilder: (child, animation) {
                 // 直接复用切换器曲线，避免把回弹超调值再次传入 Curve。
@@ -10342,7 +10342,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                   ),
                   AnimatedSwitcher(
                     duration: openHandMotionDuration(context, kOpenHandMotion400),
-                    switchInCurve: Curves.easeOutBack,
+                    switchInCurve: kOpenHandEntranceCurve,
                     switchOutCurve: Curves.easeInBack,
                     transitionBuilder: (child, animation) {
                       return SizeTransition(
@@ -12142,7 +12142,7 @@ class _McpAnimatedProgressBar extends StatelessWidget {
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: value),
       duration: openHandMotionDuration(context, kOpenHandMotion520),
-      curve: Curves.easeOutBack,
+      curve: kOpenHandEntranceCurve,
       builder: (context, animatedProgress, _) {
         return ClipRRect(
           borderRadius: kOpenHandPillBorderRadius,

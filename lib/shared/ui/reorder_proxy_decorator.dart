@@ -33,7 +33,7 @@ Widget buildOpenHandReorderProxy(
     ),
     builder: (context, proxyChild) {
       final raw = animation.value.clamp(0.0, 1.0);
-      final t = motionEnabled ? Curves.easeOutBack.transform(raw) : 1.0;
+      final t = motionEnabled ? kOpenHandEntranceCurve.transform(raw) : 1.0;
       return Transform.scale(
         scale: 1 + _kReorderProxyScaleGain * t,
         child: DecoratedBox(

@@ -2571,7 +2571,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
       duration: revealDuration,
-      curve: Curves.easeOutBack,
+      curve: kOpenHandEntranceCurve,
       builder: (context, value, child) {
         final t = value.clamp(0.0, 1.0);
         return Opacity(

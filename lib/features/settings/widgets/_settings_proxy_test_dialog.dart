@@ -694,7 +694,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         context,
         const Duration(milliseconds: 380),
       ),
-      curve: Curves.easeOutBack,
+      curve: kOpenHandEntranceCurve,
       builder: (context, t, _) {
         // easeOutBack 会短暂越界；保留少量弹性，最终仍由外层约束兜底。
         final tt = t.clamp(0.0, 1.06);

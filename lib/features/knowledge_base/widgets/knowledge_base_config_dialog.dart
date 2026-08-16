@@ -3881,7 +3881,7 @@ class _KnowledgeBaseConfigDialogState
           ),
           AnimatedSize(
             duration: openHandMotionDuration(context, kOpenHandMotion260),
-            curve: Curves.easeOutBack,
+            curve: kOpenHandEntranceCurve,
             alignment: Alignment.topCenter,
             child: AnimatedSwitcher(
               duration: openHandMotionDuration(context, kOpenHandMotion220),
@@ -4062,7 +4062,7 @@ class _KnowledgeBaseConfigDialogState
       AnimatedSize(
         duration: openHandMotionDuration(context, kOpenHandMotion260,
         ),
-        curve: Curves.easeOutBack,
+        curve: kOpenHandEntranceCurve,
         alignment: Alignment.topCenter,
         child: AnimatedSwitcher(
           duration: openHandMotionDuration(context, kOpenHandMotion220,

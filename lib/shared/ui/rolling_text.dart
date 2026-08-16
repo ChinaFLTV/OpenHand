@@ -109,7 +109,7 @@ class _RollingChar extends StatelessWidget {
         );
         final motion = openHandCurveAnimation(
           parent: animation,
-          curve: Curves.easeOutBack,
+          curve: kOpenHandEntranceCurve,
           reverseCurve: kOpenHandSwitchOutCurve,
         );
         final slide = Tween<Offset>(

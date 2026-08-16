@@ -1854,7 +1854,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                               child: AnimatedSwitcher(
                                 duration: openHandMotionDuration(context, kOpenHandMotion220,
                                 ),
-                                switchInCurve: Curves.easeOutBack,
+                                switchInCurve: kOpenHandEntranceCurve,
                                 switchOutCurve: kOpenHandSwitchOutCurve,
                                 layoutBuilder:
                                     buildCollisionSafeAnimatedSwitcherLayout,

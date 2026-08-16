@@ -1670,11 +1670,11 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
           child: AnimatedSlide(
             offset: _tooltipVisible ? Offset.zero : const Offset(0, 0.08),
             duration: duration,
-            curve: _tooltipVisible ? Curves.easeOutBack : kOpenHandSwitchOutCurve,
+            curve: _tooltipVisible ? kOpenHandEntranceCurve : kOpenHandSwitchOutCurve,
             child: AnimatedScale(
               scale: _tooltipVisible ? 1 : 0.9,
               duration: duration,
-              curve: _tooltipVisible ? Curves.easeOutBack : kOpenHandSwitchOutCurve,
+              curve: _tooltipVisible ? kOpenHandEntranceCurve : kOpenHandSwitchOutCurve,
               alignment: Alignment.topCenter,
               child: Material(
                 elevation: 8,
@@ -3632,7 +3632,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
                           scale: isSelected ? 1 : 0.72,
                           duration: selectionDuration,
                           curve: isSelected
-                              ? Curves.easeOutBack
+                              ? kOpenHandEntranceCurve
                               : kOpenHandSwitchOutCurve,
                           child: AnimatedOpacity(
                             opacity: isSelected ? 1 : 0,

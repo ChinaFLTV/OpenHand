@@ -3412,7 +3412,7 @@ class _SettingsViewState extends State<SettingsView> {
               AnimatedSwitcher(
                 duration: openHandMotionDuration(context, kOpenHandMotion260),
                 reverseDuration: openHandMotionDuration(context, kOpenHandMotion220),
-                switchInCurve: Curves.easeOutBack,
+                switchInCurve: kOpenHandEntranceCurve,
                 switchOutCurve: kOpenHandSwitchOutCurve,
                 transitionBuilder: (child, animation) {
                   return FadeTransition(
@@ -3421,7 +3421,7 @@ class _SettingsViewState extends State<SettingsView> {
                       scale: Tween<double>(begin: 0.98, end: 1.0).animate(
                         CurvedAnimation(
                           parent: animation,
-                          curve: Curves.easeOutBack,
+                          curve: kOpenHandEntranceCurve,
                           reverseCurve: kOpenHandSwitchOutCurve,
                         ),
                       ),

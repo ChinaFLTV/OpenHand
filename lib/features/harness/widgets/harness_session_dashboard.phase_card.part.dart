@@ -578,7 +578,7 @@ class _HePhaseMetaRow extends StatelessWidget {
           opacity: animation,
           child: ScaleTransition(
             scale: Tween<double>(begin: 0.6, end: 1.0).animate(
-              CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+              CurvedAnimation(parent: animation, curve: kOpenHandEntranceCurve),
             ),
             child: child,
           ),

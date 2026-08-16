@@ -1736,7 +1736,7 @@ class _PopupRowState extends State<_PopupRow> {
       child: AnimatedContainer(
         duration: openHandMotionDuration(context, kOpenHandMotion180,
         ),
-        curve: Curves.easeOutBack,
+        curve: kOpenHandEntranceCurve,
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
         margin: const EdgeInsets.symmetric(vertical: 2),
         decoration: BoxDecoration(
@@ -1850,14 +1850,14 @@ class _CompactCacheHitSparkline extends StatelessWidget {
                   context,
                   const Duration(milliseconds: 520),
                 ),
-                curve: Curves.easeOutBack,
+                curve: kOpenHandEntranceCurve,
                 builder: (context, cached, _) => TweenAnimationBuilder<double>(
                   tween: Tween<double>(begin: 0, end: readFrac),
                   duration: openHandMotionDuration(
                     context,
                     const Duration(milliseconds: 520),
                   ),
-                  curve: Curves.easeOutBack,
+                  curve: kOpenHandEntranceCurve,
                   builder: (context, read, _) => SizedBox(
                     height: 8,
                     child: Stack(

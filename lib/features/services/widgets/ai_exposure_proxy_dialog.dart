@@ -3620,7 +3620,7 @@ class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
                       child: IgnorePointer(
                         child: AnimatedScale(
                           duration: motionDuration,
-                          curve: Curves.easeOutBack,
+                          curve: kOpenHandEntranceCurve,
                           scale: activePoint == null ? 0 : 1,
                           child: Container(
                             width: 8,
@@ -3657,7 +3657,7 @@ class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
                             context,
                             kOpenHandMotion220,
                           ),
-                          switchInCurve: Curves.easeOutBack,
+                          switchInCurve: kOpenHandEntranceCurve,
                           switchOutCurve: kOpenHandSwitchOutCurve,
                           transitionBuilder: (child, animation) =>
                               FadeTransition(
@@ -5447,7 +5447,7 @@ class _ProxyEndpointCard extends StatelessWidget {
         ),
         AnimatedContainer(
           duration: openHandMotionDuration(context, kOpenHandMotion260),
-          curve: Curves.easeOutBack,
+          curve: kOpenHandEntranceCurve,
           width: 34,
           height: 34,
           decoration: BoxDecoration(

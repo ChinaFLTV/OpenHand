@@ -1687,7 +1687,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                       ),
                       AnimatedSwitcher(
                         duration: openHandMotionDurationMs(context, 240),
-                        switchInCurve: Curves.easeOutBack,
+                        switchInCurve: kOpenHandEntranceCurve,
                         switchOutCurve: kOpenHandSwitchOutCurve,
                         transitionBuilder: _switcherSizeFadeTransition,
                         child: _agentsEnabled
@@ -2339,7 +2339,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     if (!openHandTickerMotionEnabled(context)) return child;
     final curved = CurvedAnimation(
       parent: animation,
-      curve: Curves.easeOutBack,
+      curve: kOpenHandEntranceCurve,
       reverseCurve: kOpenHandSwitchOutCurve,
     );
     return SizeTransition(
@@ -3048,7 +3048,7 @@ class _WebGatewayConnectivityDialogState
           Expanded(
             child: AnimatedSwitcher(
               duration: openHandMotionDurationMs(context, 260),
-              switchInCurve: Curves.easeOutBack,
+              switchInCurve: kOpenHandEntranceCurve,
               switchOutCurve: kOpenHandSwitchOutCurve,
               child: error != null
                   ? _ConnectivityErrorView(error: error)
@@ -3449,7 +3449,7 @@ class _ConnectivityTargetCard extends StatelessWidget {
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: 1),
       duration: Duration(milliseconds: 220 + math.min(index, 6) * 30),
-      curve: Curves.easeOutBack,
+      curve: kOpenHandEntranceCurve,
       builder: (context, value, child) {
         return Opacity(
           opacity: clampUnitInterval(value),
@@ -6859,7 +6859,7 @@ class _WebOpsTappableCardState extends State<_WebOpsTappableCard> {
       child: AnimatedScale(
         scale: _highlighted ? 1.012 : 1,
         duration: openHandMotionDurationMs(context, 160),
-        curve: Curves.easeOutBack,
+        curve: kOpenHandEntranceCurve,
         child: Material(
           color: Colors.transparent,
           child: InkWell(
@@ -10701,7 +10701,7 @@ class _AnimatedLogLine extends StatelessWidget {
     }
     final curved = CurvedAnimation(
       parent: animation,
-      curve: removing ? kOpenHandSwitchOutCurve : Curves.easeOutBack,
+      curve: removing ? kOpenHandSwitchOutCurve : kOpenHandEntranceCurve,
       reverseCurve: kOpenHandSwitchOutCurve,
     );
     return SizeTransition(
@@ -10913,7 +10913,7 @@ class _TrendLineChartState extends State<_TrendLineChart> {
                 key: ValueKey<int>(_animationVersion),
                 tween: Tween<double>(begin: 0, end: 1),
                 duration: openHandMotionDurationMs(context, 420),
-                curve: Curves.easeOutBack,
+                curve: kOpenHandEntranceCurve,
                 builder: (context, progress, child) {
                   final values = _lerpSeries(_fromValues, _toValues, progress);
                   _lastPaintValues = values;
@@ -12232,7 +12232,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                           context,
                           kOpenHandMotion220,
                         ),
-                        switchInCurve: Curves.easeOutBack,
+                        switchInCurve: kOpenHandEntranceCurve,
                         switchOutCurve: kOpenHandSwitchOutCurve,
                         transitionBuilder: (child, animation) =>
                             ScaleTransition(
@@ -12441,7 +12441,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                       kOpenHandMotion220,
                                                     ),
                                                 switchInCurve:
-                                                    Curves.easeOutBack,
+                                                    kOpenHandEntranceCurve,
                                                 switchOutCurve:
                                                     kOpenHandSwitchOutCurve,
                                                 transitionBuilder:
@@ -15811,7 +15811,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                         context,
                         kOpenHandMotion180,
                       ),
-                      curve: Curves.easeOutBack,
+                      curve: kOpenHandEntranceCurve,
                       builder: (context, value, child) => Opacity(
                         opacity: value.clamp(0.0, 1.0).toDouble(),
                         child: Transform.translate(
@@ -16660,7 +16660,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                   'dingtalk-reaction-${reactions[index].label}',
                 ),
                 duration: chipDuration,
-                curve: Curves.easeOutBack,
+                curve: kOpenHandEntranceCurve,
                 tween: Tween<double>(begin: 0, end: 1),
                 builder: (context, value, child) {
                   final progress = value.clamp(0.0, 1.0).toDouble();
