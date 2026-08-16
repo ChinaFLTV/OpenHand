@@ -307,6 +307,18 @@ const String kTextTsvMimeType = 'text/tab-separated-values';
 /// NDJSON (Newline-Delimited JSON) MIME 类型常量。
 const String kApplicationNdjsonMimeType = 'application/x-ndjson';
 
+/// Word 文档（.docx）MIME 类型常量。
+const String kApplicationDocxMimeType =
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+/// Excel 表格（.xlsx）MIME 类型常量。
+const String kApplicationXlsxMimeType =
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+/// PowerPoint 演示文稿（.pptx）MIME 类型常量。
+const String kApplicationPptxMimeType =
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+
 /// 取 `Content-Type` 的 MIME 部分（丢掉 `; charset=...` 参数），统一转小写；
 /// 缺失时返回空字符串。
 String responseMimeType(Map<String, String> headers) {

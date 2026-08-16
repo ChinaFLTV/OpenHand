@@ -308,8 +308,7 @@ String aiMimeTypeForPath(String path) {
     '.sh' => kTextPlainMimeType,
     '.zsh' => kTextPlainMimeType,
     '.bash' => kTextPlainMimeType,
-    '.xlsx' =>
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.xlsx' => kApplicationXlsxMimeType,
     '.xls' => 'application/vnd.ms-excel',
     '.pdf' => kApplicationPdfMimeType,
     _ => kApplicationOctetStreamMimeType,

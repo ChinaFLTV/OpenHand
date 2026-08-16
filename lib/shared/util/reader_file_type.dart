@@ -149,11 +149,9 @@ class ReaderFileType {
     'application/rtf': rtf,
     'text/rtf': rtf,
     kApplicationPdfMimeType: pdf,
-    'application/vnd.openxmlformatsofficedocument.wordprocessingml.document':
-        docx,
-    'application/vnd.openxmlformatsofficedocument.spreadsheetml.sheet': xlsx,
-    'application/vnd.openxmlformatsofficedocument.presentationml.presentation':
-        pptx,
+    kApplicationDocxMimeType: docx,
+    kApplicationXlsxMimeType: xlsx,
+    kApplicationPptxMimeType: pptx,
     'javascript': code,
     'typescript': code,
     'python': code,
@@ -287,12 +285,9 @@ class ReaderFileType {
       code => kTextPlainMimeType,
       latex => 'application/x-latex',
       rtf => 'application/rtf',
-      docx =>
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      xlsx =>
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      pptx =>
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      docx => kApplicationDocxMimeType,
+      xlsx => kApplicationXlsxMimeType,
+      pptx => kApplicationPptxMimeType,
       pdf => kApplicationPdfMimeType,
       _ => kTextPlainMimeType,
     };

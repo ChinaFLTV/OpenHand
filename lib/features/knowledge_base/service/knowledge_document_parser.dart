@@ -606,8 +606,7 @@ class DocxKnowledgeDocumentParser extends KnowledgeDocumentParser {
     return KnowledgeDocumentParseResult(
       text: buffer.toString(),
       kind: 'docx',
-      mimeType:
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      mimeType: kApplicationDocxMimeType,
       parserId: id,
       title: title,
       metadata: <String, Object?>{
@@ -670,8 +669,7 @@ class XlsxKnowledgeDocumentParser extends KnowledgeDocumentParser {
     return KnowledgeDocumentParseResult(
       text: buffer.toString(),
       kind: 'spreadsheet',
-      mimeType:
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      mimeType: kApplicationXlsxMimeType,
       parserId: id,
       title: title,
       metadata: <String, Object?>{
@@ -733,8 +731,7 @@ class PptxKnowledgeDocumentParser extends KnowledgeDocumentParser {
     return KnowledgeDocumentParseResult(
       text: buffer.toString(),
       kind: 'presentation',
-      mimeType:
-          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      mimeType: kApplicationPptxMimeType,
       parserId: id,
       title: title,
       metadata: <String, Object?>{
