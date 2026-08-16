@@ -1362,7 +1362,7 @@ class AiTtsPlaybackService {
       uri: uri,
       method: 'POST',
       headers: <String, String>{
-        HttpHeaders.contentTypeHeader: 'application/ssml+xml',
+        HttpHeaders.contentTypeHeader: kApplicationSsmlXmlMimeType,
         HttpHeaders.acceptHeader: 'audio/*',
         'Ocp-Apim-Subscription-Key': settings.apiKey,
         'X-Microsoft-OutputFormat': outputFormat,

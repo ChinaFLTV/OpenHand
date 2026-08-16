@@ -353,6 +353,9 @@ const String kApplicationXlsMimeType = 'application/vnd.ms-excel';
 /// 讯飞 TTS 原始音频格式（16kHz 16-bit PCM）。
 const String kAudioL16Rate16000 = 'audio/L16;rate=16000';
 
+/// SSML (Speech Synthesis Markup Language) MIME 类型常量。
+const String kApplicationSsmlXmlMimeType = 'application/ssml+xml';
+
 /// GitHub REST API v3 Accept 头常量。
 const String kGitHubApiV3AcceptHeader = 'application/vnd.github.v3+json';
 
