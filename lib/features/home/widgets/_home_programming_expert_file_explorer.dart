@@ -11100,7 +11100,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             height: 44,
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHigh,
-              borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius22)),
+              borderRadius: kOpenHandBorderRadius22,
             ),
             child: Row(
               children: [
@@ -11198,7 +11198,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
                   color: colorScheme.surfaceContainerLow,
-                  borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius16)),
+                  borderRadius: kOpenHandBorderRadius16,
                   border: Border.all(
                     color: colorScheme.outlineVariant.withValues(alpha: 0.2),
                     width: 0.5,

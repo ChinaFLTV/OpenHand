@@ -21,6 +21,7 @@ import '../../model/ai_api_family.dart';
 import '../../model/ai_attachment.dart';
 import '../../model/ai_input_cache_runtime_config.dart';
 import '../../model/ai_model_config.dart';
+import '../../model/ai_session_message.dart';
 import '../../model/ai_token_usage.dart';
 import '../operations/ai_operation_http.dart';
 import '../runtime/ai_endpoint_router.dart';
@@ -1817,7 +1818,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
   Future<Map<String, Object?>> _mapOpenAiMessage(AiChatTurn item) async {
     final payload = <String, Object?>{'role': item.roleName};
     if (item.role == AiChatRole.tool) {
-      payload['tool_call_id'] = item.toolCallId ?? '';
+      payload[aiSessionMessageToolCallIdMetadataKey] = item.toolCallId ?? '';
       payload['content'] = item.content;
       return payload;
     }
@@ -1980,7 +1981,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
           if (_messageRole(next) != 'tool') {
             break;
           }
-          final toolCallId = '${next['tool_call_id'] ?? ''}'.trim();
+          final toolCallId = '${next[aiSessionMessageToolCallIdMetadataKey] ?? ''}'.trim();
           if (expectedToolCallIds.contains(toolCallId) &&
               !toolMessagesById.containsKey(toolCallId)) {
             toolMessagesById[toolCallId] = next;
@@ -2147,7 +2148,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
   }
 
   static String _orphanToolMessageText(Map<String, Object?> toolMessage) {
-    final toolCallId = _trimmedField(toolMessage, 'tool_call_id');
+    final toolCallId = _trimmedField(toolMessage, aiSessionMessageToolCallIdMetadataKey);
     final content = _trimmedField(toolMessage, 'content');
     return <String>[
       _orphanToolResultTag,

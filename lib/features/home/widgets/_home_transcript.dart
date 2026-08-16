@@ -3841,7 +3841,7 @@ class _PendingCreationPlaceholderCardState
     };
     final label = openHandLocalizedText(context, zh: labelZh, en: labelEn);
     final motionEnabled = openHandTickerMotionEnabled(context);
-    final cardRadius = BorderRadius.circular(26);
+    const cardRadius = kOpenHandBorderRadius26;
     final content = Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,

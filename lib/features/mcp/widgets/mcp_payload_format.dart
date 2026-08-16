@@ -187,7 +187,7 @@ Widget buildMcpPayloadEntryColumn<T>({
 }
 
 /// 载荷文本卡片的固定尺寸与配色权重。
-const BorderRadius _kPayloadCardRadius = BorderRadius.all(Radius.circular(kOpenHandRadius12));
+const BorderRadius _kPayloadCardRadius = kOpenHandBorderRadius12;
 const EdgeInsets _kPayloadHeaderPadding = EdgeInsets.symmetric(
   horizontal: 11,
   vertical: 7,

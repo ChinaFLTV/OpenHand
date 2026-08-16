@@ -14,6 +14,7 @@ import '../../../../shared/util/date_time_format.dart';
 import '../../../../shared/util/serial_task_queue.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/timer_safety.dart';
+import '../../model/ai_session_message.dart';
 import '../chat/ai_protocol_adapter.dart';
 import 'ai_tool_runtime_service.dart';
 
@@ -162,7 +163,7 @@ final class AiResourceUsageEvent {
     'resource_id': resourceId,
     'sub_resource_id': subResourceId,
     'session_id': sessionId,
-    'tool_call_id': toolCallId,
+    aiSessionMessageToolCallIdMetadataKey: toolCallId,
     'tool_name': toolName,
     'occurred_at': occurredAt.toUtc().toIso8601String(),
     'status': status,
@@ -954,7 +955,7 @@ final class AiToolUsagePromotionStore {
           subResourceId:
               _validIdentifier('${raw['sub_resource_id'] ?? ''}') ?? '',
           sessionId: sessionId,
-          toolCallId: _validIdentifier('${raw['tool_call_id'] ?? ''}') ?? '',
+          toolCallId: _validIdentifier('${raw[aiSessionMessageToolCallIdMetadataKey] ?? ''}') ?? '',
           toolName: _validIdentifier('${raw['tool_name'] ?? ''}') ?? '',
           occurredAt: occurredAt,
           status: _normalizeStatus('${raw['status'] ?? ''}'),

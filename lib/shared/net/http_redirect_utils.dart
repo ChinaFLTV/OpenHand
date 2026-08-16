@@ -203,6 +203,15 @@ const String kAcceptHeaderName = 'accept';
 /// `User-Agent` 头名常量。
 const String kUserAgentHeaderName = 'user-agent';
 
+/// `Cache-Control: no-store` 头值常量。
+const String kCacheControlNoStore = 'no-store';
+
+/// `Connection: keep-alive` 头值常量。
+const String kConnectionKeepAlive = 'keep-alive';
+
+/// `Connection: close` 头值常量。
+const String kConnectionClose = 'close';
+
 /// JSON MIME 类型常量，避免全库重复书写字面量。
 const String kApplicationJsonMimeType = 'application/json';
 
@@ -295,6 +304,15 @@ const String kVideoQuickTimeMimeType = 'video/quicktime';
 /// Matroska 视频 MIME 类型常量。
 const String kVideoMatroskaMimeType = 'video/x-matroska';
 
+/// AVI 视频 MIME 类型常量。
+const String kVideoAviMimeType = 'video/x-msvideo';
+
+/// MOV 视频（QuickTime 容器的旧别名）MIME 类型常量。
+const String kVideoMovMimeType = 'video/mov';
+
+/// WMV 视频 MIME 类型常量。
+const String kVideoWmvMimeType = 'video/x-ms-wmv';
+
 /// XML MIME 类型常量。
 const String kApplicationXmlMimeType = 'application/xml';
 
@@ -324,6 +342,15 @@ const String kApplicationXlsxMimeType =
 /// PowerPoint 演示文稿（.pptx）MIME 类型常量。
 const String kApplicationPptxMimeType =
     'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+
+/// 旧版 Excel 表格（.xls）MIME 类型常量。
+const String kApplicationXlsMimeType = 'application/vnd.ms-excel';
+
+/// GitHub REST API v3 Accept 头常量。
+const String kGitHubApiV3AcceptHeader = 'application/vnd.github.v3+json';
+
+/// GitHub REST API（默认）Accept 头常量。
+const String kGitHubApiAcceptHeader = 'application/vnd.github+json';
 
 /// 取 `Content-Type` 的 MIME 部分（丢掉 `; charset=...` 参数），统一转小写；
 /// 缺失时返回空字符串。

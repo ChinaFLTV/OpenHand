@@ -76,6 +76,10 @@ enum AiSessionMessageRole {
 
 const String aiSessionMessageMetadataStreamingKey = 'streaming';
 const String aiSessionMessageUsageEstimatedMetadataKey = 'usage_estimated';
+const String aiSessionMessageToolCallIdMetadataKey = 'tool_call_id';
+const String aiSessionMessageTelemetryInFlightMetadataKey =
+    'telemetry_in_flight';
+const String aiSessionMessageTruncatedPlaceholder = '<已截断>';
 const String aiSessionMessageDeferredTelemetryMetadataKey =
     '_openhand_deferred_telemetry';
 const String aiSessionMessageContentPreviewMetadataKey =

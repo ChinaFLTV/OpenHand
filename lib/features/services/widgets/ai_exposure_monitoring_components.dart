@@ -961,7 +961,7 @@ class _TappableOpsCard extends StatefulWidget {
     required this.child,
     required this.color,
     this.onTap,
-    this.borderRadius = const BorderRadius.all(Radius.circular(kOpenHandRadius8)),
+    this.borderRadius = kOpenHandBorderRadius8,
   });
 
   final Widget child;

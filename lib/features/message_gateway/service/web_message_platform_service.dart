@@ -4667,7 +4667,7 @@ class WebMessagePlatformService {
       headers: <String, String>{
         HttpHeaders.contentTypeHeader: 'application/x-ndjson; charset=utf-8',
         'content-disposition': _attachmentContentDisposition(filename),
-        HttpHeaders.cacheControlHeader: 'no-store',
+        HttpHeaders.cacheControlHeader: kCacheControlNoStore,
       },
     );
   }
@@ -6183,7 +6183,7 @@ class WebMessagePlatformService {
       headers: <String, String>{
         HttpHeaders.contentTypeHeader: kTextEventStreamUtf8ContentType,
         HttpHeaders.cacheControlHeader: 'no-store, no-transform',
-        HttpHeaders.connectionHeader: 'keep-alive',
+        HttpHeaders.connectionHeader: kConnectionKeepAlive,
         'x-accel-buffering': 'no',
       },
       context: const <String, Object>{'shelf.io.buffer_output': false},
@@ -6607,7 +6607,7 @@ class WebMessagePlatformService {
       body,
       headers: const <String, String>{
         HttpHeaders.contentTypeHeader: kApplicationJsonUtf8ContentType,
-        HttpHeaders.cacheControlHeader: 'no-store',
+        HttpHeaders.cacheControlHeader: kCacheControlNoStore,
         'content-disposition':
             'attachment; filename="openhand-web-gateway-logs.json"',
       },
@@ -8936,7 +8936,7 @@ class WebMessagePlatformService {
       body: body,
       headers: <String, String>{
         HttpHeaders.contentTypeHeader: kApplicationJsonUtf8ContentType,
-        HttpHeaders.cacheControlHeader: 'no-store',
+        HttpHeaders.cacheControlHeader: kCacheControlNoStore,
         ...headers,
       },
     );

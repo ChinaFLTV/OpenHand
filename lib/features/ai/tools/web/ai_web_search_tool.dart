@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../../../../shared/util/async_concurrency.dart';
 import '../../model/ai_model_config.dart';
+import '../../model/ai_session_message.dart';
 import '../../model/ai_web_search_settings.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/chat/ai_chat_service.dart';
@@ -431,7 +432,7 @@ class AiWebSearchTool extends AiTool {
         metadata: <String, Object?>{
           'session_id': context.sessionId,
           'tool_name': context.toolCall.name,
-          'tool_call_id': context.toolCall.id,
+          aiSessionMessageToolCallIdMetadataKey: context.toolCall.id,
           'model_protocol': summaryModel.protocolType.name,
           'model_id': summaryModel.modelId,
           'engines': engineSummaries,

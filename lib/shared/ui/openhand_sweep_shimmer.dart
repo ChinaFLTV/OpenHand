@@ -114,7 +114,7 @@ class OpenHandSkeletonShimmer extends StatefulWidget {
     this.width,
     this.height,
     this.expand = false,
-    this.borderRadius = const BorderRadius.all(Radius.circular(kOpenHandRadius8)),
+    this.borderRadius = kOpenHandBorderRadius8,
     this.period = kOpenHandSkeletonShimmerPeriod,
     this.child,
   });

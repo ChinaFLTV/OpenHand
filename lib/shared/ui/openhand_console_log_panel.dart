@@ -96,7 +96,7 @@ class OpenHandConsoleLogPanel extends StatefulWidget {
     required this.emptyPlaceholder,
     this.margin = EdgeInsets.zero,
     this.padding = const EdgeInsets.all(10),
-    this.borderRadius = const BorderRadius.all(Radius.circular(kOpenHandRadius8)),
+    this.borderRadius = kOpenHandBorderRadius8,
     this.lineSpacing = 0,
     this.reverse = false,
   });

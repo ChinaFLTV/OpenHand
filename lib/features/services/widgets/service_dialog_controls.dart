@@ -420,7 +420,7 @@ class ServiceDialogHeaderIconButton extends StatelessWidget {
         ),
         shape: const WidgetStatePropertyAll(
           RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(kOpenHandRadius8)),
+            borderRadius: kOpenHandBorderRadius8,
           ),
         ),
       ),
@@ -493,7 +493,7 @@ class ServiceDialogInteractionTheme extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     const shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.all(Radius.circular(kOpenHandRadius8)),
+      borderRadius: kOpenHandBorderRadius8,
     );
     return Theme(
       data: theme.copyWith(
@@ -512,14 +512,14 @@ class ServiceDialogInteractionTheme extends StatelessWidget {
           filled: true,
           fillColor: colors.surfaceContainerHighest.withValues(alpha: 0.28),
           border: const OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(kOpenHandRadius8)),
+            borderRadius: kOpenHandBorderRadius8,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius8)),
+            borderRadius: kOpenHandBorderRadius8,
             borderSide: BorderSide(color: colors.outlineVariant),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius8)),
+            borderRadius: kOpenHandBorderRadius8,
             borderSide: BorderSide(color: colors.primary, width: 1.4),
           ),
         ),

@@ -225,7 +225,7 @@ class McpServerOpsRuntime {
   static const int _rateWindowSeconds = 60;
   static const String _connectionInfoContextKey = 'shelf.io.connection_info';
   static const Map<String, String> _responseHeaders = <String, String>{
-    'cache-control': 'no-store',
+    'cache-control': kCacheControlNoStore,
     'x-content-type-options': 'nosniff',
   };
 
@@ -654,7 +654,7 @@ class McpServerOpsRuntime {
             body: 'Too many concurrent OpenHand MCP requests.',
             headers: const <String, String>{
               ..._plainTextResponseHeaders,
-              HttpHeaders.connectionHeader: 'close',
+              HttpHeaders.connectionHeader: kConnectionClose,
             },
           );
         }
@@ -722,7 +722,7 @@ class McpServerOpsRuntime {
         body: 'Browser-originated MCP requests are not accepted.',
         headers: const <String, String>{
           ..._plainTextResponseHeaders,
-          HttpHeaders.connectionHeader: 'close',
+          HttpHeaders.connectionHeader: kConnectionClose,
         },
       );
     }
@@ -841,7 +841,7 @@ class McpServerOpsRuntime {
         ..._sessionHeaders(request),
         kContentTypeHeaderName: kTextEventStreamUtf8ContentType,
         'cache-control': 'no-cache, no-transform',
-        HttpHeaders.connectionHeader: 'keep-alive',
+        HttpHeaders.connectionHeader: kConnectionKeepAlive,
         'x-accel-buffering': 'no',
       },
     );
@@ -938,7 +938,7 @@ class McpServerOpsRuntime {
         body: 'Request blocked by OpenHand policy',
         headers: const <String, String>{
           ..._plainTextResponseHeaders,
-          HttpHeaders.connectionHeader: 'close',
+          HttpHeaders.connectionHeader: kConnectionClose,
         },
       );
     }
@@ -1069,7 +1069,7 @@ class McpServerOpsRuntime {
       body: message,
       headers: const <String, String>{
         ..._plainTextResponseHeaders,
-        HttpHeaders.connectionHeader: 'close',
+        HttpHeaders.connectionHeader: kConnectionClose,
       },
     );
   }

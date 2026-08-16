@@ -17,7 +17,7 @@ class FirstFramePulseBox extends StatefulWidget {
   const FirstFramePulseBox({
     super.key,
     required this.child,
-    this.borderRadius = const BorderRadius.all(Radius.circular(kOpenHandRadius2)),
+    this.borderRadius = kOpenHandBorderRadius2,
   });
 
   final Widget child;

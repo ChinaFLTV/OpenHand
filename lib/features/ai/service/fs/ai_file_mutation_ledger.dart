@@ -33,6 +33,7 @@ import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/serial_task_queue.dart';
 import '../../../../shared/util/unified_diff.dart' as unified_diff;
+import '../../model/ai_session_message.dart';
 
 const int _fileMutationRecordIdMaxCharacters = 512;
 
@@ -68,7 +69,7 @@ class FileMutationRecord {
   Map<String, Object?> toJson() => <String, Object?>{
     'id': recordId,
     'session_id': sessionId,
-    'tool_call_id': toolCallId,
+    aiSessionMessageToolCallIdMetadataKey: toolCallId,
     'tool_name': toolName,
     'path': filePath,
     'kind': kind.name,
@@ -95,7 +96,7 @@ class FileMutationRecord {
     return FileMutationRecord(
       recordId: id,
       sessionId: sessionId,
-      toolCallId: stringFromValue(json['tool_call_id']),
+      toolCallId: stringFromValue(json[aiSessionMessageToolCallIdMetadataKey]),
       toolName: stringFromValue(json['tool_name']),
       filePath: stringFromValue(json['path']),
       kind: kind,

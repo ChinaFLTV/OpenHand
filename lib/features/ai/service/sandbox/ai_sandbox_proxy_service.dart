@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/net/bounded_server_bind.dart';
+import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/tcp_port_utils.dart';
 import '../../../../shared/util/argument_guards.dart';
 import '../../../../shared/util/async_concurrency.dart';
@@ -1035,7 +1036,7 @@ class _HttpProxyRequest {
     final buffer = StringBuffer()..writeln('$method $forwardTarget $version');
     final connectionHeaders = <String>{
       'connection',
-      'keep-alive',
+      kConnectionKeepAlive,
       'proxy-authenticate',
       'proxy-authorization',
       'proxy-connection',

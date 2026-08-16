@@ -20,6 +20,21 @@ const int _kAiJunglerDefaultHistoryLimit = 500;
 const int _kAiJunglerDefaultLogLimit = 2000;
 const int _kAiJunglerDefaultResultLimit = 1000;
 
+/// AI 扫描引擎 API 路径常量，统一管理避免硬编码漂移。
+const String _kApiHealth = '/v1/health';
+const String _kApiJobs = '/v1/jobs';
+const String _kApiHistory = '/v1/history';
+const String _kApiResults = '/v1/results';
+const String _kApiRules = '/v1/rules';
+const String _kApiSources = '/v1/sources';
+const String _kApiSourcesQuotas = '/v1/sources/quotas';
+const String _kApiProxy = '/v1/proxy';
+const String _kApiAiExtractor = '/v1/ai-extractor';
+const String _kApiDependencies = '/v1/dependencies';
+const String _kApiDependenciesData = '/v1/dependencies/data';
+const String _kApiPostgresqlQuery = '/v1/dependencies/postgresql/query';
+const String _kApiRedis = '/v1/dependencies/redis';
+
 class AiJunglerApiException implements Exception {
   const AiJunglerApiException(this.message, {this.statusCode});
 
@@ -156,6 +171,8 @@ class AiJunglerClient {
     body: configuration.toRuntimeJson(systemProxy: systemProxy),
   );
 
+  Future<void> clearProxy() => _emptyRequest('DELETE', '/v1/proxy');
+
   Future<AiExposureAiExtractorStatus> aiExtractorStatus() async =>
       AiExposureAiExtractorStatus.fromJson(
         await _jsonRequest('GET', '/v1/ai-extractor'),
@@ -175,6 +192,8 @@ class AiJunglerClient {
     },
   );
 
+  Future<void> clearAiExtractor() => _emptyRequest('DELETE', '/v1/ai-extractor');
+
   Future<AiExposureDependencyStatus> dependencyStatus() async =>
       AiExposureDependencyStatus.fromJson(
         await _jsonRequest('GET', '/v1/dependencies'),
@@ -193,6 +212,9 @@ class AiJunglerClient {
       if (playwright != null) 'playwright': playwright,
     },
   );
+
+  Future<void> clearDependencies() =>
+      _emptyRequest('DELETE', '/v1/dependencies');
 
   Future<Map<String, Object?>> dependencyDataOverview() =>
       _jsonRequest('GET', '/v1/dependencies/data');

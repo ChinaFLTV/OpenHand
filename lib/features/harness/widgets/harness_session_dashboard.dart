@@ -604,7 +604,7 @@ MarkdownStyleSheet _heBuildMarkdownStyleSheet(
     blockquotePadding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
     blockquoteDecoration: BoxDecoration(
       color: quoteBg,
-      borderRadius: _br16,
+      borderRadius: kOpenHandBorderRadius16,
       border: Border(left: BorderSide(color: accent, width: 3)),
     ),
     horizontalRuleDecoration: BoxDecoration(
@@ -632,12 +632,10 @@ MarkdownStyleSheet _heBuildMarkdownStyleSheet(
 
 // 与首页会话界面共用的圆角规格。
 const _br26 = BorderRadius.all(Radius.circular(26));
-const _br18 = BorderRadius.all(Radius.circular(kOpenHandRadius18));
-const _br16 = BorderRadius.all(Radius.circular(kOpenHandRadius16));
-const _br12 = BorderRadius.all(Radius.circular(kOpenHandRadius12));
-const _br10 = BorderRadius.all(Radius.circular(kOpenHandRadius10));
-const _br8 = BorderRadius.all(Radius.circular(kOpenHandRadius8));
-const _br6 = BorderRadius.all(Radius.circular(kOpenHandRadius6));
+const _br12 = kOpenHandBorderRadius12;
+const _br10 = kOpenHandBorderRadius10;
+const _br8 = kOpenHandBorderRadius8;
+const _br6 = kOpenHandBorderRadius6;
 
 /// 根据卡片实际背景构建 Markdown 配色，保证跨明暗主题的可读性。
 MarkdownStyleSheet _heBuildDarkAwareMarkdownStyleSheet(
@@ -714,7 +712,7 @@ MarkdownStyleSheet _heBuildDarkAwareMarkdownStyleSheet(
     blockquotePadding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
     blockquoteDecoration: BoxDecoration(
       color: quoteSurface,
-      borderRadius: _br16,
+      borderRadius: kOpenHandBorderRadius16,
       border: Border(left: BorderSide(color: accentColor, width: 3)),
     ),
     horizontalRuleDecoration: BoxDecoration(

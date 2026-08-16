@@ -112,7 +112,7 @@ class _TrajectorySnapshot {
     final pairedResultIds = <String>{};
     for (final message in messages) {
       if (!message.kind.isToolResultKind) continue;
-      final callId = '${message.metadata['tool_call_id'] ?? ''}'.trim();
+      final callId = '${message.metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'.trim();
       if (callId.isNotEmpty) resultByCallId[callId] = message;
     }
 
@@ -157,7 +157,7 @@ class _TrajectorySnapshot {
     for (final message in messages) {
       if (pairedResultIds.contains(message.id)) continue;
       final metadata = message.metadata;
-      final callId = '${metadata['tool_call_id'] ?? ''}'.trim();
+      final callId = '${metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'.trim();
       switch (message.kind) {
         case AiSessionMessageKind.user:
           if (message.isGoalEvaluationMessage) {
@@ -340,7 +340,7 @@ _TrajectoryRecord _trajectoryRecordFromMessage(
     durationMs: timing.$2,
     running:
         metadata[aiSessionMessageMetadataStreamingKey] == true ||
-        metadata['telemetry_in_flight'] == true,
+        metadata[aiSessionMessageTelemetryInFlightMetadataKey] == true,
     isError: '${metadata['error'] ?? ''}'.trim().isNotEmpty,
     usage: message.usage,
     sourceMessageId: message.id,
@@ -360,7 +360,7 @@ _TrajectoryRecord _trajectoryToolRecord(
   required int requestNumber,
 }) {
   final metadata = call.metadata;
-  final callId = '${metadata['tool_call_id'] ?? ''}'.trim();
+  final callId = '${metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'.trim();
   final toolName = '${metadata['tool_name'] ?? ''}'.trim();
   final arguments = '${metadata['tool_arguments'] ?? call.content}'.trim();
   final output = (result?.content ?? _trajectoryToolOutput(metadata)).trim();
@@ -411,7 +411,7 @@ _TrajectoryRecord _trajectoryToolResultRecord(
   required int requestNumber,
 }) {
   final metadata = message.metadata;
-  final callId = '${metadata['tool_call_id'] ?? ''}'.trim();
+  final callId = '${metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'.trim();
   final toolName = '${metadata['tool_name'] ?? message.kind.storageValue}'
       .trim();
   final status = '${metadata['tool_execution_status'] ?? ''}'
@@ -1607,10 +1607,10 @@ class _TrajectoryToolbarButton extends StatelessWidget {
           color: selected
               ? colorScheme.primary.withValues(alpha: 0.1)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(5),
+          borderRadius: kOpenHandBorderRadius5,
           child: InkWell(
             onTap: onPressed,
-            borderRadius: BorderRadius.circular(5),
+            borderRadius: kOpenHandBorderRadius5,
             child: SizedBox(
               height: 28,
               child: Padding(
@@ -2468,7 +2468,7 @@ class _TrajectoryKindTag extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: accent.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(5),
+        borderRadius: kOpenHandBorderRadius5,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

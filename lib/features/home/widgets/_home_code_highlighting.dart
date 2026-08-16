@@ -609,12 +609,12 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
     );
     final diffDecoration = BoxDecoration(
       color: palette.surface,
-      borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius12)),
+      borderRadius: kOpenHandBorderRadius12,
       border: Border.all(color: palette.border, width: 0.8),
     );
 
     return ClipRRect(
-      borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius12)),
+      borderRadius: kOpenHandBorderRadius12,
       child: DecoratedBox(
         decoration: diffDecoration,
         child: Column(

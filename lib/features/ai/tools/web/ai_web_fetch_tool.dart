@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/url_validation.dart';
 import '../../model/ai_model_config.dart';
+import '../../model/ai_session_message.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/chat/ai_chat_service.dart';
@@ -439,7 +440,7 @@ class AiWebFetchTool extends AiTool {
           metadata: <String, Object?>{
             'session_id': context.sessionId,
             'tool_name': context.toolCall.name,
-            'tool_call_id': context.toolCall.id,
+            aiSessionMessageToolCallIdMetadataKey: context.toolCall.id,
             'winning_engine': orchestrationResult.winningKind?.name,
             'engines': engineSummaries,
             'fallback_used': orchestrationResult.fallbackUsed,

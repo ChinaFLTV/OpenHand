@@ -1353,7 +1353,7 @@ class _MessageMarkdownThemeData {
         tableBody: tableBodyStyle,
         tableBorder: TableBorder.all(
           color: borderColor,
-          borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius12)),
+          borderRadius: kOpenHandBorderRadius12,
         ),
         tablePadding: const EdgeInsets.symmetric(vertical: 2),
         tableCellsPadding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -1367,7 +1367,7 @@ class _MessageMarkdownThemeData {
         ),
         blockquoteDecoration: BoxDecoration(
           color: quoteSurface,
-          borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius12)),
+          borderRadius: kOpenHandBorderRadius12,
           border: Border(left: BorderSide(color: accentColor, width: 2.5)),
         ),
         // 代码面板自行裁剪圆角，外层仅约束边界，避免重复裁剪削薄四角边框。

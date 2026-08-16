@@ -1026,7 +1026,7 @@ class AiTtsPlaybackService {
         'X-Api-Key': settings.apiKey,
         'X-Api-Resource-Id': resourceId,
         'X-Api-Request-Id': requestId,
-        HttpHeaders.connectionHeader: 'keep-alive',
+        HttpHeaders.connectionHeader: kConnectionKeepAlive,
       },
       body: requestBody,
       timeout: operation.remainingSynthesisTime(),

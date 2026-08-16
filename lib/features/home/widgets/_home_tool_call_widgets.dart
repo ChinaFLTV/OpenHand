@@ -413,7 +413,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                   // 单击只杀本调用（区别于全局"停止响应"，不影响并行的兄弟工具）。
                   _ToolCancelButton(
                     sessionId: widget.sessionId,
-                    toolCallId: '${message.metadata['tool_call_id'] ?? ''}',
+                    toolCallId: '${message.metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}',
                   ),
                 ],
               ),
@@ -565,7 +565,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                 kOpenHandGap10,
                 _FileMutationCard(
                   key: ValueKey<String>(
-                    'file-mutation-${message.id}-${message.metadata['tool_call_id'] ?? ''}',
+                    'file-mutation-${message.id}-${message.metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}',
                   ),
                   message: message,
                 ),
@@ -649,13 +649,13 @@ class _ExpandableToolSection extends StatelessWidget {
     final motionDuration = cardMotionDurationFor(context, expanding: expanded);
     return Material(
       color: theme.colorScheme.surface.withValues(alpha: 0.78),
-      borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius16)),
+      borderRadius: kOpenHandBorderRadius16,
       child: InkWell(
         onTap: () {
           _markToolCardInteractiveTap(context);
           onToggle();
         },
-        borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius16)),
+        borderRadius: kOpenHandBorderRadius16,
         // AnimatedSize wraps the *entire* card so the chevron rotation
         // and content cross-fade ride a single height curve — feels
         // like the card itself is breathing.

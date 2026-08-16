@@ -663,7 +663,7 @@ class ThrottleCloudSyncService {
       });
       final bodyBytes = utf8.encode(body);
       final headers = <String, String>{
-        HttpHeaders.acceptHeader: 'application/vnd.github+json',
+        HttpHeaders.acceptHeader: kGitHubApiAcceptHeader,
         HttpHeaders.contentTypeHeader: kApplicationJsonUtf8ContentType,
         HttpHeaders.authorizationHeader: 'Bearer $pat',
         'X-GitHub-Api-Version': _githubApiVersion,
@@ -731,7 +731,7 @@ class ThrottleCloudSyncService {
         method: 'GET',
         uri: _gistApiUri(id),
         headers: <String, String>{
-          HttpHeaders.acceptHeader: 'application/vnd.github+json',
+          HttpHeaders.acceptHeader: kGitHubApiAcceptHeader,
           HttpHeaders.authorizationHeader: 'Bearer $pat',
           'X-GitHub-Api-Version': _githubApiVersion,
           HttpHeaders.userAgentHeader: _githubUserAgent,

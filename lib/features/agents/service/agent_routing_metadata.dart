@@ -5,6 +5,7 @@ import 'package:yaml/yaml.dart';
 import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
+import '../../ai/model/ai_session_message.dart';
 import '../model/agent_models.dart';
 
 const int agentRouteFrontMatterMaxChars = 32768;
@@ -23,7 +24,7 @@ const BoundedJsonConversionConfig _agentRouteConversionConfig =
       maxDepthPlaceholder: '<层级过深>',
       cyclicMapPlaceholder: '<循环映射>',
       cyclicIterablePlaceholder: '<循环集合>',
-      truncatedPlaceholder: '<已截断>',
+      truncatedPlaceholder: aiSessionMessageTruncatedPlaceholder,
     );
 
 class AgentRoutingMetadata {

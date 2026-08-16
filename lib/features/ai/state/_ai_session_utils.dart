@@ -570,7 +570,7 @@ String? _compactPersistenceRawDetail(String raw) {
 /// 结构；两者必须同源，否则同一条消息在不同读取路径下会出现不一致。
 Map<String, Object?> _toolCallMessageMetadata(AiToolCall toolCall) {
   return <String, Object?>{
-    'tool_call_id': toolCall.id,
+    aiSessionMessageToolCallIdMetadataKey: toolCall.id,
     'tool_name': toolCall.name,
     'tool_arguments': toolCall.arguments,
     'tool_calls': <Map<String, Object?>>[

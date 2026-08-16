@@ -9,6 +9,7 @@ import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/text_normalization.dart';
 import '../../../agents/index.dart';
+import '../../../ai/model/ai_session_message.dart';
 import '../../../instructions/index.dart'
     show InstructionsControllerProvider, UserInstructionEntry;
 import '../../model/ai_builtin_tool_config.dart'
@@ -98,7 +99,7 @@ const BoundedJsonConversionConfig _agentToolResultConversionConfig =
       maxDepthPlaceholder: '<层级过深>',
       cyclicMapPlaceholder: '<循环映射>',
       cyclicIterablePlaceholder: '<循环集合>',
-      truncatedPlaceholder: '<已截断>',
+      truncatedPlaceholder: aiSessionMessageTruncatedPlaceholder,
     );
 
 /// 数字员工 worker 的默认工具：只读集合再加上知识库检索。

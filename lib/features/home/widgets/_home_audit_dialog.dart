@@ -119,7 +119,7 @@ AiSessionMessage? _auditRelatedTelemetryMessage(
 const Duration _auditShimmerPeriod = Duration(milliseconds: 1400);
 const double _auditShimmerLineHeight = 14;
 const double _auditShimmerLastLineWidth = 180;
-const BorderRadius _auditShimmerRadius = BorderRadius.all(Radius.circular(kOpenHandRadius6));
+const BorderRadius _auditShimmerRadius = kOpenHandBorderRadius6;
 const Duration _auditShellSizeDuration = kOpenHandMotion260;
 const Duration _auditToggleRotationDuration = kOpenHandMotion200;
 const Duration _auditContentSizeDuration = kOpenHandMotion220;
@@ -682,8 +682,8 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
     ]);
     final streaming = metadata[aiSessionMessageMetadataStreamingKey] == true;
     final telemetryInFlight =
-        metadata['telemetry_in_flight'] == true ||
-        relatedMetadata['telemetry_in_flight'] == true;
+        metadata[aiSessionMessageTelemetryInFlightMetadataKey] == true ||
+        relatedMetadata[aiSessionMessageTelemetryInFlightMetadataKey] == true;
     final waitingForTelemetry = streaming || telemetryInFlight;
     final displayUsage = message.usage ?? relatedMessage?.usage;
     final displayModelId = message.modelId ?? relatedMessage?.modelId;
@@ -837,7 +837,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
         titlePadding: const EdgeInsets.fromLTRB(24, 20, 16, 0),
         contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
         actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+        shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius26),
         title: Row(
           children: [
             Icon(Icons.fact_check_outlined, color: colorScheme.primary),

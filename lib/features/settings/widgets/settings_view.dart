@@ -7045,7 +7045,7 @@ class _McpStdioMirrorModeControl extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
           decoration: BoxDecoration(
             color: statusBg,
-            borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius10)),
+            borderRadius: kOpenHandBorderRadius10,
             border: Border.all(color: statusBorder),
           ),
           child: Column(
@@ -7178,7 +7178,7 @@ class _McpKeywordIndexUpdateModeControl extends StatelessWidget {
               color: theme.colorScheme.surfaceContainerHighest.withValues(
                 alpha: 0.55,
               ),
-              borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius10)),
+              borderRadius: kOpenHandBorderRadius10,
               border: Border.all(color: theme.colorScheme.outlineVariant),
             ),
             child: Text(
@@ -7356,7 +7356,7 @@ class _McpKeywordIndexScheduledForm extends StatelessWidget {
               color: theme.colorScheme.surfaceContainerHighest.withValues(
                 alpha: 0.55,
               ),
-              borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius10)),
+              borderRadius: kOpenHandBorderRadius10,
               border: Border.all(color: theme.colorScheme.outlineVariant),
             ),
             child: Row(
@@ -7403,7 +7403,7 @@ class _McpLazyLoadingHelpBanner extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withValues(alpha: 0.35),
-        borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius12)),
+        borderRadius: kOpenHandBorderRadius12,
         border: Border.all(color: colorScheme.primary.withValues(alpha: 0.18)),
       ),
       child: Row(

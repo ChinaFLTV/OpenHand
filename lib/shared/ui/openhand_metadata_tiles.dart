@@ -8,8 +8,8 @@ library;
 import 'package:flutter/material.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
 
-const BorderRadius _kSectionRadius = BorderRadius.all(Radius.circular(kOpenHandRadius20));
-const BorderRadius _kSummaryTileRadius = BorderRadius.all(Radius.circular(kOpenHandRadius18));
+const BorderRadius _kSectionRadius = kOpenHandBorderRadius20;
+const BorderRadius _kSummaryTileRadius = kOpenHandBorderRadius18;
 
 /// 摘要磁贴的固定宽度：多个磁贴在 Wrap 中并排时保持列对齐。
 const double kOpenHandMetadataSummaryTileWidth = 188;

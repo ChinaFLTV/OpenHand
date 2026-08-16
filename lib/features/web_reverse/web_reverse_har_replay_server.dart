@@ -43,7 +43,7 @@ class WebReverseHarReplayServer {
   static const Set<String> _hopByHopHeaders = <String>{
     'connection',
     'content-length',
-    'keep-alive',
+    kConnectionKeepAlive,
     'proxy-authenticate',
     'proxy-authorization',
     'te',

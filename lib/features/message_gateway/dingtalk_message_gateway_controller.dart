@@ -4515,7 +4515,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     List<AiSessionMessage> sessionMessages,
   ) {
     final metadata = call.metadata;
-    final toolCallId = _boundedToolLabel(metadata['tool_call_id'] ?? call.id);
+    final toolCallId = _boundedToolLabel(metadata[aiSessionMessageToolCallIdMetadataKey] ?? call.id);
     final toolName = _boundedToolLabel(metadata['tool_name'] ?? '工具');
     final arguments = _toolArgumentsValue(metadata);
     final matchingResult = _matchingToolResult(call, sessionMessages);
@@ -4579,11 +4579,11 @@ ${_markdownStructuredFields(response)}''';
     AiSessionMessage call,
     List<AiSessionMessage> sessionMessages,
   ) {
-    final id = '${call.metadata['tool_call_id'] ?? ''}'.trim();
+    final id = '${call.metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'.trim();
     if (id.isEmpty) return null;
     for (final message in sessionMessages.reversed) {
       if (message.isDeleted || !message.kind.isToolResultKind) continue;
-      if ('${message.metadata['tool_call_id'] ?? ''}'.trim() == id) {
+      if ('${message.metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'.trim() == id) {
         return message;
       }
     }

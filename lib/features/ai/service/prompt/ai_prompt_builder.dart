@@ -6703,7 +6703,7 @@ $content
   }
 
   String? _readToolCallId(Map<String, Object?> metadata) {
-    final value = '${metadata['tool_call_id'] ?? ''}'.trim();
+    final value = '${metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'.trim();
     return value.isEmpty ? null : value;
   }
 

@@ -53,6 +53,7 @@ const SizedBox kOpenHandHGap24 = SizedBox(width: 24);
 const double kOpenHandRadius2 = 2;
 const double kOpenHandRadius3 = 3;
 const double kOpenHandRadius4 = 4;
+const double kOpenHandRadius5 = 5;
 const double kOpenHandRadius6 = 6;
 const double kOpenHandRadius7 = 7;
 const double kOpenHandRadius8 = 8;
@@ -69,6 +70,7 @@ const double kOpenHandRadius18 = 18;
 const double kOpenHandRadius20 = 20;
 const double kOpenHandRadius22 = 22;
 const double kOpenHandRadius24 = 24;
+const double kOpenHandRadius26 = 26;
 
 /// 全局 [BorderRadius] token —— 与上面的标量一一对应。
 ///
@@ -77,6 +79,9 @@ const double kOpenHandRadius24 = 24;
 /// 圆角要跨七八个文件对照。统一按数值命名后，一个值只有一个名字。
 const BorderRadius kOpenHandBorderRadius4 = BorderRadius.all(
   Radius.circular(kOpenHandRadius4),
+);
+const BorderRadius kOpenHandBorderRadius5 = BorderRadius.all(
+  Radius.circular(kOpenHandRadius5),
 );
 const BorderRadius kOpenHandBorderRadius6 = BorderRadius.all(
   Radius.circular(kOpenHandRadius6),
@@ -101,5 +106,14 @@ const BorderRadius kOpenHandBorderRadius18 = BorderRadius.all(
 );
 const BorderRadius kOpenHandBorderRadius20 = BorderRadius.all(
   Radius.circular(kOpenHandRadius20),
+);
+const BorderRadius kOpenHandBorderRadius22 = BorderRadius.all(
+  Radius.circular(kOpenHandRadius22),
+);
+const BorderRadius kOpenHandBorderRadius24 = BorderRadius.all(
+  Radius.circular(kOpenHandRadius24),
+);
+const BorderRadius kOpenHandBorderRadius26 = BorderRadius.all(
+  Radius.circular(kOpenHandRadius26),
 );
 

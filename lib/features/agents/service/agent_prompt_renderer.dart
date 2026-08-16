@@ -7,6 +7,7 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_normalization.dart';
+import '../../ai/model/ai_session_message.dart';
 import '../../instructions/index.dart' show UserInstructionEntry;
 import '../model/agent_models.dart';
 import 'agent_ordering.dart';
@@ -512,7 +513,7 @@ const BoundedJsonConversionConfig _agentPromptExtraConversionConfig =
       maxDepthPlaceholder: '<层级过深>',
       cyclicMapPlaceholder: '<循环映射>',
       cyclicIterablePlaceholder: '<循环集合>',
-      truncatedPlaceholder: '<已截断>',
+      truncatedPlaceholder: aiSessionMessageTruncatedPlaceholder,
     );
 const BoundedJsonConversionConfig _agentPromptSectionConversionConfig =
     BoundedJsonConversionConfig(
@@ -525,7 +526,7 @@ const BoundedJsonConversionConfig _agentPromptSectionConversionConfig =
       maxDepthPlaceholder: '<层级过深>',
       cyclicMapPlaceholder: '<循环映射>',
       cyclicIterablePlaceholder: '<循环集合>',
-      truncatedPlaceholder: '<已截断>',
+      truncatedPlaceholder: aiSessionMessageTruncatedPlaceholder,
     );
 
 String _boundedPromptText(String value, {required int maxChars}) {

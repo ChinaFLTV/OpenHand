@@ -43,7 +43,7 @@ const ButtonStyle _kToolbarButtonStyle = ButtonStyle(
     EdgeInsets.symmetric(horizontal: 16, vertical: 10),
   ),
   shape: WidgetStatePropertyAll(
-    RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(kOpenHandRadius8))),
+    RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius8),
   ),
 );
 const List<String> _kPostgresqlTables = <String>[

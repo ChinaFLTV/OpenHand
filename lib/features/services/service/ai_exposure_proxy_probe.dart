@@ -416,7 +416,7 @@ Future<Uint8List> _loadIdentityThroughHttpProxy(Uri proxy) async {
     request
       ..followRedirects = false
       ..headers.set(HttpHeaders.acceptHeader, kApplicationJsonMimeType)
-      ..headers.set(HttpHeaders.connectionHeader, 'close');
+      ..headers.set(HttpHeaders.connectionHeader, kConnectionClose);
     final response = await request.close().timeout(
       _remaining(_kProxyIdentityTimeout, stopwatch),
     );

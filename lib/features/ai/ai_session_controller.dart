@@ -101,7 +101,8 @@ const int _telemetryMaxNestingDepth = 32;
 const int _telemetryMaxContainerItems = 4096;
 const int _telemetryMaxTotalNodes = 32768;
 const int _telemetryMaxUsagePaths = 96;
-const String _telemetryTruncatedPlaceholder = '<已截断>';
+const String _telemetryTruncatedPlaceholder =
+    aiSessionMessageTruncatedPlaceholder;
 const String _telemetryMaxDepthPlaceholder = '<达到深度上限>';
 const String _telemetryCircularPlaceholder = '<循环引用>';
 const String _mediaGenerationPromptAssemblyLayout =
@@ -253,7 +254,8 @@ class AiSessionController extends ChangeNotifier {
       'forked_from_original_message_id';
   static const String _forkedFromOriginalMessageCreatedAtKey =
       'forked_from_original_message_created_at';
-  static const String _toolCallIdMetadataKey = 'tool_call_id';
+  static const String _toolCallIdMetadataKey =
+      aiSessionMessageToolCallIdMetadataKey;
   static const String _toolOutputPersistedPathMetadataKey =
       'tool_output_persisted_path';
   static const Duration _toolOutputCleanupPathCheckTimeout = Duration(
@@ -267,7 +269,8 @@ class AiSessionController extends ChangeNotifier {
         totalTimeout: Duration(seconds: 5),
       );
   static const int _maxForkedToolOutputBytes = 256 * kBytesPerMiB;
-  static const String _telemetryInFlightKey = 'telemetry_in_flight';
+  static const String _telemetryInFlightKey =
+      aiSessionMessageTelemetryInFlightMetadataKey;
   static const Set<String> _forkSingleMessageIdMetadataKeys = <String>{
     _editRollbackMarkerKey,
     'previous_checkpoint_message_id',
@@ -8198,7 +8201,7 @@ class AiSessionController extends ChangeNotifier {
                     modelLabel: model.displayName,
                     metadata: <String, Object?>{
                       'tool_call_index': invoke.index,
-                      'tool_call_id': invoke.id,
+                      _toolCallIdMetadataKey: invoke.id,
                       'tool_name': invoke.name,
                       'tool_arguments': invoke.argumentsJson,
                       'tool_arguments_streaming': !invoke.isComplete,
@@ -8220,7 +8223,7 @@ class AiSessionController extends ChangeNotifier {
                     metadata: <String, Object?>{
                       ...message.metadata,
                       'tool_call_index': invoke.index,
-                      'tool_call_id': invoke.id,
+                      _toolCallIdMetadataKey: invoke.id,
                       'tool_name': invoke.name,
                       'tool_arguments': invoke.argumentsJson,
                       'tool_arguments_streaming': !invoke.isComplete,
@@ -8314,7 +8317,7 @@ class AiSessionController extends ChangeNotifier {
                   modelLabel: model.displayName,
                   metadata: <String, Object?>{
                     'tool_call_index': delta.index,
-                    'tool_call_id': resolvedToolCallId,
+                    _toolCallIdMetadataKey: resolvedToolCallId,
                     'tool_name': resolvedName,
                     'tool_arguments': delta.argumentsFragment,
                     'tool_arguments_streaming': true,
@@ -8329,7 +8332,7 @@ class AiSessionController extends ChangeNotifier {
                     '$currentArguments${delta.argumentsFragment}';
                 final resolvedToolCallId = (delta.id ?? '').trim().isNotEmpty
                     ? delta.id!.trim()
-                    : '${message.metadata['tool_call_id'] ?? 'tool-call-${delta.index}'}';
+                    : '${message.metadata[_toolCallIdMetadataKey] ?? 'tool-call-${delta.index}'}';
                 final resolvedName = (delta.name ?? '').trim().isNotEmpty
                     ? delta.name!.trim()
                     : '${message.metadata['tool_name'] ?? ''}'.trim();
@@ -8348,7 +8351,7 @@ class AiSessionController extends ChangeNotifier {
                   metadata: <String, Object?>{
                     ...message.metadata,
                     'tool_call_index': delta.index,
-                    'tool_call_id': resolvedToolCallId,
+                    _toolCallIdMetadataKey: resolvedToolCallId,
                     'tool_name': resolvedName,
                     'tool_arguments': mergedArguments,
                     'tool_arguments_streaming': true,
@@ -9521,7 +9524,7 @@ class AiSessionController extends ChangeNotifier {
     required AiToolExecutionResult result,
   }) {
     final metadata = <String, Object?>{
-      'tool_call_id': toolCall.id,
+      _toolCallIdMetadataKey: toolCall.id,
       'tool_name': toolCall.name,
       'tool_arguments': toolCall.arguments,
       'command': result.command,
@@ -9573,7 +9576,7 @@ class AiSessionController extends ChangeNotifier {
       event: HookEvent.preToolUse,
       sessionId: session.id,
       payload: <String, Object?>{
-        'tool_call_id': toolCall.id,
+        _toolCallIdMetadataKey: toolCall.id,
         'tool_name': toolCall.name,
         'tool_arguments': toolCall.arguments,
       },
@@ -9590,7 +9593,7 @@ class AiSessionController extends ChangeNotifier {
       event: HookEvent.postToolUse,
       sessionId: session.id,
       payload: <String, Object?>{
-        'tool_call_id': toolCall.id,
+        _toolCallIdMetadataKey: toolCall.id,
         'tool_name': toolCall.name,
         'tool_arguments': toolCall.arguments,
         'status': result.status.storageValue,
@@ -10313,7 +10316,7 @@ class AiSessionController extends ChangeNotifier {
     final sourceMessageIdsByToolCallId = <String, String>{};
     for (final message in session.messages) {
       if (message.kind != AiSessionMessageKind.toolCall) continue;
-      final toolCallId = '${message.metadata['tool_call_id'] ?? ''}'.trim();
+      final toolCallId = '${message.metadata[_toolCallIdMetadataKey] ?? ''}'.trim();
       if (toolCallId.isNotEmpty && seenToolCallIds.contains(toolCallId)) {
         sourceMessageIdsByToolCallId[toolCallId] = message.id;
       }
@@ -11834,7 +11837,7 @@ $tail''';
       if (_isTerminalToolExecutionStatus(currentStatus)) {
         continue;
       }
-      final toolCallId = '${message.metadata['tool_call_id'] ?? ''}'.trim();
+      final toolCallId = '${message.metadata[_toolCallIdMetadataKey] ?? ''}'.trim();
       final toolCallIndex = optionalNonNegativeIntFromValue(
         '${message.metadata['tool_call_index'] ?? ''}'.trim(),
       );
@@ -11867,7 +11870,7 @@ $tail''';
         (message) =>
             !message.isDeleted &&
             message.kind == AiSessionMessageKind.toolCall &&
-            '${message.metadata['tool_call_id'] ?? ''}'.trim() == toolCall.id,
+            '${message.metadata[_toolCallIdMetadataKey] ?? ''}'.trim() == toolCall.id,
       );
       final messageId = existingIndex == -1
           ? _idGenerator()
@@ -13489,7 +13492,7 @@ $tail''';
       (message) =>
           !message.isDeleted &&
           message.kind == AiSessionMessageKind.toolCall &&
-          '${message.metadata['tool_call_id'] ?? ''}'.trim() == toolCall.id,
+          '${message.metadata[_toolCallIdMetadataKey] ?? ''}'.trim() == toolCall.id,
     );
     if (existingIndex == -1) {
       return _idGenerator();
@@ -14198,7 +14201,7 @@ $tail''';
           (turn) => <String, Object?>{
             'role': turn.roleName,
             if (turn.toolCallId != null && turn.toolCallId!.isNotEmpty)
-              'tool_call_id': turn.toolCallId,
+              _toolCallIdMetadataKey: turn.toolCallId,
             'content': turn.content,
             if (turn.toolCalls.isNotEmpty)
               'tool_calls': turn.toolCalls

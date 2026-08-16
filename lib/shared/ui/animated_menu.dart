@@ -1528,7 +1528,7 @@ class _PopupMenuDefaultsM2 extends PopupMenuThemeData {
 
   @override
   ShapeBorder? get shape => const RoundedRectangleBorder(
-    borderRadius: BorderRadius.all(Radius.circular(kOpenHandRadius8)),
+    borderRadius: kOpenHandBorderRadius8,
   );
 
   @override
@@ -1551,7 +1551,7 @@ class _PopupMenuDefaultsM3 extends PopupMenuThemeData {
 
   @override
   ShapeBorder? get shape => const RoundedRectangleBorder(
-    borderRadius: BorderRadius.all(Radius.circular(kOpenHandRadius8)),
+    borderRadius: kOpenHandBorderRadius8,
   );
 
   @override

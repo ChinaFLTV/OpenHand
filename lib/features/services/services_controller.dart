@@ -409,16 +409,23 @@ class ServicesController extends ChangeNotifier {
   Future<void> startService() async {
     if (_busy || isRunning) return;
     if (!_useBundledEngine) {
-      final savedToken = await _preferencesStore.loadExternalAccessToken();
-      if (savedToken != null && _externalAddress.isNotEmpty) {
-        await connectExternal(
-          address: _externalAddress,
-          accessToken: savedToken,
-        );
-        return;
-      }
-      _errorMessage = '外部服务模式需要在服务设置中填写访问令牌后连接。';
+      _busy = true;
       _notify();
+      try {
+        final savedToken = await _preferencesStore.loadExternalAccessToken();
+        if (savedToken != null && _externalAddress.isNotEmpty) {
+          _busy = false;
+          await connectExternal(
+            address: _externalAddress,
+            accessToken: savedToken,
+          );
+          return;
+        }
+        _errorMessage = '外部服务模式需要在服务设置中填写访问令牌后连接。';
+      } finally {
+        _busy = false;
+        _notify();
+      }
       return;
     }
     _busy = true;
@@ -874,6 +881,15 @@ class ServicesController extends ChangeNotifier {
       _notify();
       await Future<void>.delayed(interval);
     }
+    // 轮询耗尽仍未进入终态：记录警告但不阻塞用户操作，允许手动刷新。
+    _appendLog(
+      AiExposureLogEntry(
+        level: 'warning',
+        message: '扫描任务状态同步超时，请手动刷新查看最新进度。',
+        at: DateTime.now(),
+      ),
+    );
+    _notify();
   }
 
   Future<bool> resumeHistory(String jobId) async {
@@ -1573,6 +1589,91 @@ class ServicesController extends ChangeNotifier {
     }
   }
 
+  /// 清除扫描引擎上的 AI 提取器配置，使其恢复到未配置状态。
+  Future<bool> clearAiExtractor() async {
+    try {
+      final client = _requireClient();
+      await client.clearAiExtractor();
+      _aiExtractorStatus = await client.aiExtractorStatus();
+      _errorMessage = null;
+      _notify();
+      return true;
+    } catch (error, stack) {
+      _errorMessage = _reportServicesFailure('清除 AI 提取器配置', error, stack);
+      _notify();
+      return false;
+    }
+  }
+
+  /// 清除扫描引擎上的代理配置，使其恢复到直连模式。
+  Future<bool> clearProxyConfiguration() async {
+    final previousConfiguration = _proxyConfiguration;
+    final previousStatus = _proxyStatus;
+    _proxyInspectionGeneration++;
+    _proxyInspectionCancelRequested = true;
+    _proxyInspectionCancellation?.cancel();
+    _proxyInspectionScheduleGeneration++;
+    _proxyInspectionTimer?.cancel();
+    _proxyInspectionTimer = null;
+    _proxyConfiguration = AiExposureProxyConfiguration.defaults();
+    try {
+      final client = _client;
+      if (client != null) {
+        await client.clearProxy();
+        _proxyStatus = await client.proxyStatus();
+      } else {
+        _proxyStatus = null;
+      }
+      _proxyRuntimeSyncError = null;
+      _scheduleProxyInspection();
+      _scheduleProxyStatisticsSync();
+      _appendLog(
+        AiExposureLogEntry(
+          level: 'info',
+          message: '代理池配置已清除，网络请求将使用 ${systemProxyAvailable ? '系统代理' : 'DIRECT'}。',
+          at: DateTime.now(),
+        ),
+      );
+      _errorMessage = null;
+      _notify();
+      return true;
+    } catch (error, stack) {
+      _proxyConfiguration = previousConfiguration;
+      _proxyStatus = previousStatus;
+      _scheduleProxyInspection();
+      _scheduleProxyStatisticsSync();
+      _errorMessage = _reportServicesFailure(
+        '清除代理配置',
+        error,
+        stack,
+        fallback: '清除代理配置失败，请检查扫描服务状态后重试。',
+      );
+      _notify();
+      return false;
+    }
+  }
+
+  /// 清除扫描引擎上的所有运行依赖配置（PostgreSQL、Redis、Playwright）。
+  Future<bool> clearAllDependencies() async {
+    try {
+      final client = _requireClient();
+      await client.clearDependencies();
+      _dependencyStatus = await client.dependencyStatus();
+      _dependencyDataOverview = const <String, Object?>{};
+      _dependencyTelemetryHistory.clear();
+      _dependencyDataOverviewError = null;
+      _postgresqlEnabled = false;
+      _redisEnabled = false;
+      _errorMessage = null;
+      _notify();
+      return true;
+    } catch (error, stack) {
+      _errorMessage = _reportServicesFailure('清除运行依赖配置', error, stack);
+      _notify();
+      return false;
+    }
+  }
+
   /// 保存结构化的运行依赖选择，并使用 OpenHand 托管实例的默认连接地址。
   Future<bool> updateManagedDependencyPreferences({
     required bool postgresqlEnabled,
@@ -1858,47 +1959,51 @@ class ServicesController extends ChangeNotifier {
       if (!(_progress?.isRunning ?? false)) {
         await _finishJobWatch(generation);
         return;
-      } else {
-        if (_eventStreamReconnectAttempts >= _kEventStreamReconnectLimit) {
-          // 实时事件持续中断时不再放弃，转入低频轮询兜底直至任务终态，
-          // 避免 _progress 永远停在"运行中"导致工作台卡死、无法新建扫描。
-          _eventStreamErrorMessage = '扫描实时事件连接持续中断，已转入轮询同步任务状态。';
-          _errorMessage = _eventStreamErrorMessage;
-          _notify();
-          await _cancelEventSubscription();
-          await _awaitScanTermination(
-            jobId,
-            maxAttempts: _kEventStreamPollFallbackMaxAttempts,
-            interval: _kEventStreamPollFallbackInterval,
-          );
-          return;
-        } else {
-          _eventStreamReconnectAttempts += 1;
-          await Future<void>.delayed(
-            Duration(
-              milliseconds:
-                  _kEventStreamReconnectBaseDelay.inMilliseconds *
-                  _eventStreamReconnectAttempts,
-            ),
-          );
-          if (_disposed ||
-              _client == null ||
-              generation != _eventSubscriptionGeneration) {
-            return;
-          }
-          await _watchJob(jobId, reconnecting: true);
-          return;
-        }
       }
+      if (_eventStreamReconnectAttempts >= _kEventStreamReconnectLimit) {
+        // 实时事件持续中断时不再放弃，转入低频轮询兜底直至任务终态，
+        // 避免 _progress 永远停在"运行中"导致工作台卡死、无法新建扫描。
+        _eventStreamErrorMessage = '扫描实时事件连接持续中断，已转入轮询同步任务状态。';
+        _errorMessage = _eventStreamErrorMessage;
+        _notify();
+        await _cancelEventSubscription();
+        await _awaitScanTermination(
+          jobId,
+          maxAttempts: _kEventStreamPollFallbackMaxAttempts,
+          interval: _kEventStreamPollFallbackInterval,
+        );
+        return;
+      }
+      _eventStreamReconnectAttempts += 1;
+      await Future<void>.delayed(
+        Duration(
+          milliseconds:
+              _kEventStreamReconnectBaseDelay.inMilliseconds *
+              _eventStreamReconnectAttempts,
+        ),
+      );
+      if (_disposed ||
+          _client == null ||
+          generation != _eventSubscriptionGeneration) {
+        return;
+      }
+      await _watchJob(jobId, reconnecting: true);
     } catch (error, stack) {
       if (_disposed ||
           _client == null ||
           generation != _eventSubscriptionGeneration) {
         return;
       }
-      _eventStreamErrorMessage = '同步扫描任务状态失败。';
+      // 重连或状态同步失败时，同样转入轮询兜底，避免工作台卡死。
+      _eventStreamErrorMessage = '扫描实时事件同步失败，已转入轮询同步任务状态。';
       _errorMessage = _eventStreamErrorMessage;
       silentLog('services_controller', '同步扫描任务最终状态', error, stack);
+      await _cancelEventSubscription();
+      await _awaitScanTermination(
+        jobId,
+        maxAttempts: _kEventStreamPollFallbackMaxAttempts,
+        interval: _kEventStreamPollFallbackInterval,
+      );
     }
     if (!_disposed && generation == _eventSubscriptionGeneration) _notify();
   }
@@ -1959,6 +2064,12 @@ class ServicesController extends ChangeNotifier {
     if (_lifecycle == AiExposureServiceLifecycle.stopping || _disposed) return;
     _proxyStatisticsTimer?.cancel();
     _proxyStatisticsTimer = null;
+    _proxyInspectionGeneration++;
+    _proxyInspectionScheduleGeneration++;
+    _proxyInspectionCancelRequested = true;
+    _proxyInspectionCancellation?.cancel();
+    _proxyInspectionTimer?.cancel();
+    _proxyInspectionTimer = null;
     _managedDependencyListenerSyncQueue.discardPending();
     _systemProxySyncPending = false;
     _scanBusy = false;
@@ -2113,6 +2224,12 @@ class ServicesController extends ChangeNotifier {
   Future<void> _drainRuntimeOperations() async {
     _proxyStatisticsTimer?.cancel();
     _proxyStatisticsTimer = null;
+    _proxyInspectionGeneration++;
+    _proxyInspectionScheduleGeneration++;
+    _proxyInspectionCancelRequested = true;
+    _proxyInspectionCancellation?.cancel();
+    _proxyInspectionTimer?.cancel();
+    _proxyInspectionTimer = null;
     _managedDependencyListenerSyncQueue.discardPending();
     _systemProxySyncPending = false;
     await _cancelEventSubscription();

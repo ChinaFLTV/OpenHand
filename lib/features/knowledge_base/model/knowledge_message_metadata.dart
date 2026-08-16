@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/stable_hash.dart';
 import '../../../shared/util/text_clip.dart';
+import '../../ai/model/ai_session_message.dart';
 import 'knowledge_base_settings.dart';
 import 'knowledge_retrieval_result.dart';
 import 'knowledge_vector_distribution.dart';
@@ -397,7 +398,7 @@ class KnowledgeMessageMetadata {
 
   static String _toolExecutionKey(Map<String, Object?> metadata) {
     final toolName = _textValue(metadata, 'tool_name').toLowerCase();
-    final callId = _textValue(metadata, 'tool_call_id');
+    final callId = _textValue(metadata, aiSessionMessageToolCallIdMetadataKey);
     if (toolName.isNotEmpty && callId.isNotEmpty) {
       return '$toolName:$callId';
     }

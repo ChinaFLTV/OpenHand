@@ -127,7 +127,7 @@ Set<String> unmatchedTranscriptToolCallIds(
   final toolResultCallIds = <String>{};
   for (final message in messages) {
     if (!message.isTranscriptRenderable) continue;
-    final toolCallId = _messageMetadataText(message, 'tool_call_id');
+    final toolCallId = _messageMetadataText(message, aiSessionMessageToolCallIdMetadataKey);
     if (toolCallId.isEmpty) continue;
     if (message.kind == AiSessionMessageKind.toolCall) {
       toolCallIds.add(toolCallId);
@@ -173,7 +173,7 @@ bool _shouldSuppressTranscriptToolResult(
   if (!message.kind.isToolResultKind) {
     return false;
   }
-  final toolCallId = _messageMetadataText(message, 'tool_call_id');
+  final toolCallId = _messageMetadataText(message, aiSessionMessageToolCallIdMetadataKey);
   if (toolCallId.isNotEmpty) {
     if (toolCallIds.contains(toolCallId) || suppressUnpairedToolResults) {
       return true;
@@ -1033,14 +1033,14 @@ class AiSession {
     if (direct != null) return direct;
 
     final starter = messages[starterIndex];
-    final toolCallId = _messageMetadataText(starter, 'tool_call_id');
+    final toolCallId = _messageMetadataText(starter, aiSessionMessageToolCallIdMetadataKey);
     if (starter.kind.isToolResultKind && toolCallId.isNotEmpty) {
       final toolCallsById = _displayToolCallByCallIdCache ??=
           <String, AiSessionMessage>{
             for (final message in displayMessages)
               if (message.kind == AiSessionMessageKind.toolCall &&
-                  _messageMetadataText(message, 'tool_call_id').isNotEmpty)
-                _messageMetadataText(message, 'tool_call_id'): message,
+                  _messageMetadataText(message, aiSessionMessageToolCallIdMetadataKey).isNotEmpty)
+                _messageMetadataText(message, aiSessionMessageToolCallIdMetadataKey): message,
           };
       final toolCall = toolCallsById[toolCallId];
       if (toolCall != null && messageIndexOf(toolCall.id) < starterIndex) {
@@ -1193,7 +1193,7 @@ class AiSession {
   }) {
     if (appended) {
       if (nextTail.kind == AiSessionMessageKind.toolCall &&
-          _messageMetadataText(nextTail, 'tool_call_id').isNotEmpty) {
+          _messageMetadataText(nextTail, aiSessionMessageToolCallIdMetadataKey).isNotEmpty) {
         return null;
       }
       if (nextTail.kind.isToolResultKind) return null;
@@ -1211,8 +1211,8 @@ class AiSession {
     }
     if ((nextTail.kind == AiSessionMessageKind.toolCall ||
             nextTail.kind.isToolResultKind) &&
-        _messageMetadataText(previousTail, 'tool_call_id') !=
-            _messageMetadataText(nextTail, 'tool_call_id')) {
+        _messageMetadataText(previousTail, aiSessionMessageToolCallIdMetadataKey) !=
+            _messageMetadataText(nextTail, aiSessionMessageToolCallIdMetadataKey)) {
       return null;
     }
     if (nextTail.kind.isToolResultKind &&
@@ -1297,7 +1297,7 @@ class AiSession {
     for (final message in messages) {
       if (!message.isTranscriptRenderable) continue;
       if (message.kind != AiSessionMessageKind.toolCall) continue;
-      final toolCallId = _messageMetadataText(message, 'tool_call_id');
+      final toolCallId = _messageMetadataText(message, aiSessionMessageToolCallIdMetadataKey);
       if (toolCallId.isNotEmpty) {
         toolCallIds.add(toolCallId);
       }

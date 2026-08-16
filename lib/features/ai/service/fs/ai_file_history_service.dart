@@ -16,6 +16,7 @@ import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/rolling_hash.dart';
 import '../../../../shared/util/text_clip.dart';
+import '../../model/ai_session_message.dart';
 
 /// 文件编辑历史版本服务
 ///
@@ -139,7 +140,7 @@ class AiFileHistoryService {
           _maxMetadataIdentifierCharacters,
           suffix: '',
         ),
-        'tool_call_id': normalizedToolCallId == null
+        aiSessionMessageToolCallIdMetadataKey: normalizedToolCallId == null
             ? null
             : clipText(
                 normalizedToolCallId,
@@ -618,7 +619,7 @@ class FileVersionInfo {
       filePath: nullIfBlank(json['file_path']?.toString()) ?? '',
       sessionId: nullIfBlank(json['session_id']?.toString()) ?? '',
       createdAt: dateTimeFromValue(json['created_at']) ?? DateTime.now(),
-      toolCallId: nullIfBlank(json['tool_call_id']?.toString()),
+      toolCallId: nullIfBlank(json[aiSessionMessageToolCallIdMetadataKey]?.toString()),
       fileSizeBytes: optionalNonNegativeIntFromValue(json['file_size_bytes']),
     );
   }

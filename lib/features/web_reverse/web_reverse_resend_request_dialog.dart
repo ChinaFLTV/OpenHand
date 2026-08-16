@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/net/http_response_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/animated_expandable.dart';
@@ -90,7 +91,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
     'dnt',
     'expect',
     'host',
-    'keep-alive',
+    kConnectionKeepAlive,
     'origin',
     'referer',
     'te',
@@ -527,7 +528,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       headers: ${jsonEncode(headers)},
       credentials: 'include',
       redirect: 'manual',
-      cache: 'no-store',
+      cache: kCacheControlNoStore,
       signal: controller.signal,
     };
     const body = ${jsonEncode(body)};
