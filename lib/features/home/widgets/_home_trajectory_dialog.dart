@@ -3345,7 +3345,7 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
           SizedBox(
             height: 44,
             child: Padding(
-              padding: const EdgeInsets.only(left: 12, right: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 children: [
                   _TrajectoryKindTag(record: record),
