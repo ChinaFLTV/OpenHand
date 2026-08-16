@@ -466,7 +466,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
     final tt = Theme.of(context).textTheme;
     return AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion220),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(

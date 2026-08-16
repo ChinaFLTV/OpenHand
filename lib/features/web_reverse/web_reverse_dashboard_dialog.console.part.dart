@@ -37,7 +37,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
   final Set<CdpConsoleEntry> _expandedConsoleEntries = <CdpConsoleEntry>{};
 
   static const Duration _kConsoleExitDuration = kOpenHandMotion240;
-  static const Duration _kConsoleFollowDuration = Duration(milliseconds: 320);
+  static const Duration _kConsoleFollowDuration = kOpenHandMotion320;
   static const int _kConsoleCollapsedChars = 420;
   static const int _kConsoleCollapsedLines = 4;
   static const double _kConsoleReplControlHeight = 40;
@@ -552,7 +552,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                             context,
                             _kConsoleExitDuration,
                           ),
-                          curve: Curves.easeInCubic,
+                          curve: kOpenHandSwitchOutCurve,
                           alignment: Alignment.topCenter,
                           child: AnimatedOpacity(
                             duration: openHandMotionDuration(
@@ -566,7 +566,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                                 context,
                                 _kConsoleExitDuration,
                               ),
-                              curve: Curves.easeInCubic,
+                              curve: kOpenHandSwitchOutCurve,
                               scale: slot.isExiting ? 0.92 : 1.0,
                               child: slot.isExiting
                                   ? padded
@@ -587,7 +587,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
         // 结果通过 controller.runReplExpression 写入 console，复用渲染。
         AnimatedSize(
           duration: openHandMotionDuration(context, kOpenHandMotion280),
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           alignment: Alignment.topCenter,
           child: widget.controller.isPaused
               ? FadeTransition(

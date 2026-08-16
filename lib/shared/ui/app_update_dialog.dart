@@ -78,7 +78,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
     _progressAnimation = Tween<double>(begin: 0, end: 0).animate(
       CurvedAnimation(
         parent: _progressAnimController,
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
       ),
     );
     _checkForUpdate();
@@ -217,7 +217,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
         .animate(
           CurvedAnimation(
             parent: _progressAnimController,
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
           ),
         );
     _progressAnimController.forward(from: 0);
@@ -272,8 +272,8 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
         reverseDuration: motionEnabled
             ? _kAppUpdatePhaseSwitchDuration
             : Duration.zero,
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
+        switchInCurve: kOpenHandSwitchInCurve,
+        switchOutCurve: kOpenHandSwitchOutCurve,
         transitionBuilder: (child, animation) {
           return FadeTransition(
             opacity: animation,

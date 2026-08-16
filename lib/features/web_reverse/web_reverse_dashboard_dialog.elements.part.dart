@@ -409,7 +409,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
       onTap: () => _select(id),
       child: AnimatedContainer(
         duration: widget.reduceMotion ? Duration.zero : kOpenHandMotion140,
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
         color: selected ? cs.primary.withValues(alpha: 0.12) : null,
         padding: EdgeInsets.fromLTRB(8.0 + row.depth * 14, 2, 8, 2),
         child: Row(
@@ -543,7 +543,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
         Expanded(
           child: AnimatedSwitcher(
             duration: widget.reduceMotion ? Duration.zero : kOpenHandMotion180,
-            switchInCurve: Curves.easeOutCubic,
+            switchInCurve: kOpenHandSwitchInCurve,
             child: switch (_detailsTab) {
               0 => _attrsView(theme, cs, loc),
               1 => _computedView(theme, cs, loc),

@@ -74,8 +74,8 @@ class _OpenHandInlineNoticeState extends State<OpenHandInlineNotice> {
     );
     return AnimatedSwitcher(
       duration: duration,
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
+      switchInCurve: kOpenHandSwitchInCurve,
+      switchOutCurve: kOpenHandSwitchOutCurve,
       transitionBuilder: (child, animation) {
         return SizeTransition(
           sizeFactor: animation,

@@ -38,7 +38,7 @@ class AnimatedExpandChevron extends StatelessWidget {
     return AnimatedRotation(
       turns: expanded ? 0.25 : 0.0,
       duration: openHandMotionDuration(context, duration),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       child: icon,
     );
   }

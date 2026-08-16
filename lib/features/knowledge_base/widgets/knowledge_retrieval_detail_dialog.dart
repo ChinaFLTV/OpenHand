@@ -470,8 +470,8 @@ class _KnowledgePromptAppendContextBoxState
         }
         return AnimatedSwitcher(
           duration: openHandMotionDuration(context, kOpenHandMotion180),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
+          switchInCurve: kOpenHandSwitchInCurve,
+          switchOutCurve: kOpenHandSwitchOutCurve,
           child: KnowledgeDialogTextBox(
             key: ValueKey<String>(
               '${loading ? 'loading' : 'ready'}:${text.hashCode}',
@@ -848,8 +848,8 @@ class _KnowledgeRetrievalVectorSpaceSectionState
           ),
           AnimatedSwitcher(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
+            switchInCurve: kOpenHandSwitchInCurve,
+            switchOutCurve: kOpenHandSwitchOutCurve,
             child: _buildCorpusStatus(context, corpusCount),
           ),
           kOpenHandGap10,

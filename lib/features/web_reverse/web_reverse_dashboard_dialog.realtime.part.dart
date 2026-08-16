@@ -217,7 +217,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
           Expanded(
             child: AnimatedContainer(
               duration: reduceMotion ? Duration.zero : _kSwitchDuration,
-              curve: _kSwitchInCurve,
+              curve: kOpenHandSwitchInCurve,
               decoration: webReverseSurfaceCardDecoration(cs, radius: 16),
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
               child: selected == null
@@ -385,7 +385,7 @@ class _ConnTile extends StatelessWidget {
           context,
           kOpenHandMotion160,
         ),
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
         margin: const EdgeInsets.symmetric(horizontal: 6),
         padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
         decoration: BoxDecoration(

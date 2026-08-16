@@ -390,7 +390,7 @@ class _HeComposer extends StatelessWidget {
               child: AnimatedRotation(
                 turns: isCollapsed ? 0.5 : 0,
                 duration: openHandMotionDuration(context, kOpenHandMotion220),
-                curve: Curves.easeOutCubic,
+                curve: kOpenHandSwitchInCurve,
                 child: const Icon(Icons.keyboard_arrow_down_rounded),
               ),
             ),

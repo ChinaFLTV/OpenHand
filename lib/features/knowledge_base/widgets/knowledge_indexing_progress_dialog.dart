@@ -135,7 +135,7 @@ class _KnowledgeIndexingProgressDialog extends StatelessWidget {
               return AnimatedSize(
                 duration: openHandMotionDuration(context, kOpenHandMotion220,
                 ),
-                curve: Curves.easeOutCubic,
+                curve: kOpenHandSwitchInCurve,
                 alignment: Alignment.topCenter,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -322,7 +322,7 @@ class _KnowledgeIndexingProgressBarState
         context,
         const Duration(milliseconds: 380),
       ),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       builder: (context, value, _) {
         return LinearProgressIndicator(minHeight: 9, value: value);
       },

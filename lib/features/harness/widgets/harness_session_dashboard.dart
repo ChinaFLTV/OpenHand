@@ -1990,7 +1990,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
               duration: Duration(
                 milliseconds: (100 + distance * 0.12).clamp(100, 280).round(),
               ),
-              curve: Curves.easeOutCubic,
+              curve: kOpenHandSwitchInCurve,
             )
             .whenComplete(() {
               clearProgrammaticScrollFlag();

@@ -1024,7 +1024,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       key: ValueKey<int>(identityHashCode(entry)),
       tween: Tween<double>(begin: 0, end: 1),
       duration: openHandMotionDuration(context, kOpenHandMotion200),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       builder: (_, t, child) {
         return Opacity(
           opacity: t,

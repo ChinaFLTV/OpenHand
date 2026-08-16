@@ -674,7 +674,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     _sourceScroll.animateTo(
       target,
       duration: kOpenHandMotion320,
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
     );
     _highlightTimer?.cancel();
     setState(() => _highlightedLine = line);
@@ -1468,7 +1468,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                               context,
                               kOpenHandMotion240,
                             ),
-                            curve: Curves.easeOutCubic,
+                            curve: kOpenHandSwitchInCurve,
                             color: isHighlighted
                                 ? cs.tertiaryContainer.withValues(alpha: 0.32)
                                 : Colors.transparent,
@@ -1543,7 +1543,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                                 context,
                                 kOpenHandMotion240,
                               ),
-                              curve: Curves.easeOutCubic,
+                              curve: kOpenHandSwitchInCurve,
                               color: isHighlighted
                                   ? cs.tertiaryContainer.withValues(alpha: 0.5)
                                   : Colors.transparent,
@@ -2983,7 +2983,7 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
       _listScroll.animateTo(
         target,
         duration: kOpenHandMotion120,
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
       );
     }
   }

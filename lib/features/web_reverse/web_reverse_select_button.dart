@@ -80,7 +80,7 @@ class WebReverseSelectButton<T> extends StatelessWidget {
       child: AnimatedContainer(
         duration: openHandMotionDuration(context, kOpenHandMotion180,
         ),
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
         height: height,
         constraints: BoxConstraints(minWidth: minWidth ?? 0),
         padding: EdgeInsets.symmetric(horizontal: dense ? 8 : 10),

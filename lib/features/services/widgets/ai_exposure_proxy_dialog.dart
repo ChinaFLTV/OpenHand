@@ -791,7 +791,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
           ),
           AnimatedOpacity(
             duration: openHandMotionDuration(context, kOpenHandMotion240),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             opacity: _enabled ? 1 : .46,
             child: IgnorePointer(
               ignoring: !_enabled,
@@ -875,8 +875,8 @@ class _ProxyDialogState extends State<_ProxyDialog> {
           ),
           AnimatedSwitcher(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
+            switchInCurve: kOpenHandSwitchInCurve,
+            switchOutCurve: kOpenHandSwitchOutCurve,
             child: _enabled && activeCount == 0
                 ? Padding(
                     key: const ValueKey<String>('empty-proxy-pool-hint'),
@@ -3597,7 +3597,7 @@ class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
                     ),
                     AnimatedPositioned(
                       duration: motionDuration,
-                      curve: Curves.easeOutCubic,
+                      curve: kOpenHandSwitchInCurve,
                       left: pointX - 0.5,
                       top: _chartInset,
                       bottom: _bottomLabelHeight - _chartInset,
@@ -3614,7 +3614,7 @@ class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
                     ),
                     AnimatedPositioned(
                       duration: motionDuration,
-                      curve: Curves.easeOutCubic,
+                      curve: kOpenHandSwitchInCurve,
                       left: pointX - 4,
                       top: pointY - 4,
                       child: IgnorePointer(
@@ -3647,7 +3647,7 @@ class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
                     ),
                     AnimatedPositioned(
                       duration: motionDuration,
-                      curve: Curves.easeOutCubic,
+                      curve: kOpenHandSwitchInCurve,
                       left: tooltipLeft,
                       top: 2,
                       width: tooltipWidth,
@@ -3658,7 +3658,7 @@ class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
                             kOpenHandMotion220,
                           ),
                           switchInCurve: Curves.easeOutBack,
-                          switchOutCurve: Curves.easeInCubic,
+                          switchOutCurve: kOpenHandSwitchOutCurve,
                           transitionBuilder: (child, animation) =>
                               FadeTransition(
                                 opacity: animation,
@@ -5642,7 +5642,7 @@ class _ProxyEndpointCard extends StatelessWidget {
     final actions = ServiceDialogIconActions(children: actionChildren);
     return AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion260),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       padding: EdgeInsetsDirectional.fromSTEB(
         12,
         12,
@@ -5908,7 +5908,7 @@ class _ProxyLatencyChartState extends State<_ProxyLatencyChart> {
                           context,
                           kOpenHandMotion180,
                         ),
-                        curve: Curves.easeOutCubic,
+                        curve: kOpenHandSwitchInCurve,
                         left: tooltipLeft,
                         top: 2,
                         width: _tooltipWidth,
@@ -5918,8 +5918,8 @@ class _ProxyLatencyChartState extends State<_ProxyLatencyChart> {
                               context,
                               kOpenHandMotion220,
                             ),
-                            switchInCurve: Curves.easeOutCubic,
-                            switchOutCurve: Curves.easeInCubic,
+                            switchInCurve: kOpenHandSwitchInCurve,
+                            switchOutCurve: kOpenHandSwitchOutCurve,
                             transitionBuilder: (child, animation) =>
                                 FadeTransition(
                                   opacity: animation,

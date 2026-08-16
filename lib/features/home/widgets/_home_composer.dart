@@ -1731,7 +1731,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         AnimatedSize(
           duration: openHandMotionDuration(context, kOpenHandMotion180,
           ),
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           child: SizedBox(
             height: widget.composerHeight,
             child: Stack(
@@ -1855,7 +1855,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                                 duration: openHandMotionDuration(context, kOpenHandMotion220,
                                 ),
                                 switchInCurve: Curves.easeOutBack,
-                                switchOutCurve: Curves.easeInCubic,
+                                switchOutCurve: kOpenHandSwitchOutCurve,
                                 layoutBuilder:
                                     buildCollisionSafeAnimatedSwitcherLayout,
                                 child: Text(
@@ -2007,7 +2007,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                 turns: widget.isCollapsed ? 0.5 : 0,
                 duration: openHandMotionDuration(context, kOpenHandMotion220,
                 ),
-                curve: Curves.easeOutCubic,
+                curve: kOpenHandSwitchInCurve,
                 child: const Icon(Icons.keyboard_arrow_down_rounded),
               ),
             ),
@@ -2438,7 +2438,7 @@ class _ComposerModeButtonState extends State<_ComposerModeButton> {
         children: [
           AnimatedContainer(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             width: 28,
             height: 28,
             decoration: BoxDecoration(
@@ -2818,7 +2818,7 @@ class _ReorderableChipWrapState<T> extends State<_ReorderableChipWrap<T>> {
                       context,
                       kOpenHandMotion240,
                     ),
-                    curve: Curves.easeOutCubic,
+                    curve: kOpenHandSwitchInCurve,
                     transform: isHovering
                         ? (Matrix4.identity()
                             ..scaleByDouble(1.02, 1.02, 1.0, 1.0))
@@ -3295,7 +3295,7 @@ void _scrollComposerOverlaySelectionIntoView({
     controller.animateTo(
       target.clamp(0.0, position.maxScrollExtent),
       duration: kOpenHandMotion120,
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
     );
     return;
   }
@@ -3306,7 +3306,7 @@ void _scrollComposerOverlaySelectionIntoView({
       position.maxScrollExtent,
     ),
     duration: kOpenHandMotion120,
-    curve: Curves.easeOutCubic,
+    curve: kOpenHandSwitchInCurve,
   );
 }
 

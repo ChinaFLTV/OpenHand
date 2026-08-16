@@ -104,13 +104,13 @@ class _RollingChar extends StatelessWidget {
         final outgoing = animation.status == AnimationStatus.reverse;
         final opacity = openHandBoundedCurveAnimation(
           parent: animation,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
+          curve: kOpenHandSwitchInCurve,
+          reverseCurve: kOpenHandSwitchOutCurve,
         );
         final motion = openHandCurveAnimation(
           parent: animation,
           curve: Curves.easeOutBack,
-          reverseCurve: Curves.easeInCubic,
+          reverseCurve: kOpenHandSwitchOutCurve,
         );
         final slide = Tween<Offset>(
           begin: Offset(0, outgoing ? -0.6 : 0.6),

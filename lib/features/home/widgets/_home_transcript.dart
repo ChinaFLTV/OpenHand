@@ -3448,7 +3448,7 @@ class _TranscriptHydratingPlaceholder extends StatelessWidget {
       tween: Tween<double>(begin: 0.0, end: 1.0),
       duration: openHandMotionDuration(context, kOpenHandMotion220,
       ),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       builder: (context, value, child) {
         return Opacity(
           opacity: value,
@@ -3496,8 +3496,8 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
     );
     _fade = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
+      curve: kOpenHandSwitchInCurve,
+      reverseCurve: kOpenHandSwitchOutCurve,
     );
     _slide = Tween<Offset>(
       begin: const Offset(0, -0.12),
@@ -4021,7 +4021,7 @@ class _PendingCreationPlaceholderCardState
       duration: widget.exiting
           ? _kCreationPlaceholderExitDuration
           : _kTranscriptCardEntranceDuration,
-      curve: widget.exiting ? Curves.easeInCubic : Curves.easeOutBack,
+      curve: widget.exiting ? kOpenHandSwitchOutCurve : Curves.easeOutBack,
       builder: (context, raw, child) {
         final t = raw.clamp(0.0, 1.0);
         final visible = widget.exiting ? 1 - t : t;
@@ -4266,7 +4266,7 @@ class _CreationFailureCardState extends State<_CreationFailureCard>
     _fade = CurvedAnimation(
       parent: _controller,
       curve: Curves.easeOutBack,
-      reverseCurve: Curves.easeInCubic,
+      reverseCurve: kOpenHandSwitchOutCurve,
     );
     _slide = Tween<Offset>(
       begin: const Offset(0, -0.08),

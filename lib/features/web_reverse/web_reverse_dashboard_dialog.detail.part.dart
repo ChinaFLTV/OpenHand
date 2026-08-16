@@ -95,8 +95,8 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
         Expanded(
           child: AnimatedSwitcher(
             duration: widget.reduceMotion ? Duration.zero : _kSwitchDuration,
-            switchInCurve: _kSwitchInCurve,
-            switchOutCurve: _kSwitchOutCurve,
+            switchInCurve: kOpenHandSwitchInCurve,
+            switchOutCurve: kOpenHandSwitchOutCurve,
             transitionBuilder: (child, animation) =>
                 FadeTransition(opacity: animation, child: child),
             child: KeyedSubtree(

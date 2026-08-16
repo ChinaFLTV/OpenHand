@@ -241,8 +241,8 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
             Expanded(
               child: AnimatedSwitcher(
                 duration: openHandMotionDuration(context, kOpenHandMotion220),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
+                switchInCurve: kOpenHandSwitchInCurve,
+                switchOutCurve: kOpenHandSwitchOutCurve,
                 child: _loading
                     ? const Center(
                         key: ValueKey<String>('loading'),
@@ -940,8 +940,8 @@ class _HeSteeringFileEditorDialogState
               Expanded(
                 child: AnimatedSwitcher(
                   duration: openHandMotionDuration(context, kOpenHandMotion220),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
+                  switchInCurve: kOpenHandSwitchInCurve,
+                  switchOutCurve: kOpenHandSwitchOutCurve,
                   child: _loading
                       ? const Center(
                           key: ValueKey<String>('loading'),

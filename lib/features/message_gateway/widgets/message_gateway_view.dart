@@ -1651,8 +1651,8 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                       ),
                       AnimatedSwitcher(
                         duration: openHandMotionDurationMs(context, 220),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
+                        switchInCurve: kOpenHandSwitchInCurve,
+                        switchOutCurve: kOpenHandSwitchOutCurve,
                         transitionBuilder: _switcherSizeFadeTransition,
                         child: _autoReloadOnChange
                             ? const SizedBox.shrink(
@@ -1688,7 +1688,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                       AnimatedSwitcher(
                         duration: openHandMotionDurationMs(context, 240),
                         switchInCurve: Curves.easeOutBack,
-                        switchOutCurve: Curves.easeInCubic,
+                        switchOutCurve: kOpenHandSwitchOutCurve,
                         transitionBuilder: _switcherSizeFadeTransition,
                         child: _agentsEnabled
                             ? Padding(
@@ -2275,8 +2275,8 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
               children: [
                 AnimatedSwitcher(
                   duration: openHandMotionDurationMs(context, 220),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
+                  switchInCurve: kOpenHandSwitchInCurve,
+                  switchOutCurve: kOpenHandSwitchOutCurve,
                   child: _saveError == null
                       ? const SizedBox.shrink(key: ValueKey('save-ok'))
                       : Padding(
@@ -2340,7 +2340,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     final curved = CurvedAnimation(
       parent: animation,
       curve: Curves.easeOutBack,
-      reverseCurve: Curves.easeInCubic,
+      reverseCurve: kOpenHandSwitchOutCurve,
     );
     return SizeTransition(
       sizeFactor: animation,
@@ -2826,7 +2826,7 @@ class _AgentExposureChip extends StatelessWidget {
       message: tooltip,
       child: AnimatedContainer(
         duration: openHandMotionDurationMs(context, 160),
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
         decoration: BoxDecoration(
           color: selected
               ? colorScheme.primaryContainer.withValues(alpha: .82)
@@ -3049,7 +3049,7 @@ class _WebGatewayConnectivityDialogState
             child: AnimatedSwitcher(
               duration: openHandMotionDurationMs(context, 260),
               switchInCurve: Curves.easeOutBack,
-              switchOutCurve: Curves.easeInCubic,
+              switchOutCurve: kOpenHandSwitchOutCurve,
               child: error != null
                   ? _ConnectivityErrorView(error: error)
                   : result == null
@@ -6072,7 +6072,7 @@ class _WebOpsConsoleShell extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return AnimatedContainer(
       duration: openHandMotionDurationMs(context, 180),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: .42),
@@ -6234,7 +6234,7 @@ class _WebOpsConsoleHeader extends StatelessWidget {
         kOpenHandGap12,
         AnimatedOpacity(
           duration: openHandMotionDurationMs(context, 180),
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           opacity: serviceControlsDisabled ? .64 : 1,
           child: Wrap(
             spacing: 8,
@@ -6320,7 +6320,7 @@ class _WebOpsHeaderIdentity extends StatelessWidget {
           children: [
             AnimatedContainer(
               duration: openHandMotionDurationMs(context, 180),
-              curve: Curves.easeOutCubic,
+              curve: kOpenHandSwitchInCurve,
               width: 50,
               height: 50,
               alignment: Alignment.center,
@@ -6461,7 +6461,7 @@ class _WebOpsIconButton extends StatelessWidget {
           onTap: onPressed,
           child: AnimatedContainer(
             duration: openHandMotionDurationMs(context, 160),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             width: 44,
             height: 44,
             alignment: Alignment.center,
@@ -6506,7 +6506,7 @@ class _WebOpsStatusChip extends StatelessWidget {
     final theme = Theme.of(context);
     return AnimatedContainer(
       duration: openHandMotionDurationMs(context, 180),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       constraints: kOpenHandContentMaxWidth360,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
@@ -6747,7 +6747,7 @@ class _WebOpsMetricTile extends StatelessWidget {
     final cs = theme.colorScheme;
     final card = AnimatedContainer(
       duration: openHandMotionDurationMs(context, 180),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHigh.withValues(alpha: .68),
@@ -6958,7 +6958,7 @@ class _WebOpsTrendPanelState extends State<_WebOpsTrendPanel> {
                 key: ValueKey<int>(_animationVersion),
                 tween: Tween<double>(begin: 0, end: 1),
                 duration: openHandMotionDurationMs(context, 420),
-                curve: Curves.easeOutCubic,
+                curve: kOpenHandSwitchInCurve,
                 builder: (context, progress, _) {
                   final paintedValues = List<List<double>>.generate(
                     widget.series.length,
@@ -8208,7 +8208,7 @@ class _MetricTile extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     return AnimatedContainer(
       duration: openHandMotionDurationMs(context, 180),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.62),
@@ -9470,7 +9470,7 @@ class _SwitchTile extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     return AnimatedContainer(
       duration: openHandMotionDurationMs(context, 180),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       decoration: BoxDecoration(
         color: value
             ? colorScheme.primaryContainer.withValues(alpha: .34)
@@ -10701,8 +10701,8 @@ class _AnimatedLogLine extends StatelessWidget {
     }
     final curved = CurvedAnimation(
       parent: animation,
-      curve: removing ? Curves.easeInCubic : Curves.easeOutBack,
-      reverseCurve: Curves.easeInCubic,
+      curve: removing ? kOpenHandSwitchOutCurve : Curves.easeOutBack,
+      reverseCurve: kOpenHandSwitchOutCurve,
     );
     return SizeTransition(
       sizeFactor: animation,
@@ -12233,7 +12233,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                           kOpenHandMotion220,
                         ),
                         switchInCurve: Curves.easeOutBack,
-                        switchOutCurve: Curves.easeInCubic,
+                        switchOutCurve: kOpenHandSwitchOutCurve,
                         transitionBuilder: (child, animation) =>
                             ScaleTransition(
                               scale: animation,
@@ -12443,7 +12443,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                 switchInCurve:
                                                     Curves.easeOutBack,
                                                 switchOutCurve:
-                                                    Curves.easeInCubic,
+                                                    kOpenHandSwitchOutCurve,
                                                 transitionBuilder:
                                                     (
                                                       child,
@@ -12965,8 +12965,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         children: [
           AnimatedSwitcher(
             duration: openHandMotionDuration(context, kOpenHandMotion180),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
+            switchInCurve: kOpenHandSwitchInCurve,
+            switchOutCurve: kOpenHandSwitchOutCurve,
             child: responseError.isNotEmpty
                 ? _DingTalkResponseErrorBanner(
                     key: ValueKey<String>(responseError),
@@ -12982,8 +12982,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
             _buildPendingAttachmentsBar(conversation, chipAnimationSettings),
           AnimatedSwitcher(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
+            switchInCurve: kOpenHandSwitchInCurve,
+            switchOutCurve: kOpenHandSwitchOutCurve,
             layoutBuilder: (current, previous) => Stack(
               alignment: Alignment.bottomCenter,
               children: <Widget>[...previous, if (current != null) current],
@@ -13571,7 +13571,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       await controller.animateTo(
         position.minScrollExtent,
         duration: openHandMotionDuration(context, kOpenHandMotion260),
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
       );
     } catch (error, stack) {
       if (mounted && requestVersion == _followRequestVersion) {
@@ -15706,8 +15706,8 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                   : openHandMotionDuration(context, kOpenHandMotion180);
               final messageContent = AnimatedSwitcher(
                 duration: contentTransitionDuration,
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
+                switchInCurve: kOpenHandSwitchInCurve,
+                switchOutCurve: kOpenHandSwitchOutCurve,
                 layoutBuilder: (current, previous) => Stack(
                   alignment: bubbleAlignment,
                   children: <Widget>[...previous, if (current != null) current],
@@ -15751,7 +15751,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                               context,
                               kOpenHandMotion220,
                             ),
-                            curve: Curves.easeOutCubic,
+                            curve: kOpenHandSwitchInCurve,
                             opacity: widget.message.recalled
                                 ? 0.62
                                 : widget.message.ignoredForAiContext
@@ -15780,7 +15780,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                   ? messageContent
                   : AnimatedSize(
                       duration: resizeDuration,
-                      curve: Curves.easeOutCubic,
+                      curve: kOpenHandSwitchInCurve,
                       alignment: bubbleAlignment,
                       child: messageContent,
                     );
@@ -15802,7 +15802,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
             alignment: alignment,
             child: AnimatedSize(
               duration: openHandMotionDuration(context, kOpenHandMotion180),
-              curve: Curves.easeOutCubic,
+              curve: kOpenHandSwitchInCurve,
               child: contentExpanded && widget.actionsVisible
                   ? TweenAnimationBuilder<double>(
                       key: const ValueKey<String>('dingtalk-actions-visible'),
@@ -15877,7 +15877,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     }
     return AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion220),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -15931,7 +15931,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
       child: AnimatedContainer(
         width: 440,
         duration: openHandMotionDuration(context, kOpenHandMotion220),
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
         margin: const EdgeInsets.only(bottom: 6),
         decoration: BoxDecoration(
           color: bubbleColor,
@@ -16320,8 +16320,8 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
       duration: widget.streaming
           ? Duration.zero
           : openHandMotionDuration(context, kOpenHandMotion220),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
+      switchInCurve: kOpenHandSwitchInCurve,
+      switchOutCurve: kOpenHandSwitchOutCurve,
       layoutBuilder: (current, previous) => Stack(
         alignment: Alignment.topLeft,
         children: <Widget>[...previous, if (current != null) current],
@@ -16648,7 +16648,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
       padding: EdgeInsets.only(top: topSpacing),
       child: AnimatedSize(
         duration: motionDuration,
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
         alignment: Alignment.topLeft,
         child: Wrap(
           spacing: 5,
@@ -16740,8 +16740,8 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     );
     return AnimatedSwitcher(
       duration: openHandMotionDuration(context, kOpenHandMotion180),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
+      switchInCurve: kOpenHandSwitchInCurve,
+      switchOutCurve: kOpenHandSwitchOutCurve,
       transitionBuilder: (child, animation) => SizeTransition(
         sizeFactor: animation,
         axisAlignment: -1,
@@ -18319,8 +18319,8 @@ class _DingTalkConversationDetailsDialog extends StatelessWidget {
             maxHeight: MediaQuery.sizeOf(context).height * 0.78,
             child: AnimatedSwitcher(
               duration: openHandMotionDurationMs(context, 240),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
+              switchInCurve: kOpenHandSwitchInCurve,
+              switchOutCurve: kOpenHandSwitchOutCurve,
               child: content,
             ),
           ),
@@ -19047,7 +19047,7 @@ class _DingTalkDetailNestedSection extends StatelessWidget {
           kOpenHandGap10,
           AnimatedSize(
             duration: openHandMotionDurationMs(context, 220),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             alignment: Alignment.topCenter,
             child: content,
           ),
@@ -21470,7 +21470,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                       context,
                       kOpenHandMotion220,
                     ),
-                    curve: Curves.easeOutCubic,
+                    curve: kOpenHandSwitchInCurve,
                     child: _responseMode == DingTalkResponseMode.allowlist
                         ? Column(
                             mainAxisSize: MainAxisSize.min,
@@ -23611,7 +23611,7 @@ class _DingTalkResourcePickerDialogState
               icon: AnimatedRotation(
                 turns: expanded ? 0.25 : 0,
                 duration: kOpenHandMotion180,
-                curve: Curves.easeOutCubic,
+                curve: kOpenHandSwitchInCurve,
                 child: const Icon(Icons.keyboard_arrow_right_rounded),
               ),
             ),

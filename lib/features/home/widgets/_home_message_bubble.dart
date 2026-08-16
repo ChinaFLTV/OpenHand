@@ -1841,7 +1841,7 @@ class _SelectedMessageActionPanelSlotState
   late final Animation<double> _motion = openHandBoundedCurveAnimation(
     parent: _controller,
     curve: kCardMotionCurve,
-    reverseCurve: Curves.easeInCubic,
+    reverseCurve: kOpenHandSwitchOutCurve,
   );
   int? _consumedMotionKey;
 
@@ -7704,12 +7704,12 @@ class _ResponseVariantSwitcherState extends State<_ResponseVariantSwitcher> {
                 child: AnimatedSwitcher(
                   duration: cardMotionDurationFor(context, expanding: true),
                   switchInCurve: kCardMotionCurve,
-                  switchOutCurve: Curves.easeInCubic,
+                  switchOutCurve: kOpenHandSwitchOutCurve,
                   transitionBuilder: (child, animation) {
                     final curved = openHandBoundedCurveAnimation(
                       parent: animation,
                       curve: kCardMotionCurve,
-                      reverseCurve: Curves.easeInCubic,
+                      reverseCurve: kOpenHandSwitchOutCurve,
                     );
                     return FadeTransition(
                       opacity: animation,

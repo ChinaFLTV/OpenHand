@@ -1139,7 +1139,7 @@ class _AnimatedSparklineState extends State<_AnimatedSparkline>
       } else {
         _ac
           ..reset()
-          ..animateTo(1, curve: Curves.easeOutCubic);
+          ..animateTo(1, curve: kOpenHandSwitchInCurve);
       }
     }
   }
@@ -2181,7 +2181,7 @@ class _AnimatedDualSparklineState extends State<_AnimatedDualSparkline>
       } else {
         _ac
           ..reset()
-          ..animateTo(1, curve: Curves.easeOutCubic);
+          ..animateTo(1, curve: kOpenHandSwitchInCurve);
       }
     }
   }

@@ -327,7 +327,7 @@ class _HeThinkingSegmentBody extends StatelessWidget {
     return ClipRect(
       child: AnimatedSize(
         duration: openHandMotionDuration(context, kOpenHandMotion220),
-        curve: Curves.easeInOutCubic,
+        curve: kOpenHandEmphasizedTransitionCurve,
         alignment: Alignment.topLeft,
         child: expanded
             ? KeyedSubtree(
@@ -385,7 +385,7 @@ class _HeStreamingThinkingBody extends StatelessWidget {
     return ClipRect(
       child: AnimatedSize(
         duration: openHandMotionDuration(context, kOpenHandMotion180),
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
         alignment: Alignment.topLeft,
         child: expanded
             ? KeyedSubtree(
@@ -608,7 +608,7 @@ class _HeCommandStripState extends State<_HeCommandStrip>
     _turn = Tween<double>(
       begin: 0,
       end: 0.5,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+    ).animate(CurvedAnimation(parent: _ctrl, curve: kOpenHandSwitchInCurve));
   }
 
   @override
@@ -634,7 +634,7 @@ class _HeCommandStripState extends State<_HeCommandStrip>
       onTap: _toggle,
       child: AnimatedContainer(
         duration: openHandMotionDuration(context, kOpenHandMotion220),
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
@@ -652,8 +652,8 @@ class _HeCommandStripState extends State<_HeCommandStrip>
             Expanded(
               child: AnimatedCrossFade(
                 duration: openHandMotionDuration(context, kOpenHandMotion220),
-                firstCurve: Curves.easeOutCubic,
-                secondCurve: Curves.easeOutCubic,
+                firstCurve: kOpenHandSwitchInCurve,
+                secondCurve: kOpenHandSwitchInCurve,
                 crossFadeState: _expanded
                     ? CrossFadeState.showSecond
                     : CrossFadeState.showFirst,

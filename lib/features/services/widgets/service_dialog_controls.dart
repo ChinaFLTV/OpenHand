@@ -718,10 +718,10 @@ class _ServiceInteractiveSurfaceState extends State<ServiceInteractiveSurface> {
                 child: AnimatedOpacity(
                   opacity: interactive ? 1 : 0,
                   duration: motionDuration,
-                  curve: Curves.easeOutCubic,
+                  curve: kOpenHandSwitchInCurve,
                   child: AnimatedContainer(
                     duration: motionDuration,
-                    curve: Curves.easeOutCubic,
+                    curve: kOpenHandSwitchInCurve,
                     width: 32,
                     height: 32,
                     alignment: Alignment.center,

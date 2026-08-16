@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'micro_press_feedback.dart';
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'openhand_spacing.dart';
 
@@ -194,7 +195,7 @@ class OpenHandToolChip extends StatelessWidget {
   final String label;
 
   /// 图标切换时长：状态在 preparing → running → done 之间流转，硬切会很跳。
-  static const Duration _kIconMorphDuration = Duration(milliseconds: 220);
+  static const Duration _kIconMorphDuration = kOpenHandMotion220;
 
   static const double _kIconSize = 14;
 
@@ -214,8 +215,8 @@ class OpenHandToolChip extends StatelessWidget {
           // key 取图标码点，AnimatedSwitcher 才认得出「换了一个图标」。
           AnimatedSwitcher(
             duration: openHandMotionDuration(context, _kIconMorphDuration),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
+            switchInCurve: kOpenHandSwitchInCurve,
+            switchOutCurve: kOpenHandSwitchOutCurve,
             transitionBuilder: (child, animation) => FadeTransition(
               opacity: animation,
               child: RotationTransition(

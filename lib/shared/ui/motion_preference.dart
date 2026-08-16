@@ -4,6 +4,20 @@ import 'package:provider/provider.dart';
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/state/settings_controller.dart';
 
+/// 全局共享的切换曲线 —— 进场用 easeOutCubic，退场用 easeInCubic。
+///
+/// 此前 30+ 弹窗文件各自定义 `_kSwitchInCurve = Curves.easeOutCubic` /
+/// `_kSwitchOutCurve = Curves.easeInCubic`，改一档要翻遍全库。这里收敛为
+/// 单一来源，与 [DialogAnimationCurve.easeOutCubic] 的 curve/reverseCurve
+/// 保持一致。
+const Curve kOpenHandSwitchInCurve = Curves.easeOutCubic;
+const Curve kOpenHandSwitchOutCurve = Curves.easeInCubic;
+
+/// 全局共享的过渡曲线 —— 用于 AnimatedSwitcher / AnimatedDefaultTextStyle
+/// 等需要单一曲线（非进出分离）的场景。
+const Curve kOpenHandTransitionCurve = Curves.easeOutCubic;
+const Curve kOpenHandEmphasizedTransitionCurve = Curves.easeInOutCubic;
+
 enum OpenHandMotionSettingsScope { dialog, menu, page, panel, chip, listItem }
 
 bool openHandReduceMotionOf(BuildContext context) {

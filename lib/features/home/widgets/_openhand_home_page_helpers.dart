@@ -40,7 +40,7 @@ const double _kGoalStartEnabledFieldBottomPadding = 4;
 const Duration _kGoalStartEnabledFieldMotionDuration = Duration(
   milliseconds: 180,
 );
-const Curve _kGoalStartEnabledFieldMotionCurve = Curves.easeOutCubic;
+const Curve _kGoalStartEnabledFieldMotionCurve = kOpenHandSwitchInCurve;
 
 class _GoalStartOptionsDialog extends StatefulWidget {
   const _GoalStartOptionsDialog({

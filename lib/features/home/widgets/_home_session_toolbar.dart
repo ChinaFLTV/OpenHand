@@ -162,8 +162,8 @@ class _SessionToolbar extends StatelessWidget {
             context,
             _kSessionToolbarCompactSwitchDuration,
           ),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
+          switchInCurve: kOpenHandSwitchInCurve,
+          switchOutCurve: kOpenHandSwitchOutCurve,
           child: OhPill(
             key: ValueKey<bool>(planTimelineCollapsed),
             icon: Icons.unfold_more_rounded,
@@ -185,8 +185,8 @@ class _SessionToolbar extends StatelessWidget {
             context,
             _kSessionToolbarCompactSwitchDuration,
           ),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
+          switchInCurve: kOpenHandSwitchInCurve,
+          switchOutCurve: kOpenHandSwitchOutCurve,
           child: OhPill(
             key: ValueKey<bool>(machineTerminalPanelVisible),
             icon: machineTerminalPanelVisible
@@ -241,13 +241,13 @@ class _SessionToolbar extends StatelessWidget {
         transitionBuilder: (child, animation) {
           final fade = openHandBoundedCurveAnimation(
             parent: animation,
-            curve: Curves.easeOutCubic,
-            reverseCurve: Curves.easeInCubic,
+            curve: kOpenHandSwitchInCurve,
+            reverseCurve: kOpenHandSwitchOutCurve,
           );
           final slide = openHandCurveAnimation(
             parent: animation,
             curve: kCardMotionCurve,
-            reverseCurve: Curves.easeInCubic,
+            reverseCurve: kOpenHandSwitchOutCurve,
           );
           return ClipRect(
             child: FadeTransition(
@@ -340,7 +340,7 @@ class _SessionToolbarStatusPill extends StatelessWidget {
     );
     final pill = AnimatedContainer(
       duration: duration,
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       height: _kSessionToolbarPillHeight,
       padding: const EdgeInsets.symmetric(
         horizontal: _kSessionToolbarPillHorizontalPadding,
@@ -356,7 +356,7 @@ class _SessionToolbarStatusPill extends StatelessWidget {
         children: [
           AnimatedContainer(
             duration: duration,
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             width: _kSessionToolbarStatusDotSize,
             height: _kSessionToolbarStatusDotSize,
             decoration: BoxDecoration(
@@ -621,7 +621,7 @@ class _SessionPlanTimelineBarState extends State<_SessionPlanTimelineBar> {
                 _kSessionToolbarCenterScrollDuration,
               )
             : Duration.zero,
-        curve: animated ? Curves.easeOutCubic : Curves.linear,
+        curve: animated ? kOpenHandSwitchInCurve : Curves.linear,
       );
     });
   }
@@ -967,7 +967,7 @@ class _SessionPlanTimelineStepChip extends StatelessWidget {
               context,
               _kSessionToolbarPillTransition,
             ),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: chipDecoration,
             child: chipContent,
@@ -3695,7 +3695,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
   List<double> _currentDisplaySamples() {
     if (_toSamples.isEmpty) return const <double>[];
     if (_fromSamples.isEmpty) return List<double>.from(_toSamples);
-    final t = Curves.easeOutCubic.transform(_morph.value.clamp(0.0, 1.0));
+    final t = kOpenHandSwitchInCurve.transform(_morph.value.clamp(0.0, 1.0));
     final n = _toSamples.length;
     final from = _alignLength(_fromSamples, n);
     return <double>[

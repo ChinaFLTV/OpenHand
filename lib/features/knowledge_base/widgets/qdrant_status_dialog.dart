@@ -1013,7 +1013,7 @@ class _QdrantTrendChart extends StatelessWidget {
         TweenAnimationBuilder<double>(
           tween: Tween<double>(begin: 0, end: 1),
           duration: openHandMotionDuration(context, kOpenHandMotion420),
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           builder: (context, value, _) => SizedBox(
             height: _qdrantOpsChartHeight,
             child: CustomPaint(

@@ -1300,8 +1300,8 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
         Expanded(
           child: AnimatedSwitcher(
             duration: openHandMotionDuration(context, kOpenHandMotion180),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
+            switchInCurve: kOpenHandSwitchInCurve,
+            switchOutCurve: kOpenHandSwitchOutCurve,
             child: showPreview
                 ? _KnowledgeMarkdownViewer(
                     key: const ValueKey<String>('markdown-preview'),

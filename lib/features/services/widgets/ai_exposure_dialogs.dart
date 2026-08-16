@@ -791,8 +791,8 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
           scrollable: false,
           footer: AnimatedSwitcher(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
+            switchInCurve: kOpenHandSwitchInCurve,
+            switchOutCurve: kOpenHandSwitchOutCurve,
             child: KeyedSubtree(
               key: ValueKey<_ScanWorkspaceView>(_view),
               child: _DialogActions(actions: actions),
@@ -840,8 +840,8 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
               Expanded(
                 child: AnimatedSwitcher(
                   duration: openHandMotionDuration(context, kOpenHandMotion240),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
+                  switchInCurve: kOpenHandSwitchInCurve,
+                  switchOutCurve: kOpenHandSwitchOutCurve,
                   transitionBuilder: (child, animation) => FadeTransition(
                     opacity: animation,
                     child: SlideTransition(

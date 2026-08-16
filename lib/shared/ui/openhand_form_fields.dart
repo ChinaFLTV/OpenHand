@@ -145,7 +145,7 @@ class OpenHandAnimatedSwitchTile extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     return AnimatedContainer(
       duration: openHandMotionDuration(context, _animationDuration),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
       decoration: BoxDecoration(
         color: value

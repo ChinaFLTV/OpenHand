@@ -6,7 +6,7 @@ import 'openhand_reveal_switcher.dart';
 
 /// 忙碌指示条的默认高度与出入场时长。
 const double kOpenHandBusyBarHeight = 3;
-const Duration kOpenHandBusyBarRevealDuration = Duration(milliseconds: 200);
+const Duration kOpenHandBusyBarRevealDuration = kOpenHandMotion200;
 const Duration kOpenHandBusyBarCollapseDuration = kOpenHandMotion160;
 
 /// 面板顶部的忙碌指示条：出现与消失走全局动效的纵向展开。
@@ -48,7 +48,7 @@ class OpenHandBusyProgressBar extends StatelessWidget {
 
 /// 忙碌指示图标的默认边长与切换时长。
 const double kOpenHandBusyIconSize = 18;
-const Duration kOpenHandBusyIconSwapDuration = Duration(milliseconds: 200);
+const Duration kOpenHandBusyIconSwapDuration = kOpenHandMotion200;
 
 /// 忙碌态的前导指示：转圈与状态图标之间做淡入淡出 + 轻微缩放的切换。
 class OpenHandBusyStatusIcon extends StatelessWidget {
@@ -96,7 +96,7 @@ class OpenHandBusyStatusIcon extends StatelessWidget {
     return AnimatedSwitcher(
       duration: duration,
       switchInCurve: Curves.easeOutBack,
-      switchOutCurve: Curves.easeInCubic,
+      switchOutCurve: kOpenHandSwitchOutCurve,
       transitionBuilder: (child, animation) => FadeTransition(
         opacity: animation,
         child: ScaleTransition(scale: animation, child: child),

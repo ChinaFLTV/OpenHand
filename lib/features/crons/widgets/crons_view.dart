@@ -116,8 +116,8 @@ class CronsView extends StatelessWidget {
         Expanded(
           child: AnimatedSwitcher(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
+            switchInCurve: kOpenHandSwitchInCurve,
+            switchOutCurve: kOpenHandSwitchOutCurve,
             child: (snapshot.isLoading && entries.isEmpty)
                 ? const Center(
                     key: ValueKey<String>('loading'),
@@ -1841,7 +1841,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
           onTap: () => onChanged(!value),
           child: AnimatedContainer(
             duration: openHandMotionDuration(context, kOpenHandMotion180),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: baseColor,
@@ -2113,8 +2113,8 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
     );
     _fadeAnimation = CurvedAnimation(
       parent: _animController,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
+      curve: kOpenHandSwitchInCurve,
+      reverseCurve: kOpenHandSwitchOutCurve,
     );
   }
 

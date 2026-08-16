@@ -417,7 +417,7 @@ class _ApprovalPayloadPanel extends StatelessWidget {
     return AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion180,
       ),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -509,15 +509,15 @@ class _ApprovalPayloadPanel extends StatelessWidget {
           AnimatedSize(
             duration: openHandMotionDuration(context, kOpenHandMotion180,
             ),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             alignment: Alignment.topCenter,
             child: AnimatedSwitcher(
               duration: openHandMotionDuration(
                 context,
                 kOpenHandMotion160,
               ),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
+              switchInCurve: kOpenHandSwitchInCurve,
+              switchOutCurve: kOpenHandSwitchOutCurve,
               child: _ApprovalPayloadNode(
                 key: ValueKey<String>(
                   'approval-payload-${expanded ? 'full' : 'preview'}-${parsed.raw.hashCode}',
@@ -919,7 +919,7 @@ class _ApprovalPayloadToggle extends StatelessWidget {
               context,
               kOpenHandMotion160,
             ),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.10),
@@ -935,7 +935,7 @@ class _ApprovalPayloadToggle extends StatelessWidget {
                     context,
                     kOpenHandMotion160,
                   ),
-                  curve: Curves.easeOutCubic,
+                  curve: kOpenHandSwitchInCurve,
                   child: Icon(
                     Icons.keyboard_arrow_down_rounded,
                     size: 18,

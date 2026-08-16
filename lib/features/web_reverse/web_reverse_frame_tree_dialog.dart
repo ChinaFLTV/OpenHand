@@ -209,7 +209,7 @@ class _FrameTreeDialogState extends State<_FrameTreeDialog> {
           Divider(height: 1, color: cs.outlineVariant),
           AnimatedSize(
             duration: openHandMotionDuration(context, kOpenHandMotion260),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             alignment: Alignment.topCenter,
             child: _err.isEmpty
                 ? const SizedBox(width: double.infinity)

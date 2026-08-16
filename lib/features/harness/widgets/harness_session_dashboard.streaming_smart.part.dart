@@ -198,7 +198,7 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
                 key: ValueKey<int>(_contentRevision),
                 tween: Tween<double>(begin: 0.0, end: 1.0),
                 duration: openHandMotionDuration(context, _kStreamingBlockRevealDuration),
-                curve: Curves.easeOutCubic,
+                curve: kOpenHandSwitchInCurve,
                 builder: (_, v, child) => Opacity(
                   opacity: clampUnitInterval(v),
                   child: Transform.translate(

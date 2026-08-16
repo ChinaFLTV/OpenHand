@@ -280,7 +280,7 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
                       else
                         AnimatedSize(
                           duration: fieldExpandDuration,
-                          curve: Curves.easeInOutCubic,
+                          curve: kOpenHandEmphasizedTransitionCurve,
                           alignment: Alignment.topLeft,
                           child: _buildCustomInputField(colorScheme, hintText),
                         ),

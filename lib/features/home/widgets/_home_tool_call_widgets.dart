@@ -7,7 +7,7 @@ const Duration _kToolStructureSwitchDuration = kOpenHandMotion320;
 const Duration _kToolPhaseSwitchDuration = kOpenHandMotion280;
 const Duration _kToolCompactMotionDuration = kOpenHandMotion220;
 const Duration _kToolConstructingPulseDuration = Duration(milliseconds: 1100);
-const Curve _kToolCardMotionCurve = Curves.easeOutCubic;
+const Curve _kToolCardMotionCurve = kOpenHandSwitchInCurve;
 
 /// 工具卡片阶段切换时新内容自下方滑入的相对幅度。
 const double _kToolStructureSlideOffsetY = 0.06;
@@ -203,7 +203,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
             Color glowBorder = Colors.transparent;
             if (glowActive) {
               final fade = (1.0 - glowProgress).clamp(0.0, 1.0);
-              final eased = Curves.easeOutCubic.transform(fade);
+              final eased = kOpenHandSwitchInCurve.transform(fade);
               final isFail = _isFailureStatus(_lastTerminalStatus ?? '');
               final tone = isFail ? cs.error : cs.primary;
               final container = isFail
@@ -272,7 +272,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                         _kToolPhaseSwitchDuration,
                       ),
                       switchInCurve: _kToolCardMotionCurve,
-                      switchOutCurve: Curves.easeInCubic,
+                      switchOutCurve: kOpenHandSwitchOutCurve,
                       transitionBuilder: (child, animation) => FadeTransition(
                         opacity: animation,
                         child: ScaleTransition(
@@ -704,8 +704,8 @@ class _ExpandableToolSection extends StatelessWidget {
                   transitionBuilder: (child, animation) => FadeTransition(
                     opacity: openHandBoundedCurveAnimation(
                       parent: animation,
-                      curve: Curves.easeOutCubic,
-                      reverseCurve: Curves.easeInCubic,
+                      curve: kOpenHandSwitchInCurve,
+                      reverseCurve: kOpenHandSwitchOutCurve,
                     ),
                     child: child,
                   ),

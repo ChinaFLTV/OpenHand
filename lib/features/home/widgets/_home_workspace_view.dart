@@ -520,8 +520,8 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
     _controller = AnimationController(vsync: this, duration: Duration.zero);
     _curved = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
+      curve: kOpenHandSwitchInCurve,
+      reverseCurve: kOpenHandSwitchOutCurve,
     );
     _fade = Tween<double>(begin: 0.0, end: 1.0).animate(_curved);
     _scale = Tween<double>(begin: 0.92, end: 1.0).animate(_curved);

@@ -78,7 +78,7 @@ class _OpenHandCountdownProgressBarState
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: _begin, end: _end),
       duration: openHandMotionDuration(context, widget.animationDuration),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       builder: (context, value, _) {
         final progress = _normalizedValue(value);
         return Semantics(

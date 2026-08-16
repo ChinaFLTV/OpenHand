@@ -106,7 +106,7 @@ class _ResizableSplitterState extends State<ResizableSplitter> {
                   child: Center(
                     child: AnimatedContainer(
                       duration: handleMotionDuration,
-                      curve: Curves.easeOutCubic,
+                      curve: kOpenHandSwitchInCurve,
                       width: _dragging ? 3 : 1,
                       decoration: BoxDecoration(
                         color: _dragging

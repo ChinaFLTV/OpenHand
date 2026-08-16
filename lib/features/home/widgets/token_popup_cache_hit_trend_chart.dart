@@ -13,7 +13,7 @@ import '../../../shared/ui/openhand_token_usage_capsule.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/session_cache_hit_trend.dart';
 
-const Curve _tokenPopupCacheHitTrendEntranceCurve = Curves.easeOutCubic;
+const Curve _tokenPopupCacheHitTrendEntranceCurve = kOpenHandSwitchInCurve;
 const Duration _tokenPopupCacheHitTrendEntranceDuration = Duration(
   milliseconds: 560,
 );
@@ -1537,7 +1537,7 @@ class _CacheHitModeChip extends StatelessWidget {
           context,
           _tokenPopupCacheHitModeChipDuration,
         ),
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: selected

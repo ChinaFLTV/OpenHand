@@ -334,8 +334,8 @@ class _OperationsDialogState extends State<_OperationsDialog> {
             child: AnimatedSwitcher(
               duration: openHandMotionDuration(context, kOpenHandMotion220,
               ),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
+              switchInCurve: kOpenHandSwitchInCurve,
+              switchOutCurve: kOpenHandSwitchOutCurve,
               child: SingleChildScrollView(
                 key: ValueKey<_OperationsView>(_view),
                 physics: openHandDialogAwareScrollPhysics(context),

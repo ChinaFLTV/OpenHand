@@ -4834,14 +4834,14 @@ class _SettingsElasticExpansion extends StatelessWidget {
     return AnimatedSize(
       duration: duration,
       reverseDuration: reverseDuration,
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       alignment: Alignment.topLeft,
       child: ClipRect(
         child: AnimatedSwitcher(
           duration: duration,
           reverseDuration: reverseDuration,
           switchInCurve: Curves.easeOutBack,
-          switchOutCurve: Curves.easeInCubic,
+          switchOutCurve: kOpenHandSwitchOutCurve,
           layoutBuilder: (currentChild, previousChildren) => Stack(
             alignment: Alignment.topLeft,
             children: <Widget>[
@@ -4855,7 +4855,7 @@ class _SettingsElasticExpansion extends StatelessWidget {
               builder: (context, _) {
                 final raw = animation.value.clamp(0.0, 1.0);
                 final eased = animation.status == AnimationStatus.reverse
-                    ? Curves.easeInCubic.transform(raw)
+                    ? kOpenHandSwitchOutCurve.transform(raw)
                     : Curves.easeOutBack.transform(raw);
                 return FadeTransition(
                   opacity: animation,
@@ -5495,7 +5495,7 @@ class _AiModelTileState extends State<_AiModelTile> {
         borderRadius: BorderRadius.circular(kOpenHandRadius24),
         child: AnimatedContainer(
           duration: animationDuration,
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           decoration: BoxDecoration(
             color: widget.isSelected
                 ? colorScheme.primaryContainer.withValues(alpha: 0.52)
@@ -5578,7 +5578,7 @@ class _AiModelTileState extends State<_AiModelTile> {
                             icon: AnimatedSwitcher(
                               duration: openHandMotionDuration(context, kOpenHandMotion220),
                               switchInCurve: Curves.easeOutBack,
-                              switchOutCurve: Curves.easeInCubic,
+                              switchOutCurve: kOpenHandSwitchOutCurve,
                               transitionBuilder: (child, animation) =>
                                   FadeTransition(
                                     opacity: animation,
@@ -5764,7 +5764,7 @@ class _AiModelTileState extends State<_AiModelTile> {
                           child: AnimatedSwitcher(
                             duration: openHandMotionDuration(context, kOpenHandMotion260),
                             switchInCurve: Curves.easeOutBack,
-                            switchOutCurve: Curves.easeInCubic,
+                            switchOutCurve: kOpenHandSwitchOutCurve,
                             layoutBuilder: (currentChild, previousChildren) {
                               return Stack(
                                 children: <Widget>[
@@ -6015,15 +6015,15 @@ class _AnimatedSettingReveal extends StatelessWidget {
         child: AnimatedSwitcher(
           duration: switcherDuration,
           reverseDuration: switcherReverseDuration,
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
+          switchInCurve: kOpenHandSwitchInCurve,
+          switchOutCurve: kOpenHandSwitchOutCurve,
           transitionBuilder: (child, animation) {
             return AnimatedBuilder(
               animation: animation,
               builder: (context, _) {
                 final raw = animation.value.clamp(0.0, 1.0);
                 final slideT = Curves.easeOutBack.transform(raw);
-                final scaleT = Curves.easeOutCubic.transform(raw);
+                final scaleT = kOpenHandSwitchInCurve.transform(raw);
                 return SlideTransition(
                   position: AlwaysStoppedAnimation<Offset>(
                     Offset(0, -0.06 * (1.0 - slideT)),

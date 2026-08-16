@@ -1,6 +1,8 @@
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/widgets.dart';
 
+import 'motion_preference.dart';
+
 const Duration kAutoFollowProgrammaticSettleDuration = Duration(
   milliseconds: 260,
 );
@@ -136,7 +138,7 @@ class AutoFollowScrollGuard {
     ScrollController controller, {
     bool animated = false,
     Duration animationDuration = const Duration(milliseconds: 180),
-    Curve curve = Curves.easeOutCubic,
+    Curve curve = kOpenHandSwitchInCurve,
   }) {
     if (_followScheduled) return;
     _followScheduled = true;
@@ -158,7 +160,7 @@ class AutoFollowScrollGuard {
     ScrollController controller, {
     bool animated = false,
     Duration animationDuration = const Duration(milliseconds: 180),
-    Curve curve = Curves.easeOutCubic,
+    Curve curve = kOpenHandSwitchInCurve,
   }) {
     _followToEdge(
       controller,
@@ -177,7 +179,7 @@ class AutoFollowScrollGuard {
     ScrollController controller, {
     bool animated = false,
     Duration animationDuration = const Duration(milliseconds: 180),
-    Curve curve = Curves.easeOutCubic,
+    Curve curve = kOpenHandSwitchInCurve,
   }) {
     _followToEdge(
       controller,

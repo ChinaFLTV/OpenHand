@@ -736,7 +736,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
             ),
             child: AnimatedSize(
               duration: reduceMotion ? Duration.zero : _kSwitchDuration,
-              curve: _kSwitchInCurve,
+              curve: kOpenHandSwitchInCurve,
               child: sourceBps.isEmpty
                   ? Padding(
                       padding: const EdgeInsets.symmetric(vertical: 18),
@@ -887,7 +887,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
                 kOpenHandGap8,
                 AnimatedSize(
                   duration: reduceMotion ? Duration.zero : _kSwitchDuration,
-                  curve: _kSwitchInCurve,
+                  curve: kOpenHandSwitchInCurve,
                   child: xhrBps.isEmpty
                       ? Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1042,7 +1042,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
                 kOpenHandGap8,
                 AnimatedSize(
                   duration: reduceMotion ? Duration.zero : _kSwitchDuration,
-                  curve: _kSwitchInCurve,
+                  curve: kOpenHandSwitchInCurve,
                   child: domBps.isEmpty
                       ? Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8),

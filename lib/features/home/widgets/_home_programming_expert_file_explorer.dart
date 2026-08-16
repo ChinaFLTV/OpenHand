@@ -396,7 +396,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       targetContext,
       alignment: 0.18,
       duration: kOpenHandMotion180,
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
     );
   }
 
@@ -1645,7 +1645,7 @@ class _FileTreeTile extends StatelessWidget {
                     turns: node.isExpanded ? 0.25 : 0,
                     duration: openHandMotionDuration(context, kOpenHandMotion200,
                     ),
-                    curve: Curves.easeOutCubic,
+                    curve: kOpenHandSwitchInCurve,
                     child: Icon(
                       Icons.chevron_right_rounded,
                       size: 16,
@@ -2304,7 +2304,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     scrollController.animateTo(
       centered,
       duration: kOpenHandMotion180,
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
     );
   }
 
@@ -11222,7 +11222,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       child: AnimatedSize(
                         duration: openHandMotionDuration(context, kOpenHandMotion220,
                         ),
-                        curve: Curves.easeOutCubic,
+                        curve: kOpenHandSwitchInCurve,
                         alignment: Alignment.bottomCenter,
                         child: _buildFindBar(colorScheme),
                       ),
@@ -11232,7 +11232,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       child: AnimatedSize(
                         duration: openHandMotionDuration(context, kOpenHandMotion220,
                         ),
-                        curve: Curves.easeOutCubic,
+                        curve: kOpenHandSwitchInCurve,
                         alignment: Alignment.bottomCenter,
                         child: _buildGoToLineBar(colorScheme),
                       ),
@@ -11242,7 +11242,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       child: AnimatedSize(
                         duration: openHandMotionDuration(context, kOpenHandMotion220,
                         ),
-                        curve: Curves.easeOutCubic,
+                        curve: kOpenHandSwitchInCurve,
                         alignment: Alignment.bottomCenter,
                         child: _buildSymbolBar(colorScheme),
                       ),
@@ -11274,7 +11274,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                           context,
                           const Duration(milliseconds: 250),
                         ),
-                        curve: Curves.easeOutCubic,
+                        curve: kOpenHandSwitchInCurve,
                         alignment: Alignment.topCenter,
                         child: _buildProjectToolchainBar(colorScheme),
                       ),
@@ -11285,7 +11285,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                           context,
                           const Duration(milliseconds: 250),
                         ),
-                        curve: Curves.easeOutCubic,
+                        curve: kOpenHandSwitchInCurve,
                         alignment: Alignment.topCenter,
                         child: _buildDiagnosticsBar(colorScheme),
                       ),
@@ -11296,7 +11296,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                           context,
                           const Duration(milliseconds: 250),
                         ),
-                        curve: Curves.easeOutCubic,
+                        curve: kOpenHandSwitchInCurve,
                         alignment: Alignment.topCenter,
                         child: _buildLspResultBar(colorScheme),
                       ),
@@ -15584,7 +15584,7 @@ class _EditorTab extends StatelessWidget {
               child: AnimatedContainer(
                 duration: openHandMotionDuration(context, kOpenHandMotion200,
                 ),
-                curve: Curves.easeOutCubic,
+                curve: kOpenHandSwitchInCurve,
                 height: 34,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(

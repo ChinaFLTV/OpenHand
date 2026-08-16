@@ -411,7 +411,7 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                       final expanded = _expandedIndex == i;
                       return AnimatedContainer(
                         duration: openHandMotionDurationMs(context, 220),
-                        curve: Curves.easeOutCubic,
+                        curve: kOpenHandSwitchInCurve,
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: cs.surfaceContainerHigh,

@@ -129,7 +129,7 @@ class _UserProfileSettingsButtonState extends State<_UserProfileSettingsButton>
                         0,
                       ),
                       duration: openHandMotionDuration(context, kOpenHandMotion180),
-                      curve: Curves.easeOutCubic,
+                      curve: kOpenHandSwitchInCurve,
                       child: Icon(
                         Icons.chevron_right_rounded,
                         color: colorScheme.onSurfaceVariant,

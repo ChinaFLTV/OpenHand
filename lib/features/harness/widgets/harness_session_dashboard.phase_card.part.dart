@@ -174,7 +174,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
     // borderColor interpolation automatically.
     return AnimatedContainer(
       duration: openHandMotionDuration(context, const Duration(milliseconds: 380)),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: _br26,
@@ -297,8 +297,8 @@ class _HePhaseCardState extends State<_HePhaseCard> {
 
             AnimatedSwitcher(
               duration: openHandMotionDuration(context, _expandSwitchDuration),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
+              switchInCurve: kOpenHandSwitchInCurve,
+              switchOutCurve: kOpenHandSwitchOutCurve,
               layoutBuilder: (currentChild, previousChildren) {
                 return Column(
                   mainAxisSize: MainAxisSize.min,
@@ -312,8 +312,8 @@ class _HePhaseCardState extends State<_HePhaseCard> {
               transitionBuilder: (child, animation) {
                 final fade = CurvedAnimation(
                   parent: animation,
-                  curve: Curves.easeOutCubic,
-                  reverseCurve: Curves.easeInCubic,
+                  curve: kOpenHandSwitchInCurve,
+                  reverseCurve: kOpenHandSwitchOutCurve,
                 );
                 final slide = Tween<Offset>(
                   begin: const Offset(0, -0.04),
@@ -322,8 +322,8 @@ class _HePhaseCardState extends State<_HePhaseCard> {
                 final scale = Tween<double>(begin: 0.985, end: 1.0).animate(
                   CurvedAnimation(
                     parent: animation,
-                    curve: Curves.easeOutCubic,
-                    reverseCurve: Curves.easeInCubic,
+                    curve: kOpenHandSwitchInCurve,
+                    reverseCurve: kOpenHandSwitchOutCurve,
                   ),
                 );
                 return ClipRect(
@@ -621,7 +621,7 @@ class _HePhaseMetaRow extends StatelessWidget {
           AnimatedRotation(
             turns: expanded ? 0.5 : 0,
             duration: openHandMotionDuration(context, kOpenHandMotion220),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             child: Icon(
               Icons.keyboard_arrow_down_rounded,
               color: textColor.withValues(alpha: 0.72),

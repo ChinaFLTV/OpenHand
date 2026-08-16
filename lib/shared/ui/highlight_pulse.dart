@@ -94,7 +94,7 @@ class _HighlightPulseState extends State<HighlightPulse>
           opacity = unitRatio(v, 0.22);
         } else {
           final t = clampUnitInterval(1 - (v - 0.22) / 0.78);
-          opacity = Curves.easeOutCubic.transform(t);
+          opacity = kOpenHandSwitchInCurve.transform(t);
         }
         return Container(
           height: _safeHeight,

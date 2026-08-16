@@ -66,8 +66,8 @@ class OpenHandVerticalRevealSwitcher extends StatelessWidget {
                 inDuration.inMicroseconds,
               ),
             ),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
+      switchInCurve: kOpenHandSwitchInCurve,
+      switchOutCurve: kOpenHandSwitchOutCurve,
       transitionBuilder: (child, animation) {
         final faded = FadeTransition(opacity: animation, child: child);
         return SizeTransition(
@@ -146,8 +146,8 @@ class OpenHandInlineRevealSwitcher extends StatelessWidget {
         context,
         hasChild ? duration : (reverseDuration ?? duration),
       ),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
+      switchInCurve: kOpenHandSwitchInCurve,
+      switchOutCurve: kOpenHandSwitchOutCurve,
       transitionBuilder: (child, animation) => SizeTransition(
         sizeFactor: animation,
         axis: Axis.horizontal,
@@ -182,7 +182,7 @@ class OpenHandCrossFadeSwitcher extends StatelessWidget {
     required this.child,
     this.duration = kOpenHandCrossFadeDuration,
     this.slideBeginOffsetY = kOpenHandCrossFadeSlideOffsetY,
-    this.switchInCurve = Curves.easeOutCubic,
+    this.switchInCurve = kOpenHandSwitchInCurve,
   });
 
   /// 按 AnimatedSwitcher 约定挂 key 区分两侧内容。
@@ -202,7 +202,7 @@ class OpenHandCrossFadeSwitcher extends StatelessWidget {
     return AnimatedSwitcher(
       duration: effectiveDuration,
       switchInCurve: switchInCurve,
-      switchOutCurve: Curves.easeInCubic,
+      switchOutCurve: kOpenHandSwitchOutCurve,
       layoutBuilder: (currentChild, previousChildren) => Stack(
         alignment: Alignment.topLeft,
         children: <Widget>[
@@ -218,7 +218,7 @@ class OpenHandCrossFadeSwitcher extends StatelessWidget {
                 begin: Offset(0, slideBeginOffsetY),
                 end: Offset.zero,
               ).animate(
-                CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+                CurvedAnimation(parent: animation, curve: kOpenHandSwitchInCurve),
               ),
           child: transitionChild,
         ),
@@ -261,8 +261,8 @@ class OpenHandContentStateSwitcher extends StatelessWidget {
     if (effectiveDuration == Duration.zero) return child;
     final switcher = AnimatedSwitcher(
       duration: effectiveDuration,
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
+      switchInCurve: kOpenHandSwitchInCurve,
+      switchOutCurve: kOpenHandSwitchOutCurve,
       layoutBuilder: (currentChild, previousChildren) => Stack(
         alignment: alignment,
         children: <Widget>[
@@ -275,7 +275,7 @@ class OpenHandContentStateSwitcher extends StatelessWidget {
     if (!animateSize) return switcher;
     return AnimatedSize(
       duration: effectiveDuration,
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       alignment: alignment,
       child: switcher,
     );

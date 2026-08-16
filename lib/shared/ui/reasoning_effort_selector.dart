@@ -10,6 +10,7 @@ import '../../features/ai/model/ai_model_config.dart';
 import '../util/localized_text.dart';
 import 'animated_menu.dart';
 import 'collision_safe_animated_switcher.dart';
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'oh_pill.dart';
 
@@ -27,8 +28,8 @@ const double _kMaximumProgressThreshold = 0.96;
 
 // ── Motion ──────────────────────────────────────────────────────────────────
 const Duration _kProgressAnimDuration = Duration(milliseconds: 360);
-const Duration _kCapsuleAnimDuration = Duration(milliseconds: 420);
-const Duration _kLabelSwitchDuration = Duration(milliseconds: 280);
+const Duration _kCapsuleAnimDuration = kOpenHandMotion420;
+const Duration _kLabelSwitchDuration = kOpenHandMotion280;
 
 /// Progress at which the capsule starts blending into the max-tier palette.
 const double _kCapsuleMaxBlendStart = 0.72;
@@ -390,7 +391,7 @@ class _ReasoningEffortCapsule extends StatelessWidget {
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(end: progress.clamp(0.0, 1.0)),
       duration: openHandMotionDuration(context, _kCapsuleAnimDuration),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       builder: (context, animatedProgress, _) {
         final blend = _capsuleMaxBlend(animatedProgress);
         final stops = _capsuleGradientStops(animatedProgress, colorScheme);
@@ -443,8 +444,8 @@ class _ReasoningEffortCapsule extends StatelessWidget {
           ),
           child: AnimatedSwitcher(
             duration: openHandMotionDuration(context, _kLabelSwitchDuration),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
+            switchInCurve: kOpenHandSwitchInCurve,
+            switchOutCurve: kOpenHandSwitchOutCurve,
             layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
             transitionBuilder: (child, animation) {
               return FadeTransition(
@@ -457,7 +458,7 @@ class _ReasoningEffortCapsule extends StatelessWidget {
                       ).animate(
                         CurvedAnimation(
                           parent: animation,
-                          curve: Curves.easeOutCubic,
+                          curve: kOpenHandSwitchInCurve,
                         ),
                       ),
                   child: child,
@@ -1237,7 +1238,7 @@ class _ReasoningTrackPainter extends CustomPainter {
     for (final spark in particles.thumbSparks) {
       final lifeT = (spark.life / spark.maxLife).clamp(0.0, 1.0);
       // Ease-out fade so sparks die softly, not pop off.
-      final fade = Curves.easeOutCubic.transform(lifeT);
+      final fade = kOpenHandSwitchInCurve.transform(lifeT);
       final color =
           _MaximumEffortPalette.particleColors[spark.colorIndex %
               _MaximumEffortPalette.particleColors.length];

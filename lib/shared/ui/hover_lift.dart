@@ -32,7 +32,7 @@ class HoverLift extends StatefulWidget {
     required this.child,
     this.liftDistance = 2.0,
     this.duration = const Duration(milliseconds: 180),
-    this.curve = Curves.easeOutCubic,
+    this.curve = kOpenHandSwitchInCurve,
   });
 
   final Widget child;

@@ -190,8 +190,8 @@ class _NetworkBody extends StatelessWidget {
           // AnimatedSize 缓动，避免直接 size jump 导致的视觉硬切。
           child: AnimatedSwitcher(
             duration: reduceMotion ? Duration.zero : kOpenHandMotion280,
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
+            switchInCurve: kOpenHandSwitchInCurve,
+            switchOutCurve: kOpenHandSwitchOutCurve,
             transitionBuilder: (child, animation) {
               final fade = FadeTransition(opacity: animation, child: child);
               if (child.key == const ValueKey<String>('with-detail')) {

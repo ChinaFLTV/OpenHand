@@ -276,7 +276,7 @@ class _SnippetTileState extends State<_SnippetTile>
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: reduceMotion ? Duration.zero : kOpenHandMotion140,
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           margin: const EdgeInsets.symmetric(horizontal: 6),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(

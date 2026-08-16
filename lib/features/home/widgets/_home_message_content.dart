@@ -235,7 +235,7 @@ class _CollapsedPreviewFade extends StatelessWidget {
         child: AnimatedOpacity(
           opacity: visible ? 1.0 : 0.0,
           duration: duration,
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           child: Container(
             height: _collapsedMessageFadeHeight,
             decoration: BoxDecoration(
@@ -6534,14 +6534,14 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
       transitionBuilder: (child, animation) {
         final fade = openHandBoundedCurveAnimation(
           parent: animation,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
+          curve: kOpenHandSwitchInCurve,
+          reverseCurve: kOpenHandSwitchOutCurve,
         );
         final scale = Tween<double>(begin: 0.985, end: 1.0).animate(
           openHandCurveAnimation(
             parent: animation,
             curve: kCardMotionCurve,
-            reverseCurve: Curves.easeInCubic,
+            reverseCurve: kOpenHandSwitchOutCurve,
           ),
         );
         return FadeTransition(

@@ -689,8 +689,8 @@ class _KnowledgeNoteEditor extends StatelessWidget {
             child: AnimatedSwitcher(
               duration: openHandMotionDuration(context, kOpenHandMotion180,
               ),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
+              switchInCurve: kOpenHandSwitchInCurve,
+              switchOutCurve: kOpenHandSwitchOutCurve,
               child: preview
                   ? _MarkdownPreview(
                       key: const ValueKey<String>('preview'),

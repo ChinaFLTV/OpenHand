@@ -8,6 +8,7 @@ import 'package:flutter/scheduler.dart';
 
 import '../util/byte_size_format.dart';
 import '../util/input_value_parsing.dart';
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 
 const int _kStreamingTextRevealMaxLength = 32 * kBytesPerKiB;
@@ -46,7 +47,7 @@ class _StreamingTextFadeMaskState extends State<_StreamingTextFadeMask>
   /// 单 delta fade-in 时长。Gemini 网页端实测约 450-600ms，
   /// 取 520ms：长到能看到 Q 弹「亮」起来，又不至于压住下一批的登场感。
   static const int _fadeMs = 520;
-  static const Duration _heightDuration = Duration(milliseconds: 220);
+  static const Duration _heightDuration = kOpenHandMotion220;
 
   /// 段队列上限：超出后丢弃最早段（其 alpha 早已=1，肉眼无差）。
   static const int _kMaxSegments = 24;
@@ -158,7 +159,7 @@ class _StreamingTextFadeMaskState extends State<_StreamingTextFadeMask>
 
     return AnimatedSize(
       duration: _heightDuration,
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       alignment: Alignment.topLeft,
       child: body,
     );

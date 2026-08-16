@@ -2927,7 +2927,7 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
                               context,
                               _kCacheHitTrendRevealDuration,
                             ),
-                            curve: Curves.easeOutCubic,
+                            curve: kOpenHandSwitchInCurve,
                             builder: (context, t, _) {
                               return CustomPaint(
                                 painter: _CacheHitSparklinePainter(

@@ -52,7 +52,7 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
         _scroll.position.maxScrollExtent,
         duration: openHandMotionDuration(context, kOpenHandMotion220,
         ),
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
       );
     });
   }

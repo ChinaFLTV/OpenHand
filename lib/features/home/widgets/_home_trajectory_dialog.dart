@@ -1220,7 +1220,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
         _ledgerScrollController.animateTo(
           target,
           duration: openHandMotionDuration(context, kOpenHandMotion220),
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
         ),
       );
     });
@@ -1525,7 +1525,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
               Expanded(child: ledger),
               AnimatedContainer(
                 duration: motion,
-                curve: Curves.easeOutCubic,
+                curve: kOpenHandSwitchInCurve,
                 height: details == null ? 0 : detailsHeight,
                 decoration: BoxDecoration(
                   border: details == null
@@ -1556,7 +1556,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
             Expanded(child: ledger),
             AnimatedContainer(
               duration: motion,
-              curve: Curves.easeOutCubic,
+              curve: kOpenHandSwitchInCurve,
               width: details == null ? 0 : _detailsWidth,
               child: details == null
                   ? const SizedBox.shrink()

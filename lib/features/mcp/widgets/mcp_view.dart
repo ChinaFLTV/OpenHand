@@ -1959,7 +1959,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
         kOpenHandGap12,
         AnimatedSize(
           duration: openHandMotionDuration(context, kOpenHandMotion220),
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           alignment: Alignment.topLeft,
           child: Wrap(
             spacing: 8,
@@ -3741,7 +3741,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
         _surfaceSwitch(context, surface, badge: '$visibleCount/${rows.length}'),
         AnimatedSize(
           duration: openHandMotionDuration(context, kOpenHandMotion240),
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           alignment: Alignment.topCenter,
           child: enabled
               ? _exposureList(context, surface: surface, rows: rows)
@@ -3818,7 +3818,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
           highlightColor: cs.primary.withValues(alpha: 0.05),
           child: AnimatedContainer(
             duration: openHandMotionDuration(context, kOpenHandMotion160),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: enabled
@@ -4500,7 +4500,7 @@ class _McpOpsConsoleShell extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion180),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.46),
         borderRadius: BorderRadius.circular(_mcpOpsShellRadius),
@@ -4658,7 +4658,7 @@ class _McpOpsConsoleHeader extends StatelessWidget {
             AnimatedSwitcher(
               duration: openHandMotionDuration(context, kOpenHandMotion180),
               switchInCurve: Curves.easeOutBack,
-              switchOutCurve: Curves.easeInCubic,
+              switchOutCurve: kOpenHandSwitchOutCurve,
               transitionBuilder: (child, animation) {
                 return FadeTransition(
                   opacity: animation,
@@ -4833,7 +4833,7 @@ class _McpOpsHeaderTabButtons extends StatelessWidget {
                     : () => tabController.animateTo(
                         tab.index,
                         duration: openHandMotionDuration(context, kOpenHandMotion220),
-                        curve: Curves.easeOutCubic,
+                        curve: kOpenHandSwitchInCurve,
                       ),
               ),
           ],
@@ -4876,7 +4876,7 @@ class _McpOpsHeaderTabButton extends StatelessWidget {
           onTap: onPressed,
           child: AnimatedContainer(
             duration: openHandMotionDuration(context, kOpenHandMotion160),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             height: 44,
             constraints: const BoxConstraints(minWidth: 104, maxWidth: 132),
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -5015,7 +5015,7 @@ class _McpOpsHeaderControls extends StatelessWidget {
             AnimatedSwitcher(
               duration: openHandMotionDuration(context, kOpenHandMotion180),
               switchInCurve: Curves.easeOutBack,
-              switchOutCurve: Curves.easeInCubic,
+              switchOutCurve: kOpenHandSwitchOutCurve,
               transitionBuilder: (child, animation) {
                 // 直接复用切换器曲线，避免把回弹超调值再次传入 Curve。
                 return FadeTransition(
@@ -5129,7 +5129,7 @@ class _McpOpsHeaderActionButton extends StatelessWidget {
           onTap: onPressed,
           child: AnimatedContainer(
             duration: openHandMotionDuration(context, kOpenHandMotion160),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             height: 44,
             constraints: const BoxConstraints(minWidth: 88, maxWidth: 124),
             padding: const EdgeInsets.symmetric(horizontal: 13),
@@ -5272,7 +5272,7 @@ class _McpOpsIconButton extends StatelessWidget {
           onTap: onPressed,
           child: AnimatedContainer(
             duration: openHandMotionDuration(context, kOpenHandMotion160),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             width: 44,
             height: 44,
             alignment: Alignment.center,
@@ -5822,7 +5822,7 @@ class _McpOpsMetricTile extends StatelessWidget {
       tone: tone,
       child: AnimatedContainer(
         duration: duration,
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: cs.surfaceContainerHigh.withValues(alpha: 0.66),
@@ -5937,14 +5937,14 @@ class _McpOpsTappableCardState extends State<_McpOpsTappableCard> {
         child: AnimatedScale(
           scale: _pressed ? 0.97 : 1,
           duration: duration,
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           child: Stack(
             children: [
               widget.child,
               Positioned.fill(
                 child: AnimatedContainer(
                   duration: duration,
-                  curve: Curves.easeOutCubic,
+                  curve: kOpenHandSwitchInCurve,
                   decoration: BoxDecoration(
                     color: _pressed
                         ? widget.tone.withValues(alpha: 0.08)
@@ -6089,7 +6089,7 @@ class _McpOpsPanel extends StatelessWidget {
     final subtitleText = subtitle?.trim();
     final panel = AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion180),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       decoration: _mcpOpsCardDecoration(cs),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -6384,7 +6384,7 @@ class _McpOpsExposureSummary extends StatelessWidget {
             child: TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: 0, end: ratio.clamp(0, 1).toDouble()),
               duration: openHandMotionDuration(context, kOpenHandMotion420),
-              curve: Curves.easeOutCubic,
+              curve: kOpenHandSwitchInCurve,
               builder: (context, value, _) => LinearProgressIndicator(
                 value: value,
                 minHeight: 7,
@@ -6615,7 +6615,7 @@ class _McpOpsToggleFormField extends StatelessWidget {
         onTap: () => onChanged(!value),
         child: AnimatedContainer(
           duration: openHandMotionDuration(context, kOpenHandMotion180),
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
           decoration: BoxDecoration(
             color: value
@@ -6735,7 +6735,7 @@ class _McpOpsTogglePill extends StatelessWidget {
         onTap: () => onChanged(!selected),
         child: AnimatedContainer(
           duration: openHandMotionDuration(context, kOpenHandMotion160),
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
           decoration: BoxDecoration(
             color: selected
@@ -6942,7 +6942,7 @@ class _McpOpsSchemaPill extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: openHandMotionDuration(context, kOpenHandMotion160),
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
           decoration: BoxDecoration(
             color: cs.primary.withValues(alpha: 0.10),
@@ -7197,8 +7197,8 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
       ),
       child: AnimatedSwitcher(
         duration: openHandMotionDuration(context, kOpenHandMotion180),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
+        switchInCurve: kOpenHandSwitchInCurve,
+        switchOutCurve: kOpenHandSwitchOutCurve,
         child: _sourcePreviewExpanded
             ? _McpOpsSchemaCodeView(
                 key: const ValueKey('source'),
@@ -8102,7 +8102,7 @@ class _McpOpsAuditRow extends StatelessWidget {
           highlightColor: cs.primary.withValues(alpha: 0.04),
           child: AnimatedContainer(
             duration: openHandMotionDuration(context, kOpenHandMotion180),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             decoration: _mcpOpsCardDecoration(cs),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(_mcpOpsPanelRadius),
@@ -8718,8 +8718,8 @@ class _McpOpsStructuredPayload extends StatelessWidget {
           : _mcpOpsPayloadSubtitle(context, parsed),
       child: AnimatedSwitcher(
         duration: openHandMotionDuration(context, kOpenHandMotion180),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
+        switchInCurve: kOpenHandSwitchInCurve,
+        switchOutCurve: kOpenHandSwitchOutCurve,
         child: parsed.isEmpty
             ? Container(
                 key: const ValueKey<String>('mcp-ops-payload-empty'),
@@ -8989,7 +8989,7 @@ class _McpOpsStructuredField extends StatelessWidget {
     );
     return AnimatedContainer(
       duration: openHandMotionDuration(context, const Duration(milliseconds: 170)),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       decoration: BoxDecoration(
         color: depth == 0
             ? cs.surfaceContainerHigh.withValues(alpha: 0.58)
@@ -10727,7 +10727,7 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
           _scrollController.animateTo(
             target,
             duration: duration,
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
           ),
         );
       }
@@ -11579,7 +11579,7 @@ class _ToolPreviewTileState extends State<_ToolPreviewTile> {
               header,
               AnimatedSize(
                 duration: openHandMotionDuration(context, kOpenHandMotion180),
-                curve: Curves.easeOutCubic,
+                curve: kOpenHandSwitchInCurve,
                 alignment: Alignment.topLeft,
                 child: _expanded
                     ? Padding(
@@ -12650,7 +12650,7 @@ class _McpServerToggleChip extends StatelessWidget {
       child: TweenAnimationBuilder<double>(
         tween: Tween<double>(begin: 0.0, end: enabled ? 1.0 : 0.0),
         duration: openHandMotionDuration(context, kOpenHandMotion220),
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
         builder: (context, t, _) {
           final backgroundColor = Color.lerp(disabledBg, enabledBg, t)!;
           final foregroundColor = Color.lerp(disabledFg, enabledFg, t)!;
@@ -12849,7 +12849,7 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
                   icon: AnimatedRotation(
                     turns: _expanded ? 0.5 : 0.0,
                     duration: openHandMotionDuration(context, kOpenHandMotion220),
-                    curve: Curves.easeOutCubic,
+                    curve: kOpenHandSwitchInCurve,
                     child: const Icon(Icons.expand_more_rounded),
                   ),
                   label: Text(
@@ -12865,7 +12865,7 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
         ClipRect(
           child: AnimatedContainer(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             alignment: Alignment.topLeft,
             height: _expanded
                 ? _mcpToolPreviewExpandedHeight
@@ -13520,7 +13520,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
         context,
         const Duration(milliseconds: 300),
       ),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       alignment: Alignment.topCenter,
       child: Container(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),

@@ -715,7 +715,7 @@ print(resp.text[:2000])''';
                   kOpenHandGap14,
                   AnimatedSwitcher(
                     duration: reduceMotion ? Duration.zero : kOpenHandMotion220,
-                    switchInCurve: Curves.easeOutCubic,
+                    switchInCurve: kOpenHandSwitchInCurve,
                     child: _buildResultBlock(theme, cs, loc),
                   ),
                   kOpenHandGap12,

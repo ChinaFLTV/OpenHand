@@ -1187,7 +1187,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
                   child: AnimatedSwitcher(
                     duration: motionDur,
                     switchInCurve: widget.motionCurve,
-                    switchOutCurve: Curves.easeOutCubic,
+                    switchOutCurve: kOpenHandSwitchInCurve,
                     child: Padding(
                       key: ValueKey<bool>(useWide),
                       padding: EdgeInsets.symmetric(
@@ -1210,7 +1210,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
                         context,
                         kOpenHandMotion200,
                       ),
-                      curve: Curves.easeOutCubic,
+                      curve: kOpenHandSwitchInCurve,
                       child: ColoredBox(
                         color: colorScheme.surface.withValues(alpha: 0.60),
                         child: Center(

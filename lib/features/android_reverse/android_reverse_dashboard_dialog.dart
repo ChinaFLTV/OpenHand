@@ -48,7 +48,6 @@ import 'android_reverse_session_controller.dart';
 import 'android_reverse_toolchain_diagnostics.dart';
 
 const Duration _kSwitchDuration = kOpenHandMotion220;
-const Curve _kSwitchInCurve = Curves.easeOutCubic;
 const double _kAdbInlineControlHeight = 44;
 const double _kDashboardFilterControlHeight = 36;
 const double _kDashboardActionButtonHeight = 36;
@@ -836,7 +835,7 @@ class _AndroidReverseDashboardDialogState
       _logcatScrollController.animateTo(
         target,
         duration: _kLogcatFollowScrollDuration,
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
       );
     });
   }
@@ -3315,7 +3314,7 @@ fi
           ),
           AnimatedContainer(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.12),
@@ -3381,7 +3380,7 @@ fi
                 padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
                 child: AnimatedContainer(
                   duration: openHandMotionDuration(context, _kSwitchDuration),
-                  curve: _kSwitchInCurve,
+                  curve: kOpenHandSwitchInCurve,
                   decoration: BoxDecoration(
                     color: selected
                         ? cs.primaryContainer.withValues(alpha: 0.6)
@@ -3434,7 +3433,7 @@ fi
   ) {
     return AnimatedSwitcher(
       duration: openHandMotionDuration(context, _kSwitchDuration),
-      switchInCurve: _kSwitchInCurve,
+      switchInCurve: kOpenHandSwitchInCurve,
       child: KeyedSubtree(
         key: ValueKey<_Tab>(_currentTab),
         child: _buildTab(context, cs, theme, isZh),

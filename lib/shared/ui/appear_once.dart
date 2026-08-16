@@ -4,9 +4,10 @@ import 'package:provider/provider.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/state/settings_controller.dart';
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 
-const Duration _kDefaultAppearDuration = Duration(milliseconds: 320);
+const Duration _kDefaultAppearDuration = kOpenHandMotion320;
 const double _kDefaultAppearSlideOffset = 12.0;
 
 /// One-shot, ticker-self-disposing entrance animation wrapper.

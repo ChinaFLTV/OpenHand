@@ -1357,8 +1357,8 @@ class _TaskLedgerFooter extends StatelessWidget {
               context,
               _kTaskLedgerPageMotionDuration,
             ),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
+            switchInCurve: kOpenHandSwitchInCurve,
+            switchOutCurve: kOpenHandSwitchOutCurve,
             transitionBuilder: (child, animation) => FadeTransition(
               opacity: animation,
               child: ScaleTransition(

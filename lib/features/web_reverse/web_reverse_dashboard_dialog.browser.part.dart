@@ -2621,16 +2621,16 @@ class _TabStripState extends State<_TabStrip> {
                     // 一起收缩到 0，240ms 后由定时器从 _displayed 里移除。
                     child: AnimatedSize(
                       duration: closeMotionDuration,
-                      curve: Curves.easeInCubic,
+                      curve: kOpenHandSwitchOutCurve,
                       alignment: Alignment.centerLeft,
                       child: AnimatedOpacity(
                         duration: closeMotionDuration,
                         opacity: closing ? 0 : 1,
-                        curve: Curves.easeInCubic,
+                        curve: kOpenHandSwitchOutCurve,
                         child: AnimatedScale(
                           duration: closeMotionDuration,
                           scale: closing ? 0.6 : 1,
-                          curve: Curves.easeInCubic,
+                          curve: kOpenHandSwitchOutCurve,
                           alignment: Alignment.centerLeft,
                           child: closing
                               ? const SizedBox(width: 0, height: 0)
@@ -2653,7 +2653,7 @@ class _TabStripState extends State<_TabStrip> {
                                       context,
                                       kOpenHandMotion220,
                                     ),
-                                    curve: Curves.easeOutCubic,
+                                    curve: kOpenHandSwitchInCurve,
                                     decoration: BoxDecoration(
                                       color: active
                                           ? cs.primaryContainer
@@ -2748,7 +2748,7 @@ class _TabStripState extends State<_TabStrip> {
                                                         switchInCurve:
                                                             Curves.easeOutBack,
                                                         switchOutCurve:
-                                                            Curves.easeInCubic,
+                                                            kOpenHandSwitchOutCurve,
                                                         transitionBuilder: (child, animation) {
                                                           // Q 弹文本切换：fade + 轻微上推 + 缩放，
                                                           // 标题刷新（CDP `Page.frameNavigated` 后

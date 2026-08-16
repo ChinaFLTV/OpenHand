@@ -132,7 +132,7 @@ class _MachineExpertTerminalPanelState
       _terminalScrollController.animateTo(
         target,
         duration: kOpenHandMotion140,
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
       );
     });
   }
@@ -771,7 +771,7 @@ class _MachineTerminalHistoryDialogState
         context,
         kOpenHandMotion160,
       ),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       constraints: const BoxConstraints(minHeight: 56),
       decoration: BoxDecoration(
         color: active
@@ -1433,8 +1433,8 @@ class _MachineTerminalHistoryDetailDialogState
                 child: AnimatedSwitcher(
                   duration: openHandMotionDuration(context, kOpenHandMotion180,
                   ),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
+                  switchInCurve: kOpenHandSwitchInCurve,
+                  switchOutCurve: kOpenHandSwitchOutCurve,
                   child: KeyedSubtree(
                     key: ValueKey<_MachineTerminalHistoryView>(_selectedView),
                     child: _selectedView == _MachineTerminalHistoryView.commands
@@ -1980,7 +1980,7 @@ class _MachineTerminalTabs extends StatelessWidget {
             onTap: selected ? null : () => onSelected(terminal.terminalId),
             child: AnimatedContainer(
               duration: duration,
-              curve: Curves.easeOutCubic,
+              curve: kOpenHandSwitchInCurve,
               constraints: const BoxConstraints(minWidth: 96, maxWidth: 172),
               padding: EdgeInsets.only(left: 10, right: canCloseTabs ? 5 : 10),
               decoration: BoxDecoration(

@@ -318,7 +318,7 @@ class _OpenHandCleanupRangePresetPill extends StatelessWidget {
         onTap: onPressed,
         child: AnimatedContainer(
           duration: openHandMotionDuration(context, kOpenHandMotion180),
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           constraints: const BoxConstraints(minHeight: 42),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(

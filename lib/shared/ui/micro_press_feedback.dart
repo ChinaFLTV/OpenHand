@@ -111,7 +111,7 @@ class _MicroPressFeedbackState extends State<MicroPressFeedback>
       child: AnimatedBuilder(
         animation: _ctrl,
         builder: (context, child) {
-          final t = Curves.easeOutCubic.transform(_ctrl.value);
+          final t = kOpenHandSwitchInCurve.transform(_ctrl.value);
           final s = 1.0 - (1.0 - _safeScale) * t;
           return Transform.scale(scale: s, child: child);
         },

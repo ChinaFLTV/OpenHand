@@ -744,12 +744,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
           ),
           AnimatedSize(
             duration: duration,
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             alignment: Alignment.topCenter,
             child: AnimatedSwitcher(
               duration: duration,
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
+              switchInCurve: kOpenHandSwitchInCurve,
+              switchOutCurve: kOpenHandSwitchOutCurve,
               transitionBuilder: (child, animation) => FadeTransition(
                 opacity: animation,
                 child: SizeTransition(
@@ -1006,12 +1006,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
           );
     return AnimatedSize(
       duration: duration,
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       alignment: Alignment.topCenter,
       child: AnimatedSwitcher(
         duration: duration,
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
+        switchInCurve: kOpenHandSwitchInCurve,
+        switchOutCurve: kOpenHandSwitchOutCurve,
         transitionBuilder: (child, animation) {
           return FadeTransition(
             opacity: animation,
@@ -3969,8 +3969,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               kOpenHandGap4,
               AnimatedSwitcher(
                 duration: duration,
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
+                switchInCurve: kOpenHandSwitchInCurve,
+                switchOutCurve: kOpenHandSwitchOutCurve,
                 child: Text(
                   helperText,
                   key: ValueKey<bool>(_oneMillionContextEnabled),
@@ -4038,8 +4038,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               kOpenHandGap4,
               AnimatedSwitcher(
                 duration: duration,
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
+                switchInCurve: kOpenHandSwitchInCurve,
+                switchOutCurve: kOpenHandSwitchOutCurve,
                 child: Text(
                   helperText,
                   key: ValueKey<bool>(_thinkingEnabled),
@@ -4127,8 +4127,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   kOpenHandGap4,
                   AnimatedSwitcher(
                     duration: duration,
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
+                    switchInCurve: kOpenHandSwitchInCurve,
+                    switchOutCurve: kOpenHandSwitchOutCurve,
                     child: Text(
                       helperText,
                       key: ValueKey<String>(
@@ -4162,8 +4162,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         ),
         AnimatedSwitcher(
           duration: duration,
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
+          switchInCurve: kOpenHandSwitchInCurve,
+          switchOutCurve: kOpenHandSwitchOutCurve,
           transitionBuilder: (child, animation) {
             return SizeTransition(
               sizeFactor: animation,
@@ -4381,7 +4381,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         kOpenHandGap8,
         AnimatedSize(
           duration: duration,
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           alignment: Alignment.topCenter,
           child: _buildReasoningEffortOptionsList(),
         ),
@@ -4590,7 +4590,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     icon: AnimatedRotation(
                       turns: draft.expanded ? 0.5 : 0,
                       duration: openHandMotionDuration(context, kOpenHandMotion220),
-                      curve: Curves.easeOutCubic,
+                      curve: kOpenHandSwitchInCurve,
                       child: const Icon(Icons.keyboard_arrow_down_rounded),
                     ),
                     onPressed: () =>

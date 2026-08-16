@@ -1440,7 +1440,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                 kOpenHandMotion160,
               ),
               switchInCurve: Curves.easeOutBack,
-              switchOutCurve: Curves.easeInCubic,
+              switchOutCurve: kOpenHandSwitchOutCurve,
               transitionBuilder: (child, animation) => FadeTransition(
                 opacity: animation,
                 child: ScaleTransition(scale: animation, child: child),

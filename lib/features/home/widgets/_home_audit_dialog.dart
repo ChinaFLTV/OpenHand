@@ -123,7 +123,7 @@ const BorderRadius _auditShimmerRadius = kOpenHandBorderRadius6;
 const Duration _auditShellSizeDuration = kOpenHandMotion260;
 const Duration _auditToggleRotationDuration = kOpenHandMotion200;
 const Duration _auditContentSizeDuration = kOpenHandMotion220;
-const Curve _auditMotionCurve = Curves.easeInOutCubic;
+const Curve _auditMotionCurve = kOpenHandEmphasizedTransitionCurve;
 
 /// 审计字段的骨架占位：统一行高、圆角与扫光周期。
 Widget _auditShimmerLine({double? width}) {

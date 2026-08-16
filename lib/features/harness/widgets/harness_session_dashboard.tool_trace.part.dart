@@ -1,7 +1,7 @@
 part of 'harness_session_dashboard.dart';
 
 /// 工具轨迹展开 / 预览互换的时长与上滑幅度。
-const Duration _kToolTraceSwitchDuration = Duration(milliseconds: 240);
+const Duration _kToolTraceSwitchDuration = kOpenHandMotion240;
 const double _kToolTraceSlideOffsetY = 0.04;
 
 class _HeApiToolCallMeta {
@@ -646,7 +646,7 @@ class _HeStructuredToolSection extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           child: AnimatedSize(
             duration: openHandMotionDuration(context, kOpenHandMotion240),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             alignment: Alignment.topLeft,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

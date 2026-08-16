@@ -3243,7 +3243,7 @@ class _RtcTab extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: openHandMotionDuration(context, kOpenHandMotion220),
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
           color: selected

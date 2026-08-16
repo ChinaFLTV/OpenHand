@@ -6,12 +6,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../util/timer_safety.dart';
+import 'motion_durations.dart';
+import 'motion_preference.dart';
 import 'oh_pill.dart';
 
-const Duration _kStableScrollbarSettleDelay = Duration(milliseconds: 140);
-const Duration _kStableScrollbarSettleDuration = Duration(milliseconds: 180);
+const Duration _kStableScrollbarSettleDelay = kOpenHandMotion140;
+const Duration _kStableScrollbarSettleDuration = kOpenHandMotion180;
 const Duration _kStableScrollbarFadeDelay = Duration(milliseconds: 360);
-const Duration _kStableScrollbarFadeDuration = Duration(milliseconds: 240);
+const Duration _kStableScrollbarFadeDuration = kOpenHandMotion240;
 
 bool openHandPlatformUsesImplicitScrollbars(TargetPlatform platform) {
   switch (platform) {
@@ -305,7 +307,7 @@ class _OpenHandStableRawScrollbarState
   void _paintSettlingMetrics() {
     final metrics = _latestMetrics;
     if (metrics == null) return;
-    final t = Curves.easeOutCubic.transform(_settleController.value);
+    final t = kOpenHandSwitchInCurve.transform(_settleController.value);
     _displayMaxScrollExtent =
         _settleStartMaxScrollExtent +
         (_settleTargetMaxScrollExtent - _settleStartMaxScrollExtent) * t;

@@ -1110,7 +1110,7 @@ class _FileMutationCardRow extends StatelessWidget {
     );
     return AnimatedContainer(
       duration: rowStateDuration,
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       decoration: BoxDecoration(
         color: greyOut
             ? cs.surfaceContainerHighest.withValues(alpha: 0.32)
@@ -1297,7 +1297,7 @@ class _FileMutationCardRow extends StatelessWidget {
             ),
             AnimatedSize(
               duration: rowStateDuration,
-              curve: Curves.easeOutCubic,
+              curve: kOpenHandSwitchInCurve,
               alignment: Alignment.topCenter,
               child: expanded
                   ? _InlineDiffPanel(view: view)
@@ -1799,7 +1799,7 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
               children: [
                 AnimatedSize(
                   duration: openHandMotionDuration(context, kOpenHandMotion180),
-                  curve: Curves.easeOutCubic,
+                  curve: kOpenHandSwitchInCurve,
                   alignment: Alignment.topCenter,
                   child: _CodeLineViewport(
                     height: bodyHeight,
@@ -3201,7 +3201,7 @@ class _HoverElevateBoxState extends State<_HoverElevateBox>
       cursor: SystemMouseCursors.basic,
       child: AnimatedContainer(
         duration: dur,
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
         decoration: BoxDecoration(
           color: widget.baseColor,
           borderRadius: BorderRadius.circular(widget.radius),
@@ -4199,7 +4199,7 @@ class _RoundFileMutationSummaryCardState
 
     return AnimatedSize(
       duration: reduceMotion ? Duration.zero : kOpenHandMotion220,
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       alignment: Alignment.topCenter,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -4430,7 +4430,7 @@ class _RoundSummaryRowTile extends StatelessWidget {
           tile,
           AnimatedSize(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             alignment: Alignment.topCenter,
             child: isDiffExpanded
                 ? _DiffPreviewBox(

@@ -2385,8 +2385,8 @@ class _ElasticTransition extends StatelessWidget {
   Widget build(BuildContext context) {
     final opacity = openHandBoundedCurveAnimation(
       parent: animation,
-      curve: const Interval(0.0, 0.38, curve: Curves.easeOutCubic),
-      reverseCurve: const Interval(0.0, 1.0, curve: Curves.easeInCubic),
+      curve: const Interval(0.0, 0.38, curve: kOpenHandSwitchInCurve),
+      reverseCurve: const Interval(0.0, 1.0, curve: kOpenHandSwitchOutCurve),
     );
     final scaleMotion = openHandCurveAnimation(
       parent: animation,

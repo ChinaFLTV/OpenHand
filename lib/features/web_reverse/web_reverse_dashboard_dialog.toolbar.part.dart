@@ -1310,7 +1310,7 @@ class _ToolbarTabPill extends StatelessWidget {
       height: _kToolbarHeight,
       child: AnimatedContainer(
         duration: reduceMotion ? Duration.zero : kOpenHandMotion180,
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
         decoration: BoxDecoration(
           color: active ? cs.primaryContainer : Colors.transparent,
           borderRadius: BorderRadius.circular(_kToolbarRadius),
@@ -1481,7 +1481,7 @@ class _ToolbarTabDropdown extends StatelessWidget {
       ],
       child: AnimatedContainer(
         duration: reduceMotion ? Duration.zero : kOpenHandMotion180,
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
         height: _kToolbarHeight,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
@@ -1588,7 +1588,7 @@ class _ToolbarSearchFieldState extends State<_ToolbarSearchField> {
       height: _kToolbarHeight,
       child: AnimatedContainer(
         duration: reduceMotion ? Duration.zero : kOpenHandMotion180,
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
         decoration: BoxDecoration(
           color: _focused
               ? cs.surface
@@ -1612,7 +1612,7 @@ class _ToolbarSearchFieldState extends State<_ToolbarSearchField> {
           children: [
             AnimatedContainer(
               duration: reduceMotion ? Duration.zero : kOpenHandMotion180,
-              curve: Curves.easeOutCubic,
+              curve: kOpenHandSwitchInCurve,
               child: Icon(
                 Icons.search_rounded,
                 size: 16,
@@ -1710,7 +1710,7 @@ class _ToolbarTogglePill extends StatelessWidget {
       height: _kToolbarHeight,
       child: AnimatedContainer(
         duration: reduceMotion ? Duration.zero : kOpenHandMotion180,
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
         decoration: BoxDecoration(
           // 与全局主色保持一致：选中态用 primaryContainer
           // (而不是 secondaryContainer)，避免和会话顶部胶囊 / 设置项中

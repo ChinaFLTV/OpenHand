@@ -281,8 +281,8 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
             child: AnimatedSwitcher(
               duration: openHandMotionDuration(context, kOpenHandMotion220,
               ),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
+              switchInCurve: kOpenHandSwitchInCurve,
+              switchOutCurve: kOpenHandSwitchOutCurve,
               transitionBuilder: (child, animation) {
                 final offset = Tween<Offset>(
                   begin: const Offset(0.018, 0),
@@ -438,7 +438,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                 AnimatedSize(
                   duration: openHandMotionDuration(context, kOpenHandMotion220,
                   ),
-                  curve: Curves.easeOutCubic,
+                  curve: kOpenHandSwitchInCurve,
                   child: !_queryVisible
                       ? const SizedBox.shrink()
                       : Padding(
@@ -1000,10 +1000,10 @@ class _TelemetryTileState extends State<_TelemetryTile> {
         child: AnimatedScale(
           scale: _pressed ? 0.975 : 1,
           duration: duration,
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           child: AnimatedContainer(
             duration: duration,
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             constraints: const BoxConstraints(minHeight: 112),
             decoration: BoxDecoration(
               color: widget.color.withValues(alpha: highlighted ? 0.12 : 0.08),
@@ -1059,7 +1059,7 @@ class _TelemetryTileState extends State<_TelemetryTile> {
                                 ? Offset.zero
                                 : const Offset(-0.18, 0),
                             duration: duration,
-                            curve: Curves.easeOutCubic,
+                            curve: kOpenHandSwitchInCurve,
                             child: Icon(
                               Icons.chevron_right_rounded,
                               size: 19,

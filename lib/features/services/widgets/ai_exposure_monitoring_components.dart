@@ -1013,7 +1013,7 @@ class _TappableOpsCardState extends State<_TappableOpsCard> {
             child: AnimatedScale(
               scale: _pressed ? 0.975 : 1,
               duration: duration,
-              curve: Curves.easeOutCubic,
+              curve: kOpenHandSwitchInCurve,
               child: Stack(
                 children: [
                   widget.child,
@@ -1021,7 +1021,7 @@ class _TappableOpsCardState extends State<_TappableOpsCard> {
                     child: IgnorePointer(
                       child: AnimatedContainer(
                         duration: duration,
-                        curve: Curves.easeOutCubic,
+                        curve: kOpenHandSwitchInCurve,
                         decoration: BoxDecoration(
                           color: widget.color.withValues(
                             alpha: _pressed

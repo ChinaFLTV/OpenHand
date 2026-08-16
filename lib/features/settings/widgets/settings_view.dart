@@ -3413,7 +3413,7 @@ class _SettingsViewState extends State<SettingsView> {
                 duration: openHandMotionDuration(context, kOpenHandMotion260),
                 reverseDuration: openHandMotionDuration(context, kOpenHandMotion220),
                 switchInCurve: Curves.easeOutBack,
-                switchOutCurve: Curves.easeInCubic,
+                switchOutCurve: kOpenHandSwitchOutCurve,
                 transitionBuilder: (child, animation) {
                   return FadeTransition(
                     opacity: animation,
@@ -3422,7 +3422,7 @@ class _SettingsViewState extends State<SettingsView> {
                         CurvedAnimation(
                           parent: animation,
                           curve: Curves.easeOutBack,
-                          reverseCurve: Curves.easeInCubic,
+                          reverseCurve: kOpenHandSwitchOutCurve,
                         ),
                       ),
                       alignment: Alignment.topCenter,

@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import 'highlight_pulse.dart';
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'openhand_reveal_switcher.dart';
 
-const Duration _bodyRevealDuration = Duration(milliseconds: 220);
+const Duration _bodyRevealDuration = kOpenHandMotion220;
 const Duration _noticesRevealDuration = Duration(milliseconds: 300);
 
 class FeaturePageShell extends StatelessWidget {

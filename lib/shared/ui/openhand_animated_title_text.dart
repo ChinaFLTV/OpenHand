@@ -153,10 +153,10 @@ class _OpenHandAnimatedTitleTextState extends State<OpenHandAnimatedTitleText>
           final raw = openHandBoundedProgress(_controller.value);
           final incomingMotion = _incomingMotionCurve.transform(raw);
           final incomingOpacity = openHandBoundedProgress(
-            Curves.easeOutCubic.transform(raw),
+            kOpenHandSwitchInCurve.transform(raw),
           );
           final outgoing = openHandBoundedProgress(
-            Curves.easeInCubic.transform(raw),
+            kOpenHandSwitchOutCurve.transform(raw),
           );
           return Stack(
             alignment: AlignmentDirectional.centerStart,

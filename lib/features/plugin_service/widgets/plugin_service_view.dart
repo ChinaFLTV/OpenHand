@@ -42,7 +42,7 @@ const Duration _kToolchainVersionProbeTimeout = Duration(seconds: 5);
 const Duration _kToolchainListTimeout = Duration(seconds: 10);
 
 /// 日志追加后贴底动画的时长。
-const Duration _kLogFollowDuration = Duration(milliseconds: 200);
+const Duration _kLogFollowDuration = kOpenHandMotion200;
 
 const String _playwrightMcpPackage = '@playwright/mcp';
 const String _playwrightMcpServerName = 'Playwright MCP';
@@ -1440,8 +1440,8 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
             child: AnimatedSwitcher(
               duration: openHandMotionDuration(context, kOpenHandMotion220,
               ),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
+              switchInCurve: kOpenHandSwitchInCurve,
+              switchOutCurve: kOpenHandSwitchOutCurve,
               child: _loading
                   ? const Center(
                       key: ValueKey('plugin_detail_loading'),

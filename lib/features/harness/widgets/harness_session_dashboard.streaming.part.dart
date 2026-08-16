@@ -198,7 +198,7 @@ class _HeStreamingSubConversationState
                       AnimatedRotation(
                         turns: _showEarlierSegments ? 0.5 : 0,
                         duration: openHandMotionDuration(context, kOpenHandMotion220),
-                        curve: Curves.easeOutCubic,
+                        curve: kOpenHandSwitchInCurve,
                         child: Icon(
                           Icons.keyboard_arrow_down_rounded,
                           size: 16,
@@ -604,7 +604,7 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
                         AnimatedRotation(
                           turns: _expanded ? 0.5 : 0,
                           duration: openHandMotionDuration(context, kOpenHandMotion220),
-                          curve: Curves.easeOutCubic,
+                          curve: kOpenHandSwitchInCurve,
                           child: Icon(
                             Icons.keyboard_arrow_down_rounded,
                             color: cardText.withValues(alpha: 0.78),
@@ -648,7 +648,7 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
                         AnimatedRotation(
                           turns: _expanded ? 0.5 : 0,
                           duration: openHandMotionDuration(context, kOpenHandMotion220),
-                          curve: Curves.easeOutCubic,
+                          curve: kOpenHandSwitchInCurve,
                           child: Icon(
                             Icons.keyboard_arrow_down_rounded,
                             color: cardText.withValues(alpha: 0.50),

@@ -2394,7 +2394,7 @@ class _KnowledgeBaseConfigDialogState
           final duration = openHandMotionDurationMs(context, 180);
           return AnimatedContainer(
             duration: duration,
-            curve: Curves.easeOutCubic,
+            curve: kOpenHandSwitchInCurve,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: Color.alphaBlend(
@@ -2488,7 +2488,7 @@ class _KnowledgeBaseConfigDialogState
         : colorScheme.onSurfaceVariant;
     return AnimatedContainer(
       duration: openHandMotionDurationMs(context, 180),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color:
@@ -2831,12 +2831,12 @@ class _KnowledgeBaseConfigDialogState
     return _fullRow(
       AnimatedSize(
         duration: openHandMotionDurationMs(context, 240),
-        curve: Curves.easeOutCubic,
+        curve: kOpenHandSwitchInCurve,
         alignment: Alignment.topCenter,
         child: AnimatedSwitcher(
           duration: openHandMotionDurationMs(context, 220),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
+          switchInCurve: kOpenHandSwitchInCurve,
+          switchOutCurve: kOpenHandSwitchOutCurve,
           transitionBuilder: (child, animation) {
             return FadeTransition(
               opacity: animation,
@@ -3588,7 +3588,7 @@ class _KnowledgeBaseConfigDialogState
     final colorScheme = theme.colorScheme;
     return AnimatedContainer(
       duration: openHandMotionDurationMs(context, 180),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color:
@@ -3885,8 +3885,8 @@ class _KnowledgeBaseConfigDialogState
             alignment: Alignment.topCenter,
             child: AnimatedSwitcher(
               duration: openHandMotionDuration(context, kOpenHandMotion220),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
+              switchInCurve: kOpenHandSwitchInCurve,
+              switchOutCurve: kOpenHandSwitchOutCurve,
               transitionBuilder: (child, animation) {
                 return FadeTransition(
                   opacity: animation,
@@ -4067,8 +4067,8 @@ class _KnowledgeBaseConfigDialogState
         child: AnimatedSwitcher(
           duration: openHandMotionDuration(context, kOpenHandMotion220,
           ),
-          switchInCurve: Curves.easeOutCubic,
-          switchOutCurve: Curves.easeInCubic,
+          switchInCurve: kOpenHandSwitchInCurve,
+          switchOutCurve: kOpenHandSwitchOutCurve,
           transitionBuilder: (child, animation) {
             return FadeTransition(
               opacity: animation,

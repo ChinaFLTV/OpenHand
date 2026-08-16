@@ -899,7 +899,7 @@ class _EditorLspLanguageRowState extends State<_EditorLspLanguageRow> {
                     AnimatedSlide(
                       offset: Offset(_hovered && motionEnabled ? 0.18 : 0, 0),
                       duration: openHandMotionDuration(context, kOpenHandMotion180),
-                      curve: Curves.easeOutCubic,
+                      curve: kOpenHandSwitchInCurve,
                       child: Icon(
                         Icons.chevron_right_rounded,
                         color: colorScheme.onSurfaceVariant,

@@ -162,8 +162,6 @@ const EdgeInsets _kDashboardDialogInsetPadding = EdgeInsets.all(24);
 const Duration _kSwitchDuration = kOpenHandMotion220;
 const Duration _kDevToolsDiscoveryTimeout = Duration(seconds: 3);
 const int _kDevToolsDiscoveryMaxResponseBytes = 4 * kBytesPerMiB;
-const Curve _kSwitchInCurve = Curves.easeOutCubic;
-const Curve _kSwitchOutCurve = Curves.easeInCubic;
 
 
 bool _wrMotionEnabled(BuildContext context) {
@@ -415,7 +413,7 @@ class _DashboardScriptResultPreview extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return AnimatedSize(
       duration: _wrMotionEnabled(context) ? _kSwitchDuration : Duration.zero,
-      curve: _kSwitchInCurve,
+      curve: kOpenHandSwitchInCurve,
       child: text == null
           ? const SizedBox.shrink()
           : Padding(
@@ -547,7 +545,7 @@ class _DashboardScriptWorkspace extends StatelessWidget {
               duration: _wrMotionEnabled(context)
                   ? _kSwitchDuration
                   : Duration.zero,
-              curve: _kSwitchInCurve,
+              curve: kOpenHandSwitchInCurve,
               decoration: paneDecoration,
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
               child:
@@ -612,7 +610,7 @@ class _DashboardToggleTileState extends State<_DashboardToggleTile>
           duration: _wrMotionEnabled(context)
               ? kOpenHandMotion160
               : Duration.zero,
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           margin: const EdgeInsets.symmetric(horizontal: 6),
           padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
           decoration: BoxDecoration(
@@ -1536,12 +1534,12 @@ class _WebReverseDashboardDialogState
             Divider(height: 1, color: cs.outlineVariant),
             AnimatedSize(
               duration: reduceMotion ? Duration.zero : _kSwitchDuration,
-              curve: _kSwitchInCurve,
+              curve: kOpenHandSwitchInCurve,
               alignment: Alignment.topCenter,
               child: AnimatedSwitcher(
                 duration: reduceMotion ? Duration.zero : _kSwitchDuration,
-                switchInCurve: _kSwitchInCurve,
-                switchOutCurve: _kSwitchOutCurve,
+                switchInCurve: kOpenHandSwitchInCurve,
+                switchOutCurve: kOpenHandSwitchOutCurve,
                 transitionBuilder: (child, animation) => FadeTransition(
                   opacity: animation,
                   child: SizeTransition(
@@ -1566,8 +1564,8 @@ class _WebReverseDashboardDialogState
             Expanded(
               child: AnimatedSwitcher(
                 duration: reduceMotion ? Duration.zero : _kSwitchDuration,
-                switchInCurve: _kSwitchInCurve,
-                switchOutCurve: _kSwitchOutCurve,
+                switchInCurve: kOpenHandSwitchInCurve,
+                switchOutCurve: kOpenHandSwitchOutCurve,
                 transitionBuilder: (child, animation) => FadeTransition(
                   opacity: animation,
                   child: SlideTransition(
@@ -2101,7 +2099,7 @@ class _CdpMcpBridgeToggle extends StatelessWidget {
       waitDuration: kOpenHandTooltipWait,
       child: AnimatedContainer(
         duration: reduceMotion ? Duration.zero : _kSwitchDuration,
-        curve: _kSwitchInCurve,
+        curve: kOpenHandSwitchInCurve,
         height: 32,
         padding: const EdgeInsets.only(left: 10, right: 4),
         decoration: BoxDecoration(
@@ -2199,7 +2197,7 @@ class _CdpMcpBridgeStatusPill extends StatelessWidget {
       waitDuration: kOpenHandTooltipWait,
       child: AnimatedContainer(
         duration: reduceMotion ? Duration.zero : _kSwitchDuration,
-        curve: _kSwitchInCurve,
+        curve: kOpenHandSwitchInCurve,
         height: 32,
         constraints: const BoxConstraints(maxWidth: 210),
         padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -2778,7 +2776,7 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner>
     );
     return AnimatedSize(
       duration: widget.reduceMotion ? Duration.zero : kOpenHandMotion240,
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       alignment: Alignment.topCenter,
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 10, 16, 4),

@@ -10944,7 +10944,7 @@ class _AgentEditorPanel extends StatelessWidget {
     final colors = theme.colorScheme;
     return AnimatedContainer(
       duration: openHandMotionDuration(context, kThemeAnimationDuration),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withValues(alpha: 0.34),
@@ -11434,7 +11434,7 @@ class _AgentDraggableChipBody extends StatelessWidget {
                   context,
                   kThemeAnimationDuration,
                 ),
-                curve: Curves.easeOutCubic,
+                curve: kOpenHandSwitchInCurve,
                 decoration: BoxDecoration(
                   color: dragging
                       ? colors.surfaceContainerHighest
@@ -11918,7 +11918,7 @@ class _AgentCapabilityChoiceChipState
 
     final chip = AnimatedScale(
       duration: duration,
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       scale: scale,
       child: ConstrainedBox(
         constraints: const BoxConstraints(
@@ -11927,7 +11927,7 @@ class _AgentCapabilityChoiceChipState
         ),
         child: AnimatedContainer(
           duration: duration,
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           padding: _agentCapabilityChipPadding,
           decoration: BoxDecoration(
             color: background,
@@ -12042,7 +12042,7 @@ class _AgentCapabilityChipIconSlot extends StatelessWidget {
         alignment: AlignmentDirectional.centerStart,
         child: AnimatedOpacity(
           duration: duration,
-          curve: Curves.easeOutCubic,
+          curve: kOpenHandSwitchInCurve,
           opacity: icon == null ? 0 : 1,
           child: Icon(icon ?? Icons.check_rounded, size: 17, color: color),
         ),
@@ -12436,7 +12436,7 @@ class _AgentNumberStepperButtonState extends State<_AgentNumberStepperButton> {
             enabled: widget.enabled,
             child: AnimatedScale(
               duration: duration,
-              curve: Curves.easeOutCubic,
+              curve: kOpenHandSwitchInCurve,
               scale: scale,
               child: Material(
                 color: Colors.transparent,
@@ -12447,7 +12447,7 @@ class _AgentNumberStepperButtonState extends State<_AgentNumberStepperButton> {
                   onTap: widget.enabled ? widget.onPressed : null,
                   child: AnimatedContainer(
                     duration: duration,
-                    curve: Curves.easeOutCubic,
+                    curve: kOpenHandSwitchInCurve,
                     width: _agentNumberStepperButtonExtent,
                     height: _agentNumberStepperButtonExtent,
                     decoration: BoxDecoration(
@@ -12866,7 +12866,7 @@ class _AgentRoutePreviewCard extends StatelessWidget {
           );
     return AnimatedContainer(
       duration: openHandMotionDuration(context, kThemeAnimationDuration),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isActive

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 
 /// 预览弹窗复用的图片交互层，支持触控缩放、平移和桌面触控板手势。
@@ -23,8 +24,8 @@ class OpenHandInteractiveImagePreview extends StatefulWidget {
 class _OpenHandInteractiveImagePreviewState
     extends State<OpenHandInteractiveImagePreview>
     with SingleTickerProviderStateMixin {
-  static const Duration _kResetDuration = Duration(milliseconds: 180);
-  static const Curve _kResetCurve = Curves.easeOutCubic;
+  static const Duration _kResetDuration = kOpenHandMotion180;
+  static const Curve _kResetCurve = kOpenHandSwitchInCurve;
 
   late final TransformationController _controller = TransformationController();
   AnimationController? _resetController;

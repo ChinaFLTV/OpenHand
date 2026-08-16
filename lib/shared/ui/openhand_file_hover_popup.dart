@@ -18,7 +18,7 @@ const double _popupVerticalGap = 6;
 const Duration _contentResizeDuration = kOpenHandMotion200;
 const Duration _contentSwitchDuration = kOpenHandMotion220;
 const Duration _fileStatTimeout = Duration(seconds: 2);
-const Curve _contentMotionCurve = Curves.easeOutCubic;
+const Curve _contentMotionCurve = kOpenHandSwitchInCurve;
 
 class OpenHandFileHoverPopup extends StatefulWidget {
   const OpenHandFileHoverPopup({
@@ -231,7 +231,7 @@ class _OpenHandFileHoverPopupState extends State<OpenHandFileHoverPopup> {
       child: AnimatedSwitcher(
         duration: openHandMotionDuration(context, _contentSwitchDuration),
         switchInCurve: _contentMotionCurve,
-        switchOutCurve: Curves.easeInCubic,
+        switchOutCurve: kOpenHandSwitchOutCurve,
         child: stat == null && !snapshot.hasError
             ? const SizedBox(
                 key: ValueKey<String>('loading'),

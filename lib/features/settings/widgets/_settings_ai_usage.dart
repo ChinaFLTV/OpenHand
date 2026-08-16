@@ -318,7 +318,7 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
               icon: AnimatedRotation(
                 turns: _loading ? 1 : 0,
                 duration: openHandMotionDuration(context, const Duration(milliseconds: 520)),
-                curve: Curves.easeOutCubic,
+                curve: kOpenHandSwitchInCurve,
                 child: const Icon(Icons.refresh_rounded),
               ),
             ),
@@ -1285,7 +1285,7 @@ class _AiUsageDistributionCardState extends State<_AiUsageDistributionCard> {
     return AnimatedSize(
       alignment: Alignment.topCenter,
       duration: openHandMotionDuration(context, kOpenHandMotion280),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       child: SizedBox(
         height: _kAiUsageDistributionChromeHeight + bodyHeight,
         child: DecoratedBox(
@@ -1431,7 +1431,7 @@ class _AiUsageDistributionCardState extends State<_AiUsageDistributionCard> {
                   end: widget.progressValue(item).clamp(0, 1),
                 ),
                 duration: openHandMotionDuration(context, kOpenHandMotion420),
-                curve: Curves.easeOutCubic,
+                curve: kOpenHandSwitchInCurve,
                 builder: (context, progress, _) => ClipRRect(
                   borderRadius: kOpenHandPillBorderRadius,
                   child: SizedBox(
@@ -1661,20 +1661,20 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
       top: 8,
       width: tooltipWidth,
       duration: openHandMotionDuration(context, const Duration(milliseconds: 170)),
-      curve: Curves.easeOutCubic,
+      curve: kOpenHandSwitchInCurve,
       child: IgnorePointer(
         child: AnimatedOpacity(
           opacity: _tooltipVisible ? 1 : 0,
           duration: duration,
-          curve: _tooltipVisible ? Curves.easeOutCubic : Curves.easeInCubic,
+          curve: _tooltipVisible ? kOpenHandSwitchInCurve : kOpenHandSwitchOutCurve,
           child: AnimatedSlide(
             offset: _tooltipVisible ? Offset.zero : const Offset(0, 0.08),
             duration: duration,
-            curve: _tooltipVisible ? Curves.easeOutBack : Curves.easeInCubic,
+            curve: _tooltipVisible ? Curves.easeOutBack : kOpenHandSwitchOutCurve,
             child: AnimatedScale(
               scale: _tooltipVisible ? 1 : 0.9,
               duration: duration,
-              curve: _tooltipVisible ? Curves.easeOutBack : Curves.easeInCubic,
+              curve: _tooltipVisible ? Curves.easeOutBack : kOpenHandSwitchOutCurve,
               alignment: Alignment.topCenter,
               child: Material(
                 elevation: 8,
@@ -3633,7 +3633,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
                           duration: selectionDuration,
                           curve: isSelected
                               ? Curves.easeOutBack
-                              : Curves.easeInCubic,
+                              : kOpenHandSwitchOutCurve,
                           child: AnimatedOpacity(
                             opacity: isSelected ? 1 : 0,
                             duration: selectionDuration,

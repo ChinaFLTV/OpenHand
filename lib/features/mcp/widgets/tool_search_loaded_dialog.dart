@@ -1294,7 +1294,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                     turns: expanded ? 0.5 : 0,
                     duration: openHandMotionDuration(context, kOpenHandMotion180,
                     ),
-                    curve: Curves.easeOutCubic,
+                    curve: kOpenHandSwitchInCurve,
                     child: const Icon(Icons.expand_more_rounded, size: 19),
                   ),
                 ),
