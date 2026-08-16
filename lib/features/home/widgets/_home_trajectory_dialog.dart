@@ -831,7 +831,10 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
     _searchController.addListener(_onSearchChanged);
     _ledgerScrollController.addListener(_onLedgerScroll);
     widget.controller.addListener(_onControllerChanged);
-    unawaited(_loadInitialWindow());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_loadInitialWindow());
+    });
   }
 
   @override
@@ -850,11 +853,23 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
   }
 
   Future<void> _loadInitialWindow() async {
-    final loaded = await widget.controller.ensureSessionMessageWindowHydrated(
+    AiSession? loaded;
+    var failed = false;
+    try {
+      loaded = await widget.controller.ensureSessionMessageWindowHydrated(
+        _session.id,
+      );
+    } catch (error, stack) {
+      failed = true;
+      silentLog('home_trajectory_dialog', '加载轨迹消息窗口', error, stack);
+    }
+    if (!mounted) return;
+    final controllerError = widget.controller.sessionMessageWindowLoadErrorFor(
       _session.id,
     );
-    if (!mounted) return;
-    final effective = loaded ?? widget.controller.sessionById(_session.id);
+    final effective = failed || controllerError != null
+        ? null
+        : loaded ?? widget.controller.sessionById(_session.id);
     setState(() {
       _loadingInitial = false;
       if (effective == null) {
