@@ -209,7 +209,7 @@ class DingTalkMessageGatewayService {
   static const int _maxMediaCacheBytes = kBytesPerGiB;
   static const int _maxMediaFileBytes = 512 * kBytesPerMiB;
   static const int _maxAuthOutputLines = 256;
-  static const int _maxAuthOutputCharacters = 32 * 1024;
+  static const int _maxAuthOutputCharacters = 32 * kBytesPerKiB;
   static const Duration _transientMediaFailureCooldown = Duration(minutes: 10);
   // 媒体资源一旦被钉钉明确判定不存在，在当前进程内短期内不会恢复。
   // 设定 TTL 和容量上限，既避免无效资源无限重试，也避免负缓存无限增长。

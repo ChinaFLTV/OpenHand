@@ -6,10 +6,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../util/byte_size_format.dart';
 import '../util/input_value_parsing.dart';
 import 'motion_preference.dart';
 
-const int _kStreamingTextRevealMaxLength = 32 * 1024;
+const int _kStreamingTextRevealMaxLength = 32 * kBytesPerKiB;
 
 class _StreamingTextFadeMask extends StatefulWidget {
   const _StreamingTextFadeMask({

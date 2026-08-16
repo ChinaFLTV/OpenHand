@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../util/byte_size_format.dart';
 import '../util/input_value_parsing.dart';
 
 /// Lightweight ANSI SGR (Select Graphic Rendition) parser that turns terminal
@@ -105,7 +106,7 @@ Widget ansiText(
   return Text.rich(rootSpan);
 }
 
-const int _maxParseChars = 200 * 1024;
+const int _maxParseChars = 200 * kBytesPerKiB;
 
 int _findCsiEnd(String input, int start) {
   for (var i = start; i < input.length; i++) {

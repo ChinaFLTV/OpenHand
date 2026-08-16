@@ -16,6 +16,7 @@ import '../../../app/support/system_proxy.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/hex_encoding.dart';
 import 'ai_jungler_client.dart';
 
@@ -26,7 +27,7 @@ const Duration _kAiJunglerCleanupTimeout = Duration(seconds: 5);
 const Duration _kAiJunglerStdinTimeout = Duration(seconds: 2);
 const Duration _kAiJunglerFileIoTimeout = Duration(seconds: 3);
 const Duration _kAiJunglerFileReadTimeout = Duration(seconds: 15);
-const int _kAiJunglerMaxLogLineCharacters = 16 * 1024;
+const int _kAiJunglerMaxLogLineCharacters = 16 * kBytesPerKiB;
 const String _kAiJunglerExecutableName = 'ai_jungler';
 
 class AiJunglerRuntime {

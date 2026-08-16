@@ -4153,7 +4153,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     'blocked',
   };
   static const int _maxDingTalkEchoCharacters = 12000;
-  static const int _maxDingTalkStructuredCharacters = 256 * 1024;
+  static const int _maxDingTalkStructuredCharacters = 256 * kBytesPerKiB;
   static const int _maxDingTalkToolLabelCharacters = 512;
   static const int _maxDingTalkInlineFieldCharacters = 48;
   static const int _maxDingTalkStructuredDepth = 12;

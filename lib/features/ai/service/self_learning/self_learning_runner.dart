@@ -13,10 +13,10 @@ import '../../ai_session_controller.dart';
 import '../../model/ai_session.dart';
 import '../../model/ai_session_message.dart';
 
-const int _selfLearningProfileMaxCharacters = 8 * 1024;
-const int _selfLearningHistoryMaxCharacters = 16 * 1024;
+const int _selfLearningProfileMaxCharacters = 8 * kBytesPerKiB;
+const int _selfLearningHistoryMaxCharacters = 16 * kBytesPerKiB;
 const int _selfLearningHistoryMaxEntries = 64;
-const int _selfLearningHistoryEntryMaxCharacters = 2 * 1024;
+const int _selfLearningHistoryEntryMaxCharacters = 2 * kBytesPerKiB;
 const int _selfLearningConversationMaxMessages = 48;
 const int _selfLearningConversationMessageMaxCharacters = 4 * kBytesPerKiB;
 const String _selfLearningProfileTruncatedWarning = '[画像已截断：本轮禁止修改或删除画像。]';
