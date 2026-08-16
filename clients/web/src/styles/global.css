@@ -10290,6 +10290,105 @@ button.oh-composer-pill:not(:disabled):hover {
   background: color-mix(in srgb, var(--m3-error-container) 48%, var(--m3-surface));
 }
 
+.oh-trajectory-throughput-chart {
+  margin-top: 12px;
+  padding: 11px 12px 10px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 72%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--m3-surface-container) 78%, transparent);
+}
+
+.oh-trajectory-throughput-chart > header {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.oh-trajectory-throughput-chart > header strong {
+  min-width: 0;
+  flex: 1;
+  color: var(--m3-on-surface);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.oh-trajectory-throughput-chart > header small {
+  margin-left: auto;
+  color: var(--m3-on-surface-variant);
+  font-size: 9px;
+  text-align: right;
+}
+
+.oh-trajectory-throughput-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+  margin-top: 7px;
+  color: var(--m3-on-surface-variant);
+  font-size: 9px;
+}
+
+.oh-trajectory-throughput-legend span {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+}
+
+.oh-trajectory-throughput-legend i {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--m3-primary);
+}
+
+.oh-trajectory-throughput-legend span[data-series="tokens"] i {
+  background: var(--m3-tertiary);
+}
+
+.oh-trajectory-throughput-chart svg {
+  display: block;
+  width: 100%;
+  height: 132px;
+  margin-top: 8px;
+  overflow: visible;
+}
+
+.oh-trajectory-throughput-chart svg line {
+  stroke: color-mix(in srgb, var(--m3-outline-variant) 58%, transparent);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.oh-trajectory-throughput-chart svg path,
+.oh-trajectory-throughput-chart svg circle {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.oh-trajectory-throughput-chart svg .is-area {
+  fill: color-mix(in srgb, var(--m3-primary) 18%, transparent);
+  stroke: none;
+}
+
+.oh-trajectory-throughput-chart svg .is-characters {
+  fill: var(--m3-primary);
+  stroke: var(--m3-primary);
+  stroke-width: 2.2;
+}
+
+.oh-trajectory-throughput-chart svg .is-tokens {
+  fill: var(--m3-tertiary);
+  stroke: var(--m3-tertiary);
+  stroke-width: 1.35;
+}
+
 .oh-trajectory-detail-text {
   margin: 0;
   color: var(--m3-on-surface);

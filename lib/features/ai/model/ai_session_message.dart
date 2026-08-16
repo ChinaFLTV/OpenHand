@@ -79,6 +79,24 @@ const String aiSessionMessageUsageEstimatedMetadataKey = 'usage_estimated';
 const String aiSessionMessageToolCallIdMetadataKey = 'tool_call_id';
 const String aiSessionMessageTelemetryInFlightMetadataKey =
     'telemetry_in_flight';
+const String aiSessionMessageRequestStartedAtMetadataKey = 'request_started_at';
+const String aiSessionMessageFirstTokenAtMetadataKey = 'first_token_at';
+const String aiSessionMessageRequestEndedAtMetadataKey = 'ended_at';
+const String aiSessionMessageGenerationEndedAtMetadataKey =
+    'generation_finished_at';
+const String aiSessionMessageTotalDurationMsMetadataKey = 'total_duration_ms';
+const String aiSessionMessageTtftMsMetadataKey = 'ttft_ms';
+const String aiSessionMessageGenerationDurationMsMetadataKey =
+    'generation_duration_ms';
+const String aiSessionMessageTokensPerSecondMetadataKey = 'tokens_per_second';
+const String aiSessionMessageOutputCharactersMetadataKey = 'output_characters';
+const String aiSessionMessageCharactersPerSecondMetadataKey =
+    'characters_per_second';
+const String aiSessionMessageStreamEventCountMetadataKey = 'stream_event_count';
+const String aiSessionMessageStreamThroughputSamplesMetadataKey =
+    'stream_throughput_chars_per_second';
+const String aiSessionMessageStreamThroughputIntervalMetadataKey =
+    'stream_throughput_sample_interval_ms';
 const String aiSessionMessageTruncatedPlaceholder = '<已截断>';
 const String aiSessionMessageDeferredTelemetryMetadataKey =
     '_openhand_deferred_telemetry';
@@ -90,6 +108,7 @@ const List<String> aiSessionMessageDeferredTelemetryMetadataKeys = <String>[
   'composed_prompt_turns',
   'composed_prompt_text',
   'prompt_metadata',
+  aiSessionMessageStreamThroughputSamplesMetadataKey,
 ];
 final Set<String> _aiSessionMessageDeferredTelemetryMetadataKeySet =
     aiSessionMessageDeferredTelemetryMetadataKeys.toSet();

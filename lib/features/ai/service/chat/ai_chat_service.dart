@@ -245,8 +245,13 @@ class AiChatStreamResult {
     this.requestHeaders,
     this.requestBody,
     this.startedAt,
+    this.firstTokenAt,
     this.endedAt,
     this.durationMs,
+    this.streamEventCount = 0,
+    this.textDeltaCount = 0,
+    this.reasoningDeltaCount = 0,
+    this.toolCallDeltaCount = 0,
     this.requestFallbacks = const <String>[],
   });
 
@@ -261,9 +266,47 @@ class AiChatStreamResult {
   final Map<String, String>? requestHeaders;
   final Map<String, Object?>? requestBody;
   final DateTime? startedAt;
+  final DateTime? firstTokenAt;
   final DateTime? endedAt;
   final int? durationMs;
+  final int streamEventCount;
+  final int textDeltaCount;
+  final int reasoningDeltaCount;
+  final int toolCallDeltaCount;
   final List<String> requestFallbacks;
+
+  AiChatStreamResult withStreamObservability({
+    required DateTime startedAt,
+    required DateTime endedAt,
+    required DateTime? firstTokenAt,
+    required int streamEventCount,
+    required int textDeltaCount,
+    required int reasoningDeltaCount,
+    required int toolCallDeltaCount,
+  }) {
+    return AiChatStreamResult(
+      reply: reply,
+      reasoning: reasoning,
+      toolCalls: toolCalls,
+      wasCancelled: wasCancelled,
+      usage: usage,
+      rawResponse: rawResponse,
+      finishReason: finishReason,
+      requestUrl: requestUrl,
+      requestMethod: requestMethod,
+      requestHeaders: requestHeaders,
+      requestBody: requestBody,
+      startedAt: startedAt,
+      firstTokenAt: firstTokenAt,
+      endedAt: endedAt,
+      durationMs: endedAt.difference(startedAt).inMilliseconds,
+      streamEventCount: streamEventCount,
+      textDeltaCount: textDeltaCount,
+      reasoningDeltaCount: reasoningDeltaCount,
+      toolCallDeltaCount: toolCallDeltaCount,
+      requestFallbacks: requestFallbacks,
+    );
+  }
 
   /// 模型停止生成的原因。
   ///
@@ -1164,23 +1207,48 @@ class AiChatService implements AiChatClient {
       _finishRequest(requestAbort);
       rethrow;
     }
-    int? firstTokenMs;
+    DateTime? firstTokenAt;
+    var streamEventCount = 0;
+    var textDeltaCount = 0;
+    var reasoningDeltaCount = 0;
+    var toolCallDeltaCount = 0;
     final events = response.events.map((event) {
-      if (firstTokenMs == null &&
-          (event.type == AiChatStreamEventType.textDelta ||
-              event.type == AiChatStreamEventType.reasoningDelta ||
-              event.type == AiChatStreamEventType.toolCallDelta)) {
-        firstTokenMs = DateTime.now()
-            .toUtc()
-            .difference(startedAt)
-            .inMilliseconds;
+      final hasOutput = switch (event.type) {
+        AiChatStreamEventType.textDelta => event.textDelta?.isNotEmpty == true,
+        AiChatStreamEventType.reasoningDelta =>
+          event.reasoningDelta?.isNotEmpty == true,
+        AiChatStreamEventType.toolCallDelta => event.toolCallDelta != null,
+        AiChatStreamEventType.usage => false,
+      };
+      if (hasOutput) {
+        firstTokenAt ??= DateTime.now().toUtc();
+        streamEventCount += 1;
+        switch (event.type) {
+          case AiChatStreamEventType.textDelta:
+            textDeltaCount += 1;
+          case AiChatStreamEventType.reasoningDelta:
+            reasoningDeltaCount += 1;
+          case AiChatStreamEventType.toolCallDelta:
+            toolCallDeltaCount += 1;
+          case AiChatStreamEventType.usage:
+            break;
+        }
       }
       return event;
     });
     final result = response.result.then<AiChatStreamResult>(
       (value) {
         final endedAt = DateTime.now().toUtc();
-        if (value.wasCancelled) {
+        final observedValue = value.withStreamObservability(
+          startedAt: startedAt,
+          endedAt: endedAt,
+          firstTokenAt: firstTokenAt,
+          streamEventCount: streamEventCount,
+          textDeltaCount: textDeltaCount,
+          reasoningDeltaCount: reasoningDeltaCount,
+          toolCallDeltaCount: toolCallDeltaCount,
+        );
+        if (observedValue.wasCancelled) {
           AiUsageTracker.instance.recordFailure(
             model: model,
             apiFamily: _usageApiFamily(
@@ -1189,7 +1257,7 @@ class AiChatService implements AiChatClient {
               tools: tools,
               responseModalities: responseModalities,
               request: creationRequest,
-              requestFallbacks: value.requestFallbacks,
+              requestFallbacks: observedValue.requestFallbacks,
             ),
             startedAt: startedAt,
             endedAt: endedAt,
@@ -1206,11 +1274,11 @@ class AiChatService implements AiChatClient {
               tools: tools,
               responseModalities: responseModalities,
               request: creationRequest,
-              requestFallbacks: value.requestFallbacks,
+              requestFallbacks: observedValue.requestFallbacks,
             ),
             startedAt: startedAt,
             endedAt: endedAt,
-            firstTokenMs: firstTokenMs,
+            firstTokenMs: firstTokenAt?.difference(startedAt).inMilliseconds,
             inputCharacters: _requestCharacterCount(
               messages,
               tools,
@@ -1218,19 +1286,20 @@ class AiChatService implements AiChatClient {
               creationRequest: creationRequest,
             ),
             outputCharacters: _streamResultCharacterCount(
-              value,
+              observedValue,
               model: model,
               creationRequest: creationRequest,
             ),
-            usage: value.usage,
+            usage: observedValue.usage,
             metadata: <String, Object?>{
               'streaming': true,
-              'finish_reason': value.finishReason,
-              'request_fallback_count': value.requestFallbacks.length,
+              'finish_reason': observedValue.finishReason,
+              'request_fallback_count': observedValue.requestFallbacks.length,
+              'stream_event_count': observedValue.streamEventCount,
             },
           );
         }
-        return value;
+        return observedValue;
       },
       onError: (Object error, StackTrace stack) {
         AiUsageTracker.instance.recordFailure(

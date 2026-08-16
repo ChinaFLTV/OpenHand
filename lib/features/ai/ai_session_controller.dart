@@ -7438,6 +7438,7 @@ class AiSessionController extends ChangeNotifier {
       preRequestTimingsMs['assistant_pre_request_elapsed'] =
           assistantBootstrapStopwatch.elapsedMilliseconds;
       var preStreamTelemetryPreviewed = false;
+      final responseLifecycleStartedAt = _clock().toUtc();
       final telemetryAnchorMessageId =
           activeLatestUserMessageId ?? activeRoundAnchorMessageId;
       if (telemetryAnchorMessageId != null) {
@@ -7591,10 +7592,27 @@ class AiSessionController extends ChangeNotifier {
       String? assistantMessageId;
       String? reasoningMessageId;
       DateTime? reasoningStartedAt;
+      DateTime? observedFirstTokenAt;
       AiTokenUsage? streamedUsage;
+      var observedStreamEventCount = 0;
+      var observedTextDeltaCount = 0;
+      var observedReasoningDeltaCount = 0;
+      var observedToolCallDeltaCount = 0;
       final toolCallMessageIds = <int, String>{};
       // 记录 DSML 调用 ID 与预览消息 ID，避免流式增量创建重复卡片。
       final partialDsmlPreviewMessageIds = <String, String>{};
+      Set<String> responseTelemetryTargetIds() {
+        final targetMessageId = assistantMessageId ??
+            reasoningMessageId ??
+            (toolCallMessageIds.isEmpty
+                ? null
+                : toolCallMessageIds.values.first) ??
+            (partialDsmlPreviewMessageIds.isEmpty
+                ? null
+                : partialDsmlPreviewMessageIds.values.first);
+        return <String>{if (targetMessageId != null) targetMessageId};
+      }
+
       final assistantRawBuffer = StringBuffer();
       final reasoningRawBuffer = StringBuffer();
       final assistantSanitizedMemo = _StreamSanitizedBufferMemo();
@@ -8136,6 +8154,9 @@ class AiSessionController extends ChangeNotifier {
             if (delta.isEmpty) {
               return;
             }
+            observedFirstTokenAt ??= _clock().toUtc();
+            observedStreamEventCount += 1;
+            observedTextDeltaCount += 1;
             aiThroughputSampler.recordText(delta);
             assistantRawBuffer.write(delta);
             // 增量探测必须先于任何 early-return，保证跨 delta 拆开的标记
@@ -8247,6 +8268,9 @@ class AiSessionController extends ChangeNotifier {
             if (delta.isEmpty) {
               return;
             }
+            observedFirstTokenAt ??= _clock().toUtc();
+            observedStreamEventCount += 1;
+            observedReasoningDeltaCount += 1;
             reasoningStartedAt ??= _clock().toUtc();
             aiThroughputSampler.recordText(delta);
             reasoningRawBuffer.write(delta);
@@ -8275,6 +8299,9 @@ class AiSessionController extends ChangeNotifier {
             if (delta == null) {
               return;
             }
+            observedFirstTokenAt ??= _clock().toUtc();
+            observedStreamEventCount += 1;
+            observedToolCallDeltaCount += 1;
             aiThroughputSampler.recordText(delta.argumentsFragment);
             // 卡片限速：如果这是该 index 的首次出现且无可用令牌，
             // 直接丢弃本次 UI 追加（raw 数据无丢失：下一次 delta 会
@@ -8391,6 +8418,8 @@ class AiSessionController extends ChangeNotifier {
 
       final eventDrain = subscription.asFuture<void>();
       late final AiChatStreamResult result;
+      late final ({List<int> samples, int intervalMs}) responseThroughputSeries;
+      late final int responseOutputCharacters;
       try {
         result = await streamResponse.result;
         try {
@@ -8403,7 +8432,12 @@ class AiSessionController extends ChangeNotifier {
           );
           flushPreview();
         }
+        responseThroughputSeries = aiThroughputSampler.persistentSeries();
+        responseOutputCharacters = aiThroughputSampler.totalGraphemes;
       } catch (error) {
+        final responseFailedAt = _clock().toUtc();
+        final failedThroughputSeries = aiThroughputSampler.persistentSeries();
+        final failedOutputCharacters = aiThroughputSampler.totalGraphemes;
         // 错误路径立即取消预览计时器，避免状态清理后继续回调。
         previewTimer?.cancel();
         previewTimer = null;
@@ -8467,6 +8501,9 @@ class AiSessionController extends ChangeNotifier {
           stage: 'chat_stream',
           detail: '$error',
         );
+        final failureRequestFallbacks = error is AiChatException
+            ? error.telemetry?.requestFallbacks ?? const <String>[]
+            : const <String>[];
         streamedSession = _applyRoundFailureTelemetryToMessages(
           session: streamedSession,
           error: error,
@@ -8475,6 +8512,31 @@ class AiSessionController extends ChangeNotifier {
           userMessageId: activeLatestUserMessageId,
           assistantMessageId: assistantMessageId,
           reasoningMessageId: reasoningMessageId,
+        );
+        streamedSession = _applyResponsePerformanceTelemetryToMessages(
+          session: streamedSession,
+          metadata: _buildResponsePerformanceTelemetry(
+            startedAt: responseLifecycleStartedAt,
+            firstTokenAt: observedFirstTokenAt,
+            endedAt: responseFailedAt,
+            durationMs: responseFailedAt
+                .difference(responseLifecycleStartedAt)
+                .inMilliseconds,
+            usage: streamedUsage,
+            outputCharacters: failedOutputCharacters,
+            throughputSamples: failedThroughputSeries.samples,
+            throughputSampleIntervalMs: failedThroughputSeries.intervalMs,
+            streamEventCount: observedStreamEventCount,
+            textDeltaCount: observedTextDeltaCount,
+            reasoningDeltaCount: observedReasoningDeltaCount,
+            toolCallDeltaCount: observedToolCallDeltaCount,
+            requestFallbacks: failureRequestFallbacks,
+            responseStatus: 'failed',
+          ),
+          targetMessageIds: responseTelemetryTargetIds(),
+          fallbackMessageId:
+              activeLatestUserMessageId ?? activeRoundAnchorMessageId,
+          model: model,
         );
         final failedToolSession = _markPendingToolCallsFailed(
           streamedSession,
@@ -8747,6 +8809,39 @@ class AiSessionController extends ChangeNotifier {
           usageEstimated: usageEstimated,
         );
       }
+      streamedSession = _applyResponsePerformanceTelemetryToMessages(
+        session: streamedSession,
+        metadata: _buildResponsePerformanceTelemetry(
+          startedAt: result.startedAt ?? responseLifecycleStartedAt,
+          firstTokenAt: result.firstTokenAt ?? observedFirstTokenAt,
+          endedAt: result.endedAt,
+          durationMs: result.durationMs,
+          usage: effectiveUsage,
+          outputCharacters: responseOutputCharacters,
+          throughputSamples: responseThroughputSeries.samples,
+          throughputSampleIntervalMs: responseThroughputSeries.intervalMs,
+          streamEventCount: result.streamEventCount > 0
+              ? result.streamEventCount
+              : observedStreamEventCount,
+          textDeltaCount: result.textDeltaCount > 0
+              ? result.textDeltaCount
+              : observedTextDeltaCount,
+          reasoningDeltaCount: result.reasoningDeltaCount > 0
+              ? result.reasoningDeltaCount
+              : observedReasoningDeltaCount,
+          toolCallDeltaCount: result.toolCallDeltaCount > 0
+              ? result.toolCallDeltaCount
+              : observedToolCallDeltaCount,
+          requestFallbacks: result.requestFallbacks,
+          finishReason: result.finishReason,
+          wasCancelled: didCancelStream,
+          responseStatus: didCancelStream ? 'cancelled' : 'completed',
+        ),
+        targetMessageIds: responseTelemetryTargetIds(),
+        fallbackMessageId:
+            activeLatestUserMessageId ?? activeRoundAnchorMessageId,
+        model: model,
+      );
       final totalUsage = _usageFromStatistics(
         rebasedSession.statistics,
       ).merge(effectiveUsage ?? const AiTokenUsage());
@@ -14287,6 +14382,141 @@ $tail''';
       'environment_variables': env,
       'environment_variable_count': env.length,
     };
+  }
+
+  Map<String, Object?> _buildResponsePerformanceTelemetry({
+    required DateTime? startedAt,
+    required DateTime? firstTokenAt,
+    required DateTime? endedAt,
+    required int? durationMs,
+    required AiTokenUsage? usage,
+    required int outputCharacters,
+    required List<int> throughputSamples,
+    required int throughputSampleIntervalMs,
+    required int streamEventCount,
+    required int textDeltaCount,
+    required int reasoningDeltaCount,
+    required int toolCallDeltaCount,
+    required List<String> requestFallbacks,
+    required String responseStatus,
+    String? finishReason,
+    bool wasCancelled = false,
+  }) {
+    final capturedAt = _clock().toUtc();
+    final resolvedEndedAt = endedAt ?? capturedAt;
+    final resolvedDurationMs = durationMs == null
+        ? (startedAt == null
+              ? null
+              : math.max(
+                  0,
+                  resolvedEndedAt.difference(startedAt).inMilliseconds,
+                ))
+        : math.max(0, durationMs);
+    final ttftMs = startedAt == null || firstTokenAt == null
+        ? null
+        : math.max(0, firstTokenAt.difference(startedAt).inMilliseconds);
+    final generationDurationMs = firstTokenAt == null
+        ? null
+        : math.max(0, resolvedEndedAt.difference(firstTokenAt).inMilliseconds);
+    final completionTokens = usage?.completionTokens;
+    final tokensPerSecond =
+        completionTokens != null &&
+            generationDurationMs != null &&
+            generationDurationMs > 0
+        ? completionTokens * 1000 / generationDurationMs
+        : null;
+    final charactersPerSecond =
+        outputCharacters > 0 &&
+            generationDurationMs != null &&
+            generationDurationMs > 0
+        ? outputCharacters * 1000 / generationDurationMs
+        : null;
+    final samples = throughputSamples
+        .take(_StreamThroughputSampler.maxPersistedPoints)
+        .map((value) => math.max(0, value))
+        .toList(growable: false);
+    return <String, Object?>{
+      'telemetry_captured_at': capturedAt.toIso8601String(),
+      'response_status': responseStatus,
+      'streaming_response': true,
+      'was_cancelled': wasCancelled,
+      if (startedAt != null) ...<String, Object?>{
+        'started_at': startedAt.toIso8601String(),
+        aiSessionMessageRequestStartedAtMetadataKey: startedAt
+            .toIso8601String(),
+      },
+      if (firstTokenAt != null)
+        aiSessionMessageFirstTokenAtMetadataKey: firstTokenAt.toIso8601String(),
+      aiSessionMessageRequestEndedAtMetadataKey: resolvedEndedAt
+          .toIso8601String(),
+      aiSessionMessageGenerationEndedAtMetadataKey: resolvedEndedAt
+          .toIso8601String(),
+      if (resolvedDurationMs != null) ...<String, Object?>{
+        'duration_ms': resolvedDurationMs,
+        aiSessionMessageTotalDurationMsMetadataKey: resolvedDurationMs,
+      },
+      if (ttftMs != null) aiSessionMessageTtftMsMetadataKey: ttftMs,
+      if (generationDurationMs != null)
+        aiSessionMessageGenerationDurationMsMetadataKey: generationDurationMs,
+      if (completionTokens != null) 'completion_tokens': completionTokens,
+      if (tokensPerSecond != null)
+        aiSessionMessageTokensPerSecondMetadataKey: tokensPerSecond,
+      aiSessionMessageOutputCharactersMetadataKey: outputCharacters,
+      if (charactersPerSecond != null)
+        aiSessionMessageCharactersPerSecondMetadataKey: charactersPerSecond,
+      aiSessionMessageStreamEventCountMetadataKey: streamEventCount,
+      'text_delta_count': textDeltaCount,
+      'reasoning_delta_count': reasoningDeltaCount,
+      'tool_call_delta_count': toolCallDeltaCount,
+      'request_fallback_count': requestFallbacks.length,
+      if (requestFallbacks.isNotEmpty) 'request_fallbacks': requestFallbacks,
+      if (finishReason != null) 'finish_reason': finishReason,
+      if (samples.isNotEmpty) ...<String, Object?>{
+        aiSessionMessageStreamThroughputSamplesMetadataKey: samples,
+        aiSessionMessageStreamThroughputIntervalMetadataKey: math.max(
+          1,
+          throughputSampleIntervalMs,
+        ),
+        'stream_throughput_sample_count': samples.length,
+        'stream_throughput_tps_estimated':
+            completionTokens != null && outputCharacters > 0,
+      },
+    };
+  }
+
+  AiSession _applyResponsePerformanceTelemetryToMessages({
+    required AiSession session,
+    required Map<String, Object?> metadata,
+    required Set<String> targetMessageIds,
+    required String? fallbackMessageId,
+    required AiModelConfig model,
+  }) {
+    final targetIds = targetMessageIds
+        .where((messageId) => messageId.isNotEmpty)
+        .toSet();
+    if (!session.messages.any((message) => targetIds.contains(message.id))) {
+      final fallback = fallbackMessageId?.trim() ?? '';
+      if (fallback.isNotEmpty) targetIds.add(fallback);
+    }
+    if (targetIds.isEmpty || metadata.isEmpty) return session;
+    var changed = false;
+    final messages = <AiSessionMessage>[];
+    for (final message in session.messages) {
+      if (!targetIds.contains(message.id)) {
+        messages.add(message);
+        continue;
+      }
+      messages.add(
+        message.copyWith(
+          metadata: <String, Object?>{...message.metadata, ...metadata},
+          modelId: message.modelId ?? model.id,
+          modelLabel: message.modelLabel ?? model.displayName,
+        ),
+      );
+      changed = true;
+    }
+    if (!changed) return session;
+    return session.copyWith(messages: messages, updatedAt: _clock().toUtc());
   }
 
   /// 构建回合结束后合并到消息中的遥测元数据，并遵循全部遥测开关。

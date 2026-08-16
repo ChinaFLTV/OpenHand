@@ -15,6 +15,7 @@ const Duration _kTrajectoryRefreshDelay = Duration(milliseconds: 120);
 const int _kTrajectoryJsonTreeMaxCharacters = 512 * kBytesPerKiB;
 const int _kTrajectoryJsonTreeMaxNodes = 4096;
 const int _kTrajectoryJsonTreeMaxDepth = 32;
+const int _kTrajectoryThroughputMaxPoints = 300;
 const Duration _kTrajectoryCopyFeedbackDuration = Duration(seconds: 2);
 
 const _kTrajectoryTimelineLightColors = (
@@ -574,6 +575,33 @@ int? _trajectoryMetadataInt(Map<String, Object?> metadata, List<String> keys) {
     if (parsed != null) return parsed;
   }
   return null;
+}
+
+double? _trajectoryMetadataDouble(
+  Map<String, Object?> metadata,
+  List<String> keys,
+) {
+  for (final key in keys) {
+    final value = metadata[key];
+    final parsed = value is num ? value.toDouble() : double.tryParse('$value');
+    if (parsed != null && parsed.isFinite && parsed >= 0) return parsed;
+  }
+  return null;
+}
+
+List<double> _trajectoryMetadataNumberList(
+  Map<String, Object?> metadata,
+  String key,
+) {
+  final value = metadata[key];
+  if (value is! List) return const <double>[];
+  return List<double>.unmodifiable(
+    value
+        .map((item) => item is num ? item.toDouble() : double.tryParse('$item'))
+        .whereType<double>()
+        .where((item) => item.isFinite && item >= 0)
+        .take(_kTrajectoryThroughputMaxPoints),
+  );
 }
 
 String _trajectoryToolOutput(Map<String, Object?> metadata) {
@@ -3755,18 +3783,48 @@ class _TrajectoryDetailBody extends StatelessWidget {
 
   Widget _buildTiming(BuildContext context, {bool compact = false}) {
     final firstToken = _trajectoryMetadataDate(metadata, const <String>[
-      'first_token_at',
+      aiSessionMessageFirstTokenAtMetadataKey,
       'first_token_time',
       'first_visible_at',
     ]);
-    final startedAt = record.startedAt;
-    final ttft = startedAt != null && firstToken != null
-        ? math.max(0, firstToken.difference(startedAt).inMilliseconds)
-        : null;
-    final generation = record.durationMs != null && ttft != null
-        ? math.max(0, record.durationMs! - ttft)
-        : null;
-    final outputTokens = record.usage?.completionTokens;
+    final startedAt =
+        _trajectoryMetadataDate(metadata, const <String>[
+          aiSessionMessageRequestStartedAtMetadataKey,
+          'started_at',
+        ]) ??
+        record.startedAt;
+    final totalDuration =
+        _trajectoryMetadataInt(metadata, const <String>[
+          aiSessionMessageTotalDurationMsMetadataKey,
+          'duration_ms',
+        ]) ??
+        record.durationMs;
+    final ttft =
+        _trajectoryMetadataInt(metadata, const <String>[
+          aiSessionMessageTtftMsMetadataKey,
+        ]) ??
+        (startedAt != null && firstToken != null
+            ? math.max(0, firstToken.difference(startedAt).inMilliseconds)
+            : null);
+    final generation =
+        _trajectoryMetadataInt(metadata, const <String>[
+          aiSessionMessageGenerationDurationMsMetadataKey,
+        ]) ??
+        (totalDuration != null && ttft != null
+            ? math.max(0, totalDuration - ttft)
+            : null);
+    final outputTokens =
+        record.usage?.completionTokens ??
+        _trajectoryMetadataInt(metadata, const <String>['completion_tokens']);
+    final outputCharacters = _trajectoryMetadataInt(metadata, const <String>[
+      aiSessionMessageOutputCharactersMetadataKey,
+    ]);
+    final streamEvents = _trajectoryMetadataInt(metadata, const <String>[
+      aiSessionMessageStreamEventCountMetadataKey,
+    ]);
+    final fallbackCount = _trajectoryMetadataInt(metadata, const <String>[
+      'request_fallback_count',
+    ]);
     final notRecorded = _trajectoryText(
       context,
       zh: '未记录',
@@ -3776,11 +3834,49 @@ class _TrajectoryDetailBody extends StatelessWidget {
       de: 'Nicht aufgezeichnet',
       ja: '記録なし',
     );
-    final throughput =
-        outputTokens != null && generation != null && generation > 0
-        ? '${(outputTokens / generation * 1000).toStringAsFixed(1)} tok/s'
-        : notRecorded;
-    return _TrajectoryOverview(
+    final tokensPerSecond =
+        _trajectoryMetadataDouble(metadata, const <String>[
+          aiSessionMessageTokensPerSecondMetadataKey,
+        ]) ??
+        (outputTokens != null && generation != null && generation > 0
+            ? outputTokens / generation * 1000
+            : null);
+    final charactersPerSecond = _trajectoryMetadataDouble(
+      metadata,
+      const <String>[aiSessionMessageCharactersPerSecondMetadataKey],
+    );
+    final responseStatus = '${metadata['response_status'] ?? ''}'.trim();
+    final statusLabel = switch (responseStatus) {
+      'completed' => _trajectoryText(
+        context,
+        zh: '已完成',
+        zhHant: '已完成',
+        en: 'Completed',
+        fr: 'Terminé',
+        de: 'Abgeschlossen',
+        ja: '完了',
+      ),
+      'cancelled' => _trajectoryText(
+        context,
+        zh: '已取消',
+        zhHant: '已取消',
+        en: 'Cancelled',
+        fr: 'Annulé',
+        de: 'Abgebrochen',
+        ja: 'キャンセル済み',
+      ),
+      'failed' => _trajectoryText(
+        context,
+        zh: '失败',
+        zhHant: '失敗',
+        en: 'Failed',
+        fr: 'Échec',
+        de: 'Fehlgeschlagen',
+        ja: '失敗',
+      ),
+      _ => '',
+    };
+    final overview = _TrajectoryOverview(
       compact: compact,
       rows: <(String, String, bool)>[
         (
@@ -3806,9 +3902,25 @@ class _TrajectoryDetailBody extends StatelessWidget {
             de: 'Gesamtdauer',
             ja: '合計時間',
           ),
-          _trajectoryDurationLabel(record.durationMs),
+          _trajectoryDurationLabel(totalDuration),
           false,
         ),
+        if (!compact)
+          (
+            _trajectoryText(
+              context,
+              zh: '首个响应',
+              zhHant: '首個回應',
+              en: 'First response',
+              fr: 'Première réponse',
+              de: 'Erste Antwort',
+              ja: '最初の応答',
+            ),
+            firstToken == null
+                ? notRecorded
+                : _trajectoryDateTimeLabel(firstToken),
+            false,
+          ),
         (
           'TTFT',
           ttft == null ? notRecorded : _trajectoryDurationLabel(ttft),
@@ -3839,11 +3951,401 @@ class _TrajectoryDetailBody extends StatelessWidget {
             de: 'Durchsatz',
             ja: 'スループット',
           ),
-          throughput,
+          tokensPerSecond == null
+              ? notRecorded
+              : '${tokensPerSecond.toStringAsFixed(1)} tok/s',
           false,
+        ),
+        if (!compact && charactersPerSecond != null)
+          (
+            _trajectoryText(
+              context,
+              zh: '字符吞吐率',
+              zhHant: '字元吞吐率',
+              en: 'Character throughput',
+              fr: 'Débit de caractères',
+              de: 'Zeichendurchsatz',
+              ja: '文字スループット',
+            ),
+            '${charactersPerSecond.toStringAsFixed(1)} char/s',
+            false,
+          ),
+        if (!compact && outputCharacters != null)
+          (
+            _trajectoryText(
+              context,
+              zh: '输出字符',
+              zhHant: '輸出字元',
+              en: 'Output characters',
+              fr: 'Caractères produits',
+              de: 'Ausgabezeichen',
+              ja: '出力文字数',
+            ),
+            '$outputCharacters',
+            false,
+          ),
+        if (!compact && streamEvents != null)
+          (
+            _trajectoryText(
+              context,
+              zh: '流事件',
+              zhHant: '串流事件',
+              en: 'Stream events',
+              fr: 'Événements du flux',
+              de: 'Stream-Ereignisse',
+              ja: 'ストリームイベント',
+            ),
+            '$streamEvents',
+            false,
+          ),
+        if (!compact && fallbackCount != null)
+          (
+            _trajectoryText(
+              context,
+              zh: '请求降级',
+              zhHant: '請求降級',
+              en: 'Request fallbacks',
+              fr: 'Replis de requête',
+              de: 'Anfrage-Fallbacks',
+              ja: 'リクエストフォールバック',
+            ),
+            '$fallbackCount',
+            false,
+          ),
+        if (!compact && '${metadata['finish_reason'] ?? ''}'.trim().isNotEmpty)
+          (
+            _trajectoryText(
+              context,
+              zh: '结束原因',
+              zhHant: '結束原因',
+              en: 'Finish reason',
+              fr: 'Motif de fin',
+              de: 'Endgrund',
+              ja: '終了理由',
+            ),
+            '${metadata['finish_reason']}',
+            false,
+          ),
+        if (!compact && statusLabel.isNotEmpty)
+          (
+            _trajectoryText(
+              context,
+              zh: '响应状态',
+              zhHant: '回應狀態',
+              en: 'Response status',
+              fr: 'État de la réponse',
+              de: 'Antwortstatus',
+              ja: '応答状態',
+            ),
+            statusLabel,
+            responseStatus == 'failed',
+          ),
+      ],
+    );
+    final samples = _trajectoryMetadataNumberList(
+      metadata,
+      aiSessionMessageStreamThroughputSamplesMetadataKey,
+    );
+    if (compact || samples.isEmpty) return overview;
+    final intervalMs =
+        _trajectoryMetadataInt(metadata, const <String>[
+          aiSessionMessageStreamThroughputIntervalMetadataKey,
+        ]) ??
+        1000;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        overview,
+        kOpenHandGap12,
+        _TrajectoryThroughputChart(
+          samples: samples,
+          sampleIntervalMs: intervalMs,
+          outputCharacters: outputCharacters,
+          outputTokens: outputTokens,
         ),
       ],
     );
+  }
+}
+
+class _TrajectoryThroughputChart extends StatelessWidget {
+  const _TrajectoryThroughputChart({
+    required this.samples,
+    required this.sampleIntervalMs,
+    required this.outputCharacters,
+    required this.outputTokens,
+  });
+
+  final List<double> samples;
+  final int sampleIntervalMs;
+  final int? outputCharacters;
+  final int? outputTokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final tokenRatio =
+        outputCharacters != null &&
+            outputCharacters! > 0 &&
+            outputTokens != null
+        ? outputTokens! / outputCharacters!
+        : null;
+    final tokenSamples = tokenRatio == null
+        ? const <double>[]
+        : samples.map((value) => value * tokenRatio).toList(growable: false);
+    final peakCharacters = samples.reduce(math.max);
+    final peakTokens = tokenSamples.isEmpty
+        ? null
+        : tokenSamples.reduce(math.max);
+    final intervalSeconds = sampleIntervalMs / 1000;
+    final intervalLabel = intervalSeconds == intervalSeconds.roundToDouble()
+        ? '${intervalSeconds.toInt()}'
+        : intervalSeconds.toStringAsFixed(1);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 11, 12, 10),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            _trajectoryText(
+              context,
+              zh: '响应吞吐趋势',
+              zhHant: '回應吞吐趨勢',
+              en: 'Response throughput trend',
+              fr: 'Tendance du débit de réponse',
+              de: 'Trend des Antwortdurchsatzes',
+              ja: '応答スループット推移',
+            ),
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          kOpenHandGap4,
+          Text(
+            _trajectoryText(
+              context,
+              zh: '每 $intervalLabel 秒采样 · ${samples.length} 个点',
+              zhHant: '每 $intervalLabel 秒取樣 · ${samples.length} 個點',
+              en: '$intervalLabel s sampling · ${samples.length} points',
+              fr: 'Échantillon toutes les $intervalLabel s · ${samples.length} points',
+              de: 'Abtastung alle $intervalLabel s · ${samples.length} Punkte',
+              ja: '$intervalLabel 秒ごと · ${samples.length} 点',
+            ),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          kOpenHandGap8,
+          Wrap(
+            spacing: 12,
+            runSpacing: 5,
+            children: [
+              _TrajectoryThroughputLegend(
+                color: colorScheme.primary,
+                label: _trajectoryText(
+                  context,
+                  zh: '字符/秒 · 峰值 ${peakCharacters.toStringAsFixed(1)}',
+                  zhHant: '字元/秒 · 峰值 ${peakCharacters.toStringAsFixed(1)}',
+                  en: 'Characters/s · peak ${peakCharacters.toStringAsFixed(1)}',
+                  fr: 'Caractères/s · pic ${peakCharacters.toStringAsFixed(1)}',
+                  de: 'Zeichen/s · Spitze ${peakCharacters.toStringAsFixed(1)}',
+                  ja: '文字/秒 · 最大 ${peakCharacters.toStringAsFixed(1)}',
+                ),
+              ),
+              if (peakTokens != null)
+                _TrajectoryThroughputLegend(
+                  color: colorScheme.tertiary,
+                  label: _trajectoryText(
+                    context,
+                    zh: '估算 Token/秒 · 峰值 ${peakTokens.toStringAsFixed(1)}',
+                    zhHant: '估算 Token/秒 · 峰值 ${peakTokens.toStringAsFixed(1)}',
+                    en: 'Estimated tokens/s · peak ${peakTokens.toStringAsFixed(1)}',
+                    fr: 'Tokens/s estimés · pic ${peakTokens.toStringAsFixed(1)}',
+                    de: 'Geschätzte Token/s · Spitze ${peakTokens.toStringAsFixed(1)}',
+                    ja: '推定 Token/秒 · 最大 ${peakTokens.toStringAsFixed(1)}',
+                  ),
+                ),
+            ],
+          ),
+          kOpenHandGap8,
+          SizedBox(
+            height: 132,
+            child: CustomPaint(
+              painter: _TrajectoryThroughputPainter(
+                characterSamples: samples,
+                tokenSamples: tokenSamples,
+                characterColor: colorScheme.primary,
+                tokenColor: colorScheme.tertiary,
+                gridColor: colorScheme.outlineVariant.withValues(alpha: 0.58),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrajectoryThroughputLegend extends StatelessWidget {
+  const _TrajectoryThroughputLegend({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        kOpenHandHGap4,
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TrajectoryThroughputPainter extends CustomPainter {
+  const _TrajectoryThroughputPainter({
+    required this.characterSamples,
+    required this.tokenSamples,
+    required this.characterColor,
+    required this.tokenColor,
+    required this.gridColor,
+  });
+
+  final List<double> characterSamples;
+  final List<double> tokenSamples;
+  final Color characterColor;
+  final Color tokenColor;
+  final Color gridColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (characterSamples.isEmpty || size.isEmpty) return;
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+    for (var row = 0; row <= 3; row++) {
+      final y = size.height * row / 3;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+    final characterPoints = _points(characterSamples, size);
+    final characterPath = _smoothPath(characterPoints);
+    if (characterPoints.length > 1) {
+      final areaPath = Path.from(characterPath)
+        ..lineTo(characterPoints.last.dx, size.height)
+        ..lineTo(characterPoints.first.dx, size.height)
+        ..close();
+      canvas.drawPath(
+        areaPath,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: <Color>[
+              characterColor.withValues(alpha: 0.3),
+              characterColor.withValues(alpha: 0.02),
+            ],
+          ).createShader(Offset.zero & size),
+      );
+    }
+    _drawSeries(canvas, characterPoints, characterPath, characterColor, 2.2);
+    if (tokenSamples.isNotEmpty) {
+      final tokenPoints = _points(tokenSamples, size);
+      _drawSeries(
+        canvas,
+        tokenPoints,
+        _smoothPath(tokenPoints),
+        tokenColor,
+        1.35,
+      );
+    }
+  }
+
+  List<Offset> _points(List<double> values, Size size) {
+    final peak = values.fold<double>(0, math.max);
+    final scale = peak <= 0 ? 1.0 : peak;
+    return List<Offset>.generate(values.length, (index) {
+      final x = values.length == 1
+          ? size.width / 2
+          : size.width * index / (values.length - 1);
+      final normalized = (values[index] / scale).clamp(0.0, 1.0);
+      return Offset(x, size.height - normalized * (size.height - 6) - 3);
+    }, growable: false);
+  }
+
+  Path _smoothPath(List<Offset> points) {
+    final path = Path();
+    if (points.isEmpty) return path;
+    path.moveTo(points.first.dx, points.first.dy);
+    for (var index = 0; index < points.length - 1; index++) {
+      final previous = index == 0 ? points[index] : points[index - 1];
+      final current = points[index];
+      final next = points[index + 1];
+      final following = index + 2 < points.length ? points[index + 2] : next;
+      path.cubicTo(
+        current.dx + (next.dx - previous.dx) / 6,
+        current.dy + (next.dy - previous.dy) / 6,
+        next.dx - (following.dx - current.dx) / 6,
+        next.dy - (following.dy - current.dy) / 6,
+        next.dx,
+        next.dy,
+      );
+    }
+    return path;
+  }
+
+  void _drawSeries(
+    Canvas canvas,
+    List<Offset> points,
+    Path path,
+    Color color,
+    double strokeWidth,
+  ) {
+    if (points.length == 1) {
+      canvas.drawCircle(points.first, 3, Paint()..color = color);
+      return;
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..isAntiAlias = true
+        ..color = color,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _TrajectoryThroughputPainter oldDelegate) {
+    return !listEquals(characterSamples, oldDelegate.characterSamples) ||
+        !listEquals(tokenSamples, oldDelegate.tokenSamples) ||
+        characterColor != oldDelegate.characterColor ||
+        tokenColor != oldDelegate.tokenColor ||
+        gridColor != oldDelegate.gridColor;
   }
 }
 

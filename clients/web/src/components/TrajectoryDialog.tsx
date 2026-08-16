@@ -105,6 +105,9 @@ const TELEMETRY_KEYS = new Set([
   'request_started_at',
   'first_token_at',
   'duration_ms',
+  'ttft_ms',
+  'tokens_per_second',
+  'stream_throughput_chars_per_second',
 ]);
 const MIN_TIMELINE_VIEW = 0.04;
 const TIMELINE_DRAG_THRESHOLD_PX = 3;
@@ -115,6 +118,7 @@ const JSON_TREE_MAX_CHARACTERS = 512 * 1024;
 const JSON_TREE_MAX_NODES = 4096;
 const JSON_TREE_MAX_DEPTH = 32;
 const COPY_FEEDBACK_MS = 2000;
+const THROUGHPUT_MAX_POINTS = 300;
 
 interface JsonDocument {
   value: Record<string, unknown> | unknown[];
@@ -133,6 +137,14 @@ function textOf(value: unknown): string {
 function finiteNumber(value: unknown): number | null {
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function numberList(value: unknown, limit = THROUGHPUT_MAX_POINTS): number[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map(finiteNumber)
+    .filter((item): item is number => item != null && item >= 0)
+    .slice(0, limit);
 }
 
 function nonNegativeInteger(value: unknown): number | undefined {
@@ -1168,20 +1180,135 @@ function UsageDetail({ usage }: { usage: TrajectoryUsage | null }) {
   );
 }
 
+function smoothPath(points: Array<{ x: number; y: number }>): string {
+  if (!points.length) return '';
+  if (points.length === 1) return `M ${points[0]!.x} ${points[0]!.y}`;
+  let path = `M ${points[0]!.x} ${points[0]!.y}`;
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const previous = points[index - 1] ?? points[index]!;
+    const current = points[index]!;
+    const next = points[index + 1]!;
+    const following = points[index + 2] ?? next;
+    const firstControlX = current.x + (next.x - previous.x) / 6;
+    const firstControlY = current.y + (next.y - previous.y) / 6;
+    const secondControlX = next.x - (following.x - current.x) / 6;
+    const secondControlY = next.y - (following.y - current.y) / 6;
+    path += ` C ${firstControlX} ${firstControlY}, ${secondControlX} ${secondControlY}, ${next.x} ${next.y}`;
+  }
+  return path;
+}
+
+function ThroughputTrend({
+  samples,
+  sampleIntervalMs,
+  outputCharacters,
+  outputTokens,
+}: {
+  samples: number[];
+  sampleIntervalMs: number;
+  outputCharacters: number | null;
+  outputTokens: number | null;
+}) {
+  const width = 320;
+  const height = 124;
+  const inset = 5;
+  const tokenRatio = outputCharacters != null && outputCharacters > 0 && outputTokens != null
+    ? outputTokens / outputCharacters
+    : null;
+  const tokenSamples = tokenRatio == null ? [] : samples.map((value) => value * tokenRatio);
+  const pointsFor = (values: number[]) => {
+    const peak = Math.max(1, ...values);
+    return values.map((value, index) => ({
+      x: values.length === 1 ? width / 2 : index * width / (values.length - 1),
+      y: height - inset - (height - inset * 2) * Math.min(1, value / peak),
+    }));
+  };
+  const characterPoints = pointsFor(samples);
+  const tokenPoints = pointsFor(tokenSamples);
+  const characterPath = smoothPath(characterPoints);
+  const tokenPath = smoothPath(tokenPoints);
+  const areaPath = characterPoints.length > 1
+    ? `${characterPath} L ${characterPoints.at(-1)!.x} ${height} L ${characterPoints[0]!.x} ${height} Z`
+    : '';
+  const peakCharacters = Math.max(0, ...samples);
+  const peakTokens = tokenSamples.length ? Math.max(0, ...tokenSamples) : null;
+  const intervalSeconds = Math.max(1, sampleIntervalMs) / 1000;
+  return (
+    <section class="oh-trajectory-throughput-chart">
+      <header>
+        <strong>{t('trajectory.timing.trend', '响应吞吐趋势')}</strong>
+        <small>{tFmt('trajectory.timing.sampleSummary', {
+          interval: Number.isInteger(intervalSeconds) ? intervalSeconds : intervalSeconds.toFixed(1),
+          count: samples.length,
+        }, '每 {interval} 秒采样 · {count} 个点')}</small>
+      </header>
+      <div class="oh-trajectory-throughput-legend">
+        <span data-series="characters"><i />{tFmt('trajectory.timing.characterPeak', { value: peakCharacters.toFixed(1) }, '字符/秒 · 峰值 {value}')}</span>
+        {peakTokens != null && <span data-series="tokens"><i />{tFmt('trajectory.timing.tokenPeak', { value: peakTokens.toFixed(1) }, '估算 Token/秒 · 峰值 {value}')}</span>}
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={t('trajectory.timing.trend', '响应吞吐趋势')}>
+        {[0, 1, 2, 3].map((row) => <line key={row} x1="0" x2={width} y1={height * row / 3} y2={height * row / 3} />)}
+        {areaPath && <path class="is-area" d={areaPath} />}
+        {characterPoints.length === 1
+          ? <circle class="is-characters" cx={characterPoints[0]!.x} cy={characterPoints[0]!.y} r="3" />
+          : <path class="is-characters" d={characterPath} />}
+        {tokenPoints.length === 1
+          ? <circle class="is-tokens" cx={tokenPoints[0]!.x} cy={tokenPoints[0]!.y} r="2" />
+          : tokenPath && <path class="is-tokens" d={tokenPath} />}
+      </svg>
+    </section>
+  );
+}
+
 function TimingDetail({ record, metadata }: { record: TrajectoryRecord; metadata: Record<string, unknown> }) {
   const firstToken = firstTimestamp(metadata, ['first_token_at', 'first_token_time', 'first_visible_at']);
-  const ttft = record.startedAt != null && firstToken != null ? Math.max(0, firstToken - record.startedAt) : null;
-  const generation = record.durationMs != null && ttft != null ? Math.max(0, record.durationMs - ttft) : null;
-  const throughput = record.usage?.completionTokens != null && generation != null && generation > 0
-    ? `${(record.usage.completionTokens / generation * 1000).toFixed(1)} tok/s`
-    : t('trajectory.notRecorded', '未记录');
-  return <DetailRows rows={[
-    [t('trajectory.timing.started', 'Started'), formatTime(record.startedAt)],
-    [t('trajectory.timing.total', 'Total duration'), formatDuration(record.durationMs)],
+  const startedAt = firstTimestamp(metadata, ['request_started_at', 'started_at']) ?? record.startedAt;
+  const totalDuration = firstNumber(metadata, ['total_duration_ms', 'duration_ms']) ?? record.durationMs;
+  const ttft = firstNumber(metadata, ['ttft_ms'])
+    ?? (startedAt != null && firstToken != null ? Math.max(0, firstToken - startedAt) : null);
+  const generation = firstNumber(metadata, ['generation_duration_ms'])
+    ?? (totalDuration != null && ttft != null ? Math.max(0, totalDuration - ttft) : null);
+  const outputTokens = record.usage?.completionTokens ?? firstNumber(metadata, ['completion_tokens']);
+  const outputCharacters = firstNumber(metadata, ['output_characters']);
+  const tokensPerSecond = firstNumber(metadata, ['tokens_per_second'])
+    ?? (outputTokens != null && generation != null && generation > 0 ? outputTokens / generation * 1000 : null);
+  const charactersPerSecond = firstNumber(metadata, ['characters_per_second']);
+  const streamEvents = firstNumber(metadata, ['stream_event_count']);
+  const fallbackCount = firstNumber(metadata, ['request_fallback_count']);
+  const finishReason = textOf(metadata.finish_reason);
+  const responseStatus = textOf(metadata.response_status);
+  const statusLabel = responseStatus === 'completed'
+    ? t('trajectory.completed', '已完成')
+    : responseStatus === 'cancelled'
+      ? t('trajectory.timing.cancelled', '已取消')
+      : responseStatus === 'failed'
+        ? t('trajectory.failed', '失败')
+        : '';
+  const samples = numberList(metadata.stream_throughput_chars_per_second);
+  const sampleIntervalMs = firstNumber(metadata, ['stream_throughput_sample_interval_ms']) ?? 1000;
+  const notRecorded = t('trajectory.notRecorded', '未记录');
+  return <>
+    <DetailRows rows={[
+    [t('trajectory.timing.started', 'Started'), formatTime(startedAt)],
+    [t('trajectory.timing.total', 'Total duration'), formatDuration(totalDuration)],
+    [t('trajectory.timing.firstToken', 'First response'), firstToken == null ? notRecorded : formatTime(firstToken)],
     ['TTFT', ttft == null ? t('trajectory.notRecorded', '未记录') : formatDuration(ttft)],
     [t('trajectory.timing.generation', 'Generation'), generation == null ? t('trajectory.notRecorded', '未记录') : formatDuration(generation)],
-    [t('trajectory.timing.throughput', 'Throughput'), throughput],
-  ]} />;
+    [t('trajectory.timing.throughput', 'Throughput'), tokensPerSecond == null ? notRecorded : `${tokensPerSecond.toFixed(1)} tok/s`],
+    ...(charactersPerSecond == null ? [] : [[t('trajectory.timing.characterThroughput', 'Character throughput'), `${charactersPerSecond.toFixed(1)} char/s`] as [string, string]]),
+    ...(outputCharacters == null ? [] : [[t('trajectory.timing.outputCharacters', 'Output characters'), String(Math.round(outputCharacters))] as [string, string]]),
+    ...(streamEvents == null ? [] : [[t('trajectory.timing.streamEvents', 'Stream events'), String(Math.round(streamEvents))] as [string, string]]),
+    ...(fallbackCount == null ? [] : [[t('trajectory.timing.fallbacks', 'Request fallbacks'), String(Math.round(fallbackCount))] as [string, string]]),
+    ...(finishReason ? [[t('trajectory.timing.finishReason', 'Finish reason'), finishReason] as [string, string]] : []),
+    ...(statusLabel ? [[t('trajectory.timing.status', 'Response status'), statusLabel, responseStatus === 'failed'] as [string, string, boolean]] : []),
+  ]} />
+    {samples.length > 0 && <ThroughputTrend
+      samples={samples}
+      sampleIntervalMs={sampleIntervalMs}
+      outputCharacters={outputCharacters}
+      outputTokens={outputTokens}
+    />}
+  </>;
 }
 
 function DetailBody({

@@ -36,11 +36,16 @@ bool _runStreamThrottleCallback(void Function() callback, String where) {
 class _StreamThroughputSampler {
   static const int defaultWindowSeconds = 30;
   static const int retentionSeconds = 60 * 60;
+  static const int maxPersistedPoints = 300;
   static const int _maxBucketValue = 0xFFFFFFFF;
 
   final Uint32List _buckets = Uint32List(retentionSeconds);
   int? _bucketSecond;
+  int? _firstRecordedSecond;
   int _currentBucketIndex = 0;
+  int _totalGraphemes = 0;
+
+  int get totalGraphemes => _totalGraphemes;
 
   void recordText(String value) {
     if (value.isEmpty) return;
@@ -54,6 +59,8 @@ class _StreamThroughputSampler {
 
   void recordGraphemesAt(int graphemes, int second) {
     if (graphemes <= 0) return;
+    _firstRecordedSecond ??= second;
+    _totalGraphemes += graphemes;
     final bucketSecond = _bucketSecond;
     if (bucketSecond == null) {
       _bucketSecond = second;
@@ -80,6 +87,47 @@ class _StreamThroughputSampler {
             _buckets[(_currentBucketIndex - offset + retentionSeconds) %
                 retentionSeconds],
       ),
+    );
+  }
+
+  ({List<int> samples, int intervalMs}) persistentSeries({
+    int maxPoints = maxPersistedPoints,
+    int? second,
+  }) {
+    final firstSecond = _firstRecordedSecond;
+    final lastRecordedSecond = _bucketSecond;
+    if (firstSecond == null || lastRecordedSecond == null || maxPoints <= 0) {
+      return (samples: const <int>[], intervalMs: 1000);
+    }
+    final endSecond = math.max(
+      lastRecordedSecond,
+      second ?? _streamThroughputSecond(),
+    );
+    final retainedStart = math.max(
+      firstSecond,
+      endSecond - retentionSeconds + 1,
+    );
+    final windowSeconds = endSecond - retainedStart + 1;
+    final chronological = snapshot(
+      windowSeconds: windowSeconds,
+      second: endSecond,
+    ).reversed.toList(growable: false);
+    if (chronological.length <= maxPoints) {
+      return (samples: chronological, intervalMs: 1000);
+    }
+    final groupSize = (chronological.length / maxPoints).ceil();
+    final compacted = <int>[];
+    for (var start = 0; start < chronological.length; start += groupSize) {
+      final end = math.min(start + groupSize, chronological.length);
+      var total = 0;
+      for (var index = start; index < end; index++) {
+        total += chronological[index];
+      }
+      compacted.add((total / (end - start)).round());
+    }
+    return (
+      samples: List<int>.unmodifiable(compacted),
+      intervalMs: groupSize * 1000,
     );
   }
 
