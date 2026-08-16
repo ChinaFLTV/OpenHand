@@ -1132,14 +1132,20 @@ class _ToolsDialog extends StatefulWidget {
 }
 
 class _ToolsDialogState extends State<_ToolsDialog> {
-  final TextEditingController _githubToken = TextEditingController();
-  final TextEditingController _giteeToken = TextEditingController();
-  final TextEditingController _gitcodeToken = TextEditingController();
-  final TextEditingController _fofaEmail = TextEditingController();
-  final TextEditingController _fofaKey = TextEditingController();
-  final TextEditingController _shodanKey = TextEditingController();
+  final List<TextEditingController> _credentialControllers =
+      List<TextEditingController>.generate(
+    6,
+    (_) => TextEditingController(),
+  );
   late Set<AiExposureSource> _enabledSources;
   bool _saving = false;
+
+  TextEditingController get _githubToken => _credentialControllers[0];
+  TextEditingController get _giteeToken => _credentialControllers[1];
+  TextEditingController get _gitcodeToken => _credentialControllers[2];
+  TextEditingController get _fofaEmail => _credentialControllers[3];
+  TextEditingController get _fofaKey => _credentialControllers[4];
+  TextEditingController get _shodanKey => _credentialControllers[5];
 
   static const List<({String label, bool obscure})> _kCredentialFieldSpecs =
       <({String label, bool obscure})>[
@@ -1151,14 +1157,8 @@ class _ToolsDialogState extends State<_ToolsDialog> {
     (label: 'Shodan API Key', obscure: true),
   ];
 
-  TextEditingController _credentialController(int index) => switch (index) {
-    0 => _githubToken,
-    1 => _giteeToken,
-    2 => _gitcodeToken,
-    3 => _fofaEmail,
-    4 => _fofaKey,
-    _ => _shodanKey,
-  };
+  TextEditingController _credentialController(int index) =>
+      _credentialControllers[index];
 
   @override
   void initState() {
@@ -1182,12 +1182,9 @@ class _ToolsDialogState extends State<_ToolsDialog> {
 
   @override
   void dispose() {
-    _githubToken.dispose();
-    _giteeToken.dispose();
-    _gitcodeToken.dispose();
-    _fofaEmail.dispose();
-    _fofaKey.dispose();
-    _shodanKey.dispose();
+    for (final controller in _credentialControllers) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
