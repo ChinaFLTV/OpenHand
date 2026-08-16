@@ -1343,15 +1343,14 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
         final ledger = _buildLedger(context);
         if (!desktop) {
           final motion = openHandMotionDuration(context, kOpenHandMotion220);
+          final detailsHeight = math.min(360.0, constraints.maxHeight * 0.48);
           return Column(
             children: [
               Expanded(child: ledger),
               AnimatedContainer(
                 duration: motion,
                 curve: Curves.easeOutCubic,
-                height: details == null
-                    ? 0
-                    : math.min(360, constraints.maxHeight * 0.48),
+                height: details == null ? 0 : detailsHeight,
                 decoration: BoxDecoration(
                   border: details == null
                       ? null
@@ -1361,7 +1360,16 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
                           ),
                         ),
                 ),
-                child: ClipRect(child: details ?? const SizedBox.shrink()),
+                child: details == null
+                    ? const SizedBox.shrink()
+                    : ClipRect(
+                        child: OverflowBox(
+                          alignment: Alignment.bottomCenter,
+                          minHeight: detailsHeight,
+                          maxHeight: detailsHeight,
+                          child: details,
+                        ),
+                      ),
               ),
             ],
           );
@@ -1376,37 +1384,45 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
               width: details == null ? 0 : _detailsWidth,
               child: details == null
                   ? const SizedBox.shrink()
-                  : Row(
-                      children: [
-                        MouseRegion(
-                          cursor: SystemMouseCursors.resizeColumn,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onHorizontalDragUpdate: (details) {
-                              setState(() {
-                                _detailsWidth =
-                                    (_detailsWidth - details.delta.dx).clamp(
-                                      _kTrajectoryDetailsMinWidth,
-                                      _kTrajectoryDetailsMaxWidth,
-                                    );
-                              });
-                            },
-                            child: Container(
-                              width: 5,
-                              color: Colors.transparent,
-                              child: Center(
+                  : ClipRect(
+                      child: OverflowBox(
+                        alignment: Alignment.centerRight,
+                        minWidth: _detailsWidth,
+                        maxWidth: _detailsWidth,
+                        child: Row(
+                          children: [
+                            MouseRegion(
+                              cursor: SystemMouseCursors.resizeColumn,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onHorizontalDragUpdate: (details) {
+                                  setState(() {
+                                    _detailsWidth =
+                                        (_detailsWidth - details.delta.dx)
+                                            .clamp(
+                                              _kTrajectoryDetailsMinWidth,
+                                              _kTrajectoryDetailsMaxWidth,
+                                            );
+                                  });
+                                },
                                 child: Container(
-                                  width: 1,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.outlineVariant,
+                                  width: 5,
+                                  color: Colors.transparent,
+                                  child: Center(
+                                    child: Container(
+                                      width: 1,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.outlineVariant,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                            Expanded(child: details),
+                          ],
                         ),
-                        Expanded(child: details),
-                      ],
+                      ),
                     ),
             ),
           ],
@@ -3868,14 +3884,13 @@ class _TrajectoryMarkdownDetail extends StatelessWidget {
             color: colorScheme.outlineVariant.withValues(alpha: 0.7),
           ),
         ),
-        child: SelectionArea(
-          child: MarkdownBody(
-            data: text,
-            styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-              p: theme.textTheme.bodySmall?.copyWith(height: 1.5),
-              code: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: kOpenHandMonospaceFontFamily,
-              ),
+        child: OpenHandSafeMarkdownBody(
+          data: text,
+          selectable: true,
+          styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+            p: theme.textTheme.bodySmall?.copyWith(height: 1.5),
+            code: theme.textTheme.bodySmall?.copyWith(
+              fontFamily: kOpenHandMonospaceFontFamily,
             ),
           ),
         ),
