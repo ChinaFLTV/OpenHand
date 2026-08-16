@@ -10195,37 +10195,47 @@ button.oh-composer-pill:not(:disabled):hover {
   scrollbar-gutter: stable;
 }
 
-.oh-trajectory-detail-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
+.oh-trajectory-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(146px, 1fr));
+  gap: 8px;
   margin: 0;
 }
 
-.oh-trajectory-detail-rows > div {
-  display: grid;
-  grid-template-columns: 104px minmax(0, 1fr);
-  gap: 8px;
-  padding: 5px 0;
+.oh-trajectory-metric-grid > div {
+  min-width: 0;
+  min-height: 58px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 72%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--m3-surface-container) 78%, transparent);
 }
 
-.oh-trajectory-detail-rows dt {
+.oh-trajectory-metric-grid dt {
   color: var(--m3-on-surface-variant);
   font-size: 10px;
+  font-weight: 600;
 }
 
-.oh-trajectory-detail-rows dd {
+.oh-trajectory-metric-grid dd {
   min-width: 0;
-  margin: 0;
+  margin: 4px 0 0;
   overflow-wrap: anywhere;
   color: var(--m3-on-surface);
   font-size: 11px;
+  font-weight: 650;
   line-height: 1.45;
   user-select: text;
 }
 
-.oh-trajectory-detail-rows dd.is-error,
+.oh-trajectory-metric-grid dd.is-error,
 .oh-trajectory-detail-text.is-error { color: var(--trajectory-error); }
+
+.oh-trajectory-metric-grid > div[data-error="true"] {
+  border-color: color-mix(in srgb, var(--m3-error) 34%, var(--m3-outline-variant));
+  background: color-mix(in srgb, var(--m3-error-container) 48%, var(--m3-surface));
+}
 
 .oh-trajectory-detail-text {
   margin: 0;
@@ -10238,19 +10248,218 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 
 .oh-trajectory-detail-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 64%, transparent);
+  border-radius: 7px;
   color: var(--m3-on-surface-variant);
+  background: color-mix(in srgb, var(--m3-surface-container) 64%, transparent);
   font-size: 11px;
   font-style: italic;
 }
 
+.oh-trajectory-detail-empty > span {
+  display: inline-grid;
+  width: 17px;
+  height: 17px;
+  flex: none;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 750;
+}
+
 .oh-trajectory-markdown,
 .oh-trajectory-summary-preview {
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 68%, transparent);
+  border-radius: 7px;
   color: var(--m3-on-surface);
+  background: color-mix(in srgb, var(--m3-surface-container) 72%, transparent);
   font-size: 11px;
   line-height: 1.55;
   user-select: text;
 }
+
+.oh-trajectory-structured {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 78%, transparent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--m3-surface-container) 78%, transparent);
+}
+
+.oh-trajectory-structured.is-error {
+  border-color: color-mix(in srgb, var(--m3-error) 38%, var(--m3-outline-variant));
+}
+
+.oh-trajectory-structured.is-error > header {
+  background: color-mix(in srgb, var(--m3-error-container) 50%, var(--m3-surface-container-high));
+}
+
+.oh-trajectory-structured.is-error .oh-trajectory-structured-type {
+  color: var(--m3-error);
+  background: color-mix(in srgb, var(--m3-error) 12%, transparent);
+}
+
+.oh-trajectory-structured.is-error > .oh-trajectory-detail-text {
+  color: var(--m3-error);
+}
+
+.oh-trajectory-structured > header {
+  display: flex;
+  height: 38px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 4px 0 9px;
+  border-bottom: 1px solid color-mix(in srgb, var(--m3-outline-variant) 72%, transparent);
+  background: color-mix(in srgb, var(--m3-primary-container) 38%, var(--m3-surface-container-high));
+}
+
+.oh-trajectory-structured-type {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  place-items: center;
+  border-radius: 5px;
+  color: var(--m3-primary);
+  background: color-mix(in srgb, var(--m3-primary) 12%, transparent);
+  font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.oh-trajectory-structured > header > strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--m3-on-surface-variant);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.oh-trajectory-structured > header > button {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--m3-on-surface-variant);
+  background: transparent;
+  cursor: pointer;
+  transition: color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+
+.oh-trajectory-structured > header > button:hover {
+  color: var(--m3-on-surface);
+  background: color-mix(in srgb, var(--m3-on-surface) 8%, transparent);
+}
+
+.oh-trajectory-structured > header > button:active { transform: scale(0.9); }
+.oh-trajectory-structured > header > button[data-copied="true"] { color: var(--m3-primary); }
+.oh-trajectory-structured > header > button svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.oh-trajectory-structured > .oh-trajectory-detail-text {
+  padding: 10px;
+}
+
+.oh-trajectory-json-tree {
+  padding: 8px 7px;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.oh-trajectory-json-node { min-width: 0; }
+.oh-trajectory-json-empty {
+  color: var(--m3-on-surface-variant);
+  font: 10.5px/1.48 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.oh-trajectory-json-row {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 2px;
+  box-sizing: border-box;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 4px;
+  color: var(--m3-on-surface);
+  text-align: left;
+  background: transparent;
+  font: 10.5px/1.48 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+button.oh-trajectory-json-row { cursor: pointer; }
+button.oh-trajectory-json-row:hover {
+  background: color-mix(in srgb, var(--m3-on-surface) 6%, transparent);
+}
+
+.oh-trajectory-json-row code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font: inherit;
+}
+
+.oh-trajectory-json-chevron {
+  width: 17px;
+  flex: none;
+  color: var(--m3-on-surface-variant);
+  text-align: center;
+  font: 18px/15px sans-serif;
+  transform-origin: center;
+  transition: transform 220ms cubic-bezier(.22, 1.22, .36, 1);
+}
+
+.oh-trajectory-json-node[aria-expanded="true"] > .oh-trajectory-json-row > .oh-trajectory-json-chevron {
+  transform: rotate(90deg);
+}
+
+.oh-trajectory-json-bullet {
+  width: 4px;
+  height: 4px;
+  flex: none;
+  margin: 6px 7px 0 6px;
+  border-radius: 50%;
+  background: var(--m3-outline);
+}
+
+.oh-trajectory-json-children {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-left: 10px;
+  padding-left: 4px;
+  border-left: 1px solid color-mix(in srgb, var(--m3-primary) 20%, transparent);
+  transition: grid-template-rows 220ms cubic-bezier(.22, 1.22, .36, 1);
+}
+
+.oh-trajectory-json-children.is-expanded { grid-template-rows: 1fr; }
+.oh-trajectory-json-children > div { min-height: 0; overflow: hidden; }
+.oh-trajectory-json-key { color: var(--m3-primary); font-weight: 650; }
+.oh-trajectory-json-punctuation { color: var(--m3-on-surface-variant); }
+.oh-trajectory-json-count { margin-left: 7px; color: var(--m3-secondary); }
+.oh-trajectory-json-value.is-string { color: var(--m3-tertiary); }
+.oh-trajectory-json-value.is-number { color: var(--m3-secondary); }
+.oh-trajectory-json-value.is-boolean { color: var(--m3-primary); font-weight: 700; }
+.oh-trajectory-json-value.is-null { color: var(--m3-outline); font-style: italic; }
 
 .oh-trajectory-markdown > :first-child,
 .oh-trajectory-summary-preview > :first-child { margin-top: 0; }
@@ -10318,5 +10527,7 @@ button.oh-composer-pill:not(:disabled):hover {
 @media (prefers-reduced-motion: reduce) {
   .oh-trajectory-running-dot,
   .oh-trajectory-spinner { animation: none; }
-  .oh-trajectory-spans > i { transition: none; }
+  .oh-trajectory-spans > i,
+  .oh-trajectory-json-chevron,
+  .oh-trajectory-json-children { transition: none; }
 }

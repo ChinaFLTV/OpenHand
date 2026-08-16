@@ -707,4 +707,12 @@ export const dict_en: Record<string, string> = {
   'trajectory.request': 'Request {number}',
   'trajectory.callsCount': '{count} calls',
   'trajectory.callId': 'Call ID',
+  'trajectory.structured.text': 'Text · {count} characters',
+  'trajectory.structured.array': 'Array · {count} items',
+  'trajectory.structured.object': 'Object · {count} fields',
+  'trajectory.structured.expandAll': 'Expand all',
+  'trajectory.structured.collapseAll': 'Collapse all',
+  'trajectory.structured.copyJson': 'Copy JSON',
+  'trajectory.structured.copyText': 'Copy text',
+  'trajectory.structured.copied': 'Copied',
 };

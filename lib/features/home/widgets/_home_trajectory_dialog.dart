@@ -9,6 +9,10 @@ const double _kTrajectoryDesktopBreakpoint = 820;
 const double _kTrajectoryTableMinWidth = 760;
 const double _kTrajectoryOlderLoadThreshold = 48;
 const Duration _kTrajectoryRefreshDelay = Duration(milliseconds: 120);
+const int _kTrajectoryJsonTreeMaxCharacters = 512 * kBytesPerKiB;
+const int _kTrajectoryJsonTreeMaxNodes = 4096;
+const int _kTrajectoryJsonTreeMaxDepth = 32;
+const Duration _kTrajectoryCopyFeedbackDuration = Duration(seconds: 2);
 
 enum _TrajectoryKind {
   system,
@@ -3189,7 +3193,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ja: 'このリクエストにはシステムプロンプトが記録されていません',
         ),
       ),
-      'tools' => _TrajectoryTextDetail(
+      'tools' => _TrajectoryStructuredDetail(
         text: _trajectoryToolCatalog(metadata),
         emptyText: _trajectoryText(
           context,
@@ -3200,7 +3204,6 @@ class _TrajectoryDetailBody extends StatelessWidget {
           de: 'Für diese Anfrage wurde kein Werkzeugkatalog aufgezeichnet',
           ja: 'このリクエストにはツール一覧が記録されていません',
         ),
-        monospace: true,
       ),
       'rendered' => _TrajectoryMarkdownDetail(
         text: _trajectoryRecordRawText(record),
@@ -3214,7 +3217,7 @@ class _TrajectoryDetailBody extends StatelessWidget {
           ja: '内容なし',
         ),
       ),
-      'raw' => _TrajectoryTextDetail(
+      'raw' => _TrajectoryStructuredDetail(
         text: _trajectoryRecordRawText(record),
         emptyText: _trajectoryText(
           context,
@@ -3225,9 +3228,8 @@ class _TrajectoryDetailBody extends StatelessWidget {
           de: 'Kein Inhalt',
           ja: '内容なし',
         ),
-        monospace: true,
       ),
-      'source' => _TrajectoryTextDetail(
+      'source' => _TrajectoryStructuredDetail(
         text: _trajectoryPrettyValue(<String, Object?>{
           'message_id': record.sourceMessageId,
           'turn': record.turn,
@@ -3244,9 +3246,8 @@ class _TrajectoryDetailBody extends StatelessWidget {
           de: 'Quelle nicht aufgezeichnet',
           ja: 'ソースは記録されていません',
         ),
-        monospace: true,
       ),
-      'input' => _TrajectoryTextDetail(
+      'input' => _TrajectoryStructuredDetail(
         text: record.input,
         emptyText: _trajectoryText(
           context,
@@ -3257,9 +3258,8 @@ class _TrajectoryDetailBody extends StatelessWidget {
           de: 'Keine Eingabenutzlast',
           ja: '入力ペイロードなし',
         ),
-        monospace: true,
       ),
-      'output' => _TrajectoryTextDetail(
+      'output' => _TrajectoryStructuredDetail(
         text: record.output,
         emptyText: record.running
             ? _trajectoryText(
@@ -3280,10 +3280,9 @@ class _TrajectoryDetailBody extends StatelessWidget {
                 de: 'Keine Ausgabenutzlast',
                 ja: '出力ペイロードなし',
               ),
-        monospace: true,
         error: record.isError,
       ),
-      'schema' => _TrajectoryTextDetail(
+      'schema' => _TrajectoryStructuredDetail(
         text: _trajectorySchema(metadata),
         emptyText: _trajectoryText(
           context,
@@ -3294,9 +3293,8 @@ class _TrajectoryDetailBody extends StatelessWidget {
           de: 'Schema nicht aufgezeichnet',
           ja: 'スキーマは記録されていません',
         ),
-        monospace: true,
       ),
-      'options' => _TrajectoryTextDetail(
+      'options' => _TrajectoryStructuredDetail(
         text: _trajectoryRequestOptions(metadata),
         emptyText: _trajectoryText(
           context,
@@ -3307,7 +3305,6 @@ class _TrajectoryDetailBody extends StatelessWidget {
           de: 'Anfrageoptionen nicht aufgezeichnet',
           ja: 'リクエスト設定は記録されていません',
         ),
-        monospace: true,
       ),
       'usage' => _buildUsage(context),
       'timing' => _buildTiming(context),
@@ -3745,38 +3742,68 @@ class _TrajectoryOverview extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    return Column(
-      children: [
-        for (final row in rows)
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: compact ? 3 : 5),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 96,
-                  child: Text(
-                    row.$1,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 8.0;
+        final columns = constraints.maxWidth >= 360 ? 2 : 1;
+        final width = columns == 1
+            ? constraints.maxWidth
+            : (constraints.maxWidth - gap) / columns;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final row in rows)
+              SizedBox(
+                width: width,
+                child: Container(
+                  constraints: BoxConstraints(minHeight: compact ? 54 : 62),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 9 : 10,
+                    vertical: compact ? 7 : 9,
                   ),
-                ),
-                Expanded(
-                  child: SelectableText(
-                    row.$2,
-                    style: theme.textTheme.bodySmall?.copyWith(
+                  decoration: BoxDecoration(
+                    color: row.$3
+                        ? colorScheme.errorContainer.withValues(alpha: 0.5)
+                        : colorScheme.surfaceContainer,
+                    borderRadius: BorderRadius.circular(7),
+                    border: Border.all(
                       color: row.$3
-                          ? Theme.of(context).colorScheme.error
-                          : null,
-                      height: 1.35,
+                          ? colorScheme.error.withValues(alpha: 0.32)
+                          : colorScheme.outlineVariant.withValues(alpha: 0.72),
                     ),
                   ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        row.$1,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: row.$3
+                              ? colorScheme.error
+                              : colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      kOpenHandGap4,
+                      SelectableText(
+                        row.$2,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: row.$3 ? colorScheme.error : null,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-          ),
-      ],
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -3826,17 +3853,30 @@ class _TrajectoryMarkdownDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     if (text.trim().isEmpty) return _TrajectoryEmptyDetail(text: emptyText);
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: preview ? 220 : double.infinity),
-      child: SelectionArea(
-        child: MarkdownBody(
-          data: text,
-          styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-            p: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.5),
-            code: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainer.withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(7),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.7),
+          ),
+        ),
+        child: SelectionArea(
+          child: MarkdownBody(
+            data: text,
+            styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+              p: theme.textTheme.bodySmall?.copyWith(height: 1.5),
+              code: theme.textTheme.bodySmall?.copyWith(
+                fontFamily: kOpenHandMonospaceFontFamily,
+              ),
+            ),
           ),
         ),
       ),
@@ -3844,32 +3884,538 @@ class _TrajectoryMarkdownDetail extends StatelessWidget {
   }
 }
 
-class _TrajectoryTextDetail extends StatelessWidget {
-  const _TrajectoryTextDetail({
+class _TrajectoryJsonDocument {
+  const _TrajectoryJsonDocument({
+    required this.value,
+    required this.containerPaths,
+  });
+
+  final Object? value;
+  final Set<String> containerPaths;
+}
+
+_TrajectoryJsonDocument? _trajectoryJsonDocument(String text) {
+  final trimmed = text.trim();
+  if (trimmed.length < 2 ||
+      trimmed.length > _kTrajectoryJsonTreeMaxCharacters ||
+      !(trimmed.startsWith('{') && trimmed.endsWith('}')) &&
+          !(trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+    return null;
+  }
+  Object? decoded;
+  try {
+    decoded = jsonDecode(trimmed);
+  } on FormatException {
+    return null;
+  }
+  if (decoded is! Map && decoded is! List) return null;
+
+  final paths = <String>{r'$'};
+  final pending = <(Object?, String, int)>[(decoded, r'$', 0)];
+  var nodes = 0;
+  while (pending.isNotEmpty) {
+    final current = pending.removeLast();
+    if (current.$3 > _kTrajectoryJsonTreeMaxDepth) return null;
+    final value = current.$1;
+    final children = value is Map
+        ? value.values.toList(growable: false)
+        : value is List
+        ? value
+        : const <Object?>[];
+    for (var index = 0; index < children.length; index += 1) {
+      nodes += 1;
+      if (nodes > _kTrajectoryJsonTreeMaxNodes) return null;
+      final child = children[index];
+      if ((child is Map && child.isNotEmpty) ||
+          (child is List && child.isNotEmpty)) {
+        final path = '${current.$2}/$index';
+        paths.add(path);
+        pending.add((child, path, current.$3 + 1));
+      }
+    }
+  }
+  return _TrajectoryJsonDocument(
+    value: decoded,
+    containerPaths: Set<String>.unmodifiable(paths),
+  );
+}
+
+class _TrajectoryStructuredDetail extends StatefulWidget {
+  const _TrajectoryStructuredDetail({
     required this.text,
     required this.emptyText,
-    this.monospace = false,
     this.error = false,
   });
 
   final String text;
   final String emptyText;
-  final bool monospace;
   final bool error;
 
   @override
+  State<_TrajectoryStructuredDetail> createState() =>
+      _TrajectoryStructuredDetailState();
+}
+
+class _TrajectoryStructuredDetailState
+    extends State<_TrajectoryStructuredDetail> {
+  _TrajectoryJsonDocument? _document;
+  Set<String> _expandedPaths = <String>{r'$'};
+  Timer? _copiedResetTimer;
+  bool _copied = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _parse();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TrajectoryStructuredDetail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text) {
+      _copiedResetTimer?.cancel();
+      _copied = false;
+      _parse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _copiedResetTimer?.cancel();
+    super.dispose();
+  }
+
+  void _parse() {
+    _document = _trajectoryJsonDocument(widget.text);
+    _expandedPaths = <String>{
+      r'$',
+      ...?_document?.containerPaths.where(
+        (path) => path != r'$' && '/'.allMatches(path).length == 1,
+      ),
+    };
+  }
+
+  Future<void> _copy() async {
+    final copied = await copyOpenHandTextToClipboard(
+      context: context,
+      text: widget.text,
+      logTag: 'trajectory',
+      logAction: '复制轨迹详情',
+      showSuccess: false,
+    );
+    if (!copied || !mounted) return;
+    _copiedResetTimer?.cancel();
+    setState(() => _copied = true);
+    _copiedResetTimer = startSafeTimer(_kTrajectoryCopyFeedbackDuration, () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (text.trim().isEmpty) return _TrajectoryEmptyDetail(text: emptyText);
+    if (widget.text.trim().isEmpty) {
+      return _TrajectoryEmptyDetail(text: widget.emptyText);
+    }
     final theme = Theme.of(context);
-    return SelectableText(
-      text,
-      style: theme.textTheme.bodySmall?.copyWith(
-        fontFamily: monospace ? 'monospace' : null,
-        color: error ? Theme.of(context).colorScheme.error : null,
-        height: 1.5,
+    final colorScheme = theme.colorScheme;
+    final document = _document;
+    final value = document?.value;
+    final count = value is Map
+        ? value.length
+        : value is List
+        ? value.length
+        : 0;
+    final description = value is Map
+        ? _trajectoryText(
+            context,
+            zh: '对象 · $count 个字段',
+            zhHant: '物件 · $count 個欄位',
+            en: 'Object · $count ${count == 1 ? 'field' : 'fields'}',
+            fr: 'Objet · $count ${count == 1 ? 'champ' : 'champs'}',
+            de: 'Objekt · $count ${count == 1 ? 'Feld' : 'Felder'}',
+            ja: 'オブジェクト · $count フィールド',
+          )
+        : value is List
+        ? _trajectoryText(
+            context,
+            zh: '数组 · $count 项',
+            zhHant: '陣列 · $count 項',
+            en: 'Array · $count ${count == 1 ? 'item' : 'items'}',
+            fr: 'Tableau · $count ${count == 1 ? 'élément' : 'éléments'}',
+            de: 'Array · $count ${count == 1 ? 'Eintrag' : 'Einträge'}',
+            ja: '配列 · $count 件',
+          )
+        : _trajectoryText(
+            context,
+            zh: '文本 · ${widget.text.length} 字符',
+            zhHant: '文字 · ${widget.text.length} 字元',
+            en: 'Text · ${widget.text.length} characters',
+            fr: 'Texte · ${widget.text.length} caractères',
+            de: 'Text · ${widget.text.length} Zeichen',
+            ja: 'テキスト · ${widget.text.length} 文字',
+          );
+    final allExpanded =
+        document != null &&
+        document.containerPaths.every(_expandedPaths.contains);
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(
+          color: widget.error
+              ? colorScheme.error.withValues(alpha: 0.38)
+              : colorScheme.outlineVariant.withValues(alpha: 0.78),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            height: 38,
+            padding: const EdgeInsetsDirectional.only(start: 10, end: 4),
+            decoration: BoxDecoration(
+              color: widget.error
+                  ? colorScheme.errorContainer.withValues(alpha: 0.5)
+                  : document == null
+                  ? colorScheme.surfaceContainerHigh.withValues(alpha: 0.72)
+                  : colorScheme.primaryContainer.withValues(alpha: 0.38),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(6),
+              ),
+              border: Border(
+                bottom: BorderSide(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.72),
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  document == null
+                      ? Icons.notes_rounded
+                      : Icons.data_object_rounded,
+                  size: 16,
+                  color: widget.error
+                      ? colorScheme.error
+                      : document == null
+                      ? colorScheme.onSurfaceVariant
+                      : colorScheme.primary,
+                ),
+                kOpenHandHGap8,
+                Expanded(
+                  child: Text(
+                    description,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (document != null && document.containerPaths.length > 1)
+                  IconButton(
+                    constraints: const BoxConstraints.tightFor(
+                      width: 30,
+                      height: 30,
+                    ),
+                    padding: EdgeInsets.zero,
+                    tooltip: allExpanded
+                        ? _trajectoryText(
+                            context,
+                            zh: '全部收起',
+                            zhHant: '全部收合',
+                            en: 'Collapse all',
+                            fr: 'Tout réduire',
+                            de: 'Alle einklappen',
+                            ja: 'すべて折りたたむ',
+                          )
+                        : _trajectoryText(
+                            context,
+                            zh: '全部展开',
+                            zhHant: '全部展開',
+                            en: 'Expand all',
+                            fr: 'Tout développer',
+                            de: 'Alle ausklappen',
+                            ja: 'すべて展開',
+                          ),
+                    onPressed: () => setState(() {
+                      _expandedPaths = allExpanded
+                          ? <String>{r'$'}
+                          : document.containerPaths.toSet();
+                    }),
+                    icon: Icon(
+                      allExpanded
+                          ? Icons.unfold_less_rounded
+                          : Icons.unfold_more_rounded,
+                      size: 17,
+                    ),
+                  ),
+                IconButton(
+                  constraints: const BoxConstraints.tightFor(
+                    width: 30,
+                    height: 30,
+                  ),
+                  padding: EdgeInsets.zero,
+                  tooltip: _copied
+                      ? _trajectoryText(
+                          context,
+                          zh: '已复制',
+                          zhHant: '已複製',
+                          en: 'Copied',
+                          fr: 'Copié',
+                          de: 'Kopiert',
+                          ja: 'コピー済み',
+                        )
+                      : _trajectoryText(
+                          context,
+                          zh: document == null ? '复制文本' : '复制 JSON',
+                          zhHant: document == null ? '複製文字' : '複製 JSON',
+                          en: document == null ? 'Copy text' : 'Copy JSON',
+                          fr: document == null
+                              ? 'Copier le texte'
+                              : 'Copier le JSON',
+                          de: document == null
+                              ? 'Text kopieren'
+                              : 'JSON kopieren',
+                          ja: document == null ? 'テキストをコピー' : 'JSON をコピー',
+                        ),
+                  onPressed: _copy,
+                  icon: Icon(
+                    _copied ? Icons.check_rounded : Icons.copy_rounded,
+                    size: 16,
+                    color: _copied ? colorScheme.primary : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: document == null
+                ? SelectableText(
+                    widget.text,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: kOpenHandMonospaceFontFamily,
+                      color: widget.error ? colorScheme.error : null,
+                      height: 1.5,
+                    ),
+                  )
+                : _buildJsonRoot(context, document.value),
+          ),
+        ],
       ),
     );
   }
+
+  Widget _buildJsonRoot(BuildContext context, Object? value) {
+    final entries = value is Map
+        ? value.entries
+              .map((entry) => (key: '${entry.key}', value: entry.value))
+              .toList(growable: false)
+        : [
+            for (var index = 0; index < (value as List).length; index += 1)
+              (key: '$index', value: value[index]),
+          ];
+    if (entries.isEmpty) {
+      final theme = Theme.of(context);
+      return SelectableText(
+        value is Map ? '{}' : '[]',
+        style: theme.textTheme.bodySmall?.copyWith(
+          fontFamily: kOpenHandMonospaceFontFamily,
+          color: theme.colorScheme.onSurfaceVariant,
+          height: 1.45,
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var index = 0; index < entries.length; index += 1)
+          _buildJsonNode(
+            context,
+            key: entries[index].key,
+            value: entries[index].value,
+            path:
+                r'$'
+                '/$index',
+            depth: 0,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildJsonNode(
+    BuildContext context, {
+    required String key,
+    required Object? value,
+    required String path,
+    required int depth,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isContainer = value is Map || value is List;
+    final childCount = value is Map
+        ? value.length
+        : value is List
+        ? value.length
+        : 0;
+    final expandable = isContainer && childCount > 0;
+    final expanded = expandable && _expandedPaths.contains(path);
+    final keyStyle = theme.textTheme.bodySmall?.copyWith(
+      fontFamily: kOpenHandMonospaceFontFamily,
+      color: colorScheme.primary,
+      fontWeight: FontWeight.w600,
+      height: 1.45,
+    );
+    final punctuationStyle = keyStyle?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+      fontWeight: FontWeight.w400,
+    );
+    final valueSpan = TextSpan(
+      style: keyStyle,
+      children: [
+        TextSpan(text: jsonEncode(key)),
+        TextSpan(text: ': ', style: punctuationStyle),
+        if (isContainer) ...[
+          TextSpan(
+            text: value is Map
+                ? childCount == 0
+                      ? '{}'
+                      : '{…}'
+                : childCount == 0
+                ? '[]'
+                : '[…]',
+            style: punctuationStyle,
+          ),
+          if (childCount > 0)
+            TextSpan(
+              text: '  $childCount',
+              style: punctuationStyle?.copyWith(color: colorScheme.secondary),
+            ),
+        ] else
+          TextSpan(
+            text: jsonEncode(value),
+            style: _trajectoryJsonValueStyle(theme, value),
+          ),
+      ],
+    );
+    final row = Padding(
+      padding: EdgeInsetsDirectional.only(start: depth == 0 ? 0 : 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 20,
+            height: 22,
+            child: expandable
+                ? AnimatedRotation(
+                    turns: expanded ? 0.25 : 0,
+                    duration: cardMotionDurationFor(
+                      context,
+                      expanding: expanded,
+                    ),
+                    curve: kCardMotionCurve,
+                    child: Icon(
+                      Icons.chevron_right_rounded,
+                      size: 17,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  )
+                : Icon(Icons.circle, size: 4, color: colorScheme.outline),
+          ),
+          Expanded(
+            child: expandable
+                ? Text.rich(valueSpan)
+                : SelectableText.rich(valueSpan),
+          ),
+        ],
+      ),
+    );
+    if (!expandable) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: row,
+      );
+    }
+
+    final children = value is Map
+        ? value.entries
+              .map((entry) => (key: '${entry.key}', value: entry.value))
+              .toList(growable: false)
+        : [
+            for (var index = 0; index < (value as List).length; index += 1)
+              (key: '$index', value: value[index]),
+          ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          borderRadius: BorderRadius.circular(4),
+          onTap: () => setState(() {
+            if (expanded) {
+              _expandedPaths.remove(path);
+            } else {
+              _expandedPaths.add(path);
+            }
+          }),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: row,
+          ),
+        ),
+        maybeAnimatedSize(
+          duration: cardMotionDurationFor(context, expanding: expanded),
+          curve: kCardMotionCurve,
+          alignment: Alignment.topCenter,
+          child: expanded
+              ? Container(
+                  margin: const EdgeInsetsDirectional.only(start: 9),
+                  padding: const EdgeInsetsDirectional.only(start: 4),
+                  decoration: BoxDecoration(
+                    border: BorderDirectional(
+                      start: BorderSide(
+                        color: colorScheme.primary.withValues(alpha: 0.2),
+                      ),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var index = 0; index < children.length; index += 1)
+                        _buildJsonNode(
+                          context,
+                          key: children[index].key,
+                          value: children[index].value,
+                          path: '$path/$index',
+                          depth: depth + 1,
+                        ),
+                    ],
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}
+
+TextStyle? _trajectoryJsonValueStyle(ThemeData theme, Object? value) {
+  final colorScheme = theme.colorScheme;
+  final color = switch (value) {
+    String() => colorScheme.tertiary,
+    num() => colorScheme.secondary,
+    bool() => colorScheme.primary,
+    null => colorScheme.outline,
+    _ => colorScheme.onSurface,
+  };
+  return theme.textTheme.bodySmall?.copyWith(
+    fontFamily: kOpenHandMonospaceFontFamily,
+    color: color,
+    fontWeight: value is bool ? FontWeight.w700 : FontWeight.w500,
+    height: 1.45,
+  );
 }
 
 class _TrajectoryEmptyDetail extends StatelessWidget {
@@ -3879,11 +4425,36 @@ class _TrajectoryEmptyDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-        fontStyle: FontStyle.italic,
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.62),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            size: 16,
+            color: colorScheme.onSurfaceVariant,
+          ),
+          kOpenHandHGap8,
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

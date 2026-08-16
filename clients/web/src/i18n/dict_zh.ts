@@ -706,4 +706,12 @@ export const dict_zh: Record<string, string> = {
   'trajectory.request': '请求 {number}',
   'trajectory.callsCount': '{count} 次调用',
   'trajectory.callId': '调用 ID',
+  'trajectory.structured.text': '文本 · {count} 字符',
+  'trajectory.structured.array': '数组 · {count} 项',
+  'trajectory.structured.object': '对象 · {count} 个字段',
+  'trajectory.structured.expandAll': '全部展开',
+  'trajectory.structured.collapseAll': '全部收起',
+  'trajectory.structured.copyJson': '复制 JSON',
+  'trajectory.structured.copyText': '复制文本',
+  'trajectory.structured.copied': '已复制',
 };

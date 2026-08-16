@@ -705,4 +705,12 @@ export const dict_ja: Record<string, string> = {
   'trajectory.request': 'リクエスト {number}',
   'trajectory.callsCount': '{count} 件の呼び出し',
   'trajectory.callId': '呼び出し ID',
+  'trajectory.structured.text': 'テキスト · {count} 文字',
+  'trajectory.structured.array': '配列 · {count} 件',
+  'trajectory.structured.object': 'オブジェクト · {count} フィールド',
+  'trajectory.structured.expandAll': 'すべて展開',
+  'trajectory.structured.collapseAll': 'すべて折りたたむ',
+  'trajectory.structured.copyJson': 'JSON をコピー',
+  'trajectory.structured.copyText': 'テキストをコピー',
+  'trajectory.structured.copied': 'コピー済み',
 };

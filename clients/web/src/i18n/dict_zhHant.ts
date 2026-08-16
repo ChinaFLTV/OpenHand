@@ -705,4 +705,12 @@ export const dict_zhHant: Record<string, string> = {
   'trajectory.request': '請求 {number}',
   'trajectory.callsCount': '{count} 次呼叫',
   'trajectory.callId': '呼叫 ID',
+  'trajectory.structured.text': '文字 · {count} 字元',
+  'trajectory.structured.array': '陣列 · {count} 項',
+  'trajectory.structured.object': '物件 · {count} 個欄位',
+  'trajectory.structured.expandAll': '全部展開',
+  'trajectory.structured.collapseAll': '全部收合',
+  'trajectory.structured.copyJson': '複製 JSON',
+  'trajectory.structured.copyText': '複製文字',
+  'trajectory.structured.copied': '已複製',
 };

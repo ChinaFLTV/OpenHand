@@ -8,6 +8,7 @@ import {
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { t, tFmt } from '../i18n';
 import { ignoreError } from '../shared/util/errors';
+import { copyTextToClipboard } from '../utils/clipboard';
 import { Markdown } from './Markdown';
 import {
   DIALOG_OVERLAY_CENTER_FLUSH_CLASS,
@@ -108,6 +109,15 @@ const TIMELINE_DRAG_THRESHOLD_PX = 3;
 const DETAIL_DEFAULT_WIDTH = 390;
 const DETAIL_MIN_WIDTH = 320;
 const DETAIL_MAX_WIDTH = 560;
+const JSON_TREE_MAX_CHARACTERS = 512 * 1024;
+const JSON_TREE_MAX_NODES = 4096;
+const JSON_TREE_MAX_DEPTH = 32;
+const COPY_FEEDBACK_MS = 2000;
+
+interface JsonDocument {
+  value: Record<string, unknown> | unknown[];
+  containerPaths: Set<string>;
+}
 
 function recordOf(value: unknown): Record<string, unknown> {
   if (value == null || typeof value !== 'object' || Array.isArray(value)) return {};
@@ -553,6 +563,52 @@ function prettyValue(value: unknown): string {
   }
 }
 
+function jsonDocument(text: string): JsonDocument | null {
+  const trimmed = text.trim();
+  if (
+    trimmed.length < 2
+    || trimmed.length > JSON_TREE_MAX_CHARACTERS
+    || !((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']')))
+  ) return null;
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(trimmed) as unknown;
+  } catch {
+    return null;
+  }
+  if (decoded == null || typeof decoded !== 'object') return null;
+
+  const containerPaths = new Set<string>(['$']);
+  const pending: Array<{ value: Record<string, unknown> | unknown[]; path: string; depth: number }> = [
+    { value: decoded as Record<string, unknown> | unknown[], path: '$', depth: 0 },
+  ];
+  let nodes = 0;
+  while (pending.length) {
+    const current = pending.pop()!;
+    if (current.depth > JSON_TREE_MAX_DEPTH) return null;
+    const children = Array.isArray(current.value) ? current.value : Object.values(current.value);
+    for (let index = 0; index < children.length; index += 1) {
+      nodes += 1;
+      if (nodes > JSON_TREE_MAX_NODES) return null;
+      const child = children[index];
+      if (
+        child != null
+        && typeof child === 'object'
+        && (Array.isArray(child) ? child.length > 0 : Object.keys(child).length > 0)
+      ) {
+        const path = `${current.path}/${index}`;
+        containerPaths.add(path);
+        pending.push({
+          value: child as Record<string, unknown> | unknown[],
+          path,
+          depth: current.depth + 1,
+        });
+      }
+    }
+  }
+  return { value: decoded as Record<string, unknown> | unknown[], containerPaths };
+}
+
 function requestPayload(metadata: Record<string, unknown>): Record<string, unknown> {
   const raw = metadata.request_payload;
   if (typeof raw === 'string') {
@@ -889,9 +945,9 @@ function TrajectoryTimeline({
 
 function DetailRows({ rows }: { rows: Array<[string, string, boolean?]> }) {
   return (
-    <dl class="oh-trajectory-detail-rows">
+    <dl class="oh-trajectory-metric-grid">
       {rows.map(([label, value, error]) => (
-        <div key={label}>
+        <div key={label} data-error={error ? 'true' : undefined}>
           <dt>{label}</dt>
           <dd class={error ? 'is-error' : undefined}>{value}</dd>
         </div>
@@ -901,12 +957,196 @@ function DetailRows({ rows }: { rows: Array<[string, string, boolean?]> }) {
 }
 
 function EmptyDetail({ children }: { children: string }) {
-  return <p class="oh-trajectory-detail-empty">{children}</p>;
+  return <p class="oh-trajectory-detail-empty"><span aria-hidden="true">i</span>{children}</p>;
 }
 
-function TextDetail({ text, empty, error = false }: { text: string; empty: string; error?: boolean }) {
+function CopyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="8" y="8" width="11" height="11" rx="2" />
+      <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg>;
+}
+
+function UnfoldIcon({ collapse }: { collapse: boolean }) {
+  return collapse
+    ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5-5 5 5M7 14l5 5 5-5" /></svg>
+    : <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 8 5 5 5-5M7 16l5-5 5 5" /></svg>;
+}
+
+function jsonEntries(value: Record<string, unknown> | unknown[]): Array<[string, unknown]> {
+  return Array.isArray(value)
+    ? value.map((child, index) => [String(index), child])
+    : Object.entries(value);
+}
+
+function JsonNode({
+  name,
+  value,
+  path,
+  expandedPaths,
+  onToggle,
+}: {
+  name: string;
+  value: unknown;
+  path: string;
+  expandedPaths: ReadonlySet<string>;
+  onToggle: (path: string) => void;
+}) {
+  const container = value != null && typeof value === 'object';
+  const entries = container ? jsonEntries(value as Record<string, unknown> | unknown[]) : [];
+  const expandable = container && entries.length > 0;
+  const expanded = expandable && expandedPaths.has(path);
+  const valueClass = value === null ? 'is-null' : `is-${typeof value}`;
+  const content = (
+    <code>
+      <span class="oh-trajectory-json-key">{JSON.stringify(name)}</span>
+      <span class="oh-trajectory-json-punctuation">: </span>
+      {container ? (
+        <>
+          <span class="oh-trajectory-json-punctuation">{
+            Array.isArray(value)
+              ? entries.length ? '[…]' : '[]'
+              : entries.length ? '{…}' : '{}'
+          }</span>
+          {entries.length ? <span class="oh-trajectory-json-count">{entries.length}</span> : null}
+        </>
+      ) : (
+        <span class={`oh-trajectory-json-value ${valueClass}`}>{JSON.stringify(value)}</span>
+      )}
+    </code>
+  );
+  return (
+    <div class="oh-trajectory-json-node" role="treeitem" aria-expanded={expandable ? expanded : undefined}>
+      {expandable ? (
+        <button type="button" class="oh-trajectory-json-row" onClick={() => onToggle(path)}>
+          <span class="oh-trajectory-json-chevron" aria-hidden="true">›</span>
+          {content}
+        </button>
+      ) : (
+        <div class="oh-trajectory-json-row is-leaf">
+          <span class="oh-trajectory-json-bullet" aria-hidden="true" />
+          {content}
+        </div>
+      )}
+      {expandable ? (
+        <div class={`oh-trajectory-json-children${expanded ? ' is-expanded' : ''}`}>
+          <div role="group">
+            {entries.map(([key, child], index) => (
+              <JsonNode
+                key={`${path}/${index}`}
+                name={key}
+                value={child}
+                path={`${path}/${index}`}
+                expandedPaths={expandedPaths}
+                onToggle={onToggle}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function StructuredDetail({ text, empty, error = false }: { text: string; empty: string; error?: boolean }) {
+  const document = useMemo(() => jsonDocument(text), [text]);
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['$']));
+  const [copied, setCopied] = useState(false);
+  const copyResetRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const initial = new Set<string>(['$']);
+    for (const path of document?.containerPaths ?? []) {
+      if (path !== '$' && path.split('/').length === 2) initial.add(path);
+    }
+    setExpandedPaths(initial);
+    if (copyResetRef.current != null) window.clearTimeout(copyResetRef.current);
+    setCopied(false);
+  }, [document]);
+  useEffect(() => () => {
+    if (copyResetRef.current != null) window.clearTimeout(copyResetRef.current);
+  }, []);
+
   if (!text.trim()) return <EmptyDetail>{empty}</EmptyDetail>;
-  return <pre class={`oh-trajectory-detail-text${error ? ' is-error' : ''}`}>{text}</pre>;
+  const value = document?.value;
+  const count = value == null ? 0 : Array.isArray(value) ? value.length : Object.keys(value).length;
+  const description = document == null
+    ? tFmt('trajectory.structured.text', { count: text.length }, `Text · ${text.length} characters`)
+    : Array.isArray(value)
+      ? tFmt('trajectory.structured.array', { count }, `Array · ${count} items`)
+      : tFmt('trajectory.structured.object', { count }, `Object · ${count} fields`);
+  const allExpanded = document != null
+    && [...document.containerPaths].every((path) => expandedPaths.has(path));
+  const rootEntries = document == null ? [] : jsonEntries(document.value);
+  const copy = async () => {
+    if (!await copyTextToClipboard(text)) return;
+    if (copyResetRef.current != null) window.clearTimeout(copyResetRef.current);
+    setCopied(true);
+    copyResetRef.current = window.setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
+  };
+  const toggle = (path: string) => setExpandedPaths((current) => {
+    const next = new Set(current);
+    if (next.has(path)) next.delete(path); else next.add(path);
+    return next;
+  });
+
+  return (
+    <section class={`oh-trajectory-structured${error ? ' is-error' : ''}`}>
+      <header>
+        <span class="oh-trajectory-structured-type" aria-hidden="true">{document ? '{}' : 'T'}</span>
+        <strong title={description}>{description}</strong>
+        {document && document.containerPaths.size > 1 ? (
+          <button
+            type="button"
+            title={allExpanded ? t('trajectory.structured.collapseAll', '全部收起') : t('trajectory.structured.expandAll', '全部展开')}
+            aria-label={allExpanded ? t('trajectory.structured.collapseAll', '全部收起') : t('trajectory.structured.expandAll', '全部展开')}
+            onClick={() => setExpandedPaths(allExpanded ? new Set(['$']) : new Set(document.containerPaths))}
+          >
+            <UnfoldIcon collapse={allExpanded} />
+          </button>
+        ) : null}
+        <button
+          type="button"
+          title={copied
+            ? t('trajectory.structured.copied', '已复制')
+            : document
+              ? t('trajectory.structured.copyJson', '复制 JSON')
+              : t('trajectory.structured.copyText', '复制文本')}
+          aria-label={copied
+            ? t('trajectory.structured.copied', '已复制')
+            : document
+              ? t('trajectory.structured.copyJson', '复制 JSON')
+              : t('trajectory.structured.copyText', '复制文本')}
+          onClick={() => void copy()}
+          data-copied={copied ? 'true' : undefined}
+        >
+          {copied ? <CheckIcon /> : <CopyIcon />}
+        </button>
+      </header>
+      {document ? (
+        <div class="oh-trajectory-json-tree" role="tree">
+          {rootEntries.length ? rootEntries.map(([key, child], index) => (
+              <JsonNode
+                key={`$/${index}`}
+                name={key}
+                value={child}
+                path={`$/${index}`}
+                expandedPaths={expandedPaths}
+                onToggle={toggle}
+              />
+            )) : <code class="oh-trajectory-json-empty">{Array.isArray(document.value) ? '[]' : '{}'}</code>}
+        </div>
+      ) : (
+        <pre class="oh-trajectory-detail-text">{text}</pre>
+      )}
+    </section>
+  );
 }
 
 function UsageDetail({ usage }: { usage: TrajectoryUsage | null }) {
@@ -958,23 +1198,23 @@ function DetailBody({
     const source = systemPrompt(metadata);
     return source ? <div class="oh-trajectory-markdown"><Markdown source={source} /></div> : <EmptyDetail>{t('trajectory.systemPromptMissing', '本次请求未记录系统提示词')}</EmptyDetail>;
   }
-  if (tab === 'tools') return <TextDetail text={toolCatalog(metadata)} empty={t('trajectory.toolsMissing', '本次请求未记录工具目录')} />;
+  if (tab === 'tools') return <StructuredDetail text={toolCatalog(metadata)} empty={t('trajectory.toolsMissing', '本次请求未记录工具目录')} />;
   if (tab === 'rendered') {
     const source = rawRecordText(record);
     return source ? <div class="oh-trajectory-markdown"><Markdown source={source} /></div> : <EmptyDetail>{t('trajectory.contentMissing', '无内容')}</EmptyDetail>;
   }
-  if (tab === 'raw') return <TextDetail text={rawRecordText(record)} empty={t('trajectory.contentMissing', '无内容')} />;
-  if (tab === 'source') return <TextDetail text={prettyValue({
+  if (tab === 'raw') return <StructuredDetail text={rawRecordText(record)} empty={t('trajectory.contentMissing', '无内容')} />;
+  if (tab === 'source') return <StructuredDetail text={prettyValue({
     message_id: record.sourceMessageId,
     turn: record.turn,
     step: record.step,
     request_number: record.requestNumber,
     metadata,
   })} empty={t('trajectory.sourceMissing', '未记录来源')} />;
-  if (tab === 'input') return <TextDetail text={record.input} empty={t('trajectory.inputMissing', '无输入载荷')} />;
-  if (tab === 'output') return <TextDetail text={record.output} empty={record.running ? t('trajectory.pending', '等待中') : t('trajectory.outputMissing', '无输出载荷')} error={record.error} />;
-  if (tab === 'schema') return <TextDetail text={schemaText(metadata)} empty={t('trajectory.schemaMissing', '未记录 Schema')} />;
-  if (tab === 'options') return <TextDetail text={requestOptions(metadata)} empty={t('trajectory.optionsMissing', '未记录请求选项')} />;
+  if (tab === 'input') return <StructuredDetail text={record.input} empty={t('trajectory.inputMissing', '无输入载荷')} />;
+  if (tab === 'output') return <StructuredDetail text={record.output} empty={record.running ? t('trajectory.pending', '等待中') : t('trajectory.outputMissing', '无输出载荷')} error={record.error} />;
+  if (tab === 'schema') return <StructuredDetail text={schemaText(metadata)} empty={t('trajectory.schemaMissing', '未记录 Schema')} />;
+  if (tab === 'options') return <StructuredDetail text={requestOptions(metadata)} empty={t('trajectory.optionsMissing', '未记录请求选项')} />;
 
   const status = record.error
     ? t('trajectory.failed', '失败')
