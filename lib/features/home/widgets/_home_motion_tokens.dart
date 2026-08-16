@@ -6,7 +6,7 @@ part of '../openhand_home_page.dart';
 /// `_ToolCallMetaRow`、`_SelfLearningCard`、`_CompressionCheckpointBody` 等）
 /// 的 `AnimatedSize` / `AnimatedRotation` / `AnimatedDefaultTextStyle` 时长
 /// 与曲线全部从这里读取，禁止再在调用点写裸 `Duration(milliseconds: …)` /
-/// `Curves.easeOutCubic`。
+/// `kOpenHandSwitchInCurve`。
 ///
 /// 设计依据：design.md Bug 5 / requirements.md 6.1—6.3。
 ///   * 时长 ∈ [220ms, 320ms]，按 expand / collapse 方向各自固定。

@@ -1,7 +1,6 @@
 import 'package:package_info_plus/package_info_plus.dart';
 
 const String kOpenHandDefaultAppName = 'OpenHand';
-const String _kDefaultAppName = kOpenHandDefaultAppName;
 const String _kDefaultPackageName = 'com.flwork.openhand';
 const String _kDefaultVersion = '0.1.0';
 const String _kDefaultBuildNumber = '1';
@@ -16,7 +15,7 @@ class AppInfo {
 
   factory AppInfo.fromPackageInfo(PackageInfo packageInfo) {
     return AppInfo(
-      appName: packageInfo.appName.isEmpty ? _kDefaultAppName : packageInfo.appName,
+      appName: packageInfo.appName.isEmpty ? kOpenHandDefaultAppName : packageInfo.appName,
       packageName: packageInfo.packageName.isEmpty
           ? _kDefaultPackageName
           : packageInfo.packageName,
@@ -29,7 +28,7 @@ class AppInfo {
 
   factory AppInfo.fallback() {
     return const AppInfo(
-      appName: _kDefaultAppName,
+      appName: kOpenHandDefaultAppName,
       packageName: _kDefaultPackageName,
       version: _kDefaultVersion,
       buildNumber: _kDefaultBuildNumber,
