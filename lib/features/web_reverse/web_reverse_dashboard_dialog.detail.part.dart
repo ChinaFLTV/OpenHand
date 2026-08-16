@@ -682,17 +682,17 @@ class _BodyTab extends StatelessWidget {
     // Preview tab 是 Chrome DevTools 的 "Preview"，主要给媒体类型用；
     // Response tab 仍走文本/二进制兜底，方便复制原始 body。
     if (preview) {
-      if (mime.startsWith('image/')) {
+      if (isImageMimeType(mime)) {
         return _ImageInlinePreview(entry: entry, bytesText: text, isZh: isZh);
       }
-      if (mime.startsWith('audio/')) {
+      if (isAudioMimeType(mime)) {
         return _MediaInlinePreview(
           entry: entry,
           kind: MediaPreviewKind.audio,
           isZh: isZh,
         );
       }
-      if (mime.startsWith('video/')) {
+      if (isVideoMimeType(mime)) {
         return _MediaInlinePreview(
           entry: entry,
           kind: MediaPreviewKind.video,

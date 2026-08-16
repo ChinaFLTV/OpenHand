@@ -111,9 +111,9 @@ enum _ResourceFilter {
       _ResourceFilter.css => t == 'stylesheet',
       _ResourceFilter.js => t == 'script' || m.contains('javascript'),
       _ResourceFilter.font => t == 'font' || m.startsWith('font/'),
-      _ResourceFilter.img => t == 'image' || m.startsWith('image/'),
+      _ResourceFilter.img => t == 'image' || isImageMimeType(m),
       _ResourceFilter.media =>
-        t == 'media' || m.startsWith('audio/') || m.startsWith('video/'),
+        t == 'media' || isAudioMimeType(m) || isVideoMimeType(m),
       _ResourceFilter.manifest => t == 'manifest',
       _ResourceFilter.ws => t == 'websocket' || t == 'eventsource',
       _ResourceFilter.wasm => t == 'wasm' || m.contains('wasm'),
