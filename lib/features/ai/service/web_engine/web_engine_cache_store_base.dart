@@ -68,7 +68,7 @@ class WebEngineCacheRawLookup {
 ///   * 取出 `cacheEnabled / cacheTtlSeconds / cacheMaxBytes` 的 `TSettings` 适配
 ///   * `logTag`（用于 silentLog 上下文）
 abstract class WebEngineCacheStoreBase<TSettings> {
-  static const Duration runtimeCleanupTimeout = Duration(seconds: 15);
+  static const Duration runtimeCleanupTimeout = kOpenHandServiceRuntimeCleanupTimeout;
 
   /// 子目录名（`web_search` / `web_fetch`）。
   String get subdir;

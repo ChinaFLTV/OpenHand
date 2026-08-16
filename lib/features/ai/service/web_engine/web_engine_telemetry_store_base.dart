@@ -172,7 +172,7 @@ abstract class WebEngineSampleBase {
 /// 同时维护各自的 typed `CallLog/PerEngineLog/EngineStat/EngineSample` 包装；
 /// 写日志统一走 [recordCallRaw]，读日志拿到 raw map 后再做 fromJson。
 abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
-  static const Duration runtimeCleanupTimeout = Duration(seconds: 15);
+  static const Duration runtimeCleanupTimeout = kOpenHandServiceRuntimeCleanupTimeout;
 
   String get subdir;
   String get logTag;

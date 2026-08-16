@@ -459,7 +459,8 @@ class HarnessApiPhaseRunner {
               cancelSignal: cancelSignal,
             ),
           );
-        } catch (e) {
+        } catch (e, stack) {
+          silentLog('harness_api_phase_runner', 'API 请求', e, stack);
           final safeError = _sanitizeError('$e', model);
           emit('');
           emit('✗ API 请求失败：$safeError');
@@ -692,7 +693,8 @@ class HarnessApiPhaseRunner {
           }
         }
       }
-    } catch (e) {
+    } catch (e, stack) {
+      silentLog('harness_api_phase_runner', '执行阶段', e, stack);
       final safeError = _sanitizeError('$e', model);
       emit('');
       emit('✗ 执行错误：$safeError');
@@ -871,9 +873,9 @@ class HarnessApiPhaseRunner {
         ),
       );
       handoffDocContent = completion.reply.trim();
-    } catch (e) {
+    } catch (e, stack) {
+      silentLog('harness_api_phase_runner', '交接文档生成', e, stack);
       final safeError = _sanitizeError('$e', model);
-      emit('⚠ 交接文档生成失败：$safeError — 退化为截断模式继续执行');
       await _recordHandoffFailure(
         phase: phase,
         persistenceDirectory: persistenceDirectory,
@@ -976,7 +978,8 @@ class HarnessApiPhaseRunner {
       await writeFileAtomically(metadataFile, prettyPrintJson(metadata));
       emit('📋 交接文档已保存：${handoffFile.path}');
       emit('📋 交接元数据已保存：${metadataFile.path}');
-    } catch (e) {
+    } catch (e, stack) {
+      silentLog('harness_api_phase_runner', '交接文档保存', e, stack);
       emit('⚠ 交接文档保存失败：$e');
     }
 
@@ -1050,7 +1053,8 @@ class HarnessApiPhaseRunner {
       emit(
         '  {"handoff_failure":"recorded","stage":${jsonEncode(failureStage)},"path":${jsonEncode(failureFile.path)}}',
       );
-    } catch (e) {
+    } catch (e, stack) {
+      silentLog('harness_api_phase_runner', '交接失败记录保存', e, stack);
       emit('⚠ 交接失败记录保存失败：$e');
       emit(
         '  {"handoff_failure":"record_failed","stage":${jsonEncode(failureStage)},"reason":${jsonEncode(reason)}}',

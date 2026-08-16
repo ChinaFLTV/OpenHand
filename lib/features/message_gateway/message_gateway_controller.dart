@@ -124,7 +124,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
     delay: _logNotifyDelay,
   );
   static const Duration _logNotifyDelay = Duration(milliseconds: 120);
-  static const Duration runtimeCleanupTimeout = Duration(seconds: 15);
+  static const Duration runtimeCleanupTimeout = kOpenHandServiceRuntimeCleanupTimeout;
 
   @override
   Duration get operationShutdownTimeout => runtimeCleanupTimeout;

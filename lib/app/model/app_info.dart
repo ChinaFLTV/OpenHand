@@ -1,6 +1,7 @@
 import 'package:package_info_plus/package_info_plus.dart';
 
-const String _kDefaultAppName = 'OpenHand';
+const String kOpenHandDefaultAppName = 'OpenHand';
+const String _kDefaultAppName = kOpenHandDefaultAppName;
 const String _kDefaultPackageName = 'com.flwork.openhand';
 const String _kDefaultVersion = '0.1.0';
 const String _kDefaultBuildNumber = '1';

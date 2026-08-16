@@ -822,8 +822,9 @@ class HarnessOrchestrator extends ChangeNotifier {
       } else {
         _status = HarnessOrchestratorStatus.completed;
       }
-    } catch (e) {
+    } catch (e, stack) {
       if (_isDisposed) return;
+      silentLog('harness_orchestrator', '执行阶段', e, stack);
       _recordUnhandledPhaseError(activeLog, e);
       _status = HarnessOrchestratorStatus.failed;
       _errorMessage = _friendlyOrchestratorError(e);
@@ -1075,8 +1076,9 @@ class HarnessOrchestrator extends ChangeNotifier {
           return;
         }
       }
-    } catch (e) {
+    } catch (e, stack) {
       if (_isDisposed) return;
+      silentLog('harness_orchestrator', '重试阶段', e, stack);
       _recordUnhandledPhaseError(freshLog, e);
       _errorMessage = _friendlyOrchestratorError(e);
     }
@@ -1517,8 +1519,9 @@ class HarnessOrchestrator extends ChangeNotifier {
         log.status = HarnessPhaseStatus.failed;
         _errorMessage = result.errorMessage ?? 'API 阶段执行失败';
       }
-    } catch (e) {
+    } catch (e, stack) {
       if (_isDisposed) return;
+      silentLog('harness_orchestrator', 'API 阶段执行', e, stack);
       // 避免模型令牌进入错误信息。
       var safeError = '$e';
       final token = modelConfig.token;
@@ -1713,8 +1716,9 @@ class HarnessOrchestrator extends ChangeNotifier {
       _appendLine(log, '✗ 超时：${e.message}');
       log.status = HarnessPhaseStatus.failed;
       await _appendCliFailureDiagnostics(log, cliEntry.executable);
-    } catch (e) {
+    } catch (e, stack) {
       if (_isDisposed) return;
+      silentLog('harness_orchestrator', 'CLI 阶段执行', e, stack);
       _appendLine(log, '');
       _appendLine(log, '✗ 执行错误：$e');
       log.status = HarnessPhaseStatus.failed;

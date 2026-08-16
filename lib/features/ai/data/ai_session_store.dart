@@ -10,6 +10,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
@@ -126,7 +127,7 @@ class AiSessionStore {
     }
   }
 
-  static const Duration runtimeCleanupTimeout = Duration(seconds: 15);
+  static const Duration runtimeCleanupTimeout = kOpenHandServiceRuntimeCleanupTimeout;
   static const int _compactMemoryMarkdownMaxBytes = 16 * kBytesPerMiB;
   static const int _compactMemoryMetadataMaxBytes = 2 * kBytesPerMiB;
   static const String _compactMemoryGenerationPrefix = '- generation: ';

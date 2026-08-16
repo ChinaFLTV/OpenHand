@@ -12,6 +12,12 @@ const int kOpenHandMaxAsyncConcurrency = 64;
 const int kOpenHandMaxAsyncWaiters = 4096;
 const Duration kOpenHandDefaultAsyncCleanupTimeout = Duration(seconds: 2);
 const Duration kOpenHandMaxAsyncCleanupTimeout = Duration(seconds: 30);
+
+/// 服务级运行时资源释放超时：各 Controller / Store 在 dispose 时等待自身
+/// 异步操作完成的统一时限。此前 7+ 类各自声明
+/// `static const Duration runtimeCleanupTimeout = Duration(seconds: 15)`，
+/// 改一档要翻遍全库。
+const Duration kOpenHandServiceRuntimeCleanupTimeout = Duration(seconds: 15);
 const Duration _kOpenHandAsyncDelayCheckInterval = Duration(milliseconds: 50);
 
 /// 基于单调时钟管理总时限，避免系统时间校准影响超时判断。

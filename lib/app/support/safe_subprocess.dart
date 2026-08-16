@@ -1752,8 +1752,8 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
         stderrDone.future,
       ]).timeout(effectiveDrainTimeout);
       return true;
-    } on TimeoutException {
-      silentLog(tag, '输出流排空超时', '$executable ${arguments.take(1).join(' ')}');
+    } on TimeoutException catch (e, stack) {
+      silentLog(tag, '输出流排空超时', '$executable ${arguments.take(1).join(' ')}', stack);
       return false;
     } catch (error, stack) {
       silentLog(tag, '等待 $executable 输出流', error, stack);

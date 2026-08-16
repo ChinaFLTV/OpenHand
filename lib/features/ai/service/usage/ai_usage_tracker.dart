@@ -94,7 +94,7 @@ class AiUsageTracker {
   static const int _defaultEstimatedCharactersPerToken = 4;
   static const int _pruneInterval = 256;
   static const int _maxErrorMessageCharacters = 8000;
-  static const Duration runtimeCleanupTimeout = Duration(seconds: 15);
+  static const Duration runtimeCleanupTimeout = kOpenHandServiceRuntimeCleanupTimeout;
 
   final AiUsageStore _store = const AiUsageStore();
   final SerialTaskQueue _writes = SerialTaskQueue(maxPendingTasks: 2048);

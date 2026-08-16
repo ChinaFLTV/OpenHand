@@ -956,8 +956,8 @@ class PluginScannerService {
           dependents: const <String>[PluginCatalogIds.playwright],
         );
       }
-    } catch (e) {
-      silentLog('plugin_scanner', '扫描 Node.js', e);
+    } catch (e, stack) {
+      silentLog('plugin_scanner', '扫描 Node.js', e, stack);
     }
     return _nodeNotInstalled;
   }
@@ -1052,8 +1052,8 @@ class PluginScannerService {
           'npm_global_root': globalRoot,
         },
       );
-    } catch (e) {
-      silentLog('plugin_scanner', '扫描 Playwright', e);
+    } catch (e, stack) {
+      silentLog('plugin_scanner', '扫描 Playwright', e, stack);
     }
     return _playwrightNotInstalled;
   }

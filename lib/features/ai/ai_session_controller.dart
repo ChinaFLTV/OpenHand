@@ -227,7 +227,7 @@ class AiSessionController extends ChangeNotifier {
     });
   }
 
-  static const Duration runtimeCleanupTimeout = Duration(seconds: 15);
+  static const Duration runtimeCleanupTimeout = kOpenHandServiceRuntimeCleanupTimeout;
 
   static const int maxManualTitleCharacters =
       AiSessionDataLimits.maxSessionTitleCharacters;

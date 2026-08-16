@@ -1063,7 +1063,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
         );
       }
       return file.path;
-    } catch (e) {
+    } catch (e, stack) {
+      silentLog(_kTag, '网络代理探测脚本准备', e, stack);
       _errorMessage = '$e';
       _safeNotify();
       rethrow;
@@ -1124,7 +1125,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'verify_apk_signature: $verifyApkSignatureScriptPath',
         'readme: $certsReadmePath',
       ].join('\n');
-    } catch (e) {
+    } catch (e, stack) {
+      silentLog(_kTag, '证书与脚本准备', e, stack);
       _errorMessage = '$e';
       _safeNotify();
       rethrow;
