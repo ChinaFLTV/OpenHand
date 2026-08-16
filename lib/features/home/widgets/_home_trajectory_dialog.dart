@@ -1166,6 +1166,18 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
       minAvailableExtent: 420,
       viewportMargin: 28,
     );
+    final messageRangeEnd =
+        _session.messageWindowStartIndex + _session.messages.length;
+    final messageRangeTotal = math.max(
+      _session.messageTotalCount,
+      messageRangeEnd,
+    );
+    final messageRangeLabel = _loadingInitial
+        ? null
+        : _session.messages.isEmpty
+        ? '0 / $messageRangeTotal'
+        : '${_session.messageWindowStartIndex + 1}-$messageRangeEnd / '
+              '$messageRangeTotal';
     final radius = BorderRadius.circular(18);
     return buildOpenHandDialog(
       width: width,
@@ -1192,6 +1204,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
                     _collapsedCalls.contains,
                   ),
               searchController: _searchController,
+              rangeLabel: messageRangeLabel,
               onDurationChanged: () {
                 setState(() {
                   _actualDuration = !_actualDuration;
@@ -1265,24 +1278,9 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
               ),
             ),
           ),
-          if (!_loadingInitial)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              child: Text(
-                _session.messages.isEmpty
-                    ? '0 / ${_session.messageTotalCount}'
-                    : '${_session.messageWindowStartIndex + 1}-'
-                          '${_session.messageWindowStartIndex + _session.messages.length} / '
-                          '${_session.messageTotalCount}',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          IconButton(
+          _TrajectoryCloseButton(
             tooltip: openHandCloseLabel(context),
             onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close_rounded, size: 19),
           ),
         ],
       ),
@@ -1613,6 +1611,7 @@ class _TrajectoryToolbar extends StatelessWidget {
     required this.allTurnsCollapsed,
     required this.allCallsCollapsed,
     required this.searchController,
+    required this.rangeLabel,
     required this.onDurationChanged,
     required this.onToggleTurns,
     required this.onToggleCalls,
@@ -1622,6 +1621,7 @@ class _TrajectoryToolbar extends StatelessWidget {
   final bool allTurnsCollapsed;
   final bool allCallsCollapsed;
   final TextEditingController searchController;
+  final String? rangeLabel;
   final VoidCallback onDurationChanged;
   final VoidCallback onToggleTurns;
   final VoidCallback onToggleCalls;
@@ -1638,7 +1638,7 @@ class _TrajectoryToolbar extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final compact = constraints.maxWidth < 590;
+          final compact = constraints.maxWidth < 700;
           return Row(
             children: [
               _TrajectoryToolbarButton(
@@ -1733,8 +1733,36 @@ class _TrajectoryToolbar extends StatelessWidget {
                 onPressed: onToggleCalls,
               ),
               const Spacer(),
+              if (rangeLabel != null) ...[
+                Container(
+                  width: compact ? 78 : null,
+                  height: _kTrajectoryToolbarControlHeight,
+                  constraints: compact
+                      ? null
+                      : const BoxConstraints(minWidth: 88),
+                  padding: EdgeInsets.symmetric(horizontal: compact ? 6 : 10),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainer,
+                    border: Border.all(color: colorScheme.outlineVariant),
+                    borderRadius: kOpenHandBorderRadius10,
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      rangeLabel!,
+                      maxLines: 1,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+                kOpenHandHGap6,
+              ],
               SizedBox(
-                width: compact ? 150 : 220,
+                width: compact ? 116 : 220,
                 height: _kTrajectoryToolbarControlHeight,
                 child: TextField(
                   controller: searchController,
@@ -1867,6 +1895,37 @@ class _TrajectoryToolbarButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _TrajectoryCloseButton extends StatelessWidget {
+  const _TrajectoryCloseButton({
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return IconButton(
+      constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+      padding: EdgeInsets.zero,
+      style: IconButton.styleFrom(
+        foregroundColor: colorScheme.onSurfaceVariant,
+        backgroundColor: colorScheme.surfaceContainer,
+        hoverColor: colorScheme.onSurface.withValues(alpha: 0.08),
+        shape: RoundedRectangleBorder(
+          borderRadius: kOpenHandBorderRadius10,
+          side: BorderSide(color: colorScheme.outlineVariant),
+        ),
+      ),
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: const Icon(Icons.close_rounded, size: 19),
     );
   }
 }
@@ -3122,7 +3181,7 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 1.7),
                       ),
                     ),
-                  IconButton(
+                  _TrajectoryCloseButton(
                     tooltip: _trajectoryText(
                       context,
                       zh: '关闭详情',
@@ -3133,7 +3192,6 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
                       ja: '詳細を閉じる',
                     ),
                     onPressed: onClose,
-                    icon: const Icon(Icons.close_rounded, size: 18),
                   ),
                 ],
               ),
@@ -3141,16 +3199,17 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
           ),
           SizedBox(
             height: 38,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
+            child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
                 children: [
                   for (final tab in tabs)
-                    _TrajectoryDetailTab(
-                      label: tab.$2,
-                      selected: tab.$1 == effectiveTab,
-                      onPressed: () => onTabChanged(tab.$1),
+                    Expanded(
+                      child: _TrajectoryDetailTab(
+                        label: tab.$2,
+                        selected: tab.$1 == effectiveTab,
+                        onPressed: () => onTabChanged(tab.$1),
+                      ),
                     ),
                 ],
               ),
@@ -3189,7 +3248,7 @@ class _TrajectoryDetailTab extends StatelessWidget {
       onTap: onPressed,
       child: Container(
         height: 38,
-        padding: const EdgeInsets.symmetric(horizontal: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           border: Border(
@@ -3199,13 +3258,17 @@ class _TrajectoryDetailTab extends StatelessWidget {
             ),
           ),
         ),
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: selected
-                ? colorScheme.primary
-                : colorScheme.onSurfaceVariant,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            label,
+            maxLines: 1,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: selected
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            ),
           ),
         ),
       ),

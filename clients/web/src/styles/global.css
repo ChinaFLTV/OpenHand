@@ -9434,8 +9434,7 @@ button.oh-composer-pill:not(:disabled):hover {
   line-height: 20px;
 }
 
-.oh-trajectory-titlebar p,
-.oh-trajectory-titlebar > span {
+.oh-trajectory-titlebar p {
   color: var(--m3-on-surface-variant);
   font-size: 11px;
   line-height: 16px;
@@ -9443,23 +9442,24 @@ button.oh-composer-pill:not(:disabled):hover {
 
 .oh-trajectory-icon-button {
   display: inline-flex;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   flex: none;
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 0;
-  border-radius: 50%;
+  border: 1px solid var(--m3-outline-variant);
+  border-radius: 10px;
   color: var(--m3-on-surface-variant);
-  background: transparent;
+  background: var(--m3-surface-container);
   cursor: pointer;
-  transition: color 140ms ease, background 140ms ease, transform 140ms ease;
+  transition: color 140ms ease, background 140ms ease, border-color 140ms ease, transform 140ms ease;
 }
 
 .oh-trajectory-icon-button:hover {
   color: var(--m3-on-surface);
-  background: color-mix(in srgb, var(--m3-on-surface) 8%, transparent);
+  border-color: var(--m3-outline);
+  background: color-mix(in srgb, var(--m3-on-surface) 8%, var(--m3-surface-container));
 }
 
 .oh-trajectory-icon-button:active {
@@ -9539,6 +9539,32 @@ button.oh-composer-pill:not(:disabled):hover {
   font-size: 15px;
   line-height: 1;
   text-align: center;
+}
+
+.oh-trajectory-toolbar-end {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.oh-trajectory-range {
+  display: inline-flex;
+  min-width: 88px;
+  height: 36px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border: 1px solid var(--m3-outline-variant);
+  border-radius: 10px;
+  color: var(--m3-on-surface-variant);
+  background: var(--m3-surface-container);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .oh-trajectory-search {
@@ -10177,32 +10203,33 @@ button.oh-composer-pill:not(:disabled):hover {
   display: flex;
   height: 38px;
   flex: none;
-  overflow-x: auto;
   padding: 0 7px;
   border-bottom: 1px solid var(--m3-outline-variant);
   scrollbar-width: none;
 }
 
-.oh-trajectory-details > nav::-webkit-scrollbar { display: none; }
-
 .oh-trajectory-details > nav button {
   position: relative;
+  min-width: 0;
   height: 38px;
-  flex: none;
-  padding: 0 8px;
+  flex: 1 1 0;
+  overflow: hidden;
+  padding: 0 4px;
   border: 0;
   color: var(--m3-on-surface-variant);
   background: transparent;
   cursor: pointer;
   font-size: 10px;
   font-weight: 550;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .oh-trajectory-details > nav button::after {
   position: absolute;
-  right: 8px;
+  right: 4px;
   bottom: 0;
-  left: 8px;
+  left: 4px;
   height: 2px;
   border-radius: 2px 2px 0 0;
   background: transparent;
@@ -10522,11 +10549,12 @@ button.oh-trajectory-json-row:hover {
     border-radius: 0;
   }
   .oh-trajectory-titlebar { height: 48px; padding-left: 12px; }
-  .oh-trajectory-titlebar > span { display: none; }
   .oh-trajectory-toolbar { align-items: stretch; flex-direction: column; gap: 4px; padding: 5px 7px; }
   .oh-trajectory-toolbar-actions { overflow-x: auto; scrollbar-width: none; }
   .oh-trajectory-toolbar-actions::-webkit-scrollbar { display: none; }
-  .oh-trajectory-search { width: 100%; }
+  .oh-trajectory-toolbar-end { width: 100%; }
+  .oh-trajectory-range { min-width: 82px; padding: 0 7px; }
+  .oh-trajectory-search { width: auto; flex: 1; }
   .oh-trajectory-timeline { grid-template-columns: 50px minmax(0, 1fr); }
   .oh-trajectory-lane-labels span { right: 5px; font-size: 9px; }
   .oh-trajectory-table-head,

@@ -81,6 +81,8 @@ interface TrajectoryDialogProps {
   sessionTitle: string;
   sessionCreatedAt?: string;
   messages: readonly SessionMessage[];
+  messageWindowStart: number;
+  messageTotal: number;
   hasOlder: boolean;
   loadingOlder?: boolean;
   onLoadOlder: () => Promise<void>;
@@ -1304,6 +1306,8 @@ export function TrajectoryDialog({
   sessionTitle,
   sessionCreatedAt,
   messages,
+  messageWindowStart,
+  messageTotal,
   hasOlder,
   loadingOlder = false,
   onLoadOlder,
@@ -1409,6 +1413,11 @@ export function TrajectoryDialog({
   const selectedMetadata = selectedRecord
     ? recordOf(hydratedMessages.get(selectedRecord.sourceMessageId ?? '')?.metadata ?? selectedRecord.metadata)
     : {};
+  const messageRangeEnd = messageWindowStart + messages.length;
+  const messageRangeTotal = Math.max(messageTotal, messageRangeEnd);
+  const messageRangeLabel = messages.length > 0
+    ? `${messageWindowStart + 1}-${messageRangeEnd} / ${messageRangeTotal}`
+    : `0 / ${messageRangeTotal}`;
 
   const renderedRows: JSX.Element[] = [];
   const renderedTurnIds = new Set<number>();
@@ -1563,7 +1572,6 @@ export function TrajectoryDialog({
             <h2>{t('trajectory.title', '轨迹')}</h2>
             <p title={sessionTitle}>{sessionTitle}</p>
           </div>
-          <span>{snapshot.records.length} {t('trajectory.records', '条记录')}</span>
           <button type="button" class="oh-trajectory-icon-button" onClick={requestClose} title={t('common.close', '关闭')}>
             <CloseIcon />
           </button>
@@ -1590,29 +1598,32 @@ export function TrajectoryDialog({
               <span>{allCallsCollapsed ? '⊞' : '⊟'}</span>{t('trajectory.calls', 'Calls')}
             </button>
           </div>
-          <div class="oh-trajectory-search" role="search">
-            <SearchIcon />
-            <input
-              type="search"
-              value={searchQuery}
-              onInput={(event) => setSearchQuery(event.currentTarget.value)}
-              placeholder={t('trajectory.search', '搜索')}
-              aria-label={t('trajectory.search', '搜索')}
-            />
-            {searchQuery ? (
-              <>
-                <span>{searchMatches?.size ?? 0}</span>
-                <button
-                  type="button"
-                  class="oh-trajectory-search-clear"
-                  title={t('trajectory.clearSearch', '清除搜索')}
-                  aria-label={t('trajectory.clearSearch', '清除搜索')}
-                  onClick={() => setSearchQuery('')}
-                >
-                  <CloseIcon />
-                </button>
-              </>
-            ) : null}
+          <div class="oh-trajectory-toolbar-end">
+            <span class="oh-trajectory-range">{messageRangeLabel}</span>
+            <div class="oh-trajectory-search" role="search">
+              <SearchIcon />
+              <input
+                type="search"
+                value={searchQuery}
+                onInput={(event) => setSearchQuery(event.currentTarget.value)}
+                placeholder={t('trajectory.search', '搜索')}
+                aria-label={t('trajectory.search', '搜索')}
+              />
+              {searchQuery ? (
+                <>
+                  <span>{searchMatches?.size ?? 0}</span>
+                  <button
+                    type="button"
+                    class="oh-trajectory-search-clear"
+                    title={t('trajectory.clearSearch', '清除搜索')}
+                    aria-label={t('trajectory.clearSearch', '清除搜索')}
+                    onClick={() => setSearchQuery('')}
+                  >
+                    <CloseIcon />
+                  </button>
+                </>
+              ) : null}
+            </div>
           </div>
         </div>
         <TrajectoryTimeline

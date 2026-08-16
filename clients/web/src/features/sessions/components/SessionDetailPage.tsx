@@ -8589,6 +8589,8 @@ export function SessionDetailPage() {
           sessionTitle={session.title || t('sessions.untitled', '未命名会话')}
           sessionCreatedAt={session.created_at}
           messages={sortedMessages}
+          messageWindowStart={windowOffset}
+          messageTotal={totalKnown}
           hasOlder={remainingOlder > 0}
           loadingOlder={loadingOlder || olderRenderSettling}
           onLoadOlder={loadOlder}
