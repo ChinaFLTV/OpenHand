@@ -9025,60 +9025,42 @@ class WebMessagePlatformService {
   }
 
   /// 极简 MIME 推断，只覆盖 Vite 构建会产生的扩展名。
+  /// 文件扩展名 → Content-Type 映射表。
+  static const Map<String, String> _contentTypeByExtension =
+      <String, String>{
+    '.js': _kJavaScriptContentType,
+    '.mjs': _kJavaScriptContentType,
+    '.css': _kCssContentType,
+    '.json': kApplicationJsonUtf8ContentType,
+    '.svg': kImageSvgXmlMimeType,
+    '.png': kImagePngMimeType,
+    '.jpg': kImageJpegMimeType,
+    '.jpeg': kImageJpegMimeType,
+    '.webp': kImageWebpMimeType,
+    '.gif': kImageGifMimeType,
+    '.bmp': 'image/bmp',
+    '.heic': 'image/heic',
+    '.mp4': kVideoMp4MimeType,
+    '.webm': 'video/webm',
+    '.mov': 'video/quicktime',
+    '.mp3': kAudioMpegMimeType,
+    '.wav': 'audio/wav',
+    '.ogg': 'audio/ogg',
+    '.m4a': 'audio/mp4',
+    '.flac': 'audio/flac',
+    '.pdf': kApplicationPdfMimeType,
+    '.woff2': 'font/woff2',
+    '.woff': 'font/woff',
+    '.ttf': 'font/ttf',
+    '.map': kApplicationJsonUtf8ContentType,
+  };
+
   String _guessContentType(String path) {
     final lower = path.toLowerCase();
-    if (lower.endsWith('.js') || lower.endsWith('.mjs')) {
-      return _kJavaScriptContentType;
-    }
-    if (lower.endsWith('.css')) {
-      return _kCssContentType;
-    }
-    if (lower.endsWith('.json')) {
-      return kApplicationJsonUtf8ContentType;
-    }
-    if (lower.endsWith('.svg')) {
-      return kImageSvgXmlMimeType;
-    }
-    if (lower.endsWith('.png')) {
-      return kImagePngMimeType;
-    }
-    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
-      return kImageJpegMimeType;
-    }
-    if (lower.endsWith('.webp')) {
-      return kImageWebpMimeType;
-    }
-    if (lower.endsWith('.gif')) {
-      return kImageGifMimeType;
-    }
-    if (lower.endsWith('.bmp')) {
-      return 'image/bmp';
-    }
-    if (lower.endsWith('.heic')) {
-      return 'image/heic';
-    }
-    if (lower.endsWith('.mp4')) {
-      return kVideoMp4MimeType;
-    }
-    if (lower.endsWith('.webm')) {
-      return 'video/webm';
-    }
-    if (lower.endsWith('.mov')) {
-      return 'video/quicktime';
-    }
-    if (lower.endsWith('.mp3')) {
-      return kAudioMpegMimeType;
-    }
-    if (lower.endsWith('.wav')) return 'audio/wav';
-    if (lower.endsWith('.ogg')) return 'audio/ogg';
-    if (lower.endsWith('.m4a')) return 'audio/mp4';
-    if (lower.endsWith('.flac')) return 'audio/flac';
-    if (lower.endsWith('.pdf')) return kApplicationPdfMimeType;
-    if (lower.endsWith('.woff2')) return 'font/woff2';
-    if (lower.endsWith('.woff')) return 'font/woff';
-    if (lower.endsWith('.ttf')) return 'font/ttf';
-    if (lower.endsWith('.map')) return kApplicationJsonUtf8ContentType;
-    return kApplicationOctetStreamMimeType;
+    final dot = lower.lastIndexOf('.');
+    if (dot < 0) return kApplicationOctetStreamMimeType;
+    return _contentTypeByExtension[lower.substring(dot)] ??
+        kApplicationOctetStreamMimeType;
   }
 
   String _attachmentContentDisposition(String filename) {
