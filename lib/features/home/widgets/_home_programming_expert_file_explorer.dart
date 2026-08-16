@@ -13173,7 +13173,7 @@ _EditorSymbolExtractionResult _extractEditorSymbols({
 }) {
   const maxSymbols = 240;
   const maxLines = 5000;
-  const maxTextLength = 320 * 1024;
+  const maxTextLength = 320 * kBytesPerKiB;
 
   final allLines = const LineSplitter().convert(text);
   final truncated = allLines.length > maxLines || text.length > maxTextLength;
@@ -13462,38 +13462,38 @@ class _HighlightingTextController extends TextEditingController {
   List<_FoldableRegion> get foldedLineRanges => _foldedLineRanges;
 
   /// Beyond this length, skip syntax highlighting entirely.
-  static const _maxHighlightLength = 96 * 1024;
+  static const _maxHighlightLength = 96 * kBytesPerKiB;
 
   /// Beyond this line count, skip syntax highlighting entirely.
   static const _maxHighlightLines = 1800;
 
   /// Absolute hard ceiling for forced full-editor highlighting.
   /// Files exceeding this are too large even for deferred parsing.
-  static const _absoluteMaxHighlightLength = 512 * 1024;
+  static const _absoluteMaxHighlightLength = 512 * kBytesPerKiB;
   static const _absoluteMaxHighlightLines = 12000;
 
   /// Beyond this size, defer the expensive initial highlight parse.
-  static const _deferHighlightLength = 36 * 1024;
+  static const _deferHighlightLength = 36 * kBytesPerKiB;
   static const _deferHighlightLines = 900;
 
   /// Large interactive editor features become expensive well before the
   /// virtualized preview threshold.
-  static const _reducedInteractivityLength = 80 * 1024;
+  static const _reducedInteractivityLength = 80 * kBytesPerKiB;
   static const _reducedInteractivityLines = 1800;
   static const _reducedInteractivityLineLength = 1600;
 
   /// For very large documents, keep completion explicit instead of firing on
   /// every edit.
-  static const _explicitCompletionLength = 128 * 1024;
+  static const _explicitCompletionLength = 128 * kBytesPerKiB;
   static const _explicitCompletionLines = 2800;
   static const _explicitCompletionLineLength = 2200;
 
   /// Measuring wrapped line heights requires a full-document layout pass.
-  static const _preciseWrapMeasureLength = 72 * 1024;
+  static const _preciseWrapMeasureLength = 72 * kBytesPerKiB;
   static const _preciseWrapMeasureLines = 1400;
 
   /// Large documents switch to a virtualized preview by default.
-  static const _previewLength = 160 * 1024;
+  static const _previewLength = 160 * kBytesPerKiB;
   static const _previewLines = 3200;
 
   int get lineCount => _lineCount;
@@ -13555,7 +13555,7 @@ class _HighlightingTextController extends TextEditingController {
       // For very large files (>100 KB / >2500 lines), always defer — even the
       // first render — to prevent a multi-second UI freeze while the highlight
       // parser runs synchronously on the main isolate.
-      if (text.length > 100 * 1024 || _lineCount > 2500) {
+      if (text.length > 100 * kBytesPerKiB || _lineCount > 2500) {
         return true;
       }
       // Smaller forced-open files: highlight synchronously on the first render

@@ -1,3 +1,4 @@
+import 'package:openhand/shared/util/byte_size_format.dart';
 import 'package:openhand/shared/util/text_normalization.dart';
 
 import '../../../shared/util/text_clip.dart';
@@ -18,7 +19,7 @@ class UserMemoryEntry {
   static const String autoLearnedTag = '自主学习';
   static const String userProfileEntryId = 'system:user-profile';
   static const int maxIdCharacters = 256;
-  static const int maxContentCharacters = 16 * 1024;
+  static const int maxContentCharacters = 16 * kBytesPerKiB;
   static const int maxTags = 32;
   static const int maxTagCharacters = 80;
   static const int maxTitleLength = 80;

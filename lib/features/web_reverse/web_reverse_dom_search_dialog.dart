@@ -47,7 +47,7 @@ class _Hit {
 }
 
 class _DomSearchDialogState extends State<_DomSearchDialog> {
-  static const int _maxQueryChars = 16 * 1024;
+  static const int _maxQueryChars = 16 * kBytesPerKiB;
   static const int _maxSearchIdChars = kBytesPerKiB;
   static const int _maxResults = 200;
   static const int _describeConcurrency = 4;

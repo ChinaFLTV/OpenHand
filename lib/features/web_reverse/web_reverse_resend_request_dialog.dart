@@ -61,7 +61,7 @@ class _ResendRequestDialog extends StatefulWidget {
 class _ResendRequestDialogState extends State<_ResendRequestDialog> {
   static const int _kMaxResponseBytes = 2 * kBytesPerMiB;
   static const int _kMaxHeaderRows = 128;
-  static const int _kMaxUrlCharacters = 16 * 1024;
+  static const int _kMaxUrlCharacters = 16 * kBytesPerKiB;
   static const int _kMaxHeaderCharacters = 64 * kBytesPerKiB;
   static const int _kMaxRequestBodyBytes = kBytesPerMiB;
   static const Duration _kRequestTimeout = Duration(seconds: 30);

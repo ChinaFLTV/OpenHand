@@ -53,7 +53,7 @@ class WebReverseSessionArtifacts {
   static const int _maxHarDrafts = 2000;
   static const int _maxHarHeaders = 128;
   static const int _maxHarHeaderValueChars = 8 * kBytesPerKiB;
-  static const int _maxHarPostDataChars = 256 * 1024;
+  static const int _maxHarPostDataChars = 256 * kBytesPerKiB;
   static const int _maxJsonlEventChars = 1 * kBytesPerMiB;
   static const int _maxJsonlPendingChars = 4 * kBytesPerMiB;
   static const Duration _fileIoTimeout = Duration(seconds: 3);

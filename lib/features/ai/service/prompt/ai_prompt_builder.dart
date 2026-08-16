@@ -51,11 +51,11 @@ import 'ai_prompt_template_repository.dart';
 
 const String aiPromptRuntimeTailSnapshotMetadataKey =
     'prompt_runtime_tail_snapshot';
-const int _userProfilePromptMaxCharacters = 8 * 1024;
+const int _userProfilePromptMaxCharacters = 8 * kBytesPerKiB;
 const int _userMemoryPromptMaxEntries = 64;
-const int _userMemoryPromptEntryMaxCharacters = 2 * 1024;
+const int _userMemoryPromptEntryMaxCharacters = 2 * kBytesPerKiB;
 const int _userMemoryPromptTagsMaxCharacters = 320;
-const int _userMemoryPromptMaxCharacters = 24 * 1024;
+const int _userMemoryPromptMaxCharacters = 24 * kBytesPerKiB;
 
 class AiPromptBuildResult {
   const AiPromptBuildResult({

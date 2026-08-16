@@ -5,12 +5,13 @@ import 'package:path/path.dart' as p;
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import 'harness_role_config.dart';
 
-const int kHarnessTaskMaxCharacters = 256 * 1024;
-const int kHarnessPathMaxCharacters = 4096;
+const int kHarnessTaskMaxCharacters = 256 * kBytesPerKiB;
+const int kHarnessPathMaxCharacters = 4 * kBytesPerKiB;
 
 class HarnessSessionConfig {
   const HarnessSessionConfig({

@@ -23,16 +23,16 @@ const int _collapsedBodyScrollOffsetCacheLimit = 500;
 /// transcript open / scroll responsive — `flutter_markdown_plus` runs the
 /// AST parse and widget build synchronously on the UI thread, and at this
 /// size both passes start to dominate frame budgets and trigger ANR.
-const int _markdownPlainTextSkipThresholdChars = 120 * 1024;
+const int _markdownPlainTextSkipThresholdChars = 120 * kBytesPerKiB;
 const int _toolResultMarkdownCollapseLineThreshold = 32;
 const int _htmlPreparedCacheMaxEntries = 160;
 const int _htmlPreparedCacheMaxCost = 2 * kBytesPerMiB;
-const int _htmlProgressiveRenderCharThreshold = 14 * 1024;
+const int _htmlProgressiveRenderCharThreshold = 14 * kBytesPerKiB;
 const int _htmlProgressiveRenderTagThreshold = 160;
 const int _htmlProgressiveRenderHighCostTagThreshold = 12;
 const int _htmlProgressiveRenderPreviewCharCap = 1800;
-const int _htmlProgressiveRenderPreviewScanCharCap = 12 * 1024;
-const int _htmlHealFullScanCharLimit = 48 * 1024;
+const int _htmlProgressiveRenderPreviewScanCharCap = 12 * kBytesPerKiB;
+const int _htmlHealFullScanCharLimit = 48 * kBytesPerKiB;
 const double _htmlProgressiveRenderPreviewMaxHeight = 220;
 
 String _cssHexFromColor(Color color) {
@@ -1417,12 +1417,12 @@ class _SafeMarkdownBody extends StatefulWidget {
 }
 
 // 大型 Markdown 冷解析先显示轻量占位，再按共享帧预算构建富文本树。
-const int _markdownDeferredParseThresholdChars = 2 * 1024;
+const int _markdownDeferredParseThresholdChars = 2 * kBytesPerKiB;
 
 // 流式追加时更早进入 deferred 路径，并把富文本树重建合并到稳定节奏；
 // 小公式 / 列表仍能尽快渲染，长回答不会按 token 频率反复解析整棵树。
 const int _markdownStreamingDeferredParseThresholdChars = 160;
-const int _markdownStreamingInitialSyncParseThresholdChars = 8 * 1024;
+const int _markdownStreamingInitialSyncParseThresholdChars = 8 * kBytesPerKiB;
 const int _markdownStreamingParseMinIntervalMs = 96;
 const int _markdownStreamingPlaceholderMaxLines = 6;
 const int _markdownDeferredPlaceholderMaxLines = 24;
@@ -1547,7 +1547,7 @@ class _MarkdownSanitizeCache {
   static const int _maxEntries = 256;
   // 单条准入阈值必须远小于总预算，否则一条超大消息插入后会把整个缓存
   // （连同它自己）全部淘汰，命中率恒为 0，比不加缓存更差。
-  static const int _maxEntryChars = 256 * 1024;
+  static const int _maxEntryChars = 256 * kBytesPerKiB;
   static const int _maxTotalChars = 2 * kBytesPerMiB;
 
   final LinkedHashMap<String, String> _entries =

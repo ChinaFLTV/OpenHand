@@ -701,7 +701,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
     );
 
     // 超大代码块跳过高亮，避免阻塞界面。
-    if (widget.content.length > 80 * 1024) {
+    if (widget.content.length > 80 * kBytesPerKiB) {
       _highlightedSpan = TextSpan(text: widget.content, style: baseStyle);
       return;
     }

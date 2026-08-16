@@ -1265,7 +1265,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                 divisions: 32,
                 onChanged: (v) {
                   // 对齐到 8 KiB step
-                  const step = 8 * 1024;
+                  const step = 8 * kBytesPerKiB;
                   final snapped = ((v / step).round() * step).clamp(
                     LedgerConfig.minMiniDiffMaxBytes,
                     LedgerConfig.maxMiniDiffMaxBytes,

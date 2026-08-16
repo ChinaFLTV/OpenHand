@@ -3847,7 +3847,7 @@ _StreamingGeneratedMedia? _extractStreamingGeneratedMedia(Object? value) {
   return _visitStreamingMediaNode(value, allowBareStringMedia: true);
 }
 
-const int _maxStreamingMediaUrlChars = 32 * 1024;
+const int _maxStreamingMediaUrlChars = 32 * kBytesPerKiB;
 
 _StreamingGeneratedMedia? _visitStreamingMediaNode(
   Object? node, {

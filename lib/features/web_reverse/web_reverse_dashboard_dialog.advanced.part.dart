@@ -2344,7 +2344,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
   static const int _maxEvents = 200;
   static const int _maxConnections = kWebReverseMaxWebRtcConnections;
   static const int _maxIceEntriesPerConnection = 200;
-  static const int _maxSdpChars = 128 * 1024;
+  static const int _maxSdpChars = 128 * kBytesPerKiB;
   static const int _maxSdpTotalChars = 2 * kBytesPerMiB;
   final List<int> _connectionOrder = <int>[];
   int _sdpChars = 0;

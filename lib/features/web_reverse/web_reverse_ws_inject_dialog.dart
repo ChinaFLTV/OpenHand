@@ -83,7 +83,7 @@ const String _kList = r'''
 ''';
 
 const int _kWsInjectMaxRows = 200;
-const int _kWsInjectMaxPayloadChars = 512 * 1024;
+const int _kWsInjectMaxPayloadChars = 512 * kBytesPerKiB;
 const int _kWsInjectMaxLogPayloadChars = 64 * kBytesPerKiB;
 const int _kWsInjectMaxUrlChars = 2 * kBytesPerKiB;
 const int _kWsInjectMaxLogEntries = 60;

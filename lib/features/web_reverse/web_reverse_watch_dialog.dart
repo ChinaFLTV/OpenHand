@@ -25,6 +25,7 @@ import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_clipboard.dart';
@@ -33,7 +34,7 @@ import 'web_reverse_session_controller.dart';
 
 const int _kWatchMaxExpressions = 32;
 const int _kWatchMaxNameChars = 80;
-const int _kWatchMaxExpressionChars = 16 * 1024;
+const int _kWatchMaxExpressionChars = 16 * kBytesPerKiB;
 const int _kWatchMaxResultChars = 800;
 const int _kWatchMaxSamples = 50;
 
