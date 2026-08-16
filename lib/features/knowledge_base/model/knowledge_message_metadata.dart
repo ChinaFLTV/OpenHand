@@ -3,7 +3,7 @@ import 'dart:convert';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/stable_hash.dart';
 import '../../../shared/util/text_clip.dart';
-import '../../ai/model/ai_session_message.dart';
+import '../../ai/index.dart';
 import 'knowledge_base_settings.dart';
 import 'knowledge_retrieval_result.dart';
 import 'knowledge_vector_distribution.dart';

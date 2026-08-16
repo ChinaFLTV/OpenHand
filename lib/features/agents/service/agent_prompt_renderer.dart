@@ -7,7 +7,7 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_normalization.dart';
-import '../../ai/model/ai_session_message.dart';
+import '../../ai/index.dart';
 import '../../instructions/index.dart' show UserInstructionEntry;
 import '../model/agent_models.dart';
 import 'agent_ordering.dart';

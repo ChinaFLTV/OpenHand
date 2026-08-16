@@ -33,6 +33,7 @@ const String _kApiAiExtractor = '/v1/ai-extractor';
 const String _kApiDependencies = '/v1/dependencies';
 const String _kApiDependenciesData = '/v1/dependencies/data';
 const String _kApiPostgresqlQuery = '/v1/dependencies/postgresql/query';
+const String _kApiPostgresqlPrefix = '/v1/dependencies/postgresql/';
 const String _kApiRedis = '/v1/dependencies/redis';
 
 class AiJunglerApiException implements Exception {
@@ -59,10 +60,10 @@ class AiJunglerClient {
   final HttpClient _httpClient;
 
   Future<AiExposureHealth> health() async =>
-      AiExposureHealth.fromJson(await _jsonRequest('GET', '/v1/health'));
+      AiExposureHealth.fromJson(await _jsonRequest('GET', _kApiHealth));
 
   Future<String> createJob(AiExposureScanRequest request) async {
-    final json = await _jsonRequest('POST', '/v1/jobs', body: request.toJson());
+    final json = await _jsonRequest('POST', _kApiJobs, body: request.toJson());
     final jobId = json['jobId'] as String?;
     if (jobId == null || jobId.isEmpty) {
       throw const AiJunglerApiException('扫描引擎未返回任务编号。');
@@ -88,7 +89,7 @@ class AiJunglerClient {
   Future<List<AiExposureHistoryEntry>> history({
     int limit = _kAiJunglerDefaultHistoryLimit,
   }) async => _jsonList(
-    await _request('GET', '/v1/history?limit=$limit'),
+    await _request('GET', '$_kApiHistory?limit=$limit'),
   ).map(AiExposureHistoryEntry.fromJson).toList(growable: false);
 
   Future<List<AiExposureLogEntry>> logs(
@@ -108,25 +109,25 @@ class AiJunglerClient {
         'jobId=${Uri.encodeQueryComponent(jobId)}',
     ].join('&');
     return _jsonList(
-      await _request('GET', '/v1/results?$query'),
+      await _request('GET', '$_kApiResults?$query'),
     ).map(AiExposureResult.fromJson).toList(growable: false);
   }
 
   Future<void> deleteHistory(String jobId) =>
-      _emptyRequest('DELETE', _jobPath(jobId, root: '/v1/history'));
+      _emptyRequest('DELETE', _jobPath(jobId, root: _kApiHistory));
 
   Future<List<AiExposureScanRule>> rules() async => _jsonList(
-    await _request('GET', '/v1/rules'),
+    await _request('GET', _kApiRules),
   ).map(AiExposureScanRule.fromJson).toList(growable: false);
 
   Future<void> saveRules(List<AiExposureScanRule> rules) => _emptyRequest(
     'PUT',
-    '/v1/rules',
+    _kApiRules,
     body: rules.map((rule) => rule.toJson()).toList(growable: false),
   );
 
   Future<Map<String, bool>> sourceStatus() async {
-    final json = await _jsonRequest('GET', '/v1/sources');
+    final json = await _jsonRequest('GET', _kApiSources);
     return <String, bool>{
       for (final entry in json.entries) entry.key: entry.value == true,
     };
@@ -141,7 +142,7 @@ class AiJunglerClient {
     String? shodanKey,
   }) => _emptyRequest(
     'PUT',
-    '/v1/sources',
+    _kApiSources,
     body: <String, Object?>{
       if (githubToken?.trim().isNotEmpty == true)
         'githubToken': githubToken!.trim(),
@@ -156,26 +157,26 @@ class AiJunglerClient {
   );
 
   Future<List<AiExposureQuota>> quotas() async => _jsonList(
-    await _request('GET', '/v1/sources/quotas'),
+    await _request('GET', _kApiSourcesQuotas),
   ).map(AiExposureQuota.fromJson).toList(growable: false);
 
   Future<AiExposureProxyStatus> proxyStatus() async =>
-      AiExposureProxyStatus.fromJson(await _jsonRequest('GET', '/v1/proxy'));
+      AiExposureProxyStatus.fromJson(await _jsonRequest('GET', _kApiProxy));
 
   Future<void> updateProxy(
     AiExposureProxyConfiguration configuration, {
     Map<String, Object?> systemProxy = const <String, Object?>{},
   }) => _emptyRequest(
     'PUT',
-    '/v1/proxy',
+    _kApiProxy,
     body: configuration.toRuntimeJson(systemProxy: systemProxy),
   );
 
-  Future<void> clearProxy() => _emptyRequest('DELETE', '/v1/proxy');
+  Future<void> clearProxy() => _emptyRequest('DELETE', _kApiProxy);
 
   Future<AiExposureAiExtractorStatus> aiExtractorStatus() async =>
       AiExposureAiExtractorStatus.fromJson(
-        await _jsonRequest('GET', '/v1/ai-extractor'),
+        await _jsonRequest('GET', _kApiAiExtractor),
       );
 
   Future<void> configureAiExtractor({
@@ -184,7 +185,7 @@ class AiJunglerClient {
     required Map<String, String> headers,
   }) => _emptyRequest(
     'PUT',
-    '/v1/ai-extractor',
+    _kApiAiExtractor,
     body: <String, Object?>{
       'endpoint': endpoint,
       'model': model,
@@ -192,11 +193,11 @@ class AiJunglerClient {
     },
   );
 
-  Future<void> clearAiExtractor() => _emptyRequest('DELETE', '/v1/ai-extractor');
+  Future<void> clearAiExtractor() => _emptyRequest('DELETE', _kApiAiExtractor);
 
   Future<AiExposureDependencyStatus> dependencyStatus() async =>
       AiExposureDependencyStatus.fromJson(
-        await _jsonRequest('GET', '/v1/dependencies'),
+        await _jsonRequest('GET', _kApiDependencies),
       );
 
   Future<void> updateDependencies({
@@ -205,7 +206,7 @@ class AiJunglerClient {
     Map<String, Object?>? playwright,
   }) => _emptyRequest(
     'PUT',
-    '/v1/dependencies',
+    _kApiDependencies,
     body: <String, Object?>{
       if (postgresqlUrl != null) 'postgresqlUrl': postgresqlUrl.trim(),
       if (redisUrl != null) 'redisUrl': redisUrl.trim(),
@@ -214,10 +215,10 @@ class AiJunglerClient {
   );
 
   Future<void> clearDependencies() =>
-      _emptyRequest('DELETE', '/v1/dependencies');
+      _emptyRequest('DELETE', _kApiDependencies);
 
   Future<Map<String, Object?>> dependencyDataOverview() =>
-      _jsonRequest('GET', '/v1/dependencies/data');
+      _jsonRequest('GET', _kApiDependenciesData);
 
   Future<Map<String, Object?>> postgresqlRows(
     String table, {
@@ -225,7 +226,7 @@ class AiJunglerClient {
     int offset = 0,
   }) => _jsonRequest(
     'GET',
-    '/v1/dependencies/postgresql/${Uri.encodeComponent(table)}'
+    '$_kApiPostgresqlPrefix${Uri.encodeComponent(table)}'
         '?limit=${limit.clamp(1, 500)}&offset=${offset.clamp(0, 0x7fffffff)}',
   );
 
@@ -234,7 +235,7 @@ class AiJunglerClient {
     Map<String, Object?> values,
   ) => _jsonRequest(
     'POST',
-    '/v1/dependencies/postgresql/${Uri.encodeComponent(table)}',
+    '$_kApiPostgresqlPrefix${Uri.encodeComponent(table)}',
     body: <String, Object?>{'values': values},
   );
 
@@ -244,7 +245,7 @@ class AiJunglerClient {
     required Map<String, Object?> values,
   }) => _jsonRequest(
     'PUT',
-    '/v1/dependencies/postgresql/${Uri.encodeComponent(table)}',
+    '$_kApiPostgresqlPrefix${Uri.encodeComponent(table)}',
     body: <String, Object?>{'keys': keys, 'values': values},
   );
 
@@ -253,7 +254,7 @@ class AiJunglerClient {
     Map<String, Object?> keys,
   ) => _jsonRequest(
     'DELETE',
-    '/v1/dependencies/postgresql/${Uri.encodeComponent(table)}',
+    '$_kApiPostgresqlPrefix${Uri.encodeComponent(table)}',
     body: <String, Object?>{'keys': keys},
   );
 
@@ -262,7 +263,7 @@ class AiJunglerClient {
     int limit = 200,
   }) => _jsonRequest(
     'POST',
-    '/v1/dependencies/postgresql/query',
+    _kApiPostgresqlQuery,
     body: <String, Object?>{'statement': statement, 'limit': limit},
   );
 
@@ -272,7 +273,7 @@ class AiJunglerClient {
     int limit = 50,
   }) => _jsonRequest(
     'GET',
-    '/v1/dependencies/redis'
+    '$_kApiRedis'
         '?cursor=${cursor.clamp(0, 0x7fffffff)}'
         '&limit=${limit.clamp(1, 500)}'
         '&search=${Uri.encodeQueryComponent(search)}',
@@ -285,7 +286,7 @@ class AiJunglerClient {
     required int? ttlSeconds,
   }) => _jsonRequest(
     'PUT',
-    '/v1/dependencies/redis',
+    _kApiRedis,
     body: <String, Object?>{
       'key': key,
       'type': type,
@@ -297,7 +298,7 @@ class AiJunglerClient {
   Future<bool> deleteRedisRecord(String key) async =>
       (await _jsonRequest(
         'DELETE',
-        '/v1/dependencies/redis',
+        _kApiRedis,
         body: <String, Object?>{'key': key},
       ))['deleted'] ==
       true;
@@ -440,7 +441,7 @@ class AiJunglerClient {
 
   String _jobPath(
     String jobId, {
-    String root = '/v1/jobs',
+    String root = _kApiJobs,
     String suffix = '',
   }) {
     final normalized = jobId.trim();

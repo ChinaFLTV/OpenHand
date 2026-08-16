@@ -56,8 +56,7 @@ import '../../ai/index.dart'
         agentBuiltinToolSummary,
         resourceUsageStatisticsButton,
         showResourceUsageStatisticsDialog;
-import '../../ai/model/ai_session_message.dart'
-    show aiSessionMessageTruncatedPlaceholder;
+import '../../ai/index.dart' show aiSessionMessageTruncatedPlaceholder;
 import '../../crons/index.dart';
 import '../../hooks/index.dart';
 import '../../instructions/index.dart';
