@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/async_concurrency.dart';
@@ -432,7 +431,9 @@ class AiTaskTool extends AiTool {
             rounds: round + 1,
           );
         }
-        final decodedArguments = _decodeArguments(toolCall.arguments);
+        final decodedArguments = AiToolUtils.decodeArguments(
+          toolCall.arguments,
+        );
         final writeViolation = _subagentWriteViolation(
           catalog: subagentCatalog,
           toolCall: toolCall,
@@ -726,16 +727,6 @@ class AiTaskTool extends AiTool {
       ...first.systemReminders,
       if (second != null) ...second.systemReminders,
     ];
-  }
-
-  Map<String, Object?> _decodeArguments(String rawArguments) {
-    try {
-      final decoded = jsonDecode(rawArguments);
-      if (decoded is Map) return stringKeyedMapFromValue(decoded);
-    } catch (error, stack) {
-      silentLog('ai_task_tool', '解码任务工具参数', error, stack);
-    }
-    return const <String, Object?>{};
   }
 
   String _normalizeToken(String value) {

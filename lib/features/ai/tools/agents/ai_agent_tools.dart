@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/async_concurrency.dart';
@@ -2077,7 +2076,9 @@ class AiAgentTool extends AiTool {
           if (await isCancelSignalCompleted(context.cancelSignal)) {
             return finishCancelled();
           }
-          final decodedArguments = _decodeWorkerArguments(toolCall.arguments);
+          final decodedArguments = AiToolUtils.decodeArguments(
+            toolCall.arguments,
+          );
           final resolvedTool = workerCatalog.find(toolCall.name);
           if (resolvedTool?.builtinKind == null) {
             final result = AiToolUtils.invalidResult(
@@ -2356,17 +2357,6 @@ class AiAgentTool extends AiTool {
       'status': result.status.name,
       'duration_ms': result.durationMs,
     };
-  }
-
-  Map<String, Object?> _decodeWorkerArguments(String rawArguments) {
-    try {
-      final decoded = jsonDecode(rawArguments);
-      if (decoded is Map) return stringKeyedMapFromValue(decoded);
-    } catch (error, stack) {
-      silentLog('ai_agent_tools', '解码数字员工工具参数', error, stack);
-      return const <String, Object?>{};
-    }
-    return const <String, Object?>{};
   }
 
   int _agentWorkerWaitMs(Map<String, Object?> args) {
