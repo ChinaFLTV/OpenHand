@@ -1780,7 +1780,7 @@ class McpServerOpsRuntime {
           'user_agent': request.headers[kUserAgentHeaderName],
           'mcp_protocol_version': request.headers[kMcpProtocolVersionHeader],
           'origin': redactSensitiveUriForLogging(request.headers['origin']),
-          'referer': redactSensitiveUriForLogging(request.headers['referer']),
+          'referer': redactSensitiveUriForLogging(request.headers[HttpHeaders.refererHeader]),
           'peer_ip': peer.ipAddress,
           if (peer.port != null) 'peer_port': peer.port,
           'write_mode': _config.writeMode.storageValue,
