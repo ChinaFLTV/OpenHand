@@ -444,7 +444,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       referenceParts.add(
         AiChatContentPart.imageFile(
           filePath: path,
-          mimeType: _mediaMimeType(path, fallback: 'image/jpeg'),
+          mimeType: _mediaMimeType(path, fallback: kImageJpegMimeType),
         ),
       );
     }
@@ -545,10 +545,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
               mimeType: _mediaMimeType(
                 path,
                 fallback: switch (capability) {
-                  AiDingTalkMultimodalCapability.imageGeneration => 'image/png',
-                  AiDingTalkMultimodalCapability.videoGeneration => 'video/mp4',
+                  AiDingTalkMultimodalCapability.imageGeneration => kImagePngMimeType,
+                  AiDingTalkMultimodalCapability.videoGeneration => kVideoMp4MimeType,
                   AiDingTalkMultimodalCapability.audioGeneration =>
-                    'audio/mpeg',
+                    kAudioMpegMimeType,
                 },
               ),
               sizeBytes: stat.size,
