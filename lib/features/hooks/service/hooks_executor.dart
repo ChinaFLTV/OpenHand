@@ -23,8 +23,8 @@ const int kHookBlockExitCode = 2;
 const int _maxHookOutputCharacters = 4000;
 const int _maxHookCapturedOutputBytes = kBytesPerMiB;
 
-const int _maxContextJsonBytes = 512 * 1024;
-const int _maxContextEnvironmentBytes = 32 * 1024;
+const int _maxContextJsonBytes = 512 * kBytesPerKiB;
+const int _maxContextEnvironmentBytes = 32 * kBytesPerKiB;
 const int _maxHookTempLabelCharacters = 32;
 const int _maxHookTempIdentifierCharacters = 64;
 const int _maxHookTempCleanupEntries = 10000;

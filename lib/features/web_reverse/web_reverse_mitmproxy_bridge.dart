@@ -57,7 +57,7 @@ class WebReverseMitmproxyBridge {
   /// 解析后的请求-响应事件流。每条都是 `{kind, ts, ...}` 形式 JSON map。
   final Stream<Map<String, Object?>> eventStream;
 
-  static const int _kMaxMitmBodyBytes = 256 * 1024;
+  static const int _kMaxMitmBodyBytes = 256 * kBytesPerKiB;
   static const int _kMaxCallbackPayloadBytes = 2 * kBytesPerMiB;
   static const Duration _kBindTimeout = Duration(seconds: 5);
   static const Duration _kProcessStartTimeout = Duration(seconds: 8);

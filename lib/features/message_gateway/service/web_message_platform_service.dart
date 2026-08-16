@@ -338,7 +338,7 @@ class WebMessagePlatformService {
   static const Duration _workspaceMetadataTimeout = Duration(seconds: 2);
   static const Duration _workspaceMetadataTotalTimeout = Duration(seconds: 10);
   static const int _maxProcessFileHandleScanEntries = 65536;
-  static const int _maxProcDiagnosticsFileBytes = 256 * 1024;
+  static const int _maxProcDiagnosticsFileBytes = 256 * kBytesPerKiB;
   static const int _maxRetainedUploadCacheFiles = 4096;
   static const int _maxUploadCacheScanEntries = 100000;
   static const int _uploadCacheCandidatePruneThreshold =
@@ -367,7 +367,7 @@ class WebMessagePlatformService {
   static const int _maxAuthSessions = 128;
   static const int _maxTrackedLoginAddresses = 256;
   static const int _maxLoginAttemptsPerWindow = 12;
-  static const int _maxLoginBodyBytes = 16 * 1024;
+  static const int _maxLoginBodyBytes = 16 * kBytesPerKiB;
   static const int _maxAuthCredentialCharacters = 4096;
   static const int _maxAuthTokenCharacters = 128;
   static const int _maxAuthDeviceIdCharacters = 128;
@@ -2161,6 +2161,32 @@ class WebMessagePlatformService {
     return _memoryLogs.map((entry) => entry.toLogLine()).join('\n');
   }
 
+  void _registerBundleAssetRoute(
+    Router router, {
+    required String route,
+    required String assetPath,
+    required String contentType,
+  }) {
+    router.get(
+      route,
+      (shelf.Request _) => _serveBundleAsset(assetPath, contentType),
+    );
+  }
+
+  void _registerBundleDirectoryRoute(
+    Router router, {
+    required String route,
+    required String assetDirectory,
+  }) {
+    router.get(
+      route,
+      (shelf.Request _, String path) => _serveBundleAsset(
+        '$_kWebAssetRoot/$assetDirectory/$path',
+        _guessContentType(path),
+      ),
+    );
+  }
+
   /// shelf 路由表。所有 handler 经过：
   /// `_corsMiddleware` → `_telemetryAndLimitMiddleware` → router。
   ///
@@ -2176,107 +2202,73 @@ class WebMessagePlatformService {
     router.get('/login', (shelf.Request _) => _serveWebShell());
     router.get('/thread', (shelf.Request _) => _serveWebShell());
     router.get('/threads', (shelf.Request _) => _serveWebShell());
-    // Vite 产物里 index.html 引用 app.js / app.css 同级文件，直接出 bundle。
-    router.get(
-      '/app.js',
-      (shelf.Request _) => _serveBundleAsset(
-        '$_kWebAssetRoot/app.js',
-        _kJavaScriptContentType,
-      ),
-    );
-    router.get(
-      '/app.css',
-      (shelf.Request _) =>
-          _serveBundleAsset('$_kWebAssetRoot/app.css', _kCssContentType),
-    );
-    // 兼容旧缓存 shell: 旧 index.html 使用 ./app.css / ./app.js，用户在
-    // /threads/<id> 原地刷新时浏览器会解析到 /threads/app.css。
-    router.get(
-      '/threads/app.js',
-      (shelf.Request _) => _serveBundleAsset(
-        '$_kWebAssetRoot/app.js',
-        _kJavaScriptContentType,
-      ),
-    );
-    router.get(
-      '/threads/app.css',
-      (shelf.Request _) =>
-          _serveBundleAsset('$_kWebAssetRoot/app.css', _kCssContentType),
-    );
+    // Vite 产物及旧缓存 shell 的静态资源别名。
+    for (final route in const <String>['/app.js', '/threads/app.js']) {
+      _registerBundleAssetRoute(
+        router,
+        route: route,
+        assetPath: '$_kWebAssetRoot/app.js',
+        contentType: _kJavaScriptContentType,
+      );
+    }
+    for (final route in const <String>['/app.css', '/threads/app.css']) {
+      _registerBundleAssetRoute(
+        router,
+        route: route,
+        assetPath: '$_kWebAssetRoot/app.css',
+        contentType: _kCssContentType,
+      );
+    }
     // 通配子路径覆盖 chunks/*.js 与 assets/*.{png,svg,woff2,...}。
-    router.get(
-      '/chunks/<path|.+>',
-      (shelf.Request _, String path) =>
-          _serveBundleAsset('$_kWebAssetRoot/chunks/$path', _guessContentType(path)),
-    );
-    router.get(
-      '/threads/chunks/<path|.+>',
-      (shelf.Request _, String path) =>
-          _serveBundleAsset('$_kWebAssetRoot/chunks/$path', _guessContentType(path)),
-    );
-    router.get(
-      '/assets/<path|.+>',
-      (shelf.Request _, String path) =>
-          _serveBundleAsset('$_kWebAssetRoot/assets/$path', _guessContentType(path)),
-    );
-    router.get(
-      '/threads/assets/<path|.+>',
-      (shelf.Request _, String path) =>
-          _serveBundleAsset('$_kWebAssetRoot/assets/$path', _guessContentType(path)),
-    );
+    for (final directory in const <String>['chunks', 'assets']) {
+      _registerBundleDirectoryRoute(
+        router,
+        route: '/$directory/<path|.+>',
+        assetDirectory: directory,
+      );
+      _registerBundleDirectoryRoute(
+        router,
+        route: '/threads/$directory/<path|.+>',
+        assetDirectory: directory,
+      );
+    }
     // public/ 拷贝到 assets/web/ 根的静态资源（logo、favicon 等）。Vite build
     // 把 clients/web/public/* 平铺至产物根目录，Flutter pubspec 把整个目录纳入
     // bundle，这里按白名单显式 expose 以避免被 SPA shell 路由 catch-all 截胡。
-    router.get(
+    for (final route in const <String>[
       '/openhand_logo.png',
-      (shelf.Request _) =>
-          _serveBundleAsset('$_kWebAssetRoot/openhand_logo.png', kImagePngMimeType),
-    );
-    router.get(
       '/threads/openhand_logo.png',
-      (shelf.Request _) =>
-          _serveBundleAsset('$_kWebAssetRoot/openhand_logo.png', kImagePngMimeType),
-    );
-    router.get(
       '/favicon.ico',
-      (shelf.Request _) =>
-          _serveBundleAsset('$_kWebAssetRoot/openhand_logo.png', kImagePngMimeType),
-    );
-    router.get(
       '/threads/favicon.ico',
-      (shelf.Request _) =>
-          _serveBundleAsset('$_kWebAssetRoot/openhand_logo.png', kImagePngMimeType),
-    );
+    ]) {
+      _registerBundleAssetRoute(
+        router,
+        route: route,
+        assetPath: '$_kWebAssetRoot/openhand_logo.png',
+        contentType: kImagePngMimeType,
+      );
+    }
     // PWA: Service Worker 必须挂在站点根 scope, manifest.webmanifest 给浏览器
     // 装机使用. 两者通过 vite public/ 目录被 Flutter rootBundle 一并打包。
-    router.get(
-      '/sw.js',
-      (shelf.Request _) => _serveBundleAsset(
-        '$_kWebAssetRoot/sw.js',
-        _kJavaScriptContentType,
-      ),
-    );
-    router.get(
-      '/threads/sw.js',
-      (shelf.Request _) => _serveBundleAsset(
-        '$_kWebAssetRoot/sw.js',
-        _kJavaScriptContentType,
-      ),
-    );
-    router.get(
+    for (final route in const <String>['/sw.js', '/threads/sw.js']) {
+      _registerBundleAssetRoute(
+        router,
+        route: route,
+        assetPath: '$_kWebAssetRoot/sw.js',
+        contentType: _kJavaScriptContentType,
+      );
+    }
+    for (final route in const <String>[
       '/manifest.webmanifest',
-      (shelf.Request _) => _serveBundleAsset(
-        '$_kWebAssetRoot/manifest.webmanifest',
-        _kManifestContentType,
-      ),
-    );
-    router.get(
       '/threads/manifest.webmanifest',
-      (shelf.Request _) => _serveBundleAsset(
-        '$_kWebAssetRoot/manifest.webmanifest',
-        _kManifestContentType,
-      ),
-    );
+    ]) {
+      _registerBundleAssetRoute(
+        router,
+        route: route,
+        assetPath: '$_kWebAssetRoot/manifest.webmanifest',
+        contentType: _kManifestContentType,
+      );
+    }
     // SPA 深路由：/threads/<id> 直接刷新或粘贴打开都能命中前端 Router。
     // 必须放在静态资源别名之后，避免 /threads/app.css 被 HTML shell 截获。
     router.get(
@@ -8992,7 +8984,8 @@ class WebMessagePlatformService {
     String key,
     String contentType,
   ) async {
-    if (!key.startsWith('$_kWebAssetRoot/') || safeRelativePathError(key) != null) {
+    if (!key.startsWith('$_kWebAssetRoot/') ||
+        safeRelativePathError(key) != null) {
       return shelf.Response.notFound('asset_not_found');
     }
     try {
@@ -9037,19 +9030,45 @@ class WebMessagePlatformService {
     if (lower.endsWith('.js') || lower.endsWith('.mjs')) {
       return _kJavaScriptContentType;
     }
-    if (lower.endsWith('.css')) return _kCssContentType;
-    if (lower.endsWith('.json')) return kApplicationJsonUtf8ContentType;
-    if (lower.endsWith('.svg')) return kImageSvgXmlMimeType;
-    if (lower.endsWith('.png')) return kImagePngMimeType;
-    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return kImageJpegMimeType;
-    if (lower.endsWith('.webp')) return kImageWebpMimeType;
-    if (lower.endsWith('.gif')) return kImageGifMimeType;
-    if (lower.endsWith('.bmp')) return 'image/bmp';
-    if (lower.endsWith('.heic')) return 'image/heic';
-    if (lower.endsWith('.mp4')) return kVideoMp4MimeType;
-    if (lower.endsWith('.webm')) return 'video/webm';
-    if (lower.endsWith('.mov')) return 'video/quicktime';
-    if (lower.endsWith('.mp3')) return kAudioMpegMimeType;
+    if (lower.endsWith('.css')) {
+      return _kCssContentType;
+    }
+    if (lower.endsWith('.json')) {
+      return kApplicationJsonUtf8ContentType;
+    }
+    if (lower.endsWith('.svg')) {
+      return kImageSvgXmlMimeType;
+    }
+    if (lower.endsWith('.png')) {
+      return kImagePngMimeType;
+    }
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+      return kImageJpegMimeType;
+    }
+    if (lower.endsWith('.webp')) {
+      return kImageWebpMimeType;
+    }
+    if (lower.endsWith('.gif')) {
+      return kImageGifMimeType;
+    }
+    if (lower.endsWith('.bmp')) {
+      return 'image/bmp';
+    }
+    if (lower.endsWith('.heic')) {
+      return 'image/heic';
+    }
+    if (lower.endsWith('.mp4')) {
+      return kVideoMp4MimeType;
+    }
+    if (lower.endsWith('.webm')) {
+      return 'video/webm';
+    }
+    if (lower.endsWith('.mov')) {
+      return 'video/quicktime';
+    }
+    if (lower.endsWith('.mp3')) {
+      return kAudioMpegMimeType;
+    }
     if (lower.endsWith('.wav')) return 'audio/wav';
     if (lower.endsWith('.ogg')) return 'audio/ogg';
     if (lower.endsWith('.m4a')) return 'audio/mp4';
@@ -9351,7 +9370,8 @@ class WebMessagePlatformService {
         if (line.startsWith('VmSwap:')) {
           final parts = line.split(kInlineWhitespacePattern);
           if (parts.length > 1) {
-            swapBytes = (optionalNonNegativeIntFromValue(parts[1]) ?? 0) * 1024;
+            swapBytes =
+                (optionalNonNegativeIntFromValue(parts[1]) ?? 0) * kBytesPerKiB;
           }
         }
       }

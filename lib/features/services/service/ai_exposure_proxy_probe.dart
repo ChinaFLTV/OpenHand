@@ -5,14 +5,15 @@ import 'dart:typed_data';
 
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/ai_exposure_models.dart';
 
 const Duration _kProxyProbeAttemptTimeout = Duration(seconds: 4);
 const Duration _kProxyIdentityTimeout = Duration(seconds: 8);
 const int _kMaxProxyResponseLineBytes = 2048;
-const int _kMaxProxyResponseHeaderBytes = 16 * 1024;
-const int _kMaxProxyIdentityResponseBytes = 64 * 1024;
+const int _kMaxProxyResponseHeaderBytes = 16 * kBytesPerKiB;
+const int _kMaxProxyIdentityResponseBytes = 64 * kBytesPerKiB;
 const List<({String host, int port})> _kProxyProbeTargets = [
   (host: 'cp.cloudflare.com', port: 443),
   (host: 'connectivitycheck.gstatic.com', port: 443),

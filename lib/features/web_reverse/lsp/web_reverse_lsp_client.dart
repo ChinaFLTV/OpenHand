@@ -26,7 +26,7 @@ import '../../../shared/util/version_compare.dart';
 enum WebReverseLspStatus { idle, starting, ready, notInstalled, failed }
 
 const int _kMaxLspFrameBytes = 8 * kBytesPerMiB;
-const int _kMaxLspHeaderBytes = 64 * 1024;
+const int _kMaxLspHeaderBytes = 64 * kBytesPerKiB;
 const int _kMaxLspStderrCharacters = 256;
 const Duration _kDefaultLspRequestTimeout = Duration(seconds: 8);
 const Duration _kDefaultLspStartupTimeout = Duration(seconds: 8);
@@ -744,5 +744,4 @@ class WebReverseLspClient {
       ),
     );
   }
-
 }

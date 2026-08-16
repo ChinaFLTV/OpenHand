@@ -1954,7 +1954,7 @@ class _AiLspSession {
   static const int _maxOpenDocuments = 64;
   static const int _maxOpenDocumentBytes = 32 * kBytesPerMiB;
   static const int _maxLspFrameBytes = 8 * kBytesPerMiB;
-  static const int _maxLspHeaderBytes = 64 * 1024;
+  static const int _maxLspHeaderBytes = 64 * kBytesPerKiB;
   static const int _maxMessagesPerDrain = 64;
   static const int _maxQueuedServerRequests = 32;
   static const Duration _serverRequestResponseTimeout = Duration(seconds: 15);
@@ -2615,7 +2615,10 @@ class _AiLspSession {
   void _processBuffer() {
     var processedMessages = 0;
     while (!_shutdownRequested && _responseBuffer.isNotEmpty) {
-      final frame = findMessageFrameHeaderEnd(_responseBuffer, acceptBareLf: false);
+      final frame = findMessageFrameHeaderEnd(
+        _responseBuffer,
+        acceptBareLf: false,
+      );
       if (frame == null) {
         if (_responseBuffer.length > _maxLspHeaderBytes) {
           _failProtocol(

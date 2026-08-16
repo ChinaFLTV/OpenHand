@@ -26,6 +26,7 @@ import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -132,7 +133,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
               continue;
             }
           }
-          final maxBytes = _maxScriptKb * 1024;
+          final maxBytes = _maxScriptKb * kBytesPerKiB;
           final end = safeUtf8PrefixCodeUnits(content, maxBytes);
           if (end < content.length) {
             content = content.substring(0, end);

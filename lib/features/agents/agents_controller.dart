@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../shared/core/managed_change_notifier.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_normalization.dart';
 import '../../shared/util/user_failure_message.dart';
@@ -43,8 +44,8 @@ class AgentsController extends ManagedChangeNotifier {
   static const int _maxResourceTelemetrySamples = 36;
   static const int _resourceTelemetrySampleMinGapMs = 1000;
   static const int _resourceCharsPerToken = 4;
-  static const int _resourceHandleMemoryBytes = 8 * 1024;
-  static const int _resourceWorkerMemoryBytes = 16 * 1024;
+  static const int _resourceHandleMemoryBytes = 8 * kBytesPerKiB;
+  static const int _resourceWorkerMemoryBytes = 16 * kBytesPerKiB;
   final AgentsStore _store;
   List<AgentProfile> _agents;
   List<AgentProfile> _agentsView;

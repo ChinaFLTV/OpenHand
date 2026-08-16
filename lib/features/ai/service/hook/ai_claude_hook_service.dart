@@ -18,7 +18,7 @@ import '../../../../shared/util/text_clip.dart';
 import '../../model/ai_tool_execution_limit_policy.dart';
 
 const int _maxAiHookCapturedOutputBytes = 4 * kBytesPerMiB;
-const int _minAiHookCapturedOutputBytes = 16 * 1024;
+const int _minAiHookCapturedOutputBytes = 16 * kBytesPerKiB;
 const int _maxAiHookPayloadBytes = 4 * kBytesPerMiB;
 const int _maxAiHookConfigBytes = 2 * kBytesPerMiB;
 const int _maxAiHookPresenceCacheEntries = 128;

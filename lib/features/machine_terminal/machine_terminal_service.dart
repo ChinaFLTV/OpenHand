@@ -80,7 +80,7 @@ const String _terminalStartFailureMessage = '终端启动失败，请检查 Shel
 const String _terminalRestoredFailureMessage = '上次终端运行异常，请重新启动终端。';
 const int _machineTerminalHistoryStorageSchemaVersion = 2;
 const int _machineTerminalHistoryMaxBytes = 32 * kBytesPerMiB;
-const int _machineTerminalHistoryPayloadReserveBytes = 64 * 1024;
+const int _machineTerminalHistoryPayloadReserveBytes = 64 * kBytesPerKiB;
 const String _terminalBusyError = '已有其他终端命令正在运行。';
 const String _terminalNotRunningError = '终端未运行。';
 

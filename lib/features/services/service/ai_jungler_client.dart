@@ -14,8 +14,8 @@ const Duration _kAiJunglerRequestTimeout = Duration(seconds: 15);
 const Duration _kAiJunglerSseIdleTimeout = Duration(seconds: 45);
 const int _kAiJunglerMaxRequestBytes = 2 * kBytesPerMiB;
 const int _kAiJunglerMaxJsonResponseBytes = 8 * kBytesPerMiB;
-const int _kAiJunglerMaxErrorResponseBytes = 64 * 1024;
-const int _kAiJunglerMaxSseLineBytes = 256 * 1024;
+const int _kAiJunglerMaxErrorResponseBytes = 64 * kBytesPerKiB;
+const int _kAiJunglerMaxSseLineBytes = 256 * kBytesPerKiB;
 
 class AiJunglerApiException implements Exception {
   const AiJunglerApiException(this.message, {this.statusCode});
@@ -200,7 +200,7 @@ class AiJunglerClient {
   }) => _jsonRequest(
     'GET',
     '/v1/dependencies/postgresql/${Uri.encodeComponent(table)}'
-    '?limit=${limit.clamp(1, 500)}&offset=${offset.clamp(0, 0x7fffffff)}',
+        '?limit=${limit.clamp(1, 500)}&offset=${offset.clamp(0, 0x7fffffff)}',
   );
 
   Future<Map<String, Object?>> insertPostgresqlRow(
@@ -247,9 +247,9 @@ class AiJunglerClient {
   }) => _jsonRequest(
     'GET',
     '/v1/dependencies/redis'
-    '?cursor=${cursor.clamp(0, 0x7fffffff)}'
-    '&limit=${limit.clamp(1, 500)}'
-    '&search=${Uri.encodeQueryComponent(search)}',
+        '?cursor=${cursor.clamp(0, 0x7fffffff)}'
+        '&limit=${limit.clamp(1, 500)}'
+        '&search=${Uri.encodeQueryComponent(search)}',
   );
 
   Future<Map<String, Object?>> putRedisRecord({

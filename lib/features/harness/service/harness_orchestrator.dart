@@ -1810,7 +1810,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     operationTimeout: const Duration(seconds: 1),
   );
   static const int _maxLessonContextFiles = 32;
-  static const int _maxLessonContextBytes = 1536 * 1024;
+  static const int _maxLessonContextBytes = 1536 * kBytesPerKiB;
 
   Future<String> _buildPhasePrompt(HarnessPhase phase) async {
     final steeringDir = p.join(config.persistenceDirectory, 'steering');

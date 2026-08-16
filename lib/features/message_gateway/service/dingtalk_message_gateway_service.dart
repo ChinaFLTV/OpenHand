@@ -206,7 +206,7 @@ class DingTalkMessageGatewayService {
   static const int _batchSize = 30;
   static const int _detailConcurrency = 4;
   static const int _maxMediaCacheFiles = 512;
-  static const int _maxMediaCacheBytes = 1024 * kBytesPerMiB;
+  static const int _maxMediaCacheBytes = kBytesPerGiB;
   static const int _maxMediaFileBytes = 512 * kBytesPerMiB;
   static const int _maxAuthOutputLines = 256;
   static const int _maxAuthOutputCharacters = 32 * 1024;

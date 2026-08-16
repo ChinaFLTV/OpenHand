@@ -11,6 +11,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/platform_shell.dart';
 import '../../../shared/util/version_compare.dart';
@@ -20,6 +21,7 @@ import 'plugin_environment_probe.dart';
 import 'plugin_toolchain_shell.dart';
 
 const String _dockerImageVersionLabel = 'org.opencontainers.image.version';
+const String _qdrantStorageDestination = '/qdrant/storage';
 
 String? _dockerImageVersionFromConfig(
   Map<String, Object?> config, {
@@ -47,64 +49,16 @@ Map<String, Object?> _dockerManifestDescriptor(Map<String, Object?> inspect) {
   return stringKeyedMapFromValue(inspect['ImageManifestDescriptor']);
 }
 
-Map<String, Object?>? _qdrantInspectMetadataFromDecoded(Object? decoded) {
-  if (decoded is! List || decoded.isEmpty || decoded.first is! Map) {
-    return null;
-  }
-
-  final inspect = stringKeyedMapFromValue(decoded.first);
-  final state = stringKeyedMapFromValue(inspect['State']);
-  final config = stringKeyedMapFromValue(inspect['Config']);
-  final networkSettings = stringKeyedMapFromValue(inspect['NetworkSettings']);
-  final hostConfig = stringKeyedMapFromValue(inspect['HostConfig']);
-  final labels = stringKeyedMapFromValue(config['Labels']);
-  final descriptor = _dockerManifestDescriptor(inspect);
-  final platform = stringKeyedMapFromValue(descriptor['platform']);
-  final openHandManaged =
-      boolFromValue(labels['openhand.managed']) ||
-      boolFromValue(labels['com.openhand.managed']);
-  final image = '${config['Image'] ?? ''}'.trim();
-
-  return <String, Object?>{
-    'runtime_managed': true,
-    'docker_daemon_running': true,
-    'openhand_managed': openHandManaged,
-    'container_id': '${inspect['Id'] ?? ''}'.trim(),
-    'container_name': PluginScannerService.qdrantContainerName,
-    'container_status': '${state['Status'] ?? ''}'.trim(),
-    'running': boolFromValue(state['Running']),
-    'started_at': '${state['StartedAt'] ?? ''}'.trim(),
-    'finished_at': '${state['FinishedAt'] ?? ''}'.trim(),
-    'restart_count': optionalNonNegativeIntFromValue(state['RestartCount']),
-    'exit_code': optionalNonNegativeIntFromValue(state['ExitCode']),
-    'image': image,
-    'image_id': '${inspect['Image'] ?? ''}'.trim(),
-    'image_version': _dockerImageVersionFromConfig(config),
-    'image_manifest_digest': '${descriptor['digest'] ?? ''}'.trim(),
-    'image_os': '${platform['os'] ?? inspect['Platform'] ?? ''}'.trim(),
-    'image_architecture': '${platform['architecture'] ?? ''}'.trim(),
-    'ports': PluginScannerService._formatDockerPorts(networkSettings['Ports']),
-    'restart_policy': PluginScannerService._formatRestartPolicy(
-      hostConfig['RestartPolicy'],
-    ),
-    'rest_endpoint': 'http://127.0.0.1:${PluginScannerService.qdrantRestPort}',
-    'grpc_endpoint': '127.0.0.1:${PluginScannerService.qdrantGrpcPort}',
-    'data_directory': PluginScannerService._extractHostDataDirectory(
-      inspect['Mounts'],
-    ),
-  };
-}
-
-Map<String, Object?>? _managedDatabaseMetadataFromDecoded(
+Map<String, Object?>? _dockerInspectMetadataFromDecoded(
   Object? decoded, {
   required String containerName,
-  required String endpoint,
   required String dataDestination,
-  required String versionEnvironmentKey,
+  String? versionEnvironmentKey,
 }) {
   if (decoded is! List || decoded.isEmpty || decoded.first is! Map) {
     return null;
   }
+
   final inspect = stringKeyedMapFromValue(decoded.first);
   final state = stringKeyedMapFromValue(inspect['State']);
   final config = stringKeyedMapFromValue(inspect['Config']);
@@ -114,7 +68,7 @@ Map<String, Object?>? _managedDatabaseMetadataFromDecoded(
   final descriptor = _dockerManifestDescriptor(inspect);
   final platform = stringKeyedMapFromValue(descriptor['platform']);
   final running = boolFromValue(state['Running']);
-  return <String, Object?>{
+  final metadata = <String, Object?>{
     'runtime_managed': true,
     'docker_daemon_running': true,
     'openhand_managed':
@@ -124,7 +78,6 @@ Map<String, Object?>? _managedDatabaseMetadataFromDecoded(
     'container_name': containerName,
     'container_status': '${state['Status'] ?? ''}'.trim(),
     'running': running,
-    'service_running': running,
     'started_at': '${state['StartedAt'] ?? ''}'.trim(),
     'finished_at': '${state['FinishedAt'] ?? ''}'.trim(),
     'restart_count': optionalNonNegativeIntFromValue(state['RestartCount']),
@@ -142,11 +95,46 @@ Map<String, Object?>? _managedDatabaseMetadataFromDecoded(
     'restart_policy': PluginScannerService._formatRestartPolicy(
       hostConfig['RestartPolicy'],
     ),
-    'endpoint': endpoint,
     'data_directory': PluginScannerService._extractHostDataDirectory(
       inspect['Mounts'],
       destination: dataDestination,
     ),
+  };
+  return metadata;
+}
+
+Map<String, Object?>? _qdrantInspectMetadataFromDecoded(Object? decoded) {
+  final metadata = _dockerInspectMetadataFromDecoded(
+    decoded,
+    containerName: PluginScannerService.qdrantContainerName,
+    dataDestination: _qdrantStorageDestination,
+  );
+  if (metadata == null) return null;
+  return <String, Object?>{
+    ...metadata,
+    'rest_endpoint': 'http://127.0.0.1:${PluginScannerService.qdrantRestPort}',
+    'grpc_endpoint': '127.0.0.1:${PluginScannerService.qdrantGrpcPort}',
+  };
+}
+
+Map<String, Object?>? _managedDatabaseMetadataFromDecoded(
+  Object? decoded, {
+  required String containerName,
+  required String endpoint,
+  required String dataDestination,
+  required String versionEnvironmentKey,
+}) {
+  final metadata = _dockerInspectMetadataFromDecoded(
+    decoded,
+    containerName: containerName,
+    dataDestination: dataDestination,
+    versionEnvironmentKey: versionEnvironmentKey,
+  );
+  if (metadata == null) return null;
+  return <String, Object?>{
+    ...metadata,
+    'service_running': metadata['running'] == true,
+    'endpoint': endpoint,
   };
 }
 
@@ -163,7 +151,7 @@ class PluginScannerService {
   static const int qdrantRestPort = ManagedServiceDefaults.qdrantRestPort;
   static const int qdrantGrpcPort = ManagedServiceDefaults.qdrantGrpcPort;
   static const int _maxConcurrentScans = 4;
-  static const int _nvmAliasMaxBytes = 4 * 1024;
+  static const int _nvmAliasMaxBytes = 4 * kBytesPerKiB;
   static final RegExp _nvmMajorAliasPattern = RegExp(r'^v?\d+$');
   static final RegExp _nvmFullVersionAliasPattern = RegExp(
     r'^v?\d+\.\d+\.\d+$',
@@ -723,7 +711,10 @@ class PluginScannerService {
       );
       if (installPath == null || installPath.isEmpty) continue;
       final versionResult = await _shellRun(
-        [posixShellQuote(installPath), ...versionArgs.map(posixShellQuote)].join(' '),
+        [
+          posixShellQuote(installPath),
+          ...versionArgs.map(posixShellQuote),
+        ].join(' '),
       );
       final output = '${versionResult.stdout}\n${versionResult.stderr}'.trim();
       final version = versionResult.exitCode == 0
@@ -1745,7 +1736,7 @@ class PluginScannerService {
 
   static String _extractHostDataDirectory(
     Object? mounts, {
-    String destination = '/qdrant/storage',
+    String destination = _qdrantStorageDestination,
   }) {
     if (mounts is! List) return '';
     for (final mount in mounts) {

@@ -121,9 +121,9 @@ class _SandboxProxyInstance {
   _SandboxProxyInstance(this.settings, this.limits);
 
   static const Duration _resourceCloseTimeout = Duration(seconds: 2);
-  static const int _httpBodyChunkBytes = 64 * 1024;
-  static const int _httpChunkLineMaxBytes = 8 * 1024;
-  static const int _httpTrailerMaxBytes = 64 * 1024;
+  static const int _httpBodyChunkBytes = 64 * kBytesPerKiB;
+  static const int _httpChunkLineMaxBytes = 8 * kBytesPerKiB;
+  static const int _httpTrailerMaxBytes = 64 * kBytesPerKiB;
 
   final AiSandboxSettings settings;
   final _SandboxProxyLimits limits;
@@ -1436,9 +1436,9 @@ class _SocketReadBuffer {
     _pause();
   }
 
-  static const int _defaultMaxHeaderBytes = 64 * 1024;
-  static const int _maxReadAheadBytes = 64 * 1024;
-  static const int _maxExactReadBytes = 64 * 1024;
+  static const int _defaultMaxHeaderBytes = 64 * kBytesPerKiB;
+  static const int _maxReadAheadBytes = 64 * kBytesPerKiB;
+  static const int _maxExactReadBytes = 64 * kBytesPerKiB;
 
   final Socket socket;
   Duration readTimeout;

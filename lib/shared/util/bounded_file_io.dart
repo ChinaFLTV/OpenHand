@@ -12,7 +12,7 @@ import 'byte_size_format.dart';
 import 'path_safety.dart';
 import 'text_clip.dart';
 
-const int _boundedFileReadChunkBytes = 64 * 1024;
+const int _boundedFileReadChunkBytes = 64 * kBytesPerKiB;
 const Duration _boundedFileCleanupTimeout = Duration(seconds: 2);
 const BoundedDeletePolicy _temporaryDirectoryCleanupPolicy =
     BoundedDeletePolicy(

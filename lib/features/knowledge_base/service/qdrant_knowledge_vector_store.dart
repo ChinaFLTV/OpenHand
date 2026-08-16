@@ -14,7 +14,7 @@ import 'qdrant_http_client.dart';
 
 const Uuid _qdrantPointUuid = Uuid();
 const int _qdrantVectorMaxResponseBytes = 32 * kBytesPerMiB;
-const int _qdrantHealthMaxResponseBytes = 64 * 1024;
+const int _qdrantHealthMaxResponseBytes = 64 * kBytesPerKiB;
 const Duration _qdrantHealthMaxTimeout = Duration(seconds: 2);
 
 class QdrantKnowledgeVectorStore implements KnowledgeVectorStore {

@@ -21,7 +21,7 @@ class AiWorkspaceInstructionService {
        _cacheTtl = cacheTtl;
 
   int maxDocumentCharacters = 16000;
-  static const int _maxDocumentBytes = 256 * 1024;
+  static const int _maxDocumentBytes = 256 * kBytesPerKiB;
   static const int _maxRuleFilesPerDirectory = 128;
   static const int _maxRuleDirectoryScanEntries = 512;
   static const int _maxDocuments = 256;

@@ -13,6 +13,7 @@ import '../../l10n/app_localizations.dart';
 import '../net/http_redirect_utils.dart';
 import '../util/async_concurrency.dart';
 import '../util/bounded_file_io.dart';
+import '../util/byte_size_format.dart';
 import '../util/date_time_format.dart';
 import '../util/input_value_parsing.dart';
 import '../util/serial_task_queue.dart';
@@ -21,7 +22,6 @@ import '../util/timer_safety.dart';
 import 'animated_menu.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
-
 
 const Duration kNativeAudioLoadTimeout = Duration(seconds: 18);
 const Duration kNativeAudioControlTimeout = Duration(seconds: 8);
@@ -37,7 +37,7 @@ const Duration _kNativeAudioSeekTolerance = Duration(milliseconds: 900);
 const Duration _kNativeAudioPostSeekReportGuard = Duration(milliseconds: 1400);
 const int _kNativeAudioDurationProbeAttempts = 8;
 const int _kNativeAudioSeekConfirmAttempts = 2;
-const int _kNativeAudioHeaderProbeBytes = 256 * 1024;
+const int _kNativeAudioHeaderProbeBytes = 256 * kBytesPerKiB;
 const double _kNativeAudioWideBreakpoint = 540;
 const double _kNativeAudioShortBreakpoint = 430;
 

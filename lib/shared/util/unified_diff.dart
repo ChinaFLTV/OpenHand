@@ -1,7 +1,9 @@
 import 'dart:convert';
 
-const int kUnifiedDiffDefaultMaxBytes = 256 * 1024;
-const int kUnifiedDiffDefaultMiniDiffBytes = 32 * 1024;
+import 'byte_size_format.dart';
+
+const int kUnifiedDiffDefaultMaxBytes = 256 * kBytesPerKiB;
+const int kUnifiedDiffDefaultMiniDiffBytes = 32 * kBytesPerKiB;
 const int kUnifiedDiffDefaultContextLines = 3;
 const int kUnifiedDiffMaxMyersLineTotal = 2000;
 

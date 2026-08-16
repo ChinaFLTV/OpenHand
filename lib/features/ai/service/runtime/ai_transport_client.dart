@@ -22,7 +22,7 @@ import '../../../../shared/util/input_value_parsing.dart';
 const Duration _fallbackRequestTimeout = Duration(seconds: 60);
 const Duration _responseIdleTimeout = Duration(seconds: 30);
 const Duration _fileCleanupTimeout = Duration(seconds: 2);
-const int _multipartReadChunkBytes = 64 * 1024;
+const int _multipartReadChunkBytes = 64 * kBytesPerKiB;
 const int defaultAiTransportResponseMaxBytes = 16 * kBytesPerMiB;
 const int defaultAiTransportErrorResponseMaxBytes = kBytesPerMiB;
 const int defaultAiTransportDownloadMaxBytes = 64 * kBytesPerMiB;

@@ -12,6 +12,7 @@ import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_directory_io.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/bounded_log_buffer.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import 'android_reverse_adb_client.dart';
@@ -47,7 +48,7 @@ const Duration _kStaticStringsTimeout = Duration(seconds: 24);
 const Duration _kStaticDecompileTimeout = Duration(minutes: 3);
 const int _kPackageReportSummaryMaxLines = 220;
 const int _kStaticQuickScanPreviewLines = 80;
-const int _kStaticQuickScanPreviewMaxBytes = 256 * 1024;
+const int _kStaticQuickScanPreviewMaxBytes = 256 * kBytesPerKiB;
 const int _kStaticQuickScanPreviewLineMaxCharacters = 4000;
 const int _kNetworkCaptureTranscriptMaxChars = 24000;
 const List<String> _kAndroidReverseMcpVisibleTemplateIds = <String>[
@@ -1266,7 +1267,9 @@ class AndroidReverseSessionController extends ChangeNotifier {
     );
   }
 
-  Future<AdbCommandResult> startNetworkCapture({int port = kDefaultMitmProxyPort}) {
+  Future<AdbCommandResult> startNetworkCapture({
+    int port = kDefaultMitmProxyPort,
+  }) {
     if (!isRunning) {
       return Future<AdbCommandResult>.value(
         const AdbCommandResult(

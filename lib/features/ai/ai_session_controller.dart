@@ -93,7 +93,7 @@ part 'state/_ai_session_runtime_types.dart';
 part 'state/_ai_session_stream_throttle.dart';
 part 'state/_ai_session_utils.dart';
 
-const int _deviceIdFileMaxBytes = 4 * 1024;
+const int _deviceIdFileMaxBytes = 4 * kBytesPerKiB;
 const Duration _networkSnapshotCacheTtl = Duration(seconds: 30);
 const Duration _networkSnapshotLoadTimeout = Duration(milliseconds: 900);
 const int _maxCachedStreamThroughputSessions = 64;

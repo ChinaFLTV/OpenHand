@@ -23,6 +23,7 @@ import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/platform_shell.dart';
@@ -33,7 +34,6 @@ import '../crons_controller.dart';
 import '../model/cron_parser.dart';
 
 const int _cronTagPreviewLimit = 6;
-
 
 const Color _kCronRunningColor = Color(0xFF56C271);
 
@@ -115,8 +115,7 @@ class CronsView extends StatelessWidget {
         // 三种状态平滑切换，避免列表增删时跳变。
         Expanded(
           child: AnimatedSwitcher(
-            duration: openHandMotionDuration(context, kOpenHandMotion220,
-            ),
+            duration: openHandMotionDuration(context, kOpenHandMotion220),
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
             child: (snapshot.isLoading && entries.isEmpty)
@@ -147,8 +146,7 @@ class CronsView extends StatelessWidget {
                         // 顶部 2px 缓冲，避免滚动到顶时第一张卡的描边被剪掉。
                         padding: const EdgeInsets.only(top: 2),
                         itemCount: entries.length,
-                        separatorBuilder: (context, index) =>
-                            kOpenHandGap12,
+                        separatorBuilder: (context, index) => kOpenHandGap12,
                         itemBuilder: (context, index) {
                           final entry = entries[index];
                           return AppearOnce(
@@ -1772,8 +1770,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
     final support = _supportsSoundAlert;
 
     if (support) {
-      final detail =
-          isDesktopPlatform()
+      final detail = isDesktopPlatform()
           ? l10n.cronsSupportBestEffortSystemSound
           : l10n.cronsSupportSupported;
       return _capabilityTooltip(
@@ -1843,8 +1840,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
           borderRadius: BorderRadius.circular(kOpenHandRadius20),
           onTap: () => onChanged(!value),
           child: AnimatedContainer(
-            duration: openHandMotionDuration(context, kOpenHandMotion180,
-            ),
+            duration: openHandMotionDuration(context, kOpenHandMotion180),
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
@@ -2014,7 +2010,9 @@ class _CronHistoryDialog extends StatelessWidget {
                             padding: const EdgeInsets.only(right: 20),
                             decoration: BoxDecoration(
                               color: colorScheme.errorContainer,
-                              borderRadius: BorderRadius.circular(kOpenHandRadius16),
+                              borderRadius: BorderRadius.circular(
+                                kOpenHandRadius16,
+                              ),
                             ),
                             child: Icon(
                               Icons.delete_outline_rounded,
@@ -3365,7 +3363,7 @@ class _CollapsibleLongText extends StatefulWidget {
   static const int _previewChars = 320;
 
   /// 超出此长度时回退纯文本，避免批量展开历史项时卡顿。
-  static const int _markdownByteLimit = 120 * 1024;
+  static const int _markdownByteLimit = 120 * kBytesPerKiB;
 
   final String title;
   final IconData icon;
@@ -3572,7 +3570,7 @@ Widget _hermesInlineMarkdown({
   double height = 1.35,
 }) {
   // 超长内联内容使用纯文本。
-  const inlineByteLimit = 4 * 1024;
+  const inlineByteLimit = 4 * kBytesPerKiB;
   final base = theme.textTheme.bodySmall?.copyWith(
     color: color,
     fontWeight: fontWeight,

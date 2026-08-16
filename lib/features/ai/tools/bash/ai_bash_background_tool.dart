@@ -6,6 +6,7 @@ import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/async_concurrency.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/platform_shell.dart';
 import '../../../../shared/util/serial_task_queue.dart';
 import '../../../../shared/util/text_clip.dart';
@@ -51,8 +52,8 @@ class AiBashBackgroundTool extends AiTool {
            bashToolService?.sandboxService ??
            AiSandboxService();
 
-  static const int _maxBufferBytes = 64 * 1024;
-  static const int _maxStdinBytes = 64 * 1024;
+  static const int _maxBufferBytes = 64 * kBytesPerKiB;
+  static const int _maxStdinBytes = 64 * kBytesPerKiB;
   static const int _maxConcurrentSessions = 8;
   static const int _defaultReadBytes = 8192;
   static const int _maxRetainedExitedSessions = 4;

@@ -8,6 +8,7 @@ import '../../shared/net/http_response_utils.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_directory_io.dart';
 import '../../shared/util/bounded_log_buffer.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import 'web_reverse_browser_kind.dart';
@@ -62,9 +63,16 @@ class WebReverseBrowserLauncher {
   static const Duration _portProbeTimeout = Duration(milliseconds: 400);
   static const Duration _profileDirectoryTimeout = Duration(seconds: 5);
   static const Duration _processStartTimeout = Duration(seconds: 10);
+  static const Duration _processFailureTerminateGrace = Duration(
+    milliseconds: 500,
+  );
+  static const Duration _startupOutputDrainTimeout = Duration(
+    milliseconds: 1500,
+  );
   static const Duration _streamCleanupTimeout = Duration(seconds: 1);
-  static const int _maxHandshakeResponseBytes = 64 * 1024;
-  static const int _maxStartupStderrCharacters = 32 * 1024;
+  static const int _maxHandshakeResponseBytes = 64 * kBytesPerKiB;
+  static const int _maxStartupStderrCharacters = 32 * kBytesPerKiB;
+  static const int _maxStartupErrorSummaryCharacters = 1024;
 
   /// 在 [9222, 9322) 区间挑一个空闲端口，支持多会话并发。
   ///
@@ -308,7 +316,7 @@ class WebReverseBrowserLauncher {
       await runAsyncCleanupBounded(
         () => terminateTrackedProcessTree(
           process,
-          gracefulTimeout: const Duration(milliseconds: 500),
+          gracefulTimeout: _processFailureTerminateGrace,
         ),
         onError: (error, stack) => silentLog(
           'web_reverse_browser_launcher',
@@ -318,18 +326,28 @@ class WebReverseBrowserLauncher {
         ),
       );
       // 确认子进程输出管道结束，避免悬挂，最多等待 1.5 秒。
-      try {
-        await Future.any<void>(<Future<void>>[
-          if (errSub != null) errSub.asFuture<void>(),
-          if (outSub != null) outSub.asFuture<void>(),
-        ]).timeout(const Duration(milliseconds: 1500));
-      } catch (error, stack) {
-        silentLog('web_reverse_browser_launcher', '等待启动失败的浏览器退出', error, stack);
+      final outputDone = <Future<void>>[
+        if (errSub != null) errSub.asFuture<void>(),
+        if (outSub != null) outSub.asFuture<void>(),
+      ];
+      if (outputDone.isNotEmpty) {
+        try {
+          await Future.any<void>(
+            outputDone,
+          ).timeout(_startupOutputDrainTimeout);
+        } catch (error, stack) {
+          silentLog(
+            'web_reverse_browser_launcher',
+            '等待启动失败的浏览器退出',
+            error,
+            stack,
+          );
+        }
       }
       await _cancelBrowserOutputSubscriptions(errSub, outSub);
       final err = stderrBuffer.snapshot().join().trim();
-      final errSummary = err.length > 1024
-          ? '${err.substring(safeUtf16SuffixStart(err, err.length - 1024))}（已截断）'
+      final errSummary = err.length > _maxStartupErrorSummaryCharacters
+          ? '${err.substring(safeUtf16SuffixStart(err, err.length - _maxStartupErrorSummaryCharacters))}（已截断）'
           : err;
       final hint = err.isEmpty ? '' : '\n浏览器 stderr 摘要：\n$errSummary';
       final exitedHint = processExited

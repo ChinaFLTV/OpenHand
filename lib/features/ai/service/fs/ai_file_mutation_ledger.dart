@@ -260,7 +260,7 @@ class LedgerConfig {
   static const int defaultMiniDiffMaxBytes =
       unifiedDiffLineSummaryDefaultMiniDiffBytes;
   static const int minMiniDiffMaxBytes = 0;
-  static const int maxMiniDiffMaxBytes = 256 * 1024;
+  static const int maxMiniDiffMaxBytes = 256 * kBytesPerKiB;
   static const IntValueRange _maxVersionsPerFileRange = IntValueRange(
     fallback: defaultMaxVersionsPerFile,
     min: minMaxVersionsPerFile,
@@ -2065,8 +2065,7 @@ class AiFileMutationLedger {
     required String expectedSha,
     required int expectedSize,
   }) async {
-    if (!isLowercaseSha256Hex(expectedSha) ||
-        nullIfBlank(filePath) == null) {
+    if (!isLowercaseSha256Hex(expectedSha) || nullIfBlank(filePath) == null) {
       return null;
     }
     try {

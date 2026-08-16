@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'byte_size_format.dart';
+
 final class BoundedZipArchive {
   BoundedZipArchive._(this.files, this._filesByName);
 
@@ -312,7 +314,7 @@ final class BoundedZipEntry {
     final output = _BoundedByteSink(maxBytes);
     try {
       final input = ZLibCodec(raw: true).decoder.startChunkedConversion(output);
-      const chunkSize = 64 * 1024;
+      const chunkSize = 64 * kBytesPerKiB;
       for (var offset = 0; offset < payload.length; offset += chunkSize) {
         final end = math.min(payload.length, offset + chunkSize);
         input.add(Uint8List.sublistView(payload, offset, end));

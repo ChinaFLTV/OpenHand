@@ -152,7 +152,7 @@ class AiPromptBuilder {
   static const int _compressionPromptMaxTodoItems = 40;
   static const int _compressionPromptMaxTodoChars = 800;
   static const int _postCompactRestoreMaxFiles = 5;
-  static const int _postCompactRestoreMaxFileBytes = 256 * 1024;
+  static const int _postCompactRestoreMaxFileBytes = 256 * kBytesPerKiB;
   static const int _postCompactRestoreMaxCharsPerFile = 12000;
   static const int _postCompactRestoreTotalChars = 30000;
   static const int _postCompactRestoreMaxSkills = 3;

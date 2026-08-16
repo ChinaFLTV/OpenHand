@@ -807,7 +807,9 @@ class _InlineCodexDiffHeader extends StatelessWidget {
             ),
             const Spacer(),
             _InlineDiffPill(
-              label: copied ? openHandCopiedLabel(context) : openHandCopyLabel(context),
+              label: copied
+                  ? openHandCopiedLabel(context)
+                  : openHandCopyLabel(context),
               icon: copied ? Icons.check_rounded : Icons.content_copy_rounded,
               backgroundColor: palette.footerBorder,
               foregroundColor: palette.footerForeground,
@@ -1048,7 +1050,9 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       _cachedPaletteSignature = paletteSignature;
     }
     final palette = _cachedPalette!;
-    final copyLabel = _copied ? openHandCopiedLabel(context) : openHandCopyLabel(context);
+    final copyLabel = _copied
+        ? openHandCopiedLabel(context)
+        : openHandCopyLabel(context);
     final downloadLabel = openHandLocalizedText(
       context,
       zh: _downloaded ? '已下载' : '下载',
@@ -2995,9 +2999,9 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   static const Duration _mermaidLoadTimeout = Duration(seconds: 60);
   static const Duration _svgClipboardProcessTimeout = Duration(seconds: 2);
   static const int _maxPngDecodedBytes = 32 * kBytesPerMiB;
-  static const int _svgClipboardVerificationMinBytes = 64 * 1024;
+  static const int _svgClipboardVerificationMinBytes = 64 * kBytesPerKiB;
   static const int _svgClipboardVerificationMaxBytes = 16 * kBytesPerMiB;
-  static const int _svgClipboardStderrMaxBytes = 8 * 1024;
+  static const int _svgClipboardStderrMaxBytes = 8 * kBytesPerKiB;
 
   final GlobalKey _interactiveRegionKey = GlobalKey();
   WebViewController? _controller;
@@ -3465,10 +3469,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         // 直接由 platform view 消费事件，Listener 收到的是 platform view 之外的空白处。
         ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 220, maxHeight: 560),
-          child: ClipRRect(
-            borderRadius: kOpenHandBorderRadius10,
-            child: body,
-          ),
+          child: ClipRRect(borderRadius: kOpenHandBorderRadius10, child: body),
         ),
       ],
     );
