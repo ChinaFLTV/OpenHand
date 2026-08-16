@@ -16,17 +16,17 @@ const Set<String> _sensitiveRedirectHeaderNames = <String>{
 };
 
 const Set<String> _redirectEntityHeaderNames = <String>{
-  'content-encoding',
+  HttpHeaders.contentEncodingHeader,
   'content-disposition',
-  'content-language',
-  'content-length',
-  'content-location',
+  HttpHeaders.contentLanguageHeader,
+  HttpHeaders.contentLengthHeader,
+  HttpHeaders.contentLocationHeader,
   'content-md5',
   kContentTypeHeaderName,
   'digest',
   'expect',
   'trailer',
-  'transfer-encoding',
+  HttpHeaders.transferEncodingHeader,
 };
 
 /// `Location` 响应头名。
