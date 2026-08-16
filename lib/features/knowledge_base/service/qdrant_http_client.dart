@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../../shared/net/http_response_utils.dart';
-import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/exponential_backoff.dart';
 import '../../../shared/util/text_clip.dart';
 
