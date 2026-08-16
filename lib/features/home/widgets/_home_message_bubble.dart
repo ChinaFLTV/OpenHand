@@ -359,7 +359,7 @@ class _MessageBubbleState extends State<_MessageBubble>
           return false;
         }
         _layoutChangeThrottleTimer = startSafeTimer(
-          const Duration(milliseconds: 200),
+          kOpenHandMotion200,
           () {},
         );
         widget.onLayoutChanged();

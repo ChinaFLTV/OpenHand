@@ -151,7 +151,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final OpenHandDebouncer _searchDebounce = OpenHandDebouncer(
-    delay: const Duration(milliseconds: 220),
+    delay: kOpenHandMotion220,
   );
   List<_FileNode> _searchResults = const [];
   bool _searchLoading = false;
@@ -2146,7 +2146,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     // change once (re-highlights only once instead of every frame).
     _zoomCommitTimer?.cancel();
     _zoomCommitTimer = startSafeTimer(
-      const Duration(milliseconds: 180),
+      kOpenHandMotion180,
       _commitZoomScale,
     );
   }
@@ -7074,8 +7074,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     final delay = explicit
         ? Duration.zero
         : (controller.useReducedInteractionMode
-              ? const Duration(milliseconds: 220)
-              : const Duration(milliseconds: 120));
+              ? kOpenHandMotion220
+              : kOpenHandMotion120);
     if (delay == Duration.zero) {
       unawaited(
         _requestSignatureHelp(
@@ -7285,7 +7285,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
 
     final debounce = controller.useReducedInteractionMode
-        ? const Duration(milliseconds: 260)
+        ? kOpenHandMotion260
         : const Duration(milliseconds: 150);
     _completionDebounceTimer = startSafeTimer(debounce, () {
       if (!mounted) return;
@@ -14522,7 +14522,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
       return;
     }
     _diagnosticTooltipHideTimer = startSafeTimer(
-      const Duration(milliseconds: 120),
+      kOpenHandMotion120,
       () {
         if (!mounted || _hoveringDiagnosticTooltip) {
           return;

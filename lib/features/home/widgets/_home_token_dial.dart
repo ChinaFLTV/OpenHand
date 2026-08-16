@@ -1848,14 +1848,14 @@ class _CompactCacheHitSparkline extends StatelessWidget {
                 tween: Tween<double>(begin: 0, end: readFrac + writeFrac),
                 duration: openHandMotionDuration(
                   context,
-                  const Duration(milliseconds: 520),
+                  kOpenHandMotion520,
                 ),
                 curve: kOpenHandEntranceCurve,
                 builder: (context, cached, _) => TweenAnimationBuilder<double>(
                   tween: Tween<double>(begin: 0, end: readFrac),
                   duration: openHandMotionDuration(
                     context,
-                    const Duration(milliseconds: 520),
+                    kOpenHandMotion520,
                   ),
                   curve: kOpenHandEntranceCurve,
                   builder: (context, read, _) => SizedBox(

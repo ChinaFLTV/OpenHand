@@ -692,7 +692,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       tween: Tween<double>(end: _maximized ? 1.0 : 0.0),
       duration: openHandMotionDuration(
         context,
-        const Duration(milliseconds: 380),
+        kOpenHandMotion380,
       ),
       curve: kOpenHandEntranceCurve,
       builder: (context, t, _) {

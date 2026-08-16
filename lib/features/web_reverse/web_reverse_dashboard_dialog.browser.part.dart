@@ -984,7 +984,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   void _onFindChanged(String s) {
     _findDebouncer?.cancel();
     _findDebouncer = startSafeTimer(
-      const Duration(milliseconds: 200),
+      kOpenHandMotion200,
       () async {
         final n = await widget.controller.findInPage(s);
         if (!mounted) return;

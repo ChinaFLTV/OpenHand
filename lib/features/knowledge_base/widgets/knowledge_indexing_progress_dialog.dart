@@ -320,7 +320,7 @@ class _KnowledgeIndexingProgressBarState
       tween: Tween<double>(begin: _begin, end: _end),
       duration: openHandMotionDuration(
         context,
-        const Duration(milliseconds: 380),
+        kOpenHandMotion380,
       ),
       curve: kOpenHandSwitchInCurve,
       builder: (context, value, _) {

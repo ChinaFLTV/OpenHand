@@ -48,7 +48,7 @@ class _HePhaseCard extends StatefulWidget {
 }
 
 class _HePhaseCardState extends State<_HePhaseCard> {
-  static const _expandSwitchDuration = Duration(milliseconds: 280);
+  static const _expandSwitchDuration = kOpenHandMotion280;
 
   @override
   void didUpdateWidget(covariant _HePhaseCard oldWidget) {

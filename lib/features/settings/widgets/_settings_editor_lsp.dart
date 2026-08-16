@@ -1391,7 +1391,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
       return;
     }
     _installRootValidationTimer = startSafeTimer(
-      const Duration(milliseconds: 220),
+      kOpenHandMotion220,
       () => _refreshInstallRootValidation(generation),
     );
   }
@@ -1548,7 +1548,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
       return;
     }
     _sdkVersionDetectionTimer = startSafeTimer(
-      const Duration(milliseconds: 220),
+      kOpenHandMotion220,
       () => _refreshSdkVersionDetection(normalizedSdkPath),
     );
   }

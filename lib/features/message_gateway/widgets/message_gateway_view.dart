@@ -15291,7 +15291,7 @@ class _DingTalkStatusDot extends StatefulWidget {
 
 class _DingTalkStatusDotState extends State<_DingTalkStatusDot>
     with SingleTickerProviderStateMixin {
-  static const Duration _pulseDuration = Duration(milliseconds: 1200);
+  static const Duration _pulseDuration = kOpenHandMotion1200;
 
   late final AnimationController _controller = AnimationController(
     vsync: this,
