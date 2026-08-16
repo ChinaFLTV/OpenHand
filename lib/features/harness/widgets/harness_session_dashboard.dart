@@ -745,11 +745,11 @@ MarkdownStyleSheet _heBuildDarkAwareMarkdownStyleSheet(
   );
 }
 
-const Color _hePendingTone = Color(0xFF818A98);
-const Color _heRunningTone = Color(0xFF2D63B8);
-const Color _heCompletedTone = Color(0xFF5F7C53);
-const Color _hePausedTone = Color(0xFFD97A33);
-const Color _heFailedTone = Color(0xFFC84B4B);
+const Color _hePendingTone = kHarnessStatusIdleTone;
+const Color _heRunningTone = kHarnessStatusRunningTone;
+const Color _heCompletedTone = kHarnessStatusCompletedTone;
+const Color _hePausedTone = kHarnessStatusCancelledTone;
+const Color _heFailedTone = kHarnessStatusFailedTone;
 
 ({Color tone, Color background, Color border, Color text}) _hePhasePalette(
   ThemeData theme,

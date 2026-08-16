@@ -250,15 +250,15 @@ class _HarnessStatusCapsule extends StatelessWidget {
         openHandRunningLabel(context),
       ),
       HarnessOrchestratorStatus.completed => (
-        const Color(0xFF5F7C53),
+        kHarnessStatusCompletedTone,
         openHandDoneLabel(context),
       ),
       HarnessOrchestratorStatus.failed => (
-        const Color(0xFFC84B4B),
+        kHarnessStatusFailedTone,
         openHandFailedLabel(context),
       ),
       HarnessOrchestratorStatus.cancelled => (
-        const Color(0xFFD97A33),
+        kHarnessStatusCancelledTone,
         openHandLocalizedText(
           context,
           zh: '已中止',

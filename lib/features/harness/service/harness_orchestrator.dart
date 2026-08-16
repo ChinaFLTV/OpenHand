@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Color;
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/safe_subprocess.dart';
@@ -334,6 +335,13 @@ const Object _harnessPhaseLogSnapshotUnset = Object();
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum HarnessOrchestratorStatus { idle, running, completed, failed, cancelled }
+
+/// Harness 编排器状态的语义配色，供侧边栏磁贴与仪表盘共用。
+const Color kHarnessStatusIdleTone = Color(0xFF818A98);
+const Color kHarnessStatusRunningTone = Color(0xFF2D63B8);
+const Color kHarnessStatusCompletedTone = Color(0xFF5F7C53);
+const Color kHarnessStatusFailedTone = Color(0xFFC84B4B);
+const Color kHarnessStatusCancelledTone = Color(0xFFD97A33);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Harness 工程阶段编排器
