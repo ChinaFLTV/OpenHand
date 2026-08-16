@@ -1791,7 +1791,7 @@ class _TrajectoryToolbar extends StatelessWidget {
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 700;
           final searchBorder = OutlineInputBorder(
-            borderRadius: kOpenHandPillBorderRadius,
+            borderRadius: kOpenHandBorderRadius10,
             borderSide: BorderSide(color: colorScheme.outlineVariant),
           );
           return Row(
@@ -1944,8 +1944,8 @@ class _TrajectoryToolbar extends StatelessWidget {
                       color: colorScheme.onSurfaceVariant,
                     ),
                     prefixIconConstraints: const BoxConstraints(
-                      minWidth: _kTrajectoryToolbarControlHeight,
-                      maxWidth: _kTrajectoryToolbarControlHeight,
+                      minWidth: 30,
+                      maxWidth: 30,
                       minHeight: _kTrajectoryToolbarControlHeight,
                       maxHeight: _kTrajectoryToolbarControlHeight,
                     ),
@@ -1956,9 +1956,7 @@ class _TrajectoryToolbar extends StatelessWidget {
                           : IconButton(
                               style: IconButton.styleFrom(
                                 backgroundColor: Colors.transparent,
-                                overlayColor: colorScheme.onSurface.withValues(
-                                  alpha: 0.08,
-                                ),
+                                overlayColor: Colors.transparent,
                                 minimumSize: Size.zero,
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                 padding: EdgeInsets.zero,
