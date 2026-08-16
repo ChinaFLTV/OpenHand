@@ -1141,6 +1141,25 @@ class _ToolsDialogState extends State<_ToolsDialog> {
   late Set<AiExposureSource> _enabledSources;
   bool _saving = false;
 
+  static const List<({String label, bool obscure})> _kCredentialFieldSpecs =
+      <({String label, bool obscure})>[
+    (label: 'GitHub Token', obscure: true),
+    (label: 'Gitee Access Token', obscure: true),
+    (label: 'GitCode Access Token', obscure: true),
+    (label: 'FOFA Email', obscure: false),
+    (label: 'FOFA API Key', obscure: true),
+    (label: 'Shodan API Key', obscure: true),
+  ];
+
+  TextEditingController _credentialController(int index) => switch (index) {
+    0 => _githubToken,
+    1 => _giteeToken,
+    2 => _gitcodeToken,
+    3 => _fofaEmail,
+    4 => _fofaKey,
+    _ => _shodanKey,
+  };
+
   @override
   void initState() {
     super.initState();
@@ -1219,58 +1238,17 @@ class _ToolsDialogState extends State<_ToolsDialog> {
             title: text(zh: 'BYOK 凭证', en: 'BYOK credentials'),
           ),
           const SizedBox(height: _kItemGap),
-          TextField(
-            controller: _githubToken,
-            obscureText: true,
-            decoration: const InputDecoration(
-              labelText: 'GitHub Token',
-              border: OutlineInputBorder(),
+          for (var index = 0; index < _kCredentialFieldSpecs.length; index++) ...[
+            if (index > 0) kOpenHandGap10,
+            TextField(
+              controller: _credentialController(index),
+              obscureText: _kCredentialFieldSpecs[index].obscure,
+              decoration: InputDecoration(
+                labelText: _kCredentialFieldSpecs[index].label,
+                border: const OutlineInputBorder(),
+              ),
             ),
-          ),
-          kOpenHandGap10,
-          TextField(
-            controller: _giteeToken,
-            obscureText: true,
-            decoration: const InputDecoration(
-              labelText: 'Gitee Access Token',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          kOpenHandGap10,
-          TextField(
-            controller: _gitcodeToken,
-            obscureText: true,
-            decoration: const InputDecoration(
-              labelText: 'GitCode Access Token',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          kOpenHandGap10,
-          TextField(
-            controller: _fofaEmail,
-            decoration: const InputDecoration(
-              labelText: 'FOFA Email',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          kOpenHandGap10,
-          TextField(
-            controller: _fofaKey,
-            obscureText: true,
-            decoration: const InputDecoration(
-              labelText: 'FOFA API Key',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          kOpenHandGap10,
-          TextField(
-            controller: _shodanKey,
-            obscureText: true,
-            decoration: const InputDecoration(
-              labelText: 'Shodan API Key',
-              border: OutlineInputBorder(),
-            ),
-          ),
+          ],
           const SizedBox(height: _kSectionGap),
           _InlineNotice(
             icon: Icons.security_rounded,
@@ -2719,6 +2697,13 @@ class _SourceApiStatusRow extends StatelessWidget {
   }
 }
 
+class _QueryFieldSpec {
+  const _QueryFieldSpec(this.controller, this.label, {this.hintText});
+  final TextEditingController controller;
+  final String label;
+  final String? hintText;
+}
+
 class _QueryFields extends StatelessWidget {
   const _QueryFields({
     required this.fofa,
@@ -2730,6 +2715,7 @@ class _QueryFields extends StatelessWidget {
     required this.linuxDo,
     required this.v2ex,
   });
+
   final TextEditingController fofa;
   final TextEditingController shodan;
   final TextEditingController github;
@@ -2740,76 +2726,33 @@ class _QueryFields extends StatelessWidget {
   final TextEditingController v2ex;
 
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      TextField(
-        controller: fofa,
-        decoration: const InputDecoration(
-          labelText: 'FOFA Query',
-          border: OutlineInputBorder(),
-        ),
-      ),
-      kOpenHandGap10,
-      TextField(
-        controller: shodan,
-        decoration: const InputDecoration(
-          labelText: 'Shodan Query',
-          border: OutlineInputBorder(),
-        ),
-      ),
-      kOpenHandGap10,
-      TextField(
-        controller: github,
-        decoration: const InputDecoration(
-          labelText: 'GitHub Code Search Query',
-          border: OutlineInputBorder(),
-        ),
-      ),
-      kOpenHandGap10,
-      TextField(
-        controller: gitee,
-        decoration: const InputDecoration(
-          labelText: 'Gitee Code Search Query',
-          border: OutlineInputBorder(),
-        ),
-      ),
-      kOpenHandGap10,
-      TextField(
-        controller: gitcode,
-        decoration: const InputDecoration(
-          labelText: 'GitCode Code Search Query',
-          border: OutlineInputBorder(),
-        ),
-      ),
-      kOpenHandGap10,
-      TextField(
-        controller: nodeseek,
-        decoration: const InputDecoration(
-          labelText: 'NodeSeek 入口 URL',
-          hintText: 'https://www.nodeseek.com/',
-          border: OutlineInputBorder(),
-        ),
-      ),
-      kOpenHandGap10,
-      TextField(
-        controller: linuxDo,
-        decoration: const InputDecoration(
-          labelText: 'LINUX DO 入口 URL',
-          hintText: 'https://linux.do/c/welfare/36',
-          border: OutlineInputBorder(),
-        ),
-      ),
-      kOpenHandGap10,
-      TextField(
-        controller: v2ex,
-        decoration: const InputDecoration(
-          labelText: 'V2EX 入口 URL',
-          hintText: 'https://www.v2ex.com/go/openai',
-          border: OutlineInputBorder(),
-        ),
-      ),
-    ],
-  );
+  Widget build(BuildContext context) {
+    final specs = <_QueryFieldSpec>[
+      _QueryFieldSpec(fofa, 'FOFA Query'),
+      _QueryFieldSpec(shodan, 'Shodan Query'),
+      _QueryFieldSpec(github, 'GitHub Code Search Query'),
+      _QueryFieldSpec(gitee, 'Gitee Code Search Query'),
+      _QueryFieldSpec(gitcode, 'GitCode Code Search Query'),
+      _QueryFieldSpec(nodeseek, 'NodeSeek 入口 URL', hintText: 'https://www.nodeseek.com/'),
+      _QueryFieldSpec(linuxDo, 'LINUX DO 入口 URL', hintText: 'https://linux.do/c/welfare/36'),
+      _QueryFieldSpec(v2ex, 'V2EX 入口 URL', hintText: 'https://www.v2ex.com/go/openai'),
+    ];
+    return Column(
+      children: [
+        for (var index = 0; index < specs.length; index++) ...[
+          if (index > 0) kOpenHandGap10,
+          TextField(
+            controller: specs[index].controller,
+            decoration: InputDecoration(
+              labelText: specs[index].label,
+              hintText: specs[index].hintText,
+              border: const OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }
 
 class _LogList extends StatelessWidget {
