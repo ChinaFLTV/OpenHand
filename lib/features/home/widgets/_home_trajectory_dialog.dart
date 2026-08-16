@@ -5,6 +5,8 @@ const double _kTrajectoryToolbarHeight = 48;
 const double _kTrajectoryToolbarControlHeight = 36;
 const double _kTrajectoryHeaderIconSize = 46;
 const double _kTrajectoryHeaderActionSize = 40;
+const double _kTrajectoryDetailsActionSize = 32;
+const double _kTrajectoryDetailsActionIconSize = 18;
 const double _kTrajectoryTurnRailWidth = 68;
 const double _kTrajectoryKindWidth = 112;
 const double _kTrajectoryDetailsMinWidth = 320;
@@ -35,6 +37,24 @@ const _kTrajectoryTimelineDarkColors = (
   assistant: Color(0xFF9474BC),
   tool: Color(0xFFDD8629),
   error: Color(0xFFF25A5A),
+);
+const _kTrajectoryJsonLightColors = (
+  key: Color(0xFF0B6E75),
+  string: Color(0xFF2F5FA7),
+  number: Color(0xFF8B3F8F),
+  boolValue: Color(0xFFB45309),
+  nullValue: Color(0xFFBE3455),
+  punctuation: Color(0xFF667085),
+  count: Color(0xFF6D4AC8),
+);
+const _kTrajectoryJsonDarkColors = (
+  key: Color(0xFF67D4D0),
+  string: Color(0xFF8CB8FF),
+  number: Color(0xFFE69BD3),
+  boolValue: Color(0xFFF7B955),
+  nullValue: Color(0xFFFF8296),
+  punctuation: Color(0xFFAAB3C2),
+  count: Color(0xFFB6A0FF),
 );
 
 enum _TrajectoryKind {
@@ -137,13 +157,13 @@ class _TrajectorySnapshot {
     required this.records,
     required this.turnIds,
     required this.collapsibleTurnIds,
-    required this.assistantCallAnchors,
+    required this.toolRecordIds,
   });
 
   final List<_TrajectoryRecord> records;
   final Set<int> turnIds;
   final Set<int> collapsibleTurnIds;
-  final Set<String> assistantCallAnchors;
+  final Set<String> toolRecordIds;
 
   static _TrajectorySnapshot fromSession(AiSession session) {
     final messages = session.messages
@@ -335,27 +355,17 @@ class _TrajectorySnapshot {
       for (final entry in recordsPerTurn.entries)
         if (entry.value > 1) entry.key,
     };
-    final assistantCallAnchors = <String>{};
-    for (var index = 0; index < records.length; index += 1) {
-      final record = records[index];
-      if (record.kind != _TrajectoryKind.assistant) continue;
-      for (var next = index + 1; next < records.length; next += 1) {
-        final candidate = records[next];
-        if (candidate.turn != record.turn || candidate.step != record.step) {
-          break;
-        }
-        if (candidate.kind == _TrajectoryKind.tool ||
-            candidate.kind == _TrajectoryKind.subtool) {
-          assistantCallAnchors.add(record.id);
-          break;
-        }
-      }
-    }
+    final toolRecordIds = <String>{
+      for (final record in records)
+        if (record.kind == _TrajectoryKind.tool ||
+            record.kind == _TrajectoryKind.subtool)
+          record.id,
+    };
     return _TrajectorySnapshot(
       records: List<_TrajectoryRecord>.unmodifiable(records),
       turnIds: Set<int>.unmodifiable(turnIds),
       collapsibleTurnIds: Set<int>.unmodifiable(collapsibleTurnIds),
-      assistantCallAnchors: Set<String>.unmodifiable(assistantCallAnchors),
+      toolRecordIds: Set<String>.unmodifiable(toolRecordIds),
     );
   }
 }
@@ -771,17 +781,20 @@ extension on _OpenHandHomePageState {
 class _TrajectoryLedgerRow {
   const _TrajectoryLedgerRow.record(this.record)
     : summary = null,
-      summaryKind = null;
+      summaryKind = null,
+      callRecordIds = const <String>[];
 
   const _TrajectoryLedgerRow.summary({
     required this.record,
     required this.summary,
     required this.summaryKind,
+    this.callRecordIds = const <String>[],
   });
 
   final _TrajectoryRecord record;
   final String? summary;
   final String? summaryKind;
+  final List<String> callRecordIds;
 }
 
 class _TrajectoryDialog extends StatefulWidget {
@@ -806,11 +819,13 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
   final ScrollController _detailsScrollController = ScrollController();
   final Set<int> _collapsedTurns = <int>{};
   final Set<String> _collapsedCalls = <String>{};
+  final Set<int> _callsVisibleInCollapsedTurns = <int>{};
   late final OpenHandDebouncer _refreshDebouncer = OpenHandDebouncer(
     delay: _kTrajectoryRefreshDelay,
   );
   bool _loadingInitial = true;
   bool _loadingOlder = false;
+  bool _keepNewCallsCollapsed = false;
   bool _suppressControllerSync = false;
   bool _actualDuration = false;
   String? _loadError;
@@ -912,12 +927,26 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
   }
 
   void _replaceSession(AiSession session) {
+    final callsWereExpanded = _allCallsExpanded;
     _session = session;
     _snapshot = _TrajectorySnapshot.fromSession(session);
     _collapsedTurns.removeWhere((turn) => !_snapshot.turnIds.contains(turn));
-    _collapsedCalls.removeWhere(
-      (id) => !_snapshot.assistantCallAnchors.contains(id),
+    _collapsedCalls.removeWhere((id) => !_snapshot.toolRecordIds.contains(id));
+    if (_keepNewCallsCollapsed) {
+      _collapsedCalls.addAll(_snapshot.toolRecordIds);
+    }
+    final turnsWithCalls = <int>{
+      for (final record in _snapshot.records)
+        if (_snapshot.toolRecordIds.contains(record.id)) record.turn,
+    };
+    _callsVisibleInCollapsedTurns.removeWhere(
+      (turn) => !turnsWithCalls.contains(turn),
     );
+    if (callsWereExpanded) {
+      _callsVisibleInCollapsedTurns.addAll(
+        turnsWithCalls.where(_collapsedTurns.contains),
+      );
+    }
     final selectedId = _selectedRecordId;
     if (selectedId != null &&
         !_snapshot.records.any((record) => record.id == selectedId)) {
@@ -1010,6 +1039,19 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
 
   Set<int> get _collapsibleTurns => _snapshot.collapsibleTurnIds;
 
+  bool get _allCallsExpanded {
+    if (_snapshot.toolRecordIds.isEmpty) return false;
+    for (final record in _snapshot.records) {
+      if (!_snapshot.toolRecordIds.contains(record.id)) continue;
+      if (_collapsedCalls.contains(record.id) ||
+          _collapsedTurns.contains(record.turn) &&
+              !_callsVisibleInCollapsedTurns.contains(record.turn)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   List<_TrajectoryLedgerRow> get _ledgerRows {
     final searchMatches = _searchMatches;
     final timelineMatches = _timelineMatches;
@@ -1043,43 +1085,70 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
         );
         if (record.id != turnRecords.first.id) continue;
         rows.add(_TrajectoryLedgerRow.record(visibleRecord));
-        if (turnRecords.length > 1) {
-          final steps = turnRecords
+        final visibleCalls = _callsVisibleInCollapsedTurns.contains(record.turn)
+            ? turnRecords
+                  .where(
+                    (item) =>
+                        item.id != visibleRecord.id &&
+                        _snapshot.toolRecordIds.contains(item.id) &&
+                        !_collapsedCalls.contains(item.id),
+                  )
+                  .toList(growable: false)
+            : const <_TrajectoryRecord>[];
+        final visibleCallIds = visibleCalls.map((item) => item.id).toSet();
+        final hiddenRecords = turnRecords
+            .where(
+              (item) =>
+                  item.id != visibleRecord.id &&
+                  !visibleCallIds.contains(item.id),
+            )
+            .toList(growable: false);
+        if (hiddenRecords.isNotEmpty) {
+          final steps = hiddenRecords
               .map((item) => item.step)
               .where((item) => item > 0)
               .toSet();
-          final calls = turnRecords
-              .where((item) => item.kind == _TrajectoryKind.tool)
+          final calls = hiddenRecords
+              .where((item) => _snapshot.toolRecordIds.contains(item.id))
               .length;
+          final stepSummary =
+              '${steps.length} ${openHandAmbientText(zh: '步', zhHant: '步', en: steps.length == 1 ? 'step' : 'steps', fr: steps.length == 1 ? 'étape' : 'étapes', de: steps.length == 1 ? 'Schritt' : 'Schritte', ja: 'ステップ')}';
+          final summary = calls == 0
+              ? stepSummary
+              : '$stepSummary · $calls ${openHandAmbientText(zh: '工具调用', zhHant: '工具呼叫', en: calls == 1 ? 'tool call' : 'tool calls', fr: calls == 1 ? 'appel d’outil' : 'appels d’outil', de: calls == 1 ? 'Werkzeugaufruf' : 'Werkzeugaufrufe', ja: 'ツール呼び出し')}';
           rows.add(
             _TrajectoryLedgerRow.summary(
               record: visibleRecord,
-              summary:
-                  '${steps.length} ${openHandAmbientText(zh: '步', zhHant: '步', en: steps.length == 1 ? 'step' : 'steps', fr: steps.length == 1 ? 'étape' : 'étapes', de: steps.length == 1 ? 'Schritt' : 'Schritte', ja: 'ステップ')} · $calls ${openHandAmbientText(zh: '工具调用', zhHant: '工具呼叫', en: calls == 1 ? 'tool call' : 'tool calls', fr: calls == 1 ? 'appel d’outil' : 'appels d’outil', de: calls == 1 ? 'Werkzeugaufruf' : 'Werkzeugaufrufe', ja: 'ツール呼び出し')}',
+              summary: summary,
               summaryKind: 'turn',
             ),
           );
         }
+        rows.addAll(visibleCalls.map(_TrajectoryLedgerRow.record));
         index += turnRecords.length - 1;
         continue;
       }
-      rows.add(_TrajectoryLedgerRow.record(record));
-      if (!_collapsedCalls.contains(record.id)) continue;
+
+      final recordIsCall = _snapshot.toolRecordIds.contains(record.id);
+      var next = recordIsCall ? index : index + 1;
       final calls = <_TrajectoryRecord>[];
-      var next = index + 1;
       while (next < filtered.length) {
         final candidate = filtered[next];
         if (candidate.turn != record.turn || candidate.step != record.step) {
           break;
         }
-        if (candidate.kind != _TrajectoryKind.tool &&
-            candidate.kind != _TrajectoryKind.subtool) {
-          break;
-        }
+        if (!_snapshot.toolRecordIds.contains(candidate.id)) break;
         calls.add(candidate);
         next += 1;
       }
-      if (calls.isEmpty) continue;
+      if (!recordIsCall) rows.add(_TrajectoryLedgerRow.record(record));
+      final runCollapsed =
+          calls.isNotEmpty &&
+          calls.every((call) => _collapsedCalls.contains(call.id));
+      if (!runCollapsed) {
+        if (recordIsCall) rows.add(_TrajectoryLedgerRow.record(record));
+        continue;
+      }
       final names = calls
           .map((call) => call.toolName ?? 'tool')
           .toSet()
@@ -1090,9 +1159,10 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
           summary:
               '${calls.length} ${openHandAmbientText(zh: '工具调用', zhHant: '工具呼叫', en: calls.length == 1 ? 'tool call' : 'tool calls', fr: calls.length == 1 ? 'appel d’outil' : 'appels d’outil', de: calls.length == 1 ? 'Werkzeugaufruf' : 'Werkzeugaufrufe', ja: 'ツール呼び出し')} · $names',
           summaryKind: 'calls',
+          callRecordIds: calls.map((call) => call.id).toList(growable: false),
         ),
       );
-      index += calls.length;
+      index = next - 1;
     }
     return rows;
   }
@@ -1177,6 +1247,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
     final allCollapsed =
         collapsible.isNotEmpty && collapsible.every(_collapsedTurns.contains);
     setState(() {
+      _callsVisibleInCollapsedTurns.clear();
       if (allCollapsed) {
         _collapsedTurns.removeAll(collapsible);
       } else {
@@ -1188,19 +1259,28 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
   void _toggleTurn(int turn) {
     if (!_collapsibleTurns.contains(turn)) return;
     setState(() {
-      if (!_collapsedTurns.remove(turn)) _collapsedTurns.add(turn);
+      _callsVisibleInCollapsedTurns.remove(turn);
+      if (!_collapsedTurns.remove(turn)) {
+        _collapsedTurns.add(turn);
+      }
     });
   }
 
   void _toggleAllCalls() {
-    final collapsible = _snapshot.assistantCallAnchors;
-    final allCollapsed =
-        collapsible.isNotEmpty && collapsible.every(_collapsedCalls.contains);
+    final expand = !_allCallsExpanded;
     setState(() {
-      if (allCollapsed) {
-        _collapsedCalls.removeAll(collapsible);
+      _keepNewCallsCollapsed = !expand;
+      if (expand) {
+        _collapsedCalls.removeAll(_snapshot.toolRecordIds);
+        _callsVisibleInCollapsedTurns.addAll(<int>{
+          for (final record in _snapshot.records)
+            if (_snapshot.toolRecordIds.contains(record.id) &&
+                _collapsedTurns.contains(record.turn))
+              record.turn,
+        });
       } else {
-        _collapsedCalls.addAll(collapsible);
+        _collapsedCalls.addAll(_snapshot.toolRecordIds);
+        _callsVisibleInCollapsedTurns.clear();
       }
     });
   }
@@ -1254,11 +1334,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
               allTurnsCollapsed:
                   _collapsibleTurns.isNotEmpty &&
                   _collapsibleTurns.every(_collapsedTurns.contains),
-              allCallsCollapsed:
-                  _snapshot.assistantCallAnchors.isNotEmpty &&
-                  _snapshot.assistantCallAnchors.every(
-                    _collapsedCalls.contains,
-                  ),
+              allCallsExpanded: _allCallsExpanded,
               searchController: _searchController,
               rangeLabel: messageRangeLabel,
               onDurationChanged: () {
@@ -1623,7 +1699,8 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
                           ? () => _toggleTurn(row.record.turn)
                           : () {
                               setState(() {
-                                _collapsedCalls.remove(row.record.id);
+                                _keepNewCallsCollapsed = false;
+                                _collapsedCalls.removeAll(row.callRecordIds);
                               });
                             },
                     );
@@ -1683,7 +1760,7 @@ class _TrajectoryToolbar extends StatelessWidget {
   const _TrajectoryToolbar({
     required this.actualDuration,
     required this.allTurnsCollapsed,
-    required this.allCallsCollapsed,
+    required this.allCallsExpanded,
     required this.searchController,
     required this.rangeLabel,
     required this.onDurationChanged,
@@ -1693,7 +1770,7 @@ class _TrajectoryToolbar extends StatelessWidget {
 
   final bool actualDuration;
   final bool allTurnsCollapsed;
-  final bool allCallsCollapsed;
+  final bool allCallsExpanded;
   final TextEditingController searchController;
   final String? rangeLabel;
   final VoidCallback onDurationChanged;
@@ -1713,6 +1790,10 @@ class _TrajectoryToolbar extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 700;
+          final searchBorder = OutlineInputBorder(
+            borderRadius: kOpenHandPillBorderRadius,
+            borderSide: BorderSide(color: colorScheme.outlineVariant),
+          );
           return Row(
             children: [
               _TrajectoryToolbarButton(
@@ -1777,9 +1858,9 @@ class _TrajectoryToolbar extends StatelessWidget {
                 onPressed: onToggleTurns,
               ),
               _TrajectoryToolbarButton(
-                icon: allCallsCollapsed
-                    ? Icons.add_box_outlined
-                    : Icons.indeterminate_check_box_outlined,
+                icon: allCallsExpanded
+                    ? Icons.indeterminate_check_box_outlined
+                    : Icons.add_box_outlined,
                 label: compact
                     ? null
                     : _trajectoryText(
@@ -1793,16 +1874,16 @@ class _TrajectoryToolbar extends StatelessWidget {
                       ),
                 tooltip: _trajectoryText(
                   context,
-                  zh: allCallsCollapsed ? '展开调用' : '折叠调用',
-                  zhHant: allCallsCollapsed ? '展開呼叫' : '摺疊呼叫',
-                  en: allCallsCollapsed ? 'Expand calls' : 'Collapse calls',
-                  fr: allCallsCollapsed
-                      ? 'Développer les appels'
-                      : 'Réduire les appels',
-                  de: allCallsCollapsed
-                      ? 'Aufrufe einblenden'
-                      : 'Aufrufe einklappen',
-                  ja: allCallsCollapsed ? '呼び出しを展開' : '呼び出しを折りたたむ',
+                  zh: allCallsExpanded ? '折叠调用' : '展开调用',
+                  zhHant: allCallsExpanded ? '摺疊呼叫' : '展開呼叫',
+                  en: allCallsExpanded ? 'Collapse calls' : 'Expand calls',
+                  fr: allCallsExpanded
+                      ? 'Réduire les appels'
+                      : 'Développer les appels',
+                  de: allCallsExpanded
+                      ? 'Aufrufe einklappen'
+                      : 'Aufrufe einblenden',
+                  ja: allCallsExpanded ? '呼び出しを折りたたむ' : '呼び出しを展開',
                 ),
                 onPressed: onToggleCalls,
               ),
@@ -1841,9 +1922,13 @@ class _TrajectoryToolbar extends StatelessWidget {
                 child: TextField(
                   controller: searchController,
                   textAlignVertical: TextAlignVertical.center,
+                  cursorHeight: 18,
                   style: Theme.of(context).textTheme.bodySmall,
                   decoration: InputDecoration(
-                    isDense: true,
+                    constraints: const BoxConstraints.tightFor(
+                      height: _kTrajectoryToolbarControlHeight,
+                    ),
+                    isCollapsed: true,
                     hintText: _trajectoryText(
                       context,
                       zh: '搜索',
@@ -1861,6 +1946,8 @@ class _TrajectoryToolbar extends StatelessWidget {
                     prefixIconConstraints: const BoxConstraints(
                       minWidth: _kTrajectoryToolbarControlHeight,
                       maxWidth: _kTrajectoryToolbarControlHeight,
+                      minHeight: _kTrajectoryToolbarControlHeight,
+                      maxHeight: _kTrajectoryToolbarControlHeight,
                     ),
                     suffixIcon: ValueListenableBuilder<TextEditingValue>(
                       valueListenable: searchController,
@@ -1896,13 +1983,19 @@ class _TrajectoryToolbar extends StatelessWidget {
                     suffixIconConstraints: const BoxConstraints(
                       minWidth: 32,
                       maxWidth: 32,
+                      minHeight: _kTrajectoryToolbarControlHeight,
+                      maxHeight: _kTrajectoryToolbarControlHeight,
                     ),
                     filled: true,
                     fillColor: colorScheme.surfaceContainer,
-                    contentPadding: const EdgeInsets.only(right: 4),
-                    border: OutlineInputBorder(
-                      borderRadius: kOpenHandPillBorderRadius,
-                      borderSide: BorderSide(color: colorScheme.outlineVariant),
+                    contentPadding: const EdgeInsetsDirectional.only(end: 4),
+                    border: searchBorder,
+                    enabledBorder: searchBorder,
+                    focusedBorder: searchBorder.copyWith(
+                      borderSide: BorderSide(
+                        color: colorScheme.primary.withValues(alpha: 0.78),
+                        width: 1.5,
+                      ),
                     ),
                   ),
                 ),
@@ -1977,19 +2070,20 @@ class _TrajectoryCloseButton extends StatelessWidget {
   const _TrajectoryCloseButton({
     required this.tooltip,
     required this.onPressed,
+    this.size = _kTrajectoryHeaderActionSize,
+    this.iconSize = 20,
   });
 
   final String tooltip;
   final VoidCallback onPressed;
+  final double size;
+  final double iconSize;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return IconButton(
-      constraints: const BoxConstraints.tightFor(
-        width: _kTrajectoryHeaderActionSize,
-        height: _kTrajectoryHeaderActionSize,
-      ),
+      constraints: BoxConstraints.tightFor(width: size, height: size),
       padding: EdgeInsets.zero,
       style: IconButton.styleFrom(
         foregroundColor: colorScheme.onSurfaceVariant,
@@ -2003,7 +2097,7 @@ class _TrajectoryCloseButton extends StatelessWidget {
       ),
       tooltip: tooltip,
       onPressed: onPressed,
-      icon: const Icon(Icons.close_rounded, size: 20),
+      icon: Icon(Icons.close_rounded, size: iconSize),
     );
   }
 }
@@ -3220,6 +3314,15 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
     final effectiveTab = tabs.any((tab) => tab.$1 == activeTab)
         ? activeTab
         : tabs.first.$1;
+    final selectedTabIndex = tabs.indexWhere((tab) => tab.$1 == effectiveTab);
+    final visualTabIndex = Directionality.of(context) == TextDirection.rtl
+        ? tabs.length - selectedTabIndex - 1
+        : selectedTabIndex;
+    final tabMotion = cardMotionDurationFor(context, expanding: true);
+    final indicatorAlignment = Alignment(
+      -1 + (visualTabIndex * 2 + 1) / tabs.length,
+      1,
+    );
     return ColoredBox(
       color: colorScheme.surfaceContainerLow,
       child: Column(
@@ -3263,6 +3366,8 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
                       ),
                     ),
                   _TrajectoryCloseButton(
+                    size: _kTrajectoryDetailsActionSize,
+                    iconSize: _kTrajectoryDetailsActionIconSize,
                     tooltip: _trajectoryText(
                       context,
                       zh: '关闭详情',
@@ -3282,16 +3387,42 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
             height: 38,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Row(
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  for (final tab in tabs)
-                    Expanded(
-                      child: _TrajectoryDetailTab(
-                        label: tab.$2,
-                        selected: tab.$1 == effectiveTab,
-                        onPressed: () => onTabChanged(tab.$1),
+                  Row(
+                    children: [
+                      for (final tab in tabs)
+                        Expanded(
+                          child: _TrajectoryDetailTab(
+                            label: tab.$2,
+                            selected: tab.$1 == effectiveTab,
+                            onPressed: () => onTabChanged(tab.$1),
+                          ),
+                        ),
+                    ],
+                  ),
+                  IgnorePointer(
+                    child: AnimatedAlign(
+                      duration: tabMotion,
+                      curve: kCardMotionCurve,
+                      alignment: indicatorAlignment,
+                      child: FractionallySizedBox(
+                        widthFactor: 1 / tabs.length,
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: Container(
+                            height: 2,
+                            margin: const EdgeInsets.symmetric(horizontal: 6),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primary,
+                              borderRadius: kOpenHandPillBorderRadius,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
+                  ),
                 ],
               ),
             ),
@@ -3324,31 +3455,29 @@ class _TrajectoryDetailTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final duration = cardMotionDurationFor(context, expanding: selected);
+    final style = theme.textTheme.labelSmall?.copyWith(
+      color: selected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+    );
     return InkWell(
       onTap: onPressed,
-      child: Container(
+      borderRadius: kOpenHandBorderRadius5,
+      child: SizedBox(
         height: 38,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: selected ? colorScheme.primary : Colors.transparent,
-              width: 2,
-            ),
-          ),
-        ),
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            label,
-            maxLines: 1,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: selected
-                  ? colorScheme.primary
-                  : colorScheme.onSurfaceVariant,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: AnimatedDefaultTextStyle(
+                duration: duration,
+                curve: kCardDecorationMotionCurve,
+                style: style ?? const TextStyle(),
+                child: Text(label, maxLines: 1),
+              ),
             ),
           ),
         ),
@@ -3510,7 +3639,9 @@ class _TrajectoryDetailBody extends StatelessWidget {
         primary: false,
         physics: openHandDialogAwareScrollPhysics(context),
         padding: const EdgeInsets.all(14),
-        child: content,
+        child: OpenHandCrossFadeSwitcher(
+          child: KeyedSubtree(key: ValueKey<String>(activeTab), child: content),
+        ),
       ),
     );
   }
@@ -4811,7 +4942,7 @@ class _TrajectoryStructuredDetailState
                     ),
                   ),
                 ),
-                if (document != null && document.containerPaths.length > 1)
+                if (document != null && document.containerPaths.length > 1) ...[
                   IconButton(
                     constraints: const BoxConstraints.tightFor(
                       width: 30,
@@ -4849,6 +4980,8 @@ class _TrajectoryStructuredDetailState
                       size: 17,
                     ),
                   ),
+                  kOpenHandHGap4,
+                ],
                 IconButton(
                   constraints: const BoxConstraints.tightFor(
                     width: 30,
@@ -4952,6 +5085,9 @@ class _TrajectoryStructuredDetailState
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final jsonColors = theme.brightness == Brightness.dark
+        ? _kTrajectoryJsonDarkColors
+        : _kTrajectoryJsonLightColors;
     final isContainer = value is Map || value is List;
     final childCount = value is Map
         ? value.length
@@ -4962,12 +5098,12 @@ class _TrajectoryStructuredDetailState
     final expanded = expandable && _expandedPaths.contains(path);
     final keyStyle = theme.textTheme.bodySmall?.copyWith(
       fontFamily: kOpenHandMonospaceFontFamily,
-      color: colorScheme.primary,
+      color: jsonColors.key,
       fontWeight: FontWeight.w600,
       height: 1.45,
     );
     final punctuationStyle = keyStyle?.copyWith(
-      color: colorScheme.onSurfaceVariant,
+      color: jsonColors.punctuation,
       fontWeight: FontWeight.w400,
     );
     final valueSpan = TextSpan(
@@ -4989,7 +5125,7 @@ class _TrajectoryStructuredDetailState
           if (childCount > 0)
             TextSpan(
               text: '  $childCount',
-              style: punctuationStyle?.copyWith(color: colorScheme.secondary),
+              style: punctuationStyle?.copyWith(color: jsonColors.count),
             ),
         ] else
           TextSpan(
@@ -5073,7 +5209,7 @@ class _TrajectoryStructuredDetailState
                   decoration: BoxDecoration(
                     border: BorderDirectional(
                       start: BorderSide(
-                        color: colorScheme.primary.withValues(alpha: 0.2),
+                        color: jsonColors.key.withValues(alpha: 0.28),
                       ),
                     ),
                   ),
@@ -5099,13 +5235,15 @@ class _TrajectoryStructuredDetailState
 }
 
 TextStyle? _trajectoryJsonValueStyle(ThemeData theme, Object? value) {
-  final colorScheme = theme.colorScheme;
+  final colors = theme.brightness == Brightness.dark
+      ? _kTrajectoryJsonDarkColors
+      : _kTrajectoryJsonLightColors;
   final color = switch (value) {
-    String() => colorScheme.tertiary,
-    num() => colorScheme.secondary,
-    bool() => colorScheme.primary,
-    null => colorScheme.outline,
-    _ => colorScheme.onSurface,
+    String() => colors.string,
+    num() => colors.number,
+    bool() => colors.boolValue,
+    null => colors.nullValue,
+    _ => theme.colorScheme.onSurface,
   };
   return theme.textTheme.bodySmall?.copyWith(
     fontFamily: kOpenHandMonospaceFontFamily,
