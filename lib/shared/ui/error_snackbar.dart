@@ -344,7 +344,7 @@ class _ErrorContextBlock extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: kOpenHandBorderRadius10,
       ),
       child: SelectableText(
         lines.join('\n'),
@@ -401,7 +401,7 @@ class _ErrorSourceCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
             decoration: BoxDecoration(
               color: chipBg,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: kOpenHandBorderRadius8,
             ),
             child: Text(
               source.label,

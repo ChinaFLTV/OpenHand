@@ -10532,7 +10532,7 @@ class _LogcatLineTile extends StatelessWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(5),
+                borderRadius: kOpenHandBorderRadius5,
               ),
               child: Text(
                 level == null ? '-' : _shortLevelLabel(level),

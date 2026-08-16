@@ -1314,7 +1314,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
         ? '0 / $messageRangeTotal'
         : '${_session.messageWindowStartIndex + 1}-$messageRangeEnd / '
               '$messageRangeTotal';
-    final radius = BorderRadius.circular(18);
+    const radius = kOpenHandBorderRadius18;
     return buildOpenHandDialog(
       width: width,
       height: height,
@@ -2707,7 +2707,7 @@ class _TrajectoryOlderHistoryRow extends StatelessWidget {
           backgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.42),
           disabledForegroundColor: colorScheme.onSurfaceVariant,
           disabledBackgroundColor: colorScheme.surfaceContainerHighest,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius8),
         ),
         icon: loading
             ? SizedBox(
@@ -2857,7 +2857,7 @@ class _TrajectoryLedgerRecordRow extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(3),
+                            borderRadius: kOpenHandBorderRadius3,
                           ),
                           child: Text(
                             _trajectoryText(
@@ -5227,7 +5227,7 @@ class _TrajectoryStructuredDetailState
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         InkWell(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: kOpenHandBorderRadius4,
           onTap: () => setState(() {
             if (expanded) {
               _expandedPaths.remove(path);

@@ -2109,7 +2109,7 @@ class OpenHandOperationalLatencyRange extends StatelessWidget {
                   ),
                   Expanded(
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(5),
+                      borderRadius: kOpenHandBorderRadius5,
                       child: SizedBox(
                         height: 12,
                         child: Stack(

@@ -130,7 +130,7 @@ Future<void> showDependencyMetricDetailDialog(
       backgroundColor: colors.surface,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: kOpenHandBorderRadius26,
         side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.42)),
       ),
       child: ServiceDialogInteractionTheme(
