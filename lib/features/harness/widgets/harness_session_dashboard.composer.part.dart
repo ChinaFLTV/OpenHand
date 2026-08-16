@@ -209,7 +209,7 @@ class _HeComposer extends StatelessWidget {
 
     final expandedContent = AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion260),
-      curve: Curves.easeInOutCubicEmphasized,
+      curve: kOpenHandEmphasizedCurve,
       width: double.infinity,
       height: manualPhaseEnabled ? 176 : 80,
       decoration: BoxDecoration(
@@ -505,7 +505,7 @@ class _HeComposer extends StatelessWidget {
       color: colorScheme.surfaceContainerHigh,
       child: AnimatedContainer(
         duration: openHandMotionDuration(context, kOpenHandMotion260),
-        curve: Curves.easeInOutCubicEmphasized,
+        curve: kOpenHandEmphasizedCurve,
         padding: EdgeInsets.fromLTRB(18, 14, 18, isCollapsed ? 10 : 18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -516,7 +516,7 @@ class _HeComposer extends StatelessWidget {
             ),
             AnimatedContainer(
               duration: openHandMotionDuration(context, kOpenHandMotion260),
-              curve: Curves.easeInOutCubicEmphasized,
+              curve: kOpenHandEmphasizedCurve,
               height: isCollapsed ? 0 : 14,
             ),
             actionRow,

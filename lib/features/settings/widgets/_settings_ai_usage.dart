@@ -51,7 +51,7 @@ Widget _buildAiUsageAnimatedSwap(BuildContext context, Widget child) {
     child: AnimatedSize(
       duration: settings.entranceDuration,
       reverseDuration: settings.exitDuration,
-      curve: Curves.easeInOutCubicEmphasized,
+      curve: kOpenHandEmphasizedCurve,
       alignment: Alignment.topCenter,
       child: AnimatedSwitcher(
         duration: settings.entranceDuration,

@@ -64,7 +64,7 @@ class _AppearOnceState extends State<AppearOnce>
     // panel transitions.
     _translate = CurvedAnimation(
       parent: ctrl,
-      curve: Curves.easeInOutCubicEmphasized,
+      curve: kOpenHandEmphasizedCurve,
     );
     ctrl.addStatusListener(_onStatus);
     _ctrl = ctrl;

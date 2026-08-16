@@ -190,7 +190,7 @@ class OpenHandCollapsibleFade extends StatelessWidget {
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: collapsed ? 1 : 0, end: collapsed ? 0 : 1),
       duration: effectiveDuration,
-      curve: Curves.easeInOutCubicEmphasized,
+      curve: kOpenHandEmphasizedCurve,
       child: child,
       builder: (context, value, animatedChild) {
         return ClipRect(

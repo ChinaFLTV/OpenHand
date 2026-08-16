@@ -2194,7 +2194,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       child: AnimatedContainer(
         duration: openHandMotionDuration(context, kOpenHandMotion260,
         ),
-        curve: Curves.easeInOutCubicEmphasized,
+        curve: kOpenHandEmphasizedCurve,
         padding: EdgeInsets.fromLTRB(18, 14, 18, widget.isCollapsed ? 10 : 18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2205,7 +2205,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             ),
             AnimatedContainer(
               duration: openHandMotionDuration(context, kOpenHandMotion260),
-              curve: Curves.easeInOutCubicEmphasized,
+              curve: kOpenHandEmphasizedCurve,
               height: widget.isCollapsed ? 0 : 14,
             ),
             actionRow,
@@ -2560,7 +2560,7 @@ class _ComposerCreationModeButtonState
         height: 52,
         child: AnimatedContainer(
           duration: openHandMotionDuration(context, kOpenHandMotion340),
-          curve: Curves.easeInOutCubicEmphasized,
+          curve: kOpenHandEmphasizedCurve,
           child: FilledButton(
             onPressed: () {
               // When active, toggle off instead of opening the menu.
@@ -4210,7 +4210,7 @@ class _ComposerCreationOptionsChip extends StatelessWidget {
         height: 52,
         child: AnimatedContainer(
           duration: openHandMotionDuration(context, kOpenHandMotion320),
-          curve: Curves.easeInOutCubicEmphasized,
+          curve: kOpenHandEmphasizedCurve,
           child: FilledButton(
             onPressed: () => unawaited(onTap()),
             style: FilledButton.styleFrom(
