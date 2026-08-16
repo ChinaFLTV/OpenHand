@@ -299,7 +299,7 @@ class _InsightContextBar extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 1),
+               kOpenHandGap1,
               Text(
                 value,
                 maxLines: 2,
@@ -308,7 +308,7 @@ class _InsightContextBar extends StatelessWidget {
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 1),
+               kOpenHandGap1,
               Text(
                 helper,
                 maxLines: 1,

@@ -827,7 +827,7 @@ class _AiUsageMetricCard extends StatelessWidget {
             ),
           ),
           if (data.progress case final progress?) ...[
-            const SizedBox(height: 11),
+             kOpenHandGap11,
             ClipRRect(
               borderRadius: kOpenHandPillBorderRadius,
               child: LinearProgressIndicator(
@@ -3436,7 +3436,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
                     color: theme.colorScheme.onPrimaryContainer,
                   ),
                 ),
-                const SizedBox(width: 13),
+                 kOpenHandWidth13,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -3489,7 +3489,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
                           : _filter.copyWith(providerConfigId: value),
                     ),
                   ),
-                  const SizedBox(height: 22),
+                   kOpenHandGap22,
                   _buildFacet(
                     context,
                     title: openHandModelLabel(context),
@@ -3501,7 +3501,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
                           : _filter.copyWith(modelId: value),
                     ),
                   ),
-                  const SizedBox(height: 22),
+                   kOpenHandGap22,
                   _buildFacet(
                     context,
                     title: openHandSourceLabel(context),

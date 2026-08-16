@@ -1340,10 +1340,10 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                 Container(
                   width: 48,
                   height: 48,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(19),
-                    boxShadow: [
+                 decoration: BoxDecoration(
+                   color: colorScheme.primaryContainer,
+                    borderRadius: kOpenHandBorderRadius18,
+                   boxShadow: [
                       BoxShadow(
                         color: colorScheme.primary.withValues(alpha: .14),
                         blurRadius: 18,
@@ -6338,7 +6338,7 @@ class _WebOpsHeaderIdentity extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(width: 13),
+         kOpenHandWidth13,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -13397,7 +13397,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.close_rounded),
-              SizedBox(width: 10),
+              kOpenHandWidth10,
               Text('取消编辑', maxLines: 1, softWrap: false),
             ],
           ),
@@ -17238,7 +17238,7 @@ class _DingTalkMessageAuditDialogState
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         CircularProgressIndicator(strokeWidth: 2.4),
-                        SizedBox(height: 12),
+                        kOpenHandGap12,
                         Text('正在加载完整审计快照…'),
                       ],
                     ),
@@ -20831,7 +20831,7 @@ class _DingTalkTargetAllowlistField extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 11),
+             kOpenHandGap11,
             if (targets.isEmpty)
               Text(
                 emptyLabel,
@@ -22557,7 +22557,7 @@ class _DingTalkSettingsCard extends StatelessWidget {
               if (trailing != null) trailing!,
             ],
           ),
-          if (child != null) ...[const SizedBox(height: 11), child!],
+          if (child != null) ...[ kOpenHandGap11, child!],
         ],
       ),
     );

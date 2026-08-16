@@ -2022,7 +2022,7 @@ class _SettingsViewState extends State<SettingsView> {
       _SettingsSection.activeToolCalls => const Column(
         children: [
           _ActiveToolCallsPanel(),
-          SizedBox(height: 18),
+          kOpenHandGap18,
           _ToolHardeningParamsPanel(),
         ],
       ),

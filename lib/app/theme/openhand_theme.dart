@@ -106,8 +106,8 @@ abstract final class OpenHandTheme {
         shadowColor: Colors.black.withValues(alpha: isDark ? 0.28 : 0.10),
         surfaceTintColor: colorScheme.surfaceTint,
         margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(32),
+       shape: RoundedRectangleBorder(
+          borderRadius: kOpenHandBorderRadius32,
           side: BorderSide(color: palette.outlineSoft),
         ),
       ),

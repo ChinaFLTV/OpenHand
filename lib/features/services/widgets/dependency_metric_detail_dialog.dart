@@ -2329,7 +2329,7 @@ class _MetricSection extends StatelessWidget {
                 if (trailing != null) ...[kOpenHandHGap10, trailing!],
               ],
             ),
-            const SizedBox(height: 15),
+             kOpenHandGap15,
             child,
           ],
         ),
@@ -2368,7 +2368,7 @@ class _AdaptivePair extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(flex: primaryFlex, child: primary),
-          const SizedBox(width: 22),
+           kOpenHandWidth22,
           Expanded(flex: secondaryFlex, child: secondary),
         ],
       );

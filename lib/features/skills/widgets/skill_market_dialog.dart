@@ -1000,7 +1000,7 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 22),
+             kOpenHandGap22,
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

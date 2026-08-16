@@ -576,10 +576,10 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
           Container(
             width: 92,
             height: 92,
-            decoration: BoxDecoration(
-              color: colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(32),
-            ),
+           decoration: BoxDecoration(
+             color: colorScheme.primaryContainer,
+              borderRadius: kOpenHandBorderRadius32,
+           ),
             alignment: Alignment.center,
             child: Icon(
               Icons.auto_awesome_rounded,

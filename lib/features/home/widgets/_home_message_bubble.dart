@@ -4015,7 +4015,7 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
                                   size: 13,
                                   color: Colors.white,
                                 ),
-                                SizedBox(width: 4),
+                                kOpenHandWidth4,
                                 Text(
                                   'VIDEO',
                                   style: TextStyle(

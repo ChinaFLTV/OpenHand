@@ -2096,7 +2096,7 @@ class _CodexDiffFoldRow extends StatelessWidget {
           children: [
             const ColoredBox(
               color: Colors.transparent,
-              child: SizedBox(width: 4),
+              child: kOpenHandWidth4,
             ),
             SizedBox(
               width: 58,

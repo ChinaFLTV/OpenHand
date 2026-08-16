@@ -1013,7 +1013,7 @@ class _InsightDonutSectionState extends State<_InsightDonutSection> {
           return Row(
             children: [
               donut,
-              const SizedBox(width: 22),
+               kOpenHandWidth22,
               Expanded(child: rows),
             ],
           );

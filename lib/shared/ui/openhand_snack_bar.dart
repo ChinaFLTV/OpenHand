@@ -104,7 +104,7 @@ void flashOpenHandSnack(
     duration: duration,
     action: action,
     maxLines: maxLines,
-    postFrame: postFrame,
+  postFrame: postFrame,
   );
 }
 
@@ -115,6 +115,21 @@ void showOpenHandSnackBarOn(
 ) {
   OpenHandSnackBar.show(context, messenger, snackBar);
 }
+
+ /// 在 catch 块中安全地展示错误提示条。
+ ///
+ /// 收敛全库重复的 `catch (e) { if (!context.mounted) return; flashOpenHandSnack(...) }` 样板。
+ void flashOpenHandErrorOnCatch(
+   BuildContext context,
+   String message,
+ ) {
+   if (!context.mounted) return;
+   OpenHandSnackBar.flash(
+     context,
+     message,
+     kind: OpenHandSnackKind.error,
+   );
+ }
 
 /// 用新提示条顶替当前正在显示的一条：先收起再展示。
 ///

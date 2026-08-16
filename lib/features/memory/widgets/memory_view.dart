@@ -233,18 +233,12 @@ class MemoryView extends StatelessWidget {
 
   Future<void> _openDirectory(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
-    try {
-      await context.read<MemoryController>().openStorageDirectory();
-    } catch (e) {
-      if (!context.mounted) {
-        return;
-      }
-      flashOpenHandSnack(
-        context,
-        l10n.memoryOperationFailed,
-        kind: OpenHandSnackKind.error,
-      );
-    }
+   try {
+     await context.read<MemoryController>().openStorageDirectory();
+   } catch (e) {
+      // ignore: use_build_context_synchronously
+      flashOpenHandErrorOnCatch(context, l10n.memoryOperationFailed);
+   }
   }
 
   Future<void> _showMemoryDialog(

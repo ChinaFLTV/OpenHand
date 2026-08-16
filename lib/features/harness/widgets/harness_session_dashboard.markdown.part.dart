@@ -940,7 +940,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
                       ),
                     )
                   else
-                    const SizedBox(height: 26),
+                     kOpenHandGap26,
                   const Spacer(),
                   Material(
                     color: Colors.transparent,

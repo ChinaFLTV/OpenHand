@@ -836,7 +836,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                               _pickDirectory(_persistenceDirController),
                           crossAxisAlignment: CrossAxisAlignment.center,
                         ),
-                        const SizedBox(height: 28),
+                         kOpenHandGap28,
 
                         Row(
                           children: [

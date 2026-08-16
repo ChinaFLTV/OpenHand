@@ -117,9 +117,9 @@ class _ResourceUsageStatisticsDialogState
     return buildOpenHandDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       backgroundColor: colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(30),
-        side: BorderSide(color: colorScheme.outlineVariant),
+     shape: RoundedRectangleBorder(
+        borderRadius: kOpenHandBorderRadius30,
+       side: BorderSide(color: colorScheme.outlineVariant),
       ),
       maxWidth: kOpenHandDialogWidthPanel,
       maxHeight: maxHeight,
@@ -607,7 +607,7 @@ class _SummaryCard extends StatelessWidget {
             ),
             child: Icon(icon, color: colorScheme.onPrimaryContainer, size: 22),
           ),
-          const SizedBox(width: 13),
+           kOpenHandWidth13,
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1295,7 +1295,7 @@ class _ResourceDetailCard extends StatelessWidget {
             ],
           ),
           if (children.isNotEmpty) ...[
-            const SizedBox(height: 13),
+             kOpenHandGap13,
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(

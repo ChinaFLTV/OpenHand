@@ -2637,7 +2637,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
                         ? const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              SizedBox(width: 12),
+                              kOpenHandWidth12,
                               SizedBox(
                                 width: 14,
                                 height: 14,

@@ -10,6 +10,7 @@ import 'package:flutter/widgets.dart';
 ///   * 领域内已有语义常量的继续用语义常量，本文件不替代它们。
 
 const SizedBox kOpenHandGap2 = SizedBox(height: 2);
+const SizedBox kOpenHandGap1 = SizedBox(height: 1);
 const SizedBox kOpenHandGap3 = SizedBox(height: 3);
 const SizedBox kOpenHandGap4 = SizedBox(height: 4);
 const SizedBox kOpenHandGap6 = SizedBox(height: 6);
@@ -24,6 +25,17 @@ const SizedBox kOpenHandGap24 = SizedBox(height: 24);
 const SizedBox kOpenHandGap5 = SizedBox(height: 5);
 const SizedBox kOpenHandGap7 = SizedBox(height: 7);
 const SizedBox kOpenHandGap9 = SizedBox(height: 9);
+const SizedBox kOpenHandGap11 = SizedBox(height: 11);
+const SizedBox kOpenHandGap13 = SizedBox(height: 13);
+const SizedBox kOpenHandGap15 = SizedBox(height: 15);
+const SizedBox kOpenHandGap22 = SizedBox(height: 22);
+const SizedBox kOpenHandGap26 = SizedBox(height: 26);
+const SizedBox kOpenHandGap28 = SizedBox(height: 28);
+const SizedBox kOpenHandWidth4 = SizedBox(width: 4);
+const SizedBox kOpenHandWidth10 = SizedBox(width: 10);
+const SizedBox kOpenHandWidth12 = SizedBox(width: 12);
+const SizedBox kOpenHandWidth13 = SizedBox(width: 13);
+const SizedBox kOpenHandWidth22 = SizedBox(width: 22);
 
 const SizedBox kOpenHandHGap4 = SizedBox(width: 4);
 const SizedBox kOpenHandHGap6 = SizedBox(width: 6);
@@ -71,6 +83,9 @@ const double kOpenHandRadius20 = 20;
 const double kOpenHandRadius22 = 22;
 const double kOpenHandRadius24 = 24;
 const double kOpenHandRadius26 = 26;
+const double kOpenHandRadius28 = 28;
+const double kOpenHandRadius30 = 30;
+const double kOpenHandRadius32 = 32;
 
 /// 全局 [BorderRadius] token —— 与上面的标量一一对应。
 ///
@@ -125,9 +140,17 @@ const BorderRadius kOpenHandBorderRadius24 = BorderRadius.all(
 const BorderRadius kOpenHandBorderRadius26 = BorderRadius.all(
   Radius.circular(kOpenHandRadius26),
 );
+const BorderRadius kOpenHandBorderRadius28 = BorderRadius.all(
+  Radius.circular(kOpenHandRadius28),
+);
+const BorderRadius kOpenHandBorderRadius30 = BorderRadius.all(
+  Radius.circular(kOpenHandRadius30),
+);
+const BorderRadius kOpenHandBorderRadius32 = BorderRadius.all(
+  Radius.circular(kOpenHandRadius32),
+);
 
 /// 全局布局约束 token —— 收敛重复的 BoxConstraints 字面量。
 const BoxConstraints kOpenHandContentMaxWidth360 = BoxConstraints(
   maxWidth: 360,
 );
-
