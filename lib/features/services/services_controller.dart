@@ -279,6 +279,29 @@ class ServicesController extends ChangeNotifier {
     unawaited(_syncSystemProxyRuntime());
   }
 
+  /// 取消代理巡检定时器与正在进行的巡检任务，统一消除多处重复的取消逻辑。
+  void _cancelProxyInspection() {
+    _proxyInspectionGeneration++;
+    _proxyInspectionScheduleGeneration++;
+    _proxyInspectionCancelRequested = true;
+    _proxyInspectionCancellation?.cancel();
+    _proxyInspectionTimer?.cancel();
+    _proxyInspectionTimer = null;
+  }
+
+  /// 取消代理统计同步定时器，防止引擎退出后定时器悬空。
+  void _cancelProxyStatisticsTimer() {
+    _proxyStatisticsTimer?.cancel();
+    _proxyStatisticsTimer = null;
+  }
+
+  /// 重置依赖数据概览与遥测状态，统一消除多处重复的清理逻辑。
+  void _resetDependencyState() {
+    _dependencyDataOverview = const <String, Object?>{};
+    _dependencyTelemetryHistory.clear();
+    _dependencyDataOverviewError = null;
+  }
+
   Future<void> _syncSystemProxyRuntime() async {
     try {
       while (_systemProxySyncPending && !_disposed) {
@@ -547,9 +570,7 @@ class ServicesController extends ChangeNotifier {
       _progress = null;
       _aiExtractorStatus = null;
       _dependencyStatus = null;
-      _dependencyDataOverview = const <String, Object?>{};
-      _dependencyTelemetryHistory.clear();
-      _dependencyDataOverviewError = null;
+      _resetDependencyState();
       _proxyStatus = null;
       _errorMessage = null;
       _appendLog(
@@ -1041,12 +1062,7 @@ class ServicesController extends ChangeNotifier {
     AiExposureProxyConfiguration configuration, {
     required String logMessage,
   }) async {
-    _proxyInspectionGeneration++;
-    _proxyInspectionCancelRequested = true;
-    _proxyInspectionCancellation?.cancel();
-    _proxyInspectionScheduleGeneration++;
-    _proxyInspectionTimer?.cancel();
-    _proxyInspectionTimer = null;
+    _cancelProxyInspection();
     final previousConfiguration = _proxyConfiguration;
     final previousStatus = _proxyStatus;
     try {
@@ -1362,8 +1378,7 @@ class ServicesController extends ChangeNotifier {
   }
 
   void _scheduleProxyStatisticsSync() {
-    _proxyStatisticsTimer?.cancel();
-    _proxyStatisticsTimer = null;
+    _cancelProxyStatisticsTimer();
     if (_client == null || !_proxyConfiguration.enabled) return;
     _proxyStatisticsTimer = startNonOverlappingPeriodicTimer(
       _kProxyStatisticsSyncInterval,
@@ -1609,12 +1624,7 @@ class ServicesController extends ChangeNotifier {
   Future<bool> clearProxyConfiguration() async {
     final previousConfiguration = _proxyConfiguration;
     final previousStatus = _proxyStatus;
-    _proxyInspectionGeneration++;
-    _proxyInspectionCancelRequested = true;
-    _proxyInspectionCancellation?.cancel();
-    _proxyInspectionScheduleGeneration++;
-    _proxyInspectionTimer?.cancel();
-    _proxyInspectionTimer = null;
+    _cancelProxyInspection();
     _proxyConfiguration = AiExposureProxyConfiguration.defaults();
     try {
       final client = _client;
@@ -1659,9 +1669,7 @@ class ServicesController extends ChangeNotifier {
       final client = _requireClient();
       await client.clearDependencies();
       _dependencyStatus = await client.dependencyStatus();
-      _dependencyDataOverview = const <String, Object?>{};
-      _dependencyTelemetryHistory.clear();
-      _dependencyDataOverviewError = null;
+      _resetDependencyState();
       _postgresqlEnabled = false;
       _redisEnabled = false;
       _errorMessage = null;
@@ -2062,14 +2070,8 @@ class ServicesController extends ChangeNotifier {
 
   void _handleRuntimeExit(int exitCode) {
     if (_lifecycle == AiExposureServiceLifecycle.stopping || _disposed) return;
-    _proxyStatisticsTimer?.cancel();
-    _proxyStatisticsTimer = null;
-    _proxyInspectionGeneration++;
-    _proxyInspectionScheduleGeneration++;
-    _proxyInspectionCancelRequested = true;
-    _proxyInspectionCancellation?.cancel();
-    _proxyInspectionTimer?.cancel();
-    _proxyInspectionTimer = null;
+    _cancelProxyStatisticsTimer();
+    _cancelProxyInspection();
     _managedDependencyListenerSyncQueue.discardPending();
     _systemProxySyncPending = false;
     _scanBusy = false;
@@ -2085,9 +2087,7 @@ class ServicesController extends ChangeNotifier {
     _progress = null;
     _aiExtractorStatus = null;
     _dependencyStatus = null;
-    _dependencyDataOverview = const <String, Object?>{};
-    _dependencyTelemetryHistory.clear();
-    _dependencyDataOverviewError = null;
+    _resetDependencyState();
     _proxyStatus = null;
     _errorMessage = exitCode == 0 ? null : '扫描引擎异常退出：$exitCode。';
     _notify();
@@ -2222,14 +2222,8 @@ class ServicesController extends ChangeNotifier {
   }
 
   Future<void> _drainRuntimeOperations() async {
-    _proxyStatisticsTimer?.cancel();
-    _proxyStatisticsTimer = null;
-    _proxyInspectionGeneration++;
-    _proxyInspectionScheduleGeneration++;
-    _proxyInspectionCancelRequested = true;
-    _proxyInspectionCancellation?.cancel();
-    _proxyInspectionTimer?.cancel();
-    _proxyInspectionTimer = null;
+    _cancelProxyStatisticsTimer();
+    _cancelProxyInspection();
     _managedDependencyListenerSyncQueue.discardPending();
     _systemProxySyncPending = false;
     await _cancelEventSubscription();
@@ -2267,12 +2261,7 @@ class ServicesController extends ChangeNotifier {
   Future<void> _shutdown() async {
     if (_disposed) return;
     _busy = true;
-    _proxyInspectionGeneration++;
-    _proxyInspectionScheduleGeneration++;
-    _proxyInspectionCancelRequested = true;
-    _proxyInspectionCancellation?.cancel();
-    _proxyInspectionTimer?.cancel();
-    _proxyInspectionTimer = null;
+    _cancelProxyInspection();
     _lifecycle = AiExposureServiceLifecycle.stopping;
     await _drainRuntimeOperations();
     _disposed = true;
