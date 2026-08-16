@@ -2283,7 +2283,7 @@ class _ComposerFullAccessModeButtonState
     final backgroundColor = !widget.enabled
         ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.78)
         : widget.fullAccess
-        ? const Color(0xFFFBBF24).withValues(alpha: 0.15)
+        ? OpenHandConsolePalette.warning.withValues(alpha: 0.15)
         : colorScheme.surfaceContainerHighest;
     final foregroundColor = !widget.enabled
         ? colorScheme.onSurface.withValues(alpha: 0.38)

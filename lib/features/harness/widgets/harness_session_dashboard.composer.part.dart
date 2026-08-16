@@ -91,7 +91,7 @@ class _HeComposer extends StatelessWidget {
         ? OpenHandStatusColors.warning
         : colorScheme.onSurfaceVariant;
     final buttonBg = fullAccessPermission
-        ? const Color(0xFFFBBF24).withValues(alpha: 0.15)
+        ? OpenHandConsolePalette.warning.withValues(alpha: 0.15)
         : colorScheme.surfaceContainerHighest;
     final buttonBorderColor = fullAccessPermission
         ? OpenHandStatusColors.warning.withValues(alpha: 0.5)
