@@ -1,6 +1,6 @@
 part of '../openhand_home_page.dart';
 
-const Duration _kTranscriptCardEntranceDuration = Duration(milliseconds: 360);
+const Duration _kTranscriptCardEntranceDuration = kOpenHandMotion420;
 const Duration _kCreationPlaceholderExitDuration = kOpenHandMotion260;
 const Duration _kCreationFailureExitDuration = kOpenHandMotion240;
 // 视口外预物化范围。含 HTML WebView 卡片的会话对 cacheExtent 极敏感——
@@ -11,7 +11,7 @@ const double _kTranscriptScrollbarThickness = 6;
 const Radius _kTranscriptScrollbarRadius = kOpenHandPillRadius;
 const double _kTranscriptEstimatedMessageSpacing = 14;
 const int _kScrollToMessageMaterializeFrameLimit = 8;
-const Duration _kTranscriptTargetScrollDuration = Duration(milliseconds: 520);
+const Duration _kTranscriptTargetScrollDuration = kOpenHandMotion520;
 const Duration _kTranscriptTargetHighlightDuration = Duration(
   milliseconds: 1400,
 );
@@ -3774,7 +3774,7 @@ class _PendingCreationPlaceholderCard extends StatefulWidget {
 class _PendingCreationPlaceholderCardState
     extends State<_PendingCreationPlaceholderCard>
     with SingleTickerProviderStateMixin {
-  static const Duration _motionDuration = Duration(milliseconds: 1400);
+  static const Duration _motionDuration = kOpenHandMotion1400;
 
   late final AnimationController _motionController = AnimationController(
     vsync: this,

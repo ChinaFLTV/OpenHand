@@ -3,7 +3,7 @@ part of '../openhand_home_page.dart';
 const Color _kHomeSidebarAmber = Color(0xFFE6A817);
 
 const Duration _kHomeSidebarTileMotionDuration = kOpenHandMotion220;
-const Duration _kHomeSidebarPulseDuration = Duration(milliseconds: 1200);
+const Duration _kHomeSidebarPulseDuration = kOpenHandMotion1200;
 const Curve _kHomeSidebarTileMotionCurve = kOpenHandSwitchInCurve;
 
 Future<void> _showSidebarThreadContextMenu(

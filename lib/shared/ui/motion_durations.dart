@@ -26,6 +26,7 @@ const Duration kOpenHandMotion260 = Duration(milliseconds: 260);
 const Duration kOpenHandMotion280 = Duration(milliseconds: 280);
 const Duration kOpenHandMotion320 = Duration(milliseconds: 320);
 const Duration kOpenHandMotion340 = Duration(milliseconds: 340);
+const Duration kOpenHandMotion360 = Duration(milliseconds: 360);
 const Duration kOpenHandMotion380 = Duration(milliseconds: 380);
 const Duration kOpenHandMotion400 = Duration(milliseconds: 400);
 const Duration kOpenHandMotion420 = Duration(milliseconds: 420);

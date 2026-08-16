@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../app/model/dialog_animation_settings.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_spacing.dart';
@@ -1380,7 +1381,7 @@ class _CacheHitCompositionSummary extends StatelessWidget {
               tween: Tween<double>(begin: 0, end: cachedRatio),
               duration: openHandMotionDuration(
                 context,
-                const Duration(milliseconds: 520),
+                kOpenHandMotion520,
               ),
               curve: kOpenHandEntranceCurve,
               builder: (context, animatedCached, _) {
@@ -1388,7 +1389,7 @@ class _CacheHitCompositionSummary extends StatelessWidget {
                   tween: Tween<double>(begin: 0, end: readRatio),
                   duration: openHandMotionDuration(
                     context,
-                    const Duration(milliseconds: 520),
+                    kOpenHandMotion520,
                   ),
                   curve: kOpenHandEntranceCurve,
                   builder: (context, animatedRead, _) => SizedBox(

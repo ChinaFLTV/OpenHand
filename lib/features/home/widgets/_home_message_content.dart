@@ -13,7 +13,7 @@ const double _collapsedMessageFadeHeight = 40;
 const Duration _collapsedMessageFadeDuration = kOpenHandMotion160;
 const Duration _collapsedPreviewScrollSettleDelay = Duration(milliseconds: 220);
 const Duration _streamingHtmlDotsDuration = Duration(milliseconds: 1100);
-const Duration _htmlBubbleShimmerDuration = Duration(milliseconds: 1400);
+const Duration _htmlBubbleShimmerDuration = kOpenHandMotion1400;
 const double _collapsedPreviewBottomEnterEpsilon = 2;
 const double _collapsedPreviewBottomExitEpsilon = 10;
 const int _collapsedBodyScrollOffsetCacheLimit = 500;
@@ -102,7 +102,7 @@ bool _isCollapsedPreviewAtBottom(
 }
 
 /// 图片首帧解码完成后的淡入上移时长。
-const Duration _kImageFirstFrameRevealDuration = Duration(milliseconds: 400);
+const Duration _kImageFirstFrameRevealDuration = kOpenHandMotion400;
 
 class _CollapsedPreviewScrollCoordinator {
   _CollapsedPreviewScrollCoordinator({

@@ -116,7 +116,7 @@ AiSessionMessage? _auditRelatedTelemetryMessage(
   return null;
 }
 
-const Duration _auditShimmerPeriod = Duration(milliseconds: 1400);
+const Duration _auditShimmerPeriod = kOpenHandMotion1400;
 const double _auditShimmerLineHeight = 14;
 const double _auditShimmerLastLineWidth = 180;
 const BorderRadius _auditShimmerRadius = kOpenHandBorderRadius6;
