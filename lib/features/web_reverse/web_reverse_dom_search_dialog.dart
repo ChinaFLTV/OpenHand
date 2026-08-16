@@ -17,6 +17,7 @@ import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/text_clip.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -47,7 +48,7 @@ class _Hit {
 
 class _DomSearchDialogState extends State<_DomSearchDialog> {
   static const int _maxQueryChars = 16 * 1024;
-  static const int _maxSearchIdChars = 1024;
+  static const int _maxSearchIdChars = kBytesPerKiB;
   static const int _maxResults = 200;
   static const int _describeConcurrency = 4;
   static const Duration _commandTimeout = Duration(seconds: 6);

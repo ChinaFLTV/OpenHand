@@ -25,6 +25,7 @@ import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -83,8 +84,8 @@ const String _kList = r'''
 
 const int _kWsInjectMaxRows = 200;
 const int _kWsInjectMaxPayloadChars = 512 * 1024;
-const int _kWsInjectMaxLogPayloadChars = 64 * 1024;
-const int _kWsInjectMaxUrlChars = 2048;
+const int _kWsInjectMaxLogPayloadChars = 64 * kBytesPerKiB;
+const int _kWsInjectMaxUrlChars = 2 * kBytesPerKiB;
 const int _kWsInjectMaxLogEntries = 60;
 
 Future<void> showWebReverseWsInjectDialog(

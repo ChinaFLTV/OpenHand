@@ -1,3 +1,4 @@
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/reader_file_type.dart';
 import '../../ai/index.dart';
 
@@ -81,7 +82,7 @@ class KnowledgeReaderConversionService {
     final maxCharsPerSegment = _maxCharsPerSegment(profile);
     final maxChars = maxCharsPerSegment * _kReaderMaxSegments;
     if (sourceText.length > maxChars) {
-      throw StateError('读取转换输入过大，已超过 ${maxChars ~/ 1024}KB 的安全上限。');
+      throw StateError('读取转换输入过大，已超过 ${maxChars ~/ kBytesPerKiB}KB 的安全上限。');
     }
     final segments = _splitSegments(sourceText, maxCharsPerSegment);
     final converted = <String>[];

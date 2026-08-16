@@ -83,7 +83,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   final Set<_ProxyTestLogLevel> _hiddenLevels = <_ProxyTestLogLevel>{};
   bool _maximized = false;
   static const int _slowSectionThresholdMs = 50;
-  static const int _maxHttpBodyProbeBytes = 64 * 1024;
+  static const int _maxHttpBodyProbeBytes = 64 * kBytesPerKiB;
   static const Duration _networkInterfaceTimeout = Duration(seconds: 2);
   static const Duration _dnsLookupTimeout = Duration(seconds: 5);
   static const Duration _reverseDnsLookupTimeout = Duration(seconds: 3);

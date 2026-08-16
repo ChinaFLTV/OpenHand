@@ -152,7 +152,7 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int _maxNetworkEntries = 2000;
   static const int _maxConsoleEntries = 2000;
   static const int _maxWebSocketFramesPerEntry = 2000;
-  static const int _maxWebSocketFramePayloadChars = 8192;
+  static const int _maxWebSocketFramePayloadChars = 8 * kBytesPerKiB;
   static const int _maxHeapSnapshotBytes = 120 * kBytesPerMiB;
   static const int _maxTraceEvents = 120000;
   static const int _maxTracePayloadChars = 48 * kBytesPerMiB;
@@ -165,9 +165,9 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int maxRawCdpMethodChars = 256;
   static const int _maxRawCdpParamsJsonChars = 2 * kBytesPerMiB;
   static const int maxReplExpressionChars = 2 * kBytesPerMiB;
-  static const int _maxReplHistoryExpressionChars = 64 * 1024;
-  static const int _maxReplPreviewChars = 2048;
-  static const int _maxConsoleTextChars = 64 * 1024;
+  static const int _maxReplHistoryExpressionChars = 64 * kBytesPerKiB;
+  static const int _maxReplPreviewChars = 2 * kBytesPerKiB;
+  static const int _maxConsoleTextChars = 64 * kBytesPerKiB;
   static const int _aliveWatchdogFailureThreshold = 3;
   static const int _maxNetworkHeaderEntries = 256;
   static const int _maxNetworkHeadersChars = 2 * kBytesPerMiB;
@@ -177,7 +177,7 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int _maxImportedHarBytes = 64 * kBytesPerMiB;
   static const int _maxRedirectSteps = 64;
   static const int _maxInitiatorFrames = 256;
-  static const int _maxInitiatorFrameChars = 8 * 1024;
+  static const int _maxInitiatorFrameChars = 8 * kBytesPerKiB;
   static const int _maxSecurityExplanationsChars = 64 * kBytesPerKiB;
   static const double _minMemorySamplingInterval = 1024;
   static const double _maxMemorySamplingInterval = 16.0 * kBytesPerMiB;
@@ -188,9 +188,9 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int maxSavedCrons = 100;
   static const int minCronIntervalSeconds = 5;
   static const int maxCronIntervalSeconds = 24 * 60 * 60;
-  static const int _maxImportedUrlChars = 16 * 1024;
+  static const int _maxImportedUrlChars = 16 * kBytesPerKiB;
   static const int _maxImportedBodyChars = 2 * kBytesPerMiB;
-  static const int _maxImportedHeaderValueChars = 16 * 1024;
+  static const int _maxImportedHeaderValueChars = 16 * kBytesPerKiB;
   static const int _maxSourceMapCacheEntries = 16;
   static const int _maxSourceMapCacheChars = 32 * kBytesPerMiB;
   static const int _maxSourceMapResponseBytes = 16 * kBytesPerMiB;
@@ -198,7 +198,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _maxSourceMapResponseBytes + 64 * kBytesPerKiB;
   static const int _maxSourceMapListEntries = 100000;
   static const Duration _sourceMapFetchTimeout = Duration(seconds: 25);
-  static const int _maxReplayResponsePreviewBytes = 4096;
+  static const int _maxReplayResponsePreviewBytes = 4 * kBytesPerKiB;
   static const Duration _replayRequestTimeout = Duration(seconds: 25);
   static const int _maxParsedScripts = 4096;
   static const int _maxScriptSourceChars = 6 * kBytesPerMiB;
@@ -255,7 +255,7 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int maxEditedRequestBodyBase64Chars = 8 * kBytesPerMiB;
   static const int maxAccountSnapshotNameChars = 256;
   static const int maxAccountSnapshotCookies = 512;
-  static const int maxAccountSnapshotStorageEntries = 2048;
+  static const int maxAccountSnapshotStorageEntries = 2 * kBytesPerKiB;
   static const int maxAccountSnapshotValueChars = 256 * kBytesPerKiB;
   static const int maxAccountSnapshotChars = 4 * kBytesPerMiB;
   static const int maxAccountSnapshotsTotalChars = 16 * kBytesPerMiB;
@@ -3332,8 +3332,8 @@ class WebReverseSessionController extends ChangeNotifier {
     final ip = response['remoteIPAddress'];
     final port = response['remotePort'];
     if (ip == null) return null;
-    if (port == null) return _capPlainWebReverseText('$ip', 1024);
-    return _capPlainWebReverseText('$ip:$port', 1024);
+    if (port == null) return _capPlainWebReverseText('$ip', kBytesPerKiB);
+    return _capPlainWebReverseText('$ip:$port', kBytesPerKiB);
   }
 
   void _onConsoleApi(Map<String, Object?> p) {
@@ -7445,7 +7445,7 @@ class WebReverseSessionController extends ChangeNotifier {
     if (cdp == null ||
         sessionId == null ||
         objectId.isEmpty ||
-        objectId.length > 1024) {
+        objectId.length > kBytesPerKiB) {
       return const [];
     }
     try {
@@ -7488,7 +7488,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       if (_pageSessionId != sessionId) return const [];
       final objectId = (win['result'] as Map?)?['objectId'] as String?;
-      if (objectId == null || objectId.isEmpty || objectId.length > 1024) {
+      if (objectId == null || objectId.isEmpty || objectId.length > kBytesPerKiB) {
         return const [];
       }
       final r = await cdp.send(
@@ -10211,13 +10211,13 @@ class WebReverseNetworkConditions {
 
 int _networkThroughputFromKbps(int kbps) {
   if (kbps <= 0) return -1;
-  return (kbps * 1024 / 8).round();
+  return (kbps * kBytesPerKiB / 8).round();
 }
 
 int _networkKbpsFromThroughput(Object? value) {
   final throughput = value is num ? value : num.tryParse('$value');
   if (throughput == null || throughput <= 0) return 0;
-  return (throughput * 8 / 1024).round();
+  return (throughput * 8 / kBytesPerKiB).round();
 }
 
 WebReverseThrottlePreset _matchNetworkPreset({

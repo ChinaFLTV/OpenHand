@@ -1258,7 +1258,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                 ),
                 valueText: config.miniDiffMaxBytes == 0
                     ? openHandLocalizedText(context, zh: '禁用', en: 'Disabled')
-                    : '${(config.miniDiffMaxBytes / 1024).round()} KiB',
+                    : '${(config.miniDiffMaxBytes / kBytesPerKiB).round()} KiB',
                 value: config.miniDiffMaxBytes.toDouble(),
                 min: LedgerConfig.minMiniDiffMaxBytes.toDouble(),
                 max: LedgerConfig.maxMiniDiffMaxBytes.toDouble(),

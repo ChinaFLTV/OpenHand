@@ -6,6 +6,7 @@
 ///      取消的指令会以独立"用户指令"段落注入提示词。
 library;
 
+import 'package:openhand/shared/util/byte_size_format.dart';
 import 'package:openhand/shared/util/text_normalization.dart';
 
 import '../../../shared/util/text_clip.dart';
@@ -116,7 +117,7 @@ class UserInstructionEntry {
   static const int maxNotes = 20;
   static const int maxTaskTypes = 20;
   static const int maxKeywords = 30;
-  static const int maxBodyLength = 64 * 1024;
+  static const int maxBodyLength = 64 * kBytesPerKiB;
 
   static String normalizeName(String value) {
     final flat = value.replaceAll(kInlineWhitespacePattern, ' ').trim();

@@ -1470,7 +1470,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
     if (!widget.controller.isRunning) return;
     final r = await widget.controller.readJsHeap();
     if (!mounted || r == null) return;
-    final usedMb = r.used / 1024 / 1024;
+    final usedMb = r.used / kBytesPerKiB / kBytesPerKiB;
     final breached = usedMb > _heapWarnThresholdMb;
     setState(() {
       _heapUsed.add(r.used);

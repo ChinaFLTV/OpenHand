@@ -337,7 +337,7 @@ class WebMessagePlatformService {
   static const int _maxWorkspaceDirectoryScanEntries = 10000;
   static const Duration _workspaceMetadataTimeout = Duration(seconds: 2);
   static const Duration _workspaceMetadataTotalTimeout = Duration(seconds: 10);
-  static const int _maxProcessFileHandleScanEntries = 65536;
+  static const int _maxProcessFileHandleScanEntries = 64 * kBytesPerKiB;
   static const int _maxProcDiagnosticsFileBytes = 256 * kBytesPerKiB;
   static const int _maxRetainedUploadCacheFiles = 4096;
   static const int _maxUploadCacheScanEntries = 100000;

@@ -51,9 +51,9 @@ class _CdpHistoryEntry {
 final ListQueue<_CdpHistoryEntry> _cdpConsoleHistory =
     ListQueue<_CdpHistoryEntry>();
 const int _kCdpConsoleMaxParamsJsonChars = 2 * kBytesPerMiB;
-const int _kCdpConsoleHistoryParamsChars = 64 * 1024;
+const int _kCdpConsoleHistoryParamsChars = 64 * kBytesPerKiB;
 const int _kCdpConsoleHistoryResultChars = 512 * 1024;
-const int _kCdpConsoleHistoryErrorChars = 64 * 1024;
+const int _kCdpConsoleHistoryErrorChars = 64 * kBytesPerKiB;
 const int _kCdpConsoleHistoryMaxEntries = 100;
 const int _kCdpConsoleHistoryMaxCharacters = 8 * kBytesPerMiB;
 int _cdpConsoleHistoryCharacters = 0;

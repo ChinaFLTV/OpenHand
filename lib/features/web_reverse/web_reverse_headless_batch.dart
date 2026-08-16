@@ -21,7 +21,7 @@ const Duration _kHeadlessCdpCommandTimeout = Duration(seconds: 5);
 const int kWebReverseHeadlessBatchMaxUrls = 50;
 const int kWebReverseHeadlessBatchMaxNetworkEventsPerUrl = 1500;
 const int kWebReverseHeadlessBatchMaxConsoleEventsPerUrl = 1000;
-const int kWebReverseHeadlessBatchMaxConsoleTextChars = 4096;
+const int kWebReverseHeadlessBatchMaxConsoleTextChars = 4 * kBytesPerKiB;
 const int _kHeadlessMaxScreenshotDecodedBytes = 48 * kBytesPerMiB;
 const int _kHeadlessMaxScreenshotResponseCharacters = 65 * kBytesPerMiB;
 

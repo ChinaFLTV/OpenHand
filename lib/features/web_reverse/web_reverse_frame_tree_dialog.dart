@@ -15,15 +15,16 @@ import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_reveal_switcher.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
-const int _kMaxFrameTreeRows = 2048;
+const int _kMaxFrameTreeRows = 2 * kBytesPerKiB;
 const int _kMaxFrameTreeDepth = 64;
-const int _kMaxFrameTreeFieldChars = 2048;
+const int _kMaxFrameTreeFieldChars = 2 * kBytesPerKiB;
 
 Future<void> showWebReverseFrameTreeDialog(
   BuildContext context, {

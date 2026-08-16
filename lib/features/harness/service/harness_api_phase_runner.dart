@@ -834,7 +834,7 @@ class HarnessApiPhaseRunner {
 
     emit('');
     emit(
-      '📋 上下文接近阈值（${totalChars ~/ 1024}KB / ${effectiveCharThreshold ~/ 1024}KB），正在生成交接文档…',
+      '📋 上下文接近阈值（${totalChars ~/ kBytesPerKiB}KB / ${effectiveCharThreshold ~/ kBytesPerKiB}KB），正在生成交接文档…',
     );
 
     // ── Step 1: Generate handoff document via the model ──────────────────

@@ -55,7 +55,7 @@ class AiBashBackgroundTool extends AiTool {
   static const int _maxBufferBytes = 64 * kBytesPerKiB;
   static const int _maxStdinBytes = 64 * kBytesPerKiB;
   static const int _maxConcurrentSessions = 8;
-  static const int _defaultReadBytes = 8192;
+  static const int _defaultReadBytes = 8 * kBytesPerKiB;
   static const int _maxRetainedExitedSessions = 4;
   static const int _defaultTaskOutputTimeoutMs = 30000;
   static const int _maxTaskOutputTimeoutMs = 600000;

@@ -7,7 +7,7 @@ import '../../shared/util/localized_text.dart';
 
 const int kWebReverseHarFileMaxBytes = 32 * kBytesPerMiB;
 const int kWebReverseHarDiffEntryLimit = 1000;
-const int kWebReverseHarDiffBodyPreviewChars = 4096;
+const int kWebReverseHarDiffBodyPreviewChars = 4 * kBytesPerKiB;
 
 class WebReverseHarReadResult {
   const WebReverseHarReadResult._({

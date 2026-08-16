@@ -17,6 +17,7 @@ import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_spacing.dart';
+import '../../shared/util/byte_size_format.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -89,7 +90,7 @@ class _HeapDialogState extends State<_HeapDialog> {
     setState(() {
       _busy = false;
       _lastSaved = file.path;
-      final mb = (r!.bytes / 1024 / 1024).toStringAsFixed(2);
+      final mb = (r!.bytes / kBytesPerKiB / kBytesPerKiB).toStringAsFixed(2);
       _status =
           loc?.webReverseHeapSaved(file.path, mb) ??
           'Saved: ${file.path} ($mb MB)';

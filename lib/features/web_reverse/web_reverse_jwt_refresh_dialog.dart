@@ -82,9 +82,9 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
   static const int _maxJwtScanValueChars = 256 * kBytesPerKiB;
   static const int _maxJwtTokenChars = 32 * kBytesPerKiB;
   static const int _maxJwtKeyChars = 512;
-  static const int _maxJwtClaimChars = 1024;
+  static const int _maxJwtClaimChars = kBytesPerKiB;
   static const int _maxJwtSnapshotChars = 5 * kBytesPerMiB;
-  static const int _maxRefreshLogDetailChars = 4096;
+  static const int _maxRefreshLogDetailChars = 4 * kBytesPerKiB;
 
   final TextEditingController _refreshExpr = TextEditingController(
     text:

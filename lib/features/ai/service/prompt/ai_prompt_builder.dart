@@ -116,7 +116,7 @@ class AiPromptBuilder {
   static const String _promptCacheAffinityKeyScope =
       'session_template_model.v1';
   static const int _runtimeTailSnapshotMaxTurns = 8;
-  static const int _runtimeTailSnapshotMaxCharacters = 64 * 1024;
+  static const int _runtimeTailSnapshotMaxCharacters = 64 * kBytesPerKiB;
   static final AiBashToolService _bashWriteAnalyzer = AiBashToolService();
   static const JsonEncoder _promptJsonEncoder = kPrettyJsonEncoder;
   static const int _microCompactKeepRecentToolResults = 2;
@@ -139,7 +139,7 @@ class AiPromptBuilder {
   static const int _checkpointPromptMaxChars = 40000;
   static const int _checkpointPromptEdgeChars = 18000;
   static const int _compressionAttachmentDetailMaxChars = 2000;
-  static const int _compressionPromptToolResultThresholdChars = 4096;
+  static const int _compressionPromptToolResultThresholdChars = 4 * kBytesPerKiB;
   static const int _compressionPromptToolResultHeadTailChars = 384;
   static const int _knowledgeToolPromptMaxChars = 12000;
   static const int _knowledgeToolPromptMaxResults = 8;
@@ -6292,14 +6292,14 @@ $content
         // 在命令体超大时（>8KB）做 head/tail 截断，并附上 stored locally
         // 提示便于审计。
         final command = '${arguments['cmd'] ?? arguments['command'] ?? ''}';
-        const bashCommandPromptHistoryMaxChars = 8192;
+        const bashCommandPromptHistoryMaxChars = 8 * kBytesPerKiB;
         if (command.length <= bashCommandPromptHistoryMaxChars) {
           return toolCall.arguments;
         }
         final isWriteLikeBash =
             _looksLikeWriteLikeBashArguments(arguments) ||
             _isWriteLikeToolMetadata(metadata);
-        const headTail = 1024;
+        const headTail = kBytesPerKiB;
         final headEnd = safeUtf16PrefixCodeUnits(command, headTail);
         final tailStart = safeUtf16SuffixStart(
           command,

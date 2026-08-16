@@ -24,6 +24,7 @@ import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
@@ -39,7 +40,7 @@ const int _kMaxAiCryptoFieldsPerSample = 256;
 const int _kMaxAiCryptoCandidateFields = 512;
 const int _kMaxAiCryptoSuspects = 32;
 const int _kMaxAiCryptoFieldNameChars = 512;
-const int _kMaxAiCryptoValueChars = 8192;
+const int _kMaxAiCryptoValueChars = 8 * kBytesPerKiB;
 
 class _EndpointGroup {
   _EndpointGroup({required this.key, required this.entries});

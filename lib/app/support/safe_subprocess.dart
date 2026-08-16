@@ -1488,9 +1488,9 @@ typedef ProcessLogLineHandler = void Function(String line);
 
 // DWS Schema 目录可能包含数万行 JSON；仍以字符数上限控制内存，允许完整保留
 // 大型结构化输出，避免按行截断后无法解析。
-const int _maxCapturedProcessLinesPerStream = 65536;
+const int _maxCapturedProcessLinesPerStream = 64 * kBytesPerKiB;
 const int _maxCapturedProcessCharactersPerStream = 4 * kBytesPerMiB;
-const int _maxProcessLineCharacters = 64 * 1024;
+const int _maxProcessLineCharacters = 64 * kBytesPerKiB;
 
 class TrackedProcessLineLogResult {
   const TrackedProcessLineLogResult({

@@ -121,9 +121,9 @@ part '_settings_ai_usage.dart';
 typedef _SettingsPathGetter = String Function(SettingsController controller);
 typedef _SettingsPathOperation = Future<bool> Function(String path);
 
-const int _kSettingsToolResultCompressionWindowMaxChars = 8192;
+const int _kSettingsToolResultCompressionWindowMaxChars = 8 * kBytesPerKiB;
 const int _kSettingsToolResultCompressionMaxPathHits = 200;
-const int _kSettingsWriteToolSummaryMaxChars = 8192;
+const int _kSettingsWriteToolSummaryMaxChars = 8 * kBytesPerKiB;
 const int _kThrottleConfigImportMaxBytes = 1 * kBytesPerMiB;
 
 

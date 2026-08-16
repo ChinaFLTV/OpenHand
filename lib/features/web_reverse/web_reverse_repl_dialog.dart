@@ -19,14 +19,15 @@ import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
 const int _kReplLogMaxEntries = 100;
-const int _kReplLogExpressionChars = 64 * 1024;
-const int _kReplLogResultChars = 64 * 1024;
+const int _kReplLogExpressionChars = 64 * kBytesPerKiB;
+const int _kReplLogResultChars = 64 * kBytesPerKiB;
 
 Future<void> showWebReverseReplDialog(
   BuildContext context, {

@@ -15,6 +15,7 @@ import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -288,10 +289,10 @@ class _CssCovDialogState extends State<_CssCovDialog> {
                               loc?.webReverseCssCovRuleStats(
                                     r.usedRanges,
                                     r.totalRanges,
-                                    (r.usedBytes / 1024).toStringAsFixed(1),
-                                    (r.totalBytes / 1024).toStringAsFixed(1),
+                                    (r.usedBytes / kBytesPerKiB).toStringAsFixed(1),
+                                    (r.totalBytes / kBytesPerKiB).toStringAsFixed(1),
                                   ) ??
-                                  '${r.usedRanges}/${r.totalRanges} rules · ${(r.usedBytes / 1024).toStringAsFixed(1)}/${(r.totalBytes / 1024).toStringAsFixed(1)} KB',
+                                  '${r.usedRanges}/${r.totalRanges} rules · ${(r.usedBytes / kBytesPerKiB).toStringAsFixed(1)}/${(r.totalBytes / kBytesPerKiB).toStringAsFixed(1)} KB',
                               style: theme.textTheme.labelSmall?.copyWith(
                                 color: cs.onSurfaceVariant,
                               ),

@@ -16875,7 +16875,7 @@ class _DingTalkLinkifiedText extends StatefulWidget {
 }
 
 class _DingTalkLinkifiedTextState extends State<_DingTalkLinkifiedText> {
-  static const int _maxScannedCharacters = 64 * 1024;
+  static const int _maxScannedCharacters = 64 * kBytesPerKiB;
   static const int _maxLinks = 64;
   static final RegExp _urlPattern = RegExp(
     r"""https?://[^\s<>"']+""",

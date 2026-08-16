@@ -40,7 +40,7 @@ class AiToolUtils {
   /// 二进制探测所需的前缀字节数。[looksBinary] 只检查前 2048 字节，
   /// [maxBinaryPreviewBytes] 的十六进制预览只用前 32 字节，因此读取更多
   /// 纯属浪费磁盘 IO 与内存拷贝。
-  static const int binarySniffBytes = 2048;
+  static const int binarySniffBytes = 2 * kBytesPerKiB;
   static const int maxStructuredReadBytes = 16 * kBytesPerMiB;
   static const int maxLedgerCaptureBytes = 16 * kBytesPerMiB;
   static const int maxEditableTextFileBytes = 128 * kBytesPerMiB;

@@ -365,9 +365,9 @@ class AppSettingsSnapshot {
   /// 工具调用输出在压缩检查点中的字符上限。
   /// 普通会话历史保留原文；生成压缩检查点时，超过该上限的工具返回
   /// 会转为结构化摘要，避免压缩请求超出上下文。默认 1024 字符。
-  static const int defaultAiToolResultCompressionThresholdChars = 1024;
+  static const int defaultAiToolResultCompressionThresholdChars = kBytesPerKiB;
   static const int minAiToolResultCompressionThresholdChars = 256;
-  static const int maxAiToolResultCompressionThresholdChars = 65536;
+  static const int maxAiToolResultCompressionThresholdChars = 64 * kBytesPerKiB;
   static const IntValueRange _aiToolResultCompressionThresholdCharsRange =
       IntValueRange(
         fallback: defaultAiToolResultCompressionThresholdChars,
@@ -386,7 +386,7 @@ class AppSettingsSnapshot {
   /// 上下文，但会占用更多 tokens。0 表示不保留首尾片段。
   static const int defaultAiToolResultCompressionHeadTailWindowChars = 256;
   static const int minAiToolResultCompressionHeadTailWindowChars = 0;
-  static const int maxAiToolResultCompressionHeadTailWindowChars = 8192;
+  static const int maxAiToolResultCompressionHeadTailWindowChars = 8 * kBytesPerKiB;
 
   /// 压缩摘要中提取的文件路径条数上限。0 表示不提取。
   static const int defaultAiToolResultCompressionMaxPathHits = 12;
@@ -447,7 +447,7 @@ class AppSettingsSnapshot {
   /// 超过该上限的 result_text 会被刪除（不进入 prompt history）。
   static const int defaultAiWriteToolSummaryMaxChars = 280;
   static const int minAiWriteToolSummaryMaxChars = 0;
-  static const int maxAiWriteToolSummaryMaxChars = 8192;
+  static const int maxAiWriteToolSummaryMaxChars = 8 * kBytesPerKiB;
 
   /// Default cap for per-message raw payload capture (characters).
   static const int defaultTelemetryMaxPayloadChars = 200000;

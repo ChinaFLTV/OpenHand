@@ -72,7 +72,7 @@ class WebReverseBrowserLauncher {
   static const Duration _streamCleanupTimeout = Duration(seconds: 1);
   static const int _maxHandshakeResponseBytes = 64 * kBytesPerKiB;
   static const int _maxStartupStderrCharacters = 32 * kBytesPerKiB;
-  static const int _maxStartupErrorSummaryCharacters = 1024;
+  static const int _maxStartupErrorSummaryCharacters = kBytesPerKiB;
 
   /// 在 [9222, 9322) 区间挑一个空闲端口，支持多会话并发。
   ///

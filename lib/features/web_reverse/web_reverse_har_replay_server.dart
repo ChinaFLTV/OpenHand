@@ -35,7 +35,7 @@ class WebReverseHarReplayServer {
 
   static const int _maxReplayEntries = 1000;
   static const int _maxReplayHeaders = 128;
-  static const int _maxReplayHeaderValueChars = 8192;
+  static const int _maxReplayHeaderValueChars = 8 * kBytesPerKiB;
   static const int _maxReplayBodyBytes = 5 * kBytesPerMiB;
   static const int _maxConcurrentRequests = 64;
   static const Duration _bindTimeout = Duration(seconds: 3);

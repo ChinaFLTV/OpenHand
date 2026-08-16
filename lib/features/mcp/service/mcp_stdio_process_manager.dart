@@ -1153,7 +1153,7 @@ class McpStdioProcessManager extends ChangeNotifier {
         if (result.exitCode == 0) {
           final rssKb = optionalIntFromValue(result.stdout);
           if (rssKb != null) {
-            info['内存 (RSS)'] = formatByteSize(rssKb * 1024);
+            info['内存 (RSS)'] = formatByteSize(rssKb * kBytesPerKiB);
           }
         }
       } catch (error, stack) {

@@ -17,6 +17,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_clipboard.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -159,7 +160,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
       _busy = false;
       _earlyStop = null;
       _lastSaved = file.path;
-      final kb = (savedBytes / 1024).toStringAsFixed(1);
+      final kb = (savedBytes / kBytesPerKiB).toStringAsFixed(1);
       _status =
           loc?.webReversePerfSaved(file.path, kb) ??
           'Saved: ${file.path} ($kb KB)';

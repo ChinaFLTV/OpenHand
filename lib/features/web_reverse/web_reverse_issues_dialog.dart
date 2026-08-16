@@ -42,8 +42,8 @@ const Duration _issueEnableTimeout = Duration(seconds: 5);
 const int _maxIssueEntries = 500;
 const int _maxIssueBufferCharacters = 8 * kBytesPerMiB;
 const int _maxIssueCodeCharacters = 256;
-const int _maxIssueBriefCharacters = 2048;
-const int _maxIssueJsonPreviewCharacters = 64 * 1024;
+const int _maxIssueBriefCharacters = 2 * kBytesPerKiB;
+const int _maxIssueJsonPreviewCharacters = 64 * kBytesPerKiB;
 int _issueBufferCharacters = 0;
 
 Future<void> showWebReverseIssuesDialog(

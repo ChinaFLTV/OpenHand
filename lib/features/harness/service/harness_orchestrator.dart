@@ -27,7 +27,7 @@ import '../service/harness_cli_catalog.dart';
 import '../service/harness_prompt_builder.dart';
 
 const String kHarnessOrchestratorDisplayVersion = '1.0.0';
-const int kHarnessManualPhaseInputMaxCharacters = 64 * 1024;
+const int kHarnessManualPhaseInputMaxCharacters = 64 * kBytesPerKiB;
 const int _kMaxHarnessPhaseLogLines = 1000;
 const int _kMaxHarnessLogLineCharacters = 2000;
 const int _kMaxHarnessChangedFiles = 500;

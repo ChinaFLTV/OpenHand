@@ -4,7 +4,7 @@ part of '../openhand_home_page.dart';
 /// syntax highlighting. Beyond this we render plain monospace text to keep
 /// transcript open / scroll responsive (very long log dumps were the
 /// dominant source of multi-second jank when opening a session).
-const int _highlightSkipThresholdChars = 80 * 1024;
+const int _highlightSkipThresholdChars = 80 * kBytesPerKiB;
 
 /// Code-block length above which we defer the first highlight pass to the
 /// next frame, painting plain text on the first frame.
@@ -1240,7 +1240,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         );
     // 大代码块（> 8KB）使用 RichText 而非 SelectableText，避免
     // EditableText 层在大 TextSpan 上的 O(n) layout 开销。
-    final useSelectable = widget.selectable && widget.content.length <= 8192;
+    final useSelectable = widget.selectable && widget.content.length <= 8 * kBytesPerKiB;
     if (widget.wrapLines) {
       return useSelectable ? SelectableText.rich(span) : RichText(text: span);
     }

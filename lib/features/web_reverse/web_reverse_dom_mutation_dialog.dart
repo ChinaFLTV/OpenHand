@@ -38,7 +38,7 @@ const int _kMaxMutationRetainedChars = 8 * kBytesPerMiB;
 const int _kMaxMutationDrainRecords = 500;
 const int _kMaxMutationDrainJsonChars = 2 * kBytesPerMiB;
 const int _kMaxMutationTargetChars = 512;
-const int _kMaxMutationValueChars = 1024;
+const int _kMaxMutationValueChars = kBytesPerKiB;
 const int _kMaxMutationChildNodes = 8;
 
 final String _kInstallScript =

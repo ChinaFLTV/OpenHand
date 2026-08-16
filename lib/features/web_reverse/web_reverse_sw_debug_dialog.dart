@@ -20,6 +20,7 @@ import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
+import '../../shared/util/byte_size_format.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -61,7 +62,7 @@ class _SwDebugDialog extends StatefulWidget {
 
 class _SwDebugDialogState extends State<_SwDebugDialog> {
   static const int _maxSyncTagChars = 256;
-  static const int _maxPushDataChars = 64 * 1024;
+  static const int _maxPushDataChars = 64 * kBytesPerKiB;
 
   bool _loading = false;
   bool _forceUpdate = false;

@@ -2546,7 +2546,7 @@ class DingTalkMessageGatewayService {
         // Schema 是多行 JSON，命令目录可能超过四万行，且描述行可能超过
         // 默认 4,000 字符；截断行或丢弃前面的行都会破坏整体 JSON。
         maxCapturedLinesPerStream: 65536,
-        maxLineCharacters: 64 * 1024,
+        maxLineCharacters: 64 * kBytesPerKiB,
         onStderrLine: (line) =>
             _logRuntime('WARN', 'dws 标准错误：${_safeProcessLogLine(line)}'),
       );

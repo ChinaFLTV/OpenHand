@@ -78,7 +78,7 @@ class _AnimationRow {
 class _AnimationsDialogState extends State<_AnimationsDialog> {
   static const int _maxAnimationRows = 1000;
   static const int _maxAnimationNameChars = 512;
-  static const int _maxAnimationSelectorChars = 2048;
+  static const int _maxAnimationSelectorChars = 2 * kBytesPerKiB;
   static const int _maxAnimationSnapshotChars = 2 * kBytesPerMiB;
 
   bool _busy = false;

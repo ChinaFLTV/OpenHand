@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_json_conversion.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_normalization.dart';
@@ -499,7 +500,7 @@ const int _agentPromptSectionMaxDepth = 8;
 const int _agentPromptSectionMaxNodes = 8192;
 const int _agentPromptSectionMaxStringChars =
     _agentPromptInstructionBodyMaxChars + 128;
-const int _agentPromptSectionMaxTotalStringChars = 65536;
+const int _agentPromptSectionMaxTotalStringChars = 64 * kBytesPerKiB;
 const BoundedJsonConversionConfig _agentPromptExtraConversionConfig =
     BoundedJsonConversionConfig(
       maxDepth: _agentPromptExtraMaxDepth,
