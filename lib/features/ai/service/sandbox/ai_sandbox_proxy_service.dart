@@ -1064,7 +1064,7 @@ class _HttpProxyRequest {
           ? ''
           : lowercaseStringFromValue(line.substring(0, separator));
       if (connectionHeaders.contains(name)) continue;
-      if (name == 'host') {
+      if (name == HttpHeaders.hostHeader) {
         if (!wroteHost) buffer.writeln('Host: $forwardHostHeader');
         wroteHost = true;
         continue;
@@ -1245,9 +1245,9 @@ class _HttpProxyRequest {
       return false;
     }
     final name = lowercaseStringFromValue(line.substring(0, separator));
-    return name != 'content-length' &&
-        name != 'host' &&
-        name != 'transfer-encoding';
+    return name != HttpHeaders.contentLengthHeader &&
+        name != HttpHeaders.hostHeader &&
+        name != HttpHeaders.transferEncodingHeader;
   }
 
   static bool isValidChunkExtensions(String value) {

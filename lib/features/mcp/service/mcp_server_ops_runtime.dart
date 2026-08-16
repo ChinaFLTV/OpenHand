@@ -654,7 +654,7 @@ class McpServerOpsRuntime {
             body: 'Too many concurrent OpenHand MCP requests.',
             headers: const <String, String>{
               ..._plainTextResponseHeaders,
-              'connection': 'close',
+              HttpHeaders.connectionHeader: 'close',
             },
           );
         }
@@ -722,7 +722,7 @@ class McpServerOpsRuntime {
         body: 'Browser-originated MCP requests are not accepted.',
         headers: const <String, String>{
           ..._plainTextResponseHeaders,
-          'connection': 'close',
+          HttpHeaders.connectionHeader: 'close',
         },
       );
     }
@@ -841,7 +841,7 @@ class McpServerOpsRuntime {
         ..._sessionHeaders(request),
         kContentTypeHeaderName: kTextEventStreamUtf8ContentType,
         'cache-control': 'no-cache, no-transform',
-        'connection': 'keep-alive',
+        HttpHeaders.connectionHeader: 'keep-alive',
         'x-accel-buffering': 'no',
       },
     );
@@ -938,7 +938,7 @@ class McpServerOpsRuntime {
         body: 'Request blocked by OpenHand policy',
         headers: const <String, String>{
           ..._plainTextResponseHeaders,
-          'connection': 'close',
+          HttpHeaders.connectionHeader: 'close',
         },
       );
     }
@@ -1069,7 +1069,7 @@ class McpServerOpsRuntime {
       body: message,
       headers: const <String, String>{
         ..._plainTextResponseHeaders,
-        'connection': 'close',
+        HttpHeaders.connectionHeader: 'close',
       },
     );
   }
