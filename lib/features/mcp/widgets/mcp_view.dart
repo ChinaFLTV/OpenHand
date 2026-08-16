@@ -5569,7 +5569,7 @@ class _McpOpsHeroPanel extends StatelessWidget {
           if (snapshot.lastConnectivityAt != null) ...[
             kOpenHandGap10,
             _McpOpsCopyText(
-              '${formatMonthDayHms(snapshot.lastConnectivityAt!.toLocal())} · ${snapshot.lastConnectivityMessage}',
+              '${formatMonthDayHmsLocal(snapshot.lastConnectivityAt!)} · ${snapshot.lastConnectivityMessage}',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(
@@ -8173,7 +8173,7 @@ class _McpOpsAuditRow extends StatelessWidget {
               ),
               kOpenHandGap3,
               Text(
-                '${_mcpOpsAuditKindLabel(context, entry.kind)} · ${formatMonthDayHms(entry.timestamp.toLocal())}',
+                '${_mcpOpsAuditKindLabel(context, entry.kind)} · ${formatMonthDayHmsLocal(entry.timestamp)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelSmall?.copyWith(
@@ -8481,7 +8481,7 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
                 ),
                 rows: {
                   _localizedText(context, zh: '请求时间', en: 'Time'):
-                      formatYearMonthDayHms(entry.timestamp.toLocal()),
+                      formatYearMonthDayHmsLocal(entry.timestamp),
                   _localizedText(context, zh: '来源客户端', en: 'Client'):
                       entry.clientName,
                   _localizedText(context, zh: '来源地址', en: 'Peer'):
@@ -8571,7 +8571,7 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
               ),
               kOpenHandGap3,
               _McpOpsCopyText(
-                '${_mcpOpsAuditKindLabel(context, entry.kind)} · ${_mcpOpsAuditStatusLabel(context, entry.status)} · ${formatYearMonthDayHms(entry.timestamp.toLocal())}',
+                '${_mcpOpsAuditKindLabel(context, entry.kind)} · ${_mcpOpsAuditStatusLabel(context, entry.status)} · ${formatYearMonthDayHmsLocal(entry.timestamp)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -9334,7 +9334,7 @@ class _McpOpsApprovalPanel extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               title: _McpOpsCopyText(request.toolName),
               subtitle: _McpOpsCopyText(
-                '${request.clientName} · ${request.ipAddress} · ${formatMonthDayHms(request.requestedAt.toLocal())}',
+                '${request.clientName} · ${request.ipAddress} · ${formatMonthDayHmsLocal(request.requestedAt)}',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -15145,7 +15145,7 @@ String _executionSummary(BuildContext context, McpTool tool) {
 }
 
 String _formatStatusTime(BuildContext context, DateTime timestamp) {
-  final formatted = formatMonthDayHm(timestamp.toLocal());
+  final formatted = formatMonthDayHmLocal(timestamp);
   return _localizedText(context, zh: formatted, en: formatted);
 }
 
@@ -17549,7 +17549,7 @@ class _McpOpsTrendDetailPanel extends StatelessWidget {
       rows.add(
         TableRow(
           children: [
-            _McpOpsTableCell(text: formatHourMinute(minutes[i].toLocal())),
+            _McpOpsTableCell(text: formatHourMinuteLocal(minutes[i])),
             for (final s in series)
               _McpOpsTableCell(
                 text: i < s.values.length
@@ -17719,7 +17719,7 @@ class _McpOpsLogRow extends StatelessWidget {
                   ),
                   kOpenHandHGap8,
                   _McpOpsCopyText(
-                    formatMonthDayHms(entry.timestamp.toLocal()),
+                    formatMonthDayHmsLocal(entry.timestamp),
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),

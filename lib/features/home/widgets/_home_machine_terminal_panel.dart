@@ -2091,7 +2091,7 @@ class _MachineTerminalMetadataBar extends StatelessWidget {
             _MachineTerminalMetaLine(
               icon: Icons.schedule_rounded,
               text:
-                  '${openHandLocalizedText(context, zh: '更新', en: 'Updated')} ${formatYearMonthDayHms(snapshot.updatedAt.toLocal())}',
+                  '${openHandLocalizedText(context, zh: '更新', en: 'Updated')} ${formatYearMonthDayHmsLocal(snapshot.updatedAt)}',
             ),
             if (snapshot.errorMessage != null) ...[
               kOpenHandGap5,
@@ -2300,7 +2300,7 @@ int _terminalHistoryBytes(List<MachineTerminalSnapshot> terminals) {
 }
 
 String _formatTerminalHistoryTime(DateTime value) {
-  return formatYearMonthDayHms(value.toLocal());
+  return formatYearMonthDayHmsLocal(value);
 }
 
 Future<void> _copyCommandRecord(

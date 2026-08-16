@@ -1253,8 +1253,8 @@ class DingTalkMessageGatewayService {
     }
     final startText = start.toIso8601String();
     final endText = end.toIso8601String();
-    final allStartText = formatYearMonthDayHms(start.toLocal());
-    final allEndText = formatYearMonthDayHms(end.toLocal());
+    final allStartText = formatYearMonthDayHmsLocal(start);
+    final allEndText = formatYearMonthDayHmsLocal(end);
     final deadline = MonotonicDeadline(
       _messageQueryTotalTimeout,
       timeoutMessage: '钉钉消息轮询超过总时限。',
@@ -1486,7 +1486,7 @@ class DingTalkMessageGatewayService {
         'list',
         ..._targetArguments(conversation),
         '--time',
-        formatYearMonthDayHms(boundary.toLocal()),
+        formatYearMonthDayHmsLocal(boundary),
         '--limit',
         '$normalizedLimit',
         '--direction',

@@ -349,7 +349,7 @@ class KnowledgeChunkDetailDialog extends StatelessWidget {
   }
 
   String _date(DateTime? value) {
-    return value == null ? '-' : formatYearMonthDayHms(value.toLocal());
+    return value == null ? '-' : formatYearMonthDayHmsLocal(value);
   }
 
   bool _notBlank(String? value) => value?.trim().isNotEmpty == true;

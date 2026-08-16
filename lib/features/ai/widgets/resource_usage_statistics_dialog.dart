@@ -237,7 +237,7 @@ class _ResourceUsageStatisticsDialogState
                             ),
                             kOpenHandHGap5,
                             Text(
-                              formatYearMonthDayHms(generatedAt.toLocal()),
+                              formatYearMonthDayHmsLocal(generatedAt),
                               style: Theme.of(context).textTheme.labelSmall
                                   ?.copyWith(
                                     color: colorScheme.onPrimaryContainer,
@@ -1497,7 +1497,7 @@ class _UsageEventCard extends StatelessWidget {
             children: [
               _EventMeta(
                 icon: Icons.schedule_rounded,
-                text: formatYearMonthDayHms(event.occurredAt.toLocal()),
+                text: formatYearMonthDayHmsLocal(event.occurredAt),
               ),
               _EventMeta(
                 icon: Icons.timer_outlined,

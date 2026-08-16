@@ -89,6 +89,32 @@ String formatYearMonthDayHms(DateTime value) {
   return '${formatYearMonthDay(value)} ${formatHourMinuteSecond(value)}';
 }
 
+// ── 带 toLocal() 的便捷变体 ──────────────────────────────────────
+// 全库大量调用方在传入 DateTime 前手动 .toLocal()，统一在此提供
+// Local 后缀变体以消除重复的 .toLocal() 调用。
+
+String formatHourMinuteLocal(DateTime value) => formatHourMinute(value.toLocal());
+
+String formatHourMinuteSecondLocal(DateTime value) =>
+    formatHourMinuteSecond(value.toLocal());
+
+String formatMonthDayLocal(DateTime value) => formatMonthDay(value.toLocal());
+
+String formatMonthDayHmLocal(DateTime value) =>
+    formatMonthDayHm(value.toLocal());
+
+String formatMonthDayHmsLocal(DateTime value) =>
+    formatMonthDayHms(value.toLocal());
+
+String formatYearMonthDayLocal(DateTime value) =>
+    formatYearMonthDay(value.toLocal());
+
+String formatYearMonthDayHmLocal(DateTime value) =>
+    formatYearMonthDayHm(value.toLocal());
+
+String formatYearMonthDayHmsLocal(DateTime value) =>
+    formatYearMonthDayHms(value.toLocal());
+
 bool isDateTimeInUtcRange(
   DateTime value, {
   required DateTime? startUtc,

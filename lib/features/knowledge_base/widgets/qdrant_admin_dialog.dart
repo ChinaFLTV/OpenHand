@@ -362,7 +362,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                             Padding(
                               padding: const EdgeInsets.only(bottom: 8),
                               child: Text(
-                                '${formatYearMonthDayHms(log.createdAt.toLocal())} · ${log.action} · ${log.detail}',
+                                '${formatYearMonthDayHmsLocal(log.createdAt)} · ${log.action} · ${log.detail}',
                               ),
                             ),
                         ],

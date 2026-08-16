@@ -241,7 +241,7 @@ class _SourceDetailBody extends StatelessWidget {
 
   String _date(DateTime? value) {
     if (value == null) return '-';
-    return formatYearMonthDayHms(value.toLocal());
+    return formatYearMonthDayHmsLocal(value);
   }
 }
 

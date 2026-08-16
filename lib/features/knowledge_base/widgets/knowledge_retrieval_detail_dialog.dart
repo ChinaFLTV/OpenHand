@@ -1209,7 +1209,7 @@ String _formatKnowledgeDateTime(Object? value) {
     requirePositiveTimestamp: true,
   );
   if (parsed == null) return _hasValue(value) ? _text(value) : '';
-  return formatYearMonthDayHms(parsed.toLocal());
+  return formatYearMonthDayHmsLocal(parsed);
 }
 
 Future<void> _copyText(

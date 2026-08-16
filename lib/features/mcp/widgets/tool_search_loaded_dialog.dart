@@ -1490,7 +1490,7 @@ class _ToolSearchHistoryImportPreviewDialog extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                           subtitle: Text(
-                            '${formatYearMonthDayHms(e.timestamp.toLocal())} · '
+                            '${formatYearMonthDayHmsLocal(e.timestamp)} · '
                             '$sourceLabel · +${e.addedCount} / '
                             '${e.totalDeferred}',
                             style: theme.textTheme.bodySmall,

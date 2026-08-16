@@ -3313,7 +3313,7 @@ String _durationLabel(
 }
 
 String _chartTimeLabel(DateTime value) {
-  return formatMonthDayHm(value.toLocal());
+  return formatMonthDayHmLocal(value);
 }
 
 String _proxyRequestResultLabel(
@@ -6284,9 +6284,9 @@ String _intervalLabel(
     : text(zh: '${minutes ~/ 60} 小时', en: '${minutes ~/ 60} hr');
 
 String _timeLabel(DateTime value) {
-  return formatHourMinuteSecond(value.toLocal());
+  return formatHourMinuteSecondLocal(value);
 }
 
 String _dateTimeLabel(DateTime value) {
-  return formatYearMonthDayHms(value.toLocal());
+  return formatYearMonthDayHmsLocal(value);
 }

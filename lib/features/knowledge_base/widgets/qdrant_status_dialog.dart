@@ -910,7 +910,7 @@ class _DiagnosticsTab extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Text(
-                            '${formatYearMonthDayHms(log.createdAt.toLocal())} · '
+                            '${formatYearMonthDayHmsLocal(log.createdAt)} · '
                             '${log.action} · ${log.detail}',
                           ),
                         ),

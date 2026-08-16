@@ -1189,7 +1189,7 @@ class _ThreadSessionManagementDialogState
         denseMode: _denseMode,
         showDragHandle: canReorder,
         diskBytes: _diskBytes[session.id],
-        formatDateTime: (dt) => formatYearMonthDayHm(dt.toLocal()),
+        formatDateTime: (dt) => formatYearMonthDayHmLocal(dt),
         formatBytes: formatByteSize,
         estimateBytes: _estimateBytes,
         onTap: _isSelectionMode ? null : () => _openPreview(session),

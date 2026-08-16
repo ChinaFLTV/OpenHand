@@ -3200,13 +3200,13 @@ class _ConnectivityResultView extends StatelessWidget {
                       Text(
                         openHandLocalizedText(
                           context,
-                          zh: '${formatYearMonthDayHms(result.startedAt.toLocal())} · 总耗时 ${result.durationMs}ms',
+                          zh: '${formatYearMonthDayHmsLocal(result.startedAt)} · 总耗时 ${result.durationMs}ms',
                           zhHant:
-                              '${formatYearMonthDayHms(result.startedAt.toLocal())} · 總耗時 ${result.durationMs}ms',
-                          en: '${formatYearMonthDayHms(result.startedAt.toLocal())} · Total ${result.durationMs}ms',
-                          fr: '${formatYearMonthDayHms(result.startedAt.toLocal())} · Total ${result.durationMs}ms',
-                          de: '${formatYearMonthDayHms(result.startedAt.toLocal())} · Gesamt ${result.durationMs}ms',
-                          ja: '${formatYearMonthDayHms(result.startedAt.toLocal())} · 合計 ${result.durationMs}ms',
+                              '${formatYearMonthDayHmsLocal(result.startedAt)} · 總耗時 ${result.durationMs}ms',
+                          en: '${formatYearMonthDayHmsLocal(result.startedAt)} · Total ${result.durationMs}ms',
+                          fr: '${formatYearMonthDayHmsLocal(result.startedAt)} · Total ${result.durationMs}ms',
+                          de: '${formatYearMonthDayHmsLocal(result.startedAt)} · Gesamt ${result.durationMs}ms',
+                          ja: '${formatYearMonthDayHmsLocal(result.startedAt)} · 合計 ${result.durationMs}ms',
                         ),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
@@ -8996,7 +8996,7 @@ class _OpsSummaryCard extends StatelessWidget {
                 de: 'Langsamste aktuelle Anfrage',
                 ja: '最近最も遅いリクエスト',
               ),
-              '${slow.method} ${slow.path} -> ${slow.statusCode} · ${slow.durationMs}ms${slow.at == null ? '' : ' · ${formatYearMonthDayHms(slow.at!.toLocal())}'}',
+              '${slow.method} ${slow.path} -> ${slow.statusCode} · ${slow.durationMs}ms${slow.at == null ? '' : ' · ${formatYearMonthDayHmsLocal(slow.at!)}'}',
             ),
         ],
       ),
@@ -10786,7 +10786,7 @@ class _CleanupHistoryLine extends StatelessWidget {
           kOpenHandHGap10,
           Expanded(
             child: Text(
-              '${_cleanupTargetLabel(context, entry.target)} · ${entry.expiredOnly ? openHandLocalizedText(context, zh: '保留策略', zhHant: '保留策略', en: 'Retention policy', fr: 'Politique de rétention', de: 'Aufbewahrungsregel', ja: '保持ポリシー') : openHandLocalizedText(context, zh: '手动清理', zhHant: '手動清理', en: 'Manual cleanup', fr: 'Nettoyage manuel', de: 'Manuelle Bereinigung', ja: '手動クリーンアップ')} · ${formatYearMonthDayHms(entry.timestamp.toLocal())}',
+              '${_cleanupTargetLabel(context, entry.target)} · ${entry.expiredOnly ? openHandLocalizedText(context, zh: '保留策略', zhHant: '保留策略', en: 'Retention policy', fr: 'Politique de rétention', de: 'Aufbewahrungsregel', ja: '保持ポリシー') : openHandLocalizedText(context, zh: '手动清理', zhHant: '手動清理', en: 'Manual cleanup', fr: 'Nettoyage manuel', de: 'Manuelle Bereinigung', ja: '手動クリーンアップ')} · ${formatYearMonthDayHmsLocal(entry.timestamp)}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -16611,7 +16611,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   }
 
   Widget _buildMessageMetaPill() {
-    final dateLabel = formatYearMonthDayHm(widget.message.createdAt.toLocal());
+    final dateLabel = formatYearMonthDayHmLocal(widget.message.createdAt);
     final label = widget.mine && widget.message.readByPeer
         ? '$dateLabel · 已读'
         : dateLabel;
@@ -17339,7 +17339,7 @@ class _DingTalkMessageAuditDialogState
               ),
               _DingTalkAuditMetricData(
                 label: '发送时间',
-                value: formatYearMonthDayHm(message.createdAt.toLocal()),
+                value: formatYearMonthDayHmLocal(message.createdAt),
                 icon: Icons.schedule_rounded,
               ),
               _DingTalkAuditMetricData(
@@ -17771,7 +17771,7 @@ class _DingTalkForwardedChatDialog extends StatelessWidget {
                     ),
                     kOpenHandHGap8,
                     Text(
-                      formatYearMonthDayHm(item.createdAt.toLocal()),
+                      formatYearMonthDayHmLocal(item.createdAt),
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: colors.onSurfaceVariant.withValues(alpha: 0.72),
                       ),
@@ -18004,7 +18004,7 @@ class _DingTalkMessageEditHistoryDialog extends StatelessWidget {
                           ),
                           if (version.editedAt != null)
                             Text(
-                              formatYearMonthDayHm(version.editedAt!.toLocal()),
+                              formatYearMonthDayHmLocal(version.editedAt!),
                               style: theme.textTheme.labelSmall?.copyWith(
                                 color: colors.onSurfaceVariant,
                               ),

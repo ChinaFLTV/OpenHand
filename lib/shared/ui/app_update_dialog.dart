@@ -383,7 +383,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
             kOpenHandGap12,
             Text(
               l10n.appUpdatePublished(
-                formatYearMonthDay(_release!.publishedAt.toLocal()),
+                formatYearMonthDayLocal(_release!.publishedAt),
               ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.outline,

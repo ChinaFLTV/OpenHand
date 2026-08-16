@@ -1786,5 +1786,5 @@ String _taskLedgerSources(List<AiExposureSource> sources) {
 }
 
 String _taskLedgerDateTime(DateTime value) {
-  return formatYearMonthDayHms(value.toLocal());
+  return formatYearMonthDayHmsLocal(value);
 }

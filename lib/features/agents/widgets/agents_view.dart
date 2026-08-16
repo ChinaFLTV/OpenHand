@@ -1178,7 +1178,7 @@ class _AgentActivityBubble extends StatelessWidget {
     final metadata = _agentActivityMetadataChips(context, event);
     final timeText = event.createdAt == null
         ? ''
-        : formatMonthDayHm(event.createdAt!.toLocal());
+        : formatMonthDayHmLocal(event.createdAt!);
     final cardRadius = BorderRadius.circular(_agentActivityCardRadius);
 
     return Row(
@@ -1416,7 +1416,7 @@ class _AgentCapabilityLogTile extends StatelessWidget {
     final name = _agentAuditCapabilityName(context, event);
     final timeText = event.createdAt == null
         ? ''
-        : formatMonthDayHm(event.createdAt!.toLocal());
+        : formatMonthDayHmLocal(event.createdAt!);
     final metadata = _agentAuditMetadataChips(context, event);
     const radius = kOpenHandBorderRadius12;
 
@@ -3302,7 +3302,7 @@ class _AgentTaskCard extends StatelessWidget {
     final worker = _agentTaskAssignedWorkerLabel(l10n, task);
     final created = task.createdAt == null
         ? ''
-        : formatMonthDayHm(task.createdAt!.toLocal());
+        : formatMonthDayHmLocal(task.createdAt!);
     final tracking = _agentTaskTrackingChips(context, agent, task);
     final metadata = _agentTaskMetadataChips(context, task);
     final progress = clampUnitInterval(task.progress);
@@ -4307,7 +4307,7 @@ class _AgentKpiCard extends StatelessWidget {
     final statusColor = _agentKpiStatusColor(cs, item.status);
     final updated = item.updatedAt == null
         ? ''
-        : formatMonthDayHm(item.updatedAt!.toLocal());
+        : formatMonthDayHmLocal(item.updatedAt!);
     final metadata = _agentKpiMetadataChips(context, item);
     final progress = clampUnitInterval(item.progress);
 
@@ -5033,7 +5033,7 @@ class _AgentResourceLiveSummary extends StatelessWidget {
     final color = _agentResourcePressureColor(cs, data.maxPressure);
     final sampled = data.sampledAt == null
         ? openHandLocalizedText(context, zh: '等待采样', en: 'Waiting')
-        : formatMonthDayHms(data.sampledAt!.toLocal());
+        : formatMonthDayHmsLocal(data.sampledAt!);
     final pressureText = _agentResourcePercentLabel(data.maxPressure);
     final inlineSummary = _agentResourceInlineSummary(context, data);
     final details = Column(
@@ -6912,7 +6912,7 @@ class _AgentAuditEventRow extends StatelessWidget {
         : _agentAuditSourceLabel(context, event.toolName);
     final created = event.createdAt == null
         ? ''
-        : formatMonthDayHm(event.createdAt!.toLocal());
+        : formatMonthDayHmLocal(event.createdAt!);
     final metadata = <String>[
       source,
       if (event.requestCount > 0)
@@ -7986,7 +7986,7 @@ String _agentApprovalTimeLabel(
   final prefix = approval.resolvedAt == null
       ? openHandLocalizedText(context, zh: '创建', en: 'Created')
       : openHandLocalizedText(context, zh: '处理', en: 'Resolved');
-  return '$prefix ${formatMonthDayHm(time.toLocal())}';
+  return '$prefix ${formatMonthDayHmLocal(time)}';
 }
 
 IconData _agentApprovalStatusIcon(AgentApprovalStatus status) {
@@ -13314,7 +13314,7 @@ List<String> _agentWorkerDetailChips(
     );
   }
   if (worker.updatedAt != null) {
-    final updated = formatMonthDayHm(worker.updatedAt!.toLocal());
+    final updated = formatMonthDayHmLocal(worker.updatedAt!);
     chips.add(
       openHandLocalizedText(
         context,
@@ -14364,7 +14364,7 @@ String _agentMetadataValueText(
 ) {
   if (value == null) return '';
   if (value is bool) return _agentBooleanLabel(context, key, value);
-  if (value is DateTime) return formatMonthDayHm(value.toLocal());
+  if (value is DateTime) return formatMonthDayHmLocal(value);
   if (value is Iterable<Object?>) {
     return value
         .map((item) => _agentMetadataValueText(context, key, item))
@@ -14691,7 +14691,7 @@ String? _agentMetadataDateValue(String key, String raw) {
   }
   final parsed = DateTime.tryParse(raw);
   if (parsed == null) return raw;
-  return formatMonthDayHm(parsed.toLocal());
+  return formatMonthDayHmLocal(parsed);
 }
 
 String _agentBooleanLabel(BuildContext context, String key, bool value) {

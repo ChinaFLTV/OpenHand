@@ -1192,7 +1192,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                   ),
                   KnowledgeDialogChip(
                     icon: Icons.schedule_rounded,
-                    label: formatYearMonthDayHm(source.updatedAt.toLocal()),
+                    label: formatYearMonthDayHmLocal(source.updatedAt),
                   ),
                 ],
               ),

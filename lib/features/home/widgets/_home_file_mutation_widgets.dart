@@ -3074,7 +3074,7 @@ class _InspectorEntryRow extends StatelessWidget {
               ),
             ),
             Text(
-              formatYearMonthDayHms(view.record.createdAt.toLocal()),
+              formatYearMonthDayHmsLocal(view.record.createdAt),
               style: theme.textTheme.labelSmall?.copyWith(
                 color: cs.onSurfaceVariant,
                 fontFeatures: const [FontFeature.tabularFigures()],
