@@ -4,7 +4,7 @@ const double _kSessionToolbarPillHeight = 32;
 const double _kSessionToolbarPillHorizontalPadding = 10;
 const double _kSessionToolbarPillIconSize = 14;
 const double _kSessionToolbarStatusDotSize = 8;
-const Duration _kSessionToolbarPillTransition = Duration(milliseconds: 220);
+const Duration _kSessionToolbarPillTransition = kOpenHandMotion220;
 const Duration _kSessionToolbarCompactSwitchDuration = Duration(
   milliseconds: 180,
 );

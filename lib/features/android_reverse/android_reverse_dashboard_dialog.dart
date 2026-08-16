@@ -47,7 +47,7 @@ import 'android_reverse_session_config.dart';
 import 'android_reverse_session_controller.dart';
 import 'android_reverse_toolchain_diagnostics.dart';
 
-const Duration _kSwitchDuration = Duration(milliseconds: 220);
+const Duration _kSwitchDuration = kOpenHandMotion220;
 const Curve _kSwitchInCurve = Curves.easeOutCubic;
 const double _kAdbInlineControlHeight = 44;
 const double _kDashboardFilterControlHeight = 36;

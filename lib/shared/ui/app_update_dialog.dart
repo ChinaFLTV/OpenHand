@@ -15,6 +15,7 @@ import '../util/input_value_parsing.dart';
 import '../util/localized_text.dart';
 import '../util/user_failure_message.dart';
 import 'animated_dialog.dart';
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
 
@@ -36,7 +37,7 @@ Future<void> showAppUpdateDialog({
 
 enum _UpdatePhase { checking, available, notAvailable, downloading, error }
 
-const Duration _kAppUpdatePhaseSwitchDuration = Duration(milliseconds: 320);
+const Duration _kAppUpdatePhaseSwitchDuration = kOpenHandMotion320;
 const Duration _kAppUpdateProgressAnimationDuration = Duration(
   milliseconds: 400,
 );

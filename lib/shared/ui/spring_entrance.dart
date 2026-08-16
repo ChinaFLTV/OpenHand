@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'bounded_animation.dart';
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 
 const double kOpenHandSpringEntranceMinScale = 0.5;
@@ -12,7 +13,7 @@ class OpenHandSpringEntrance extends StatefulWidget {
   const OpenHandSpringEntrance({
     super.key,
     required this.child,
-    this.duration = const Duration(milliseconds: 420),
+    this.duration = kOpenHandMotion420,
     this.opacityIntervalEnd = 0.55,
     this.scaleBegin = 0.94,
     this.slideBegin = const Offset(0.0, 0.04),

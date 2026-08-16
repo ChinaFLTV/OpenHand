@@ -1437,7 +1437,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
             child: AnimatedSwitcher(
               duration: openHandMotionDuration(
                 context,
-                const Duration(milliseconds: 160),
+                kOpenHandMotion160,
               ),
               switchInCurve: Curves.easeOutBack,
               switchOutCurve: Curves.easeInCubic,

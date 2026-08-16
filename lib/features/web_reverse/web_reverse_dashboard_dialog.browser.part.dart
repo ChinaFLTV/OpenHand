@@ -2498,7 +2498,7 @@ class _TabStripState extends State<_TabStrip> {
   final List<CdpPageTargetSnapshot> _displayed = <CdpPageTargetSnapshot>[];
   final Set<String> _closingIds = <String>{};
   final Map<String, Timer> _closingTimers = <String, Timer>{};
-  static const Duration _closeAnim = Duration(milliseconds: 240);
+  static const Duration _closeAnim = kOpenHandMotion240;
 
   @override
   void initState() {

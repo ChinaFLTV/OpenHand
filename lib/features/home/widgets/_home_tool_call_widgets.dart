@@ -3,9 +3,9 @@ part of '../openhand_home_page.dart';
 const Duration _kToolCompletionGlowDuration = Duration(milliseconds: 620);
 const Duration _kToolSettleBounceDuration = Duration(milliseconds: 480);
 const Duration _kToolPreExecutionMotionDuration = Duration(milliseconds: 360);
-const Duration _kToolStructureSwitchDuration = Duration(milliseconds: 320);
-const Duration _kToolPhaseSwitchDuration = Duration(milliseconds: 280);
-const Duration _kToolCompactMotionDuration = Duration(milliseconds: 220);
+const Duration _kToolStructureSwitchDuration = kOpenHandMotion320;
+const Duration _kToolPhaseSwitchDuration = kOpenHandMotion280;
+const Duration _kToolCompactMotionDuration = kOpenHandMotion220;
 const Duration _kToolConstructingPulseDuration = Duration(milliseconds: 1100);
 const Curve _kToolCardMotionCurve = Curves.easeOutCubic;
 

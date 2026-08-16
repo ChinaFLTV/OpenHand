@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 
 /// 垂直展开档默认时长：入场略长于退场，收起时更干脆。
@@ -166,7 +167,7 @@ class OpenHandInlineRevealSwitcher extends StatelessWidget {
 }
 
 /// 同位交叉切换的默认时长与上滑幅度。
-const Duration kOpenHandCrossFadeDuration = Duration(milliseconds: 280);
+const Duration kOpenHandCrossFadeDuration = kOpenHandMotion280;
 const double kOpenHandCrossFadeSlideOffsetY = 0.05;
 
 /// 顶部锚定的「淡入 + 轻微上滑」同位交叉切换。

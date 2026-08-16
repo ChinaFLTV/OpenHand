@@ -3817,7 +3817,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
           splashColor: cs.primary.withValues(alpha: 0.08),
           highlightColor: cs.primary.withValues(alpha: 0.05),
           child: AnimatedContainer(
-            duration: openHandMotionDuration(context, const Duration(milliseconds: 160)),
+            duration: openHandMotionDuration(context, kOpenHandMotion160),
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
@@ -4875,7 +4875,7 @@ class _McpOpsHeaderTabButton extends StatelessWidget {
           highlightColor: cs.primary.withValues(alpha: 0.05),
           onTap: onPressed,
           child: AnimatedContainer(
-            duration: openHandMotionDuration(context, const Duration(milliseconds: 160)),
+            duration: openHandMotionDuration(context, kOpenHandMotion160),
             curve: Curves.easeOutCubic,
             height: 44,
             constraints: const BoxConstraints(minWidth: 104, maxWidth: 132),
@@ -5128,7 +5128,7 @@ class _McpOpsHeaderActionButton extends StatelessWidget {
           ),
           onTap: onPressed,
           child: AnimatedContainer(
-            duration: openHandMotionDuration(context, const Duration(milliseconds: 160)),
+            duration: openHandMotionDuration(context, kOpenHandMotion160),
             curve: Curves.easeOutCubic,
             height: 44,
             constraints: const BoxConstraints(minWidth: 88, maxWidth: 124),
@@ -5271,7 +5271,7 @@ class _McpOpsIconButton extends StatelessWidget {
           highlightColor: cs.primary.withValues(alpha: 0.06),
           onTap: onPressed,
           child: AnimatedContainer(
-            duration: openHandMotionDuration(context, const Duration(milliseconds: 160)),
+            duration: openHandMotionDuration(context, kOpenHandMotion160),
             curve: Curves.easeOutCubic,
             width: 44,
             height: 44,
@@ -6734,7 +6734,7 @@ class _McpOpsTogglePill extends StatelessWidget {
         highlightColor: tone.withValues(alpha: 0.05),
         onTap: () => onChanged(!selected),
         child: AnimatedContainer(
-          duration: openHandMotionDuration(context, const Duration(milliseconds: 160)),
+          duration: openHandMotionDuration(context, kOpenHandMotion160),
           curve: Curves.easeOutCubic,
           padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
           decoration: BoxDecoration(
@@ -6941,7 +6941,7 @@ class _McpOpsSchemaPill extends StatelessWidget {
         highlightColor: cs.primary.withValues(alpha: 0.05),
         onTap: onTap,
         child: AnimatedContainer(
-          duration: openHandMotionDuration(context, const Duration(milliseconds: 160)),
+          duration: openHandMotionDuration(context, kOpenHandMotion160),
           curve: Curves.easeOutCubic,
           padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
           decoration: BoxDecoration(

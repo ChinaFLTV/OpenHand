@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
@@ -679,7 +680,7 @@ class _ServiceInteractiveSurfaceState extends State<ServiceInteractiveSurface> {
     final emphasized = interactive && (_hovered || _focused);
     final motionDuration = openHandMotionDuration(
       context,
-      const Duration(milliseconds: 160),
+      kOpenHandMotion160,
     );
     final content = showDetailsSlot
         ? Row(

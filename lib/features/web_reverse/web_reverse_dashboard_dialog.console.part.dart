@@ -36,7 +36,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
   final List<_ConsoleSlot> _slots = <_ConsoleSlot>[];
   final Set<CdpConsoleEntry> _expandedConsoleEntries = <CdpConsoleEntry>{};
 
-  static const Duration _kConsoleExitDuration = Duration(milliseconds: 240);
+  static const Duration _kConsoleExitDuration = kOpenHandMotion240;
   static const Duration _kConsoleFollowDuration = Duration(milliseconds: 320);
   static const int _kConsoleCollapsedChars = 420;
   static const int _kConsoleCollapsedLines = 4;

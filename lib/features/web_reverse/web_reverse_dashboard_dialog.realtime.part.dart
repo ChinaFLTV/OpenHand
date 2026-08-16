@@ -383,7 +383,7 @@ class _ConnTile extends StatelessWidget {
       child: AnimatedContainer(
         duration: openHandMotionDuration(
           context,
-          const Duration(milliseconds: 160),
+          kOpenHandMotion160,
         ),
         curve: Curves.easeOutCubic,
         margin: const EdgeInsets.symmetric(horizontal: 6),

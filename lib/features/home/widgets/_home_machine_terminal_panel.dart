@@ -769,7 +769,7 @@ class _MachineTerminalHistoryDialogState
     return AnimatedContainer(
       duration: openHandMotionDuration(
         context,
-        const Duration(milliseconds: 160),
+        kOpenHandMotion160,
       ),
       curve: Curves.easeOutCubic,
       constraints: const BoxConstraints(minHeight: 56),
@@ -1964,7 +1964,7 @@ class _MachineTerminalTabs extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final duration = openHandMotionDuration(
       context,
-      const Duration(milliseconds: 160),
+      kOpenHandMotion160,
     );
     final terminals = workspace.attachedTerminals;
     final canCloseTabs = terminals.isNotEmpty;

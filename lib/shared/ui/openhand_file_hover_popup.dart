@@ -8,14 +8,15 @@ import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../util/localized_text.dart';
 import 'animated_overlay.dart';
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'oh_pill.dart';
 
 const double _popupWidth = 320;
 const double _popupHorizontalMargin = 8;
 const double _popupVerticalGap = 6;
-const Duration _contentResizeDuration = Duration(milliseconds: 200);
-const Duration _contentSwitchDuration = Duration(milliseconds: 220);
+const Duration _contentResizeDuration = kOpenHandMotion200;
+const Duration _contentSwitchDuration = kOpenHandMotion220;
 const Duration _fileStatTimeout = Duration(seconds: 2);
 const Curve _contentMotionCurve = Curves.easeOutCubic;
 

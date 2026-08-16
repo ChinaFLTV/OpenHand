@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'openhand_reveal_switcher.dart';
 
 /// 忙碌指示条的默认高度与出入场时长。
 const double kOpenHandBusyBarHeight = 3;
 const Duration kOpenHandBusyBarRevealDuration = Duration(milliseconds: 200);
-const Duration kOpenHandBusyBarCollapseDuration = Duration(milliseconds: 160);
+const Duration kOpenHandBusyBarCollapseDuration = kOpenHandMotion160;
 
 /// 面板顶部的忙碌指示条：出现与消失走全局动效的纵向展开。
 class OpenHandBusyProgressBar extends StatelessWidget {

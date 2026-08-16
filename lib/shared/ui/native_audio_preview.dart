@@ -1972,7 +1972,7 @@ class _NativeAudioEffectMenuButton extends StatelessWidget {
         child: AnimatedContainer(
           duration: openHandMotionDuration(
             ctx,
-            const Duration(milliseconds: 160),
+            kOpenHandMotion160,
           ),
           curve: kNativeAudioMotionCurve,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

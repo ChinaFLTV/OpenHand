@@ -15,6 +15,7 @@ library;
 // ── 过渡档（进出场 / 状态切换） ──────────────────────────────────────────
 const Duration kOpenHandMotion120 = Duration(milliseconds: 120);
 const Duration kOpenHandMotion140 = Duration(milliseconds: 140);
+const Duration kOpenHandMotion160 = Duration(milliseconds: 160);
 const Duration kOpenHandMotion180 = Duration(milliseconds: 180);
 const Duration kOpenHandMotion200 = Duration(milliseconds: 200);
 const Duration kOpenHandMotion220 = Duration(milliseconds: 220);

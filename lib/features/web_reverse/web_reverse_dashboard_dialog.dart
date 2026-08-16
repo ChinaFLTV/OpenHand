@@ -158,7 +158,7 @@ BoxDecoration _toolbarChipDecoration(ColorScheme cs, {required bool enabled}) {
 }
 
 const EdgeInsets _kDashboardDialogInsetPadding = EdgeInsets.all(24);
-const Duration _kSwitchDuration = Duration(milliseconds: 220);
+const Duration _kSwitchDuration = kOpenHandMotion220;
 const Duration _kDevToolsDiscoveryTimeout = Duration(seconds: 3);
 const int _kDevToolsDiscoveryMaxResponseBytes = 4 * kBytesPerMiB;
 const Curve _kSwitchInCurve = Curves.easeOutCubic;
@@ -609,7 +609,7 @@ class _DashboardToggleTileState extends State<_DashboardToggleTile>
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: _wrMotionEnabled(context)
-              ? const Duration(milliseconds: 160)
+              ? kOpenHandMotion160
               : Duration.zero,
           curve: Curves.easeOutCubic,
           margin: const EdgeInsets.symmetric(horizontal: 6),

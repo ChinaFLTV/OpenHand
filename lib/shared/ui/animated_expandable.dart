@@ -13,7 +13,7 @@ class AnimatedExpandChevron extends StatelessWidget {
     required this.expanded,
     this.size = 18,
     this.color,
-    this.duration = const Duration(milliseconds: 240),
+    this.duration = kOpenHandMotion240,
   });
 
   final bool expanded;
@@ -49,8 +49,8 @@ const EdgeInsetsGeometry kOpenHandExpansionTilePadding = EdgeInsets.symmetric(
   horizontal: 16,
   vertical: 8,
 );
-const Duration kOpenHandExpansionRevealDuration = Duration(milliseconds: 280);
-const Duration kOpenHandExpansionCollapseDuration = Duration(milliseconds: 200);
+const Duration kOpenHandExpansionRevealDuration = kOpenHandMotion280;
+const Duration kOpenHandExpansionCollapseDuration = kOpenHandMotion200;
 
 /// 遵循全局动效设置的展开磁贴。
 ///

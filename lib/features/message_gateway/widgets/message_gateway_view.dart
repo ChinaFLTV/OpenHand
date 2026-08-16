@@ -12069,7 +12069,7 @@ class _DingTalkMessagesDialog extends StatefulWidget {
 class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   static const Duration _maxVoiceDuration = Duration(minutes: 2);
   static const double _composerIconButtonSize = 48;
-  static const Duration _voiceVisualInterval = Duration(milliseconds: 160);
+  static const Duration _voiceVisualInterval = kOpenHandMotion160;
   static const Duration _voiceOperationTimeout = Duration(seconds: 10);
   static const Duration _voiceCleanupTimeout = Duration(seconds: 5);
   static const int _voiceWaveformSampleCount = 40;

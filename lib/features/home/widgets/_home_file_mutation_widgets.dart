@@ -13,12 +13,10 @@ const Color _kFileMutationAddedColor = Color(0xFF2E7D32);
 const Color _kFileMutationAdditionAccent = Color(0xFF35D782);
 const Color _kFileMutationDeletionAccent = Color(0xFFFF5C5C);
 const double _kFileMutationLineDeltaGap = 4;
-const Duration _kFileMutationOverlaySwitchDuration = Duration(
-  milliseconds: 220,
-);
-const Duration _kFileMutationRowStateDuration = Duration(milliseconds: 220);
-const Duration _kFileMutationRowSlideDuration = Duration(milliseconds: 320);
-const Duration _kFileMutationRowChevronDuration = Duration(milliseconds: 180);
+const Duration _kFileMutationOverlaySwitchDuration = kOpenHandMotion220;
+const Duration _kFileMutationRowStateDuration = kOpenHandMotion220;
+const Duration _kFileMutationRowSlideDuration = kOpenHandMotion320;
+const Duration _kFileMutationRowChevronDuration = kOpenHandMotion180;
 
 /// 需要用户读完再消失的提示（跳转降级、保存失败），比默认信息提示久一点。
 const Duration _kFileMutationNoticeSnackDuration = Duration(milliseconds: 2800);

@@ -3,6 +3,7 @@ import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../../l10n/app_localizations.dart';
 import 'animated_dialog.dart';
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
 
@@ -209,7 +210,7 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
     final confirm = widget.confirmLabel ?? l10n.commonConfirm;
     final cancel = widget.cancelLabel ?? l10n.commonCancel;
     final fieldExpandDuration = openHandTickerMotionEnabled(context)
-        ? const Duration(milliseconds: 220)
+        ? kOpenHandMotion220
         : Duration.zero;
 
     // 仅订阅尺寸变化，避免其他 MediaQuery 字段触发弹窗重建。

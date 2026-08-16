@@ -514,7 +514,7 @@ class _ApprovalPayloadPanel extends StatelessWidget {
             child: AnimatedSwitcher(
               duration: openHandMotionDuration(
                 context,
-                const Duration(milliseconds: 160),
+                kOpenHandMotion160,
               ),
               switchInCurve: Curves.easeOutCubic,
               switchOutCurve: Curves.easeInCubic,
@@ -917,7 +917,7 @@ class _ApprovalPayloadToggle extends StatelessWidget {
           child: AnimatedContainer(
             duration: openHandMotionDuration(
               context,
-              const Duration(milliseconds: 160),
+              kOpenHandMotion160,
             ),
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -933,7 +933,7 @@ class _ApprovalPayloadToggle extends StatelessWidget {
                   turns: expanded ? 0.5 : 0,
                   duration: openHandMotionDuration(
                     context,
-                    const Duration(milliseconds: 160),
+                    kOpenHandMotion160,
                   ),
                   curve: Curves.easeOutCubic,
                   child: Icon(

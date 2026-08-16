@@ -1,8 +1,8 @@
 part of '../openhand_home_page.dart';
 
 const Duration _kTranscriptCardEntranceDuration = Duration(milliseconds: 360);
-const Duration _kCreationPlaceholderExitDuration = Duration(milliseconds: 260);
-const Duration _kCreationFailureExitDuration = Duration(milliseconds: 240);
+const Duration _kCreationPlaceholderExitDuration = kOpenHandMotion260;
+const Duration _kCreationFailureExitDuration = kOpenHandMotion240;
 // 视口外预物化范围。含 HTML WebView 卡片的会话对 cacheExtent 极敏感——
 // 过大时滚动会在视口外同步挂载多个平台视图，直接拖垮帧率。
 // 280 约等于 2~3 条富文本气泡高度，兼顾预渲染与帧预算。

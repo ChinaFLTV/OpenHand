@@ -120,9 +120,9 @@ const Duration _auditShimmerPeriod = Duration(milliseconds: 1400);
 const double _auditShimmerLineHeight = 14;
 const double _auditShimmerLastLineWidth = 180;
 const BorderRadius _auditShimmerRadius = BorderRadius.all(Radius.circular(kOpenHandRadius6));
-const Duration _auditShellSizeDuration = Duration(milliseconds: 260);
-const Duration _auditToggleRotationDuration = Duration(milliseconds: 200);
-const Duration _auditContentSizeDuration = Duration(milliseconds: 220);
+const Duration _auditShellSizeDuration = kOpenHandMotion260;
+const Duration _auditToggleRotationDuration = kOpenHandMotion200;
+const Duration _auditContentSizeDuration = kOpenHandMotion220;
 const Curve _auditMotionCurve = Curves.easeInOutCubic;
 
 /// 审计字段的骨架占位：统一行高、圆角与扫光周期。
