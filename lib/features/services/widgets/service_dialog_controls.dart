@@ -21,6 +21,30 @@ const double kServiceDialogItemActionGap = 8;
 const BorderRadius kServiceInteractiveBorderRadius = BorderRadius.all(
   Radius.circular(kOpenHandRadius8),
 );
+const Color _kServiceColorHighValue = Color(0xffa855f7);
+const Color _kServiceColorCyan = Color(0xff0891b2);
+
+/// Matches the first decimal number (with optional sign and fractional part)
+/// embedded in an arbitrary field value. Used by metric/record presentations
+/// to extract sortable numerics from free-form text.
+final RegExp _kNumericFieldRegex =
+    RegExp(r'-?\d+(?:\.\d+)?');
+
+/// Heuristic keywords indicating a healthy service status. Chinese terms are
+/// matched as substrings (no word boundaries); English terms require word
+/// boundaries to avoid false positives such as "enabled" inside "disabled".
+final RegExp _kHealthyKeywordRegex = RegExp(
+  r'正常|可用|就绪|完成|启用|满足|成功|已配置|\bhealthy\b|\bready\b|\bconnected\b|\benabled\b|\bavailable\b|\bconfigured\b|\bsuccess(?:ful|ed|ing)?\b|\bcomplete(?:d)?\b|\bonline\b|\bactive\b|\brunning\b',
+  caseSensitive: false,
+);
+
+/// Heuristic keywords indicating an unhealthy service status. Shares the same
+/// boundary conventions as [_kHealthyKeywordRegex]. The `fail` stem captures
+/// "fail", "failed", "failing", "failure" and "fails".
+final RegExp _kUnhealthyKeywordRegex = RegExp(
+  r'异常|失败|阻塞|停用|未启用|未配置|不可用|\bunhealthy\b|\bunavailable\b|\bdisconnected\b|\bdisabled\b|\bunconfigured\b|\bfail(?:ure|ed|ing|s)?\b|\bblocked\b|\berror\b|\boffline\b|\btimeout\b|\bdown\b',
+  caseSensitive: false,
+);
 
 
 enum ServiceDialogHeaderActionTone { neutral, primary }
@@ -277,7 +301,7 @@ class ServiceAnimatedDonutChart extends StatelessWidget {
       series: <OpenHandChartSeries>[
         OpenHandChartSeries(
           label: 'distribution',
-          values: values.map((value) => value.toDouble()).toList(),
+          values: values.map((value) => value.toDouble()).toList(growable: false),
           color: colors.firstOrNull ?? Colors.transparent,
         ),
       ],
@@ -947,7 +971,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
     }
     final result = <ServiceDetailDatum>[];
     for (final field in fields) {
-      final match = RegExp(r'-?\d+(?:\.\d+)?').firstMatch(field.value);
+      final match = _kNumericFieldRegex.firstMatch(field.value);
       final value = match == null ? null : double.tryParse(match.group(0)!);
       if (value == null || !value.isFinite) continue;
       result.add(
@@ -1177,19 +1201,12 @@ class _ServiceDetailDashboard extends StatelessWidget {
   }
 
   Widget _health(BuildContext context, List<ServiceDetailDatum> values) {
-    final healthy = RegExp(
-      r'正常|可用|就绪|完成|启用|满足|成功|已配置|\bhealthy\b|\bready\b|\bconnected\b|\benabled\b|\bavailable\b|\bconfigured\b|\bsuccess(?:ful)?\b|\bcomplete(?:d)?\b',
-      caseSensitive: false,
-    );
-    final unhealthy = RegExp(
-      r'异常|失败|阻塞|停用|未启用|未配置|不可用|\bunhealthy\b|\bunavailable\b|\bdisconnected\b|\bdisabled\b|\bunconfigured\b|\bfailed?\b|\bblocked\b|\berror\b',
-      caseSensitive: false,
-    );
     final positive = fields.where((field) {
-      return healthy.hasMatch(field.value) && !unhealthy.hasMatch(field.value);
+      return _kHealthyKeywordRegex.hasMatch(field.value) &&
+          !_kUnhealthyKeywordRegex.hasMatch(field.value);
     }).length;
     final negative = fields
-        .where((field) => unhealthy.hasMatch(field.value))
+        .where((field) => _kUnhealthyKeywordRegex.hasMatch(field.value))
         .length;
     final measured = positive + negative;
     final finiteValues = values.where((item) => item.value.isFinite);
@@ -1272,7 +1289,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
       return value.isNotEmpty && value != '--' && value.toLowerCase() != 'null';
     }).length;
     final numeric = fields
-        .where((field) => RegExp(r'-?\d+(?:\.\d+)?').hasMatch(field.value))
+        .where((field) => _kNumericFieldRegex.hasMatch(field.value))
         .length;
     final longValues = fields
         .where((field) => field.value.length > 48 || field.value.contains('\n'))
@@ -1842,8 +1859,8 @@ Color _serviceDetailTone(int index, ColorScheme colors, Color accentColor) =>
       OpenHandStatusColors.info,
       OpenHandStatusColors.warning,
       colors.tertiary,
-      const Color(0xffa855f7),
-      const Color(0xff0891b2),
+      _kServiceColorHighValue,
+      _kServiceColorCyan,
       OpenHandStatusColors.error,
     ][index % 8];
 
