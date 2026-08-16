@@ -8,6 +8,7 @@ const double _kTrajectoryDetailsMaxWidth = 560;
 const double _kTrajectoryDesktopBreakpoint = 820;
 const double _kTrajectoryTableMinWidth = 760;
 const double _kTrajectoryOlderLoadThreshold = 48;
+const double _kTrajectoryPreviewMaxHeight = 220;
 const Duration _kTrajectoryRefreshDelay = Duration(milliseconds: 120);
 const int _kTrajectoryJsonTreeMaxCharacters = 512 * kBytesPerKiB;
 const int _kTrajectoryJsonTreeMaxNodes = 4096;
@@ -753,6 +754,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _ledgerScrollController = ScrollController();
   final ScrollController _ledgerHorizontalController = ScrollController();
+  final ScrollController _detailsScrollController = ScrollController();
   final Set<int> _collapsedTurns = <int>{};
   final Set<String> _collapsedCalls = <String>{};
   late final OpenHandDebouncer _refreshDebouncer = OpenHandDebouncer(
@@ -794,6 +796,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
       ..removeListener(_onLedgerScroll)
       ..dispose();
     _ledgerHorizontalController.dispose();
+    _detailsScrollController.dispose();
     super.dispose();
   }
 
@@ -1043,6 +1046,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
       _selectedMetadataLoading = false;
       _activeDetailTab = _trajectoryDetailTabKeys(record).first;
     });
+    _resetDetailsScrollPosition();
     final messageId = record.sourceMessageId;
     if (messageId == null) return;
     final generation = ++_metadataLoadGeneration;
@@ -1090,6 +1094,13 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
       _selectedRecordId = null;
       _selectedMetadataLoading = false;
       _selectedMetadata = const <String, Object?>{};
+    });
+  }
+
+  void _resetDetailsScrollPosition() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_detailsScrollController.hasClients) return;
+      _detailsScrollController.jumpTo(0);
     });
   }
 
@@ -1337,8 +1348,13 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
                 metadata: _selectedMetadata,
                 metadataLoading: _selectedMetadataLoading,
                 activeTab: _activeDetailTab,
-                onTabChanged: (tab) => setState(() => _activeDetailTab = tab),
+                onTabChanged: (tab) {
+                  if (tab == _activeDetailTab) return;
+                  setState(() => _activeDetailTab = tab);
+                  _resetDetailsScrollPosition();
+                },
                 onClose: _closeDetails,
+                scrollController: _detailsScrollController,
               );
         final ledger = _buildLedger(context);
         if (!desktop) {
@@ -3033,6 +3049,7 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
     required this.activeTab,
     required this.onTabChanged,
     required this.onClose,
+    required this.scrollController,
   });
 
   final _TrajectoryRecord record;
@@ -3041,6 +3058,7 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
   final String activeTab;
   final ValueChanged<String> onTabChanged;
   final VoidCallback onClose;
+  final ScrollController scrollController;
 
   @override
   Widget build(BuildContext context) {
@@ -3132,6 +3150,7 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
               record: record,
               metadata: metadata,
               activeTab: effectiveTab,
+              scrollController: scrollController,
             ),
           ),
         ],
@@ -3187,11 +3206,13 @@ class _TrajectoryDetailBody extends StatelessWidget {
     required this.record,
     required this.metadata,
     required this.activeTab,
+    required this.scrollController,
   });
 
   final _TrajectoryRecord record;
   final Map<String, Object?> metadata;
   final String activeTab;
+  final ScrollController scrollController;
 
   @override
   Widget build(BuildContext context) {
@@ -3326,8 +3347,11 @@ class _TrajectoryDetailBody extends StatelessWidget {
       'timing' => _buildTiming(context),
       _ => const SizedBox.shrink(),
     };
-    return Scrollbar(
+    return OpenHandSafeScrollbar(
+      controller: scrollController,
       child: SingleChildScrollView(
+        controller: scrollController,
+        primary: false,
         physics: openHandDialogAwareScrollPhysics(context),
         padding: const EdgeInsets.all(14),
         child: content,
@@ -3856,7 +3880,7 @@ class _TrajectoryOverviewSection extends StatelessWidget {
   }
 }
 
-class _TrajectoryMarkdownDetail extends StatelessWidget {
+class _TrajectoryMarkdownDetail extends StatefulWidget {
   const _TrajectoryMarkdownDetail({
     required this.text,
     required this.emptyText,
@@ -3868,31 +3892,59 @@ class _TrajectoryMarkdownDetail extends StatelessWidget {
   final bool preview;
 
   @override
+  State<_TrajectoryMarkdownDetail> createState() =>
+      _TrajectoryMarkdownDetailState();
+}
+
+class _TrajectoryMarkdownDetailState extends State<_TrajectoryMarkdownDetail> {
+  final ScrollController _previewScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _previewScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    if (text.trim().isEmpty) return _TrajectoryEmptyDetail(text: emptyText);
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: preview ? 220 : double.infinity),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainer.withValues(alpha: 0.72),
-          borderRadius: BorderRadius.circular(7),
-          border: Border.all(
-            color: colorScheme.outlineVariant.withValues(alpha: 0.7),
+    if (widget.text.trim().isEmpty) {
+      return _TrajectoryEmptyDetail(text: widget.emptyText);
+    }
+    final content = Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.7),
+        ),
+      ),
+      child: OpenHandSafeMarkdownBody(
+        data: widget.text,
+        selectable: true,
+        styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+          p: theme.textTheme.bodySmall?.copyWith(height: 1.5),
+          code: theme.textTheme.bodySmall?.copyWith(
+            fontFamily: kOpenHandMonospaceFontFamily,
           ),
         ),
-        child: OpenHandSafeMarkdownBody(
-          data: text,
-          selectable: true,
-          styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-            p: theme.textTheme.bodySmall?.copyWith(height: 1.5),
-            code: theme.textTheme.bodySmall?.copyWith(
-              fontFamily: kOpenHandMonospaceFontFamily,
-            ),
-          ),
+      ),
+    );
+    if (!widget.preview) return content;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        maxHeight: _kTrajectoryPreviewMaxHeight,
+      ),
+      child: OpenHandSafeScrollbar(
+        controller: _previewScrollController,
+        child: SingleChildScrollView(
+          controller: _previewScrollController,
+          primary: false,
+          physics: openHandDialogAwareScrollPhysics(context),
+          child: content,
         ),
       ),
     );
