@@ -138,6 +138,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
        _workspaceInstructionService = AiWorkspaceInstructionService(),
        _mediaGenerationService = AiImageGenerationService() {
     _runtimeLogSubscription = _service.runtimeLogStream.listen((_) {
+      if (_disposed || _shutdownRequested) return;
       _runtimeLogRevision.value = _service.runtimeLogRevision;
     });
   }
@@ -341,6 +342,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   ValueListenable<int> get runtimeLogListenable => _runtimeLogRevision;
 
   void clearRuntimeLogs() {
+    if (_disposed || _shutdownRequested) return;
     _service.clearRuntimeLogs();
     _runtimeLogRevision.value = _service.runtimeLogRevision;
   }

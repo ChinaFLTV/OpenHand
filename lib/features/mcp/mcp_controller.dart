@@ -2157,7 +2157,9 @@ class McpController extends ChangeNotifier {
       _hasTrustedSnapshot = true;
       _restoreCachedToolCatalogs();
       _persistenceIssue = null;
-      _saveSuccessSignal.value = _saveSuccessSignal.value + 1;
+      if (!_isDisposed) {
+        _saveSuccessSignal.value = _saveSuccessSignal.value + 1;
+      }
       _reconcileHealthCheckTimer();
       notifyListeners();
 

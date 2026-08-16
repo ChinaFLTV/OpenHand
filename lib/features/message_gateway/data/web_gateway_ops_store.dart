@@ -275,12 +275,15 @@ class WebGatewayOpsHistoryData {
     return WebGatewayOpsHistoryData(
       snapshots: stringKeyedMapListFromValue(
         map['snapshots'],
+        limit: webGatewayOpsMaxPersistedSnapshots,
       ).map(WebGatewayOpsSnapshotRecord.fromJson).toList(growable: false),
       logs: stringKeyedMapListFromValue(
         map['logs'],
+        limit: webGatewayOpsMaxPersistedLogs,
       ).map(WebGatewayLogEntry.fromJson).toList(growable: false),
       cleanupHistory: stringKeyedMapListFromValue(
         map['cleanup_history'],
+        limit: webGatewayOpsMaxCleanupHistory,
       ).map(WebGatewayCleanupResult.fromJson).toList(growable: false),
     );
   }

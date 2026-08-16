@@ -17,6 +17,9 @@ const int mcpOpsDefaultApprovalTimeoutMs = 45000;
 const int mcpOpsMaxAuditEntries = 300;
 const int mcpOpsAuditPreviewMaxChars = 2800;
 const int mcpOpsMaxPersistedAuditEntries = 1200;
+const int mcpOpsMaxMetricDistributionKeys = 256;
+const int mcpOpsMetricKeyMaxChars = 160;
+const String mcpOpsMetricOverflowKey = 'other';
 
 /// Number of minute-level buckets retained for traffic/latency trend charts.
 const int mcpOpsTrafficWindowMinutes = 12;
@@ -808,6 +811,8 @@ class McpOpsRuntimeSnapshot {
       ),
       trafficSeries: stringKeyedMapListFromValue(
         map['traffic_series'],
+        limit: mcpOpsTrafficWindowMinutes,
+        fromEnd: true,
       ).map(McpOpsTrafficSample.fromJson).toList(growable: false),
     );
   }
@@ -906,6 +911,7 @@ class McpOpsPersistedRuntimeData {
           : null,
       auditEntries: stringKeyedMapListFromValue(
         map['audit_entries'],
+        limit: mcpOpsMaxPersistedAuditEntries,
       ).map(McpOpsAuditEntry.fromJson).toList(growable: false),
     );
   }
@@ -983,12 +989,51 @@ Map<String, int> _stringIntMapFromValue(Object? raw) {
   if (source.isEmpty) return const <String, int>{};
   final result = <String, int>{};
   for (final entry in source.entries) {
-    final key = entry.key.trim();
-    if (key.isEmpty) continue;
     final value = nonNegativeIntFromValue(entry.value, fallback: 0);
-    if (value > 0) {
-      result[key] = value;
-    }
+    addMcpOpsMetricCount(result, entry.key, value);
   }
   return Map<String, int>.unmodifiable(result);
+}
+
+void addMcpOpsMetricCount(
+  Map<String, int> distribution,
+  String key,
+  int count,
+) {
+  if (count <= 0) return;
+  var normalized = key.trim();
+  if (normalized.isEmpty) normalized = 'unknown';
+  if (normalized.length > mcpOpsMetricKeyMaxChars) {
+    normalized = clipTextByCodeUnits(
+      normalized,
+      mcpOpsMetricKeyMaxChars,
+      suffix: '',
+    );
+  }
+  final existing = distribution[normalized];
+  if (existing != null) {
+    distribution[normalized] = existing + count;
+    return;
+  }
+  final entryLimit = distribution.containsKey(mcpOpsMetricOverflowKey)
+      ? mcpOpsMaxMetricDistributionKeys
+      : mcpOpsMaxMetricDistributionKeys - 1;
+  if (normalized == mcpOpsMetricOverflowKey ||
+      distribution.length < entryLimit) {
+    distribution[normalized] = count;
+    return;
+  }
+  distribution[mcpOpsMetricOverflowKey] =
+      (distribution[mcpOpsMetricOverflowKey] ?? 0) + count;
+}
+
+Map<String, int> normalizeMcpOpsMetricDistribution(
+  Map<String, int> distribution,
+) {
+  if (distribution.isEmpty) return const <String, int>{};
+  final normalized = <String, int>{};
+  for (final entry in distribution.entries) {
+    addMcpOpsMetricCount(normalized, entry.key, entry.value);
+  }
+  return Map<String, int>.unmodifiable(normalized);
 }

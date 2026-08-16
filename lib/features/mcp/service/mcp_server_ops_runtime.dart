@@ -221,9 +221,6 @@ class McpServerOpsRuntime {
   /// 前就断开，回收槽位。
   static const Duration _sseReservationGrace = Duration(seconds: 30);
   static const int _maxSessionIds = 1024;
-  static const int _maxMetricDistributionKeys = 256;
-  static const int _maxMetricKeyChars = 160;
-  static const String _metricOverflowKey = 'other';
   static const int _latencyWindow = 512;
   static const int _rateWindowSeconds = 60;
   static const String _connectionInfoContextKey = 'shelf.io.connection_info';
@@ -284,7 +281,33 @@ class McpServerOpsRuntime {
   bool get isRunning => _server != null;
 
   void hydrateMetrics(McpOpsRuntimeSnapshot snapshot) {
-    _snapshot = snapshot.asOfflinePersistedSnapshot();
+    final ipDistribution = normalizeMcpOpsMetricDistribution(
+      snapshot.ipDistribution,
+    );
+    final clientDistribution = normalizeMcpOpsMetricDistribution(
+      snapshot.clientDistribution,
+    );
+    final requestDistribution = normalizeMcpOpsMetricDistribution(
+      snapshot.requestDistribution,
+    );
+    final protocolDistribution = normalizeMcpOpsMetricDistribution(
+      snapshot.protocolDistribution,
+    );
+    final trafficSeries =
+        snapshot.trafficSeries.length <= mcpOpsTrafficWindowMinutes
+        ? List<McpOpsTrafficSample>.unmodifiable(snapshot.trafficSeries)
+        : List<McpOpsTrafficSample>.unmodifiable(
+            snapshot.trafficSeries.skip(
+              snapshot.trafficSeries.length - mcpOpsTrafficWindowMinutes,
+            ),
+          );
+    _snapshot = snapshot.asOfflinePersistedSnapshot().copyWith(
+      ipDistribution: ipDistribution,
+      clientDistribution: clientDistribution,
+      requestDistribution: requestDistribution,
+      protocolDistribution: protocolDistribution,
+      trafficSeries: trafficSeries,
+    );
     _requestTotal = snapshot.requestTotal;
     _blockedTotal = snapshot.blockedTotal;
     _failedTotal = snapshot.failedTotal;
@@ -293,20 +316,20 @@ class McpServerOpsRuntime {
     _fileMutationCount = snapshot.fileMutationCount;
     _ipDistribution
       ..clear()
-      ..addAll(snapshot.ipDistribution);
+      ..addAll(ipDistribution);
     _clientDistribution
       ..clear()
-      ..addAll(snapshot.clientDistribution);
+      ..addAll(clientDistribution);
     _requestDistribution
       ..clear()
-      ..addAll(snapshot.requestDistribution);
+      ..addAll(requestDistribution);
     _protocolDistribution
       ..clear()
-      ..addAll(snapshot.protocolDistribution);
+      ..addAll(protocolDistribution);
     _trafficBuckets
       ..clear()
       ..addEntries(
-        snapshot.trafficSeries.map(
+        trafficSeries.map(
           (sample) => MapEntry(
             _minuteStart(sample.minute),
             _McpOpsMinuteBucket.fromSample(sample),
@@ -540,7 +563,10 @@ class McpServerOpsRuntime {
       final request = await client.postUrl(uri).timeout(deadline.remaining());
       request.headers
         ..set(HttpHeaders.contentTypeHeader, kApplicationJsonMimeType)
-        ..set(HttpHeaders.acceptHeader, '$kApplicationJsonMimeType, $kTextEventStreamMimeType')
+        ..set(
+          HttpHeaders.acceptHeader,
+          '$kApplicationJsonMimeType, $kTextEventStreamMimeType',
+        )
         ..set(kMcpProtocolVersionHeader, _protocolVersion)
         ..set('x-openhand-client', 'OpenHand Self-Test');
       final token = nullIfBlank(_config.authToken);
@@ -2008,24 +2034,7 @@ class McpServerOpsRuntime {
   }
 
   void _increment(Map<String, int> map, String key) {
-    var normalized = nullIfBlank(key) ?? 'unknown';
-    if (normalized.length > _maxMetricKeyChars) {
-      normalized = clipTextByCodeUnits(
-        normalized,
-        _maxMetricKeyChars,
-        suffix: '',
-      );
-    }
-    final existing = map[normalized];
-    if (existing != null) {
-      map[normalized] = existing + 1;
-      return;
-    }
-    if (map.length < _maxMetricDistributionKeys - 1) {
-      map[normalized] = 1;
-      return;
-    }
-    map[_metricOverflowKey] = (map[_metricOverflowKey] ?? 0) + 1;
+    addMcpOpsMetricCount(map, key, 1);
   }
 
   /// 将请求结果计入当前分钟，并清理趋势窗口外的数据桶。

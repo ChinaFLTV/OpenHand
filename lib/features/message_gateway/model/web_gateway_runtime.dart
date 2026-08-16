@@ -8,6 +8,8 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 
 const int webGatewayOpsTrafficWindowMinutes = 12;
+const int webGatewayRuntimeRecentErrorLimit = 16;
+const int webGatewayRuntimeTopRouteLimit = 32;
 
 /// Runtime types for the Web 通用消息平台 service.
 ///
@@ -755,7 +757,11 @@ class WebGatewayRuntimeSnapshot {
         map['active_sse_subscriptions'],
         fallback: 0,
       ),
-      recentErrors: stringKeyedMapListFromValue(map['recent_errors']),
+      recentErrors: stringKeyedMapListFromValue(
+        map['recent_errors'],
+        limit: webGatewayRuntimeRecentErrorLimit,
+        fromEnd: true,
+      ),
       logLevelBreakdown: _webGatewayStringIntMapFromValue(
         map['log_level_breakdown'],
       ),
@@ -1145,10 +1151,13 @@ Map<String, int> _webGatewayStringIntMapFromValue(
 }
 
 List<MapEntry<String, int>> _webGatewayTopRoutesFromValue(Object? raw) {
-  final rows = stringKeyedMapListFromValue(raw);
+  final rows = stringKeyedMapListFromValue(
+    raw,
+    limit: webGatewayRuntimeTopRouteLimit,
+  );
   if (rows.isEmpty) return const <MapEntry<String, int>>[];
   final routes = <MapEntry<String, int>>[];
-  for (final row in rows.take(32)) {
+  for (final row in rows) {
     final path = stringFromValue(row['path']);
     if (path.isEmpty) continue;
     routes.add(
@@ -1159,9 +1168,12 @@ List<MapEntry<String, int>> _webGatewayTopRoutesFromValue(Object? raw) {
 }
 
 List<WebGatewayTrafficSample> _webGatewayTrafficSeriesFromValue(Object? raw) {
-  final rows = stringKeyedMapListFromValue(raw);
-  final start = math.max(0, rows.length - webGatewayOpsTrafficWindowMinutes);
+  final rows = stringKeyedMapListFromValue(
+    raw,
+    limit: webGatewayOpsTrafficWindowMinutes,
+    fromEnd: true,
+  );
   return List<WebGatewayTrafficSample>.unmodifiable(
-    rows.skip(start).map(WebGatewayTrafficSample.fromJson),
+    rows.map(WebGatewayTrafficSample.fromJson),
   );
 }

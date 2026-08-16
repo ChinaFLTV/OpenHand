@@ -971,6 +971,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     if (await isCancelSignalCompleted(cancelSignal)) {
       throw kMcpStdioRequestCancelledException;
     }
+    var bootstrapActive = true;
     final session = _StdioSession(
       process: await startTrackedProcessBounded(
         resolved.executable,
@@ -989,6 +990,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       ),
       requestTimeout: _requestTimeout,
       onStderrLine: (line) {
+        if (!bootstrapActive) return;
         // 把 npm/uvx 首启时的下载进度行实时透出给 UI 「正在 bootstrap」chip。
         // 行已经在 _StdioSession 里 trim 过，这里做长度截断防爆 Tooltip。
         final clean = clipTextWithEllipsis(line, 200);
@@ -1016,9 +1018,11 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         cancelSignal: cancelSignal,
       );
       // initialize 已成功，bootstrap 阶段结束，清掉进度行避免 UI 残留。
+      bootstrapActive = false;
       mcpStdioBootstrapStatus.clear(server.name);
       return session;
     } catch (_) {
+      bootstrapActive = false;
       mcpStdioBootstrapStatus.clear(server.name);
       await session.close();
       rethrow;
