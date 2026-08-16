@@ -199,7 +199,7 @@ class AiUsageTracker {
     if (_shuttingDown) return Future<void>.value();
     return _writes.enqueue(() async {
       await _store.clear();
-      changes.value += 1;
+      if (!_shuttingDown) changes.value += 1;
     });
   }
 
@@ -208,8 +208,11 @@ class AiUsageTracker {
   Future<void> shutdown() {
     _shuttingDown = true;
     return _shutdownOnce.run(() async {
-      await flush().timeout(runtimeCleanupTimeout);
-      changes.dispose();
+      try {
+        await flush().timeout(runtimeCleanupTimeout);
+      } finally {
+        changes.dispose();
+      }
     });
   }
 
@@ -297,7 +300,7 @@ class AiUsageTracker {
             if (_successfulWrites % _pruneInterval == 0) {
               await _store.prune();
             }
-            changes.value += 1;
+            if (!_shuttingDown) changes.value += 1;
           })
           .then<void>(
             (_) {},

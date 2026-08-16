@@ -659,7 +659,7 @@ final class AiToolUsagePromotionStore {
       if (promotedNow) session.promotedToolIds.add(normalizedToolId);
 
       _dirty = true;
-      _revision.value += 1;
+      if (!_shuttingDown) _revision.value += 1;
       _schedulePersist();
       return AiToolUsageRecord(
         toolId: normalizedToolId,
@@ -810,8 +810,11 @@ final class AiToolUsagePromotionStore {
     _shuttingDown = true;
     _persistDebouncer.dispose();
     return _shutdownOnce.run(() async {
-      await _finishShutdown().timeout(runtimeCleanupTimeout);
-      _revision.dispose();
+      try {
+        await _finishShutdown().timeout(runtimeCleanupTimeout);
+      } finally {
+        _revision.dispose();
+      }
     });
   }
 
@@ -1273,7 +1276,7 @@ final class AiToolUsagePromotionStore {
       await writeFileAtomically(_file, content);
       _dirty = false;
     } finally {
-      if (pruned) _revision.value += 1;
+      if (pruned && !_shuttingDown) _revision.value += 1;
     }
   }
 
