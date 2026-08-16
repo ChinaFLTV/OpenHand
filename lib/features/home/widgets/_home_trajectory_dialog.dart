@@ -1,11 +1,5 @@
 part of '../openhand_home_page.dart';
 
-const Color _kTrajectorySystemColor = Color(0xFF8A9099);
-const Color _kTrajectoryUserColor = Color(0xFF5B8DEF);
-const Color _kTrajectoryContextColor = Color(0xFF45A36B);
-const Color _kTrajectoryAssistantColor = Color(0xFF9B72CF);
-const Color _kTrajectoryToolColor = Color(0xFFE28A24);
-const Color _kTrajectoryErrorColor = Color(0xFFE05A63);
 const double _kTrajectoryRowHeight = 48;
 const double _kTrajectoryTurnRailWidth = 68;
 const double _kTrajectoryKindWidth = 112;
@@ -91,6 +85,26 @@ class _TrajectoryRecord {
   ].join('\n').toLowerCase();
 }
 
+String _trajectoryText(
+  BuildContext context, {
+  required String zh,
+  required String en,
+  String? zhHant,
+  String? fr,
+  String? de,
+  String? ja,
+}) {
+  return openHandLocalizedText(
+    context,
+    zh: zh,
+    zhHant: zhHant,
+    en: en,
+    fr: fr,
+    de: de,
+    ja: ja,
+  );
+}
+
 class _TrajectorySnapshot {
   const _TrajectorySnapshot({
     required this.records,
@@ -112,7 +126,9 @@ class _TrajectorySnapshot {
     final pairedResultIds = <String>{};
     for (final message in messages) {
       if (!message.kind.isToolResultKind) continue;
-      final callId = '${message.metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'.trim();
+      final callId =
+          '${message.metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'
+              .trim();
       if (callId.isNotEmpty) resultByCallId[callId] = message;
     }
 
@@ -137,7 +153,14 @@ class _TrajectorySnapshot {
         step: 0,
         requestNumber: 0,
         kind: _TrajectoryKind.system,
-        preview: 'Initial System Prompt',
+        preview: openHandAmbientText(
+          zh: '初始系统提示词',
+          zhHant: '初始系統提示詞',
+          en: 'Initial System Prompt',
+          fr: 'Prompt système initial',
+          de: 'Initialer System-Prompt',
+          ja: '初期システムプロンプト',
+        ),
         input: '',
         output: '',
         thinking: '',
@@ -157,7 +180,8 @@ class _TrajectorySnapshot {
     for (final message in messages) {
       if (pairedResultIds.contains(message.id)) continue;
       final metadata = message.metadata;
-      final callId = '${metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'.trim();
+      final callId = '${metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'
+          .trim();
       switch (message.kind) {
         case AiSessionMessageKind.user:
           if (message.isGoalEvaluationMessage) {
@@ -318,7 +342,9 @@ _TrajectoryRecord _trajectoryRecordFromMessage(
   required _TrajectoryKind kind,
 }) {
   final metadata = message.metadata;
-  final timing = _trajectoryTiming(message, kind);
+  final timing = kind == _TrajectoryKind.user || kind == _TrajectoryKind.context
+      ? (message.createdAt, 0)
+      : _trajectoryTiming(message, kind);
   final content = message.content.trim();
   return _TrajectoryRecord(
     id: 'message-${message.id}',
@@ -360,7 +386,8 @@ _TrajectoryRecord _trajectoryToolRecord(
   required int requestNumber,
 }) {
   final metadata = call.metadata;
-  final callId = '${metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'.trim();
+  final callId = '${metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'
+      .trim();
   final toolName = '${metadata['tool_name'] ?? ''}'.trim();
   final arguments = '${metadata['tool_arguments'] ?? call.content}'.trim();
   final output = (result?.content ?? _trajectoryToolOutput(metadata)).trim();
@@ -411,7 +438,8 @@ _TrajectoryRecord _trajectoryToolResultRecord(
   required int requestNumber,
 }) {
   final metadata = message.metadata;
-  final callId = '${metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'.trim();
+  final callId = '${metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'
+      .trim();
   final toolName = '${metadata['tool_name'] ?? message.kind.storageValue}'
       .trim();
   final status = '${metadata['tool_execution_status'] ?? ''}'
@@ -541,7 +569,14 @@ String _trajectoryMessagePreview(AiSessionMessage message) {
   final content = collapseInlineWhitespace(message.content);
   if (content.isNotEmpty) return clipTextWithEllipsis(content, 520);
   if (message.kind == AiSessionMessageKind.fileMutationSummary) {
-    return 'File mutation summary';
+    return openHandAmbientText(
+      zh: '文件变更摘要',
+      zhHant: '檔案變更摘要',
+      en: 'File mutation summary',
+      fr: 'Résumé des modifications de fichiers',
+      de: 'Zusammenfassung der Dateiänderungen',
+      ja: 'ファイル変更の概要',
+    );
   }
   return '';
 }
@@ -551,7 +586,16 @@ String _trajectoryToolPreview(
   String arguments,
   String output,
 ) {
-  final name = toolName.isEmpty ? 'tool' : toolName;
+  final name = toolName.isEmpty
+      ? openHandAmbientText(
+          zh: '工具',
+          zhHant: '工具',
+          en: 'Tool',
+          fr: 'Outil',
+          de: 'Werkzeug',
+          ja: 'ツール',
+        )
+      : toolName;
   final inputPreview = clipTextWithEllipsis(
     collapseInlineWhitespace(arguments),
     260,
@@ -641,7 +685,7 @@ _TrajectoryProjection _trajectoryProjection(
       removedIdle += rawStart - coveredUntil;
     }
     final start = rawStart - removedIdle;
-    final end = math.max(start + 1, rawEnd - removedIdle);
+    final end = math.max(start, rawEnd - removedIdle);
     boundaries.putIfAbsent(record.turn, () => start);
     spans.add(_TrajectorySpan(record: record, start: start, end: end));
     coveredUntil = coveredUntil == null
@@ -758,10 +802,14 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
     setState(() {
       _loadingInitial = false;
       if (effective == null) {
-        _loadError = openHandLocalizedText(
+        _loadError = _trajectoryText(
           context,
           zh: '无法读取该线程的轨迹。',
+          zhHant: '無法讀取該執行緒的軌跡。',
           en: 'Unable to load this thread trajectory.',
+          fr: 'Impossible de charger la trajectoire de cette discussion.',
+          de: 'Die Trajektorie dieses Threads kann nicht geladen werden.',
+          ja: 'このスレッドの軌跡を読み込めません。',
         );
         return;
       }
@@ -932,8 +980,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
             _TrajectoryLedgerRow.summary(
               record: record,
               summary:
-                  '${steps.length} ${steps.length == 1 ? 'step' : 'steps'} · '
-                  '$calls tool ${calls == 1 ? 'call' : 'calls'}',
+                  '${steps.length} ${openHandAmbientText(zh: '步', zhHant: '步', en: steps.length == 1 ? 'step' : 'steps', fr: steps.length == 1 ? 'étape' : 'étapes', de: steps.length == 1 ? 'Schritt' : 'Schritte', ja: 'ステップ')} · $calls ${openHandAmbientText(zh: '工具调用', zhHant: '工具呼叫', en: calls == 1 ? 'tool call' : 'tool calls', fr: calls == 1 ? 'appel d’outil' : 'appels d’outil', de: calls == 1 ? 'Werkzeugaufruf' : 'Werkzeugaufrufe', ja: 'ツール呼び出し')}',
               summaryKind: 'turn',
             ),
           );
@@ -966,7 +1013,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
         _TrajectoryLedgerRow.summary(
           record: record,
           summary:
-              '${calls.length} tool ${calls.length == 1 ? 'call' : 'calls'} · $names',
+              '${calls.length} ${openHandAmbientText(zh: '工具调用', zhHant: '工具呼叫', en: calls.length == 1 ? 'tool call' : 'tool calls', fr: calls.length == 1 ? 'appel d’outil' : 'appels d’outil', de: calls.length == 1 ? 'Werkzeugaufruf' : 'Werkzeugaufrufe', ja: 'ツール呼び出し')} · $names',
           summaryKind: 'calls',
         ),
       );
@@ -990,7 +1037,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
       _selectedRecordId = record.id;
       _selectedMetadata = record.metadata;
       _selectedMetadataLoading = false;
-      _activeDetailTab = _trajectoryDetailTabs(record).first.$1;
+      _activeDetailTab = _trajectoryDetailTabKeys(record).first;
     });
     final messageId = record.sourceMessageId;
     if (messageId == null) return;
@@ -1157,13 +1204,13 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: _kTrajectoryAssistantColor.withValues(alpha: 0.14),
+              color: colorScheme.tertiary.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(7),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.route_outlined,
               size: 17,
-              color: _kTrajectoryAssistantColor,
+              color: colorScheme.tertiary,
             ),
           ),
           kOpenHandHGap10,
@@ -1221,10 +1268,14 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
             ),
             kOpenHandGap12,
             Text(
-              openHandLocalizedText(
+              _trajectoryText(
                 context,
                 zh: '正在装配轨迹…',
+                zhHant: '正在組裝軌跡…',
                 en: 'Assembling trajectory…',
+                fr: 'Assemblage de la trajectoire…',
+                de: 'Trajektorie wird zusammengestellt…',
+                ja: '軌跡を構築中…',
               ),
             ),
           ],
@@ -1236,7 +1287,15 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
         child: _TrajectoryStateMessage(
           icon: Icons.error_outline_rounded,
           title: _loadError!,
-          actionLabel: openHandLocalizedText(context, zh: '重试', en: 'Retry'),
+          actionLabel: _trajectoryText(
+            context,
+            zh: '重试',
+            zhHant: '重試',
+            en: 'Retry',
+            fr: 'Réessayer',
+            de: 'Erneut versuchen',
+            ja: '再試行',
+          ),
           onAction: () {
             setState(() {
               _loadingInitial = true;
@@ -1251,10 +1310,14 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
       return Center(
         child: _TrajectoryStateMessage(
           icon: Icons.route_outlined,
-          title: openHandLocalizedText(
+          title: _trajectoryText(
             context,
             zh: '此线程暂无可展示的轨迹',
+            zhHant: '此執行緒暫無可展示的軌跡',
             en: 'No trajectory is available for this thread',
+            fr: 'Aucune trajectoire disponible pour cette discussion',
+            de: 'Für diesen Thread ist keine Trajektorie verfügbar',
+            ja: 'このスレッドに表示できる軌跡はありません',
           ),
         ),
       );
@@ -1354,14 +1417,26 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
       return Center(
         child: _TrajectoryStateMessage(
           icon: Icons.search_off_rounded,
-          title: openHandLocalizedText(
+          title: _trajectoryText(
             context,
             zh: '没有匹配的轨迹记录',
+            zhHant: '沒有符合的軌跡記錄',
             en: 'No trajectory records match',
+            fr: 'Aucun enregistrement de trajectoire correspondant',
+            de: 'Keine passenden Trajektorien-Datensätze',
+            ja: '一致する軌跡レコードはありません',
           ),
           actionLabel: _searchQuery.isEmpty
               ? null
-              : openHandLocalizedText(context, zh: '清除搜索', en: 'Clear search'),
+              : _trajectoryText(
+                  context,
+                  zh: '清除搜索',
+                  zhHant: '清除搜尋',
+                  en: 'Clear search',
+                  fr: 'Effacer la recherche',
+                  de: 'Suche löschen',
+                  ja: '検索をクリア',
+                ),
           onAction: _searchQuery.isEmpty ? null : _searchController.clear,
         ),
       );
@@ -1513,27 +1588,93 @@ class _TrajectoryToolbar extends StatelessWidget {
             children: [
               _TrajectoryToolbarButton(
                 icon: Icons.schedule_outlined,
-                label: compact ? null : 'Duration',
+                label: compact
+                    ? null
+                    : _trajectoryText(
+                        context,
+                        zh: '时长',
+                        zhHant: '時長',
+                        en: 'Duration',
+                        fr: 'Durée',
+                        de: 'Dauer',
+                        ja: '所要時間',
+                      ),
                 selected: actualDuration,
-                tooltip: actualDuration
-                    ? 'Use equal-width operations'
-                    : 'Use actual duration',
+                tooltip: _trajectoryText(
+                  context,
+                  zh: actualDuration ? '使用等宽记录' : '使用实际耗时',
+                  zhHant: actualDuration ? '使用等寬記錄' : '使用實際耗時',
+                  en: actualDuration
+                      ? 'Use equal-width records'
+                      : 'Use actual duration',
+                  fr: actualDuration
+                      ? 'Utiliser des enregistrements de largeur égale'
+                      : 'Utiliser la durée réelle',
+                  de: actualDuration
+                      ? 'Datensätze mit gleicher Breite verwenden'
+                      : 'Tatsächliche Dauer verwenden',
+                  ja: actualDuration ? '等幅レコードを使用' : '実際の所要時間を使用',
+                ),
                 onPressed: onDurationChanged,
               ),
               _TrajectoryToolbarButton(
                 icon: allTurnsCollapsed
                     ? Icons.add_box_outlined
                     : Icons.indeterminate_check_box_outlined,
-                label: compact ? null : 'Turns',
-                tooltip: allTurnsCollapsed ? 'Expand turns' : 'Collapse turns',
+                label: compact
+                    ? null
+                    : _trajectoryText(
+                        context,
+                        zh: '轮次',
+                        zhHant: '輪次',
+                        en: 'Turns',
+                        fr: 'Tours',
+                        de: 'Durchläufe',
+                        ja: 'ターン',
+                      ),
+                tooltip: _trajectoryText(
+                  context,
+                  zh: allTurnsCollapsed ? '展开轮次' : '折叠轮次',
+                  zhHant: allTurnsCollapsed ? '展開輪次' : '摺疊輪次',
+                  en: allTurnsCollapsed ? 'Expand turns' : 'Collapse turns',
+                  fr: allTurnsCollapsed
+                      ? 'Développer les tours'
+                      : 'Réduire les tours',
+                  de: allTurnsCollapsed
+                      ? 'Durchläufe einblenden'
+                      : 'Durchläufe einklappen',
+                  ja: allTurnsCollapsed ? 'ターンを展開' : 'ターンを折りたたむ',
+                ),
                 onPressed: onToggleTurns,
               ),
               _TrajectoryToolbarButton(
                 icon: allCallsCollapsed
                     ? Icons.add_box_outlined
                     : Icons.indeterminate_check_box_outlined,
-                label: compact ? null : 'Calls',
-                tooltip: allCallsCollapsed ? 'Expand calls' : 'Collapse calls',
+                label: compact
+                    ? null
+                    : _trajectoryText(
+                        context,
+                        zh: '调用',
+                        zhHant: '呼叫',
+                        en: 'Calls',
+                        fr: 'Appels',
+                        de: 'Aufrufe',
+                        ja: '呼び出し',
+                      ),
+                tooltip: _trajectoryText(
+                  context,
+                  zh: allCallsCollapsed ? '展开调用' : '折叠调用',
+                  zhHant: allCallsCollapsed ? '展開呼叫' : '摺疊呼叫',
+                  en: allCallsCollapsed ? 'Expand calls' : 'Collapse calls',
+                  fr: allCallsCollapsed
+                      ? 'Développer les appels'
+                      : 'Réduire les appels',
+                  de: allCallsCollapsed
+                      ? 'Aufrufe einblenden'
+                      : 'Aufrufe einklappen',
+                  ja: allCallsCollapsed ? '呼び出しを展開' : '呼び出しを折りたたむ',
+                ),
                 onPressed: onToggleCalls,
               ),
               const Spacer(),
@@ -1545,27 +1686,62 @@ class _TrajectoryToolbar extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall,
                   decoration: InputDecoration(
                     isDense: true,
-                    hintText: openHandLocalizedText(
+                    hintText: _trajectoryText(
                       context,
                       zh: '搜索',
+                      zhHant: '搜尋',
                       en: 'Search',
+                      fr: 'Rechercher',
+                      de: 'Suchen',
+                      ja: '検索',
                     ),
-                    prefixIcon: const Icon(Icons.search_rounded, size: 17),
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      size: 17,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    prefixIconConstraints: const BoxConstraints(
+                      minWidth: 32,
+                      maxWidth: 32,
+                    ),
                     suffixIcon: ValueListenableBuilder<TextEditingValue>(
                       valueListenable: searchController,
                       builder: (context, value, _) => value.text.isEmpty
                           ? const SizedBox.shrink()
                           : IconButton(
-                              tooltip: openHandLocalizedText(
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                overlayColor: colorScheme.onSurface.withValues(
+                                  alpha: 0.08,
+                                ),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                padding: EdgeInsets.zero,
+                              ),
+                              constraints: const BoxConstraints.tightFor(
+                                width: 28,
+                                height: 28,
+                              ),
+                              tooltip: _trajectoryText(
                                 context,
                                 zh: '清除搜索',
+                                zhHant: '清除搜尋',
                                 en: 'Clear search',
+                                fr: 'Effacer la recherche',
+                                de: 'Suche löschen',
+                                ja: '検索をクリア',
                               ),
                               onPressed: searchController.clear,
                               icon: const Icon(Icons.close_rounded, size: 15),
                             ),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                    suffixIconConstraints: const BoxConstraints(
+                      minWidth: 30,
+                      maxWidth: 30,
+                    ),
+                    filled: true,
+                    fillColor: colorScheme.surfaceContainer,
+                    contentPadding: const EdgeInsets.only(right: 3),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
                       borderSide: BorderSide(color: colorScheme.outlineVariant),
@@ -1929,7 +2105,15 @@ class _TrajectoryTimelineState extends State<_TrajectoryTimeline> {
                   top: 7,
                   right: 5,
                   child: Text(
-                    'Input',
+                    _trajectoryText(
+                      context,
+                      zh: '输入',
+                      zhHant: '輸入',
+                      en: 'Input',
+                      fr: 'Entrée',
+                      de: 'Eingabe',
+                      ja: '入力',
+                    ),
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       fontSize: 10,
                       color: colorScheme.onSurfaceVariant,
@@ -1940,7 +2124,15 @@ class _TrajectoryTimelineState extends State<_TrajectoryTimeline> {
                   top: 24,
                   right: 5,
                   child: Text(
-                    'Model',
+                    _trajectoryText(
+                      context,
+                      zh: '模型',
+                      zhHant: '模型',
+                      en: 'Model',
+                      fr: 'Modèle',
+                      de: 'Modell',
+                      ja: 'モデル',
+                    ),
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       fontSize: 10,
                       color: colorScheme.onSurfaceVariant,
@@ -1951,7 +2143,15 @@ class _TrajectoryTimelineState extends State<_TrajectoryTimeline> {
                   top: 41,
                   right: 5,
                   child: Text(
-                    'Tools',
+                    _trajectoryText(
+                      context,
+                      zh: '工具',
+                      zhHant: '工具',
+                      en: 'Tools',
+                      fr: 'Outils',
+                      de: 'Werkzeuge',
+                      ja: 'ツール',
+                    ),
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       fontSize: 10,
                       color: colorScheme.onSurfaceVariant,
@@ -1999,6 +2199,15 @@ class _TrajectoryTimelineState extends State<_TrajectoryTimeline> {
                             searchMatches: widget.searchMatches,
                             selectedRecordId: widget.selectedRecordId,
                             hoveredRecordId: _hoverRecord?.id,
+                            emptyLabel: _trajectoryText(
+                              context,
+                              zh: '暂无时间数据',
+                              zhHant: '暫無時間資料',
+                              en: 'No timing data',
+                              fr: 'Aucune donnée temporelle',
+                              de: 'Keine Zeitdaten',
+                              ja: '時間データなし',
+                            ),
                             colorScheme: colorScheme,
                           ),
                         ),
@@ -2006,10 +2215,14 @@ class _TrajectoryTimelineState extends State<_TrajectoryTimeline> {
                           Align(
                             alignment: Alignment.centerLeft,
                             child: Tooltip(
-                              message: openHandLocalizedText(
+                              message: _trajectoryText(
                                 context,
                                 zh: '加载更早轨迹',
+                                zhHant: '載入較早軌跡',
                                 en: 'Load earlier trajectory',
+                                fr: 'Charger la trajectoire précédente',
+                                de: 'Frühere Trajektorie laden',
+                                ja: '以前の軌跡を読み込む',
                               ),
                               child: InkWell(
                                 onTap: widget.loadingEarlier
@@ -2059,7 +2272,7 @@ class _TrajectoryTimelineState extends State<_TrajectoryTimeline> {
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
-                                  '${_trajectoryKindLabel(_hoverRecord!.kind)} · '
+                                  '${_trajectoryKindLabel(context, _hoverRecord!.kind)} · '
                                   '${_trajectoryDurationLabel(_hoverRecord!.durationMs)} · '
                                   '${_hoverRecord!.preview}',
                                   maxLines: 1,
@@ -2094,6 +2307,7 @@ class _TrajectoryTimelinePainter extends CustomPainter {
     required this.searchMatches,
     required this.selectedRecordId,
     required this.hoveredRecordId,
+    required this.emptyLabel,
     required this.colorScheme,
   });
 
@@ -2104,6 +2318,7 @@ class _TrajectoryTimelinePainter extends CustomPainter {
   final Set<String>? searchMatches;
   final String? selectedRecordId;
   final String? hoveredRecordId;
+  final String emptyLabel;
   final ColorScheme colorScheme;
 
   double _x(double value, double width) =>
@@ -2166,8 +2381,8 @@ class _TrajectoryTimelinePainter extends CustomPainter {
         const Radius.circular(1.5),
       );
       final color = span.record.isError
-          ? _kTrajectoryErrorColor
-          : _trajectoryKindColor(span.record.kind);
+          ? colorScheme.error
+          : _trajectoryKindColor(colorScheme, span.record.kind);
       canvas.drawRRect(rect, Paint()..color = color.withValues(alpha: opacity));
       if (span.record.id == selectedRecordId ||
           span.record.id == hoveredRecordId) {
@@ -2181,7 +2396,7 @@ class _TrajectoryTimelinePainter extends CustomPainter {
     if (projection.spans.isEmpty) {
       final painter = TextPainter(
         text: TextSpan(
-          text: 'No timing data',
+          text: emptyLabel,
           style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 11),
         ),
         textDirection: TextDirection.ltr,
@@ -2205,6 +2420,7 @@ class _TrajectoryTimelinePainter extends CustomPainter {
         oldDelegate.searchMatches != searchMatches ||
         oldDelegate.selectedRecordId != selectedRecordId ||
         oldDelegate.hoveredRecordId != hoveredRecordId ||
+        oldDelegate.emptyLabel != emptyLabel ||
         oldDelegate.colorScheme != colorScheme;
   }
 }
@@ -2220,27 +2436,52 @@ class _TrajectoryOlderHistoryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextButton.icon(
-      onPressed: loading ? null : onPressed,
-      icon: loading
-          ? const SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(strokeWidth: 1.8),
-            )
-          : const Icon(Icons.more_horiz_rounded, size: 18),
-      label: Text(
-        loading
-            ? openHandLocalizedText(
-                context,
-                zh: '正在加载更早轨迹…',
-                en: 'Loading earlier trajectory…',
+    final colorScheme = Theme.of(context).colorScheme;
+    return Center(
+      child: TextButton.icon(
+        onPressed: loading ? null : onPressed,
+        style: TextButton.styleFrom(
+          minimumSize: const Size(0, 32),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: VisualDensity.compact,
+          foregroundColor: colorScheme.primary,
+          backgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.42),
+          disabledForegroundColor: colorScheme.onSurfaceVariant,
+          disabledBackgroundColor: colorScheme.surfaceContainerHighest,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        icon: loading
+            ? SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.8,
+                  color: colorScheme.primary,
+                ),
               )
-            : openHandLocalizedText(
-                context,
-                zh: '加载更早轨迹',
-                en: 'Load earlier trajectory',
-              ),
+            : const Icon(Icons.more_horiz_rounded, size: 18),
+        label: Text(
+          loading
+              ? _trajectoryText(
+                  context,
+                  zh: '正在加载更早轨迹…',
+                  zhHant: '正在載入較早軌跡…',
+                  en: 'Loading earlier trajectory…',
+                  fr: 'Chargement de la trajectoire précédente…',
+                  de: 'Frühere Trajektorie wird geladen…',
+                  ja: '以前の軌跡を読み込み中…',
+                )
+              : _trajectoryText(
+                  context,
+                  zh: '加载更早轨迹',
+                  zhHant: '載入較早軌跡',
+                  en: 'Load earlier trajectory',
+                  fr: 'Charger la trajectoire précédente',
+                  de: 'Frühere Trajektorie laden',
+                  ja: '以前の軌跡を読み込む',
+                ),
+        ),
       ),
     );
   }
@@ -2267,8 +2508,8 @@ class _TrajectoryLedgerRecordRow extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final record = row.record;
     final accent = record.isError
-        ? _kTrajectoryErrorColor
-        : _trajectoryKindColor(record.kind);
+        ? colorScheme.error
+        : _trajectoryKindColor(colorScheme, record.kind);
     final summary = row.summary;
     return Material(
       color: selected
@@ -2312,8 +2553,24 @@ class _TrajectoryLedgerRecordRow extends StatelessWidget {
                         top: 20,
                         child: Tooltip(
                           message: record.requestNumber > 0
-                              ? 'Request #${record.requestNumber}'
-                              : 'Step ${record.step}',
+                              ? _trajectoryText(
+                                  context,
+                                  zh: '请求 #${record.requestNumber}',
+                                  zhHant: '請求 #${record.requestNumber}',
+                                  en: 'Request #${record.requestNumber}',
+                                  fr: 'Requête n° ${record.requestNumber}',
+                                  de: 'Anfrage #${record.requestNumber}',
+                                  ja: 'リクエスト #${record.requestNumber}',
+                                )
+                              : _trajectoryText(
+                                  context,
+                                  zh: '步骤 ${record.step}',
+                                  zhHant: '步驟 ${record.step}',
+                                  en: 'Step ${record.step}',
+                                  fr: 'Étape ${record.step}',
+                                  de: 'Schritt ${record.step}',
+                                  ja: 'ステップ ${record.step}',
+                                ),
                           child: Container(
                             width: 9,
                             height: 9,
@@ -2342,7 +2599,15 @@ class _TrajectoryLedgerRecordRow extends StatelessWidget {
                             borderRadius: BorderRadius.circular(3),
                           ),
                           child: Text(
-                            'Turn ${record.turn}',
+                            _trajectoryText(
+                              context,
+                              zh: '轮次 ${record.turn}',
+                              zhHant: '輪次 ${record.turn}',
+                              en: 'Turn ${record.turn}',
+                              fr: 'Tour ${record.turn}',
+                              de: 'Durchlauf ${record.turn}',
+                              ja: 'ターン ${record.turn}',
+                            ),
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                               fontSize: 10,
@@ -2367,7 +2632,15 @@ class _TrajectoryLedgerRecordRow extends StatelessWidget {
                           Expanded(
                             child: Text(
                               record.preview.isEmpty
-                                  ? 'No content'
+                                  ? _trajectoryText(
+                                      context,
+                                      zh: '无内容',
+                                      zhHant: '無內容',
+                                      en: 'No content',
+                                      fr: 'Aucun contenu',
+                                      de: 'Kein Inhalt',
+                                      ja: '内容なし',
+                                    )
                                   : record.preview,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -2438,7 +2711,7 @@ class _TrajectoryLedgerRecordRow extends StatelessWidget {
                     _trajectoryDurationLabel(record.durationMs),
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: record.isError
-                          ? _kTrajectoryErrorColor
+                          ? colorScheme.error
                           : colorScheme.onSurfaceVariant,
                     ),
                   ),
@@ -2460,9 +2733,10 @@ class _TrajectoryKindTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final accent = record.isError
-        ? _kTrajectoryErrorColor
-        : _trajectoryKindColor(record.kind);
+        ? colorScheme.error
+        : _trajectoryKindColor(colorScheme, record.kind);
     return Container(
       constraints: const BoxConstraints(maxWidth: 104),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
@@ -2477,7 +2751,7 @@ class _TrajectoryKindTag extends StatelessWidget {
           kOpenHandHGap5,
           Flexible(
             child: Text(
-              _trajectoryKindLabel(record.kind),
+              _trajectoryKindLabel(context, record.kind),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -2493,14 +2767,19 @@ class _TrajectoryKindTag extends StatelessWidget {
   }
 }
 
-Color _trajectoryKindColor(_TrajectoryKind kind) => switch (kind) {
-  _TrajectoryKind.system => _kTrajectorySystemColor,
-  _TrajectoryKind.user => _kTrajectoryUserColor,
-  _TrajectoryKind.context => _kTrajectoryContextColor,
-  _TrajectoryKind.compacted => _kTrajectorySystemColor,
-  _TrajectoryKind.assistant => _kTrajectoryAssistantColor,
-  _TrajectoryKind.tool || _TrajectoryKind.subtool => _kTrajectoryToolColor,
-};
+Color _trajectoryKindColor(ColorScheme colorScheme, _TrajectoryKind kind) =>
+    switch (kind) {
+      _TrajectoryKind.system => colorScheme.onSurfaceVariant,
+      _TrajectoryKind.user => colorScheme.primary,
+      _TrajectoryKind.context => colorScheme.secondary,
+      _TrajectoryKind.compacted => colorScheme.outline,
+      _TrajectoryKind.assistant => colorScheme.tertiary,
+      _TrajectoryKind.tool || _TrajectoryKind.subtool => Color.lerp(
+        colorScheme.primary,
+        colorScheme.tertiary,
+        0.42,
+      )!,
+    };
 
 IconData _trajectoryKindIcon(_TrajectoryKind kind) => switch (kind) {
   _TrajectoryKind.system => Icons.settings_outlined,
@@ -2511,15 +2790,63 @@ IconData _trajectoryKindIcon(_TrajectoryKind kind) => switch (kind) {
   _TrajectoryKind.tool || _TrajectoryKind.subtool => Icons.build_outlined,
 };
 
-String _trajectoryKindLabel(_TrajectoryKind kind) => switch (kind) {
-  _TrajectoryKind.system => 'SYSTEM',
-  _TrajectoryKind.user => 'USER',
-  _TrajectoryKind.context => 'CONTEXT',
-  _TrajectoryKind.compacted => 'COMPACTED',
-  _TrajectoryKind.assistant => 'ASSISTANT',
-  _TrajectoryKind.tool => 'TOOL',
-  _TrajectoryKind.subtool => 'SUBTOOL',
-};
+String _trajectoryKindLabel(BuildContext context, _TrajectoryKind kind) =>
+    switch (kind) {
+      _TrajectoryKind.system => _trajectoryText(
+        context,
+        zh: '系统',
+        zhHant: '系統',
+        en: 'SYSTEM',
+        fr: 'SYSTÈME',
+        de: 'SYSTEM',
+        ja: 'システム',
+      ),
+      _TrajectoryKind.user => _trajectoryText(
+        context,
+        zh: '用户',
+        zhHant: '使用者',
+        en: 'USER',
+        fr: 'UTILISATEUR',
+        de: 'BENUTZER',
+        ja: 'ユーザー',
+      ),
+      _TrajectoryKind.context => _trajectoryText(
+        context,
+        zh: '上下文',
+        zhHant: '上下文',
+        en: 'CONTEXT',
+        fr: 'CONTEXTE',
+        de: 'KONTEXT',
+        ja: 'コンテキスト',
+      ),
+      _TrajectoryKind.compacted => _trajectoryText(
+        context,
+        zh: '已压缩',
+        zhHant: '已壓縮',
+        en: 'COMPACTED',
+        fr: 'COMPACTÉ',
+        de: 'KOMPRIMIERT',
+        ja: '圧縮済み',
+      ),
+      _TrajectoryKind.assistant => _trajectoryText(
+        context,
+        zh: '助手',
+        zhHant: '助理',
+        en: 'ASSISTANT',
+        fr: 'ASSISTANT',
+        de: 'ASSISTENT',
+        ja: 'アシスタント',
+      ),
+      _TrajectoryKind.tool || _TrajectoryKind.subtool => _trajectoryText(
+        context,
+        zh: '工具',
+        zhHant: '工具',
+        en: kind == _TrajectoryKind.subtool ? 'SUBTOOL' : 'TOOL',
+        fr: kind == _TrajectoryKind.subtool ? 'SOUS-OUTIL' : 'OUTIL',
+        de: kind == _TrajectoryKind.subtool ? 'UNTERWERKZEUG' : 'WERKZEUG',
+        ja: kind == _TrajectoryKind.subtool ? 'サブツール' : 'ツール',
+      ),
+    };
 
 String _trajectoryDurationLabel(int? milliseconds) {
   if (milliseconds == null) return '—';
@@ -2528,39 +2855,153 @@ String _trajectoryDurationLabel(int? milliseconds) {
   return '${seconds.toStringAsFixed(seconds < 10 ? 2 : 1)} s';
 }
 
-List<(String, String)> _trajectoryDetailTabs(_TrajectoryRecord record) {
+List<String> _trajectoryDetailTabKeys(_TrajectoryRecord record) {
   return switch (record.kind) {
-    _TrajectoryKind.system => const <(String, String)>[
-      ('system-prompt', 'System Prompt'),
-      ('tools', 'Tools'),
+    _TrajectoryKind.system => const <String>['system-prompt', 'tools'],
+    _TrajectoryKind.user || _TrajectoryKind.context => const <String>[
+      'summary',
+      'rendered',
+      'raw',
+      'source',
+      'timing',
     ],
-    _TrajectoryKind.user || _TrajectoryKind.context => const <(String, String)>[
-      ('summary', 'Summary'),
-      ('rendered', 'Rendered'),
-      ('raw', 'Raw'),
-      ('source', 'Source'),
-      ('timing', 'Timing'),
+    _TrajectoryKind.assistant => const <String>[
+      'summary',
+      'rendered',
+      'raw',
+      'options',
+      'usage',
+      'timing',
     ],
-    _TrajectoryKind.assistant => const <(String, String)>[
-      ('summary', 'Summary'),
-      ('rendered', 'Rendered'),
-      ('raw', 'Raw'),
-      ('options', 'Options'),
-      ('usage', 'Usage'),
-      ('timing', 'Timing'),
-    ],
-    _TrajectoryKind.compacted => const <(String, String)>[
-      ('summary', 'Summary'),
-      ('raw', 'Raw Output'),
-    ],
-    _TrajectoryKind.tool || _TrajectoryKind.subtool => const <(String, String)>[
-      ('summary', 'Summary'),
-      ('input', 'Input'),
-      ('output', 'Output'),
-      ('schema', 'Schema'),
-      ('timing', 'Timing'),
+    _TrajectoryKind.compacted => const <String>['summary', 'raw'],
+    _TrajectoryKind.tool || _TrajectoryKind.subtool => const <String>[
+      'summary',
+      'input',
+      'output',
+      'schema',
+      'timing',
     ],
   };
+}
+
+List<(String, String)> _trajectoryDetailTabs(
+  BuildContext context,
+  _TrajectoryRecord record,
+) {
+  final labels = <String, String>{
+    'system-prompt': _trajectoryText(
+      context,
+      zh: '系统提示词',
+      zhHant: '系統提示詞',
+      en: 'System Prompt',
+      fr: 'Prompt système',
+      de: 'System-Prompt',
+      ja: 'システムプロンプト',
+    ),
+    'tools': _trajectoryText(
+      context,
+      zh: '工具',
+      zhHant: '工具',
+      en: 'Tools',
+      fr: 'Outils',
+      de: 'Werkzeuge',
+      ja: 'ツール',
+    ),
+    'summary': _trajectoryText(
+      context,
+      zh: '摘要',
+      zhHant: '摘要',
+      en: 'Summary',
+      fr: 'Résumé',
+      de: 'Zusammenfassung',
+      ja: '概要',
+    ),
+    'rendered': _trajectoryText(
+      context,
+      zh: '渲染内容',
+      zhHant: '渲染內容',
+      en: 'Rendered',
+      fr: 'Rendu',
+      de: 'Gerendert',
+      ja: '表示',
+    ),
+    'raw': _trajectoryText(
+      context,
+      zh: '原始内容',
+      zhHant: '原始內容',
+      en: 'Raw',
+      fr: 'Brut',
+      de: 'Roh',
+      ja: 'Raw',
+    ),
+    'source': _trajectoryText(
+      context,
+      zh: '来源',
+      zhHant: '來源',
+      en: 'Source',
+      fr: 'Source',
+      de: 'Quelle',
+      ja: 'ソース',
+    ),
+    'options': _trajectoryText(
+      context,
+      zh: '选项',
+      zhHant: '選項',
+      en: 'Options',
+      fr: 'Options',
+      de: 'Optionen',
+      ja: '設定',
+    ),
+    'usage': _trajectoryText(
+      context,
+      zh: '用量',
+      zhHant: '用量',
+      en: 'Usage',
+      fr: 'Utilisation',
+      de: 'Verbrauch',
+      ja: '使用量',
+    ),
+    'timing': _trajectoryText(
+      context,
+      zh: '耗时',
+      zhHant: '耗時',
+      en: 'Timing',
+      fr: 'Temps',
+      de: 'Zeit',
+      ja: '時間',
+    ),
+    'input': _trajectoryText(
+      context,
+      zh: '输入',
+      zhHant: '輸入',
+      en: 'Input',
+      fr: 'Entrée',
+      de: 'Eingabe',
+      ja: '入力',
+    ),
+    'output': _trajectoryText(
+      context,
+      zh: '输出',
+      zhHant: '輸出',
+      en: 'Output',
+      fr: 'Sortie',
+      de: 'Ausgabe',
+      ja: '出力',
+    ),
+    'schema': _trajectoryText(
+      context,
+      zh: '结构',
+      zhHant: '結構',
+      en: 'Schema',
+      fr: 'Schéma',
+      de: 'Schema',
+      ja: 'スキーマ',
+    ),
+  };
+  return [
+    for (final key in _trajectoryDetailTabKeys(record))
+      (key, labels[key] ?? key),
+  ];
 }
 
 class _TrajectoryDetailsPanel extends StatelessWidget {
@@ -2585,7 +3026,7 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final tabs = _trajectoryDetailTabs(record);
+    final tabs = _trajectoryDetailTabs(context, record);
     final effectiveTab = tabs.any((tab) => tab.$1 == activeTab)
         ? activeTab
         : tabs.first.$1;
@@ -2605,7 +3046,15 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
                   Expanded(
                     child: Text(
                       record.turn > 0
-                          ? 'Turn ${record.turn} · Step ${record.step}'
+                          ? _trajectoryText(
+                              context,
+                              zh: '轮次 ${record.turn} · 步骤 ${record.step}',
+                              zhHant: '輪次 ${record.turn} · 步驟 ${record.step}',
+                              en: 'Turn ${record.turn} · Step ${record.step}',
+                              fr: 'Tour ${record.turn} · Étape ${record.step}',
+                              de: 'Durchlauf ${record.turn} · Schritt ${record.step}',
+                              ja: 'ターン ${record.turn} · ステップ ${record.step}',
+                            )
                           : record.preview,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -2624,10 +3073,14 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
                       ),
                     ),
                   IconButton(
-                    tooltip: openHandLocalizedText(
+                    tooltip: _trajectoryText(
                       context,
                       zh: '关闭详情',
+                      zhHant: '關閉詳情',
                       en: 'Close details',
+                      fr: 'Fermer les détails',
+                      de: 'Details schließen',
+                      ja: '詳細を閉じる',
                     ),
                     onPressed: onClose,
                     icon: const Icon(Icons.close_rounded, size: 18),
@@ -2726,20 +3179,52 @@ class _TrajectoryDetailBody extends StatelessWidget {
       'summary' => _buildSummary(context),
       'system-prompt' => _TrajectoryMarkdownDetail(
         text: _trajectorySystemPrompt(metadata),
-        emptyText: 'No system prompt in this request',
+        emptyText: _trajectoryText(
+          context,
+          zh: '本次请求未记录系统提示词',
+          zhHant: '本次請求未記錄系統提示詞',
+          en: 'No system prompt in this request',
+          fr: 'Aucun prompt système enregistré pour cette requête',
+          de: 'Für diese Anfrage wurde kein System-Prompt aufgezeichnet',
+          ja: 'このリクエストにはシステムプロンプトが記録されていません',
+        ),
       ),
       'tools' => _TrajectoryTextDetail(
         text: _trajectoryToolCatalog(metadata),
-        emptyText: 'No tool catalog in this request',
+        emptyText: _trajectoryText(
+          context,
+          zh: '本次请求未记录工具目录',
+          zhHant: '本次請求未記錄工具目錄',
+          en: 'No tool catalog in this request',
+          fr: 'Aucun catalogue d’outils enregistré pour cette requête',
+          de: 'Für diese Anfrage wurde kein Werkzeugkatalog aufgezeichnet',
+          ja: 'このリクエストにはツール一覧が記録されていません',
+        ),
         monospace: true,
       ),
       'rendered' => _TrajectoryMarkdownDetail(
         text: _trajectoryRecordRawText(record),
-        emptyText: 'No content',
+        emptyText: _trajectoryText(
+          context,
+          zh: '无内容',
+          zhHant: '無內容',
+          en: 'No content',
+          fr: 'Aucun contenu',
+          de: 'Kein Inhalt',
+          ja: '内容なし',
+        ),
       ),
       'raw' => _TrajectoryTextDetail(
         text: _trajectoryRecordRawText(record),
-        emptyText: 'No content',
+        emptyText: _trajectoryText(
+          context,
+          zh: '无内容',
+          zhHant: '無內容',
+          en: 'No content',
+          fr: 'Aucun contenu',
+          de: 'Kein Inhalt',
+          ja: '内容なし',
+        ),
         monospace: true,
       ),
       'source' => _TrajectoryTextDetail(
@@ -2750,28 +3235,78 @@ class _TrajectoryDetailBody extends StatelessWidget {
           'request_number': record.requestNumber,
           'metadata': metadata,
         }),
-        emptyText: 'Source not recorded',
+        emptyText: _trajectoryText(
+          context,
+          zh: '未记录来源',
+          zhHant: '未記錄來源',
+          en: 'Source not recorded',
+          fr: 'Source non enregistrée',
+          de: 'Quelle nicht aufgezeichnet',
+          ja: 'ソースは記録されていません',
+        ),
         monospace: true,
       ),
       'input' => _TrajectoryTextDetail(
         text: record.input,
-        emptyText: 'No input payload',
+        emptyText: _trajectoryText(
+          context,
+          zh: '无输入载荷',
+          zhHant: '無輸入載荷',
+          en: 'No input payload',
+          fr: 'Aucune charge utile d’entrée',
+          de: 'Keine Eingabenutzlast',
+          ja: '入力ペイロードなし',
+        ),
         monospace: true,
       ),
       'output' => _TrajectoryTextDetail(
         text: record.output,
-        emptyText: record.running ? 'Pending' : 'No output payload',
+        emptyText: record.running
+            ? _trajectoryText(
+                context,
+                zh: '等待中',
+                zhHant: '等待中',
+                en: 'Pending',
+                fr: 'En attente',
+                de: 'Ausstehend',
+                ja: '待機中',
+              )
+            : _trajectoryText(
+                context,
+                zh: '无输出载荷',
+                zhHant: '無輸出載荷',
+                en: 'No output payload',
+                fr: 'Aucune charge utile de sortie',
+                de: 'Keine Ausgabenutzlast',
+                ja: '出力ペイロードなし',
+              ),
         monospace: true,
         error: record.isError,
       ),
       'schema' => _TrajectoryTextDetail(
         text: _trajectorySchema(metadata),
-        emptyText: 'Schema not recorded',
+        emptyText: _trajectoryText(
+          context,
+          zh: '未记录结构',
+          zhHant: '未記錄結構',
+          en: 'Schema not recorded',
+          fr: 'Schéma non enregistré',
+          de: 'Schema nicht aufgezeichnet',
+          ja: 'スキーマは記録されていません',
+        ),
         monospace: true,
       ),
       'options' => _TrajectoryTextDetail(
         text: _trajectoryRequestOptions(metadata),
-        emptyText: 'Options not recorded',
+        emptyText: _trajectoryText(
+          context,
+          zh: '未记录请求选项',
+          zhHant: '未記錄請求選項',
+          en: 'Options not recorded',
+          fr: 'Options de requête non enregistrées',
+          de: 'Anfrageoptionen nicht aufgezeichnet',
+          ja: 'リクエスト設定は記録されていません',
+        ),
         monospace: true,
       ),
       'usage' => _buildUsage(context),
@@ -2789,10 +3324,34 @@ class _TrajectoryDetailBody extends StatelessWidget {
 
   Widget _buildSummary(BuildContext context) {
     final status = record.isError
-        ? 'Failed'
+        ? _trajectoryText(
+            context,
+            zh: '失败',
+            zhHant: '失敗',
+            en: 'Failed',
+            fr: 'Échec',
+            de: 'Fehlgeschlagen',
+            ja: '失敗',
+          )
         : record.running
-        ? 'Pending'
-        : 'Completed';
+        ? _trajectoryText(
+            context,
+            zh: '等待中',
+            zhHant: '等待中',
+            en: 'Pending',
+            fr: 'En attente',
+            de: 'Ausstehend',
+            ja: '待機中',
+          )
+        : _trajectoryText(
+            context,
+            zh: '已完成',
+            zhHant: '已完成',
+            en: 'Completed',
+            fr: 'Terminé',
+            de: 'Abgeschlossen',
+            ja: '完了',
+          );
     final model =
         record.metadata['model'] ??
         record.metadata['model_id'] ??
@@ -2803,28 +3362,125 @@ class _TrajectoryDetailBody extends StatelessWidget {
       children: [
         _TrajectoryOverview(
           rows: <(String, String, bool)>[
-            ('Status', status, record.isError),
-            if (model != null) ('Model', '$model', false),
-            if (record.toolName != null) ('Tool', record.toolName!, false),
-            if (record.callId != null) ('Call ID', record.callId!, false),
+            (
+              _trajectoryText(
+                context,
+                zh: '状态',
+                zhHant: '狀態',
+                en: 'Status',
+                fr: 'État',
+                de: 'Status',
+                ja: '状態',
+              ),
+              status,
+              record.isError,
+            ),
+            if (model != null)
+              (
+                _trajectoryText(
+                  context,
+                  zh: '模型',
+                  zhHant: '模型',
+                  en: 'Model',
+                  fr: 'Modèle',
+                  de: 'Modell',
+                  ja: 'モデル',
+                ),
+                '$model',
+                false,
+              ),
+            if (record.toolName != null)
+              (
+                _trajectoryText(
+                  context,
+                  zh: '工具',
+                  zhHant: '工具',
+                  en: 'Tool',
+                  fr: 'Outil',
+                  de: 'Werkzeug',
+                  ja: 'ツール',
+                ),
+                record.toolName!,
+                false,
+              ),
+            if (record.callId != null)
+              (
+                _trajectoryText(
+                  context,
+                  zh: '调用 ID',
+                  zhHant: '呼叫 ID',
+                  en: 'Call ID',
+                  fr: 'ID d’appel',
+                  de: 'Aufruf-ID',
+                  ja: '呼び出し ID',
+                ),
+                record.callId!,
+                false,
+              ),
             if (record.kind == _TrajectoryKind.assistant)
               (
-                'Tokens',
+                _trajectoryText(
+                  context,
+                  zh: '令牌',
+                  zhHant: 'Token',
+                  en: 'Tokens',
+                  fr: 'Tokens',
+                  de: 'Token',
+                  ja: 'トークン',
+                ),
                 record.usage?.completionTokens == null
                     ? '—'
                     : '${record.usage!.completionTokens} tok',
                 false,
               ),
-            ('Duration', _trajectoryDurationLabel(record.durationMs), false),
+            (
+              _trajectoryText(
+                context,
+                zh: '时长',
+                zhHant: '時長',
+                en: 'Duration',
+                fr: 'Durée',
+                de: 'Dauer',
+                ja: '所要時間',
+              ),
+              _trajectoryDurationLabel(record.durationMs),
+              false,
+            ),
           ],
         ),
         if (_trajectoryRecordRawText(record).isNotEmpty) ...[
           kOpenHandGap16,
           _TrajectoryOverviewSection(
-            title: record.kind == _TrajectoryKind.tool ? 'Result' : 'Preview',
+            title: record.kind == _TrajectoryKind.tool
+                ? _trajectoryText(
+                    context,
+                    zh: '结果',
+                    zhHant: '結果',
+                    en: 'Result',
+                    fr: 'Résultat',
+                    de: 'Ergebnis',
+                    ja: '結果',
+                  )
+                : _trajectoryText(
+                    context,
+                    zh: '预览',
+                    zhHant: '預覽',
+                    en: 'Preview',
+                    fr: 'Aperçu',
+                    de: 'Vorschau',
+                    ja: 'プレビュー',
+                  ),
             child: _TrajectoryMarkdownDetail(
               text: _trajectoryRecordRawText(record),
-              emptyText: 'No content',
+              emptyText: _trajectoryText(
+                context,
+                zh: '无内容',
+                zhHant: '無內容',
+                en: 'No content',
+                fr: 'Aucun contenu',
+                de: 'Kein Inhalt',
+                ja: '内容なし',
+              ),
               preview: true,
             ),
           ),
@@ -2832,12 +3488,28 @@ class _TrajectoryDetailBody extends StatelessWidget {
         if (record.kind == _TrajectoryKind.assistant) ...[
           kOpenHandGap16,
           _TrajectoryOverviewSection(
-            title: 'Usage',
+            title: _trajectoryText(
+              context,
+              zh: '用量',
+              zhHant: '用量',
+              en: 'Usage',
+              fr: 'Utilisation',
+              de: 'Verbrauch',
+              ja: '使用量',
+            ),
             child: _buildUsage(context, compact: true),
           ),
           kOpenHandGap16,
           _TrajectoryOverviewSection(
-            title: 'Timing',
+            title: _trajectoryText(
+              context,
+              zh: '耗时',
+              zhHant: '耗時',
+              en: 'Timing',
+              fr: 'Temps',
+              de: 'Zeit',
+              ja: '時間',
+            ),
             child: _buildTiming(context, compact: true),
           ),
         ],
@@ -2848,7 +3520,17 @@ class _TrajectoryDetailBody extends StatelessWidget {
   Widget _buildUsage(BuildContext context, {bool compact = false}) {
     final usage = record.usage;
     if (usage == null || usage.isEmpty) {
-      return const _TrajectoryEmptyDetail(text: 'Usage not reported');
+      return _TrajectoryEmptyDetail(
+        text: _trajectoryText(
+          context,
+          zh: '未报告用量',
+          zhHant: '未報告用量',
+          en: 'Usage not reported',
+          fr: 'Utilisation non rapportée',
+          de: 'Verbrauch nicht gemeldet',
+          ja: '使用量は報告されていません',
+        ),
+      );
     }
     final contentTokens =
         usage.completionTokens != null && usage.reasoningTokens != null
@@ -2858,18 +3540,103 @@ class _TrajectoryDetailBody extends StatelessWidget {
       compact: compact,
       rows: <(String, String, bool)>[
         if (usage.promptTokens != null)
-          ('Input', '${usage.promptTokens} tok', false),
+          (
+            _trajectoryText(
+              context,
+              zh: '输入',
+              zhHant: '輸入',
+              en: 'Input',
+              fr: 'Entrée',
+              de: 'Eingabe',
+              ja: '入力',
+            ),
+            '${usage.promptTokens} tok',
+            false,
+          ),
         if (usage.cacheReadTokens != null)
-          ('Cached', '${usage.cacheReadTokens} tok', false),
+          (
+            _trajectoryText(
+              context,
+              zh: '缓存读取',
+              zhHant: '快取讀取',
+              en: 'Cached',
+              fr: 'Cache lu',
+              de: 'Cache gelesen',
+              ja: 'キャッシュ読込',
+            ),
+            '${usage.cacheReadTokens} tok',
+            false,
+          ),
         if (usage.cacheCreationTokens != null)
-          ('Cache created', '${usage.cacheCreationTokens} tok', false),
+          (
+            _trajectoryText(
+              context,
+              zh: '缓存创建',
+              zhHant: '快取建立',
+              en: 'Cache created',
+              fr: 'Cache créé',
+              de: 'Cache erstellt',
+              ja: 'キャッシュ作成',
+            ),
+            '${usage.cacheCreationTokens} tok',
+            false,
+          ),
         if (usage.completionTokens != null)
-          ('Output', '${usage.completionTokens} tok', false),
+          (
+            _trajectoryText(
+              context,
+              zh: '输出',
+              zhHant: '輸出',
+              en: 'Output',
+              fr: 'Sortie',
+              de: 'Ausgabe',
+              ja: '出力',
+            ),
+            '${usage.completionTokens} tok',
+            false,
+          ),
         if (usage.reasoningTokens != null)
-          ('Reasoning', '${usage.reasoningTokens} tok', false),
-        if (contentTokens != null) ('Content', '$contentTokens tok', false),
+          (
+            _trajectoryText(
+              context,
+              zh: '推理',
+              zhHant: '推理',
+              en: 'Reasoning',
+              fr: 'Raisonnement',
+              de: 'Schlussfolgerung',
+              ja: '推論',
+            ),
+            '${usage.reasoningTokens} tok',
+            false,
+          ),
+        if (contentTokens != null)
+          (
+            _trajectoryText(
+              context,
+              zh: '正文',
+              zhHant: '正文',
+              en: 'Content',
+              fr: 'Contenu',
+              de: 'Inhalt',
+              ja: '本文',
+            ),
+            '$contentTokens tok',
+            false,
+          ),
         if (usage.resolvedTotalTokens != null)
-          ('Total', '${usage.resolvedTotalTokens} tok', false),
+          (
+            _trajectoryText(
+              context,
+              zh: '总计',
+              zhHant: '總計',
+              en: 'Total',
+              fr: 'Total',
+              de: 'Gesamt',
+              ja: '合計',
+            ),
+            '${usage.resolvedTotalTokens} tok',
+            false,
+          ),
       ],
     );
   }
@@ -2888,28 +3655,81 @@ class _TrajectoryDetailBody extends StatelessWidget {
         ? math.max(0, record.durationMs! - ttft)
         : null;
     final outputTokens = record.usage?.completionTokens;
+    final notRecorded = _trajectoryText(
+      context,
+      zh: '未记录',
+      zhHant: '未記錄',
+      en: 'Not recorded',
+      fr: 'Non enregistré',
+      de: 'Nicht aufgezeichnet',
+      ja: '記録なし',
+    );
     final throughput =
         outputTokens != null && generation != null && generation > 0
         ? '${(outputTokens / generation * 1000).toStringAsFixed(1)} tok/s'
-        : 'Not recorded';
+        : notRecorded;
     return _TrajectoryOverview(
       compact: compact,
       rows: <(String, String, bool)>[
-        ('Started', _trajectoryDateTimeLabel(startedAt), false),
-        ('Total duration', _trajectoryDurationLabel(record.durationMs), false),
         (
-          'TTFT',
-          ttft == null ? 'Not recorded' : _trajectoryDurationLabel(ttft),
+          _trajectoryText(
+            context,
+            zh: '开始时间',
+            zhHant: '開始時間',
+            en: 'Started',
+            fr: 'Début',
+            de: 'Beginn',
+            ja: '開始時刻',
+          ),
+          _trajectoryDateTimeLabel(startedAt),
           false,
         ),
         (
-          'Generation',
+          _trajectoryText(
+            context,
+            zh: '总耗时',
+            zhHant: '總耗時',
+            en: 'Total duration',
+            fr: 'Durée totale',
+            de: 'Gesamtdauer',
+            ja: '合計時間',
+          ),
+          _trajectoryDurationLabel(record.durationMs),
+          false,
+        ),
+        (
+          'TTFT',
+          ttft == null ? notRecorded : _trajectoryDurationLabel(ttft),
+          false,
+        ),
+        (
+          _trajectoryText(
+            context,
+            zh: '生成耗时',
+            zhHant: '生成耗時',
+            en: 'Generation',
+            fr: 'Génération',
+            de: 'Generierung',
+            ja: '生成時間',
+          ),
           generation == null
-              ? 'Not recorded'
+              ? notRecorded
               : _trajectoryDurationLabel(generation),
           false,
         ),
-        ('Throughput', throughput, false),
+        (
+          _trajectoryText(
+            context,
+            zh: '吞吐率',
+            zhHant: '吞吐率',
+            en: 'Throughput',
+            fr: 'Débit',
+            de: 'Durchsatz',
+            ja: 'スループット',
+          ),
+          throughput,
+          false,
+        ),
       ],
     );
   }
@@ -2946,7 +3766,9 @@ class _TrajectoryOverview extends StatelessWidget {
                   child: SelectableText(
                     row.$2,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: row.$3 ? _kTrajectoryErrorColor : null,
+                      color: row.$3
+                          ? Theme.of(context).colorScheme.error
+                          : null,
                       height: 1.35,
                     ),
                   ),
@@ -3043,7 +3865,7 @@ class _TrajectoryTextDetail extends StatelessWidget {
       text,
       style: theme.textTheme.bodySmall?.copyWith(
         fontFamily: monospace ? 'monospace' : null,
-        color: error ? _kTrajectoryErrorColor : null,
+        color: error ? Theme.of(context).colorScheme.error : null,
         height: 1.5,
       ),
     );
@@ -3164,7 +3986,16 @@ String _trajectoryPrettyValue(Object? value) {
 }
 
 String _trajectoryDateTimeLabel(DateTime? value) {
-  if (value == null) return 'Not available';
+  if (value == null) {
+    return openHandAmbientText(
+      zh: '不可用',
+      zhHant: '不可用',
+      en: 'Not available',
+      fr: 'Indisponible',
+      de: 'Nicht verfügbar',
+      ja: '利用不可',
+    );
+  }
   final local = value.toLocal();
   String two(int number) => number.toString().padLeft(2, '0');
   String three(int number) => number.toString().padLeft(3, '0');

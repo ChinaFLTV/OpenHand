@@ -6,7 +6,7 @@ import {
   type SessionMessage,
 } from '../api/sessions';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { t } from '../i18n';
+import { t, tFmt } from '../i18n';
 import { ignoreError } from '../shared/util/errors';
 import { Markdown } from './Markdown';
 import {
@@ -218,7 +218,7 @@ function toolOutput(metadata: Record<string, unknown>): string {
 }
 
 function toolPreview(name: string, input: string, output: string): string {
-  const label = name || 'tool';
+  const label = name || t('trajectory.toolFallback', '工具');
   const inputPreview = clipped(input, 260);
   const outputPreview = clipped(output, 260);
   if (!inputPreview && !outputPreview) return label;
@@ -236,7 +236,8 @@ function messageRecord(
   kind: TrajectoryKind,
 ): TrajectoryRecord {
   const metadata = recordOf(message.metadata);
-  const [startedAt, durationMs] = messageTiming(message, kind);
+  const [startedAt, recordedDurationMs] = messageTiming(message, kind);
+  const durationMs = kind === 'user' || kind === 'context' ? 0 : recordedDurationMs;
   const content = (message.content ?? '').trim();
   return {
     id: `message-${message.id}`,
@@ -245,7 +246,7 @@ function messageRecord(
     step,
     requestNumber,
     kind,
-    preview: clipped(content) || (message.kind === 'file_mutation_summary' ? 'File mutation summary' : ''),
+    preview: clipped(content) || (message.kind === 'file_mutation_summary' ? t('trajectory.fileMutationSummary', '文件变更摘要') : ''),
     input: kind === 'user' || kind === 'context' ? content : '',
     output: kind === 'assistant' || kind === 'compacted' ? content : '',
     thinking: message.kind === 'reasoning' ? content : '',
@@ -366,7 +367,7 @@ function buildSnapshot(messages: readonly SessionMessage[], sessionCreatedAt?: s
     step: 0,
     requestNumber: 0,
     kind: 'system',
-    preview: 'Initial System Prompt',
+    preview: t('trajectory.initialSystemPrompt', '初始系统提示词'),
     input: '',
     output: '',
     thinking: '',
@@ -474,15 +475,7 @@ function buildSnapshot(messages: readonly SessionMessage[], sessionCreatedAt?: s
 }
 
 function kindLabel(kind: TrajectoryKind): string {
-  switch (kind) {
-    case 'system': return 'SYSTEM';
-    case 'user': return 'USER';
-    case 'context': return 'CONTEXT';
-    case 'compacted': return 'COMPACTED';
-    case 'assistant': return 'ASSISTANT';
-    case 'tool': return 'TOOL';
-    case 'subtool': return 'SUBTOOL';
-  }
+  return t(`trajectory.kind.${kind}`, kind.toUpperCase());
 }
 
 function laneOf(kind: TrajectoryKind): number {
@@ -493,16 +486,35 @@ function laneOf(kind: TrajectoryKind): number {
 
 function projectTimeline(records: readonly TrajectoryRecord[], actualDuration: boolean): TimelineSpan[] {
   if (!records.length) return [];
-  const weights = records.map((record) => actualDuration
-    ? Math.max(20, record.durationMs ?? 20)
-    : 1);
-  const total = weights.reduce((sum, weight) => sum + weight, 0);
-  let cursor = 0;
-  return records.map((record, index) => {
-    const start = cursor / total;
-    cursor += weights[index] ?? 1;
-    return { record, start, end: cursor / total };
+  if (!actualDuration) {
+    return records.map((record, index) => ({
+      record,
+      start: index / records.length,
+      end: (index + 1) / records.length,
+    }));
+  }
+  const timed = records
+    .filter((record) => record.startedAt != null)
+    .sort((left, right) => (left.startedAt! - right.startedAt!) || (left.index - right.index));
+  if (!timed.length) return projectTimeline(records, false);
+
+  const epoch = timed[0]!.startedAt!;
+  let removedIdle = 0;
+  let coveredUntil: number | null = null;
+  const projected = timed.map((record): TimelineSpan => {
+    const rawStart = record.startedAt! - epoch;
+    const rawEnd = rawStart + Math.max(0, record.durationMs ?? 0);
+    if (coveredUntil != null && rawStart > coveredUntil) removedIdle += rawStart - coveredUntil;
+    const span = { record, start: rawStart - removedIdle, end: rawEnd - removedIdle };
+    coveredUntil = coveredUntil == null ? rawEnd : Math.max(coveredUntil, rawEnd);
+    return span;
   });
+  const domainEnd = Math.max(1, ...projected.map((span) => span.end));
+  return projected.map((span) => ({
+    ...span,
+    start: span.start / domainEnd,
+    end: span.end / domainEnd,
+  }));
 }
 
 function formatDuration(milliseconds: number | null): string {
@@ -744,9 +756,9 @@ function TrajectoryTimeline({
   return (
     <section class="oh-trajectory-timeline" aria-label={t('trajectory.timeline', '轨迹时间线')}>
       <div class="oh-trajectory-lane-labels" aria-hidden="true">
-        <span>Input</span>
-        <span>Model</span>
-        <span>Tools</span>
+        <span>{t('trajectory.lane.input', '输入')}</span>
+        <span>{t('trajectory.lane.model', '模型')}</span>
+        <span>{t('trajectory.lane.tools', '工具')}</span>
       </div>
       <div
         ref={trackRef}
@@ -829,7 +841,7 @@ function TrajectoryTimeline({
             onClick={() => void onLoadOlder()}
             title={loadingOlder
               ? t('trajectory.loadingOlder', '正在加载更早记录…')
-              : t('trajectory.loadOlder', '加载更早记录')}
+              : t('trajectory.loadOlderHint', '点击加载更早记录')}
           >
             {loadingOlder ? <span class="oh-trajectory-spinner" /> : '…'}
           </button>
@@ -976,7 +988,7 @@ function DetailBody({
         [t('trajectory.status', 'Status'), status, record.error],
         ...(model ? [[t('trajectory.model', 'Model'), model] as [string, string]] : []),
         ...(record.toolName ? [[t('trajectory.tool', 'Tool'), record.toolName] as [string, string]] : []),
-        ...(record.callId ? [['Call ID', record.callId] as [string, string]] : []),
+        ...(record.callId ? [[t('trajectory.callId', '调用 ID'), record.callId] as [string, string]] : []),
         ...(record.kind === 'assistant' ? [[t('trajectory.tokens', 'Tokens'), record.usage?.completionTokens == null ? '—' : `${record.usage.completionTokens} tok`] as [string, string]] : []),
         [t('trajectory.duration', 'Duration'), formatDuration(record.durationMs)],
       ]} />
@@ -1017,7 +1029,13 @@ function DetailsPanel({
     <aside class="oh-trajectory-details">
       <header>
         <span class={`oh-trajectory-kind is-${record.kind}`}>{kindLabel(record.kind)}</span>
-        <strong>{record.turn > 0 ? `Turn ${record.turn} · Step ${record.step}` : record.preview}</strong>
+        <strong>{record.turn > 0
+          ? tFmt(
+            'trajectory.turnStep',
+            { turn: record.turn, step: record.step },
+            `Turn ${record.turn} · Step ${record.step}`,
+          )
+          : record.preview}</strong>
         {loading ? <span class="oh-trajectory-spinner" /> : null}
         <button type="button" class="oh-trajectory-icon-button" onClick={onClose} title={t('trajectory.closeDetails', '关闭详情')}>
           <CloseIcon />
@@ -1175,7 +1193,7 @@ export function TrajectoryDialog({
             return next;
           })}
         >
-          <span>Turn {record.turn}</span>
+          <span>{tFmt('trajectory.turn', { turn: record.turn }, `轮次 ${record.turn}`)}</span>
           <strong>{count} {t('trajectory.records', '条记录')}</strong>
           <small>{formatDuration(duration || null)}</small>
         </button>,
@@ -1213,7 +1231,7 @@ export function TrajectoryDialog({
         <span class="oh-trajectory-turn-cell">
           {turnStart ? (
             <span class="oh-trajectory-turn-label">
-              Turn {record.turn}
+              {tFmt('trajectory.turn', { turn: record.turn }, `轮次 ${record.turn}`)}
               {snapshot.collapsibleTurns.has(record.turn) ? (
                 <i
                   role="button"
@@ -1238,7 +1256,7 @@ export function TrajectoryDialog({
         <span class="oh-trajectory-event-cell">
           <span class={`oh-trajectory-kind is-${record.kind}`}>{kindLabel(record.kind)}</span>
           {record.requestNumber > 0 && (record.kind === 'assistant' || record.kind === 'compacted') ? (
-            <small title={`Request ${record.requestNumber}`}>#{record.requestNumber}</small>
+            <small title={tFmt('trajectory.request', { number: record.requestNumber }, `Request ${record.requestNumber}`)}>#{record.requestNumber}</small>
           ) : null}
         </span>
         <span class="oh-trajectory-content-cell">
@@ -1264,7 +1282,11 @@ export function TrajectoryDialog({
                 }
               }}
             >
-              {collapsedCalls.has(record.id) ? '+' : '−'} {callCount} calls
+              {collapsedCalls.has(record.id) ? '+' : '−'} {tFmt(
+                'trajectory.callsCount',
+                { count: callCount },
+                `${callCount} calls`,
+              )}
             </i>
           ) : null}
         </span>
@@ -1329,7 +1351,7 @@ export function TrajectoryDialog({
               <span>{allCallsCollapsed ? '⊞' : '⊟'}</span>{t('trajectory.calls', 'Calls')}
             </button>
           </div>
-          <label class="oh-trajectory-search">
+          <div class="oh-trajectory-search" role="search">
             <SearchIcon />
             <input
               type="search"
@@ -1338,8 +1360,21 @@ export function TrajectoryDialog({
               placeholder={t('trajectory.search', '搜索')}
               aria-label={t('trajectory.search', '搜索')}
             />
-            {searchQuery ? <span>{searchMatches?.size ?? 0}</span> : null}
-          </label>
+            {searchQuery ? (
+              <>
+                <span>{searchMatches?.size ?? 0}</span>
+                <button
+                  type="button"
+                  class="oh-trajectory-search-clear"
+                  title={t('trajectory.clearSearch', '清除搜索')}
+                  aria-label={t('trajectory.clearSearch', '清除搜索')}
+                  onClick={() => setSearchQuery('')}
+                >
+                  <CloseIcon />
+                </button>
+              </>
+            ) : null}
+          </div>
         </div>
         <TrajectoryTimeline
           key={actualDuration ? 'duration' : 'equal'}

@@ -9387,12 +9387,12 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 
 .oh-trajectory-shell {
-  --trajectory-system: #8a9099;
-  --trajectory-user: #5b8def;
-  --trajectory-context: #45a36b;
-  --trajectory-assistant: #9b72cf;
-  --trajectory-tool: #e28a24;
-  --trajectory-error: #e05a63;
+  --trajectory-system: var(--m3-on-surface-variant);
+  --trajectory-user: var(--m3-primary);
+  --trajectory-context: var(--m3-secondary);
+  --trajectory-assistant: var(--m3-tertiary);
+  --trajectory-tool: color-mix(in srgb, var(--m3-primary) 42%, var(--m3-tertiary));
+  --trajectory-error: var(--m3-error);
   display: flex;
   flex: 1;
   min-width: 0;
@@ -9547,9 +9547,9 @@ button.oh-composer-pill:not(:disabled):hover {
   height: 30px;
   flex: none;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   box-sizing: border-box;
-  padding: 0 9px;
+  padding: 0 6px;
   border: 1px solid var(--m3-outline-variant);
   border-radius: 5px;
   color: var(--m3-on-surface-variant);
@@ -9572,8 +9572,11 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 
 .oh-trajectory-search input {
+  appearance: none;
+  -webkit-appearance: none;
   min-width: 0;
   flex: 1;
+  padding: 0;
   border: 0;
   outline: 0;
   color: var(--m3-on-surface);
@@ -9586,9 +9589,44 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 
 .oh-trajectory-search > span {
+  flex: none;
+  min-width: 14px;
   color: var(--m3-primary);
   font-size: 10px;
   font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.oh-trajectory-search-clear {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--m3-on-surface-variant);
+  background: transparent;
+  cursor: pointer;
+  transition: color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+
+.oh-trajectory-search-clear:hover {
+  color: var(--m3-on-surface);
+  background: color-mix(in srgb, var(--m3-on-surface) 8%, transparent);
+}
+
+.oh-trajectory-search-clear:active { transform: scale(0.9); }
+
+.oh-trajectory-search-clear svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
 }
 
 .oh-trajectory-timeline {
@@ -9986,31 +10024,59 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-trajectory-load-row,
 .oh-trajectory-collapsed-row {
   display: flex;
-  width: 100%;
-  height: 31px;
+  width: fit-content;
+  min-width: 168px;
+  height: 34px;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  padding: 0 10px;
-  border: 0;
-  border-bottom: 1px solid var(--m3-outline-variant);
-  color: var(--m3-on-surface-variant);
-  background: var(--m3-surface);
+  margin: 6px auto;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--m3-primary) 28%, var(--m3-outline-variant));
+  border-radius: 8px;
+  color: var(--m3-primary);
+  background: color-mix(in srgb, var(--m3-primary-container) 62%, var(--m3-surface));
   cursor: pointer;
   font-size: 10px;
+  font-weight: 650;
+  transition: color 140ms ease, background 140ms ease, border-color 140ms ease, transform 140ms ease;
 }
 
-.oh-trajectory-load-row:hover,
-.oh-trajectory-collapsed-row:hover {
-  color: var(--m3-on-surface);
-  background: color-mix(in srgb, var(--m3-on-surface) 5%, transparent);
+.oh-trajectory-load-row:hover {
+  color: var(--m3-on-primary-container);
+  border-color: var(--m3-primary);
+  background: var(--m3-primary-container);
+}
+
+.oh-trajectory-load-row:active { transform: translateY(1px) scale(0.98); }
+
+.oh-trajectory-load-row:disabled {
+  cursor: default;
+  opacity: 0.72;
+  transform: none;
 }
 
 .oh-trajectory-collapsed-row {
+  width: 100%;
+  min-width: 0;
   height: 36px;
   justify-content: flex-start;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid var(--m3-outline-variant);
+  border-radius: 0;
   border-left: 3px solid color-mix(in srgb, var(--m3-primary) 42%, transparent);
+  color: var(--m3-on-surface-variant);
+  background: var(--m3-surface);
+  font-weight: 400;
   text-align: left;
+  transform: none;
+}
+
+.oh-trajectory-collapsed-row:hover {
+  color: var(--m3-on-surface);
+  border-color: var(--m3-outline-variant);
+  background: color-mix(in srgb, var(--m3-on-surface) 5%, transparent);
 }
 
 .oh-trajectory-collapsed-row > span { width: 84px; }
