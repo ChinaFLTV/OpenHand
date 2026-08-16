@@ -3357,25 +3357,12 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
                         duration: tabMotion,
                         curve: kCardDecorationMotionCurve,
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
+                          horizontal: 8,
                           vertical: 5,
                         ),
                         decoration: BoxDecoration(
-                          color: Color.alphaBlend(
-                            infoAccent.withValues(alpha: 0.1),
-                            colorScheme.surfaceContainerHigh,
-                          ),
-                          border: Border.all(
-                            color: infoAccent.withValues(alpha: 0.26),
-                          ),
-                          borderRadius: kOpenHandBorderRadius8,
-                          boxShadow: [
-                            BoxShadow(
-                              color: infoAccent.withValues(alpha: 0.09),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+                          color: infoAccent.withValues(alpha: 0.15),
+                          borderRadius: kOpenHandBorderRadius5,
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -3384,7 +3371,7 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
                               record.turn > 0
                                   ? Icons.route_outlined
                                   : Icons.description_outlined,
-                              size: 14,
+                              size: 13,
                               color: infoAccent,
                             ),
                             kOpenHandHGap5,
@@ -3400,12 +3387,9 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  color: Color.lerp(
-                                    colorScheme.onSurfaceVariant,
-                                    infoAccent,
-                                    0.38,
-                                  ),
-                                  fontWeight: FontWeight.w700,
+                                  color: infoAccent,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0,
                                 ),
                               ),
                             ),
