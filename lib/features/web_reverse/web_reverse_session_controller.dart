@@ -3403,7 +3403,7 @@ class WebReverseSessionController extends ChangeNotifier {
             idleTimeout: _kAliveProbeTimeout,
             action: (client) async {
               final req = await client
-                  .getUrl(webReverseCdpHttpUri(port, '/json/version'))
+                  .getUrl(webReverseCdpHttpUri(port, webReverseCdpJsonVersionPath))
                   .timeout(deadline.remaining());
               final res = await req.close().timeout(deadline.remaining());
               await res.drain<void>().timeout(deadline.remaining());

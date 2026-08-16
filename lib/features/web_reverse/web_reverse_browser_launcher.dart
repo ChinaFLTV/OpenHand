@@ -94,7 +94,7 @@ class WebReverseBrowserLauncher {
         // 1) 是否已被 CDP 占用？每次探测独立持有客户端，超时后强制释放连接。
         try {
           final response = await _requestCdpEndpoint(
-            webReverseCdpHttpUri(port, '/json/version'),
+            webReverseCdpHttpUri(port, webReverseCdpJsonVersionPath),
             timeout: probeTimeout,
             readBody: false,
           );
@@ -275,7 +275,7 @@ class WebReverseBrowserLauncher {
       try {
         final requestBudget = handshakeDeadline.remaining();
         final resp = await _requestCdpEndpoint(
-          webReverseCdpHttpUri(port, '/json/version'),
+          webReverseCdpHttpUri(port, webReverseCdpJsonVersionPath),
           timeout: requestBudget < _handshakeProbeTimeout
               ? requestBudget
               : _handshakeProbeTimeout,

@@ -4968,7 +4968,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         'cdp_http_endpoint': webReverseCdpHttpOrigin(port),
         'json_version_url': webReverseCdpHttpUri(
           port,
-          '/json/version',
+          webReverseCdpJsonVersionPath,
         ).toString(),
         'json_list_url': webReverseCdpHttpUri(port, '/json/list').toString(),
       },

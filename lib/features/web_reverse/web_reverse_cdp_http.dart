@@ -4,6 +4,9 @@ import '../../shared/util/argument_guards.dart';
 
 const String webReverseCdpLoopbackHost = '127.0.0.1';
 
+/// CDP HTTP 端点：获取浏览器版本与 WebSocket 调试 URL。
+const String webReverseCdpJsonVersionPath = '/json/version';
+
 Future<T> withWebReverseCdpHttpClient<T>({
   required Future<T> Function(HttpClient client) action,
   Duration connectionTimeout = const Duration(seconds: 2),
