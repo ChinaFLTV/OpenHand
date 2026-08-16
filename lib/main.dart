@@ -43,7 +43,6 @@ import 'shared/fps/openhand_fps_monitor.dart';
 import 'shared/ui/structured_error_text.dart';
 import 'shared/util/user_failure_message.dart';
 
-const Duration _mcpRuntimeCleanupTimeout = Duration(seconds: 10);
 const Duration _runtimeCleanupTotalTimeout = Duration(seconds: 60);
 
 Future<void> main() async {
@@ -501,7 +500,7 @@ Future<void> _bootstrap() async {
     ..register(
       'MCP 控制器',
       mcp.controller.shutdown,
-      timeout: _mcpRuntimeCleanupTimeout,
+      timeout: McpController.runtimeCleanupTimeout,
     )
     ..register(
       'AI 会话控制器',

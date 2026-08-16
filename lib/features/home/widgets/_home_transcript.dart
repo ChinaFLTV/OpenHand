@@ -622,13 +622,14 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           _materializeOpenWindow(progressive: true);
         });
       });
-      WidgetsBinding.instance.endOfFrame.then((_) {
-        if (!mounted) return;
-        if (_renderEntries.isNotEmpty) return;
-        setState(() {
-          _materializeOpenWindow(progressive: true);
-        });
-      });
+      unawaited(
+        _awaitEndOfFrameBounded().then((_) {
+          if (!mounted || _renderEntries.isNotEmpty) return;
+          setState(() {
+            _materializeOpenWindow(progressive: true);
+          });
+        }),
+      );
       // jumpToBottomOnInit 由父级 jumpTo 单独保证；这里不再做多帧 settle。
     } else if (oldWidget.session.messages != widget.session.messages ||
         oldWidget.session.updatedAt != widget.session.updatedAt) {
@@ -1469,10 +1470,10 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             _replaceRenderEntries(_visibleMessagesForWindow(), animate: false);
           });
         }
-        await WidgetsBinding.instance.endOfFrame;
+        await _awaitEndOfFrameBounded();
       } else if (targetNeedsOlderWindow || targetNeedsHydration) {
         await _revealOlderMessages();
-        await WidgetsBinding.instance.endOfFrame;
+        await _awaitEndOfFrameBounded();
       } else {
         break;
       }
@@ -1498,7 +1499,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       attempt < _kScrollToMessageMaterializeFrameLimit;
       attempt += 1
     ) {
-      await WidgetsBinding.instance.endOfFrame;
+      await _awaitEndOfFrameBounded();
       if (await tryEnsureVisible(anchorMessageId)) return true;
       if (!mounted) return false;
       if (attempt == 2) {
@@ -1791,7 +1792,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     int settleFrameCount = _transcriptPrependAnchorSettleFrameCount,
   }) async {
     if (!mounted || anchor == null) return;
-    await WidgetsBinding.instance.endOfFrame;
+    await _awaitEndOfFrameBounded();
     if (!mounted) return;
     final restored = _restorePrependAnchor(anchor);
     if (restored || stabilizeAlways) {
@@ -2230,7 +2231,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           return;
         }
       }
-      await WidgetsBinding.instance.endOfFrame;
+      await _awaitEndOfFrameBounded();
       if (!mounted) {
         return;
       }
@@ -2295,7 +2296,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       silentLog('home_transcript', '显示更早消息', error, stack);
     } finally {
       if (revealStarted && mounted) {
-        await WidgetsBinding.instance.endOfFrame;
+        await _awaitEndOfFrameBounded();
         await Future<void>.delayed(_transcriptHistoryRevealCooldown);
         if (mounted) {
           setState(() {

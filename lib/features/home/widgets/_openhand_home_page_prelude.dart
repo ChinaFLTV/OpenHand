@@ -385,14 +385,18 @@ Duration _effectiveSwitchDuration(
   return Duration(milliseconds: math.max(clamped, minimumAnimatedDurationMs));
 }
 
+const Duration _endOfFrameWaitTimeout = Duration(milliseconds: 250);
+
+Future<void> _awaitEndOfFrameBounded() {
+  return WidgetsBinding.instance.endOfFrame.timeout(
+    _endOfFrameWaitTimeout,
+    onTimeout: () {},
+  );
+}
+
 Future<void> _awaitEndOfFrame() async {
-  await WidgetsBinding.instance.endOfFrame;
-  // One extra event-loop turn is required to fully escape the handleDrawFrame
-  // call stack on desktop.  Flutter's endOfFrame future uses a sync Completer,
-  // so its continuations execute synchronously inside the post-frame callback
-  // chain — still within MouseTracker._deviceUpdatePhase — and any setState /
-  // notifyListeners triggered there causes a !_debugDuringDeviceUpdate
-  // assertion.  The delayed(Duration.zero) hop pushes us past the end of
-  // handleDrawFrame into the next microtask-free event-loop cycle.
+  await _awaitEndOfFrameBounded();
+  // 桌面端需额外跨过一个事件循环，彻底离开 handleDrawFrame 调用栈，
+  // 避免同步的 endOfFrame 回调在 MouseTracker 更新阶段触发状态变更断言。
   await Future<void>.delayed(Duration.zero);
 }

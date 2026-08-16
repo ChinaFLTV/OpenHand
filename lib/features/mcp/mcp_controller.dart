@@ -168,6 +168,7 @@ class McpController extends ChangeNotifier {
 
   static const Duration _pageActivationWorkDelay = Duration(milliseconds: 450);
   static const Duration _autoProbeGap = Duration(milliseconds: 80);
+  static const Duration runtimeCleanupTimeout = Duration(seconds: 10);
   static const int defaultAutoProbeConcurrency = 5;
   static const int _minAutoProbeConcurrency = 1;
   static const int _maxAutoProbeConcurrency = 32;
@@ -637,11 +638,11 @@ class McpController extends ChangeNotifier {
     String action,
     FutureOr<void> Function() operation,
   ) async {
-    try {
-      await Future<void>.sync(operation);
-    } catch (error, stack) {
-      silentLog('mcp', action, error, stack);
-    }
+    await runAsyncCleanupBounded(
+      operation,
+      timeout: runtimeCleanupTimeout,
+      onError: (error, stack) => silentLog('mcp', action, error, stack),
+    );
   }
 
   void clearPersistenceIssue() {

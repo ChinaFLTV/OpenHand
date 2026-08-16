@@ -9,19 +9,17 @@ import 'package:flutter/scheduler.dart';
 import '../util/input_value_parsing.dart';
 import 'motion_preference.dart';
 
+const int _kStreamingTextRevealMaxLength = 32 * 1024;
+
 class _StreamingTextFadeMask extends StatefulWidget {
   const _StreamingTextFadeMask({
     required this.textLength,
-    required this.streaming,
     required this.child,
     this.animateSize = true,
   });
 
   /// 当前已渲染文本长度。新增即触发尾部 fade。
   final int textLength;
-
-  /// streaming==false 时停止入队，已有段继续完成后停 Ticker。
-  final bool streaming;
 
   final Widget child;
 
@@ -48,9 +46,6 @@ class _StreamingTextFadeMaskState extends State<_StreamingTextFadeMask>
   /// 取 520ms：长到能看到 Q 弹「亮」起来，又不至于压住下一批的登场感。
   static const int _fadeMs = 520;
   static const Duration _heightDuration = Duration(milliseconds: 220);
-
-  /// 超长文本停用 ShaderMask（避免对 GPU 合成层产生大开销）。
-  static const int _kRevealMaxLength = 32 * 1024;
 
   /// 段队列上限：超出后丢弃最早段（其 alpha 早已=1，肉眼无差）。
   static const int _kMaxSegments = 24;
@@ -84,7 +79,7 @@ class _StreamingTextFadeMaskState extends State<_StreamingTextFadeMask>
       _settleWithoutMotion();
       return;
     }
-    if (widget.textLength > _kRevealMaxLength) {
+    if (widget.textLength > _kStreamingTextRevealMaxLength) {
       _settleWithoutMotion();
       return;
     }
@@ -150,7 +145,7 @@ class _StreamingTextFadeMaskState extends State<_StreamingTextFadeMask>
   Widget build(BuildContext context) {
     final motionEnabled = openHandTickerMotionEnabled(context);
     final total = widget.textLength;
-    final revealEnabled = total <= _kRevealMaxLength;
+    final revealEnabled = total <= _kStreamingTextRevealMaxLength;
     final hasActiveFade = _segments.isNotEmpty && total > 0;
 
     Widget body = widget.child;
@@ -250,7 +245,6 @@ class StreamingTextRevealText extends StatefulWidget {
 
 class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
     with SingleTickerProviderStateMixin {
-  static const int _kRevealMaxLength = 32 * 1024;
   static const int _kSmallBacklogThreshold = 24;
   static const int _kMediumBacklogThreshold = 120;
   static const int _kLargeBacklogThreshold = 480;
@@ -265,7 +259,7 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
 
   int get _targetGraphemes => _graphemeEnds.length;
   bool get _bypassReveal =>
-      !widget.streaming || widget.text.length > _kRevealMaxLength;
+      !widget.streaming || widget.text.length > _kStreamingTextRevealMaxLength;
 
   @override
   void initState() {
@@ -416,7 +410,6 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
     }
     return _StreamingTextFadeMask(
       textLength: visibleText.length,
-      streaming: widget.streaming,
       animateSize: widget.animateSize,
       child: widget.builder(context, visibleText),
     );
