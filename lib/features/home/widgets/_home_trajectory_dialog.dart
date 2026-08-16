@@ -3317,10 +3317,9 @@ class _TrajectoryDetailsPanel extends StatelessWidget {
         ? tabs.length - selectedTabIndex - 1
         : selectedTabIndex;
     final tabMotion = cardMotionDurationFor(context, expanding: true);
-    final indicatorAlignment = Alignment(
-      -1 + (visualTabIndex * 2 + 1) / tabs.length,
-      1,
-    );
+    final indicatorAlignment = tabs.length == 1
+        ? Alignment.bottomCenter
+        : Alignment(-1 + visualTabIndex * 2 / (tabs.length - 1), 1);
     return ColoredBox(
       color: colorScheme.surfaceContainerLow,
       child: Column(
