@@ -61,6 +61,22 @@ const int kWebReverseMaxTraceEventFields = 128;
 const int kWebReverseMaxScriptResourceFrames = 256;
 const int kWebReverseMaxScriptResourceUrlChars = 16 * 1024;
 const int kWebReverseMaxInspectedScriptResources = 4 * kBytesPerKiB;
+
+// ── CDP 字段级字符上限 ──────────────────────────────────────────────────────
+// 这些值对应 CDP 响应中单个字段的合理最大长度，统一命名以便检索与调整。
+const int kWebReverseMaxCookieEnumFieldChars = 16;
+const int kWebReverseMaxRemoteObjectTypeChars = 32;
+const int kWebReverseMaxRemoteObjectSubtypeChars = 32;
+const int kWebReverseMaxRemoteObjectClassNameChars = 256;
+const int kWebReverseMaxRemoteObjectIdChars = kBytesPerKiB;
+const int kWebReverseMaxRemoteObjectUnserializableChars = 512;
+const int kWebReverseMaxRuntimePropertyNameChars = kBytesPerKiB;
+const int kWebReverseMaxDomEventListenerTypeChars = 256;
+const int kWebReverseMaxWebRtcEventKindChars = 128;
+const int kWebReverseMaxJsonKeyChars = 256;
+const int kWebReverseMaxJsonValueFallbackChars = 256;
+const int kWebReverseMaxJsonCollectionItems = 64;
+const int kWebReverseMaxJsonDepth = 4;
 final RegExp _consoleIsoTimestampPattern = RegExp(
   r'\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[^\s]*',
 );
@@ -380,13 +396,13 @@ List<Map<String, Object?>> compactWebReverseCookies(
     if (domain.isEmpty || path.isEmpty) continue;
     final value = _boundedWebReverseText(raw['value'], maxValueChars);
     final sameSite = raw['sameSite'] is String
-        ? _boundedWebReverseText(raw['sameSite'], 16)
+        ? _boundedWebReverseText(raw['sameSite'], kWebReverseMaxCookieEnumFieldChars)
         : '';
     final priority = raw['priority'] is String
-        ? _boundedWebReverseText(raw['priority'], 16)
+        ? _boundedWebReverseText(raw['priority'], kWebReverseMaxCookieEnumFieldChars)
         : '';
     final sourceScheme = raw['sourceScheme'] is String
-        ? _boundedWebReverseText(raw['sourceScheme'], 16)
+        ? _boundedWebReverseText(raw['sourceScheme'], kWebReverseMaxCookieEnumFieldChars)
         : '';
     final partitionKey = _compactWebReverseCookiePartitionKey(
       raw['partitionKey'],
@@ -540,16 +556,16 @@ Map<String, Object?>? _compactIndexedDbRemoteObject(
 }) {
   if (raw is! Map) return null;
   if (raw['type'] is! String) return null;
-  final type = _boundedWebReverseText(raw['type'], 32);
+  final type = _boundedWebReverseText(raw['type'], kWebReverseMaxRemoteObjectTypeChars);
   if (type.isEmpty) return null;
   final value = raw['value'];
   if (identity && value is String && value.length > maxTextChars) return null;
   final compact = <String, Object?>{
     'type': type,
     if (raw['subtype'] is String)
-      'subtype': _boundedWebReverseText(raw['subtype'], 32),
+      'subtype': _boundedWebReverseText(raw['subtype'], kWebReverseMaxRemoteObjectSubtypeChars),
     if (raw['className'] is String)
-      'className': _boundedWebReverseText(raw['className'], 256),
+      'className': _boundedWebReverseText(raw['className'], kWebReverseMaxRemoteObjectClassNameChars),
     if (value is String)
       'value': _boundedWebReverseText(value, maxTextChars)
     else if (value is num || value is bool || value == null)
@@ -557,7 +573,7 @@ Map<String, Object?>? _compactIndexedDbRemoteObject(
     if (raw['unserializableValue'] is String)
       'unserializableValue': _boundedWebReverseText(
         raw['unserializableValue'],
-        512,
+        kWebReverseMaxRemoteObjectUnserializableChars,
       ),
     if (raw['description'] is String)
       'description': _boundedWebReverseText(raw['description'], maxTextChars),
@@ -771,7 +787,7 @@ Map<String, Object?>? _compactWebReverseRemoteObject(
   required int maxTextChars,
 }) {
   if (raw is! Map || raw['type'] is! String) return null;
-  final type = _boundedWebReverseText(raw['type'], 32, trim: true);
+  final type = _boundedWebReverseText(raw['type'], kWebReverseMaxRemoteObjectTypeChars, trim: true);
   if (type.isEmpty) return null;
   final compact = <String, Object?>{'type': type};
   for (final key in const <String>['subtype', 'className', 'description']) {
@@ -781,11 +797,11 @@ Map<String, Object?>? _compactWebReverseRemoteObject(
     }
   }
   final objectId = raw['objectId'];
-  if (objectId is String && objectId.isNotEmpty && objectId.length <= 1024) {
+  if (objectId is String && objectId.isNotEmpty && objectId.length <= kWebReverseMaxRemoteObjectIdChars) {
     compact['objectId'] = objectId;
   }
   final unserializable = raw['unserializableValue'];
-  if (unserializable is String && unserializable.length <= 1024) {
+  if (unserializable is String && unserializable.length <= kWebReverseMaxRemoteObjectIdChars) {
     compact['unserializableValue'] = unserializable;
   }
   final value = raw['value'];
@@ -810,7 +826,7 @@ List<Map<String, Object?>> compactWebReverseRuntimeProperties(
   for (final raw in rawProperties) {
     if (inspected++ >= maxEntries * 4 || result.length >= maxEntries) break;
     if (raw is! Map || raw['name'] is! String) continue;
-    final name = _boundedWebReverseText(raw['name'], 1024);
+    final name = _boundedWebReverseText(raw['name'], kWebReverseMaxRuntimePropertyNameChars);
     if (name.isEmpty) continue;
     final compact = <String, Object?>{'name': name};
     for (final key in const <String>[
@@ -848,7 +864,7 @@ List<Map<String, Object?>> compactWebReverseDomEventListeners(
     if (raw is! Map) continue;
     final compact = <String, Object?>{};
     final type = raw['type'];
-    if (type is! String || type.isEmpty || type.length > 256) continue;
+    if (type is! String || type.isEmpty || type.length > kWebReverseMaxDomEventListenerTypeChars) continue;
     compact['type'] = type;
     for (final key in const <String>[
       'useCapture',
@@ -860,7 +876,7 @@ List<Map<String, Object?>> compactWebReverseDomEventListeners(
     }
     for (final key in const <String>['scriptId', 'backendNodeId']) {
       final value = raw[key];
-      if (value is String && value.length <= 1024) compact[key] = value;
+      if (value is String && value.length <= kWebReverseMaxRemoteObjectIdChars) compact[key] = value;
       if (value is num && value.isFinite) compact[key] = value.toInt();
     }
     for (final key in const <String>['lineNumber', 'columnNumber']) {
@@ -934,12 +950,12 @@ Object? _compactWebReverseJsonValue(
   int depth = 0,
   int maxStringChars = kWebReverseMaxWebRtcEventChars ~/ 2,
 }) {
-  if (depth > 4) return null;
+  if (depth > kWebReverseMaxJsonDepth) return null;
   if (value == null || value is num || value is bool) return value;
   if (value is String) return _boundedWebReverseText(value, maxStringChars);
   if (value is List) {
     return [
-      for (final item in value.take(64))
+      for (final item in value.take(kWebReverseMaxJsonCollectionItems))
         _compactWebReverseJsonValue(
           item,
           depth: depth + 1,
@@ -951,10 +967,10 @@ Object? _compactWebReverseJsonValue(
     final result = <String, Object?>{};
     var count = 0;
     for (final entry in value.entries) {
-      if (count++ >= 64 || entry.key is! String) break;
+      if (count++ >= kWebReverseMaxJsonCollectionItems || entry.key is! String) break;
       result[_boundedWebReverseText(
         entry.key,
-        256,
+        kWebReverseMaxJsonKeyChars,
       )] = _compactWebReverseJsonValue(
         entry.value,
         depth: depth + 1,
@@ -963,7 +979,7 @@ Object? _compactWebReverseJsonValue(
     }
     return result;
   }
-  return _boundedWebReverseText(value, 256);
+  return _boundedWebReverseText(value, kWebReverseMaxJsonValueFallbackChars);
 }
 
 /// 压缩并限制从 `window.__oh_rtc_log` 提取的记录。
@@ -982,7 +998,7 @@ List<Map<String, Object?>> compactWebReverseWebRtcLog(
     if (inspected++ >= maxEntries * 4 || result.length >= maxEntries) break;
     if (raw is! Map || raw['kind'] is! String) continue;
     final kind = (raw['kind'] as String).trim();
-    if (kind.isEmpty || kind.length > 128) continue;
+    if (kind.isEmpty || kind.length > kWebReverseMaxWebRtcEventKindChars) continue;
     final event = <String, Object?>{'kind': kind};
     final ts = raw['ts'];
     if (ts is num && ts.isFinite && ts >= 0) event['ts'] = ts.toInt();
@@ -1047,7 +1063,7 @@ Map<String, Object?>? compactWebReverseTraceEvent(
   var fields = 0;
   for (final entry in raw.entries) {
     if (fields++ >= maxFields || entry.key is! String) break;
-    final key = _boundedWebReverseText(entry.key, 256);
+    final key = _boundedWebReverseText(entry.key, kWebReverseMaxJsonKeyChars);
     if (key.isEmpty) continue;
     final value = _compactWebReverseJsonValue(
       entry.value,
