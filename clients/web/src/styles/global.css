@@ -9630,12 +9630,29 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 
 .oh-trajectory-timeline {
+  --trajectory-timeline-system: #61666B;
+  --trajectory-timeline-user: #4176E6;
+  --trajectory-timeline-context: #36A762;
+  --trajectory-timeline-assistant: #886BAE;
+  --trajectory-timeline-tool: #DD8629;
+  --trajectory-timeline-error: #EC1313;
+  --trajectory-timeline-interaction: #4176E6;
   display: grid;
   height: 76px;
   flex: none;
   grid-template-columns: 64px minmax(0, 1fr);
   border-bottom: 1px solid var(--m3-outline-variant);
   background: var(--m3-surface-container-lowest);
+}
+
+[data-brightness='dark'] .oh-trajectory-timeline {
+  --trajectory-timeline-system: #CFD3D6;
+  --trajectory-timeline-user: #679EFE;
+  --trajectory-timeline-context: #59D784;
+  --trajectory-timeline-assistant: #9474BC;
+  --trajectory-timeline-tool: #DD8629;
+  --trajectory-timeline-error: #F25A5A;
+  --trajectory-timeline-interaction: #679EFE;
 }
 
 .oh-trajectory-lane-labels {
@@ -9666,7 +9683,7 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 
 .oh-trajectory-track:focus-visible {
-  box-shadow: inset 0 0 0 1px var(--m3-primary);
+  box-shadow: inset 0 0 0 1px var(--trajectory-timeline-interaction);
 }
 
 .oh-trajectory-earlier {
@@ -9714,8 +9731,8 @@ button.oh-composer-pill:not(:disabled):hover {
   height: 9px;
   min-width: 2px;
   border-radius: 2px;
-  background: var(--trajectory-system);
-  opacity: 0.84;
+  background: var(--trajectory-timeline-system);
+  opacity: 0.78;
   transition: left 170ms ease-out, width 170ms ease-out, opacity 120ms ease, box-shadow 120ms ease;
 }
 
@@ -9723,17 +9740,25 @@ button.oh-composer-pill:not(:disabled):hover {
 .oh-trajectory-spans > i[data-lane="0"] { top: 13px; }
 .oh-trajectory-spans > i[data-lane="1"] { top: 31px; }
 .oh-trajectory-spans > i[data-lane="2"] { top: 49px; }
-.oh-trajectory-spans > i.is-user { background: var(--trajectory-user); }
-.oh-trajectory-spans > i.is-context { background: var(--trajectory-context); }
+.oh-trajectory-spans > i.is-user { background: var(--trajectory-timeline-user); }
+.oh-trajectory-spans > i.is-context { background: var(--trajectory-timeline-context); }
 .oh-trajectory-spans > i.is-assistant,
-.oh-trajectory-spans > i.is-compacted { background: var(--trajectory-assistant); }
+.oh-trajectory-spans > i.is-compacted {
+  background: var(--trajectory-timeline-assistant);
+  opacity: 1;
+}
 .oh-trajectory-spans > i.is-tool,
-.oh-trajectory-spans > i.is-subtool { background: var(--trajectory-tool); }
-.oh-trajectory-spans > i.is-error { background: var(--trajectory-error); }
+.oh-trajectory-spans > i.is-subtool {
+  background: var(--trajectory-timeline-tool);
+  opacity: 1;
+}
+.oh-trajectory-spans > i.is-error { background: var(--trajectory-timeline-error); }
 .oh-trajectory-spans > i[data-selected="true"] {
   z-index: 2;
   opacity: 1;
-  box-shadow: 0 0 0 1px var(--m3-surface), 0 0 0 3px var(--m3-primary);
+  box-shadow:
+    0 0 0 1px var(--m3-surface-container-lowest),
+    0 0 0 3px var(--trajectory-timeline-interaction);
 }
 .oh-trajectory-spans > i[data-search-match="false"] { opacity: 0.14; }
 
@@ -9743,9 +9768,9 @@ button.oh-composer-pill:not(:disabled):hover {
   top: 0;
   bottom: 0;
   min-width: 2px;
-  border-right: 2px solid var(--m3-primary);
-  border-left: 2px solid var(--m3-primary);
-  background: color-mix(in srgb, var(--m3-primary) 12%, transparent);
+  border-right: 2px solid var(--trajectory-timeline-interaction);
+  border-left: 2px solid var(--trajectory-timeline-interaction);
+  background: color-mix(in srgb, var(--trajectory-timeline-interaction) 12%, transparent);
   box-shadow:
     -100vw 0 0 100vw color-mix(in srgb, var(--m3-surface) 66%, transparent),
     100vw 0 0 100vw color-mix(in srgb, var(--m3-surface) 66%, transparent);
@@ -9758,7 +9783,7 @@ button.oh-composer-pill:not(:disabled):hover {
   top: 0;
   bottom: 0;
   width: 1px;
-  background: color-mix(in srgb, var(--m3-primary) 74%, transparent);
+  background: color-mix(in srgb, var(--trajectory-timeline-interaction) 74%, transparent);
   pointer-events: none;
 }
 

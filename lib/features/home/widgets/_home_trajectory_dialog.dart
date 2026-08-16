@@ -15,6 +15,23 @@ const int _kTrajectoryJsonTreeMaxNodes = 4096;
 const int _kTrajectoryJsonTreeMaxDepth = 32;
 const Duration _kTrajectoryCopyFeedbackDuration = Duration(seconds: 2);
 
+const _kTrajectoryTimelineLightColors = (
+  system: Color(0xFF61666B),
+  user: Color(0xFF4176E6),
+  context: Color(0xFF36A762),
+  assistant: Color(0xFF886BAE),
+  tool: Color(0xFFDD8629),
+  error: Color(0xFFEC1313),
+);
+const _kTrajectoryTimelineDarkColors = (
+  system: Color(0xFFCFD3D6),
+  user: Color(0xFF679EFE),
+  context: Color(0xFF59D784),
+  assistant: Color(0xFF9474BC),
+  tool: Color(0xFFDD8629),
+  error: Color(0xFFF25A5A),
+);
+
 enum _TrajectoryKind {
   system,
   user,
@@ -2128,7 +2145,7 @@ class _TrajectoryTimelineState extends State<_TrajectoryTimeline> {
     return Container(
       height: 58,
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainer,
+        color: colorScheme.surfaceContainerLowest,
         border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
       ),
       child: Row(
@@ -2267,7 +2284,7 @@ class _TrajectoryTimelineState extends State<_TrajectoryTimeline> {
                                 child: Container(
                                   width: 28,
                                   alignment: Alignment.center,
-                                  color: colorScheme.surfaceContainer
+                                  color: colorScheme.surfaceContainerLowest
                                       .withValues(alpha: 0.86),
                                   child: widget.loadingEarlier
                                       ? const SizedBox(
@@ -2362,6 +2379,9 @@ class _TrajectoryTimelinePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final timelineColors = colorScheme.brightness == Brightness.dark
+        ? _kTrajectoryTimelineDarkColors
+        : _kTrajectoryTimelineLightColors;
     final boundaryPaint = Paint()
       ..color = colorScheme.outlineVariant.withValues(alpha: 0.72)
       ..strokeWidth = 1;
@@ -2386,20 +2406,26 @@ class _TrajectoryTimelinePainter extends CustomPainter {
         outside,
       );
       final selectedPaint = Paint()
-        ..color = colorScheme.primary.withValues(alpha: 0.1);
+        ..color = timelineColors.user.withValues(alpha: 0.12);
       canvas.drawRect(
         Rect.fromLTRB(left, 0, right, size.height),
         selectedPaint,
       );
       final edgePaint = Paint()
-        ..color = colorScheme.primary
+        ..color = timelineColors.user
         ..strokeWidth = 2;
       canvas.drawLine(Offset(left, 0), Offset(left, size.height), edgePaint);
       canvas.drawLine(Offset(right, 0), Offset(right, size.height), edgePaint);
     }
     for (final span in projection.spans) {
       if (span.end < domainStart || span.start > domainEnd) continue;
-      var opacity = 1.0;
+      var opacity = switch (span.record.kind) {
+        _TrajectoryKind.assistant ||
+        _TrajectoryKind.compacted ||
+        _TrajectoryKind.tool ||
+        _TrajectoryKind.subtool => 1.0,
+        _ => 0.78,
+      };
       if (activeSelection != null &&
           (span.start > activeSelection.end ||
               span.end < activeSelection.start)) {
@@ -2417,15 +2443,15 @@ class _TrajectoryTimelinePainter extends CustomPainter {
         const Radius.circular(1.5),
       );
       final color = span.record.isError
-          ? colorScheme.error
-          : _trajectoryKindColor(colorScheme, span.record.kind);
+          ? timelineColors.error
+          : _trajectoryTimelineKindColor(timelineColors, span.record.kind);
       canvas.drawRRect(rect, Paint()..color = color.withValues(alpha: opacity));
       if (span.record.id == selectedRecordId ||
           span.record.id == hoveredRecordId) {
         final outline = Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2
-          ..color = colorScheme.primary;
+          ..color = timelineColors.user;
         canvas.drawRRect(rect.inflate(2), outline);
       }
     }
@@ -2816,6 +2842,25 @@ Color _trajectoryKindColor(ColorScheme colorScheme, _TrajectoryKind kind) =>
         0.42,
       )!,
     };
+
+Color _trajectoryTimelineKindColor(
+  ({
+    Color system,
+    Color user,
+    Color context,
+    Color assistant,
+    Color tool,
+    Color error,
+  })
+  colors,
+  _TrajectoryKind kind,
+) => switch (kind) {
+  _TrajectoryKind.system => colors.system,
+  _TrajectoryKind.user => colors.user,
+  _TrajectoryKind.context => colors.context,
+  _TrajectoryKind.compacted || _TrajectoryKind.assistant => colors.assistant,
+  _TrajectoryKind.tool || _TrajectoryKind.subtool => colors.tool,
+};
 
 IconData _trajectoryKindIcon(_TrajectoryKind kind) => switch (kind) {
   _TrajectoryKind.system => Icons.settings_outlined,
