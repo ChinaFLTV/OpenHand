@@ -12,6 +12,7 @@ import '../../shared/util/date_time_format.dart';
 import '../../shared/util/duration_bounds.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/serial_task_queue.dart';
+import '../../shared/util/text_normalization.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart'
     show
@@ -1525,7 +1526,7 @@ class McpController extends ChangeNotifier {
         .trim()
         .toLowerCase()
         .replaceAll(RegExp(r'[^a-z0-9_]+'), '_')
-        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(kRepeatedUnderscoresPattern, '_')
         .replaceAll(RegExp(r'^_|_$'), '');
     if (normalized.isEmpty) return 'item';
     return normalized.length <= 80 ? normalized : normalized.substring(0, 80);

@@ -10,6 +10,7 @@ import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_normalization.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
 import '../plugin_service/index.dart';
@@ -313,7 +314,7 @@ class KnowledgeBaseController extends ChangeNotifier {
     );
     final safeTitle = normalizedTitle
         .replaceAll(RegExp(r'[^a-zA-Z0-9\u4e00-\u9fa5._-]+'), '_')
-        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(kRepeatedUnderscoresPattern, '_')
         .trim();
     final fileStem = safeTitle.isEmpty
         ? 'note'

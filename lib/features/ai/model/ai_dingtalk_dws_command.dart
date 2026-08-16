@@ -1,4 +1,5 @@
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_normalization.dart';
 
 String dingtalkDwsToolName(
   AiDingTalkDwsCommand command, {
@@ -6,7 +7,7 @@ String dingtalkDwsToolName(
 }) {
   final slug = command.cliPath
       .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_')
-      .replaceAll(RegExp(r'_+'), '_')
+      .replaceAll(kRepeatedUnderscoresPattern, '_')
       .replaceAll(RegExp(r'^_|_$'), '');
   final base = 'DingTalkDws_${slug.isEmpty ? 'Command' : slug}';
   if (usedNames == null || usedNames.add(base)) return base;

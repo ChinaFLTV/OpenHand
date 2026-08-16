@@ -20,7 +20,6 @@ final RegExp _reservedWindowsFileNamePattern = RegExp(
   r'^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\..*)?$',
   caseSensitive: false,
 );
-final RegExp _replacementRunPattern = RegExp(r'_+');
 final RegExp _boundaryReplacementPattern = RegExp(r'^_+|_+$');
 final RegExp _trailingFileNameCharsPattern = RegExp(r'[ .]+$');
 
@@ -179,7 +178,7 @@ String _sanitizePortableFileNamePart(
     sanitized = sanitized.replaceAll(kInlineWhitespacePattern, ' ').trim();
   }
   if (collapseReplacement) {
-    sanitized = sanitized.replaceAll(_replacementRunPattern, '_');
+    sanitized = sanitized.replaceAll(kRepeatedUnderscoresPattern, '_');
   }
   if (trimBoundaryReplacement) {
     sanitized = sanitized.replaceAll(_boundaryReplacementPattern, '');

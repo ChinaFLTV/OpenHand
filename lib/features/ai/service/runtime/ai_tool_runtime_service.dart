@@ -555,7 +555,6 @@ class AiToolRuntimeService {
   static final RegExp _unsafeToolOutputStorageCharsPattern = RegExp(
     r'[^A-Za-z0-9_.-]+',
   );
-  static final RegExp _repeatedUnderscoresPattern = RegExp(r'_+');
   static final RegExp _cdpIdentityTokenPattern = RegExp(
     r'(^|[^a-z0-9])cdp([^a-z0-9]|$)',
   );
@@ -2100,7 +2099,7 @@ class AiToolRuntimeService {
   String _safeToolOutputStorageIdentifier(String raw, String fallback) {
     final normalized = (nullIfBlank(raw) ?? '')
         .replaceAll(_unsafeToolOutputStorageCharsPattern, '_')
-        .replaceAll(_repeatedUnderscoresPattern, '_');
+        .replaceAll(kRepeatedUnderscoresPattern, '_');
     final value = normalized.isEmpty ? fallback : normalized;
     return value.length <= 120 ? value : value.substring(0, 120);
   }

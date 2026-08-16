@@ -14,6 +14,7 @@ import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/bounded_log_buffer.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_normalization.dart';
 import '../../shared/util/timer_safety.dart';
 import 'android_reverse_adb_client.dart';
 import 'android_reverse_session_config.dart';
@@ -2158,7 +2159,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
     final cleaned = value
         .trim()
         .replaceAll(RegExp(r'[^A-Za-z0-9_.-]+'), '_')
-        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(kRepeatedUnderscoresPattern, '_')
         .replaceAll(RegExp(r'^_+|_+$'), '');
     return cleaned.isEmpty ? 'artifact' : cleaned;
   }

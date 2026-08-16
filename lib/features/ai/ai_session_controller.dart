@@ -4768,7 +4768,7 @@ class AiSessionController extends ChangeNotifier {
     final normalized = raw
         .trim()
         .replaceAll(RegExp(r'[^A-Za-z0-9_.-]+'), '_')
-        .replaceAll(RegExp(r'_+'), '_');
+        .replaceAll(kRepeatedUnderscoresPattern, '_');
     if (normalized.isEmpty || normalized == '.' || normalized == '..') {
       return 'tool_result';
     }
