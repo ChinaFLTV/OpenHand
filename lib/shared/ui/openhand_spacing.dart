@@ -92,6 +92,9 @@ const BorderRadius kOpenHandBorderRadius5 = BorderRadius.all(
 const BorderRadius kOpenHandBorderRadius6 = BorderRadius.all(
   Radius.circular(kOpenHandRadius6),
 );
+const BorderRadius kOpenHandBorderRadius7 = BorderRadius.all(
+  Radius.circular(kOpenHandRadius7),
+);
 const BorderRadius kOpenHandBorderRadius8 = BorderRadius.all(
   Radius.circular(kOpenHandRadius8),
 );

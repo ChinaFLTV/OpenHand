@@ -4332,7 +4332,7 @@ class _TrajectoryThroughputChart extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 11, 12, 10),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(7),
+        borderRadius: kOpenHandBorderRadius7,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.72),
         ),
@@ -4609,7 +4609,7 @@ class _TrajectoryOverview extends StatelessWidget {
                     color: row.$3
                         ? colorScheme.errorContainer.withValues(alpha: 0.5)
                         : colorScheme.surfaceContainer,
-                    borderRadius: BorderRadius.circular(7),
+                    borderRadius: kOpenHandBorderRadius7,
                     border: Border.all(
                       color: row.$3
                           ? colorScheme.error.withValues(alpha: 0.32)
@@ -4720,7 +4720,7 @@ class _TrajectoryMarkdownDetailState extends State<_TrajectoryMarkdownDetail> {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(7),
+        borderRadius: kOpenHandBorderRadius7,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.7),
         ),
@@ -4931,7 +4931,7 @@ class _TrajectoryStructuredDetailState
       width: double.infinity,
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer.withValues(alpha: 0.78),
-        borderRadius: BorderRadius.circular(7),
+        borderRadius: kOpenHandBorderRadius7,
         border: Border.all(
           color: widget.error
               ? colorScheme.error.withValues(alpha: 0.38)
@@ -5309,7 +5309,7 @@ class _TrajectoryEmptyDetail extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer.withValues(alpha: 0.62),
-        borderRadius: BorderRadius.circular(7),
+        borderRadius: kOpenHandBorderRadius7,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.62),
         ),
