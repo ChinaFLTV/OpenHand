@@ -892,11 +892,11 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         'cache-control',
         'pragma',
         kMcpProtocolVersionHeader,
-        'mcp-session-id',
+        kMcpSessionIdHeader,
       },
     );
     headers[kMcpProtocolVersionHeader] = session.protocolVersion;
-    headers['mcp-session-id'] = sessionId;
+    headers[kMcpSessionIdHeader] = sessionId;
     try {
       final response = await _sendRequestWithRedirects(
         client: _client,
@@ -1214,7 +1214,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         kContentTypeHeaderName,
         'accept',
         kMcpProtocolVersionHeader,
-        'mcp-session-id',
+        kMcpSessionIdHeader,
         'cache-control',
         'pragma',
       },
@@ -1225,7 +1225,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     }
     final normalizedSessionId = nullIfBlank(sessionId);
     if (normalizedSessionId != null) {
-      headers['mcp-session-id'] = normalizedSessionId;
+      headers[kMcpSessionIdHeader] = normalizedSessionId;
     }
 
     final effectiveRequestTimeout = requestTimeout ?? _requestTimeout;
@@ -1245,7 +1245,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     final responseUri = response.request?.url ?? uri;
     final responseSessionId = readResponseHeader(
       response.headers,
-      'mcp-session-id',
+      kMcpSessionIdHeader,
     );
     if (isHttpFailureStatus(response.statusCode)) {
       final responseBody = await _readMcpHttpErrorBodyBestEffort(
@@ -1852,7 +1852,7 @@ Future<http.StreamedResponse> _sendRequestWithRedirects({
     timeout: requestTimeout,
     maxRedirects: maxRedirects,
     additionalSensitiveHeaderNames: <String>{
-      'mcp-session-id',
+      kMcpSessionIdHeader,
       ...additionalSensitiveHeaderNames,
     },
     cancelSignal: cancelSignal,

@@ -17,6 +17,9 @@ const int mcpOpsMaxDiscoveredHosts = 64;
 /// MCP 协议版本 HTTP 头名。
 const String kMcpProtocolVersionHeader = 'mcp-protocol-version';
 
+/// MCP 会话 ID HTTP 头名。
+const String kMcpSessionIdHeader = 'mcp-session-id';
+
 /// 当前支持的 MCP 协议版本。
 const String kMcpProtocolVersion = '2025-11-25';
 

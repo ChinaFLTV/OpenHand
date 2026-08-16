@@ -778,7 +778,7 @@ class McpServerOpsRuntime {
       inboundBytes: 0,
       outboundBytes: 0,
     );
-    final providedSessionId = nullIfBlank(request.headers['mcp-session-id']);
+    final providedSessionId = nullIfBlank(request.headers[kMcpSessionIdHeader]);
     final validSessionId =
         providedSessionId != null &&
             isValidMcpHttpHeaderValue(providedSessionId)
@@ -793,7 +793,7 @@ class McpServerOpsRuntime {
       headers: <String, String>{
         ..._responseHeaders,
         kMcpProtocolVersionHeader: _protocolVersion,
-        if (validSessionId != null) 'mcp-session-id': validSessionId,
+        if (validSessionId != null) kMcpSessionIdHeader: validSessionId,
       },
     );
   }
@@ -1935,12 +1935,12 @@ class McpServerOpsRuntime {
   Map<String, String> _sessionHeaders(shelf.Request request) {
     return <String, String>{
       kMcpProtocolVersionHeader: _protocolVersion,
-      'mcp-session-id': _sessionIdForRequest(request),
+      kMcpSessionIdHeader: _sessionIdForRequest(request),
     };
   }
 
   String _sessionIdForRequest(shelf.Request request) {
-    final provided = nullIfBlank(request.headers['mcp-session-id']);
+    final provided = nullIfBlank(request.headers[kMcpSessionIdHeader]);
     if (provided != null && isValidMcpHttpHeaderValue(provided)) {
       _trackSessionId(provided);
       return provided;
