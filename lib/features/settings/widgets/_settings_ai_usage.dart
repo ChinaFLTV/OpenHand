@@ -3412,7 +3412,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       backgroundColor: theme.colorScheme.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(kOpenHandDialogDefaultRadius),
         side: BorderSide(color: theme.colorScheme.outlineVariant),
       ),
       maxWidth: kOpenHandDialogWidthWide,

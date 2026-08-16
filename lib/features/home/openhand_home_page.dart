@@ -6645,7 +6645,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       showDragHandle: false,
       elevation: 14,
       margin: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandDialogDefaultRadius)),
       builder: (dialogContext) => _CreationOptionsSheet(
         mode: mode,
         initial: initial,
