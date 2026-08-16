@@ -4542,7 +4542,7 @@ Future<String> _markdownFromOpenAiMediaPayload(
 String _audioFormatForMimeType(String mimeType) {
   return switch (lowercaseStringFromValue(mimeType)) {
     kAudioMpegMimeType || 'audio/mp3' => 'mp3',
-    kAudioWavMimeType || 'audio/wave' || 'audio/x-wav' => 'wav',
+    kAudioWavMimeType || kAudioWaveAliasMimeType || kAudioXWavAliasMimeType => 'wav',
     kAudioFlacMimeType || 'audio/x-flac' => 'flac',
     'audio/mp4' || 'audio/m4a' || 'audio/x-m4a' => 'm4a',
     kAudioOggMimeType || 'audio/opus' => 'ogg',
@@ -4589,7 +4589,7 @@ class AiInlineMedia {
       kImageWebpMimeType => '.webp',
       kImageSvgXmlMimeType => '.svg',
       'audio/mp3' || kAudioMpegMimeType => '.mp3',
-      kAudioWavMimeType || 'audio/x-wav' => '.wav',
+      kAudioWavMimeType || kAudioXWavAliasMimeType => '.wav',
       kAudioOggMimeType => '.ogg',
       kAudioAacMimeType => '.aac',
       kVideoMp4MimeType => '.mp4',

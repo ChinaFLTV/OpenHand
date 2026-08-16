@@ -262,6 +262,12 @@ const String kAudioMpegMimeType = 'audio/mpeg';
 /// WAV 音频 MIME 类型常量。
 const String kAudioWavMimeType = 'audio/wav';
 
+/// WAV 音频别名 MIME 类型（`audio/wave`）。
+const String kAudioWaveAliasMimeType = 'audio/wave';
+
+/// WAV 音频别名 MIME 类型（`audio/x-wav`）。
+const String kAudioXWavAliasMimeType = 'audio/x-wav';
+
 /// OGG 音频 MIME 类型常量。
 const String kAudioOggMimeType = 'audio/ogg';
 
