@@ -1,7 +1,7 @@
 part of 'harness_session_dashboard.dart';
 
 /// 最新流式区块的淡入上移时长。
-const Duration _kStreamingBlockRevealDuration = Duration(milliseconds: 380);
+const Duration _kStreamingBlockRevealDuration = kOpenHandMotion380;
 
 class _HeStreamingSmartView extends StatefulWidget {
   const _HeStreamingSmartView({

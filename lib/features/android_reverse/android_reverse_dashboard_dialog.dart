@@ -91,7 +91,7 @@ const Duration _kFridaLocalShellTimeout = Duration(seconds: 8);
 /// 网络代理探测脚本：需要真机往返一次请求。
 const Duration _kNetworkProxyProbeTimeout = Duration(seconds: 18);
 const Duration _kLogcatAutoRefreshInterval = Duration(seconds: 1);
-const Duration _kLogcatFollowScrollDuration = Duration(milliseconds: 360);
+const Duration _kLogcatFollowScrollDuration = kOpenHandMotion360;
 const int _kDeviceSnapshotMaxLines = 80;
 const int _kMinTcpPort = kTcpPortMin;
 const int _kMaxTcpPort = kTcpPortMax;

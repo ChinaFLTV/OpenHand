@@ -1,6 +1,6 @@
 part of '../openhand_home_page.dart';
 
-const Duration _kCacheHitTrendRevealDuration = Duration(milliseconds: 520);
+const Duration _kCacheHitTrendRevealDuration = kOpenHandMotion520;
 
 class _LiveSessionMetadataDialog extends StatelessWidget {
   const _LiveSessionMetadataDialog({
