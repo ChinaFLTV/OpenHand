@@ -159,14 +159,10 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
   );
   final TextEditingController _scope = TextEditingController();
   final TextEditingController _targets = TextEditingController();
-  final TextEditingController _fofaQuery = TextEditingController();
-  final TextEditingController _shodanQuery = TextEditingController();
-  final TextEditingController _githubQuery = TextEditingController();
-  final TextEditingController _giteeQuery = TextEditingController();
-  final TextEditingController _gitcodeQuery = TextEditingController();
-  final TextEditingController _nodeseekQuery = TextEditingController();
-  final TextEditingController _linuxDoQuery = TextEditingController();
-  final TextEditingController _v2exQuery = TextEditingController();
+  final List<TextEditingController> _queryControllers = List<TextEditingController>.generate(
+    8,
+    (_) => TextEditingController(),
+  );
   late Set<AiExposureSource> _sources;
   final Set<String> _vendors = Set<String>.of(_kVendors);
   AiExposureScanMode _mode = AiExposureScanMode.incremental;
@@ -177,6 +173,15 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
   _HuntConfiguration _configuration = _HuntConfiguration.standard;
   bool _confirmed = false;
   bool _submitting = false;
+
+  TextEditingController get _fofaQuery => _queryControllers[0];
+  TextEditingController get _shodanQuery => _queryControllers[1];
+  TextEditingController get _githubQuery => _queryControllers[2];
+  TextEditingController get _giteeQuery => _queryControllers[3];
+  TextEditingController get _gitcodeQuery => _queryControllers[4];
+  TextEditingController get _nodeseekQuery => _queryControllers[5];
+  TextEditingController get _linuxDoQuery => _queryControllers[6];
+  TextEditingController get _v2exQuery => _queryControllers[7];
 
   @override
   void initState() {
@@ -194,14 +199,9 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
     _name.dispose();
     _scope.dispose();
     _targets.dispose();
-    _fofaQuery.dispose();
-    _shodanQuery.dispose();
-    _githubQuery.dispose();
-    _giteeQuery.dispose();
-    _gitcodeQuery.dispose();
-    _nodeseekQuery.dispose();
-    _linuxDoQuery.dispose();
-    _v2exQuery.dispose();
+    for (final controller in _queryControllers) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
