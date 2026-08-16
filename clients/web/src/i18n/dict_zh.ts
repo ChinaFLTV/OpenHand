@@ -641,6 +641,7 @@ export const dict_zh: Record<string, string> = {
   'trajectory.closeDetails': '关闭详情',
   'trajectory.detailsTabs': '轨迹详情标签',
   'trajectory.collapseTurn': '折叠本轮',
+  'trajectory.expandTurn': '展开本轮',
   'trajectory.noContent': '无内容',
   'trajectory.running': '运行中',
   'trajectory.completed': '已完成',

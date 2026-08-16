@@ -640,6 +640,7 @@ export const dict_ja: Record<string, string> = {
   'trajectory.closeDetails': '詳細を閉じる',
   'trajectory.detailsTabs': '軌跡詳細タブ',
   'trajectory.collapseTurn': 'ターンを折りたたむ',
+  'trajectory.expandTurn': 'ターンを展開',
   'trajectory.noContent': '内容なし',
   'trajectory.running': '実行中',
   'trajectory.completed': '完了',

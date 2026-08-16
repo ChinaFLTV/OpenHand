@@ -642,6 +642,7 @@ export const dict_en: Record<string, string> = {
   'trajectory.closeDetails': 'Close details',
   'trajectory.detailsTabs': 'Trajectory detail tabs',
   'trajectory.collapseTurn': 'Collapse turn',
+  'trajectory.expandTurn': 'Expand turn',
   'trajectory.noContent': 'No content',
   'trajectory.running': 'Running',
   'trajectory.completed': 'Completed',

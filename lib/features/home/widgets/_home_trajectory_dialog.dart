@@ -1020,8 +1020,12 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
       if (record.turn > 0 && _collapsedTurns.contains(record.turn)) {
         final turnRecords =
             recordsByTurn[record.turn] ?? const <_TrajectoryRecord>[];
+        final visibleRecord = turnRecords.firstWhere(
+          (item) => item.kind == _TrajectoryKind.user,
+          orElse: () => turnRecords.first,
+        );
         if (record.id != turnRecords.first.id) continue;
-        rows.add(_TrajectoryLedgerRow.record(record));
+        rows.add(_TrajectoryLedgerRow.record(visibleRecord));
         if (turnRecords.length > 1) {
           final steps = turnRecords
               .map((item) => item.step)
@@ -1032,7 +1036,7 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
               .length;
           rows.add(
             _TrajectoryLedgerRow.summary(
-              record: record,
+              record: visibleRecord,
               summary:
                   '${steps.length} ${openHandAmbientText(zh: '步', zhHant: '步', en: steps.length == 1 ? 'step' : 'steps', fr: steps.length == 1 ? 'étape' : 'étapes', de: steps.length == 1 ? 'Schritt' : 'Schritte', ja: 'ステップ')} · $calls ${openHandAmbientText(zh: '工具调用', zhHant: '工具呼叫', en: calls == 1 ? 'tool call' : 'tool calls', fr: calls == 1 ? 'appel d’outil' : 'appels d’outil', de: calls == 1 ? 'Werkzeugaufruf' : 'Werkzeugaufrufe', ja: 'ツール呼び出し')}',
               summaryKind: 'turn',
@@ -1161,6 +1165,13 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
       } else {
         _collapsedTurns.addAll(collapsible);
       }
+    });
+  }
+
+  void _toggleTurn(int turn) {
+    if (!_collapsibleTurns.contains(turn)) return;
+    setState(() {
+      if (!_collapsedTurns.remove(turn)) _collapsedTurns.add(turn);
     });
   }
 
@@ -1569,15 +1580,22 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
                       isTurnStart: isTurnStart,
                       isStepStart: isStepStart,
                       selected: _selectedRecordId == row.record.id,
+                      onDoublePressed:
+                          row.summary == null &&
+                              row.record.kind == _TrajectoryKind.user &&
+                              _collapsibleTurns.contains(row.record.turn)
+                          ? () {
+                              _selectRecord(row.record);
+                              _toggleTurn(row.record.turn);
+                            }
+                          : null,
                       onPressed: row.summary == null
                           ? () => _selectRecord(row.record)
+                          : row.summaryKind == 'turn'
+                          ? () => _toggleTurn(row.record.turn)
                           : () {
                               setState(() {
-                                if (row.summaryKind == 'turn') {
-                                  _collapsedTurns.remove(row.record.turn);
-                                } else {
-                                  _collapsedCalls.remove(row.record.id);
-                                }
+                                _collapsedCalls.remove(row.record.id);
                               });
                             },
                     );
@@ -2610,6 +2628,7 @@ class _TrajectoryLedgerRecordRow extends StatelessWidget {
     required this.isStepStart,
     required this.selected,
     required this.onPressed,
+    this.onDoublePressed,
   });
 
   final _TrajectoryLedgerRow row;
@@ -2617,6 +2636,7 @@ class _TrajectoryLedgerRecordRow extends StatelessWidget {
   final bool isStepStart;
   final bool selected;
   final VoidCallback onPressed;
+  final VoidCallback? onDoublePressed;
 
   @override
   Widget build(BuildContext context) {
@@ -2633,6 +2653,7 @@ class _TrajectoryLedgerRecordRow extends StatelessWidget {
           : Colors.transparent,
       child: InkWell(
         onTap: onPressed,
+        onDoubleTap: onDoublePressed,
         hoverColor: colorScheme.onSurface.withValues(alpha: 0.045),
         child: DecoratedBox(
           decoration: BoxDecoration(

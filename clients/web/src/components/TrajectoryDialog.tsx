@@ -1456,6 +1456,15 @@ export function TrajectoryDialog({
   const resizeRef = useRef<{ startX: number; startWidth: number; pointerId: number } | null>(null);
   const loadingEarlierRef = useRef(false);
   const spans = useMemo(() => projectTimeline(snapshot.records, actualDuration), [snapshot.records, actualDuration]);
+  const recordsByTurn = useMemo(() => {
+    const grouped = new Map<number, TrajectoryRecord[]>();
+    for (const record of snapshot.records) {
+      if (record.turn <= 0) continue;
+      const records = grouped.get(record.turn);
+      if (records) records.push(record); else grouped.set(record.turn, [record]);
+    }
+    return grouped;
+  }, [snapshot.records]);
   const selectedRecord = useMemo(
     () => snapshot.records.find((record) => record.id === selectedId) ?? null,
     [selectedId, snapshot.records],
@@ -1534,6 +1543,14 @@ export function TrajectoryDialog({
   const toggleAllTurns = () => {
     setCollapsedTurns(() => allTurnsCollapsed ? new Set() : new Set(snapshot.collapsibleTurns));
   };
+  const toggleTurn = (turn: number) => {
+    if (!snapshot.collapsibleTurns.has(turn)) return;
+    setCollapsedTurns((current) => {
+      const next = new Set(current);
+      if (!next.delete(turn)) next.add(turn);
+      return next;
+    });
+  };
   const toggleAllCalls = () => {
     setCollapsedCalls(() => allCallsCollapsed ? new Set() : new Set(snapshot.callCounts.keys()));
   };
@@ -1548,35 +1565,14 @@ export function TrajectoryDialog({
 
   const renderedRows: JSX.Element[] = [];
   const renderedTurnIds = new Set<number>();
-  let previousTurn: number | null = null;
   for (let index = 0; index < snapshot.records.length; index += 1) {
     const record = snapshot.records[index]!;
-    if (record.turn > 0 && collapsedTurns.has(record.turn)) {
-      if (previousTurn === record.turn) continue;
-      const count = snapshot.records.filter((candidate) => candidate.turn === record.turn).length;
-      const duration = snapshot.records
-        .filter((candidate) => candidate.turn === record.turn)
-        .reduce((sum, candidate) => sum + (candidate.durationMs ?? 0), 0);
-      renderedRows.push(
-        <button
-          type="button"
-          key={`collapsed-turn-${record.turn}`}
-          class="oh-trajectory-collapsed-row"
-          onClick={() => setCollapsedTurns((current) => {
-            const next = new Set(current);
-            next.delete(record.turn);
-            return next;
-          })}
-        >
-          <span>{tFmt('trajectory.turn', { turn: record.turn }, `轮次 ${record.turn}`)}</span>
-          <strong>{count} {t('trajectory.records', '条记录')}</strong>
-          <small>{formatDuration(duration || null)}</small>
-        </button>,
-      );
-      previousTurn = record.turn;
-      continue;
-    }
-    previousTurn = record.turn;
+    const turnRecords = recordsByTurn.get(record.turn) ?? [];
+    const turnCollapsed = record.turn > 0 && collapsedTurns.has(record.turn);
+    const visibleRecord = turnCollapsed
+      ? turnRecords.find((candidate) => candidate.kind === 'user') ?? turnRecords[0]
+      : record;
+    if (turnCollapsed && record.id !== visibleRecord?.id) continue;
     const anchorId = snapshot.callAnchors.get(record.id);
     if (anchorId && collapsedCalls.has(anchorId)) continue;
     const turnStart = record.turn > 0 && !renderedTurnIds.has(record.turn);
@@ -1596,6 +1592,9 @@ export function TrajectoryDialog({
         data-error={record.error ? 'true' : undefined}
         class="oh-trajectory-record-row"
         onClick={() => selectRecord(record)}
+        onDblClick={record.kind === 'user' && snapshot.collapsibleTurns.has(record.turn)
+          ? () => toggleTurn(record.turn)
+          : undefined}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
@@ -1611,18 +1610,21 @@ export function TrajectoryDialog({
                 <i
                   role="button"
                   tabIndex={0}
-                  title={t('trajectory.collapseTurn', '折叠本轮')}
+                  title={turnCollapsed
+                    ? t('trajectory.expandTurn', '展开本轮')
+                    : t('trajectory.collapseTurn', '折叠本轮')}
                   onClick={(event) => {
                     event.stopPropagation();
-                    setCollapsedTurns((current) => new Set(current).add(record.turn));
+                    toggleTurn(record.turn);
                   }}
+                  onDblClick={(event) => event.stopPropagation()}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
                       event.currentTarget.click();
                     }
                   }}
-                >−</i>
+                >{turnCollapsed ? '+' : '−'}</i>
               ) : null}
             </span>
           ) : null}
@@ -1650,6 +1652,7 @@ export function TrajectoryDialog({
                   return next;
                 });
               }}
+              onDblClick={(event) => event.stopPropagation()}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
                   event.preventDefault();
@@ -1668,6 +1671,22 @@ export function TrajectoryDialog({
         <span class="oh-trajectory-duration-cell">{formatDuration(record.durationMs)}</span>
       </div>,
     );
+    if (turnCollapsed) {
+      const hiddenRecords = turnRecords.filter((candidate) => candidate.id !== record.id);
+      const duration = hiddenRecords.reduce((sum, candidate) => sum + (candidate.durationMs ?? 0), 0);
+      renderedRows.push(
+        <button
+          type="button"
+          key={`collapsed-turn-${record.turn}`}
+          class="oh-trajectory-collapsed-row"
+          onClick={() => toggleTurn(record.turn)}
+        >
+          <span>{tFmt('trajectory.turn', { turn: record.turn }, `轮次 ${record.turn}`)}</span>
+          <strong>{hiddenRecords.length} {t('trajectory.records', '条记录')}</strong>
+          <small>{formatDuration(duration || null)}</small>
+        </button>,
+      );
+    }
   }
 
   return (

@@ -640,6 +640,7 @@ export const dict_zhHant: Record<string, string> = {
   'trajectory.closeDetails': '關閉詳情',
   'trajectory.detailsTabs': '軌跡詳情分頁',
   'trajectory.collapseTurn': '摺疊本輪',
+  'trajectory.expandTurn': '展開本輪',
   'trajectory.noContent': '無內容',
   'trajectory.running': '執行中',
   'trajectory.completed': '已完成',
