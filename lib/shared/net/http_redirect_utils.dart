@@ -259,6 +259,12 @@ const String kTextPlainMimeType = 'text/plain';
 /// MP3 / MPEG 音频 MIME 类型常量。
 const String kAudioMpegMimeType = 'audio/mpeg';
 
+/// MP3 别名 MIME 类型（`audio/mp3`）。
+const String kAudioMp3AliasMimeType = 'audio/mp3';
+
+/// MP4 音频 MIME 类型常量。
+const String kAudioMp4MimeType = 'audio/mp4';
+
 /// WAV 音频 MIME 类型常量。
 const String kAudioWavMimeType = 'audio/wav';
 

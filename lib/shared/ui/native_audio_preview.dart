@@ -2240,7 +2240,7 @@ Future<Duration?> estimateNativeAudioFileDuration(
 
 String? _nativeAudioContainerKind(String extension, String? mimeType) {
   if (mimeType == kAudioMpegMimeType ||
-      mimeType == 'audio/mp3' ||
+      mimeType == kAudioMp3AliasMimeType ||
       extension == '.mp3') {
     return 'mp3';
   }

@@ -5917,7 +5917,7 @@ String _mimeTypeForExtension(String extension) {
     '.mkv' => kVideoMatroskaMimeType,
     '.mp3' => kAudioMpegMimeType,
     '.wav' => kAudioWavMimeType,
-    '.m4a' => 'audio/mp4',
+    '.m4a' => kAudioMp4MimeType,
     '.aac' => kAudioAacMimeType,
     '.ogg' || '.opus' => kAudioOggMimeType,
     '.flac' => kAudioFlacMimeType,

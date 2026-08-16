@@ -4443,7 +4443,7 @@ Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
           final data = optionalStringFromValue(audioData['data']);
           if (data != null) {
             final md = await saveInlineMediaToMarkdown(
-              AiInlineMedia(mimeType: 'audio/mp3', base64Data: data),
+              AiInlineMedia(mimeType: kAudioMp3AliasMimeType, base64Data: data),
               label:
                   optionalStringFromValue(audioData['transcript']) ??
                   'AI Audio Response',
@@ -4541,10 +4541,10 @@ Future<String> _markdownFromOpenAiMediaPayload(
 
 String _audioFormatForMimeType(String mimeType) {
   return switch (lowercaseStringFromValue(mimeType)) {
-    kAudioMpegMimeType || 'audio/mp3' => 'mp3',
+    kAudioMpegMimeType || kAudioMp3AliasMimeType => 'mp3',
     kAudioWavMimeType || kAudioWaveAliasMimeType || kAudioXWavAliasMimeType => 'wav',
     kAudioFlacMimeType || 'audio/x-flac' => 'flac',
-    'audio/mp4' || 'audio/m4a' || 'audio/x-m4a' => 'm4a',
+    kAudioMp4MimeType || 'audio/m4a' || 'audio/x-m4a' => 'm4a',
     kAudioOggMimeType || 'audio/opus' => 'ogg',
     _ => 'wav',
   };
@@ -4588,7 +4588,7 @@ class AiInlineMedia {
       kImageGifMimeType => '.gif',
       kImageWebpMimeType => '.webp',
       kImageSvgXmlMimeType => '.svg',
-      'audio/mp3' || kAudioMpegMimeType => '.mp3',
+      kAudioMp3AliasMimeType || kAudioMpegMimeType => '.mp3',
       kAudioWavMimeType || kAudioXWavAliasMimeType => '.wav',
       kAudioOggMimeType => '.ogg',
       kAudioAacMimeType => '.aac',

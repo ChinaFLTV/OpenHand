@@ -9046,7 +9046,7 @@ class WebMessagePlatformService {
     '.mp3': kAudioMpegMimeType,
     '.wav': kAudioWavMimeType,
     '.ogg': kAudioOggMimeType,
-    '.m4a': 'audio/mp4',
+    '.m4a': kAudioMp4MimeType,
     '.flac': kAudioFlacMimeType,
     '.pdf': kApplicationPdfMimeType,
     '.woff2': 'font/woff2',

@@ -696,7 +696,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       '.mov' => kVideoQuickTimeMimeType,
       '.webm' => kVideoWebmMimeType,
       '.wav' => kAudioWavMimeType,
-      '.m4a' => 'audio/mp4',
+      '.m4a' => kAudioMp4MimeType,
       '.ogg' => kAudioOggMimeType,
       '.aac' => kAudioAacMimeType,
       _ => fallback,

@@ -286,7 +286,7 @@ String aiMimeTypeForPath(String path) {
     '.mp3' => kAudioMpegMimeType,
     '.wav' => kAudioWavMimeType,
     '.flac' => kAudioFlacMimeType,
-    '.m4a' => 'audio/mp4',
+    '.m4a' => kAudioMp4MimeType,
     '.ogg' => kAudioOggMimeType,
     '.md' || '.markdown' => kTextMarkdownMimeType,
     '.txt' => kTextPlainMimeType,
