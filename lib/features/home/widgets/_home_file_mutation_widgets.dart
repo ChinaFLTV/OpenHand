@@ -1491,7 +1491,7 @@ class _CodexDiffPalette {
         deletionFallbackText: Color(0xFFFFDEDE),
         additionAccent: _kFileMutationAdditionAccent,
         deletionAccent: _kFileMutationDeletionAccent,
-        footerSurface: Color(0xFF1B1B1B),
+        footerSurface: OpenHandConsolePalette.terminalSurfaceAlt,
         footerBorder: Color(0x12FFFFFF),
         footerForeground: Color(0xFFD7D7D7),
       );

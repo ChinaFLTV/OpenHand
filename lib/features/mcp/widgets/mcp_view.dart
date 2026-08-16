@@ -2339,7 +2339,7 @@ const int _mcpOpsExposureInitialLimit = 14;
 const int _mcpOpsExposurePageSize = 18;
 const Duration _mcpOpsEndpointDiscoveryDebounce = Duration(milliseconds: 320);
 const Color _mcpOpsTerminalBackground = Color(0xFF0B0D10);
-const Color _mcpOpsTerminalSurface = Color(0xFF18181B);
+const Color _mcpOpsTerminalSurface = OpenHandConsolePalette.terminalSurface;
 
 /// 运维面板外层卡片的统一表面：半透明底 + 细描边 + 一层浅投影。
 ///

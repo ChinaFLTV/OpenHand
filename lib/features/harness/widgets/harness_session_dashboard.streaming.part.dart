@@ -435,7 +435,7 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
           de: 'Denken',
           ja: '思考',
         ),
-        const Color(0xFF18181B),
+        OpenHandConsolePalette.terminalSurface,
         Colors.white.withValues(alpha: 0.10),
         Colors.white,
         18.0,

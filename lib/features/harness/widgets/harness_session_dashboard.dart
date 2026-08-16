@@ -34,6 +34,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_animated_title_text.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
+import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_file_hover_popup.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';

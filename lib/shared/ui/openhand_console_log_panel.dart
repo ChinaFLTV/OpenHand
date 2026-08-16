@@ -15,6 +15,15 @@ abstract final class OpenHandConsolePalette {
   /// 更深一档的面板底色，用于带边框的嵌入式日志区。
   static const Color deepSurface = Color(0xFF0D1117);
 
+  /// 终端风格深色面板底色（用于消息气泡代码块、MCP 运维终端等）。
+  static const Color terminalSurface = Color(0xFF18181B);
+
+  /// 终端风格深色面板底色变体（用于文件变更页脚、启动屏等）。
+  static const Color terminalSurfaceAlt = Color(0xFF1B1B1B);
+
+  /// 消息网关深色面板底色。
+  static const Color gatewayDarkSurface = Color(0xFF101218);
+
   /// 普通正文行。
   static const Color text = Color(0xFFD4D4D4);
 

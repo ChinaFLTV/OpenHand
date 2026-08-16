@@ -681,7 +681,7 @@ class _MessageBubbleState extends State<_MessageBubble>
         : isUser
         ? colorScheme.primaryContainer
         : isReasoning
-        ? const Color(0xFF18181B)
+        ? OpenHandConsolePalette.terminalSurface
         : isToolCall
         ? colorScheme.secondaryContainer
         : isToolResult

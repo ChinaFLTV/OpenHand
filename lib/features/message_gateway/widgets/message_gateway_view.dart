@@ -5931,7 +5931,7 @@ const double _webOpsHeaderCompactBreakpoint = 980;
 const double _webOpsMetricWideBreakpoint = 860;
 const double _webOpsMetricMediumBreakpoint = 560;
 const Color _webOpsTerminalBackground = Color(0xFF10131A);
-const Color _webGatewayDarkSurface = Color(0xFF101218);
+const Color _webGatewayDarkSurface = OpenHandConsolePalette.gatewayDarkSurface;
 const Color _webGatewayLightGray = Color(0xFFE5E7EB);
 const double _kWebOpsTerminalRadius = 8;
 
