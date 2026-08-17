@@ -150,6 +150,12 @@ pub enum EngineEvent {
         module: String,
         #[serde(rename = "eventCode")]
         event_code: Option<String>,
+        #[serde(rename = "traceId")]
+        trace_id: String,
+        #[serde(rename = "exceptionType")]
+        exception_type: Option<String>,
+        #[serde(rename = "stackSummary")]
+        stack_summary: Option<String>,
     },
     Result {
         result: ScanResult,
@@ -776,6 +782,45 @@ impl HttpRequestObserver for DynamicProxySelector {
         })
     }
 
+    fn begin_fallback(
+        &self,
+        request: &reqwest::Request,
+    ) -> reqwest::Result<Option<HttpRequestObservation>> {
+        let runtime = self
+            .runtime
+            .read()
+            .unwrap_or_else(|error| error.into_inner())
+            .clone();
+        let Some(proxy) = runtime.system_proxy.proxy_for(request.url()) else {
+            return Ok(None);
+        };
+        let client = self
+            .observations
+            .clients
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .client_for(proxy)?;
+        Ok(Some(HttpRequestObservation {
+            ticket: None,
+            client,
+        }))
+    }
+
+    fn begin_external_fallback(
+        &self,
+        target: &reqwest::Url,
+    ) -> reqwest::Result<ExternalHttpRequestRoute> {
+        let runtime = self
+            .runtime
+            .read()
+            .unwrap_or_else(|error| error.into_inner())
+            .clone();
+        Ok(ExternalHttpRequestRoute {
+            ticket: None,
+            proxy: runtime.system_proxy.proxy_for(target).cloned(),
+        })
+    }
+
     fn complete(&self, ticket: Option<u64>, elapsed: Duration, outcome: HttpRequestOutcome) {
         let Some(ticket) = ticket else {
             return;
@@ -1113,7 +1158,9 @@ fn is_system_proxy_local_target(host: &str) -> bool {
 /// 优先返回第一个非空且格式合法的值。
 fn env_proxy_url(keys: &[&str]) -> Option<reqwest::Url> {
     for key in keys {
-        let raw = std::env::var(key).ok()?;
+        let Ok(raw) = std::env::var(key) else {
+            continue;
+        };
         let trimmed = raw.trim();
         if trimmed.is_empty() {
             continue;
@@ -2391,6 +2438,8 @@ impl HuntEngine {
         .await?;
         let credentials = self.credentials.read().await.clone();
         let mut candidates = Vec::new();
+        let mut successful_sources = 0_usize;
+        let mut source_errors = Vec::new();
         let source_count = request.sources.len();
         let sources = &self.sources;
         let scan_request = &request;
@@ -2428,6 +2477,7 @@ impl HuntEngine {
             };
             match result {
                 Ok(mut discovery) => {
+                    successful_sources += 1;
                     for warning in discovery.warnings.drain(..) {
                         self.emit_log(&runtime, EventLevel::Warning, &warning)
                             .await?;
@@ -2444,10 +2494,18 @@ impl HuntEngine {
                     candidates.append(&mut discovery.candidates);
                 }
                 Err(error) => {
-                    self.emit_log(
+                    let message = format!("数据源 {source_name} 查询失败：{error}");
+                    source_errors.push(message.clone());
+                    self.emit_structured_log(
                         &runtime,
                         EventLevel::Warning,
-                        &format!("数据源 {source_name} 查询跳过：{error}"),
+                        &message,
+                        StructuredLogMetadata {
+                            module: "source_discovery",
+                            event_code: Some("source_discovery_failed"),
+                            exception_type: Some("source_error"),
+                            stack_summary: None,
+                        },
                     )
                     .await?;
                 }
@@ -2456,6 +2514,9 @@ impl HuntEngine {
                 candidates.truncate(MAX_SCAN_TARGETS);
                 break;
             }
+        }
+        if successful_sources == 0 {
+            anyhow::bail!("所有启用的数据源均查询失败：{}", source_errors.join("；"));
         }
         {
             let mut progress = runtime.progress.write().await;
@@ -3076,6 +3137,9 @@ impl HuntEngine {
             at,
             module: metadata.module.to_owned(),
             event_code: metadata.event_code.map(str::to_owned),
+            trace_id: runtime.job_id.to_string(),
+            exception_type: metadata.exception_type.map(str::to_owned),
+            stack_summary: metadata.stack_summary.map(str::to_owned),
         });
         self.store
             .insert_log(&ScanLogEntry {
@@ -3654,6 +3718,13 @@ mod tests {
             Some("http://127.0.0.1:8080/")
         );
         assert!(pool_route.ticket.is_some());
+
+        let fallback_route = selector.begin_external_fallback(&remote).unwrap();
+        assert_eq!(
+            fallback_route.proxy.as_ref().map(reqwest::Url::as_str),
+            Some("socks5://127.0.0.1:9081")
+        );
+        assert!(fallback_route.ticket.is_none());
 
         let local = reqwest::Url::parse("http://192.168.1.20/status").unwrap();
         let system_route = selector.begin_external(&local).unwrap();

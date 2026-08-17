@@ -2760,6 +2760,7 @@ class _LogList extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final text = openHandTextResolver(context);
     if (logs.isEmpty) {
       return _EmptyLine(
         text: openHandLocalizedText(
@@ -2780,9 +2781,23 @@ class _LogList extends StatelessWidget {
         itemCount: logs.length,
         itemBuilder: (context, index) {
           final log = logs[index];
+          final isError = log.level == 'error';
+          final isWarning = log.level == 'warning';
+          final tone = isError
+              ? cs.error
+              : isWarning
+              ? OpenHandStatusColors.warning
+              : cs.primary;
+          final levelLabel = isError
+              ? text(zh: '错误', en: 'Error')
+              : isWarning
+              ? text(zh: '警告', en: 'Warning')
+              : log.level == 'runtime'
+              ? text(zh: '运行时', en: 'Runtime')
+              : text(zh: '信息', en: 'Info');
           return ServiceInteractiveSurface(
             margin: const EdgeInsets.only(bottom: 3),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             showDetailsIcon: false,
             tooltip: openHandLocalizedText(
               context,
@@ -2797,23 +2812,112 @@ class _LogList extends StatelessWidget {
                 en: 'Scan log details',
               ),
               icon: Icons.terminal_rounded,
+              accentColor: tone,
               presentation: ServiceDetailPresentation.log,
               fields: [
                 ServiceDetailField(label: '时间', value: _dateTime(log.at)),
-                ServiceDetailField(label: '级别', value: log.level),
+                ServiceDetailField(label: '级别', value: levelLabel),
                 ServiceDetailField(
                   label: '任务 ID',
                   value: log.jobId.isEmpty ? '--' : log.jobId,
                 ),
+                if (log.id?.isNotEmpty == true)
+                  ServiceDetailField(label: '日志 ID', value: log.id!),
+                if (log.module?.isNotEmpty == true)
+                  ServiceDetailField(label: '模块', value: log.module!),
+                if (log.eventCode?.isNotEmpty == true)
+                  ServiceDetailField(label: '事件码', value: log.eventCode!),
+                if (log.traceId?.isNotEmpty == true)
+                  ServiceDetailField(label: '追踪 ID', value: log.traceId!),
+                if (log.exceptionType?.isNotEmpty == true)
+                  ServiceDetailField(label: '异常类型', value: log.exceptionType!),
                 ServiceDetailField(label: '完整消息', value: log.message),
+                if (log.stackSummary?.isNotEmpty == true)
+                  ServiceDetailField(label: '异常摘要', value: log.stackSummary!),
+                if (log.metadata.isNotEmpty)
+                  ServiceDetailField(
+                    label: '元数据',
+                    value: formatServiceDetailValue(log.metadata),
+                  ),
               ],
             ),
-            child: Text(
-              '${_time(log.at)}  ${log.message}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
-                color: log.level == 'error' ? cs.error : cs.onSurfaceVariant,
-              ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: tone.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius7),
+                  ),
+                  child: Icon(
+                    isError
+                        ? Icons.error_outline_rounded
+                        : isWarning
+                        ? Icons.warning_amber_rounded
+                        : Icons.terminal_rounded,
+                    size: 16,
+                    color: tone,
+                  ),
+                ),
+                kOpenHandHGap10,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            _time(log.at),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontFamily: 'monospace',
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                          kOpenHandHGap8,
+                          Text(
+                            levelLabel,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: tone,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          if (log.module?.isNotEmpty == true) ...[
+                            kOpenHandHGap8,
+                            Flexible(
+                              child: Text(
+                                log.module!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      kOpenHandGap4,
+                      Text(
+                        log.message,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: isError ? cs.error : cs.onSurface,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                kOpenHandHGap6,
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: cs.onSurfaceVariant,
+                ),
+              ],
             ),
           );
         },

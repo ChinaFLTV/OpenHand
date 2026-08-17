@@ -42,8 +42,11 @@ const GIT_REPOSITORY_CONCURRENCY: usize = 3;
 const GIT_CONTENT_CONCURRENCY: usize = 4;
 const MAX_FORUM_TOPICS: usize = 5;
 const FORUM_TOPIC_CONCURRENCY: usize = 3;
-const JINA_READER_TIMEOUT: Duration = Duration::from_secs(30);
+const JINA_READER_PRIMARY_TIMEOUT: Duration = Duration::from_secs(18);
+const JINA_READER_FALLBACK_TIMEOUT: Duration = Duration::from_secs(35);
+const JINA_READER_SERVER_TIMEOUT_SECONDS: &str = "25";
 const JINA_READER_MAX_ATTEMPTS: u8 = 2;
+const JINA_READER_RETRY_DELAY: Duration = Duration::from_millis(800);
 const MAX_BROWSER_CONCURRENCY: usize = 2;
 const BROWSER_PROCESS_TIMEOUT: Duration = Duration::from_secs(25);
 const MAX_BROWSER_OUTPUT_BYTES: usize = 2 * 1024 * 1024;
@@ -154,6 +157,21 @@ pub trait HttpRequestObserver: Send + Sync {
             proxy: None,
         })
     }
+    fn begin_fallback(
+        &self,
+        _request: &reqwest::Request,
+    ) -> reqwest::Result<Option<HttpRequestObservation>> {
+        Ok(None)
+    }
+    fn begin_external_fallback(
+        &self,
+        _target: &reqwest::Url,
+    ) -> reqwest::Result<ExternalHttpRequestRoute> {
+        Ok(ExternalHttpRequestRoute {
+            ticket: None,
+            proxy: None,
+        })
+    }
     fn complete(&self, ticket: Option<u64>, elapsed: Duration, outcome: HttpRequestOutcome);
 }
 
@@ -176,8 +194,16 @@ impl ObservedHttpClient {
         ObservedRequestBuilder::new(self.clone(), self.client.post(url))
     }
 
-    pub fn begin_external(&self, target: &Url) -> reqwest::Result<ObservedExternalRequest> {
-        let route = self.observer.begin_external(target)?;
+    pub fn begin_external(
+        &self,
+        target: &Url,
+        prefer_fallback: bool,
+    ) -> reqwest::Result<ObservedExternalRequest> {
+        let route = if prefer_fallback {
+            self.observer.begin_external_fallback(target)?
+        } else {
+            self.observer.begin_external(target)?
+        };
         Ok(ObservedExternalRequest {
             observer: self.observer.clone(),
             ticket: route.ticket,
@@ -221,6 +247,8 @@ impl Drop for ObservedExternalRequest {
 pub struct ObservedRequestBuilder {
     client: ObservedHttpClient,
     request: reqwest::RequestBuilder,
+    prefer_fallback: bool,
+    automatic_fallback: bool,
 }
 
 struct HttpRequestCompletion {
@@ -257,9 +285,25 @@ impl Drop for HttpRequestCompletion {
     }
 }
 
+fn request_outcome(response: &reqwest::Result<Response>) -> HttpRequestOutcome {
+    match response {
+        Ok(response) if response.status().is_success() || response.status().is_redirection() => {
+            HttpRequestOutcome::Success(response.status().as_u16())
+        }
+        Ok(response) => HttpRequestOutcome::Failure(response.status().as_u16()),
+        Err(error) if error.is_timeout() => HttpRequestOutcome::Timeout,
+        Err(_) => HttpRequestOutcome::TransportFailure,
+    }
+}
+
 impl ObservedRequestBuilder {
     fn new(client: ObservedHttpClient, request: reqwest::RequestBuilder) -> Self {
-        Self { client, request }
+        Self {
+            client,
+            request,
+            prefer_fallback: false,
+            automatic_fallback: true,
+        }
     }
 
     pub fn header(self, name: &str, value: &str) -> Self {
@@ -297,26 +341,49 @@ impl ObservedRequestBuilder {
         }
     }
 
+    pub fn prefer_fallback(mut self, value: bool) -> Self {
+        self.prefer_fallback = value;
+        self
+    }
+
+    pub fn automatic_fallback(mut self, value: bool) -> Self {
+        self.automatic_fallback = value;
+        self
+    }
+
     pub async fn send(self) -> reqwest::Result<Response> {
         let request = self.request.build()?;
-        let observation = self.client.observer.begin_request(&request)?;
+        let observation = if self.prefer_fallback {
+            self.client.observer.begin_fallback(&request)?
+        } else {
+            self.client.observer.begin_request(&request)?
+        };
         let ticket = observation.as_ref().and_then(|value| value.ticket);
         let client = observation
             .map(|value| value.client)
             .unwrap_or_else(|| self.client.client.clone());
+        let fallback_request = (self.automatic_fallback
+            && !self.prefer_fallback
+            && ticket.is_some()
+            && (request.method() == reqwest::Method::GET
+                || request.method() == reqwest::Method::HEAD))
+            .then(|| request.try_clone())
+            .flatten();
         let completion = HttpRequestCompletion::new(self.client.observer.clone(), ticket);
-        let response = client.execute(request).await;
-        let outcome = match &response {
-            Ok(response)
-                if response.status().is_success() || response.status().is_redirection() =>
-            {
-                HttpRequestOutcome::Success(response.status().as_u16())
-            }
-            Ok(response) => HttpRequestOutcome::Failure(response.status().as_u16()),
-            Err(error) if error.is_timeout() => HttpRequestOutcome::Timeout,
-            Err(_) => HttpRequestOutcome::TransportFailure,
-        };
-        completion.complete(outcome);
+        let mut response = client.execute(request).await;
+        completion.complete(request_outcome(&response));
+        if response.is_err()
+            && let Some(request) = fallback_request
+        {
+            let observation = self.client.observer.begin_fallback(&request)?;
+            let ticket = observation.as_ref().and_then(|value| value.ticket);
+            let client = observation
+                .map(|value| value.client)
+                .unwrap_or_else(|| self.client.client.clone());
+            let completion = HttpRequestCompletion::new(self.client.observer.clone(), ticket);
+            response = client.execute(request).await;
+            completion.complete(request_outcome(&response));
+        }
         response
     }
 }
@@ -496,7 +563,7 @@ impl BrowserAutomation {
         }
     }
 
-    async fn fetch(&self, target: &Url) -> Result<String, SourceError> {
+    async fn fetch(&self, target: &Url, prefer_fallback: bool) -> Result<String, SourceError> {
         let configuration = self
             .configuration
             .read()
@@ -510,7 +577,7 @@ impl BrowserAutomation {
             .map_err(|_| SourceError::Browser("浏览器并发控制器已关闭".to_owned()))?;
         let observation = self
             .client
-            .begin_external(target)
+            .begin_external(target, prefer_fallback)
             .map_err(|_| SourceError::Browser("代理选路失败".to_owned()))?;
         let proxy = observation.proxy().map(browser_proxy_input);
         let input = BrowserReaderInput {
@@ -624,7 +691,9 @@ fn normalize_browser_error(value: Option<&str>) -> String {
         "页面载入超时".to_owned()
     } else if message.contains("Cannot find module") {
         "模块不可用".to_owned()
-    } else if message.contains("ERR_PROXY") || message.contains("proxy") && message.contains("connection") {
+    } else if message.contains("ERR_PROXY")
+        || message.contains("proxy") && message.contains("connection")
+    {
         "代理连接失败".to_owned()
     } else if message.contains("ERR_NAME_NOT_RESOLVED") || message.contains("ENOTFOUND") {
         "DNS 解析失败".to_owned()
@@ -644,6 +713,34 @@ fn browser_error_reason(error: &SourceError) -> String {
         SourceError::BrowserUnavailable => "浏览器通道未就绪".to_owned(),
         other => other.to_string(),
     }
+}
+
+fn jina_route_label(fallback: bool) -> &'static str {
+    if fallback {
+        "系统代理/DIRECT 回退路由"
+    } else {
+        "首选路由"
+    }
+}
+
+fn jina_status_retryable(status: StatusCode) -> bool {
+    status == StatusCode::TOO_MANY_REQUESTS || status.is_server_error()
+}
+
+fn jina_status_hint(status: StatusCode) -> &'static str {
+    match status {
+        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => "（访问被拒绝）",
+        StatusCode::TOO_MANY_REQUESTS => "（匿名额度受限，稍后重试）",
+        StatusCode::REQUEST_TIMEOUT | StatusCode::GATEWAY_TIMEOUT => "（上游读取超时）",
+        status if status.is_server_error() => "（Jina Reader 服务异常）",
+        _ => "",
+    }
+}
+
+fn concise_reqwest_error(error: &reqwest::Error) -> String {
+    let message = error.to_string();
+    let concise = message.lines().next().unwrap_or("未知错误");
+    concise.chars().take(160).collect()
 }
 
 #[derive(Clone, Copy)]
@@ -698,6 +795,13 @@ struct ForumSource {
     specification: ForumSpecification,
 }
 
+struct ForumPage {
+    content: String,
+    warning: Option<String>,
+    browser: bool,
+    fallback_route: bool,
+}
+
 impl ForumSource {
     fn new(
         client: ObservedHttpClient,
@@ -715,25 +819,65 @@ impl ForumSource {
         &self,
         target: &Url,
         mode: ForumFetchMode,
-    ) -> Result<(String, Option<String>, bool), SourceError> {
+        prefer_fallback: bool,
+    ) -> Result<ForumPage, SourceError> {
         if mode == ForumFetchMode::Playwright {
-            return self
-                .browser
-                .fetch(target)
-                .await
-                .map(|content| (content, None, false));
-        }
-        match self.fetch_jina(target).await {
-            Ok(content) => Ok((content, None, false)),
-            Err(reader) => match self.browser.fetch(target).await {
-                Ok(content) => Ok((
+            return match self.browser.fetch(target, prefer_fallback).await {
+                Ok(content) => Ok(ForumPage {
                     content,
-                    Some(format!(
-                        "{} 的 Jina Reader 读取失败，已切换 Playwright：{reader}",
+                    warning: None,
+                    browser: true,
+                    fallback_route: prefer_fallback,
+                }),
+                Err(primary) if !prefer_fallback => match self.browser.fetch(target, true).await {
+                    Ok(content) => Ok(ForumPage {
+                        content,
+                        warning: Some(format!(
+                            "{} 的 Playwright 首选路由失败，已通过系统代理/DIRECT 回退：{}",
+                            self.specification.platform,
+                            browser_error_reason(&primary),
+                        )),
+                        browser: true,
+                        fallback_route: true,
+                    }),
+                    Err(fallback) => Err(SourceError::Browser(format!(
+                        "首选路由 {}；系统代理/DIRECT 回退路由 {}",
+                        browser_error_reason(&primary),
+                        browser_error_reason(&fallback),
+                    ))),
+                },
+                Err(error) => Err(error),
+            };
+        }
+        match self.fetch_jina(target, prefer_fallback).await {
+            Ok((content, fallback_route, first_error)) => Ok(ForumPage {
+                content,
+                warning: first_error.map(|error| {
+                    if prefer_fallback {
+                        format!(
+                            "{} 的 Jina Reader 回退路由首次读取失败，重试成功：{error}",
+                            self.specification.platform
+                        )
+                    } else {
+                        format!(
+                            "{} 的 Jina Reader 首选路由失败，已通过系统代理/DIRECT 回退：{error}",
+                            self.specification.platform
+                        )
+                    }
+                }),
+                browser: false,
+                fallback_route,
+            }),
+            Err(reader) => match self.browser.fetch(target, true).await {
+                Ok(content) => Ok(ForumPage {
+                    content,
+                    warning: Some(format!(
+                        "{} 的 Jina Reader 读取失败，已通过回退路由切换 Playwright：{reader}",
                         self.specification.platform
                     )),
-                    true,
-                )),
+                    browser: true,
+                    fallback_route: true,
+                }),
                 Err(browser) => Err(SourceError::ForumFetch {
                     platform: self.specification.platform,
                     reader,
@@ -743,52 +887,98 @@ impl ForumSource {
         }
     }
 
-    async fn fetch_jina(&self, target: &Url) -> Result<String, String> {
+    async fn fetch_jina(
+        &self,
+        target: &Url,
+        prefer_fallback: bool,
+    ) -> Result<(String, bool, Option<String>), String> {
         let reader_url = Url::parse(&format!("https://r.jina.ai/{}", target.as_str()))
             .map_err(|_| "请求地址无效".to_owned())?;
-        let mut last_error = String::new();
+        let mut errors = Vec::with_capacity(JINA_READER_MAX_ATTEMPTS as usize);
         for attempt in 1..=JINA_READER_MAX_ATTEMPTS {
+            let fallback_route = prefer_fallback || attempt > 1;
+            let timeout = if fallback_route {
+                JINA_READER_FALLBACK_TIMEOUT
+            } else {
+                JINA_READER_PRIMARY_TIMEOUT
+            };
             let response = self
                 .client
                 .get(reader_url.clone())
                 .header("Accept", "text/plain")
-                .header("X-Return-Format", "markdown")
-                .timeout(JINA_READER_TIMEOUT)
+                .header("Return-Format", "markdown")
+                .header("X-Timeout", JINA_READER_SERVER_TIMEOUT_SECONDS)
+                .prefer_fallback(fallback_route)
+                .automatic_fallback(false)
+                .timeout(timeout)
                 .send()
                 .await;
             let response = match response {
                 Ok(response) => response,
                 Err(error) => {
-                    last_error = if error.is_timeout() {
+                    let reason = if error.is_timeout() {
                         "请求超时".to_owned()
                     } else if error.is_connect() {
                         "连接失败（DNS/网络/代理不可达）".to_owned()
                     } else {
-                        "网络请求失败".to_owned()
+                        format!("网络请求失败：{}", concise_reqwest_error(&error))
                     };
+                    errors.push(format!("{}：{reason}", jina_route_label(fallback_route)));
                     if attempt < JINA_READER_MAX_ATTEMPTS {
-                        tokio::time::sleep(Duration::from_millis(800)).await;
+                        tokio::time::sleep(JINA_READER_RETRY_DELAY).await;
                         continue;
                     }
-                    return Err(last_error);
+                    return Err(errors.join("；"));
                 }
             };
-            if !response.status().is_success() {
-                return Err(format!("返回 HTTP {}", response.status().as_u16()));
+            let status = response.status();
+            if !status.is_success() {
+                let reason = format!(
+                    "{}：返回 HTTP {}{}",
+                    jina_route_label(fallback_route),
+                    status.as_u16(),
+                    jina_status_hint(status),
+                );
+                errors.push(reason);
+                if attempt < JINA_READER_MAX_ATTEMPTS && jina_status_retryable(status) {
+                    tokio::time::sleep(JINA_READER_RETRY_DELAY).await;
+                    continue;
+                }
+                return Err(errors.join("；"));
             }
-            let content = parse_text_limited(self.specification.platform, response)
-                .await
-                .map_err(|error| error.to_string())?;
+            let content = match parse_text_limited(self.specification.platform, response).await {
+                Ok(content) => content,
+                Err(error) => {
+                    errors.push(format!("{}：{}", jina_route_label(fallback_route), error));
+                    if attempt < JINA_READER_MAX_ATTEMPTS {
+                        tokio::time::sleep(JINA_READER_RETRY_DELAY).await;
+                        continue;
+                    }
+                    return Err(errors.join("；"));
+                }
+            };
             let trimmed = content.trim();
             if trimmed.is_empty() {
-                return Err("返回内容为空".to_owned());
+                errors.push(format!(
+                    "{}：返回内容为空",
+                    jina_route_label(fallback_route)
+                ));
+                if attempt < JINA_READER_MAX_ATTEMPTS {
+                    tokio::time::sleep(JINA_READER_RETRY_DELAY).await;
+                    continue;
+                }
+                return Err(errors.join("；"));
             }
             if trimmed.starts_with("{\"data\":null,") {
-                return Err("拒绝读取目标站点".to_owned());
+                errors.push(format!(
+                    "{}：拒绝读取目标站点",
+                    jina_route_label(fallback_route)
+                ));
+                return Err(errors.join("；"));
             }
-            return Ok(content);
+            return Ok((content, fallback_route, errors.into_iter().next()));
         }
-        Err(last_error)
+        Err(errors.join("；"))
     }
 }
 
@@ -806,47 +996,49 @@ impl AssetSource for ForumSource {
         let entry = source_query(request, self.specification.key)
             .unwrap_or_else(|| self.specification.default_entry.to_owned());
         let entry = parse_forum_entry(&entry, self.specification)?;
-        let (index_content, index_warning, index_fallback) =
-            self.fetch_page(&entry, request.forum_fetch_mode).await?;
+        let index = self
+            .fetch_page(&entry, request.forum_fetch_mode, false)
+            .await?;
         let direct_topic = self.specification.is_topic_path(entry.path());
         let topics = if direct_topic {
             Vec::new()
         } else {
-            extract_forum_topics(&index_content, self.specification)
+            extract_forum_topics(&index.content, self.specification)
         };
         if !direct_topic && topics.is_empty() {
             return Err(SourceError::InvalidResponse(self.specification.platform));
         }
-        let mut warnings = index_warning.into_iter().collect::<Vec<_>>();
+        let mut warnings = index.warning.into_iter().collect::<Vec<_>>();
         let mut candidates = BTreeMap::new();
         let mut successful_pages = 0_usize;
         let mut last_error = None;
         if direct_topic {
             successful_pages = 1;
-            for candidate in forum_candidates(&index_content, &entry, self.specification) {
+            for candidate in forum_candidates(&index.content, &entry, self.specification) {
                 candidates
                     .entry(candidate.target.clone())
                     .or_insert(candidate);
             }
         } else {
             let source = self;
-            let mode = if index_fallback {
+            let mode = if index.browser {
                 ForumFetchMode::Playwright
             } else {
                 request.forum_fetch_mode
             };
             let pages = stream::iter(topics.into_iter().map(|topic| async move {
-                let result = source.fetch_page(&topic, mode).await;
+                let result = source.fetch_page(&topic, mode, index.fallback_route).await;
                 (topic, result)
             }))
             .buffer_unordered(FORUM_TOPIC_CONCURRENCY);
             futures::pin_mut!(pages);
             while let Some((topic, result)) = pages.next().await {
                 match result {
-                    Ok((content, warning, _)) => {
+                    Ok(page) => {
                         successful_pages += 1;
-                        warnings.extend(warning);
-                        for candidate in forum_candidates(&content, &topic, self.specification) {
+                        warnings.extend(page.warning);
+                        for candidate in forum_candidates(&page.content, &topic, self.specification)
+                        {
                             candidates
                                 .entry(candidate.target.clone())
                                 .or_insert(candidate);
@@ -2737,6 +2929,46 @@ mod tests {
         }
     }
 
+    struct FallbackObserver {
+        primary_client: Client,
+        fallback_count: std::sync::atomic::AtomicUsize,
+        outcomes: std::sync::Mutex<Vec<HttpRequestOutcome>>,
+    }
+
+    impl HttpRequestObserver for FallbackObserver {
+        fn begin(&self, _target: &reqwest::Url) -> reqwest::Result<Option<HttpRequestObservation>> {
+            Ok(Some(HttpRequestObservation {
+                ticket: Some(1),
+                client: self.primary_client.clone(),
+            }))
+        }
+
+        fn begin_fallback(
+            &self,
+            _request: &reqwest::Request,
+        ) -> reqwest::Result<Option<HttpRequestObservation>> {
+            self.fallback_count
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            Ok(None)
+        }
+
+        fn complete(&self, _ticket: Option<u64>, _elapsed: Duration, outcome: HttpRequestOutcome) {
+            self.outcomes.lock().unwrap().push(outcome);
+        }
+    }
+
+    fn fallback_observer() -> Arc<FallbackObserver> {
+        if rustls::crypto::CryptoProvider::get_default().is_none() {
+            let _ = rustls::crypto::ring::default_provider().install_default();
+        }
+        let proxy = reqwest::Proxy::all("http://127.0.0.1:1").unwrap();
+        Arc::new(FallbackObserver {
+            primary_client: Client::builder().no_proxy().proxy(proxy).build().unwrap(),
+            fallback_count: std::sync::atomic::AtomicUsize::new(0),
+            outcomes: std::sync::Mutex::new(Vec::new()),
+        })
+    }
+
     #[test]
     fn accepts_fofa_error_without_results() {
         let response: FofaSearchResponse =
@@ -2777,6 +3009,76 @@ mod tests {
         let observer = Arc::new(CompletionObserver::default());
         let completion = HttpRequestCompletion::new(observer.clone(), Some(1));
         drop(completion);
+        let outcomes = observer.outcomes.lock().unwrap();
+        assert_eq!(outcomes.len(), 1);
+        assert!(matches!(outcomes[0], HttpRequestOutcome::TransportFailure));
+    }
+
+    #[tokio::test]
+    async fn retries_idempotent_request_through_fallback_route() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = [0_u8; 1024];
+            let _ = stream.read(&mut request).await.unwrap();
+            stream
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
+                .await
+                .unwrap();
+        });
+        let observer = fallback_observer();
+        let client = ObservedHttpClient::new(
+            Client::builder().no_proxy().build().unwrap(),
+            observer.clone(),
+        );
+
+        let response = client
+            .get(format!("http://{address}/probe"))
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.text().await.unwrap(), "ok");
+        server.await.unwrap();
+        assert_eq!(
+            observer
+                .fallback_count
+                .load(std::sync::atomic::Ordering::Relaxed),
+            1
+        );
+        let outcomes = observer.outcomes.lock().unwrap();
+        assert_eq!(outcomes.len(), 2);
+        assert!(matches!(outcomes[0], HttpRequestOutcome::TransportFailure));
+        assert!(matches!(outcomes[1], HttpRequestOutcome::Success(200)));
+    }
+
+    #[tokio::test]
+    async fn does_not_replay_non_idempotent_request() {
+        let observer = fallback_observer();
+        let client = ObservedHttpClient::new(
+            Client::builder().no_proxy().build().unwrap(),
+            observer.clone(),
+        );
+
+        let result = client
+            .post("http://example.com/probe")
+            .json(&serde_json::json!({"value": 1}))
+            .send()
+            .await;
+
+        assert!(result.is_err());
+        assert_eq!(
+            observer
+                .fallback_count
+                .load(std::sync::atomic::Ordering::Relaxed),
+            0
+        );
         let outcomes = observer.outcomes.lock().unwrap();
         assert_eq!(outcomes.len(), 1);
         assert!(matches!(outcomes[0], HttpRequestOutcome::TransportFailure));

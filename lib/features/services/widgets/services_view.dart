@@ -315,7 +315,11 @@ class _AiExposureServiceCard extends StatelessWidget {
                       ? Padding(
                           key: const ValueKey<String>('service-error'),
                           padding: const EdgeInsets.only(top: 12),
-                          child: _ServiceError(message: snapshot.error!),
+                          child: _ServiceError(
+                            message: snapshot.error!,
+                            onTap: () =>
+                                showAiExposureScanWorkspaceDialog(context),
+                          ),
                         )
                       : null,
                 ),
@@ -591,28 +595,52 @@ class _CapabilityChip extends StatelessWidget {
 }
 
 class _ServiceError extends StatelessWidget {
-  const _ServiceError({required this.message});
+  const _ServiceError({required this.message, required this.onTap});
   final String message;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(Icons.error_outline_rounded, size: 18, color: cs.error),
-        kOpenHandHGap8,
-        Expanded(
-          child: Text(
-            message,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: cs.error),
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Tooltip(
+      message: openHandLocalizedText(
+        context,
+        zh: '打开扫描工作台查看完整日志',
+        en: 'Open the scan workspace for complete logs',
+      ),
+      child: Material(
+        color: cs.errorContainer.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(kOpenHandRadius10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(kOpenHandRadius10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.error_outline_rounded, size: 19, color: cs.error),
+                kOpenHandHGap8,
+                Expanded(
+                  child: Text(
+                    message,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onErrorContainer,
+                      height: 1.4,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                kOpenHandHGap6,
+                Icon(Icons.chevron_right_rounded, size: 20, color: cs.error),
+              ],
+            ),
           ),
         ),
-      ],
+      ),
     );
   }
 }

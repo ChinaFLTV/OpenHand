@@ -896,6 +896,7 @@ class ServicesController extends ChangeNotifier {
         _eventStreamReconnectAttempts = 0;
         if (_errorMessage == _eventStreamErrorMessage) _errorMessage = null;
         _eventStreamErrorMessage = null;
+        _detectTerminalScanOutcome();
         await _refreshHistoryAndResultsSafely();
         return;
       }
@@ -1930,25 +1931,27 @@ class ServicesController extends ChangeNotifier {
     _eventStreamReconnectAttempts = 0;
     if (_errorMessage == _eventStreamErrorMessage) _errorMessage = null;
     _eventStreamErrorMessage = null;
-    _detectEmptyCompletion();
+    _detectTerminalScanOutcome();
     await _refreshHistoryAndResultsSafely();
   }
 
-  /// 扫描任务进入终态但未发现任何候选目标时，给出明确提示。
-  void _detectEmptyCompletion() {
+  void _detectTerminalScanOutcome() {
     final progress = _progress;
-    if (progress == null) return;
-    if (progress.stage == 'completed' &&
+    if (progress == null || progress.isRunning) return;
+    AiExposureLogEntry? sourceFailure;
+    for (final entry in _logs.reversed) {
+      if (entry.eventCode == 'source_discovery_failed' ||
+          _kScanReaderFailureMarkers.any(entry.message.contains)) {
+        sourceFailure = entry;
+        break;
+      }
+    }
+    if (progress.stage == 'failed') {
+      _errorMessage = sourceFailure?.message ?? progress.message;
+    } else if (progress.stage == 'completed' &&
         progress.discovered == 0 &&
         progress.candidates == 0) {
-      final hasReaderFailure = _logs.any(
-        (entry) => _kScanReaderFailureMarkers.any(
-          (marker) => entry.message.contains(marker),
-        ),
-      );
-      _errorMessage = hasReaderFailure
-          ? '扫描完成但未发现目标，页面抓取失败。请检查系统代理设置后重试。'
-          : '扫描完成但未发现目标，请确认数据源配置与授权范围。';
+      _errorMessage = sourceFailure?.message ?? '扫描完成，但未发现候选目标。请检查数据源范围与入口配置。';
     }
   }
 

@@ -20,3 +20,6 @@ thiserror.workspace = true
 tokio.workspace = true
 url.workspace = true
 urlencoding.workspace = true
+
+[dev-dependencies]
+rustls.workspace = true
