@@ -2015,7 +2015,7 @@ class _MachineTerminalFileEditorDialogState
   }
 }
 
-class _MachineTerminalTransfersDialog extends StatelessWidget {
+class _MachineTerminalTransfersDialog extends StatefulWidget {
   const _MachineTerminalTransfersDialog({
     required this.sessionId,
     required this.terminalId,
@@ -2023,6 +2023,33 @@ class _MachineTerminalTransfersDialog extends StatelessWidget {
 
   final String sessionId;
   final String terminalId;
+
+  @override
+  State<_MachineTerminalTransfersDialog> createState() =>
+      _MachineTerminalTransfersDialogState();
+}
+
+class _MachineTerminalTransfersDialogState
+    extends State<_MachineTerminalTransfersDialog> {
+  Timer? _statsRefreshTimer;
+  bool _hasActiveTransfers = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _statsRefreshTimer = startSafePeriodicTimer(
+      const Duration(milliseconds: 250),
+      (_) {
+        if (mounted && _hasActiveTransfers) setState(() {});
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _statsRefreshTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2036,10 +2063,11 @@ class _MachineTerminalTransfersDialog extends StatelessWidget {
     );
     final service = context.watch<MachineTerminalFileService>();
     final tasks = service.transfers(
-      sessionId: sessionId,
-      terminalId: terminalId,
+      sessionId: widget.sessionId,
+      terminalId: widget.terminalId,
     );
     final active = tasks.where((task) => task.isActive).length;
+    _hasActiveTransfers = active > 0;
     final uploads = tasks
         .where(
           (task) => task.direction == MachineTerminalTransferDirection.upload,
@@ -2101,7 +2129,10 @@ class _MachineTerminalTransfersDialog extends StatelessWidget {
                       itemCount: tasks.length,
                       separatorBuilder: (_, _) => kOpenHandGap8,
                       itemBuilder: (context, index) =>
-                          _MachineTerminalTransferRow(task: tasks[index]),
+                          _MachineTerminalTransferRow(
+                            key: ValueKey<String>(tasks[index].id),
+                            task: tasks[index],
+                          ),
                     ),
             ),
           ],
@@ -2112,7 +2143,7 @@ class _MachineTerminalTransfersDialog extends StatelessWidget {
 }
 
 class _MachineTerminalTransferRow extends StatelessWidget {
-  const _MachineTerminalTransferRow({required this.task});
+  const _MachineTerminalTransferRow({super.key, required this.task});
 
   final MachineTerminalTransferTask task;
 
@@ -2199,11 +2230,24 @@ class _MachineTerminalTransferRow extends StatelessWidget {
                     kOpenHandGap3,
                     Text(
                       '${_machineTerminalTransferStatusLabel(context, task.status)} · '
-                      '${formatByteSize(task.transferredBytes)} / ${formatByteSize(task.totalBytes)}',
+                      '${formatByteSize(task.transferredBytes)} / ${formatByteSize(task.totalBytes)} · '
+                      '${_machineTerminalTransferPercent(task.progress)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: cs.onSurfaceVariant,
+                        fontFeatures: const <FontFeature>[
+                          FontFeature.tabularFigures(),
+                        ],
+                      ),
+                    ),
+                    kOpenHandGap3,
+                    Text(
+                      _machineTerminalTransferStatsLabel(context, task),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.primary,
                         fontFeatures: const <FontFeature>[
                           FontFeature.tabularFigures(),
                         ],
@@ -2272,16 +2316,10 @@ class _MachineTerminalTransferRow extends StatelessWidget {
           kOpenHandGap10,
           ClipRRect(
             borderRadius: kOpenHandPillBorderRadius,
-            child: TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: 0, end: task.progress),
-              duration: openHandMotionDuration(context, kOpenHandMotion220),
-              curve: kOpenHandSwitchInCurve,
-              builder: (context, value, _) => LinearProgressIndicator(
-                minHeight: 7,
-                value: value,
-                color: statusColor,
-                backgroundColor: cs.surfaceContainerHighest,
-              ),
+            child: _MachineTerminalTransferProgressBar(
+              value: task.progress,
+              color: statusColor,
+              backgroundColor: cs.surfaceContainerHighest,
             ),
           ),
           if (task.error != null && task.error!.isNotEmpty) ...[
@@ -2300,6 +2338,86 @@ class _MachineTerminalTransferRow extends StatelessWidget {
       ),
     );
   }
+}
+
+class _MachineTerminalTransferProgressBar extends StatefulWidget {
+  const _MachineTerminalTransferProgressBar({
+    required this.value,
+    required this.color,
+    required this.backgroundColor,
+  });
+
+  final double value;
+  final Color color;
+  final Color backgroundColor;
+
+  @override
+  State<_MachineTerminalTransferProgressBar> createState() =>
+      _MachineTerminalTransferProgressBarState();
+}
+
+class _MachineTerminalTransferProgressBarState
+    extends State<_MachineTerminalTransferProgressBar> {
+  double _displayedValue = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final target = widget.value.clamp(0.0, 1.0).toDouble();
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: _displayedValue, end: target),
+      duration: openHandMotionDuration(context, kOpenHandMotion220),
+      curve: kOpenHandSwitchInCurve,
+      builder: (context, value, _) {
+        _displayedValue = value;
+        return LinearProgressIndicator(
+          minHeight: 7,
+          value: value,
+          color: widget.color,
+          backgroundColor: widget.backgroundColor,
+        );
+      },
+    );
+  }
+}
+
+String _machineTerminalTransferPercent(double progress) {
+  final value = (progress.clamp(0.0, 1.0) * 100).toDouble();
+  if (value >= 99.95) return '100%';
+  final digits = value >= 10 ? 1 : 2;
+  return '${value.toStringAsFixed(digits)}%';
+}
+
+String _machineTerminalTransferDuration(Duration duration) {
+  final milliseconds = duration.inMilliseconds.clamp(0, 359999999);
+  final hours = milliseconds ~/ Duration.millisecondsPerHour;
+  final minutes =
+      (milliseconds % Duration.millisecondsPerHour) ~/
+      Duration.millisecondsPerMinute;
+  final seconds =
+      (milliseconds % Duration.millisecondsPerMinute) ~/
+      Duration.millisecondsPerSecond;
+  final tenths = (milliseconds % Duration.millisecondsPerSecond) ~/ 100;
+  String two(int value) => value.toString().padLeft(2, '0');
+  return hours > 0
+      ? '${two(hours)}:${two(minutes)}:${two(seconds)}'
+      : '${two(minutes)}:${two(seconds)}.$tenths';
+}
+
+String _machineTerminalTransferStatsLabel(
+  BuildContext context,
+  MachineTerminalTransferTask task,
+) {
+  final speed = task.effectiveSpeedBytesPerSecond;
+  final speedValue = speed > 0
+      ? '${formatByteSize(speed)}/s'
+      : openHandLocalizedText(context, zh: '计算中', en: 'Calculating');
+  final elapsed = _machineTerminalTransferDuration(task.elapsed);
+  final remaining = task.estimatedRemaining;
+  final speedLabel = openHandLocalizedText(context, zh: '速度', en: 'Speed');
+  final elapsedLabel = openHandLocalizedText(context, zh: '耗时', en: 'Elapsed');
+  final etaLabel = openHandLocalizedText(context, zh: '剩余', en: 'ETA');
+  return '$speedLabel $speedValue · $elapsedLabel $elapsed'
+      '${remaining == null ? '' : ' · $etaLabel ${_machineTerminalTransferDuration(remaining)}'}';
 }
 
 String _machineTerminalTransferStatusLabel(

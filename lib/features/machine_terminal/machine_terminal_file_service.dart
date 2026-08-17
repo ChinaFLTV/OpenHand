@@ -130,6 +130,7 @@ class MachineTerminalTransferTask {
     required this.transferredBytes,
     required this.status,
     required this.createdAt,
+    this.speedBytesPerSecond = 0,
     this.startedAt,
     this.completedAt,
     this.error,
@@ -146,6 +147,7 @@ class MachineTerminalTransferTask {
   final int transferredBytes;
   final MachineTerminalTransferStatus status;
   final DateTime createdAt;
+  final double speedBytesPerSecond;
   final DateTime? startedAt;
   final DateTime? completedAt;
   final String? error;
@@ -160,6 +162,36 @@ class MachineTerminalTransferTask {
       status == MachineTerminalTransferStatus.queued ||
       status == MachineTerminalTransferStatus.transferring ||
       status == MachineTerminalTransferStatus.paused;
+
+  Duration get elapsed {
+    final start = startedAt;
+    if (start == null) return Duration.zero;
+    final end = completedAt ?? DateTime.now();
+    final value = end.difference(start);
+    return value.isNegative ? Duration.zero : value;
+  }
+
+  double get effectiveSpeedBytesPerSecond {
+    if (status == MachineTerminalTransferStatus.paused) return 0;
+    if (status == MachineTerminalTransferStatus.transferring &&
+        speedBytesPerSecond > 0) {
+      return speedBytesPerSecond;
+    }
+    final milliseconds = elapsed.inMilliseconds;
+    if (milliseconds > 0 && transferredBytes > 0) {
+      return transferredBytes * Duration.millisecondsPerSecond / milliseconds;
+    }
+    return speedBytesPerSecond;
+  }
+
+  Duration? get estimatedRemaining {
+    if (!isActive || totalBytes <= transferredBytes) return null;
+    final speed = effectiveSpeedBytesPerSecond;
+    if (speed <= 0) return null;
+    return Duration(
+      milliseconds: ((totalBytes - transferredBytes) / speed * 1000).ceil(),
+    );
+  }
 }
 
 class MachineTerminalFileService extends ChangeNotifier {
@@ -449,6 +481,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     }
     task.statusBeforePause = task.status;
     task.status = MachineTerminalTransferStatus.paused;
+    task.resetProgressClock();
     task.pauseSignal ??= Completer<void>();
     _notify();
   }
@@ -459,6 +492,7 @@ class MachineTerminalFileService extends ChangeNotifier {
       return;
     }
     task.status = task.statusBeforePause;
+    task.resetProgressClock();
     task.pauseSignal?.complete();
     task.pauseSignal = null;
     _notify();
@@ -800,7 +834,7 @@ class MachineTerminalFileService extends ChangeNotifier {
             throw const MachineTerminalUploadCancelled();
           }
           void onProgress(int bytes) {
-            task.transferredBytes = bytes.clamp(0, task.totalBytes);
+            task.updateProgress(bytes);
             _scheduleProgressNotify();
           }
 
@@ -827,7 +861,11 @@ class MachineTerminalFileService extends ChangeNotifier {
               destinationPath: p.join(task.targetDirectory, task.fileName),
               onTotalBytes: (bytes) {
                 task.totalBytes = bytes;
-                task.transferredBytes = task.transferredBytes.clamp(0, bytes);
+                if (task.transferredBytes > bytes) {
+                  task.transferredBytes = bytes;
+                  task.resetProgressClock();
+                }
+                task.updateProgress(task.transferredBytes);
                 _scheduleProgressNotify();
               },
               onProgress: onProgress,
@@ -839,8 +877,8 @@ class MachineTerminalFileService extends ChangeNotifier {
         if (task.status != MachineTerminalTransferStatus.canceled) {
           task
             ..status = MachineTerminalTransferStatus.completed
-            ..transferredBytes = task.totalBytes
             ..completedAt = DateTime.now();
+          task.updateProgress(task.totalBytes);
         }
       } on MachineTerminalUploadCancelled {
         task
@@ -1090,6 +1128,7 @@ class _MutableTransferTask {
   int totalBytes;
   final DateTime createdAt;
   int transferredBytes = 0;
+  double speedBytesPerSecond = 0;
   MachineTerminalTransferStatus status = MachineTerminalTransferStatus.queued;
   MachineTerminalTransferStatus statusBeforePause =
       MachineTerminalTransferStatus.queued;
@@ -1098,6 +1137,30 @@ class _MutableTransferTask {
   String? error;
   Completer<void>? pauseSignal;
   bool removeWhenFinished = false;
+  DateTime? _lastProgressAt;
+
+  void updateProgress(int bytes) {
+    final next = bytes.clamp(0, totalBytes).toInt();
+    if (next < transferredBytes) return;
+    final now = DateTime.now();
+    final previousAt = _lastProgressAt;
+    if (previousAt != null && next > transferredBytes) {
+      final elapsedMs = now.difference(previousAt).inMilliseconds;
+      if (elapsedMs > 0) {
+        speedBytesPerSecond =
+            (next - transferredBytes) *
+            Duration.millisecondsPerSecond /
+            elapsedMs;
+      }
+    }
+    transferredBytes = next;
+    _lastProgressAt = now;
+  }
+
+  void resetProgressClock() {
+    speedBytesPerSecond = 0;
+    _lastProgressAt = null;
+  }
 
   MachineTerminalTransferTask snapshot() => MachineTerminalTransferTask(
     id: id,
@@ -1111,6 +1174,7 @@ class _MutableTransferTask {
     transferredBytes: transferredBytes,
     status: status,
     createdAt: createdAt,
+    speedBytesPerSecond: speedBytesPerSecond,
     startedAt: startedAt,
     completedAt: completedAt,
     error: error,

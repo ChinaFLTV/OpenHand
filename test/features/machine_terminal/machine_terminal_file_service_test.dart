@@ -207,6 +207,30 @@ void main() {
     }
   });
 
+  test('传输记录提供真实进度速度耗时和剩余时间', () {
+    final startedAt = DateTime.now().subtract(const Duration(seconds: 4));
+    final task = MachineTerminalTransferTask(
+      id: 'stats-test',
+      sessionId: 'session',
+      terminalId: 'terminal',
+      direction: MachineTerminalTransferDirection.upload,
+      sourcePath: '/tmp/source.bin',
+      targetDirectory: '/tmp',
+      fileName: 'source.bin',
+      totalBytes: 4096,
+      transferredBytes: 2048,
+      status: MachineTerminalTransferStatus.transferring,
+      createdAt: startedAt,
+      startedAt: startedAt,
+      speedBytesPerSecond: 1024,
+    );
+
+    expect(task.progress, closeTo(0.5, 0.0001));
+    expect(task.effectiveSpeedBytesPerSecond, 1024);
+    expect(task.elapsed.inSeconds, greaterThanOrEqualTo(4));
+    expect(task.estimatedRemaining?.inSeconds, greaterThanOrEqualTo(1));
+  });
+
   test(
     '终端文件服务跟随当前 PTY 路径并完成文件操作和分块上传',
     () async {
