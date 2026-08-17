@@ -25,6 +25,9 @@ const Curve kOpenHandEmphasizedCurve = Curves.easeInOutCubicEmphasized;
 /// 胶囊切换等需要 Q 弹出场感的场景。
 const Curve kOpenHandEntranceCurve = Curves.easeOutBack;
 
+/// 弹簧缩放专用退场曲线，与进场回弹形成方向对称的轻微收束。
+const Curve kOpenHandSpringExitCurve = Curves.easeInBack;
+
 enum OpenHandMotionSettingsScope { dialog, menu, page, panel, chip, listItem }
 
 bool openHandReduceMotionOf(BuildContext context) {

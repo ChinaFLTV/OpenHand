@@ -262,6 +262,74 @@ void main() {
     }
   });
 
+  test('文件传输服务关闭任务可安全复用并拒绝新任务', () async {
+    final sessions = await Directory.systemTemp.createTemp(
+      'openhand-terminal-file-shutdown-',
+    );
+    final terminalService = MachineTerminalService(
+      sessionsDirectoryPath: sessions.path,
+    );
+    final fileService = MachineTerminalFileService(terminalService);
+    try {
+      final firstShutdown = fileService.shutdown();
+      final secondShutdown = fileService.shutdown();
+
+      expect(identical(firstShutdown, secondShutdown), isTrue);
+      expect(
+        () => fileService.enqueueDownload(
+          sessionId: 'shutdown-session',
+          terminalId: 'shutdown-terminal',
+          sourcePath: '/remote/file.bin',
+          destinationPath: '${sessions.path}/file.bin',
+          totalBytes: 1,
+        ),
+        throwsStateError,
+      );
+      await firstShutdown;
+    } finally {
+      fileService.dispose();
+      await terminalService.shutdown();
+      terminalService.dispose();
+      await sessions.delete(recursive: true);
+    }
+  });
+
+  test('文件传输记录持久化失败不会泄漏未处理异步异常', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'openhand-terminal-transfer-persist-error-',
+    );
+    final blockedSessionsPath = '${root.path}/not-a-directory';
+    await File(blockedSessionsPath).writeAsString('blocked');
+    final uncaughtErrors = <Object>[];
+
+    await runZonedGuarded(() async {
+      final terminalService = MachineTerminalService(
+        sessionsDirectoryPath: blockedSessionsPath,
+      );
+      final fileService = MachineTerminalFileService(terminalService);
+      try {
+        await fileService.transferHistoryReady;
+        final taskId = fileService.enqueueDownload(
+          sessionId: 'persist-error-session',
+          terminalId: 'persist-error-terminal',
+          sourcePath: '/remote/file.bin',
+          destinationPath: '${root.path}/file.bin',
+          totalBytes: 1,
+        );
+        fileService.cancelTransfer(taskId);
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await fileService.shutdown();
+      } finally {
+        fileService.dispose();
+        await terminalService.shutdown();
+        terminalService.dispose();
+      }
+    }, (error, _) => uncaughtErrors.add(error));
+
+    expect(uncaughtErrors, isEmpty);
+    await root.delete(recursive: true);
+  });
+
   test('传输记录提供真实进度速度耗时和剩余时间', () {
     final startedAt = DateTime.now().subtract(const Duration(seconds: 4));
     final task = MachineTerminalTransferTask(

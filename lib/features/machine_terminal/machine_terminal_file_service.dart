@@ -20,6 +20,9 @@ const int kMachineTerminalMaxEditableFileBytes = 5 * kBytesPerMiB;
 const int _machineTerminalDirectoryEntryLimit = 2000;
 const int _machineTerminalReadChunkBytes = 64 * kBytesPerKiB;
 const int _machineTerminalMaxTransferRecords = 200;
+const int _machineTerminalMaxActiveTransfers = 200;
+const int _machineTerminalMaxRestoredTransferCandidates =
+    _machineTerminalMaxTransferRecords * 2;
 const int _machineTerminalTransferHistorySchemaVersion = 1;
 const int _machineTerminalTransferHistoryMaxBytes = 2 * kBytesPerMiB;
 const String _machineTerminalTransferHistoryFileName =
@@ -223,11 +226,13 @@ class MachineTerminalFileService extends ChangeNotifier {
   Timer? _progressNotifyTimer;
   Timer? _transferPersistTimer;
   Future<void> _transferPersistChain = Future<void>.value();
+  Future<void>? _shutdownFuture;
   late final Future<void> _restoreFuture;
   String? _lastPersistedTransferPayload;
   int _transferCounter = 0;
   bool _restoredTransfersNeedSave = false;
   bool _disposed = false;
+  bool _notifierDisposed = false;
 
   Future<void> get transferHistoryReady => _restoreFuture;
 
@@ -426,14 +431,18 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String targetDirectory,
     required List<String> sourcePaths,
   }) async {
+    _ensureAvailable();
     if (sourcePaths.isEmpty) return const <String>[];
     if (sourcePaths.length > kMachineTerminalMaxUploadFiles) {
       throw ArgumentError('一次最多选择 $kMachineTerminalMaxUploadFiles 个文件。');
     }
+    _ensureTransferCapacity(sourcePaths.length);
     final sources = <({String path, String fileName, int size})>[];
     for (final sourcePath in sourcePaths) {
-      final stat = await File(sourcePath).stat();
-      if (stat.type != FileSystemEntityType.file) {
+      final stat = await File(
+        sourcePath,
+      ).stat().timeout(defaultBoundedFileReadIdleTimeout);
+      if (!isRegularFileStat(stat)) {
         throw FileSystemException('上传源不是普通文件。', sourcePath);
       }
       sources.add((
@@ -442,6 +451,8 @@ class MachineTerminalFileService extends ChangeNotifier {
         size: stat.size,
       ));
     }
+    _ensureAvailable();
+    _ensureTransferCapacity(sources.length);
     final createdIds = <String>[];
     for (final source in sources) {
       final id =
@@ -474,10 +485,12 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String destinationPath,
     required int totalBytes,
   }) {
+    _ensureAvailable();
     if (sourcePath.trim().isEmpty || destinationPath.trim().isEmpty) {
       throw ArgumentError('下载路径不能为空。');
     }
     if (totalBytes < 0) throw ArgumentError.value(totalBytes, 'totalBytes');
+    _ensureTransferCapacity(1);
     final id =
         'transfer-${DateTime.now().microsecondsSinceEpoch}-${++_transferCounter}';
     _transferTasks.add(
@@ -530,7 +543,7 @@ class MachineTerminalFileService extends ChangeNotifier {
 
   void cancelTransfer(String taskId) {
     final task = _taskById(taskId);
-    if (task == null || !task.snapshot().isActive) return;
+    if (task == null || !task.isActive) return;
     task.status = MachineTerminalTransferStatus.canceled;
     task.completedAt = DateTime.now();
     task.pauseSignal?.complete();
@@ -542,7 +555,7 @@ class MachineTerminalFileService extends ChangeNotifier {
   void deleteTransfer(String taskId) {
     final task = _taskById(taskId);
     if (task == null) return;
-    if (task.snapshot().isActive) {
+    if (task.isActive) {
       task.removeWhenFinished = true;
       cancelTransfer(taskId);
       if (task.startedAt == null) {
@@ -557,12 +570,19 @@ class MachineTerminalFileService extends ChangeNotifier {
     _scheduleTransferPersist(immediately: true);
   }
 
-  Future<void> shutdown() async {
-    if (_disposed) return;
+  Future<void> shutdown() {
+    final active = _shutdownFuture;
+    if (active != null) return active;
+
+    final completer = Completer<void>();
+    _shutdownFuture = completer.future;
+    _disposed = true;
     _progressNotifyTimer?.cancel();
+    _progressNotifyTimer = null;
     _transferPersistTimer?.cancel();
+    _transferPersistTimer = null;
     for (final task in _transferTasks) {
-      if (task.snapshot().isActive) {
+      if (task.isActive) {
         task
           ..status = MachineTerminalTransferStatus.canceled
           ..completedAt = DateTime.now()
@@ -571,23 +591,37 @@ class MachineTerminalFileService extends ChangeNotifier {
         task.pauseSignal = null;
       }
     }
-    _disposed = true;
+    unawaited(
+      _finishShutdown().then<void>(
+        (_) => completer.complete(),
+        onError: (Object error, StackTrace stack) {
+          silentLog('machine_terminal_file', '关闭文件传输服务', error, stack);
+          completer.complete();
+        },
+      ),
+    );
+    return completer.future;
+  }
+
+  Future<void> _finishShutdown() async {
     try {
-      await Future.wait<void>(
-        _transferWorkers.values,
-      ).timeout(_machineTerminalTransferShutdownTimeout);
+      await Future.wait<void>(<Future<void>>[
+        ..._transferWorkers.values,
+        ..._operationGates.values.map((gate) => gate.idle),
+      ]).timeout(_machineTerminalTransferShutdownTimeout);
     } catch (error, stack) {
       silentLog('machine_terminal_file', '停止文件传输队列', error, stack);
     } finally {
       await _flushTransferPersistence();
+      _operationGates.clear();
     }
   }
 
   @override
   void dispose() {
-    _disposed = true;
-    _progressNotifyTimer?.cancel();
-    _transferPersistTimer?.cancel();
+    if (_notifierDisposed) return;
+    _notifierDisposed = true;
+    unawaited(shutdown());
     super.dispose();
   }
 
@@ -827,6 +861,9 @@ class MachineTerminalFileService extends ChangeNotifier {
     String terminalId,
     Future<T> Function() operation,
   ) {
+    if (_disposed) {
+      return Future<T>.error(_unavailableError);
+    }
     final key = _terminalKey(sessionId, terminalId);
     final gate = _operationGates.putIfAbsent(
       key,
@@ -1000,13 +1037,19 @@ class MachineTerminalFileService extends ChangeNotifier {
 
       final knownIds = _transferTasks.map((task) => task.id).toSet();
       final restored = <_MutableTransferTask>[];
+      final firstCandidate = math.max(
+        0,
+        rawTransfers.length - _machineTerminalMaxRestoredTransferCandidates,
+      );
+      if (firstCandidate > 0) _restoredTransfersNeedSave = true;
       final now = DateTime.now();
-      for (final rawTask in rawTransfers) {
+      for (var index = firstCandidate; index < rawTransfers.length; index++) {
+        final rawTask = rawTransfers[index];
         final task = _MutableTransferTask.fromJson(
           stringKeyedMapFromValue(rawTask),
         );
         if (task == null || !knownIds.add(task.id)) continue;
-        if (task.snapshot().isActive) {
+        if (task.isActive) {
           task
             ..status = MachineTerminalTransferStatus.canceled
             ..statusBeforePause = MachineTerminalTransferStatus.canceled
@@ -1067,12 +1110,12 @@ class MachineTerminalFileService extends ChangeNotifier {
     final previous = _transferPersistChain;
     late final Future<void> tracked;
     tracked = previous
-        .catchError((Object error, StackTrace stack) {
-          silentLog('machine_terminal_file', '文件传输记录持久化队列', error, stack);
-        })
         .then((_) async {
           await _restoreFuture;
           await _persistTransferHistoryNow();
+        })
+        .catchError((Object error, StackTrace stack) {
+          silentLog('machine_terminal_file', '文件传输记录持久化队列', error, stack);
         })
         .whenComplete(() {
           if (identical(_transferPersistChain, tracked)) {
@@ -1125,9 +1168,7 @@ class MachineTerminalFileService extends ChangeNotifier {
 
   void _trimTransferRecords() {
     while (_transferTasks.length > _machineTerminalMaxTransferRecords) {
-      final index = _transferTasks.indexWhere(
-        (task) => !task.snapshot().isActive,
-      );
+      final index = _transferTasks.indexWhere((task) => !task.isActive);
       if (index < 0) return;
       _transferTasks.removeAt(index);
     }
@@ -1135,6 +1176,19 @@ class MachineTerminalFileService extends ChangeNotifier {
 
   void _notify() {
     if (!_disposed) notifyListeners();
+  }
+
+  StateError get _unavailableError => StateError('终端文件服务正在关闭或已释放。');
+
+  void _ensureAvailable() {
+    if (_disposed) throw _unavailableError;
+  }
+
+  void _ensureTransferCapacity(int additionalTasks) {
+    final activeCount = _transferTasks.where((task) => task.isActive).length;
+    if (activeCount + additionalTasks > _machineTerminalMaxActiveTransfers) {
+      throw StateError('活动文件传输任务已达到上限。');
+    }
   }
 }
 
@@ -1331,6 +1385,11 @@ class _MutableTransferTask {
   bool removeWhenFinished = false;
   DateTime? _lastProgressAt;
 
+  bool get isActive =>
+      status == MachineTerminalTransferStatus.queued ||
+      status == MachineTerminalTransferStatus.transferring ||
+      status == MachineTerminalTransferStatus.paused;
+
   void updateProgress(int bytes) {
     final next = bytes.clamp(0, totalBytes).toInt();
     if (next < transferredBytes) return;
@@ -1461,6 +1520,8 @@ class _MachineTerminalOperationGate {
   int _pending = 0;
 
   bool get isIdle => _pending == 0;
+
+  Future<void> get idle => _tail;
 
   Future<T> run<T>(Future<T> Function() operation) async {
     if (_pending >= _machineTerminalMaxQueuedOperations) {

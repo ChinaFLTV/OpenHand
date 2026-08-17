@@ -1012,7 +1012,8 @@ Future<T?> _pushOpenHandDialogRoute<T>({
 
 final Expando<List<TransitionRoute<dynamic>>> _openHandRoutesByNavigator =
     Expando<List<TransitionRoute<dynamic>>>('openHandRoutesByNavigator');
-const Duration kOpenHandTransitionCompletionTimeout = Duration(seconds: 30);
+// 自定义动画最长 1.2 秒；额外预留路由遮罩清理时间，异常路由也不能长期阻塞后续弹窗。
+const Duration kOpenHandTransitionCompletionTimeout = Duration(seconds: 4);
 
 Future<void> _awaitOpenHandTransitionCompletion(
   TransitionRoute<dynamic> route,
@@ -2406,7 +2407,7 @@ class _ElasticTransition extends StatelessWidget {
   }
 }
 
-/// Q 弹缩放：进场轻微过冲并渐显，退场使用反向回弹曲线。
+/// Q 弹缩放：透明度遵循全局曲线，缩放保留样式自身的轻微过冲与反向收束。
 class _SpringScaleTransition extends StatelessWidget {
   const _SpringScaleTransition({
     required this.animation,
@@ -2430,8 +2431,8 @@ class _SpringScaleTransition extends StatelessWidget {
     );
     final scaleMotion = openHandCurveAnimation(
       parent: animation,
-      curve: curve,
-      reverseCurve: reverseCurve,
+      curve: kOpenHandEntranceCurve,
+      reverseCurve: kOpenHandSpringExitCurve,
     );
     final begin = _positiveFiniteDouble(profile.springScaleBegin, 0.94);
     return FadeTransition(
@@ -2446,8 +2447,7 @@ class _SpringScaleTransition extends StatelessWidget {
   }
 }
 
-/// 3D card-flip on the X axis with fade — useful for chip / list-item
-/// "appear" feels when something switches in/out of place.
+/// 绕 X 轴翻转并渐显，适用于胶囊或列表项切换。
 class _FlipXTransition extends StatelessWidget {
   const _FlipXTransition({
     required this.opacity,
