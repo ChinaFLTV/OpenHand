@@ -148,6 +148,7 @@ String _localizedDetailLabel(AppLocalizations l10n, String key) {
     'processors' => l10n.pluginServiceDetailProcessors,
     'install_path' => l10n.pluginServiceDetailInstallPath,
     'installation_target' => l10n.pluginServiceDetailInstallationTarget,
+    'application_path' => l10n.pluginServiceDetailApplicationPath,
     'installation_method' => l10n.pluginServiceDetailInstallMethod,
     'target_os' => l10n.pluginServiceDetailTargetOs,
     'supported_platforms' => l10n.pluginServiceDetailSupportedPlatforms,
@@ -198,6 +199,20 @@ String _localizedDetailLabel(AppLocalizations l10n, String key) {
     'external_service' => l10n.pluginServiceDetailExternalService,
     'service_running' => l10n.pluginServiceDetailServiceRunning,
     'endpoint' => l10n.pluginServiceDetailEndpoint,
+    'runtime_managed' => l10n.pluginServiceDetailOpenHandManaged,
+    'release_channel' => l10n.pluginServiceDetailReleaseChannel,
+    'version_source' => l10n.pluginServiceDetailVersionSource,
+    'version_api' => l10n.pluginServiceDetailVersionApi,
+    'browser_kind' => l10n.pluginServiceDetailBrowserKind,
+    'cdp_transport' => l10n.pluginServiceDetailCdpTransport,
+    'cdp_endpoint' => l10n.pluginServiceDetailCdpEndpoint,
+    'profile_strategy' => l10n.pluginServiceDetailProfileStrategy,
+    'capture_scope' => l10n.pluginServiceDetailCaptureScope,
+    'credential_policy' => l10n.pluginServiceDetailCredentialPolicy,
+    'session_cleanup' => l10n.pluginServiceDetailSessionCleanup,
+    'update_policy' => l10n.pluginServiceDetailUpdatePolicy,
+    'uninstall_policy' => l10n.pluginServiceDetailUninstallPolicy,
+    'official_site' => l10n.pluginServiceDetailOfficialSite,
     _ => key,
   };
 }
@@ -210,6 +225,28 @@ String _localizedDetailValue(AppLocalizations l10n, Object? value) {
     return value.map((item) => '$item').join(', ');
   }
   return '$value';
+}
+
+String _pluginUpdateCheckSummary(BuildContext context, PluginInfo plugin) {
+  final l10n = AppLocalizations.of(context)!;
+  if (!plugin.supportsUpdateCheck) return l10n.qdrantValueNo;
+  final error = '${plugin.metadata['update_check_error'] ?? ''}'.trim();
+  if (error.isNotEmpty) return error;
+  final latest = plugin.latestVersion?.trim();
+  if (latest == null || latest.isEmpty) {
+    return openHandLocalizedText(
+      context,
+      zh: '尚未获取上游版本',
+      zhHant: '尚未取得上游版本',
+      en: 'Upstream version not retrieved',
+      fr: 'Version amont non récupérée',
+      de: 'Upstream-Version nicht abgerufen',
+      ja: '上流バージョンを取得していません',
+    );
+  }
+  return plugin.hasUpdate
+      ? l10n.pluginServiceNewVersionAvailable(latest)
+      : l10n.pluginServiceNoUpdatesAvailable;
 }
 
 class PluginServiceView extends StatefulWidget {
@@ -399,7 +436,9 @@ class _PluginCard extends StatelessWidget {
                           height: 46,
                           decoration: BoxDecoration(
                             color: theme.colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(kOpenHandRadius18),
+                            borderRadius: BorderRadius.circular(
+                              kOpenHandRadius18,
+                            ),
                           ),
                           child: Center(
                             child: SizedBox(
@@ -535,7 +574,7 @@ class _PluginCard extends StatelessWidget {
         // 检查更新
         if (plugin.isInstalled &&
             plugin.id != PluginCatalogIds.aiJungler &&
-            plugin.supportsInstall)
+            plugin.supportsUpdateCheck)
           IconButton.filledTonal(
             tooltip: l10n.pluginServiceCheckUpdates,
             onPressed: isBusy ? null : () => _checkUpdate(context),
@@ -757,7 +796,18 @@ class _PluginCard extends StatelessWidget {
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
       title: l10n.pluginServiceUninstallConfirmTitle(plugin.name),
-      message: l10n.pluginServiceUninstallConfirmMessage(plugin.name),
+      message: plugin.id == PluginCatalogIds.googleChrome
+          ? openHandLocalizedText(
+              context,
+              zh: '将卸载本机 Google Chrome 应用，但保留 Chrome 用户资料。macOS 会将应用移至废纸篓，Windows 与 Linux 将调用系统卸载能力。',
+              zhHant:
+                  '將解除安裝本機 Google Chrome 應用程式，但保留 Chrome 使用者資料。macOS 會將應用程式移至垃圾桶，Windows 與 Linux 將呼叫系統解除安裝能力。',
+              en: 'Google Chrome will be uninstalled while its user profile is kept. macOS moves the app to Trash; Windows and Linux use the system uninstaller.',
+              fr: 'Google Chrome sera désinstallé, mais son profil utilisateur sera conservé. macOS place l’application dans la corbeille ; Windows et Linux utilisent le programme de désinstallation système.',
+              de: 'Google Chrome wird deinstalliert, das Benutzerprofil bleibt erhalten. macOS verschiebt die App in den Papierkorb; Windows und Linux verwenden die System-Deinstallation.',
+              ja: 'Google Chrome をアンインストールしますが、ユーザープロファイルは保持します。macOS ではゴミ箱へ移動し、Windows と Linux ではシステムのアンインストーラーを使用します。',
+            )
+          : l10n.pluginServiceUninstallConfirmMessage(plugin.name),
       cancelLabel: l10n.commonCancel,
       confirmLabel: l10n.pluginServiceActionUninstall,
       destructive: true,
@@ -905,8 +955,7 @@ class _PluginOperationProgressDialogState
       _scrollGuard.followToBottom(
         _scrollController,
         animated: true,
-        animationDuration: openHandMotionDuration(context, kOpenHandMotion200,
-        ),
+        animationDuration: openHandMotionDuration(context, kOpenHandMotion200),
       );
     });
   }
@@ -1278,10 +1327,12 @@ class _PluginDetailDialog extends StatefulWidget {
 class _PluginDetailDialogState extends State<_PluginDetailDialog> {
   Map<String, Object?> _envInfo = {};
   Map<String, Object?> _fileSystemInfo = {};
+  Map<String, Object?> _capabilityInfo = {};
   bool _loading = true;
 
   static const _fileSystemKeys = <String>{
     'installation_target',
+    'application_path',
     'executable_path',
     'data_directory',
     'cache_directory',
@@ -1297,6 +1348,24 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
     'image_update_available',
     'update_check_error',
   };
+  static const _chromeCapabilityKeys = <String>{
+    'release_channel',
+    'version_source',
+    'version_api',
+    'browser_kind',
+    'cdp_transport',
+    'cdp_endpoint',
+    'profile_strategy',
+    'capture_scope',
+    'credential_policy',
+    'session_cleanup',
+    'update_policy',
+    'uninstall_policy',
+    'official_site',
+    'documentation',
+    'supported_platforms',
+    'target_os',
+  };
 
   @override
   void initState() {
@@ -1307,10 +1376,11 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
   Future<void> _loadEnvInfo() async {
     final info = <String, Object?>{};
     final fileSystemInfo = <String, Object?>{};
+    final capabilityInfo = <String, Object?>{};
     try {
       info['OS'] =
           '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
-      info['Arch'] = Platform.version.split(' ').last;
+      info['architecture'] = pluginDesktopTargetLabel().split(' ').last;
       info['Dart'] = Platform.version.split(' ').first;
       info['PID'] = '$pid';
       info['processors'] = Platform.numberOfProcessors;
@@ -1396,7 +1466,10 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
             ? value.map((item) => '$item').join(', ')
             : '$value';
         if (text.trim().isNotEmpty) {
-          if (_fileSystemKeys.contains(key)) {
+          if (widget.plugin.id == PluginCatalogIds.googleChrome &&
+              _chromeCapabilityKeys.contains(key)) {
+            capabilityInfo[key] = value;
+          } else if (_fileSystemKeys.contains(key)) {
             fileSystemInfo[key] = value;
           } else {
             info[key] = value;
@@ -1410,6 +1483,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
       setState(() {
         _envInfo = info;
         _fileSystemInfo = fileSystemInfo;
+        _capabilityInfo = capabilityInfo;
         _loading = false;
       });
     }
@@ -1423,7 +1497,9 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
 
     return buildOpenHandToolDialogShell(
       context: context,
-      maxWidth: kOpenHandDialogWidthStandard,
+      maxWidth: plugin.id == PluginCatalogIds.googleChrome
+          ? kOpenHandDialogWidthWide
+          : kOpenHandDialogWidthStandard,
       maxHeight: kOpenHandDialogHeightStandard,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1441,8 +1517,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
           // 内容
           Flexible(
             child: AnimatedSwitcher(
-              duration: openHandMotionDuration(context, kOpenHandMotion220,
-              ),
+              duration: openHandMotionDuration(context, kOpenHandMotion220),
               switchInCurve: kOpenHandSwitchInCurve,
               switchOutCurve: kOpenHandSwitchOutCurve,
               child: _loading
@@ -1486,8 +1561,42 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
                                   label: l10n.pluginServiceDetailLatestVersion,
                                   value: plugin.latestVersion!,
                                 ),
+                              _DetailRow(
+                                label: l10n.pluginServiceCheckUpdates,
+                                value: _pluginUpdateCheckSummary(
+                                  context,
+                                  plugin,
+                                ),
+                              ),
+                              _DetailRow(
+                                label: l10n.pluginServiceActionUninstall,
+                                value: plugin.supportsUninstall
+                                    ? l10n.qdrantValueYes
+                                    : l10n.qdrantValueNo,
+                              ),
                             ],
                           ),
+                          if (_capabilityInfo.isNotEmpty) ...[
+                            kOpenHandGap18,
+                            _DetailSection(
+                              title:
+                                  l10n.pluginServiceDetailRuntimeCapabilities,
+                              icon: Icons.developer_mode_rounded,
+                              children: [
+                                for (final entry in _capabilityInfo.entries)
+                                  _DetailRow(
+                                    label: _localizedDetailLabel(
+                                      l10n,
+                                      entry.key,
+                                    ),
+                                    value: _localizedDetailValue(
+                                      l10n,
+                                      entry.value,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
                           kOpenHandGap18,
                           // 环境信息
                           _DetailSection(

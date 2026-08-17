@@ -651,6 +651,51 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pluginServiceDetailCollectionCount => 'Collection count';
 
   @override
+  String get pluginServiceDetailRuntimeCapabilities => 'Runtime capabilities';
+
+  @override
+  String get pluginServiceDetailApplicationPath => 'Application path';
+
+  @override
+  String get pluginServiceDetailReleaseChannel => 'Release channel';
+
+  @override
+  String get pluginServiceDetailVersionSource => 'Version source';
+
+  @override
+  String get pluginServiceDetailVersionApi => 'Version API';
+
+  @override
+  String get pluginServiceDetailBrowserKind => 'Browser type';
+
+  @override
+  String get pluginServiceDetailCdpTransport => 'CDP transport';
+
+  @override
+  String get pluginServiceDetailCdpEndpoint => 'CDP endpoint';
+
+  @override
+  String get pluginServiceDetailProfileStrategy => 'Profile strategy';
+
+  @override
+  String get pluginServiceDetailCaptureScope => 'Capture scope';
+
+  @override
+  String get pluginServiceDetailCredentialPolicy => 'Credential protection';
+
+  @override
+  String get pluginServiceDetailSessionCleanup => 'Session cleanup';
+
+  @override
+  String get pluginServiceDetailUpdatePolicy => 'Update policy';
+
+  @override
+  String get pluginServiceDetailUninstallPolicy => 'Uninstall policy';
+
+  @override
+  String get pluginServiceDetailOfficialSite => 'Official site';
+
+  @override
   String pluginServiceMcpInstalledVersion(Object version) {
     return 'Installed v$version';
   }

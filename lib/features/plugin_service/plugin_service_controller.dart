@@ -485,6 +485,11 @@ class PluginServiceController extends ManagedChangeNotifier {
         ),
         PluginCatalogIds.dingtalkWorkspaceCli =>
           _lifecycle.uninstallDingtalkWorkspaceCli(onProgress: _addLog),
+        PluginCatalogIds.googleChrome => _lifecycle.uninstallGoogleChrome(
+          executablePath: plugin.installPath ?? '',
+          installedVersion: plugin.installedVersion,
+          onProgress: _addLog,
+        ),
         PluginCatalogIds.python => _lifecycle.uninstallPython(
           onProgress: _addLog,
         ),

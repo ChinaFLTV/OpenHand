@@ -89,9 +89,10 @@ class PluginInfo {
     this.dependents = const [],
     this.supportsUninstall = true,
     this.supportsInstall = true,
+    bool? supportsUpdateCheck,
     this.metadata = const <String, Object?>{},
     this.errorMessage,
-  });
+  }) : supportsUpdateCheck = supportsUpdateCheck ?? supportsInstall;
 
   /// 唯一标识符，如 'nodejs', 'playwright'
   final String id;
@@ -132,6 +133,9 @@ class PluginInfo {
   /// 是否由 OpenHand 提供安装入口。外部数据库服务仅扫描状态，不提供接管操作。
   final bool supportsInstall;
 
+  /// 是否支持查询上游最新版本。外部安装的运行时可独立支持此能力。
+  final bool supportsUpdateCheck;
+
   /// 插件专属的结构化诊断信息。
   final Map<String, Object?> metadata;
 
@@ -164,6 +168,7 @@ class PluginInfo {
     List<String>? dependents,
     bool? supportsUninstall,
     bool? supportsInstall,
+    bool? supportsUpdateCheck,
     Map<String, Object?>? metadata,
     String? errorMessage,
     bool clearErrorMessage = false,
@@ -182,6 +187,7 @@ class PluginInfo {
       dependents: dependents ?? this.dependents,
       supportsUninstall: supportsUninstall ?? this.supportsUninstall,
       supportsInstall: supportsInstall ?? this.supportsInstall,
+      supportsUpdateCheck: supportsUpdateCheck ?? this.supportsUpdateCheck,
       metadata: metadata ?? this.metadata,
       errorMessage: clearErrorMessage
           ? null

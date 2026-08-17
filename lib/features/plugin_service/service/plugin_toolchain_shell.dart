@@ -24,7 +24,7 @@ String pluginDingtalkWorkspaceCliInstallScriptUrl() {
       : '$pluginDingtalkWorkspaceCliInstallScriptBaseUrl/install.sh';
 }
 
-String pluginDingtalkWorkspaceCliTargetOs() {
+String pluginDesktopTargetLabel() {
   return switch (Abi.current()) {
     Abi.macosArm64 => 'macOS arm64',
     Abi.macosX64 => 'macOS amd64',
@@ -35,6 +35,8 @@ String pluginDingtalkWorkspaceCliTargetOs() {
     _ => '${Platform.operatingSystem} ${Platform.version.split(' ').last}',
   };
 }
+
+String pluginDingtalkWorkspaceCliTargetOs() => pluginDesktopTargetLabel();
 
 String pluginDingtalkWorkspaceCliDefaultExecutablePath() {
   return p.join(

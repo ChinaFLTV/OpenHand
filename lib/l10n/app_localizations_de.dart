@@ -653,6 +653,51 @@ class AppLocalizationsDe extends AppLocalizations {
   String get pluginServiceDetailCollectionCount => 'Collection-Anzahl';
 
   @override
+  String get pluginServiceDetailRuntimeCapabilities => 'Laufzeitfunktionen';
+
+  @override
+  String get pluginServiceDetailApplicationPath => 'Anwendungspfad';
+
+  @override
+  String get pluginServiceDetailReleaseChannel => 'Veröffentlichungskanal';
+
+  @override
+  String get pluginServiceDetailVersionSource => 'Versionsquelle';
+
+  @override
+  String get pluginServiceDetailVersionApi => 'Versions-API';
+
+  @override
+  String get pluginServiceDetailBrowserKind => 'Browsertyp';
+
+  @override
+  String get pluginServiceDetailCdpTransport => 'CDP-Transport';
+
+  @override
+  String get pluginServiceDetailCdpEndpoint => 'CDP-Endpunkt';
+
+  @override
+  String get pluginServiceDetailProfileStrategy => 'Profilstrategie';
+
+  @override
+  String get pluginServiceDetailCaptureScope => 'Erfassungsumfang';
+
+  @override
+  String get pluginServiceDetailCredentialPolicy => 'Anmeldedatenschutz';
+
+  @override
+  String get pluginServiceDetailSessionCleanup => 'Sitzungsbereinigung';
+
+  @override
+  String get pluginServiceDetailUpdatePolicy => 'Aktualisierungsstrategie';
+
+  @override
+  String get pluginServiceDetailUninstallPolicy => 'Deinstallationsstrategie';
+
+  @override
+  String get pluginServiceDetailOfficialSite => 'Offizielle Website';
+
+  @override
   String pluginServiceMcpInstalledVersion(Object version) {
     return 'Installiert v$version';
   }

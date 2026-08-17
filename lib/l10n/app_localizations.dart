@@ -1279,6 +1279,96 @@ abstract class AppLocalizations {
   /// **'集合数量'**
   String get pluginServiceDetailCollectionCount;
 
+  /// No description provided for @pluginServiceDetailRuntimeCapabilities.
+  ///
+  /// In zh, this message translates to:
+  /// **'运行能力'**
+  String get pluginServiceDetailRuntimeCapabilities;
+
+  /// No description provided for @pluginServiceDetailApplicationPath.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用目录'**
+  String get pluginServiceDetailApplicationPath;
+
+  /// No description provided for @pluginServiceDetailReleaseChannel.
+  ///
+  /// In zh, this message translates to:
+  /// **'发布通道'**
+  String get pluginServiceDetailReleaseChannel;
+
+  /// No description provided for @pluginServiceDetailVersionSource.
+  ///
+  /// In zh, this message translates to:
+  /// **'版本来源'**
+  String get pluginServiceDetailVersionSource;
+
+  /// No description provided for @pluginServiceDetailVersionApi.
+  ///
+  /// In zh, this message translates to:
+  /// **'版本 API'**
+  String get pluginServiceDetailVersionApi;
+
+  /// No description provided for @pluginServiceDetailBrowserKind.
+  ///
+  /// In zh, this message translates to:
+  /// **'浏览器类型'**
+  String get pluginServiceDetailBrowserKind;
+
+  /// No description provided for @pluginServiceDetailCdpTransport.
+  ///
+  /// In zh, this message translates to:
+  /// **'CDP 传输'**
+  String get pluginServiceDetailCdpTransport;
+
+  /// No description provided for @pluginServiceDetailCdpEndpoint.
+  ///
+  /// In zh, this message translates to:
+  /// **'CDP 端点'**
+  String get pluginServiceDetailCdpEndpoint;
+
+  /// No description provided for @pluginServiceDetailProfileStrategy.
+  ///
+  /// In zh, this message translates to:
+  /// **'配置策略'**
+  String get pluginServiceDetailProfileStrategy;
+
+  /// No description provided for @pluginServiceDetailCaptureScope.
+  ///
+  /// In zh, this message translates to:
+  /// **'采集范围'**
+  String get pluginServiceDetailCaptureScope;
+
+  /// No description provided for @pluginServiceDetailCredentialPolicy.
+  ///
+  /// In zh, this message translates to:
+  /// **'凭据保护'**
+  String get pluginServiceDetailCredentialPolicy;
+
+  /// No description provided for @pluginServiceDetailSessionCleanup.
+  ///
+  /// In zh, this message translates to:
+  /// **'会话清理'**
+  String get pluginServiceDetailSessionCleanup;
+
+  /// No description provided for @pluginServiceDetailUpdatePolicy.
+  ///
+  /// In zh, this message translates to:
+  /// **'更新策略'**
+  String get pluginServiceDetailUpdatePolicy;
+
+  /// No description provided for @pluginServiceDetailUninstallPolicy.
+  ///
+  /// In zh, this message translates to:
+  /// **'卸载策略'**
+  String get pluginServiceDetailUninstallPolicy;
+
+  /// No description provided for @pluginServiceDetailOfficialSite.
+  ///
+  /// In zh, this message translates to:
+  /// **'官方网站'**
+  String get pluginServiceDetailOfficialSite;
+
   /// No description provided for @pluginServiceMcpInstalledVersion.
   ///
   /// In zh, this message translates to:

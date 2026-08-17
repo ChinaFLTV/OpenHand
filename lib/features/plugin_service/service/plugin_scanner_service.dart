@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:openhand/shared/util/text_normalization.dart';
@@ -8,6 +9,8 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../app/support/system_proxy.dart';
+import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/platform/google_chrome_runtime_detector.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_directory_io.dart';
@@ -23,6 +26,12 @@ import 'plugin_toolchain_shell.dart';
 
 const String _dockerImageVersionLabel = 'org.opencontainers.image.version';
 const String _qdrantStorageDestination = '/qdrant/storage';
+const String _googleChromeOfficialSite = 'https://www.google.com/chrome/';
+const String _googleChromeCdpDocumentation =
+    'https://developer.chrome.com/docs/devtools/protocol/';
+const String _googleChromeVersionHistoryHost = 'versionhistory.googleapis.com';
+const Duration _googleChromeUpdateCheckTimeout = Duration(seconds: 8);
+const int _googleChromeVersionResponseMaxBytes = 64 * kBytesPerKiB;
 
 String? _dockerImageVersionFromConfig(
   Map<String, Object?> config, {
@@ -184,6 +193,8 @@ class PluginScannerService {
   final OpenHandSingleFlight<String?> _latestPipVersionProbe =
       OpenHandSingleFlight<String?>();
   final OpenHandSingleFlight<String?> _latestDingtalkWorkspaceCliVersionProbe =
+      OpenHandSingleFlight<String?>();
+  final OpenHandSingleFlight<String?> _latestGoogleChromeVersionProbe =
       OpenHandSingleFlight<String?>();
 
   Future<T> _runWithFallback<T>({
@@ -518,6 +529,119 @@ class PluginScannerService {
   static String? _extractLooseVersion(String output) {
     final match = _looseVersionPattern.firstMatch(output);
     return match?.group(1);
+  }
+
+  String _googleChromeVersionPlatform() {
+    return switch (Abi.current()) {
+      Abi.macosArm64 => 'mac_arm64',
+      Abi.macosX64 => 'mac',
+      Abi.windowsArm64 => 'win_arm64',
+      Abi.windowsX64 => 'win64',
+      _ => Platform.isWindows ? 'win' : 'linux',
+    };
+  }
+
+  Uri _googleChromeVersionHistoryUri() {
+    final platform = _googleChromeVersionPlatform();
+    return Uri.https(
+      _googleChromeVersionHistoryHost,
+      '/v1/chrome/platforms/$platform/channels/stable/versions',
+      const <String, String>{'page_size': '1'},
+    );
+  }
+
+  Future<String?> _queryLatestGoogleChromeVersion() {
+    return _latestGoogleChromeVersionProbe.run(() async {
+      final client = SystemProxyResolver.instance.createRawHttpClient(
+        connectionTimeout: _googleChromeUpdateCheckTimeout,
+      );
+      try {
+        final bytes = await fetchBoundedHttpBytes(
+          client: client,
+          uri: _googleChromeVersionHistoryUri(),
+          maxBytes: _googleChromeVersionResponseMaxBytes,
+          openTimeout: _googleChromeUpdateCheckTimeout,
+          idleTimeout: _googleChromeUpdateCheckTimeout,
+          totalTimeout: _googleChromeUpdateCheckTimeout,
+          expectedPrimaryType: 'application',
+        );
+        final decoded = _decodeOptionalJson(utf8.decode(bytes));
+        final versions = decoded is Map<String, Object?>
+            ? decoded['versions']
+            : null;
+        if (versions is! List || versions.isEmpty || versions.first is! Map) {
+          return null;
+        }
+        final version = stringKeyedMapFromValue(versions.first)['version'];
+        return nullIfBlank('$version');
+      } catch (error, stack) {
+        silentLog('plugin_scanner', '检查 Google Chrome 最新版本', error, stack);
+        return null;
+      } finally {
+        client.close(force: true);
+      }
+    });
+  }
+
+  static String? _googleChromeApplicationPath(String executable) {
+    if (!Platform.isMacOS) return null;
+    const suffix = '/Contents/MacOS/Google Chrome';
+    final normalized = p.normalize(executable);
+    if (!normalized.endsWith(suffix)) return null;
+    final application = normalized.substring(
+      0,
+      normalized.length - suffix.length,
+    );
+    return p.basename(application) == 'Google Chrome.app' ? application : null;
+  }
+
+  static String _googleChromeInstallationMethod(
+    String executable, {
+    required bool managedByHomebrew,
+  }) {
+    final normalized = p.normalize(executable);
+    if (Platform.isMacOS) {
+      if (managedByHomebrew) return 'Homebrew Cask';
+      final homeApplications = p.join(
+        OpenHandPaths.homeDirectoryPath(),
+        'Applications',
+      );
+      return p.isWithin(homeApplications, normalized)
+          ? '用户应用程序'
+          : normalized.startsWith('/Applications/')
+          ? '系统应用程序'
+          : 'PATH 可执行文件';
+    }
+    if (Platform.isWindows) {
+      final localAppData = Platform.environment['LOCALAPPDATA'] ?? '';
+      return localAppData.isNotEmpty &&
+              normalized.toLowerCase().startsWith(localAppData.toLowerCase())
+          ? '当前用户安装'
+          : '系统级安装';
+    }
+    return '系统包 / PATH';
+  }
+
+  static bool _supportsGoogleChromeUninstall(String executable) {
+    if (Platform.isMacOS) {
+      return _googleChromeApplicationPath(executable) != null;
+    }
+    final name = p.basename(executable).toLowerCase();
+    if (Platform.isWindows) return name == 'chrome.exe';
+    return Platform.isLinux &&
+        const <String>{'google-chrome', 'google-chrome-stable'}.contains(name);
+  }
+
+  static String _googleChromeUninstallPolicy() {
+    if (Platform.isMacOS) return '移至废纸篓；保留 Chrome 用户资料';
+    if (Platform.isWindows) return '调用 Chrome 官方卸载程序；保留用户资料';
+    return '通过系统包管理器移除；保留用户资料';
+  }
+
+  Future<bool> _isGoogleChromeHomebrewCask() async {
+    if (!Platform.isMacOS) return false;
+    final result = await _shellRun('brew list --cask google-chrome');
+    return result.exitCode == 0;
   }
 
   Future<_ContainerImageUpdateState> _scanContainerImageUpdate({
@@ -1069,19 +1193,56 @@ class PluginScannerService {
       if (!result.isInstalled || executable == null) {
         return _googleChromeNotInstalled;
       }
+      final installedVersion = _extractLooseVersion(result.versionLine ?? '');
+      final latestVersion = await _queryLatestGoogleChromeVersion();
+      final applicationPath = _googleChromeApplicationPath(executable);
+      final versionHistoryUri = _googleChromeVersionHistoryUri();
+      final managedByHomebrew = await _isGoogleChromeHomebrewCask();
+      final updateCheckError = installedVersion == null
+          ? '无法读取当前 Google Chrome 版本。'
+          : latestVersion == null
+          ? '无法获取 Google Chrome Stable 通道的最新版本。'
+          : null;
       return PluginInfo(
         id: PluginCatalogIds.googleChrome,
         name: 'Google Chrome',
         description: '本机 Chrome 运行时，为论坛狩猎提供原生 CDP 页面与网络采集',
         status: PluginStatus.installed,
-        installedVersion: _extractLooseVersion(result.versionLine ?? ''),
+        installedVersion: installedVersion,
+        latestVersion: latestVersion,
         installPath: executable,
         supportsInstall: false,
-        supportsUninstall: false,
+        supportsUninstall: _supportsGoogleChromeUninstall(executable),
+        supportsUpdateCheck: true,
         metadata: <String, Object?>{
+          if (applicationPath != null) 'application_path': applicationPath,
           'executable_path': executable,
-          'browser_kind': 'chrome',
+          'installation_method': _googleChromeInstallationMethod(
+            executable,
+            managedByHomebrew: managedByHomebrew,
+          ),
+          'target_os': pluginDesktopTargetLabel(),
+          'supported_platforms': const <String>[
+            'macOS (amd64 / arm64)',
+            'Windows (amd64 / arm64)',
+            'Linux (PATH)',
+          ],
+          'release_channel': 'Stable',
+          'version_source': 'Google Version History API',
+          'version_api': versionHistoryUri.toString(),
+          'browser_kind': 'Google Chrome',
+          'cdp_transport': 'HTTP + WebSocket',
+          'cdp_endpoint': '127.0.0.1 · 动态端口',
+          'profile_strategy': '任务级隔离临时配置目录，不读取个人 Chrome Profile',
+          'capture_scope': '页面标题、正文、链接、网络请求、响应与文本响应正文',
+          'credential_policy': '过滤 Cookie、Authorization、代理凭据与 API Key 等敏感请求头',
+          'session_cleanup': '任务结束关闭调试浏览器并清理临时配置目录',
+          'update_policy': '对比 Google Stable 通道；版本更新由 Chrome 自身完成',
+          'uninstall_policy': _googleChromeUninstallPolicy(),
+          'official_site': _googleChromeOfficialSite,
+          'documentation': _googleChromeCdpDocumentation,
           'runtime_managed': false,
+          if (updateCheckError != null) 'update_check_error': updateCheckError,
         },
       );
     },
@@ -1824,7 +1985,29 @@ class PluginScannerService {
     status: PluginStatus.notInstalled,
     supportsInstall: false,
     supportsUninstall: false,
-    metadata: <String, Object?>{'runtime_managed': false},
+    supportsUpdateCheck: true,
+    metadata: <String, Object?>{
+      'target_os': '按当前操作系统检测 Google Chrome Stable',
+      'supported_platforms': <String>[
+        'macOS (amd64 / arm64)',
+        'Windows (amd64 / arm64)',
+        'Linux (PATH)',
+      ],
+      'release_channel': 'Stable',
+      'version_source': 'Google Version History API',
+      'browser_kind': 'Google Chrome',
+      'cdp_transport': 'HTTP + WebSocket',
+      'cdp_endpoint': '127.0.0.1 · 动态端口',
+      'profile_strategy': '任务级隔离临时配置目录，不读取个人 Chrome Profile',
+      'capture_scope': '页面标题、正文、链接、网络请求、响应与文本响应正文',
+      'credential_policy': '过滤 Cookie、Authorization、代理凭据与 API Key 等敏感请求头',
+      'session_cleanup': '任务结束关闭调试浏览器并清理临时配置目录',
+      'update_policy': '对比 Google Stable 通道；版本更新由 Chrome 自身完成',
+      'uninstall_policy': '仅移除 Chrome 应用，保留用户资料',
+      'official_site': _googleChromeOfficialSite,
+      'documentation': _googleChromeCdpDocumentation,
+      'runtime_managed': false,
+    },
   );
 
   static const _hermesAgentNotInstalled = PluginInfo(

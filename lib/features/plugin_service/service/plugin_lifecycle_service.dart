@@ -28,7 +28,10 @@ const Duration _pluginLifecycleTlsProbeTimeout = Duration(milliseconds: 500);
 const Duration _pluginLifecycleVerifyTimeout = Duration(seconds: 8);
 const Duration _fnmSetDefaultTimeout = Duration(seconds: 10);
 const Duration _pluginLifecycleStreamDrainTimeout = Duration(milliseconds: 800);
+const Duration _googleChromeRemovalPollInterval = Duration(milliseconds: 250);
 const Duration _dockerDaemonPollInterval = Duration(seconds: 5);
+const int _googleChromeRemovalMaxPollAttempts = 20;
+const int _googleChromeInstallerDirectoryMaxEntries = 64;
 const int _dockerDaemonMaxPollAttempts = 24;
 const int _pluginLifecycleMaxCapturedLines = 500;
 const int _pluginLifecycleMaxErrorMessageChars = 20000;
@@ -3709,6 +3712,275 @@ ${_managedDatabaseHealthWaitScript(containerName: containerName, healthCommand: 
     );
   }
 
+  Future<PluginOperationResult> uninstallGoogleChrome({
+    required String executablePath,
+    String? installedVersion,
+    void Function(String line)? onProgress,
+  }) async {
+    final executable = p.normalize(executablePath.trim());
+    if (executable.isEmpty || !p.isAbsolute(executable)) {
+      return const PluginOperationResult(
+        success: false,
+        message: 'Google Chrome 可执行文件路径无效，无法安全卸载。',
+      );
+    }
+    if (Platform.isMacOS) {
+      return _uninstallGoogleChromeMacOs(executable, onProgress: onProgress);
+    }
+    if (Platform.isWindows) {
+      return _uninstallGoogleChromeWindows(
+        executable,
+        installedVersion: installedVersion,
+        onProgress: onProgress,
+      );
+    }
+    if (Platform.isLinux) {
+      return _uninstallGoogleChromeLinux(executable, onProgress: onProgress);
+    }
+    return const PluginOperationResult(
+      success: false,
+      message: '当前操作系统不支持自动卸载 Google Chrome。',
+    );
+  }
+
+  Future<PluginOperationResult> _uninstallGoogleChromeMacOs(
+    String executable, {
+    void Function(String line)? onProgress,
+  }) async {
+    const suffix = '/Contents/MacOS/Google Chrome';
+    if (!executable.endsWith(suffix)) {
+      return const PluginOperationResult(
+        success: false,
+        message: '当前 Chrome 不是标准 macOS 应用安装，无法安全移至废纸篓。',
+      );
+    }
+    final application = executable.substring(
+      0,
+      executable.length - suffix.length,
+    );
+    if (p.basename(application) != 'Google Chrome.app') {
+      return const PluginOperationResult(
+        success: false,
+        message: 'Chrome 应用目录校验失败，已取消卸载。',
+      );
+    }
+    if (await _isExecutableAvailable('brew')) {
+      final cask = await _runManagedToolchainCommand('brew', const <String>[
+        'list',
+        '--cask',
+        'google-chrome',
+      ]);
+      if (cask.exitCode == 0) {
+        onProgress?.call('正在通过 Homebrew Cask 卸载 Google Chrome…');
+        final result = await _runManagedToolchainCommandWithProgress(
+          'brew',
+          const <String>['uninstall', '--cask', 'google-chrome'],
+          onProgress: onProgress,
+          timeout: _packageOperationTimeout,
+        );
+        if (result.exitCode != 0) {
+          return PluginOperationResult(
+            success: false,
+            message: 'Google Chrome 卸载失败: ${_processErrorMessage(result)}',
+          );
+        }
+        if (!await _waitForGoogleChromeRemoval(executable)) {
+          return const PluginOperationResult(
+            success: false,
+            message: 'Homebrew 已结束卸载，但 Chrome 仍可检测到，请稍后重新扫描。',
+          );
+        }
+        onProgress?.call('Google Chrome 已通过 Homebrew 卸载，用户资料保持不变。');
+        return const PluginOperationResult(
+          success: true,
+          message: 'Google Chrome 已卸载，用户资料已保留。',
+        );
+      }
+    }
+    onProgress?.call('正在将 Google Chrome 移至废纸篓…');
+    final result = await _runWithProgress(
+      '/usr/bin/osascript',
+      <String>[
+        '-e',
+        'on run argv',
+        '-e',
+        'tell application "Finder" to delete POSIX file (item 1 of argv)',
+        '-e',
+        'end run',
+        application,
+      ],
+      onProgress: onProgress,
+      timeout: _packageOperationTimeout,
+    );
+    if (result.exitCode != 0) {
+      return PluginOperationResult(
+        success: false,
+        message: 'Google Chrome 卸载失败: ${_processErrorMessage(result)}',
+      );
+    }
+    if (!await _waitForGoogleChromeRemoval(executable)) {
+      return const PluginOperationResult(
+        success: false,
+        message: 'Chrome 已提交到废纸篓，但可执行文件仍然存在，请稍后重新扫描。',
+      );
+    }
+    onProgress?.call('Google Chrome 已移至废纸篓，用户资料保持不变。');
+    return const PluginOperationResult(
+      success: true,
+      message: 'Google Chrome 已移至废纸篓，用户资料已保留。',
+    );
+  }
+
+  Future<PluginOperationResult> _uninstallGoogleChromeWindows(
+    String executable, {
+    required String? installedVersion,
+    void Function(String line)? onProgress,
+  }) async {
+    final applicationDirectory = p.dirname(executable);
+    final candidates = <String>[
+      if (nullIfBlank(installedVersion) case final version?)
+        p.join(applicationDirectory, version, 'Installer', 'setup.exe'),
+    ];
+    try {
+      final listing = await listDirectoryBounded(
+        Directory(applicationDirectory),
+        maxEntries: _googleChromeInstallerDirectoryMaxEntries,
+      );
+      for (final entry in listing.entries) {
+        if (entry is Directory) {
+          candidates.add(p.join(entry.path, 'Installer', 'setup.exe'));
+        }
+      }
+    } catch (error, stack) {
+      silentLog('plugin_lifecycle', '定位 Chrome 官方卸载程序', error, stack);
+    }
+    String? setup;
+    for (final candidate in candidates) {
+      if (await isRegularFilePath(candidate, followLinks: true)) {
+        setup = candidate;
+        break;
+      }
+    }
+    if (setup == null) {
+      return const PluginOperationResult(
+        success: false,
+        message: '未找到 Chrome 官方卸载程序，请通过 Windows 应用设置卸载。',
+      );
+    }
+    final localAppData = Platform.environment['LOCALAPPDATA'] ?? '';
+    final systemLevel =
+        localAppData.isEmpty ||
+        !executable.toLowerCase().startsWith(localAppData.toLowerCase());
+    onProgress?.call('正在调用 Chrome 官方卸载程序…');
+    final result = await _runWithProgress(
+      setup,
+      <String>[
+        '--uninstall',
+        '--channel=stable',
+        '--force-uninstall',
+        '--verbose-logging',
+        if (systemLevel) '--system-level',
+      ],
+      onProgress: onProgress,
+      timeout: _packageOperationTimeout,
+    );
+    if (result.exitCode != 0) {
+      return PluginOperationResult(
+        success: false,
+        message: 'Google Chrome 卸载失败: ${_processErrorMessage(result)}',
+      );
+    }
+    if (!await _waitForGoogleChromeRemoval(executable)) {
+      return const PluginOperationResult(
+        success: false,
+        message: 'Chrome 卸载程序已结束，但浏览器仍可检测到，请检查 Windows 应用设置。',
+      );
+    }
+    onProgress?.call('Google Chrome 已卸载，用户资料保持不变。');
+    return const PluginOperationResult(
+      success: true,
+      message: 'Google Chrome 已卸载，用户资料已保留。',
+    );
+  }
+
+  Future<PluginOperationResult> _uninstallGoogleChromeLinux(
+    String executable, {
+    void Function(String line)? onProgress,
+  }) async {
+    String? manager;
+    List<String>? arguments;
+    for (final candidate in <(String, List<String>)>[
+      ('apt-get', const <String>['remove', '--yes', 'google-chrome-stable']),
+      ('dnf', const <String>['remove', '-y', 'google-chrome-stable']),
+      ('yum', const <String>['remove', '-y', 'google-chrome-stable']),
+      (
+        'zypper',
+        const <String>['--non-interactive', 'remove', 'google-chrome-stable'],
+      ),
+      ('pacman', const <String>['-Rns', '--noconfirm', 'google-chrome']),
+    ]) {
+      if (await _isExecutableAvailable(candidate.$1)) {
+        manager = await _resolveManagedToolchainCommandPath(candidate.$1);
+        arguments = candidate.$2;
+        break;
+      }
+    }
+    if (manager == null || arguments == null) {
+      return const PluginOperationResult(
+        success: false,
+        message: '未找到支持的 Linux 包管理器，无法自动卸载 Google Chrome。',
+      );
+    }
+    final isRoot = Platform.environment['USER'] == 'root';
+    final pkexec = isRoot
+        ? null
+        : await _resolveManagedToolchainCommandPath('pkexec');
+    if (!isRoot && pkexec == null) {
+      return const PluginOperationResult(
+        success: false,
+        message: '未找到 pkexec，无法请求系统权限卸载 Google Chrome。',
+      );
+    }
+    onProgress?.call('正在通过系统包管理器卸载 Google Chrome…');
+    final result = await _runWithProgress(
+      pkexec ?? manager,
+      <String>[if (pkexec != null) manager, ...arguments],
+      onProgress: onProgress,
+      timeout: _packageOperationTimeout,
+    );
+    if (result.exitCode != 0) {
+      return PluginOperationResult(
+        success: false,
+        message: 'Google Chrome 卸载失败: ${_processErrorMessage(result)}',
+      );
+    }
+    if (!await _waitForGoogleChromeRemoval(executable)) {
+      return const PluginOperationResult(
+        success: false,
+        message: '包管理器已结束，但 Chrome 仍可检测到，请重新扫描后检查安装来源。',
+      );
+    }
+    onProgress?.call('Google Chrome 已卸载，用户资料保持不变。');
+    return const PluginOperationResult(
+      success: true,
+      message: 'Google Chrome 已卸载，用户资料已保留。',
+    );
+  }
+
+  Future<bool> _waitForGoogleChromeRemoval(String executable) async {
+    for (
+      var attempt = 0;
+      attempt < _googleChromeRemovalMaxPollAttempts;
+      attempt++
+    ) {
+      if (!await isRegularFilePath(executable, followLinks: true)) return true;
+      if (attempt + 1 < _googleChromeRemovalMaxPollAttempts) {
+        await Future<void>.delayed(_googleChromeRemovalPollInterval);
+      }
+    }
+    return false;
+  }
+
   Future<PluginOperationResult> uninstallJava({
     void Function(String line)? onProgress,
   }) => _uninstallBrewFormula(
@@ -4118,7 +4390,6 @@ echo "已保留 $label 数据目录：${posixShellQuote(dataDir)}"
     }
   }
 }
-
 
 String _timeoutMessage(Duration timeout) {
   final seconds = timeout.inSeconds;

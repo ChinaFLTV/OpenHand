@@ -642,6 +642,51 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pluginServiceDetailCollectionCount => '集合数量';
 
   @override
+  String get pluginServiceDetailRuntimeCapabilities => '运行能力';
+
+  @override
+  String get pluginServiceDetailApplicationPath => '应用目录';
+
+  @override
+  String get pluginServiceDetailReleaseChannel => '发布通道';
+
+  @override
+  String get pluginServiceDetailVersionSource => '版本来源';
+
+  @override
+  String get pluginServiceDetailVersionApi => '版本 API';
+
+  @override
+  String get pluginServiceDetailBrowserKind => '浏览器类型';
+
+  @override
+  String get pluginServiceDetailCdpTransport => 'CDP 传输';
+
+  @override
+  String get pluginServiceDetailCdpEndpoint => 'CDP 端点';
+
+  @override
+  String get pluginServiceDetailProfileStrategy => '配置策略';
+
+  @override
+  String get pluginServiceDetailCaptureScope => '采集范围';
+
+  @override
+  String get pluginServiceDetailCredentialPolicy => '凭据保护';
+
+  @override
+  String get pluginServiceDetailSessionCleanup => '会话清理';
+
+  @override
+  String get pluginServiceDetailUpdatePolicy => '更新策略';
+
+  @override
+  String get pluginServiceDetailUninstallPolicy => '卸载策略';
+
+  @override
+  String get pluginServiceDetailOfficialSite => '官方网站';
+
+  @override
   String pluginServiceMcpInstalledVersion(Object version) {
     return '已安装 v$version';
   }
@@ -11368,6 +11413,51 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get pluginServiceDetailCollectionCount => '集合數量';
+
+  @override
+  String get pluginServiceDetailRuntimeCapabilities => '執行能力';
+
+  @override
+  String get pluginServiceDetailApplicationPath => '應用程式目錄';
+
+  @override
+  String get pluginServiceDetailReleaseChannel => '發布通道';
+
+  @override
+  String get pluginServiceDetailVersionSource => '版本來源';
+
+  @override
+  String get pluginServiceDetailVersionApi => '版本 API';
+
+  @override
+  String get pluginServiceDetailBrowserKind => '瀏覽器類型';
+
+  @override
+  String get pluginServiceDetailCdpTransport => 'CDP 傳輸';
+
+  @override
+  String get pluginServiceDetailCdpEndpoint => 'CDP 端點';
+
+  @override
+  String get pluginServiceDetailProfileStrategy => '設定檔策略';
+
+  @override
+  String get pluginServiceDetailCaptureScope => '擷取範圍';
+
+  @override
+  String get pluginServiceDetailCredentialPolicy => '憑證保護';
+
+  @override
+  String get pluginServiceDetailSessionCleanup => '工作階段清理';
+
+  @override
+  String get pluginServiceDetailUpdatePolicy => '更新策略';
+
+  @override
+  String get pluginServiceDetailUninstallPolicy => '解除安裝策略';
+
+  @override
+  String get pluginServiceDetailOfficialSite => '官方網站';
 
   @override
   String pluginServiceMcpInstalledVersion(Object version) {

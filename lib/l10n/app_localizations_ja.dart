@@ -643,6 +643,51 @@ class AppLocalizationsJa extends AppLocalizations {
   String get pluginServiceDetailCollectionCount => 'コレクション数';
 
   @override
+  String get pluginServiceDetailRuntimeCapabilities => '実行機能';
+
+  @override
+  String get pluginServiceDetailApplicationPath => 'アプリケーションパス';
+
+  @override
+  String get pluginServiceDetailReleaseChannel => 'リリースチャンネル';
+
+  @override
+  String get pluginServiceDetailVersionSource => 'バージョンソース';
+
+  @override
+  String get pluginServiceDetailVersionApi => 'バージョン API';
+
+  @override
+  String get pluginServiceDetailBrowserKind => 'ブラウザー種別';
+
+  @override
+  String get pluginServiceDetailCdpTransport => 'CDP トランスポート';
+
+  @override
+  String get pluginServiceDetailCdpEndpoint => 'CDP エンドポイント';
+
+  @override
+  String get pluginServiceDetailProfileStrategy => 'プロファイル戦略';
+
+  @override
+  String get pluginServiceDetailCaptureScope => '収集範囲';
+
+  @override
+  String get pluginServiceDetailCredentialPolicy => '認証情報の保護';
+
+  @override
+  String get pluginServiceDetailSessionCleanup => 'セッションのクリーンアップ';
+
+  @override
+  String get pluginServiceDetailUpdatePolicy => '更新方針';
+
+  @override
+  String get pluginServiceDetailUninstallPolicy => 'アンインストール方針';
+
+  @override
+  String get pluginServiceDetailOfficialSite => '公式サイト';
+
+  @override
   String pluginServiceMcpInstalledVersion(Object version) {
     return 'インストール済み v$version';
   }

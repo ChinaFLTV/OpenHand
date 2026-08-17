@@ -47,7 +47,13 @@ class GoogleChromeRuntimeDetector {
         .toString()
         .split('\n')
         .map((line) => line.trim())
-        .firstWhere((line) => line.endsWith('.app'), orElse: () => '');
+        .firstWhere(
+          (line) =>
+              line.endsWith('.app') &&
+              !line.contains('/.Trash/') &&
+              !line.contains('/.Trashes/'),
+          orElse: () => '',
+        );
     for (final candidate in <String>[
       if (app?.isNotEmpty == true) '$app/Contents/MacOS/Google Chrome',
       '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
