@@ -21,9 +21,12 @@ class FeaturePageShell extends StatelessWidget {
     this.notices = const <Widget>[],
     this.animateBody = true,
     this.breakpoint = 980,
+    this.headerFlex = 1,
+    this.actionsFlex = 1,
     this.headerSpacing = 20,
     this.noticeSpacing = 16,
-  });
+  }) : assert(headerFlex > 0),
+       assert(actionsFlex > 0);
 
   final String title;
   final String subtitle;
@@ -33,6 +36,8 @@ class FeaturePageShell extends StatelessWidget {
   final List<Widget> notices;
   final bool animateBody;
   final double breakpoint;
+  final int headerFlex;
+  final int actionsFlex;
   final double headerSpacing;
   final double noticeSpacing;
 
@@ -80,9 +85,10 @@ class FeaturePageShell extends StatelessWidget {
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: header),
+                    Expanded(flex: headerFlex, child: header),
                     kOpenHandHGap20,
                     Flexible(
+                      flex: actionsFlex,
                       child: Align(
                         alignment: Alignment.topRight,
                         child: actions,
