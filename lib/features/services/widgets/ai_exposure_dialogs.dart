@@ -2373,7 +2373,7 @@ class _ToolProfileCardState extends State<_ToolProfileCard> {
                       foregroundColor: theme.colorScheme.error,
                       icon: const Icon(Icons.delete_outline_rounded),
                     ),
-                    kOpenHandHGap10,
+                    kOpenHandHGap4,
                     Switch(
                       value: _profile.enabled,
                       onChanged: (enabled) =>
@@ -2381,7 +2381,14 @@ class _ToolProfileCardState extends State<_ToolProfileCard> {
                     ),
                   ];
                   if (constraints.maxWidth >= 520) {
-                    return Row(children: [dragHandle, nameField, ...controls]);
+                    return Row(
+                      children: [
+                        dragHandle,
+                        nameField,
+                        kOpenHandHGap8,
+                        ...controls,
+                      ],
+                    );
                   }
                   return Column(
                     children: [
@@ -2516,7 +2523,7 @@ class _ToolProfileCardState extends State<_ToolProfileCard> {
         suffixIcon: !secret
             ? null
             : ServiceDialogCompactIconButton(
-                size: 36,
+                size: 28,
                 tooltip: _showSecrets
                     ? text(zh: '隐藏凭证', en: 'Hide credential')
                     : text(zh: '显示凭证', en: 'Show credential'),
@@ -2525,11 +2532,12 @@ class _ToolProfileCardState extends State<_ToolProfileCard> {
                   _showSecrets
                       ? Icons.visibility_off_outlined
                       : Icons.visibility_outlined,
+                  size: 18,
                 ),
               ),
-        suffixIconConstraints: const BoxConstraints(
-          minWidth: 48,
-          minHeight: 48,
+        suffixIconConstraints: const BoxConstraints.tightFor(
+          width: 36,
+          height: 36,
         ),
       ),
     );
