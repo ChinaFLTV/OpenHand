@@ -13,7 +13,7 @@ void main() {
     final output = <String>[
       'P\t${encoded('/tmp/测试 目录')}',
       'E\tf\t12\t1700000000\t644\t${encoded('说明.txt')}\t',
-      'E\td\t0\t1700000001\t755\t${encoded('子目录')}\t',
+      'E\td\t0\t1700000001\t755\t${encoded('子目录')}\t\t2\t3',
       'E\tl\t4\t1700000002\t777\t${encoded('最新')}\t${encoded('说明.txt')}',
       'T',
     ].join('\n');
@@ -31,6 +31,8 @@ void main() {
       '说明.txt',
     ]);
     expect(snapshot.entries[1].linkTarget, '说明.txt');
+    expect(snapshot.entries.first.childDirectoryCount, 2);
+    expect(snapshot.entries.first.childFileCount, 3);
   });
 
   test('文件详情协议保留路径、所有者和时间字段', () {
@@ -51,6 +53,8 @@ void main() {
         '1699990000',
         '1699991000',
         '1699992000',
+        '0',
+        '0',
       ].join('\t'),
       requestedPath: '/tmp/测试.txt',
     );
@@ -81,6 +85,45 @@ void main() {
         throwsA(isA<FileSystemException>()),
       );
       expect(fileService.transfers(), isEmpty);
+    } finally {
+      await fileService.shutdown();
+      fileService.dispose();
+      await terminalService.shutdown();
+      terminalService.dispose();
+      await root.delete(recursive: true);
+    }
+  });
+
+  test('传输记录明确区分上传与下载任务', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'openhand-terminal-transfer-direction-',
+    );
+    final source = File('${root.path}/上传.txt');
+    await source.writeAsString('content');
+    final terminalService = MachineTerminalService();
+    final fileService = MachineTerminalFileService(terminalService);
+    try {
+      await fileService.enqueueUploads(
+        sessionId: 'direction-test',
+        terminalId: 'terminal-1',
+        targetDirectory: '/tmp',
+        sourcePaths: <String>[source.path],
+      );
+      fileService.enqueueDownload(
+        sessionId: 'direction-test',
+        terminalId: 'terminal-1',
+        sourcePath: '/tmp/下载.txt',
+        destinationPath: '${root.path}/下载.txt',
+        totalBytes: 12,
+      );
+
+      expect(
+        fileService.transfers().map((task) => task.direction),
+        <MachineTerminalTransferDirection>[
+          MachineTerminalTransferDirection.upload,
+          MachineTerminalTransferDirection.download,
+        ],
+      );
     } finally {
       await fileService.shutdown();
       fileService.dispose();
@@ -169,6 +212,10 @@ void main() {
           sourcePaths: <String>[source.path],
         );
         await _waitForTransfer(fileService, terminalId);
+        expect(
+          fileService.transfers().first.direction,
+          MachineTerminalTransferDirection.upload,
+        );
 
         directory = await fileService.listDirectory(
           sessionId: 'file-test',
@@ -186,13 +233,19 @@ void main() {
         expect(await File('${child.path}/本地上传.bin').readAsBytes(), sourceBytes);
         final downloaded = File('${sessions.path}/终端下载.bin');
         await downloaded.writeAsString('旧内容');
-        await fileService.downloadFile(
+        fileService.enqueueDownload(
           sessionId: 'file-test',
           terminalId: terminalId,
           sourcePath: '${child.path}/本地上传.bin',
           destinationPath: downloaded.path,
+          totalBytes: sourceBytes.length,
         );
+        await _waitForTransfer(fileService, terminalId);
         expect(await downloaded.readAsBytes(), sourceBytes);
+        expect(
+          fileService.transfers().last.direction,
+          MachineTerminalTransferDirection.download,
+        );
       } finally {
         await fileService.shutdown();
         fileService.dispose();

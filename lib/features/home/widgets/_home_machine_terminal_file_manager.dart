@@ -51,16 +51,19 @@ class _MachineTerminalFileManagerDialog extends StatefulWidget {
 class _MachineTerminalFileManagerDialogState
     extends State<_MachineTerminalFileManagerDialog> {
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _pathController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
   MachineTerminalDirectorySnapshot? _snapshot;
   bool _loading = true;
   int _loadGeneration = 0;
   String? _operationPath;
   String? _error;
+  bool _syncingPath = false;
 
   @override
   void initState() {
     super.initState();
+    _pathController.addListener(_handlePathChanged);
     _searchController.addListener(_handleSearchChanged);
     unawaited(_loadDirectory());
   }
@@ -69,6 +72,9 @@ class _MachineTerminalFileManagerDialogState
   void dispose() {
     _loadGeneration += 1;
     _scrollController.dispose();
+    _pathController
+      ..removeListener(_handlePathChanged)
+      ..dispose();
     _searchController
       ..removeListener(_handleSearchChanged)
       ..dispose();
@@ -79,7 +85,23 @@ class _MachineTerminalFileManagerDialogState
     if (mounted) setState(() {});
   }
 
-  Future<void> _loadDirectory([String? path]) async {
+  void _handlePathChanged() {
+    if (!_syncingPath && mounted) setState(() {});
+  }
+
+  void _setPathText(String path) {
+    _syncingPath = true;
+    _pathController.value = TextEditingValue(
+      text: path,
+      selection: TextSelection.collapsed(offset: path.length),
+    );
+    _syncingPath = false;
+  }
+
+  Future<void> _loadDirectory([
+    String? path,
+    bool restorePathOnFailure = false,
+  ]) async {
     final generation = ++_loadGeneration;
     setState(() {
       _loading = true;
@@ -94,6 +116,7 @@ class _MachineTerminalFileManagerDialogState
             path: path,
           );
       if (!mounted || generation != _loadGeneration) return;
+      _setPathText(snapshot.path);
       setState(() {
         _snapshot = snapshot;
         _loading = false;
@@ -102,11 +125,49 @@ class _MachineTerminalFileManagerDialogState
     } catch (error, stack) {
       silentLog('machine_terminal_file', '加载终端目录', error, stack);
       if (!mounted || generation != _loadGeneration) return;
+      if (restorePathOnFailure && _snapshot != null) {
+        _setPathText(_snapshot!.path);
+        setState(() {
+          _loading = false;
+          _error = null;
+        });
+        showOpenHandErrorSnack(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '无法导航到该路径：$error',
+            en: 'Unable to open that path: $error',
+          ),
+          maxLines: 3,
+        );
+        return;
+      }
       setState(() {
         _loading = false;
         _error = '$error';
       });
     }
+  }
+
+  void _navigateToEnteredPath() {
+    final snapshot = _snapshot;
+    if (snapshot == null || _loading) return;
+    final path = _pathController.text;
+    if (path == snapshot.path) return;
+    if (path.isEmpty) {
+      _setPathText(snapshot.path);
+      showOpenHandErrorSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '路径不能为空。',
+          en: 'The path cannot be empty.',
+        ),
+      );
+      setState(() {});
+      return;
+    }
+    unawaited(_loadDirectory(path, true));
   }
 
   @override
@@ -227,6 +288,8 @@ class _MachineTerminalFileManagerDialogState
       borderRadius: kOpenHandBorderRadius8,
       borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.55)),
     );
+    final pathChanged =
+        snapshot != null && _pathController.text != snapshot.path;
     return Row(
       children: [
         _MachineTerminalIconButton(
@@ -254,28 +317,60 @@ class _MachineTerminalFileManagerDialogState
         ),
         kOpenHandHGap8,
         Expanded(
-          child: Container(
+          child: SizedBox(
             height: 36,
-            alignment: Alignment.centerLeft,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-              borderRadius: kOpenHandBorderRadius8,
-              border: Border.all(
-                color: cs.outlineVariant.withValues(alpha: 0.55),
-              ),
-            ),
-            child: SelectableText(
-              snapshot?.path ?? '-',
-              maxLines: 1,
+            child: TextField(
+              controller: _pathController,
+              enabled: snapshot != null,
+              textInputAction: TextInputAction.go,
+              onSubmitted: (_) => _navigateToEnteredPath(),
               style: TextStyle(
                 color: cs.onSurfaceVariant,
                 fontFamily: kOpenHandMonospaceFontFamily,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),
+              decoration: InputDecoration(
+                isDense: true,
+                filled: true,
+                fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                hintText: openHandLocalizedText(
+                  context,
+                  zh: '输入目录路径',
+                  en: 'Enter folder path',
+                ),
+                prefixIcon: const Icon(Icons.route_rounded, size: 18),
+                prefixIconConstraints: const BoxConstraints.tightFor(
+                  width: 36,
+                  height: 36,
+                ),
+                border: searchBorder,
+                enabledBorder: searchBorder,
+                focusedBorder: searchBorder.copyWith(
+                  borderSide: BorderSide(color: cs.primary, width: 1.2),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+              ),
             ),
           ),
+        ),
+        AnimatedSize(
+          duration: openHandMotionDuration(context, kOpenHandMotion180),
+          curve: kOpenHandSwitchInCurve,
+          child: pathChanged
+              ? Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: _MachineTerminalIconButton(
+                    icon: Icons.arrow_forward_rounded,
+                    tooltip: openHandLocalizedText(
+                      context,
+                      zh: '前往该目录',
+                      en: 'Open This Folder',
+                    ),
+                    onPressed: _loading ? null : _navigateToEnteredPath,
+                  ),
+                )
+              : const SizedBox.shrink(),
         ),
         kOpenHandHGap8,
         SizedBox(
@@ -481,7 +576,11 @@ class _MachineTerminalFileManagerDialogState
               Expanded(
                 flex: 2,
                 child: Text(
-                  entry.isDirectory ? '-' : formatByteSize(entry.size),
+                  entry.isDirectory
+                      ? _machineTerminalDirectorySizeLabel(context, entry)
+                      : formatByteSize(entry.size),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
                     fontFeatures: const <FontFeature>[
@@ -692,26 +791,29 @@ class _MachineTerminalFileManagerDialogState
   }
 
   Future<void> _downloadEntry(MachineTerminalFileEntry entry) async {
-    final location = await getSaveLocation(suggestedName: entry.name);
-    if (!mounted || location == null) return;
-    await _runEntryOperation(entry.path, '下载文件', () async {
-      await context.read<MachineTerminalFileService>().downloadFile(
+    try {
+      final location = await getSaveLocation(suggestedName: entry.name);
+      if (!mounted || location == null) return;
+      context.read<MachineTerminalFileService>().enqueueDownload(
         sessionId: widget.sessionId,
         terminalId: widget.terminalId,
         sourcePath: entry.path,
         destinationPath: location.path,
+        totalBytes: entry.size,
       );
-      if (!mounted) return;
       showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
           context,
-          zh: '文件已下载到 ${location.path}',
-          en: 'File downloaded to ${location.path}',
+          zh: '已加入下载任务：${location.path}',
+          en: 'Download queued: ${location.path}',
         ),
         maxLines: 2,
       );
-    });
+      _showTransfers();
+    } catch (error, stack) {
+      _showOperationError('创建下载任务', error, stack);
+    }
   }
 
   Future<void> _previewMediaEntry(
@@ -1105,6 +1207,15 @@ String _machineTerminalFileKindLabel(
   ),
 };
 
+String _machineTerminalDirectorySizeLabel(
+  BuildContext context,
+  MachineTerminalFileEntry entry,
+) => openHandLocalizedText(
+  context,
+  zh: '${entry.childDirectoryCount} 目录 ${entry.childFileCount} 文件',
+  en: '${entry.childDirectoryCount} folders · ${entry.childFileCount} files',
+);
+
 String _formatMachineTerminalFileTime(DateTime? value) {
   if (value == null) return '-';
   final local = value.toLocal();
@@ -1147,7 +1258,9 @@ class _MachineTerminalFileDetailsDialog extends StatelessWidget {
       ),
       (
         openHandLocalizedText(context, zh: '文件大小', en: 'Size'),
-        '${formatByteSize(entry.size)} (${entry.size} B)',
+        entry.isDirectory
+            ? _machineTerminalDirectorySizeLabel(context, entry)
+            : '${formatByteSize(entry.size)} (${entry.size} B)',
         Icons.data_usage_rounded,
       ),
       (
@@ -1925,8 +2038,15 @@ class _MachineTerminalTransfersDialog extends StatelessWidget {
       terminalId: terminalId,
     );
     final active = tasks.where((task) => task.isActive).length;
-    final completed = tasks
-        .where((task) => task.status == MachineTerminalTransferStatus.completed)
+    final uploads = tasks
+        .where(
+          (task) => task.direction == MachineTerminalTransferDirection.upload,
+        )
+        .length;
+    final downloads = tasks
+        .where(
+          (task) => task.direction == MachineTerminalTransferDirection.download,
+        )
         .length;
 
     return buildOpenHandDialog(
@@ -1959,15 +2079,15 @@ class _MachineTerminalTransfersDialog extends StatelessWidget {
               ),
               subtitle: openHandLocalizedText(
                 context,
-                zh: '共 ${tasks.length} 项 · 进行中 $active · 已完成 $completed',
-                en: '${tasks.length} total · $active active · $completed completed',
+                zh: '共 ${tasks.length} 项 · 上传 $uploads · 下载 $downloads · 进行中 $active',
+                en: '${tasks.length} total · $uploads uploads · $downloads downloads · $active active',
               ),
               onClose: () => Navigator.of(context).pop(),
             ),
             Expanded(
               child: tasks.isEmpty
                   ? OpenHandInlineEmptyState(
-                      icon: Icons.cloud_upload_outlined,
+                      icon: Icons.swap_vert_circle_outlined,
                       message: openHandLocalizedText(
                         context,
                         zh: '暂无文件传输记录。',
@@ -2000,6 +2120,10 @@ class _MachineTerminalTransferRow extends StatelessWidget {
     final cs = theme.colorScheme;
     final service = context.read<MachineTerminalFileService>();
     final statusColor = _machineTerminalTransferColor(cs, task.status);
+    final directionColor = _machineTerminalTransferDirectionColor(
+      cs,
+      task.direction,
+    );
     final canPause =
         task.status == MachineTerminalTransferStatus.queued ||
         task.status == MachineTerminalTransferStatus.transferring;
@@ -2021,13 +2145,13 @@ class _MachineTerminalTransferRow extends StatelessWidget {
                 height: 34,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
+                  color: directionColor.withValues(alpha: 0.12),
                   borderRadius: kOpenHandBorderRadius8,
                 ),
                 child: Icon(
-                  _machineTerminalTransferIcon(task.status),
+                  _machineTerminalTransferIcon(task.status, task.direction),
                   size: 18,
-                  color: statusColor,
+                  color: directionColor,
                 ),
               ),
               kOpenHandHGap10,
@@ -2035,13 +2159,40 @@ class _MachineTerminalTransferRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      task.fileName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: directionColor.withValues(alpha: 0.12),
+                            borderRadius: kOpenHandPillBorderRadius,
+                          ),
+                          child: Text(
+                            _machineTerminalTransferDirectionLabel(
+                              context,
+                              task.direction,
+                            ),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: directionColor,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        kOpenHandHGap8,
+                        Expanded(
+                          child: Text(
+                            task.fileName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     kOpenHandGap3,
                     Text(
@@ -2054,6 +2205,17 @@ class _MachineTerminalTransferRow extends StatelessWidget {
                         fontFeatures: const <FontFeature>[
                           FontFeature.tabularFigures(),
                         ],
+                      ),
+                    ),
+                    kOpenHandGap3,
+                    Text(
+                      '${task.sourcePath}  →  '
+                      '${task.direction == MachineTerminalTransferDirection.upload ? machineTerminalJoinPath(task.targetDirectory, task.fileName) : p.join(task.targetDirectory, task.fileName)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontFamily: kOpenHandMonospaceFontFamily,
                       ),
                     ),
                   ],
@@ -2174,15 +2336,44 @@ String _machineTerminalTransferStatusLabel(
   ),
 };
 
-IconData _machineTerminalTransferIcon(MachineTerminalTransferStatus status) =>
-    switch (status) {
-      MachineTerminalTransferStatus.queued => Icons.schedule_rounded,
-      MachineTerminalTransferStatus.transferring => Icons.upload_rounded,
-      MachineTerminalTransferStatus.paused => Icons.pause_circle_rounded,
-      MachineTerminalTransferStatus.completed => Icons.check_circle_rounded,
-      MachineTerminalTransferStatus.failed => Icons.error_rounded,
-      MachineTerminalTransferStatus.canceled => Icons.cancel_rounded,
-    };
+String _machineTerminalTransferDirectionLabel(
+  BuildContext context,
+  MachineTerminalTransferDirection direction,
+) => switch (direction) {
+  MachineTerminalTransferDirection.upload => openHandLocalizedText(
+    context,
+    zh: '上传',
+    en: 'Upload',
+  ),
+  MachineTerminalTransferDirection.download => openHandLocalizedText(
+    context,
+    zh: '下载',
+    en: 'Download',
+  ),
+};
+
+IconData _machineTerminalTransferIcon(
+  MachineTerminalTransferStatus status,
+  MachineTerminalTransferDirection direction,
+) => switch (status) {
+  MachineTerminalTransferStatus.queued => Icons.schedule_rounded,
+  MachineTerminalTransferStatus.transferring =>
+    direction == MachineTerminalTransferDirection.upload
+        ? Icons.upload_rounded
+        : Icons.download_rounded,
+  MachineTerminalTransferStatus.paused => Icons.pause_circle_rounded,
+  MachineTerminalTransferStatus.completed => Icons.check_circle_rounded,
+  MachineTerminalTransferStatus.failed => Icons.error_rounded,
+  MachineTerminalTransferStatus.canceled => Icons.cancel_rounded,
+};
+
+Color _machineTerminalTransferDirectionColor(
+  ColorScheme cs,
+  MachineTerminalTransferDirection direction,
+) => switch (direction) {
+  MachineTerminalTransferDirection.upload => cs.secondary,
+  MachineTerminalTransferDirection.download => cs.tertiary,
+};
 
 Color _machineTerminalTransferColor(
   ColorScheme cs,

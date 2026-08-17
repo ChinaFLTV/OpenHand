@@ -35,6 +35,8 @@ const Duration _machineTerminalProgressNotifyInterval = Duration(
 
 enum MachineTerminalFileKind { file, directory, link, other }
 
+enum MachineTerminalTransferDirection { upload, download }
+
 enum MachineTerminalTransferStatus {
   queued,
   transferring,
@@ -54,6 +56,8 @@ class MachineTerminalFileEntry {
     required this.modifiedAt,
     required this.permissions,
     this.linkTarget,
+    this.childDirectoryCount = 0,
+    this.childFileCount = 0,
   });
 
   final String name;
@@ -63,6 +67,8 @@ class MachineTerminalFileEntry {
   final DateTime? modifiedAt;
   final String permissions;
   final String? linkTarget;
+  final int childDirectoryCount;
+  final int childFileCount;
 
   bool get isDirectory => kind == MachineTerminalFileKind.directory;
   bool get isFile => kind == MachineTerminalFileKind.file;
@@ -113,6 +119,7 @@ class MachineTerminalTransferTask {
     required this.id,
     required this.sessionId,
     required this.terminalId,
+    required this.direction,
     required this.sourcePath,
     required this.targetDirectory,
     required this.fileName,
@@ -128,6 +135,7 @@ class MachineTerminalTransferTask {
   final String id;
   final String sessionId;
   final String terminalId;
+  final MachineTerminalTransferDirection direction;
   final String sourcePath;
   final String targetDirectory;
   final String fileName;
@@ -245,54 +253,20 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String sourcePath,
     required String destinationPath,
   }) {
-    return _withTerminalGate(sessionId, terminalId, () async {
-      final before = await _fileDetails(sessionId, terminalId, sourcePath);
-      if (!before.entry.isFile) {
-        throw StateError('仅支持下载普通文件。');
-      }
-      final expectedBytes = before.entry.size;
-      var downloadedBytes = 0;
-
-      Stream<List<int>> chunks() async* {
-        final chunkCount = math.max(
-          1,
-          (expectedBytes / _machineTerminalReadChunkBytes).ceil(),
-        );
-        for (var index = 0; index < chunkCount; index++) {
-          final output = await _runCommand(
-            sessionId: sessionId,
-            terminalId: terminalId,
-            command: _readChunkCommand(before.entry.path, index),
-            timeout: _machineTerminalFileCommandTimeout,
-          );
-          final match = _machineTerminalReadChunkPattern.firstMatch(output);
-          if (match == null) throw const FormatException('无法解析下载文件分块。');
-          final encoded = match.group(1)!;
-          final chunk = encoded.isEmpty ? const <int>[] : base64Decode(encoded);
-          if (chunk.length > expectedBytes - downloadedBytes) {
-            throw StateError('文件下载期间发生变化，请刷新后重试。');
-          }
-          downloadedBytes += chunk.length;
-          if (chunk.isNotEmpty) yield chunk;
-        }
-        if (downloadedBytes != expectedBytes) {
-          throw StateError('文件下载期间发生变化，请刷新后重试。');
-        }
-        final after = await _fileDetails(sessionId, terminalId, sourcePath);
-        if (!after.entry.isFile ||
-            after.entry.size != expectedBytes ||
-            after.entry.modifiedAt != before.entry.modifiedAt) {
-          throw StateError('文件下载期间发生变化，请刷新后重试。');
-        }
-      }
-
-      await writeByteStreamFileAtomically(
-        File(destinationPath),
-        chunks(),
-        maxBytes: math.max(1, expectedBytes),
-        totalTimeout: _machineTerminalDownloadTimeout,
-      );
-    });
+    return _withTerminalGate(
+      sessionId,
+      terminalId,
+      () => _downloadFile(
+        sessionId: sessionId,
+        terminalId: terminalId,
+        sourcePath: sourcePath,
+        destinationPath: destinationPath,
+        onTotalBytes: (_) {},
+        onProgress: (_) {},
+        waitWhilePaused: () async {},
+        isCancelled: () => false,
+      ),
+    );
   }
 
   Future<void> writeTextFile({
@@ -416,6 +390,7 @@ class MachineTerminalFileService extends ChangeNotifier {
           id: id,
           sessionId: sessionId,
           terminalId: terminalId,
+          direction: MachineTerminalTransferDirection.upload,
           sourcePath: source.path,
           targetDirectory: targetDirectory,
           fileName: source.fileName,
@@ -428,6 +403,37 @@ class MachineTerminalFileService extends ChangeNotifier {
     _notify();
     _startTransferWorker(_terminalKey(sessionId, terminalId));
     return createdIds;
+  }
+
+  String enqueueDownload({
+    required String sessionId,
+    required String terminalId,
+    required String sourcePath,
+    required String destinationPath,
+    required int totalBytes,
+  }) {
+    if (sourcePath.trim().isEmpty || destinationPath.trim().isEmpty) {
+      throw ArgumentError('下载路径不能为空。');
+    }
+    if (totalBytes < 0) throw ArgumentError.value(totalBytes, 'totalBytes');
+    final id =
+        'transfer-${DateTime.now().microsecondsSinceEpoch}-${++_transferCounter}';
+    _transferTasks.add(
+      _MutableTransferTask(
+        id: id,
+        sessionId: sessionId,
+        terminalId: terminalId,
+        direction: MachineTerminalTransferDirection.download,
+        sourcePath: sourcePath,
+        targetDirectory: p.dirname(destinationPath),
+        fileName: _validatedFileName(p.basename(destinationPath), trim: false),
+        totalBytes: totalBytes,
+      ),
+    );
+    _trimTransferRecords();
+    _notify();
+    _startTransferWorker(_terminalKey(sessionId, terminalId));
+    return id;
   }
 
   void pauseTransfer(String taskId) {
@@ -471,6 +477,10 @@ class MachineTerminalFileService extends ChangeNotifier {
     if (task.snapshot().isActive) {
       task.removeWhenFinished = true;
       cancelTransfer(taskId);
+      if (task.startedAt == null) {
+        _transferTasks.remove(task);
+        _notify();
+      }
       return;
     }
     _transferTasks.remove(task);
@@ -542,6 +552,69 @@ class MachineTerminalFileService extends ChangeNotifier {
         '${error.message}\n${clipText(output, _machineTerminalCommandErrorOutputLimit)}',
       );
     }
+  }
+
+  Future<void> _downloadFile({
+    required String sessionId,
+    required String terminalId,
+    required String sourcePath,
+    required String destinationPath,
+    required ValueChanged<int> onTotalBytes,
+    required MachineTerminalUploadProgress onProgress,
+    required MachineTerminalUploadPauseWaiter waitWhilePaused,
+    required MachineTerminalUploadCancelCheck isCancelled,
+  }) async {
+    final before = await _fileDetails(sessionId, terminalId, sourcePath);
+    if (!before.entry.isFile) throw StateError('仅支持下载普通文件。');
+    final expectedBytes = before.entry.size;
+    onTotalBytes(expectedBytes);
+    var downloadedBytes = 0;
+
+    Stream<List<int>> chunks() async* {
+      final chunkCount = math.max(
+        1,
+        (expectedBytes / _machineTerminalReadChunkBytes).ceil(),
+      );
+      for (var index = 0; index < chunkCount; index++) {
+        await waitWhilePaused();
+        if (isCancelled()) throw const MachineTerminalUploadCancelled();
+        final output = await _runCommand(
+          sessionId: sessionId,
+          terminalId: terminalId,
+          command: _readChunkCommand(before.entry.path, index),
+          timeout: _machineTerminalFileCommandTimeout,
+        );
+        final match = _machineTerminalReadChunkPattern.firstMatch(output);
+        if (match == null) throw const FormatException('无法解析下载文件分块。');
+        final encoded = match.group(1)!;
+        final chunk = encoded.isEmpty ? const <int>[] : base64Decode(encoded);
+        if (chunk.length > expectedBytes - downloadedBytes) {
+          throw StateError('文件下载期间发生变化，请刷新后重试。');
+        }
+        downloadedBytes += chunk.length;
+        onProgress(downloadedBytes);
+        if (chunk.isNotEmpty) yield chunk;
+      }
+      if (downloadedBytes != expectedBytes) {
+        throw StateError('文件下载期间发生变化，请刷新后重试。');
+      }
+      if (isCancelled()) throw const MachineTerminalUploadCancelled();
+      final after = await _fileDetails(sessionId, terminalId, sourcePath);
+      if (isCancelled()) throw const MachineTerminalUploadCancelled();
+      if (!after.entry.isFile ||
+          after.entry.size != expectedBytes ||
+          after.entry.modifiedAt != before.entry.modifiedAt) {
+        throw StateError('文件下载期间发生变化，请刷新后重试。');
+      }
+    }
+
+    await writeByteStreamFileAtomically(
+      File(destinationPath),
+      chunks(),
+      maxBytes: math.max(1, expectedBytes),
+      idleTimeout: _machineTerminalDownloadTimeout,
+      totalTimeout: _machineTerminalDownloadTimeout,
+    );
   }
 
   Future<void> _runMutation(
@@ -726,21 +799,41 @@ class MachineTerminalFileService extends ChangeNotifier {
           if (task.status == MachineTerminalTransferStatus.canceled) {
             throw const MachineTerminalUploadCancelled();
           }
-          await _terminalService.uploadFile(
-            sessionId: task.sessionId,
-            terminalId: task.terminalId,
-            sourcePath: task.sourcePath,
-            targetDirectory: task.targetDirectory,
-            targetName: task.fileName,
-            onProgress: (bytes) {
-              task.transferredBytes = bytes.clamp(0, task.totalBytes);
-              _scheduleProgressNotify();
-            },
-            waitWhilePaused: () => _waitWhilePaused(task),
-            isCancelled: () =>
-                _disposed ||
-                task.status == MachineTerminalTransferStatus.canceled,
-          );
+          void onProgress(int bytes) {
+            task.transferredBytes = bytes.clamp(0, task.totalBytes);
+            _scheduleProgressNotify();
+          }
+
+          bool isCancelled() =>
+              _disposed ||
+              task.status == MachineTerminalTransferStatus.canceled;
+          if (task.direction == MachineTerminalTransferDirection.upload) {
+            await _terminalService.uploadFile(
+              sessionId: task.sessionId,
+              terminalId: task.terminalId,
+              sourcePath: task.sourcePath,
+              targetDirectory: task.targetDirectory,
+              targetName: task.fileName,
+              onProgress: onProgress,
+              waitWhilePaused: () => _waitWhilePaused(task),
+              isCancelled: isCancelled,
+            );
+          } else {
+            await _downloadFile(
+              sessionId: task.sessionId,
+              terminalId: task.terminalId,
+              sourcePath: task.sourcePath,
+              destinationPath: p.join(task.targetDirectory, task.fileName),
+              onTotalBytes: (bytes) {
+                task.totalBytes = bytes;
+                task.transferredBytes = task.transferredBytes.clamp(0, bytes);
+                _scheduleProgressNotify();
+              },
+              onProgress: onProgress,
+              waitWhilePaused: () => _waitWhilePaused(task),
+              isCancelled: isCancelled,
+            );
+          }
         });
         if (task.status != MachineTerminalTransferStatus.canceled) {
           task
@@ -759,7 +852,7 @@ class MachineTerminalFileService extends ChangeNotifier {
           ..completedAt = DateTime.now();
         silentLog(
           'machine_terminal_file',
-          '上传文件 ${task.fileName}',
+          '${task.direction == MachineTerminalTransferDirection.upload ? '上传' : '下载'}文件 ${task.fileName}',
           error,
           stack,
         );
@@ -860,6 +953,8 @@ MachineTerminalDirectorySnapshot parseMachineTerminalDirectoryProtocol(
       modifiedAt: _dateTimeFromEpoch(fields[3]),
       permissions: fields[4],
       linkTarget: fields[6].isEmpty ? null : _decodeProtocolText(fields[6]),
+      childDirectoryCount: fields.length > 7 ? int.tryParse(fields[7]) ?? 0 : 0,
+      childFileCount: fields.length > 8 ? int.tryParse(fields[8]) ?? 0 : 0,
     );
   }
   if (directoryPath == null || directoryPath.isEmpty) {
@@ -897,6 +992,10 @@ MachineTerminalFileDetails parseMachineTerminalFileDetailsProtocol(
       modifiedAt: _dateTimeFromEpoch(fields[4]),
       permissions: fields[5],
       linkTarget: fields[10].isEmpty ? null : _decodeProtocolText(fields[10]),
+      childDirectoryCount: fields.length > 14
+          ? int.tryParse(fields[14]) ?? 0
+          : 0,
+      childFileCount: fields.length > 15 ? int.tryParse(fields[15]) ?? 0 : 0,
     );
     return MachineTerminalFileDetails(
       entry: entry,
@@ -949,6 +1048,7 @@ class _MutableTransferTask {
     required this.id,
     required this.sessionId,
     required this.terminalId,
+    required this.direction,
     required this.sourcePath,
     required this.targetDirectory,
     required this.fileName,
@@ -958,10 +1058,11 @@ class _MutableTransferTask {
   final String id;
   final String sessionId;
   final String terminalId;
+  final MachineTerminalTransferDirection direction;
   final String sourcePath;
   final String targetDirectory;
   final String fileName;
-  final int totalBytes;
+  int totalBytes;
   final DateTime createdAt;
   int transferredBytes = 0;
   MachineTerminalTransferStatus status = MachineTerminalTransferStatus.queued;
@@ -977,6 +1078,7 @@ class _MutableTransferTask {
     id: id,
     sessionId: sessionId,
     terminalId: terminalId,
+    direction: direction,
     sourcePath: sourcePath,
     targetDirectory: targetDirectory,
     fileName: fileName,
@@ -1017,8 +1119,8 @@ class _MachineTerminalOperationGate {
 String _terminalKey(String sessionId, String terminalId) =>
     '$sessionId\u0000$terminalId';
 
-String _validatedFileName(String value) {
-  final name = value.trim();
+String _validatedFileName(String value, {bool trim = true}) {
+  final name = trim ? value.trim() : value;
   if (name.isEmpty ||
       name == '.' ||
       name == '..' ||
@@ -1064,11 +1166,21 @@ Set-Location -LiteralPath \$directory
 Write-Output ("P`t" + (B64 \$resolved))
 \$items = @(Get-ChildItem -LiteralPath \$resolved -Force | Select-Object -First $entryLimitWithSentinel)
 \$items | Select-Object -First $_machineTerminalDirectoryEntryLimit | ForEach-Object {
-  \$kind = if (\$_.Attributes -band [IO.FileAttributes]::ReparsePoint) { 'l' } elseif (\$_.PSIsContainer) { 'd' } else { 'f' }
-  \$size = if (\$_.PSIsContainer) { 0 } else { \$_.Length }
-  \$mtime = ([DateTimeOffset]\$_.LastWriteTimeUtc).ToUnixTimeSeconds()
-  \$target = if (\$kind -eq 'l' -and \$_.Target) { [string]\$_.Target } else { '' }
-  Write-Output ("E`t\$kind`t\$size`t\$mtime`t\$([int]\$_.Attributes)`t\$(B64 \$_.Name)`t\$(B64 \$target)")
+  \$item = \$_
+  \$kind = if (\$item.Attributes -band [IO.FileAttributes]::ReparsePoint) { 'l' } elseif (\$item.PSIsContainer) { 'd' } else { 'f' }
+  \$size = if (\$item.PSIsContainer) { 0 } else { \$item.Length }
+  \$mtime = ([DateTimeOffset]\$item.LastWriteTimeUtc).ToUnixTimeSeconds()
+  \$target = if (\$kind -eq 'l' -and \$item.Target) { [string]\$item.Target } else { '' }
+  \$childDirectories = 0
+  \$childFiles = 0
+  if (\$kind -eq 'd') {
+    try {
+      Get-ChildItem -LiteralPath \$item.FullName -Force -ErrorAction Stop | ForEach-Object {
+        if ((\$_.Attributes -band [IO.FileAttributes]::ReparsePoint) -or -not \$_.PSIsContainer) { \$childFiles++ } else { \$childDirectories++ }
+      }
+    } catch {}
+  }
+  Write-Output ("E`t\$kind`t\$size`t\$mtime`t\$([int]\$item.Attributes)`t\$(B64 \$item.Name)`t\$(B64 \$target)`t\$childDirectories`t\$childFiles")
 }
 if (\$items.Count -gt $_machineTerminalDirectoryEntryLimit) { Write-Output 'T' }
 ''';
@@ -1092,12 +1204,22 @@ if (\$items.Count -gt $_machineTerminalDirectoryEntryLimit) { Write-Output 'T' }
       'elif [ -d "\$__oh_path" ]; then __oh_kind=d; __oh_link=; '
       'elif [ -f "\$__oh_path" ]; then __oh_kind=f; __oh_link=; '
       'else __oh_kind=o; __oh_link=; fi\n'
+      '  __oh_child_dirs=0; __oh_child_files=0\n'
+      '  if [ "\$__oh_kind" = d ]; then\n'
+      '    for __oh_child in "\$__oh_path"/* "\$__oh_path"/.[!.]* "\$__oh_path"/..?*; do\n'
+      '      [ -e "\$__oh_child" ] || [ -L "\$__oh_child" ] || continue\n'
+      '      if [ -d "\$__oh_child" ] && [ ! -L "\$__oh_child" ]; then '
+      '__oh_child_dirs=\$((__oh_child_dirs + 1)); else '
+      '__oh_child_files=\$((__oh_child_files + 1)); fi\n'
+      '    done\n'
+      '  fi\n'
       '  __oh_meta=\$(stat -c "%s %Y %a" -- "\$__oh_path" 2>/dev/null || stat -f "%z %m %Lp" "\$__oh_path" 2>/dev/null || printf "0 0 -")\n'
       '  __oh_size=\${__oh_meta%% *}; __oh_meta=\${__oh_meta#* }\n'
       '  __oh_mtime=\${__oh_meta%% *}; __oh_mode=\${__oh_meta#* }\n'
       '  printf "E\\t%s\\t%s\\t%s\\t%s\\t" "\$__oh_kind" "\$__oh_size" "\$__oh_mtime" "\$__oh_mode"\n'
       '  printf "%s" "\$__oh_name" | __oh_b64; printf "\\t"\n'
-      '  printf "%s" "\$__oh_link" | __oh_b64; printf "\\n"\n'
+      '  printf "%s" "\$__oh_link" | __oh_b64\n'
+      '  printf "\\t%s\\t%s\\n" "\$__oh_child_dirs" "\$__oh_child_files"\n'
       '  __oh_count=\$((__oh_count + 1))\n'
       'done\n'
       '}\n'
@@ -1119,7 +1241,16 @@ function B64([string]\$value) { [Convert]::ToBase64String([Text.Encoding]::UTF8.
 \$ctime = ([DateTimeOffset]\$item.CreationTimeUtc).ToUnixTimeSeconds()
 \$atime = ([DateTimeOffset]\$item.LastAccessTimeUtc).ToUnixTimeSeconds()
 \$target = if (\$kind -eq 'l' -and \$item.Target) { [string]\$item.Target } else { '' }
-Write-Output ("D`t\$kind`t\$(B64 \$item.FullName)`t\$size`t\$mtime`t\$([int]\$item.Attributes)`t\$(B64 \$env:USERNAME)`t`t`t\$(B64 '')`t\$(B64 \$target)`t\$ctime`t\$atime`t\$mtime")
+\$childDirectories = 0
+\$childFiles = 0
+if (\$kind -eq 'd') {
+  try {
+    Get-ChildItem -LiteralPath \$item.FullName -Force -ErrorAction Stop | ForEach-Object {
+      if ((\$_.Attributes -band [IO.FileAttributes]::ReparsePoint) -or -not \$_.PSIsContainer) { \$childFiles++ } else { \$childDirectories++ }
+    }
+  } catch {}
+}
+Write-Output ("D`t\$kind`t\$(B64 \$item.FullName)`t\$size`t\$mtime`t\$([int]\$item.Attributes)`t\$(B64 \$env:USERNAME)`t`t`t\$(B64 '')`t\$(B64 \$target)`t\$ctime`t\$atime`t\$mtime`t\$childDirectories`t\$childFiles")
 ''';
     return _powerShellCommand(script);
   }
@@ -1131,6 +1262,15 @@ Write-Output ("D`t\$kind`t\$(B64 \$item.FullName)`t\$size`t\$mtime`t\$([int]\$it
       'elif [ -d "\$__oh_path" ]; then __oh_kind=d; __oh_link=; '
       'elif [ -f "\$__oh_path" ]; then __oh_kind=f; __oh_link=; '
       'else __oh_kind=o; __oh_link=; fi\n'
+      '__oh_child_dirs=0; __oh_child_files=0\n'
+      'if [ "\$__oh_kind" = d ]; then\n'
+      '  for __oh_child in "\$__oh_path"/* "\$__oh_path"/.[!.]* "\$__oh_path"/..?*; do\n'
+      '    [ -e "\$__oh_child" ] || [ -L "\$__oh_child" ] || continue\n'
+      '    if [ -d "\$__oh_child" ] && [ ! -L "\$__oh_child" ]; then '
+      '__oh_child_dirs=\$((__oh_child_dirs + 1)); else '
+      '__oh_child_files=\$((__oh_child_files + 1)); fi\n'
+      '  done\n'
+      'fi\n'
       '__oh_abs=\$(cd -- "\$(dirname -- "\$__oh_path")" && printf "%s/%s" "\$(pwd -P)" "\$(basename -- "\$__oh_path")")\n'
       '__oh_mime=\$(file -b --mime-type -- "\$__oh_path" 2>/dev/null || printf "-")\n'
       'if __oh_meta=\$(stat -c "%s %Y %a %U %G %i %W %X %Z" -- "\$__oh_path" 2>/dev/null); then :; '
@@ -1140,7 +1280,9 @@ Write-Output ("D`t\$kind`t\$(B64 \$item.FullName)`t\$size`t\$mtime`t\$([int]\$it
       'printf "\\t%s\\t%s\\t%s\\t" "\$1" "\$2" "\$3"\n'
       'printf "%s" "\$4" | __oh_b64; printf "\\t"; printf "%s" "\$5" | __oh_b64\n'
       'printf "\\t%s\\t" "\$6"; printf "%s" "\$__oh_mime" | __oh_b64; printf "\\t"\n'
-      'printf "%s" "\$__oh_link" | __oh_b64; printf "\\t%s\\t%s\\t%s\\n" "\$7" "\$8" "\$9"\n';
+      'printf "%s" "\$__oh_link" | __oh_b64\n'
+      'printf "\\t%s\\t%s\\t%s\\t%s\\t%s\\n" "\$7" "\$8" "\$9" '
+      '"\$__oh_child_dirs" "\$__oh_child_files"\n';
 }
 
 String _readChunkCommand(String path, int chunkIndex) {
