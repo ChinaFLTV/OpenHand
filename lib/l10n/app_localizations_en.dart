@@ -754,6 +754,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'DingTalk Workspace CLI for AI Agent workflows in DingTalk';
 
   @override
+  String get pluginServiceDescriptionGoogleChrome =>
+      'Local Chrome runtime for native CDP page and network capture in forum hunts';
+
+  @override
   String get pluginServiceDetailExternalService => 'External service';
 
   @override

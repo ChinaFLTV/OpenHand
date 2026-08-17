@@ -66,6 +66,8 @@ String _pluginIconAssetPath(String pluginId) {
       '$_pluginIconAssetDirectory/hermes-agent.svg',
     PluginCatalogIds.dingtalkWorkspaceCli =>
       '$_pluginIconAssetDirectory/dingtalk-workspace-cli.svg',
+    PluginCatalogIds.googleChrome =>
+      '$_pluginIconAssetDirectory/google-chrome.svg',
     _ => _pluginFallbackIconAsset,
   };
 }
@@ -121,6 +123,7 @@ String _localizedPluginDescription(AppLocalizations l10n, PluginInfo plugin) {
     PluginCatalogIds.redis => l10n.pluginServiceDescriptionRedis,
     PluginCatalogIds.dingtalkWorkspaceCli =>
       l10n.pluginServiceDescriptionDingtalkWorkspaceCli,
+    PluginCatalogIds.googleChrome => l10n.pluginServiceDescriptionGoogleChrome,
     _ => plugin.description,
   };
 }

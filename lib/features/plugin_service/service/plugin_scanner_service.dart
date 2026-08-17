@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/platform/google_chrome_runtime_detector.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
@@ -747,6 +748,7 @@ class PluginScannerService {
     return switch (id) {
       PluginCatalogIds.nodejs => _nodeNotInstalled,
       PluginCatalogIds.playwright => _playwrightNotInstalled,
+      PluginCatalogIds.googleChrome => _googleChromeNotInstalled,
       PluginCatalogIds.hermesAgent => _hermesAgentNotInstalled,
       PluginCatalogIds.dingtalkWorkspaceCli =>
         _dingtalkWorkspaceCliNotInstalled,
@@ -1057,6 +1059,33 @@ class PluginScannerService {
     }
     return _playwrightNotInstalled;
   }
+
+  Future<PluginInfo> scanGoogleChrome() => _runWithFallback(
+    operation: '扫描 Google Chrome',
+    fallback: _googleChromeNotInstalled,
+    operationBody: () async {
+      final result = await GoogleChromeRuntimeDetector().detect();
+      final executable = result.executablePath;
+      if (!result.isInstalled || executable == null) {
+        return _googleChromeNotInstalled;
+      }
+      return PluginInfo(
+        id: PluginCatalogIds.googleChrome,
+        name: 'Google Chrome',
+        description: '本机 Chrome 运行时，为论坛狩猎提供原生 CDP 页面与网络采集',
+        status: PluginStatus.installed,
+        installedVersion: _extractLooseVersion(result.versionLine ?? ''),
+        installPath: executable,
+        supportsInstall: false,
+        supportsUninstall: false,
+        metadata: <String, Object?>{
+          'executable_path': executable,
+          'browser_kind': 'chrome',
+          'runtime_managed': false,
+        },
+      );
+    },
+  );
 
   Future<PluginInfo> scanHermesAgent() => _runWithFallback(
     operation: '扫描 Hermes Agent',
@@ -1788,6 +1817,16 @@ class PluginScannerService {
     dependencies: <String>[PluginCatalogIds.nodejs],
   );
 
+  static const _googleChromeNotInstalled = PluginInfo(
+    id: PluginCatalogIds.googleChrome,
+    name: 'Google Chrome',
+    description: '本机 Chrome 运行时，为论坛狩猎提供原生 CDP 页面与网络采集',
+    status: PluginStatus.notInstalled,
+    supportsInstall: false,
+    supportsUninstall: false,
+    metadata: <String, Object?>{'runtime_managed': false},
+  );
+
   static const _hermesAgentNotInstalled = PluginInfo(
     id: PluginCatalogIds.hermesAgent,
     name: 'Hermes Agent',
@@ -1990,6 +2029,7 @@ class PluginScannerService {
     _hermesAgentNotInstalled,
     _aiJunglerPlugin,
     _dingtalkWorkspaceCliNotInstalled,
+    _googleChromeNotInstalled,
   ];
 
   Future<List<PluginInfo>> scanAll() async {
@@ -2002,6 +2042,7 @@ class PluginScannerService {
     final playwrightFuture = runScan(scanPlaywright);
     final hermesAgentFuture = runScan(scanHermesAgent);
     final dingtalkWorkspaceCliFuture = runScan(scanDingtalkWorkspaceCli);
+    final googleChromeFuture = runScan(scanGoogleChrome);
     final javaFuture = runScan(scanJava);
     final fridaFuture = runScan(scanFrida);
     final mitmproxyFuture = runScan(scanMitmproxy);
@@ -2019,6 +2060,7 @@ class PluginScannerService {
     final playwright = await playwrightFuture;
     final hermesAgent = await hermesAgentFuture;
     final dingtalkWorkspaceCli = await dingtalkWorkspaceCliFuture;
+    final googleChrome = await googleChromeFuture;
     final java = await javaFuture;
     final frida = await fridaFuture;
     final mitmproxy = await mitmproxyFuture;
@@ -2083,6 +2125,7 @@ class PluginScannerService {
       hermesAgent,
       _aiJunglerPlugin,
       dingtalkWorkspaceCli,
+      googleChrome,
     ];
   }
 }

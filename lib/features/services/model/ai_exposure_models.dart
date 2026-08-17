@@ -56,7 +56,8 @@ enum AiExposureValidationMode {
 
 enum AiExposureForumFetchMode {
   jinaFallback('jina_fallback'),
-  playwright('playwright');
+  playwright('playwright'),
+  cdp('cdp');
 
   const AiExposureForumFetchMode(this.id);
   final String id;
@@ -1987,6 +1988,7 @@ class AiExposureDependencyStatus {
     required this.postgresql,
     required this.redis,
     required this.playwright,
+    required this.googleChrome,
   });
 
   factory AiExposureDependencyStatus.fromJson(Map<String, Object?> json) =>
@@ -2000,11 +2002,15 @@ class AiExposureDependencyStatus {
         playwright: AiExposureDependencyComponentStatus.fromJson(
           _jsonMap(json['playwright']),
         ),
+        googleChrome: AiExposureDependencyComponentStatus.fromJson(
+          _jsonMap(json['googleChrome']),
+        ),
       );
 
   final AiExposureDependencyComponentStatus postgresql;
   final AiExposureDependencyComponentStatus redis;
   final AiExposureDependencyComponentStatus playwright;
+  final AiExposureDependencyComponentStatus googleChrome;
 }
 
 const String kAiExposureDefaultExternalAddress = 'http://127.0.0.1:37821';

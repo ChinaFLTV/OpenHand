@@ -169,9 +169,17 @@ class _AiExposureServiceCard extends StatelessWidget {
       },
       (
         icon: Icons.forum_rounded,
-        label: snapshot.forumFetchMode == AiExposureForumFetchMode.jinaFallback
-            ? text(zh: '论坛智能降级', en: 'Forum fallback')
-            : text(zh: '论坛浏览器直读', en: 'Forum browser'),
+        label: switch (snapshot.forumFetchMode) {
+          AiExposureForumFetchMode.jinaFallback => text(
+            zh: '论坛智能降级',
+            en: 'Forum fallback',
+          ),
+          AiExposureForumFetchMode.playwright => text(
+            zh: '论坛浏览器直读',
+            en: 'Forum browser',
+          ),
+          AiExposureForumFetchMode.cdp => 'Chrome CDP',
+        },
         color: cs.primary,
       ),
       if (snapshot.defaultGptAssisted)

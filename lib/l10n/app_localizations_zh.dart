@@ -737,6 +737,10 @@ class AppLocalizationsZh extends AppLocalizations {
       '钉钉工作区命令行工具，为 AI Agent 提供钉钉工作流能力';
 
   @override
+  String get pluginServiceDescriptionGoogleChrome =>
+      '本机 Chrome 运行时，为论坛狩猎提供原生 CDP 页面与网络采集';
+
+  @override
   String get pluginServiceDetailExternalService => '外部服务';
 
   @override
@@ -11454,6 +11458,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get pluginServiceDescriptionDingtalkWorkspaceCli =>
       'DingTalk Workspace CLI，為 AI Agent 提供釘釘工作流能力';
+
+  @override
+  String get pluginServiceDescriptionGoogleChrome =>
+      '本機 Chrome 執行階段，為論壇狩獵提供原生 CDP 頁面與網路採集';
 
   @override
   String get pluginServiceTemplateWebReverseExpert => 'Web 逆向專家';

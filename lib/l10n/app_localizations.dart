@@ -1429,6 +1429,12 @@ abstract class AppLocalizations {
   /// **'钉钉工作区命令行工具，为 AI Agent 提供钉钉工作流能力'**
   String get pluginServiceDescriptionDingtalkWorkspaceCli;
 
+  /// No description provided for @pluginServiceDescriptionGoogleChrome.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机 Chrome 运行时，为论坛狩猎提供原生 CDP 页面与网络采集'**
+  String get pluginServiceDescriptionGoogleChrome;
+
   /// No description provided for @pluginServiceDetailExternalService.
   ///
   /// In zh, this message translates to:

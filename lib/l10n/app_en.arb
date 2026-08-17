@@ -353,6 +353,7 @@
   "pluginServiceDescriptionPostgresql": "Relational database service for AI exposure scan jobs and audit data",
   "pluginServiceDescriptionRedis": "In-memory data service for AI exposure scan caching and task queues",
   "pluginServiceDescriptionDingtalkWorkspaceCli": "DingTalk Workspace CLI for AI Agent workflows in DingTalk",
+  "pluginServiceDescriptionGoogleChrome": "Local Chrome runtime for native CDP page and network capture in forum hunts",
   "pluginServiceDetailExternalService": "External service",
   "pluginServiceDetailServiceRunning": "Service running",
   "pluginServiceDetailEndpoint": "Service endpoint",

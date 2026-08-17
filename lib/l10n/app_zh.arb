@@ -353,6 +353,7 @@
   "pluginServiceDescriptionPostgresql": "关系型数据库服务，供 AI 暴露面扫描保存任务与审计数据",
   "pluginServiceDescriptionRedis": "内存数据存储服务，供 AI 暴露面扫描执行缓存与任务队列",
   "pluginServiceDescriptionDingtalkWorkspaceCli": "钉钉工作区命令行工具，为 AI Agent 提供钉钉工作流能力",
+  "pluginServiceDescriptionGoogleChrome": "本机 Chrome 运行时，为论坛狩猎提供原生 CDP 页面与网络采集",
   "pluginServiceDetailExternalService": "外部服务",
   "pluginServiceDetailServiceRunning": "服务运行中",
   "pluginServiceDetailEndpoint": "服务端点",

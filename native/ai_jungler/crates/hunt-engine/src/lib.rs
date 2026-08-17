@@ -9,9 +9,10 @@ use hunt_core::{
     identify_product, normalize_target_url,
 };
 use hunt_sources::{
-    BrowserAutomationConfiguration, ExternalHttpRequestRoute, HttpRequestObservation,
-    HttpRequestObserver, HttpRequestOutcome, ObservedHttpClient, ObservedRequestBuilder,
-    SourceCredentials, SourceRegistry, SourceToolKind, ToolConfigurationInput,
+    BrowserAutomationConfiguration, CdpBrowserConfiguration, ExternalHttpRequestRoute,
+    HttpRequestObservation, HttpRequestObserver, HttpRequestOutcome, ObservedHttpClient,
+    ObservedRequestBuilder, SourceCredentials, SourceRegistry, SourceToolKind,
+    ToolConfigurationInput,
 };
 use hunt_store::HuntStore;
 use ipnet::IpNet;
@@ -475,6 +476,7 @@ pub struct DependencyConfigurationInput {
     pub postgresql_url: Option<String>,
     pub redis_url: Option<String>,
     pub playwright: Option<PlaywrightConfigurationInput>,
+    pub google_chrome: Option<GoogleChromeConfigurationInput>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -484,6 +486,14 @@ pub struct PlaywrightConfigurationInput {
     pub node_executable: String,
     pub package_directory: String,
     pub browsers_path: Option<String>,
+    pub version: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GoogleChromeConfigurationInput {
+    pub enabled: bool,
+    pub executable: String,
     pub version: String,
 }
 
@@ -507,6 +517,7 @@ pub struct DependencyStatus {
     pub postgresql: DependencyComponentStatus,
     pub redis: DependencyComponentStatus,
     pub playwright: DependencyComponentStatus,
+    pub google_chrome: DependencyComponentStatus,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -2220,6 +2231,16 @@ impl HuntEngine {
                 .configure_browser(configuration)
                 .map_err(EngineError::InvalidDependency)?;
         }
+        if let Some(chrome) = input.google_chrome {
+            let configuration = chrome.enabled.then(|| CdpBrowserConfiguration {
+                executable: chrome.executable.into(),
+                version: chrome.version,
+            });
+            self.sources
+                .configure_cdp(configuration)
+                .map_err(EngineError::InvalidDependency)?;
+            self.sources.close_cdp().await;
+        }
         Ok(())
     }
 
@@ -2227,6 +2248,8 @@ impl HuntEngine {
         self.store.clear_postgres().await;
         *self.redis.write().await = None;
         let _ = self.sources.configure_browser(None);
+        let _ = self.sources.configure_cdp(None);
+        self.sources.close_cdp().await;
     }
 
     pub async fn dependency_status(&self) -> DependencyStatus {
@@ -2277,6 +2300,9 @@ impl HuntEngine {
         let browser_checked_at = Utc::now();
         let browser_started = Instant::now();
         let browser = self.sources.browser_status();
+        let cdp_checked_at = Utc::now();
+        let cdp_started = Instant::now();
+        let cdp = self.sources.cdp_status();
         DependencyStatus {
             postgresql: DependencyComponentStatus {
                 configured: postgres.configured,
@@ -2300,6 +2326,18 @@ impl HuntEngine {
                 version: browser.version,
                 endpoint_masked: None,
                 error_code: (browser.configured && !browser.available)
+                    .then(|| "runtime_unavailable".to_owned()),
+                telemetry: Map::new(),
+            },
+            google_chrome: DependencyComponentStatus {
+                configured: cdp.configured,
+                connected: cdp.available,
+                message: cdp.message,
+                checked_at: cdp_checked_at,
+                latency_ms: cdp_started.elapsed().as_millis().min(u64::MAX as u128) as u64,
+                version: cdp.version,
+                endpoint_masked: None,
+                error_code: (cdp.configured && !cdp.available)
                     .then(|| "runtime_unavailable".to_owned()),
                 telemetry: Map::new(),
             },

@@ -349,6 +349,7 @@ class _TaskEntityInsightBody extends StatelessWidget {
               value: switch (task.forumFetchMode) {
                 AiExposureForumFetchMode.jinaFallback => 'Jina 回退',
                 AiExposureForumFetchMode.playwright => 'Playwright',
+                AiExposureForumFetchMode.cdp => 'Chrome CDP',
                 null => '旧版任务未记录',
               },
             ),

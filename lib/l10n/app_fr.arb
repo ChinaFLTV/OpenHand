@@ -351,6 +351,7 @@
   "pluginServiceDescriptionDocker": "Runtime de conteneurs pour le service local de base vectorielle Qdrant",
   "pluginServiceDescriptionQdrant": "Base vectorielle locale pour l’indexation et la recherche d’embeddings de la base de connaissances",
   "pluginServiceDescriptionDingtalkWorkspaceCli": "DingTalk Workspace CLI pour les workflows d’agents IA dans DingTalk",
+  "pluginServiceDescriptionGoogleChrome": "Runtime Chrome local pour la capture native CDP des pages et du réseau des forums",
   "pluginServiceTemplateWebReverseExpert": "Expert Web Reverse",
   "pluginServiceTemplateAndroidReverseExpert": "Expert Android Reverse",
   "pluginServiceTemplateHermesTalker": "Hermes Talker",

@@ -402,6 +402,7 @@ class ServicesController extends ChangeNotifier {
         PluginCatalogIds.redis,
         PluginCatalogIds.nodejs,
         PluginCatalogIds.playwright,
+        PluginCatalogIds.googleChrome,
       ])
         if (plugins.pluginById(id) case final plugin?)
           '$id:${plugin.isInstalled}:${plugin.enabled}:${plugin.installPath ?? ''}:${plugin.metadata['installation_target'] ?? ''}:${plugin.metadata['data_directory'] ?? ''}',
@@ -1718,11 +1719,13 @@ class ServicesController extends ChangeNotifier {
         ? ManagedServiceDefaults.redisEndpoint
         : '';
     final playwright = _playwrightDependencyPayload();
+    final googleChrome = _googleChromeDependencyPayload();
     try {
       await client.updateDependencies(
         postgresqlUrl: postgresqlUrl,
         redisUrl: redisUrl,
         playwright: playwright,
+        googleChrome: googleChrome,
       );
       if (!_isCurrentClient(client)) return true;
       final status = await client.dependencyStatus();
@@ -2165,6 +2168,20 @@ class ServicesController extends ChangeNotifier {
       if (enabled) 'packageDirectory': packageDirectory,
       if (enabled && browsersPath.isNotEmpty) 'browsersPath': browsersPath,
       if (enabled) 'version': playwright?.installedVersion ?? '',
+    };
+  }
+
+  Map<String, Object?>? _googleChromeDependencyPayload() {
+    if (!ownsProcess) return null;
+    final chrome = _pluginServiceController?.pluginById(
+      PluginCatalogIds.googleChrome,
+    );
+    final executable = chrome?.installPath?.trim() ?? '';
+    final enabled = chrome?.isInstalled == true && executable.isNotEmpty;
+    return <String, Object?>{
+      'enabled': enabled,
+      if (enabled) 'executable': executable,
+      if (enabled) 'version': chrome?.installedVersion ?? '',
     };
   }
 

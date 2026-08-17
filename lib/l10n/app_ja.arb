@@ -351,6 +351,7 @@
   "pluginServiceDescriptionDocker": "ローカル Qdrant ベクトルデータベースサービス向けのコンテナランタイム",
   "pluginServiceDescriptionQdrant": "ナレッジベースの embedding ベクトル索引と検索に使うローカルベクトルデータベース",
   "pluginServiceDescriptionDingtalkWorkspaceCli": "DingTalk の AI Agent ワークフロー向け DingTalk Workspace CLI",
+  "pluginServiceDescriptionGoogleChrome": "フォーラム探索でネイティブ CDP のページとネットワークを収集するローカル Chrome ランタイム",
   "pluginServiceTemplateWebReverseExpert": "Web リバースエキスパート",
   "pluginServiceTemplateAndroidReverseExpert": "Android リバースエキスパート",
   "pluginServiceTemplateHermesTalker": "Hermes Talker",

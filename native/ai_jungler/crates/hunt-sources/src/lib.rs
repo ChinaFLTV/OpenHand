@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use base64::{Engine, engine::general_purpose::STANDARD};
 use chrono::Utc;
-use futures::{StreamExt, stream};
+use futures::{SinkExt, StreamExt, stream};
 use hunt_core::{
     CANDIDATE_ARTIFACT_TEXT_KEY, CANDIDATE_ARTIFACT_URL_KEY, Candidate, ForumFetchMode, ScanMode,
     ScanRequest, SourceKind, SourceQuota,
@@ -16,11 +16,22 @@ use std::{
     net::IpAddr,
     path::{Path, PathBuf},
     process::Stdio,
-    sync::{Arc, LazyLock, Mutex, RwLock},
+    sync::{
+        Arc, LazyLock, Mutex, RwLock,
+        atomic::{AtomicU64, Ordering},
+    },
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use thiserror::Error;
-use tokio::{io::AsyncWriteExt, process::Command, sync::Semaphore, time::timeout};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpStream,
+    process::{Child, Command},
+    sync::{Mutex as AsyncMutex, Semaphore},
+    task::JoinHandle,
+    time::{sleep, timeout},
+};
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream, connect_async, tungstenite::Message};
 
 const MAX_SOURCE_RESULTS: usize = 1_000;
 const DEFAULT_PAGE_SIZE: usize = 100;
@@ -101,6 +112,24 @@ const JINA_MARKDOWN_HEADER_OPTIONS: [(&str, &str); 4] = [
 const MAX_BROWSER_CONCURRENCY: usize = 2;
 const BROWSER_PROCESS_TIMEOUT: Duration = Duration::from_secs(25);
 const MAX_BROWSER_OUTPUT_BYTES: usize = 2 * 1024 * 1024;
+const MAX_CDP_CONCURRENCY: usize = 1;
+const CDP_BROWSER_START_TIMEOUT: Duration = Duration::from_secs(20);
+const CDP_PAGE_TIMEOUT: Duration = Duration::from_secs(35);
+const CDP_COMMAND_TIMEOUT: Duration = Duration::from_secs(6);
+const CDP_IDLE_DELAY: Duration = Duration::from_millis(1200);
+const CDP_CHALLENGE_DELAY: Duration = Duration::from_secs(2);
+const CDP_PROCESS_STOP_TIMEOUT: Duration = Duration::from_secs(3);
+const CDP_HTTP_TIMEOUT: Duration = Duration::from_secs(3);
+const CDP_START_POLL_DELAY: Duration = Duration::from_millis(150);
+const MAX_CDP_REQUESTS: usize = 160;
+const MAX_CDP_RESPONSES: usize = 48;
+const MAX_CDP_RESPONSE_BODIES: usize = 24;
+const MAX_CDP_BODY_BYTES: usize = 512 * 1024;
+const MAX_CDP_EVENT_BYTES: usize = 2 * 1024 * 1024;
+const MAX_CDP_STDERR_BYTES: usize = 32 * 1024;
+const MAX_CDP_FIELD_BYTES: usize = 16 * 1024;
+const MAX_CDP_REQUEST_CAPTURE_BYTES: usize = 256 * 1024;
+static CDP_PROFILE_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 static URL_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"https?://[^\s\"'<>\\，。；：！？、（）【】]{4,2048}"#)
         .expect("内置 URL 正则必须有效")
@@ -817,6 +846,20 @@ pub struct BrowserAutomationStatus {
 }
 
 #[derive(Clone, Debug)]
+pub struct CdpBrowserConfiguration {
+    pub executable: PathBuf,
+    pub version: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct CdpBrowserStatus {
+    pub configured: bool,
+    pub available: bool,
+    pub message: String,
+    pub version: Option<String>,
+}
+
+#[derive(Clone, Debug)]
 pub struct SourceDiscovery {
     pub candidates: Vec<Candidate>,
     pub warnings: Vec<String>,
@@ -858,6 +901,10 @@ pub enum SourceError {
     BrowserUnavailable,
     #[error("Playwright 浏览器读取失败：{0}")]
     Browser(String),
+    #[error("未检测到 Google Chrome，CDP 论坛读取通道不可用。")]
+    CdpUnavailable,
+    #[error("Chrome CDP 页面读取失败：{0}")]
+    Cdp(String),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -1052,6 +1099,881 @@ impl BrowserAutomation {
     }
 }
 
+#[derive(Clone)]
+struct CdpAutomation {
+    client: ObservedHttpClient,
+    configuration: Arc<RwLock<Option<CdpBrowserConfiguration>>>,
+    generation: Arc<AtomicU64>,
+    session: Arc<AsyncMutex<Option<CdpBrowserProcess>>>,
+    slots: Arc<Semaphore>,
+}
+
+struct CdpBrowserProcess {
+    child: Option<Child>,
+    port: u16,
+    profile_directory: PathBuf,
+    generation: u64,
+    proxy: Option<CdpProxy>,
+    http: Client,
+    stderr: Arc<AsyncMutex<String>>,
+    stderr_task: Option<JoinHandle<()>>,
+}
+
+#[derive(Clone, Eq, PartialEq)]
+struct CdpProxy {
+    server: String,
+    username: Option<String>,
+    password: Option<String>,
+}
+
+#[derive(Clone)]
+struct CdpResponseCapture {
+    request_id: String,
+    url: String,
+    status: u16,
+    mime_type: String,
+    headers: String,
+}
+
+struct CdpNetworkCapture {
+    requests: Vec<String>,
+    request_bytes: usize,
+    responses: Vec<CdpResponseCapture>,
+    loaded: bool,
+    last_network_event: Instant,
+}
+
+struct CdpPageClient {
+    socket: WebSocketStream<MaybeTlsStream<TcpStream>>,
+    next_id: u64,
+    received_bytes: usize,
+    capture: CdpNetworkCapture,
+    proxy_credentials: Option<(String, String)>,
+}
+
+#[derive(Deserialize)]
+struct CdpDomSnapshot {
+    #[serde(default)]
+    title: String,
+    #[serde(default)]
+    text: String,
+    #[serde(default)]
+    links: Vec<String>,
+}
+
+impl CdpAutomation {
+    fn new(client: ObservedHttpClient) -> Self {
+        Self {
+            client,
+            configuration: Arc::new(RwLock::new(None)),
+            generation: Arc::new(AtomicU64::new(1)),
+            session: Arc::new(AsyncMutex::new(None)),
+            slots: Arc::new(Semaphore::new(MAX_CDP_CONCURRENCY)),
+        }
+    }
+
+    fn configure(&self, configuration: Option<CdpBrowserConfiguration>) -> Result<(), String> {
+        if let Some(value) = &configuration {
+            validate_browser_path(&value.executable, true, "Google Chrome 可执行文件")?;
+        }
+        *self
+            .configuration
+            .write()
+            .map_err(|_| "Chrome CDP 配置状态不可用".to_owned())? = configuration;
+        self.generation.fetch_add(1, Ordering::AcqRel);
+        Ok(())
+    }
+
+    fn status(&self) -> CdpBrowserStatus {
+        let configuration = self
+            .configuration
+            .read()
+            .ok()
+            .and_then(|value| value.clone());
+        match configuration {
+            Some(value) => CdpBrowserStatus {
+                configured: true,
+                available: true,
+                message: if value.version.trim().is_empty() {
+                    "Google Chrome CDP 通道已就绪。".to_owned()
+                } else {
+                    format!("Google Chrome {} CDP 通道已就绪。", value.version.trim())
+                },
+                version: (!value.version.trim().is_empty())
+                    .then(|| value.version.trim().to_owned()),
+            },
+            None => CdpBrowserStatus {
+                configured: false,
+                available: false,
+                message: "未检测到本机 Google Chrome。".to_owned(),
+                version: None,
+            },
+        }
+    }
+
+    async fn close_session(&self) {
+        let session = timeout(Duration::from_secs(5), self.session.lock()).await;
+        if let Ok(mut session) = session
+            && let Some(process) = session.take()
+        {
+            process.shutdown().await;
+        }
+    }
+
+    async fn fetch(&self, target: &Url, prefer_fallback: bool) -> Result<String, SourceError> {
+        let configuration = self
+            .configuration
+            .read()
+            .map_err(|_| SourceError::Cdp("运行配置不可用".to_owned()))?
+            .clone()
+            .ok_or(SourceError::CdpUnavailable)?;
+        let _permit = timeout(Duration::from_secs(60), self.slots.acquire())
+            .await
+            .map_err(|_| SourceError::Cdp("等待 CDP 浏览器通道超时".to_owned()))?
+            .map_err(|_| SourceError::Cdp("CDP 浏览器并发控制器已关闭".to_owned()))?;
+        let observation = self
+            .client
+            .begin_external(target, prefer_fallback)
+            .map_err(|_| SourceError::Cdp("代理选路失败".to_owned()))?;
+        let proxy = observation.proxy().map(cdp_proxy_input);
+        let generation = self.generation.load(Ordering::Acquire);
+        let mut session = timeout(Duration::from_secs(10), self.session.lock())
+            .await
+            .map_err(|_| SourceError::Cdp("获取 CDP 浏览器会话超时".to_owned()))?;
+        let reusable = match session.as_mut() {
+            Some(process) => {
+                process.generation == generation
+                    && process.proxy == proxy
+                    && process.is_alive().unwrap_or(false)
+            }
+            None => false,
+        };
+        if !reusable {
+            if let Some(process) = session.take() {
+                process.shutdown().await;
+            }
+            *session = Some(
+                CdpBrowserProcess::launch(configuration, generation, proxy.clone())
+                    .await
+                    .map_err(SourceError::Cdp)?,
+            );
+        }
+        let result = session
+            .as_mut()
+            .ok_or_else(|| SourceError::Cdp("Chrome 进程未就绪".to_owned()))?
+            .fetch_page(target)
+            .await;
+        match result {
+            Ok(content) => {
+                observation.complete(HttpRequestOutcome::Success(200));
+                Ok(content)
+            }
+            Err(error) => {
+                observation.complete(HttpRequestOutcome::TransportFailure);
+                if let Some(process) = session.take() {
+                    process.shutdown().await;
+                }
+                Err(SourceError::Cdp(error))
+            }
+        }
+    }
+}
+
+impl CdpBrowserProcess {
+    async fn launch(
+        configuration: CdpBrowserConfiguration,
+        generation: u64,
+        proxy: Option<CdpProxy>,
+    ) -> Result<Self, String> {
+        let http = Client::builder()
+            .no_proxy()
+            .timeout(CDP_HTTP_TIMEOUT)
+            .build()
+            .map_err(|error| format!("创建 CDP 本地客户端失败：{error}"))?;
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .map_err(|error| format!("无法分配 CDP 调试端口：{error}"))?;
+        let port = listener
+            .local_addr()
+            .map_err(|error| format!("无法读取 CDP 调试端口：{error}"))?
+            .port();
+        drop(listener);
+        let sequence = CDP_PROFILE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let profile_directory = std::env::temp_dir().join(format!(
+            "openhand-hunt-cdp-{}-{timestamp}-{sequence}",
+            std::process::id()
+        ));
+        tokio::fs::create_dir(&profile_directory)
+            .await
+            .map_err(|error| format!("无法创建 Chrome 隔离配置目录：{error}"))?;
+        let mut command = Command::new(&configuration.executable);
+        command
+            .arg(format!("--remote-debugging-port={port}"))
+            .arg("--remote-debugging-address=127.0.0.1")
+            .arg("--remote-allow-origins=*")
+            .arg(format!(
+                "--user-data-dir={}",
+                profile_directory.to_string_lossy()
+            ))
+            .arg("--no-first-run")
+            .arg("--no-default-browser-check")
+            .arg("--no-service-autorun")
+            .arg("--disable-component-update")
+            .arg("--disable-translate")
+            .arg("--disable-popup-blocking")
+            .arg("--password-store=basic")
+            .arg("--use-mock-keychain")
+            .arg("--window-size=1280,900")
+            .arg("about:blank")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true);
+        if let Some(value) = &proxy {
+            command.arg(format!("--proxy-server={}", value.server));
+        }
+        let mut child = match command.spawn() {
+            Ok(child) => child,
+            Err(error) => {
+                let _ = tokio::fs::remove_dir_all(&profile_directory).await;
+                return Err(format!("无法启动 Google Chrome：{error}"));
+            }
+        };
+        let stderr = Arc::new(AsyncMutex::new(String::new()));
+        let stderr_task = child
+            .stderr
+            .take()
+            .map(|stream| tokio::spawn(drain_cdp_stderr(stream, Arc::clone(&stderr))));
+        let mut process = Self {
+            child: Some(child),
+            port,
+            profile_directory,
+            generation,
+            proxy,
+            http,
+            stderr,
+            stderr_task,
+        };
+        let started = Instant::now();
+        while started.elapsed() < CDP_BROWSER_START_TIMEOUT {
+            if !process.is_alive().unwrap_or(false) {
+                let detail = process.stderr_summary().await;
+                process.shutdown().await;
+                return Err(if detail.is_empty() {
+                    "Google Chrome 在 CDP 握手前退出。".to_owned()
+                } else {
+                    format!("Google Chrome 在 CDP 握手前退出：{detail}")
+                });
+            }
+            let endpoint = format!("http://127.0.0.1:{port}/json/version");
+            if process
+                .http
+                .get(endpoint)
+                .send()
+                .await
+                .is_ok_and(|response| response.status().is_success())
+            {
+                return Ok(process);
+            }
+            sleep(CDP_START_POLL_DELAY).await;
+        }
+        let detail = process.stderr_summary().await;
+        process.shutdown().await;
+        Err(if detail.is_empty() {
+            "Google Chrome CDP 握手超时。".to_owned()
+        } else {
+            format!("Google Chrome CDP 握手超时：{detail}")
+        })
+    }
+
+    fn is_alive(&mut self) -> std::io::Result<bool> {
+        match self.child.as_mut() {
+            Some(child) => child.try_wait().map(|status| status.is_none()),
+            None => Ok(false),
+        }
+    }
+
+    async fn fetch_page(&mut self, target: &Url) -> Result<String, String> {
+        let new_target = format!(
+            "http://127.0.0.1:{}/json/new?{}",
+            self.port,
+            urlencoding::encode(target.as_str())
+        );
+        let response = self
+            .http
+            .put(new_target)
+            .send()
+            .await
+            .map_err(|error| format!("创建 CDP 页面失败：{error}"))?;
+        if !response.status().is_success() {
+            return Err(format!("创建 CDP 页面失败：HTTP {}", response.status()));
+        }
+        let page: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|_| "CDP 页面描述格式无效".to_owned())?;
+        let target_id = page["id"]
+            .as_str()
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| "CDP 页面缺少目标标识".to_owned())?
+            .to_owned();
+        let websocket = page["webSocketDebuggerUrl"]
+            .as_str()
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| "CDP 页面缺少 WebSocket 地址".to_owned())?
+            .to_owned();
+        let result = self.capture_page(target, &websocket).await;
+        let close_target = format!("http://127.0.0.1:{}/json/close/{}", self.port, target_id);
+        let _ = self.http.get(close_target).send().await;
+        result
+    }
+
+    async fn capture_page(&self, target: &Url, websocket: &str) -> Result<String, String> {
+        let (socket, _) = timeout(CDP_COMMAND_TIMEOUT, connect_async(websocket))
+            .await
+            .map_err(|_| "连接 CDP WebSocket 超时".to_owned())?
+            .map_err(|error| format!("连接 CDP WebSocket 失败：{error}"))?;
+        let credentials = self.proxy.as_ref().and_then(|proxy| {
+            proxy
+                .username
+                .as_ref()
+                .map(|username| (username.clone(), proxy.password.clone().unwrap_or_default()))
+        });
+        let mut page = CdpPageClient::new(socket, credentials);
+        let deadline = Instant::now() + CDP_PAGE_TIMEOUT;
+        page.command("Page.enable", serde_json::json!({}), deadline)
+            .await?;
+        page.command("Runtime.enable", serde_json::json!({}), deadline)
+            .await?;
+        if page.proxy_credentials.is_some() {
+            page.command(
+                "Fetch.enable",
+                serde_json::json!({"handleAuthRequests": true}),
+                deadline,
+            )
+            .await?;
+        }
+        page.command(
+            "Network.enable",
+            serde_json::json!({
+                "maxTotalBufferSize": MAX_CDP_BODY_BYTES,
+                "maxResourceBufferSize": MAX_CDP_FIELD_BYTES,
+                "maxPostDataSize": MAX_CDP_FIELD_BYTES,
+            }),
+            deadline,
+        )
+        .await?;
+        let navigation = page
+            .command(
+                "Page.navigate",
+                serde_json::json!({"url": target.as_str()}),
+                deadline,
+            )
+            .await?;
+        if let Some(error) = navigation
+            .pointer("/result/errorText")
+            .and_then(serde_json::Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+        {
+            return Err(format!("页面导航失败：{}", clip_utf8_bytes(error, 160)));
+        }
+        page.pump_until_ready(deadline).await?;
+        let mut snapshot = page.dom_snapshot(deadline).await?;
+        while is_cdp_challenge(&snapshot) && Instant::now() < deadline {
+            sleep(CDP_CHALLENGE_DELAY.min(cdp_remaining(deadline)?)).await;
+            page.pump_available(deadline).await?;
+            snapshot = page.dom_snapshot(deadline).await?;
+        }
+        if is_cdp_challenge(&snapshot) {
+            return Err("站点安全验证未在限定时间内完成".to_owned());
+        }
+        let bodies = page.response_bodies(deadline).await;
+        let content = render_cdp_content(snapshot, &page.capture, &bodies);
+        if content.trim().is_empty() {
+            return Err("CDP 页面未返回可解析内容".to_owned());
+        }
+        Ok(content)
+    }
+
+    async fn stderr_summary(&self) -> String {
+        let value = self.stderr.lock().await;
+        value.lines().rev().take(4).collect::<Vec<_>>().join(" | ")
+    }
+
+    async fn shutdown(mut self) {
+        if let Some(mut child) = self.child.take() {
+            let _ = child.start_kill();
+            let _ = timeout(CDP_PROCESS_STOP_TIMEOUT, child.wait()).await;
+        }
+        if let Some(task) = self.stderr_task.take() {
+            task.abort();
+        }
+        let _ = timeout(
+            CDP_PROCESS_STOP_TIMEOUT,
+            tokio::fs::remove_dir_all(&self.profile_directory),
+        )
+        .await;
+        self.profile_directory.clear();
+    }
+}
+
+impl Drop for CdpBrowserProcess {
+    fn drop(&mut self) {
+        let Some(mut child) = self.child.take() else {
+            return;
+        };
+        let _ = child.start_kill();
+        if let Some(task) = self.stderr_task.take() {
+            task.abort();
+        }
+        let directory = std::mem::take(&mut self.profile_directory);
+        if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+            runtime.spawn(async move {
+                let _ = timeout(CDP_PROCESS_STOP_TIMEOUT, child.wait()).await;
+                let _ = tokio::fs::remove_dir_all(directory).await;
+            });
+        } else {
+            let _ = std::fs::remove_dir_all(directory);
+        }
+    }
+}
+
+impl CdpPageClient {
+    fn new(
+        socket: WebSocketStream<MaybeTlsStream<TcpStream>>,
+        proxy_credentials: Option<(String, String)>,
+    ) -> Self {
+        Self {
+            socket,
+            next_id: 1,
+            received_bytes: 0,
+            capture: CdpNetworkCapture {
+                requests: Vec::new(),
+                request_bytes: 0,
+                responses: Vec::new(),
+                loaded: false,
+                last_network_event: Instant::now(),
+            },
+            proxy_credentials,
+        }
+    }
+
+    async fn command(
+        &mut self,
+        method: &str,
+        params: serde_json::Value,
+        deadline: Instant,
+    ) -> Result<serde_json::Value, String> {
+        let id = self.next_id;
+        self.next_id = self.next_id.saturating_add(1);
+        let payload = serde_json::to_string(&serde_json::json!({
+            "id": id,
+            "method": method,
+            "params": params,
+        }))
+        .map_err(|_| "CDP 命令编码失败".to_owned())?;
+        timeout(
+            CDP_COMMAND_TIMEOUT.min(cdp_remaining(deadline)?),
+            self.socket.send(Message::Text(payload.into())),
+        )
+        .await
+        .map_err(|_| format!("发送 CDP 命令 {method} 超时"))?
+        .map_err(|error| format!("发送 CDP 命令 {method} 失败：{error}"))?;
+        loop {
+            let wait = CDP_COMMAND_TIMEOUT.min(cdp_remaining(deadline)?);
+            let value = self
+                .receive(wait)
+                .await?
+                .ok_or_else(|| format!("等待 CDP 命令 {method} 响应超时"))?;
+            self.capture.observe(&value);
+            if value["id"].as_u64() != Some(id) {
+                continue;
+            }
+            if let Some(error) = value.get("error") {
+                let message = error["message"].as_str().unwrap_or("未知错误");
+                return Err(format!("CDP 命令 {method} 失败：{message}"));
+            }
+            return Ok(value);
+        }
+    }
+
+    async fn receive(&mut self, wait: Duration) -> Result<Option<serde_json::Value>, String> {
+        loop {
+            let message = match timeout(wait, self.socket.next()).await {
+                Err(_) => return Ok(None),
+                Ok(Some(Ok(message))) => message,
+                Ok(Some(Err(error))) => return Err(format!("CDP 连接读取失败：{error}")),
+                Ok(None) => return Err("CDP 连接已关闭".to_owned()),
+            };
+            self.received_bytes = self.received_bytes.saturating_add(message.len());
+            if self.received_bytes > MAX_CDP_EVENT_BYTES {
+                return Err("CDP 事件数据超过限制".to_owned());
+            }
+            match message {
+                Message::Text(text) => {
+                    let value = serde_json::from_str(text.as_str())
+                        .map_err(|_| "CDP 事件格式无效".to_owned())?;
+                    self.handle_fetch_event(&value).await?;
+                    return Ok(Some(value));
+                }
+                Message::Ping(value) => {
+                    self.socket
+                        .send(Message::Pong(value))
+                        .await
+                        .map_err(|error| format!("CDP 心跳响应失败：{error}"))?;
+                }
+                Message::Close(_) => return Err("CDP 连接已关闭".to_owned()),
+                _ => {}
+            }
+        }
+    }
+
+    async fn handle_fetch_event(&mut self, value: &serde_json::Value) -> Result<(), String> {
+        let method = value["method"].as_str().unwrap_or_default();
+        let request_id = value["params"]["requestId"].as_str().unwrap_or_default();
+        if request_id.is_empty() {
+            return Ok(());
+        }
+        let (method, params) = match method {
+            "Fetch.requestPaused" => (
+                "Fetch.continueRequest",
+                serde_json::json!({"requestId": request_id}),
+            ),
+            "Fetch.authRequired" => {
+                let response = match &self.proxy_credentials {
+                    Some((username, password)) => serde_json::json!({
+                        "response": "ProvideCredentials",
+                        "username": username,
+                        "password": password,
+                    }),
+                    None => serde_json::json!({"response": "Default"}),
+                };
+                (
+                    "Fetch.continueWithAuth",
+                    serde_json::json!({"requestId": request_id, "authChallengeResponse": response}),
+                )
+            }
+            _ => return Ok(()),
+        };
+        let id = self.next_id;
+        self.next_id = self.next_id.saturating_add(1);
+        let payload = serde_json::to_string(&serde_json::json!({
+            "id": id,
+            "method": method,
+            "params": params,
+        }))
+        .map_err(|_| "CDP 代理认证命令编码失败".to_owned())?;
+        timeout(
+            CDP_COMMAND_TIMEOUT,
+            self.socket.send(Message::Text(payload.into())),
+        )
+        .await
+        .map_err(|_| "发送 CDP 代理认证命令超时".to_owned())?
+        .map_err(|error| format!("发送 CDP 代理认证命令失败：{error}"))
+    }
+
+    async fn pump_until_ready(&mut self, deadline: Instant) -> Result<(), String> {
+        loop {
+            let now = Instant::now();
+            if now >= deadline {
+                return Err("等待 CDP 页面载入超时".to_owned());
+            }
+            if self.capture.loaded
+                && now.duration_since(self.capture.last_network_event) >= CDP_IDLE_DELAY
+            {
+                return Ok(());
+            }
+            if let Some(value) = self
+                .receive(Duration::from_millis(250).min(cdp_remaining(deadline)?))
+                .await?
+            {
+                self.capture.observe(&value);
+            }
+        }
+    }
+
+    async fn pump_available(&mut self, deadline: Instant) -> Result<(), String> {
+        while let Some(value) = self
+            .receive(Duration::from_millis(80).min(cdp_remaining(deadline)?))
+            .await?
+        {
+            self.capture.observe(&value);
+        }
+        Ok(())
+    }
+
+    async fn dom_snapshot(&mut self, deadline: Instant) -> Result<CdpDomSnapshot, String> {
+        let expression = r#"JSON.stringify({title:document.title||'',text:(document.body?.innerText||document.documentElement?.innerText||'').slice(0,300000),links:Array.from(document.querySelectorAll('a[href]'),a=>a.href).slice(0,600)})"#;
+        let response = self
+            .command(
+                "Runtime.evaluate",
+                serde_json::json!({
+                    "expression": expression,
+                    "returnByValue": true,
+                    "awaitPromise": true,
+                }),
+                deadline,
+            )
+            .await?;
+        let raw = response
+            .pointer("/result/result/value")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| "CDP 页面正文读取失败".to_owned())?;
+        serde_json::from_str(raw).map_err(|_| "CDP 页面正文格式无效".to_owned())
+    }
+
+    async fn response_bodies(&mut self, deadline: Instant) -> BTreeMap<String, String> {
+        let responses = self
+            .capture
+            .responses
+            .iter()
+            .filter(|response| cdp_textual_mime(&response.mime_type))
+            .take(MAX_CDP_RESPONSE_BODIES)
+            .cloned()
+            .collect::<Vec<_>>();
+        let mut bodies = BTreeMap::new();
+        let mut total = 0_usize;
+        for response in responses {
+            if total >= MAX_CDP_BODY_BYTES || Instant::now() >= deadline {
+                break;
+            }
+            let value = match self
+                .command(
+                    "Network.getResponseBody",
+                    serde_json::json!({"requestId": response.request_id}),
+                    deadline,
+                )
+                .await
+            {
+                Ok(value) => value,
+                Err(_) => continue,
+            };
+            let Some(body) = value
+                .pointer("/result/body")
+                .and_then(serde_json::Value::as_str)
+            else {
+                continue;
+            };
+            let decoded = if value
+                .pointer("/result/base64Encoded")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false)
+            {
+                STANDARD
+                    .decode(body)
+                    .ok()
+                    .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+                    .unwrap_or_default()
+            } else {
+                body.to_owned()
+            };
+            let remaining = MAX_CDP_BODY_BYTES.saturating_sub(total);
+            let clipped = clip_utf8_bytes(&decoded, remaining.min(MAX_CDP_FIELD_BYTES));
+            total = total.saturating_add(clipped.len());
+            if !clipped.trim().is_empty() {
+                bodies.insert(response.request_id, clipped);
+            }
+        }
+        bodies
+    }
+}
+
+impl CdpNetworkCapture {
+    fn observe(&mut self, value: &serde_json::Value) {
+        let Some(method) = value["method"].as_str() else {
+            return;
+        };
+        if method.starts_with("Network.") {
+            self.last_network_event = Instant::now();
+        }
+        match method {
+            "Page.loadEventFired" => self.loaded = true,
+            "Network.requestWillBeSent" if self.requests.len() < MAX_CDP_REQUESTS => {
+                if self.request_bytes >= MAX_CDP_REQUEST_CAPTURE_BYTES {
+                    return;
+                }
+                let request = &value["params"]["request"];
+                let url = request["url"].as_str().unwrap_or_default();
+                if !url.starts_with("http://") && !url.starts_with("https://") {
+                    return;
+                }
+                let method = request["method"].as_str().unwrap_or("GET");
+                let headers = cdp_headers(&request["headers"], true);
+                let post_data = request["postData"]
+                    .as_str()
+                    .map(|value| clip_utf8_bytes(value, MAX_CDP_FIELD_BYTES))
+                    .unwrap_or_default();
+                let request = format!(
+                    "{method} {url}\n{headers}{}",
+                    if post_data.is_empty() {
+                        String::new()
+                    } else {
+                        format!("\n请求正文：{post_data}")
+                    }
+                );
+                let remaining = MAX_CDP_REQUEST_CAPTURE_BYTES.saturating_sub(self.request_bytes);
+                let request = clip_utf8_bytes(&request, remaining);
+                self.request_bytes = self.request_bytes.saturating_add(request.len());
+                if !request.is_empty() {
+                    self.requests.push(request);
+                }
+            }
+            "Network.responseReceived" if self.responses.len() < MAX_CDP_RESPONSES => {
+                let params = &value["params"];
+                let response = &params["response"];
+                let request_id = params["requestId"].as_str().unwrap_or_default();
+                let url = response["url"].as_str().unwrap_or_default();
+                if request_id.is_empty()
+                    || (!url.starts_with("http://") && !url.starts_with("https://"))
+                {
+                    return;
+                }
+                self.responses.push(CdpResponseCapture {
+                    request_id: request_id.to_owned(),
+                    url: url.to_owned(),
+                    status: response["status"].as_f64().unwrap_or(0.0) as u16,
+                    mime_type: response["mimeType"].as_str().unwrap_or_default().to_owned(),
+                    headers: cdp_headers(&response["headers"], false),
+                });
+            }
+            _ => {}
+        }
+    }
+}
+
+async fn drain_cdp_stderr(
+    mut stream: tokio::process::ChildStderr,
+    output: Arc<AsyncMutex<String>>,
+) {
+    let mut chunk = [0_u8; 4096];
+    loop {
+        let read = match stream.read(&mut chunk).await {
+            Ok(0) | Err(_) => return,
+            Ok(read) => read,
+        };
+        let text = String::from_utf8_lossy(&chunk[..read]);
+        let mut output = output.lock().await;
+        output.push_str(&text);
+        if output.len() > MAX_CDP_STDERR_BYTES {
+            *output = clip_utf8_tail(&output, MAX_CDP_STDERR_BYTES);
+        }
+    }
+}
+
+fn cdp_headers(value: &serde_json::Value, request: bool) -> String {
+    let Some(headers) = value.as_object() else {
+        return String::new();
+    };
+    headers
+        .iter()
+        .filter(|(name, _)| {
+            let name = name.to_ascii_lowercase();
+            name != "set-cookie"
+                && (!request
+                    || !matches!(
+                        name.as_str(),
+                        "authorization" | "cookie" | "proxy-authorization" | "x-api-key"
+                    ))
+        })
+        .take(24)
+        .map(|(name, value)| format!("{name}: {}", value.as_str().unwrap_or_default()))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn cdp_textual_mime(value: &str) -> bool {
+    let value = value.to_ascii_lowercase();
+    value.starts_with("text/")
+        || value.contains("json")
+        || value.contains("javascript")
+        || value.contains("xml")
+        || value.contains("graphql")
+}
+
+fn is_cdp_challenge(snapshot: &CdpDomSnapshot) -> bool {
+    let content = format!("{}\n{}", snapshot.title, snapshot.text).to_ascii_lowercase();
+    content.contains("just a moment")
+        || content.contains("enable javascript and cookies")
+        || content.contains("正在验证您是否是真人")
+}
+
+fn render_cdp_content(
+    snapshot: CdpDomSnapshot,
+    capture: &CdpNetworkCapture,
+    bodies: &BTreeMap<String, String>,
+) -> String {
+    let mut output = String::new();
+    append_cdp_content(&mut output, &snapshot.title);
+    append_cdp_content(&mut output, "\n");
+    append_cdp_content(&mut output, &snapshot.text);
+    append_cdp_content(&mut output, "\n页面链接：\n");
+    append_cdp_content(&mut output, &snapshot.links.join("\n"));
+    append_cdp_content(&mut output, "\n网络请求：\n");
+    for request in &capture.requests {
+        append_cdp_content(&mut output, request);
+        append_cdp_content(&mut output, "\n\n");
+    }
+    append_cdp_content(&mut output, "网络响应：\n");
+    for response in &capture.responses {
+        append_cdp_content(
+            &mut output,
+            &format!(
+                "HTTP {} {}\n{}\n",
+                response.status, response.url, response.headers
+            ),
+        );
+        if let Some(body) = bodies.get(&response.request_id) {
+            append_cdp_content(&mut output, body);
+            append_cdp_content(&mut output, "\n");
+        }
+    }
+    output
+}
+
+fn append_cdp_content(output: &mut String, value: &str) {
+    let remaining = MAX_BROWSER_OUTPUT_BYTES.saturating_sub(output.len());
+    if remaining > 0 {
+        output.push_str(&clip_utf8_bytes(value, remaining));
+    }
+}
+
+fn clip_utf8_bytes(value: &str, limit: usize) -> String {
+    if value.len() <= limit {
+        return value.to_owned();
+    }
+    let boundary = value
+        .char_indices()
+        .map(|(index, _)| index)
+        .take_while(|index| *index <= limit)
+        .last()
+        .unwrap_or(0);
+    value[..boundary].to_owned()
+}
+
+fn clip_utf8_tail(value: &str, limit: usize) -> String {
+    if value.len() <= limit {
+        return value.to_owned();
+    }
+    let start = value.len().saturating_sub(limit);
+    let boundary = value
+        .char_indices()
+        .map(|(index, _)| index)
+        .find(|index| *index >= start)
+        .unwrap_or(value.len());
+    value[boundary..].to_owned()
+}
+
+fn cdp_remaining(deadline: Instant) -> Result<Duration, String> {
+    deadline
+        .checked_duration_since(Instant::now())
+        .filter(|remaining| !remaining.is_zero())
+        .ok_or_else(|| "CDP 页面读取超过总时限".to_owned())
+}
+
 fn validate_browser_path(path: &Path, file: bool, label: &str) -> Result<(), String> {
     if !path.is_absolute() || path.to_string_lossy().len() > 4096 {
         return Err(format!("{label}路径无效"));
@@ -1069,6 +1991,16 @@ fn browser_proxy_input(url: &Url) -> BrowserProxyInput {
     // port_or_known_default() 会返回 None；此时回退到显式端口或 1080。
     let port = url.port_or_known_default().or(url.port()).unwrap_or(1080);
     BrowserProxyInput {
+        server: format!("{}://{host}:{port}", url.scheme()),
+        username: (!url.username().is_empty()).then(|| decode_url_component(url.username())),
+        password: url.password().map(decode_url_component),
+    }
+}
+
+fn cdp_proxy_input(url: &Url) -> CdpProxy {
+    let host = url.host_str().unwrap_or_default();
+    let port = url.port_or_known_default().or(url.port()).unwrap_or(1080);
+    CdpProxy {
         server: format!("{}://{host}:{port}", url.scheme()),
         username: (!url.username().is_empty()).then(|| decode_url_component(url.username())),
         password: url.password().map(decode_url_component),
@@ -1113,6 +2045,14 @@ fn browser_error_reason(error: &SourceError) -> String {
     match error {
         SourceError::Browser(message) => message.clone(),
         SourceError::BrowserUnavailable => "浏览器通道未就绪".to_owned(),
+        other => other.to_string(),
+    }
+}
+
+fn cdp_error_reason(error: &SourceError) -> String {
+    match error {
+        SourceError::Cdp(message) => message.clone(),
+        SourceError::CdpUnavailable => "未检测到 Google Chrome".to_owned(),
         other => other.to_string(),
     }
 }
@@ -1194,13 +2134,14 @@ impl ForumSpecification {
 struct ForumSource {
     client: ObservedHttpClient,
     browser: BrowserAutomation,
+    cdp: CdpAutomation,
     specification: ForumSpecification,
 }
 
 struct ForumPage {
     content: String,
     warning: Option<String>,
-    browser: bool,
+    mode: ForumFetchMode,
     fallback_route: bool,
 }
 
@@ -1208,11 +2149,13 @@ impl ForumSource {
     fn new(
         client: ObservedHttpClient,
         browser: BrowserAutomation,
+        cdp: CdpAutomation,
         specification: ForumSpecification,
     ) -> Self {
         Self {
             client,
             browser,
+            cdp,
             specification,
         }
     }
@@ -1224,12 +2167,41 @@ impl ForumSource {
         prefer_fallback: bool,
         credentials: &SourceCredentials,
     ) -> Result<ForumPage, SourceError> {
+        if mode == ForumFetchMode::Cdp {
+            return match self.cdp.fetch(target, prefer_fallback).await {
+                Ok(content) => Ok(ForumPage {
+                    content,
+                    warning: None,
+                    mode: ForumFetchMode::Cdp,
+                    fallback_route: prefer_fallback,
+                }),
+                Err(error @ SourceError::CdpUnavailable) => Err(error),
+                Err(primary) if !prefer_fallback => match self.cdp.fetch(target, true).await {
+                    Ok(content) => Ok(ForumPage {
+                        content,
+                        warning: Some(format!(
+                            "{} 的 CDP 首选路由失败，已通过系统代理/DIRECT 回退：{}",
+                            self.specification.platform,
+                            cdp_error_reason(&primary),
+                        )),
+                        mode: ForumFetchMode::Cdp,
+                        fallback_route: true,
+                    }),
+                    Err(fallback) => Err(SourceError::Cdp(format!(
+                        "首选路由 {}；系统代理/DIRECT 回退路由 {}",
+                        cdp_error_reason(&primary),
+                        cdp_error_reason(&fallback),
+                    ))),
+                },
+                Err(error) => Err(error),
+            };
+        }
         if mode == ForumFetchMode::Playwright {
             return match self.browser.fetch(target, prefer_fallback).await {
                 Ok(content) => Ok(ForumPage {
                     content,
                     warning: None,
-                    browser: true,
+                    mode: ForumFetchMode::Playwright,
                     fallback_route: prefer_fallback,
                 }),
                 Err(primary) if !prefer_fallback => match self.browser.fetch(target, true).await {
@@ -1240,7 +2212,7 @@ impl ForumSource {
                             self.specification.platform,
                             browser_error_reason(&primary),
                         )),
-                        browser: true,
+                        mode: ForumFetchMode::Playwright,
                         fallback_route: true,
                     }),
                     Err(fallback) => Err(SourceError::Browser(format!(
@@ -1279,7 +2251,7 @@ impl ForumSource {
                         )
                     }
                 }),
-                browser: false,
+                mode: ForumFetchMode::JinaFallback,
                 fallback_route,
             }),
             Err(reader) => match self.browser.fetch(target, true).await {
@@ -1289,7 +2261,7 @@ impl ForumSource {
                         "{} 的 Jina Reader 读取失败，已通过回退路由切换 Playwright：{reader}",
                         self.specification.platform
                     )),
-                    browser: true,
+                    mode: ForumFetchMode::Playwright,
                     fallback_route: true,
                 }),
                 Err(browser) => Err(SourceError::ForumFetch {
@@ -1555,6 +2527,9 @@ impl AssetSource for ForumSource {
             extract_forum_topics(&index.content, self.specification)
         };
         if !direct_topic && topics.is_empty() {
+            if request.forum_fetch_mode == ForumFetchMode::Cdp {
+                self.cdp.close_session().await;
+            }
             return Err(SourceError::InvalidResponse(self.specification.platform));
         }
         let mut warnings = index.warning.into_iter().collect::<Vec<_>>();
@@ -1570,18 +2545,18 @@ impl AssetSource for ForumSource {
             }
         } else {
             let source = self;
-            let mode = if index.browser {
-                ForumFetchMode::Playwright
-            } else {
-                request.forum_fetch_mode
-            };
+            let mode = index.mode;
             let pages = stream::iter(topics.into_iter().map(|topic| async move {
                 let result = source
                     .fetch_page(&topic, mode, index.fallback_route, credentials)
                     .await;
                 (topic, result)
             }))
-            .buffer_unordered(FORUM_TOPIC_CONCURRENCY);
+            .buffer_unordered(if mode == ForumFetchMode::Cdp {
+                1
+            } else {
+                FORUM_TOPIC_CONCURRENCY
+            });
             futures::pin_mut!(pages);
             while let Some((topic, result)) = pages.next().await {
                 match result {
@@ -1612,6 +2587,9 @@ impl AssetSource for ForumSource {
             }
         }
         if successful_pages == 0 {
+            if request.forum_fetch_mode == ForumFetchMode::Cdp {
+                self.cdp.close_session().await;
+            }
             return Err(
                 last_error.unwrap_or(SourceError::InvalidResponse(self.specification.platform))
             );
@@ -1622,20 +2600,31 @@ impl AssetSource for ForumSource {
                 self.specification.platform
             ));
         }
-        Ok(SourceDiscovery {
+        let discovery = SourceDiscovery {
             candidates: candidates.into_values().collect(),
             warnings,
-        })
+        };
+        if request.forum_fetch_mode == ForumFetchMode::Cdp {
+            self.cdp.close_session().await;
+        }
+        Ok(discovery)
     }
 
     async fn quota(&self, _credentials: &SourceCredentials) -> Result<SourceQuota, SourceError> {
         let browser = self.browser.status();
+        let cdp = self.cdp.status();
         Ok(unlimited_quota(
             self.specification.kind,
-            &if browser.available {
-                format!("无需 API 凭证；Jina Reader 与 {} 均可用。", browser.message)
+            &if browser.available && cdp.available {
+                format!(
+                    "无需 API 凭证；Jina Reader、{}、{}均可用。",
+                    browser.message, cdp.message
+                )
             } else {
-                format!("无需 API 凭证；Jina Reader 可用，{}", browser.message)
+                format!(
+                    "无需 API 凭证；Jina Reader 可用，{}{}",
+                    browser.message, cdp.message
+                )
             },
         ))
     }
@@ -1763,11 +2752,13 @@ fn same_forum_host(actual: &str, expected: &str) -> bool {
 pub struct SourceRegistry {
     sources: BTreeMap<SourceKind, Box<dyn AssetSource>>,
     browser: BrowserAutomation,
+    cdp: CdpAutomation,
 }
 
 impl SourceRegistry {
     pub fn new(client: ObservedHttpClient) -> Self {
         let browser = BrowserAutomation::new(client.clone());
+        let cdp = CdpAutomation::new(client.clone());
         let mut sources: BTreeMap<SourceKind, Box<dyn AssetSource>> = BTreeMap::new();
         sources.insert(SourceKind::Manual, Box::new(ManualSource));
         sources.insert(
@@ -1812,11 +2803,16 @@ impl SourceRegistry {
                 Box::new(ForumSource::new(
                     client.clone(),
                     browser.clone(),
+                    cdp.clone(),
                     specification,
                 )),
             );
         }
-        Self { sources, browser }
+        Self {
+            sources,
+            browser,
+            cdp,
+        }
     }
 
     pub fn configure_browser(
@@ -1828,6 +2824,21 @@ impl SourceRegistry {
 
     pub fn browser_status(&self) -> BrowserAutomationStatus {
         self.browser.status()
+    }
+
+    pub fn configure_cdp(
+        &self,
+        configuration: Option<CdpBrowserConfiguration>,
+    ) -> Result<(), String> {
+        self.cdp.configure(configuration)
+    }
+
+    pub fn cdp_status(&self) -> CdpBrowserStatus {
+        self.cdp.status()
+    }
+
+    pub async fn close_cdp(&self) {
+        self.cdp.close_session().await;
     }
 
     pub async fn discover(
@@ -1942,6 +2953,8 @@ async fn quota_or_status(source: &dyn AssetSource, credentials: &SourceCredentia
                 SourceError::ForumFetch { .. } => (None, "forum_fetch".to_owned()),
                 SourceError::BrowserUnavailable => (None, "browser_unavailable".to_owned()),
                 SourceError::Browser(_) => (None, "browser".to_owned()),
+                SourceError::CdpUnavailable => (None, "cdp_unavailable".to_owned()),
+                SourceError::Cdp(_) => (None, "cdp".to_owned()),
                 SourceError::InvalidForumEntry(_) => (None, "invalid_forum_entry".to_owned()),
                 SourceError::Other(_) => (None, "internal".to_owned()),
             };
@@ -3622,6 +4635,80 @@ mod tests {
             .unwrap();
         server.await.unwrap();
         response
+    }
+
+    fn cdp_capture() -> CdpNetworkCapture {
+        CdpNetworkCapture {
+            requests: Vec::new(),
+            request_bytes: 0,
+            responses: Vec::new(),
+            loaded: false,
+            last_network_event: Instant::now(),
+        }
+    }
+
+    #[test]
+    fn cdp_capture_redacts_browser_credentials() {
+        let mut capture = cdp_capture();
+        capture.observe(&serde_json::json!({
+            "method": "Network.requestWillBeSent",
+            "params": {
+                "request": {
+                    "url": "https://linux.do/session",
+                    "method": "POST",
+                    "headers": {
+                        "Accept": "application/json",
+                        "Authorization": "Bearer secret",
+                        "Cookie": "session=secret",
+                        "X-Api-Key": "secret"
+                    },
+                    "postData": "query=offer"
+                }
+            }
+        }));
+        let request = capture.requests.join("\n");
+        assert!(request.contains("Accept: application/json"));
+        assert!(request.contains("请求正文：query=offer"));
+        assert!(!request.contains("Bearer secret"));
+        assert!(!request.contains("session=secret"));
+        assert!(!request.contains("X-Api-Key"));
+    }
+
+    #[test]
+    fn cdp_proxy_keeps_credentials_out_of_process_arguments() {
+        let proxy = cdp_proxy_input(&Url::parse("http://user:secret@127.0.0.1:8080").unwrap());
+        assert_eq!(proxy.server, "http://127.0.0.1:8080");
+        assert_eq!(proxy.username.as_deref(), Some("user"));
+        assert_eq!(proxy.password.as_deref(), Some("secret"));
+        assert!(!proxy.server.contains("secret"));
+    }
+
+    #[test]
+    fn cdp_render_includes_dom_requests_and_response_bodies() {
+        let mut capture = cdp_capture();
+        capture
+            .requests
+            .push("GET https://linux.do/api/topic".to_owned());
+        capture.responses.push(CdpResponseCapture {
+            request_id: "42".to_owned(),
+            url: "https://linux.do/api/topic".to_owned(),
+            status: 200,
+            mime_type: "application/json".to_owned(),
+            headers: "content-type: application/json".to_owned(),
+        });
+        let content = render_cdp_content(
+            CdpDomSnapshot {
+                title: "LINUX DO".to_owned(),
+                text: "页面正文".to_owned(),
+                links: vec!["https://example.com/resource".to_owned()],
+            },
+            &capture,
+            &BTreeMap::from([("42".to_owned(), "{\"token\":\"value\"}".to_owned())]),
+        );
+        assert!(content.contains("LINUX DO"));
+        assert!(content.contains("GET https://linux.do/api/topic"));
+        assert!(content.contains("HTTP 200 https://linux.do/api/topic"));
+        assert!(content.contains("{\"token\":\"value\"}"));
     }
 
     #[test]

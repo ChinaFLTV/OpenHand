@@ -209,6 +209,7 @@ class PluginServiceController extends ManagedChangeNotifier {
       final refreshed = await switch (pluginId) {
         PluginCatalogIds.nodejs => _scanner.scanNodeJs(),
         PluginCatalogIds.playwright => _scanner.scanPlaywright(),
+        PluginCatalogIds.googleChrome => _scanner.scanGoogleChrome(),
         PluginCatalogIds.hermesAgent => _scanner.scanHermesAgent(),
         PluginCatalogIds.dingtalkWorkspaceCli =>
           _scanner.scanDingtalkWorkspaceCli(),

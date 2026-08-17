@@ -184,6 +184,7 @@ class AiJunglerClient {
     String? postgresqlUrl,
     String? redisUrl,
     Map<String, Object?>? playwright,
+    Map<String, Object?>? googleChrome,
   }) => _emptyRequest(
     'PUT',
     _kApiDependencies,
@@ -191,6 +192,7 @@ class AiJunglerClient {
       if (postgresqlUrl != null) 'postgresqlUrl': postgresqlUrl.trim(),
       if (redisUrl != null) 'redisUrl': redisUrl.trim(),
       if (playwright != null) 'playwright': playwright,
+      if (googleChrome != null) 'googleChrome': googleChrome,
     },
   );
 

@@ -299,46 +299,45 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
                           title: text(zh: '论坛读取通道', en: 'Forum reader route'),
                         ),
                         const SizedBox(height: _kItemGap),
-                        SegmentedButton<AiExposureForumFetchMode>(
-                          segments: [
-                            ButtonSegment(
-                              value: AiExposureForumFetchMode.jinaFallback,
-                              icon: const Icon(Icons.auto_awesome_rounded),
-                              label: Text(
-                                text(zh: 'Jina 优先降级', en: 'Jina with fallback'),
-                              ),
-                            ),
-                            ButtonSegment(
-                              value: AiExposureForumFetchMode.playwright,
-                              icon: const Icon(Icons.language_rounded),
-                              label: Text(
-                                text(
-                                  zh: 'Playwright 直读',
-                                  en: 'Playwright direct',
-                                ),
-                              ),
-                            ),
-                          ],
-                          selected: <AiExposureForumFetchMode>{_forumFetchMode},
-                          onSelectionChanged: (selection) =>
-                              setState(() => _forumFetchMode = selection.first),
+                        _ForumFetchModeSelector(
+                          value: _forumFetchMode,
+                          onChanged: (value) =>
+                              setState(() => _forumFetchMode = value),
                         ),
                         kOpenHandGap8,
                         _InlineNotice(
                           icon:
-                              controller
-                                      .dependencyStatus
-                                      ?.playwright
-                                      .connected ==
+                              (_forumFetchMode == AiExposureForumFetchMode.cdp
+                                      ? controller
+                                            .dependencyStatus
+                                            ?.googleChrome
+                                            .connected
+                                      : controller
+                                            .dependencyStatus
+                                            ?.playwright
+                                            .connected) ==
                                   true
                               ? Icons.check_circle_outline_rounded
                               : Icons.info_outline_rounded,
-                          text:
-                              controller
-                                      .dependencyStatus
-                                      ?.playwright
-                                      .connected ==
-                                  true
+                          text: _forumFetchMode == AiExposureForumFetchMode.cdp
+                              ? controller
+                                            .dependencyStatus
+                                            ?.googleChrome
+                                            .connected ==
+                                        true
+                                    ? text(
+                                        zh: 'Chrome CDP 将使用隔离配置访问页面，并采集受限的请求、响应与正文；任务结束后自动关闭浏览器。',
+                                        en: 'Chrome CDP uses an isolated profile and bounded page, request, response, and body capture, then closes after the hunt.',
+                                      )
+                                    : text(
+                                        zh: '未检测到 Google Chrome，CDP 任务会失败。请安装正式版 Chrome 后刷新插件状态。',
+                                        en: 'Google Chrome was not detected. CDP hunts will fail until Chrome is installed and plugin status is refreshed.',
+                                      )
+                              : controller
+                                        .dependencyStatus
+                                        ?.playwright
+                                        .connected ==
+                                    true
                               ? text(
                                   zh: 'Jina 请求与浏览器读取都会复用当前网络代理和代理池。Jina 失败时将记录原因并自动切换浏览器。',
                                   en: 'Jina and browser requests reuse the configured proxy pool. Jina failures are logged before browser fallback.',
@@ -636,8 +635,20 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
       );
       return;
     }
-    setState(() => _submitting = true);
     final controller = context.read<ServicesController>();
+    if (_sources.any(_kForumSources.contains) &&
+        _forumFetchMode == AiExposureForumFetchMode.cdp &&
+        controller.dependencyStatus?.googleChrome.connected != true) {
+      showOpenHandErrorSnack(
+        context,
+        text(
+          zh: '未检测到 Google Chrome，无法启动 CDP 论坛狩猎。请安装 Chrome 并刷新插件状态。',
+          en: 'Google Chrome was not detected. Install Chrome and refresh plugin status before starting a CDP forum hunt.',
+        ),
+      );
+      return;
+    }
+    setState(() => _submitting = true);
     final preferencesUpdated = await controller.updateScanPreferences(
       enabledSources: _sources,
       concurrency: _concurrency.round(),
@@ -1379,36 +1390,41 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             title: text(zh: '论坛读取通道', en: 'Forum reader route'),
           ),
           const SizedBox(height: _kItemGap),
-          SegmentedButton<AiExposureForumFetchMode>(
-            segments: [
-              ButtonSegment(
-                value: AiExposureForumFetchMode.jinaFallback,
-                icon: const Icon(Icons.auto_awesome_rounded),
-                label: Text(text(zh: 'Jina 优先降级', en: 'Jina with fallback')),
-              ),
-              ButtonSegment(
-                value: AiExposureForumFetchMode.playwright,
-                icon: const Icon(Icons.language_rounded),
-                label: Text(text(zh: 'Playwright 直读', en: 'Playwright direct')),
-              ),
-            ],
-            selected: <AiExposureForumFetchMode>{_forumFetchMode},
-            onSelectionChanged: (selection) =>
-                setState(() => _forumFetchMode = selection.first),
+          _ForumFetchModeSelector(
+            value: _forumFetchMode,
+            onChanged: (value) => setState(() => _forumFetchMode = value),
           ),
           const SizedBox(height: _kItemGap),
-          _PlaywrightDependencyTile(
-            plugin: pluginController.pluginById(PluginCatalogIds.playwright),
-            runtimeStatus: controller.dependencyStatus?.playwright,
-            operating: _dependencyOperationId == PluginCatalogIds.playwright,
-            onAction: _runPlaywrightAction,
+          OpenHandVerticalRevealSwitcher(
+            slideBeginOffsetY: -.02,
+            child: _forumFetchMode == AiExposureForumFetchMode.cdp
+                ? _ChromeDependencyTile(
+                    key: const ValueKey<String>('chrome-cdp-dependency'),
+                    plugin: pluginController.pluginById(
+                      PluginCatalogIds.googleChrome,
+                    ),
+                    runtimeStatus: controller.dependencyStatus?.googleChrome,
+                    operating:
+                        _dependencyOperationId == PluginCatalogIds.googleChrome,
+                    onRefresh: _refreshGoogleChrome,
+                  )
+                : _PlaywrightDependencyTile(
+                    key: const ValueKey<String>('playwright-dependency'),
+                    plugin: pluginController.pluginById(
+                      PluginCatalogIds.playwright,
+                    ),
+                    runtimeStatus: controller.dependencyStatus?.playwright,
+                    operating:
+                        _dependencyOperationId == PluginCatalogIds.playwright,
+                    onAction: _runPlaywrightAction,
+                  ),
           ),
           kOpenHandGap8,
           _InlineNotice(
             icon: Icons.lan_outlined,
             text: text(
-              zh: 'Jina Reader 与 Playwright 均遵循网络代理和代理池配置，浏览器并发与页面等待均有硬上限。',
-              en: 'Jina Reader and Playwright both follow the proxy pool, with bounded browser concurrency and page timeouts.',
+              zh: '三种读取通道均遵循网络代理和代理池配置；CDP 不会在失败后静默切换通道，浏览器并发、等待与采集总量均有硬上限。',
+              en: 'All routes follow proxy settings. CDP never silently changes routes, and browser concurrency, waits, and capture size are strictly bounded.',
             ),
           ),
           const SizedBox(height: _kSectionGap),
@@ -1529,6 +1545,22 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     final controller = context.read<ServicesController>();
     final pluginController = context.read<PluginServiceController>();
     try {
+      final chromeReady = _bundled
+          ? pluginController
+                    .pluginById(PluginCatalogIds.googleChrome)
+                    ?.isInstalled ==
+                true
+          : controller.dependencyStatus?.googleChrome.connected == true;
+      if (_forumFetchMode == AiExposureForumFetchMode.cdp && !chromeReady) {
+        showOpenHandErrorSnack(
+          context,
+          text(
+            zh: '未检测到 Google Chrome，不能启用 CDP 论坛读取通道。安装 Chrome 后请刷新检测状态。',
+            en: 'Google Chrome was not detected. Install Chrome and refresh its status before enabling the CDP forum route.',
+          ),
+        );
+        return;
+      }
       final scanPreferencesUpdated = await controller.updateScanPreferences(
         enabledSources: _enabledSources,
         concurrency: _concurrency.round(),
@@ -1773,6 +1805,28 @@ class _SettingsDialogState extends State<_SettingsDialog> {
       if (mounted) {
         showOpenHandErrorSnack(context, message);
       }
+    } finally {
+      if (mounted) setState(() => _dependencyOperationId = null);
+    }
+  }
+
+  Future<void> _refreshGoogleChrome() async {
+    if (_applying || _dependencyOperationId != null) return;
+    final pluginController = context.read<PluginServiceController>();
+    setState(() => _dependencyOperationId = PluginCatalogIds.googleChrome);
+    try {
+      await pluginController.rescan();
+      if (!mounted) return;
+      final installed = pluginController
+          .pluginById(PluginCatalogIds.googleChrome)
+          ?.isInstalled;
+      flashOpenHandSnack(
+        context,
+        installed == true ? '已检测到 Google Chrome' : '未检测到 Google Chrome 正式版',
+        kind: installed == true
+            ? OpenHandSnackKind.success
+            : OpenHandSnackKind.error,
+      );
     } finally {
       if (mounted) setState(() => _dependencyOperationId = null);
     }
@@ -3179,8 +3233,49 @@ extension on _ManagedDependencyAction {
   };
 }
 
+class _ForumFetchModeSelector extends StatelessWidget {
+  const _ForumFetchModeSelector({required this.value, required this.onChanged});
+
+  final AiExposureForumFetchMode value;
+  final ValueChanged<AiExposureForumFetchMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = openHandTextResolver(context);
+    return LayoutBuilder(
+      builder: (context, constraints) =>
+          SegmentedButton<AiExposureForumFetchMode>(
+            direction: constraints.maxWidth < 520
+                ? Axis.vertical
+                : Axis.horizontal,
+            showSelectedIcon: false,
+            segments: [
+              ButtonSegment(
+                value: AiExposureForumFetchMode.jinaFallback,
+                icon: const Icon(Icons.auto_awesome_rounded),
+                label: Text(text(zh: 'Jina 智能', en: 'Jina smart')),
+              ),
+              const ButtonSegment(
+                value: AiExposureForumFetchMode.playwright,
+                icon: Icon(Icons.language_rounded),
+                label: Text('Playwright'),
+              ),
+              const ButtonSegment(
+                value: AiExposureForumFetchMode.cdp,
+                icon: Icon(Icons.developer_mode_rounded),
+                label: Text('Chrome CDP'),
+              ),
+            ],
+            selected: <AiExposureForumFetchMode>{value},
+            onSelectionChanged: (selection) => onChanged(selection.first),
+          ),
+    );
+  }
+}
+
 class _PlaywrightDependencyTile extends StatelessWidget {
   const _PlaywrightDependencyTile({
+    super.key,
     required this.plugin,
     required this.runtimeStatus,
     required this.operating,
@@ -3269,6 +3364,94 @@ class _PlaywrightDependencyTile extends StatelessWidget {
                         : Icons.download_rounded,
                     size: 19,
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChromeDependencyTile extends StatelessWidget {
+  const _ChromeDependencyTile({
+    super.key,
+    required this.plugin,
+    required this.runtimeStatus,
+    required this.operating,
+    required this.onRefresh,
+  });
+
+  final PluginInfo? plugin;
+  final AiExposureDependencyComponentStatus? runtimeStatus;
+  final bool operating;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final installed = plugin?.isInstalled == true;
+    final ready = runtimeStatus?.connected == true || installed;
+    final tone = ready ? OpenHandStatusColors.success : colors.error;
+    final executable = plugin?.installPath?.trim();
+    final detail = operating
+        ? '正在检测 Google Chrome…'
+        : ready
+        ? executable?.isNotEmpty == true
+              ? 'CDP 已就绪 · $executable'
+              : runtimeStatus?.message ?? 'Google Chrome CDP 已就绪。'
+        : '未检测到 Google Chrome 正式版；CDP 任务不会自动降级。';
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: kServiceInteractiveBorderRadius,
+        border: Border.all(color: tone.withValues(alpha: .34)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: tone.withValues(alpha: .12),
+              borderRadius: kServiceInteractiveBorderRadius,
+            ),
+            child: Icon(Icons.developer_mode_rounded, color: tone, size: 21),
+          ),
+          kOpenHandHGap12,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Google Chrome · CDP',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                kOpenHandGap2,
+                Text(
+                  detail,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          kOpenHandHGap10,
+          IconButton.filledTonal(
+            tooltip: '刷新 Chrome 检测状态',
+            onPressed: operating ? null : onRefresh,
+            icon: operating
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh_rounded, size: 19),
           ),
         ],
       ),

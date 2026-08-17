@@ -351,6 +351,7 @@
   "pluginServiceDescriptionDocker": "Container-Laufzeit für den lokalen Qdrant-Vektordatenbankdienst",
   "pluginServiceDescriptionQdrant": "Lokale Vektordatenbank für Knowledge-Base-Embedding-Indizes und Retrieval",
   "pluginServiceDescriptionDingtalkWorkspaceCli": "DingTalk Workspace CLI für AI-Agent-Workflows in DingTalk",
+  "pluginServiceDescriptionGoogleChrome": "Lokale Chrome-Laufzeit für native CDP-Seiten- und Netzwerkerfassung bei Forumssuchen",
   "pluginServiceTemplateWebReverseExpert": "Web Reverse Expert",
   "pluginServiceTemplateAndroidReverseExpert": "Android Reverse Expert",
   "pluginServiceTemplateHermesTalker": "Hermes Talker",

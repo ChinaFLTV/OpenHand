@@ -38,6 +38,7 @@ pub enum ForumFetchMode {
     #[default]
     JinaFallback,
     Playwright,
+    Cdp,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -265,7 +266,7 @@ impl ScanProgress {
 
 #[cfg(test)]
 mod tests {
-    use super::{ScanProgress, ScanStage};
+    use super::{ForumFetchMode, ScanProgress, ScanStage};
     use uuid::Uuid;
 
     #[test]
@@ -294,6 +295,18 @@ mod tests {
         assert_eq!(completed.input_count, Some(6));
         assert_eq!(completed.output_count, Some(4));
         assert!(completed.finished_at.is_some());
+    }
+
+    #[test]
+    fn cdp_forum_mode_uses_stable_storage_value() {
+        assert_eq!(
+            serde_json::to_string(&ForumFetchMode::Cdp).unwrap(),
+            "\"cdp\""
+        );
+        assert_eq!(
+            serde_json::from_str::<ForumFetchMode>("\"cdp\"").unwrap(),
+            ForumFetchMode::Cdp
+        );
     }
 }
 
