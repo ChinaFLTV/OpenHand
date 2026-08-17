@@ -1,49 +1,21 @@
 part of '../openhand_home_page.dart';
 
-const Set<String> _machineTerminalEditableExtensions = <String>{
-  '.txt',
-  '.md',
-  '.conf',
-  '.toml',
-  '.yaml',
-  '.yml',
-  '.html',
-  '.htm',
-  '.css',
-  '.scss',
-  '.less',
-  '.js',
-  '.jsx',
-  '.ts',
-  '.tsx',
-  '.json',
-  '.xml',
-  '.ini',
-  '.cfg',
+const Set<String> _machineTerminalAdditionalTextExtensions = <String>{
   '.properties',
-  '.sh',
-  '.bash',
-  '.zsh',
-  '.py',
-  '.dart',
-  '.go',
-  '.rs',
-  '.java',
-  '.kt',
-  '.swift',
-  '.c',
-  '.cc',
-  '.cpp',
-  '.h',
-  '.hpp',
-  '.sql',
-  '.log',
 };
 const int _machineTerminalVisibleEntryLimit = 2000;
+const BoundedDeletePolicy _machineTerminalPreviewDeletePolicy =
+    BoundedDeletePolicy(
+      maxEntries: 4,
+      maxDepth: 2,
+      operationTimeout: Duration(seconds: 3),
+      totalTimeout: Duration(seconds: 8),
+    );
 
 enum _MachineTerminalFileAction {
   refresh,
   details,
+  download,
   rename,
   edit,
   move,
@@ -251,6 +223,10 @@ class _MachineTerminalFileManagerDialogState
     MachineTerminalDirectorySnapshot? snapshot,
   ) {
     final cs = Theme.of(context).colorScheme;
+    final searchBorder = OutlineInputBorder(
+      borderRadius: kOpenHandBorderRadius8,
+      borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.55)),
+    );
     return Row(
       children: [
         _MachineTerminalIconButton(
@@ -309,6 +285,8 @@ class _MachineTerminalFileManagerDialogState
             controller: _searchController,
             decoration: InputDecoration(
               isDense: true,
+              filled: true,
+              fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.5),
               hintText: openHandLocalizedText(
                 context,
                 zh: '筛选当前目录',
@@ -321,9 +299,19 @@ class _MachineTerminalFileManagerDialogState
                       tooltip: openHandClearLabel(context),
                       onPressed: _searchController.clear,
                       icon: const Icon(Icons.close_rounded, size: 17),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        disabledBackgroundColor: Colors.transparent,
+                      ),
                     ),
-              border: const OutlineInputBorder(
-                borderRadius: kOpenHandBorderRadius8,
+              suffixIconConstraints: const BoxConstraints.tightFor(
+                width: 36,
+                height: 36,
+              ),
+              border: searchBorder,
+              enabledBorder: searchBorder,
+              focusedBorder: searchBorder.copyWith(
+                borderSide: BorderSide(color: cs.primary, width: 1.2),
               ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 10),
             ),
@@ -443,9 +431,7 @@ class _MachineTerminalFileManagerDialogState
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: entry.isDirectory && !busy
-            ? () => _loadDirectory(entry.path)
-            : null,
+        onTap: busy ? null : () => unawaited(_openEntry(entry)),
         hoverColor: cs.primary.withValues(alpha: 0.045),
         child: Container(
           decoration: BoxDecoration(
@@ -543,6 +529,7 @@ class _MachineTerminalFileManagerDialogState
     TapDownDetails details,
   ) async {
     final editable = _isMachineTerminalFileEditable(entry);
+    final mediaKind = _machineTerminalMediaPreviewKind(entry);
     final selected = await showAnimatedMenu<_MachineTerminalFileAction>(
       context: context,
       position: RelativeRect.fromLTRB(
@@ -562,17 +549,24 @@ class _MachineTerminalFileManagerDialogState
           Icons.info_outline_rounded,
           openHandLocalizedText(context, zh: '详情', en: 'Details'),
         ),
+        if (entry.isFile)
+          _fileMenuItem(
+            _MachineTerminalFileAction.download,
+            Icons.download_rounded,
+            openHandLocalizedText(context, zh: '下载', en: 'Download'),
+          ),
         _fileMenuItem(
           _MachineTerminalFileAction.rename,
           Icons.drive_file_rename_outline_rounded,
           openHandLocalizedText(context, zh: '重命名', en: 'Rename'),
         ),
-        _fileMenuItem(
-          _MachineTerminalFileAction.edit,
-          Icons.edit_note_rounded,
-          openHandLocalizedText(context, zh: '编辑', en: 'Edit'),
-          enabled: editable,
-        ),
+        if (mediaKind == null)
+          _fileMenuItem(
+            _MachineTerminalFileAction.edit,
+            Icons.edit_note_rounded,
+            openHandLocalizedText(context, zh: '编辑', en: 'Edit'),
+            enabled: editable,
+          ),
         const PopupMenuDivider(),
         _fileMenuItem(
           _MachineTerminalFileAction.move,
@@ -599,6 +593,8 @@ class _MachineTerminalFileManagerDialogState
         await _refreshEntry(entry);
       case _MachineTerminalFileAction.details:
         await _showDetails(entry);
+      case _MachineTerminalFileAction.download:
+        await _downloadEntry(entry);
       case _MachineTerminalFileAction.rename:
         await _renameEntry(entry);
       case _MachineTerminalFileAction.edit:
@@ -682,6 +678,87 @@ class _MachineTerminalFileManagerDialogState
     );
   }
 
+  Future<void> _openEntry(MachineTerminalFileEntry entry) async {
+    if (entry.isDirectory) {
+      await _loadDirectory(entry.path);
+      return;
+    }
+    if (_isMachineTerminalFileEditable(entry)) {
+      await _openTextEntry(entry, readOnly: true);
+      return;
+    }
+    final mediaKind = _machineTerminalMediaPreviewKind(entry);
+    if (mediaKind != null) await _previewMediaEntry(entry, mediaKind);
+  }
+
+  Future<void> _downloadEntry(MachineTerminalFileEntry entry) async {
+    final location = await getSaveLocation(suggestedName: entry.name);
+    if (!mounted || location == null) return;
+    await _runEntryOperation(entry.path, '下载文件', () async {
+      await context.read<MachineTerminalFileService>().downloadFile(
+        sessionId: widget.sessionId,
+        terminalId: widget.terminalId,
+        sourcePath: entry.path,
+        destinationPath: location.path,
+      );
+      if (!mounted) return;
+      showOpenHandSuccessSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '文件已下载到 ${location.path}',
+          en: 'File downloaded to ${location.path}',
+        ),
+        maxLines: 2,
+      );
+    });
+  }
+
+  Future<void> _previewMediaEntry(
+    MachineTerminalFileEntry entry,
+    MediaPreviewKind kind,
+  ) async {
+    final service = context.read<MachineTerminalFileService>();
+    Directory? temporaryDirectory;
+    await _runEntryOperation(entry.path, '预览媒体文件', () async {
+      temporaryDirectory = await Directory.systemTemp.createTemp(
+        'openhand-terminal-preview-',
+      );
+      final rawExtension = p.extension(entry.name).toLowerCase();
+      final extension = RegExp(r'^\.[a-z0-9]{1,12}$').hasMatch(rawExtension)
+          ? rawExtension
+          : '';
+      final localPath = p.join(temporaryDirectory!.path, 'preview$extension');
+      await service.downloadFile(
+        sessionId: widget.sessionId,
+        terminalId: widget.terminalId,
+        sourcePath: entry.path,
+        destinationPath: localPath,
+      );
+      if (!mounted) return;
+      await showAnimatedDialog<void>(
+        context: context,
+        builder: (dialogContext) => MediaPreviewDialog.file(
+          filePath: localPath,
+          title: entry.name,
+          mimeType: aiMimeTypeForPath(entry.name),
+          kind: kind,
+        ),
+      );
+    });
+    final directory = temporaryDirectory;
+    if (directory == null) return;
+    try {
+      await deletePathBounded(
+        p.absolute(directory.path),
+        policy: _machineTerminalPreviewDeletePolicy,
+        allowedRoot: p.absolute(Directory.systemTemp.path),
+      );
+    } catch (error, stack) {
+      silentLog('machine_terminal_file', '清理媒体预览临时文件', error, stack);
+    }
+  }
+
   Future<void> _refreshEntry(MachineTerminalFileEntry entry) async {
     await _runEntryOperation(entry.path, '刷新文件', () async {
       final details = await context
@@ -745,42 +822,55 @@ class _MachineTerminalFileManagerDialogState
     });
   }
 
-  Future<void> _editEntry(MachineTerminalFileEntry entry) async {
-    await _runEntryOperation(entry.path, '读取待编辑文件', () async {
-      final service = context.read<MachineTerminalFileService>();
-      final content = await service.readTextFile(
-        sessionId: widget.sessionId,
-        terminalId: widget.terminalId,
-        entry: entry,
-      );
-      if (!mounted) return;
-      final updated = await showAnimatedDialog<String>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) => _MachineTerminalFileEditorDialog(
-          path: entry.path,
-          initialContent: content,
-        ),
-      );
-      if (!mounted || updated == null || updated == content) return;
-      setState(() => _operationPath = entry.path);
-      try {
-        await service.writeTextFile(
+  Future<void> _editEntry(MachineTerminalFileEntry entry) =>
+      _openTextEntry(entry, readOnly: false);
+
+  Future<void> _openTextEntry(
+    MachineTerminalFileEntry entry, {
+    required bool readOnly,
+  }) async {
+    await _runEntryOperation(
+      entry.path,
+      readOnly ? '读取预览文件' : '读取待编辑文件',
+      () async {
+        final service = context.read<MachineTerminalFileService>();
+        final content = await service.readTextFile(
           sessionId: widget.sessionId,
           terminalId: widget.terminalId,
-          path: entry.path,
-          content: updated,
+          entry: entry,
         );
         if (!mounted) return;
-        showOpenHandSuccessSnack(
-          context,
-          openHandLocalizedText(context, zh: '文件已保存。', en: 'File saved.'),
+        final updated = await showAnimatedDialog<String>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => _MachineTerminalFileEditorDialog(
+            path: entry.path,
+            initialContent: content,
+            readOnly: readOnly,
+          ),
         );
-        await _loadDirectory(_snapshot?.path);
-      } finally {
-        if (mounted) setState(() => _operationPath = null);
-      }
-    });
+        if (readOnly || !mounted || updated == null || updated == content) {
+          return;
+        }
+        setState(() => _operationPath = entry.path);
+        try {
+          await service.writeTextFile(
+            sessionId: widget.sessionId,
+            terminalId: widget.terminalId,
+            path: entry.path,
+            content: updated,
+          );
+          if (!mounted) return;
+          showOpenHandSuccessSnack(
+            context,
+            openHandLocalizedText(context, zh: '文件已保存。', en: 'File saved.'),
+          );
+          await _loadDirectory(_snapshot?.path);
+        } finally {
+          if (mounted) setState(() => _operationPath = null);
+        }
+      },
+    );
   }
 
   Future<void> _moveOrCopyEntry(
@@ -956,9 +1046,22 @@ class _MachineTerminalFileMenuButton extends StatelessWidget {
 bool _isMachineTerminalFileEditable(MachineTerminalFileEntry entry) {
   return entry.isFile &&
       entry.size < kMachineTerminalMaxEditableFileBytes &&
-      _machineTerminalEditableExtensions.contains(
-        p.extension(entry.name).toLowerCase(),
-      );
+      (aiAttachmentKindForPath(entry.name) == AiAttachmentKind.text ||
+          _machineTerminalAdditionalTextExtensions.contains(
+            p.extension(entry.name).toLowerCase(),
+          ));
+}
+
+MediaPreviewKind? _machineTerminalMediaPreviewKind(
+  MachineTerminalFileEntry entry,
+) {
+  if (!entry.isFile) return null;
+  return switch (aiAttachmentKindForPath(entry.name)) {
+    AiAttachmentKind.image => MediaPreviewKind.image,
+    AiAttachmentKind.video => MediaPreviewKind.video,
+    AiAttachmentKind.audio => MediaPreviewKind.audio,
+    _ => null,
+  };
 }
 
 IconData _machineTerminalFileIcon(MachineTerminalFileEntry entry) {
@@ -1494,10 +1597,12 @@ class _MachineTerminalFileEditorDialog extends StatefulWidget {
   const _MachineTerminalFileEditorDialog({
     required this.path,
     required this.initialContent,
+    required this.readOnly,
   });
 
   final String path;
   final String initialContent;
+  final bool readOnly;
 
   @override
   State<_MachineTerminalFileEditorDialog> createState() =>
@@ -1512,6 +1617,9 @@ class _MachineTerminalFileEditorDialogState
   late final String _language;
   bool _dirty = false;
   int _contentBytes = 0;
+  double _fontSize = _editorFontSizeDefault;
+  double _zoomVisualScale = 1;
+  Timer? _zoomCommitTimer;
 
   @override
   void initState() {
@@ -1529,6 +1637,7 @@ class _MachineTerminalFileEditorDialogState
 
   @override
   void dispose() {
+    _zoomCommitTimer?.cancel();
     _controller.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
@@ -1548,7 +1657,7 @@ class _MachineTerminalFileEditorDialogState
     final exceedsLimit = _contentBytes >= kMachineTerminalMaxEditableFileBytes;
 
     return PopScope(
-      canPop: !_dirty,
+      canPop: widget.readOnly || !_dirty,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) unawaited(_close());
       },
@@ -1576,22 +1685,29 @@ class _MachineTerminalFileEditorDialogState
           child: Column(
             children: [
               _MachineTerminalDialogHeader(
-                icon: Icons.edit_note_rounded,
+                icon: widget.readOnly
+                    ? Icons.visibility_rounded
+                    : Icons.edit_note_rounded,
                 title: openHandLocalizedText(
                   context,
-                  zh: '编辑终端文件',
-                  en: 'Edit Terminal File',
+                  zh: widget.readOnly ? '预览终端文件' : '编辑终端文件',
+                  en: widget.readOnly
+                      ? 'Preview Terminal File'
+                      : 'Edit Terminal File',
                 ),
                 subtitle: widget.path,
-                trailingActions: [
-                  _MachineTerminalIconButton(
-                    icon: Icons.save_rounded,
-                    tooltip: openHandSaveLabel(context),
-                    onPressed: _dirty && !exceedsLimit
-                        ? () => Navigator.of(context).pop(_controller.text)
-                        : null,
-                  ),
-                ],
+                trailingActions: widget.readOnly
+                    ? const <Widget>[]
+                    : <Widget>[
+                        _MachineTerminalIconButton(
+                          icon: Icons.save_rounded,
+                          tooltip: openHandSaveLabel(context),
+                          onPressed: _dirty && !exceedsLimit
+                              ? () =>
+                                    Navigator.of(context).pop(_controller.text)
+                              : null,
+                        ),
+                      ],
                 onClose: () => unawaited(_close()),
               ),
               Expanded(
@@ -1605,27 +1721,44 @@ class _MachineTerminalFileEditorDialogState
                       color: cs.outlineVariant.withValues(alpha: 0.54),
                     ),
                   ),
-                  child: _SyntaxHighlightEditor(
-                    controller: _controller,
-                    scrollController: _scrollController,
-                    focusNode: _focusNode,
-                    language: _language,
-                    wordWrap: context.select<SettingsController, bool>(
-                      (controller) => controller.editorWordWrap,
-                    ),
-                    codeTheme: context
-                        .select<SettingsController, EditorCodeTheme>(
-                          (controller) => controller.editorCodeTheme,
+                  child: _EditorZoomWrapper(
+                    onZoomIn: () => _changeZoom(0.5),
+                    onZoomOut: () => _changeZoom(-0.5),
+                    onZoomReset: _resetZoom,
+                    onZoomByScale: _zoomByScale,
+                    child: RepaintBoundary(
+                      child: Transform.scale(
+                        scale: _zoomVisualScale,
+                        alignment: Alignment.topLeft,
+                        child: _SyntaxHighlightEditor(
+                          controller: _controller,
+                          scrollController: _scrollController,
+                          focusNode: _focusNode,
+                          language: _language,
+                          fontSize: _fontSize,
+                          readOnly: widget.readOnly,
+                          wordWrap: context.select<SettingsController, bool>(
+                            (controller) => controller.editorWordWrap,
+                          ),
+                          codeTheme: context
+                              .select<SettingsController, EditorCodeTheme>(
+                                (controller) => controller.editorCodeTheme,
+                              ),
+                          onChanged: (value) {
+                            if (widget.readOnly) return;
+                            final bytes = utf8.encode(value).length;
+                            final dirty = value != widget.initialContent;
+                            if (_contentBytes == bytes && _dirty == dirty) {
+                              return;
+                            }
+                            setState(() {
+                              _contentBytes = bytes;
+                              _dirty = dirty;
+                            });
+                          },
                         ),
-                    onChanged: (value) {
-                      final bytes = utf8.encode(value).length;
-                      final dirty = value != widget.initialContent;
-                      if (_contentBytes == bytes && _dirty == dirty) return;
-                      setState(() {
-                        _contentBytes = bytes;
-                        _dirty = dirty;
-                      });
-                    },
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -1652,7 +1785,13 @@ class _MachineTerminalFileEditorDialogState
                     kOpenHandHGap8,
                     Expanded(
                       child: Text(
-                        exceedsLimit
+                        widget.readOnly
+                            ? openHandLocalizedText(
+                                context,
+                                zh: '只读 · $_language · ${formatByteSize(_contentBytes)}',
+                                en: 'Read only · $_language · ${formatByteSize(_contentBytes)}',
+                              )
+                            : exceedsLimit
                             ? openHandLocalizedText(
                                 context,
                                 zh: '内容已达到 5 MB 上限，请缩减后保存。',
@@ -1690,7 +1829,7 @@ class _MachineTerminalFileEditorDialogState
   }
 
   Future<void> _close() async {
-    if (!_dirty) {
+    if (widget.readOnly || !_dirty) {
       Navigator.of(context).pop();
       return;
     }
@@ -1714,6 +1853,50 @@ class _MachineTerminalFileEditorDialogState
       destructive: true,
     );
     if (discard && mounted) Navigator.of(context).pop();
+  }
+
+  void _changeZoom(double delta) {
+    final next = (_fontSize + delta).clamp(
+      _editorFontSizeMin,
+      _editorFontSizeMax,
+    );
+    if (next == _fontSize) return;
+    _zoomCommitTimer?.cancel();
+    setState(() {
+      _fontSize = next;
+      _zoomVisualScale = 1;
+    });
+  }
+
+  void _resetZoom() {
+    if (_fontSize == _editorFontSizeDefault && _zoomVisualScale == 1) return;
+    _zoomCommitTimer?.cancel();
+    setState(() {
+      _fontSize = _editorFontSizeDefault;
+      _zoomVisualScale = 1;
+    });
+  }
+
+  void _zoomByScale(double scaleDelta) {
+    final next = (_fontSize * _zoomVisualScale * scaleDelta).clamp(
+      _editorFontSizeMin,
+      _editorFontSizeMax,
+    );
+    setState(() => _zoomVisualScale = next / _fontSize);
+    _zoomCommitTimer?.cancel();
+    _zoomCommitTimer = startSafeTimer(kOpenHandMotion180, _commitZoom);
+  }
+
+  void _commitZoom() {
+    _zoomCommitTimer?.cancel();
+    if ((_zoomVisualScale - 1).abs() < 0.001) return;
+    setState(() {
+      _fontSize = (_fontSize * _zoomVisualScale).clamp(
+        _editorFontSizeMin,
+        _editorFontSizeMax,
+      );
+      _zoomVisualScale = 1;
+    });
   }
 }
 

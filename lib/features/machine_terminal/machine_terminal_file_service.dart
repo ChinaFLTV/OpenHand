@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../../app/support/silent_log.dart';
+import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
@@ -26,6 +27,7 @@ const String _machineTerminalReadChunkBegin = '__OPENHAND_FILE_CHUNK__';
 const String _machineTerminalReadChunkEnd = '__OPENHAND_FILE_CHUNK_END__';
 const Duration _machineTerminalFileCommandTimeout = Duration(seconds: 30);
 const Duration _machineTerminalMutationTimeout = Duration(minutes: 5);
+const Duration _machineTerminalDownloadTimeout = Duration(minutes: 30);
 const Duration _machineTerminalTransferShutdownTimeout = Duration(seconds: 8);
 const Duration _machineTerminalProgressNotifyInterval = Duration(
   milliseconds: 60,
@@ -234,6 +236,62 @@ class MachineTerminalFileService extends ChangeNotifier {
       } on FormatException {
         throw StateError('文件不是有效的 UTF-8 文本。');
       }
+    });
+  }
+
+  Future<void> downloadFile({
+    required String sessionId,
+    required String terminalId,
+    required String sourcePath,
+    required String destinationPath,
+  }) {
+    return _withTerminalGate(sessionId, terminalId, () async {
+      final before = await _fileDetails(sessionId, terminalId, sourcePath);
+      if (!before.entry.isFile) {
+        throw StateError('仅支持下载普通文件。');
+      }
+      final expectedBytes = before.entry.size;
+      var downloadedBytes = 0;
+
+      Stream<List<int>> chunks() async* {
+        final chunkCount = math.max(
+          1,
+          (expectedBytes / _machineTerminalReadChunkBytes).ceil(),
+        );
+        for (var index = 0; index < chunkCount; index++) {
+          final output = await _runCommand(
+            sessionId: sessionId,
+            terminalId: terminalId,
+            command: _readChunkCommand(before.entry.path, index),
+            timeout: _machineTerminalFileCommandTimeout,
+          );
+          final match = _machineTerminalReadChunkPattern.firstMatch(output);
+          if (match == null) throw const FormatException('无法解析下载文件分块。');
+          final encoded = match.group(1)!;
+          final chunk = encoded.isEmpty ? const <int>[] : base64Decode(encoded);
+          if (chunk.length > expectedBytes - downloadedBytes) {
+            throw StateError('文件下载期间发生变化，请刷新后重试。');
+          }
+          downloadedBytes += chunk.length;
+          if (chunk.isNotEmpty) yield chunk;
+        }
+        if (downloadedBytes != expectedBytes) {
+          throw StateError('文件下载期间发生变化，请刷新后重试。');
+        }
+        final after = await _fileDetails(sessionId, terminalId, sourcePath);
+        if (!after.entry.isFile ||
+            after.entry.size != expectedBytes ||
+            after.entry.modifiedAt != before.entry.modifiedAt) {
+          throw StateError('文件下载期间发生变化，请刷新后重试。');
+        }
+      }
+
+      await writeByteStreamFileAtomically(
+        File(destinationPath),
+        chunks(),
+        maxBytes: math.max(1, expectedBytes),
+        totalTimeout: _machineTerminalDownloadTimeout,
+      );
     });
   }
 

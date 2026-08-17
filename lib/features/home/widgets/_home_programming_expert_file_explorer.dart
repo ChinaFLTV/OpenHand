@@ -13319,6 +13319,41 @@ class _EditorZoomWrapper extends StatefulWidget {
 class _EditorZoomWrapperState extends State<_EditorZoomWrapper> {
   // For smooth pinch-to-zoom on trackpad/touch
   double? _lastPanZoomScale;
+  final Map<int, Offset> _touchPositions = <int, Offset>{};
+  double? _lastTouchDistance;
+
+  void _handleTouchDown(PointerDownEvent event) {
+    if (event.kind != PointerDeviceKind.touch) return;
+    _touchPositions[event.pointer] = event.position;
+    _lastTouchDistance = _touchDistance();
+  }
+
+  void _handleTouchMove(PointerMoveEvent event) {
+    if (event.kind != PointerDeviceKind.touch ||
+        !_touchPositions.containsKey(event.pointer)) {
+      return;
+    }
+    _touchPositions[event.pointer] = event.position;
+    final distance = _touchDistance();
+    final previous = _lastTouchDistance;
+    _lastTouchDistance = distance;
+    if (distance == null || previous == null || previous <= 0) return;
+    final scaleDelta = distance / previous;
+    if ((scaleDelta - 1).abs() > 0.001) {
+      widget.onZoomByScale(scaleDelta);
+    }
+  }
+
+  void _handleTouchEnd(PointerEvent event) {
+    _touchPositions.remove(event.pointer);
+    _lastTouchDistance = _touchDistance();
+  }
+
+  double? _touchDistance() {
+    if (_touchPositions.length < 2) return null;
+    final points = _touchPositions.values.take(2).toList(growable: false);
+    return (points[0] - points[1]).distance;
+  }
 
   void _handlePanZoomStart(PointerPanZoomStartEvent event) {
     _lastPanZoomScale = 1.0;
@@ -13372,6 +13407,10 @@ class _EditorZoomWrapperState extends State<_EditorZoomWrapper> {
       },
       child: Listener(
         behavior: HitTestBehavior.translucent,
+        onPointerDown: _handleTouchDown,
+        onPointerMove: _handleTouchMove,
+        onPointerUp: _handleTouchEnd,
+        onPointerCancel: _handleTouchEnd,
         onPointerSignal: (event) {
           if (event is PointerScrollEvent) {
             final meta =
@@ -13893,6 +13932,7 @@ class _SyntaxHighlightEditor extends StatefulWidget {
     required this.onChanged,
     this.language,
     this.fontSize = _editorFontSizeDefault,
+    this.readOnly = false,
     this.wordWrap = true,
     this.codeTheme = EditorCodeTheme.materialYou,
     this.activeLine = 1,
@@ -13912,6 +13952,7 @@ class _SyntaxHighlightEditor extends StatefulWidget {
   final String? language;
   final ValueChanged<String> onChanged;
   final double fontSize;
+  final bool readOnly;
   final bool wordWrap;
   final EditorCodeTheme codeTheme;
   final int activeLine;
@@ -15138,6 +15179,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                   Widget textFieldWidget = TextField(
                     controller: widget.controller,
                     focusNode: widget.focusNode,
+                    readOnly: widget.readOnly,
                     autocorrect: false,
                     enableSuggestions: false,
                     maxLines: null,
@@ -15147,8 +15189,12 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                     smartQuotesType: SmartQuotesType.disabled,
                     style: editorStyle,
                     cursorColor: colorScheme.primary,
-                    contextMenuBuilder: (context0, state0) =>
-                        const SizedBox.shrink(),
+                    contextMenuBuilder: widget.readOnly
+                        ? (context0, state0) =>
+                              AdaptiveTextSelectionToolbar.editableText(
+                                editableTextState: state0,
+                              )
+                        : (context0, state0) => const SizedBox.shrink(),
                     decoration: const InputDecoration(
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,

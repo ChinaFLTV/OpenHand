@@ -184,6 +184,15 @@ void main() {
           isNot(contains('已重命名.txt')),
         );
         expect(await File('${child.path}/本地上传.bin').readAsBytes(), sourceBytes);
+        final downloaded = File('${sessions.path}/终端下载.bin');
+        await downloaded.writeAsString('旧内容');
+        await fileService.downloadFile(
+          sessionId: 'file-test',
+          terminalId: terminalId,
+          sourcePath: '${child.path}/本地上传.bin',
+          destinationPath: downloaded.path,
+        );
+        expect(await downloaded.readAsBytes(), sourceBytes);
       } finally {
         await fileService.shutdown();
         fileService.dispose();
