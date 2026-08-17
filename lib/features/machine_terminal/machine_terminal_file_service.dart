@@ -21,10 +21,13 @@ const int _machineTerminalMaxTransferRecords = 200;
 const int _machineTerminalMaxQueuedOperations = 64;
 const int _machineTerminalCommandErrorOutputLimit = 4000;
 const int _machineTerminalInlineCommandBytes = 240;
-const int _machineTerminalStagedCommandChunkCharacters = 128;
+const int _machineTerminalStagedCommandChunkCharacters = 1024;
 const int _machineTerminalMaxStagedCommandBytes = 16 * kBytesPerKiB;
+const int _machineTerminalMaxStagedPathCharacters = 4096;
 const String _machineTerminalReadChunkBegin = '__OPENHAND_FILE_CHUNK__';
 const String _machineTerminalReadChunkEnd = '__OPENHAND_FILE_CHUNK_END__';
+const String _machineTerminalStagedPathBegin = '__OPENHAND_STAGED_PATH_BEGIN__';
+const String _machineTerminalStagedPathEnd = '__OPENHAND_STAGED_PATH_END__';
 const Duration _machineTerminalFileCommandTimeout = Duration(seconds: 30);
 const Duration _machineTerminalMutationTimeout = Duration(minutes: 5);
 const Duration _machineTerminalDownloadTimeout = Duration(minutes: 30);
@@ -668,20 +671,15 @@ class MachineTerminalFileService extends ChangeNotifier {
     final temporaryOutput = await _runInlineCommand(
       sessionId: sessionId,
       terminalId: terminalId,
-      command: 'mktemp "\${TMPDIR:-/tmp}/openhand-command.XXXXXX"',
+      command:
+          '__oh_tmp=\$(mktemp "\${TMPDIR:-/tmp}/openhand-command.XXXXXX") || exit 1; '
+          'printf "$_machineTerminalStagedPathBegin%s$_machineTerminalStagedPathEnd\\n" '
+          '"\$(printf "%s" "\$__oh_tmp" | base64 | tr -d "\\r\\n")"',
       timeout: _machineTerminalFileCommandTimeout,
     );
-    final temporaryPaths = const LineSplitter()
-        .convert(temporaryOutput)
-        .map((line) => line.trim())
-        .where(
-          (line) => line.startsWith('/') && line.contains('/openhand-command.'),
-        )
-        .toList(growable: false);
-    if (temporaryPaths.isEmpty) {
-      throw StateError('无法创建远端命令临时文件。');
-    }
-    final temporaryPath = temporaryPaths.last;
+    final temporaryPath = parseMachineTerminalStagedPathProtocol(
+      temporaryOutput,
+    );
     final encoded = base64Encode(utf8.encode(command));
     try {
       for (
@@ -912,6 +910,30 @@ class MachineTerminalFileService extends ChangeNotifier {
   void _notify() {
     if (!_disposed) notifyListeners();
   }
+}
+
+String parseMachineTerminalStagedPathProtocol(String output) {
+  String? temporaryPath;
+  for (final match in _machineTerminalStagedPathPattern.allMatches(output)) {
+    try {
+      final path = utf8.decode(base64Decode(match.group(1)!));
+      if (path.length <= _machineTerminalMaxStagedPathCharacters &&
+          path.startsWith('/') &&
+          !_machineTerminalUnsafePathCharacterPattern.hasMatch(path) &&
+          !path
+              .split('/')
+              .any((segment) => segment == '.' || segment == '..') &&
+          _machineTerminalStagedFilePathPattern.hasMatch(path)) {
+        temporaryPath = path;
+      }
+    } on FormatException {
+      continue;
+    }
+  }
+  if (temporaryPath == null) {
+    throw StateError('无法创建远端命令临时文件。');
+  }
+  return temporaryPath;
 }
 
 MachineTerminalDirectorySnapshot parseMachineTerminalDirectoryProtocol(
@@ -1354,4 +1376,14 @@ String _powerShellCommand(String script) {
 final RegExp _machineTerminalReadChunkPattern = RegExp(
   '$_machineTerminalReadChunkBegin\\t([A-Za-z0-9+/=]*)\\t'
   '$_machineTerminalReadChunkEnd',
+);
+final RegExp _machineTerminalStagedPathPattern = RegExp(
+  '$_machineTerminalStagedPathBegin([A-Za-z0-9+/=]+)'
+  '$_machineTerminalStagedPathEnd',
+);
+final RegExp _machineTerminalStagedFilePathPattern = RegExp(
+  r'/openhand-command\.[A-Za-z0-9]{6,}$',
+);
+final RegExp _machineTerminalUnsafePathCharacterPattern = RegExp(
+  r'[\x00-\x1F\x7F]',
 );

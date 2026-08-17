@@ -66,6 +66,35 @@ void main() {
     expect(details.createdAt, isNotNull);
   });
 
+  test('远端临时路径协议忽略 relay 提示符和命令回显', () {
+    const path = '/var/tmp/relay path/openhand-command.Ab12xy';
+    final encoded = base64Encode(utf8.encode(path));
+    final output = <String>[
+      r'''[root@relay ~]# printf "__OPENHAND_STAGED_PATH_BEGIN__%s__OPENHAND_STAGED_PATH_END__\n" "$__oh_tmp"''',
+      '> > __OPENHAND_STAGED_PATH_BEGIN__$encoded'
+          '__OPENHAND_STAGED_PATH_END__',
+      '[root@relay ~]#',
+    ].join('\n');
+
+    expect(parseMachineTerminalStagedPathProtocol(output), path);
+  });
+
+  test('远端临时路径协议拒绝伪造和越界路径', () {
+    for (final path in <String>[
+      '/tmp/openhand-command.Ab12xy/越界',
+      '/tmp/../etc/openhand-command.Ab12xy',
+    ]) {
+      final encoded = base64Encode(utf8.encode(path));
+      final output =
+          '__OPENHAND_STAGED_PATH_BEGIN__$encoded'
+          '__OPENHAND_STAGED_PATH_END__';
+      expect(
+        () => parseMachineTerminalStagedPathProtocol(output),
+        throwsStateError,
+      );
+    }
+  });
+
   test('批量上传校验失败时不残留部分任务', () async {
     final root = await Directory.systemTemp.createTemp(
       'openhand-terminal-upload-validation-',
