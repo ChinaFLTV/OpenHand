@@ -207,6 +207,61 @@ void main() {
     }
   });
 
+  test('文件传输记录在应用重启后仍可恢复', () async {
+    final sessions = await Directory.systemTemp.createTemp(
+      'openhand-terminal-transfer-history-',
+    );
+    final firstTerminalService = MachineTerminalService(
+      sessionsDirectoryPath: sessions.path,
+    );
+    final firstFileService = MachineTerminalFileService(firstTerminalService);
+    try {
+      final taskId = firstFileService.enqueueDownload(
+        sessionId: 'transfer-history-session',
+        terminalId: 'transfer-history-terminal',
+        sourcePath: '/remote/报告.zip',
+        destinationPath: '${sessions.path}/报告.zip',
+        totalBytes: 4096,
+      );
+      firstFileService.cancelTransfer(taskId);
+      await firstFileService.shutdown();
+
+      final secondTerminalService = MachineTerminalService(
+        sessionsDirectoryPath: sessions.path,
+      );
+      final secondFileService = MachineTerminalFileService(
+        secondTerminalService,
+      );
+      try {
+        await secondFileService.transferHistoryReady;
+        final restored = secondFileService.transfers(
+          sessionId: 'transfer-history-session',
+          terminalId: 'transfer-history-terminal',
+        );
+
+        expect(restored, hasLength(1));
+        expect(restored.single.id, taskId);
+        expect(
+          restored.single.direction,
+          MachineTerminalTransferDirection.download,
+        );
+        expect(restored.single.sourcePath, '/remote/报告.zip');
+        expect(restored.single.totalBytes, 4096);
+        expect(restored.single.status, MachineTerminalTransferStatus.canceled);
+      } finally {
+        await secondFileService.shutdown();
+        secondFileService.dispose();
+        await secondTerminalService.shutdown();
+        secondTerminalService.dispose();
+      }
+    } finally {
+      firstFileService.dispose();
+      await firstTerminalService.shutdown();
+      firstTerminalService.dispose();
+      await sessions.delete(recursive: true);
+    }
+  });
+
   test('传输记录提供真实进度速度耗时和剩余时间', () {
     final startedAt = DateTime.now().subtract(const Duration(seconds: 4));
     final task = MachineTerminalTransferTask(

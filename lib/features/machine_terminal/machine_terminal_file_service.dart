@@ -8,7 +8,9 @@ import 'package:path/path.dart' as p;
 
 import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
+import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
 import 'machine_terminal_service.dart';
@@ -18,6 +20,10 @@ const int kMachineTerminalMaxEditableFileBytes = 5 * kBytesPerMiB;
 const int _machineTerminalDirectoryEntryLimit = 2000;
 const int _machineTerminalReadChunkBytes = 64 * kBytesPerKiB;
 const int _machineTerminalMaxTransferRecords = 200;
+const int _machineTerminalTransferHistorySchemaVersion = 1;
+const int _machineTerminalTransferHistoryMaxBytes = 2 * kBytesPerMiB;
+const String _machineTerminalTransferHistoryFileName =
+    'machine-terminal-transfers.json';
 const int _machineTerminalMaxQueuedOperations = 64;
 const int _machineTerminalCommandErrorOutputLimit = 4000;
 const int _machineTerminalInlineCommandBytes = 240;
@@ -34,6 +40,9 @@ const Duration _machineTerminalDownloadTimeout = Duration(minutes: 30);
 const Duration _machineTerminalTransferShutdownTimeout = Duration(seconds: 8);
 const Duration _machineTerminalProgressNotifyInterval = Duration(
   milliseconds: 60,
+);
+const Duration _machineTerminalTransferPersistInterval = Duration(
+  milliseconds: 500,
 );
 
 enum MachineTerminalFileKind { file, directory, link, other }
@@ -195,7 +204,16 @@ class MachineTerminalTransferTask {
 }
 
 class MachineTerminalFileService extends ChangeNotifier {
-  MachineTerminalFileService(this._terminalService);
+  MachineTerminalFileService(this._terminalService) {
+    _restoreFuture = _restoreTransferHistory();
+    unawaited(
+      _restoreFuture.then<void>((_) {
+        if (_restoredTransfersNeedSave && !_disposed) {
+          _scheduleTransferPersist();
+        }
+      }),
+    );
+  }
 
   final MachineTerminalService _terminalService;
   final Map<String, _MachineTerminalOperationGate> _operationGates =
@@ -203,8 +221,15 @@ class MachineTerminalFileService extends ChangeNotifier {
   final List<_MutableTransferTask> _transferTasks = <_MutableTransferTask>[];
   final Map<String, Future<void>> _transferWorkers = <String, Future<void>>{};
   Timer? _progressNotifyTimer;
+  Timer? _transferPersistTimer;
+  Future<void> _transferPersistChain = Future<void>.value();
+  late final Future<void> _restoreFuture;
+  String? _lastPersistedTransferPayload;
   int _transferCounter = 0;
+  bool _restoredTransfersNeedSave = false;
   bool _disposed = false;
+
+  Future<void> get transferHistoryReady => _restoreFuture;
 
   List<MachineTerminalTransferTask> transfers({
     String? sessionId,
@@ -437,6 +462,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     }
     _trimTransferRecords();
     _notify();
+    _scheduleTransferPersist(immediately: true);
     _startTransferWorker(_terminalKey(sessionId, terminalId));
     return createdIds;
   }
@@ -468,6 +494,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     );
     _trimTransferRecords();
     _notify();
+    _scheduleTransferPersist(immediately: true);
     _startTransferWorker(_terminalKey(sessionId, terminalId));
     return id;
   }
@@ -484,6 +511,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     task.resetProgressClock();
     task.pauseSignal ??= Completer<void>();
     _notify();
+    _scheduleTransferPersist(immediately: true);
   }
 
   void resumeTransfer(String taskId) {
@@ -496,6 +524,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     task.pauseSignal?.complete();
     task.pauseSignal = null;
     _notify();
+    _scheduleTransferPersist(immediately: true);
     _startTransferWorker(_terminalKey(task.sessionId, task.terminalId));
   }
 
@@ -507,6 +536,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     task.pauseSignal?.complete();
     task.pauseSignal = null;
     _notify();
+    _scheduleTransferPersist(immediately: true);
   }
 
   void deleteTransfer(String taskId) {
@@ -518,30 +548,38 @@ class MachineTerminalFileService extends ChangeNotifier {
       if (task.startedAt == null) {
         _transferTasks.remove(task);
         _notify();
+        _scheduleTransferPersist(immediately: true);
       }
       return;
     }
     _transferTasks.remove(task);
     _notify();
+    _scheduleTransferPersist(immediately: true);
   }
 
   Future<void> shutdown() async {
     if (_disposed) return;
-    _disposed = true;
     _progressNotifyTimer?.cancel();
+    _transferPersistTimer?.cancel();
     for (final task in _transferTasks) {
       if (task.snapshot().isActive) {
-        task.status = MachineTerminalTransferStatus.canceled;
+        task
+          ..status = MachineTerminalTransferStatus.canceled
+          ..completedAt = DateTime.now()
+          ..error = '应用退出时传输未完成，已取消。';
         task.pauseSignal?.complete();
         task.pauseSignal = null;
       }
     }
+    _disposed = true;
     try {
       await Future.wait<void>(
         _transferWorkers.values,
       ).timeout(_machineTerminalTransferShutdownTimeout);
     } catch (error, stack) {
       silentLog('machine_terminal_file', '停止文件传输队列', error, stack);
+    } finally {
+      await _flushTransferPersistence();
     }
   }
 
@@ -549,6 +587,7 @@ class MachineTerminalFileService extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _progressNotifyTimer?.cancel();
+    _transferPersistTimer?.cancel();
     super.dispose();
   }
 
@@ -828,6 +867,7 @@ class MachineTerminalFileService extends ChangeNotifier {
         ..startedAt = DateTime.now()
         ..error = null;
       _notify();
+      _scheduleTransferPersist();
       try {
         await _withTerminalGate(task.sessionId, task.terminalId, () async {
           if (task.status == MachineTerminalTransferStatus.canceled) {
@@ -898,6 +938,7 @@ class MachineTerminalFileService extends ChangeNotifier {
       } finally {
         if (task.removeWhenFinished) _transferTasks.remove(task);
         _notify();
+        _scheduleTransferPersist(immediately: true);
       }
     }
   }
@@ -934,8 +975,152 @@ class MachineTerminalFileService extends ChangeNotifier {
       () {
         _progressNotifyTimer = null;
         _notify();
+        _scheduleTransferPersist();
       },
     );
+  }
+
+  Future<void> _restoreTransferHistory() async {
+    final file = _transferHistoryFile;
+    try {
+      await recoverAtomicWriteBackupIfNeeded(file);
+      if (!await regularFileExistsBounded(file)) return;
+      final content = await readBoundedFileString(
+        file,
+        maxBytes: _machineTerminalTransferHistoryMaxBytes,
+      );
+      final decoded = jsonDecode(content);
+      final payload = stringKeyedMapFromValue(decoded);
+      if (payload['schema_version'] !=
+          _machineTerminalTransferHistorySchemaVersion) {
+        throw StateError('文件传输记录版本不受支持。');
+      }
+      final rawTransfers = payload['transfers'];
+      if (rawTransfers is! List) throw const FormatException('文件传输记录格式无效。');
+
+      final knownIds = _transferTasks.map((task) => task.id).toSet();
+      final restored = <_MutableTransferTask>[];
+      final now = DateTime.now();
+      for (final rawTask in rawTransfers) {
+        final task = _MutableTransferTask.fromJson(
+          stringKeyedMapFromValue(rawTask),
+        );
+        if (task == null || !knownIds.add(task.id)) continue;
+        if (task.snapshot().isActive) {
+          task
+            ..status = MachineTerminalTransferStatus.canceled
+            ..statusBeforePause = MachineTerminalTransferStatus.canceled
+            ..completedAt ??= now
+            ..error = '应用重启时传输未完成，已取消。';
+          task.resetProgressClock();
+          _restoredTransfersNeedSave = true;
+        }
+        restored.add(task);
+      }
+      if (restored.isEmpty) return;
+      _transferTasks.addAll(restored);
+      _transferTasks.sort(
+        (left, right) => left.createdAt.compareTo(right.createdAt),
+      );
+      _trimTransferRecords();
+      _restoredTransfersNeedSave = true;
+      _notify();
+    } on FormatException catch (error, stack) {
+      silentLog('machine_terminal_file', '恢复文件传输记录', error, stack);
+    } on IOException catch (error, stack) {
+      silentLog('machine_terminal_file', '读取文件传输记录', error, stack);
+    } on StateError catch (error, stack) {
+      silentLog('machine_terminal_file', '校验文件传输记录', error, stack);
+    } catch (error, stack) {
+      silentLog('machine_terminal_file', '恢复文件传输记录', error, stack);
+    }
+  }
+
+  File get _transferHistoryFile => File(
+    p.join(
+      _terminalService.sessionsDirectoryPath,
+      _machineTerminalTransferHistoryFileName,
+    ),
+  );
+
+  void _scheduleTransferPersist({bool immediately = false}) {
+    if (_disposed) return;
+    if (immediately) {
+      _transferPersistTimer?.cancel();
+      _transferPersistTimer = null;
+      _enqueueTransferPersist();
+      return;
+    }
+    if (_transferPersistTimer != null) return;
+    _transferPersistTimer = startSafeTimer(
+      _machineTerminalTransferPersistInterval,
+      () {
+        _transferPersistTimer = null;
+        _enqueueTransferPersist();
+      },
+      onError: (error, stack) =>
+          silentLog('machine_terminal_file', '调度文件传输记录持久化', error, stack),
+    );
+  }
+
+  void _enqueueTransferPersist() {
+    final previous = _transferPersistChain;
+    late final Future<void> tracked;
+    tracked = previous
+        .catchError((Object error, StackTrace stack) {
+          silentLog('machine_terminal_file', '文件传输记录持久化队列', error, stack);
+        })
+        .then((_) async {
+          await _restoreFuture;
+          await _persistTransferHistoryNow();
+        })
+        .whenComplete(() {
+          if (identical(_transferPersistChain, tracked)) {
+            _transferPersistChain = Future<void>.value();
+          }
+        });
+    _transferPersistChain = tracked;
+  }
+
+  Future<void> _flushTransferPersistence() async {
+    _transferPersistTimer?.cancel();
+    _transferPersistTimer = null;
+    try {
+      await _restoreFuture;
+      await _transferPersistChain;
+    } catch (error, stack) {
+      silentLog('machine_terminal_file', '刷新文件传输记录', error, stack);
+    }
+    try {
+      await _persistTransferHistoryNow();
+    } catch (error, stack) {
+      silentLog('machine_terminal_file', '持久化文件传输记录', error, stack);
+    }
+  }
+
+  Future<void> _persistTransferHistoryNow() async {
+    final records = _transferTasks
+        .map((task) => task.toJson())
+        .toList(growable: false);
+    final file = _transferHistoryFile;
+    if (records.isEmpty) {
+      if (await regularFileExistsBounded(file)) {
+        await deleteFileAtomically(file);
+      }
+      _lastPersistedTransferPayload = null;
+      return;
+    }
+    final payload = <String, Object?>{
+      'schema_version': _machineTerminalTransferHistorySchemaVersion,
+      'transfers': records,
+    };
+    final content = '${jsonEncode(payload)}\n';
+    if (utf8ByteLength(content) > _machineTerminalTransferHistoryMaxBytes) {
+      throw StateError('文件传输记录超过大小限制。');
+    }
+    if (_lastPersistedTransferPayload == content) return;
+    await writeFileAtomically(file, content);
+    _lastPersistedTransferPayload = content;
   }
 
   void _trimTransferRecords() {
@@ -1116,7 +1301,15 @@ class _MutableTransferTask {
     required this.targetDirectory,
     required this.fileName,
     required this.totalBytes,
-  }) : createdAt = DateTime.now();
+    DateTime? createdAt,
+    this.transferredBytes = 0,
+    this.speedBytesPerSecond = 0,
+    this.status = MachineTerminalTransferStatus.queued,
+    this.statusBeforePause = MachineTerminalTransferStatus.queued,
+    this.startedAt,
+    this.completedAt,
+    this.error,
+  }) : createdAt = createdAt ?? DateTime.now();
 
   final String id;
   final String sessionId;
@@ -1127,11 +1320,10 @@ class _MutableTransferTask {
   final String fileName;
   int totalBytes;
   final DateTime createdAt;
-  int transferredBytes = 0;
-  double speedBytesPerSecond = 0;
-  MachineTerminalTransferStatus status = MachineTerminalTransferStatus.queued;
-  MachineTerminalTransferStatus statusBeforePause =
-      MachineTerminalTransferStatus.queued;
+  int transferredBytes;
+  double speedBytesPerSecond;
+  MachineTerminalTransferStatus status;
+  MachineTerminalTransferStatus statusBeforePause;
   DateTime? startedAt;
   DateTime? completedAt;
   String? error;
@@ -1179,6 +1371,89 @@ class _MutableTransferTask {
     completedAt: completedAt,
     error: error,
   );
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'id': id,
+    'session_id': sessionId,
+    'terminal_id': terminalId,
+    'direction': direction.name,
+    'source_path': sourcePath,
+    'target_directory': targetDirectory,
+    'file_name': fileName,
+    'total_bytes': totalBytes,
+    'transferred_bytes': transferredBytes,
+    'speed_bytes_per_second': speedBytesPerSecond,
+    'status': status.name,
+    'status_before_pause': statusBeforePause.name,
+    'created_at': createdAt.toUtc().toIso8601String(),
+    if (startedAt != null) 'started_at': startedAt!.toUtc().toIso8601String(),
+    if (completedAt != null)
+      'completed_at': completedAt!.toUtc().toIso8601String(),
+    if (error != null && error!.isNotEmpty) 'error': clipText(error!, 1200),
+  };
+
+  static _MutableTransferTask? fromJson(Map<String, Object?> raw) {
+    final id = nullIfBlank('${raw['id'] ?? ''}');
+    final sessionId = nullIfBlank('${raw['session_id'] ?? ''}');
+    final terminalId = nullIfBlank('${raw['terminal_id'] ?? ''}');
+    final sourcePath = nullIfBlank('${raw['source_path'] ?? ''}');
+    final targetDirectory = nullIfBlank('${raw['target_directory'] ?? ''}');
+    final fileName = nullIfBlank('${raw['file_name'] ?? ''}');
+    final direction = enumByName<MachineTerminalTransferDirection>(
+      MachineTerminalTransferDirection.values,
+      raw['direction'],
+    );
+    final status = enumByName<MachineTerminalTransferStatus>(
+      MachineTerminalTransferStatus.values,
+      raw['status'],
+    );
+    final createdAt = utcDateTimeFromValue(raw['created_at'])?.toLocal();
+    final totalBytes = optionalIntFromValue(raw['total_bytes']);
+    final transferredBytes = optionalIntFromValue(raw['transferred_bytes']);
+    if (id == null ||
+        sessionId == null ||
+        terminalId == null ||
+        sourcePath == null ||
+        targetDirectory == null ||
+        fileName == null ||
+        direction == null ||
+        status == null ||
+        createdAt == null ||
+        totalBytes == null ||
+        totalBytes < 0 ||
+        transferredBytes == null ||
+        transferredBytes < 0) {
+      return null;
+    }
+    final boundedTransferred = transferredBytes.clamp(0, totalBytes).toInt();
+    final rawSpeed =
+        optionalDoubleFromValue(raw['speed_bytes_per_second']) ?? 0;
+    final speed = rawSpeed.isFinite && rawSpeed >= 0 ? rawSpeed : 0.0;
+    final startedAt = utcDateTimeFromValue(raw['started_at'])?.toLocal();
+    final completedAt = utcDateTimeFromValue(raw['completed_at'])?.toLocal();
+    final statusBeforePause = enumByName<MachineTerminalTransferStatus>(
+      MachineTerminalTransferStatus.values,
+      raw['status_before_pause'],
+    );
+    return _MutableTransferTask(
+      id: id,
+      sessionId: sessionId,
+      terminalId: terminalId,
+      direction: direction,
+      sourcePath: sourcePath,
+      targetDirectory: targetDirectory,
+      fileName: fileName,
+      totalBytes: totalBytes,
+      createdAt: createdAt,
+      transferredBytes: boundedTransferred,
+      speedBytesPerSecond: speed,
+      status: status,
+      statusBeforePause: statusBeforePause ?? status,
+      startedAt: startedAt,
+      completedAt: completedAt,
+      error: nullIfBlank('${raw['error'] ?? ''}'),
+    );
+  }
 }
 
 class _MachineTerminalOperationGate {

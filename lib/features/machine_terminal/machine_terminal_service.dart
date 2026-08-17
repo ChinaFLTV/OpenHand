@@ -572,6 +572,8 @@ class MachineTerminalService extends ChangeNotifier {
   bool _notificationScheduled = false;
   MachineTerminalMetadataPersister? _metadataPersister;
 
+  String get sessionsDirectoryPath => _sessionsDirectoryPath;
+
   void configureMetadataPersister(MachineTerminalMetadataPersister? persister) {
     _metadataPersister = persister;
   }
