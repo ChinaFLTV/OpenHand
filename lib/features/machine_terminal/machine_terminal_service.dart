@@ -83,6 +83,23 @@ const int _machineTerminalHistoryMaxBytes = 32 * kBytesPerMiB;
 const int _machineTerminalHistoryPayloadReserveBytes = 64 * kBytesPerKiB;
 const String _terminalBusyError = '已有其他终端命令正在运行。';
 const String _terminalNotRunningError = '终端未运行。';
+const int _terminalUploadChunkBytes = 48 * kBytesPerKiB;
+const int _terminalPtyWriteChunkBytes = 64;
+const Duration _terminalPtyWritePace = Duration(milliseconds: 1);
+const Duration _terminalUploadReadyTimeout = Duration(seconds: 10);
+const Duration _terminalUploadFinalizeTimeout = Duration(minutes: 2);
+const Duration _terminalEchoReadyTimeout = Duration(seconds: 3);
+
+typedef MachineTerminalUploadProgress = void Function(int transferredBytes);
+typedef MachineTerminalUploadPauseWaiter = Future<void> Function();
+typedef MachineTerminalUploadCancelCheck = bool Function();
+
+final class MachineTerminalUploadCancelled implements Exception {
+  const MachineTerminalUploadCancelled();
+
+  @override
+  String toString() => '文件传输已取消。';
+}
 
 typedef MachineTerminalMetadataPersister =
     Future<void> Function(String sessionId, Map<String, Object?> metadata);
@@ -864,6 +881,32 @@ class MachineTerminalService extends ChangeNotifier {
     if (!wasRunning) {
       _scheduleMetadataPersist(terminal.sessionId);
     }
+    _scheduleHistoryPersist(terminal.sessionId);
+  }
+
+  Future<void> uploadFile({
+    required String sessionId,
+    required String sourcePath,
+    required String targetDirectory,
+    required String targetName,
+    String? terminalId,
+    required MachineTerminalUploadProgress onProgress,
+    required MachineTerminalUploadPauseWaiter waitWhilePaused,
+    required MachineTerminalUploadCancelCheck isCancelled,
+  }) async {
+    final terminal = await _requireTerminal(sessionId, terminalId);
+    if (!await terminal.ensureRunning()) {
+      throw StateError('终端启动失败。');
+    }
+    await terminal.uploadFile(
+      sourcePath: sourcePath,
+      targetDirectory: targetDirectory,
+      targetName: targetName,
+      onProgress: onProgress,
+      waitWhilePaused: waitWhilePaused,
+      isCancelled: isCancelled,
+    );
+    _scheduleMetadataPersist(terminal.sessionId);
     _scheduleHistoryPersist(terminal.sessionId);
   }
 
@@ -1676,6 +1719,7 @@ class MachineTerminalSession {
   final List<MachineTerminalCommandRecord> _commandHistory =
       <MachineTerminalCommandRecord>[];
   Future<MachineTerminalCommandResult>? _commandExecution;
+  Future<void>? _uploadExecution;
   int _commandSequence = 0;
   bool _attached = true;
   bool _hasUserActivity = false;
@@ -2093,14 +2137,190 @@ class MachineTerminalSession {
   }
 
   void writeInput(String data) {
+    if (_uploadExecution != null) return;
+    _writePty(data, markUserActivity: true);
+  }
+
+  void _writePty(String data, {bool markUserActivity = false}) {
     final pty = _pty;
     if (pty == null || _status != MachineTerminalStatus.running) {
       return;
     }
-    if (data.isNotEmpty) {
+    if (markUserActivity && data.isNotEmpty) {
       _hasUserActivity = true;
     }
     pty.write(Uint8List.fromList(utf8.encode(data)));
+  }
+
+  Future<void> _writePtyPaced(String data) async {
+    final pty = _pty;
+    if (pty == null || _status != MachineTerminalStatus.running) {
+      throw StateError(_terminalNotRunningError);
+    }
+    final bytes = Uint8List.fromList(utf8.encode(data));
+    for (
+      var offset = 0;
+      offset < bytes.length;
+      offset += _terminalPtyWriteChunkBytes
+    ) {
+      if (!identical(_pty, pty) || _status != MachineTerminalStatus.running) {
+        throw StateError(_terminalNotRunningError);
+      }
+      final end = math.min(offset + _terminalPtyWriteChunkBytes, bytes.length);
+      pty.write(Uint8List.sublistView(bytes, offset, end));
+      if (end < bytes.length) {
+        await Future<void>.delayed(_terminalPtyWritePace);
+      }
+    }
+  }
+
+  Future<void> uploadFile({
+    required String sourcePath,
+    required String targetDirectory,
+    required String targetName,
+    required MachineTerminalUploadProgress onProgress,
+    required MachineTerminalUploadPauseWaiter waitWhilePaused,
+    required MachineTerminalUploadCancelCheck isCancelled,
+  }) {
+    if (_commandExecution != null || _uploadExecution != null) {
+      return Future<void>.error(StateError(_terminalBusyError));
+    }
+    late final Future<void> tracked;
+    tracked =
+        _uploadFile(
+          sourcePath: sourcePath,
+          targetDirectory: targetDirectory,
+          targetName: targetName,
+          onProgress: onProgress,
+          waitWhilePaused: waitWhilePaused,
+          isCancelled: isCancelled,
+        ).whenComplete(() {
+          if (identical(_uploadExecution, tracked)) _uploadExecution = null;
+        });
+    _uploadExecution = tracked;
+    return tracked;
+  }
+
+  Future<void> _uploadFile({
+    required String sourcePath,
+    required String targetDirectory,
+    required String targetName,
+    required MachineTerminalUploadProgress onProgress,
+    required MachineTerminalUploadPauseWaiter waitWhilePaused,
+    required MachineTerminalUploadCancelCheck isCancelled,
+  }) async {
+    if (_pty == null || _status != MachineTerminalStatus.running) {
+      throw StateError(_terminalNotRunningError);
+    }
+    final source = File(sourcePath);
+    final sourceStat = await source.stat();
+    if (sourceStat.type != FileSystemEntityType.file) {
+      throw FileSystemException('上传源不是普通文件。', sourcePath);
+    }
+    final transferToken =
+        '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}_'
+        '${sourceStat.size.toRadixString(36)}';
+    final beginMarker = '__OHUB_$transferToken';
+    final endMarker = '__OHUE_$transferToken';
+    final doneMarker = '__OHUD_$transferToken';
+    final cancelMarker = '__OHUC_$transferToken';
+    final startOffset = _output.endOffset;
+    final startGeneration = _startGeneration;
+    final payload = _uploadCommandPayload(
+      beginMarker: beginMarker,
+      endMarker: endMarker,
+      doneMarker: doneMarker,
+      cancelMarker: cancelMarker,
+      targetDirectory: targetDirectory,
+      targetName: targetName,
+      token: transferToken,
+    );
+    RandomAccessFile? reader;
+    var transferred = 0;
+    var protocolDispatched = false;
+    var protocolFinished = false;
+    Future<void> cancelProtocol() async {
+      if (!protocolDispatched || protocolFinished) return;
+      _writePty('$cancelMarker\n');
+      try {
+        await _waitForCommandOutput(
+          begin: beginMarker,
+          end: endMarker,
+          startOffset: startOffset,
+          startGeneration: startGeneration,
+          timeout: _terminalUploadReadyTimeout,
+        );
+      } catch (_) {
+        _writePty('\x03');
+      } finally {
+        protocolFinished = true;
+      }
+    }
+
+    try {
+      await _disableEchoForCommand();
+      await _writePtyPaced(payload);
+      protocolDispatched = true;
+      await _waitForOutputMarker(
+        marker: beginMarker,
+        startOffset: startOffset,
+        startGeneration: startGeneration,
+        timeout: _terminalUploadReadyTimeout,
+      );
+      reader = await source.open();
+      while (transferred < sourceStat.size) {
+        await waitWhilePaused();
+        if (isCancelled()) throw const MachineTerminalUploadCancelled();
+        final remaining = sourceStat.size - transferred;
+        final chunk = await reader.read(
+          math.min(_terminalUploadChunkBytes, remaining),
+        );
+        if (chunk.isEmpty) {
+          throw FileSystemException('上传源在传输期间被截断。', sourcePath);
+        }
+        await _writePtyPaced('${base64Encode(chunk)}\n');
+        transferred += chunk.length;
+        onProgress(transferred);
+        await Future<void>.delayed(Duration.zero);
+      }
+      if (isCancelled()) throw const MachineTerminalUploadCancelled();
+      final beforeFinalizeStat = await source.stat();
+      if (beforeFinalizeStat.size != sourceStat.size ||
+          beforeFinalizeStat.modified != sourceStat.modified) {
+        throw FileSystemException('上传源在传输期间发生变化。', sourcePath);
+      }
+      _writePty('$doneMarker\n');
+      final result = await _waitForCommandOutput(
+        begin: beginMarker,
+        end: endMarker,
+        startOffset: startOffset,
+        startGeneration: startGeneration,
+        timeout: _terminalUploadFinalizeTimeout,
+      );
+      protocolFinished = true;
+      if (result.exitCode != 0) {
+        throw FileSystemException(
+          '远端文件写入失败，退出码 ${result.exitCode}。',
+          targetName,
+        );
+      }
+      final finalStat = await source.stat();
+      if (finalStat.size != sourceStat.size ||
+          finalStat.modified != sourceStat.modified) {
+        throw FileSystemException('上传源在传输期间发生变化。', sourcePath);
+      }
+    } on MachineTerminalUploadCancelled {
+      await cancelProtocol();
+      rethrow;
+    } catch (_) {
+      await cancelProtocol();
+      rethrow;
+    } finally {
+      await reader?.close();
+      if (!Platform.isWindows) {
+        _writePty('stty echo icanon 2>/dev/null\n');
+      }
+    }
   }
 
   void resize({required int columns, required int rows}) {
@@ -2121,7 +2341,7 @@ class MachineTerminalSession {
     required String endMarker,
     required Duration timeout,
   }) {
-    if (_commandExecution != null) {
+    if (_commandExecution != null || _uploadExecution != null) {
       return Future<MachineTerminalCommandResult>.value(
         MachineTerminalCommandResult(
           terminalId: id,
@@ -2177,7 +2397,7 @@ class MachineTerminalSession {
         beginMarker: beginMarker,
         endMarker: endMarker,
       );
-      writeInput(payload);
+      await _writePtyPaced(payload);
       final parsed = await _waitForCommandOutput(
         begin: begin,
         end: end,
@@ -2335,8 +2555,17 @@ class MachineTerminalSession {
 
   Future<void> _disableEchoForCommand() async {
     if (Platform.isWindows) return;
-    writeInput('stty -echo 2>/dev/null\n');
-    await Future<void>.delayed(const Duration(milliseconds: 60));
+    final marker =
+        '__OPENHAND_ECHO_READY_${DateTime.now().microsecondsSinceEpoch}__';
+    final startOffset = _output.endOffset;
+    final startGeneration = _startGeneration;
+    _writePty("stty -echo 2>/dev/null; printf '\\n%s\\n' '$marker'\n");
+    await _waitForOutputMarker(
+      marker: marker,
+      startOffset: startOffset,
+      startGeneration: startGeneration,
+      timeout: _terminalEchoReadyTimeout,
+    );
   }
 
   Future<void> _interruptTimedOutCommand() async {
@@ -2344,6 +2573,35 @@ class MachineTerminalSession {
     await Future<void>.delayed(_commandInterruptSettleDelay);
     if (!Platform.isWindows) {
       writeInput('stty echo 2>/dev/null\n');
+    }
+  }
+
+  Future<void> _waitForOutputMarker({
+    required String marker,
+    required int startOffset,
+    required int startGeneration,
+    required Duration timeout,
+  }) async {
+    final deadline = MonotonicDeadline(
+      timeout,
+      timeoutMessage: '等待文件传输通道就绪超时。',
+    );
+    try {
+      while (true) {
+        if (_plainText(_outputSince(startOffset)).contains(marker)) return;
+        if (_startGeneration != startGeneration ||
+            _pty == null ||
+            _status != MachineTerminalStatus.running) {
+          throw StateError(_terminalNotRunningError);
+        }
+        final remaining = deadline.remainingOrNull();
+        if (remaining == null) throw deadline.timeoutException();
+        await Future<void>.delayed(
+          remaining < _commandPollInterval ? remaining : _commandPollInterval,
+        );
+      }
+    } finally {
+      deadline.stop();
     }
   }
 
@@ -2712,8 +2970,127 @@ String _commandPayload({
       '$command\n'
       ')\n'
       '__openhand_status=\$?\n'
-      "printf '\\n__%s__:%s\\n' '$endMarker' \"\$__openhand_status\"\n"
-      'stty echo 2>/dev/null\n';
+      'stty echo 2>/dev/null\n'
+      "printf '\\n__%s__:%s\\n' '$endMarker' \"\$__openhand_status\"\n";
+}
+
+String _uploadCommandPayload({
+  required String beginMarker,
+  required String endMarker,
+  required String doneMarker,
+  required String cancelMarker,
+  required String targetDirectory,
+  required String targetName,
+  required String token,
+}) {
+  final separator = Platform.isWindows ? r'\' : '/';
+  final targetPath =
+      targetDirectory.endsWith('/') || targetDirectory.endsWith(r'\')
+      ? '$targetDirectory$targetName'
+      : '$targetDirectory$separator$targetName';
+  final temporaryPath = '$targetPath.openhand-$token.tmp';
+  final base64Path = '$temporaryPath.b64';
+  if (Platform.isWindows) {
+    final script =
+        r'''
+$ErrorActionPreference = 'Stop'
+$beginMarker = '__BEGIN__'
+$endMarker = '__END__'
+$doneMarker = '__DONE__'
+$cancelMarker = '__CANCEL__'
+$targetPath = '__TARGET__'
+$temporaryPath = '__TEMP__'
+$base64Path = '__BASE64__'
+$status = 0
+Write-Output $beginMarker
+try {
+  $writer = [IO.StreamWriter]::new($base64Path, $false, [Text.Encoding]::ASCII)
+  try {
+    while (($line = [Console]::In.ReadLine()) -ne $null) {
+      if ($line -eq $doneMarker) { break }
+      if ($line -eq $cancelMarker) { $status = 130; break }
+      $writer.Write($line)
+    }
+  } finally {
+    $writer.Dispose()
+  }
+  if ($status -eq 0) {
+    $inputStream = [IO.File]::OpenRead($base64Path)
+    $outputStream = [IO.File]::Create($temporaryPath)
+    $transform = [Security.Cryptography.FromBase64Transform]::new(
+      [Security.Cryptography.FromBase64TransformMode]::IgnoreWhiteSpaces
+    )
+    $decoder = [Security.Cryptography.CryptoStream]::new(
+      $inputStream,
+      $transform,
+      [Security.Cryptography.CryptoStreamMode]::Read
+    )
+    try { $decoder.CopyTo($outputStream) } finally {
+      $decoder.Dispose()
+      $outputStream.Dispose()
+      $inputStream.Dispose()
+      $transform.Dispose()
+    }
+    Move-Item -LiteralPath $temporaryPath -Destination $targetPath -Force
+  }
+} catch {
+  $status = 1
+} finally {
+  Remove-Item -LiteralPath $base64Path -Force -ErrorAction SilentlyContinue
+  if ($status -ne 0) {
+    Remove-Item -LiteralPath $temporaryPath -Force -ErrorAction SilentlyContinue
+  }
+}
+Write-Output ($endMarker + ':' + $status)
+'''
+            .replaceAll('__BEGIN__', _escapePowerShellLiteral(beginMarker))
+            .replaceAll('__END__', _escapePowerShellLiteral(endMarker))
+            .replaceAll('__DONE__', _escapePowerShellLiteral(doneMarker))
+            .replaceAll('__CANCEL__', _escapePowerShellLiteral(cancelMarker))
+            .replaceAll('__TARGET__', _escapePowerShellLiteral(targetPath))
+            .replaceAll('__TEMP__', _escapePowerShellLiteral(temporaryPath))
+            .replaceAll('__BASE64__', _escapePowerShellLiteral(base64Path));
+    return '@powershell.exe -NoProfile -NonInteractive -EncodedCommand '
+        '${_encodePowerShellCommand(script)}\r\n';
+  }
+
+  final target = _quotePosixShell(targetPath);
+  final begin = _quotePosixShell(beginMarker);
+  final end = _quotePosixShell(endMarker);
+  final done = _quotePosixShell(doneMarker);
+  final cancel = _quotePosixShell(cancelMarker);
+  return '(__oh_b=$begin;__oh_e=$end;__oh_d=$done;__oh_c=$cancel;'
+      '__oh_t=$target;__oh_x="\$__oh_t.openhand-$token.tmp";'
+      '__oh_y="\$__oh_x.b64";__oh_s=0;: >"\$__oh_y"||__oh_s=1;'
+      "printf '\\n%s\\n' \"\$__oh_b\";"
+      'stty -echo -icanon min 1 time 0 2>/dev/null||true;'
+      'while [ "\$__oh_s" -eq 0 ]&&IFS= read -r __oh_l;do '
+      '[ "\$__oh_l" = "\$__oh_d" ]&&break;'
+      'if [ "\$__oh_l" = "\$__oh_c" ];then __oh_s=130;break;fi;'
+      'printf "%s" "\$__oh_l">>"\$__oh_y"||__oh_s=1;done;'
+      'stty echo icanon 2>/dev/null||true;'
+      'if [ "\$__oh_s" -eq 0 ];then '
+      'base64 -d<"\$__oh_y">"\$__oh_x"&&'
+      'mv -f -- "\$__oh_x" "\$__oh_t"||__oh_s=1;fi;'
+      'rm -f -- "\$__oh_y";'
+      '[ "\$__oh_s" -eq 0 ]||rm -f -- "\$__oh_x";'
+      "printf '\\n%s:%s\\n' \"\$__oh_e\" \"\$__oh_s\")\n";
+}
+
+String _quotePosixShell(String value) {
+  return "'${value.replaceAll("'", "'\"'\"'")}'";
+}
+
+String _escapePowerShellLiteral(String value) => value.replaceAll("'", "''");
+
+String _encodePowerShellCommand(String command) {
+  final bytes = <int>[];
+  for (final codeUnit in command.codeUnits) {
+    bytes
+      ..add(codeUnit & 0xff)
+      ..add((codeUnit >> 8) & 0xff);
+  }
+  return base64Encode(bytes);
 }
 
 /// ANSI CSI / OSC / ESC 序列。提到顶层复用：命令等待循环每 80ms 调一次

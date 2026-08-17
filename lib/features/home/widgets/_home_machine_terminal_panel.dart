@@ -192,6 +192,7 @@ class _MachineExpertTerminalPanelState
             onRestart: () => _control('restart', activeSnapshot.terminalId),
             onNew: () => _control('new', null),
             onDuplicate: () => _control('duplicate', activeSnapshot.terminalId),
+            onFiles: () => _showFileManagerDialog(activeSnapshot.terminalId),
             onClear: () => _control('clear', activeSnapshot.terminalId),
             onHistory: _showHistoryDialog,
           ),
@@ -276,6 +277,16 @@ class _MachineExpertTerminalPanelState
     );
   }
 
+  void _showFileManagerDialog(String terminalId) {
+    showAnimatedDialog<void>(
+      context: context,
+      builder: (dialogContext) => _MachineTerminalFileManagerDialog(
+        sessionId: widget.sessionId,
+        terminalId: terminalId,
+      ),
+    );
+  }
+
   void _showReplayDialog(MachineTerminalSnapshot snapshot) {
     showAnimatedDialog<void>(
       context: context,
@@ -344,6 +355,7 @@ class _MachineTerminalHeader extends StatelessWidget {
     required this.onRestart,
     required this.onNew,
     required this.onDuplicate,
+    required this.onFiles,
     required this.onClear,
     required this.onHistory,
   });
@@ -356,6 +368,7 @@ class _MachineTerminalHeader extends StatelessWidget {
   final VoidCallback onRestart;
   final VoidCallback onNew;
   final VoidCallback onDuplicate;
+  final VoidCallback onFiles;
   final VoidCallback onClear;
   final VoidCallback onHistory;
 
@@ -509,6 +522,15 @@ class _MachineTerminalHeader extends StatelessWidget {
               icon: Icons.restart_alt_rounded,
               tooltip: openHandRestartLabel(context),
               onPressed: onRestart,
+            ),
+            _MachineTerminalIconButton(
+              icon: Icons.folder_open_rounded,
+              tooltip: openHandLocalizedText(
+                context,
+                zh: '文件管理',
+                en: 'File Manager',
+              ),
+              onPressed: onFiles,
             ),
             _MachineTerminalIconButton(
               icon: Icons.cleaning_services_rounded,

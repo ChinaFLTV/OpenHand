@@ -209,6 +209,9 @@ Future<void> _bootstrap() async {
   InstructionsController? instructionsControllerHandle;
   KnowledgeBaseController? knowledgeBaseControllerHandle;
   final machineTerminalService = MachineTerminalService();
+  final machineTerminalFileService = MachineTerminalFileService(
+    machineTerminalService,
+  );
   final aiModuleFuture = AiModule.bootstrap(
     userHooksExecutor: hooks.executor,
     skillsDirProvider: () => settingsController.skillsStoragePath,
@@ -497,6 +500,10 @@ Future<void> _bootstrap() async {
       await machineTerminalService.shutdown();
       machineTerminalService.dispose();
     }, timeout: MachineTerminalService.runtimeCleanupTimeout)
+    ..register('机器终端文件服务', () async {
+      await machineTerminalFileService.shutdown();
+      machineTerminalFileService.dispose();
+    })
     ..register(
       'MCP 控制器',
       mcp.controller.shutdown,
@@ -581,6 +588,9 @@ Future<void> _bootstrap() async {
         ...AiModule.providers(ai),
         ChangeNotifierProvider<MachineTerminalService>.value(
           value: machineTerminalService,
+        ),
+        ChangeNotifierProvider<MachineTerminalFileService>.value(
+          value: machineTerminalFileService,
         ),
         ChangeNotifierProvider<TemplateRuntimeLinkageController>.value(
           value: templateRuntimeLinkageController,
