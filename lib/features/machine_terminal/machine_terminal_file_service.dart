@@ -298,6 +298,7 @@ class MachineTerminalFileService extends ChangeNotifier {
           onProgress: (_) {},
           waitWhilePaused: () async {},
           isCancelled: () => false,
+          recordHistory: false,
         );
       } finally {
         try {
@@ -733,6 +734,7 @@ class MachineTerminalFileService extends ChangeNotifier {
       terminalId: terminalId,
       command: command,
       timeout: timeout,
+      recordHistory: false,
     );
     if (result.succeeded) return result.output;
     final error = result.error?.trim() ?? '';
@@ -815,6 +817,7 @@ class MachineTerminalFileService extends ChangeNotifier {
               onProgress: onProgress,
               waitWhilePaused: () => _waitWhilePaused(task),
               isCancelled: isCancelled,
+              recordHistory: false,
             );
           } else {
             await _downloadFile(

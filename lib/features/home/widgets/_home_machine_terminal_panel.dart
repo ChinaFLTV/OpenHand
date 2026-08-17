@@ -5,6 +5,9 @@ const Color _machineTerminalBackground = Color(0xFF0B0D10);
 const Color _machineTerminalGreen = Color(0xFF5FE3A1);
 const Color _machineTerminalYellow = Color(0xFFE8D66B);
 const Color _machineTerminalRunningColor = Color(0xFF4C9A2A);
+const double _machineTerminalAutoFollowThreshold = 72;
+
+enum _MachineTerminalSelectionAction { copy, selectAll }
 
 /// 终端画布表面：深色底 + 细描边 + 一层托起阴影，圆角由调用方决定。
 BoxDecoration _machineTerminalSurfaceDecoration(
@@ -50,6 +53,7 @@ class _MachineExpertTerminalPanelState
   final FocusNode _terminalFocusNode = FocusNode(
     debugLabel: 'machine-terminal',
   );
+  final TerminalController _terminalController = TerminalController();
   String? _initializedSessionId;
 
   @override
@@ -75,6 +79,7 @@ class _MachineExpertTerminalPanelState
   void dispose() {
     _terminalScrollController.dispose();
     _terminalFocusNode.dispose();
+    _terminalController.dispose();
     super.dispose();
   }
 
@@ -126,7 +131,9 @@ class _MachineExpertTerminalPanelState
   void _followBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_terminalScrollController.hasClients) return;
+      if (_terminalController.selection != null) return;
       final position = _terminalScrollController.position;
+      if (position.extentAfter > _machineTerminalAutoFollowThreshold) return;
       final target = position.maxScrollExtent;
       if ((position.pixels - target).abs() < 2) return;
       _terminalScrollController.animateTo(
@@ -213,6 +220,7 @@ class _MachineExpertTerminalPanelState
                     'machine-terminal-view-${activeSession.id}',
                   ),
                   session: activeSession,
+                  controller: _terminalController,
                   scrollController: _terminalScrollController,
                   focusNode: _terminalFocusNode,
                   padding: _terminalViewportPadding,
@@ -230,6 +238,12 @@ class _MachineExpertTerminalPanelState
   Future<void> _control(String action, String? terminalId) async {
     final terminalService = context.read<MachineTerminalService>();
     try {
+      if (action == 'select' ||
+          action == 'new' ||
+          action == 'duplicate' ||
+          action == 'close') {
+        _terminalController.clearSelection();
+      }
       await terminalService.control(
         sessionId: widget.sessionId,
         action: action,
@@ -300,12 +314,14 @@ class _MachineTerminalViewport extends StatelessWidget {
   const _MachineTerminalViewport({
     super.key,
     required this.session,
+    required this.controller,
     required this.scrollController,
     required this.focusNode,
     required this.padding,
   });
 
   final MachineTerminalSession session;
+  final TerminalController controller;
   final ScrollController scrollController;
   final FocusNode focusNode;
   final EdgeInsets padding;
@@ -315,14 +331,92 @@ class _MachineTerminalViewport extends StatelessWidget {
     return RepaintBoundary(
       child: TerminalView(
         session.terminal,
+        controller: controller,
         scrollController: scrollController,
         focusNode: focusNode,
         autofocus: true,
         padding: padding,
         theme: _machineTerminalTheme(),
         alwaysShowCursor: true,
+        onSecondaryTapDown: (details, _) =>
+            _showSelectionMenu(context, details.globalPosition),
       ),
     );
+  }
+
+  Future<void> _showSelectionMenu(
+    BuildContext context,
+    Offset globalPosition,
+  ) async {
+    final selected =
+        await showAnimatedPointerMenu<_MachineTerminalSelectionAction>(
+          context: context,
+          globalPosition: globalPosition,
+          items: <PopupMenuEntry<_MachineTerminalSelectionAction>>[
+            PopupMenuItem<_MachineTerminalSelectionAction>(
+              value: _MachineTerminalSelectionAction.copy,
+              enabled: controller.selection != null,
+              child: Row(
+                children: [
+                  const Icon(Icons.content_copy_rounded, size: 18),
+                  kOpenHandHGap10,
+                  Text(
+                    openHandLocalizedText(
+                      context,
+                      zh: '复制选中内容',
+                      en: 'Copy selection',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuItem<_MachineTerminalSelectionAction>(
+              value: _MachineTerminalSelectionAction.selectAll,
+              child: Row(
+                children: [
+                  const Icon(Icons.select_all_rounded, size: 18),
+                  kOpenHandHGap10,
+                  Text(
+                    openHandLocalizedText(context, zh: '全选', en: 'Select all'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+    if (!context.mounted || selected == null) return;
+    if (selected == _MachineTerminalSelectionAction.selectAll) {
+      final terminal = session.terminal;
+      controller.setSelection(
+        terminal.buffer.createAnchor(
+          0,
+          terminal.buffer.height - terminal.viewHeight,
+        ),
+        terminal.buffer.createAnchor(
+          terminal.viewWidth,
+          terminal.buffer.height - 1,
+        ),
+        mode: SelectionMode.line,
+      );
+      focusNode.requestFocus();
+      return;
+    }
+    final selection = controller.selection;
+    if (selection == null) return;
+    final text = session.terminal.buffer.getText(selection);
+    if (text.isEmpty) return;
+    await copyOpenHandTextToClipboard(
+      context: context,
+      text: text,
+      logTag: 'home_machine_terminal_panel',
+      logAction: '复制终端选中内容',
+      successMessage: openHandLocalizedText(
+        context,
+        zh: '终端选中内容已复制。',
+        en: 'Terminal selection copied.',
+      ),
+    );
+    focusNode.requestFocus();
   }
 }
 

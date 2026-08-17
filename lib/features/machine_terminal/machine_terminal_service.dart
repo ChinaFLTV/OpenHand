@@ -331,7 +331,13 @@ class MachineTerminalSnapshot {
   }
 
   Map<String, Object?> _toPersistenceJson() {
+    final persistentAnsiOutput = _clipString(
+      historyAnsiOutput,
+      _maxToolOutputCharacters,
+    );
     return toJson()
+      ..['ansi_output'] = persistentAnsiOutput
+      ..['output_characters'] = persistentAnsiOutput.length
       ..remove('output')
       ..remove('history_output');
   }
@@ -893,6 +899,7 @@ class MachineTerminalService extends ChangeNotifier {
     required MachineTerminalUploadProgress onProgress,
     required MachineTerminalUploadPauseWaiter waitWhilePaused,
     required MachineTerminalUploadCancelCheck isCancelled,
+    bool recordHistory = true,
   }) async {
     final terminal = await _requireTerminal(sessionId, terminalId);
     if (!await terminal.ensureRunning()) {
@@ -905,9 +912,10 @@ class MachineTerminalService extends ChangeNotifier {
       onProgress: onProgress,
       waitWhilePaused: waitWhilePaused,
       isCancelled: isCancelled,
+      recordHistory: recordHistory,
     );
     _scheduleMetadataPersist(terminal.sessionId);
-    _scheduleHistoryPersist(terminal.sessionId);
+    if (recordHistory) _scheduleHistoryPersist(terminal.sessionId);
   }
 
   Future<MachineTerminalCommandResult> executeCommand({
@@ -916,6 +924,7 @@ class MachineTerminalService extends ChangeNotifier {
     String? terminalId,
     Duration timeout = kMachineTerminalDefaultCommandTimeout,
     bool startIfNeeded = true,
+    bool recordHistory = true,
   }) async {
     final terminal = await _requireTerminal(sessionId, terminalId);
     final trimmed = command.trimRight();
@@ -951,9 +960,10 @@ class MachineTerminalService extends ChangeNotifier {
       beginMarker: '${token}_BEGIN',
       endMarker: '${token}_END',
       timeout: effectiveTimeout,
+      recordHistory: recordHistory,
     );
     _scheduleMetadataPersist(terminal.sessionId);
-    _scheduleHistoryPersist(terminal.sessionId);
+    if (recordHistory) _scheduleHistoryPersist(terminal.sessionId);
     return result;
   }
 
@@ -1720,6 +1730,7 @@ class MachineTerminalSession {
       <MachineTerminalCommandRecord>[];
   Future<MachineTerminalCommandResult>? _commandExecution;
   Future<void>? _uploadExecution;
+  int _historyRecordingSuppressionDepth = 0;
   int _commandSequence = 0;
   bool _attached = true;
   bool _hasUserActivity = false;
@@ -2181,19 +2192,23 @@ class MachineTerminalSession {
     required MachineTerminalUploadProgress onProgress,
     required MachineTerminalUploadPauseWaiter waitWhilePaused,
     required MachineTerminalUploadCancelCheck isCancelled,
+    bool recordHistory = true,
   }) {
     if (_commandExecution != null || _uploadExecution != null) {
       return Future<void>.error(StateError(_terminalBusyError));
     }
     late final Future<void> tracked;
     tracked =
-        _uploadFile(
-          sourcePath: sourcePath,
-          targetDirectory: targetDirectory,
-          targetName: targetName,
-          onProgress: onProgress,
-          waitWhilePaused: waitWhilePaused,
-          isCancelled: isCancelled,
+        _runWithHistoryPolicy(
+          recordHistory: recordHistory,
+          operation: () => _uploadFile(
+            sourcePath: sourcePath,
+            targetDirectory: targetDirectory,
+            targetName: targetName,
+            onProgress: onProgress,
+            waitWhilePaused: waitWhilePaused,
+            isCancelled: isCancelled,
+          ),
         ).whenComplete(() {
           if (identical(_uploadExecution, tracked)) _uploadExecution = null;
         });
@@ -2340,6 +2355,7 @@ class MachineTerminalSession {
     required String beginMarker,
     required String endMarker,
     required Duration timeout,
+    bool recordHistory = true,
   }) {
     if (_commandExecution != null || _uploadExecution != null) {
       return Future<MachineTerminalCommandResult>.value(
@@ -2355,11 +2371,14 @@ class MachineTerminalSession {
     }
     late final Future<MachineTerminalCommandResult> tracked;
     tracked =
-        _executeCommand(
-          command: command,
-          beginMarker: beginMarker,
-          endMarker: endMarker,
-          timeout: timeout,
+        _runWithHistoryPolicy(
+          recordHistory: recordHistory,
+          operation: () => _executeCommand(
+            command: command,
+            beginMarker: beginMarker,
+            endMarker: endMarker,
+            timeout: timeout,
+          ),
         ).whenComplete(() {
           if (identical(_commandExecution, tracked)) {
             _commandExecution = null;
@@ -2473,6 +2492,7 @@ class MachineTerminalSession {
     MachineTerminalCommandResult result, {
     required DateTime startedAt,
   }) {
+    if (_historyRecordingSuppressionDepth > 0) return;
     _hasUserActivity = true;
     _commandSequence += 1;
     _commandHistory.add(
@@ -2529,9 +2549,25 @@ class MachineTerminalSession {
   }
 
   void _handleOutput(String text) {
-    terminal.write(text);
-    _appendRaw(text);
+    _output.append(text);
+    if (_historyRecordingSuppressionDepth == 0) {
+      terminal.write(text);
+      _appendHistory(text);
+    }
     _touch();
+  }
+
+  Future<T> _runWithHistoryPolicy<T>({
+    required bool recordHistory,
+    required Future<T> Function() operation,
+  }) async {
+    if (recordHistory) return operation();
+    _historyRecordingSuppressionDepth += 1;
+    try {
+      return await operation();
+    } finally {
+      _historyRecordingSuppressionDepth -= 1;
+    }
   }
 
   void _appendPlain(String text) {

@@ -95,6 +95,51 @@ void main() {
     }
   });
 
+  test('文件管理命令不写入关联终端历史', () async {
+    final sessions = await Directory.systemTemp.createTemp(
+      'openhand-terminal-history-policy-',
+    );
+    final terminalService = MachineTerminalService(
+      sessionsDirectoryPath: sessions.path,
+    );
+    try {
+      final workspace = await terminalService.ensureWorkspace(
+        sessionId: 'history-policy-test',
+        start: false,
+      );
+      final terminalId = workspace.activeTerminal!.terminalId;
+
+      await terminalService.executeCommand(
+        sessionId: 'history-policy-test',
+        terminalId: terminalId,
+        command: 'pwd',
+        startIfNeeded: false,
+        recordHistory: false,
+      );
+
+      final snapshot = terminalService.snapshot('history-policy-test')!;
+      expect(snapshot.activeTerminal!.commandCount, 0);
+      expect(snapshot.activeTerminal!.commandHistory, isEmpty);
+      expect(snapshot.activeTerminal!.hasUserActivity, isFalse);
+
+      await terminalService.executeCommand(
+        sessionId: 'history-policy-test',
+        terminalId: terminalId,
+        command: 'whoami',
+        startIfNeeded: false,
+      );
+
+      final recorded = terminalService.snapshot('history-policy-test')!;
+      expect(recorded.activeTerminal!.commandCount, 1);
+      expect(recorded.activeTerminal!.commandHistory.single.command, 'whoami');
+      expect(recorded.activeTerminal!.hasUserActivity, isTrue);
+    } finally {
+      await terminalService.shutdown();
+      terminalService.dispose();
+      await sessions.delete(recursive: true);
+    }
+  });
+
   test('批量上传校验失败时不残留部分任务', () async {
     final root = await Directory.systemTemp.createTemp(
       'openhand-terminal-upload-validation-',
