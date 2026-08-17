@@ -1840,44 +1840,35 @@ class AiExposureScanRequest {
   const AiExposureScanRequest({
     required this.name,
     required this.sources,
-    required this.mode,
-    required this.authorizedScope,
     required this.authorizationConfirmed,
-    required this.targets,
     required this.vendors,
     required this.validationMode,
     required this.forumFetchMode,
     required this.concurrency,
     required this.gptAssisted,
-    this.sourceQueries = const <String, String>{},
   });
 
   final String name;
   final Set<AiExposureSource> sources;
-  final AiExposureScanMode mode;
-  final List<String> authorizedScope;
   final bool authorizationConfirmed;
-  final List<String> targets;
   final List<String> vendors;
   final AiExposureValidationMode validationMode;
   final AiExposureForumFetchMode forumFetchMode;
   final int concurrency;
   final bool gptAssisted;
-  final Map<String, String> sourceQueries;
 
   Map<String, Object?> toJson() => <String, Object?>{
     'name': name,
     'sources': sources.map((source) => source.id).toList(growable: false),
-    'mode': mode.id,
-    'authorizedScope': authorizedScope,
+    'mode': AiExposureScanMode.full.id,
+    'authorizedScope': const <String>[],
     'authorizationConfirmed': authorizationConfirmed,
-    'targets': targets,
+    'targets': const <String>[],
     'vendors': vendors,
     'validationMode': validationMode.id,
     'forumFetchMode': forumFetchMode.id,
     'concurrency': concurrency,
     'gptAssisted': gptAssisted,
-    'sourceQueries': sourceQueries,
   };
 }
 

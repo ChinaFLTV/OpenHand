@@ -63,8 +63,6 @@ const List<String> _kVendors = <String>[
   'Mistral',
 ];
 
-enum _HuntConfiguration { standard, custom }
-
 enum _ScanWorkspaceView { live, results, history }
 
 Future<void> showAiExposureNewHuntDialog(BuildContext context) =>
@@ -139,35 +137,21 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
   final TextEditingController _name = TextEditingController(
     text: 'AI 基础设施暴露面扫描',
   );
-  final TextEditingController _scope = TextEditingController();
-  final TextEditingController _targets = TextEditingController();
-  final List<TextEditingController> _queryControllers =
-      List<TextEditingController>.generate(8, (_) => TextEditingController());
   late Set<AiExposureSource> _sources;
   final Set<String> _vendors = Set<String>.of(_kVendors);
-  AiExposureScanMode _mode = AiExposureScanMode.incremental;
   late AiExposureValidationMode _validationMode;
   late AiExposureForumFetchMode _forumFetchMode;
   late bool _gptAssisted;
   late double _concurrency;
-  _HuntConfiguration _configuration = _HuntConfiguration.standard;
   bool _confirmed = false;
   bool _submitting = false;
-
-  TextEditingController get _fofaQuery => _queryControllers[0];
-  TextEditingController get _shodanQuery => _queryControllers[1];
-  TextEditingController get _githubQuery => _queryControllers[2];
-  TextEditingController get _giteeQuery => _queryControllers[3];
-  TextEditingController get _gitcodeQuery => _queryControllers[4];
-  TextEditingController get _nodeseekQuery => _queryControllers[5];
-  TextEditingController get _linuxDoQuery => _queryControllers[6];
-  TextEditingController get _v2exQuery => _queryControllers[7];
 
   @override
   void initState() {
     super.initState();
     final controller = context.read<ServicesController>();
-    _sources = Set<AiExposureSource>.of(controller.enabledSources);
+    _sources = Set<AiExposureSource>.of(controller.enabledSources)
+      ..remove(AiExposureSource.manual);
     _validationMode = controller.defaultValidationMode;
     _forumFetchMode = controller.forumFetchMode;
     _gptAssisted = controller.defaultGptAssisted;
@@ -177,11 +161,6 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
   @override
   void dispose() {
     _name.dispose();
-    _scope.dispose();
-    _targets.dispose();
-    for (final controller in _queryControllers) {
-      controller.dispose();
-    }
     super.dispose();
   }
 
@@ -234,24 +213,6 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
                     ),
                   ),
           ),
-          SegmentedButton<_HuntConfiguration>(
-            segments: [
-              ButtonSegment(
-                value: _HuntConfiguration.standard,
-                icon: const Icon(Icons.bolt_outlined),
-                label: Text(text(zh: '标准配置', en: 'Standard')),
-              ),
-              ButtonSegment(
-                value: _HuntConfiguration.custom,
-                icon: const Icon(Icons.tune_rounded),
-                label: Text(text(zh: '自定义配置', en: 'Custom')),
-              ),
-            ],
-            selected: <_HuntConfiguration>{_configuration},
-            onSelectionChanged: (selection) =>
-                setState(() => _configuration = selection.first),
-          ),
-          const SizedBox(height: _kSectionGap),
           TextField(
             controller: _name,
             maxLength: 120,
@@ -272,23 +233,19 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: AiExposureSource.values
+                .where((source) => source != AiExposureSource.manual)
                 .map((source) {
-                  final disabled =
-                      _mode == AiExposureScanMode.full &&
-                      source == AiExposureSource.manual;
                   return ServiceFilterChip(
                     selected: _sources.contains(source),
                     icon: Icon(aiExposureSourceIcon(source), size: 17),
                     label: Text(_sourceLabel(context, source)),
-                    onSelected: disabled
-                        ? null
-                        : (selected) => setState(() {
-                            if (selected) {
-                              _sources.add(source);
-                            } else {
-                              _sources.remove(source);
-                            }
-                          }),
+                    onSelected: (selected) => setState(() {
+                      if (selected) {
+                        _sources.add(source);
+                      } else {
+                        _sources.remove(source);
+                      }
+                    }),
                   );
                 })
                 .toList(growable: false),
@@ -348,132 +305,15 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
                     ),
                   ),
           ),
-          const SizedBox(height: _kSectionGap),
-          _SectionTitle(
-            icon: Icons.sync_alt_rounded,
-            title: text(zh: '扫描模式', en: 'Scan mode'),
-          ),
-          const SizedBox(height: _kItemGap),
-          SegmentedButton<AiExposureScanMode>(
-            segments: [
-              ButtonSegment(
-                value: AiExposureScanMode.incremental,
-                icon: const Icon(Icons.update_rounded),
-                label: Text(text(zh: '增量', en: 'Incremental')),
+          Padding(
+            padding: const EdgeInsets.only(top: _kSectionGap),
+            child: _InlineNotice(
+              icon: Icons.public_rounded,
+              text: text(
+                zh: '将扫描所选数据源返回的全部候选目标，请确认你已获得相应授权。',
+                en: 'Every candidate returned by the selected sources will be scanned. Confirm that you are authorized to assess them.',
               ),
-              ButtonSegment(
-                value: AiExposureScanMode.full,
-                icon: const Icon(Icons.restart_alt_rounded),
-                label: Text(text(zh: '全量', en: 'Full')),
-              ),
-            ],
-            selected: <AiExposureScanMode>{_mode},
-            onSelectionChanged: (selection) {
-              final mode = selection.first;
-              setState(() {
-                _mode = mode;
-                if (mode == AiExposureScanMode.full) {
-                  _sources.remove(AiExposureSource.manual);
-                }
-              });
-            },
-          ),
-          OpenHandVerticalRevealSwitcher(
-            presentKey: const ValueKey<String>('scope-and-manual-targets'),
-            slideBeginOffsetY: -.03,
-            child: _mode == AiExposureScanMode.full
-                ? null
-                : Padding(
-                    padding: const EdgeInsets.only(top: _kSectionGap),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        TextField(
-                          controller: _scope,
-                          minLines: 2,
-                          maxLines: 4,
-                          decoration: InputDecoration(
-                            labelText: text(
-                              zh: '授权目标范围',
-                              en: 'Authorized scope',
-                            ),
-                            hintText: 'example.com\n10.10.0.0/16',
-                            border: const OutlineInputBorder(),
-                          ),
-                        ),
-                        OpenHandVerticalRevealSwitcher(
-                          presentKey: const ValueKey<String>('manual-targets'),
-                          slideBeginOffsetY: -.03,
-                          child: !_sources.contains(AiExposureSource.manual)
-                              ? null
-                              : Padding(
-                                  padding: const EdgeInsets.only(
-                                    top: _kItemGap,
-                                  ),
-                                  child: TextField(
-                                    controller: _targets,
-                                    minLines: 3,
-                                    maxLines: 7,
-                                    decoration: InputDecoration(
-                                      labelText: text(
-                                        zh: '手工目标',
-                                        en: 'Manual targets',
-                                      ),
-                                      hintText:
-                                          'https://api.example.com\n10.10.2.8:8080',
-                                      border: const OutlineInputBorder(),
-                                    ),
-                                  ),
-                                ),
-                        ),
-                      ],
-                    ),
-                  ),
-          ),
-          OpenHandVerticalRevealSwitcher(
-            presentKey: const ValueKey<String>('full-scan-notice'),
-            slideBeginOffsetY: -.03,
-            child: _mode != AiExposureScanMode.full
-                ? null
-                : Padding(
-                    padding: const EdgeInsets.only(top: _kSectionGap),
-                    child: _InlineNotice(
-                      icon: Icons.public_rounded,
-                      text: text(
-                        zh: '全量模式将扫描所选数据源返回的全部候选目标，请确认你已获得相应授权。',
-                        en: 'Full mode scans every candidate returned by the selected sources. Confirm that you are authorized to assess them.',
-                      ),
-                    ),
-                  ),
-          ),
-          OpenHandVerticalRevealSwitcher(
-            presentKey: const ValueKey<String>('custom-discovery-queries'),
-            slideBeginOffsetY: -.03,
-            child: _configuration != _HuntConfiguration.custom
-                ? null
-                : Padding(
-                    padding: const EdgeInsets.only(top: _kSectionGap),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _SectionTitle(
-                          icon: Icons.manage_search_rounded,
-                          title: text(zh: '补充发现查询', en: 'Supplemental queries'),
-                        ),
-                        const SizedBox(height: _kItemGap),
-                        _QueryFields(
-                          fofa: _fofaQuery,
-                          shodan: _shodanQuery,
-                          github: _githubQuery,
-                          gitee: _giteeQuery,
-                          gitcode: _gitcodeQuery,
-                          nodeseek: _nodeseekQuery,
-                          linuxDo: _linuxDoQuery,
-                          v2ex: _v2exQuery,
-                        ),
-                      ],
-                    ),
-                  ),
+            ),
           ),
           const SizedBox(height: _kSectionGap),
           _SectionTitle(
@@ -578,12 +418,8 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
             onChanged: (value) => setState(() => _confirmed = value == true),
             title: Text(
               text(
-                zh: _mode == AiExposureScanMode.full
-                    ? '我确认已获得所选数据源候选目标的安全评估授权'
-                    : '我确认已获得上述目标范围的安全评估授权',
-                en: _mode == AiExposureScanMode.full
-                    ? 'I confirm authorization to assess candidates returned by the selected sources'
-                    : 'I confirm authorization to assess the declared scope',
+                zh: '我确认已获得所选数据源候选目标的安全评估授权',
+                en: 'I confirm authorization to assess candidates returned by the selected sources',
               ),
             ),
             controlAffinity: ListTileControlAffinity.leading,
@@ -596,29 +432,13 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
   Future<void> _submit() async {
     if (_submitting) return;
     final text = openHandTextResolver(context);
-    final fullScan = _mode == AiExposureScanMode.full;
-    final scope = fullScan ? const <String>[] : _lines(_scope.text);
-    final targets = fullScan ? const <String>[] : _lines(_targets.text);
-    if (_name.text.trim().isEmpty ||
-        (!fullScan && scope.isEmpty) ||
-        _sources.isEmpty) {
+    if (_name.text.trim().isEmpty || _sources.isEmpty) {
       showOpenHandErrorSnack(
         context,
         text(
-          zh: fullScan ? '请填写任务名称并选择数据源。' : '请填写任务名称、授权范围并选择数据源。',
-          en: fullScan
-              ? 'Enter a name and select at least one source.'
-              : 'Enter a name, scope, and at least one source.',
+          zh: '请填写任务名称并选择数据源。',
+          en: 'Enter a name and select at least one source.',
         ),
-      );
-      return;
-    }
-    if (!fullScan &&
-        _sources.contains(AiExposureSource.manual) &&
-        targets.isEmpty) {
-      showOpenHandErrorSnack(
-        context,
-        text(zh: '启用手工目标时至少填写一个目标。', en: 'Add at least one manual target.'),
       );
       return;
     }
@@ -667,35 +487,12 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
       AiExposureScanRequest(
         name: _name.text.trim(),
         sources: _sources,
-        mode: _mode,
-        authorizedScope: scope,
         authorizationConfirmed: true,
-        targets: targets,
         vendors: _vendors.toList(growable: false),
         validationMode: _validationMode,
         forumFetchMode: _forumFetchMode,
         concurrency: _concurrency.round(),
         gptAssisted: _gptAssisted,
-        sourceQueries: <String, String>{
-          if (_configuration == _HuntConfiguration.custom) ...{
-            if (_fofaQuery.text.trim().isNotEmpty)
-              'fofa': _fofaQuery.text.trim(),
-            if (_shodanQuery.text.trim().isNotEmpty)
-              'shodan': _shodanQuery.text.trim(),
-            if (_githubQuery.text.trim().isNotEmpty)
-              'github': _githubQuery.text.trim(),
-            if (_giteeQuery.text.trim().isNotEmpty)
-              'gitee': _giteeQuery.text.trim(),
-            if (_gitcodeQuery.text.trim().isNotEmpty)
-              'gitcode': _gitcodeQuery.text.trim(),
-            if (_nodeseekQuery.text.trim().isNotEmpty)
-              'nodeseek': _nodeseekQuery.text.trim(),
-            if (_linuxDoQuery.text.trim().isNotEmpty)
-              'linux_do': _linuxDoQuery.text.trim(),
-            if (_v2exQuery.text.trim().isNotEmpty)
-              'v2ex': _v2exQuery.text.trim(),
-          },
-        },
       ),
     );
     if (!mounted) return;
@@ -4000,76 +3797,6 @@ Color _serviceMetricTone(IconData icon, ColorScheme colors) {
     return colors.tertiary;
   }
   return colors.primary;
-}
-
-class _QueryFieldSpec {
-  const _QueryFieldSpec(this.controller, this.label, {this.hintText});
-  final TextEditingController controller;
-  final String label;
-  final String? hintText;
-}
-
-class _QueryFields extends StatelessWidget {
-  const _QueryFields({
-    required this.fofa,
-    required this.shodan,
-    required this.github,
-    required this.gitee,
-    required this.gitcode,
-    required this.nodeseek,
-    required this.linuxDo,
-    required this.v2ex,
-  });
-
-  final TextEditingController fofa;
-  final TextEditingController shodan;
-  final TextEditingController github;
-  final TextEditingController gitee;
-  final TextEditingController gitcode;
-  final TextEditingController nodeseek;
-  final TextEditingController linuxDo;
-  final TextEditingController v2ex;
-
-  @override
-  Widget build(BuildContext context) {
-    final specs = <_QueryFieldSpec>[
-      _QueryFieldSpec(fofa, 'FOFA Query'),
-      _QueryFieldSpec(shodan, 'Shodan Query'),
-      _QueryFieldSpec(github, 'GitHub Code Search Query'),
-      _QueryFieldSpec(gitee, 'Gitee Code Search Query'),
-      _QueryFieldSpec(gitcode, 'GitCode Code Search Query'),
-      _QueryFieldSpec(
-        nodeseek,
-        'NodeSeek 入口 URL',
-        hintText: 'https://www.nodeseek.com/',
-      ),
-      _QueryFieldSpec(
-        linuxDo,
-        'LINUX DO 入口 URL',
-        hintText: 'https://linux.do/c/welfare/36',
-      ),
-      _QueryFieldSpec(
-        v2ex,
-        'V2EX 入口 URL',
-        hintText: 'https://www.v2ex.com/go/openai',
-      ),
-    ];
-    return Column(
-      children: [
-        for (var index = 0; index < specs.length; index++) ...[
-          if (index > 0) kOpenHandGap10,
-          TextField(
-            controller: specs[index].controller,
-            decoration: InputDecoration(
-              labelText: specs[index].label,
-              hintText: specs[index].hintText,
-              border: const OutlineInputBorder(),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
 }
 
 class _LogList extends StatelessWidget {
