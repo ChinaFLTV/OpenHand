@@ -2522,22 +2522,29 @@ class _ToolProfileCardState extends State<_ToolProfileCard> {
         border: const OutlineInputBorder(),
         suffixIcon: !secret
             ? null
-            : ServiceDialogCompactIconButton(
-                size: 28,
-                tooltip: _showSecrets
-                    ? text(zh: '隐藏凭证', en: 'Hide credential')
-                    : text(zh: '显示凭证', en: 'Show credential'),
-                onPressed: () => setState(() => _showSecrets = !_showSecrets),
-                icon: Icon(
-                  _showSecrets
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined,
-                  size: 18,
+            : Padding(
+                padding: const EdgeInsetsDirectional.only(end: 8),
+                child: Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: ServiceDialogCompactIconButton(
+                    size: 28,
+                    tooltip: _showSecrets
+                        ? text(zh: '隐藏凭证', en: 'Hide credential')
+                        : text(zh: '显示凭证', en: 'Show credential'),
+                    onPressed: () =>
+                        setState(() => _showSecrets = !_showSecrets),
+                    icon: Icon(
+                      _showSecrets
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      size: 18,
+                    ),
+                  ),
                 ),
               ),
         suffixIconConstraints: const BoxConstraints.tightFor(
-          width: 36,
-          height: 36,
+          width: 40,
+          height: 40,
         ),
       ),
     );
