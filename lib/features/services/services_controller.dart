@@ -245,8 +245,8 @@ class ServicesController extends ChangeNotifier {
   Future<int> proxyRequestHistoryCount() =>
       _preferencesStore.countProxyRequestHistory();
 
-  Future<Map<String, String>> loadSourceCredentials() =>
-      _preferencesStore.loadSourceCredentials();
+  Future<AiExposureToolSettings> loadToolSettings() =>
+      _preferencesStore.loadToolSettings();
 
   Future<List<AiExposureProxyRequestRecord>> loadProxyRequestHistory({
     required int offset,
@@ -476,7 +476,7 @@ class ServicesController extends ChangeNotifier {
           at: DateTime.now(),
         ),
       );
-      await _restoreSourceCredentials(client);
+      await _restoreToolSettings(client);
       await refreshData();
       _scheduleProxyStatisticsSync();
     } catch (error, stack) {
@@ -527,7 +527,7 @@ class ServicesController extends ChangeNotifier {
       await _syncManagedDependencies();
       _lifecycle = AiExposureServiceLifecycle.running;
       await _preferencesStore.saveExternalAccessToken(accessToken);
-      await _restoreSourceCredentials(client);
+      await _restoreToolSettings(client);
       await refreshData();
       _scheduleProxyStatisticsSync();
       return true;
@@ -990,45 +990,19 @@ class ServicesController extends ChangeNotifier {
     }
   }
 
-  Future<bool> updateSourceCredentials({
-    String? githubToken,
-    String? giteeToken,
-    String? gitcodeToken,
-    String? fofaEmail,
-    String? fofaKey,
-    String? shodanKey,
-  }) async {
+  Future<bool> updateToolSettings(AiExposureToolSettings settings) async {
     try {
       final client = _requireClient();
-      await client.updateSourceCredentials(
-        githubToken: githubToken,
-        giteeToken: giteeToken,
-        gitcodeToken: gitcodeToken,
-        fofaEmail: fofaEmail,
-        fofaKey: fofaKey,
-        shodanKey: shodanKey,
-      );
+      final normalized = settings.normalized();
+      await client.updateToolSettings(normalized);
       _sourceStatus = Map<String, bool>.unmodifiable(
         await client.sourceStatus(),
       );
       _errorMessage = null;
-      await _preferencesStore.saveSourceCredentials(<String, String>{
-        if (githubToken != null && githubToken.trim().isNotEmpty)
-          'githubToken': githubToken.trim(),
-        if (giteeToken != null && giteeToken.trim().isNotEmpty)
-          'giteeToken': giteeToken.trim(),
-        if (gitcodeToken != null && gitcodeToken.trim().isNotEmpty)
-          'gitcodeToken': gitcodeToken.trim(),
-        if (fofaEmail != null && fofaEmail.trim().isNotEmpty)
-          'fofaEmail': fofaEmail.trim(),
-        if (fofaKey != null && fofaKey.trim().isNotEmpty)
-          'fofaKey': fofaKey.trim(),
-        if (shodanKey != null && shodanKey.trim().isNotEmpty)
-          'shodanKey': shodanKey.trim(),
-      });
+      await _preferencesStore.saveToolSettings(normalized);
       return true;
     } catch (error, stack) {
-      _errorMessage = _reportServicesFailure('更新扫描数据源凭证', error, stack);
+      _errorMessage = _reportServicesFailure('更新扫描工具设置', error, stack);
       return false;
     } finally {
       _notify();
@@ -1641,7 +1615,8 @@ class ServicesController extends ChangeNotifier {
       _appendLog(
         AiExposureLogEntry(
           level: 'info',
-          message: '代理池配置已清除，网络请求将使用 ${systemProxyAvailable ? '系统代理' : 'DIRECT'}。',
+          message:
+              '代理池配置已清除，网络请求将使用 ${systemProxyAvailable ? '系统代理' : 'DIRECT'}。',
           at: DateTime.now(),
         ),
       );
@@ -2157,23 +2132,15 @@ class ServicesController extends ChangeNotifier {
     }
   }
 
-  Future<void> _restoreSourceCredentials(AiJunglerClient client) async {
+  Future<void> _restoreToolSettings(AiJunglerClient client) async {
     try {
-      final credentials = await _preferencesStore.loadSourceCredentials();
-      if (credentials.isEmpty) return;
-      await client.updateSourceCredentials(
-        githubToken: credentials['githubToken'],
-        giteeToken: credentials['giteeToken'],
-        gitcodeToken: credentials['gitcodeToken'],
-        fofaEmail: credentials['fofaEmail'],
-        fofaKey: credentials['fofaKey'],
-        shodanKey: credentials['shodanKey'],
-      );
+      final settings = await _preferencesStore.loadToolSettings();
+      await client.updateToolSettings(settings);
       _sourceStatus = Map<String, bool>.unmodifiable(
         await client.sourceStatus(),
       );
     } catch (error, stack) {
-      _reportServicesFailure('恢复扫描数据源凭证', error, stack);
+      _reportServicesFailure('恢复扫描工具设置', error, stack);
     }
   }
 

@@ -133,28 +133,8 @@ class AiJunglerClient {
     };
   }
 
-  Future<void> updateSourceCredentials({
-    String? githubToken,
-    String? giteeToken,
-    String? gitcodeToken,
-    String? fofaEmail,
-    String? fofaKey,
-    String? shodanKey,
-  }) => _emptyRequest(
-    'PUT',
-    _kApiSources,
-    body: <String, Object?>{
-      if (githubToken?.trim().isNotEmpty == true)
-        'githubToken': githubToken!.trim(),
-      if (giteeToken?.trim().isNotEmpty == true)
-        'giteeToken': giteeToken!.trim(),
-      if (gitcodeToken?.trim().isNotEmpty == true)
-        'gitcodeToken': gitcodeToken!.trim(),
-      if (fofaEmail?.trim().isNotEmpty == true) 'fofaEmail': fofaEmail!.trim(),
-      if (fofaKey?.trim().isNotEmpty == true) 'fofaKey': fofaKey!.trim(),
-      if (shodanKey?.trim().isNotEmpty == true) 'shodanKey': shodanKey!.trim(),
-    },
-  );
+  Future<void> updateToolSettings(AiExposureToolSettings settings) =>
+      _emptyRequest('PUT', _kApiSources, body: settings.normalized().toJson());
 
   Future<List<AiExposureQuota>> quotas() async => _jsonList(
     await _request('GET', _kApiSourcesQuotas),
@@ -439,11 +419,7 @@ class AiJunglerClient {
     );
   }
 
-  String _jobPath(
-    String jobId, {
-    String root = _kApiJobs,
-    String suffix = '',
-  }) {
+  String _jobPath(String jobId, {String root = _kApiJobs, String suffix = ''}) {
     final normalized = jobId.trim();
     if (normalized.isEmpty) {
       throw const AiJunglerApiException('扫描任务编号不能为空。');

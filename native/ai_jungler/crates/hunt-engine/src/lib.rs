@@ -11,7 +11,7 @@ use hunt_core::{
 use hunt_sources::{
     BrowserAutomationConfiguration, ExternalHttpRequestRoute, HttpRequestObservation,
     HttpRequestObserver, HttpRequestOutcome, ObservedHttpClient, ObservedRequestBuilder,
-    SourceCredentials, SourceRegistry,
+    SourceCredentials, SourceRegistry, SourceToolKind, ToolConfigurationInput,
 };
 use hunt_store::HuntStore;
 use ipnet::IpNet;
@@ -173,6 +173,7 @@ pub enum EventLevel {
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceCredentialInput {
+    pub tools: Option<Vec<ToolConfigurationInput>>,
     pub github_token: Option<String>,
     pub gitee_token: Option<String>,
     pub gitcode_token: Option<String>,
@@ -189,6 +190,7 @@ pub struct SourceConfigurationStatus {
     pub gitcode: bool,
     pub fofa: bool,
     pub shodan: bool,
+    pub jina: bool,
     pub nodeseek: bool,
     pub linux_do: bool,
     pub v2ex: bool,
@@ -1061,7 +1063,11 @@ impl SystemProxyRuntime {
                     .collect()
             })
             .unwrap_or_default();
-        Self { http, https, exceptions }
+        Self {
+            http,
+            https,
+            exceptions,
+        }
     }
 
     fn enabled(&self) -> bool {
@@ -2040,34 +2046,54 @@ impl HuntEngine {
 
     pub async fn update_source_credentials(&self, input: SourceCredentialInput) {
         let mut credentials = self.credentials.write().await;
-        if input.github_token.is_some() {
-            credentials.github_token = secret(input.github_token);
+        if let Some(tools) = input.tools {
+            *credentials = SourceCredentials::from_configurations(tools);
+            return;
         }
-        if input.gitee_token.is_some() {
-            credentials.gitee_token = secret(input.gitee_token);
+        if let Some(token) = input.github_token {
+            credentials.set_legacy_profile(
+                SourceToolKind::Github,
+                BTreeMap::from([("token".to_owned(), token)]),
+            );
         }
-        if input.gitcode_token.is_some() {
-            credentials.gitcode_token = secret(input.gitcode_token);
+        if let Some(token) = input.gitee_token {
+            credentials.set_legacy_profile(
+                SourceToolKind::Gitee,
+                BTreeMap::from([("token".to_owned(), token)]),
+            );
         }
-        if input.fofa_email.is_some() {
-            credentials.fofa_email = secret(input.fofa_email);
+        if let Some(token) = input.gitcode_token {
+            credentials.set_legacy_profile(
+                SourceToolKind::Gitcode,
+                BTreeMap::from([("token".to_owned(), token)]),
+            );
         }
-        if input.fofa_key.is_some() {
-            credentials.fofa_key = secret(input.fofa_key);
+        if input.fofa_email.is_some() || input.fofa_key.is_some() {
+            credentials.set_legacy_profile(
+                SourceToolKind::Fofa,
+                BTreeMap::from([
+                    ("email".to_owned(), input.fofa_email.unwrap_or_default()),
+                    ("key".to_owned(), input.fofa_key.unwrap_or_default()),
+                ]),
+            );
         }
-        if input.shodan_key.is_some() {
-            credentials.shodan_key = secret(input.shodan_key);
+        if let Some(key) = input.shodan_key {
+            credentials.set_legacy_profile(
+                SourceToolKind::Shodan,
+                BTreeMap::from([("key".to_owned(), key)]),
+            );
         }
     }
 
     pub async fn source_status(&self) -> SourceConfigurationStatus {
         let credentials = self.credentials.read().await;
         SourceConfigurationStatus {
-            github: credentials.github_token.is_some(),
-            gitee: credentials.gitee_token.is_some(),
-            gitcode: credentials.gitcode_token.is_some(),
-            fofa: credentials.fofa_email.is_some() && credentials.fofa_key.is_some(),
-            shodan: credentials.shodan_key.is_some(),
+            github: credentials.configured(SourceToolKind::Github),
+            gitee: credentials.configured(SourceToolKind::Gitee),
+            gitcode: credentials.configured(SourceToolKind::Gitcode),
+            fofa: credentials.configured(SourceToolKind::Fofa),
+            shodan: credentials.configured(SourceToolKind::Shodan),
+            jina: credentials.configured(SourceToolKind::Jina),
             nodeseek: true,
             linux_do: true,
             v2ex: true,
@@ -2773,9 +2799,7 @@ impl HuntEngine {
                         }
                     }
                     if merged > 0 {
-                        evidence.push(format!(
-                            "GPT 辅助提取额外命中 {merged} 条凭证线索。"
-                        ));
+                        evidence.push(format!("GPT 辅助提取额外命中 {merged} 条凭证线索。"));
                     }
                 }
                 Err(error) => {
@@ -2851,7 +2875,8 @@ impl HuntEngine {
             // 蜜罐/未确认项不提示以免误导。纯派生自验证结果，不发起额外请求、不查余额、不复用。
             match category {
                 ResultCategory::HighValue => item_evidence.push(
-                    "高危泄露：凭证已验证为活跃且可列举模型，建议立即轮换并排查调用记录。".to_owned(),
+                    "高危泄露：凭证已验证为活跃且可列举模型，建议立即轮换并排查调用记录。"
+                        .to_owned(),
                 ),
                 ResultCategory::Valid => {
                     item_evidence.push("泄露凭证已验证为活跃，建议尽快轮换。".to_owned())
@@ -3028,14 +3053,21 @@ impl HuntEngine {
         if let Some(object) = payload.as_object_mut() {
             // gpt-5 系列推理模型仅支持默认温度，且改用 max_completion_tokens；
             // 其余模型沿用 temperature=0 + max_tokens，避免新模型返回 400。
-            if configuration.model.to_ascii_lowercase().starts_with("gpt-5") {
+            if configuration
+                .model
+                .to_ascii_lowercase()
+                .starts_with("gpt-5")
+            {
                 object.insert(
                     "max_completion_tokens".to_owned(),
                     json!(AI_EXTRACTION_MAX_OUTPUT_TOKENS),
                 );
             } else {
                 object.insert("temperature".to_owned(), json!(0));
-                object.insert("max_tokens".to_owned(), json!(AI_EXTRACTION_MAX_OUTPUT_TOKENS));
+                object.insert(
+                    "max_tokens".to_owned(),
+                    json!(AI_EXTRACTION_MAX_OUTPUT_TOKENS),
+                );
             }
         }
         let mut request = self
@@ -3252,13 +3284,6 @@ fn is_terminal(stage: ScanStage) -> bool {
         stage,
         ScanStage::Completed | ScanStage::Cancelled | ScanStage::Failed
     )
-}
-
-fn secret(value: Option<String>) -> Option<SecretString> {
-    value
-        .map(|value| value.trim().to_owned())
-        .filter(|value| !value.is_empty())
-        .map(SecretString::from)
 }
 
 fn normalized_headers(headers: &HeaderMap) -> BTreeMap<String, String> {
@@ -3478,6 +3503,34 @@ mod tests {
     use hunt_core::SourceKind;
 
     #[test]
+    fn deserializes_structured_tool_settings() {
+        let input: SourceCredentialInput = serde_json::from_value(serde_json::json!({
+            "tools": [{
+                "tool": "jina",
+                "enabled": true,
+                "strategy": "least_busy",
+                "profiles": [{
+                    "id": "jina-primary",
+                    "name": "主配置",
+                    "enabled": true,
+                    "values": {"token": "secret", "timeout": "30"}
+                }]
+            }]
+        }))
+        .unwrap();
+        let tools = input.tools.unwrap();
+        assert_eq!(tools.len(), 1);
+        assert!(matches!(tools[0].tool, SourceToolKind::Jina));
+        assert!(matches!(
+            tools[0].strategy,
+            hunt_sources::ToolSelectionStrategy::LeastBusy
+        ));
+        assert_eq!(tools[0].profiles.len(), 1);
+        assert_eq!(tools[0].profiles[0].id, "jina-primary");
+        assert_eq!(tools[0].profiles[0].values["timeout"], "30");
+    }
+
+    #[test]
     fn parses_fenced_ai_findings_without_extra_fields() {
         let findings = parse_ai_findings(
             "```json\n[{\"vendor\":\"DeepSeek\",\"secret\":\"sk-1234567890\"},{\"vendor\":\"\",\"secret\":\"ignored\"}]\n```",
@@ -3515,7 +3568,10 @@ mod tests {
             count_models(&serde_json::json!({"data": [{"id": "gpt-4"}, {"name": "claude"}]})),
             Some(2)
         );
-        assert_eq!(count_models(&serde_json::json!({"models": [{"modelId": "m"}]})), Some(1));
+        assert_eq!(
+            count_models(&serde_json::json!({"models": [{"modelId": "m"}]})),
+            Some(1)
+        );
         assert_eq!(count_models(&serde_json::json!({"data": []})), None);
         assert_eq!(count_models(&serde_json::json!({"data": [1, 2, 3]})), None);
         assert_eq!(count_models(&serde_json::json!({"status": "ok"})), None);
@@ -3683,12 +3739,11 @@ mod tests {
     fn distinguishes_omitted_and_explicit_empty_system_proxy() {
         let omitted: ProxyConfigurationInput =
             serde_json::from_value(serde_json::json!({"enabled": false})).unwrap();
-        let explicit: ProxyConfigurationInput =
-            serde_json::from_value(serde_json::json!({
-                "enabled": false,
-                "systemProxy": {}
-            }))
-            .unwrap();
+        let explicit: ProxyConfigurationInput = serde_json::from_value(serde_json::json!({
+            "enabled": false,
+            "systemProxy": {}
+        }))
+        .unwrap();
         assert!(omitted.system_proxy.is_none());
         assert!(explicit.system_proxy.is_some());
     }

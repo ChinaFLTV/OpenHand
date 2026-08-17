@@ -16,8 +16,8 @@ use std::{
     net::IpAddr,
     path::{Path, PathBuf},
     process::Stdio,
-    sync::{Arc, LazyLock, RwLock},
-    time::{Duration, Instant},
+    sync::{Arc, LazyLock, Mutex, RwLock},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 use thiserror::Error;
 use tokio::{io::AsyncWriteExt, process::Command, sync::Semaphore, time::timeout};
@@ -42,11 +42,62 @@ const GIT_REPOSITORY_CONCURRENCY: usize = 3;
 const GIT_CONTENT_CONCURRENCY: usize = 4;
 const MAX_FORUM_TOPICS: usize = 5;
 const FORUM_TOPIC_CONCURRENCY: usize = 3;
-const JINA_READER_PRIMARY_TIMEOUT: Duration = Duration::from_secs(18);
+const JINA_READER_PRIMARY_TIMEOUT: Duration = Duration::from_secs(35);
 const JINA_READER_FALLBACK_TIMEOUT: Duration = Duration::from_secs(35);
 const JINA_READER_SERVER_TIMEOUT_SECONDS: &str = "25";
 const JINA_READER_MAX_ATTEMPTS: u8 = 2;
 const JINA_READER_RETRY_DELAY: Duration = Duration::from_millis(800);
+const JINA_READER_ENDPOINT: &str = "https://r.jina.ai/";
+const JINA_HEADER_OPTIONS: [(&str, &str); 42] = [
+    ("engine", "X-Engine"),
+    ("returnFormat", "X-Return-Format"),
+    ("respondWith", "X-Respond-With"),
+    ("timeout", "X-Timeout"),
+    ("tokenBudget", "X-Token-Budget"),
+    ("maxTokens", "X-Max-Tokens"),
+    ("targetSelector", "X-Target-Selector"),
+    ("waitForSelector", "X-Wait-For-Selector"),
+    ("removeSelector", "X-Remove-Selector"),
+    ("retainImages", "X-Retain-Images"),
+    ("retainMedia", "X-Retain-Media"),
+    ("retainLinks", "X-Retain-Links"),
+    ("withLinksSummary", "X-With-Links-Summary"),
+    ("withImagesSummary", "X-With-Images-Summary"),
+    ("withGeneratedAlt", "X-With-Generated-Alt"),
+    ("proxyUrl", "X-Proxy-Url"),
+    ("proxy", "X-Proxy"),
+    ("noCache", "X-No-Cache"),
+    ("cacheTolerance", "X-Cache-Tolerance"),
+    ("respondTiming", "X-Respond-Timing"),
+    ("userAgent", "X-User-Agent"),
+    ("referer", "X-Referer"),
+    ("keepImgDataUrl", "X-Keep-Img-Data-Url"),
+    ("dnt", "DNT"),
+    ("noGfm", "X-No-Gfm"),
+    ("locale", "X-Locale"),
+    ("robotsTxt", "X-Robots-Txt"),
+    ("withIframe", "X-With-Iframe"),
+    ("withShadowDom", "X-With-Shadow-Dom"),
+    ("base", "X-Base"),
+    ("preset", "X-Preset"),
+    ("removeOverlay", "X-Remove-Overlay"),
+    ("detachInvisibles", "X-Detach-Invisibles"),
+    ("markdownChunking", "X-Markdown-Chunking"),
+    ("assertStatusCode", "X-Assert-Status-Code"),
+    ("page", "X-Page"),
+    ("preloadUrl", "X-Preload-Url"),
+    ("noServiceWorker", "X-No-Service-Worker"),
+    ("exportStorageState", "X-Export-Storage-State"),
+    ("mdHeadingStyle", "X-Md-Heading-Style"),
+    ("mdHr", "X-Md-Hr"),
+    ("mdBulletListMarker", "X-Md-Bullet-List-Marker"),
+];
+const JINA_MARKDOWN_HEADER_OPTIONS: [(&str, &str); 4] = [
+    ("mdEmDelimiter", "X-Md-Em-Delimiter"),
+    ("mdStrongDelimiter", "X-Md-Strong-Delimiter"),
+    ("mdLinkStyle", "X-Md-Link-Style"),
+    ("mdLinkReferenceStyle", "X-Md-Link-Reference-Style"),
+];
 const MAX_BROWSER_CONCURRENCY: usize = 2;
 const BROWSER_PROCESS_TIMEOUT: Duration = Duration::from_secs(25);
 const MAX_BROWSER_OUTPUT_BYTES: usize = 2 * 1024 * 1024;
@@ -388,14 +439,365 @@ impl ObservedRequestBuilder {
     }
 }
 
+const MAX_TOOL_PROFILES: usize = 32;
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceToolKind {
+    Github,
+    Gitee,
+    Gitcode,
+    Fofa,
+    Shodan,
+    Jina,
+}
+
+impl SourceToolKind {
+    fn platform(self) -> &'static str {
+        match self {
+            Self::Github => "GitHub",
+            Self::Gitee => "Gitee",
+            Self::Gitcode => "GitCode",
+            Self::Fofa => "FOFA",
+            Self::Shodan => "Shodan",
+            Self::Jina => "Jina Reader",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolSelectionStrategy {
+    #[default]
+    RoundRobin,
+    Random,
+    LeastUsed,
+    LeastBusy,
+    HighestSuccessRate,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolProfileInput {
+    pub id: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub values: BTreeMap<String, String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolConfigurationInput {
+    pub tool: SourceToolKind,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub strategy: ToolSelectionStrategy,
+    #[serde(default)]
+    pub profiles: Vec<ToolProfileInput>,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Clone)]
+pub struct ToolProfile {
+    id: String,
+    values: BTreeMap<String, SecretString>,
+}
+
+impl ToolProfile {
+    pub fn value(&self, key: &str) -> Option<&str> {
+        self.values.get(key).map(|value| value.expose_secret())
+    }
+
+    fn has_required_values(&self, tool: SourceToolKind) -> bool {
+        let has = |key| {
+            self.value(key)
+                .is_some_and(|value| !value.trim().is_empty())
+        };
+        match tool {
+            SourceToolKind::Github | SourceToolKind::Gitee | SourceToolKind::Gitcode => {
+                has("token")
+            }
+            SourceToolKind::Fofa => has("email") && has("key"),
+            SourceToolKind::Shodan => has("key"),
+            SourceToolKind::Jina => true,
+        }
+    }
+}
+
+#[derive(Clone)]
+struct ToolConfiguration {
+    enabled: bool,
+    strategy: ToolSelectionStrategy,
+    profiles: Vec<ToolProfile>,
+}
+
 #[derive(Clone, Default)]
+struct ToolProfileStatistics {
+    requests: u64,
+    successes: u64,
+    failures: u64,
+    in_flight: u64,
+    last_used: u64,
+}
+
+#[derive(Default)]
+struct ToolRuntimeState {
+    cursor: usize,
+    sequence: u64,
+    profiles: BTreeMap<String, ToolProfileStatistics>,
+}
+
+#[derive(Clone)]
 pub struct SourceCredentials {
-    pub github_token: Option<SecretString>,
-    pub gitee_token: Option<SecretString>,
-    pub gitcode_token: Option<SecretString>,
-    pub fofa_email: Option<SecretString>,
-    pub fofa_key: Option<SecretString>,
-    pub shodan_key: Option<SecretString>,
+    configurations: BTreeMap<SourceToolKind, ToolConfiguration>,
+    runtime: Arc<Mutex<BTreeMap<SourceToolKind, ToolRuntimeState>>>,
+    active_profile: Option<ToolProfile>,
+}
+
+impl Default for SourceCredentials {
+    fn default() -> Self {
+        Self::from_configurations(vec![ToolConfigurationInput {
+            tool: SourceToolKind::Jina,
+            enabled: true,
+            strategy: ToolSelectionStrategy::RoundRobin,
+            profiles: vec![ToolProfileInput {
+                id: "jina-default".to_owned(),
+                name: "默认配置".to_owned(),
+                enabled: true,
+                values: BTreeMap::new(),
+            }],
+        }])
+    }
+}
+
+impl SourceCredentials {
+    pub fn from_configurations(inputs: Vec<ToolConfigurationInput>) -> Self {
+        let mut configurations = BTreeMap::new();
+        for input in inputs {
+            if configurations.contains_key(&input.tool) {
+                continue;
+            }
+            let mut seen = BTreeSet::new();
+            let profiles = input
+                .profiles
+                .into_iter()
+                .filter(|profile| profile.enabled)
+                .filter_map(|profile| {
+                    let id = profile.id.trim();
+                    if id.is_empty() || !seen.insert(id.to_owned()) {
+                        return None;
+                    }
+                    let values = profile
+                        .values
+                        .into_iter()
+                        .filter_map(|(key, value)| {
+                            let key = key.trim();
+                            let value = value.trim();
+                            (!key.is_empty() && !value.is_empty())
+                                .then(|| (key.to_owned(), SecretString::from(value.to_owned())))
+                        })
+                        .collect();
+                    Some(ToolProfile {
+                        id: id.to_owned(),
+                        values,
+                    })
+                })
+                .take(MAX_TOOL_PROFILES)
+                .collect();
+            configurations.insert(
+                input.tool,
+                ToolConfiguration {
+                    enabled: input.enabled,
+                    strategy: input.strategy,
+                    profiles,
+                },
+            );
+        }
+        Self {
+            configurations,
+            runtime: Arc::new(Mutex::new(BTreeMap::new())),
+            active_profile: None,
+        }
+    }
+
+    pub fn set_legacy_profile(&mut self, tool: SourceToolKind, values: BTreeMap<String, String>) {
+        let values = values
+            .into_iter()
+            .filter_map(|(key, value)| {
+                let value = value.trim();
+                (!value.is_empty()).then(|| (key, SecretString::from(value.to_owned())))
+            })
+            .collect();
+        self.configurations.insert(
+            tool,
+            ToolConfiguration {
+                enabled: true,
+                strategy: ToolSelectionStrategy::RoundRobin,
+                profiles: vec![ToolProfile {
+                    id: format!("legacy-{}", tool.platform().to_ascii_lowercase()),
+                    values,
+                }],
+            },
+        );
+        self.runtime = Arc::new(Mutex::new(BTreeMap::new()));
+    }
+
+    pub fn configured(&self, tool: SourceToolKind) -> bool {
+        self.configurations.get(&tool).is_some_and(|configuration| {
+            configuration.enabled
+                && configuration
+                    .profiles
+                    .iter()
+                    .any(|profile| profile.has_required_values(tool))
+        })
+    }
+
+    fn begin(&self, tool: SourceToolKind) -> Result<ToolProfileSelection, SourceError> {
+        let configuration = self
+            .configurations
+            .get(&tool)
+            .filter(|configuration| configuration.enabled)
+            .ok_or(SourceError::MissingCredential(tool.platform()))?;
+        let eligible = configuration
+            .profiles
+            .iter()
+            .filter(|profile| profile.has_required_values(tool))
+            .collect::<Vec<_>>();
+        if eligible.is_empty() {
+            return Err(SourceError::MissingCredential(tool.platform()));
+        }
+        let mut runtimes = self
+            .runtime
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        let runtime = runtimes.entry(tool).or_default();
+        let index = match configuration.strategy {
+            ToolSelectionStrategy::RoundRobin => runtime.cursor % eligible.len(),
+            ToolSelectionStrategy::Random => {
+                let nanos = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .map_or(0, |duration| duration.as_nanos() as u64);
+                ((nanos ^ runtime.sequence.rotate_left(17)) as usize) % eligible.len()
+            }
+            ToolSelectionStrategy::LeastUsed => eligible
+                .iter()
+                .enumerate()
+                .min_by_key(|(_, profile)| {
+                    let statistics = runtime
+                        .profiles
+                        .get(&profile.id)
+                        .cloned()
+                        .unwrap_or_default();
+                    (statistics.requests, statistics.last_used)
+                })
+                .map_or(0, |(index, _)| index),
+            ToolSelectionStrategy::LeastBusy => eligible
+                .iter()
+                .enumerate()
+                .min_by_key(|(_, profile)| {
+                    let statistics = runtime
+                        .profiles
+                        .get(&profile.id)
+                        .cloned()
+                        .unwrap_or_default();
+                    (
+                        statistics.in_flight,
+                        statistics.requests,
+                        statistics.last_used,
+                    )
+                })
+                .map_or(0, |(index, _)| index),
+            ToolSelectionStrategy::HighestSuccessRate => eligible
+                .iter()
+                .enumerate()
+                .max_by(|(_, left), (_, right)| {
+                    let left = runtime.profiles.get(&left.id).cloned().unwrap_or_default();
+                    let right = runtime.profiles.get(&right.id).cloned().unwrap_or_default();
+                    let left_rate = (left.successes + 1) as f64 / (left.requests + 2) as f64;
+                    let right_rate = (right.successes + 1) as f64 / (right.requests + 2) as f64;
+                    left_rate
+                        .total_cmp(&right_rate)
+                        .then_with(|| right.requests.cmp(&left.requests))
+                })
+                .map_or(0, |(index, _)| index),
+        };
+        runtime.cursor = (index + 1) % eligible.len();
+        runtime.sequence = runtime.sequence.wrapping_add(1);
+        let profile = eligible[index].clone();
+        let statistics = runtime.profiles.entry(profile.id.clone()).or_default();
+        statistics.requests = statistics.requests.saturating_add(1);
+        statistics.in_flight = statistics.in_flight.saturating_add(1);
+        statistics.last_used = runtime.sequence;
+        drop(runtimes);
+        Ok(ToolProfileSelection {
+            tool,
+            profile,
+            runtime: self.runtime.clone(),
+            completed: false,
+        })
+    }
+
+    fn with_active_profile(&self, profile: ToolProfile) -> Self {
+        let mut scoped = self.clone();
+        scoped.active_profile = Some(profile);
+        scoped
+    }
+
+    fn active_profile(&self) -> Result<&ToolProfile, SourceError> {
+        self.active_profile
+            .as_ref()
+            .ok_or(SourceError::Other(anyhow::anyhow!(
+                "扫描工具配置选择状态无效"
+            )))
+    }
+}
+
+struct ToolProfileSelection {
+    tool: SourceToolKind,
+    profile: ToolProfile,
+    runtime: Arc<Mutex<BTreeMap<SourceToolKind, ToolRuntimeState>>>,
+    completed: bool,
+}
+
+impl ToolProfileSelection {
+    fn complete(mut self, success: bool) {
+        self.record(success);
+        self.completed = true;
+    }
+
+    fn record(&self, success: bool) {
+        let mut runtimes = self
+            .runtime
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        let statistics = runtimes
+            .entry(self.tool)
+            .or_default()
+            .profiles
+            .entry(self.profile.id.clone())
+            .or_default();
+        statistics.in_flight = statistics.in_flight.saturating_sub(1);
+        if success {
+            statistics.successes = statistics.successes.saturating_add(1);
+        } else {
+            statistics.failures = statistics.failures.saturating_add(1);
+        }
+    }
+}
+
+impl Drop for ToolProfileSelection {
+    fn drop(&mut self) {
+        if !self.completed {
+            self.record(false);
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -820,6 +1222,7 @@ impl ForumSource {
         target: &Url,
         mode: ForumFetchMode,
         prefer_fallback: bool,
+        credentials: &SourceCredentials,
     ) -> Result<ForumPage, SourceError> {
         if mode == ForumFetchMode::Playwright {
             return match self.browser.fetch(target, prefer_fallback).await {
@@ -849,7 +1252,18 @@ impl ForumSource {
                 Err(error) => Err(error),
             };
         }
-        match self.fetch_jina(target, prefer_fallback).await {
+        let selection = credentials.begin(SourceToolKind::Jina);
+        let reader_result = match &selection {
+            Ok(selection) => {
+                self.fetch_jina(target, prefer_fallback, &selection.profile)
+                    .await
+            }
+            Err(error) => Err(error.to_string()),
+        };
+        if let Ok(selection) = selection {
+            selection.complete(reader_result.is_ok());
+        }
+        match reader_result {
             Ok((content, fallback_route, first_error)) => Ok(ForumPage {
                 content,
                 warning: first_error.map(|error| {
@@ -891,26 +1305,38 @@ impl ForumSource {
         &self,
         target: &Url,
         prefer_fallback: bool,
+        profile: &ToolProfile,
     ) -> Result<(String, bool, Option<String>), String> {
-        let reader_url = Url::parse(&format!("https://r.jina.ai/{}", target.as_str()))
-            .map_err(|_| "请求地址无效".to_owned())?;
-        let mut errors = Vec::with_capacity(JINA_READER_MAX_ATTEMPTS as usize);
-        for attempt in 1..=JINA_READER_MAX_ATTEMPTS {
+        let max_attempts = profile
+            .value("maxAttempts")
+            .and_then(|value| value.parse::<u8>().ok())
+            .unwrap_or(JINA_READER_MAX_ATTEMPTS)
+            .clamp(1, 5);
+        let retry_delay = Duration::from_millis(
+            profile
+                .value("retryDelayMs")
+                .and_then(|value| value.parse::<u64>().ok())
+                .unwrap_or(JINA_READER_RETRY_DELAY.as_millis() as u64)
+                .min(5_000),
+        );
+        let mut errors = Vec::with_capacity(max_attempts as usize);
+        for attempt in 1..=max_attempts {
             let fallback_route = prefer_fallback || attempt > 1;
-            let timeout = if fallback_route {
+            let default_timeout = if fallback_route {
                 JINA_READER_FALLBACK_TIMEOUT
             } else {
                 JINA_READER_PRIMARY_TIMEOUT
             };
-            let response = self
-                .client
-                .get(reader_url.clone())
-                .header("Accept", "text/plain")
-                .header("Return-Format", "markdown")
-                .header("X-Timeout", JINA_READER_SERVER_TIMEOUT_SECONDS)
+            let request_timeout = profile
+                .value("timeout")
+                .and_then(|value| value.parse::<u64>().ok())
+                .filter(|value| *value > 0)
+                .map(|value| Duration::from_secs(value.min(180).saturating_add(5)))
+                .unwrap_or(default_timeout);
+            let response = jina_request(&self.client, target, profile)?
                 .prefer_fallback(fallback_route)
                 .automatic_fallback(false)
-                .timeout(timeout)
+                .timeout(request_timeout)
                 .send()
                 .await;
             let response = match response {
@@ -924,8 +1350,8 @@ impl ForumSource {
                         format!("网络请求失败：{}", concise_reqwest_error(&error))
                     };
                     errors.push(format!("{}：{reason}", jina_route_label(fallback_route)));
-                    if attempt < JINA_READER_MAX_ATTEMPTS {
-                        tokio::time::sleep(JINA_READER_RETRY_DELAY).await;
+                    if attempt < max_attempts {
+                        tokio::time::sleep(retry_delay).await;
                         continue;
                     }
                     return Err(errors.join("；"));
@@ -940,18 +1366,18 @@ impl ForumSource {
                     jina_status_hint(status),
                 );
                 errors.push(reason);
-                if attempt < JINA_READER_MAX_ATTEMPTS && jina_status_retryable(status) {
-                    tokio::time::sleep(JINA_READER_RETRY_DELAY).await;
+                if attempt < max_attempts && jina_status_retryable(status) {
+                    tokio::time::sleep(retry_delay).await;
                     continue;
                 }
                 return Err(errors.join("；"));
             }
-            let content = match parse_text_limited(self.specification.platform, response).await {
+            let content = match parse_jina_content(self.specification.platform, response).await {
                 Ok(content) => content,
                 Err(error) => {
                     errors.push(format!("{}：{}", jina_route_label(fallback_route), error));
-                    if attempt < JINA_READER_MAX_ATTEMPTS {
-                        tokio::time::sleep(JINA_READER_RETRY_DELAY).await;
+                    if attempt < max_attempts {
+                        tokio::time::sleep(retry_delay).await;
                         continue;
                     }
                     return Err(errors.join("；"));
@@ -963,8 +1389,8 @@ impl ForumSource {
                     "{}：返回内容为空",
                     jina_route_label(fallback_route)
                 ));
-                if attempt < JINA_READER_MAX_ATTEMPTS {
-                    tokio::time::sleep(JINA_READER_RETRY_DELAY).await;
+                if attempt < max_attempts {
+                    tokio::time::sleep(retry_delay).await;
                     continue;
                 }
                 return Err(errors.join("；"));
@@ -982,6 +1408,129 @@ impl ForumSource {
     }
 }
 
+fn jina_request(
+    client: &ObservedHttpClient,
+    target: &Url,
+    profile: &ToolProfile,
+) -> Result<ObservedRequestBuilder, String> {
+    let mut body = serde_json::Map::from_iter([(
+        "url".to_owned(),
+        serde_json::Value::String(target.as_str().to_owned()),
+    )]);
+    for key in ["instruction"] {
+        if let Some(value) = profile.value(key) {
+            body.insert(key.to_owned(), serde_json::Value::String(value.to_owned()));
+        }
+    }
+    for (key, body_key) in [
+        ("injectPageScript", "injectPageScript"),
+        ("injectFrameScript", "injectFrameScript"),
+    ] {
+        if let Some(value) = profile.value(key) {
+            let scripts = if value.trim_start().starts_with('[') {
+                let decoded = serde_json::from_str::<Vec<String>>(value)
+                    .map_err(|_| format!("Jina Reader 参数 {key} 必须是字符串数组"))?;
+                decoded
+                    .into_iter()
+                    .filter(|script| !script.trim().is_empty())
+                    .map(serde_json::Value::String)
+                    .collect::<Vec<_>>()
+            } else {
+                vec![serde_json::Value::String(value.to_owned())]
+            };
+            body.insert(body_key.to_owned(), serde_json::Value::Array(scripts));
+        }
+    }
+    for key in ["jsonSchema", "customHeader", "storageState"] {
+        if let Some(value) = profile.value(key) {
+            let decoded = serde_json::from_str::<serde_json::Value>(value)
+                .map_err(|_| format!("Jina Reader 参数 {key} 必须是有效 JSON"))?;
+            if !decoded.is_object() {
+                return Err(format!("Jina Reader 参数 {key} 必须是 JSON 对象"));
+            }
+            body.insert(key.to_owned(), decoded);
+        }
+    }
+    let mut viewport = serde_json::Map::new();
+    for (key, body_key) in [
+        ("viewportWidth", "width"),
+        ("viewportHeight", "height"),
+        ("viewportDeviceScaleFactor", "deviceScaleFactor"),
+    ] {
+        if let Some(number) = profile
+            .value(key)
+            .and_then(|value| value.parse::<f64>().ok())
+            .and_then(serde_json::Number::from_f64)
+        {
+            viewport.insert(body_key.to_owned(), serde_json::Value::Number(number));
+        }
+    }
+    for (key, body_key) in [
+        ("viewportIsMobile", "isMobile"),
+        ("viewportIsLandscape", "isLandscape"),
+        ("viewportHasTouch", "hasTouch"),
+    ] {
+        if let Some(value) = profile.value(key) {
+            viewport.insert(
+                body_key.to_owned(),
+                serde_json::Value::Bool(jina_true(value)),
+            );
+        }
+    }
+    if !viewport.is_empty() {
+        body.insert("viewport".to_owned(), serde_json::Value::Object(viewport));
+    }
+    let uses_post = body.len() > 1;
+    let mut request = if uses_post {
+        client
+            .post(JINA_READER_ENDPOINT)
+            .json(&serde_json::Value::Object(body))
+    } else {
+        let reader_url = Url::parse(&format!("{JINA_READER_ENDPOINT}{}", target.as_str()))
+            .map_err(|_| "Jina Reader 请求地址无效".to_owned())?;
+        client.get(reader_url)
+    };
+    request = request
+        .header("Accept", profile.value("accept").unwrap_or("text/plain"))
+        .header(
+            "X-Timeout",
+            profile
+                .value("timeout")
+                .unwrap_or(JINA_READER_SERVER_TIMEOUT_SECONDS),
+        );
+    if let Some(token) = profile.value("token") {
+        request = request.bearer_auth(token);
+    }
+    for (key, header) in JINA_HEADER_OPTIONS
+        .iter()
+        .chain(JINA_MARKDOWN_HEADER_OPTIONS.iter())
+    {
+        if *key == "timeout" {
+            continue;
+        }
+        if let Some(value) = profile.value(key) {
+            request = request.header(header, if *key == "dnt" { "1" } else { value });
+        }
+    }
+    if let Some(cookies) = profile.value("setCookies") {
+        for cookie in cookies
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+        {
+            request = request.header("X-Set-Cookie", cookie);
+        }
+    }
+    Ok(request)
+}
+
+fn jina_true(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "1" | "true" | "yes" | "on"
+    )
+}
+
 #[async_trait]
 impl AssetSource for ForumSource {
     fn kind(&self) -> SourceKind {
@@ -991,13 +1540,13 @@ impl AssetSource for ForumSource {
     async fn discover(
         &self,
         request: &ScanRequest,
-        _credentials: &SourceCredentials,
+        credentials: &SourceCredentials,
     ) -> Result<SourceDiscovery, SourceError> {
         let entry = source_query(request, self.specification.key)
             .unwrap_or_else(|| self.specification.default_entry.to_owned());
         let entry = parse_forum_entry(&entry, self.specification)?;
         let index = self
-            .fetch_page(&entry, request.forum_fetch_mode, false)
+            .fetch_page(&entry, request.forum_fetch_mode, false, credentials)
             .await?;
         let direct_topic = self.specification.is_topic_path(entry.path());
         let topics = if direct_topic {
@@ -1027,7 +1576,9 @@ impl AssetSource for ForumSource {
                 request.forum_fetch_mode
             };
             let pages = stream::iter(topics.into_iter().map(|topic| async move {
-                let result = source.fetch_page(&topic, mode, index.fallback_route).await;
+                let result = source
+                    .fetch_page(&topic, mode, index.fallback_route, credentials)
+                    .await;
                 (topic, result)
             }))
             .buffer_unordered(FORUM_TOPIC_CONCURRENCY);
@@ -1289,7 +1840,14 @@ impl SourceRegistry {
             .sources
             .get(&kind)
             .ok_or_else(|| SourceError::Other(anyhow::anyhow!("未知扫描数据源")))?;
-        source.discover(request, credentials).await
+        let Some(tool) = source_tool_kind(kind) else {
+            return source.discover(request, credentials).await;
+        };
+        let selection = credentials.begin(tool)?;
+        let scoped = credentials.with_active_profile(selection.profile.clone());
+        let result = source.discover(request, &scoped).await;
+        selection.complete(result.is_ok());
+        result
     }
 
     pub async fn quotas(&self, credentials: &SourceCredentials) -> Vec<SourceQuota> {
@@ -1352,7 +1910,22 @@ impl SourceRegistry {
 async fn quota_or_status(source: &dyn AssetSource, credentials: &SourceCredentials) -> SourceQuota {
     let checked_at = Utc::now();
     let started = Instant::now();
-    match source.quota(credentials).await {
+    let selection = source_tool_kind(source.kind()).map(|tool| credentials.begin(tool));
+    let result = match &selection {
+        Some(Ok(selection)) => {
+            let scoped = credentials.with_active_profile(selection.profile.clone());
+            source.quota(&scoped).await
+        }
+        Some(Err(error)) => Err(SourceError::MissingCredential(match error {
+            SourceError::MissingCredential(platform) => platform,
+            _ => "扫描工具",
+        })),
+        None => source.quota(credentials).await,
+    };
+    if let Some(Ok(selection)) = selection {
+        selection.complete(result.is_ok());
+    }
+    match result {
         Ok(mut quota) => {
             quota.checked_at = Some(checked_at);
             quota.latency_ms = Some(started.elapsed().as_millis().min(u64::MAX as u128) as u64);
@@ -1388,6 +1961,17 @@ async fn quota_or_status(source: &dyn AssetSource, credentials: &SourceCredentia
                 last_failure_at: Some(checked_at),
             }
         }
+    }
+}
+
+fn source_tool_kind(source: SourceKind) -> Option<SourceToolKind> {
+    match source {
+        SourceKind::Github | SourceKind::GithubArtifact => Some(SourceToolKind::Github),
+        SourceKind::Gitee => Some(SourceToolKind::Gitee),
+        SourceKind::Gitcode => Some(SourceToolKind::Gitcode),
+        SourceKind::Fofa => Some(SourceToolKind::Fofa),
+        SourceKind::Shodan => Some(SourceToolKind::Shodan),
+        SourceKind::Manual | SourceKind::Nodeseek | SourceKind::LinuxDo | SourceKind::V2ex => None,
     }
 }
 
@@ -1543,11 +2127,11 @@ impl AssetSource for GithubSource {
         credentials: &SourceCredentials,
     ) -> Result<SourceDiscovery, SourceError> {
         let credential = credentials
-            .github_token
-            .as_ref()
+            .active_profile()?
+            .value("token")
             .ok_or(SourceError::MissingCredential("GitHub"))?;
         // 支持在同一字段填入多把 token（逗号/空白分隔），用于轮询与限速故障转移。
-        let tokens = parse_credential_list(credential.expose_secret());
+        let tokens = parse_credential_list(credential);
         if tokens.is_empty() {
             return Err(SourceError::MissingCredential("GitHub"));
         }
@@ -1599,7 +2183,8 @@ impl AssetSource for GithubSource {
                 }
                 break;
             }
-            let search = match parse_json_limited::<GithubSearchResponse>("GitHub", response).await {
+            let search = match parse_json_limited::<GithubSearchResponse>("GitHub", response).await
+            {
                 Ok(search) => search,
                 Err(error) if page == 1 => return Err(error),
                 Err(_) => break,
@@ -1657,11 +2242,11 @@ impl AssetSource for GithubSource {
 
     async fn quota(&self, credentials: &SourceCredentials) -> Result<SourceQuota, SourceError> {
         let credential = credentials
-            .github_token
-            .as_ref()
+            .active_profile()?
+            .value("token")
             .ok_or(SourceError::MissingCredential("GitHub"))?;
         // 多 token 场景取首把校验配额，避免把逗号分隔的整串当作单一 token 发送。
-        let token = parse_credential_list(credential.expose_secret())
+        let token = parse_credential_list(credential)
             .into_iter()
             .next()
             .ok_or(SourceError::MissingCredential("GitHub"))?;
@@ -1722,12 +2307,8 @@ impl GitPlatformSource {
         }
     }
 
-    fn token<'a>(&self, credentials: &'a SourceCredentials) -> Option<&'a SecretString> {
-        match self.kind {
-            SourceKind::Gitee => credentials.gitee_token.as_ref(),
-            SourceKind::Gitcode => credentials.gitcode_token.as_ref(),
-            _ => None,
-        }
+    fn token<'a>(&self, credentials: &'a SourceCredentials) -> Option<&'a str> {
+        credentials.active_profile().ok()?.value("token")
     }
 
     fn authorized_get(&self, url: impl reqwest::IntoUrl, token: &str) -> ObservedRequestBuilder {
@@ -1800,11 +2381,9 @@ impl AssetSource for GitPlatformSource {
             },
         )
         .unwrap_or_else(|| default_repository_query(request));
-        let repositories = self
-            .repositories_for_query(&query, token.expose_secret())
-            .await?;
+        let repositories = self.repositories_for_query(&query, token).await?;
         let source = self.clone_for_tasks();
-        let token = token.expose_secret().to_owned();
+        let token = token.to_owned();
         let batches = stream::iter(repositories.into_iter().take(MAX_GIT_REPOSITORIES).map(
             |repository| {
                 let source = source.clone_for_tasks();
@@ -1842,7 +2421,7 @@ impl AssetSource for GitPlatformSource {
             .token(credentials)
             .ok_or(SourceError::MissingCredential(self.platform))?;
         let response = self
-            .authorized_get(format!("{}/user", self.api_base), token.expose_secret())
+            .authorized_get(format!("{}/user", self.api_base), token)
             .send()
             .await
             .map_err(|_| SourceError::Transport(self.platform))?;
@@ -2128,7 +2707,10 @@ impl FofaSource {
                     ("qbase64", encoded_query),
                     ("size", size),
                     ("page", page),
-                    ("fields", "host,ip,port,protocol,title,header,banner,server,product,link,domain,cert"),
+                    (
+                        "fields",
+                        "host,ip,port,protocol,title,header,banner,server,product,link,domain,cert",
+                    ),
                 ])
                 .send()
                 .await
@@ -2190,12 +2772,11 @@ impl AssetSource for FofaSource {
     ) -> Result<SourceDiscovery, SourceError> {
         let (email, key) = fofa_credentials(credentials)?;
         // 支持在 key 字段填入多把 key（逗号/空白分隔），共用同一 email 做 fcoin 池化与故障转移。
-        let keys = parse_credential_list(key.expose_secret());
+        let keys = parse_credential_list(key);
         if keys.is_empty() {
             return Err(SourceError::MissingCredential("FOFA"));
         }
         let mut key_cursor = 0_usize;
-        let email = email.expose_secret();
         let query = source_query(request, "fofa").unwrap_or_else(|| default_fofa_query(request));
         let encoded_query = STANDARD.encode(query);
         let size = DEFAULT_PAGE_SIZE.to_string();
@@ -2223,34 +2804,30 @@ impl AssetSource for FofaSource {
                 Err(_) => break,
             };
             let page_len = body.results.len();
-            candidates.extend(
-                body.results
-                    .into_iter()
-                    .filter_map(|row| {
-                        let target = row.first().and_then(value_as_string)?;
-                        let mut metadata = BTreeMap::new();
-                        // 将 FOFA 历史快照中的 title/header/banner/server/product 拼接为
-                        // artifact_text，供探测阶段的正则提取直接消费引擎爬虫缓存内容，
-                        // 不必依赖"目标现在仍在暴露"这一脆弱假设。
-                        let artifact_parts: Vec<&str> = [4, 5, 6, 7, 8]
-                            .iter()
-                            .filter_map(|&i| row.get(i).and_then(|v| v.as_str()))
-                            .filter(|s| !s.is_empty())
-                            .collect();
-                        if !artifact_parts.is_empty() {
-                            metadata.insert(
-                                CANDIDATE_ARTIFACT_TEXT_KEY.to_owned(),
-                                artifact_parts.join("\n"),
-                            );
-                        }
-                        Some(Candidate {
-                            source: SourceKind::Fofa,
-                            target,
-                            discovered_at: Utc::now(),
-                            metadata,
-                        })
-                    }),
-            );
+            candidates.extend(body.results.into_iter().filter_map(|row| {
+                let target = row.first().and_then(value_as_string)?;
+                let mut metadata = BTreeMap::new();
+                // 将 FOFA 历史快照中的 title/header/banner/server/product 拼接为
+                // artifact_text，供探测阶段的正则提取直接消费引擎爬虫缓存内容，
+                // 不必依赖"目标现在仍在暴露"这一脆弱假设。
+                let artifact_parts: Vec<&str> = [4, 5, 6, 7, 8]
+                    .iter()
+                    .filter_map(|&i| row.get(i).and_then(|v| v.as_str()))
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                if !artifact_parts.is_empty() {
+                    metadata.insert(
+                        CANDIDATE_ARTIFACT_TEXT_KEY.to_owned(),
+                        artifact_parts.join("\n"),
+                    );
+                }
+                Some(Candidate {
+                    source: SourceKind::Fofa,
+                    target,
+                    discovered_at: Utc::now(),
+                    metadata,
+                })
+            }));
             if candidates.len() >= MAX_SOURCE_RESULTS || page_len < DEFAULT_PAGE_SIZE {
                 break;
             }
@@ -2262,14 +2839,14 @@ impl AssetSource for FofaSource {
     async fn quota(&self, credentials: &SourceCredentials) -> Result<SourceQuota, SourceError> {
         let (email, key) = fofa_credentials(credentials)?;
         // 多 key 场景取首把校验账户，避免把逗号分隔的整串当作单一 key 发送。
-        let key = parse_credential_list(key.expose_secret())
+        let key = parse_credential_list(key)
             .into_iter()
             .next()
             .ok_or(SourceError::MissingCredential("FOFA"))?;
         let response = self
             .client
             .get("https://fofa.info/api/v1/info/my")
-            .query(&[("email", email.expose_secret()), ("key", key.as_str())])
+            .query(&[("email", email), ("key", key.as_str())])
             .send()
             .await
             .map_err(|_| SourceError::Transport("FOFA"))?;
@@ -2380,11 +2957,11 @@ impl AssetSource for ShodanSource {
         credentials: &SourceCredentials,
     ) -> Result<SourceDiscovery, SourceError> {
         let key = credentials
-            .shodan_key
-            .as_ref()
+            .active_profile()?
+            .value("key")
             .ok_or(SourceError::MissingCredential("Shodan"))?;
         // 支持在同一字段填入多把 key（逗号/空白分隔）用于信用池化与限速故障转移。
-        let keys = parse_credential_list(key.expose_secret());
+        let keys = parse_credential_list(key);
         if keys.is_empty() {
             return Err(SourceError::MissingCredential("Shodan"));
         }
@@ -2478,11 +3055,11 @@ impl AssetSource for ShodanSource {
 
     async fn quota(&self, credentials: &SourceCredentials) -> Result<SourceQuota, SourceError> {
         let key = credentials
-            .shodan_key
-            .as_ref()
+            .active_profile()?
+            .value("key")
             .ok_or(SourceError::MissingCredential("Shodan"))?;
         // 多 key 场景取首把校验配额，避免把逗号分隔的整串当作单一 key 发送。
-        let key = parse_credential_list(key.expose_secret())
+        let key = parse_credential_list(key)
             .into_iter()
             .next()
             .ok_or(SourceError::MissingCredential("Shodan"))?;
@@ -2557,10 +3134,8 @@ async fn github_item_candidates(
         .find_iter(&text)
         .take(50)
         .map(|url| {
-            let mut metadata = BTreeMap::from([(
-                CANDIDATE_ARTIFACT_URL_KEY.to_owned(),
-                item.html_url.clone(),
-            )]);
+            let mut metadata =
+                BTreeMap::from([(CANDIDATE_ARTIFACT_URL_KEY.to_owned(), item.html_url.clone())]);
             if kind == SourceKind::GithubArtifact {
                 metadata.insert(
                     CANDIDATE_ARTIFACT_TEXT_KEY.to_owned(),
@@ -2632,6 +3207,43 @@ async fn parse_text_limited(
         body.extend_from_slice(&chunk);
     }
     String::from_utf8(body).map_err(|_| SourceError::InvalidResponse(platform))
+}
+
+async fn parse_jina_content(
+    platform: &'static str,
+    response: Response,
+) -> Result<String, SourceError> {
+    let raw = parse_text_limited(platform, response).await?;
+    let trimmed = raw.trim();
+    if let Ok(json) = serde_json::from_str::<serde_json::Value>(trimmed) {
+        return jina_json_content(&json)
+            .filter(|content| !content.trim().is_empty())
+            .ok_or(SourceError::InvalidResponse(platform));
+    }
+    if trimmed.lines().any(|line| line.starts_with("data:")) {
+        let content = trimmed
+            .lines()
+            .filter_map(|line| line.strip_prefix("data:").map(str::trim))
+            .filter(|line| !line.is_empty() && *line != "[DONE]")
+            .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+            .filter_map(|value| jina_json_content(&value))
+            .collect::<Vec<_>>()
+            .join("\n");
+        if !content.trim().is_empty() {
+            return Ok(content);
+        }
+    }
+    Ok(raw)
+}
+
+fn jina_json_content(value: &serde_json::Value) -> Option<String> {
+    value
+        .pointer("/data/content")
+        .or_else(|| value.pointer("/data/text"))
+        .or_else(|| value.get("content"))
+        .or_else(|| value.get("text"))
+        .and_then(serde_json::Value::as_str)
+        .map(ToOwned::to_owned)
 }
 
 fn source_query(request: &ScanRequest, key: &str) -> Option<String> {
@@ -2798,17 +3410,14 @@ fn default_shodan_query(request: &ScanRequest) -> String {
         .join(" OR ")
 }
 
-fn fofa_credentials(
-    credentials: &SourceCredentials,
-) -> Result<(&SecretString, &SecretString), SourceError> {
+fn fofa_credentials(credentials: &SourceCredentials) -> Result<(&str, &str), SourceError> {
+    let profile = credentials.active_profile()?;
     Ok((
-        credentials
-            .fofa_email
-            .as_ref()
+        profile
+            .value("email")
             .ok_or(SourceError::MissingCredential("FOFA"))?,
-        credentials
-            .fofa_key
-            .as_ref()
+        profile
+            .value("key")
             .ok_or(SourceError::MissingCredential("FOFA"))?,
     ))
 }
@@ -2967,6 +3576,167 @@ mod tests {
             fallback_count: std::sync::atomic::AtomicUsize::new(0),
             outcomes: std::sync::Mutex::new(Vec::new()),
         })
+    }
+
+    fn tool_credentials(strategy: ToolSelectionStrategy) -> SourceCredentials {
+        SourceCredentials::from_configurations(vec![ToolConfigurationInput {
+            tool: SourceToolKind::Github,
+            enabled: true,
+            strategy,
+            profiles: ["profile-a", "profile-b"]
+                .into_iter()
+                .map(|id| ToolProfileInput {
+                    id: id.to_owned(),
+                    name: id.to_owned(),
+                    enabled: true,
+                    values: BTreeMap::from([("token".to_owned(), id.to_owned())]),
+                })
+                .collect(),
+        }])
+    }
+
+    async fn local_response(content_type: &str, body: &str) -> Response {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .unwrap();
+        let address = listener.local_addr().unwrap();
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        );
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = [0_u8; 1024];
+            let _ = stream.read(&mut request).await.unwrap();
+            stream.write_all(response.as_bytes()).await.unwrap();
+        });
+        let response = Client::builder()
+            .no_proxy()
+            .build()
+            .unwrap()
+            .get(format!("http://{address}/"))
+            .send()
+            .await
+            .unwrap();
+        server.await.unwrap();
+        response
+    }
+
+    #[test]
+    fn round_robin_rotates_tool_profiles() {
+        let credentials = tool_credentials(ToolSelectionStrategy::RoundRobin);
+        let first = credentials.begin(SourceToolKind::Github).unwrap();
+        assert_eq!(first.profile.id, "profile-a");
+        first.complete(true);
+        let second = credentials.begin(SourceToolKind::Github).unwrap();
+        assert_eq!(second.profile.id, "profile-b");
+        second.complete(true);
+    }
+
+    #[test]
+    fn least_used_prefers_profile_with_fewer_requests() {
+        let credentials = tool_credentials(ToolSelectionStrategy::LeastUsed);
+        let first = credentials.begin(SourceToolKind::Github).unwrap();
+        assert_eq!(first.profile.id, "profile-a");
+        first.complete(true);
+        let second = credentials.begin(SourceToolKind::Github).unwrap();
+        assert_eq!(second.profile.id, "profile-b");
+        second.complete(true);
+    }
+
+    #[test]
+    fn least_busy_reclaims_cancelled_selection() {
+        let credentials = tool_credentials(ToolSelectionStrategy::LeastBusy);
+        let first = credentials.begin(SourceToolKind::Github).unwrap();
+        let first_id = first.profile.id.clone();
+        let second = credentials.begin(SourceToolKind::Github).unwrap();
+        assert_ne!(first_id, second.profile.id);
+        second.complete(true);
+        drop(first);
+
+        let runtimes = credentials.runtime.lock().unwrap();
+        let statistics = &runtimes[&SourceToolKind::Github].profiles[&first_id];
+        assert_eq!(statistics.in_flight, 0);
+        assert_eq!(statistics.failures, 1);
+    }
+
+    #[test]
+    fn highest_success_rate_reuses_successful_profile() {
+        let credentials = tool_credentials(ToolSelectionStrategy::HighestSuccessRate);
+        let first = credentials.begin(SourceToolKind::Github).unwrap();
+        let successful_id = first.profile.id.clone();
+        first.complete(true);
+        let second = credentials.begin(SourceToolKind::Github).unwrap();
+        assert_eq!(second.profile.id, successful_id);
+        second.complete(true);
+    }
+
+    #[test]
+    fn builds_jina_post_request_with_official_fields() {
+        let observer = Arc::new(CompletionObserver::default());
+        let client = ObservedHttpClient::new(Client::new(), observer);
+        let profile = ToolProfile {
+            id: "jina".to_owned(),
+            values: BTreeMap::from([
+                ("token".to_owned(), SecretString::from("secret".to_owned())),
+                (
+                    "returnFormat".to_owned(),
+                    SecretString::from("html".to_owned()),
+                ),
+                (
+                    "respondWith".to_owned(),
+                    SecretString::from("readerlm-v2".to_owned()),
+                ),
+                ("dnt".to_owned(), SecretString::from("true".to_owned())),
+                (
+                    "storageState".to_owned(),
+                    SecretString::from(r#"{"cookies":[],"origins":[]}"#.to_owned()),
+                ),
+            ]),
+        };
+        let request = jina_request(
+            &client,
+            &Url::parse("https://linux.do/c/welfare/36").unwrap(),
+            &profile,
+        )
+        .unwrap()
+        .request
+        .build()
+        .unwrap();
+
+        assert_eq!(request.method(), reqwest::Method::POST);
+        assert_eq!(request.url().as_str(), JINA_READER_ENDPOINT);
+        assert_eq!(request.headers()["X-Return-Format"], "html");
+        assert_eq!(request.headers()["X-Respond-With"], "readerlm-v2");
+        assert_eq!(request.headers()["DNT"], "1");
+        assert_eq!(request.headers()["Authorization"], "Bearer secret");
+        let body: serde_json::Value =
+            serde_json::from_slice(request.body().and_then(reqwest::Body::as_bytes).unwrap())
+                .unwrap();
+        assert_eq!(body["url"], "https://linux.do/c/welfare/36");
+        assert_eq!(body["storageState"]["cookies"], serde_json::json!([]));
+    }
+
+    #[tokio::test]
+    async fn extracts_jina_json_and_sse_content() {
+        let json =
+            local_response("application/json", r#"{"data":{"content":"json content"}}"#).await;
+        assert_eq!(
+            parse_jina_content("Jina Reader", json).await.unwrap(),
+            "json content"
+        );
+
+        let sse = local_response(
+            "text/event-stream",
+            "data: {\"data\":{\"content\":\"first\"}}\n\ndata: {\"content\":\"second\"}\n\ndata: [DONE]\n",
+        )
+        .await;
+        assert_eq!(
+            parse_jina_content("Jina Reader", sse).await.unwrap(),
+            "first\nsecond"
+        );
     }
 
     #[test]

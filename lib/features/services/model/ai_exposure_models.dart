@@ -68,6 +68,295 @@ enum AiExposureForumFetchMode {
       enumByStorageValue(values, value, (item) => item.id);
 }
 
+const int kAiExposureMaxToolProfiles = 32;
+
+enum AiExposureTool {
+  github('github'),
+  gitee('gitee'),
+  gitcode('gitcode'),
+  fofa('fofa'),
+  shodan('shodan'),
+  jina('jina');
+
+  const AiExposureTool(this.id);
+  final String id;
+
+  static AiExposureTool fromId(Object? value) =>
+      enumByStorageValueOr(values, value, (item) => item.id, fallback: github);
+}
+
+enum AiExposureToolSelectionStrategy {
+  roundRobin('round_robin'),
+  random('random'),
+  leastUsed('least_used'),
+  leastBusy('least_busy'),
+  highestSuccessRate('highest_success_rate');
+
+  const AiExposureToolSelectionStrategy(this.id);
+  final String id;
+
+  static AiExposureToolSelectionStrategy fromId(Object? value) =>
+      enumByStorageValueOr(
+        values,
+        value,
+        (item) => item.id,
+        fallback: roundRobin,
+      );
+}
+
+class AiExposureToolProfile {
+  const AiExposureToolProfile({
+    required this.id,
+    required this.name,
+    required this.enabled,
+    required this.values,
+  });
+
+  factory AiExposureToolProfile.fromJson(Object? raw) {
+    final json = _jsonMap(raw);
+    final rawValues = json['values'];
+    return AiExposureToolProfile(
+      id: _stringValue(json['id']),
+      name: _stringValue(json['name'], fallback: '配置'),
+      enabled: _boolValue(json['enabled'], fallback: true),
+      values: rawValues is Map
+          ? <String, String>{
+              for (final entry in rawValues.entries)
+                if (entry.key is String && entry.value is String)
+                  entry.key as String: entry.value as String,
+            }
+          : const <String, String>{},
+    );
+  }
+
+  final String id;
+  final String name;
+  final bool enabled;
+  final Map<String, String> values;
+
+  AiExposureToolProfile copyWith({
+    String? id,
+    String? name,
+    bool? enabled,
+    Map<String, String>? values,
+  }) => AiExposureToolProfile(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    enabled: enabled ?? this.enabled,
+    values: values ?? this.values,
+  );
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'id': id.trim(),
+    'name': name.trim(),
+    'enabled': enabled,
+    'values': <String, String>{
+      for (final entry in values.entries)
+        if (entry.key.trim().isNotEmpty && entry.value.trim().isNotEmpty)
+          entry.key.trim(): entry.value.trim(),
+    },
+  };
+}
+
+class AiExposureToolConfiguration {
+  const AiExposureToolConfiguration({
+    required this.tool,
+    required this.enabled,
+    required this.strategy,
+    required this.profiles,
+  });
+
+  factory AiExposureToolConfiguration.fromJson(Object? raw) {
+    final json = _jsonMap(raw);
+    return AiExposureToolConfiguration(
+      tool: AiExposureTool.fromId(json['tool']),
+      enabled: _boolValue(json['enabled'], fallback: true),
+      strategy: AiExposureToolSelectionStrategy.fromId(json['strategy']),
+      profiles: _objectList(json['profiles'])
+          .map(AiExposureToolProfile.fromJson)
+          .where((profile) => profile.id.trim().isNotEmpty)
+          .take(kAiExposureMaxToolProfiles)
+          .toList(growable: false),
+    );
+  }
+
+  final AiExposureTool tool;
+  final bool enabled;
+  final AiExposureToolSelectionStrategy strategy;
+  final List<AiExposureToolProfile> profiles;
+
+  AiExposureToolConfiguration copyWith({
+    bool? enabled,
+    AiExposureToolSelectionStrategy? strategy,
+    List<AiExposureToolProfile>? profiles,
+  }) => AiExposureToolConfiguration(
+    tool: tool,
+    enabled: enabled ?? this.enabled,
+    strategy: strategy ?? this.strategy,
+    profiles: profiles ?? this.profiles,
+  );
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'tool': tool.id,
+    'enabled': enabled,
+    'strategy': strategy.id,
+    'profiles': profiles
+        .take(kAiExposureMaxToolProfiles)
+        .map((profile) => profile.toJson())
+        .toList(growable: false),
+  };
+}
+
+class AiExposureToolSettings {
+  const AiExposureToolSettings({required this.tools});
+
+  factory AiExposureToolSettings.defaults() => AiExposureToolSettings(
+    tools: <AiExposureToolConfiguration>[
+      for (final tool in AiExposureTool.values)
+        AiExposureToolConfiguration(
+          tool: tool,
+          enabled: true,
+          strategy: AiExposureToolSelectionStrategy.roundRobin,
+          profiles: tool == AiExposureTool.jina
+              ? const <AiExposureToolProfile>[
+                  AiExposureToolProfile(
+                    id: 'jina-default',
+                    name: '默认配置',
+                    enabled: true,
+                    values: <String, String>{},
+                  ),
+                ]
+              : const <AiExposureToolProfile>[],
+        ),
+    ],
+  );
+
+  factory AiExposureToolSettings.fromJson(Object? raw) {
+    final json = _jsonMap(raw);
+    final decoded = _objectList(
+      json['tools'],
+    ).map(AiExposureToolConfiguration.fromJson).toList(growable: false);
+    return AiExposureToolSettings(tools: decoded).normalized();
+  }
+
+  factory AiExposureToolSettings.fromLegacy(Map<String, String> credentials) {
+    final profiles = <AiExposureTool, List<AiExposureToolProfile>>{};
+    void addProfiles(AiExposureTool tool, List<Map<String, String>> values) {
+      if (values.isEmpty) return;
+      profiles[tool] = <AiExposureToolProfile>[
+        for (var index = 0; index < values.length; index++)
+          AiExposureToolProfile(
+            id: 'legacy-${tool.id}-${index + 1}',
+            name: '配置 ${index + 1}',
+            enabled: true,
+            values: values[index],
+          ),
+      ];
+    }
+
+    addProfiles(
+      AiExposureTool.github,
+      _legacyToolValues(credentials['githubToken'], 'token'),
+    );
+    addProfiles(
+      AiExposureTool.gitee,
+      _legacyToolValues(credentials['giteeToken'], 'token'),
+    );
+    addProfiles(
+      AiExposureTool.gitcode,
+      _legacyToolValues(credentials['gitcodeToken'], 'token'),
+    );
+    final fofaEmail = credentials['fofaEmail']?.trim() ?? '';
+    final fofaProfiles = _legacyToolValues(credentials['fofaKey'], 'key')
+        .map((values) => <String, String>{'email': fofaEmail, ...values})
+        .toList(growable: true);
+    if (fofaProfiles.isEmpty && fofaEmail.isNotEmpty) {
+      fofaProfiles.add(<String, String>{'email': fofaEmail});
+    }
+    addProfiles(AiExposureTool.fofa, fofaProfiles);
+    addProfiles(
+      AiExposureTool.shodan,
+      _legacyToolValues(credentials['shodanKey'], 'key'),
+    );
+    return AiExposureToolSettings(
+      tools: <AiExposureToolConfiguration>[
+        for (final tool in AiExposureTool.values)
+          AiExposureToolConfiguration(
+            tool: tool,
+            enabled: true,
+            strategy: AiExposureToolSelectionStrategy.roundRobin,
+            profiles:
+                profiles[tool] ??
+                (tool == AiExposureTool.jina
+                    ? const <AiExposureToolProfile>[
+                        AiExposureToolProfile(
+                          id: 'jina-default',
+                          name: '默认配置',
+                          enabled: true,
+                          values: <String, String>{},
+                        ),
+                      ]
+                    : const <AiExposureToolProfile>[]),
+          ),
+      ],
+    );
+  }
+
+  final List<AiExposureToolConfiguration> tools;
+
+  AiExposureToolConfiguration configuration(AiExposureTool tool) =>
+      tools.firstWhere(
+        (configuration) => configuration.tool == tool,
+        orElse: () => AiExposureToolSettings.defaults().tools.firstWhere(
+          (configuration) => configuration.tool == tool,
+        ),
+      );
+
+  AiExposureToolSettings replace(AiExposureToolConfiguration configuration) =>
+      AiExposureToolSettings(
+        tools: <AiExposureToolConfiguration>[
+          for (final tool in AiExposureTool.values)
+            tool == configuration.tool
+                ? configuration
+                : this.configuration(tool),
+        ],
+      );
+
+  AiExposureToolSettings normalized() {
+    final byTool = <AiExposureTool, AiExposureToolConfiguration>{};
+    for (final configuration in tools) {
+      byTool.putIfAbsent(configuration.tool, () => configuration);
+    }
+    final defaults = AiExposureToolSettings.defaults();
+    return AiExposureToolSettings(
+      tools: <AiExposureToolConfiguration>[
+        for (final tool in AiExposureTool.values)
+          byTool[tool] ?? defaults.configuration(tool),
+      ],
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'tools': normalized().tools
+        .map((configuration) => configuration.toJson())
+        .toList(growable: false),
+  };
+}
+
+List<Map<String, String>> _legacyToolValues(String? raw, String key) {
+  final values = raw
+      ?.split(RegExp(r'[,\s]+'))
+      .map((value) => value.trim())
+      .where((value) => value.isNotEmpty)
+      .toSet()
+      .take(kAiExposureMaxToolProfiles)
+      .toList(growable: false);
+  return <Map<String, String>>[
+    for (final value in values ?? const <String>[])
+      <String, String>{key: value},
+  ];
+}
+
 enum AiExposureResultCategory {
   valid('valid'),
   suspicious('suspicious'),

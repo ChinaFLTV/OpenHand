@@ -27,7 +27,6 @@ enum _ServiceAction {
   logs,
   newHunt,
   scanWorkspace,
-  tools,
   rules,
   settings,
 }
@@ -209,7 +208,8 @@ class _AiExposureServiceCard extends StatelessWidget {
               busy: snapshot.busy,
               onToggle: running
                   ? controller.stopService
-                  : () => startOrConfigureAiExposureService(context, controller),
+                  : () =>
+                        startOrConfigureAiExposureService(context, controller),
               onAction: (action) => _handleAction(context, action),
             );
             return Column(
@@ -475,12 +475,6 @@ class _ServiceActions extends StatelessWidget {
           onAction: onAction,
         ),
         _ServiceIconAction(
-          icon: Icons.construction_rounded,
-          tooltip: text(zh: '扫描工具管理', en: 'Scanner tools'),
-          action: _ServiceAction.tools,
-          onAction: onAction,
-        ),
-        _ServiceIconAction(
           icon: Icons.rule_rounded,
           tooltip: text(zh: '扫描规则管理', en: 'Scan rules'),
           action: _ServiceAction.rules,
@@ -688,8 +682,6 @@ Future<void> _handleAction(BuildContext context, _ServiceAction action) async {
       await showAiExposureNewHuntDialog(context);
     case _ServiceAction.scanWorkspace:
       await showAiExposureScanWorkspaceDialog(context);
-    case _ServiceAction.tools:
-      await showAiExposureToolsDialog(context);
     case _ServiceAction.rules:
       await showAiExposureRulesDialog(context);
     case _ServiceAction.settings:

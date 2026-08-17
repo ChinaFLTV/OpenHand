@@ -4,8 +4,8 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 
-import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
@@ -40,14 +40,6 @@ const Color _kDependencyStopped = Color(0xffb26a00);
 const Color _kMetricToneSuccess = Color(0xff16a34a);
 const Color _kMetricToneError = Color(0xffdc2626);
 const Color _kMetricToneStorage = Color(0xff0891b2);
-const List<AiExposureSource> _kCredentialSources = <AiExposureSource>[
-  AiExposureSource.github,
-  AiExposureSource.gitee,
-  AiExposureSource.gitcode,
-  AiExposureSource.fofa,
-  AiExposureSource.shodan,
-];
-
 const Set<AiExposureSource> _kForumSources = <AiExposureSource>{
   AiExposureSource.nodeseek,
   AiExposureSource.linuxDo,
@@ -103,16 +95,6 @@ Future<void> showAiExposureScanWorkspaceDialog(
   ),
 );
 
-Future<void> showAiExposureToolsDialog(BuildContext context) =>
-    showAnimatedDialog<void>(
-      context: context,
-      builder: (_) => buildOpenHandDialog(
-        maxWidth: kOpenHandDialogWidthWide,
-        maxHeight: kOpenHandDialogHeightTall,
-        child: const ServiceDialogInteractionTheme(child: _ToolsDialog()),
-      ),
-    );
-
 Future<void> showAiExposureRulesDialog(BuildContext context) =>
     showAnimatedDialog<void>(
       context: context,
@@ -159,10 +141,8 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
   );
   final TextEditingController _scope = TextEditingController();
   final TextEditingController _targets = TextEditingController();
-  final List<TextEditingController> _queryControllers = List<TextEditingController>.generate(
-    8,
-    (_) => TextEditingController(),
-  );
+  final List<TextEditingController> _queryControllers =
+      List<TextEditingController>.generate(8, (_) => TextEditingController());
   late Set<AiExposureSource> _sources;
   final Set<String> _vendors = Set<String>.of(_kVendors);
   AiExposureScanMode _mode = AiExposureScanMode.incremental;
@@ -1124,191 +1104,6 @@ class _ScanWorkspaceTab extends StatelessWidget {
   );
 }
 
-class _ToolsDialog extends StatefulWidget {
-  const _ToolsDialog();
-
-  @override
-  State<_ToolsDialog> createState() => _ToolsDialogState();
-}
-
-class _ToolsDialogState extends State<_ToolsDialog> {
-  final List<TextEditingController> _credentialControllers =
-      List<TextEditingController>.generate(
-    6,
-    (_) => TextEditingController(),
-  );
-  late Set<AiExposureSource> _enabledSources;
-  bool _saving = false;
-
-  TextEditingController get _githubToken => _credentialControllers[0];
-  TextEditingController get _giteeToken => _credentialControllers[1];
-  TextEditingController get _gitcodeToken => _credentialControllers[2];
-  TextEditingController get _fofaEmail => _credentialControllers[3];
-  TextEditingController get _fofaKey => _credentialControllers[4];
-  TextEditingController get _shodanKey => _credentialControllers[5];
-
-  static const List<({String label, bool obscure})> _kCredentialFieldSpecs =
-      <({String label, bool obscure})>[
-    (label: 'GitHub Token', obscure: true),
-    (label: 'Gitee Access Token', obscure: true),
-    (label: 'GitCode Access Token', obscure: true),
-    (label: 'FOFA Email', obscure: false),
-    (label: 'FOFA API Key', obscure: true),
-    (label: 'Shodan API Key', obscure: true),
-  ];
-
-  TextEditingController _credentialController(int index) =>
-      _credentialControllers[index];
-
-  @override
-  void initState() {
-    super.initState();
-    _enabledSources = Set.of(context.read<ServicesController>().enabledSources);
-    context.read<ServicesController>().loadSourceCredentials().then(
-      (credentials) {
-        if (!mounted) return;
-        _githubToken.text = credentials['githubToken'] ?? '';
-        _giteeToken.text = credentials['giteeToken'] ?? '';
-        _gitcodeToken.text = credentials['gitcodeToken'] ?? '';
-        _fofaEmail.text = credentials['fofaEmail'] ?? '';
-        _fofaKey.text = credentials['fofaKey'] ?? '';
-        _shodanKey.text = credentials['shodanKey'] ?? '';
-      },
-      onError: (Object error, StackTrace stack) {
-        silentLog('ai_exposure_dialogs', '加载数据源凭证', error, stack);
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    for (final controller in _credentialControllers) {
-      controller.dispose();
-    }
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final text = openHandTextResolver(context);
-    final controller = context.watch<ServicesController>();
-    return _DialogFrame(
-      icon: Icons.construction_rounded,
-      title: text(zh: '扫描工具管理', en: 'Scanner tools'),
-      footer: _DialogActions(
-        actions: [
-          OpenHandDialogActionButton.secondary(
-            onPressed: controller.isRunning
-                ? controller.refreshServiceStatus
-                : null,
-            label: text(zh: '检查配额', en: 'Check quotas'),
-          ),
-          OpenHandDialogActionButton.primary(
-            onPressed: controller.isRunning && !_saving ? _save : null,
-            label: openHandSaveLabel(context),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final source in AiExposureSource.values) ...[
-            _SourceSwitch(
-              source: source,
-              enabled: _enabledSources.contains(source),
-              configured:
-                  source == AiExposureSource.manual ||
-                  controller.sourceStatus[_sourceStatusKey(source)] == true,
-              onChanged: (enabled) => setState(() {
-                if (enabled) {
-                  _enabledSources.add(source);
-                } else {
-                  _enabledSources.remove(source);
-                }
-              }),
-            ),
-            if (source != AiExposureSource.values.last) kOpenHandGap8,
-          ],
-          const SizedBox(height: _kSectionGap),
-          _SectionTitle(
-            icon: Icons.key_outlined,
-            title: text(zh: 'BYOK 凭证', en: 'BYOK credentials'),
-          ),
-          const SizedBox(height: _kItemGap),
-          for (var index = 0; index < _kCredentialFieldSpecs.length; index++) ...[
-            if (index > 0) kOpenHandGap10,
-            TextField(
-              controller: _credentialController(index),
-              obscureText: _kCredentialFieldSpecs[index].obscure,
-              decoration: InputDecoration(
-                labelText: _kCredentialFieldSpecs[index].label,
-                border: const OutlineInputBorder(),
-              ),
-            ),
-          ],
-          const SizedBox(height: _kSectionGap),
-          _InlineNotice(
-            icon: Icons.security_rounded,
-            text: text(
-              zh: '凭证只写入当前 ai_jungler 进程内存，不进入日志；服务停止后自动清除。',
-              en: 'Credentials stay in ai_jungler process memory, never enter logs, and are cleared when it stops.',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _save() async {
-    if (_saving) return;
-    setState(() => _saving = true);
-    final controller = context.read<ServicesController>();
-    try {
-      final preferencesUpdated = await controller.updateScanPreferences(
-        enabledSources: _enabledSources,
-        concurrency: controller.defaultConcurrency,
-        validationMode: controller.defaultValidationMode,
-        forumFetchMode: controller.forumFetchMode,
-        gptAssisted: controller.defaultGptAssisted,
-      );
-      if (!mounted) return;
-      if (!preferencesUpdated) {
-        showOpenHandErrorSnack(
-          context,
-          controller.errorMessage ?? '保存扫描工具设置失败。',
-        );
-        return;
-      }
-      final credentialsUpdated = await controller.updateSourceCredentials(
-        githubToken: _githubToken.text,
-        giteeToken: _giteeToken.text,
-        gitcodeToken: _gitcodeToken.text,
-        fofaEmail: _fofaEmail.text,
-        fofaKey: _fofaKey.text,
-        shodanKey: _shodanKey.text,
-      );
-      if (!mounted) return;
-      if (!credentialsUpdated) {
-        showOpenHandErrorSnack(
-          context,
-          controller.errorMessage ?? '更新扫描数据源凭证失败。',
-        );
-        return;
-      }
-      showOpenHandSuccessSnack(
-        context,
-        openHandLocalizedText(
-          context,
-          zh: '扫描工具设置已更新。',
-          en: 'Scanner tool settings updated.',
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-}
-
 class _RulesDialog extends StatefulWidget {
   const _RulesDialog();
 
@@ -1423,6 +1218,9 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   late bool _activeValidation;
   late AiExposureForumFetchMode _forumFetchMode;
   late bool _gptAssisted;
+  late Set<AiExposureSource> _enabledSources;
+  AiExposureToolSettings _toolSettings = AiExposureToolSettings.defaults();
+  bool _loadingToolSettings = true;
   bool _applying = false;
   bool _refreshingStatus = false;
   String? _dependencyOperationId;
@@ -1441,6 +1239,19 @@ class _SettingsDialogState extends State<_SettingsDialog> {
         AiExposureValidationMode.authorizedActive;
     _forumFetchMode = controller.forumFetchMode;
     _gptAssisted = controller.defaultGptAssisted;
+    _enabledSources = Set<AiExposureSource>.of(controller.enabledSources);
+    _loadToolSettings();
+  }
+
+  Future<void> _loadToolSettings() async {
+    final settings = await context
+        .read<ServicesController>()
+        .loadToolSettings();
+    if (!mounted) return;
+    setState(() {
+      _toolSettings = settings;
+      _loadingToolSettings = false;
+    });
   }
 
   @override
@@ -1486,10 +1297,12 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                 ? _refreshStatus
                 : null,
             busy: _refreshingStatus,
-            label: text(zh: '刷新 API 状态', en: 'Refresh API status'),
+            label: text(zh: '刷新依赖状态', en: 'Refresh dependencies'),
           ),
           OpenHandDialogActionButton.primary(
-            onPressed: controller.busy || _applying ? null : _apply,
+            onPressed: controller.busy || _applying || _loadingToolSettings
+                ? null
+                : _apply,
             label: text(zh: '应用设置', en: 'Apply settings'),
           ),
         ],
@@ -1545,19 +1358,21 @@ class _SettingsDialogState extends State<_SettingsDialog> {
           ),
           const SizedBox(height: _kSectionGap),
           _SectionTitle(
-            icon: Icons.api_rounded,
-            title: text(zh: '源 API 状态', en: 'Source API status'),
+            icon: Icons.construction_rounded,
+            title: text(zh: '工具设置', en: 'Tool settings'),
           ),
           const SizedBox(height: _kItemGap),
-          for (final source in _kCredentialSources) ...[
-            _SourceApiStatusRow(
-              source: source,
-              configured:
-                  controller.sourceStatus[_sourceStatusKey(source)] == true,
-              quota: _sourceQuota(controller.quotas, source),
+          if (_loadingToolSettings)
+            const LinearProgressIndicator(minHeight: 3)
+          else
+            _ToolSettingsPanel(
+              settings: _toolSettings,
+              enabledSources: _enabledSources,
+              onSettingsChanged: (settings) =>
+                  setState(() => _toolSettings = settings),
+              onSourcesChanged: (sources) =>
+                  setState(() => _enabledSources = sources),
             ),
-            if (source != _kCredentialSources.last) kOpenHandGap8,
-          ],
           const SizedBox(height: _kSectionGap),
           _SectionTitle(
             icon: Icons.language_rounded,
@@ -1699,8 +1514,8 @@ class _SettingsDialogState extends State<_SettingsDialog> {
           _InlineNotice(
             icon: Icons.lock_outline_rounded,
             text: text(
-              zh: '服务仅接受声明授权范围内的 HTTP/HTTPS 目标；原始凭证加密保存且界面始终打码。',
-              en: 'Only declared HTTP/HTTPS targets are accepted; raw credentials are encrypted and always masked in the UI.',
+              zh: '服务仅接受声明授权范围内的 HTTP/HTTPS 目标；工具凭证保存在本机应用数据库，界面默认隐藏且不会写入日志。',
+              en: 'Only authorized HTTP/HTTPS targets are accepted; tool credentials stay in the local app database, remain masked, and are never logged.',
             ),
           ),
         ],
@@ -1715,7 +1530,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     final pluginController = context.read<PluginServiceController>();
     try {
       final scanPreferencesUpdated = await controller.updateScanPreferences(
-        enabledSources: controller.enabledSources,
+        enabledSources: _enabledSources,
         concurrency: _concurrency.round(),
         validationMode: _activeValidation
             ? AiExposureValidationMode.authorizedActive
@@ -1827,6 +1642,20 @@ class _SettingsDialogState extends State<_SettingsDialog> {
           }
           return;
         }
+      }
+
+      final toolSettingsUpdated = await controller.updateToolSettings(
+        _toolSettings,
+      );
+      if (!toolSettingsUpdated) {
+        if (mounted) {
+          showOpenHandErrorSnack(
+            context,
+            controller.errorMessage ??
+                text(zh: '保存工具设置失败。', en: 'Failed to save tool settings.'),
+          );
+        }
+        return;
       }
 
       if (_postgresqlEnabled) {
@@ -2041,6 +1870,1302 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     }
   }
 }
+
+class _ToolSettingsPanel extends StatelessWidget {
+  const _ToolSettingsPanel({
+    required this.settings,
+    required this.enabledSources,
+    required this.onSettingsChanged,
+    required this.onSourcesChanged,
+  });
+
+  final AiExposureToolSettings settings;
+  final Set<AiExposureSource> enabledSources;
+  final ValueChanged<AiExposureToolSettings> onSettingsChanged;
+  final ValueChanged<Set<AiExposureSource>> onSourcesChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = openHandTextResolver(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          text(zh: '默认扫描源', en: 'Default scan sources'),
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        kOpenHandGap8,
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final source in AiExposureSource.values)
+              ServiceFilterChip(
+                selected: enabledSources.contains(source),
+                icon: Icon(_sourceIcon(source), size: 17),
+                label: Text(_sourceLabel(context, source)),
+                onSelected: (selected) {
+                  final next = Set<AiExposureSource>.of(enabledSources);
+                  selected ? next.add(source) : next.remove(source);
+                  if (next.isEmpty) next.add(AiExposureSource.manual);
+                  onSourcesChanged(next);
+                },
+              ),
+          ],
+        ),
+        const SizedBox(height: _kSectionGap),
+        for (final tool in AiExposureTool.values) ...[
+          _ToolConfigurationCard(
+            configuration: settings.configuration(tool),
+            onChanged: (configuration) =>
+                onSettingsChanged(settings.replace(configuration)),
+          ),
+          if (tool != AiExposureTool.values.last) kOpenHandGap10,
+        ],
+      ],
+    );
+  }
+}
+
+class _ToolConfigurationCard extends StatefulWidget {
+  const _ToolConfigurationCard({
+    required this.configuration,
+    required this.onChanged,
+  });
+
+  final AiExposureToolConfiguration configuration;
+  final ValueChanged<AiExposureToolConfiguration> onChanged;
+
+  @override
+  State<_ToolConfigurationCard> createState() => _ToolConfigurationCardState();
+}
+
+class _ToolConfigurationCardState extends State<_ToolConfigurationCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = openHandTextResolver(context);
+    final tool = widget.configuration.tool;
+    final tone = _toolTone(tool);
+    final enabledProfiles = widget.configuration.profiles
+        .where((profile) => profile.enabled && _toolProfileReady(tool, profile))
+        .length;
+    return AnimatedContainer(
+      duration: openHandMotionDuration(context, kOpenHandMotion220),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        borderRadius: kOpenHandBorderRadius8,
+        color: Color.alphaBlend(
+          tone.withValues(alpha: widget.configuration.enabled ? 0.055 : 0.02),
+          theme.colorScheme.surfaceContainer,
+        ),
+        border: Border.all(
+          color: widget.configuration.enabled
+              ? tone.withValues(alpha: 0.42)
+              : theme.colorScheme.outlineVariant.withValues(alpha: 0.7),
+        ),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: tone.withValues(alpha: 0.14),
+                    borderRadius: kOpenHandBorderRadius8,
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(_toolIcon(tool), color: tone, size: 21),
+                ),
+                kOpenHandHGap10,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            _toolLabel(tool),
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          _ToolCountBadge(
+                            tone: tone,
+                            label: text(
+                              zh: '$enabledProfiles/${widget.configuration.profiles.length} 可用',
+                              en: '$enabledProfiles/${widget.configuration.profiles.length} ready',
+                            ),
+                          ),
+                        ],
+                      ),
+                      kOpenHandGap4,
+                      Text(
+                        _toolHint(context, tool),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Tooltip(
+                  message: _expanded
+                      ? text(zh: '收起工具设置', en: 'Collapse tool settings')
+                      : text(zh: '展开工具设置', en: 'Expand tool settings'),
+                  child: IconButton(
+                    onPressed: () => setState(() => _expanded = !_expanded),
+                    icon: AnimatedRotation(
+                      duration: openHandMotionDuration(
+                        context,
+                        kOpenHandMotion220,
+                      ),
+                      turns: _expanded ? 0.5 : 0,
+                      child: const Icon(Icons.keyboard_arrow_down_rounded),
+                    ),
+                  ),
+                ),
+                Switch(
+                  value: widget.configuration.enabled,
+                  onChanged: (enabled) => widget.onChanged(
+                    widget.configuration.copyWith(enabled: enabled),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          OpenHandVerticalRevealSwitcher(
+            presentKey: ValueKey<String>('tool-${tool.id}-details'),
+            slideBeginOffsetY: -.02,
+            child: !_expanded
+                ? null
+                : Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Divider(height: 1),
+                        kOpenHandGap12,
+                        DropdownButtonFormField<
+                          AiExposureToolSelectionStrategy
+                        >(
+                          initialValue: widget.configuration.strategy,
+                          decoration: InputDecoration(
+                            labelText: text(
+                              zh: '配置选择策略',
+                              en: 'Profile selection strategy',
+                            ),
+                            prefixIcon: const Icon(Icons.route_rounded),
+                            border: const OutlineInputBorder(),
+                          ),
+                          items: [
+                            for (final strategy
+                                in AiExposureToolSelectionStrategy.values)
+                              DropdownMenuItem(
+                                value: strategy,
+                                child: Text(
+                                  _toolStrategyLabel(context, strategy),
+                                ),
+                              ),
+                          ],
+                          onChanged: (strategy) {
+                            if (strategy == null) return;
+                            widget.onChanged(
+                              widget.configuration.copyWith(strategy: strategy),
+                            );
+                          },
+                        ),
+                        kOpenHandGap10,
+                        if (widget.configuration.profiles.isEmpty)
+                          _InlineNotice(
+                            icon: Icons.key_off_rounded,
+                            text: text(
+                              zh: '尚未添加配置。',
+                              en: 'No profiles configured.',
+                            ),
+                          )
+                        else
+                          ReorderableListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            buildDefaultDragHandles: false,
+                            itemCount: widget.configuration.profiles.length,
+                            proxyDecorator: (child, index, animation) =>
+                                Material(
+                                  color: Colors.transparent,
+                                  elevation: 8,
+                                  borderRadius: kOpenHandBorderRadius8,
+                                  child: child,
+                                ),
+                            onReorder: _reorderProfiles,
+                            itemBuilder: (context, index) {
+                              final profile =
+                                  widget.configuration.profiles[index];
+                              return Padding(
+                                key: ValueKey<String>(profile.id),
+                                padding: EdgeInsets.only(
+                                  bottom:
+                                      index ==
+                                          widget.configuration.profiles.length -
+                                              1
+                                      ? 0
+                                      : 8,
+                                ),
+                                child: _ToolProfileCard(
+                                  tool: tool,
+                                  profile: profile,
+                                  index: index,
+                                  tone: tone,
+                                  onChanged: (updated) =>
+                                      _replaceProfile(index, updated),
+                                  onDelete: () => _deleteProfile(index),
+                                ),
+                              );
+                            },
+                          ),
+                        kOpenHandGap10,
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: OutlinedButton.icon(
+                            onPressed:
+                                widget.configuration.profiles.length >=
+                                    kAiExposureMaxToolProfiles
+                                ? null
+                                : _addProfile,
+                            icon: const Icon(Icons.add_rounded),
+                            label: Text(text(zh: '新增配置', en: 'Add profile')),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _addProfile() {
+    final profiles =
+        List<AiExposureToolProfile>.of(widget.configuration.profiles)..add(
+          AiExposureToolProfile(
+            id: const Uuid().v4(),
+            name: '配置 ${widget.configuration.profiles.length + 1}',
+            enabled: true,
+            values: const <String, String>{},
+          ),
+        );
+    widget.onChanged(widget.configuration.copyWith(profiles: profiles));
+  }
+
+  void _replaceProfile(int index, AiExposureToolProfile profile) {
+    final profiles = List<AiExposureToolProfile>.of(
+      widget.configuration.profiles,
+    );
+    profiles[index] = profile;
+    widget.onChanged(widget.configuration.copyWith(profiles: profiles));
+  }
+
+  void _deleteProfile(int index) {
+    final profiles = List<AiExposureToolProfile>.of(
+      widget.configuration.profiles,
+    )..removeAt(index);
+    widget.onChanged(widget.configuration.copyWith(profiles: profiles));
+  }
+
+  void _reorderProfiles(int oldIndex, int newIndex) {
+    final profiles = List<AiExposureToolProfile>.of(
+      widget.configuration.profiles,
+    );
+    if (newIndex > oldIndex) newIndex--;
+    final profile = profiles.removeAt(oldIndex);
+    profiles.insert(newIndex, profile);
+    widget.onChanged(widget.configuration.copyWith(profiles: profiles));
+  }
+}
+
+class _ToolProfileCard extends StatefulWidget {
+  const _ToolProfileCard({
+    required this.tool,
+    required this.profile,
+    required this.index,
+    required this.tone,
+    required this.onChanged,
+    required this.onDelete,
+  });
+
+  final AiExposureTool tool;
+  final AiExposureToolProfile profile;
+  final int index;
+  final Color tone;
+  final ValueChanged<AiExposureToolProfile> onChanged;
+  final VoidCallback onDelete;
+
+  @override
+  State<_ToolProfileCard> createState() => _ToolProfileCardState();
+}
+
+class _ToolProfileCardState extends State<_ToolProfileCard> {
+  bool _expanded = false;
+  bool _showSecrets = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final text = openHandTextResolver(context);
+    final ready = _toolProfileReady(widget.tool, widget.profile);
+    return AnimatedOpacity(
+      duration: openHandMotionDuration(context, kOpenHandMotion180),
+      opacity: widget.profile.enabled ? 1 : 0.68,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: kOpenHandBorderRadius8,
+          color: theme.colorScheme.surface,
+          border: Border.all(
+            color: ready
+                ? widget.tone.withValues(alpha: 0.28)
+                : theme.colorScheme.outlineVariant,
+          ),
+        ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final dragHandle = ReorderableDragStartListener(
+                    index: widget.index,
+                    child: Tooltip(
+                      message: text(zh: '拖动排序', en: 'Drag to reorder'),
+                      child: const SizedBox.square(
+                        dimension: 36,
+                        child: Icon(Icons.drag_indicator_rounded, size: 20),
+                      ),
+                    ),
+                  );
+                  final nameField = Expanded(
+                    child: TextFormField(
+                      key: ValueKey<String>('${widget.profile.id}-name'),
+                      initialValue: widget.profile.name,
+                      onChanged: (name) =>
+                          widget.onChanged(widget.profile.copyWith(name: name)),
+                      decoration: InputDecoration(
+                        labelText: text(zh: '配置名称', en: 'Profile name'),
+                        isDense: true,
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  );
+                  final controls = <Widget>[
+                    _ToolCountBadge(
+                      tone: ready ? widget.tone : theme.colorScheme.error,
+                      label: ready
+                          ? text(zh: '就绪', en: 'Ready')
+                          : text(zh: '待补充', en: 'Incomplete'),
+                    ),
+                    kOpenHandHGap4,
+                    Tooltip(
+                      message: _expanded
+                          ? text(zh: '收起配置', en: 'Collapse profile')
+                          : text(zh: '编辑配置', en: 'Edit profile'),
+                      child: IconButton(
+                        onPressed: () => setState(() => _expanded = !_expanded),
+                        icon: Icon(
+                          _expanded
+                              ? Icons.expand_less_rounded
+                              : Icons.tune_rounded,
+                        ),
+                      ),
+                    ),
+                    Tooltip(
+                      message: text(zh: '删除配置', en: 'Delete profile'),
+                      child: IconButton(
+                        onPressed: widget.onDelete,
+                        color: theme.colorScheme.error,
+                        icon: const Icon(Icons.delete_outline_rounded),
+                      ),
+                    ),
+                    Switch(
+                      value: widget.profile.enabled,
+                      onChanged: (enabled) => widget.onChanged(
+                        widget.profile.copyWith(enabled: enabled),
+                      ),
+                    ),
+                  ];
+                  if (constraints.maxWidth >= 520) {
+                    return Row(children: [dragHandle, nameField, ...controls]);
+                  }
+                  return Column(
+                    children: [
+                      Row(children: [dragHandle, nameField]),
+                      Row(children: [kOpenHandHGap8, ...controls]),
+                    ],
+                  );
+                },
+              ),
+            ),
+            OpenHandVerticalRevealSwitcher(
+              presentKey: ValueKey<String>('profile-${widget.profile.id}'),
+              slideBeginOffsetY: -.02,
+              child: !_expanded
+                  ? null
+                  : Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Divider(height: 1),
+                          kOpenHandGap12,
+                          if (widget.tool == AiExposureTool.jina)
+                            ..._buildJinaSections(context)
+                          else
+                            ..._buildFields(
+                              context,
+                              _toolFieldSpecs(widget.tool),
+                            ),
+                        ],
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildJinaSections(BuildContext context) {
+    final widgets = <Widget>[];
+    for (var index = 0; index < _kJinaFieldGroups.length; index++) {
+      final group = _kJinaFieldGroups[index];
+      if (index > 0) widgets.add(kOpenHandGap14);
+      widgets.add(
+        Row(
+          children: [
+            Icon(group.icon, size: 18, color: widget.tone),
+            kOpenHandHGap8,
+            Text(
+              openHandLocalizedText(context, zh: group.zh, en: group.en),
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+            ),
+          ],
+        ),
+      );
+      widgets.add(kOpenHandGap8);
+      widgets.addAll(_buildFields(context, group.fields));
+    }
+    return widgets;
+  }
+
+  List<Widget> _buildFields(
+    BuildContext context,
+    List<_ToolFieldSpec> fields,
+  ) => <Widget>[
+    for (var index = 0; index < fields.length; index++) ...[
+      if (index > 0) kOpenHandGap10,
+      _buildField(context, fields[index]),
+    ],
+  ];
+
+  Widget _buildField(BuildContext context, _ToolFieldSpec spec) {
+    final text = openHandTextResolver(context);
+    final value = widget.profile.values[spec.key] ?? '';
+    final label = text(zh: spec.zh, en: spec.en);
+    if (spec.type == _ToolFieldType.toggle) {
+      return SwitchListTile.adaptive(
+        contentPadding: EdgeInsets.zero,
+        title: Text(label),
+        subtitle: spec.hintZh == null
+            ? null
+            : Text(text(zh: spec.hintZh!, en: spec.hintEn!)),
+        value: value == 'true' || value == '1',
+        onChanged: (enabled) => _setValue(spec.key, enabled ? 'true' : ''),
+      );
+    }
+    if (spec.type == _ToolFieldType.select) {
+      return DropdownButtonFormField<String>(
+        key: ValueKey<String>('${widget.profile.id}-${spec.key}'),
+        initialValue: spec.options.contains(value) ? value : '',
+        decoration: InputDecoration(
+          labelText: label,
+          helperText: spec.hintZh == null
+              ? null
+              : text(zh: spec.hintZh!, en: spec.hintEn!),
+          border: const OutlineInputBorder(),
+        ),
+        items: <DropdownMenuItem<String>>[
+          DropdownMenuItem(
+            value: '',
+            child: Text(text(zh: '默认', en: 'Default')),
+          ),
+          for (final option in spec.options)
+            DropdownMenuItem(value: option, child: Text(option)),
+        ],
+        onChanged: (selected) => _setValue(spec.key, selected ?? ''),
+      );
+    }
+    final secret =
+        spec.type == _ToolFieldType.secret ||
+        spec.type == _ToolFieldType.secretMultiline;
+    final multiline =
+        spec.type == _ToolFieldType.multiline ||
+        spec.type == _ToolFieldType.secretMultiline;
+    return TextFormField(
+      key: ValueKey<String>('${widget.profile.id}-${spec.key}'),
+      initialValue: value,
+      obscureText: secret && !_showSecrets,
+      keyboardType: spec.type == _ToolFieldType.number
+          ? TextInputType.number
+          : multiline
+          ? TextInputType.multiline
+          : TextInputType.text,
+      minLines: multiline && (!secret || _showSecrets) ? 2 : 1,
+      maxLines: multiline && (!secret || _showSecrets) ? 5 : 1,
+      onChanged: (updated) => _setValue(spec.key, updated),
+      decoration: InputDecoration(
+        labelText: label,
+        helperText: spec.hintZh == null
+            ? null
+            : text(zh: spec.hintZh!, en: spec.hintEn!),
+        border: const OutlineInputBorder(),
+        suffixIcon: !secret
+            ? null
+            : Tooltip(
+                message: _showSecrets
+                    ? text(zh: '隐藏凭证', en: 'Hide credential')
+                    : text(zh: '显示凭证', en: 'Show credential'),
+                child: IconButton(
+                  onPressed: () => setState(() => _showSecrets = !_showSecrets),
+                  icon: Icon(
+                    _showSecrets
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+
+  void _setValue(String key, String value) {
+    final values = Map<String, String>.of(widget.profile.values);
+    value.trim().isEmpty ? values.remove(key) : values[key] = value;
+    widget.onChanged(widget.profile.copyWith(values: values));
+  }
+}
+
+class _ToolCountBadge extends StatelessWidget {
+  const _ToolCountBadge({required this.tone, required this.label});
+
+  final Color tone;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+    decoration: BoxDecoration(
+      color: tone.withValues(alpha: 0.11),
+      borderRadius: kOpenHandBorderRadius6,
+      border: Border.all(color: tone.withValues(alpha: 0.26)),
+    ),
+    child: Text(
+      label,
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+        color: tone,
+        fontWeight: FontWeight.w800,
+      ),
+    ),
+  );
+}
+
+enum _ToolFieldType {
+  text,
+  secret,
+  number,
+  toggle,
+  select,
+  multiline,
+  secretMultiline,
+}
+
+class _ToolFieldSpec {
+  const _ToolFieldSpec({
+    required this.key,
+    required this.zh,
+    required this.en,
+    this.type = _ToolFieldType.text,
+    this.options = const <String>[],
+    this.hintZh,
+    this.hintEn,
+  });
+
+  final String key;
+  final String zh;
+  final String en;
+  final _ToolFieldType type;
+  final List<String> options;
+  final String? hintZh;
+  final String? hintEn;
+}
+
+class _JinaFieldGroup {
+  const _JinaFieldGroup({
+    required this.zh,
+    required this.en,
+    required this.icon,
+    required this.fields,
+  });
+
+  final String zh;
+  final String en;
+  final IconData icon;
+  final List<_ToolFieldSpec> fields;
+}
+
+const List<_JinaFieldGroup> _kJinaFieldGroups = <_JinaFieldGroup>[
+  _JinaFieldGroup(
+    zh: '访问与响应',
+    en: 'Access and response',
+    icon: Icons.key_rounded,
+    fields: <_ToolFieldSpec>[
+      _ToolFieldSpec(
+        key: 'token',
+        zh: 'Jina API Token',
+        en: 'Jina API token',
+        type: _ToolFieldType.secret,
+      ),
+      _ToolFieldSpec(
+        key: 'accept',
+        zh: '响应协议 · Accept',
+        en: 'Response protocol · Accept',
+        type: _ToolFieldType.select,
+        options: <String>[
+          'text/plain',
+          'application/json',
+          'text/json',
+          'text/event-stream',
+        ],
+      ),
+      _ToolFieldSpec(
+        key: 'engine',
+        zh: '读取引擎 · X-Engine',
+        en: 'Reader engine · X-Engine',
+        type: _ToolFieldType.select,
+        options: <String>[
+          'auto',
+          'direct',
+          'browser',
+          'curl',
+          'cf-browser-rendering',
+        ],
+      ),
+      _ToolFieldSpec(
+        key: 'returnFormat',
+        zh: '返回格式 · X-Return-Format',
+        en: 'Return format · X-Return-Format',
+        type: _ToolFieldType.select,
+        options: <String>['markdown', 'html', 'text', 'screenshot', 'pageshot'],
+      ),
+      _ToolFieldSpec(
+        key: 'respondWith',
+        zh: '响应内容 · X-Respond-With',
+        en: 'Response content · X-Respond-With',
+        type: _ToolFieldType.select,
+        options: <String>[
+          'content',
+          'markdown',
+          'html',
+          'text',
+          'frontmatter',
+          'readerlm-v2',
+          'vlm',
+          'screenshot',
+          'pageshot',
+          'no-content',
+        ],
+      ),
+      _ToolFieldSpec(
+        key: 'timeout',
+        zh: '服务超时秒数 · X-Timeout',
+        en: 'Server timeout seconds · X-Timeout',
+        type: _ToolFieldType.number,
+        hintZh: '1-180 秒',
+        hintEn: '1-180 seconds',
+      ),
+      _ToolFieldSpec(
+        key: 'tokenBudget',
+        zh: 'Token 预算 · X-Token-Budget',
+        en: 'Token budget · X-Token-Budget',
+        type: _ToolFieldType.number,
+      ),
+      _ToolFieldSpec(
+        key: 'maxTokens',
+        zh: '最大返回 Token · X-Max-Tokens',
+        en: 'Maximum output tokens · X-Max-Tokens',
+        type: _ToolFieldType.number,
+        hintZh: '最小值 500',
+        hintEn: 'Minimum 500',
+      ),
+    ],
+  ),
+  _JinaFieldGroup(
+    zh: '内容提取',
+    en: 'Content extraction',
+    icon: Icons.filter_alt_outlined,
+    fields: <_ToolFieldSpec>[
+      _ToolFieldSpec(
+        key: 'targetSelector',
+        zh: '目标选择器 · X-Target-Selector',
+        en: 'Target selector · X-Target-Selector',
+      ),
+      _ToolFieldSpec(
+        key: 'waitForSelector',
+        zh: '等待选择器 · X-Wait-For-Selector',
+        en: 'Wait selector · X-Wait-For-Selector',
+      ),
+      _ToolFieldSpec(
+        key: 'removeSelector',
+        zh: '移除选择器 · X-Remove-Selector',
+        en: 'Remove selector · X-Remove-Selector',
+      ),
+      _ToolFieldSpec(
+        key: 'retainImages',
+        zh: '图片保留 · X-Retain-Images',
+        en: 'Retain images · X-Retain-Images',
+        type: _ToolFieldType.select,
+        options: <String>['none', 'all', 'alt', 'all_p', 'alt_p'],
+      ),
+      _ToolFieldSpec(
+        key: 'retainMedia',
+        zh: '媒体保留 · X-Retain-Media',
+        en: 'Retain media · X-Retain-Media',
+        type: _ToolFieldType.select,
+        options: <String>['none', 'text', 'link', 'image', 'html'],
+      ),
+      _ToolFieldSpec(
+        key: 'retainLinks',
+        zh: '链接保留 · X-Retain-Links',
+        en: 'Retain links · X-Retain-Links',
+        type: _ToolFieldType.select,
+        options: <String>['none', 'all', 'text', 'gpt-oss'],
+      ),
+      _ToolFieldSpec(
+        key: 'withLinksSummary',
+        zh: '链接摘要 · X-With-Links-Summary',
+        en: 'Links summary · X-With-Links-Summary',
+        hintZh: '可填 true、all 或 gpt-oss',
+        hintEn: 'Use true, all, or gpt-oss',
+      ),
+      _ToolFieldSpec(
+        key: 'withImagesSummary',
+        zh: '图片摘要 · X-With-Images-Summary',
+        en: 'Images summary · X-With-Images-Summary',
+        type: _ToolFieldType.toggle,
+      ),
+      _ToolFieldSpec(
+        key: 'withGeneratedAlt',
+        zh: '生成图片描述 · X-With-Generated-Alt',
+        en: 'Generate image alt text · X-With-Generated-Alt',
+        type: _ToolFieldType.toggle,
+      ),
+      _ToolFieldSpec(
+        key: 'keepImgDataUrl',
+        zh: '保留图片 Data URL · X-Keep-Img-Data-Url',
+        en: 'Keep image data URL · X-Keep-Img-Data-Url',
+        type: _ToolFieldType.toggle,
+      ),
+      _ToolFieldSpec(
+        key: 'base',
+        zh: '相对链接基准 · X-Base',
+        en: 'Relative URL base · X-Base',
+        type: _ToolFieldType.select,
+        options: <String>['initial', 'final'],
+      ),
+      _ToolFieldSpec(
+        key: 'preset',
+        zh: '读取预设 · X-Preset',
+        en: 'Reader preset · X-Preset',
+        type: _ToolFieldType.select,
+        options: <String>['reader', 'index', 'research', 'agent', 'spider'],
+      ),
+      _ToolFieldSpec(
+        key: 'removeOverlay',
+        zh: '移除遮罩 · X-Remove-Overlay',
+        en: 'Remove overlays · X-Remove-Overlay',
+        type: _ToolFieldType.toggle,
+      ),
+      _ToolFieldSpec(
+        key: 'detachInvisibles',
+        zh: '分离隐藏元素 · X-Detach-Invisibles',
+        en: 'Detach invisible elements · X-Detach-Invisibles',
+        type: _ToolFieldType.toggle,
+      ),
+      _ToolFieldSpec(
+        key: 'noGfm',
+        zh: '关闭 GFM · X-No-Gfm',
+        en: 'Disable GFM · X-No-Gfm',
+        type: _ToolFieldType.select,
+        options: <String>['true', 'table'],
+      ),
+      _ToolFieldSpec(
+        key: 'markdownChunking',
+        zh: 'Markdown 分块 · X-Markdown-Chunking',
+        en: 'Markdown chunking · X-Markdown-Chunking',
+        type: _ToolFieldType.select,
+        options: <String>[
+          'true',
+          'h1',
+          'h2',
+          'h3',
+          'h4',
+          'h5',
+          'structured',
+          's1',
+          's2',
+          's3',
+          's4',
+          's5',
+        ],
+      ),
+    ],
+  ),
+  _JinaFieldGroup(
+    zh: '网络与页面',
+    en: 'Network and page',
+    icon: Icons.public_rounded,
+    fields: <_ToolFieldSpec>[
+      _ToolFieldSpec(
+        key: 'setCookies',
+        zh: 'Cookie · X-Set-Cookie（每行一条）',
+        en: 'Cookies · X-Set-Cookie (one per line)',
+        type: _ToolFieldType.multiline,
+      ),
+      _ToolFieldSpec(
+        key: 'preloadUrl',
+        zh: '预加载地址 · X-Preload-Url',
+        en: 'Preload URL · X-Preload-Url',
+      ),
+      _ToolFieldSpec(
+        key: 'noServiceWorker',
+        zh: '禁用 Service Worker · X-No-Service-Worker',
+        en: 'Disable service worker · X-No-Service-Worker',
+        type: _ToolFieldType.toggle,
+      ),
+      _ToolFieldSpec(
+        key: 'storageState',
+        zh: '浏览器存储状态 JSON · storageState',
+        en: 'Browser storage state JSON · storageState',
+        type: _ToolFieldType.secretMultiline,
+        hintZh: 'Playwright cookies 与 origins 对象',
+        hintEn: 'Playwright cookies and origins object',
+      ),
+      _ToolFieldSpec(
+        key: 'exportStorageState',
+        zh: '导出浏览器存储状态 · X-Export-Storage-State',
+        en: 'Export browser storage state · X-Export-Storage-State',
+        type: _ToolFieldType.toggle,
+      ),
+      _ToolFieldSpec(
+        key: 'proxyUrl',
+        zh: '自定义代理 · X-Proxy-Url',
+        en: 'Custom proxy · X-Proxy-Url',
+        type: _ToolFieldType.secret,
+      ),
+      _ToolFieldSpec(
+        key: 'proxy',
+        zh: '地区代理 · X-Proxy',
+        en: 'Country proxy · X-Proxy',
+        hintZh: 'auto、none 或两位国家代码',
+        hintEn: 'auto, none, or a two-letter country code',
+      ),
+      _ToolFieldSpec(
+        key: 'noCache',
+        zh: '绕过缓存 · X-No-Cache',
+        en: 'Bypass cache · X-No-Cache',
+        type: _ToolFieldType.toggle,
+      ),
+      _ToolFieldSpec(
+        key: 'cacheTolerance',
+        zh: '缓存容忍秒数 · X-Cache-Tolerance',
+        en: 'Cache tolerance seconds · X-Cache-Tolerance',
+        type: _ToolFieldType.number,
+      ),
+      _ToolFieldSpec(
+        key: 'respondTiming',
+        zh: '页面就绪时机 · X-Respond-Timing',
+        en: 'Page readiness timing · X-Respond-Timing',
+        type: _ToolFieldType.select,
+        options: <String>[
+          'html',
+          'visible-content',
+          'mutation-idle',
+          'resource-idle',
+          'media-idle',
+          'network-idle',
+        ],
+      ),
+      _ToolFieldSpec(
+        key: 'userAgent',
+        zh: 'User-Agent · X-User-Agent',
+        en: 'User-Agent · X-User-Agent',
+      ),
+      _ToolFieldSpec(
+        key: 'referer',
+        zh: 'Referer · X-Referer',
+        en: 'Referer · X-Referer',
+      ),
+      _ToolFieldSpec(
+        key: 'locale',
+        zh: '页面区域 · X-Locale',
+        en: 'Page locale · X-Locale',
+      ),
+      _ToolFieldSpec(
+        key: 'robotsTxt',
+        zh: 'robots.txt 身份 · X-Robots-Txt',
+        en: 'robots.txt identity · X-Robots-Txt',
+      ),
+      _ToolFieldSpec(
+        key: 'dnt',
+        zh: '禁止结果入缓存 · DNT',
+        en: 'Do not cache result · DNT',
+        type: _ToolFieldType.toggle,
+      ),
+      _ToolFieldSpec(
+        key: 'withIframe',
+        zh: '包含 iframe · X-With-Iframe',
+        en: 'Include iframe · X-With-Iframe',
+        type: _ToolFieldType.select,
+        options: <String>['true', 'quoted'],
+      ),
+      _ToolFieldSpec(
+        key: 'withShadowDom',
+        zh: '包含 Shadow DOM · X-With-Shadow-Dom',
+        en: 'Include Shadow DOM · X-With-Shadow-Dom',
+        type: _ToolFieldType.toggle,
+      ),
+      _ToolFieldSpec(
+        key: 'assertStatusCode',
+        zh: '断言页面状态码 · X-Assert-Status-Code',
+        en: 'Assert page status · X-Assert-Status-Code',
+        type: _ToolFieldType.number,
+      ),
+      _ToolFieldSpec(
+        key: 'page',
+        zh: '文件页码 · X-Page',
+        en: 'File page · X-Page',
+        type: _ToolFieldType.number,
+      ),
+    ],
+  ),
+  _JinaFieldGroup(
+    zh: '浏览器 POST 参数',
+    en: 'Browser POST parameters',
+    icon: Icons.web_asset_rounded,
+    fields: <_ToolFieldSpec>[
+      _ToolFieldSpec(
+        key: 'viewportWidth',
+        zh: '视口宽度 · viewport.width',
+        en: 'Viewport width · viewport.width',
+        type: _ToolFieldType.number,
+      ),
+      _ToolFieldSpec(
+        key: 'viewportHeight',
+        zh: '视口高度 · viewport.height',
+        en: 'Viewport height · viewport.height',
+        type: _ToolFieldType.number,
+      ),
+      _ToolFieldSpec(
+        key: 'viewportDeviceScaleFactor',
+        zh: '设备缩放 · viewport.deviceScaleFactor',
+        en: 'Device scale · viewport.deviceScaleFactor',
+        type: _ToolFieldType.number,
+      ),
+      _ToolFieldSpec(
+        key: 'viewportIsMobile',
+        zh: '移动视口 · viewport.isMobile',
+        en: 'Mobile viewport · viewport.isMobile',
+        type: _ToolFieldType.toggle,
+      ),
+      _ToolFieldSpec(
+        key: 'viewportIsLandscape',
+        zh: '横屏视口 · viewport.isLandscape',
+        en: 'Landscape viewport · viewport.isLandscape',
+        type: _ToolFieldType.toggle,
+      ),
+      _ToolFieldSpec(
+        key: 'viewportHasTouch',
+        zh: '触控视口 · viewport.hasTouch',
+        en: 'Touch viewport · viewport.hasTouch',
+        type: _ToolFieldType.toggle,
+      ),
+      _ToolFieldSpec(
+        key: 'injectPageScript',
+        zh: '页面脚本 · injectPageScript',
+        en: 'Page scripts · injectPageScript',
+        type: _ToolFieldType.multiline,
+        hintZh: '填写单段脚本或 JSON 字符串数组',
+        hintEn: 'Enter one script or a JSON string array',
+      ),
+      _ToolFieldSpec(
+        key: 'injectFrameScript',
+        zh: 'Frame 脚本 · injectFrameScript',
+        en: 'Frame scripts · injectFrameScript',
+        type: _ToolFieldType.multiline,
+        hintZh: '填写单段脚本或 JSON 字符串数组',
+        hintEn: 'Enter one script or a JSON string array',
+      ),
+      _ToolFieldSpec(
+        key: 'instruction',
+        zh: '提取指令 · instruction',
+        en: 'Extraction instruction · instruction',
+        type: _ToolFieldType.multiline,
+      ),
+      _ToolFieldSpec(
+        key: 'jsonSchema',
+        zh: 'JSON Schema · jsonSchema',
+        en: 'JSON Schema · jsonSchema',
+        type: _ToolFieldType.multiline,
+      ),
+      _ToolFieldSpec(
+        key: 'customHeader',
+        zh: '目标请求头 JSON · customHeader',
+        en: 'Target request headers JSON · customHeader',
+        type: _ToolFieldType.secret,
+      ),
+    ],
+  ),
+  _JinaFieldGroup(
+    zh: 'Markdown 输出',
+    en: 'Markdown output',
+    icon: Icons.format_size_rounded,
+    fields: <_ToolFieldSpec>[
+      _ToolFieldSpec(
+        key: 'mdHeadingStyle',
+        zh: '标题样式 · X-Md-Heading-Style',
+        en: 'Heading style · X-Md-Heading-Style',
+        type: _ToolFieldType.select,
+        options: <String>['setext', 'atx'],
+      ),
+      _ToolFieldSpec(
+        key: 'mdHr',
+        zh: '分隔线 · X-Md-Hr',
+        en: 'Horizontal rule · X-Md-Hr',
+      ),
+      _ToolFieldSpec(
+        key: 'mdBulletListMarker',
+        zh: '列表符号 · X-Md-Bullet-List-Marker',
+        en: 'Bullet marker · X-Md-Bullet-List-Marker',
+        type: _ToolFieldType.select,
+        options: <String>['-', '+', '*'],
+      ),
+      _ToolFieldSpec(
+        key: 'mdEmDelimiter',
+        zh: '斜体分隔符 · X-Md-Em-Delimiter',
+        en: 'Emphasis delimiter · X-Md-Em-Delimiter',
+        type: _ToolFieldType.select,
+        options: <String>['_', '*'],
+      ),
+      _ToolFieldSpec(
+        key: 'mdStrongDelimiter',
+        zh: '粗体分隔符 · X-Md-Strong-Delimiter',
+        en: 'Strong delimiter · X-Md-Strong-Delimiter',
+        type: _ToolFieldType.select,
+        options: <String>['__', '**'],
+      ),
+      _ToolFieldSpec(
+        key: 'mdLinkStyle',
+        zh: '链接样式 · X-Md-Link-Style',
+        en: 'Link style · X-Md-Link-Style',
+        type: _ToolFieldType.select,
+        options: <String>['inlined', 'referenced', 'discarded'],
+      ),
+      _ToolFieldSpec(
+        key: 'mdLinkReferenceStyle',
+        zh: '链接引用样式 · X-Md-Link-Reference-Style',
+        en: 'Link reference style · X-Md-Link-Reference-Style',
+        type: _ToolFieldType.select,
+        options: <String>['full', 'collapsed', 'shortcut', 'discarded'],
+      ),
+    ],
+  ),
+  _JinaFieldGroup(
+    zh: '可靠性',
+    en: 'Reliability',
+    icon: Icons.health_and_safety_outlined,
+    fields: <_ToolFieldSpec>[
+      _ToolFieldSpec(
+        key: 'maxAttempts',
+        zh: '最大尝试次数',
+        en: 'Maximum attempts',
+        type: _ToolFieldType.number,
+        hintZh: '1-5 次，默认 2 次',
+        hintEn: '1-5, default 2',
+      ),
+      _ToolFieldSpec(
+        key: 'retryDelayMs',
+        zh: '重试间隔毫秒',
+        en: 'Retry delay milliseconds',
+        type: _ToolFieldType.number,
+        hintZh: '0-5000 毫秒，默认 800 毫秒',
+        hintEn: '0-5000 ms, default 800 ms',
+      ),
+    ],
+  ),
+];
+
+List<_ToolFieldSpec> _toolFieldSpecs(AiExposureTool tool) => switch (tool) {
+  AiExposureTool.github ||
+  AiExposureTool.gitee ||
+  AiExposureTool.gitcode => const <_ToolFieldSpec>[
+    _ToolFieldSpec(
+      key: 'token',
+      zh: 'Access Token',
+      en: 'Access token',
+      type: _ToolFieldType.secret,
+    ),
+  ],
+  AiExposureTool.fofa => const <_ToolFieldSpec>[
+    _ToolFieldSpec(key: 'email', zh: 'FOFA Email', en: 'FOFA email'),
+    _ToolFieldSpec(
+      key: 'key',
+      zh: 'FOFA API Key',
+      en: 'FOFA API key',
+      type: _ToolFieldType.secret,
+    ),
+  ],
+  AiExposureTool.shodan => const <_ToolFieldSpec>[
+    _ToolFieldSpec(
+      key: 'key',
+      zh: 'Shodan API Key',
+      en: 'Shodan API key',
+      type: _ToolFieldType.secret,
+    ),
+  ],
+  AiExposureTool.jina => const <_ToolFieldSpec>[],
+};
+
+bool _toolProfileReady(AiExposureTool tool, AiExposureToolProfile profile) {
+  bool has(String key) => profile.values[key]?.trim().isNotEmpty == true;
+  return switch (tool) {
+    AiExposureTool.github ||
+    AiExposureTool.gitee ||
+    AiExposureTool.gitcode => has('token'),
+    AiExposureTool.fofa => has('email') && has('key'),
+    AiExposureTool.shodan => has('key'),
+    AiExposureTool.jina => true,
+  };
+}
+
+String _toolLabel(AiExposureTool tool) => switch (tool) {
+  AiExposureTool.github => 'GitHub',
+  AiExposureTool.gitee => 'Gitee',
+  AiExposureTool.gitcode => 'GitCode',
+  AiExposureTool.fofa => 'FOFA',
+  AiExposureTool.shodan => 'Shodan',
+  AiExposureTool.jina => 'Jina Reader',
+};
+
+String _toolHint(BuildContext context, AiExposureTool tool) {
+  final text = openHandTextResolver(context);
+  return switch (tool) {
+    AiExposureTool.github => text(
+      zh: 'GitHub 代码与公开构建产物检索',
+      en: 'GitHub code and public artifact discovery',
+    ),
+    AiExposureTool.gitee => text(
+      zh: 'Gitee 仓库与代码内容检索',
+      en: 'Gitee repository and code discovery',
+    ),
+    AiExposureTool.gitcode => text(
+      zh: 'GitCode 仓库与代码内容检索',
+      en: 'GitCode repository and code discovery',
+    ),
+    AiExposureTool.fofa => text(
+      zh: 'FOFA 网络资产快照检索',
+      en: 'FOFA network asset snapshot discovery',
+    ),
+    AiExposureTool.shodan => text(
+      zh: 'Shodan 主机与服务快照检索',
+      en: 'Shodan host and service snapshot discovery',
+    ),
+    AiExposureTool.jina => text(
+      zh: '论坛页面读取与结构化内容提取',
+      en: 'Forum page reading and structured extraction',
+    ),
+  };
+}
+
+String _toolStrategyLabel(
+  BuildContext context,
+  AiExposureToolSelectionStrategy strategy,
+) {
+  final text = openHandTextResolver(context);
+  return switch (strategy) {
+    AiExposureToolSelectionStrategy.roundRobin => text(
+      zh: '轮询',
+      en: 'Round robin',
+    ),
+    AiExposureToolSelectionStrategy.random => text(zh: '随机', en: 'Random'),
+    AiExposureToolSelectionStrategy.leastUsed => text(
+      zh: '最低使用频率',
+      en: 'Least used',
+    ),
+    AiExposureToolSelectionStrategy.leastBusy => text(
+      zh: '最空闲',
+      en: 'Least busy',
+    ),
+    AiExposureToolSelectionStrategy.highestSuccessRate => text(
+      zh: '最高成功率',
+      en: 'Highest success rate',
+    ),
+  };
+}
+
+IconData _toolIcon(AiExposureTool tool) => switch (tool) {
+  AiExposureTool.github => Icons.code_rounded,
+  AiExposureTool.gitee => Icons.account_tree_rounded,
+  AiExposureTool.gitcode => Icons.hub_outlined,
+  AiExposureTool.fofa => Icons.radar_rounded,
+  AiExposureTool.shodan => Icons.travel_explore_rounded,
+  AiExposureTool.jina => Icons.auto_awesome_rounded,
+};
+
+Color _toolTone(AiExposureTool tool) => switch (tool) {
+  AiExposureTool.github => const Color(0xff475569),
+  AiExposureTool.gitee => const Color(0xffdc2626),
+  AiExposureTool.gitcode => const Color(0xff2563eb),
+  AiExposureTool.fofa => const Color(0xff0f766e),
+  AiExposureTool.shodan => const Color(0xffb45309),
+  AiExposureTool.jina => const Color(0xffa21caf),
+};
+
+IconData _sourceIcon(AiExposureSource source) => switch (source) {
+  AiExposureSource.manual => Icons.edit_note_rounded,
+  AiExposureSource.github ||
+  AiExposureSource.githubArtifact => Icons.code_rounded,
+  AiExposureSource.gitee ||
+  AiExposureSource.gitcode => Icons.account_tree_rounded,
+  AiExposureSource.fofa => Icons.radar_rounded,
+  AiExposureSource.shodan => Icons.travel_explore_rounded,
+  AiExposureSource.nodeseek ||
+  AiExposureSource.linuxDo ||
+  AiExposureSource.v2ex => Icons.forum_outlined,
+};
 
 enum _ManagedDependencyAction { install, start, stop, update, uninstall }
 
@@ -2595,105 +3720,6 @@ Color _serviceMetricTone(IconData icon, ColorScheme colors) {
   return colors.primary;
 }
 
-class _DependencyRow extends StatelessWidget {
-  const _DependencyRow({
-    required this.name,
-    required this.detail,
-    required this.ready,
-    required this.required,
-    this.statusLabel,
-  });
-  final String name;
-  final String detail;
-  final bool ready;
-  final bool required;
-  final String? statusLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Row(
-      children: [
-        Icon(
-          ready ? Icons.check_circle_outline_rounded : Icons.circle_outlined,
-          color: ready ? cs.primary : cs.outline,
-        ),
-        kOpenHandHGap10,
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name, style: theme.textTheme.titleSmall),
-              Text(
-                detail,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Text(
-          statusLabel ??
-              (required
-                  ? openHandLocalizedText(context, zh: '核心', en: 'Core')
-                  : openHandLocalizedText(context, zh: '可选', en: 'Optional')),
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: cs.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SourceApiStatusRow extends StatelessWidget {
-  const _SourceApiStatusRow({
-    required this.source,
-    required this.configured,
-    required this.quota,
-  });
-
-  final AiExposureSource source;
-  final bool configured;
-  final AiExposureQuota? quota;
-
-  @override
-  Widget build(BuildContext context) {
-    final available = quota?.available == true;
-    final status = !configured
-        ? openHandLocalizedText(context, zh: '未配置', en: 'Not configured')
-        : quota == null
-        ? openHandLocalizedText(context, zh: '待检查', en: 'Not checked')
-        : available
-        ? openHandLocalizedText(context, zh: '在线', en: 'Online')
-        : openHandLocalizedText(context, zh: '异常', en: 'Unavailable');
-    final detail = quota?.message.trim();
-    return _DependencyRow(
-      name: _sourceLabel(context, source),
-      detail: detail?.isNotEmpty == true
-          ? detail!
-          : configured
-          ? openHandLocalizedText(
-              context,
-              zh: '凭证已配置，刷新后检查 API。',
-              en: 'Credentials configured; refresh to check the API.',
-            )
-          : openHandLocalizedText(
-              context,
-              zh: '尚未配置 BYOK 凭证。',
-              en: 'BYOK credentials are not configured.',
-            ),
-      ready: available,
-      required: false,
-      statusLabel: status,
-    );
-  }
-}
-
 class _QueryFieldSpec {
   const _QueryFieldSpec(this.controller, this.label, {this.hintText});
   final TextEditingController controller;
@@ -2730,9 +3756,21 @@ class _QueryFields extends StatelessWidget {
       _QueryFieldSpec(github, 'GitHub Code Search Query'),
       _QueryFieldSpec(gitee, 'Gitee Code Search Query'),
       _QueryFieldSpec(gitcode, 'GitCode Code Search Query'),
-      _QueryFieldSpec(nodeseek, 'NodeSeek 入口 URL', hintText: 'https://www.nodeseek.com/'),
-      _QueryFieldSpec(linuxDo, 'LINUX DO 入口 URL', hintText: 'https://linux.do/c/welfare/36'),
-      _QueryFieldSpec(v2ex, 'V2EX 入口 URL', hintText: 'https://www.v2ex.com/go/openai'),
+      _QueryFieldSpec(
+        nodeseek,
+        'NodeSeek 入口 URL',
+        hintText: 'https://www.nodeseek.com/',
+      ),
+      _QueryFieldSpec(
+        linuxDo,
+        'LINUX DO 入口 URL',
+        hintText: 'https://linux.do/c/welfare/36',
+      ),
+      _QueryFieldSpec(
+        v2ex,
+        'V2EX 入口 URL',
+        hintText: 'https://www.v2ex.com/go/openai',
+      ),
     ];
     return Column(
       children: [
@@ -3340,55 +4378,6 @@ class _HistoryLogDialogState extends State<_HistoryLogDialog> {
   );
 }
 
-class _SourceSwitch extends StatelessWidget {
-  const _SourceSwitch({
-    required this.source,
-    required this.enabled,
-    required this.configured,
-    required this.onChanged,
-  });
-  final AiExposureSource source;
-  final bool enabled;
-  final bool configured;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Row(
-      children: [
-        Icon(aiExposureSourceIcon(source), color: cs.primary),
-        kOpenHandHGap12,
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _sourceLabel(context, source),
-                style: theme.textTheme.titleSmall,
-              ),
-              Text(
-                configured
-                    ? openHandLocalizedText(context, zh: '已就绪', en: 'Ready')
-                    : openHandLocalizedText(
-                        context,
-                        zh: '未配置凭证',
-                        en: 'Credentials not configured',
-                      ),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: configured ? cs.primary : cs.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Switch(value: enabled, onChanged: onChanged),
-      ],
-    );
-  }
-}
-
 class _RuleTile extends StatelessWidget {
   const _RuleTile({
     required this.rule,
@@ -3976,28 +4965,6 @@ String _sourceLabel(BuildContext context, AiExposureSource source) =>
       source,
       manualLabel: openHandLocalizedText(context, zh: '手工目标', en: 'Manual'),
     );
-
-String _sourceStatusKey(AiExposureSource source) => switch (source) {
-  AiExposureSource.github || AiExposureSource.githubArtifact => 'github',
-  AiExposureSource.gitee => 'gitee',
-  AiExposureSource.gitcode => 'gitcode',
-  AiExposureSource.fofa => 'fofa',
-  AiExposureSource.shodan => 'shodan',
-  AiExposureSource.nodeseek => 'nodeseek',
-  AiExposureSource.linuxDo => 'linuxDo',
-  AiExposureSource.v2ex => 'v2ex',
-  AiExposureSource.manual => 'manual',
-};
-
-AiExposureQuota? _sourceQuota(
-  List<AiExposureQuota> quotas,
-  AiExposureSource source,
-) {
-  for (final quota in quotas) {
-    if (quota.source == source) return quota;
-  }
-  return null;
-}
 
 String _stageLabel(BuildContext context, String stage) {
   final zh = switch (stage) {
