@@ -1032,7 +1032,9 @@ class _MachineTerminalFileManagerDialogState
   Future<void> _deleteEntry(MachineTerminalFileEntry entry) async {
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: openHandLocalizedText(context, zh: '删除文件？', en: 'Delete File?'),
+      title: entry.isDirectory
+          ? openHandLocalizedText(context, zh: '删除目录？', en: 'Delete Folder?')
+          : openHandLocalizedText(context, zh: '删除文件？', en: 'Delete File?'),
       message: openHandLocalizedText(
         context,
         zh: '将永久删除“${entry.name}”${entry.isDirectory ? '及其全部内容' : ''}，此操作不可恢复。',
