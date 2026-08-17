@@ -2,6 +2,27 @@ part of 'ai_exposure_monitoring_dialogs.dart';
 
 enum _OperationsView { overview, pipeline, storage }
 
+typedef _OperationsControllerSnapshot = ({
+  bool busy,
+  bool running,
+  bool ownsProcess,
+  Object? health,
+  Object? progress,
+  Object history,
+  Object results,
+  Object rules,
+  Object quotas,
+  Object logs,
+  Object? aiExtractorStatus,
+  Object? dependencyStatus,
+  Object? proxyStatus,
+  Object proxyConfiguration,
+  Object sourceStatus,
+  int enabledSourcesMask,
+  int defaultConcurrency,
+  AiExposureProxyRoute proxyRoute,
+});
+
 enum _MetricInsightId {
   overviewTaskTotal,
   overviewResultTotal,
@@ -162,11 +183,39 @@ class _OperationsDialogState extends State<_OperationsDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<ServicesController>();
+    final snapshot = context
+        .select<ServicesController, _OperationsControllerSnapshot>(
+          (controller) => (
+            busy: controller.busy,
+            running: controller.isRunning,
+            ownsProcess: controller.ownsProcess,
+            health: controller.health,
+            progress: controller.progress,
+            history: controller.history,
+            results: controller.results,
+            rules: controller.rules,
+            quotas: controller.quotas,
+            logs: _view == _OperationsView.pipeline
+                ? const <Never>[]
+                : controller.logs,
+            aiExtractorStatus: controller.aiExtractorStatus,
+            dependencyStatus: controller.dependencyStatus,
+            proxyStatus: controller.proxyStatus,
+            proxyConfiguration: controller.proxyConfiguration,
+            sourceStatus: controller.sourceStatus,
+            enabledSourcesMask: controller.enabledSources.fold<int>(
+              0,
+              (mask, source) => mask | (1 << source.index),
+            ),
+            defaultConcurrency: controller.defaultConcurrency,
+            proxyRoute: controller.proxyRoute,
+          ),
+        );
+    final controller = context.read<ServicesController>();
     final text = openHandTextResolver(context);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final running = controller.isRunning;
+    final running = snapshot.running;
     final compact = MediaQuery.sizeOf(context).width < 600;
     return Padding(
       padding: EdgeInsets.all(compact ? 14 : 22),
@@ -207,7 +256,7 @@ class _OperationsDialogState extends State<_OperationsDialog> {
                         style: theme.textTheme.titleLarge,
                       ),
                       Text(
-                        'ai_jungler ${controller.health?.version ?? '--'} · ${controller.ownsProcess ? text(zh: '内嵌进程', en: 'Bundled') : text(zh: '外部服务', en: 'External')}',
+                        'ai_jungler ${controller.health?.version ?? '--'} · ${snapshot.ownsProcess ? text(zh: '内嵌进程', en: 'Bundled') : text(zh: '外部服务', en: 'External')}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -242,7 +291,7 @@ class _OperationsDialogState extends State<_OperationsDialog> {
                   tooltip: running
                       ? text(zh: '停止服务', en: 'Stop service')
                       : text(zh: '启动服务', en: 'Start service'),
-                  onPressed: controller.busy
+                  onPressed: snapshot.busy
                       ? null
                       : running
                       ? controller.stopService
@@ -332,8 +381,7 @@ class _OperationsDialogState extends State<_OperationsDialog> {
           kOpenHandGap14,
           Expanded(
             child: AnimatedSwitcher(
-              duration: openHandMotionDuration(context, kOpenHandMotion220,
-              ),
+              duration: openHandMotionDuration(context, kOpenHandMotion220),
               switchInCurve: kOpenHandSwitchInCurve,
               switchOutCurve: kOpenHandSwitchOutCurve,
               child: SingleChildScrollView(

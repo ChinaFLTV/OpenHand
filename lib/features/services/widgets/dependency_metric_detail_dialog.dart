@@ -198,9 +198,15 @@ class _DependencyMetricDetailDialogState
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<ServicesController>();
-    final overview = controller.dependencyDataOverview;
-    final samples = controller.dependencyTelemetryHistory
+    final overview = context.select<ServicesController, Map<String, Object?>>(
+      (controller) => controller.dependencyDataOverview,
+    );
+    final overviewError = context.select<ServicesController, String?>(
+      (controller) => controller.dependencyDataOverviewError,
+    );
+    final samples = context
+        .read<ServicesController>()
+        .dependencyTelemetryHistory
         .where(
           (sample) => !sample.capturedAt.isBefore(
             DateTime.now().subtract(_range.duration),
@@ -209,7 +215,7 @@ class _DependencyMetricDetailDialogState
         .toList(growable: false);
     final colors = Theme.of(context).colorScheme;
     final tone = widget.kind.tone(colors);
-    final error = _reloadError ?? controller.dependencyDataOverviewError;
+    final error = _reloadError ?? overviewError;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2142,7 +2148,9 @@ class _MetricRangeBar extends StatelessWidget {
                 EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               ),
               shape: WidgetStatePropertyAll(
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius10)),
+                RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(kOpenHandRadius10),
+                ),
               ),
             ),
             onSelectionChanged: (selection) => onChanged(selection.first),
@@ -2329,7 +2337,7 @@ class _MetricSection extends StatelessWidget {
                 if (trailing != null) ...[kOpenHandHGap10, trailing!],
               ],
             ),
-             kOpenHandGap15,
+            kOpenHandGap15,
             child,
           ],
         ),
@@ -2368,7 +2376,7 @@ class _AdaptivePair extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(flex: primaryFlex, child: primary),
-           kOpenHandWidth22,
+          kOpenHandWidth22,
           Expanded(flex: secondaryFlex, child: secondary),
         ],
       );
@@ -2477,7 +2485,9 @@ class _KpiStrip extends StatelessWidget {
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
                               color: tone.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(kOpenHandRadius9),
+                              borderRadius: BorderRadius.circular(
+                                kOpenHandRadius9,
+                              ),
                             ),
                             child: Icon(item.icon, size: 17, color: tone),
                           ),
@@ -3064,9 +3074,7 @@ class _NetworkDirectionHeader extends StatelessWidget {
         ),
       ];
       if (constraints.maxWidth < 520) {
-        return Column(
-          children: [cards.first, kOpenHandGap10, cards.last],
-        );
+        return Column(children: [cards.first, kOpenHandGap10, cards.last]);
       }
       return Row(
         children: [
@@ -4098,10 +4106,10 @@ List<double> _seriesRate(
   for (var index = 1; index < samples.length; index++) {
     final previous = valueOf(samples[index - 1]).toDouble();
     final current = valueOf(samples[index]).toDouble();
-    final seconds = samples[index]
-        .capturedAt
-        .difference(samples[index - 1].capturedAt)
-        .inMilliseconds /
+    final seconds =
+        samples[index].capturedAt
+            .difference(samples[index - 1].capturedAt)
+            .inMilliseconds /
         Duration.millisecondsPerSecond;
     rates.add(
       previous.isFinite &&

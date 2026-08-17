@@ -27,8 +27,7 @@ const Color _kServiceColorCyan = Color(0xff0891b2);
 /// Matches the first decimal number (with optional sign and fractional part)
 /// embedded in an arbitrary field value. Used by metric/record presentations
 /// to extract sortable numerics from free-form text.
-final RegExp _kNumericFieldRegex =
-    RegExp(r'-?\d+(?:\.\d+)?');
+final RegExp _kNumericFieldRegex = RegExp(r'-?\d+(?:\.\d+)?');
 
 /// Heuristic keywords indicating a healthy service status. Chinese terms are
 /// matched as substrings (no word boundaries); English terms require word
@@ -45,7 +44,6 @@ final RegExp _kUnhealthyKeywordRegex = RegExp(
   r'异常|失败|阻塞|停用|未启用|未配置|不可用|\bunhealthy\b|\bunavailable\b|\bdisconnected\b|\bdisabled\b|\bunconfigured\b|\bfail(?:ure|ed|ing|s)?\b|\bblocked\b|\berror\b|\boffline\b|\btimeout\b|\bdown\b',
   caseSensitive: false,
 );
-
 
 enum ServiceDialogHeaderActionTone { neutral, primary }
 
@@ -301,7 +299,9 @@ class ServiceAnimatedDonutChart extends StatelessWidget {
       series: <OpenHandChartSeries>[
         OpenHandChartSeries(
           label: 'distribution',
-          values: values.map((value) => value.toDouble()).toList(growable: false),
+          values: values
+              .map((value) => value.toDouble())
+              .toList(growable: false),
           color: colors.firstOrNull ?? Colors.transparent,
         ),
       ],
@@ -419,9 +419,7 @@ class ServiceDialogHeaderIconButton extends StatelessWidget {
               : foreground,
         ),
         shape: const WidgetStatePropertyAll(
-          RoundedRectangleBorder(
-            borderRadius: kOpenHandBorderRadius8,
-          ),
+          RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius8),
         ),
       ),
     );
@@ -492,9 +490,7 @@ class ServiceDialogInteractionTheme extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    const shape = RoundedRectangleBorder(
-      borderRadius: kOpenHandBorderRadius8,
-    );
+    const shape = RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius8);
     return Theme(
       data: theme.copyWith(
         hoverColor: Colors.transparent,
@@ -545,6 +541,25 @@ class ServiceDialogInteractionTheme extends StatelessWidget {
           style: (theme.iconButtonTheme.style ?? const ButtonStyle()).copyWith(
             shape: const WidgetStatePropertyAll(shape),
           ),
+        ),
+        switchTheme: theme.switchTheme.copyWith(
+          thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
+            if (states.contains(WidgetState.disabled)) {
+              return const Icon(Icons.lock_outline_rounded, size: 15);
+            }
+            return Icon(
+              states.contains(WidgetState.selected)
+                  ? Icons.check_rounded
+                  : Icons.close_rounded,
+              size: 15,
+            );
+          }),
+          trackOutlineColor: WidgetStateProperty.resolveWith<Color?>((states) {
+            if (states.contains(WidgetState.selected)) {
+              return Colors.transparent;
+            }
+            return colors.outlineVariant;
+          }),
         ),
       ),
       child: child,
@@ -702,10 +717,7 @@ class _ServiceInteractiveSurfaceState extends State<ServiceInteractiveSurface> {
         (interactive || widget.reserveDetailsIconSpace);
     final detailsColor = widget.detailsIconColor ?? colors.primary;
     final emphasized = interactive && (_hovered || _focused);
-    final motionDuration = openHandMotionDuration(
-      context,
-      kOpenHandMotion160,
-    );
+    final motionDuration = openHandMotionDuration(context, kOpenHandMotion160);
     final content = showDetailsSlot
         ? Row(
             crossAxisAlignment: CrossAxisAlignment.start,

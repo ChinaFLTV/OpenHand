@@ -153,15 +153,24 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final text = openHandTextResolver(context);
-    final controller = context.watch<ServicesController>();
-    final status = controller.proxyStatus;
-    final controllerInspectionBusy = controller.proxyInspectionBusy;
-    final controllerInspectionCancelling = controller.proxyInspectionCancelling;
+    final status = context.select<ServicesController, AiExposureProxyStatus?>(
+      (controller) => controller.proxyStatus,
+    );
+    final controllerInspectionBusy = context.select<ServicesController, bool>(
+      (controller) => controller.proxyInspectionBusy,
+    );
+    final controllerInspectionCancelling = context
+        .select<ServicesController, bool>(
+          (controller) => controller.proxyInspectionCancelling,
+        );
+    final systemProxyAvailable = context.select<ServicesController, bool>(
+      (controller) => controller.systemProxyAvailable,
+    );
     final inspectionBusy = _inspectionBusy || controllerInspectionBusy;
     final activeCount = _endpoints.where((endpoint) => endpoint.enabled).length;
     final route = _enabled && activeCount > 0
         ? AiExposureProxyRoute.pool
-        : controller.systemProxyAvailable
+        : systemProxyAvailable
         ? AiExposureProxyRoute.system
         : AiExposureProxyRoute.direct;
     final statusStatistics = <String, AiExposureProxyUsageStatistics>{
@@ -269,7 +278,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                         controllerInspectionCancelling:
                             controllerInspectionCancelling,
                         activeCount: activeCount,
-                        systemProxyAvailable: controller.systemProxyAvailable,
+                        systemProxyAvailable: systemProxyAvailable,
                       ),
                       kOpenHandGap14,
                       DecoratedBox(
@@ -2580,14 +2589,20 @@ class _ProxyRequestTelemetryDialogState
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final text = openHandTextResolver(context);
-    final controller = context.watch<ServicesController>();
+    final proxyStatus = context
+        .select<ServicesController, AiExposureProxyStatus?>(
+          (controller) => controller.proxyStatus,
+        );
+    final proxyConfiguration = context
+        .select<ServicesController, AiExposureProxyConfiguration>(
+          (controller) => controller.proxyConfiguration,
+        );
     final statusById = <String, AiExposureProxyUsageStatistics>{
       for (final endpoint
-          in controller.proxyStatus?.endpoints ??
-              const <AiExposureProxyEndpointStatus>[])
+          in proxyStatus?.endpoints ?? const <AiExposureProxyEndpointStatus>[])
         endpoint.id: endpoint.statistics,
     };
-    final statistics = controller.proxyConfiguration.endpoints
+    final statistics = proxyConfiguration.endpoints
         .map(
           (endpoint) => statusById[endpoint.runtimeId] ?? endpoint.statistics,
         )
@@ -3108,22 +3123,30 @@ class _ProxyRequestTrendChart extends StatelessWidget {
       series: <OpenHandChartSeries>[
         OpenHandChartSeries(
           label: 'total',
-          values: trend.map((item) => item.total.toDouble()).toList(growable: false),
+          values: trend
+              .map((item) => item.total.toDouble())
+              .toList(growable: false),
           color: OpenHandStatusColors.info,
         ),
         OpenHandChartSeries(
           label: 'success',
-          values: trend.map((item) => item.successes.toDouble()).toList(growable: false),
+          values: trend
+              .map((item) => item.successes.toDouble())
+              .toList(growable: false),
           color: OpenHandStatusColors.success,
         ),
         OpenHandChartSeries(
           label: 'failure',
-          values: trend.map((item) => item.failures.toDouble()).toList(growable: false),
+          values: trend
+              .map((item) => item.failures.toDouble())
+              .toList(growable: false),
           color: OpenHandStatusColors.error,
         ),
         OpenHandChartSeries(
           label: 'timeout',
-          values: trend.map((item) => item.timeouts.toDouble()).toList(growable: false),
+          values: trend
+              .map((item) => item.timeouts.toDouble())
+              .toList(growable: false),
           color: OpenHandStatusColors.warning,
         ),
       ],
@@ -3927,7 +3950,10 @@ class _ProxyEndpointDetailsDialogState
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final text = openHandTextResolver(context);
-    final proxyStatus = context.watch<ServicesController>().proxyStatus;
+    final proxyStatus = context
+        .select<ServicesController, AiExposureProxyStatus?>(
+          (controller) => controller.proxyStatus,
+        );
     AiExposureProxyUsageStatistics? runtimeStatistics;
     for (final item
         in proxyStatus?.endpoints ?? const <AiExposureProxyEndpointStatus>[]) {

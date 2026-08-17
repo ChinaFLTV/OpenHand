@@ -23,6 +23,7 @@ class _PipelinePanel extends StatelessWidget {
       children: [
         LayoutBuilder(
           builder: (context, constraints) => AiExposureTaskLedger(
+            tasks: history,
             minHeight: constraints.maxWidth >= 760
                 ? _kTaskLedgerPipelineMinHeight
                 : null,

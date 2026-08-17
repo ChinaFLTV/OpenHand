@@ -188,7 +188,16 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
   @override
   Widget build(BuildContext context) {
     final text = openHandTextResolver(context);
-    final controller = context.watch<ServicesController>();
+    final isRunning = context.select<ServicesController, bool>(
+      (controller) => controller.isRunning,
+    );
+    final selectedModelLabel = context.select<ServicesController, String?>(
+      (controller) => controller.selectedAiExtractorModelLabel,
+    );
+    final dependencyStatus = context
+        .select<ServicesController, AiExposureDependencyStatus?>(
+          (controller) => controller.dependencyStatus,
+        );
     return _DialogFrame(
       icon: Icons.add_rounded,
       title: text(zh: '新建狩猎', en: 'New hunt'),
@@ -201,7 +210,7 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
             label: openHandCancelLabel(context),
           ),
           OpenHandDialogActionButton.primary(
-            onPressed: controller.isRunning && !_submitting ? _submit : null,
+            onPressed: isRunning && !_submitting ? _submit : null,
             busy: _submitting,
             label: text(zh: '开始扫描', en: 'Start scan'),
           ),
@@ -212,7 +221,7 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
         children: [
           OpenHandVerticalRevealSwitcher(
             presentKey: const ValueKey<String>('service-stopped-notice'),
-            child: controller.isRunning
+            child: isRunning
                 ? null
                 : Padding(
                     padding: const EdgeInsets.only(bottom: _kSectionGap),
@@ -308,23 +317,15 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
                         _InlineNotice(
                           icon:
                               (_forumFetchMode == AiExposureForumFetchMode.cdp
-                                      ? controller
-                                            .dependencyStatus
-                                            ?.googleChrome
-                                            .connected
-                                      : controller
-                                            .dependencyStatus
+                                      ? dependencyStatus?.googleChrome.connected
+                                      : dependencyStatus
                                             ?.playwright
                                             .connected) ==
                                   true
                               ? Icons.check_circle_outline_rounded
                               : Icons.info_outline_rounded,
                           text: _forumFetchMode == AiExposureForumFetchMode.cdp
-                              ? controller
-                                            .dependencyStatus
-                                            ?.googleChrome
-                                            .connected ==
-                                        true
+                              ? dependencyStatus?.googleChrome.connected == true
                                     ? text(
                                         zh: 'Chrome CDP 将使用隔离配置访问页面，并采集受限的请求、响应与正文；任务结束后自动关闭浏览器。',
                                         en: 'Chrome CDP uses an isolated profile and bounded page, request, response, and body capture, then closes after the hunt.',
@@ -333,11 +334,7 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
                                         zh: '未检测到 Google Chrome，CDP 任务会失败。请安装正式版 Chrome 后刷新插件状态。',
                                         en: 'Google Chrome was not detected. CDP hunts will fail until Chrome is installed and plugin status is refreshed.',
                                       )
-                              : controller
-                                        .dependencyStatus
-                                        ?.playwright
-                                        .connected ==
-                                    true
+                              : dependencyStatus?.playwright.connected == true
                               ? text(
                                   zh: 'Jina 请求与浏览器读取都会复用当前网络代理和代理池。Jina 失败时将记录原因并自动切换浏览器。',
                                   en: 'Jina and browser requests reuse the configured proxy pool. Jina failures are logged before browser fallback.',
@@ -529,18 +526,18 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
             icon: Icons.auto_awesome_rounded,
             disabledIcon: Icons.auto_awesome_outlined,
             title: text(zh: 'GPT 辅助提取', en: 'GPT-assisted extraction'),
-            description: controller.selectedAiExtractorModelLabel == null
+            description: selectedModelLabel == null
                 ? text(
                     zh: '需先在全局设置中选择 OpenAI Compatible 模型。',
                     en: 'Select an OpenAI-compatible model in global settings first.',
                   )
                 : text(
-                    zh: '启用后 ${controller.selectedAiExtractorModelLabel} 将与规则引擎协同提取，提升检出率。',
-                    en: 'When enabled, ${controller.selectedAiExtractorModelLabel} works alongside rule engine to improve detection.',
+                    zh: '启用后 $selectedModelLabel 将与规则引擎协同提取，提升检出率。',
+                    en: 'When enabled, $selectedModelLabel works alongside rule engine to improve detection.',
                   ),
             value: _gptAssisted,
             onChanged: (enabled) {
-              if (enabled && controller.selectedAiExtractorModelLabel == null) {
+              if (enabled && selectedModelLabel == null) {
                 showOpenHandErrorSnack(
                   context,
                   text(
@@ -1135,7 +1132,9 @@ class _RulesDialogState extends State<_RulesDialog> {
   @override
   Widget build(BuildContext context) {
     final text = openHandTextResolver(context);
-    final controller = context.watch<ServicesController>();
+    final isRunning = context.select<ServicesController, bool>(
+      (controller) => controller.isRunning,
+    );
     return _DialogFrame(
       icon: Icons.rule_rounded,
       title: text(zh: '扫描规则管理', en: 'Scan rules'),
@@ -1147,7 +1146,7 @@ class _RulesDialogState extends State<_RulesDialog> {
             label: text(zh: '新增规则', en: 'Add rule'),
           ),
           OpenHandDialogActionButton.primary(
-            onPressed: controller.isRunning && !_saving ? _save : null,
+            onPressed: isRunning && !_saving ? _save : null,
             label: openHandSaveLabel(context),
           ),
         ],
@@ -1296,22 +1295,47 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   @override
   Widget build(BuildContext context) {
     final text = openHandTextResolver(context);
-    final controller = context.watch<ServicesController>();
-    final pluginController = context.watch<PluginServiceController>();
+    final isRunning = context.select<ServicesController, bool>(
+      (value) => value.isRunning,
+    );
+    final controllerBusy = context.select<ServicesController, bool>(
+      (value) => value.busy,
+    );
+    final dependencyStatus = context
+        .select<ServicesController, AiExposureDependencyStatus?>(
+          (value) => value.dependencyStatus,
+        );
+    final selectedModelLabel = context.select<ServicesController, String?>(
+      (value) => value.selectedAiExtractorModelLabel,
+    );
+    final chromePlugin = context.select<PluginServiceController, PluginInfo?>(
+      (value) => value.pluginById(PluginCatalogIds.googleChrome),
+    );
+    final playwrightPlugin = context
+        .select<PluginServiceController, PluginInfo?>(
+          (value) => value.pluginById(PluginCatalogIds.playwright),
+        );
+    final postgresqlPlugin = context
+        .select<PluginServiceController, PluginInfo?>(
+          (value) => value.pluginById(PluginCatalogIds.postgresql),
+        );
+    final redisPlugin = context.select<PluginServiceController, PluginInfo?>(
+      (value) => value.pluginById(PluginCatalogIds.redis),
+    );
     return _DialogFrame(
       icon: Icons.settings_outlined,
       title: text(zh: '服务设置', en: 'Service settings'),
       footer: _DialogActions(
         actions: [
           OpenHandDialogActionButton.secondary(
-            onPressed: controller.isRunning && !_applying && !_refreshingStatus
+            onPressed: isRunning && !_applying && !_refreshingStatus
                 ? _refreshStatus
                 : null,
             busy: _refreshingStatus,
             label: text(zh: '刷新依赖状态', en: 'Refresh dependencies'),
           ),
           OpenHandDialogActionButton.primary(
-            onPressed: controller.busy || _applying || _loadingToolSettings
+            onPressed: controllerBusy || _applying || _loadingToolSettings
                 ? null
                 : _apply,
             label: text(zh: '应用设置', en: 'Apply settings'),
@@ -1379,8 +1403,9 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             _ToolSettingsPanel(
               settings: _toolSettings,
               enabledSources: _enabledSources,
-              onSettingsChanged: (settings) =>
-                  setState(() => _toolSettings = settings),
+              onConfigurationChanged: (configuration) {
+                _toolSettings = _toolSettings.replace(configuration);
+              },
               onSourcesChanged: (sources) =>
                   setState(() => _enabledSources = sources),
             ),
@@ -1400,20 +1425,16 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             child: _forumFetchMode == AiExposureForumFetchMode.cdp
                 ? _ChromeDependencyTile(
                     key: const ValueKey<String>('chrome-cdp-dependency'),
-                    plugin: pluginController.pluginById(
-                      PluginCatalogIds.googleChrome,
-                    ),
-                    runtimeStatus: controller.dependencyStatus?.googleChrome,
+                    plugin: chromePlugin,
+                    runtimeStatus: dependencyStatus?.googleChrome,
                     operating:
                         _dependencyOperationId == PluginCatalogIds.googleChrome,
                     onRefresh: _refreshGoogleChrome,
                   )
                 : _PlaywrightDependencyTile(
                     key: const ValueKey<String>('playwright-dependency'),
-                    plugin: pluginController.pluginById(
-                      PluginCatalogIds.playwright,
-                    ),
-                    runtimeStatus: controller.dependencyStatus?.playwright,
+                    plugin: playwrightPlugin,
+                    runtimeStatus: dependencyStatus?.playwright,
                     operating:
                         _dependencyOperationId == PluginCatalogIds.playwright,
                     onAction: _runPlaywrightAction,
@@ -1434,7 +1455,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
           ),
           const SizedBox(height: _kItemGap),
           _ManagedDependencyTile(
-            plugin: pluginController.pluginById(PluginCatalogIds.postgresql),
+            plugin: postgresqlPlugin,
             icon: Icons.storage_rounded,
             title: 'PostgreSQL',
             purpose: text(
@@ -1449,7 +1470,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
           ),
           const SizedBox(height: _kItemGap),
           _ManagedDependencyTile(
-            plugin: pluginController.pluginById(PluginCatalogIds.redis),
+            plugin: redisPlugin,
             icon: Icons.hub_rounded,
             title: 'Redis',
             purpose: text(
@@ -1505,15 +1526,15 @@ class _SettingsDialogState extends State<_SettingsDialog> {
               zh: '默认启用 GPT 辅助提取',
               en: 'Default to GPT-assisted extraction',
             ),
-            description: controller.selectedAiExtractorModelLabel == null
-                ? text(
-                    zh: '全局设置中尚未选择 OpenAI Compatible 模型。',
-                    en: 'No OpenAI-compatible model is selected globally.',
-                  )
-                : controller.selectedAiExtractorModelLabel!,
+            description:
+                selectedModelLabel ??
+                text(
+                  zh: '全局设置中尚未选择 OpenAI Compatible 模型。',
+                  en: 'No OpenAI-compatible model is selected globally.',
+                ),
             value: _gptAssisted,
             onChanged: (value) {
-              if (value && controller.selectedAiExtractorModelLabel == null) {
+              if (value && selectedModelLabel == null) {
                 showOpenHandErrorSnack(
                   context,
                   text(
@@ -1929,13 +1950,13 @@ class _ToolSettingsPanel extends StatelessWidget {
   const _ToolSettingsPanel({
     required this.settings,
     required this.enabledSources,
-    required this.onSettingsChanged,
+    required this.onConfigurationChanged,
     required this.onSourcesChanged,
   });
 
   final AiExposureToolSettings settings;
   final Set<AiExposureSource> enabledSources;
-  final ValueChanged<AiExposureToolSettings> onSettingsChanged;
+  final ValueChanged<AiExposureToolConfiguration> onConfigurationChanged;
   final ValueChanged<Set<AiExposureSource>> onSourcesChanged;
 
   @override
@@ -1973,8 +1994,7 @@ class _ToolSettingsPanel extends StatelessWidget {
         for (final tool in AiExposureTool.values) ...[
           _ToolConfigurationCard(
             configuration: settings.configuration(tool),
-            onChanged: (configuration) =>
-                onSettingsChanged(settings.replace(configuration)),
+            onChanged: onConfigurationChanged,
           ),
           if (tool != AiExposureTool.values.last) kOpenHandGap10,
         ],
@@ -1997,28 +2017,35 @@ class _ToolConfigurationCard extends StatefulWidget {
 }
 
 class _ToolConfigurationCardState extends State<_ToolConfigurationCard> {
+  late AiExposureToolConfiguration _configuration = widget.configuration;
   bool _expanded = false;
+
+  @override
+  void didUpdateWidget(_ToolConfigurationCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(widget.configuration, oldWidget.configuration)) {
+      _configuration = widget.configuration;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final text = openHandTextResolver(context);
-    final tool = widget.configuration.tool;
+    final configuration = _configuration;
+    final tool = configuration.tool;
     final tone = _toolTone(tool);
-    final enabledProfiles = widget.configuration.profiles
-        .where((profile) => profile.enabled && _toolProfileReady(tool, profile))
-        .length;
     return AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion220),
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
         borderRadius: kOpenHandBorderRadius8,
         color: Color.alphaBlend(
-          tone.withValues(alpha: widget.configuration.enabled ? 0.055 : 0.02),
+          tone.withValues(alpha: configuration.enabled ? 0.055 : 0.02),
           theme.colorScheme.surfaceContainer,
         ),
         border: Border.all(
-          color: widget.configuration.enabled
+          color: configuration.enabled
               ? tone.withValues(alpha: 0.42)
               : theme.colorScheme.outlineVariant.withValues(alpha: 0.7),
         ),
@@ -2045,25 +2072,11 @@ class _ToolConfigurationCardState extends State<_ToolConfigurationCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text(
-                            _toolLabel(tool),
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          _ToolCountBadge(
-                            tone: tone,
-                            label: text(
-                              zh: '$enabledProfiles/${widget.configuration.profiles.length} 可用',
-                              en: '$enabledProfiles/${widget.configuration.profiles.length} ready',
-                            ),
-                          ),
-                        ],
+                      Text(
+                        _toolLabel(tool),
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                       kOpenHandGap4,
                       Text(
@@ -2093,9 +2106,9 @@ class _ToolConfigurationCardState extends State<_ToolConfigurationCard> {
                   ),
                 ),
                 Switch(
-                  value: widget.configuration.enabled,
-                  onChanged: (enabled) => widget.onChanged(
-                    widget.configuration.copyWith(enabled: enabled),
+                  value: configuration.enabled,
+                  onChanged: (enabled) => _updateConfiguration(
+                    configuration.copyWith(enabled: enabled),
                   ),
                 ),
               ],
@@ -2117,7 +2130,7 @@ class _ToolConfigurationCardState extends State<_ToolConfigurationCard> {
                         DropdownButtonFormField<
                           AiExposureToolSelectionStrategy
                         >(
-                          initialValue: widget.configuration.strategy,
+                          initialValue: configuration.strategy,
                           decoration: InputDecoration(
                             labelText: text(
                               zh: '配置选择策略',
@@ -2138,13 +2151,14 @@ class _ToolConfigurationCardState extends State<_ToolConfigurationCard> {
                           ],
                           onChanged: (strategy) {
                             if (strategy == null) return;
-                            widget.onChanged(
-                              widget.configuration.copyWith(strategy: strategy),
+                            _updateConfiguration(
+                              configuration.copyWith(strategy: strategy),
+                              rebuild: false,
                             );
                           },
                         ),
                         kOpenHandGap10,
-                        if (widget.configuration.profiles.isEmpty)
+                        if (configuration.profiles.isEmpty)
                           _InlineNotice(
                             icon: Icons.key_off_rounded,
                             text: text(
@@ -2157,7 +2171,7 @@ class _ToolConfigurationCardState extends State<_ToolConfigurationCard> {
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
                             buildDefaultDragHandles: false,
-                            itemCount: widget.configuration.profiles.length,
+                            itemCount: configuration.profiles.length,
                             proxyDecorator: (child, index, animation) =>
                                 Material(
                                   color: Colors.transparent,
@@ -2167,15 +2181,12 @@ class _ToolConfigurationCardState extends State<_ToolConfigurationCard> {
                                 ),
                             onReorder: _reorderProfiles,
                             itemBuilder: (context, index) {
-                              final profile =
-                                  widget.configuration.profiles[index];
+                              final profile = configuration.profiles[index];
                               return Padding(
                                 key: ValueKey<String>(profile.id),
                                 padding: EdgeInsets.only(
                                   bottom:
-                                      index ==
-                                          widget.configuration.profiles.length -
-                                              1
+                                      index == configuration.profiles.length - 1
                                       ? 0
                                       : 8,
                                 ),
@@ -2196,7 +2207,7 @@ class _ToolConfigurationCardState extends State<_ToolConfigurationCard> {
                           alignment: AlignmentDirectional.centerStart,
                           child: OutlinedButton.icon(
                             onPressed:
-                                widget.configuration.profiles.length >=
+                                configuration.profiles.length >=
                                     kAiExposureMaxToolProfiles
                                 ? null
                                 : _addProfile,
@@ -2214,41 +2225,51 @@ class _ToolConfigurationCardState extends State<_ToolConfigurationCard> {
   }
 
   void _addProfile() {
-    final profiles =
-        List<AiExposureToolProfile>.of(widget.configuration.profiles)..add(
-          AiExposureToolProfile(
-            id: const Uuid().v4(),
-            name: '配置 ${widget.configuration.profiles.length + 1}',
-            enabled: true,
-            values: const <String, String>{},
-          ),
-        );
-    widget.onChanged(widget.configuration.copyWith(profiles: profiles));
+    final profiles = List<AiExposureToolProfile>.of(_configuration.profiles)
+      ..add(
+        AiExposureToolProfile(
+          id: const Uuid().v4(),
+          name: '配置 ${_configuration.profiles.length + 1}',
+          enabled: true,
+          values: const <String, String>{},
+        ),
+      );
+    _updateConfiguration(_configuration.copyWith(profiles: profiles));
   }
 
   void _replaceProfile(int index, AiExposureToolProfile profile) {
-    final profiles = List<AiExposureToolProfile>.of(
-      widget.configuration.profiles,
-    );
+    final profiles = List<AiExposureToolProfile>.of(_configuration.profiles);
     profiles[index] = profile;
-    widget.onChanged(widget.configuration.copyWith(profiles: profiles));
+    _updateConfiguration(
+      _configuration.copyWith(profiles: profiles),
+      rebuild: false,
+    );
   }
 
   void _deleteProfile(int index) {
-    final profiles = List<AiExposureToolProfile>.of(
-      widget.configuration.profiles,
-    )..removeAt(index);
-    widget.onChanged(widget.configuration.copyWith(profiles: profiles));
+    final profiles = List<AiExposureToolProfile>.of(_configuration.profiles)
+      ..removeAt(index);
+    _updateConfiguration(_configuration.copyWith(profiles: profiles));
   }
 
   void _reorderProfiles(int oldIndex, int newIndex) {
-    final profiles = List<AiExposureToolProfile>.of(
-      widget.configuration.profiles,
-    );
+    final profiles = List<AiExposureToolProfile>.of(_configuration.profiles);
     if (newIndex > oldIndex) newIndex--;
     final profile = profiles.removeAt(oldIndex);
     profiles.insert(newIndex, profile);
-    widget.onChanged(widget.configuration.copyWith(profiles: profiles));
+    _updateConfiguration(_configuration.copyWith(profiles: profiles));
+  }
+
+  void _updateConfiguration(
+    AiExposureToolConfiguration configuration, {
+    bool rebuild = true,
+  }) {
+    if (rebuild) {
+      setState(() => _configuration = configuration);
+    } else {
+      _configuration = configuration;
+    }
+    widget.onChanged(configuration);
   }
 }
 
@@ -2274,26 +2295,30 @@ class _ToolProfileCard extends StatefulWidget {
 }
 
 class _ToolProfileCardState extends State<_ToolProfileCard> {
+  late AiExposureToolProfile _profile = widget.profile;
   bool _expanded = false;
   bool _showSecrets = false;
+
+  @override
+  void didUpdateWidget(_ToolProfileCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(widget.profile, oldWidget.profile)) {
+      _profile = widget.profile;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final text = openHandTextResolver(context);
-    final ready = _toolProfileReady(widget.tool, widget.profile);
     return AnimatedOpacity(
       duration: openHandMotionDuration(context, kOpenHandMotion180),
-      opacity: widget.profile.enabled ? 1 : 0.68,
+      opacity: _profile.enabled ? 1 : 0.68,
       child: Container(
         decoration: BoxDecoration(
           borderRadius: kOpenHandBorderRadius8,
           color: theme.colorScheme.surface,
-          border: Border.all(
-            color: ready
-                ? widget.tone.withValues(alpha: 0.28)
-                : theme.colorScheme.outlineVariant,
-          ),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
         ),
         child: Column(
           children: [
@@ -2313,10 +2338,12 @@ class _ToolProfileCardState extends State<_ToolProfileCard> {
                   );
                   final nameField = Expanded(
                     child: TextFormField(
-                      key: ValueKey<String>('${widget.profile.id}-name'),
-                      initialValue: widget.profile.name,
-                      onChanged: (name) =>
-                          widget.onChanged(widget.profile.copyWith(name: name)),
+                      key: ValueKey<String>('${_profile.id}-name'),
+                      initialValue: _profile.name,
+                      onChanged: (name) => _updateProfile(
+                        _profile.copyWith(name: name),
+                        rebuild: false,
+                      ),
                       decoration: InputDecoration(
                         labelText: text(zh: '配置名称', en: 'Profile name'),
                         isDense: true,
@@ -2325,39 +2352,32 @@ class _ToolProfileCardState extends State<_ToolProfileCard> {
                     ),
                   );
                   final controls = <Widget>[
-                    _ToolCountBadge(
-                      tone: ready ? widget.tone : theme.colorScheme.error,
-                      label: ready
-                          ? text(zh: '就绪', en: 'Ready')
-                          : text(zh: '待补充', en: 'Incomplete'),
-                    ),
-                    kOpenHandHGap4,
-                    Tooltip(
-                      message: _expanded
+                    ServiceDialogCompactIconButton(
+                      tooltip: _expanded
                           ? text(zh: '收起配置', en: 'Collapse profile')
                           : text(zh: '编辑配置', en: 'Edit profile'),
-                      child: IconButton(
-                        onPressed: () => setState(() => _expanded = !_expanded),
-                        icon: Icon(
-                          _expanded
-                              ? Icons.expand_less_rounded
-                              : Icons.tune_rounded,
+                      onPressed: () => setState(() => _expanded = !_expanded),
+                      icon: AnimatedRotation(
+                        duration: openHandMotionDuration(
+                          context,
+                          kOpenHandMotion220,
                         ),
+                        turns: _expanded ? .5 : 0,
+                        child: const Icon(Icons.keyboard_arrow_down_rounded),
                       ),
                     ),
-                    Tooltip(
-                      message: text(zh: '删除配置', en: 'Delete profile'),
-                      child: IconButton(
-                        onPressed: widget.onDelete,
-                        color: theme.colorScheme.error,
-                        icon: const Icon(Icons.delete_outline_rounded),
-                      ),
+                    kOpenHandHGap8,
+                    ServiceDialogCompactIconButton(
+                      tooltip: text(zh: '删除配置', en: 'Delete profile'),
+                      onPressed: widget.onDelete,
+                      foregroundColor: theme.colorScheme.error,
+                      icon: const Icon(Icons.delete_outline_rounded),
                     ),
+                    kOpenHandHGap10,
                     Switch(
-                      value: widget.profile.enabled,
-                      onChanged: (enabled) => widget.onChanged(
-                        widget.profile.copyWith(enabled: enabled),
-                      ),
+                      value: _profile.enabled,
+                      onChanged: (enabled) =>
+                          _updateProfile(_profile.copyWith(enabled: enabled)),
                     ),
                   ];
                   if (constraints.maxWidth >= 520) {
@@ -2373,7 +2393,7 @@ class _ToolProfileCardState extends State<_ToolProfileCard> {
               ),
             ),
             OpenHandVerticalRevealSwitcher(
-              presentKey: ValueKey<String>('profile-${widget.profile.id}'),
+              presentKey: ValueKey<String>('profile-${_profile.id}'),
               slideBeginOffsetY: -.02,
               child: !_expanded
                   ? null
@@ -2402,28 +2422,23 @@ class _ToolProfileCardState extends State<_ToolProfileCard> {
   }
 
   List<Widget> _buildJinaSections(BuildContext context) {
-    final widgets = <Widget>[];
-    for (var index = 0; index < _kJinaFieldGroups.length; index++) {
-      final group = _kJinaFieldGroups[index];
-      if (index > 0) widgets.add(kOpenHandGap14);
-      widgets.add(
-        Row(
-          children: [
-            Icon(group.icon, size: 18, color: widget.tone),
-            kOpenHandHGap8,
-            Text(
-              openHandLocalizedText(context, zh: group.zh, en: group.en),
-              style: Theme.of(
-                context,
-              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-            ),
-          ],
+    return <Widget>[
+      for (var index = 0; index < _kJinaFieldGroups.length; index++) ...[
+        if (index > 0) kOpenHandGap8,
+        _JinaFieldSection(
+          key: ValueKey<String>(
+            '${_profile.id}-${_kJinaFieldGroups[index].fields.first.key}',
+          ),
+          group: _kJinaFieldGroups[index],
+          tone: widget.tone,
+          initiallyExpanded: index == 0,
+          contentBuilder: (context) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: _buildFields(context, _kJinaFieldGroups[index].fields),
+          ),
         ),
-      );
-      widgets.add(kOpenHandGap8);
-      widgets.addAll(_buildFields(context, group.fields));
-    }
-    return widgets;
+      ],
+    ];
   }
 
   List<Widget> _buildFields(
@@ -2438,22 +2453,23 @@ class _ToolProfileCardState extends State<_ToolProfileCard> {
 
   Widget _buildField(BuildContext context, _ToolFieldSpec spec) {
     final text = openHandTextResolver(context);
-    final value = widget.profile.values[spec.key] ?? '';
+    final value = _profile.values[spec.key] ?? '';
     final label = text(zh: spec.zh, en: spec.en);
     if (spec.type == _ToolFieldType.toggle) {
-      return SwitchListTile.adaptive(
+      return SwitchListTile(
         contentPadding: EdgeInsets.zero,
         title: Text(label),
         subtitle: spec.hintZh == null
             ? null
             : Text(text(zh: spec.hintZh!, en: spec.hintEn!)),
         value: value == 'true' || value == '1',
-        onChanged: (enabled) => _setValue(spec.key, enabled ? 'true' : ''),
+        onChanged: (enabled) =>
+            _setValue(spec.key, enabled ? 'true' : '', rebuild: true),
       );
     }
     if (spec.type == _ToolFieldType.select) {
       return DropdownButtonFormField<String>(
-        key: ValueKey<String>('${widget.profile.id}-${spec.key}'),
+        key: ValueKey<String>('${_profile.id}-${spec.key}'),
         initialValue: spec.options.contains(value) ? value : '',
         decoration: InputDecoration(
           labelText: label,
@@ -2480,7 +2496,7 @@ class _ToolProfileCardState extends State<_ToolProfileCard> {
         spec.type == _ToolFieldType.multiline ||
         spec.type == _ToolFieldType.secretMultiline;
     return TextFormField(
-      key: ValueKey<String>('${widget.profile.id}-${spec.key}'),
+      key: ValueKey<String>('${_profile.id}-${spec.key}'),
       initialValue: value,
       obscureText: secret && !_showSecrets,
       keyboardType: spec.type == _ToolFieldType.number
@@ -2499,52 +2515,40 @@ class _ToolProfileCardState extends State<_ToolProfileCard> {
         border: const OutlineInputBorder(),
         suffixIcon: !secret
             ? null
-            : Tooltip(
-                message: _showSecrets
+            : ServiceDialogCompactIconButton(
+                size: 36,
+                tooltip: _showSecrets
                     ? text(zh: '隐藏凭证', en: 'Hide credential')
                     : text(zh: '显示凭证', en: 'Show credential'),
-                child: IconButton(
-                  onPressed: () => setState(() => _showSecrets = !_showSecrets),
-                  icon: Icon(
-                    _showSecrets
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
-                  ),
+                onPressed: () => setState(() => _showSecrets = !_showSecrets),
+                icon: Icon(
+                  _showSecrets
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
                 ),
               ),
+        suffixIconConstraints: const BoxConstraints(
+          minWidth: 48,
+          minHeight: 48,
+        ),
       ),
     );
   }
 
-  void _setValue(String key, String value) {
-    final values = Map<String, String>.of(widget.profile.values);
+  void _setValue(String key, String value, {bool rebuild = false}) {
+    final values = Map<String, String>.of(_profile.values);
     value.trim().isEmpty ? values.remove(key) : values[key] = value;
-    widget.onChanged(widget.profile.copyWith(values: values));
+    _updateProfile(_profile.copyWith(values: values), rebuild: rebuild);
   }
-}
 
-class _ToolCountBadge extends StatelessWidget {
-  const _ToolCountBadge({required this.tone, required this.label});
-
-  final Color tone;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-    decoration: BoxDecoration(
-      color: tone.withValues(alpha: 0.11),
-      borderRadius: kOpenHandBorderRadius6,
-      border: Border.all(color: tone.withValues(alpha: 0.26)),
-    ),
-    child: Text(
-      label,
-      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-        color: tone,
-        fontWeight: FontWeight.w800,
-      ),
-    ),
-  );
+  void _updateProfile(AiExposureToolProfile profile, {bool rebuild = true}) {
+    if (rebuild) {
+      setState(() => _profile = profile);
+    } else {
+      _profile = profile;
+    }
+    widget.onChanged(profile);
+  }
 }
 
 enum _ToolFieldType {
@@ -2589,6 +2593,98 @@ class _JinaFieldGroup {
   final String en;
   final IconData icon;
   final List<_ToolFieldSpec> fields;
+}
+
+class _JinaFieldSection extends StatefulWidget {
+  const _JinaFieldSection({
+    super.key,
+    required this.group,
+    required this.tone,
+    required this.initiallyExpanded,
+    required this.contentBuilder,
+  });
+
+  final _JinaFieldGroup group;
+  final Color tone;
+  final bool initiallyExpanded;
+  final WidgetBuilder contentBuilder;
+
+  @override
+  State<_JinaFieldSection> createState() => _JinaFieldSectionState();
+}
+
+class _JinaFieldSectionState extends State<_JinaFieldSection> {
+  late bool _expanded = widget.initiallyExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final label = openHandLocalizedText(
+      context,
+      zh: widget.group.zh,
+      en: widget.group.en,
+    );
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.72),
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: kOpenHandBorderRadius6,
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Row(
+                  children: [
+                    Icon(widget.group.icon, size: 18, color: widget.tone),
+                    kOpenHandHGap8,
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    AnimatedRotation(
+                      duration: openHandMotionDuration(
+                        context,
+                        kOpenHandMotion220,
+                      ),
+                      turns: _expanded ? .5 : 0,
+                      curve: kOpenHandSwitchInCurve,
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          OpenHandVerticalRevealSwitcher(
+            presentKey: ValueKey<String>('jina-section-$label'),
+            slideBeginOffsetY: -.015,
+            child: !_expanded
+                ? null
+                : Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: widget.contentBuilder(context),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 const List<_JinaFieldGroup> _kJinaFieldGroups = <_JinaFieldGroup>[
@@ -3112,18 +3208,6 @@ List<_ToolFieldSpec> _toolFieldSpecs(AiExposureTool tool) => switch (tool) {
   ],
   AiExposureTool.jina => const <_ToolFieldSpec>[],
 };
-
-bool _toolProfileReady(AiExposureTool tool, AiExposureToolProfile profile) {
-  bool has(String key) => profile.values[key]?.trim().isNotEmpty == true;
-  return switch (tool) {
-    AiExposureTool.github ||
-    AiExposureTool.gitee ||
-    AiExposureTool.gitcode => has('token'),
-    AiExposureTool.fofa => has('email') && has('key'),
-    AiExposureTool.shodan => has('key'),
-    AiExposureTool.jina => true,
-  };
-}
 
 String _toolLabel(AiExposureTool tool) => switch (tool) {
   AiExposureTool.github => 'GitHub',

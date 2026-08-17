@@ -19,6 +19,7 @@ import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
+import '../model/ai_exposure_models.dart';
 import '../services_controller.dart';
 import '../services_errors.dart';
 import 'dependency_metric_detail_dialog.dart';
@@ -185,7 +186,14 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<ServicesController>();
+    final dependencyStatus = context
+        .select<ServicesController, AiExposureDependencyStatus?>(
+          (controller) => controller.dependencyStatus,
+        );
+    final dependencyDataOverview = context
+        .select<ServicesController, Map<String, Object?>>(
+          (controller) => controller.dependencyDataOverview,
+        );
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final text = openHandTextResolver(context);
@@ -220,7 +228,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                     children: [
                       Text('依赖数据与遥测', style: theme.textTheme.titleLarge),
                       Text(
-                        'PostgreSQL · Redis · ${_capturedAt(controller.dependencyDataOverview)}',
+                        'PostgreSQL · Redis · ${_capturedAt(dependencyDataOverview)}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -279,8 +287,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
           kOpenHandGap14,
           Expanded(
             child: AnimatedSwitcher(
-              duration: openHandMotionDuration(context, kOpenHandMotion220,
-              ),
+              duration: openHandMotionDuration(context, kOpenHandMotion220),
               switchInCurve: kOpenHandSwitchInCurve,
               switchOutCurve: kOpenHandSwitchOutCurve,
               transitionBuilder: (child, animation) {
@@ -297,8 +304,16 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                 key: ValueKey<DependencyDataView>(_view),
                 physics: openHandDialogAwareScrollPhysics(context),
                 child: _view == DependencyDataView.postgresql
-                    ? _buildPostgresql(controller, text)
-                    : _buildRedis(controller, text),
+                    ? _buildPostgresql(
+                        dependencyStatus,
+                        dependencyDataOverview,
+                        text,
+                      )
+                    : _buildRedis(
+                        dependencyStatus,
+                        dependencyDataOverview,
+                        text,
+                      ),
               ),
             ),
           ),
@@ -308,11 +323,12 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
   }
 
   Widget _buildPostgresql(
-    ServicesController controller,
+    AiExposureDependencyStatus? dependencyStatus,
+    Map<String, Object?> dependencyDataOverview,
     OpenHandLocalizedTextResolver text,
   ) {
-    final connected = controller.dependencyStatus?.postgresql.connected == true;
-    final overview = _map(controller.dependencyDataOverview['postgresql']);
+    final connected = dependencyStatus?.postgresql.connected == true;
+    final overview = _map(dependencyDataOverview['postgresql']);
     final telemetry = _map(overview['telemetry']);
     final tables = _maps(overview['tables']);
     final rows = _maps(_postgresPage['rows']);
@@ -376,7 +392,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
         kOpenHandGap12,
         _DependencyNotice(
           connected: connected,
-          message: controller.dependencyStatus?.postgresql.message ?? '未启用',
+          message: dependencyStatus?.postgresql.message ?? '未启用',
         ),
         if (connected) ...[
           kOpenHandGap12,
@@ -436,8 +452,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 AnimatedSize(
-                  duration: openHandMotionDuration(context, kOpenHandMotion220,
-                  ),
+                  duration: openHandMotionDuration(context, kOpenHandMotion220),
                   curve: kOpenHandSwitchInCurve,
                   child: !_queryVisible
                       ? const SizedBox.shrink()
@@ -552,11 +567,12 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
   }
 
   Widget _buildRedis(
-    ServicesController controller,
+    AiExposureDependencyStatus? dependencyStatus,
+    Map<String, Object?> dependencyDataOverview,
     OpenHandLocalizedTextResolver text,
   ) {
-    final connected = controller.dependencyStatus?.redis.connected == true;
-    final overview = _map(controller.dependencyDataOverview['redis']);
+    final connected = dependencyStatus?.redis.connected == true;
+    final overview = _map(dependencyDataOverview['redis']);
     final records = _maps(_redisPage['records']);
     final nextCursor = _integer(_redisPage['nextCursor']);
     final hitRate = _number(overview['hitRate']);
@@ -629,7 +645,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
         kOpenHandGap12,
         _DependencyNotice(
           connected: connected,
-          message: controller.dependencyStatus?.redis.message ?? '未启用',
+          message: dependencyStatus?.redis.message ?? '未启用',
         ),
         if (connected) ...[
           kOpenHandGap12,
@@ -989,8 +1005,7 @@ class _TelemetryTileState extends State<_TelemetryTile> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final duration = openHandMotionDuration(context, kOpenHandMotion140,
-    );
+    final duration = openHandMotionDuration(context, kOpenHandMotion140);
     final highlighted = _hovered || _focused;
     return Semantics(
       button: true,
@@ -1630,4 +1645,3 @@ String _compactValue(Object? value, {int maxChars = 80}) {
 }
 
 String _ttlText(int seconds) => seconds < 0 ? '永久' : '${seconds}s';
-

@@ -18,6 +18,7 @@ import 'service/ai_jungler_runtime.dart';
 import 'services_errors.dart';
 
 const int _kAiExposureMaxLogs = 5000;
+const int _kAiExposureLogTrimBatchSize = 250;
 const int _kAiExposureMaxCachedHistoryJobs = 20;
 const int _kAiExposureMaxCachedLogsPerJob = 2000;
 const int _kAiExposureLogFetchBatchSize = 500;
@@ -27,6 +28,7 @@ const Duration _kProxyInspectionFirstRunDelay = Duration(seconds: 10);
 const Duration _kProxyStatisticsSyncInterval = Duration(seconds: 5);
 const Duration _kEventStreamReconnectBaseDelay = Duration(seconds: 1);
 const Duration _kRuntimeOperationDrainTimeout = Duration(seconds: 3);
+const Duration _kRealtimeNotificationInterval = Duration(milliseconds: 33);
 // 停止扫描后有界回读任务状态，兜底 SSE 缺失/延迟，避免工作台卡在"运行中"。
 // 上限覆盖在飞 HTTP 探测（10s 超时）的排空窗口，且严格有界不会无限轮询。
 const int _kScanTerminationSyncMaxAttempts = 40;
@@ -163,6 +165,9 @@ class ServicesController extends ChangeNotifier {
   );
   final LatestTaskQueue _managedDependencyListenerSyncQueue = LatestTaskQueue();
   final List<AiExposureLogEntry> _logs = <AiExposureLogEntry>[];
+  final Map<String, int> _logIndexById = <String, int>{};
+  List<AiExposureLogEntry>? _logsSnapshot;
+  Timer? _realtimeNotificationTimer;
   String? _errorMessage;
   String? _proxyRuntimeSyncError;
   bool _busy = false;
@@ -215,7 +220,8 @@ class ServicesController extends ChangeNotifier {
     return model.modelId.trim().isEmpty ? null : model.modelId.trim();
   }
 
-  List<AiExposureLogEntry> get logs => List.unmodifiable(_logs);
+  List<AiExposureLogEntry> get logs =>
+      _logsSnapshot ??= List<AiExposureLogEntry>.unmodifiable(_logs);
   String? get errorMessage => _errorMessage;
   String? get proxyRuntimeSyncError => _proxyRuntimeSyncError;
   bool get busy => _busy;
@@ -843,7 +849,7 @@ class ServicesController extends ChangeNotifier {
       await _configureAiExtractor(request.gptAssisted);
       final jobId = await client.createJob(request);
       _progress = await client.progress(jobId);
-      _logs.clear();
+      _clearLogEntries();
       await _watchJob(jobId);
       unawaited(_refreshHistoryAndResultsSafely());
       return true;
@@ -948,7 +954,7 @@ class ServicesController extends ChangeNotifier {
       await _configureAiExtractor(resumedGptAssisted);
       final resumedId = await client.resumeJob(jobId);
       _progress = await client.progress(resumedId);
-      _logs.clear();
+      _clearLogEntries();
       await _watchJob(resumedId);
       unawaited(_refreshHistoryAndResultsSafely());
       return true;
@@ -1544,6 +1550,7 @@ class ServicesController extends ChangeNotifier {
               ? sorted
               : sorted.sublist(sorted.length - _kAiExposureMaxLogs),
         );
+      _rebuildLogIndex();
       _errorMessage = null;
     } catch (error, stack) {
       if (!_isCurrentClient(client)) return;
@@ -1555,7 +1562,7 @@ class ServicesController extends ChangeNotifier {
   }
 
   void clearLogs() {
-    _logs.clear();
+    _clearLogEntries();
     _notify();
   }
 
@@ -1896,7 +1903,7 @@ class ServicesController extends ChangeNotifier {
           StackTrace.current,
         );
     }
-    _notify();
+    _notifyRealtime();
   }
 
   Future<void> _finishJobWatch(int generation) async {
@@ -2030,22 +2037,41 @@ class ServicesController extends ChangeNotifier {
         at: DateTime.now(),
       ),
     );
-    _notify();
+    _notifyRealtime();
   }
 
   void _appendLog(AiExposureLogEntry entry) {
     if (entry.message.trim().isEmpty) return;
+    _logsSnapshot = null;
     final id = entry.id;
     if (id != null && id.isNotEmpty) {
-      final index = _logs.indexWhere((item) => item.id == id);
-      if (index >= 0) {
+      final index = _logIndexById[id];
+      if (index != null) {
         _logs[index] = entry;
         return;
       }
+      _logIndexById[id] = _logs.length;
     }
     _logs.add(entry);
     if (_logs.length > _kAiExposureMaxLogs) {
-      _logs.removeRange(0, _logs.length - _kAiExposureMaxLogs);
+      const retainedCount = _kAiExposureMaxLogs - _kAiExposureLogTrimBatchSize;
+      _logs.removeRange(0, _logs.length - retainedCount);
+      _rebuildLogIndex();
+    }
+  }
+
+  void _clearLogEntries() {
+    _logs.clear();
+    _logIndexById.clear();
+    _logsSnapshot = null;
+  }
+
+  void _rebuildLogIndex() {
+    _logIndexById.clear();
+    _logsSnapshot = null;
+    for (var index = 0; index < _logs.length; index++) {
+      final id = _logs[index].id;
+      if (id != null && id.isNotEmpty) _logIndexById[id] = index;
     }
   }
 
@@ -2241,6 +2267,8 @@ class ServicesController extends ChangeNotifier {
         ),
       );
     }
+    _realtimeNotificationTimer?.cancel();
+    _realtimeNotificationTimer = null;
     _notifierDisposed = true;
     super.dispose();
   }
@@ -2284,6 +2312,21 @@ class ServicesController extends ChangeNotifier {
   }
 
   void _notify() {
+    _realtimeNotificationTimer?.cancel();
+    _realtimeNotificationTimer = null;
     if (!_disposed && !_notifierDisposed) notifyListeners();
+  }
+
+  void _notifyRealtime() {
+    if (_disposed || _notifierDisposed || _realtimeNotificationTimer != null) {
+      return;
+    }
+    _realtimeNotificationTimer = startSafeTimer(
+      _kRealtimeNotificationInterval,
+      () {
+        _realtimeNotificationTimer = null;
+        if (!_disposed && !_notifierDisposed) notifyListeners();
+      },
+    );
   }
 }
