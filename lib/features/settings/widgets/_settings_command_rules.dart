@@ -26,78 +26,21 @@ String _commandRuleMatchModeLabel(
   };
 }
 
-class _DenyCommandRuleTile extends StatelessWidget {
-  const _DenyCommandRuleTile({
-    required this.rule,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  final AiDenyCommandRule rule;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return _CommandRuleTile(
-      pattern: rule.pattern,
-      note: rule.note,
-      matchMode: rule.matchMode,
-      icon: Icons.block_rounded,
-      iconBackgroundColor: colorScheme.errorContainer,
-      iconColor: colorScheme.onErrorContainer,
-      onEdit: onEdit,
-      onDelete: onDelete,
-    );
-  }
-}
-
-class _AllowCommandRuleTile extends StatelessWidget {
-  const _AllowCommandRuleTile({
-    required this.rule,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  final AiAllowCommandRule rule;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return _CommandRuleTile(
-      pattern: rule.pattern,
-      note: rule.note,
-      matchMode: rule.matchMode,
-      icon: Icons.verified_outlined,
-      iconBackgroundColor: colorScheme.primaryContainer,
-      iconColor: colorScheme.onPrimaryContainer,
-      onEdit: onEdit,
-      onDelete: onDelete,
-    );
-  }
-}
-
 class _CommandRuleTile extends StatelessWidget {
-  const _CommandRuleTile({
-    required this.pattern,
-    required this.note,
-    required this.matchMode,
-    required this.icon,
-    required this.iconBackgroundColor,
-    required this.iconColor,
+  const _CommandRuleTile.allow({
+    required this.rule,
     required this.onEdit,
     required this.onDelete,
-  });
+  }) : _tone = _CommandRuleTone.allow;
 
-  final String pattern;
-  final String note;
-  final AiCommandMatchMode matchMode;
-  final IconData icon;
-  final Color iconBackgroundColor;
-  final Color iconColor;
+  const _CommandRuleTile.deny({
+    required this.rule,
+    required this.onEdit,
+    required this.onDelete,
+  }) : _tone = _CommandRuleTone.deny;
+
+  final AiCommandRule rule;
+  final _CommandRuleTone _tone;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -105,7 +48,19 @@ class _CommandRuleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final trimmedNote = note.trim();
+    final (icon, iconBackgroundColor, iconColor) = switch (_tone) {
+      _CommandRuleTone.allow => (
+        Icons.verified_outlined,
+        colorScheme.primaryContainer,
+        colorScheme.onPrimaryContainer,
+      ),
+      _CommandRuleTone.deny => (
+        Icons.block_rounded,
+        colorScheme.errorContainer,
+        colorScheme.onErrorContainer,
+      ),
+    };
+    final trimmedNote = rule.note.trim();
     return Material(
       color: colorScheme.surfaceContainerLow,
       borderRadius: BorderRadius.circular(kOpenHandRadius20),
@@ -129,10 +84,10 @@ class _CommandRuleTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(pattern, style: theme.textTheme.titleSmall),
+                  Text(rule.pattern, style: theme.textTheme.titleSmall),
                   kOpenHandGap6,
                   Text(
-                    _commandRuleMatchModeLabel(context, matchMode),
+                    _commandRuleMatchModeLabel(context, rule.matchMode),
                     style: theme.textTheme.labelLarge?.copyWith(
                       color: colorScheme.primary,
                     ),
@@ -162,6 +117,8 @@ class _CommandRuleTile extends StatelessWidget {
     );
   }
 }
+
+enum _CommandRuleTone { allow, deny }
 
 class _DenyCommandRuleDialog extends StatelessWidget {
   const _DenyCommandRuleDialog({required this.draftRuleId, this.initialRule});

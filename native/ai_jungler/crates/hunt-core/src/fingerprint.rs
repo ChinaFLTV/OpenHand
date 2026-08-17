@@ -8,14 +8,7 @@ pub struct FingerprintEvidence<'a> {
 }
 
 pub fn identify_product(evidence: FingerprintEvidence<'_>) -> (String, Vec<String>, String) {
-    let body = evidence.body.to_ascii_lowercase();
-    let headers = evidence
-        .headers
-        .iter()
-        .map(|(name, value)| format!("{name}:{value}"))
-        .collect::<Vec<_>>()
-        .join("\n")
-        .to_ascii_lowercase();
+    let (body, headers) = normalized_evidence(&evidence);
     let server = evidence.headers.get("server").cloned().unwrap_or_default();
     let signatures: &[(&str, &[&str])] = &[
         ("Azure OpenAI", &["azure", "apim-request-id", "api-version"]),
@@ -91,14 +84,7 @@ pub fn identify_product(evidence: FingerprintEvidence<'_>) -> (String, Vec<Strin
 }
 
 pub fn honeypot_evidence(evidence: FingerprintEvidence<'_>) -> Vec<String> {
-    let body = evidence.body.to_ascii_lowercase();
-    let headers = evidence
-        .headers
-        .iter()
-        .map(|(name, value)| format!("{name}:{value}"))
-        .collect::<Vec<_>>()
-        .join("\n")
-        .to_ascii_lowercase();
+    let (body, headers) = normalized_evidence(&evidence);
     [
         "canarytokens.com",
         "interact.sh",
@@ -110,6 +96,17 @@ pub fn honeypot_evidence(evidence: FingerprintEvidence<'_>) -> Vec<String> {
     .filter(|marker| body.contains(marker) || headers.contains(marker))
     .map(|marker| format!("命中蜜罐信号：{marker}"))
     .collect()
+}
+
+fn normalized_evidence(evidence: &FingerprintEvidence<'_>) -> (String, String) {
+    let headers = evidence
+        .headers
+        .iter()
+        .map(|(name, value)| format!("{name}:{value}"))
+        .collect::<Vec<_>>()
+        .join("\n")
+        .to_ascii_lowercase();
+    (evidence.body.to_ascii_lowercase(), headers)
 }
 
 #[cfg(test)]

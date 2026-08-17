@@ -3986,7 +3986,7 @@ class _SettingsViewState extends State<SettingsView> {
                       final rule = allowCommandRules[index];
                       return AppearOnce(
                         key: ValueKey<String>('allow-rule-${rule.id}'),
-                        child: _AllowCommandRuleTile(
+                        child: _CommandRuleTile.allow(
                           rule: rule,
                           onEdit: () => _showAllowCommandRuleDialog(
                             context,
@@ -4043,7 +4043,7 @@ class _SettingsViewState extends State<SettingsView> {
                       final rule = denyCommandRules[index];
                       return AppearOnce(
                         key: ValueKey<String>('deny-rule-${rule.id}'),
-                        child: _DenyCommandRuleTile(
+                        child: _CommandRuleTile.deny(
                           rule: rule,
                           onEdit: () => _showDenyCommandRuleDialog(
                             context,

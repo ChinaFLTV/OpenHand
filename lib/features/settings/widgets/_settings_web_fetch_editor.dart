@@ -111,6 +111,11 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
   }
 
   @override
+  Future<void> _clearEngineCooldown(AiWebFetchEngineKind kind) {
+    return WebFetchTelemetryStore.instance.clearEngineCooldown(kind);
+  }
+
+  @override
   Future<List<WebFetchCallLog>> _loadCallsForExport() {
     return WebFetchTelemetryStore.instance.recentCalls(
       limit: WebFetchTelemetryStore.maxRecentCalls,
@@ -310,15 +315,6 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
       );
     }
     return buf.toString();
-  }
-
-  Future<void> _resetEngineCooldown(AiWebFetchEngineKind kind) async {
-    try {
-      await WebFetchTelemetryStore.instance.clearEngineCooldown(kind);
-    } catch (e, st) {
-      silentLog('settings_web_fetch_editor', '重置引擎冷却状态', e, st);
-    }
-    await _refreshTelemetry();
   }
 
   @override

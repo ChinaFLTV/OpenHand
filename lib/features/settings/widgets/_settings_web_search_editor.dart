@@ -103,6 +103,11 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
   }
 
   @override
+  Future<void> _clearEngineCooldown(AiWebSearchEngineKind kind) {
+    return WebSearchTelemetryStore.instance.clearEngineCooldown(kind);
+  }
+
+  @override
   Future<List<WebSearchCallLog>> _loadCallsForExport() {
     return WebSearchTelemetryStore.instance.recentCalls(
       limit: WebSearchTelemetryStore.maxRecentCalls,
@@ -151,15 +156,6 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
       );
     }
     return buf.toString();
-  }
-
-  Future<void> _resetEngineCooldown(AiWebSearchEngineKind kind) async {
-    try {
-      await WebSearchTelemetryStore.instance.clearEngineCooldown(kind);
-    } catch (e, st) {
-      silentLog('settings_web_search_editor', '重置引擎冷却状态', e, st);
-    }
-    await _refreshTelemetry();
   }
 
   @override

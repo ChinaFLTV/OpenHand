@@ -283,15 +283,7 @@ impl PostgresMirror {
             })
             .collect::<Vec<_>>()
             .join(", ");
-        let predicates = table
-            .primary_keys
-            .iter()
-            .map(|column| {
-                let identifier = quote_identifier(column);
-                format!("target.{identifier} = keys.{identifier}")
-            })
-            .collect::<Vec<_>>()
-            .join(" AND ");
+        let predicates = primary_key_predicates(table);
         let sql = format!(
             "WITH input AS (
                SELECT * FROM jsonb_populate_record(NULL::{}, $1::jsonb)
@@ -317,15 +309,7 @@ impl PostgresMirror {
     ) -> anyhow::Result<Option<Value>> {
         let table = managed_table(table_name)?;
         validate_primary_keys(table, &keys)?;
-        let predicates = table
-            .primary_keys
-            .iter()
-            .map(|column| {
-                let identifier = quote_identifier(column);
-                format!("target.{identifier} = keys.{identifier}")
-            })
-            .collect::<Vec<_>>()
-            .join(" AND ");
+        let predicates = primary_key_predicates(table);
         let sql = format!(
             "WITH keys AS (
                SELECT * FROM jsonb_populate_record(NULL::{}, $1::jsonb)
@@ -643,6 +627,18 @@ fn validate_primary_keys(table: ManagedTable, keys: &Map<String, Value>) -> anyh
         );
     }
     Ok(())
+}
+
+fn primary_key_predicates(table: ManagedTable) -> String {
+    table
+        .primary_keys
+        .iter()
+        .map(|column| {
+            let identifier = quote_identifier(column);
+            format!("target.{identifier} = keys.{identifier}")
+        })
+        .collect::<Vec<_>>()
+        .join(" AND ")
 }
 
 fn quote_identifier(value: &str) -> String {

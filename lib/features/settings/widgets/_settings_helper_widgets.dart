@@ -6092,6 +6092,8 @@ mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
 
   Future<void> _clearTelemetryStore();
 
+  Future<void> _clearEngineCooldown(K kind);
+
   Future<List<L>> _loadCallsForExport();
 
   String _callsToJson(List<L> calls);
@@ -6286,6 +6288,15 @@ mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
       if (mounted) setState(() => _clearingTelemetry = false);
     }
     if (!mounted) return;
+    await _refreshTelemetry();
+  }
+
+  Future<void> _resetEngineCooldown(K kind) async {
+    try {
+      await _clearEngineCooldown(kind);
+    } catch (e, st) {
+      silentLog(_telemetryLogTag, '重置引擎冷却状态', e, st);
+    }
     await _refreshTelemetry();
   }
 
