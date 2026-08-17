@@ -2201,14 +2201,21 @@ class MachineTerminalSession {
     tracked =
         _runWithHistoryPolicy(
           recordHistory: recordHistory,
-          operation: () => _uploadFile(
-            sourcePath: sourcePath,
-            targetDirectory: targetDirectory,
-            targetName: targetName,
-            onProgress: onProgress,
-            waitWhilePaused: waitWhilePaused,
-            isCancelled: isCancelled,
-          ),
+          operation: () {
+            if (!recordHistory) {
+              _appendTransientCommandEcho(
+                '文件上传: $sourcePath -> $targetDirectory/$targetName',
+              );
+            }
+            return _uploadFile(
+              sourcePath: sourcePath,
+              targetDirectory: targetDirectory,
+              targetName: targetName,
+              onProgress: onProgress,
+              waitWhilePaused: waitWhilePaused,
+              isCancelled: isCancelled,
+            );
+          },
         ).whenComplete(() {
           if (identical(_uploadExecution, tracked)) _uploadExecution = null;
         });
@@ -2378,6 +2385,7 @@ class MachineTerminalSession {
             beginMarker: beginMarker,
             endMarker: endMarker,
             timeout: timeout,
+            recordHistory: recordHistory,
           ),
         ).whenComplete(() {
           if (identical(_commandExecution, tracked)) {
@@ -2393,6 +2401,7 @@ class MachineTerminalSession {
     required String beginMarker,
     required String endMarker,
     required Duration timeout,
+    required bool recordHistory,
   }) async {
     final stopwatch = Stopwatch()..start();
     final startedAt = DateTime.now();
@@ -2405,6 +2414,7 @@ class MachineTerminalSession {
         error: _terminalNotRunningError,
       );
     }
+    if (!recordHistory) _appendTransientCommandEcho(command);
     final startGeneration = _startGeneration;
     final begin = '__${beginMarker}__';
     final end = '__${endMarker}__';
@@ -2550,10 +2560,22 @@ class MachineTerminalSession {
 
   void _handleOutput(String text) {
     _output.append(text);
+    terminal.write(text);
     if (_historyRecordingSuppressionDepth == 0) {
-      terminal.write(text);
       _appendHistory(text);
     }
+    _touch();
+  }
+
+  void _appendTransientCommandEcho(String command) {
+    final text = _clipString(
+      command.trimRight(),
+      _maxCommandHistoryCommandCharacters,
+    );
+    if (text.isEmpty) return;
+    final echoed = '\r\n\x1b[38;5;75m\$ $text\x1b[0m\r\n';
+    terminal.write(echoed);
+    _output.append(echoed);
     _touch();
   }
 

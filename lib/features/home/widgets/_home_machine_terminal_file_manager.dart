@@ -2172,60 +2172,62 @@ class _MachineTerminalTransferRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 34,
-                height: 34,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: directionColor.withValues(alpha: 0.12),
-                  borderRadius: kOpenHandBorderRadius8,
-                ),
-                child: Icon(
-                  _machineTerminalTransferIcon(task.status, task.direction),
-                  size: 18,
-                  color: directionColor,
-                ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: directionColor.withValues(alpha: 0.12),
+                      borderRadius: kOpenHandBorderRadius8,
+                    ),
+                    child: Icon(
+                      _machineTerminalTransferIcon(task.status, task.direction),
+                      size: 18,
+                      color: directionColor,
+                    ),
+                  ),
+                  kOpenHandGap6,
+                  Container(
+                    constraints: const BoxConstraints(minWidth: 34),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: directionColor.withValues(alpha: 0.12),
+                      borderRadius: kOpenHandPillBorderRadius,
+                    ),
+                    child: Text(
+                      _machineTerminalTransferDirectionLabel(
+                        context,
+                        task.direction,
+                      ),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: directionColor,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               kOpenHandHGap10,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: directionColor.withValues(alpha: 0.12),
-                            borderRadius: kOpenHandPillBorderRadius,
-                          ),
-                          child: Text(
-                            _machineTerminalTransferDirectionLabel(
-                              context,
-                              task.direction,
-                            ),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: directionColor,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                        kOpenHandHGap8,
-                        Expanded(
-                          child: Text(
-                            task.fileName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ],
+                    Text(
+                      task.fileName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                     kOpenHandGap3,
                     Text(
