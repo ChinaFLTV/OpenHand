@@ -134,7 +134,9 @@ class _MachineTerminalFileManagerDialogState
     super.initState();
     _pathController.addListener(_handlePathChanged);
     _searchController.addListener(_handleSearchChanged);
-    unawaited(_loadDirectory());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_loadDirectory());
+    });
   }
 
   @override
