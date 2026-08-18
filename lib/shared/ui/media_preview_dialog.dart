@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
 import 'package:path/path.dart' as p;
 import 'package:webview_flutter/webview_flutter.dart';
@@ -13,6 +14,7 @@ import '../../app/model/dialog_animation_settings.dart';
 import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
 import '../../l10n/app_localizations.dart';
+import '../db/atomic_file_operations.dart';
 import '../net/http_redirect_utils.dart';
 import '../net/http_response_utils.dart';
 import '../util/async_concurrency.dart';
@@ -30,7 +32,6 @@ import 'natural_image_size_resolver.dart';
 import 'openhand_clipboard.dart';
 import 'openhand_snack_bar.dart';
 import 'openhand_video_player_web_styles.dart';
-
 
 /// 通用图片 / 音频 / 视频预览弹窗。覆盖三种来源：
 ///   - `bytes`：内存 Uint8List（CDP 拉回的 base64 解码后的二进制）
@@ -229,6 +230,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
     },
   );
   bool _copying = false;
+  bool _imageErrorLogged = false;
 
   @override
   void initState() {
@@ -245,6 +247,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
   }
 
   ImageProvider? _imageProvider() {
+    if (_isSvgImage) return null;
     final bytes = widget.bytes;
     if (bytes != null) return MemoryImage(bytes);
     final filePath = widget.filePath;
@@ -252,6 +255,16 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
     final networkUrl = widget.networkUrl;
     if (networkUrl != null) return NetworkImage(networkUrl);
     return null;
+  }
+
+  bool get _isSvgImage {
+    if (widget.kind != MediaPreviewKind.image) return false;
+    final mimeType = widget.mimeType?.split(';').first.trim().toLowerCase();
+    if (mimeType == kImageSvgXmlMimeType) return true;
+    final source = widget.filePath ?? widget.networkUrl ?? widget.title;
+    final uri = Uri.tryParse(source);
+    final sourcePath = uri != null && uri.path.isNotEmpty ? uri.path : source;
+    return p.extension(sourcePath).toLowerCase() == '.svg';
   }
 
   @override
@@ -318,7 +331,9 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       insetPadding: const EdgeInsets.all(_kInsetPadding),
       width: dialogW,
       maxHeight: maxDialogH,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius16)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kOpenHandRadius16),
+      ),
       child: AnimatedSize(
         duration: motionEnabled
             ? motionSettings.entranceDuration
@@ -637,13 +652,47 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
   }
 
   Widget _buildImage(BuildContext context, Size displaySize) {
+    if (_isSvgImage) {
+      final placeholder = _imageLoadingBox(context);
+      final bytes = widget.bytes;
+      if (bytes != null) {
+        return SvgPicture.memory(
+          bytes,
+          width: displaySize.width,
+          height: displaySize.height,
+          placeholderBuilder: (_) => placeholder,
+          errorBuilder: _buildImageError,
+        );
+      }
+      final networkUrl = widget.networkUrl;
+      if (networkUrl != null) {
+        return SvgPicture.network(
+          networkUrl,
+          width: displaySize.width,
+          height: displaySize.height,
+          placeholderBuilder: (_) => placeholder,
+          errorBuilder: _buildImageError,
+        );
+      }
+      final filePath = widget.filePath;
+      if (filePath != null) {
+        return SvgPicture.file(
+          File(filePath),
+          width: displaySize.width,
+          height: displaySize.height,
+          placeholderBuilder: (_) => placeholder,
+          errorBuilder: _buildImageError,
+        );
+      }
+      return _errorBox(context);
+    }
     if (widget.bytes != null) {
       return Image.memory(
         widget.bytes!,
         width: displaySize.width,
         height: displaySize.height,
         fit: BoxFit.contain,
-        errorBuilder: (c, _, _) => _errorBox(c),
+        errorBuilder: _buildImageError,
       );
     }
     if (widget.networkUrl != null) {
@@ -652,7 +701,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
         width: displaySize.width,
         height: displaySize.height,
         fit: BoxFit.contain,
-        errorBuilder: (c, _, _) => _errorBox(c),
+        errorBuilder: _buildImageError,
       );
     }
     if (widget.filePath != null) {
@@ -661,13 +710,47 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
         width: displaySize.width,
         height: displaySize.height,
         fit: BoxFit.contain,
-        errorBuilder: (c, _, _) => _errorBox(c),
+        errorBuilder: _buildImageError,
       );
     }
     return _errorBox(context);
   }
 
-  Widget _errorBox(BuildContext context) {
+  Widget _buildImageError(
+    BuildContext context,
+    Object error,
+    StackTrace? stack,
+  ) {
+    if (!_imageErrorLogged) {
+      _imageErrorLogged = true;
+      silentLog(
+        'media_preview_dialog',
+        '加载图片预览',
+        error,
+        stack ?? StackTrace.current,
+      );
+    }
+    return _errorBox(
+      context,
+      message: openHandLocalizedText(
+        context,
+        zh: '无法加载此图片。',
+        en: 'Unable to load this image.',
+      ),
+    );
+  }
+
+  Widget _imageLoadingBox(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return SizedBox.expand(
+      child: ColoredBox(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.28),
+        child: Center(child: CircularProgressIndicator(color: cs.primary)),
+      ),
+    );
+  }
+
+  Widget _errorBox(BuildContext context, {String? message}) {
     final cs = Theme.of(context).colorScheme;
     return SizedBox.expand(
       child: DecoratedBox(
@@ -676,7 +759,26 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
           borderRadius: BorderRadius.circular(kOpenHandRadius12),
         ),
         child: Center(
-          child: Icon(Icons.broken_image_outlined, size: 48, color: cs.error),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.broken_image_outlined, size: 48, color: cs.error),
+              if (message != null) ...[
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: cs.error,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -730,6 +832,7 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
   String? _tempHtmlPath;
   String? _tempMediaPath;
   String? _error;
+  bool _videoErrorReported = false;
 
   @override
   void initState() {
@@ -770,7 +873,36 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
       if (widget.networkUrl != null) {
         src = widget.networkUrl!;
       } else if (widget.filePath != null) {
-        src = Uri.file(widget.filePath!).toString();
+        final sourceFile = File(widget.filePath!);
+        final sourceStat = await sourceFile.stat().timeout(
+          deadline.remaining(),
+        );
+        if (sourceStat.type != FileSystemEntityType.file) {
+          throw FileSystemException('视频源不是普通文件。', sourceFile.path);
+        }
+        if (sourceStat.size > _kTempMediaMaxBytes) {
+          throw const FileSystemException('视频数据超过预览容量上限。');
+        }
+        final rawExtension = p
+            .extension(sourceFile.path)
+            .toLowerCase()
+            .replaceFirst('.', '');
+        final extension = RegExp(r'^[a-z0-9]{1,12}$').hasMatch(rawExtension)
+            ? rawExtension
+            : _mediaFileExtension(widget.kind, widget.mimeType);
+        final mediaFile = _newPreviewTempFile(tempDirectory, extension);
+        await copyFileAtomically(
+          sourceFile,
+          mediaFile,
+          maxBytes: _kTempMediaMaxBytes,
+        );
+        _tempMediaPath = mediaFile.path;
+        _activeMediaPreviewTempPaths.add(_mediaTempPathKey(mediaFile.path));
+        if (!mounted) {
+          await _cleanupTempFiles();
+          return;
+        }
+        src = Uri.file(mediaFile.path).toString();
       } else if (widget.bytes != null) {
         if (widget.bytes!.lengthInBytes <= _kInlineDataUrlMaxBytes) {
           src = 'data:$mime;base64,${base64Encode(widget.bytes!)}';
@@ -835,7 +967,7 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
       await controller
           .addJavaScriptChannel(
             'OpenHandMediaPreview',
-            onMessageReceived: (_) => _requestDialogClose(),
+            onMessageReceived: _handleVideoMessage,
           )
           .timeout(deadline.remaining());
       if (!mounted) {
@@ -906,6 +1038,25 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
     unawaited(Navigator.of(context).maybePop());
   }
 
+  void _handleVideoMessage(JavaScriptMessage message) {
+    if (message.message == 'close') {
+      _requestDialogClose();
+      return;
+    }
+    if (message.message != 'error' || _videoErrorReported) return;
+    _videoErrorReported = true;
+    final error = StateError('视频资源无法解码或不受当前平台支持。');
+    silentLog('media_preview_dialog', '加载视频预览', error, StackTrace.current);
+    if (!mounted) return;
+    setState(
+      () => _error = openHandLocalizedText(
+        context,
+        zh: '无法播放此视频，文件可能已损坏或格式不受支持。',
+        en: 'Unable to play this video. The file may be damaged or unsupported.',
+      ),
+    );
+  }
+
   String _buildVideoPlayerHtml({required String src}) {
     final durationMs = widget.motionDurationMs
         .clamp(0, DialogAnimationSettings.maxDurationMs)
@@ -943,6 +1094,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
   forward.innerHTML = icon.forward;
   if (fullscreen) fullscreen.innerHTML = icon.fullscreen;
   function requestClose() { try { window.OpenHandMediaPreview?.postMessage('close'); } catch (_) {} }
+  function reportError() { try { window.OpenHandMediaPreview?.postMessage('error'); } catch (_) {} }
   $openHandVideoPlayerScriptUtilities
   $openHandVideoPlayerVisibilityJavaScript
   $openHandVideoPlayerStateSyncJavaScript
@@ -1008,6 +1160,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
     requestClose();
   }, true);
   media.addEventListener('loadedmetadata', updateTime);
+  media.addEventListener('error', reportError);
   media.addEventListener('durationchange', updateTime);
   media.addEventListener('timeupdate', updateTime);
   media.addEventListener('play', updatePlayState);
