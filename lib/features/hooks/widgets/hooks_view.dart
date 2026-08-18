@@ -211,7 +211,6 @@ class _HookEntryCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Row(
           children: [
-            // Event badge
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
@@ -231,7 +230,6 @@ class _HookEntryCard extends StatelessWidget {
               ),
             ),
             kOpenHandHGap16,
-            // Label & script info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,16 +258,13 @@ class _HookEntryCard extends StatelessWidget {
               ),
             ),
             kOpenHandHGap12,
-            // Timeout badge
             OpenHandMetricChip(
               label: '${entry.timeoutSeconds}s',
               tooltip: l10n.hooksTimeoutTooltip,
             ),
             kOpenHandHGap8,
-            // Toggle switch
             Switch(value: entry.enabled, onChanged: onToggle),
             kOpenHandHGap8,
-            // Actions
             IconButton(
               icon: const Icon(Icons.edit_outlined, size: 20),
               tooltip: l10n.commonEdit,
@@ -303,7 +298,6 @@ class _HookEntryCard extends StatelessWidget {
   }
 }
 
-// Hook editor dialog
 enum _HookScriptSource { file, inline }
 
 class _HookEditorDialog extends StatefulWidget {
@@ -382,7 +376,6 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                 message: _formError,
               ),
               if (_formError != null) kOpenHandGap12,
-              // Label
               TextField(
                 controller: _labelController,
                 decoration: InputDecoration(
@@ -391,7 +384,6 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                 ),
               ),
               kOpenHandGap18,
-              // Event selector
               Text(l10n.hooksTriggerEvent, style: theme.textTheme.titleSmall),
               kOpenHandGap8,
               Wrap(
@@ -413,7 +405,6 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                 }).toList(),
               ),
               kOpenHandGap18,
-              // Script source toggle
               Text(l10n.hooksScriptSource, style: theme.textTheme.titleSmall),
               kOpenHandGap8,
               SegmentedButton<_HookScriptSource>(
@@ -435,7 +426,6 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                 },
               ),
               kOpenHandGap14,
-              // File selector or inline editor
               if (_scriptSource == _HookScriptSource.file) ...[
                 Row(
                   children: [
@@ -495,7 +485,6 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                 ),
               ],
               kOpenHandGap18,
-              // Timeout
               Row(
                 children: [
                   Text(
@@ -520,7 +509,6 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                 ],
               ),
               kOpenHandGap14,
-              // Enabled switch
               Row(
                 children: [
                   Text(l10n.hooksEnabled, style: theme.textTheme.titleSmall),

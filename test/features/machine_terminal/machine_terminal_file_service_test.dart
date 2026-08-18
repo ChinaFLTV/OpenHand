@@ -9,14 +9,14 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('终端目录协议正确解析中文、链接并保持目录优先', () {
-    String encoded(String value) => base64Encode(utf8.encode(value));
     final output = <String>[
-      'P\t${encoded('/tmp/测试 目录')}',
+      'P\t${_encodeProtocolText('/tmp/测试 目录')}',
       'N\t3',
-      'R\td\t${encoded('子目录')}',
-      'E\tf\t12\t1700000000\t644\t${encoded('说明.txt')}\t',
-      'E\td\t0\t1700000001\t755\t${encoded('子目录')}\t\t2\t3',
-      'E\tl\t4\t1700000002\t777\t${encoded('最新')}\t${encoded('说明.txt')}',
+      'R\td\t${_encodeProtocolText('子目录')}',
+      'E\tf\t12\t1700000000\t644\t${_encodeProtocolText('说明.txt')}\t',
+      'E\td\t0\t1700000001\t755\t${_encodeProtocolText('子目录')}\t\t2\t3',
+      'E\tl\t4\t1700000002\t777\t${_encodeProtocolText('最新')}\t'
+          '${_encodeProtocolText('说明.txt')}',
       'T',
     ].join('\n');
 
@@ -38,20 +38,19 @@ void main() {
   });
 
   test('终端目录增量协议提供真实总量、资源变化和百分比', () {
-    String encoded(String value) => base64Encode(utf8.encode(value));
     final updates = <MachineTerminalFileProgress>[];
     final tracker = MachineTerminalDirectoryProgressTracker(updates.add);
     final first = <String>[
-      'relay> P\t${encoded('/tmp/测试 目录')}',
+      'relay> P\t${_encodeProtocolText('/tmp/测试 目录')}',
       'N\t2',
-      'R\td\t${encoded('资源 目录')}',
-      'E\td\t0\t1700000000\t755\t${encoded('资源 目录')}\t\t1\t2',
+      'R\td\t${_encodeProtocolText('资源 目录')}',
+      'E\td\t0\t1700000000\t755\t${_encodeProtocolText('资源 目录')}\t\t1\t2',
     ].join('\n');
     final complete =
         '$first\n'
-        'R\tl\t${encoded('最新 链接')}\n'
-        'E\tl\t4\t1700000001\t777\t${encoded('最新 链接')}\t'
-        '${encoded('资源 目录')}';
+        'R\tl\t${_encodeProtocolText('最新 链接')}\n'
+        'E\tl\t4\t1700000001\t777\t${_encodeProtocolText('最新 链接')}\t'
+        '${_encodeProtocolText('资源 目录')}';
 
     tracker.reportPreparing();
     tracker.consume(first);
@@ -74,19 +73,18 @@ void main() {
   });
 
   test('文件详情协议保留路径、所有者和时间字段', () {
-    String encoded(String value) => base64Encode(utf8.encode(value));
     final details = parseMachineTerminalFileDetailsProtocol(
       <String>[
         'D',
         'f',
-        encoded('/tmp/测试.txt'),
+        _encodeProtocolText('/tmp/测试.txt'),
         '12',
         '1700000000',
         '644',
-        encoded('用户'),
-        encoded('组'),
+        _encodeProtocolText('用户'),
+        _encodeProtocolText('组'),
         '123',
-        encoded('text/plain'),
+        _encodeProtocolText('text/plain'),
         '',
         '1699990000',
         '1699991000',
@@ -105,11 +103,10 @@ void main() {
   });
 
   test('终端文件协议将负数大小和子项计数归零', () {
-    String encoded(String value) => base64Encode(utf8.encode(value));
     final directory = parseMachineTerminalDirectoryProtocol(
       <String>[
-        'P\t${encoded('/tmp')}',
-        'E\td\t-1\t1700000000\t755\t${encoded('异常目录')}\t\t-2\t-3',
+        'P\t${_encodeProtocolText('/tmp')}',
+        'E\td\t-1\t1700000000\t755\t${_encodeProtocolText('异常目录')}\t\t-2\t-3',
       ].join('\n'),
       windowsPath: false,
     );
@@ -117,14 +114,14 @@ void main() {
       <String>[
         'D',
         'd',
-        encoded('/tmp/异常目录'),
+        _encodeProtocolText('/tmp/异常目录'),
         '-1',
         '1700000000',
         '755',
-        encoded('用户'),
-        encoded('组'),
+        _encodeProtocolText('用户'),
+        _encodeProtocolText('组'),
         '123',
-        encoded('inode/directory'),
+        _encodeProtocolText('inode/directory'),
         '',
         '1699990000',
         '1699991000',
@@ -741,6 +738,8 @@ void main() {
     skip: 'flutter test 不注入桌面 flutter_pty 动态库，需桌面构建环境执行。',
   );
 }
+
+String _encodeProtocolText(String value) => base64Encode(utf8.encode(value));
 
 class _ControllableUploadTerminalService extends MachineTerminalService {
   _ControllableUploadTerminalService({required super.sessionsDirectoryPath});

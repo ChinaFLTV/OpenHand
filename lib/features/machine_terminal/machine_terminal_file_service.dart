@@ -421,7 +421,7 @@ class MachineTerminalFileService extends ChangeNotifier {
           report();
         },
         waitWhilePaused: () async {},
-        isCancelled: isCancelled ?? _machineTerminalTransferIsNotCancelled,
+        isCancelled: isCancelled,
       ),
     );
   }
@@ -783,7 +783,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     required MachineTerminalUploadProgress onProgress,
     required ValueChanged<String> onCommand,
     required MachineTerminalUploadPauseWaiter waitWhilePaused,
-    required MachineTerminalUploadCancelCheck isCancelled,
+    required MachineTerminalUploadCancelCheck? isCancelled,
   }) async {
     _throwIfMachineTerminalTransferCancelled(isCancelled);
     onCommand(_fileDetailsCommand(sourcePath));
@@ -1812,8 +1812,6 @@ class _MachineTerminalOperationGate {
 
 String _terminalKey(String sessionId, String terminalId) =>
     '$sessionId\u0000$terminalId';
-
-bool _machineTerminalTransferIsNotCancelled() => false;
 
 void _throwIfMachineTerminalTransferCancelled(
   MachineTerminalUploadCancelCheck? isCancelled,

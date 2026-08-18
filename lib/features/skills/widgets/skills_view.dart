@@ -353,16 +353,16 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-     flashOpenHandSnack(
-       context,
-       '${l10n.skillsImportSuccess}: ${skill.name}',
-       kind: OpenHandSnackKind.success,
-     );
-   } catch (e) {
-      // ignore: use_build_context_synchronously
-     flashOpenHandErrorOnCatch(context, l10n.skillOperationFailed);
-   }
- }
+      flashOpenHandSnack(
+        context,
+        '${l10n.skillsImportSuccess}: ${skill.name}',
+        kind: OpenHandSnackKind.success,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      flashOpenHandErrorOnCatch(context, l10n.skillOperationFailed);
+    }
+  }
 
   Future<void> _showCreateSkillDialog(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
@@ -388,26 +388,26 @@ class _SkillsViewState extends State<SkillsView> {
 
   Future<void> _openSkillsDirectory(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
-   try {
-     await context.read<SkillsController>().openStorageDirectory();
-   } catch (e) {
-      // ignore: use_build_context_synchronously
-     flashOpenHandErrorOnCatch(context, l10n.skillOperationFailed);
-   }
- }
+    try {
+      await context.read<SkillsController>().openStorageDirectory();
+    } catch (e) {
+      if (!context.mounted) return;
+      flashOpenHandErrorOnCatch(context, l10n.skillOperationFailed);
+    }
+  }
 
   Future<void> _openSkillDirectory(
     BuildContext context,
     LocalSkill skill,
   ) async {
     final l10n = AppLocalizations.of(context)!;
-   try {
-     await context.read<SkillsController>().openSkillDirectory(skill);
-   } catch (e) {
-      // ignore: use_build_context_synchronously
-     flashOpenHandErrorOnCatch(context, l10n.skillOperationFailed);
-   }
- }
+    try {
+      await context.read<SkillsController>().openSkillDirectory(skill);
+    } catch (e) {
+      if (!context.mounted) return;
+      flashOpenHandErrorOnCatch(context, l10n.skillOperationFailed);
+    }
+  }
 
   Future<void> _showSkillPreview(BuildContext context, LocalSkill skill) async {
     final l10n = AppLocalizations.of(context)!;
@@ -486,13 +486,13 @@ class _SkillsViewState extends State<SkillsView> {
               ),
             ),
           );
-       },
-     );
-   } catch (e) {
-      // ignore: use_build_context_synchronously
-     flashOpenHandErrorOnCatch(context, l10n.skillOperationFailed);
-   }
- }
+        },
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      flashOpenHandErrorOnCatch(context, l10n.skillOperationFailed);
+    }
+  }
 
   Future<void> _showEditSkillDialog(
     BuildContext context,
@@ -517,16 +517,16 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted || submitted != true) {
         return;
       }
-     flashOpenHandSnack(
-       context,
-       l10n.skillsEditSuccess,
-       kind: OpenHandSnackKind.success,
-     );
-   } catch (e) {
-      // ignore: use_build_context_synchronously
-     flashOpenHandErrorOnCatch(context, l10n.skillOperationFailed);
-   }
- }
+      flashOpenHandSnack(
+        context,
+        l10n.skillsEditSuccess,
+        kind: OpenHandSnackKind.success,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      flashOpenHandErrorOnCatch(context, l10n.skillOperationFailed);
+    }
+  }
 
   Future<void> _confirmDeleteSkill(
     BuildContext context,
@@ -555,15 +555,15 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
-     flashOpenHandSnack(
-       context,
-       l10n.skillsDeleteSuccess,
-       kind: OpenHandSnackKind.success,
-     );
-   } catch (e) {
-      // ignore: use_build_context_synchronously
-     flashOpenHandErrorOnCatch(context, l10n.skillOperationFailed);
-   }
+      flashOpenHandSnack(
+        context,
+        l10n.skillsDeleteSuccess,
+        kind: OpenHandSnackKind.success,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      flashOpenHandErrorOnCatch(context, l10n.skillOperationFailed);
+    }
   }
 }
 

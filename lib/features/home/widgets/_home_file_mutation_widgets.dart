@@ -22,8 +22,9 @@ const Duration _kFileMutationRowChevronDuration = kOpenHandMotion180;
 const Duration _kFileMutationNoticeSnackDuration = Duration(milliseconds: 2800);
 
 /// 按消息对象缓存的文件变动路径列表。消息不可变，一次解析终身有效。
-final Expando<List<String>> _fileMutationPathsCache =
-    Expando<List<String>>('_fileMutationPaths');
+final Expando<List<String>> _fileMutationPathsCache = Expando<List<String>>(
+  '_fileMutationPaths',
+);
 
 /// 聚合「单文件 (`file_mutation_path`)」与「多文件
 /// (`file_mutation_paths`)」两路 metadata，去重后按出现顺序返回。
@@ -131,7 +132,8 @@ class _FileMutationCardState extends State<_FileMutationCard> {
   }
 
   String get _toolCallId =>
-      '${widget.message.metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'.trim();
+      '${widget.message.metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'
+          .trim();
 
   AiSessionController _ctrl(BuildContext ctx) =>
       ctx.read<AiSessionController>();
@@ -600,7 +602,6 @@ class _FileMutationCardState extends State<_FileMutationCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Header
                 Tooltip(
                   message: AppLocalizations.of(
                     context,
@@ -2094,10 +2095,7 @@ class _CodexDiffFoldRow extends StatelessWidget {
         decoration: BoxDecoration(color: palette.foldedBackground),
         child: Row(
           children: [
-            const ColoredBox(
-              color: Colors.transparent,
-              child: kOpenHandWidth4,
-            ),
+            const ColoredBox(color: Colors.transparent, child: kOpenHandWidth4),
             SizedBox(
               width: 58,
               child: Center(
@@ -2453,7 +2451,6 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header
             Container(
               padding: const EdgeInsets.fromLTRB(24, 20, 16, 20),
               color: colorScheme.surfaceContainerLow,
@@ -2505,7 +2502,6 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
               ),
             ),
 
-            // Diff content
             Expanded(
               child: OpenHandContentStateSwitcher(
                 // 外层 Expanded 已定高，这里只做淡入淡出。
@@ -2631,11 +2627,7 @@ class _RevealMoreRow extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// File Mutation History Inspector dialog
-// 当前会话级别的全 ledger 俯瞰：跨 toolCall 聚合，按 filePath 分组，每组
-// 内按 createdAt 倒序展示。只读：仅展示 + 复用既有 _FileMutationCardRow
-// 视觉层（但不带 undo/redo callback——传 null/空 op）。
+// 按文件聚合当前会话的变更记录，每组按创建时间倒序展示。
 
 class _FileMutationHistoryInspectorDialog extends StatefulWidget {
   const _FileMutationHistoryInspectorDialog({
@@ -2683,7 +2675,9 @@ class _FileMutationHistoryInspectorDialogState
       maxWidth: kOpenHandDialogWidthStandard,
       maxHeight: kOpenHandDialogHeightStandard,
       safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
-      shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius16),
+      shape: const RoundedRectangleBorder(
+        borderRadius: kOpenHandBorderRadius16,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2719,7 +2713,9 @@ class _FileMutationHistoryInspectorDialogState
                 isDense: true,
                 prefixIcon: const Icon(Icons.search_rounded, size: 18),
                 hintText: l10n.fileMutationHistoryInspectorFilterHint,
-                border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
+                border: const OutlineInputBorder(
+                  borderRadius: kOpenHandBorderRadius10,
+                ),
               ),
             ),
           ),
@@ -2870,7 +2866,6 @@ class _HistoryInspectorGroup extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // group header
             InkWell(
               onTap: () => _copyPathToClipboard(context, filePath),
               onDoubleTap: onZoomToggle,
@@ -3193,8 +3188,7 @@ class _HoverElevateBoxState extends State<_HoverElevateBox>
     with OpenHandHoverState {
   @override
   Widget build(BuildContext context) {
-    final dur = openHandMotionDuration(context, kOpenHandMotion200,
-    );
+    final dur = openHandMotionDuration(context, kOpenHandMotion200);
     return MouseRegion(
       onEnter: (_) => setOpenHandHovered(true),
       onExit: (_) => setOpenHandHovered(false),
@@ -3450,7 +3444,9 @@ class _RoundFileMutationSummaryCardState
       if (session != null) {
         for (final m in session.messages) {
           if (m.kind != AiSessionMessageKind.toolCall) continue;
-          final id = '${m.metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'.trim();
+          final id =
+              '${m.metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'
+                  .trim();
           if (id.isNotEmpty) {
             toolCallMessageIdByCallId.putIfAbsent(id, () => m.id);
           }
