@@ -37,7 +37,7 @@ class _MachineTerminalDestination {
 @immutable
 class _MachineTerminalOperationStatus {
   const _MachineTerminalOperationStatus({
-    required this.action,
+    this.action,
     required this.startedAt,
     required this.sampledAt,
     this.command = '',
@@ -46,7 +46,7 @@ class _MachineTerminalOperationStatus {
     this.speedBytesPerSecond = 0,
   });
 
-  factory _MachineTerminalOperationStatus.start(String action) {
+  factory _MachineTerminalOperationStatus.start([String? action]) {
     final now = DateTime.now();
     return _MachineTerminalOperationStatus(
       action: action,
@@ -55,7 +55,7 @@ class _MachineTerminalOperationStatus {
     );
   }
 
-  final String action;
+  final String? action;
   final String command;
   final int processedBytes;
   final int? totalBytes;
@@ -124,7 +124,8 @@ class _MachineTerminalFileManagerDialogState
   int _loadGeneration = 0;
   int _operationGeneration = 0;
   String? _operationPath;
-  _MachineTerminalOperationStatus? _operationStatus;
+  _MachineTerminalOperationStatus? _operationStatus =
+      _MachineTerminalOperationStatus.start();
   Timer? _operationTicker;
   String? _error;
   bool _syncingPath = false;
@@ -557,10 +558,9 @@ class _MachineTerminalFileManagerDialogState
   ) {
     final cs = Theme.of(context).colorScheme;
     if (_loading && snapshot == null) {
-      final status = _operationStatus;
-      return status == null
-          ? const Center(child: CircularProgressIndicator())
-          : _MachineTerminalOperationLoadingPanel(status: status);
+      return _MachineTerminalOperationLoadingPanel(
+        status: _operationStatus ?? _MachineTerminalOperationStatus.start(),
+      );
     }
     if (_error != null && snapshot == null) {
       return Center(
@@ -1303,7 +1303,14 @@ class _MachineTerminalOperationLoadingPanel extends StatelessWidget {
         : '${formatByteSize(processedBytes)} / ${formatByteSize(totalBytes)}';
     final speedValue = status.speedBytesPerSecond > 0
         ? '${formatByteSize(status.speedBytesPerSecond)}/s'
-        : openHandLocalizedText(context, zh: '计算中', en: 'Calculating');
+        : openHandLocalizedText(context, zh: '等待数据', en: 'Awaiting data');
+    final action =
+        status.action ??
+        openHandLocalizedText(
+          context,
+          zh: '读取当前终端目录',
+          en: 'Reading Terminal Folder',
+        );
     final rawCommand = status.command.replaceAll(RegExp(r'\s+'), ' ').trim();
     final command = rawCommand.isEmpty
         ? openHandLocalizedText(
@@ -1326,7 +1333,7 @@ class _MachineTerminalOperationLoadingPanel extends StatelessWidget {
                 _MachineTerminalOperationProgressRing(value: status.progress),
                 kOpenHandGap16,
                 Text(
-                  status.action,
+                  action,
                   textAlign: TextAlign.center,
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: cs.onSurface,
@@ -1497,7 +1504,16 @@ class _MachineTerminalOperationProgressRingState
             ),
           ),
           value == null
-              ? Icon(Icons.sync_rounded, color: cs.primary, size: 24)
+              ? Text(
+                  '--%',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: cs.primary,
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: const <FontFeature>[
+                      FontFeature.tabularFigures(),
+                    ],
+                  ),
+                )
               : Text(
                   _machineTerminalTransferPercent(value),
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
