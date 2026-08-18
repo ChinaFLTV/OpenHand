@@ -12,6 +12,8 @@ void main() {
     String encoded(String value) => base64Encode(utf8.encode(value));
     final output = <String>[
       'P\t${encoded('/tmp/测试 目录')}',
+      'N\t3',
+      'R\td\t${encoded('子目录')}',
       'E\tf\t12\t1700000000\t644\t${encoded('说明.txt')}\t',
       'E\td\t0\t1700000001\t755\t${encoded('子目录')}\t\t2\t3',
       'E\tl\t4\t1700000002\t777\t${encoded('最新')}\t${encoded('说明.txt')}',
@@ -33,6 +35,42 @@ void main() {
     expect(snapshot.entries[1].linkTarget, '说明.txt');
     expect(snapshot.entries.first.childDirectoryCount, 2);
     expect(snapshot.entries.first.childFileCount, 3);
+  });
+
+  test('终端目录增量协议提供真实总量、资源变化和百分比', () {
+    String encoded(String value) => base64Encode(utf8.encode(value));
+    final updates = <MachineTerminalFileProgress>[];
+    final tracker = MachineTerminalDirectoryProgressTracker(updates.add);
+    final first = <String>[
+      'relay> P\t${encoded('/tmp/测试 目录')}',
+      'N\t2',
+      'R\td\t${encoded('资源 目录')}',
+      'E\td\t0\t1700000000\t755\t${encoded('资源 目录')}\t\t1\t2',
+    ].join('\n');
+    final complete =
+        '$first\n'
+        'R\tl\t${encoded('最新 链接')}\n'
+        'E\tl\t4\t1700000001\t777\t${encoded('最新 链接')}\t'
+        '${encoded('资源 目录')}';
+
+    tracker.reportPreparing();
+    tracker.consume(first);
+    tracker.consume(complete, flush: true);
+
+    expect(updates.first.progress, 0);
+    expect(
+      updates.any(
+        (progress) =>
+            progress.total == 2 &&
+            progress.processed == 0 &&
+            progress.command == '读取目录：资源 目录',
+      ),
+      isTrue,
+    );
+    expect(updates.any((progress) => progress.command == '读取资源：最新 链接'), isTrue);
+    expect(updates.last.processed, 2);
+    expect(updates.last.total, 2);
+    expect(updates.last.progress, 1);
   });
 
   test('文件详情协议保留路径、所有者和时间字段', () {
@@ -358,18 +396,26 @@ void main() {
     const waiting = MachineTerminalFileProgress(command: 'pwd');
     const reading = MachineTerminalFileProgress(
       command: '读取文件分块',
-      processedBytes: 32768,
-      totalBytes: 65536,
+      processed: 32768,
+      total: 65536,
     );
     const overflow = MachineTerminalFileProgress(
       command: '读取文件分块',
-      processedBytes: 70000,
-      totalBytes: 65536,
+      processed: 70000,
+      total: 65536,
     );
 
     expect(waiting.progress, isNull);
     expect(reading.progress, closeTo(0.5, 0.0001));
     expect(overflow.progress, 1);
+    expect(
+      const MachineTerminalFileProgress(
+        command: '空目录',
+        total: 0,
+        unit: MachineTerminalFileProgressUnit.entries,
+      ).progress,
+      1,
+    );
   });
 
   test(
@@ -403,10 +449,22 @@ void main() {
             .activeTerminal!
             .terminalId;
 
+        final directoryProgress = <MachineTerminalFileProgress>[];
         var directory = await fileService.listDirectory(
           sessionId: 'file-test',
           terminalId: terminalId,
+          onProgress: directoryProgress.add,
         );
+        expect(
+          directoryProgress.any(
+            (progress) =>
+                progress.unit == MachineTerminalFileProgressUnit.entries &&
+                progress.total == 1 &&
+                progress.command.contains('示例.txt'),
+          ),
+          isTrue,
+        );
+        expect(directoryProgress.last.progress, 1);
         expect(directory.path, await child.resolveSymbolicLinks());
         final textEntry = directory.entries.singleWhere(
           (entry) => entry.name == '示例.txt',

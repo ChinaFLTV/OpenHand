@@ -41,9 +41,10 @@ class _MachineTerminalOperationStatus {
     required this.startedAt,
     required this.sampledAt,
     this.command = '',
-    this.processedBytes = 0,
-    this.totalBytes,
-    this.speedBytesPerSecond = 0,
+    this.processed = 0,
+    this.total,
+    this.unit = MachineTerminalFileProgressUnit.bytes,
+    this.speedPerSecond = 0,
   });
 
   factory _MachineTerminalOperationStatus.start([String? action]) {
@@ -57,16 +58,23 @@ class _MachineTerminalOperationStatus {
 
   final String? action;
   final String command;
-  final int processedBytes;
-  final int? totalBytes;
-  final double speedBytesPerSecond;
+  final int processed;
+  final int? total;
+  final MachineTerminalFileProgressUnit unit;
+  final double speedPerSecond;
   final DateTime startedAt;
   final DateTime sampledAt;
 
   double? get progress {
-    final total = totalBytes;
-    if (total == null || total <= 0) return null;
-    return (processedBytes / total).clamp(0, 1);
+    final value = total;
+    if (value == null) {
+      return unit == MachineTerminalFileProgressUnit.entries && processed == 0
+          ? 0
+          : null;
+    }
+    if (value < 0) return null;
+    if (value == 0) return 1;
+    return (processed / value).clamp(0, 1);
   }
 
   Duration get elapsed {
@@ -76,13 +84,13 @@ class _MachineTerminalOperationStatus {
 
   _MachineTerminalOperationStatus update(MachineTerminalFileProgress progress) {
     final now = DateTime.now();
-    var speed = speedBytesPerSecond;
+    var speed = speedPerSecond;
     var nextSampledAt = sampledAt;
-    if (progress.processedBytes > processedBytes) {
+    if (progress.processed > processed) {
       final elapsedMs = now.difference(sampledAt).inMilliseconds;
       if (elapsedMs > 0) {
         speed =
-            (progress.processedBytes - processedBytes) *
+            (progress.processed - processed) *
             Duration.millisecondsPerSecond /
             elapsedMs;
       }
@@ -91,9 +99,10 @@ class _MachineTerminalOperationStatus {
     return _MachineTerminalOperationStatus(
       action: action,
       command: progress.command,
-      processedBytes: progress.processedBytes,
-      totalBytes: progress.totalBytes,
-      speedBytesPerSecond: speed,
+      processed: progress.processed,
+      total: progress.total,
+      unit: progress.unit,
+      speedPerSecond: speed,
       startedAt: startedAt,
       sampledAt: nextSampledAt,
     );
@@ -1290,19 +1299,26 @@ class _MachineTerminalOperationLoadingPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final totalBytes = status.totalBytes;
-    final processedBytes = math.max(0, status.processedBytes);
-    final sizeValue = totalBytes == null
-        ? processedBytes > 0
-              ? formatByteSize(processedBytes)
+    final total = status.total;
+    final processed = math.max(0, status.processed);
+    final entries = status.unit == MachineTerminalFileProgressUnit.entries;
+    final sizeValue = total == null
+        ? processed > 0
+              ? entries
+                    ? '$processed 项'
+                    : formatByteSize(processed)
               : openHandLocalizedText(
                   context,
                   zh: '等待响应',
                   en: 'Awaiting response',
                 )
-        : '${formatByteSize(processedBytes)} / ${formatByteSize(totalBytes)}';
-    final speedValue = status.speedBytesPerSecond > 0
-        ? '${formatByteSize(status.speedBytesPerSecond)}/s'
+        : entries
+        ? '$processed / $total 项'
+        : '${formatByteSize(processed)} / ${formatByteSize(total)}';
+    final speedValue = status.speedPerSecond > 0
+        ? entries
+              ? '${status.speedPerSecond.toStringAsFixed(1)} 项/s'
+              : '${formatByteSize(status.speedPerSecond)}/s'
         : openHandLocalizedText(context, zh: '等待数据', en: 'Awaiting data');
     final action =
         status.action ??
@@ -1363,8 +1379,8 @@ class _MachineTerminalOperationLoadingPanel extends StatelessWidget {
                       icon: Icons.data_usage_rounded,
                       label: openHandLocalizedText(
                         context,
-                        zh: '数据',
-                        en: 'Data',
+                        zh: entries ? '进度' : '数据',
+                        en: entries ? 'Progress' : 'Data',
                       ),
                       value: sizeValue,
                     ),
@@ -1408,14 +1424,23 @@ class _MachineTerminalOperationLoadingPanel extends StatelessWidget {
                       Icon(Icons.terminal_rounded, size: 17, color: cs.primary),
                       kOpenHandHGap8,
                       Expanded(
-                        child: Text(
-                          command,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                            fontFamily: kOpenHandMonospaceFontFamily,
-                            fontWeight: FontWeight.w700,
+                        child: AnimatedSwitcher(
+                          duration: openHandMotionDuration(
+                            context,
+                            kOpenHandMotion160,
+                          ),
+                          switchInCurve: kOpenHandSwitchInCurve,
+                          switchOutCurve: kOpenHandSwitchOutCurve,
+                          child: Text(
+                            command,
+                            key: ValueKey<String>(command),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                              fontFamily: kOpenHandMonospaceFontFamily,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ),

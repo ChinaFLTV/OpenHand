@@ -93,6 +93,7 @@ const Duration _terminalEchoReadyTimeout = Duration(seconds: 3);
 typedef MachineTerminalUploadProgress = void Function(int transferredBytes);
 typedef MachineTerminalUploadPauseWaiter = Future<void> Function();
 typedef MachineTerminalUploadCancelCheck = bool Function();
+typedef MachineTerminalCommandOutputCallback = void Function(String output);
 
 final class MachineTerminalUploadCancelled implements Exception {
   const MachineTerminalUploadCancelled();
@@ -927,6 +928,7 @@ class MachineTerminalService extends ChangeNotifier {
     Duration timeout = kMachineTerminalDefaultCommandTimeout,
     bool startIfNeeded = true,
     bool recordHistory = true,
+    MachineTerminalCommandOutputCallback? onOutput,
   }) async {
     final terminal = await _requireTerminal(sessionId, terminalId);
     final trimmed = command.trimRight();
@@ -963,6 +965,7 @@ class MachineTerminalService extends ChangeNotifier {
       endMarker: '${token}_END',
       timeout: effectiveTimeout,
       recordHistory: recordHistory,
+      onOutput: onOutput,
     );
     _scheduleMetadataPersist(terminal.sessionId);
     if (recordHistory) _scheduleHistoryPersist(terminal.sessionId);
@@ -2365,6 +2368,7 @@ class MachineTerminalSession {
     required String endMarker,
     required Duration timeout,
     bool recordHistory = true,
+    MachineTerminalCommandOutputCallback? onOutput,
   }) {
     if (_commandExecution != null || _uploadExecution != null) {
       return Future<MachineTerminalCommandResult>.value(
@@ -2388,6 +2392,7 @@ class MachineTerminalSession {
             endMarker: endMarker,
             timeout: timeout,
             recordHistory: recordHistory,
+            onOutput: onOutput,
           ),
         ).whenComplete(() {
           if (identical(_commandExecution, tracked)) {
@@ -2404,6 +2409,7 @@ class MachineTerminalSession {
     required String endMarker,
     required Duration timeout,
     required bool recordHistory,
+    MachineTerminalCommandOutputCallback? onOutput,
   }) async {
     final stopwatch = Stopwatch()..start();
     final startedAt = DateTime.now();
@@ -2435,6 +2441,7 @@ class MachineTerminalSession {
         startOffset: startOffset,
         startGeneration: startGeneration,
         timeout: timeout,
+        onOutput: onOutput,
       );
       return _recordedCommandResult(
         startedAt: startedAt,
@@ -2691,6 +2698,7 @@ class MachineTerminalSession {
     required int startOffset,
     required int startGeneration,
     required Duration timeout,
+    MachineTerminalCommandOutputCallback? onOutput,
   }) async {
     final deadline = MonotonicDeadline(timeout, timeoutMessage: '等待终端命令标记超时。');
     // 增量剥离：每轮只对新增的原始输出跑一次 _plainText，而不是对最多 24 万
@@ -2698,6 +2706,7 @@ class MachineTerminalSession {
     // 每秒要在 UI isolate 上做数百万字符的字符串工作，直接表现为掉帧。
     final plainBuffer = StringBuffer();
     var scannedOffset = startOffset;
+    String? lastOutput;
     try {
       while (true) {
         if (_output.discardedSince(scannedOffset)) {
@@ -2723,6 +2732,18 @@ class MachineTerminalSession {
         final endIndex = outputStart < 0
             ? -1
             : segment.indexOf(end, outputStart);
+        if (onOutput != null && outputStart >= 0) {
+          final currentOutput = _removeMarkerNoise(
+            segment.substring(
+              outputStart,
+              endIndex >= outputStart ? endIndex : segment.length,
+            ),
+          );
+          if (currentOutput != lastOutput) {
+            lastOutput = currentOutput;
+            onOutput(currentOutput);
+          }
+        }
         if (endIndex >= outputStart && outputStart >= 0) {
           final afterEnd = segment.substring(endIndex + end.length);
           final exitCodeMatch = _markerExitCodePattern.firstMatch(afterEnd);

@@ -61,6 +61,8 @@ enum MachineTerminalTransferStatus {
   canceled,
 }
 
+enum MachineTerminalFileProgressUnit { bytes, entries }
+
 typedef MachineTerminalFileProgressCallback =
     void Function(MachineTerminalFileProgress progress);
 
@@ -68,18 +70,26 @@ typedef MachineTerminalFileProgressCallback =
 class MachineTerminalFileProgress {
   const MachineTerminalFileProgress({
     required this.command,
-    this.processedBytes = 0,
-    this.totalBytes,
+    this.processed = 0,
+    this.total,
+    this.unit = MachineTerminalFileProgressUnit.bytes,
   });
 
   final String command;
-  final int processedBytes;
-  final int? totalBytes;
+  final int processed;
+  final int? total;
+  final MachineTerminalFileProgressUnit unit;
 
   double? get progress {
-    final total = totalBytes;
-    if (total == null || total <= 0) return null;
-    return (processedBytes / total).clamp(0, 1);
+    final value = total;
+    if (value == null) {
+      return unit == MachineTerminalFileProgressUnit.entries && processed == 0
+          ? 0
+          : null;
+    }
+    if (value < 0) return null;
+    if (value == 0) return 1;
+    return (processed / value).clamp(0, 1);
   }
 }
 
@@ -319,8 +329,8 @@ class MachineTerminalFileService extends ChangeNotifier {
         onProgress?.call(
           MachineTerminalFileProgress(
             command: command,
-            processedBytes: bytes.length,
-            totalBytes: entry.size,
+            processed: bytes.length,
+            total: entry.size,
           ),
         );
         final output = await _runCommand(
@@ -336,8 +346,8 @@ class MachineTerminalFileService extends ChangeNotifier {
         onProgress?.call(
           MachineTerminalFileProgress(
             command: command,
-            processedBytes: bytes.length,
-            totalBytes: entry.size,
+            processed: bytes.length,
+            total: entry.size,
           ),
         );
       }
@@ -365,8 +375,8 @@ class MachineTerminalFileService extends ChangeNotifier {
     void report() => onProgress?.call(
       MachineTerminalFileProgress(
         command: command,
-        processedBytes: processedBytes,
-        totalBytes: totalBytes,
+        processed: processedBytes,
+        total: totalBytes,
       ),
     );
     return _withTerminalGate(
@@ -693,13 +703,16 @@ class MachineTerminalFileService extends ChangeNotifier {
     MachineTerminalFileProgressCallback? onProgress,
   }) async {
     final command = _listDirectoryCommand(path);
-    onProgress?.call(MachineTerminalFileProgress(command: command));
+    final progress = MachineTerminalDirectoryProgressTracker(onProgress);
+    progress.reportPreparing();
     final output = await _runCommand(
       sessionId: sessionId,
       terminalId: terminalId,
       command: command,
       timeout: _machineTerminalFileCommandTimeout,
+      onOutput: onProgress == null ? null : progress.consume,
     );
+    progress.consume(output, flush: true);
     return parseMachineTerminalDirectoryProtocol(
       output,
       windowsPath: Platform.isWindows,
@@ -820,6 +833,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String terminalId,
     required String command,
     required Duration timeout,
+    MachineTerminalCommandOutputCallback? onOutput,
   }) async {
     final commandBytes = utf8.encode(command).length;
     if (!Platform.isWindows &&
@@ -832,6 +846,7 @@ class MachineTerminalFileService extends ChangeNotifier {
         terminalId: terminalId,
         command: command,
         timeout: timeout,
+        onOutput: onOutput,
       );
     }
     return _runInlineCommand(
@@ -839,6 +854,7 @@ class MachineTerminalFileService extends ChangeNotifier {
       terminalId: terminalId,
       command: command,
       timeout: timeout,
+      onOutput: onOutput,
     );
   }
 
@@ -847,6 +863,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String terminalId,
     required String command,
     required Duration timeout,
+    MachineTerminalCommandOutputCallback? onOutput,
   }) async {
     final temporaryOutput = await _runInlineCommand(
       sessionId: sessionId,
@@ -887,6 +904,7 @@ class MachineTerminalFileService extends ChangeNotifier {
             'base64 -d < "\$__oh_script" | sh; '
             '__oh_status=\$?; rm -f -- "\$__oh_script"; exit "\$__oh_status"',
         timeout: timeout,
+        onOutput: onOutput,
       );
     } finally {
       try {
@@ -907,6 +925,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String terminalId,
     required String command,
     required Duration timeout,
+    MachineTerminalCommandOutputCallback? onOutput,
   }) async {
     final result = await _terminalService.executeCommand(
       sessionId: sessionId,
@@ -914,6 +933,7 @@ class MachineTerminalFileService extends ChangeNotifier {
       command: command,
       timeout: timeout,
       recordHistory: false,
+      onOutput: onOutput,
     );
     if (result.succeeded) return result.output;
     final error = result.error?.trim() ?? '';
@@ -1348,6 +1368,96 @@ MachineTerminalDirectorySnapshot parseMachineTerminalDirectoryProtocol(
   );
 }
 
+@visibleForTesting
+class MachineTerminalDirectoryProgressTracker {
+  MachineTerminalDirectoryProgressTracker(this._onProgress);
+
+  final MachineTerminalFileProgressCallback? _onProgress;
+  String _output = '';
+  String _pending = '';
+  int _processed = 0;
+  int? _total;
+
+  void reportPreparing() {
+    _report('正在统计目录资源');
+  }
+
+  void consume(String output, {bool flush = false}) {
+    if (_onProgress == null) return;
+    if (!output.startsWith(_output)) {
+      _output = '';
+      _pending = '';
+      _processed = 0;
+      _total = null;
+    }
+    _pending += output.substring(_output.length);
+    _output = output;
+    final lines = _pending.split('\n');
+    _pending = flush ? '' : lines.removeLast();
+    for (final line in lines) {
+      final totalMarker = line.indexOf('N\t');
+      final readingMarker = line.indexOf('R\t');
+      final entryMarker = line.indexOf('E\t');
+      final protocolLine = totalMarker >= 0
+          ? line.substring(totalMarker)
+          : readingMarker >= 0
+          ? line.substring(readingMarker)
+          : entryMarker >= 0
+          ? line.substring(entryMarker)
+          : '';
+      final fields = protocolLine.split('\t');
+      if (fields.length >= 2 && fields.first == 'N') {
+        final total = int.tryParse(fields[1]);
+        if (total == null ||
+            total < 0 ||
+            total > _machineTerminalDirectoryEntryLimit) {
+          continue;
+        }
+        _total = total;
+        _processed = math.min(_processed, total);
+        _report(_total == 0 ? '目录为空' : '准备读取 $_total 项资源');
+      } else if (fields.length >= 3 && fields.first == 'R') {
+        final name = _decodeProgressName(fields[2]);
+        if (name != null) {
+          final action = switch (fields[1]) {
+            'd' => '读取目录',
+            'f' => '读取文件',
+            _ => '读取资源',
+          };
+          _report('$action：$name');
+        }
+      } else if (fields.length >= 7 && fields.first == 'E') {
+        _processed = math.min(
+          _processed + 1,
+          _total ?? _machineTerminalDirectoryEntryLimit,
+        );
+        final name = _decodeProgressName(fields[5]);
+        _report(name == null ? '读取目录资源' : '已读取：$name');
+      }
+    }
+  }
+
+  String? _decodeProgressName(String value) {
+    try {
+      final name = _decodeProtocolText(value);
+      return name.isEmpty ? null : name;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  void _report(String command) {
+    _onProgress?.call(
+      MachineTerminalFileProgress(
+        command: command,
+        processed: _processed,
+        total: _total,
+        unit: MachineTerminalFileProgressUnit.entries,
+      ),
+    );
+  }
+}
+
 MachineTerminalFileDetails parseMachineTerminalFileDetailsProtocol(
   String output, {
   required String requestedPath,
@@ -1663,9 +1773,11 @@ Set-Location -LiteralPath \$directory
 \$resolved = (Get-Location).ProviderPath
 Write-Output ("P`t" + (B64 \$resolved))
 \$items = @(Get-ChildItem -LiteralPath \$resolved -Force | Select-Object -First $entryLimitWithSentinel)
+Write-Output ("N`t" + [Math]::Min(\$items.Count, $_machineTerminalDirectoryEntryLimit))
 \$items | Select-Object -First $_machineTerminalDirectoryEntryLimit | ForEach-Object {
   \$item = \$_
   \$kind = if (\$item.Attributes -band [IO.FileAttributes]::ReparsePoint) { 'l' } elseif (\$item.PSIsContainer) { 'd' } else { 'f' }
+  Write-Output ("R`t\$kind`t" + (B64 \$item.Name))
   \$size = if (\$item.PSIsContainer) { 0 } else { \$item.Length }
   \$mtime = ([DateTimeOffset]\$item.LastWriteTimeUtc).ToUnixTimeSeconds()
   \$target = if (\$kind -eq 'l' -and \$item.Target) { [string]\$item.Target } else { '' }
@@ -1691,6 +1803,14 @@ if (\$items.Count -gt $_machineTerminalDirectoryEntryLimit) { Write-Output 'T' }
       '__oh_b64() { base64 | tr -d "\\r\\n"; }\n'
       '__oh_pwd=\$(pwd -P) || exit 2\n'
       'printf "P\\t"; printf "%s" "\$__oh_pwd" | __oh_b64; printf "\\n"\n'
+      '__oh_total=0\n'
+      'for __oh_path in ./* ./.[!.]* ./..?*; do\n'
+      '  [ -e "\$__oh_path" ] || [ -L "\$__oh_path" ] || continue\n'
+      '  __oh_total=\$((__oh_total + 1))\n'
+      '  [ "\$__oh_total" -le $_machineTerminalDirectoryEntryLimit ] || break\n'
+      'done\n'
+      '[ "\$__oh_total" -le $_machineTerminalDirectoryEntryLimit ] || __oh_total=$_machineTerminalDirectoryEntryLimit\n'
+      'printf "N\\t%s\\n" "\$__oh_total"\n'
       '__oh_count=0\n'
       '__oh_list() {\n'
       'setopt local_options null_glob 2>/dev/null || true\n'
@@ -1702,6 +1822,7 @@ if (\$items.Count -gt $_machineTerminalDirectoryEntryLimit) { Write-Output 'T' }
       'elif [ -d "\$__oh_path" ]; then __oh_kind=d; __oh_link=; '
       'elif [ -f "\$__oh_path" ]; then __oh_kind=f; __oh_link=; '
       'else __oh_kind=o; __oh_link=; fi\n'
+      '  printf "R\\t%s\\t" "\$__oh_kind"; printf "%s" "\$__oh_name" | __oh_b64; printf "\\n"\n'
       '  __oh_child_dirs=0; __oh_child_files=0\n'
       '  if [ "\$__oh_kind" = d ]; then\n'
       '    for __oh_child in "\$__oh_path"/* "\$__oh_path"/.[!.]* "\$__oh_path"/..?*; do\n'
