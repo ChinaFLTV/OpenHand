@@ -104,6 +104,45 @@ void main() {
     expect(details.createdAt, isNotNull);
   });
 
+  test('终端文件协议将负数大小和子项计数归零', () {
+    String encoded(String value) => base64Encode(utf8.encode(value));
+    final directory = parseMachineTerminalDirectoryProtocol(
+      <String>[
+        'P\t${encoded('/tmp')}',
+        'E\td\t-1\t1700000000\t755\t${encoded('异常目录')}\t\t-2\t-3',
+      ].join('\n'),
+      windowsPath: false,
+    );
+    final details = parseMachineTerminalFileDetailsProtocol(
+      <String>[
+        'D',
+        'd',
+        encoded('/tmp/异常目录'),
+        '-1',
+        '1700000000',
+        '755',
+        encoded('用户'),
+        encoded('组'),
+        '123',
+        encoded('inode/directory'),
+        '',
+        '1699990000',
+        '1699991000',
+        '1699992000',
+        '-2',
+        '-3',
+      ].join('\t'),
+      requestedPath: '/tmp/异常目录',
+    );
+
+    expect(directory.entries.single.size, 0);
+    expect(directory.entries.single.childDirectoryCount, 0);
+    expect(directory.entries.single.childFileCount, 0);
+    expect(details.entry.size, 0);
+    expect(details.entry.childDirectoryCount, 0);
+    expect(details.entry.childFileCount, 0);
+  });
+
   test('远端临时路径协议忽略 relay 提示符和命令回显', () {
     const path = '/var/tmp/relay path/openhand-command.Ab12xy';
     final encoded = base64Encode(utf8.encode(path));
@@ -131,6 +170,23 @@ void main() {
         throwsStateError,
       );
     }
+  });
+
+  test('远端路径辅助方法正确处理 POSIX、Windows 和 UNC 根目录', () {
+    expect(machineTerminalJoinPath('/tmp', '报告.txt'), '/tmp/报告.txt');
+    expect(machineTerminalParentPath('/tmp/目录/'), '/tmp');
+    expect(machineTerminalParentPath('/'), '/');
+    expect(machineTerminalBaseName('/tmp/报告.txt'), '报告.txt');
+
+    expect(machineTerminalJoinPath(r'C:\', '报告.txt'), r'C:\报告.txt');
+    expect(machineTerminalJoinPath('C:/', '报告.txt'), 'C:/报告.txt');
+    expect(machineTerminalParentPath(r'C:\报告.txt'), r'C:\');
+    expect(machineTerminalParentPath(r'C:\目录\'), r'C:\');
+    expect(machineTerminalParentPath(r'C:\'), r'C:\');
+    expect(machineTerminalBaseName(r'C:\目录\报告.txt'), '报告.txt');
+
+    expect(machineTerminalParentPath(r'\\server\share\目录'), r'\\server\share');
+    expect(machineTerminalParentPath(r'\\server\share'), r'\\server\share');
   });
 
   test('文件管理命令不写入关联终端历史', () async {
@@ -236,6 +292,121 @@ void main() {
           MachineTerminalTransferDirection.download,
         ],
       );
+    } finally {
+      await fileService.shutdown();
+      fileService.dispose();
+      await terminalService.shutdown();
+      terminalService.dispose();
+      await root.delete(recursive: true);
+    }
+  });
+
+  test('上传取消后底层异步异常不会覆盖取消状态', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'openhand-terminal-cancel-race-',
+    );
+    final source = File('${root.path}/待取消.txt');
+    await source.writeAsString('content');
+    final terminalService = _ControllableUploadTerminalService(
+      sessionsDirectoryPath: root.path,
+    );
+    final fileService = MachineTerminalFileService(terminalService);
+    try {
+      final taskId = (await fileService.enqueueUploads(
+        sessionId: 'cancel-race-session',
+        terminalId: 'cancel-race-terminal',
+        targetDirectory: '/tmp',
+        sourcePaths: <String>[source.path],
+      )).single;
+      await terminalService.uploadStarted.future;
+
+      fileService.cancelTransfer(taskId);
+      terminalService.failUpload(StateError('模拟取消后的底层异常'));
+      await terminalService.uploadFinished.future;
+      await fileService.shutdown();
+
+      final task = fileService.transfers().singleWhere(
+        (candidate) => candidate.id == taskId,
+      );
+      expect(task.status, MachineTerminalTransferStatus.canceled);
+      expect(task.error, isNull);
+    } finally {
+      await fileService.shutdown();
+      fileService.dispose();
+      await terminalService.shutdown();
+      terminalService.dispose();
+      await root.delete(recursive: true);
+    }
+  });
+
+  test('文件读取开始前取消不会创建文件或访问终端', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'openhand-terminal-download-cancel-',
+    );
+    final terminalService = _ControllableCommandTerminalService(
+      sessionsDirectoryPath: root.path,
+    );
+    final fileService = MachineTerminalFileService(terminalService);
+    final destination = File('${root.path}/不应创建.bin');
+    try {
+      await expectLater(
+        fileService.listDirectory(
+          sessionId: 'directory-cancel-session',
+          terminalId: 'directory-cancel-terminal',
+          isCancelled: () => true,
+        ),
+        throwsA(isA<MachineTerminalUploadCancelled>()),
+      );
+      await expectLater(
+        fileService.downloadFile(
+          sessionId: 'download-cancel-session',
+          terminalId: 'download-cancel-terminal',
+          sourcePath: '/remote/file.bin',
+          destinationPath: destination.path,
+          isCancelled: () => true,
+        ),
+        throwsA(isA<MachineTerminalUploadCancelled>()),
+      );
+
+      expect(terminalService.executionCount, 0);
+      expect(await destination.exists(), isFalse);
+    } finally {
+      await fileService.shutdown();
+      fileService.dispose();
+      await terminalService.shutdown();
+      terminalService.dispose();
+      await root.delete(recursive: true);
+    }
+  });
+
+  test('服务关闭后不再启动队列中的文件操作', () async {
+    final root = await Directory.systemTemp.createTemp(
+      'openhand-terminal-queued-shutdown-',
+    );
+    final terminalService = _ControllableCommandTerminalService(
+      sessionsDirectoryPath: root.path,
+    );
+    final fileService = MachineTerminalFileService(terminalService);
+    try {
+      final first = fileService.delete(
+        sessionId: 'queued-shutdown-session',
+        terminalId: 'queued-shutdown-terminal',
+        path: '/tmp/first',
+      );
+      await terminalService.commandStarted.future;
+      final queued = fileService.delete(
+        sessionId: 'queued-shutdown-session',
+        terminalId: 'queued-shutdown-terminal',
+        path: '/tmp/second',
+      );
+
+      final shutdown = fileService.shutdown();
+      terminalService.finishCommand();
+
+      await first;
+      await expectLater(queued, throwsStateError);
+      await shutdown;
+      expect(terminalService.executionCount, 1);
     } finally {
       await fileService.shutdown();
       fileService.dispose();
@@ -569,6 +740,73 @@ void main() {
     timeout: const Timeout(Duration(minutes: 2)),
     skip: 'flutter test 不注入桌面 flutter_pty 动态库，需桌面构建环境执行。',
   );
+}
+
+class _ControllableUploadTerminalService extends MachineTerminalService {
+  _ControllableUploadTerminalService({required super.sessionsDirectoryPath});
+
+  final Completer<void> uploadStarted = Completer<void>();
+  final Completer<void> _uploadCompletion = Completer<void>();
+  final Completer<void> uploadFinished = Completer<void>();
+
+  void failUpload(Object error) {
+    _uploadCompletion.completeError(error);
+  }
+
+  @override
+  Future<void> uploadFile({
+    required String sessionId,
+    required String sourcePath,
+    required String targetDirectory,
+    required String targetName,
+    String? terminalId,
+    required MachineTerminalUploadProgress onProgress,
+    required MachineTerminalUploadPauseWaiter waitWhilePaused,
+    required MachineTerminalUploadCancelCheck isCancelled,
+    bool recordHistory = true,
+  }) async {
+    uploadStarted.complete();
+    try {
+      await _uploadCompletion.future;
+    } finally {
+      uploadFinished.complete();
+    }
+  }
+}
+
+class _ControllableCommandTerminalService extends MachineTerminalService {
+  _ControllableCommandTerminalService({required super.sessionsDirectoryPath});
+
+  final Completer<void> commandStarted = Completer<void>();
+  final Completer<void> _commandRelease = Completer<void>();
+  int executionCount = 0;
+
+  void finishCommand() {
+    if (!_commandRelease.isCompleted) _commandRelease.complete();
+  }
+
+  @override
+  Future<MachineTerminalCommandResult> executeCommand({
+    required String sessionId,
+    required String command,
+    String? terminalId,
+    Duration timeout = kMachineTerminalDefaultCommandTimeout,
+    bool startIfNeeded = true,
+    bool recordHistory = true,
+    MachineTerminalCommandOutputCallback? onOutput,
+  }) async {
+    executionCount += 1;
+    if (!commandStarted.isCompleted) commandStarted.complete();
+    await _commandRelease.future;
+    return MachineTerminalCommandResult(
+      terminalId: terminalId ?? 'terminal',
+      command: command,
+      output: '',
+      exitCode: 0,
+      status: MachineTerminalStatus.running,
+      durationMs: 0,
+    );
+  }
 }
 
 Future<void> _waitForTransfer(

@@ -110,7 +110,10 @@ class _MachineTerminalOperationStatus {
 }
 
 typedef _MachineTerminalDeferredLoad<T> =
-    Future<T> Function(MachineTerminalFileProgressCallback onProgress);
+    Future<T> Function(
+      MachineTerminalFileProgressCallback onProgress,
+      MachineTerminalUploadCancelCheck isCancelled,
+    );
 typedef _MachineTerminalDeferredContentBuilder<T> =
     Widget Function(BuildContext context, T value);
 typedef _MachineTerminalDeferredRelease<T> = Future<void> Function(T value);
@@ -280,6 +283,7 @@ class _MachineTerminalFileManagerDialogState
             terminalId: widget.terminalId,
             path: path,
             onProgress: _updateOperationProgress,
+            isCancelled: () => !mounted || generation != _loadGeneration,
           );
       if (!mounted || generation != _loadGeneration) return;
       _setPathText(snapshot.path);
@@ -1036,7 +1040,7 @@ class _MachineTerminalFileManagerDialogState
               en: 'Loading Media Preview',
             ),
             maxWidth: kOpenHandDialogWidthWide,
-            load: (onProgress) async {
+            load: (onProgress, isCancelled) async {
               Directory? directory;
               try {
                 directory = await Directory.systemTemp.createTemp(
@@ -1054,6 +1058,7 @@ class _MachineTerminalFileManagerDialogState
                   sourcePath: entry.path,
                   destinationPath: localPath,
                   onProgress: onProgress,
+                  isCancelled: isCancelled,
                 );
                 return _MachineTerminalMediaPreviewFile(
                   directory: directory,
@@ -1131,11 +1136,12 @@ class _MachineTerminalFileManagerDialogState
             zh: '读取文件详情',
             en: 'Reading File Details',
           ),
-          load: (onProgress) => service.fileDetails(
+          load: (onProgress, isCancelled) => service.fileDetails(
             sessionId: widget.sessionId,
             terminalId: widget.terminalId,
             path: entry.path,
             onProgress: onProgress,
+            isCancelled: isCancelled,
           ),
           contentBuilder: (context, details) =>
               _MachineTerminalFileDetailsDialog(details: details),
@@ -1193,11 +1199,12 @@ class _MachineTerminalFileManagerDialogState
           maxWidth: kOpenHandDialogWidthExtraWide,
           maxHeight: kOpenHandDialogHeightTall,
           insetPadding: const EdgeInsets.all(14),
-          load: (onProgress) => service.readTextFile(
+          load: (onProgress, isCancelled) => service.readTextFile(
             sessionId: widget.sessionId,
             terminalId: widget.terminalId,
             entry: entry,
             onProgress: onProgress,
+            isCancelled: isCancelled,
           ),
           contentBuilder: (context, content) =>
               _MachineTerminalFileEditorDialog(
@@ -1428,7 +1435,7 @@ class _MachineTerminalDeferredDialogState<T>
       final value = await widget.load((progress) {
         if (!mounted || generation != _generation) return;
         setState(() => _status = _status.update(progress));
-      });
+      }, () => !mounted || generation != _generation);
       if (!mounted || generation != _generation) {
         await _release(value);
         return;
@@ -2290,6 +2297,7 @@ class _MachineTerminalDirectoryPickerDialogState
           if (!mounted || generation != _generation || current == null) return;
           setState(() => _operationStatus = current.update(progress));
         },
+        isCancelled: () => !mounted || generation != _generation,
       );
       if (!mounted || generation != _generation) return;
       setState(() {

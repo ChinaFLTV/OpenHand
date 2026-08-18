@@ -503,7 +503,7 @@ Future<void> _bootstrap() async {
     ..register('机器终端文件服务', () async {
       await machineTerminalFileService.shutdown();
       machineTerminalFileService.dispose();
-    })
+    }, timeout: MachineTerminalFileService.runtimeCleanupTimeout)
     ..register(
       'MCP 控制器',
       mcp.controller.shutdown,

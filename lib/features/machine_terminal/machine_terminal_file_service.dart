@@ -250,6 +250,8 @@ class MachineTerminalFileService extends ChangeNotifier {
     );
   }
 
+  static const Duration runtimeCleanupTimeout = Duration(seconds: 15);
+
   final MachineTerminalService _terminalService;
   final Map<String, _MachineTerminalOperationGate> _operationGates =
       <String, _MachineTerminalOperationGate>{};
@@ -288,11 +290,18 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String terminalId,
     String? path,
     MachineTerminalFileProgressCallback? onProgress,
+    MachineTerminalUploadCancelCheck? isCancelled,
   }) {
     return _withTerminalGate(
       sessionId,
       terminalId,
-      () => _listDirectory(sessionId, terminalId, path, onProgress: onProgress),
+      () => _listDirectory(
+        sessionId,
+        terminalId,
+        path,
+        onProgress: onProgress,
+        isCancelled: isCancelled,
+      ),
     );
   }
 
@@ -301,11 +310,18 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String terminalId,
     required String path,
     MachineTerminalFileProgressCallback? onProgress,
+    MachineTerminalUploadCancelCheck? isCancelled,
   }) {
     return _withTerminalGate(
       sessionId,
       terminalId,
-      () => _fileDetails(sessionId, terminalId, path, onProgress: onProgress),
+      () => _fileDetails(
+        sessionId,
+        terminalId,
+        path,
+        onProgress: onProgress,
+        isCancelled: isCancelled,
+      ),
     );
   }
 
@@ -314,17 +330,20 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String terminalId,
     required MachineTerminalFileEntry entry,
     MachineTerminalFileProgressCallback? onProgress,
+    MachineTerminalUploadCancelCheck? isCancelled,
   }) {
     return _withTerminalGate(sessionId, terminalId, () async {
       if (!entry.isFile || entry.size >= kMachineTerminalMaxEditableFileBytes) {
         throw StateError('仅支持编辑小于 5 MB 的普通文本文件。');
       }
+      _throwIfMachineTerminalTransferCancelled(isCancelled);
       final bytes = <int>[];
       final chunkCount = math.max(
         1,
         (entry.size / _machineTerminalReadChunkBytes).ceil(),
       );
       for (var index = 0; index < chunkCount; index++) {
+        _throwIfMachineTerminalTransferCancelled(isCancelled);
         final command = _readChunkCommand(entry.path, index);
         onProgress?.call(
           MachineTerminalFileProgress(
@@ -339,6 +358,7 @@ class MachineTerminalFileService extends ChangeNotifier {
           command: command,
           timeout: _machineTerminalFileCommandTimeout,
         );
+        _throwIfMachineTerminalTransferCancelled(isCancelled);
         final match = _machineTerminalReadChunkPattern.firstMatch(output);
         if (match == null) throw const FormatException('无法解析文件内容分块。');
         final encoded = match.group(1)!;
@@ -368,6 +388,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String sourcePath,
     required String destinationPath,
     MachineTerminalFileProgressCallback? onProgress,
+    MachineTerminalUploadCancelCheck? isCancelled,
   }) {
     var command = '';
     var processedBytes = 0;
@@ -400,7 +421,7 @@ class MachineTerminalFileService extends ChangeNotifier {
           report();
         },
         waitWhilePaused: () async {},
-        isCancelled: () => false,
+        isCancelled: isCancelled ?? _machineTerminalTransferIsNotCancelled,
       ),
     );
   }
@@ -590,10 +611,7 @@ class MachineTerminalFileService extends ChangeNotifier {
             task.status != MachineTerminalTransferStatus.transferring)) {
       return;
     }
-    task.statusBeforePause = task.status;
-    task.status = MachineTerminalTransferStatus.paused;
-    task.resetProgressClock();
-    task.pauseSignal ??= Completer<void>();
+    task.pause();
     _notify();
     _scheduleTransferPersist(immediately: true);
   }
@@ -603,10 +621,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     if (task == null || task.status != MachineTerminalTransferStatus.paused) {
       return;
     }
-    task.status = task.statusBeforePause;
-    task.resetProgressClock();
-    task.pauseSignal?.complete();
-    task.pauseSignal = null;
+    task.resume();
     _notify();
     _scheduleTransferPersist(immediately: true);
     _startTransferWorker(_terminalKey(task.sessionId, task.terminalId));
@@ -615,10 +630,7 @@ class MachineTerminalFileService extends ChangeNotifier {
   void cancelTransfer(String taskId) {
     final task = _taskById(taskId);
     if (task == null || !task.isActive) return;
-    task.status = MachineTerminalTransferStatus.canceled;
-    task.completedAt = DateTime.now();
-    task.pauseSignal?.complete();
-    task.pauseSignal = null;
+    task.cancel();
     _notify();
     _scheduleTransferPersist(immediately: true);
   }
@@ -654,12 +666,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     _transferPersistTimer = null;
     for (final task in _transferTasks) {
       if (task.isActive) {
-        task
-          ..status = MachineTerminalTransferStatus.canceled
-          ..completedAt = DateTime.now()
-          ..error = '应用退出时传输未完成，已取消。';
-        task.pauseSignal?.complete();
-        task.pauseSignal = null;
+        task.cancel(reason: '应用退出时传输未完成，已取消。');
       }
     }
     unawaited(
@@ -701,7 +708,9 @@ class MachineTerminalFileService extends ChangeNotifier {
     String terminalId,
     String? path, {
     MachineTerminalFileProgressCallback? onProgress,
+    MachineTerminalUploadCancelCheck? isCancelled,
   }) async {
+    _throwIfMachineTerminalTransferCancelled(isCancelled);
     final command = _listDirectoryCommand(path);
     final progress = MachineTerminalDirectoryProgressTracker(onProgress);
     progress.reportPreparing();
@@ -712,6 +721,7 @@ class MachineTerminalFileService extends ChangeNotifier {
       timeout: _machineTerminalFileCommandTimeout,
       onOutput: onProgress == null ? null : progress.consume,
     );
+    _throwIfMachineTerminalTransferCancelled(isCancelled);
     progress.consume(output, flush: true);
     return parseMachineTerminalDirectoryProtocol(
       output,
@@ -724,7 +734,9 @@ class MachineTerminalFileService extends ChangeNotifier {
     String terminalId,
     String path, {
     MachineTerminalFileProgressCallback? onProgress,
+    MachineTerminalUploadCancelCheck? isCancelled,
   }) async {
+    _throwIfMachineTerminalTransferCancelled(isCancelled);
     final command = _fileDetailsCommand(path);
     final progressCommand = '读取文件详情：${machineTerminalBaseName(path)}';
     onProgress?.call(
@@ -740,6 +752,7 @@ class MachineTerminalFileService extends ChangeNotifier {
       command: command,
       timeout: _machineTerminalFileCommandTimeout,
     );
+    _throwIfMachineTerminalTransferCancelled(isCancelled);
     try {
       final details = parseMachineTerminalFileDetailsProtocol(
         output,
@@ -772,8 +785,14 @@ class MachineTerminalFileService extends ChangeNotifier {
     required MachineTerminalUploadPauseWaiter waitWhilePaused,
     required MachineTerminalUploadCancelCheck isCancelled,
   }) async {
+    _throwIfMachineTerminalTransferCancelled(isCancelled);
     onCommand(_fileDetailsCommand(sourcePath));
-    final before = await _fileDetails(sessionId, terminalId, sourcePath);
+    final before = await _fileDetails(
+      sessionId,
+      terminalId,
+      sourcePath,
+      isCancelled: isCancelled,
+    );
     if (!before.entry.isFile) throw StateError('仅支持下载普通文件。');
     final expectedBytes = before.entry.size;
     onTotalBytes(expectedBytes);
@@ -786,7 +805,7 @@ class MachineTerminalFileService extends ChangeNotifier {
       );
       for (var index = 0; index < chunkCount; index++) {
         await waitWhilePaused();
-        if (isCancelled()) throw const MachineTerminalUploadCancelled();
+        _throwIfMachineTerminalTransferCancelled(isCancelled);
         final command = _readChunkCommand(before.entry.path, index);
         onCommand(command);
         final output = await _runCommand(
@@ -795,6 +814,7 @@ class MachineTerminalFileService extends ChangeNotifier {
           command: command,
           timeout: _machineTerminalFileCommandTimeout,
         );
+        _throwIfMachineTerminalTransferCancelled(isCancelled);
         final match = _machineTerminalReadChunkPattern.firstMatch(output);
         if (match == null) throw const FormatException('无法解析下载文件分块。');
         final encoded = match.group(1)!;
@@ -809,10 +829,15 @@ class MachineTerminalFileService extends ChangeNotifier {
       if (downloadedBytes != expectedBytes) {
         throw StateError('文件下载期间发生变化，请刷新后重试。');
       }
-      if (isCancelled()) throw const MachineTerminalUploadCancelled();
+      _throwIfMachineTerminalTransferCancelled(isCancelled);
       onCommand(_fileDetailsCommand(sourcePath));
-      final after = await _fileDetails(sessionId, terminalId, sourcePath);
-      if (isCancelled()) throw const MachineTerminalUploadCancelled();
+      final after = await _fileDetails(
+        sessionId,
+        terminalId,
+        sourcePath,
+        isCancelled: isCancelled,
+      );
+      _throwIfMachineTerminalTransferCancelled(isCancelled);
       if (!after.entry.isFile ||
           after.entry.size != expectedBytes ||
           after.entry.modifiedAt != before.entry.modifiedAt) {
@@ -977,11 +1002,16 @@ class MachineTerminalFileService extends ChangeNotifier {
       key,
       _MachineTerminalOperationGate.new,
     );
-    return gate.run(operation).whenComplete(() {
-      if (gate.isIdle && identical(_operationGates[key], gate)) {
-        _operationGates.remove(key);
-      }
-    });
+    return gate
+        .run(() {
+          _ensureAvailable();
+          return operation();
+        })
+        .whenComplete(() {
+          if (gate.isIdle && identical(_operationGates[key], gate)) {
+            _operationGates.remove(key);
+          }
+        });
   }
 
   void _startTransferWorker(String key) {
@@ -1061,26 +1091,23 @@ class MachineTerminalFileService extends ChangeNotifier {
           }
         });
         if (task.status != MachineTerminalTransferStatus.canceled) {
-          task
-            ..status = MachineTerminalTransferStatus.completed
-            ..completedAt = DateTime.now();
-          task.updateProgress(task.totalBytes);
+          task.complete();
         }
       } on MachineTerminalUploadCancelled {
-        task
-          ..status = MachineTerminalTransferStatus.canceled
-          ..completedAt ??= DateTime.now();
+        task.cancel();
       } catch (error, stack) {
-        task
-          ..status = MachineTerminalTransferStatus.failed
-          ..error = clipText('$error', 1200)
-          ..completedAt = DateTime.now();
-        silentLog(
-          'machine_terminal_file',
-          '${task.direction == MachineTerminalTransferDirection.upload ? '上传' : '下载'}文件 ${task.fileName}',
-          error,
-          stack,
-        );
+        if (task.status == MachineTerminalTransferStatus.canceled ||
+            _disposed) {
+          task.cancel();
+        } else {
+          task.fail(error);
+          silentLog(
+            'machine_terminal_file',
+            '${task.direction == MachineTerminalTransferDirection.upload ? '上传' : '下载'}文件 ${task.fileName}',
+            error,
+            stack,
+          );
+        }
       } finally {
         if (task.removeWhenFinished) _transferTasks.remove(task);
         _notify();
@@ -1159,12 +1186,7 @@ class MachineTerminalFileService extends ChangeNotifier {
         );
         if (task == null || !knownIds.add(task.id)) continue;
         if (task.isActive) {
-          task
-            ..status = MachineTerminalTransferStatus.canceled
-            ..statusBeforePause = MachineTerminalTransferStatus.canceled
-            ..completedAt ??= now
-            ..error = '应用重启时传输未完成，已取消。';
-          task.resetProgressClock();
+          task.cancel(reason: '应用重启时传输未完成，已取消。', completedAt: now);
           _restoredTransfersNeedSave = true;
         }
         restored.add(task);
@@ -1360,12 +1382,16 @@ MachineTerminalDirectorySnapshot parseMachineTerminalDirectoryProtocol(
       name: name,
       path: path,
       kind: _kindFromProtocol(fields[1]),
-      size: int.tryParse(fields[2]) ?? 0,
+      size: nonNegativeIntFromText(fields[2], fallback: 0),
       modifiedAt: _dateTimeFromEpoch(fields[3]),
       permissions: fields[4],
       linkTarget: fields[6].isEmpty ? null : _decodeProtocolText(fields[6]),
-      childDirectoryCount: fields.length > 7 ? int.tryParse(fields[7]) ?? 0 : 0,
-      childFileCount: fields.length > 8 ? int.tryParse(fields[8]) ?? 0 : 0,
+      childDirectoryCount: fields.length > 7
+          ? nonNegativeIntFromText(fields[7], fallback: 0)
+          : 0,
+      childFileCount: fields.length > 8
+          ? nonNegativeIntFromText(fields[8], fallback: 0)
+          : 0,
     );
   }
   if (directoryPath == null || directoryPath.isEmpty) {
@@ -1489,14 +1515,16 @@ MachineTerminalFileDetails parseMachineTerminalFileDetailsProtocol(
       name: machineTerminalBaseName(path),
       path: path,
       kind: _kindFromProtocol(fields[1]),
-      size: int.tryParse(fields[3]) ?? 0,
+      size: nonNegativeIntFromText(fields[3], fallback: 0),
       modifiedAt: _dateTimeFromEpoch(fields[4]),
       permissions: fields[5],
       linkTarget: fields[10].isEmpty ? null : _decodeProtocolText(fields[10]),
       childDirectoryCount: fields.length > 14
-          ? int.tryParse(fields[14]) ?? 0
+          ? nonNegativeIntFromText(fields[14], fallback: 0)
           : 0,
-      childFileCount: fields.length > 15 ? int.tryParse(fields[15]) ?? 0 : 0,
+      childFileCount: fields.length > 15
+          ? nonNegativeIntFromText(fields[15], fallback: 0)
+          : 0,
     );
     return MachineTerminalFileDetails(
       entry: entry,
@@ -1513,35 +1541,32 @@ MachineTerminalFileDetails parseMachineTerminalFileDetailsProtocol(
 }
 
 String machineTerminalJoinPath(String directory, String name) {
-  final separator = directory.contains(r'\') && !directory.contains('/')
-      ? r'\'
-      : '/';
-  if (directory.endsWith('/') || directory.endsWith(r'\')) {
-    return '$directory$name';
-  }
-  return '$directory$separator$name';
+  final context = _machineTerminalPathContext(directory);
+  return _preserveMachineTerminalPathSeparators(
+    context.join(directory, name),
+    directory,
+  );
 }
 
 String machineTerminalParentPath(String path) {
-  final normalized = path.replaceAll(r'\', '/');
-  if (RegExp(r'^[A-Za-z]:/$').hasMatch(normalized) || normalized == '/') {
-    return path;
-  }
-  final slash = normalized.lastIndexOf('/');
-  if (slash < 0) return '.';
-  final parent = slash == 0 ? '/' : normalized.substring(0, slash);
-  return path.contains(r'\') && !path.contains('/')
-      ? parent.replaceAll('/', r'\')
-      : parent;
+  final context = _machineTerminalPathContext(path);
+  return _preserveMachineTerminalPathSeparators(context.dirname(path), path);
 }
 
 String machineTerminalBaseName(String path) {
-  final normalized = path.replaceAll(r'\', '/');
-  final trimmed = normalized.endsWith('/') && normalized.length > 1
-      ? normalized.substring(0, normalized.length - 1)
-      : normalized;
-  final slash = trimmed.lastIndexOf('/');
-  return slash < 0 ? trimmed : trimmed.substring(slash + 1);
+  return _machineTerminalPathContext(path).basename(path);
+}
+
+p.Context _machineTerminalPathContext(String path) {
+  return path.contains(r'\') || RegExp(r'^[A-Za-z]:').hasMatch(path)
+      ? p.windows
+      : p.posix;
+}
+
+String _preserveMachineTerminalPathSeparators(String value, String source) {
+  return source.contains('/') && !source.contains(r'\')
+      ? value.replaceAll(r'\', '/')
+      : value;
 }
 
 class _MutableTransferTask {
@@ -1589,6 +1614,46 @@ class _MutableTransferTask {
       status == MachineTerminalTransferStatus.transferring ||
       status == MachineTerminalTransferStatus.paused;
 
+  void pause() {
+    statusBeforePause = status;
+    status = MachineTerminalTransferStatus.paused;
+    resetProgressClock();
+    pauseSignal ??= Completer<void>();
+  }
+
+  void resume() {
+    status = statusBeforePause;
+    resetProgressClock();
+    _releasePause();
+  }
+
+  void cancel({String? reason, DateTime? completedAt}) {
+    status = MachineTerminalTransferStatus.canceled;
+    statusBeforePause = MachineTerminalTransferStatus.canceled;
+    this.completedAt ??= completedAt ?? DateTime.now();
+    if (reason != null) error = reason;
+    resetProgressClock();
+    _releasePause();
+  }
+
+  void complete() {
+    status = MachineTerminalTransferStatus.completed;
+    statusBeforePause = MachineTerminalTransferStatus.completed;
+    completedAt = DateTime.now();
+    error = null;
+    updateProgress(totalBytes);
+    _releasePause();
+  }
+
+  void fail(Object failure) {
+    status = MachineTerminalTransferStatus.failed;
+    statusBeforePause = MachineTerminalTransferStatus.failed;
+    completedAt = DateTime.now();
+    error = clipText('$failure', 1200);
+    resetProgressClock();
+    _releasePause();
+  }
+
   void updateProgress(int bytes) {
     final next = bytes.clamp(0, totalBytes).toInt();
     if (next < transferredBytes) return;
@@ -1610,6 +1675,11 @@ class _MutableTransferTask {
   void resetProgressClock() {
     speedBytesPerSecond = 0;
     _lastProgressAt = null;
+  }
+
+  void _releasePause() {
+    pauseSignal?.complete();
+    pauseSignal = null;
   }
 
   MachineTerminalTransferTask snapshot() => MachineTerminalTransferTask(
@@ -1742,6 +1812,16 @@ class _MachineTerminalOperationGate {
 
 String _terminalKey(String sessionId, String terminalId) =>
     '$sessionId\u0000$terminalId';
+
+bool _machineTerminalTransferIsNotCancelled() => false;
+
+void _throwIfMachineTerminalTransferCancelled(
+  MachineTerminalUploadCancelCheck? isCancelled,
+) {
+  if (isCancelled?.call() == true) {
+    throw const MachineTerminalUploadCancelled();
+  }
+}
 
 String _validatedFileName(String value, {bool trim = true}) {
   final name = trim ? value.trim() : value;
