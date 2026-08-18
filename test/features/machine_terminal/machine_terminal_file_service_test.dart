@@ -477,12 +477,26 @@ void main() {
           ),
           '第一行\n第二行',
         );
+        final detailsProgress = <MachineTerminalFileProgress>[];
         final details = await fileService.fileDetails(
           sessionId: 'file-test',
           terminalId: terminalId,
           path: textEntry.path,
+          onProgress: detailsProgress.add,
         );
         expect(details.entry.size, greaterThan(0));
+        expect(
+          detailsProgress.first.unit,
+          MachineTerminalFileProgressUnit.steps,
+        );
+        expect(detailsProgress.first.processed, 0);
+        expect(detailsProgress.first.total, 1);
+        expect(detailsProgress.last.processed, 1);
+        expect(detailsProgress.last.progress, 1);
+        expect(
+          detailsProgress.map((progress) => progress.command).toSet().length,
+          2,
+        );
 
         await fileService.rename(
           sessionId: 'file-test',

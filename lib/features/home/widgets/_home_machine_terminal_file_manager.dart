@@ -109,6 +109,37 @@ class _MachineTerminalOperationStatus {
   }
 }
 
+typedef _MachineTerminalDeferredLoad<T> =
+    Future<T> Function(MachineTerminalFileProgressCallback onProgress);
+typedef _MachineTerminalDeferredContentBuilder<T> =
+    Widget Function(BuildContext context, T value);
+typedef _MachineTerminalDeferredRelease<T> = Future<void> Function(T value);
+
+@immutable
+class _MachineTerminalMediaPreviewFile {
+  const _MachineTerminalMediaPreviewFile({
+    required this.directory,
+    required this.path,
+  });
+
+  final Directory directory;
+  final String path;
+}
+
+Future<void> _cleanupMachineTerminalPreviewDirectory(
+  Directory directory,
+) async {
+  try {
+    await deletePathBounded(
+      p.absolute(directory.path),
+      policy: _machineTerminalPreviewDeletePolicy,
+      allowedRoot: p.absolute(Directory.systemTemp.path),
+    );
+  } catch (error, stack) {
+    silentLog('machine_terminal_file', '清理媒体预览临时文件', error, stack);
+  }
+}
+
 class _MachineTerminalFileManagerDialog extends StatefulWidget {
   const _MachineTerminalFileManagerDialog({
     required this.sessionId,
@@ -203,14 +234,6 @@ class _MachineTerminalFileManagerDialogState
 
   void _finishOperationProgress(int generation) {
     if (generation != _operationGeneration) return;
-    _operationTicker?.cancel();
-    _operationTicker = null;
-    if (mounted && _operationStatus != null) {
-      setState(() => _operationStatus = null);
-    }
-  }
-
-  void _hideOperationProgress() {
     _operationTicker?.cancel();
     _operationTicker = null;
     if (mounted && _operationStatus != null) {
@@ -989,51 +1012,72 @@ class _MachineTerminalFileManagerDialogState
     MediaPreviewKind kind,
   ) async {
     final service = context.read<MachineTerminalFileService>();
-    Directory? temporaryDirectory;
     await _runEntryOperation(
       entry.path,
       openHandLocalizedText(context, zh: '加载媒体预览', en: 'Loading Media Preview'),
       () async {
-        temporaryDirectory = await Directory.systemTemp.createTemp(
-          'openhand-terminal-preview-',
-        );
-        final rawExtension = p.extension(entry.name).toLowerCase();
-        final extension = RegExp(r'^\.[a-z0-9]{1,12}$').hasMatch(rawExtension)
-            ? rawExtension
-            : '';
-        final localPath = p.join(temporaryDirectory!.path, 'preview$extension');
-        await service.downloadFile(
-          sessionId: widget.sessionId,
-          terminalId: widget.terminalId,
-          sourcePath: entry.path,
-          destinationPath: localPath,
-          onProgress: _updateOperationProgress,
-        );
-        if (!mounted) return;
-        _hideOperationProgress();
         await showAnimatedDialog<void>(
           context: context,
-          builder: (dialogContext) => MediaPreviewDialog.file(
-            filePath: localPath,
-            title: entry.name,
-            mimeType: aiMimeTypeForPath(entry.name),
-            kind: kind,
+          builder: (dialogContext) => _MachineTerminalDeferredDialog(
+            icon: switch (kind) {
+              MediaPreviewKind.image => Icons.image_rounded,
+              MediaPreviewKind.audio => Icons.audiotrack_rounded,
+              MediaPreviewKind.video => Icons.movie_rounded,
+            },
+            title: openHandLocalizedText(
+              dialogContext,
+              zh: '媒体预览',
+              en: 'Media Preview',
+            ),
+            subtitle: entry.name,
+            action: openHandLocalizedText(
+              dialogContext,
+              zh: '加载媒体预览',
+              en: 'Loading Media Preview',
+            ),
+            maxWidth: kOpenHandDialogWidthWide,
+            load: (onProgress) async {
+              Directory? directory;
+              try {
+                directory = await Directory.systemTemp.createTemp(
+                  'openhand-terminal-preview-',
+                );
+                final rawExtension = p.extension(entry.name).toLowerCase();
+                final extension =
+                    RegExp(r'^\.[a-z0-9]{1,12}$').hasMatch(rawExtension)
+                    ? rawExtension
+                    : '';
+                final localPath = p.join(directory.path, 'preview$extension');
+                await service.downloadFile(
+                  sessionId: widget.sessionId,
+                  terminalId: widget.terminalId,
+                  sourcePath: entry.path,
+                  destinationPath: localPath,
+                  onProgress: onProgress,
+                );
+                return _MachineTerminalMediaPreviewFile(
+                  directory: directory,
+                  path: localPath,
+                );
+              } catch (_) {
+                if (directory != null) {
+                  await _cleanupMachineTerminalPreviewDirectory(directory);
+                }
+                rethrow;
+              }
+            },
+            release: (preview) =>
+                _cleanupMachineTerminalPreviewDirectory(preview.directory),
+            contentBuilder: (context, preview) => MediaPreviewDialog.file(
+              filePath: preview.path,
+              title: entry.name,
+              mimeType: aiMimeTypeForPath(entry.name),
+              kind: kind,
+            ),
           ),
         );
       },
-      showProgress: true,
     );
-    final directory = temporaryDirectory;
-    if (directory == null) return;
-    try {
-      await deletePathBounded(
-        p.absolute(directory.path),
-        policy: _machineTerminalPreviewDeletePolicy,
-        allowedRoot: p.absolute(Directory.systemTemp.path),
-      );
-    } catch (error, stack) {
-      silentLog('machine_terminal_file', '清理媒体预览临时文件', error, stack);
-    }
   }
 
   Future<void> _refreshEntry(MachineTerminalFileEntry entry) async {
@@ -1068,27 +1112,35 @@ class _MachineTerminalFileManagerDialogState
   }
 
   Future<void> _showDetails(MachineTerminalFileEntry entry) async {
+    final service = context.read<MachineTerminalFileService>();
     await _runEntryOperation(
       entry.path,
       openHandLocalizedText(context, zh: '读取文件详情', en: 'Reading File Details'),
-      () async {
-        final details = await context
-            .read<MachineTerminalFileService>()
-            .fileDetails(
-              sessionId: widget.sessionId,
-              terminalId: widget.terminalId,
-              path: entry.path,
-              onProgress: _updateOperationProgress,
-            );
-        if (!mounted) return;
-        _hideOperationProgress();
-        await showAnimatedDialog<void>(
-          context: context,
-          builder: (dialogContext) =>
+      () => showAnimatedDialog<void>(
+        context: context,
+        builder: (dialogContext) => _MachineTerminalDeferredDialog(
+          icon: _machineTerminalFileIcon(entry),
+          title: openHandLocalizedText(
+            dialogContext,
+            zh: '文件详情',
+            en: 'File Details',
+          ),
+          subtitle: entry.name,
+          action: openHandLocalizedText(
+            dialogContext,
+            zh: '读取文件详情',
+            en: 'Reading File Details',
+          ),
+          load: (onProgress) => service.fileDetails(
+            sessionId: widget.sessionId,
+            terminalId: widget.terminalId,
+            path: entry.path,
+            onProgress: onProgress,
+          ),
+          contentBuilder: (context, details) =>
               _MachineTerminalFileDetailsDialog(details: details),
-        );
-      },
-      showProgress: true,
+        ),
+      ),
     );
   }
 
@@ -1119,55 +1171,58 @@ class _MachineTerminalFileManagerDialogState
     MachineTerminalFileEntry entry, {
     required bool readOnly,
   }) async {
-    await _runEntryOperation(
-      entry.path,
-      openHandLocalizedText(
-        context,
-        zh: readOnly ? '读取文件内容' : '读取待编辑文件',
-        en: readOnly ? 'Reading File Content' : 'Reading File for Editing',
-      ),
-      () async {
-        final service = context.read<MachineTerminalFileService>();
-        final content = await service.readTextFile(
-          sessionId: widget.sessionId,
-          terminalId: widget.terminalId,
-          entry: entry,
-          onProgress: _updateOperationProgress,
-        );
-        if (!mounted) return;
-        _hideOperationProgress();
-        final updated = await showAnimatedDialog<String>(
-          context: context,
-          barrierDismissible: false,
-          builder: (dialogContext) => _MachineTerminalFileEditorDialog(
-            path: entry.path,
-            initialContent: content,
-            readOnly: readOnly,
+    final service = context.read<MachineTerminalFileService>();
+    final action = openHandLocalizedText(
+      context,
+      zh: readOnly ? '读取文件内容' : '读取待编辑文件',
+      en: readOnly ? 'Reading File Content' : 'Reading File for Editing',
+    );
+    await _runEntryOperation(entry.path, action, () async {
+      final updated = await showAnimatedDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => _MachineTerminalDeferredDialog<String>(
+          icon: readOnly ? Icons.visibility_rounded : Icons.edit_note_rounded,
+          title: openHandLocalizedText(
+            dialogContext,
+            zh: readOnly ? '预览终端文件' : '编辑终端文件',
+            en: readOnly ? 'Preview Terminal File' : 'Edit Terminal File',
           ),
-        );
-        if (readOnly || !mounted || updated == null || updated == content) {
-          return;
-        }
-        setState(() => _operationPath = entry.path);
-        try {
-          await service.writeTextFile(
+          subtitle: entry.path,
+          action: action,
+          maxWidth: kOpenHandDialogWidthExtraWide,
+          maxHeight: kOpenHandDialogHeightTall,
+          insetPadding: const EdgeInsets.all(14),
+          load: (onProgress) => service.readTextFile(
             sessionId: widget.sessionId,
             terminalId: widget.terminalId,
-            path: entry.path,
-            content: updated,
-          );
-          if (!mounted) return;
-          showOpenHandSuccessSnack(
-            context,
-            openHandLocalizedText(context, zh: '文件已保存。', en: 'File saved.'),
-          );
-          await _loadDirectory(_snapshot?.path);
-        } finally {
-          if (mounted) setState(() => _operationPath = null);
-        }
-      },
-      showProgress: true,
-    );
+            entry: entry,
+            onProgress: onProgress,
+          ),
+          contentBuilder: (context, content) =>
+              _MachineTerminalFileEditorDialog(
+                path: entry.path,
+                initialContent: content,
+                readOnly: readOnly,
+              ),
+        ),
+      );
+      if (readOnly || !mounted || updated == null) {
+        return;
+      }
+      await service.writeTextFile(
+        sessionId: widget.sessionId,
+        terminalId: widget.terminalId,
+        path: entry.path,
+        content: updated,
+      );
+      if (!mounted) return;
+      showOpenHandSuccessSnack(
+        context,
+        openHandLocalizedText(context, zh: '文件已保存。', en: 'File saved.'),
+      );
+      await _loadDirectory(_snapshot?.path);
+    });
   }
 
   Future<void> _moveOrCopyEntry(
@@ -1287,6 +1342,257 @@ class _MachineTerminalFileManagerDialogState
   }
 }
 
+class _MachineTerminalDeferredDialog<T> extends StatefulWidget {
+  const _MachineTerminalDeferredDialog({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.action,
+    required this.load,
+    required this.contentBuilder,
+    this.release,
+    this.maxWidth = kOpenHandDialogWidthStandard,
+    this.maxHeight = kOpenHandDialogHeightStandard,
+    this.insetPadding = const EdgeInsets.all(18),
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String action;
+  final _MachineTerminalDeferredLoad<T> load;
+  final _MachineTerminalDeferredContentBuilder<T> contentBuilder;
+  final _MachineTerminalDeferredRelease<T>? release;
+  final double maxWidth;
+  final double maxHeight;
+  final EdgeInsets insetPadding;
+
+  @override
+  State<_MachineTerminalDeferredDialog<T>> createState() =>
+      _MachineTerminalDeferredDialogState<T>();
+}
+
+class _MachineTerminalDeferredDialogState<T>
+    extends State<_MachineTerminalDeferredDialog<T>> {
+  late _MachineTerminalOperationStatus _status;
+  Timer? _ticker;
+  Object? _error;
+  T? _value;
+  bool _hasValue = false;
+  int _generation = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _status = _MachineTerminalOperationStatus.start(widget.action);
+    _startTicker();
+    final generation = ++_generation;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && generation == _generation) {
+        unawaited(_load(generation));
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _generation += 1;
+    _ticker?.cancel();
+    if (_hasValue) {
+      final value = _value as T;
+      _hasValue = false;
+      unawaited(_release(value));
+    }
+    super.dispose();
+  }
+
+  void _startTicker() {
+    _ticker?.cancel();
+    _ticker = startSafePeriodicTimer(const Duration(milliseconds: 100), (_) {
+      if (mounted && !_hasValue && _error == null) setState(() {});
+    });
+  }
+
+  void _retry() {
+    final generation = ++_generation;
+    setState(() {
+      _error = null;
+      _status = _MachineTerminalOperationStatus.start(widget.action);
+    });
+    _startTicker();
+    unawaited(_load(generation));
+  }
+
+  Future<void> _load(int generation) async {
+    try {
+      final value = await widget.load((progress) {
+        if (!mounted || generation != _generation) return;
+        setState(() => _status = _status.update(progress));
+      });
+      if (!mounted || generation != _generation) {
+        await _release(value);
+        return;
+      }
+      _ticker?.cancel();
+      _ticker = null;
+      setState(() {
+        _value = value;
+        _hasValue = true;
+      });
+    } catch (error, stack) {
+      if (!mounted || generation != _generation) return;
+      silentLog('machine_terminal_file', widget.action, error, stack);
+      _ticker?.cancel();
+      _ticker = null;
+      setState(() => _error = error);
+    }
+  }
+
+  Future<void> _release(T value) async {
+    final release = widget.release;
+    if (release == null) return;
+    try {
+      await release(value);
+    } catch (error, stack) {
+      silentLog('machine_terminal_file', '释放延迟弹窗资源', error, stack);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final child = _hasValue
+        ? KeyedSubtree(
+            key: const ValueKey<String>('loaded'),
+            child: widget.contentBuilder(context, _value as T),
+          )
+        : KeyedSubtree(
+            key: ValueKey<bool>(_error != null),
+            child: _buildLoadingDialog(context),
+          );
+    return AnimatedSwitcher(
+      duration: openHandMotionDuration(context, kOpenHandMotion220),
+      switchInCurve: kOpenHandSwitchInCurve,
+      switchOutCurve: kOpenHandSwitchOutCurve,
+      child: child,
+    );
+  }
+
+  Widget _buildLoadingDialog(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final viewport = MediaQuery.sizeOf(context);
+    final width = math.min(viewport.width * 0.96, widget.maxWidth);
+    final height = math.min(viewport.height * 0.92, widget.maxHeight);
+    return buildOpenHandDialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: widget.insetPadding,
+      child: Container(
+        width: width,
+        height: height,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: kOpenHandBorderRadius20,
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: cs.shadow.withValues(alpha: 0.2),
+              blurRadius: 34,
+              offset: const Offset(0, 18),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            _MachineTerminalDialogHeader(
+              icon: widget.icon,
+              title: widget.title,
+              subtitle: widget.subtitle,
+              onClose: () => Navigator.of(context).pop(),
+            ),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: openHandMotionDuration(context, kOpenHandMotion220),
+                switchInCurve: kOpenHandSwitchInCurve,
+                switchOutCurve: kOpenHandSwitchOutCurve,
+                child: _error == null
+                    ? _MachineTerminalOperationLoadingPanel(
+                        key: const ValueKey<String>('loading'),
+                        status: _status,
+                      )
+                    : _MachineTerminalDeferredError(
+                        key: const ValueKey<String>('error'),
+                        error: _error!,
+                        onRetry: _retry,
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MachineTerminalDeferredError extends StatelessWidget {
+  const _MachineTerminalDeferredError({
+    super.key,
+    required this.error,
+    required this.onRetry,
+  });
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.cloud_off_rounded, size: 48, color: cs.error),
+              kOpenHandGap14,
+              Text(
+                openHandLocalizedText(
+                  context,
+                  zh: '远端资源加载失败',
+                  en: 'Unable to Load Remote Resource',
+                ),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              kOpenHandGap8,
+              SelectableText(
+                '$error',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.onSurfaceVariant,
+                  fontFamily: kOpenHandMonospaceFontFamily,
+                  height: 1.45,
+                ),
+              ),
+              kOpenHandGap18,
+              FilledButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded),
+                label: Text(openHandRetryLabel(context)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MachineTerminalOperationLoadingPanel extends StatelessWidget {
   const _MachineTerminalOperationLoadingPanel({
     super.key,
@@ -1301,24 +1607,37 @@ class _MachineTerminalOperationLoadingPanel extends StatelessWidget {
     final cs = theme.colorScheme;
     final total = status.total;
     final processed = math.max(0, status.processed);
-    final entries = status.unit == MachineTerminalFileProgressUnit.entries;
+    final bytes = status.unit == MachineTerminalFileProgressUnit.bytes;
+    final unitLabel = switch (status.unit) {
+      MachineTerminalFileProgressUnit.bytes => '',
+      MachineTerminalFileProgressUnit.entries => openHandLocalizedText(
+        context,
+        zh: '项',
+        en: 'items',
+      ),
+      MachineTerminalFileProgressUnit.steps => openHandLocalizedText(
+        context,
+        zh: '步',
+        en: 'steps',
+      ),
+    };
     final sizeValue = total == null
         ? processed > 0
-              ? entries
-                    ? '$processed 项'
-                    : formatByteSize(processed)
+              ? bytes
+                    ? formatByteSize(processed)
+                    : '$processed $unitLabel'
               : openHandLocalizedText(
                   context,
                   zh: '等待响应',
                   en: 'Awaiting response',
                 )
-        : entries
-        ? '$processed / $total 项'
-        : '${formatByteSize(processed)} / ${formatByteSize(total)}';
+        : bytes
+        ? '${formatByteSize(processed)} / ${formatByteSize(total)}'
+        : '$processed / $total $unitLabel';
     final speedValue = status.speedPerSecond > 0
-        ? entries
-              ? '${status.speedPerSecond.toStringAsFixed(1)} 项/s'
-              : '${formatByteSize(status.speedPerSecond)}/s'
+        ? bytes
+              ? '${formatByteSize(status.speedPerSecond)}/s'
+              : '${status.speedPerSecond.toStringAsFixed(1)} $unitLabel/s'
         : openHandLocalizedText(context, zh: '等待数据', en: 'Awaiting data');
     final action =
         status.action ??
@@ -1379,8 +1698,8 @@ class _MachineTerminalOperationLoadingPanel extends StatelessWidget {
                       icon: Icons.data_usage_rounded,
                       label: openHandLocalizedText(
                         context,
-                        zh: entries ? '进度' : '数据',
-                        en: entries ? 'Progress' : 'Data',
+                        zh: bytes ? '数据' : '进度',
+                        en: bytes ? 'Data' : 'Progress',
                       ),
                       value: sizeValue,
                     ),
@@ -1804,6 +2123,7 @@ class _MachineTerminalFileDetailsDialog extends StatelessWidget {
       child: Container(
         width: width,
         height: height,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: cs.surface,
           borderRadius: kOpenHandBorderRadius20,
@@ -1908,18 +2228,25 @@ class _MachineTerminalDirectoryPickerDialogState
   bool _loading = true;
   String? _error;
   int _generation = 0;
+  late String _requestedPath;
+  _MachineTerminalOperationStatus? _operationStatus;
+  Timer? _operationTicker;
 
   @override
   void initState() {
     super.initState();
+    _requestedPath = widget.initialDirectory;
     _nameController = TextEditingController(text: widget.initialName)
       ..addListener(_handleNameChanged);
-    unawaited(_load(widget.initialDirectory));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_load(widget.initialDirectory));
+    });
   }
 
   @override
   void dispose() {
     _generation += 1;
+    _operationTicker?.cancel();
     _nameController
       ..removeListener(_handleNameChanged)
       ..dispose();
@@ -1933,30 +2260,57 @@ class _MachineTerminalDirectoryPickerDialogState
 
   Future<void> _load(String path) async {
     final generation = ++_generation;
+    _operationTicker?.cancel();
+    _operationTicker = startSafePeriodicTimer(
+      const Duration(milliseconds: 100),
+      (_) {
+        if (mounted && _operationStatus != null) setState(() {});
+      },
+    );
     setState(() {
       _loading = true;
       _error = null;
+      _requestedPath = path;
+      _operationStatus = _MachineTerminalOperationStatus.start(
+        openHandLocalizedText(
+          context,
+          zh: '读取目标目录',
+          en: 'Reading Destination Folder',
+        ),
+      );
     });
+    final service = context.read<MachineTerminalFileService>();
     try {
-      final snapshot = await context
-          .read<MachineTerminalFileService>()
-          .listDirectory(
-            sessionId: widget.sessionId,
-            terminalId: widget.terminalId,
-            path: path,
-          );
+      final snapshot = await service.listDirectory(
+        sessionId: widget.sessionId,
+        terminalId: widget.terminalId,
+        path: path,
+        onProgress: (progress) {
+          final current = _operationStatus;
+          if (!mounted || generation != _generation || current == null) return;
+          setState(() => _operationStatus = current.update(progress));
+        },
+      );
       if (!mounted || generation != _generation) return;
       setState(() {
         _snapshot = snapshot;
         _loading = false;
+        _operationStatus = null;
       });
+      if (_scrollController.hasClients) _scrollController.jumpTo(0);
     } catch (error, stack) {
       silentLog('machine_terminal_file', '加载目标目录', error, stack);
       if (!mounted || generation != _generation) return;
       setState(() {
         _loading = false;
         _error = '$error';
+        _operationStatus = null;
       });
+    } finally {
+      if (generation == _generation) {
+        _operationTicker?.cancel();
+        _operationTicker = null;
+      }
     }
   }
 
@@ -1991,6 +2345,7 @@ class _MachineTerminalDirectoryPickerDialogState
       child: Container(
         width: width,
         height: height,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: cs.surface,
           borderRadius: kOpenHandBorderRadius20,
@@ -2020,7 +2375,9 @@ class _MachineTerminalDirectoryPickerDialogState
                       zh: '选择移动目标',
                       en: 'Choose Move Destination',
                     ),
-              subtitle: snapshot?.path ?? widget.initialDirectory,
+              subtitle: _loading || snapshot == null
+                  ? _requestedPath
+                  : snapshot.path,
               onClose: () => Navigator.of(context).pop(),
             ),
             Padding(
@@ -2054,7 +2411,9 @@ class _MachineTerminalDirectoryPickerDialogState
                         borderRadius: kOpenHandBorderRadius8,
                       ),
                       child: SelectableText(
-                        snapshot?.path ?? widget.initialDirectory,
+                        _loading || snapshot == null
+                            ? _requestedPath
+                            : snapshot.path,
                         maxLines: 1,
                         style: const TextStyle(
                           fontFamily: kOpenHandMonospaceFontFamily,
@@ -2077,11 +2436,27 @@ class _MachineTerminalDirectoryPickerDialogState
                   ),
                 ),
                 child: _loading
-                    ? const Center(child: CircularProgressIndicator())
+                    ? _MachineTerminalOperationLoadingPanel(
+                        status:
+                            _operationStatus ??
+                            _MachineTerminalOperationStatus.start(),
+                      )
                     : _error != null
-                    ? OpenHandInlineEmptyState(
-                        icon: Icons.folder_off_rounded,
-                        message: _error!,
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            OpenHandInlineEmptyState(
+                              icon: Icons.folder_off_rounded,
+                              message: _error!,
+                            ),
+                            FilledButton.icon(
+                              onPressed: () => _load(_requestedPath),
+                              icon: const Icon(Icons.refresh_rounded),
+                              label: Text(openHandRetryLabel(context)),
+                            ),
+                          ],
+                        ),
                       )
                     : directories.isEmpty
                     ? OpenHandInlineEmptyState(

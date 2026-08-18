@@ -61,7 +61,7 @@ enum MachineTerminalTransferStatus {
   canceled,
 }
 
-enum MachineTerminalFileProgressUnit { bytes, entries }
+enum MachineTerminalFileProgressUnit { bytes, entries, steps }
 
 typedef MachineTerminalFileProgressCallback =
     void Function(MachineTerminalFileProgress progress);
@@ -726,7 +726,14 @@ class MachineTerminalFileService extends ChangeNotifier {
     MachineTerminalFileProgressCallback? onProgress,
   }) async {
     final command = _fileDetailsCommand(path);
-    onProgress?.call(MachineTerminalFileProgress(command: command));
+    final progressCommand = '读取文件详情：${machineTerminalBaseName(path)}';
+    onProgress?.call(
+      MachineTerminalFileProgress(
+        command: progressCommand,
+        total: 1,
+        unit: MachineTerminalFileProgressUnit.steps,
+      ),
+    );
     final output = await _runCommand(
       sessionId: sessionId,
       terminalId: terminalId,
@@ -734,10 +741,19 @@ class MachineTerminalFileService extends ChangeNotifier {
       timeout: _machineTerminalFileCommandTimeout,
     );
     try {
-      return parseMachineTerminalFileDetailsProtocol(
+      final details = parseMachineTerminalFileDetailsProtocol(
         output,
         requestedPath: path,
       );
+      onProgress?.call(
+        MachineTerminalFileProgress(
+          command: '文件详情读取完成：${details.entry.name}',
+          processed: 1,
+          total: 1,
+          unit: MachineTerminalFileProgressUnit.steps,
+        ),
+      );
+      return details;
     } on FormatException catch (error) {
       throw FormatException(
         '${error.message}\n${clipText(output, _machineTerminalCommandErrorOutputLimit)}',
