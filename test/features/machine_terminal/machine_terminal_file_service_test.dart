@@ -354,6 +354,24 @@ void main() {
     expect(task.estimatedRemaining?.inSeconds, greaterThanOrEqualTo(1));
   });
 
+  test('文件操作进度仅在总字节明确时提供真实百分比', () {
+    const waiting = MachineTerminalFileProgress(command: 'pwd');
+    const reading = MachineTerminalFileProgress(
+      command: '读取文件分块',
+      processedBytes: 32768,
+      totalBytes: 65536,
+    );
+    const overflow = MachineTerminalFileProgress(
+      command: '读取文件分块',
+      processedBytes: 70000,
+      totalBytes: 65536,
+    );
+
+    expect(waiting.progress, isNull);
+    expect(reading.progress, closeTo(0.5, 0.0001));
+    expect(overflow.progress, 1);
+  });
+
   test(
     '终端文件服务跟随当前 PTY 路径并完成文件操作和分块上传',
     () async {

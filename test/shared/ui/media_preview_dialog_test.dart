@@ -39,6 +39,17 @@ void main() {
 
       expect(find.byType(SvgPicture), findsOneWidget);
       expect(find.byIcon(Icons.broken_image_outlined), findsNothing);
+      expect(find.byIcon(Icons.save_alt_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.content_copy_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+      expect(
+        tester.getCenter(find.byIcon(Icons.save_alt_rounded)).dx,
+        lessThan(tester.getCenter(find.byIcon(Icons.content_copy_outlined)).dx),
+      );
+      expect(
+        tester.getCenter(find.byIcon(Icons.content_copy_outlined)).dx,
+        lessThan(tester.getCenter(find.byIcon(Icons.close_rounded)).dx),
+      );
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
     } finally {

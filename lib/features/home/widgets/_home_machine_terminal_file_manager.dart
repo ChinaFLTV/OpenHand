@@ -34,6 +34,72 @@ class _MachineTerminalDestination {
   final String name;
 }
 
+@immutable
+class _MachineTerminalOperationStatus {
+  const _MachineTerminalOperationStatus({
+    required this.action,
+    required this.startedAt,
+    required this.sampledAt,
+    this.command = '',
+    this.processedBytes = 0,
+    this.totalBytes,
+    this.speedBytesPerSecond = 0,
+  });
+
+  factory _MachineTerminalOperationStatus.start(String action) {
+    final now = DateTime.now();
+    return _MachineTerminalOperationStatus(
+      action: action,
+      startedAt: now,
+      sampledAt: now,
+    );
+  }
+
+  final String action;
+  final String command;
+  final int processedBytes;
+  final int? totalBytes;
+  final double speedBytesPerSecond;
+  final DateTime startedAt;
+  final DateTime sampledAt;
+
+  double? get progress {
+    final total = totalBytes;
+    if (total == null || total <= 0) return null;
+    return (processedBytes / total).clamp(0, 1);
+  }
+
+  Duration get elapsed {
+    final value = DateTime.now().difference(startedAt);
+    return value.isNegative ? Duration.zero : value;
+  }
+
+  _MachineTerminalOperationStatus update(MachineTerminalFileProgress progress) {
+    final now = DateTime.now();
+    var speed = speedBytesPerSecond;
+    var nextSampledAt = sampledAt;
+    if (progress.processedBytes > processedBytes) {
+      final elapsedMs = now.difference(sampledAt).inMilliseconds;
+      if (elapsedMs > 0) {
+        speed =
+            (progress.processedBytes - processedBytes) *
+            Duration.millisecondsPerSecond /
+            elapsedMs;
+      }
+      nextSampledAt = now;
+    }
+    return _MachineTerminalOperationStatus(
+      action: action,
+      command: progress.command,
+      processedBytes: progress.processedBytes,
+      totalBytes: progress.totalBytes,
+      speedBytesPerSecond: speed,
+      startedAt: startedAt,
+      sampledAt: nextSampledAt,
+    );
+  }
+}
+
 class _MachineTerminalFileManagerDialog extends StatefulWidget {
   const _MachineTerminalFileManagerDialog({
     required this.sessionId,
@@ -56,7 +122,10 @@ class _MachineTerminalFileManagerDialogState
   MachineTerminalDirectorySnapshot? _snapshot;
   bool _loading = true;
   int _loadGeneration = 0;
+  int _operationGeneration = 0;
   String? _operationPath;
+  _MachineTerminalOperationStatus? _operationStatus;
+  Timer? _operationTicker;
   String? _error;
   bool _syncingPath = false;
 
@@ -71,6 +140,7 @@ class _MachineTerminalFileManagerDialogState
   @override
   void dispose() {
     _loadGeneration += 1;
+    _operationTicker?.cancel();
     _scrollController.dispose();
     _pathController
       ..removeListener(_handlePathChanged)
@@ -98,11 +168,71 @@ class _MachineTerminalFileManagerDialogState
     _syncingPath = false;
   }
 
+  int _startOperationProgress(String action) {
+    final generation = ++_operationGeneration;
+    _operationTicker?.cancel();
+    _operationTicker = startSafePeriodicTimer(
+      const Duration(milliseconds: 100),
+      (_) {
+        if (mounted && _operationStatus != null) setState(() {});
+      },
+    );
+    setState(() {
+      _operationStatus = _MachineTerminalOperationStatus.start(action);
+    });
+    return generation;
+  }
+
+  void _updateOperationProgress(MachineTerminalFileProgress progress) {
+    final current = _operationStatus;
+    if (!mounted || current == null) return;
+    setState(() => _operationStatus = current.update(progress));
+  }
+
+  void _finishOperationProgress(int generation) {
+    if (generation != _operationGeneration) return;
+    _operationTicker?.cancel();
+    _operationTicker = null;
+    if (mounted && _operationStatus != null) {
+      setState(() => _operationStatus = null);
+    }
+  }
+
+  void _hideOperationProgress() {
+    _operationTicker?.cancel();
+    _operationTicker = null;
+    if (mounted && _operationStatus != null) {
+      setState(() => _operationStatus = null);
+    }
+  }
+
   Future<void> _loadDirectory([
     String? path,
     bool restorePathOnFailure = false,
   ]) async {
     final generation = ++_loadGeneration;
+    final currentPath = _snapshot?.path;
+    final operationGeneration = _startOperationProgress(
+      currentPath == null
+          ? openHandLocalizedText(
+              context,
+              zh: '读取当前终端目录',
+              en: 'Reading Terminal Folder',
+            )
+          : path == null
+          ? openHandLocalizedText(
+              context,
+              zh: '同步终端当前路径',
+              en: 'Syncing Terminal Path',
+            )
+          : path == currentPath
+          ? openHandLocalizedText(
+              context,
+              zh: '刷新当前目录',
+              en: 'Refreshing Folder',
+            )
+          : openHandLocalizedText(context, zh: '前往目标目录', en: 'Opening Folder'),
+    );
     setState(() {
       _loading = true;
       _error = null;
@@ -114,6 +244,7 @@ class _MachineTerminalFileManagerDialogState
             sessionId: widget.sessionId,
             terminalId: widget.terminalId,
             path: path,
+            onProgress: _updateOperationProgress,
           );
       if (!mounted || generation != _loadGeneration) return;
       _setPathText(snapshot.path);
@@ -146,6 +277,8 @@ class _MachineTerminalFileManagerDialogState
         _loading = false;
         _error = '$error';
       });
+    } finally {
+      _finishOperationProgress(operationGeneration);
     }
   }
 
@@ -422,7 +555,10 @@ class _MachineTerminalFileManagerDialogState
   ) {
     final cs = Theme.of(context).colorScheme;
     if (_loading && snapshot == null) {
-      return const Center(child: CircularProgressIndicator());
+      final status = _operationStatus;
+      return status == null
+          ? const Center(child: CircularProgressIndicator())
+          : _MachineTerminalOperationLoadingPanel(status: status);
     }
     if (_error != null && snapshot == null) {
       return Center(
@@ -453,7 +589,7 @@ class _MachineTerminalFileManagerDialogState
         : snapshot.entries
               .where((entry) => entry.name.toLowerCase().contains(query))
               .toList(growable: false);
-    return DecoratedBox(
+    final table = DecoratedBox(
       decoration: BoxDecoration(
         color: cs.surfaceContainerLowest,
         borderRadius: kOpenHandBorderRadius12,
@@ -516,6 +652,27 @@ class _MachineTerminalFileManagerDialogState
           ],
         ),
       ),
+    );
+    final status = _operationStatus;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        table,
+        IgnorePointer(
+          ignoring: status == null,
+          child: AnimatedSwitcher(
+            duration: openHandMotionDuration(context, kOpenHandMotion220),
+            switchInCurve: kOpenHandSwitchInCurve,
+            switchOutCurve: kOpenHandSwitchOutCurve,
+            child: status == null
+                ? const SizedBox.shrink()
+                : _MachineTerminalOperationLoadingPanel(
+                    key: ValueKey<int>(_operationGeneration),
+                    status: status,
+                  ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -822,32 +979,39 @@ class _MachineTerminalFileManagerDialogState
   ) async {
     final service = context.read<MachineTerminalFileService>();
     Directory? temporaryDirectory;
-    await _runEntryOperation(entry.path, '预览媒体文件', () async {
-      temporaryDirectory = await Directory.systemTemp.createTemp(
-        'openhand-terminal-preview-',
-      );
-      final rawExtension = p.extension(entry.name).toLowerCase();
-      final extension = RegExp(r'^\.[a-z0-9]{1,12}$').hasMatch(rawExtension)
-          ? rawExtension
-          : '';
-      final localPath = p.join(temporaryDirectory!.path, 'preview$extension');
-      await service.downloadFile(
-        sessionId: widget.sessionId,
-        terminalId: widget.terminalId,
-        sourcePath: entry.path,
-        destinationPath: localPath,
-      );
-      if (!mounted) return;
-      await showAnimatedDialog<void>(
-        context: context,
-        builder: (dialogContext) => MediaPreviewDialog.file(
-          filePath: localPath,
-          title: entry.name,
-          mimeType: aiMimeTypeForPath(entry.name),
-          kind: kind,
-        ),
-      );
-    });
+    await _runEntryOperation(
+      entry.path,
+      openHandLocalizedText(context, zh: '加载媒体预览', en: 'Loading Media Preview'),
+      () async {
+        temporaryDirectory = await Directory.systemTemp.createTemp(
+          'openhand-terminal-preview-',
+        );
+        final rawExtension = p.extension(entry.name).toLowerCase();
+        final extension = RegExp(r'^\.[a-z0-9]{1,12}$').hasMatch(rawExtension)
+            ? rawExtension
+            : '';
+        final localPath = p.join(temporaryDirectory!.path, 'preview$extension');
+        await service.downloadFile(
+          sessionId: widget.sessionId,
+          terminalId: widget.terminalId,
+          sourcePath: entry.path,
+          destinationPath: localPath,
+          onProgress: _updateOperationProgress,
+        );
+        if (!mounted) return;
+        _hideOperationProgress();
+        await showAnimatedDialog<void>(
+          context: context,
+          builder: (dialogContext) => MediaPreviewDialog.file(
+            filePath: localPath,
+            title: entry.name,
+            mimeType: aiMimeTypeForPath(entry.name),
+            kind: kind,
+          ),
+        );
+      },
+      showProgress: true,
+    );
     final directory = temporaryDirectory;
     if (directory == null) return;
     try {
@@ -862,46 +1026,59 @@ class _MachineTerminalFileManagerDialogState
   }
 
   Future<void> _refreshEntry(MachineTerminalFileEntry entry) async {
-    await _runEntryOperation(entry.path, '刷新文件', () async {
-      final details = await context
-          .read<MachineTerminalFileService>()
-          .fileDetails(
-            sessionId: widget.sessionId,
-            terminalId: widget.terminalId,
-            path: entry.path,
+    await _runEntryOperation(
+      entry.path,
+      openHandLocalizedText(context, zh: '刷新文件信息', en: 'Refreshing File'),
+      () async {
+        final details = await context
+            .read<MachineTerminalFileService>()
+            .fileDetails(
+              sessionId: widget.sessionId,
+              terminalId: widget.terminalId,
+              path: entry.path,
+              onProgress: _updateOperationProgress,
+            );
+        if (!mounted || _snapshot == null) return;
+        final entries = _snapshot!.entries.toList(growable: true);
+        final index = entries.indexWhere((item) => item.path == entry.path);
+        if (index < 0) return;
+        entries[index] = details.entry;
+        setState(() {
+          _snapshot = MachineTerminalDirectorySnapshot(
+            path: _snapshot!.path,
+            entries: List<MachineTerminalFileEntry>.unmodifiable(entries),
+            truncated: _snapshot!.truncated,
+            windowsPath: _snapshot!.windowsPath,
           );
-      if (!mounted || _snapshot == null) return;
-      final entries = _snapshot!.entries.toList(growable: true);
-      final index = entries.indexWhere((item) => item.path == entry.path);
-      if (index < 0) return;
-      entries[index] = details.entry;
-      setState(() {
-        _snapshot = MachineTerminalDirectorySnapshot(
-          path: _snapshot!.path,
-          entries: List<MachineTerminalFileEntry>.unmodifiable(entries),
-          truncated: _snapshot!.truncated,
-          windowsPath: _snapshot!.windowsPath,
-        );
-      });
-    });
+        });
+      },
+      showProgress: true,
+    );
   }
 
   Future<void> _showDetails(MachineTerminalFileEntry entry) async {
-    await _runEntryOperation(entry.path, '读取文件详情', () async {
-      final details = await context
-          .read<MachineTerminalFileService>()
-          .fileDetails(
-            sessionId: widget.sessionId,
-            terminalId: widget.terminalId,
-            path: entry.path,
-          );
-      if (!mounted) return;
-      await showAnimatedDialog<void>(
-        context: context,
-        builder: (dialogContext) =>
-            _MachineTerminalFileDetailsDialog(details: details),
-      );
-    });
+    await _runEntryOperation(
+      entry.path,
+      openHandLocalizedText(context, zh: '读取文件详情', en: 'Reading File Details'),
+      () async {
+        final details = await context
+            .read<MachineTerminalFileService>()
+            .fileDetails(
+              sessionId: widget.sessionId,
+              terminalId: widget.terminalId,
+              path: entry.path,
+              onProgress: _updateOperationProgress,
+            );
+        if (!mounted) return;
+        _hideOperationProgress();
+        await showAnimatedDialog<void>(
+          context: context,
+          builder: (dialogContext) =>
+              _MachineTerminalFileDetailsDialog(details: details),
+        );
+      },
+      showProgress: true,
+    );
   }
 
   Future<void> _renameEntry(MachineTerminalFileEntry entry) async {
@@ -933,15 +1110,21 @@ class _MachineTerminalFileManagerDialogState
   }) async {
     await _runEntryOperation(
       entry.path,
-      readOnly ? '读取预览文件' : '读取待编辑文件',
+      openHandLocalizedText(
+        context,
+        zh: readOnly ? '读取文件内容' : '读取待编辑文件',
+        en: readOnly ? 'Reading File Content' : 'Reading File for Editing',
+      ),
       () async {
         final service = context.read<MachineTerminalFileService>();
         final content = await service.readTextFile(
           sessionId: widget.sessionId,
           terminalId: widget.terminalId,
           entry: entry,
+          onProgress: _updateOperationProgress,
         );
         if (!mounted) return;
+        _hideOperationProgress();
         final updated = await showAnimatedDialog<String>(
           context: context,
           barrierDismissible: false,
@@ -972,6 +1155,7 @@ class _MachineTerminalFileManagerDialogState
           if (mounted) setState(() => _operationPath = null);
         }
       },
+      showProgress: true,
     );
   }
 
@@ -1057,15 +1241,22 @@ class _MachineTerminalFileManagerDialogState
   Future<void> _runEntryOperation(
     String path,
     String action,
-    Future<void> Function() operation,
-  ) async {
+    Future<void> Function() operation, {
+    bool showProgress = false,
+  }) async {
     if (_operationPath != null) return;
     setState(() => _operationPath = path);
+    final progressGeneration = showProgress
+        ? _startOperationProgress(action)
+        : null;
     try {
       await operation();
     } catch (error, stack) {
       _showOperationError(action, error, stack);
     } finally {
+      if (progressGeneration != null) {
+        _finishOperationProgress(progressGeneration);
+      }
       if (mounted) setState(() => _operationPath = null);
     }
   }
@@ -1081,6 +1272,252 @@ class _MachineTerminalFileManagerDialogState
         en: '$action failed: $error',
       ),
       maxLines: 3,
+    );
+  }
+}
+
+class _MachineTerminalOperationLoadingPanel extends StatelessWidget {
+  const _MachineTerminalOperationLoadingPanel({
+    super.key,
+    required this.status,
+  });
+
+  final _MachineTerminalOperationStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final totalBytes = status.totalBytes;
+    final processedBytes = math.max(0, status.processedBytes);
+    final sizeValue = totalBytes == null
+        ? processedBytes > 0
+              ? formatByteSize(processedBytes)
+              : openHandLocalizedText(
+                  context,
+                  zh: '等待响应',
+                  en: 'Awaiting response',
+                )
+        : '${formatByteSize(processedBytes)} / ${formatByteSize(totalBytes)}';
+    final speedValue = status.speedBytesPerSecond > 0
+        ? '${formatByteSize(status.speedBytesPerSecond)}/s'
+        : openHandLocalizedText(context, zh: '计算中', en: 'Calculating');
+    final rawCommand = status.command.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final command = rawCommand.isEmpty
+        ? openHandLocalizedText(
+            context,
+            zh: '等待终端接受指令',
+            en: 'Waiting for terminal command',
+          )
+        : clipText(rawCommand, 280);
+
+    return ColoredBox(
+      color: cs.surface.withValues(alpha: 0.94),
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _MachineTerminalOperationProgressRing(value: status.progress),
+                kOpenHandGap16,
+                Text(
+                  status.action,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                kOpenHandGap6,
+                Text(
+                  openHandLocalizedText(
+                    context,
+                    zh: '正在获取远端终端的实时数据',
+                    en: 'Receiving live data from the remote terminal',
+                  ),
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                kOpenHandGap18,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 24,
+                  runSpacing: 12,
+                  children: [
+                    _MachineTerminalOperationMetric(
+                      icon: Icons.data_usage_rounded,
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '数据',
+                        en: 'Data',
+                      ),
+                      value: sizeValue,
+                    ),
+                    _MachineTerminalOperationMetric(
+                      icon: Icons.speed_rounded,
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '速度',
+                        en: 'Speed',
+                      ),
+                      value: speedValue,
+                    ),
+                    _MachineTerminalOperationMetric(
+                      icon: Icons.timer_outlined,
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '耗时',
+                        en: 'Elapsed',
+                      ),
+                      value: _machineTerminalTransferDuration(status.elapsed),
+                    ),
+                  ],
+                ),
+                kOpenHandGap18,
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHighest.withValues(alpha: 0.7),
+                    borderRadius: kOpenHandBorderRadius8,
+                    border: Border.all(
+                      color: cs.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.terminal_rounded, size: 17, color: cs.primary),
+                      kOpenHandHGap8,
+                      Expanded(
+                        child: Text(
+                          command,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                            fontFamily: kOpenHandMonospaceFontFamily,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MachineTerminalOperationMetric extends StatelessWidget {
+  const _MachineTerminalOperationMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 17, color: cs.primary),
+        kOpenHandHGap6,
+        Text(
+          '$label ',
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: cs.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        Text(
+          value,
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: cs.onSurface,
+            fontWeight: FontWeight.w900,
+            fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MachineTerminalOperationProgressRing extends StatefulWidget {
+  const _MachineTerminalOperationProgressRing({required this.value});
+
+  final double? value;
+
+  @override
+  State<_MachineTerminalOperationProgressRing> createState() =>
+      _MachineTerminalOperationProgressRingState();
+}
+
+class _MachineTerminalOperationProgressRingState
+    extends State<_MachineTerminalOperationProgressRing> {
+  double _displayedValue = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final target = widget.value?.clamp(0.0, 1.0).toDouble();
+    Widget ring(double? value) => SizedBox.square(
+      dimension: 84,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox.expand(
+            child: CircularProgressIndicator(
+              value: value,
+              strokeWidth: 7,
+              strokeCap: StrokeCap.round,
+              color: cs.primary,
+              backgroundColor: cs.primaryContainer.withValues(alpha: 0.65),
+            ),
+          ),
+          value == null
+              ? Icon(Icons.sync_rounded, color: cs.primary, size: 24)
+              : Text(
+                  _machineTerminalTransferPercent(value),
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w900,
+                    fontFeatures: const <FontFeature>[
+                      FontFeature.tabularFigures(),
+                    ],
+                  ),
+                ),
+        ],
+      ),
+    );
+    if (target == null) return ring(null);
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: _displayedValue, end: target),
+      duration: openHandMotionDuration(context, kOpenHandMotion220),
+      curve: kOpenHandSwitchInCurve,
+      builder: (context, value, _) {
+        _displayedValue = value;
+        return ring(value);
+      },
     );
   }
 }

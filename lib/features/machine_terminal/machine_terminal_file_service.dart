@@ -61,6 +61,28 @@ enum MachineTerminalTransferStatus {
   canceled,
 }
 
+typedef MachineTerminalFileProgressCallback =
+    void Function(MachineTerminalFileProgress progress);
+
+@immutable
+class MachineTerminalFileProgress {
+  const MachineTerminalFileProgress({
+    required this.command,
+    this.processedBytes = 0,
+    this.totalBytes,
+  });
+
+  final String command;
+  final int processedBytes;
+  final int? totalBytes;
+
+  double? get progress {
+    final total = totalBytes;
+    if (total == null || total <= 0) return null;
+    return (processedBytes / total).clamp(0, 1);
+  }
+}
+
 @immutable
 class MachineTerminalFileEntry {
   const MachineTerminalFileEntry({
@@ -255,11 +277,12 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String sessionId,
     required String terminalId,
     String? path,
+    MachineTerminalFileProgressCallback? onProgress,
   }) {
     return _withTerminalGate(
       sessionId,
       terminalId,
-      () => _listDirectory(sessionId, terminalId, path),
+      () => _listDirectory(sessionId, terminalId, path, onProgress: onProgress),
     );
   }
 
@@ -267,11 +290,12 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String sessionId,
     required String terminalId,
     required String path,
+    MachineTerminalFileProgressCallback? onProgress,
   }) {
     return _withTerminalGate(
       sessionId,
       terminalId,
-      () => _fileDetails(sessionId, terminalId, path),
+      () => _fileDetails(sessionId, terminalId, path, onProgress: onProgress),
     );
   }
 
@@ -279,6 +303,7 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String sessionId,
     required String terminalId,
     required MachineTerminalFileEntry entry,
+    MachineTerminalFileProgressCallback? onProgress,
   }) {
     return _withTerminalGate(sessionId, terminalId, () async {
       if (!entry.isFile || entry.size >= kMachineTerminalMaxEditableFileBytes) {
@@ -290,16 +315,31 @@ class MachineTerminalFileService extends ChangeNotifier {
         (entry.size / _machineTerminalReadChunkBytes).ceil(),
       );
       for (var index = 0; index < chunkCount; index++) {
+        final command = _readChunkCommand(entry.path, index);
+        onProgress?.call(
+          MachineTerminalFileProgress(
+            command: command,
+            processedBytes: bytes.length,
+            totalBytes: entry.size,
+          ),
+        );
         final output = await _runCommand(
           sessionId: sessionId,
           terminalId: terminalId,
-          command: _readChunkCommand(entry.path, index),
+          command: command,
           timeout: _machineTerminalFileCommandTimeout,
         );
         final match = _machineTerminalReadChunkPattern.firstMatch(output);
         if (match == null) throw const FormatException('无法解析文件内容分块。');
         final encoded = match.group(1)!;
         if (encoded.isNotEmpty) bytes.addAll(base64Decode(encoded));
+        onProgress?.call(
+          MachineTerminalFileProgress(
+            command: command,
+            processedBytes: bytes.length,
+            totalBytes: entry.size,
+          ),
+        );
       }
       if (bytes.length != entry.size) {
         throw StateError('文件读取期间发生变化，请刷新后重试。');
@@ -317,7 +357,18 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String terminalId,
     required String sourcePath,
     required String destinationPath,
+    MachineTerminalFileProgressCallback? onProgress,
   }) {
+    var command = '';
+    var processedBytes = 0;
+    int? totalBytes;
+    void report() => onProgress?.call(
+      MachineTerminalFileProgress(
+        command: command,
+        processedBytes: processedBytes,
+        totalBytes: totalBytes,
+      ),
+    );
     return _withTerminalGate(
       sessionId,
       terminalId,
@@ -326,8 +377,18 @@ class MachineTerminalFileService extends ChangeNotifier {
         terminalId: terminalId,
         sourcePath: sourcePath,
         destinationPath: destinationPath,
-        onTotalBytes: (_) {},
-        onProgress: (_) {},
+        onTotalBytes: (bytes) {
+          totalBytes = bytes;
+          report();
+        },
+        onProgress: (bytes) {
+          processedBytes = bytes;
+          report();
+        },
+        onCommand: (value) {
+          command = value;
+          report();
+        },
         waitWhilePaused: () async {},
         isCancelled: () => false,
       ),
@@ -628,12 +689,15 @@ class MachineTerminalFileService extends ChangeNotifier {
   Future<MachineTerminalDirectorySnapshot> _listDirectory(
     String sessionId,
     String terminalId,
-    String? path,
-  ) async {
+    String? path, {
+    MachineTerminalFileProgressCallback? onProgress,
+  }) async {
+    final command = _listDirectoryCommand(path);
+    onProgress?.call(MachineTerminalFileProgress(command: command));
     final output = await _runCommand(
       sessionId: sessionId,
       terminalId: terminalId,
-      command: _listDirectoryCommand(path),
+      command: command,
       timeout: _machineTerminalFileCommandTimeout,
     );
     return parseMachineTerminalDirectoryProtocol(
@@ -645,12 +709,15 @@ class MachineTerminalFileService extends ChangeNotifier {
   Future<MachineTerminalFileDetails> _fileDetails(
     String sessionId,
     String terminalId,
-    String path,
-  ) async {
+    String path, {
+    MachineTerminalFileProgressCallback? onProgress,
+  }) async {
+    final command = _fileDetailsCommand(path);
+    onProgress?.call(MachineTerminalFileProgress(command: command));
     final output = await _runCommand(
       sessionId: sessionId,
       terminalId: terminalId,
-      command: _fileDetailsCommand(path),
+      command: command,
       timeout: _machineTerminalFileCommandTimeout,
     );
     try {
@@ -672,9 +739,11 @@ class MachineTerminalFileService extends ChangeNotifier {
     required String destinationPath,
     required ValueChanged<int> onTotalBytes,
     required MachineTerminalUploadProgress onProgress,
+    required ValueChanged<String> onCommand,
     required MachineTerminalUploadPauseWaiter waitWhilePaused,
     required MachineTerminalUploadCancelCheck isCancelled,
   }) async {
+    onCommand(_fileDetailsCommand(sourcePath));
     final before = await _fileDetails(sessionId, terminalId, sourcePath);
     if (!before.entry.isFile) throw StateError('仅支持下载普通文件。');
     final expectedBytes = before.entry.size;
@@ -689,10 +758,12 @@ class MachineTerminalFileService extends ChangeNotifier {
       for (var index = 0; index < chunkCount; index++) {
         await waitWhilePaused();
         if (isCancelled()) throw const MachineTerminalUploadCancelled();
+        final command = _readChunkCommand(before.entry.path, index);
+        onCommand(command);
         final output = await _runCommand(
           sessionId: sessionId,
           terminalId: terminalId,
-          command: _readChunkCommand(before.entry.path, index),
+          command: command,
           timeout: _machineTerminalFileCommandTimeout,
         );
         final match = _machineTerminalReadChunkPattern.firstMatch(output);
@@ -710,6 +781,7 @@ class MachineTerminalFileService extends ChangeNotifier {
         throw StateError('文件下载期间发生变化，请刷新后重试。');
       }
       if (isCancelled()) throw const MachineTerminalUploadCancelled();
+      onCommand(_fileDetailsCommand(sourcePath));
       final after = await _fileDetails(sessionId, terminalId, sourcePath);
       if (isCancelled()) throw const MachineTerminalUploadCancelled();
       if (!after.entry.isFile ||
@@ -946,6 +1018,7 @@ class MachineTerminalFileService extends ChangeNotifier {
                 _scheduleProgressNotify();
               },
               onProgress: onProgress,
+              onCommand: (_) {},
               waitWhilePaused: () => _waitWhilePaused(task),
               isCancelled: isCancelled,
             );

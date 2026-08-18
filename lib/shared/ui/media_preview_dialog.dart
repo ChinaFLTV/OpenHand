@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -17,6 +18,7 @@ import '../../l10n/app_localizations.dart';
 import '../db/atomic_file_operations.dart';
 import '../net/http_redirect_utils.dart';
 import '../net/http_response_utils.dart';
+import '../net/http_status_utils.dart';
 import '../util/async_concurrency.dart';
 import '../util/bounded_directory_io.dart';
 import '../util/bounded_file_io.dart';
@@ -47,6 +49,12 @@ import 'openhand_video_player_web_styles.dart';
 enum MediaPreviewKind { image, audio, video }
 
 const Map<String, String> _mediaExtensionsByMime = <String, String>{
+  kImagePngMimeType: 'png',
+  kImageJpegMimeType: 'jpg',
+  kImageGifMimeType: 'gif',
+  kImageWebpMimeType: 'webp',
+  kImageSvgXmlMimeType: 'svg',
+  kImageBmpMimeType: 'bmp',
   kAudioAacMimeType: 'aac',
   kAudioFlacMimeType: 'flac',
   'audio/mp4': 'm4a',
@@ -66,7 +74,11 @@ String _mediaTempPathKey(String path) => p.normalize(p.absolute(path));
 String _mediaFileExtension(MediaPreviewKind kind, String? rawMimeType) {
   final mimeType = rawMimeType?.split(';').first.trim().toLowerCase();
   return _mediaExtensionsByMime[mimeType] ??
-      (kind == MediaPreviewKind.video ? 'mp4' : 'mp3');
+      switch (kind) {
+        MediaPreviewKind.image => 'png',
+        MediaPreviewKind.audio => 'mp3',
+        MediaPreviewKind.video => 'mp4',
+      };
 }
 
 Future<void> _deleteTempFile(
@@ -216,9 +228,16 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
   static const double _kFallbackSide = 320.0;
   static const Duration _kClipboardTimeout = Duration(seconds: 15);
   static const Duration _kNetworkTimeout = Duration(seconds: 25);
+  static const Duration _kSaveNetworkIdleTimeout = Duration(seconds: 30);
+  static const Duration _kSaveImageTotalTimeout = Duration(minutes: 10);
+  static const Duration _kSaveAudioTotalTimeout = Duration(minutes: 15);
+  static const Duration _kSaveVideoTotalTimeout = Duration(minutes: 30);
   static const Duration _kClipboardTempMaxAge = Duration(days: 1);
   static const Duration _kClipboardTempCleanupTimeout = Duration(seconds: 2);
   static const int _kClipboardMaxBytes = 64 * kBytesPerMiB;
+  static const int _kSaveImageMaxBytes = 256 * kBytesPerMiB;
+  static const int _kSaveAudioMaxBytes = 512 * kBytesPerMiB;
+  static const int _kSaveVideoMaxBytes = 2 * kBytesPerGiB;
   static const int _kClipboardTempMaxFiles = 32;
   static const String _kClipboardTempDirectoryName = 'openhand-media-clipboard';
   static const String _kClipboardTempFilePrefix = 'media-';
@@ -230,6 +249,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
     },
   );
   bool _copying = false;
+  bool _saving = false;
   bool _imageErrorLogged = false;
 
   @override
@@ -372,8 +392,23 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
                         ),
                       ),
                       IconButton(
+                        tooltip: l10n.commonSave,
+                        onPressed: _copying || _saving
+                            ? null
+                            : () => _saveToFile(context),
+                        icon: _saving
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.save_alt_rounded),
+                      ),
+                      kOpenHandHGap8,
+                      IconButton(
                         tooltip: l10n.commonCopy,
-                        onPressed: _copying
+                        onPressed: _copying || _saving
                             ? null
                             : () => _copyToClipboard(context),
                         icon: const Icon(Icons.content_copy_outlined),
@@ -439,15 +474,212 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
     return 'empty:${widget.title}';
   }
 
+  Future<void> _saveToFile(BuildContext context) async {
+    if (_copying || _saving) return;
+    setState(() => _saving = true);
+    try {
+      final suggestedName = _suggestedSaveName();
+      final extension = p.extension(suggestedName).replaceFirst('.', '');
+      final acceptedTypeGroups =
+          RegExp(r'^[a-zA-Z0-9]{1,12}$').hasMatch(extension)
+          ? <XTypeGroup>[
+              XTypeGroup(
+                label: switch (widget.kind) {
+                  MediaPreviewKind.image => 'Images',
+                  MediaPreviewKind.audio => 'Audio',
+                  MediaPreviewKind.video => 'Videos',
+                },
+                extensions: <String>[extension],
+              ),
+            ]
+          : <XTypeGroup>[];
+      final location = await getSaveLocation(
+        suggestedName: suggestedName,
+        acceptedTypeGroups: acceptedTypeGroups,
+      );
+      if (location == null || !context.mounted) return;
+      await _writeMediaSource(File(location.path));
+      if (!context.mounted) return;
+      _showMediaSnack(
+        context,
+        message: openHandLocalizedText(
+          context,
+          zh: '已保存到：${location.path}',
+          en: 'Saved to: ${location.path}',
+        ),
+      );
+    } catch (error, stack) {
+      silentLog('media_preview_dialog', '保存媒体文件', error, stack);
+      if (!context.mounted) return;
+      _showMediaSnack(
+        context,
+        message: userFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: '无法保存媒体文件，请稍后重试。',
+            en: 'Unable to save the media file. Please try again later.',
+          ),
+        ),
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  String _suggestedSaveName() {
+    String fileNameFrom(String value) {
+      final normalized = value.replaceAll(r'\', '/');
+      final name = p.posix
+          .basename(normalized)
+          .trim()
+          .replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1f]'), '_');
+      return name == '.' || name == '/' ? '' : name;
+    }
+
+    var name = '';
+    final filePath = widget.filePath;
+    if (filePath != null) name = fileNameFrom(filePath);
+    final url = widget.networkUrl ?? widget.sourceUrl;
+    if (name.isEmpty && url != null) {
+      final uri = Uri.tryParse(url);
+      if (uri != null && uri.path.isNotEmpty) {
+        try {
+          name = fileNameFrom(Uri.decodeComponent(uri.path));
+        } catch (_) {
+          name = fileNameFrom(uri.path);
+        }
+      }
+    }
+    if (name.isEmpty) name = fileNameFrom(widget.title);
+    if (name.isEmpty) {
+      name = switch (widget.kind) {
+        MediaPreviewKind.image => 'image',
+        MediaPreviewKind.audio => 'audio',
+        MediaPreviewKind.video => 'video',
+      };
+    }
+    if (p.extension(name).isEmpty) {
+      name = '$name.${_mediaFileExtension(widget.kind, widget.mimeType)}';
+    }
+    return name;
+  }
+
+  Future<void> _writeMediaSource(File destination) async {
+    final bytes = widget.bytes;
+    if (bytes != null) {
+      await writeBytesFileAtomically(destination, bytes);
+      return;
+    }
+    final filePath = widget.filePath;
+    if (filePath != null) {
+      final source = File(filePath);
+      final stat = await source.stat().timeout(_kClipboardTimeout);
+      if (stat.type != FileSystemEntityType.file) {
+        throw FileSystemException('媒体源不是普通文件。', filePath);
+      }
+      if (_mediaTempPathKey(source.path) ==
+          _mediaTempPathKey(destination.path)) {
+        return;
+      }
+      await copyFileAtomically(
+        source,
+        destination,
+        maxBytes: math.max(1, stat.size),
+      );
+      return;
+    }
+    final url = widget.networkUrl ?? widget.sourceUrl;
+    if (url != null) {
+      await _downloadNetworkFile(Uri.parse(url), destination);
+      return;
+    }
+    throw const FileSystemException('媒体源不可用。');
+  }
+
+  int get _saveMaxBytes => switch (widget.kind) {
+    MediaPreviewKind.image => _kSaveImageMaxBytes,
+    MediaPreviewKind.audio => _kSaveAudioMaxBytes,
+    MediaPreviewKind.video => _kSaveVideoMaxBytes,
+  };
+
+  Duration get _saveTotalTimeout => switch (widget.kind) {
+    MediaPreviewKind.image => _kSaveImageTotalTimeout,
+    MediaPreviewKind.audio => _kSaveAudioTotalTimeout,
+    MediaPreviewKind.video => _kSaveVideoTotalTimeout,
+  };
+
+  Future<void> _downloadNetworkFile(Uri uri, File destination) async {
+    final scheme = uri.scheme.toLowerCase();
+    if ((scheme != 'http' && scheme != 'https') || uri.host.isEmpty) {
+      throw const FormatException('仅支持有效的 HTTP(S) 媒体地址。');
+    }
+    final deadline = MonotonicDeadline(
+      _saveTotalTimeout,
+      timeoutMessage: '媒体文件保存超过总时限。',
+    );
+    final client = SystemProxyResolver.instance.createRawHttpClient(
+      connectionTimeout: deadline.limit(_kNetworkTimeout),
+    );
+    try {
+      final request = await client
+          .getUrl(uri)
+          .timeout(deadline.limit(_kNetworkTimeout));
+      final response = await request.close().timeout(
+        deadline.limit(_kNetworkTimeout),
+      );
+      var consumptionStarted = false;
+      try {
+        if (isHttpFailureStatus(response.statusCode)) {
+          throw HttpException('媒体下载失败：HTTP ${response.statusCode}。', uri: uri);
+        }
+        if (!matchesExpectedContentType(
+          response.headers.contentType,
+          expectedPrimaryType: widget.kind.name,
+        )) {
+          throw HttpException(
+            '媒体响应类型不符合预期：${response.headers.contentType?.mimeType ?? '未知'}。',
+            uri: uri,
+          );
+        }
+        if (response.contentLength > _saveMaxBytes) {
+          throw FileSystemException('媒体文件超过保存容量上限。', destination.path);
+        }
+        consumptionStarted = true;
+        final remaining = deadline.remaining();
+        final stream = limitByteStream(
+          response,
+          maxBytes: _saveMaxBytes,
+          idleTimeout: deadline.limit(_kSaveNetworkIdleTimeout),
+          totalTimeout: remaining,
+        );
+        await writeByteStreamFileAtomically(
+          destination,
+          stream,
+          maxBytes: _saveMaxBytes,
+          idleTimeout: deadline.limit(_kSaveNetworkIdleTimeout),
+          totalTimeout: deadline.remaining(),
+        );
+      } catch (_) {
+        if (!consumptionStarted) await cancelByteStream(response);
+        rethrow;
+      }
+    } finally {
+      deadline.stop();
+      client.close(force: true);
+    }
+  }
+
   Future<void> _copyToClipboard(BuildContext context) async {
-    if (_copying) return;
+    if (_copying || _saving) return;
     setState(() => _copying = true);
     final l10n = AppLocalizations.of(context)!;
     try {
       if (widget.kind == MediaPreviewKind.image) {
         final copiedImageData = await _copyImageSource();
         if (!context.mounted) return;
-        _showCopySnack(
+        _showMediaSnack(
           context,
           message: copiedImageData
               ? l10n.mediaPreviewImageCopied
@@ -459,7 +691,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       if (filePath != null) {
         final ok = await _copyFilePathToClipboard(filePath);
         if (!context.mounted) return;
-        _showCopySnack(
+        _showMediaSnack(
           context,
           message: ok
               ? l10n.mediaPreviewMediaFileCopied
@@ -471,7 +703,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       if (url != null) {
         await setOpenHandClipboardText(url, timeout: _kClipboardTimeout);
         if (!context.mounted) return;
-        _showCopySnack(context, message: l10n.mediaPreviewMediaUrlCopied);
+        _showMediaSnack(context, message: l10n.mediaPreviewMediaUrlCopied);
         return;
       }
       final bytes = widget.bytes;
@@ -479,7 +711,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
         final tempPath = await _writeBytesToClipboardTempFile(bytes);
         final ok = await _copyFilePathToClipboard(tempPath);
         if (!context.mounted) return;
-        _showCopySnack(
+        _showMediaSnack(
           context,
           message: ok
               ? l10n.mediaPreviewMediaFileCopied
@@ -495,7 +727,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
         try {
           await setOpenHandClipboardText(url, timeout: _kClipboardTimeout);
           if (!context.mounted) return;
-          _showCopySnack(
+          _showMediaSnack(
             context,
             message: l10n.mediaPreviewDataCopyFailedUrlCopied,
           );
@@ -522,7 +754,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
           ja: 'メディアをコピーできませんでした。しばらくしてから再試行してください。',
         ),
       );
-      _showCopySnack(
+      _showMediaSnack(
         context,
         message: l10n.mediaPreviewCopyFailed(detail),
         isError: true,
@@ -635,7 +867,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
     return file.path;
   }
 
-  void _showCopySnack(
+  void _showMediaSnack(
     BuildContext context, {
     required String message,
     bool isError = false,
