@@ -3588,7 +3588,7 @@ class DingTalkMessageGatewayService {
         map['markdown'];
     if (value is String) {
       final raw = value.trim();
-      final emotionContent = normalizeDingTalkMessageEmotions(raw);
+      final normalizedContent = normalizeDingTalkMessageContent(raw);
       if (raw.startsWith('{') || raw.startsWith('[')) {
         try {
           final decoded = jsonDecode(raw);
@@ -3610,7 +3610,7 @@ class DingTalkMessageGatewayService {
           // 非 JSON 的方括号文本继续按普通消息处理。
         }
       }
-      return emotionContent;
+      return normalizedContent;
     }
     if (value is Map) {
       final nested = _asMap(value);
@@ -3626,7 +3626,7 @@ class DingTalkMessageGatewayService {
       ]) {
         final candidate = nested[key];
         if (candidate is String && candidate.trim().isNotEmpty) {
-          return normalizeDingTalkMessageEmotions(candidate);
+          return normalizeDingTalkMessageContent(candidate);
         }
       }
       if (depth < 4) return _content(nested, depth: depth + 1);

@@ -2,6 +2,53 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/message_gateway/model/dingtalk_message_gateway.dart';
 
 void main() {
+  group('DWS 链接投影', () {
+    const link =
+        'https://op.yukework.com/static/odin/index.html#/cloud/flow/common_detail?id=26550971';
+
+    test('移除与正文重复的 url 和 uri 字段', () {
+      expect(normalizeDingTalkMessageContent('$link url: $link'), link);
+      expect(normalizeDingTalkMessageContent('$link\nURI： $link'), link);
+    });
+
+    test('保留单链接和普通 uri 文本', () {
+      expect(normalizeDingTalkMessageContent(link), link);
+      expect(
+        normalizeDingTalkMessageContent('接口地址 uri: $link'),
+        '接口地址 uri: $link',
+      );
+      expect(
+        normalizeDingTalkMessageContent('$link url: https://example.com'),
+        '$link url: https://example.com',
+      );
+      expect(
+        normalizeDingTalkMessageContent('$link url: $link 请查看'),
+        '$link url: $link 请查看',
+      );
+    });
+
+    test('链接投影与原始链接使用相同的消息比较值', () {
+      expect(
+        normalizeDingTalkMessageContentForComparison('$link url: $link'),
+        normalizeDingTalkMessageContentForComparison(link),
+      );
+    });
+
+    test('旧缓存反序列化后恢复原始链接', () {
+      final message = DingTalkGatewayMessage.fromJson(<String, Object?>{
+        'id': 'link-message-id',
+        'conversation_id': 'conversation-id',
+        'conversation_type': 'group',
+        'role': 'user',
+        'content': '$link uri: $link',
+        'created_at': '2026-08-19T18:15:43.000',
+      });
+
+      expect(message.content, link);
+      expect(message.media, isEmpty);
+    });
+  });
+
   group('DWS 文件投影', () {
     const fileName = 'odin-digital-employee-redesign-demo(2).html';
     const fileId = 'NDoBb60VLQXxjZpaHaq50nwxJlemrZQ3';

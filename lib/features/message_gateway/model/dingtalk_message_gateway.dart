@@ -20,10 +20,22 @@ final RegExp _dingtalkInvisibleTextPattern = RegExp(
 final RegExp _dingtalkWhitespacePattern = RegExp(
   r'[\s\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]+',
 );
+final RegExp _dingtalkDuplicatedLinkProjectionPattern = RegExp(
+  r'^(https?://\S+)\s+(?:url|uri)\s*[:：]\s*(https?://\S+)$',
+  caseSensitive: false,
+);
+
+String _removeDingTalkDuplicatedLinkProjection(Object? value) {
+  final text = _normalizedDingTalkString(value);
+  final match = _dingtalkDuplicatedLinkProjectionPattern.firstMatch(text);
+  if (match == null) return text;
+  final content = match.group(1)!;
+  return content == match.group(2) ? content : text;
+}
 
 /// 生成钉钉消息正文的比较值，消除平台回流时产生的换行和不可见字符差异。
 String normalizeDingTalkMessageContentForComparison(Object? value) =>
-    _normalizedDingTalkString(value)
+    _removeDingTalkDuplicatedLinkProjection(value)
         .replaceAll(_dingtalkInvisibleTextPattern, '')
         .replaceAll(_dingtalkWhitespacePattern, ' ')
         .trim();
@@ -260,6 +272,12 @@ String normalizeDingTalkMessageEmotions(Object? value) {
     return _dingtalkReactionEmojiMap[key] ?? match.group(0)!;
   });
 }
+
+/// 清理 DWS 生成的消息投影字段，并统一正文中的钉钉表情标记。
+String normalizeDingTalkMessageContent(Object? value) =>
+    normalizeDingTalkMessageEmotions(
+      _removeDingTalkDuplicatedLinkProjection(value),
+    );
 
 /// 将钉钉表情名称转换为标准 Emoji，未知名称保留为短文本兜底。
 String normalizeDingTalkReaction(Object? value) {
@@ -1248,7 +1266,7 @@ class DingTalkForwardedMessage {
     return DingTalkForwardedMessage(
       id: id,
       content: projection == null
-          ? normalizeDingTalkMessageEmotions(rawContent)
+          ? normalizeDingTalkMessageContent(rawContent)
           : media.map((item) => '[${item.displayName}]').join(' '),
       createdAt: createdAt,
       senderName: _normalizedDingTalkString(json['sender_name']),
@@ -1438,7 +1456,7 @@ class DingTalkGatewayMessage {
         (rawContent.trim().toLowerCase() == '[null]' || projection != null) &&
             media.isNotEmpty
         ? media.map((item) => '[${item.displayName}]').join(' ')
-        : normalizeDingTalkMessageEmotions(rawContent);
+        : normalizeDingTalkMessageContent(rawContent);
     return DingTalkGatewayMessage(
       id: id,
       conversationId: conversationId,
