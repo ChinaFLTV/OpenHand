@@ -19149,8 +19149,9 @@ class _DingTalkFileMediaTileState extends State<_DingTalkFileMediaTile> {
         : failed
         ? '保存失败，请重试'
         : '选择位置并保存';
-    return Tooltip(
-      message: '${widget.media.displayName} · $statusLabel',
+    return Semantics(
+      container: true,
+      label: '${widget.media.displayName}，$statusLabel',
       child: AnimatedContainer(
         duration: openHandMotionDuration(context, kOpenHandMotion180),
         curve: kOpenHandSwitchInCurve,
@@ -19251,29 +19252,27 @@ class _DingTalkFileMediaTileState extends State<_DingTalkFileMediaTile> {
                     icon: const Icon(Icons.folder_open_rounded, size: 20),
                   ),
                 ),
-              if (available) const SizedBox(width: 4),
-              MicroPressFeedback(
-                enabled: !_saving && widget.onSaveFile != null,
-                scale: 0.9,
-                child: IconButton(
-                  tooltip: available ? '另存文件' : '下载并保存文件',
-                  onPressed: _saving || widget.onSaveFile == null
-                      ? null
-                      : () => unawaited(_save()),
-                  icon: _saving
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Icon(
-                          available
-                              ? Icons.save_as_rounded
-                              : Icons.download_rounded,
-                          size: 20,
-                          color: colors.primary,
-                        ),
+              if (!available)
+                MicroPressFeedback(
+                  enabled: !_saving && widget.onSaveFile != null,
+                  scale: 0.9,
+                  child: IconButton(
+                    tooltip: '下载并保存文件',
+                    onPressed: _saving || widget.onSaveFile == null
+                        ? null
+                        : () => unawaited(_save()),
+                    icon: _saving
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(
+                            Icons.download_rounded,
+                            size: 20,
+                            color: colors.primary,
+                          ),
+                  ),
                 ),
-              ),
               const SizedBox(width: 8),
             ],
           ),
