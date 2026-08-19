@@ -373,6 +373,41 @@ String normalizeDingTalkResourceId(Object? value) {
   return text;
 }
 
+const String _dwsFileProjectionPrefix = '[文件] ';
+const String _dwsFileProjectionSuffix = ' 注意：如需下载使用dws drive download命令下载';
+final RegExp _dwsFileProjectionIdSeparator = RegExp(
+  r'\sfileId\s*[:：]\s*',
+  caseSensitive: false,
+);
+
+/// 解析 DWS 消息列表返回的文件投影文本，仅接受完整固定格式，避免误判普通聊天内容。
+({String name, String resourceId})? parseDingTalkDwsFileProjection(
+  Object? value,
+) {
+  final text = normalizeDingTalkMessageContentForComparison(value);
+  if (!text.startsWith(_dwsFileProjectionPrefix) ||
+      !text.endsWith(_dwsFileProjectionSuffix)) {
+    return null;
+  }
+  final body = text.substring(
+    _dwsFileProjectionPrefix.length,
+    text.length - _dwsFileProjectionSuffix.length,
+  );
+  final separators = _dwsFileProjectionIdSeparator.allMatches(body).toList();
+  if (separators.length != 1) return null;
+  final separator = separators.single;
+  final name = body.substring(0, separator.start).trim();
+  final resourceId = normalizeDingTalkResourceId(body.substring(separator.end));
+  if (name.isEmpty ||
+      name.length > 1024 ||
+      resourceId.isEmpty ||
+      resourceId.length > 1024 ||
+      resourceId.contains(RegExp(r'\s'))) {
+    return null;
+  }
+  return (name: name, resourceId: resourceId);
+}
+
 /// 判断资源标识是否只是普通链接的查询参数，而不是媒体消息资源。
 bool isDingTalkResourceIdInUrlQuery(
   Object? value,
@@ -1195,13 +1230,30 @@ class DingTalkForwardedMessage {
     if (createdAt == null) {
       throw const FormatException('钉钉转发聊天记录时间不完整。');
     }
+    final id = normalizeDingTalkMessageId(json['id']);
+    final rawContent = '${json['content'] ?? ''}';
+    final projection = parseDingTalkDwsFileProjection(rawContent);
+    final storedMedia = _dingTalkGatewayMediaList(json['media']);
+    final media = storedMedia.isNotEmpty || projection == null
+        ? storedMedia
+        : <DingTalkGatewayMedia>[
+            DingTalkGatewayMedia(
+              resourceId: projection.resourceId,
+              messageId: id,
+              resourceType: DingTalkMediaResourceType.fileId,
+              kind: DingTalkMediaKindX.fromFileName(projection.name),
+              name: projection.name,
+            ),
+          ];
     return DingTalkForwardedMessage(
-      id: normalizeDingTalkMessageId(json['id']),
-      content: normalizeDingTalkMessageEmotions(json['content']),
+      id: id,
+      content: projection == null
+          ? normalizeDingTalkMessageEmotions(rawContent)
+          : media.map((item) => '[${item.displayName}]').join(' '),
       createdAt: createdAt,
       senderName: _normalizedDingTalkString(json['sender_name']),
       senderId: _normalizedDingTalkString(json['sender_id']),
-      media: _dingTalkGatewayMediaList(json['media']),
+      media: media,
       ignoredForAiContext: boolFromValue(json['ignored_for_ai_context']),
     );
   }
@@ -1339,7 +1391,8 @@ class DingTalkGatewayMessage {
               .whereType<DingTalkMessageEditRecord>()
               .toList(growable: false)
         : const <DingTalkMessageEditRecord>[];
-    final media = _dingTalkGatewayMediaList(json['media'])
+    final projection = parseDingTalkDwsFileProjection(rawContent);
+    final storedMedia = _dingTalkGatewayMediaList(json['media'])
         .where(
           (item) => !isDingTalkResourceIdInUrlQuery(
             rawContent,
@@ -1351,11 +1404,39 @@ class DingTalkGatewayMessage {
     final forwardedMessages = _dingTalkForwardedMessageList(
       json['forwarded_messages'],
     );
+    final media = <DingTalkGatewayMedia>[
+      if (storedMedia.isNotEmpty)
+        ...storedMedia
+      else if (projection != null)
+        DingTalkGatewayMedia(
+          resourceId: projection.resourceId,
+          messageId: id,
+          conversationId: conversationId,
+          resourceType: DingTalkMediaResourceType.fileId,
+          kind: DingTalkMediaKindX.fromFileName(projection.name),
+          name: projection.name,
+        ),
+    ];
+    final seenMedia = media
+        .map((item) => '${item.resourceType.name}:${item.resourceId}')
+        .toSet();
+    for (final item in forwardedMessages.expand((value) => value.media)) {
+      if (media.length >= 12 ||
+          !seenMedia.add('${item.resourceType.name}:${item.resourceId}')) {
+        continue;
+      }
+      media.add(
+        item.conversationId.trim().isEmpty
+            ? item.copyWith(conversationId: conversationId)
+            : item,
+      );
+    }
     final storedForwardedCount = int.tryParse(
       '${json['forwarded_message_count'] ?? ''}',
     );
     final content =
-        rawContent.trim().toLowerCase() == '[null]' && media.isNotEmpty
+        (rawContent.trim().toLowerCase() == '[null]' || projection != null) &&
+            media.isNotEmpty
         ? media.map((item) => '[${item.displayName}]').join(' ')
         : normalizeDingTalkMessageEmotions(rawContent);
     return DingTalkGatewayMessage(

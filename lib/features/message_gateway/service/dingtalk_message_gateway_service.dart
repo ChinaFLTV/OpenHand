@@ -3689,6 +3689,21 @@ class DingTalkMessageGatewayService {
       if (depth > 6 || result.length >= 12 || value == null) return;
       if (value is String) {
         final raw = value.trim();
+        final fileProjection = parseDingTalkDwsFileProjection(raw);
+        if (fileProjection != null) {
+          addCandidate(
+            resourceId: fileProjection.resourceId,
+            resourceType: DingTalkMediaResourceType.fileId,
+            type: DingTalkMediaKind.file,
+            name: fileProjection.name,
+            mimeType: null,
+            size: null,
+            duration: null,
+            messageId: inheritedMessageId,
+            conversationId: inheritedConversationId,
+          );
+          return;
+        }
         if (raw.startsWith('{') || raw.startsWith('[')) {
           final decoded = _decodeJson(raw);
           if (decoded is Map || decoded is List) {
@@ -3919,7 +3934,8 @@ class DingTalkMessageGatewayService {
   bool _isMediaPlaceholder(String value) {
     final normalized = value.trim().toLowerCase();
     if (normalized.isEmpty) return false;
-    return normalized == 'null' ||
+    return parseDingTalkDwsFileProjection(value) != null ||
+        normalized == 'null' ||
         normalized == '[null]' ||
         (normalized.startsWith('[') && normalized.contains('消息')) ||
         normalized.contains('(mediaid=') ||

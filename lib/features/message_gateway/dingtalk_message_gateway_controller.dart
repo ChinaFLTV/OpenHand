@@ -1099,9 +1099,16 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       if (currentPath.isNotEmpty) {
         try {
           final file = File(currentPath);
-          if (await file.exists() && await file.length() > 0) {
-            media.add(item);
-            continue;
+          if (await file.exists()) {
+            final sizeBytes = await file.length();
+            if (sizeBytes > 0) {
+              final next = item.sizeBytes > 0
+                  ? item
+                  : item.copyWith(sizeBytes: sizeBytes);
+              media.add(next);
+              if (!identical(next, item)) changed = true;
+              continue;
+            }
           }
         } catch (_) {}
       }
@@ -1115,12 +1122,19 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         item,
         forceRetry: forceRetry,
       );
+      var sizeBytes = item.sizeBytes;
+      if (sizeBytes <= 0 && path != null && path.trim().isNotEmpty) {
+        try {
+          sizeBytes = await File(path).length();
+        } catch (_) {}
+      }
       final next = path == null || path.trim().isEmpty
           ? item.copyWith(localPath: '')
-          : item.copyWith(localPath: path);
+          : item.copyWith(localPath: path, sizeBytes: sizeBytes);
       media.add(next);
       if (next.localPath != sourceItem.localPath ||
-          next.resourceId != sourceItem.resourceId) {
+          next.resourceId != sourceItem.resourceId ||
+          next.sizeBytes != sourceItem.sizeBytes) {
         changed = true;
       }
     }

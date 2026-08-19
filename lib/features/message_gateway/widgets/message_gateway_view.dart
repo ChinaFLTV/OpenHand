@@ -36,6 +36,7 @@ import '../../../shared/ui/frame_coalesced_rebuild.dart';
 import '../../../shared/ui/image_editor_dialog.dart';
 import '../../../shared/ui/markdown_inline_code.dart';
 import '../../../shared/ui/media_preview_dialog.dart';
+import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
@@ -15702,11 +15703,9 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         !widget.mine &&
         widget.message.conversationType == DingTalkConversationType.group &&
         senderName.isNotEmpty;
-    final previewableMedia = widget.message.media
-        .where((item) => item.kind.isPreviewable)
-        .toList(growable: false);
+    final messageMedia = widget.message.media;
     final showText =
-        widget.message.isForwardedChatRecord || previewableMedia.isEmpty;
+        widget.message.isForwardedChatRecord || messageMedia.isEmpty;
     final effectiveContent = widget.translationVisible
         ? widget.translatedContent ?? widget.message.content
         : widget.message.content;
@@ -15802,7 +15801,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                                 ? 0.68
                                 : 1,
                             child: _DingTalkMediaRail(
-                              media: previewableMedia,
+                              media: messageMedia,
                               mine: widget.mine,
                               loading: widget.mediaLoading,
                               failed: widget.mediaFailed,
@@ -18899,6 +18898,141 @@ class _DingTalkMediaTile extends StatelessWidget {
                 fit: BoxFit.cover,
                 cacheWidth: 380,
                 errorBuilder: (_, _, _) => _missingContent(context),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    if (media.kind == DingTalkMediaKind.file) {
+      final statusLabel = available
+          ? media.sizeBytes > 0
+                ? formatByteSize(media.sizeBytes)
+                : '文件已下载'
+          : loading
+          ? '正在下载文件…'
+          : failed
+          ? '下载失败，点击重试'
+          : '点击下载文件';
+      final actionIcon = loading
+          ? const SizedBox.square(
+              key: ValueKey<String>('loading'),
+              dimension: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(
+              key: ValueKey<String>(
+                available
+                    ? 'open'
+                    : failed
+                    ? 'retry'
+                    : 'download',
+              ),
+              available
+                  ? Icons.open_in_new_rounded
+                  : failed
+                  ? Icons.refresh_rounded
+                  : Icons.download_rounded,
+              size: 20,
+              color: failed ? colors.error : colors.primary,
+            );
+      return Tooltip(
+        message: '${media.displayName} · $statusLabel',
+        child: Semantics(
+          button: true,
+          label: '${media.displayName}，$statusLabel',
+          child: MicroPressFeedback(
+            enabled: !loading,
+            scale: 0.98,
+            child: AnimatedContainer(
+              duration: openHandMotionDuration(context, kOpenHandMotion180),
+              curve: kOpenHandSwitchInCurve,
+              constraints: const BoxConstraints(maxWidth: 360, minHeight: 62),
+              decoration: BoxDecoration(
+                color: available
+                    ? colors.surfaceContainerHighest
+                    : colors.surfaceContainerLow,
+                borderRadius: kOpenHandBorderRadius14,
+                border: Border.all(
+                  color: failed
+                      ? colors.error.withValues(alpha: 0.48)
+                      : colors.outlineVariant.withValues(alpha: 0.72),
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: loading ? null : () => unawaited(_open(context)),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 9, 12, 9),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: colors.primaryContainer,
+                            borderRadius: kOpenHandBorderRadius10,
+                          ),
+                          child: Icon(
+                            _dingtalkAttachmentIcon(media.displayName),
+                            size: 22,
+                            color: colors.onPrimaryContainer,
+                          ),
+                        ),
+                        kOpenHandHGap10,
+                        Flexible(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                media.displayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.labelLarge
+                                    ?.copyWith(
+                                      color: colors.onSurface,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                              kOpenHandGap2,
+                              AnimatedSwitcher(
+                                duration: openHandMotionDuration(
+                                  context,
+                                  kOpenHandMotion180,
+                                ),
+                                child: Text(
+                                  statusLabel,
+                                  key: ValueKey<String>(statusLabel),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: failed
+                                            ? colors.error
+                                            : colors.onSurfaceVariant,
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        kOpenHandHGap12,
+                        AnimatedSwitcher(
+                          duration: openHandMotionDuration(
+                            context,
+                            kOpenHandMotion180,
+                          ),
+                          child: actionIcon,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
