@@ -162,7 +162,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     _surfaceFocus.addListener(_onSurfaceFocusChanged);
     _inputRepairParticipantToken = InputRepairService.instance
         .registerParticipant(
-          debugLabel: 'web_reverse_browser_surface',
+          debugLabel: 'Web 逆向浏览器画布',
           onRepair: (_) async {
             _detachImeConnection();
             _lastImeValue = TextEditingValue.empty;

@@ -16,6 +16,17 @@ class ResponseBodySizeLimitError extends Error {
   }
 }
 
+export function cancelResponseBodyQuietly(
+  response: Response,
+  reason?: unknown,
+): void {
+  try {
+    void response.body?.cancel(reason).catch(() => {});
+  } catch {
+    // 响应流可能已锁定或关闭，清理失败不覆盖原始错误。
+  }
+}
+
 function abortReason(signal: AbortSignal): unknown {
   return signal.reason ?? new DOMException('操作已取消。', 'AbortError');
 }
@@ -48,8 +59,9 @@ async function consumeResponseBodyBounded(
   }
   const declaredBytes = declaredResponseBytes(response);
   if (declaredBytes != null && declaredBytes > maxBytes) {
-    void response.body?.cancel().catch(() => {});
-    throw new ResponseBodySizeLimitError(maxBytes);
+    const error = new ResponseBodySizeLimitError(maxBytes);
+    cancelResponseBodyQuietly(response, error);
+    throw error;
   }
 
   const body = response.body;

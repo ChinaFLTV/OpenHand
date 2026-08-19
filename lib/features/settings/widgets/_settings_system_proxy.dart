@@ -660,44 +660,46 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
   }
 
   String _formatRepairReport(InputRepairReport report) {
+    String resultLabel(InputRepairResult result) => switch (result) {
+      InputRepairResult.success => '成功',
+      InputRepairResult.partialSuccess => '部分成功',
+      InputRepairResult.failure => '失败',
+    };
+    String statusLabel(InputRepairStepStatus status) => switch (status) {
+      InputRepairStepStatus.success => '成功',
+      InputRepairStepStatus.warning => '警告',
+      InputRepairStepStatus.failure => '失败',
+    };
+    String stageLabel(InputRepairStage stage) => switch (stage) {
+      InputRepairStage.resetParticipantsBefore => '重置前通知参与者',
+      InputRepairStage.killTrackedChildren => '回收已跟踪子进程',
+      InputRepairStage.killDirectChildren => '回收直接子进程',
+      InputRepairStage.clearTextInputClient => '清理文本输入客户端',
+      InputRepairStage.hideTextInput => '隐藏文本输入',
+      InputRepairStage.finishAutofillContext => '结束自动填充上下文',
+      InputRepairStage.requestExistingInputState => '请求现有输入状态',
+      InputRepairStage.focusSentinel => '聚焦修复哨兵',
+      InputRepairStage.restoreSafeFocus => '恢复安全焦点',
+      InputRepairStage.resetParticipantsAfter => '重置后通知参与者',
+    };
+
     final buffer = StringBuffer()
-      ..writeln('result=${report.result.name}')
-      ..writeln('tracked_children_before=${report.trackedChildrenBefore}')
-      ..writeln('direct_children_killed=${report.directChildrenKilled}')
-      ..writeln('focus_before=${report.primaryFocusBeforeLabel ?? '-'}')
-      ..writeln('focus_after=${report.primaryFocusAfterLabel ?? '-'}')
-      ..writeln('restored_focus=${report.restoredFocusLabel ?? '-'}');
+      ..writeln('结果：${resultLabel(report.result)}')
+      ..writeln('修复前已跟踪子进程：${report.trackedChildrenBefore}')
+      ..writeln('已回收直接子进程：${report.directChildrenKilled}')
+      ..writeln('修复前焦点：${report.primaryFocusBeforeLabel ?? '-'}')
+      ..writeln('修复后焦点：${report.primaryFocusAfterLabel ?? '-'}')
+      ..writeln('已恢复焦点：${report.restoredFocusLabel ?? '-'}');
     for (final step in report.steps) {
       buffer.writeln(
-        '${step.stage.name}: ${step.status.name}${step.message == null || step.message!.isEmpty ? '' : ' (${step.message})'}',
+        '${stageLabel(step.stage)}：${statusLabel(step.status)}${step.message == null || step.message!.isEmpty ? '' : '（${step.message}）'}',
       );
     }
     return buffer.toString().trimRight();
   }
 
-  /// 输入修复流水线（强化版），按因果链顺序执行：
-  ///
-  ///   1) **回收已登记子进程** —— [killAllTrackedChildren] 把
-  ///      [_trackedChildren] 里登记的外部进程全部 SIGTERM → SIGKILL。
-  ///   2) **回收未登记子进程** —— [killAllDirectChildren] 用 pgrep/pkill
-  ///      平台原语扫出本进程下所有直接子进程，把通过 `Process.run` 裸调用 /
-  ///      shell 间接拉起的 osascript / mitmdump / npm / node 等遗孤全部
-  ///      SIGKILL，补充第 1 步触达不到的漏网之鱼。
-  ///   3) **保存焦点现场 + 解除当前焦点** —— 记下当前聚焦节点，然后释放
-  ///      platform input client 占用，为后续 IMK 失活扫清障碍。
-  ///   4) **`TextInput.clearClient`** —— 让 Flutter engine 把当前的
-  ///      attached TextInputClient 断开（macOS 侧触发
-  ///      `[FlutterTextInputView resignFirstResponder]` → IMK
-  ///      `IMKInputSession deactivate`）。
-  ///   5) **`TextInput.hide`** —— 收起 IMK candidate window。
-  ///   6) **`TextInput.finishAutofillContext(false)`** —— 清空自动填充上下文。
-  ///   7) **`TextInput.requestExistingInputState`** —— 验证 engine 侧
-  ///      TextInput 通道是否恢复可用，同时让 platform 层重新建立状态机。
-  ///   8) **post-frame 焦点重连** —— 在下一帧用一个临时 FocusNode 触发
-  ///      engine 的 TextInput.attach → detach 全周期，迫使 platform 把
-  ///      `[FlutterTextInputView becomeFirstResponder]` → IMK
-  ///      `IMKInputSession activate` 整条链路重新走通。最后把焦点交还给
-  ///      此前保存的节点（如果有），用户无需手动重新点击输入框。
+  /// 依次通知参与者、回收子进程、重置平台输入通道并恢复安全焦点。
+  /// 单步异常写入报告，后续可恢复步骤继续执行。
   Future<void> _runRepair(BuildContext context) async {
     if (_repairing) return;
     final sentinelFocusNode = InputRepairSentinelScope.maybeOf(context);

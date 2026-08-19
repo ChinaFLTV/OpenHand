@@ -6,7 +6,10 @@ import { clearAuthStorage, ensureDeviceId, readToken } from '../state/storage';
 import { isAbortError } from '../shared/util/errors';
 import { normalizeDurationMs } from '../shared/util/number';
 import { clientEnvironmentHeaders } from '../utils/client_env';
-import { readResponseTextBounded } from '../utils/bounded_response';
+import {
+  cancelResponseBodyQuietly,
+  readResponseTextBounded,
+} from '../utils/bounded_response';
 import {
   createTimedAbortController,
   OperationTimeoutError,
@@ -50,13 +53,19 @@ export async function throwIfApiResponseFailed(
 ): Promise<void> {
   if (response.status === 401) {
     clearAuthStorage();
+    cancelResponseBodyQuietly(response);
     throw new UnauthorizedError(null);
   }
   if (!response.ok) {
-    const text = await readResponseTextBounded(response, {
-      maxBytes: MAX_API_ERROR_RESPONSE_BYTES,
-      signal,
-    }).catch(() => '');
+    let text = '';
+    try {
+      text = await readResponseTextBounded(response, {
+        maxBytes: MAX_API_ERROR_RESPONSE_BYTES,
+        signal,
+      });
+    } catch (error) {
+      if (signal?.aborted || isAbortError(error)) throw error;
+    }
     throw new ApiError(response.status, text || null);
   }
 }

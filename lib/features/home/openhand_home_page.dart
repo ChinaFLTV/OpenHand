@@ -1002,7 +1002,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
     _inputRepairParticipantToken = InputRepairService.instance
         .registerParticipant(
-          debugLabel: 'home',
+          debugLabel: '首页',
           onRepair: (phase) async {
             _composerFocusNode.unfocus();
             _globalShortcutFocusNode.unfocus();

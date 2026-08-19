@@ -184,6 +184,8 @@ class InputRepairService {
 
   static final InputRepairService instance = InputRepairService._();
   static const Duration _focusSettleDelay = Duration(milliseconds: 60);
+  static const Duration _participantTimeout = Duration(seconds: 2);
+  static const Duration _platformChannelTimeout = Duration(seconds: 2);
 
   final Map<Object, _InputRepairParticipant> _participants =
       <Object, _InputRepairParticipant>{};
@@ -239,23 +241,40 @@ class InputRepairService {
     var directChildrenKilled = 0;
 
     Future<void> runParticipants(InputRepairParticipantPhase phase) async {
-      var sawWarning = false;
-      for (final participant in _participants.values) {
+      var phaseStatus = InputRepairStepStatus.success;
+      final details = <String>[];
+      final participants = _participants.values.toList(growable: false);
+      for (final participant in participants) {
         try {
-          final result = await participant.onRepair(phase);
-          if (result.status == InputRepairStepStatus.warning) {
-            sawWarning = true;
-          }
+          final result = await participant
+              .onRepair(phase)
+              .timeout(
+                _participantTimeout,
+                onTimeout: () =>
+                    throw TimeoutException('输入修复参与者响应超时。', _participantTimeout),
+              );
           if (result.status == InputRepairStepStatus.failure) {
-            sawWarning = true;
+            phaseStatus = InputRepairStepStatus.failure;
+          } else if (result.status == InputRepairStepStatus.warning &&
+              phaseStatus == InputRepairStepStatus.success) {
+            phaseStatus = InputRepairStepStatus.warning;
+          }
+          final message = nullIfBlank(result.message);
+          if (message != null) {
+            details.add('${participant.debugLabel}: $message');
           }
         } catch (error, stack) {
-          sawWarning = true;
+          if (phaseStatus == InputRepairStepStatus.success) {
+            phaseStatus = InputRepairStepStatus.warning;
+          }
           silentLog(
             'input_repair',
             '修复参与者 ${participant.debugLabel}',
             error,
             stack,
+          );
+          details.add(
+            '${participant.debugLabel}: ${userFailureMessage(error, fallback: '执行失败。')}',
           );
         }
       }
@@ -264,11 +283,40 @@ class InputRepairService {
           stage: phase == InputRepairParticipantPhase.beforeTextInputReset
               ? InputRepairStage.resetParticipantsBefore
               : InputRepairStage.resetParticipantsAfter,
-          status: sawWarning
-              ? InputRepairStepStatus.warning
-              : InputRepairStepStatus.success,
+          status: phaseStatus,
+          message: details.isEmpty ? null : details.join('; '),
         ),
       );
+    }
+
+    Future<void> runPlatformStep({
+      required InputRepairStage stage,
+      required String action,
+      required String failureMessage,
+      required Future<void> Function() operation,
+    }) async {
+      try {
+        await operation().timeout(
+          _platformChannelTimeout,
+          onTimeout: () =>
+              throw TimeoutException('$action超时。', _platformChannelTimeout),
+        );
+        steps.add(
+          InputRepairStepReport(
+            stage: stage,
+            status: InputRepairStepStatus.success,
+          ),
+        );
+      } catch (error, stack) {
+        silentLog('input_repair', action, error, stack);
+        steps.add(
+          InputRepairStepReport(
+            stage: stage,
+            status: InputRepairStepStatus.warning,
+            message: userFailureMessage(error, fallback: failureMessage),
+          ),
+        );
+      }
     }
 
     try {
@@ -292,88 +340,38 @@ class InputRepairService {
       );
 
       savedFocus?.unfocus();
-      try {
-        await SystemChannels.textInput.invokeMethod<void>(
+      await runPlatformStep(
+        stage: InputRepairStage.clearTextInputClient,
+        action: '清理文本输入客户端',
+        failureMessage: '清理文本输入客户端失败。',
+        operation: () => SystemChannels.textInput.invokeMethod<void>(
           'TextInput.clearClient',
-        );
-        steps.add(
-          const InputRepairStepReport(
-            stage: InputRepairStage.clearTextInputClient,
-            status: InputRepairStepStatus.success,
-          ),
-        );
-      } catch (error, stack) {
-        silentLog('input_repair', '清理文本输入客户端', error, stack);
-        steps.add(
-          InputRepairStepReport(
-            stage: InputRepairStage.clearTextInputClient,
-            status: InputRepairStepStatus.warning,
-            message: userFailureMessage(error, fallback: '清理文本输入客户端失败。'),
-          ),
-        );
-      }
-
-      try {
-        await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
-        steps.add(
-          const InputRepairStepReport(
-            stage: InputRepairStage.hideTextInput,
-            status: InputRepairStepStatus.success,
-          ),
-        );
-      } catch (error, stack) {
-        silentLog('input_repair', '隐藏文本输入', error, stack);
-        steps.add(
-          InputRepairStepReport(
-            stage: InputRepairStage.hideTextInput,
-            status: InputRepairStepStatus.warning,
-            message: userFailureMessage(error, fallback: '隐藏文本输入失败。'),
-          ),
-        );
-      }
-
-      try {
-        await SystemChannels.textInput.invokeMethod<void>(
+        ),
+      );
+      await runPlatformStep(
+        stage: InputRepairStage.hideTextInput,
+        action: '隐藏文本输入',
+        failureMessage: '隐藏文本输入失败。',
+        operation: () =>
+            SystemChannels.textInput.invokeMethod<void>('TextInput.hide'),
+      );
+      await runPlatformStep(
+        stage: InputRepairStage.finishAutofillContext,
+        action: '结束自动填充上下文',
+        failureMessage: '结束自动填充失败。',
+        operation: () => SystemChannels.textInput.invokeMethod<void>(
           'TextInput.finishAutofillContext',
           false,
-        );
-        steps.add(
-          const InputRepairStepReport(
-            stage: InputRepairStage.finishAutofillContext,
-            status: InputRepairStepStatus.success,
-          ),
-        );
-      } catch (error, stack) {
-        silentLog('input_repair', '结束自动填充上下文', error, stack);
-        steps.add(
-          InputRepairStepReport(
-            stage: InputRepairStage.finishAutofillContext,
-            status: InputRepairStepStatus.warning,
-            message: userFailureMessage(error, fallback: '结束自动填充失败。'),
-          ),
-        );
-      }
-
-      try {
-        await SystemChannels.textInput.invokeMethod<void>(
+        ),
+      );
+      await runPlatformStep(
+        stage: InputRepairStage.requestExistingInputState,
+        action: '请求现有输入状态',
+        failureMessage: '恢复文本输入状态失败。',
+        operation: () => SystemChannels.textInput.invokeMethod<void>(
           'TextInput.requestExistingInputState',
-        );
-        steps.add(
-          const InputRepairStepReport(
-            stage: InputRepairStage.requestExistingInputState,
-            status: InputRepairStepStatus.success,
-          ),
-        );
-      } catch (error, stack) {
-        silentLog('input_repair', '请求现有输入状态', error, stack);
-        steps.add(
-          InputRepairStepReport(
-            stage: InputRepairStage.requestExistingInputState,
-            status: InputRepairStepStatus.warning,
-            message: userFailureMessage(error, fallback: '恢复文本输入状态失败。'),
-          ),
-        );
-      }
+        ),
+      );
 
       sentinelFocusNode.requestFocus();
       steps.add(
@@ -402,10 +400,10 @@ class InputRepairService {
         );
       } else {
         steps.add(
-          InputRepairStepReport(
+          const InputRepairStepReport(
             stage: InputRepairStage.restoreSafeFocus,
             status: InputRepairStepStatus.warning,
-            message: canRestore ? null : 'skip_unsafe_restore',
+            message: '已跳过不安全的焦点恢复。',
           ),
         );
       }
