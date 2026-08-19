@@ -19239,6 +19239,7 @@ class _DingTalkFileMediaTileState extends State<_DingTalkFileMediaTile> {
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
               if (available)
                 MicroPressFeedback(
                   scale: 0.9,
@@ -19250,6 +19251,7 @@ class _DingTalkFileMediaTileState extends State<_DingTalkFileMediaTile> {
                     icon: const Icon(Icons.folder_open_rounded, size: 20),
                   ),
                 ),
+              if (available) const SizedBox(width: 4),
               MicroPressFeedback(
                 enabled: !_saving && widget.onSaveFile != null,
                 scale: 0.9,
@@ -19258,31 +19260,21 @@ class _DingTalkFileMediaTileState extends State<_DingTalkFileMediaTile> {
                   onPressed: _saving || widget.onSaveFile == null
                       ? null
                       : () => unawaited(_save()),
-                  icon: AnimatedSwitcher(
-                    duration: openHandMotionDuration(
-                      context,
-                      kOpenHandMotion180,
-                    ),
-                    child: _saving
-                        ? const SizedBox.square(
-                            key: ValueKey<String>('saving'),
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Icon(
-                            key: ValueKey<String>(
-                              available ? 'save-as' : 'download',
-                            ),
-                            available
-                                ? Icons.save_as_rounded
-                                : Icons.download_rounded,
-                            size: 20,
-                            color: failed ? colors.error : colors.primary,
-                          ),
-                  ),
+                  icon: _saving
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(
+                          available
+                              ? Icons.save_as_rounded
+                              : Icons.download_rounded,
+                          size: 20,
+                          color: colors.primary,
+                        ),
                 ),
               ),
-              kOpenHandHGap4,
+              const SizedBox(width: 8),
             ],
           ),
         ),
