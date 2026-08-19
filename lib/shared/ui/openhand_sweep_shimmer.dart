@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import 'motion_preference.dart';
 
-const Duration _kOpenHandSweepShimmerDuration = Duration(milliseconds: 1350);
+const Duration _kOpenHandShimmerPeriod = Duration(milliseconds: 1350);
 
 class OpenHandSweepShimmer extends StatefulWidget {
   const OpenHandSweepShimmer({
     super.key,
     required this.child,
     required this.sweepColor,
-    this.duration = _kOpenHandSweepShimmerDuration,
+    this.duration = _kOpenHandShimmerPeriod,
     this.enabled = true,
     this.maskToChildAlpha = false,
   });
@@ -100,9 +100,6 @@ class _OpenHandSweepShimmerState extends State<OpenHandSweepShimmer>
   }
 }
 
-/// 骨架屏高光扫过一轮的周期。
-const Duration kOpenHandSkeletonShimmerPeriod = Duration(milliseconds: 1350);
-
 /// 骨架屏占位块：在容器底色上左右扫过一道高光。
 ///
 /// 与 [OpenHandSweepShimmer] 的区别在于这里本身就是占位块，而不是给已有内容
@@ -115,7 +112,7 @@ class OpenHandSkeletonShimmer extends StatefulWidget {
     this.height,
     this.expand = false,
     this.borderRadius = kOpenHandBorderRadius8,
-    this.period = kOpenHandSkeletonShimmerPeriod,
+    this.period = _kOpenHandShimmerPeriod,
     this.child,
   });
 

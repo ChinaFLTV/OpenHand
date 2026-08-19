@@ -4815,10 +4815,9 @@ class AiSessionController extends ChangeNotifier {
   }
 
   String _safeForkToolOutputStorageIdentifier(String raw) {
-    final normalized = raw
-        .trim()
-        .replaceAll(RegExp(r'[^A-Za-z0-9_.-]+'), '_')
-        .replaceAll(kRepeatedUnderscoresPattern, '_');
+    final normalized = collapseRepeatedUnderscores(
+      raw.trim().replaceAll(RegExp(r'[^A-Za-z0-9_.-]+'), '_'),
+    );
     if (normalized.isEmpty || normalized == '.' || normalized == '..') {
       return 'tool_result';
     }

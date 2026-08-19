@@ -2097,9 +2097,12 @@ class AiToolRuntimeService {
   }
 
   String _safeToolOutputStorageIdentifier(String raw, String fallback) {
-    final normalized = (nullIfBlank(raw) ?? '')
-        .replaceAll(_unsafeToolOutputStorageCharsPattern, '_')
-        .replaceAll(kRepeatedUnderscoresPattern, '_');
+    final normalized = collapseRepeatedUnderscores(
+      (nullIfBlank(raw) ?? '').replaceAll(
+        _unsafeToolOutputStorageCharsPattern,
+        '_',
+      ),
+    );
     final value = normalized.isEmpty ? fallback : normalized;
     return value.length <= 120 ? value : value.substring(0, 120);
   }

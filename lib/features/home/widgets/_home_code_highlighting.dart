@@ -3170,7 +3170,6 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       if (!Platform.isMacOS) {
         controller.setBackgroundColor(Colors.transparent);
       }
-      // 把 mermaid.js 内联到单文件 HTML，loadFile 一次性加载。
       final mermaidJs = await _loadMermaidJs();
       final themeColors = _computeMermaidThemeColors();
       // 关键：把 mermaid.js 内联到 HTML 里，走 loadFile 加载单文件。

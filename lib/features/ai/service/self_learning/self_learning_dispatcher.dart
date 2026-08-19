@@ -1,5 +1,3 @@
-library;
-
 import 'dart:async';
 
 import 'package:openhand/shared/util/text_normalization.dart';

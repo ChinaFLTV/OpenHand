@@ -178,7 +178,7 @@ String _sanitizePortableFileNamePart(
     sanitized = sanitized.replaceAll(kInlineWhitespacePattern, ' ').trim();
   }
   if (collapseReplacement) {
-    sanitized = sanitized.replaceAll(kRepeatedUnderscoresPattern, '_');
+    sanitized = collapseRepeatedUnderscores(sanitized);
   }
   if (trimBoundaryReplacement) {
     sanitized = sanitized.replaceAll(_boundaryReplacementPattern, '');

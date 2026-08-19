@@ -83,7 +83,6 @@ const double kOpenHandRadius20 = 20;
 const double kOpenHandRadius22 = 22;
 const double kOpenHandRadius24 = 24;
 const double kOpenHandRadius26 = 26;
-const double kOpenHandRadius28 = 28;
 const double kOpenHandRadius30 = 30;
 const double kOpenHandRadius32 = 32;
 
@@ -139,9 +138,6 @@ const BorderRadius kOpenHandBorderRadius24 = BorderRadius.all(
 );
 const BorderRadius kOpenHandBorderRadius26 = BorderRadius.all(
   Radius.circular(kOpenHandRadius26),
-);
-const BorderRadius kOpenHandBorderRadius28 = BorderRadius.all(
-  Radius.circular(kOpenHandRadius28),
 );
 const BorderRadius kOpenHandBorderRadius30 = BorderRadius.all(
   Radius.circular(kOpenHandRadius30),

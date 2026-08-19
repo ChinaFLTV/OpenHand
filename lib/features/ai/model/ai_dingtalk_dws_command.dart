@@ -5,10 +5,9 @@ String dingtalkDwsToolName(
   AiDingTalkDwsCommand command, {
   Set<String>? usedNames,
 }) {
-  final slug = command.cliPath
-      .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_')
-      .replaceAll(kRepeatedUnderscoresPattern, '_')
-      .replaceAll(RegExp(r'^_|_$'), '');
+  final slug = collapseRepeatedUnderscores(
+    command.cliPath.replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_'),
+  ).replaceAll(RegExp(r'^_|_$'), '');
   final base = 'DingTalkDws_${slug.isEmpty ? 'Command' : slug}';
   if (usedNames == null || usedNames.add(base)) return base;
   var suffix = 2;

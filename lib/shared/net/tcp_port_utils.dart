@@ -1,5 +1,3 @@
-library;
-
 import '../util/input_value_parsing.dart';
 
 const int kTcpPortMin = 1;

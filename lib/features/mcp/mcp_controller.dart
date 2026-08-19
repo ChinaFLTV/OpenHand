@@ -1522,12 +1522,9 @@ class McpController extends ChangeNotifier {
   }
 
   String _opsNameToken(String value) {
-    final normalized = value
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9_]+'), '_')
-        .replaceAll(kRepeatedUnderscoresPattern, '_')
-        .replaceAll(RegExp(r'^_|_$'), '');
+    final normalized = collapseRepeatedUnderscores(
+      value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]+'), '_'),
+    ).replaceAll(RegExp(r'^_|_$'), '');
     if (normalized.isEmpty) return 'item';
     return normalized.length <= 80 ? normalized : normalized.substring(0, 80);
   }

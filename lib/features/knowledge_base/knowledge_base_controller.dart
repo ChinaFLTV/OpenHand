@@ -312,10 +312,9 @@ class KnowledgeBaseController extends ChangeNotifier {
         'notes',
       ),
     );
-    final safeTitle = normalizedTitle
-        .replaceAll(RegExp(r'[^a-zA-Z0-9\u4e00-\u9fa5._-]+'), '_')
-        .replaceAll(kRepeatedUnderscoresPattern, '_')
-        .trim();
+    final safeTitle = collapseRepeatedUnderscores(
+      normalizedTitle.replaceAll(RegExp(r'[^a-zA-Z0-9\u4e00-\u9fa5._-]+'), '_'),
+    ).trim();
     final fileStem = safeTitle.isEmpty
         ? 'note'
         : safeTitle.length <= _knowledgeNoteFileStemMaxCharacters

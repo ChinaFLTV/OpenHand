@@ -1,15 +1,6 @@
 part of 'settings_view.dart';
 
-/// 这是一个独立的 [StatefulWidget]，自己持有 [DataCleanupService] 实例，
-/// 在 [State.initState] 中触发首次异步测算，避免阻塞 settings 页面构建。
-///
-/// 重要原则：
-/// - 任何"测算"和"清理"操作都通过 service 走 isolate / 异步路径；
-/// - 操作期间禁用对应按钮，避免重复触发；
-/// - 任何点击"清理"都会先弹出二次确认弹窗，弹窗使用 [showAnimatedDialog]
-///   以与全局"弹窗动画设置"保持一致；
-/// - 取消按钮与确认按钮均使用 [OpenHandDialogActionButton]，因此尺寸完全
-///   相同（参见 `kOpenHandDialogActionButtonWidth/Height`）。
+/// 异步测算数据占用，限制测算并发，并在清理前统一确认。
 class _DataCleanupSection extends StatefulWidget {
   const _DataCleanupSection();
 
@@ -23,20 +14,10 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
   late final DataCleanupService _service;
   bool _serviceReady = false;
 
-  /// 每个分类的最近一次测算结果。`null` 表示尚未测算或正在测算中。
   final Map<DataCleanupCategory, DataCleanupSizeReport> _reports = {};
-
-  /// 标记某个分类正在执行清理，用以禁用按钮。
   final Set<DataCleanupCategory> _cleaningCategories = <DataCleanupCategory>{};
-
-  /// 标记某个分类正在执行测算，用以展示 progress 占位符。
   final Set<DataCleanupCategory> _measuringCategories = <DataCleanupCategory>{};
-
-  /// 自增令牌：保护异步回调对应的 setState 不被旧请求覆盖。
   int _measureToken = 0;
-
-  /// 应用缓存内独立测算的 WebSearch 占用，用于在 appCache 行下方显示明细。
-  /// `null` 表示尚未测算或测算失败。
   int? _webSearchCacheBytes;
   int? _webFetchCacheBytes;
   int? _mediaCacheBytes;
@@ -97,6 +78,21 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
       });
     }
 
+    Future<void> measureBreakdown({
+      required String action,
+      required Future<int> Function() task,
+      required void Function(int bytes) apply,
+    }) async {
+      var bytes = 0;
+      try {
+        bytes = await task();
+      } catch (error, stack) {
+        silentLog('data_cleanup', action, error, stack);
+      }
+      if (!mounted || token != _measureToken) return;
+      setState(() => apply(bytes));
+    }
+
     final measurements = <Future<void> Function()>[
       () => measureOne(
         DataCleanupCategory.multimedia,
@@ -137,41 +133,22 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
         DataCleanupCategory.fileMutationLedger,
         _service.measureMutationLedger,
       ),
-      // WebSearch 缓存是 appCache 的子集，只负责在该行下额外
-      // 顶出一句「其中 WebSearch X」明细，不进入 _reports map。
-      () async {
-        try {
-          final bytes = await WebSearchCacheStore.instance.totalBytesOnDisk();
-          if (!mounted || token != _measureToken) return;
-          setState(() => _webSearchCacheBytes = bytes);
-        } catch (e, st) {
-          silentLog('data_cleanup', '统计 Web 搜索缓存', e, st);
-          if (!mounted || token != _measureToken) return;
-          setState(() => _webSearchCacheBytes = 0);
-        }
-      },
-      () async {
-        try {
-          final bytes = await WebFetchCacheStore.instance.totalBytesOnDisk();
-          if (!mounted || token != _measureToken) return;
-          setState(() => _webFetchCacheBytes = bytes);
-        } catch (e, st) {
-          silentLog('data_cleanup', '统计 Web 抓取缓存', e, st);
-          if (!mounted || token != _measureToken) return;
-          setState(() => _webFetchCacheBytes = 0);
-        }
-      },
-      () async {
-        try {
-          final stats = await MediaCacheService.measureCache();
-          if (!mounted || token != _measureToken) return;
-          setState(() => _mediaCacheBytes = stats.bytes);
-        } catch (e, st) {
-          silentLog('data_cleanup', '统计媒体缓存', e, st);
-          if (!mounted || token != _measureToken) return;
-          setState(() => _mediaCacheBytes = 0);
-        }
-      },
+      // 子缓存只用于父分类明细，不重复计入分类总量。
+      () => measureBreakdown(
+        action: '统计 Web 搜索缓存',
+        task: WebSearchCacheStore.instance.totalBytesOnDisk,
+        apply: (bytes) => _webSearchCacheBytes = bytes,
+      ),
+      () => measureBreakdown(
+        action: '统计 Web 抓取缓存',
+        task: WebFetchCacheStore.instance.totalBytesOnDisk,
+        apply: (bytes) => _webFetchCacheBytes = bytes,
+      ),
+      () => measureBreakdown(
+        action: '统计媒体缓存',
+        task: () async => (await MediaCacheService.measureCache()).bytes,
+        apply: (bytes) => _mediaCacheBytes = bytes,
+      ),
     ];
     await forEachIndexWithConcurrencyLimit(
       itemCount: measurements.length,

@@ -1,5 +1,3 @@
-library;
-
 import 'dart:async';
 
 import '../../../../app/support/silent_log.dart';

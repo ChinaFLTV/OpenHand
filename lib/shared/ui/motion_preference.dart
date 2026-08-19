@@ -13,9 +13,6 @@ import '../../app/state/settings_controller.dart';
 const Curve kOpenHandSwitchInCurve = Curves.easeOutCubic;
 const Curve kOpenHandSwitchOutCurve = Curves.easeInCubic;
 
-/// 全局共享的过渡曲线 —— 用于 AnimatedSwitcher / AnimatedDefaultTextStyle
-/// 等需要单一曲线（非进出分离）的场景。
-const Curve kOpenHandTransitionCurve = Curves.easeOutCubic;
 const Curve kOpenHandEmphasizedTransitionCurve = Curves.easeInOutCubic;
 
 /// 全局共享的强调过渡曲线 —— 用于页面级、面板级等需要更重强调的过渡。

@@ -2158,11 +2158,9 @@ class AndroidReverseSessionController extends ChangeNotifier {
   }
 
   String _safeArtifactName(String value) {
-    final cleaned = value
-        .trim()
-        .replaceAll(RegExp(r'[^A-Za-z0-9_.-]+'), '_')
-        .replaceAll(kRepeatedUnderscoresPattern, '_')
-        .replaceAll(RegExp(r'^_+|_+$'), '');
+    final cleaned = collapseRepeatedUnderscores(
+      value.trim().replaceAll(RegExp(r'[^A-Za-z0-9_.-]+'), '_'),
+    ).replaceAll(RegExp(r'^_+|_+$'), '');
     return cleaned.isEmpty ? 'artifact' : cleaned;
   }
 

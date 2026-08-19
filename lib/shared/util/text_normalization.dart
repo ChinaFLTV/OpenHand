@@ -10,9 +10,7 @@ final RegExp kHtmlTagPattern = RegExp(r'<[^>]*>');
 /// 连续三个及以上换行，供折叠多空行复用。
 final RegExp kExcessiveNewlinesPattern = RegExp(r'\n{3,}');
 
-/// 连续下划线。全库多处将 `___` 折叠为 `_`（标识符归一化、路径安全化等），
-/// 共用同一已编译实例避免重复编译。
-final RegExp kRepeatedUnderscoresPattern = RegExp(r'_+');
+final RegExp _repeatedUnderscoresPattern = RegExp(r'_+');
 
 String collapseInlineWhitespace(String value) {
   return value.replaceAll(kInlineWhitespacePattern, ' ').trim();
@@ -29,7 +27,7 @@ String removeInlineWhitespace(String value) {
 
 /// 将连续下划线折叠为单个下划线。
 String collapseRepeatedUnderscores(String value) {
-  return value.replaceAll(kRepeatedUnderscoresPattern, '_');
+  return value.replaceAll(_repeatedUnderscoresPattern, '_');
 }
 
 /// 统计以空白分隔的词数；空串或纯空白返回 0。
