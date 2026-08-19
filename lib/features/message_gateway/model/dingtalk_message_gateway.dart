@@ -279,6 +279,68 @@ String normalizeDingTalkReaction(Object? value) {
   return String.fromCharCodes(normalized.runes.take(24));
 }
 
+const int kDingTalkMaxReactionTypes = 12;
+
+/// 解析钉钉消息查询结果中的全部贴表情，兼容新旧字段和嵌套结构。
+List<String> parseDingTalkMessageReactions(Map<String, Object?> message) {
+  final result = <String>[];
+
+  void visit(Object? value, int depth) {
+    if (value == null ||
+        depth > 4 ||
+        result.length >= kDingTalkMaxReactionTypes) {
+      return;
+    }
+    if (value is List) {
+      for (final item in value) {
+        visit(item, depth + 1);
+        if (result.length >= kDingTalkMaxReactionTypes) return;
+      }
+      return;
+    }
+    if (value is Map) {
+      final map = stringKeyedMapFromValue(value);
+      for (final key in const <String>[
+        'emotionReplyList',
+        'emotion_reply_list',
+        'reactions',
+        'reactionList',
+        'reaction_list',
+        'reaction',
+        'emoji',
+        'emoji_code',
+        'emojiCode',
+        'reaction_text',
+        'reactionText',
+        'reaction_name',
+        'reactionName',
+        'reaction_type',
+        'reactionType',
+        'type',
+        'value',
+        'content',
+      ]) {
+        if (map.containsKey(key)) visit(map[key], depth + 1);
+      }
+      return;
+    }
+    final reaction = normalizeDingTalkReaction(value);
+    if (reaction.isNotEmpty && !result.contains(reaction)) {
+      result.add(reaction);
+    }
+  }
+
+  visit(<Object?>[
+    message['emotionReplyList'],
+    message['emotion_reply_list'],
+    message['reactions'],
+    message['reactionList'],
+    message['reaction_list'],
+    message['reaction'],
+  ], 0);
+  return result.toList(growable: false);
+}
+
 /// 判断钉钉贴表情是否为 Emoji，供消息卡片选择紧凑的文本样式。
 bool isDingTalkReactionEmoji(Object? value) {
   final normalized = normalizeDingTalkReaction(value);
@@ -1125,6 +1187,7 @@ class DingTalkForwardedMessage {
     this.senderName = '',
     this.senderId = '',
     this.media = const <DingTalkGatewayMedia>[],
+    this.ignoredForAiContext = false,
   });
 
   factory DingTalkForwardedMessage.fromJson(Map<String, Object?> json) {
@@ -1139,6 +1202,7 @@ class DingTalkForwardedMessage {
       senderName: _normalizedDingTalkString(json['sender_name']),
       senderId: _normalizedDingTalkString(json['sender_id']),
       media: _dingTalkGatewayMediaList(json['media']),
+      ignoredForAiContext: boolFromValue(json['ignored_for_ai_context']),
     );
   }
 
@@ -1148,6 +1212,22 @@ class DingTalkForwardedMessage {
   final String senderName;
   final String senderId;
   final List<DingTalkGatewayMedia> media;
+  final bool ignoredForAiContext;
+
+  DingTalkForwardedMessage copyWith({
+    List<DingTalkGatewayMedia>? media,
+    bool? ignoredForAiContext,
+  }) {
+    return DingTalkForwardedMessage(
+      id: id,
+      content: content,
+      createdAt: createdAt,
+      senderName: senderName,
+      senderId: senderId,
+      media: media ?? this.media,
+      ignoredForAiContext: ignoredForAiContext ?? this.ignoredForAiContext,
+    );
+  }
 
   Map<String, Object?> toJson() => <String, Object?>{
     'id': id,
@@ -1156,6 +1236,7 @@ class DingTalkForwardedMessage {
     'sender_name': senderName,
     'sender_id': senderId,
     'media': media.map((item) => item.toJson()).toList(growable: false),
+    'ignored_for_ai_context': ignoredForAiContext,
   };
 }
 
@@ -1218,6 +1299,7 @@ class DingTalkGatewayMessage {
     this.recalled = false,
     this.ignoredForAiContext = false,
     this.reactions = const <String>[],
+    this.reactionSnapshotComplete = false,
     this.editHistory = const <DingTalkMessageEditRecord>[],
     this.sourceAiMessageId = '',
     this.responseEchoType,
@@ -1303,7 +1385,7 @@ class DingTalkGatewayMessage {
         json['recalled'] ?? json['is_recalled'] ?? json['recall'],
       ),
       ignoredForAiContext: boolFromValue(json['ignored_for_ai_context']),
-      reactions: _reactionList(json['reactions'] ?? json['reaction']),
+      reactions: parseDingTalkMessageReactions(json),
       editHistory: editHistory,
       sourceAiMessageId: '${json['source_ai_message_id'] ?? ''}'.trim(),
       responseEchoType: DingTalkResponseEchoType.fromStorage(
@@ -1332,6 +1414,8 @@ class DingTalkGatewayMessage {
   final bool recalled;
   final bool ignoredForAiContext;
   final List<String> reactions;
+  // 仅表示当前对象来自完整查询结果，不写入持久化数据。
+  final bool reactionSnapshotComplete;
   final List<DingTalkMessageEditRecord> editHistory;
   final String sourceAiMessageId;
   final DingTalkResponseEchoType? responseEchoType;
@@ -1361,6 +1445,7 @@ class DingTalkGatewayMessage {
     bool? recalled,
     bool? ignoredForAiContext,
     List<String>? reactions,
+    bool? reactionSnapshotComplete,
     List<DingTalkMessageEditRecord>? editHistory,
     String? sourceAiMessageId,
     DingTalkResponseEchoType? responseEchoType,
@@ -1388,6 +1473,8 @@ class DingTalkGatewayMessage {
       recalled: recalled ?? this.recalled,
       ignoredForAiContext: ignoredForAiContext ?? this.ignoredForAiContext,
       reactions: reactions ?? this.reactions,
+      reactionSnapshotComplete:
+          reactionSnapshotComplete ?? this.reactionSnapshotComplete,
       editHistory: editHistory ?? this.editHistory,
       sourceAiMessageId: sourceAiMessageId ?? this.sourceAiMessageId,
       responseEchoType: responseEchoType ?? this.responseEchoType,
@@ -1424,51 +1511,6 @@ class DingTalkGatewayMessage {
     'response_echo_type': responseEchoType?.storageValue,
     'feedback': feedback?.storageValue,
   };
-
-  static List<String> _reactionList(Object? raw) {
-    final result = <String>[];
-
-    void visit(Object? value) {
-      if (value is List) {
-        for (final item in value) {
-          visit(item);
-        }
-        return;
-      }
-      if (value is Map) {
-        final map = stringKeyedMapFromValue(value);
-        for (final key in const <String>[
-          'emoji',
-          'emoji_code',
-          'emojiCode',
-          'reaction',
-          'reaction_text',
-          'reactionText',
-          'reaction_name',
-          'reactionName',
-          'reaction_type',
-          'reactionType',
-          'type',
-          'value',
-          'content',
-        ]) {
-          final candidate = map[key];
-          if (candidate is String && candidate.trim().isNotEmpty) {
-            visit(candidate);
-            return;
-          }
-        }
-        return;
-      }
-      final reaction = normalizeDingTalkReaction(value);
-      if (reaction.isNotEmpty && !result.contains(reaction)) {
-        result.add(reaction);
-      }
-    }
-
-    visit(raw);
-    return result.take(12).toList(growable: false);
-  }
 }
 
 class DingTalkConversation {

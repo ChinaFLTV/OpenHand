@@ -2915,9 +2915,8 @@ class DingTalkMessageGatewayService {
                 map['read'],
           ),
           recalled: recalled,
-          reactions: _parseReactionList(
-            map['reactions'] ?? map['reaction'] ?? map['reactionList'],
-          ),
+          reactions: parseDingTalkMessageReactions(map),
+          reactionSnapshotComplete: true,
           mentionedCurrentUser:
               mentionedCurrentUser ||
               _asBool(map['mentionedCurrentUser']) ||
@@ -3405,37 +3404,6 @@ class DingTalkMessageGatewayService {
       }
     }
     return '';
-  }
-
-  List<String> _parseReactionList(Object? value) {
-    final result = <String>[];
-    void visit(Object? current, int depth) {
-      if (depth > 3 || result.length >= 12 || current == null) return;
-      if (current is String) {
-        final reaction = normalizeDingTalkReaction(current);
-        if (reaction.isNotEmpty && !result.contains(reaction)) {
-          result.add(reaction);
-        }
-        return;
-      }
-      if (current is List) {
-        for (final item in current) {
-          visit(item, depth + 1);
-          if (result.length >= 12) return;
-        }
-        return;
-      }
-      if (current is Map) {
-        final map = _asMap(current);
-        final reaction = _eventReaction(map, depth: depth);
-        if (reaction.isNotEmpty && !result.contains(reaction)) {
-          result.add(reaction);
-        }
-      }
-    }
-
-    visit(value, 0);
-    return result.toList(growable: false);
   }
 
   bool _messageRecalled(Map<String, Object?> map, {int depth = 0}) {

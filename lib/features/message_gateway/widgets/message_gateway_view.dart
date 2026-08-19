@@ -322,7 +322,6 @@ String _dingtalkAllowlistText(
 const double _kGatewayDetailDialogWidth = 860;
 const double _kGatewayDetailDialogHeight = 760;
 
-
 class MessageGatewayView extends StatefulWidget {
   const MessageGatewayView({super.key});
 
@@ -497,7 +496,9 @@ class _WebPlatformServiceCard extends StatelessWidget {
                           height: 46,
                           decoration: BoxDecoration(
                             color: theme.colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(kOpenHandRadius18),
+                            borderRadius: BorderRadius.circular(
+                              kOpenHandRadius18,
+                            ),
                           ),
                           child: Icon(
                             Icons.language_rounded,
@@ -1340,10 +1341,10 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                 Container(
                   width: 48,
                   height: 48,
-                 decoration: BoxDecoration(
-                   color: colorScheme.primaryContainer,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
                     borderRadius: kOpenHandBorderRadius18,
-                   boxShadow: [
+                    boxShadow: [
                       BoxShadow(
                         color: colorScheme.primary.withValues(alpha: .14),
                         blurRadius: 18,
@@ -6338,7 +6339,7 @@ class _WebOpsHeaderIdentity extends StatelessWidget {
             ),
           ],
         ),
-         kOpenHandWidth13,
+        kOpenHandWidth13,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -7128,9 +7129,7 @@ class _WebOpsDistributionPanel extends StatelessWidget {
                 if (_webGatewayOpsShouldStackDistribution(
                   constraints.maxWidth,
                 )) {
-                  return Column(
-                    children: [chart, kOpenHandGap12, legend],
-                  );
+                  return Column(children: [chart, kOpenHandGap12, legend]);
                 }
                 return Row(
                   children: [
@@ -9494,7 +9493,9 @@ class _SwitchTile extends StatelessWidget {
           ),
         ),
         contentPadding: const EdgeInsetsDirectional.fromSTEB(14, 0, 10, 0),
-        shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius16),
+        shape: const RoundedRectangleBorder(
+          borderRadius: kOpenHandBorderRadius16,
+        ),
       ),
     );
   }
@@ -9888,8 +9889,7 @@ class _MultiSelectDropdownMenuState<T>
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                       itemCount: filtered.length,
-                      separatorBuilder: (context, index) =>
-                          kOpenHandGap4,
+                      separatorBuilder: (context, index) => kOpenHandGap4,
                       itemBuilder: (context, index) {
                         final option = filtered[index];
                         final selected = effectiveSelected.contains(
@@ -9904,7 +9904,9 @@ class _MultiSelectDropdownMenuState<T>
                           borderRadius: kOpenHandBorderRadius14,
                           child: CheckboxListTile(
                             dense: true,
-                            shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius14),
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: kOpenHandBorderRadius14,
+                            ),
                             value: selected,
                             onChanged: (_) => _toggle(option.value),
                             controlAffinity: ListTileControlAffinity.leading,
@@ -10549,7 +10551,9 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                       final selected = effectiveSelected.contains(option.key);
                       return CheckboxListTile(
                         dense: true,
-                        shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius14),
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: kOpenHandBorderRadius14,
+                        ),
                         tileColor: selected
                             ? colorScheme.primaryContainer.withValues(
                                 alpha: 0.30,
@@ -11691,7 +11695,9 @@ class _DingTalkGatewayCard extends StatelessWidget {
                               height: 46,
                               decoration: BoxDecoration(
                                 color: theme.colorScheme.primaryContainer,
-                                borderRadius: BorderRadius.circular(kOpenHandRadius18),
+                                borderRadius: BorderRadius.circular(
+                                  kOpenHandRadius18,
+                                ),
                               ),
                               alignment: Alignment.center,
                               child: SvgPicture.asset(
@@ -12356,8 +12362,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                   12,
                                 ),
                                 itemCount: conversations.length,
-                                separatorBuilder: (_, index) =>
-                                    kOpenHandGap4,
+                                separatorBuilder: (_, index) => kOpenHandGap4,
                                 itemBuilder: (context, index) {
                                   final item = conversations[index];
                                   final active = item.id == selected?.id;
@@ -12476,9 +12481,10 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                         child: RepaintBoundary(
                                                           child:
                                                               _DingTalkConversationStatusCapsule(
-                                                              state:
-                                                                  responseState,
-                                                              selected: active,
+                                                                state:
+                                                                    responseState,
+                                                                selected:
+                                                                    active,
                                                               ),
                                                         ),
                                                       ),
@@ -12594,7 +12600,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                       kOpenHandHGap10,
                                                       Text(
                                                         '正在同步最近 20 条消息…',
-                                                        style: theme.textTheme.bodyMedium
+                                                        style: theme
+                                                            .textTheme
+                                                            .bodyMedium
                                                             ?.copyWith(
                                                               color: colors
                                                                   .onSurfaceVariant,
@@ -12920,6 +12928,16 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                           telemetryDebugEnabled
                                                           ? () =>
                                                                 _showMessageAudit(
+                                                                  selected,
+                                                                  message,
+                                                                )
+                                                          : null,
+                                                      onOpenForwardedChat:
+                                                          message
+                                                              .isForwardedChatRecord
+                                                          ? () =>
+                                                                _showForwardedChatRecord(
+                                                                  context,
                                                                   selected,
                                                                   message,
                                                                 )
@@ -13377,6 +13395,28 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
           maxWidth: 820,
           maxHeight: MediaQuery.sizeOf(context).height * 0.84,
           child: _DingTalkMessageAuditDialog(snapshot: snapshot),
+        ),
+      ),
+    );
+  }
+
+  void _showForwardedChatRecord(
+    BuildContext context,
+    DingTalkConversation conversation,
+    DingTalkGatewayMessage message,
+  ) {
+    unawaited(
+      showAnimatedDialog<void>(
+        context: context,
+        builder: (_) => buildOpenHandDialog(
+          maxWidth: kOpenHandDialogWidthWide,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+          child: _DingTalkForwardedChatDialog(
+            controller: widget.controller,
+            conversationId: conversation.id,
+            messageId: message.id,
+            initialMessage: message,
+          ),
         ),
       ),
     );
@@ -14312,7 +14352,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
 
       Uint8List? imageBytes;
       try {
-        imageBytes = await getOpenHandClipboardImage(timeout: _clipboardImageReadTimeout);
+        imageBytes = await getOpenHandClipboardImage(
+          timeout: _clipboardImageReadTimeout,
+        );
       } catch (error, stack) {
         silentLog('dingtalk_gateway', '读取钉钉剪贴板图片', error, stack);
         return;
@@ -15464,6 +15506,7 @@ class _DingTalkMessageBubble extends StatefulWidget {
     this.onToggleTranslation,
     this.onSetFeedback,
     this.onAudit,
+    this.onOpenForwardedChat,
     this.showRawAction = false,
   });
 
@@ -15490,6 +15533,7 @@ class _DingTalkMessageBubble extends StatefulWidget {
   final VoidCallback? onToggleTranslation;
   final ValueChanged<DingTalkGatewayMessageFeedback?>? onSetFeedback;
   final VoidCallback? onAudit;
+  final VoidCallback? onOpenForwardedChat;
   final bool showRawAction;
 
   @override
@@ -15798,61 +15842,14 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
               );
             },
           ),
-          Align(
-            alignment: alignment,
-            child: AnimatedSize(
-              duration: openHandMotionDuration(context, kOpenHandMotion180),
-              curve: kOpenHandSwitchInCurve,
-              child: contentExpanded && widget.actionsVisible
-                  ? TweenAnimationBuilder<double>(
-                      key: const ValueKey<String>('dingtalk-actions-visible'),
-                      tween: Tween<double>(begin: 0, end: 1),
-                      duration: openHandMotionDuration(
-                        context,
-                        kOpenHandMotion180,
-                      ),
-                      curve: kOpenHandEntranceCurve,
-                      builder: (context, value, child) => Opacity(
-                        opacity: value.clamp(0.0, 1.0).toDouble(),
-                        child: Transform.translate(
-                          offset: Offset(0, (1 - value) * 5),
-                          child: Transform.scale(
-                            alignment: widget.mine
-                                ? Alignment.centerRight
-                                : Alignment.centerLeft,
-                            scale: 0.96 + value * 0.04,
-                            child: child,
-                          ),
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        textDirection: TextDirection.ltr,
-                        crossAxisAlignment: widget.mine
-                            ? CrossAxisAlignment.end
-                            : CrossAxisAlignment.start,
-                        children: [
-                          Wrap(
-                            spacing: 4,
-                            runSpacing: 4,
-                            textDirection: widget.mine
-                                ? TextDirection.rtl
-                                : TextDirection.ltr,
-                            children: _buildMessageActions(
-                              context,
-                              widget.message.media,
-                            ),
-                          ),
-                          kOpenHandGap4,
-                          _buildMessageMetaPill(),
-                        ],
-                      ),
-                    )
-                  : const SizedBox(
-                      key: ValueKey<String>('dingtalk-actions-hidden'),
-                      width: 0,
-                      height: 0,
-                    ),
+          _DingTalkMessageActionsPanel(
+            visible: contentExpanded && widget.actionsVisible,
+            mine: widget.mine,
+            actions: _buildMessageActions(context, widget.message.media),
+            meta: _DingTalkMessageMetaPill(
+              label: widget.mine && widget.message.readByPeer
+                  ? '${formatYearMonthDayHmLocal(widget.message.createdAt)} · 已读'
+                  : formatYearMonthDayHmLocal(widget.message.createdAt),
             ),
           ),
           kOpenHandGap7,
@@ -15937,13 +15934,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           color: bubbleColor,
           borderRadius: borderRadius,
           border: Border.all(color: colors.primary.withValues(alpha: 0.24)),
-          boxShadow: <BoxShadow>[
-            BoxShadow(
-              color: colors.shadow.withValues(alpha: 0.07),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
         ),
         clipBehavior: Clip.antiAlias,
         child: Material(
@@ -15952,7 +15942,10 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               InkWell(
-                onTap: () => _showForwardedChatRecord(context),
+                onTap: () {
+                  _cancelPendingActionToggle();
+                  widget.onOpenForwardedChat?.call();
+                },
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 15, 14, 12),
                   child: Column(
@@ -16089,25 +16082,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         .trim();
     if (content.isNotEmpty) return content;
     return message.media.map((item) => '[${item.displayName}]').join(' ');
-  }
-
-  void _showForwardedChatRecord(BuildContext context) {
-    _cancelPendingActionToggle();
-    unawaited(
-      showAnimatedDialog<void>(
-        context: context,
-        builder: (_) => buildOpenHandDialog(
-          maxWidth: kOpenHandDialogWidthWide,
-          maxHeight: MediaQuery.sizeOf(context).height * 0.88,
-          child: _DingTalkForwardedChatDialog(
-            message: widget.message,
-            mediaLoading: widget.mediaLoading,
-            mediaFailed: widget.mediaFailed,
-            onRetryMedia: widget.onRetryMedia,
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _buildCollapsedMessageContent(
@@ -16610,20 +16584,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     );
   }
 
-  Widget _buildMessageMetaPill() {
-    final dateLabel = formatYearMonthDayHmLocal(widget.message.createdAt);
-    final label = widget.mine && widget.message.readByPeer
-        ? '$dateLabel · 已读'
-        : dateLabel;
-    return IgnorePointer(
-      child: _DingTalkMessageActionButton(
-        icon: Icons.schedule_rounded,
-        label: label,
-        onPressed: () {},
-      ),
-    );
-  }
-
   Widget _buildReactionRow(
     BuildContext context,
     Color foreground, {
@@ -16841,9 +16801,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           return;
         }
       }
-      final copied = await writeOpenHandClipboardFiles(
-        paths,
-      );
+      final copied = await writeOpenHandClipboardFiles(paths);
       if (!copied) throw const FileSystemException('系统不支持复制媒体文件。');
       if (context.mounted) {
         showOpenHandSuccessSnack(context, '媒体文件已复制到剪贴板。');
@@ -17088,6 +17046,92 @@ class _DingTalkStreamingDotsState extends State<_DingTalkStreamingDots>
             );
           }),
         ),
+      ),
+    );
+  }
+}
+
+class _DingTalkMessageActionsPanel extends StatelessWidget {
+  const _DingTalkMessageActionsPanel({
+    required this.visible,
+    required this.mine,
+    required this.actions,
+    required this.meta,
+  });
+
+  final bool visible;
+  final bool mine;
+  final List<Widget> actions;
+  final Widget meta;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+      child: AnimatedSize(
+        duration: openHandMotionDuration(context, kOpenHandMotion180),
+        curve: kOpenHandSwitchInCurve,
+        child: visible
+            ? TweenAnimationBuilder<double>(
+                key: const ValueKey<String>('dingtalk-actions-visible'),
+                tween: Tween<double>(begin: 0, end: 1),
+                duration: openHandMotionDuration(context, kOpenHandMotion180),
+                curve: kOpenHandEntranceCurve,
+                builder: (context, value, child) => Opacity(
+                  opacity: value.clamp(0.0, 1.0).toDouble(),
+                  child: Transform.translate(
+                    offset: Offset(0, (1 - value) * 5),
+                    child: Transform.scale(
+                      alignment: mine
+                          ? Alignment.centerRight
+                          : Alignment.centerLeft,
+                      scale: 0.96 + value * 0.04,
+                      child: child,
+                    ),
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  textDirection: TextDirection.ltr,
+                  crossAxisAlignment: mine
+                      ? CrossAxisAlignment.end
+                      : CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      textDirection: mine
+                          ? TextDirection.rtl
+                          : TextDirection.ltr,
+                      children: actions,
+                    ),
+                    kOpenHandGap4,
+                    meta,
+                  ],
+                ),
+              )
+            : const SizedBox(
+                key: ValueKey<String>('dingtalk-actions-hidden'),
+                width: 0,
+                height: 0,
+              ),
+      ),
+    );
+  }
+}
+
+class _DingTalkMessageMetaPill extends StatelessWidget {
+  const _DingTalkMessageMetaPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: _DingTalkMessageActionButton(
+        icon: Icons.schedule_rounded,
+        label: label,
+        onPressed: () {},
       ),
     );
   }
@@ -17585,34 +17629,144 @@ class _DingTalkAuditNotice extends StatelessWidget {
   }
 }
 
-class _DingTalkForwardedChatDialog extends StatelessWidget {
+class _DingTalkForwardedChatDialog extends StatefulWidget {
   const _DingTalkForwardedChatDialog({
-    required this.message,
-    required this.mediaLoading,
-    required this.mediaFailed,
-    this.onRetryMedia,
+    required this.controller,
+    required this.conversationId,
+    required this.messageId,
+    required this.initialMessage,
   });
 
-  final DingTalkGatewayMessage message;
-  final bool mediaLoading;
-  final bool mediaFailed;
-  final VoidCallback? onRetryMedia;
+  final DingTalkMessageGatewayController controller;
+  final String conversationId;
+  final String messageId;
+  final DingTalkGatewayMessage initialMessage;
+
+  @override
+  State<_DingTalkForwardedChatDialog> createState() =>
+      _DingTalkForwardedChatDialogState();
+}
+
+class _DingTalkForwardedChatDialogState
+    extends State<_DingTalkForwardedChatDialog> {
+  static const double _actionToggleMaxDistance = 8;
+  static const Duration _actionToggleMaxDuration = Duration(milliseconds: 350);
+  static const Duration _actionToggleDelay = Duration(milliseconds: 80);
+  static const int _maxTranslationCacheEntries = 64;
+  static const int _maxClipboardImageBytes = 64 * kBytesPerMiB;
+  static const Duration _mediaClipboardTimeout = Duration(seconds: 15);
+  final AiTtsPlaybackService _ttsPlaybackService = AiTtsPlaybackService();
+  final AiTranslationService _translationService = AiTranslationService();
+  final Map<String, _DingTalkMessageTranslation> _translations =
+      <String, _DingTalkMessageTranslation>{};
+  final Set<String> _visibleTranslationMessageIds = <String>{};
+  final Set<String> _loadingTranslationMessageIds = <String>{};
+  final Set<String> _copyingMediaMessageIds = <String>{};
+  Offset? _pointerDownPosition;
+  DateTime? _pointerDownAt;
+  Timer? _pendingActionToggleTimer;
+  String? _expandedMessageId;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_handleControllerChanged);
+    _ttsPlaybackService.state.addListener(_handleTtsStateChanged);
+  }
+
+  @override
+  void dispose() {
+    _cancelPendingActionToggle();
+    widget.controller.removeListener(_handleControllerChanged);
+    _ttsPlaybackService.state.removeListener(_handleTtsStateChanged);
+    unawaited(_ttsPlaybackService.dispose());
+    _translationService.dispose();
+    super.dispose();
+  }
+
+  void _handleTtsStateChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _handleControllerChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _cancelPendingActionToggle() {
+    _pendingActionToggleTimer?.cancel();
+    _pendingActionToggleTimer = null;
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    _pointerDownPosition = event.position;
+    _pointerDownAt = DateTime.now();
+  }
+
+  void _handlePointerCancel(PointerCancelEvent event) {
+    _pointerDownPosition = null;
+    _pointerDownAt = null;
+    _cancelPendingActionToggle();
+  }
+
+  void _handlePointerUp(PointerUpEvent event, String messageId) {
+    final downPosition = _pointerDownPosition;
+    final downAt = _pointerDownAt;
+    _pointerDownPosition = null;
+    _pointerDownAt = null;
+    if (downPosition == null || downAt == null) return;
+    if ((event.position - downPosition).distance > _actionToggleMaxDistance ||
+        DateTime.now().difference(downAt) > _actionToggleMaxDuration) {
+      return;
+    }
+    _cancelPendingActionToggle();
+    _pendingActionToggleTimer = startSafeTimer(_actionToggleDelay, () {
+      _pendingActionToggleTimer = null;
+      if (!mounted) return;
+      setState(() {
+        _expandedMessageId = _expandedMessageId == messageId ? null : messageId;
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final forwarded = message.forwardedMessages;
-    var firstAt = forwarded.first.createdAt.toLocal();
-    var lastAt = firstAt;
-    for (final item in forwarded.skip(1)) {
-      final createdAt = item.createdAt.toLocal();
-      if (createdAt.isBefore(firstAt)) firstAt = createdAt;
-      if (createdAt.isAfter(lastAt)) lastAt = createdAt;
+    final ttsSettings = context.select<SettingsController, AiTtsSettings>(
+      (settings) => settings.aiTtsSettings,
+    );
+    final translationSettings = context
+        .select<SettingsController, AiTranslationSettings>(
+          (settings) => settings.aiTranslationSettings,
+        );
+    final telemetryDebugEnabled = context.select<SettingsController, bool>(
+      (settings) => settings.telemetryDebugEnabled,
+    );
+    final conversation = widget.controller.conversations
+        .where((item) => item.id == widget.conversationId)
+        .firstOrNull;
+    final message = conversation?.messages
+        .where((item) => item.id == widget.messageId)
+        .firstOrNull;
+    final currentMessage = message?.isForwardedChatRecord == true
+        ? message!
+        : widget.initialMessage;
+    final fallbackModel = conversation == null
+        ? null
+        : widget.controller.messageActionFallbackModel(conversation);
+    final forwarded = currentMessage.forwardedMessages;
+    if (forwarded.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(
+          child: _DingTalkAuditNotice(
+            icon: Icons.forum_outlined,
+            title: '聊天记录已失效',
+            message: '请关闭后刷新会话再试。',
+          ),
+        ),
+      );
     }
-    final rangeLabel = firstAt == lastAt
-        ? formatYearMonthDayHm(firstAt)
-        : '${formatYearMonthDayHm(firstAt)} - ${formatYearMonthDayHm(lastAt)}';
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 22),
       child: Column(
@@ -17641,7 +17795,7 @@ class _DingTalkForwardedChatDialog extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _dingTalkForwardedChatTitle(message),
+                      _dingTalkForwardedChatTitle(currentMessage),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleLarge?.copyWith(
@@ -17651,9 +17805,9 @@ class _DingTalkForwardedChatDialog extends StatelessWidget {
                     ),
                     kOpenHandGap4,
                     Text(
-                      message.forwardedMessageCount > forwarded.length
-                          ? '已展示 ${forwarded.length} / ${message.forwardedMessageCount} 条 · $rangeLabel'
-                          : '共 ${message.forwardedMessageCount} 条 · $rangeLabel',
+                      currentMessage.forwardedMessageCount > forwarded.length
+                          ? '已展示 ${forwarded.length} / ${currentMessage.forwardedMessageCount} 条'
+                          : '共 ${currentMessage.forwardedMessageCount} 条聊天记录',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -17681,9 +17835,50 @@ class _DingTalkForwardedChatDialog extends StatelessWidget {
               itemCount: forwarded.length,
               itemBuilder: (context, index) {
                 final item = forwarded[index];
+                final itemKey = _messageKey(item, index);
+                final resolvedMedia = _resolvedMedia(currentMessage, item);
+                final textActionEnabled =
+                    item.content.trim().isNotEmpty && resolvedMedia.isEmpty;
+                final translation = _translations[itemKey];
+                final translationFingerprint = _translationFingerprint(
+                  translationSettings,
+                  fallbackModel,
+                );
+                final translationVisible =
+                    textActionEnabled &&
+                    translation != null &&
+                    _visibleTranslationMessageIds.contains(itemKey) &&
+                    translation.sourceText == item.content &&
+                    translation.settingsFingerprint == translationFingerprint;
                 return RepaintBoundary(
-                  key: ValueKey<String>('forwarded:${item.id}:$index'),
-                  child: _buildMessageRow(context, item),
+                  key: ValueKey<String>('forwarded:$itemKey'),
+                  child: _buildMessageRow(
+                    context,
+                    message: currentMessage,
+                    item: item,
+                    itemKey: itemKey,
+                    media: resolvedMedia,
+                    actionsVisible: _expandedMessageId == itemKey,
+                    translatedContent: translationVisible
+                        ? translation.translatedText
+                        : null,
+                    speechEnabled: textActionEnabled && ttsSettings.enabled,
+                    speechPlaying:
+                        textActionEnabled &&
+                        ttsSettings.enabled &&
+                        _ttsPlaybackService.state.value.playing &&
+                        _ttsPlaybackService.state.value.messageId == itemKey,
+                    translationEnabled:
+                        textActionEnabled && translationSettings.enabled,
+                    translationLoading: _loadingTranslationMessageIds.contains(
+                      itemKey,
+                    ),
+                    translationVisible: translationVisible,
+                    telemetryDebugEnabled: telemetryDebugEnabled,
+                    fallbackModel: fallbackModel,
+                    ttsSettings: ttsSettings,
+                    translationSettings: translationSettings,
+                  ),
                 );
               },
             ),
@@ -17693,18 +17888,35 @@ class _DingTalkForwardedChatDialog extends StatelessWidget {
     );
   }
 
-  Widget _buildMessageRow(BuildContext context, DingTalkForwardedMessage item) {
+  Widget _buildMessageRow(
+    BuildContext context, {
+    required DingTalkGatewayMessage message,
+    required DingTalkForwardedMessage item,
+    required String itemKey,
+    required List<DingTalkGatewayMedia> media,
+    required bool actionsVisible,
+    required String? translatedContent,
+    required bool speechEnabled,
+    required bool speechPlaying,
+    required bool translationEnabled,
+    required bool translationLoading,
+    required bool translationVisible,
+    required bool telemetryDebugEnabled,
+    required AiModelConfig? fallbackModel,
+    required AiTtsSettings ttsSettings,
+    required AiTranslationSettings translationSettings,
+  }) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final senderName = item.senderName.trim().isEmpty
         ? '未知成员'
         : item.senderName.trim();
-    final media = _resolvedMedia(item);
     final content = item.content.trim();
     final mediaSummary = media
         .map((value) => '[${value.displayName}]')
         .join(' ');
-    final showText = content.isNotEmpty && content != mediaSummary;
+    final displayContent = translatedContent ?? content;
+    final showText = displayContent.isNotEmpty && content != mediaSummary;
     final palette = <({Color background, Color foreground})>[
       (
         background: colors.primaryContainer,
@@ -17756,76 +17968,199 @@ class _DingTalkForwardedChatDialog extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        senderName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: colors.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    kOpenHandHGap8,
-                    Text(
-                      formatYearMonthDayHmLocal(item.createdAt),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colors.onSurfaceVariant.withValues(alpha: 0.72),
-                      ),
-                    ),
-                  ],
+                Text(
+                  senderName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 kOpenHandGap5,
-                if (showText)
-                  Container(
-                    constraints: const BoxConstraints(maxWidth: 640),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 11,
+                Listener(
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: _handlePointerDown,
+                  onPointerCancel: _handlePointerCancel,
+                  onPointerUp: (event) => _handlePointerUp(event, itemKey),
+                  child: AnimatedOpacity(
+                    duration: openHandMotionDuration(
+                      context,
+                      kOpenHandMotion180,
                     ),
-                    decoration: BoxDecoration(
-                      color: colors.surfaceContainerHighest,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(4),
-                        topRight: Radius.circular(kOpenHandRadius14),
-                        bottomLeft: Radius.circular(kOpenHandRadius14),
-                        bottomRight: Radius.circular(kOpenHandRadius14),
-                      ),
-                      border: Border.all(
-                        color: colors.outlineVariant.withValues(alpha: 0.52),
-                      ),
-                    ),
-                    child: _DingTalkLinkifiedText(
-                      text: content,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colors.onSurface,
-                        height: 1.5,
-                      ),
-                      linkStyle:
-                          (theme.textTheme.bodyMedium ?? const TextStyle())
-                              .copyWith(
-                                color: colors.primary,
-                                height: 1.5,
-                                decoration: TextDecoration.underline,
-                                decorationColor: colors.primary,
-                                decorationThickness: 1.2,
+                    opacity: item.ignoredForAiContext ? 0.68 : 1,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (showText)
+                          Container(
+                            constraints: const BoxConstraints(maxWidth: 640),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 11,
+                            ),
+                            decoration: BoxDecoration(
+                              color: item.ignoredForAiContext
+                                  ? Color.alphaBlend(
+                                      colors.tertiaryContainer.withValues(
+                                        alpha: 0.44,
+                                      ),
+                                      colors.surfaceContainerHighest,
+                                    )
+                                  : colors.surfaceContainerHighest,
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(4),
+                                topRight: Radius.circular(kOpenHandRadius14),
+                                bottomLeft: Radius.circular(kOpenHandRadius14),
+                                bottomRight: Radius.circular(kOpenHandRadius14),
                               ),
-                      onOpenLink: (href) =>
-                          unawaited(_openDingTalkMessageLink(context, href)),
+                              border: Border.all(
+                                color: item.ignoredForAiContext
+                                    ? colors.tertiary.withValues(alpha: 0.42)
+                                    : colors.outlineVariant.withValues(
+                                        alpha: 0.52,
+                                      ),
+                              ),
+                            ),
+                            child: _DingTalkLinkifiedText(
+                              text: displayContent,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colors.onSurface,
+                                height: 1.5,
+                              ),
+                              linkStyle:
+                                  (theme.textTheme.bodyMedium ??
+                                          const TextStyle())
+                                      .copyWith(
+                                        color: colors.primary,
+                                        height: 1.5,
+                                        decoration: TextDecoration.underline,
+                                        decorationColor: colors.primary,
+                                        decorationThickness: 1.2,
+                                      ),
+                              onOpenLink: (href) {
+                                _cancelPendingActionToggle();
+                                unawaited(
+                                  _openDingTalkMessageLink(context, href),
+                                );
+                              },
+                            ),
+                          ),
+                        if (showText && media.isNotEmpty) kOpenHandGap8,
+                        if (media.isNotEmpty)
+                          _DingTalkMediaRail(
+                            media: media,
+                            mine: false,
+                            loading: widget.controller.isMessageMediaCaching(
+                              message.id,
+                            ),
+                            failed: widget.controller
+                                .isMessageMediaHydrationFailed(message.id),
+                            onRetry: () => unawaited(
+                              widget.controller.ensureMessageMediaCached(
+                                conversationId: widget.conversationId,
+                                messageId: message.id,
+                                forceRetry: true,
+                              ),
+                            ),
+                            onInteractiveTap: _cancelPendingActionToggle,
+                          ),
+                        if (item.ignoredForAiContext)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              '已忽略，不参与 AI 上下文',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colors.tertiary,
+                                fontStyle: FontStyle.italic,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                if (showText && media.isNotEmpty) kOpenHandGap8,
-                if (media.isNotEmpty)
-                  _DingTalkMediaRail(
-                    media: media,
-                    mine: false,
-                    loading: mediaLoading,
-                    failed: mediaFailed,
-                    onRetry: onRetryMedia,
+                ),
+                _DingTalkMessageActionsPanel(
+                  visible: actionsVisible,
+                  mine: false,
+                  actions: [
+                    _DingTalkMessageActionButton(
+                      icon: Icons.copy_rounded,
+                      label: media.isEmpty ? '复制' : '复制媒体',
+                      busy: _copyingMediaMessageIds.contains(itemKey),
+                      onPressed: _copyingMediaMessageIds.contains(itemKey)
+                          ? null
+                          : () => media.isEmpty
+                                ? unawaited(
+                                    copyOpenHandTextToClipboard(
+                                      context: context,
+                                      text: item.content,
+                                      logTag: 'dingtalk_gateway',
+                                    ),
+                                  )
+                                : unawaited(
+                                    _copyMediaFiles(context, itemKey, media),
+                                  ),
+                    ),
+                    _DingTalkMessageActionButton(
+                      icon: item.ignoredForAiContext
+                          ? Icons.visibility_rounded
+                          : Icons.visibility_off_rounded,
+                      label: item.ignoredForAiContext ? '撤销忽略' : '忽略',
+                      selected: item.ignoredForAiContext,
+                      onPressed: () =>
+                          _toggleAiContextIgnored(context, message, item),
+                    ),
+                    if (speechEnabled)
+                      _DingTalkMessageActionButton(
+                        icon: speechPlaying
+                            ? Icons.stop_circle_outlined
+                            : Icons.record_voice_over_outlined,
+                        label: speechPlaying ? '停止' : '朗读',
+                        onPressed: () => unawaited(
+                          _toggleSpeech(
+                            itemKey,
+                            item.content,
+                            ttsSettings,
+                            fallbackModel,
+                          ),
+                        ),
+                      ),
+                    if (translationEnabled)
+                      _DingTalkMessageActionButton(
+                        icon: translationLoading
+                            ? Icons.hourglass_top_rounded
+                            : translationVisible
+                            ? Icons.visibility_outlined
+                            : Icons.translate_rounded,
+                        label: translationLoading
+                            ? '翻译中'
+                            : translationVisible
+                            ? '查看原始'
+                            : '翻译',
+                        onPressed: translationLoading
+                            ? null
+                            : () => unawaited(
+                                _toggleTranslation(
+                                  itemKey,
+                                  item.content,
+                                  translationSettings,
+                                  fallbackModel,
+                                ),
+                              ),
+                      ),
+                    if (telemetryDebugEnabled)
+                      _DingTalkMessageActionButton(
+                        icon: Icons.fact_check_outlined,
+                        label: '审计',
+                        onPressed: () => _showAudit(context, message, item),
+                      ),
+                  ],
+                  meta: _DingTalkMessageMetaPill(
+                    label: formatYearMonthDayHmLocal(item.createdAt),
                   ),
+                ),
               ],
             ),
           ),
@@ -17834,7 +18169,230 @@ class _DingTalkForwardedChatDialog extends StatelessWidget {
     );
   }
 
-  List<DingTalkGatewayMedia> _resolvedMedia(DingTalkForwardedMessage item) {
+  String _messageKey(DingTalkForwardedMessage item, int index) {
+    final id = normalizeDingTalkMessageId(item.id);
+    return '${widget.messageId}:$index:${id.isEmpty ? item.createdAt.microsecondsSinceEpoch : id}';
+  }
+
+  String _translationFingerprint(
+    AiTranslationSettings settings,
+    AiModelConfig? fallbackModel,
+  ) {
+    return stableJsonSha256(<String, Object?>{
+      'settings': settings.cacheFingerprint,
+      'fallback_model': fallbackModel?.toJson(),
+    });
+  }
+
+  Future<void> _toggleSpeech(
+    String messageId,
+    String content,
+    AiTtsSettings settings,
+    AiModelConfig? fallbackModel,
+  ) async {
+    try {
+      await _ttsPlaybackService.toggleMessage(
+        messageId: messageId,
+        text: content,
+        settings: settings,
+        availableModels: widget.controller.aiModels,
+        fallbackModel: fallbackModel,
+      );
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '朗读转发聊天记录消息', error, stack);
+      if (mounted) {
+        showOpenHandErrorSnack(
+          context,
+          '朗读失败：${messageGatewayFailureMessage(error, fallback: '请检查文本转语音设置。')}',
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleTranslation(
+    String messageId,
+    String content,
+    AiTranslationSettings settings,
+    AiModelConfig? fallbackModel,
+  ) async {
+    if (_visibleTranslationMessageIds.contains(messageId)) {
+      setState(() => _visibleTranslationMessageIds.remove(messageId));
+      return;
+    }
+    final fingerprint = _translationFingerprint(settings, fallbackModel);
+    final cached = _translations[messageId];
+    if (cached != null &&
+        cached.sourceText == content &&
+        cached.settingsFingerprint == fingerprint) {
+      setState(() => _visibleTranslationMessageIds.add(messageId));
+      return;
+    }
+    if (_loadingTranslationMessageIds.contains(messageId)) return;
+    setState(() => _loadingTranslationMessageIds.add(messageId));
+    try {
+      final result = await _translationService.translate(
+        text: content,
+        settings: settings,
+        availableModels: widget.controller.aiModels,
+        fallbackModel: fallbackModel,
+      );
+      if (!mounted) return;
+      setState(() {
+        _translations.remove(messageId);
+        _translations[messageId] = _DingTalkMessageTranslation(
+          sourceText: content,
+          settingsFingerprint: fingerprint,
+          translatedText: result.text,
+        );
+        while (_translations.length > _maxTranslationCacheEntries) {
+          final removed = _translations.keys.first;
+          _translations.remove(removed);
+          _visibleTranslationMessageIds.remove(removed);
+        }
+        _visibleTranslationMessageIds.add(messageId);
+      });
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '翻译转发聊天记录消息', error, stack);
+      if (mounted) {
+        showOpenHandErrorSnack(
+          context,
+          '翻译失败：${messageGatewayFailureMessage(error, fallback: '请检查文本翻译设置。')}',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loadingTranslationMessageIds.remove(messageId));
+      }
+    }
+  }
+
+  void _toggleAiContextIgnored(
+    BuildContext context,
+    DingTalkGatewayMessage message,
+    DingTalkForwardedMessage item,
+  ) {
+    final ignored = !item.ignoredForAiContext;
+    final success = widget.controller.setForwardedMessageAiContextIgnored(
+      widget.conversationId,
+      message.id,
+      item,
+      ignored,
+    );
+    if (!context.mounted) return;
+    if (!success) {
+      showOpenHandErrorSnack(context, '消息状态已变化，请刷新后重试。');
+      return;
+    }
+    showOpenHandInfoSnack(
+      context,
+      ignored ? '已忽略该消息，不会参与后续 AI 上下文。' : '已撤销忽略。',
+    );
+  }
+
+  void _showAudit(
+    BuildContext context,
+    DingTalkGatewayMessage message,
+    DingTalkForwardedMessage item,
+  ) {
+    final conversation = widget.controller.conversations
+        .where((value) => value.id == widget.conversationId)
+        .firstOrNull;
+    if (conversation == null) {
+      showOpenHandErrorSnack(context, '会话已失效，请刷新后重试。');
+      return;
+    }
+    final snapshot = DingTalkMessageAuditSnapshot(
+      conversation: conversation,
+      message: DingTalkGatewayMessage(
+        id: item.id,
+        conversationId: message.conversationId,
+        conversationType: message.conversationType,
+        role: DingTalkGatewayMessageRole.user,
+        content: item.content,
+        createdAt: item.createdAt,
+        senderName: item.senderName,
+        senderId: item.senderId,
+        conversationTitle: message.conversationTitle,
+        media: item.media,
+        ignoredForAiContext: item.ignoredForAiContext,
+      ),
+    );
+    unawaited(
+      showAnimatedDialog<void>(
+        context: context,
+        builder: (_) => buildOpenHandDialog(
+          maxWidth: 820,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.84,
+          child: _DingTalkMessageAuditDialog(
+            snapshot: Future<DingTalkMessageAuditSnapshot?>.value(snapshot),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _copyMediaFiles(
+    BuildContext context,
+    String messageId,
+    List<DingTalkGatewayMedia> media,
+  ) async {
+    if (_copyingMediaMessageIds.contains(messageId)) return;
+    setState(() => _copyingMediaMessageIds.add(messageId));
+    try {
+      final paths = <String>[];
+      for (final item in media) {
+        final path = item.localPath.trim();
+        if (path.isNotEmpty && await File(path).exists()) paths.add(path);
+      }
+      if (paths.isEmpty) {
+        unawaited(
+          widget.controller.ensureMessageMediaCached(
+            conversationId: widget.conversationId,
+            messageId: widget.messageId,
+            forceRetry: true,
+          ),
+        );
+        throw const FileSystemException('媒体文件尚未准备完成。');
+      }
+      if (paths.length == 1 &&
+          media.length == 1 &&
+          media.single.kind == DingTalkMediaKind.image) {
+        final file = File(paths.single);
+        if (await file.length() <= _maxClipboardImageBytes) {
+          await writeOpenHandClipboardImage(
+            await readBoundedFileBytes(
+              file,
+              maxBytes: _maxClipboardImageBytes,
+              idleTimeout: _mediaClipboardTimeout,
+              totalTimeout: _mediaClipboardTimeout,
+            ),
+          );
+          if (context.mounted) {
+            showOpenHandSuccessSnack(context, '图片已复制到剪贴板。');
+          }
+          return;
+        }
+      }
+      if (!await writeOpenHandClipboardFiles(paths)) {
+        throw const FileSystemException('系统不支持复制媒体文件。');
+      }
+      if (context.mounted) {
+        showOpenHandSuccessSnack(context, '媒体文件已复制到剪贴板。');
+      }
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '复制转发聊天记录媒体', error, stack);
+      if (context.mounted) {
+        showOpenHandErrorSnack(context, '复制媒体文件失败：$error');
+      }
+    } finally {
+      if (mounted) setState(() => _copyingMediaMessageIds.remove(messageId));
+    }
+  }
+
+  List<DingTalkGatewayMedia> _resolvedMedia(
+    DingTalkGatewayMessage message,
+    DingTalkForwardedMessage item,
+  ) {
     return item.media
         .map((childMedia) {
           for (final parentMedia in message.media) {
@@ -20714,13 +21272,14 @@ class _DingTalkAddConversationDialogState
                         shrinkWrap: true,
                         padding: const EdgeInsets.all(8),
                         itemCount: _targetSearch.results.length,
-                        separatorBuilder: (_, index) =>
-                            kOpenHandGap2,
+                        separatorBuilder: (_, index) => kOpenHandGap2,
                         itemBuilder: (context, index) {
                           final target = _targetSearch.results[index];
                           return ListTile(
                             dense: true,
-                            shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius12),
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: kOpenHandBorderRadius12,
+                            ),
                             leading: Icon(
                               target.type == DingTalkConversationType.group
                                   ? Icons.groups_rounded
@@ -20831,7 +21390,7 @@ class _DingTalkTargetAllowlistField extends StatelessWidget {
                 ),
               ],
             ),
-             kOpenHandGap11,
+            kOpenHandGap11,
             if (targets.isEmpty)
               Text(
                 emptyLabel,
@@ -21030,8 +21589,7 @@ class _DingTalkAllowlistPickerDialogState
                       child: ListView.separated(
                         padding: const EdgeInsets.all(8),
                         itemCount: _targetSearch.results.length,
-                        separatorBuilder: (_, index) =>
-                            kOpenHandGap2,
+                        separatorBuilder: (_, index) => kOpenHandGap2,
                         itemBuilder: (context, index) {
                           final target = _targetSearch.results[index];
                           final selected = _selected.containsKey(target.id);
@@ -21040,7 +21598,9 @@ class _DingTalkAllowlistPickerDialogState
                             selected: selected,
                             selectedTileColor:
                                 theme.colorScheme.primaryContainer,
-                            shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius12),
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: kOpenHandBorderRadius12,
+                            ),
                             leading: Icon(widget.icon),
                             title: Text(target.title),
                             subtitle: target.subtitle.trim().isEmpty
@@ -22557,7 +23117,7 @@ class _DingTalkSettingsCard extends StatelessWidget {
               if (trailing != null) trailing!,
             ],
           ),
-          if (child != null) ...[ kOpenHandGap11, child!],
+          if (child != null) ...[kOpenHandGap11, child!],
         ],
       ),
     );
@@ -22871,7 +23431,9 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
                                       color: colors.surfaceContainerHighest,
-                                      borderRadius: BorderRadius.circular(kOpenHandRadius13),
+                                      borderRadius: BorderRadius.circular(
+                                        kOpenHandRadius13,
+                                      ),
                                     ),
                                     child: Column(
                                       crossAxisAlignment:
@@ -23715,7 +24277,9 @@ class _DingTalkResourcePickerDialogState
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius13)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kOpenHandRadius13),
+        ),
         contentPadding: const EdgeInsets.only(left: 12, right: 8),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,

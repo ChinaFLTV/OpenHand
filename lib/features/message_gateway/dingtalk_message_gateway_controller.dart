@@ -154,7 +154,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const int _maxPendingRecallIds = 512;
   static const int _maxPendingStatusMessageIds = 512;
   static const int _maxPendingStatusEventsPerMessage = 24;
-  static const int _maxReactionTypes = 12;
   static const int _maxUnresolvedOutgoingMessageIds = 256;
   static const Duration _outgoingEchoWindow = Duration(seconds: 30);
   static const int _maxAiConversationContextCharacters = 48000;
@@ -545,8 +544,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
               mimeType: _mediaMimeType(
                 path,
                 fallback: switch (capability) {
-                  AiDingTalkMultimodalCapability.imageGeneration => kImagePngMimeType,
-                  AiDingTalkMultimodalCapability.videoGeneration => kVideoMp4MimeType,
+                  AiDingTalkMultimodalCapability.imageGeneration =>
+                    kImagePngMimeType,
+                  AiDingTalkMultimodalCapability.videoGeneration =>
+                    kVideoMp4MimeType,
                   AiDingTalkMultimodalCapability.audioGeneration =>
                     kAudioMpegMimeType,
                 },
@@ -1245,6 +1246,44 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _notify();
     if (ignored) {
       _cancelResponseUsingExcludedMessage(conversationId, normalizedMessageId);
+    }
+    return true;
+  }
+
+  bool setForwardedMessageAiContextIgnored(
+    String conversationId,
+    String messageId,
+    DingTalkForwardedMessage forwardedMessage,
+    bool ignored,
+  ) {
+    final conversation = _conversations[conversationId];
+    if (conversation == null) return false;
+    final messageIndex = conversation.messages.indexWhere(
+      (message) => message.id == messageId,
+    );
+    if (messageIndex < 0) return false;
+    final current = conversation.messages[messageIndex];
+    if (current.isAssistant || current.recalled) return false;
+    final forwardedIndex = current.forwardedMessages.indexWhere(
+      (item) => _sameForwardedMessageIdentity(item, forwardedMessage),
+    );
+    if (forwardedIndex < 0) return false;
+    final item = current.forwardedMessages[forwardedIndex];
+    if (item.ignoredForAiContext == ignored) return true;
+    final forwardedMessages = List<DingTalkForwardedMessage>.from(
+      current.forwardedMessages,
+    );
+    forwardedMessages[forwardedIndex] = item.copyWith(
+      ignoredForAiContext: ignored,
+    );
+    conversation.messages[messageIndex] = current.copyWith(
+      forwardedMessages: forwardedMessages.toList(growable: false),
+    );
+    _queuePersist();
+    _clearError();
+    _notify();
+    if (ignored) {
+      _cancelResponseUsingExcludedMessage(conversationId, messageId);
     }
     return true;
   }
@@ -2715,9 +2754,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final mentionChanged =
         remote.mentionedCurrentUser && !current.mentionedCurrentUser;
     final readChanged = remote.readByPeer && !current.readByPeer;
-    final reactionsChanged =
-        remote.reactions.isNotEmpty &&
-        !listEquals(remote.reactions, current.reactions);
+    final reactions = remote.reactionSnapshotComplete
+        ? remote.reactions
+        : <String>{
+            ...current.reactions,
+            ...remote.reactions,
+          }.take(kDingTalkMaxReactionTypes).toList(growable: false);
+    final reactionsChanged = !listEquals(reactions, current.reactions);
     if (!contentChanged &&
         !recalledChanged &&
         !mediaChanged &&
@@ -2755,7 +2798,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       content: contentChanged ? remote.content : null,
       media: media,
       forwardedMessages: forwardedMessagesChanged
-          ? remote.forwardedMessages
+          ? _preserveForwardedMessageState(
+              current.forwardedMessages,
+              remote.forwardedMessages,
+            )
           : null,
       forwardedMessageCount: forwardedMessagesChanged
           ? remote.forwardedMessageCount
@@ -2763,7 +2809,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       mentionedCurrentUser: mentionChanged ? true : null,
       readByPeer: readChanged ? true : null,
       recalled: recalledChanged ? true : null,
-      reactions: reactionsChanged ? remote.reactions : null,
+      reactions: reactionsChanged ? reactions : null,
       editHistory: history,
     );
     _queuePersist();
@@ -2815,6 +2861,36 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }
     }
     return true;
+  }
+
+  bool _sameForwardedMessageIdentity(
+    DingTalkForwardedMessage left,
+    DingTalkForwardedMessage right,
+  ) {
+    final leftId = normalizeDingTalkMessageId(left.id);
+    final rightId = normalizeDingTalkMessageId(right.id);
+    if (leftId.isNotEmpty && rightId.isNotEmpty) return leftId == rightId;
+    return left.createdAt == right.createdAt &&
+        left.senderId == right.senderId &&
+        left.senderName == right.senderName &&
+        normalizeDingTalkMessageContentForComparison(left.content) ==
+            normalizeDingTalkMessageContentForComparison(right.content);
+  }
+
+  List<DingTalkForwardedMessage> _preserveForwardedMessageState(
+    List<DingTalkForwardedMessage> current,
+    List<DingTalkForwardedMessage> remote,
+  ) {
+    return remote
+        .map((item) {
+          final previous = current
+              .where((value) => _sameForwardedMessageIdentity(value, item))
+              .firstOrNull;
+          return previous?.ignoredForAiContext == true
+              ? item.copyWith(ignoredForAiContext: true)
+              : item;
+        })
+        .toList(growable: false);
   }
 
   List<DingTalkGatewayMedia> _mergeMediaCache(
@@ -2939,7 +3015,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         if (event.reactionRemoved) {
           reactions.remove(reaction);
         } else if (!reactions.contains(reaction) &&
-            reactions.length < _maxReactionTypes) {
+            reactions.length < kDingTalkMaxReactionTypes) {
           reactions.add(reaction);
         }
         if (!listEquals(reactions, current.reactions)) {
@@ -4053,7 +4129,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
     final buffer = StringBuffer()
       ..writeln('转发的聊天记录（共 ${message.forwardedMessageCount} 条）：');
+    var included = 0;
     for (final item in message.forwardedMessages) {
+      if (item.ignoredForAiContext) continue;
       final sender = item.senderName.trim().isEmpty
           ? '用户'
           : item.senderName.trim();
@@ -4062,8 +4140,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           : item.media.map((media) => '[${media.displayName}]').join(' ');
       if (text.isEmpty) continue;
       buffer.writeln('$sender：$text');
+      included++;
       if (buffer.length >= _maxAiContextMessageCharacters) break;
     }
+    if (included == 0) return '';
     return clipTextByCodeUnits(
       buffer.toString().trim(),
       _maxAiContextMessageCharacters,
@@ -4515,7 +4595,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     List<AiSessionMessage> sessionMessages,
   ) {
     final metadata = call.metadata;
-    final toolCallId = _boundedToolLabel(metadata[aiSessionMessageToolCallIdMetadataKey] ?? call.id);
+    final toolCallId = _boundedToolLabel(
+      metadata[aiSessionMessageToolCallIdMetadataKey] ?? call.id,
+    );
     final toolName = _boundedToolLabel(metadata['tool_name'] ?? '工具');
     final arguments = _toolArgumentsValue(metadata);
     final matchingResult = _matchingToolResult(call, sessionMessages);
@@ -4579,11 +4661,14 @@ ${_markdownStructuredFields(response)}''';
     AiSessionMessage call,
     List<AiSessionMessage> sessionMessages,
   ) {
-    final id = '${call.metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'.trim();
+    final id = '${call.metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'
+        .trim();
     if (id.isEmpty) return null;
     for (final message in sessionMessages.reversed) {
       if (message.isDeleted || !message.kind.isToolResultKind) continue;
-      if ('${message.metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'.trim() == id) {
+      if ('${message.metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'
+              .trim() ==
+          id) {
         return message;
       }
     }
