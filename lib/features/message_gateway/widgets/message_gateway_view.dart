@@ -12862,6 +12862,20 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                                   ),
                                                             )
                                                           : null,
+                                                      onSaveMedia:
+                                                          (
+                                                            media,
+                                                            path,
+                                                          ) => widget.controller
+                                                              .saveMessageMedia(
+                                                                conversationId:
+                                                                    selected.id,
+                                                                messageId:
+                                                                    message.id,
+                                                                media: media,
+                                                                destinationPath:
+                                                                    path,
+                                                              ),
                                                       speechEnabled:
                                                           textActionEnabled &&
                                                           ttsSettings.enabled,
@@ -15484,6 +15498,12 @@ Future<void> _openDingTalkMessageLink(
   showOpenHandInfoSnack(context, '正在打开链接');
 }
 
+typedef _DingTalkMediaSaveCallback =
+    Future<DingTalkGatewayMedia> Function(
+      DingTalkGatewayMedia media,
+      String destinationPath,
+    );
+
 class _DingTalkMessageBubble extends StatefulWidget {
   const _DingTalkMessageBubble({
     required this.message,
@@ -15497,6 +15517,7 @@ class _DingTalkMessageBubble extends StatefulWidget {
     this.onShowEditHistory,
     this.onToggleAiContextIgnored,
     this.onRetryMedia,
+    this.onSaveMedia,
     this.speechEnabled = false,
     this.speechPlaying = false,
     this.onToggleSpeech,
@@ -15524,6 +15545,7 @@ class _DingTalkMessageBubble extends StatefulWidget {
   final VoidCallback? onShowEditHistory;
   final VoidCallback? onToggleAiContextIgnored;
   final VoidCallback? onRetryMedia;
+  final _DingTalkMediaSaveCallback? onSaveMedia;
   final bool speechEnabled;
   final bool speechPlaying;
   final VoidCallback? onToggleSpeech;
@@ -15806,6 +15828,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                               loading: widget.mediaLoading,
                               failed: widget.mediaFailed,
                               onRetry: widget.onRetryMedia,
+                              onSaveFile: widget.onSaveMedia,
                               onInteractiveTap: _cancelPendingActionToggle,
                             ),
                           ),
@@ -18204,6 +18227,14 @@ class _DingTalkForwardedChatDialogState
                                               forceRetry: true,
                                             ),
                                       ),
+                                      onSaveFile: (media, path) =>
+                                          widget.controller.saveMessageMedia(
+                                            conversationId:
+                                                widget.conversationId,
+                                            messageId: message.id,
+                                            media: media,
+                                            destinationPath: path,
+                                          ),
                                       onInteractiveTap:
                                           _cancelPendingActionToggle,
                                     ),
@@ -18783,6 +18814,7 @@ class _DingTalkMediaRail extends StatelessWidget {
     required this.loading,
     required this.failed,
     this.onRetry,
+    this.onSaveFile,
     this.onInteractiveTap,
   });
 
@@ -18791,6 +18823,7 @@ class _DingTalkMediaRail extends StatelessWidget {
   final bool loading;
   final bool failed;
   final VoidCallback? onRetry;
+  final _DingTalkMediaSaveCallback? onSaveFile;
   final VoidCallback? onInteractiveTap;
 
   @override
@@ -18808,10 +18841,14 @@ class _DingTalkMediaRail extends StatelessWidget {
             children: [
               for (final item in media)
                 _DingTalkMediaTile(
+                  key: ValueKey<String>(
+                    '${item.resourceType.name}:${item.resourceId}',
+                  ),
                   media: item,
                   loading: loading,
                   failed: failed,
                   onRetry: onRetry,
+                  onSaveFile: onSaveFile,
                   onInteractiveTap: onInteractiveTap,
                 ),
             ],
@@ -18824,10 +18861,12 @@ class _DingTalkMediaRail extends StatelessWidget {
 
 class _DingTalkMediaTile extends StatelessWidget {
   const _DingTalkMediaTile({
+    super.key,
     required this.media,
     required this.loading,
     required this.failed,
     this.onRetry,
+    this.onSaveFile,
     this.onInteractiveTap,
   });
 
@@ -18835,6 +18874,7 @@ class _DingTalkMediaTile extends StatelessWidget {
   final bool loading;
   final bool failed;
   final VoidCallback? onRetry;
+  final _DingTalkMediaSaveCallback? onSaveFile;
   final VoidCallback? onInteractiveTap;
 
   Future<void> _open(BuildContext context) async {
@@ -18881,6 +18921,14 @@ class _DingTalkMediaTile extends StatelessWidget {
     // 构建阶段不做同步磁盘访问，避免会话切换或滚动时阻塞 UI 线程；
     // 实际打开与图片解码失败会走异步兜底并提供重试入口。
     final available = path.isNotEmpty;
+    if (media.kind == DingTalkMediaKind.file) {
+      return _DingTalkFileMediaTile(
+        media: media,
+        failed: failed,
+        onSaveFile: onSaveFile,
+        onInteractiveTap: onInteractiveTap,
+      );
+    }
     if (available && media.kind == DingTalkMediaKind.image) {
       return Tooltip(
         message: media.displayName,
@@ -18898,141 +18946,6 @@ class _DingTalkMediaTile extends StatelessWidget {
                 fit: BoxFit.cover,
                 cacheWidth: 380,
                 errorBuilder: (_, _, _) => _missingContent(context),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-    if (media.kind == DingTalkMediaKind.file) {
-      final statusLabel = available
-          ? media.sizeBytes > 0
-                ? formatByteSize(media.sizeBytes)
-                : '文件已下载'
-          : loading
-          ? '正在下载文件…'
-          : failed
-          ? '下载失败，点击重试'
-          : '点击下载文件';
-      final actionIcon = loading
-          ? const SizedBox.square(
-              key: ValueKey<String>('loading'),
-              dimension: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : Icon(
-              key: ValueKey<String>(
-                available
-                    ? 'open'
-                    : failed
-                    ? 'retry'
-                    : 'download',
-              ),
-              available
-                  ? Icons.open_in_new_rounded
-                  : failed
-                  ? Icons.refresh_rounded
-                  : Icons.download_rounded,
-              size: 20,
-              color: failed ? colors.error : colors.primary,
-            );
-      return Tooltip(
-        message: '${media.displayName} · $statusLabel',
-        child: Semantics(
-          button: true,
-          label: '${media.displayName}，$statusLabel',
-          child: MicroPressFeedback(
-            enabled: !loading,
-            scale: 0.98,
-            child: AnimatedContainer(
-              duration: openHandMotionDuration(context, kOpenHandMotion180),
-              curve: kOpenHandSwitchInCurve,
-              constraints: const BoxConstraints(maxWidth: 360, minHeight: 62),
-              decoration: BoxDecoration(
-                color: available
-                    ? colors.surfaceContainerHighest
-                    : colors.surfaceContainerLow,
-                borderRadius: kOpenHandBorderRadius14,
-                border: Border.all(
-                  color: failed
-                      ? colors.error.withValues(alpha: 0.48)
-                      : colors.outlineVariant.withValues(alpha: 0.72),
-                ),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: loading ? null : () => unawaited(_open(context)),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 9, 12, 9),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 42,
-                          height: 42,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: colors.primaryContainer,
-                            borderRadius: kOpenHandBorderRadius10,
-                          ),
-                          child: Icon(
-                            _dingtalkAttachmentIcon(media.displayName),
-                            size: 22,
-                            color: colors.onPrimaryContainer,
-                          ),
-                        ),
-                        kOpenHandHGap10,
-                        Flexible(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                media.displayName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.labelLarge
-                                    ?.copyWith(
-                                      color: colors.onSurface,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                              ),
-                              kOpenHandGap2,
-                              AnimatedSwitcher(
-                                duration: openHandMotionDuration(
-                                  context,
-                                  kOpenHandMotion180,
-                                ),
-                                child: Text(
-                                  statusLabel,
-                                  key: ValueKey<String>(statusLabel),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: failed
-                                            ? colors.error
-                                            : colors.onSurfaceVariant,
-                                      ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        kOpenHandHGap12,
-                        AnimatedSwitcher(
-                          duration: openHandMotionDuration(
-                            context,
-                            kOpenHandMotion180,
-                          ),
-                          child: actionIcon,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
               ),
             ),
           ),
@@ -19120,6 +19033,262 @@ class _DingTalkMediaTile extends StatelessWidget {
     DingTalkMediaKind.audio => Icons.audiotrack_outlined,
     DingTalkMediaKind.file => Icons.insert_drive_file_outlined,
   };
+}
+
+class _DingTalkFileMediaTile extends StatefulWidget {
+  const _DingTalkFileMediaTile({
+    required this.media,
+    required this.failed,
+    required this.onSaveFile,
+    this.onInteractiveTap,
+  });
+
+  final DingTalkGatewayMedia media;
+  final bool failed;
+  final _DingTalkMediaSaveCallback? onSaveFile;
+  final VoidCallback? onInteractiveTap;
+
+  @override
+  State<_DingTalkFileMediaTile> createState() => _DingTalkFileMediaTileState();
+}
+
+class _DingTalkFileMediaTileState extends State<_DingTalkFileMediaTile> {
+  bool _saving = false;
+  bool _saveFailed = false;
+
+  String get _path => widget.media.localPath.trim();
+
+  Future<void> _save() async {
+    if (_saving || widget.onSaveFile == null) return;
+    widget.onInteractiveTap?.call();
+    setState(() {
+      _saving = true;
+      _saveFailed = false;
+    });
+    try {
+      var suggestedName = p
+          .basename(widget.media.displayName.replaceAll(r'\', '/'))
+          .trim()
+          .replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1f]'), '_');
+      if (suggestedName.isEmpty ||
+          suggestedName == '.' ||
+          suggestedName == '/') {
+        suggestedName = '钉钉文件';
+      }
+      final extension = p.extension(suggestedName).replaceFirst('.', '');
+      final location = await getSaveLocation(
+        suggestedName: suggestedName,
+        acceptedTypeGroups: RegExp(r'^[a-zA-Z0-9]{1,12}$').hasMatch(extension)
+            ? <XTypeGroup>[
+                XTypeGroup(label: '文件', extensions: <String>[extension]),
+              ]
+            : const <XTypeGroup>[],
+      );
+      if (location == null || !mounted) return;
+      await widget.onSaveFile!(widget.media, location.path);
+      if (!mounted) return;
+      showOpenHandSuccessSnack(context, '文件已保存到 ${location.path}', maxLines: 2);
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '保存钉钉文件', error, stack);
+      if (!mounted) return;
+      setState(() => _saveFailed = true);
+      showOpenHandErrorSnack(
+        context,
+        messageGatewayFailureMessage(error, fallback: '保存文件失败，请稍后重试。'),
+        maxLines: 2,
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _open() async {
+    widget.onInteractiveTap?.call();
+    final path = _path;
+    if (path.isEmpty || !await File(path).exists()) {
+      if (mounted) showOpenHandErrorSnack(context, '文件已不存在，请重新下载保存。');
+      return;
+    }
+    final opened = await openLocalPathWithSystemApp(
+      path,
+      tag: 'dingtalk_gateway.open_file',
+    );
+    if (!opened && mounted) {
+      showOpenHandErrorSnack(context, '无法打开该文件。');
+    }
+  }
+
+  Future<void> _openDirectory() async {
+    widget.onInteractiveTap?.call();
+    final path = _path;
+    if (path.isEmpty || !await File(path).exists()) {
+      if (mounted) showOpenHandErrorSnack(context, '文件已不存在，无法打开所在目录。');
+      return;
+    }
+    final opened = await openLocalPathWithSystemApp(
+      p.dirname(path),
+      tag: 'dingtalk_gateway.open_file_directory',
+    );
+    if (!opened && mounted) {
+      showOpenHandErrorSnack(context, '无法打开文件所在目录。');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final available = _path.isNotEmpty;
+    final failed = !available && (_saveFailed || widget.failed);
+    final statusLabel = available
+        ? widget.media.sizeBytes > 0
+              ? formatByteSize(widget.media.sizeBytes)
+              : '文件已保存'
+        : _saving
+        ? '正在保存文件…'
+        : failed
+        ? '保存失败，请重试'
+        : '选择位置并保存';
+    return Tooltip(
+      message: '${widget.media.displayName} · $statusLabel',
+      child: AnimatedContainer(
+        duration: openHandMotionDuration(context, kOpenHandMotion180),
+        curve: kOpenHandSwitchInCurve,
+        constraints: const BoxConstraints(maxWidth: 420, minHeight: 62),
+        decoration: BoxDecoration(
+          color: available
+              ? colors.surfaceContainerHighest
+              : colors.surfaceContainerLow,
+          borderRadius: kOpenHandBorderRadius14,
+          border: Border.all(
+            color: failed
+                ? colors.error.withValues(alpha: 0.48)
+                : colors.outlineVariant.withValues(alpha: 0.72),
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Material(
+          color: Colors.transparent,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: InkWell(
+                  onTap: _saving
+                      ? null
+                      : available
+                      ? () => unawaited(_open())
+                      : () => unawaited(_save()),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 9, 8, 9),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: colors.primaryContainer,
+                            borderRadius: kOpenHandBorderRadius10,
+                          ),
+                          child: Icon(
+                            _dingtalkAttachmentIcon(widget.media.displayName),
+                            size: 22,
+                            color: colors.onPrimaryContainer,
+                          ),
+                        ),
+                        kOpenHandHGap10,
+                        Flexible(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.media.displayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: colors.onSurface,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              kOpenHandGap2,
+                              AnimatedSwitcher(
+                                duration: openHandMotionDuration(
+                                  context,
+                                  kOpenHandMotion180,
+                                ),
+                                child: Text(
+                                  statusLabel,
+                                  key: ValueKey<String>(statusLabel),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: failed
+                                        ? colors.error
+                                        : colors.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (available)
+                MicroPressFeedback(
+                  scale: 0.9,
+                  child: IconButton(
+                    tooltip: '打开文件所在目录',
+                    onPressed: _saving
+                        ? null
+                        : () => unawaited(_openDirectory()),
+                    icon: const Icon(Icons.folder_open_rounded, size: 20),
+                  ),
+                ),
+              MicroPressFeedback(
+                enabled: !_saving && widget.onSaveFile != null,
+                scale: 0.9,
+                child: IconButton(
+                  tooltip: available ? '另存文件' : '下载并保存文件',
+                  onPressed: _saving || widget.onSaveFile == null
+                      ? null
+                      : () => unawaited(_save()),
+                  icon: AnimatedSwitcher(
+                    duration: openHandMotionDuration(
+                      context,
+                      kOpenHandMotion180,
+                    ),
+                    child: _saving
+                        ? const SizedBox.square(
+                            key: ValueKey<String>('saving'),
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Icon(
+                            key: ValueKey<String>(
+                              available ? 'save-as' : 'download',
+                            ),
+                            available
+                                ? Icons.save_as_rounded
+                                : Icons.download_rounded,
+                            size: 20,
+                            color: failed ? colors.error : colors.primary,
+                          ),
+                  ),
+                ),
+              ),
+              kOpenHandHGap4,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _DingTalkConversationDetailsDialog extends StatelessWidget {

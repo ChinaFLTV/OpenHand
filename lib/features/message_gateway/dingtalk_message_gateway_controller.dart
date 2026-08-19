@@ -13,6 +13,7 @@ import '../../app/model/app_info.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/model/dingtalk_multimodal_capability.dart';
 import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/util/async_concurrency.dart';
@@ -1053,6 +1054,93 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         _notify();
       }
     }
+  }
+
+  Future<DingTalkGatewayMedia> saveMessageMedia({
+    required String conversationId,
+    required String messageId,
+    required DingTalkGatewayMedia media,
+    required String destinationPath,
+  }) async {
+    final normalizedConversationId = conversationId.trim();
+    final normalizedMessageId = normalizeDingTalkMessageId(messageId);
+    final resourceId = normalizeDingTalkResourceId(media.resourceId);
+    final targetPath = destinationPath.trim();
+    final conversation = _conversations[normalizedConversationId];
+    if (conversation == null ||
+        normalizedMessageId.isEmpty ||
+        resourceId.isEmpty ||
+        targetPath.isEmpty) {
+      throw StateError('钉钉文件保存参数不完整。');
+    }
+
+    bool matches(DingTalkGatewayMedia item) =>
+        item.resourceType == media.resourceType &&
+        normalizeDingTalkResourceId(item.resourceId) == resourceId;
+
+    final message = conversation.messages
+        .where(
+          (item) => normalizeDingTalkMessageId(item.id) == normalizedMessageId,
+        )
+        .firstOrNull;
+    final sourceMedia = message?.media.where(matches).firstOrNull;
+    if (message == null || sourceMedia == null) {
+      throw StateError('钉钉文件消息已失效，请刷新后重试。');
+    }
+
+    var sourcePath = sourceMedia.localPath.trim();
+    if (sourcePath.isEmpty || !await File(sourcePath).exists()) {
+      sourcePath =
+          await _service.ensureMediaCached(sourceMedia, forceRetry: true) ?? '';
+    }
+    if (sourcePath.isEmpty) {
+      throw const FileSystemException('钉钉文件下载失败，请稍后重试。');
+    }
+
+    final source = File(sourcePath);
+    final sourceStat = await source.stat();
+    if (sourceStat.type != FileSystemEntityType.file || sourceStat.size <= 0) {
+      throw FileSystemException('钉钉文件不存在或内容为空。', sourcePath);
+    }
+    final target = File(p.normalize(p.absolute(targetPath)));
+    if (!p.equals(p.normalize(p.absolute(source.path)), target.path)) {
+      await copyFileAtomically(source, target, maxBytes: sourceStat.size);
+    }
+
+    DingTalkGatewayMedia savedMedia(DingTalkGatewayMedia item) =>
+        item.copyWith(localPath: target.path, sizeBytes: sourceStat.size);
+    final saved = savedMedia(sourceMedia);
+    if (_disposed) return saved;
+
+    final latestConversation = _conversations[normalizedConversationId];
+    if (latestConversation == null) return saved;
+    final index = latestConversation.messages.indexWhere(
+      (item) => normalizeDingTalkMessageId(item.id) == normalizedMessageId,
+    );
+    if (index < 0 || !latestConversation.messages[index].media.any(matches)) {
+      return saved;
+    }
+
+    final current = latestConversation.messages[index];
+    final updated = current.copyWith(
+      media: current.media
+          .map((item) => matches(item) ? savedMedia(item) : item)
+          .toList(growable: false),
+      forwardedMessages: current.forwardedMessages
+          .map(
+            (item) => item.copyWith(
+              media: item.media
+                  .map((child) => matches(child) ? savedMedia(child) : child)
+                  .toList(growable: false),
+            ),
+          )
+          .toList(growable: false),
+    );
+    latestConversation.messages[index] = updated;
+    _mediaHydrationFailures.remove(normalizedMessageId);
+    _queuePersist();
+    _notify();
+    return updated.media.firstWhere(matches);
   }
 
   void _setMediaHydrationFailure(String messageId, bool failed) {
