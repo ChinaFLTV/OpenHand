@@ -19174,68 +19174,74 @@ class _DingTalkFileMediaTileState extends State<_DingTalkFileMediaTile> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Flexible(
-                child: InkWell(
-                  onTap: _saving
-                      ? null
-                      : available
-                      ? () => unawaited(_open())
-                      : () => unawaited(_save()),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 9, 8, 9),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 42,
-                          height: 42,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: colors.primaryContainer,
-                            borderRadius: kOpenHandBorderRadius10,
+                child: MouseRegion(
+                  cursor: _saving
+                      ? SystemMouseCursors.basic
+                      : SystemMouseCursors.click,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _saving
+                        ? null
+                        : available
+                        ? () => unawaited(_open())
+                        : () => unawaited(_save()),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 9, 8, 9),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: colors.primaryContainer,
+                              borderRadius: kOpenHandBorderRadius10,
+                            ),
+                            child: Icon(
+                              _dingtalkAttachmentIcon(widget.media.displayName),
+                              size: 22,
+                              color: colors.onPrimaryContainer,
+                            ),
                           ),
-                          child: Icon(
-                            _dingtalkAttachmentIcon(widget.media.displayName),
-                            size: 22,
-                            color: colors.onPrimaryContainer,
-                          ),
-                        ),
-                        kOpenHandHGap10,
-                        Flexible(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.media.displayName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.labelLarge?.copyWith(
-                                  color: colors.onSurface,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              kOpenHandGap2,
-                              AnimatedSwitcher(
-                                duration: openHandMotionDuration(
-                                  context,
-                                  kOpenHandMotion180,
-                                ),
-                                child: Text(
-                                  statusLabel,
-                                  key: ValueKey<String>(statusLabel),
+                          kOpenHandHGap10,
+                          Flexible(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.media.displayName,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: failed
-                                        ? colors.error
-                                        : colors.onSurfaceVariant,
+                                  style: theme.textTheme.labelLarge?.copyWith(
+                                    color: colors.onSurface,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                              ),
-                            ],
+                                kOpenHandGap2,
+                                AnimatedSwitcher(
+                                  duration: openHandMotionDuration(
+                                    context,
+                                    kOpenHandMotion180,
+                                  ),
+                                  child: Text(
+                                    statusLabel,
+                                    key: ValueKey<String>(statusLabel),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: failed
+                                          ? colors.error
+                                          : colors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
