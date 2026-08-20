@@ -322,6 +322,22 @@ String _dingtalkAllowlistText(
 /// 网关详情弹窗走 expandToMax（固定尺寸），不套用统一档位——档位是上限语义。
 const double _kGatewayDetailDialogWidth = 860;
 const double _kGatewayDetailDialogHeight = 760;
+const double _kMetricTileSpacing = 10;
+
+Widget _buildMetricTileGrid({
+  required double width,
+  required int columns,
+  required List<Widget> children,
+}) {
+  final tileWidth = (width - _kMetricTileSpacing * (columns - 1)) / columns;
+  return Wrap(
+    spacing: _kMetricTileSpacing,
+    runSpacing: _kMetricTileSpacing,
+    children: [
+      for (final child in children) SizedBox(width: tileWidth, child: child),
+    ],
+  );
+}
 
 class MessageGatewayView extends StatefulWidget {
   const MessageGatewayView({super.key});
@@ -954,13 +970,9 @@ class _WebPlatformServiceCard extends StatelessWidget {
             LayoutBuilder(
               builder: (context, constraints) {
                 final columns = constraints.maxWidth < 820 ? 1 : 4;
-                return GridView.count(
-                  crossAxisCount: columns,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  childAspectRatio: columns == 1 ? 5.8 : 2.9,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
+                return _buildMetricTileGrid(
+                  width: constraints.maxWidth,
+                  columns: columns,
                   children: [
                     _MetricTile(
                       label: openHandLocalizedText(
@@ -3224,13 +3236,9 @@ class _ConnectivityResultView extends StatelessWidget {
           LayoutBuilder(
             builder: (context, constraints) {
               final columns = constraints.maxWidth < 720 ? 2 : 4;
-              return GridView.count(
-                crossAxisCount: columns,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: columns == 2 ? 2.6 : 2.8,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
+              return _buildMetricTileGrid(
+                width: constraints.maxWidth,
+                columns: columns,
                 children: [
                   _MetricTile(
                     label: openHandLocalizedText(
@@ -8230,6 +8238,8 @@ class _MetricTile extends StatelessWidget {
         children: [
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: theme.textTheme.labelMedium?.copyWith(
               color: colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w800,
