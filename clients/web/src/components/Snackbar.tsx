@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { getDialogExitDurationMs } from '../hooks/useDialogMotionSettings';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import {
   MAX_BROWSER_TIMEOUT_MS,
@@ -24,9 +25,28 @@ interface SnackbarItem {
 const listeners = new Set<(item: SnackbarItem) => void>();
 let nextId = 1;
 const MAX_VISIBLE_SNACKBAR_ITEMS = 3;
+const MAX_PENDING_SNACKBAR_ITEMS = 20;
 const DEFAULT_SNACKBAR_DURATION_MS = 2600;
 const MAX_SNACKBAR_DURATION_MS = 60_000;
-const SNACKBAR_EXIT_DURATION_MS = 180;
+const SNACKBAR_BASE_STYLE = {
+  border: '1px solid var(--m3-outline-variant, rgba(127,127,127,0.3))',
+};
+const SNACKBAR_DEFAULT_TONE_STYLE = {
+  color: 'var(--m3-inverse-on-surface, #f1f0f4)',
+  background: 'var(--m3-inverse-surface, #2f3033)',
+};
+const SNACKBAR_TONE_STYLES = {
+  default: SNACKBAR_DEFAULT_TONE_STYLE,
+  success: SNACKBAR_DEFAULT_TONE_STYLE,
+  warning: {
+    color: 'var(--m3-on-tertiary-container, #28132e)',
+    background: 'var(--m3-tertiary-container, #fad8fd)',
+  },
+  error: {
+    color: 'var(--m3-on-error-container, #410e0b)',
+    background: 'var(--m3-error-container, #f9dedc)',
+  },
+} as const;
 
 function normalizeSnackbarDurationMs(value: number | undefined): number {
   return normalizeDurationMs(value, {
@@ -47,40 +67,16 @@ export function showSnackbar(message: string, options: SnackbarOptions = {}): vo
   for (const listener of listeners) listener(item);
 }
 
-function toneStyle(tone: SnackbarTone) {
-  switch (tone) {
-    case 'success':
-      return {
-        border: '1px solid var(--m3-outline-variant, rgba(127,127,127,0.3))',
-        color: 'var(--m3-inverse-on-surface, #f1f0f4)',
-        background: 'var(--m3-inverse-surface, #2f3033)',
-      };
-    case 'warning':
-      return {
-        border: '1px solid var(--m3-outline-variant, rgba(127,127,127,0.3))',
-        color: 'var(--m3-on-tertiary-container, #28132e)',
-        background: 'var(--m3-tertiary-container, #fad8fd)',
-      };
-    case 'error':
-      return {
-        border: '1px solid var(--m3-outline-variant, rgba(127,127,127,0.3))',
-        color: 'var(--m3-on-error-container, #410e0b)',
-        background: 'var(--m3-error-container, #f9dedc)',
-      };
-    default:
-      return {
-        border: '1px solid var(--m3-outline-variant, rgba(127,127,127,0.3))',
-        color: 'var(--m3-inverse-on-surface, #f1f0f4)',
-        background: 'var(--m3-inverse-surface, #2f3033)',
-      };
-  }
-}
-
 export function SnackbarHost() {
   const [items, setItems] = useState<SnackbarItem[]>([]);
   const reduceMotion = useReducedMotion();
   const timerRefs = useRef<Set<number>>(new Set());
   const autoDismissTimerRefs = useRef<Map<number, number>>(new Map());
+  const visibleItemsRef = useRef<SnackbarItem[]>([]);
+  const pendingItemsRef = useRef<SnackbarItem[]>([]);
+  const reduceMotionRef = useRef(reduceMotion);
+  const scheduleAutoDismissRef = useRef<(item: SnackbarItem) => void>(() => {});
+  reduceMotionRef.current = reduceMotion;
 
   const clearManagedTimeout = useCallback((timer: number) => {
     if (typeof window !== 'undefined') {
@@ -109,19 +105,36 @@ export function SnackbarHost() {
     return timer;
   }, []);
 
+  const removeItem = useCallback((id: number) => {
+    const remainingItems = visibleItemsRef.current.filter((item) => item.id !== id);
+    if (remainingItems.length === visibleItemsRef.current.length) return;
+    const nextItem = pendingItemsRef.current.shift();
+    const nextItems = nextItem == null
+      ? remainingItems
+      : [...remainingItems, nextItem];
+    visibleItemsRef.current = nextItems;
+    setItems(nextItems);
+    if (nextItem != null) scheduleAutoDismissRef.current(nextItem);
+  }, []);
+
   const dismissItem = useCallback((item: SnackbarItem) => {
-    clearAutoDismissTimer(item.id);
-    if (reduceMotion) {
-      setItems((prev) => prev.filter((cur) => cur.id !== item.id));
+    const currentItem = visibleItemsRef.current.find((current) => current.id === item.id);
+    if (currentItem == null || currentItem.closing) return;
+    clearAutoDismissTimer(currentItem.id);
+    const exitDurationMs = reduceMotionRef.current ? 0 : getDialogExitDurationMs();
+    if (exitDurationMs <= 0) {
+      removeItem(currentItem.id);
       return;
     }
-    setItems((prev) => prev.map((cur) => (
-      cur.id === item.id ? { ...cur, closing: true } : cur
-    )));
+    const closingItems = visibleItemsRef.current.map((current) => (
+      current.id === currentItem.id ? { ...current, closing: true } : current
+    ));
+    visibleItemsRef.current = closingItems;
+    setItems(closingItems);
     setManagedTimeout(() => {
-      setItems((prev) => prev.filter((cur) => cur.id !== item.id));
-    }, SNACKBAR_EXIT_DURATION_MS);
-  }, [clearAutoDismissTimer, reduceMotion, setManagedTimeout]);
+      removeItem(currentItem.id);
+    }, exitDurationMs);
+  }, [clearAutoDismissTimer, removeItem, setManagedTimeout]);
 
   const scheduleAutoDismiss = useCallback((item: SnackbarItem) => {
     clearAutoDismissTimer(item.id);
@@ -132,11 +145,24 @@ export function SnackbarHost() {
   }, [clearAutoDismissTimer, dismissItem, setManagedTimeout]);
 
   useEffect(() => {
+    scheduleAutoDismissRef.current = scheduleAutoDismiss;
+    return () => {
+      scheduleAutoDismissRef.current = () => {};
+    };
+  }, [scheduleAutoDismiss]);
+
+  useEffect(() => {
     const onItem = (item: SnackbarItem) => {
-      setItems((prev) => [
-        ...prev.slice(-(MAX_VISIBLE_SNACKBAR_ITEMS - 1)),
-        item,
-      ]);
+      if (visibleItemsRef.current.length >= MAX_VISIBLE_SNACKBAR_ITEMS) {
+        if (pendingItemsRef.current.length >= MAX_PENDING_SNACKBAR_ITEMS) {
+          pendingItemsRef.current.shift();
+        }
+        pendingItemsRef.current.push(item);
+        return;
+      }
+      const nextItems = [...visibleItemsRef.current, item];
+      visibleItemsRef.current = nextItems;
+      setItems(nextItems);
       scheduleAutoDismiss(item);
     };
     listeners.add(onItem);
@@ -146,19 +172,14 @@ export function SnackbarHost() {
   }, [scheduleAutoDismiss]);
 
   useEffect(() => {
-    const activeIds = new Set(items.map((item) => item.id));
-    for (const id of autoDismissTimerRefs.current.keys()) {
-      if (!activeIds.has(id)) clearAutoDismissTimer(id);
-    }
-  }, [clearAutoDismissTimer, items]);
-
-  useEffect(() => {
     return () => {
       for (const timer of timerRefs.current) {
         clearManagedTimeout(timer);
       }
       timerRefs.current.clear();
       autoDismissTimerRefs.current.clear();
+      visibleItemsRef.current = [];
+      pendingItemsRef.current = [];
     };
   }, [clearManagedTimeout]);
 
@@ -166,26 +187,27 @@ export function SnackbarHost() {
 
   return (
     <OverlayPortal>
-    <div
-      class="fixed left-1/2 bottom-5 z-[3200] flex w-[min(92vw,520px)] -translate-x-1/2 flex-col items-center gap-2 pointer-events-none"
-      aria-live="polite"
-    >
-      {items.map((item) => (
-        <div
-          key={item.id}
-          class={`${item.closing ? 'oh-snackbar-exit' : 'oh-snackbar-enter'} rounded-full px-4 py-2 text-sm pointer-events-auto`}
-          style={{
-            ...toneStyle(item.tone),
-            boxShadow: 'var(--m3-elev-3)',
-            maxWidth: '100%',
-            wordBreak: 'break-word',
-          }}
-          role={item.tone === 'error' ? 'alert' : 'status'}
-        >
-          {item.message}
-        </div>
-      ))}
-    </div>
+      <div
+        class="fixed left-1/2 bottom-5 z-[3200] flex w-[min(92vw,520px)] -translate-x-1/2 flex-col items-center gap-2 pointer-events-none"
+        aria-live="polite"
+      >
+        {items.map((item) => (
+          <div
+            key={item.id}
+            class={`${item.closing ? 'oh-snackbar-exit' : 'oh-snackbar-enter'} rounded-full px-4 py-2 text-sm pointer-events-auto`}
+            style={{
+              ...SNACKBAR_BASE_STYLE,
+              ...SNACKBAR_TONE_STYLES[item.tone],
+              boxShadow: 'var(--m3-elev-3)',
+              maxWidth: '100%',
+              wordBreak: 'break-word',
+            }}
+            role={item.tone === 'error' ? 'alert' : 'status'}
+          >
+            {item.message}
+          </div>
+        ))}
+      </div>
     </OverlayPortal>
   );
 }

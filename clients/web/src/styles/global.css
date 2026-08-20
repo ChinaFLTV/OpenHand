@@ -100,12 +100,12 @@ html, body, #root {
 
 /* ──────────────────────────────────────────────────────────────────────────
    Motion 系统：M3 Expressive 自然弹性曲线 + 进入/退出/列表错峰。
-   - 所有时长 / 缓动统一从 CSS 变量读，便于按 prefers-reduced-motion 一键关。
-   - reduce-motion 状态由 [data-motion='reduced'] 标志位（JS 在 root 上写入）。
-   - .oh-appear-up：220ms fade + translateY(8px → 0)，配合 .oh-appear-stagger-N 形成入场错峰（最多 12 阶，每阶 60ms）。
-   - .oh-page-fade：路由切换时整页 280ms fade，避免顶层闪烁。
-  - .oh-tap-press：可点击元素受压反馈，按下与释放都走弹性曲线。
-   - 任何作用于 transform / opacity 的动画都额外开 will-change，避免 layout/paint 抖动。 */
+   - 核心动效的时长和缓动统一读取 CSS 变量，便于集中调整和降低动效。
+   - 降低动效状态由 [data-motion='reduced'] 标志位控制（JS 写入根节点）。
+   - .oh-appear-up：220ms 淡入并沿 Y 轴上移 8px，配合 .oh-appear-stagger-N 形成入场错峰（最多 12 阶，每阶 60ms）。
+   - .oh-page-fade：路由切换时整页 360ms 淡入，避免顶层闪烁。
+   - .oh-tap-press：可点击元素受压反馈，按下与释放都走弹性曲线。
+   - 任何作用于位移或透明度的动画都额外启用 will-change，避免布局和绘制抖动。 */
 :root {
   --oh-motion-emphasized: cubic-bezier(0.2, 0, 0, 1);
   --oh-motion-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -330,11 +330,13 @@ html, body, #root {
   animation: oh-page-fade-in 360ms var(--oh-motion-spring) both;
 }
 .oh-snackbar-enter {
-  animation: oh-snackbar-enter 280ms var(--oh-motion-spring) both;
+  animation: oh-snackbar-enter var(--oh-dialog-enter-duration) var(--oh-dialog-curve) both;
+  transform-origin: center bottom;
   will-change: transform, opacity;
 }
 .oh-snackbar-exit {
-  animation: oh-snackbar-exit 180ms var(--oh-motion-emphasized) both;
+  animation: oh-snackbar-exit var(--oh-dialog-exit-duration) var(--oh-dialog-exit-curve) both;
+  transform-origin: center bottom;
   will-change: transform, opacity;
 }
 
@@ -1503,7 +1505,7 @@ button.oh-message-context-capsule {
   background: color-mix(in srgb, var(--m3-surface) 96%, transparent);
   color: var(--m3-on-surface);
   box-shadow: var(--m3-elev-3);
-  animation: oh-dialog-fade-scale-in var(--oh-dialog-duration) var(--oh-dialog-curve) both;
+  animation: oh-dialog-fade-scale-in var(--oh-dialog-enter-duration) var(--oh-dialog-curve) both;
   transform-origin: center;
   will-change: transform, opacity;
   pointer-events: auto;
@@ -8731,31 +8733,33 @@ button.oh-composer-pill:not(:disabled):hover {
   will-change: transform, opacity;
 }
 
-[data-dialog-enter='none'] :is(.oh-dialog-fade-in, .oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover),
-[data-dialog-exit='none'] :is(.oh-dialog-fade-out, .oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out) {
+[data-dialog-enter='none'] :is(.oh-dialog-fade-in, .oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover, .oh-snackbar-enter),
+[data-dialog-exit='none'] :is(.oh-dialog-fade-out, .oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out, .oh-snackbar-exit) {
   animation: none;
 }
-[data-dialog-enter='fade'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover) { animation-name: oh-dialog-card-fade-in; }
-[data-dialog-enter='slide_up'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover) { animation-name: oh-dialog-slide-up-in; }
-[data-dialog-enter='slide_down'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover) { animation-name: oh-dialog-slide-down-in; }
-[data-dialog-enter='slide_left'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover) { animation-name: oh-dialog-slide-left-in; }
-[data-dialog-enter='slide_right'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover) { animation-name: oh-dialog-slide-right-in; }
-[data-dialog-enter='expand'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover) { animation-name: oh-dialog-expand-in; }
-[data-dialog-enter='rotate_scale'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover) { animation-name: oh-dialog-rotate-scale-in; }
-[data-dialog-enter='elastic'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover) { animation-name: oh-dialog-elastic-in; }
-[data-dialog-enter='spring_scale'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover) { animation-name: oh-dialog-spring-scale-in; }
-[data-dialog-enter='flip_x'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover) { animation-name: oh-dialog-flip-x-in; }
+[data-dialog-enter='fade'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover, .oh-snackbar-enter) { animation-name: oh-dialog-card-fade-in; }
+[data-dialog-enter='fade_scale'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover, .oh-snackbar-enter) { animation-name: oh-dialog-fade-scale-in; }
+[data-dialog-enter='slide_up'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover, .oh-snackbar-enter) { animation-name: oh-dialog-slide-up-in; }
+[data-dialog-enter='slide_down'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover, .oh-snackbar-enter) { animation-name: oh-dialog-slide-down-in; }
+[data-dialog-enter='slide_left'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover, .oh-snackbar-enter) { animation-name: oh-dialog-slide-left-in; }
+[data-dialog-enter='slide_right'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover, .oh-snackbar-enter) { animation-name: oh-dialog-slide-right-in; }
+[data-dialog-enter='expand'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover, .oh-snackbar-enter) { animation-name: oh-dialog-expand-in; }
+[data-dialog-enter='rotate_scale'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover, .oh-snackbar-enter) { animation-name: oh-dialog-rotate-scale-in; }
+[data-dialog-enter='elastic'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover, .oh-snackbar-enter) { animation-name: oh-dialog-elastic-in; }
+[data-dialog-enter='spring_scale'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover, .oh-snackbar-enter) { animation-name: oh-dialog-spring-scale-in; }
+[data-dialog-enter='flip_x'] :is(.oh-dialog-pop-in, .oh-dialog-sheet-in, .oh-popmenu-pop, .oh-kb-vector-popover, .oh-snackbar-enter) { animation-name: oh-dialog-flip-x-in; }
 
-[data-dialog-exit='fade'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out) { animation-name: oh-dialog-card-fade-out; }
-[data-dialog-exit='slide_up'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out) { animation-name: oh-dialog-slide-up-out; }
-[data-dialog-exit='slide_down'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out) { animation-name: oh-dialog-slide-down-out; }
-[data-dialog-exit='slide_left'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out) { animation-name: oh-dialog-slide-left-out; }
-[data-dialog-exit='slide_right'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out) { animation-name: oh-dialog-slide-right-out; }
-[data-dialog-exit='expand'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out) { animation-name: oh-dialog-expand-out; }
-[data-dialog-exit='rotate_scale'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out) { animation-name: oh-dialog-rotate-scale-out; }
-[data-dialog-exit='elastic'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out) { animation-name: oh-dialog-elastic-out; }
-[data-dialog-exit='spring_scale'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out) { animation-name: oh-dialog-spring-scale-out; }
-[data-dialog-exit='flip_x'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out) { animation-name: oh-dialog-flip-x-out; }
+[data-dialog-exit='fade'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out, .oh-snackbar-exit) { animation-name: oh-dialog-card-fade-out; }
+[data-dialog-exit='fade_scale'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out, .oh-snackbar-exit) { animation-name: oh-dialog-fade-scale-out; }
+[data-dialog-exit='slide_up'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out, .oh-snackbar-exit) { animation-name: oh-dialog-slide-up-out; }
+[data-dialog-exit='slide_down'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out, .oh-snackbar-exit) { animation-name: oh-dialog-slide-down-out; }
+[data-dialog-exit='slide_left'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out, .oh-snackbar-exit) { animation-name: oh-dialog-slide-left-out; }
+[data-dialog-exit='slide_right'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out, .oh-snackbar-exit) { animation-name: oh-dialog-slide-right-out; }
+[data-dialog-exit='expand'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out, .oh-snackbar-exit) { animation-name: oh-dialog-expand-out; }
+[data-dialog-exit='rotate_scale'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out, .oh-snackbar-exit) { animation-name: oh-dialog-rotate-scale-out; }
+[data-dialog-exit='elastic'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out, .oh-snackbar-exit) { animation-name: oh-dialog-elastic-out; }
+[data-dialog-exit='spring_scale'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out, .oh-snackbar-exit) { animation-name: oh-dialog-spring-scale-out; }
+[data-dialog-exit='flip_x'] :is(.oh-dialog-pop-out, .oh-dialog-sheet-out, .oh-menu-pop-out, .oh-snackbar-exit) { animation-name: oh-dialog-flip-x-out; }
 
 /* 悬浮加号按钮 (FAB)：常态轻浮 + hover 上抬 + active 下沉，外加循环极轻 idle 呼吸。 */
 @keyframes oh-fab-idle {

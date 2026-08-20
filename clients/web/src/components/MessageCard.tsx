@@ -3774,6 +3774,22 @@ function KnowledgeVectorDistributionScene({
   const [corpusLoading, setCorpusLoading] = useState(false);
   const [corpusError, setCorpusError] = useState('');
   const [visibleLimit, setVisibleLimit] = useState(KB_VECTOR_BATCH_SIZE);
+  const {
+    closing: pointPopoverClosing,
+    requestClose: requestPointPopoverClose,
+    resetClosing: resetPointPopoverClosing,
+  } = useDialogExitMotion(() => setSelectedId(null), {
+    active: selectedId != null,
+  });
+
+  const selectPoint = useCallback((pointId: string | null) => {
+    if (pointId == null) {
+      if (selectedId != null) requestPointPopoverClose();
+      return;
+    }
+    resetPointPopoverClosing();
+    setSelectedId(pointId);
+  }, [requestPointPopoverClose, resetPointPopoverClosing, selectedId]);
 
   useLayoutEffect(() => {
     const node = sceneRef.current;
@@ -3831,8 +3847,9 @@ function KnowledgeVectorDistributionScene({
 
   useEffect(() => {
     if (!selectedId || allPoints.some((point) => point.id === selectedId)) return;
+    resetPointPopoverClosing();
     setSelectedId(null);
-  }, [allPoints, selectedId]);
+  }, [allPoints, resetPointPopoverClosing, selectedId]);
 
   const renderedPoints = useMemo(
     () => allPoints.slice(0, Math.min(visibleLimit, allPoints.length)),
@@ -3979,7 +3996,7 @@ function KnowledgeVectorDistributionScene({
         const point = scenePointFromEvent(event);
         if (!point) return;
         const nearest = nearestKnowledgeVectorPoint(projected, point);
-        setSelectedId(nearest?.point.id ?? null);
+        selectPoint(nearest?.point.id ?? null);
       }}
       onPointerCancel={(event) => {
         pointerRef.current = null;
@@ -4072,7 +4089,7 @@ function KnowledgeVectorDistributionScene({
                   event.currentTarget.releasePointerCapture(event.pointerId);
                 }
                 if (!previous || previous.pointerId !== event.pointerId || previous.dragged) return;
-                setSelectedId(previous.pointId);
+                selectPoint(previous.pointId);
               }}
               onPointerCancel={(event) => {
                 pointPointerRef.current = null;
@@ -4135,9 +4152,10 @@ function KnowledgeVectorDistributionScene({
       </div>
       {selected && selectedProjected ? (
         <KnowledgeVectorPointPopover
+          closing={pointPopoverClosing}
           projection={selectedProjected}
           sceneSize={sceneSize}
-          onClose={() => setSelectedId(null)}
+          onClose={requestPointPopoverClose}
         />
       ) : null}
     </div>
@@ -4205,10 +4223,12 @@ function KnowledgeVectorAxis({
 }
 
 function KnowledgeVectorPointPopover({
+  closing,
   projection,
   sceneSize,
   onClose,
 }: {
+  closing: boolean;
   projection: KnowledgeProjectedVectorPoint;
   sceneSize: KnowledgeVectorSceneSize;
   onClose: () => void;
@@ -4223,15 +4243,17 @@ function KnowledgeVectorPointPopover({
   const point = projection.point;
   return (
     <div
-      class="oh-kb-vector-popover"
+      class={`oh-kb-vector-popover${closing ? ' oh-menu-pop-out' : ''}`}
       style={{ left: `${left}px`, top: `${top}px`, width: `${width}px` }}
       onPointerDown={(event) => event.stopPropagation()}
+      data-closing={closing ? 'true' : undefined}
     >
       <div class="oh-kb-vector-popover-head">
         <strong>{point.title || point.id}</strong>
         <DialogCloseButton
           onClick={onClose}
           label={t('common.close', '关闭')}
+          disabled={closing}
           className="oh-kb-vector-popover-close oh-tap-press"
           iconSize={13}
         />
