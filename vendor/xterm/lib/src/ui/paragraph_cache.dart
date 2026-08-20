@@ -31,7 +31,7 @@ class ParagraphCache {
     builder.addText(text);
 
     final paragraph = builder.build();
-    paragraph.layout(ParagraphConstraints(width: double.infinity));
+    paragraph.layout(const ParagraphConstraints(width: double.infinity));
 
     _cache[key] = paragraph;
     return paragraph;

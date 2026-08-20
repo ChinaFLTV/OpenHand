@@ -298,12 +298,6 @@ class BufferLine with IndexedItem {
     len = min(len, readableCells);
     resize(dstCol + len);
 
-    // data.setRange(
-    //   dstCol * _cellSize,
-    //   (dstCol + len) * _cellSize,
-    //   Uint32List.sublistView(src.data, srcCol * _cellSize, len * _cellSize),
-    // );
-
     var srcOffset = srcCol * _cellSize;
     var dstOffset = dstCol * _cellSize;
 

@@ -48,8 +48,9 @@ class SuggestionPortal extends StatefulWidget {
 class _SuggestionPortalState extends State<SuggestionPortal> {
   @override
   Widget build(BuildContext context) {
-    return OverlayPortal.targetsRootOverlay(
+    return OverlayPortal(
       controller: widget.controller,
+      overlayLocation: OverlayChildLocation.rootOverlay,
       overlayChildBuilder: (context) {
         return SuggestionLayout(
           cursorRect: widget.controller._cursorRect,
@@ -172,9 +173,7 @@ class RenderCompletionLayout extends RenderShiftedBox {
         cursorMargin.bottom;
 
     final childConstraints = BoxConstraints(
-      minWidth: 0,
       maxWidth: size.width - padding.horizontal,
-      minHeight: 0,
       maxHeight: max(spaceAbove, spaceBelow),
     );
 

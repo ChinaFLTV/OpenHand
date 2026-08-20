@@ -36,7 +36,7 @@ class TerminalPainter {
   }
 
   TextScaler get textScaler => _textScaler;
-  TextScaler _textScaler = TextScaler.linear(1.0);
+  TextScaler _textScaler = const TextScaler.linear(1.0);
   set textScaler(TextScaler value) {
     if (value == _textScaler) return;
     _textScaler = value;
@@ -64,7 +64,7 @@ class TerminalPainter {
     builder.addText(test);
 
     final paragraph = builder.build();
-    paragraph.layout(ParagraphConstraints(width: double.infinity));
+    paragraph.layout(const ParagraphConstraints(width: double.infinity));
 
     final result = Size(
       paragraph.maxIntrinsicWidth / test.length,
@@ -185,7 +185,7 @@ class TerminalPainter {
           : resolveBackgroundColor(cellData.background);
 
       if (cellData.flags & CellFlags.faint != 0) {
-        color = color.withOpacity(0.5);
+        color = color.withValues(alpha: 0.5);
       }
 
       final style = _textStyle.toTextStyle(

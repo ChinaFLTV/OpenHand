@@ -29,6 +29,10 @@ void main() {
     expect(terminal.viewWidth, 24);
     expect(text, contains('line-29-payload\nline-30-payload\nline-31-payload'));
   });
+
+  test('字节模式匹配覆盖最后一个合法起点', () {
+    expect(<int>[1, 2, 3].listIndexOf(<int>[2, 3]), 1);
+  });
 }
 
 class _TestItem with IndexedItem {

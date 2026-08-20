@@ -64,19 +64,12 @@ class ZModemMux {
   ZModemRequestHandler? onFileRequest;
 
   ZModemMux({required this.stdin, required this.stdout}) {
-    _stdoutSubscription = stdout.listen(_handleStdout);
+    stdout.listen(_handleStdout);
   }
 
-  /// Subscriptions to [stdout]. Used to pause/resume the stream when no more
-  /// space is available in local buffers.
-  late final StreamSubscription<Uint8List> _stdoutSubscription;
-
-  late final _terminalSink = StreamController<List<int>>(
-      // onPause: _stdoutSubscription.pause,
-      // onResume: _stdoutSubscription.resume,
-      )
+  late final _terminalSink = StreamController<List<int>>()
     ..stream
-        .transform(Utf8Decoder(allowMalformed: true))
+        .transform(const Utf8Decoder(allowMalformed: true))
         .listen(onTerminalInput);
 
   /// Current ZModem session. If null, no session is active.
@@ -134,7 +127,7 @@ class ZModemMux {
     return false;
   }
 
-  void _handleZModem(Uint8List chunk) async {
+  Future<void> _handleZModem(Uint8List chunk) async {
     for (final event in _session!.receive(chunk)) {
       /// remote is sz
       if (event is ZFileOfferedEvent) {
@@ -246,18 +239,10 @@ class ZModemMux {
   }
 
   void _createReceiveSink() {
-    _receiveSink = StreamController<Uint8List>(
-      onPause: () {
-        // _stdoutSubscription.pause();
-      },
-      onResume: () {
-        // _stdoutSubscription.resume();
-      },
-    );
+    _receiveSink = StreamController<Uint8List>();
   }
 
   Future<void> _closeReceiveSink() async {
-    _stdoutSubscription.resume();
     await _receiveSink?.close();
     _receiveSink = null;
   }
@@ -293,7 +278,7 @@ extension ListExtension on List<int> {
     if (other.length + start > length) {
       return null;
     }
-    for (var i = start; i < length - other.length; i++) {
+    for (var i = start; i <= length - other.length; i++) {
       if (this[i] == other[0]) {
         var found = true;
         for (var j = 1; j < other.length; j++) {

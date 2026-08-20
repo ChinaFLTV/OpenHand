@@ -252,7 +252,6 @@ class EscapeParser {
       }
 
       if (char > Ascii.NULL && char < Ascii.num0) {
-        // intermediates.add(char);
         continue;
       }
 
@@ -268,7 +267,6 @@ class EscapeParser {
   }
 
   late final _csiHandlers = FastLookupTable<_CsiHandler>({
-    // 'a'.codeUnitAt(0): _csiHandleCursorHorizontalRelative,
     'b'.codeUnitAt(0): _csiHandleRepeatPreviousCharacter,
     'c'.codeUnitAt(0): _csiHandleSendDeviceAttributes,
     'd'.codeUnitAt(0): _csiHandleLinePositionAbsolute,
@@ -298,17 +296,6 @@ class EscapeParser {
     'X'.codeUnitAt(0): _csiHandleEraseCharacters,
     '@'.codeUnitAt(0): _csiHandleInsertBlankCharacters,
   });
-
-  /// `ESC [ Ps a` Cursor Horizontal Position Relative (HPR)
-  ///
-  /// https://terminalguide.namepad.de/seq/csi_sa/
-  // void _csiHandleCursorHorizontalRelative() {
-  //   if (_csi.params.isEmpty) {
-  //     handler.cursorHorizontal(1);
-  //   } else {
-  //     handler.cursorHorizontal(_csi.params[0]);
-  //   }
-  // }
 
   /// `ESC [ Ps b` Repeat Previous Character (REP)
   ///
@@ -505,12 +492,10 @@ class EscapeParser {
               final b = params[i + 4];
               handler.setForegroundColorRgb(r, g, b);
               i += 4;
-              break;
             case 5:
               final index = params[i + 2];
               handler.setForegroundColor256(index);
               i += 2;
-              break;
           }
           continue;
         case 39:
@@ -550,12 +535,10 @@ class EscapeParser {
               final b = params[i + 4];
               handler.setBackgroundColorRgb(r, g, b);
               i += 4;
-              break;
             case 5:
               final index = params[i + 2];
               handler.setBackgroundColor256(index);
               i += 2;
-              break;
           }
           continue;
         case 49:
@@ -1129,7 +1112,6 @@ class _Csi {
   _Csi({
     required this.params,
     required this.finalByte,
-    // required this.intermediates,
   });
 
   int? prefix;
@@ -1137,7 +1119,6 @@ class _Csi {
   List<int> params;
 
   int finalByte;
-  // final List<int> intermediates;
 
   @override
   String toString() {

@@ -139,7 +139,7 @@ class _CommandItem extends StatelessWidget {
                   textAlign: TextAlign.right,
                 ),
               ),
-              SizedBox(width: 20),
+              const SizedBox(width: 20),
               Container(
                 width: 400,
                 child: Text(

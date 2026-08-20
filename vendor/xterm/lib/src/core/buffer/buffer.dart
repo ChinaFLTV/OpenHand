@@ -521,27 +521,21 @@ class Buffer {
     var start = position.x;
     var end = position.x;
 
-    do {
-      if (start == 0) {
-        break;
-      }
+    while (start > 0) {
       final char = line.getCodePoint(start - 1);
       if (separators.contains(char)) {
         break;
       }
       start--;
-    } while (true);
+    }
 
-    do {
-      if (end >= viewWidth) {
-        break;
-      }
+    while (end < viewWidth) {
       final char = line.getCodePoint(end);
       if (separators.contains(char)) {
         break;
       }
       end++;
-    } while (true);
+    }
 
     if (start == end) {
       return null;
@@ -557,7 +551,7 @@ class Buffer {
   /// Accepts an optional [range] to get a specific part of the buffer.
   String getText([BufferRange? range]) {
     range ??= BufferRangeLine(
-      CellOffset(0, 0),
+      const CellOffset(0, 0),
       CellOffset(viewWidth - 1, height - 1),
     );
 

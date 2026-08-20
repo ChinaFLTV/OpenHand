@@ -48,7 +48,6 @@ class _LineBuilder {
   BufferLine take({required bool wrapped}) {
     final result = _result;
     result.isWrapped = wrapped;
-    // result.resize(_length);
 
     _result = BufferLine(_capacity);
     _length = 0;

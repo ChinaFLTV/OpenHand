@@ -315,7 +315,9 @@ class TerminalViewState extends State<TerminalView> {
     );
 
     child = Container(
-      color: widget.theme.background.withOpacity(widget.backgroundOpacity),
+      color: widget.theme.background.withValues(
+        alpha: widget.backgroundOpacity,
+      ),
       padding: widget.padding,
       child: child,
     );
@@ -377,7 +379,7 @@ class TerminalViewState extends State<TerminalView> {
     // On mobile platforms there is no guarantee that virtual keyboard will
     // generate hardware key events. So we need first try to send the key
     // as a hardware key event. If it fails, then we send it as a text input.
-    final consumed = key == null ? false : widget.terminal.keyInput(key);
+    final consumed = key != null && widget.terminal.keyInput(key);
 
     if (!consumed) {
       widget.terminal.textInput(text);

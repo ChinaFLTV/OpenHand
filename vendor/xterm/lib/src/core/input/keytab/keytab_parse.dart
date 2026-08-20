@@ -94,17 +94,11 @@ class KeytabParser {
     bool? mac;
 
     while (reader.peek()!.type == KeytabTokenType.modeStatus) {
-      bool modeStatus;
-      switch (reader.take()!.value) {
-        case '+':
-          modeStatus = true;
-          break;
-        case '-':
-          modeStatus = false;
-          break;
-        default:
-          throw ParseError();
-      }
+      final modeStatus = switch (reader.take()!.value) {
+        '+' => true,
+        '-' => false,
+        _ => throw ParseError(),
+      };
 
       final mode = reader.take();
       if (mode!.type != KeytabTokenType.mode) {
@@ -114,37 +108,26 @@ class KeytabParser {
       switch (mode.value) {
         case 'Alt':
           alt = modeStatus;
-          break;
         case 'Control':
           ctrl = modeStatus;
-          break;
         case 'Shift':
           shift = modeStatus;
-          break;
         case 'AnyMod':
           anyModifier = modeStatus;
-          break;
         case 'Ansi':
           ansi = modeStatus;
-          break;
         case 'AppScreen':
           appScreen = modeStatus;
-          break;
         case 'KeyPad':
           keyPad = modeStatus;
-          break;
         case 'AppCuKeys':
           appCursorKeys = modeStatus;
-          break;
         case 'AppKeyPad':
           appKeyPad = modeStatus;
-          break;
         case 'NewLine':
           newLine = modeStatus;
-          break;
         case 'Mac':
           mac = modeStatus;
-          break;
         default:
           throw ParseError();
       }

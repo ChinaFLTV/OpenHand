@@ -35,7 +35,7 @@ abstract class BufferRange {
   BufferRange extend(CellOffset position);
 
   @override
-  operator ==(Object other) {
+  bool operator ==(Object other) {
     if (identical(this, other)) {
       return true;
     }

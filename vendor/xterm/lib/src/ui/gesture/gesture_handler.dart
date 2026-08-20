@@ -172,8 +172,6 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
     );
   }
 
-  // void onLongPressUp() {}
-
   void onDragStart(DragStartDetails details) {
     _lastDragStartDetails = details;
 

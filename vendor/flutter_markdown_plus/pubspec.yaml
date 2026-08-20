@@ -18,25 +18,9 @@ dependencies:
   meta: ^1.16.0
   path: ^1.9.1
 
-dev_dependencies:
-  flutter_lints: ^6.0.0
-  flutter_test:
-    sdk: flutter
-  leak_tracker_flutter_testing: ^3.0.10
-  mockito: ^5.7.0
-  standard_message_codec: ^0.0.1+4
-
 topics:
   - markdown
   - widgets
-
-screenshots:
-  - description: Rich text, emphasis, blockquotes and lists rendered from Markdown.
-    path: screenshots/formatting.png
-  - description: GitHub Flavored Markdown tables and task-list checkboxes.
-    path: screenshots/tables.png
-  - description: Fenced and inline code blocks with monospace styling.
-    path: screenshots/code.png
 
 formatter:
   page_width: 120
