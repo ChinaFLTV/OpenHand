@@ -1,3 +1,5 @@
+import { ignoreError } from '../shared/util/errors';
+
 interface BoundedResponseBlobOptions {
   maxBytes: number;
   signal?: AbortSignal;
@@ -21,7 +23,7 @@ export function cancelResponseBodyQuietly(
   reason?: unknown,
 ): void {
   try {
-    void response.body?.cancel(reason).catch(() => {});
+    void response.body?.cancel(reason).catch(ignoreError);
   } catch {
     // 响应流可能已锁定或关闭，清理失败不覆盖原始错误。
   }

@@ -6111,9 +6111,9 @@ export function SessionDetailPage() {
 
   useEffect(() => {
     if (!sessionId) return;
-    void syncGoalQueueYield(sessionId, hasRunnableQueuedMessages).catch(() => {});
+    void syncGoalQueueYield(sessionId, hasRunnableQueuedMessages).catch(ignoreError);
     return () => {
-      void syncGoalQueueYield(sessionId, false).catch(() => {});
+      void syncGoalQueueYield(sessionId, false).catch(ignoreError);
     };
   }, [sessionId, hasRunnableQueuedMessages]);
 

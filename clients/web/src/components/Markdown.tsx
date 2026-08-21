@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/ho
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { boundedFnv1aHashBase36 } from '../shared/util/hash';
+import { ignoreError } from '../shared/util/errors';
 import { normalizeMarkdownDestination } from '../shared/util/markdown';
 import { truncateEndText } from '../shared/util/text';
 import {
@@ -26,6 +27,9 @@ import 'katex/dist/katex.min.css';
 
 type RehypeHighlightPlugin = unknown;
 type MarkdownPlugin = unknown;
+type DomPurifyLike = {
+  sanitize: (source: string, options?: Record<string, unknown>) => string;
+};
 
 interface LazyPluginState<T> {
   value: T | null;
@@ -63,6 +67,10 @@ const remarkMathState: LazyPluginState<MarkdownPlugin> = {
   loading: null,
 };
 const rehypeKatexState: LazyPluginState<MarkdownPlugin> = {
+  value: null,
+  loading: null,
+};
+const domPurifyState: LazyPluginState<DomPurifyLike> = {
   value: null,
   loading: null,
 };
@@ -566,34 +574,19 @@ function useStickyLooksLikeHtml(value: string): boolean {
   return false;
 }
 
-// DOMPurify 懒载入：仅在首次遇到 html 内容时拉。
-type DomPurifyLike = { sanitize: (s: string, opts?: Record<string, unknown>) => string };
-let domPurifyCache: DomPurifyLike | null = null;
-let domPurifyLoading: Promise<DomPurifyLike> | null = null;
 function loadDomPurify(): Promise<DomPurifyLike> {
-  if (domPurifyCache != null) return Promise.resolve(domPurifyCache);
-  if (domPurifyLoading != null) return domPurifyLoading;
-  domPurifyLoading = import('dompurify').then((mod) => {
-    const purify = (mod as { default?: DomPurifyLike }).default ?? (mod as unknown as DomPurifyLike);
-    domPurifyCache = purify;
-    domPurifyLoading = null;
-    return purify;
-  }).catch((err) => {
-    domPurifyLoading = null;
-    throw err;
-  });
-  return domPurifyLoading;
+  return loadLazyPlugin(domPurifyState, () => import('dompurify'));
 }
 
 const HtmlBody = memo(function HtmlBody({ source, mono }: { source: string; mono: boolean }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [purify, setPurify] = useState<DomPurifyLike | null>(() => domPurifyCache);
+  const [purify, setPurify] = useState<DomPurifyLike | null>(() => domPurifyState.value);
   useEffect(() => {
     if (purify != null) return;
     let cancelled = false;
     loadDomPurify().then((p) => {
       if (!cancelled) setPurify(() => p);
-    }).catch(() => {});
+    }).catch(ignoreError);
     return () => { cancelled = true; };
   }, [purify]);
   const fontFamily = mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'inherit';
@@ -1341,9 +1334,7 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
     let cancelled = false;
     loadRehypeHighlight().then((plugin) => {
       if (!cancelled) setRehypeHighlightPlugin(() => plugin);
-    }).catch(() => {
-      // 加载失败则放弃 highlight，markdown 仍渲染（降级为普通 pre）。
-    });
+    }).catch(ignoreError);
     return () => { cancelled = true; };
   }, [hasFencedCode, rehypeHighlightPlugin]);
   const [remarkMathPlugin, setRemarkMathPlugin] = useState<MarkdownPlugin | null>(
@@ -1358,12 +1349,12 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
     if (remarkMathPlugin == null) {
       loadRemarkMath().then((plugin) => {
         if (!cancelled) setRemarkMathPlugin(() => plugin);
-      }).catch(() => {});
+      }).catch(ignoreError);
     }
     if (rehypeKatexPlugin == null) {
       loadRehypeKatex().then((plugin) => {
         if (!cancelled) setRehypeKatexPlugin(() => plugin);
-      }).catch(() => {});
+      }).catch(ignoreError);
     }
     return () => { cancelled = true; };
   }, [hasMath, remarkMathPlugin, rehypeKatexPlugin]);
