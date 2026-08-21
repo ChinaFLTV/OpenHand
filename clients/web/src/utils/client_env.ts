@@ -15,28 +15,27 @@ interface ClientEnvironment {
   userAgent: string;
 }
 
-function userAgent(): string {
+function readEnvironmentValue<T>(read: () => T, fallback: T): T {
   try {
-    return navigator.userAgent || '';
+    return read();
   } catch {
-    return '';
+    return fallback;
   }
+}
+
+function userAgent(): string {
+  return readEnvironmentValue(() => navigator.userAgent || '', '');
 }
 
 function screenWidth(): number {
-  try {
-    return Math.max(window.innerWidth || 0, window.screen?.width || 0);
-  } catch {
-    return 0;
-  }
+  return readEnvironmentValue(
+    () => Math.max(window.innerWidth || 0, window.screen?.width || 0),
+    0,
+  );
 }
 
 function hasTouch(): boolean {
-  try {
-    return (navigator.maxTouchPoints ?? 0) > 0;
-  } catch {
-    return false;
-  }
+  return readEnvironmentValue(() => (navigator.maxTouchPoints ?? 0) > 0, false);
 }
 
 function parseBrowser(ua: string): { name: string; version: string } {
@@ -68,11 +67,7 @@ function parseOs(ua: string): { name: string; version: string } {
 }
 
 function platformName(): string {
-  try {
-    return navigator.platform || 'web';
-  } catch {
-    return 'web';
-  }
+  return readEnvironmentValue(() => navigator.platform || 'web', 'web');
 }
 
 function detectSource(width: number): ClientEnvironment['source'] {
@@ -92,18 +87,11 @@ export function collectClientEnvironment(): ClientEnvironment {
   const browser = parseBrowser(ua);
   const os = parseOs(ua);
   const width = screenWidth();
-  let timezone = '';
-  try {
-    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-  } catch {
-    timezone = '';
-  }
-  let locale = '';
-  try {
-    locale = navigator.language || '';
-  } catch {
-    locale = '';
-  }
+  const timezone = readEnvironmentValue(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+    '',
+  );
+  const locale = readEnvironmentValue(() => navigator.language || '', '');
   const screenClass = detectScreenClass(width);
   return {
     source: detectSource(width),

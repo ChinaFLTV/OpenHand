@@ -30,7 +30,9 @@ export function readBrowserStorage(key: string): string | null {
 
 export function writeBrowserStorage(key: string, value: string): boolean {
   try {
-    getBrowserStorage()?.setItem(key, value);
+    const storage = getBrowserStorage();
+    if (storage == null) return false;
+    storage.setItem(key, value);
     return true;
   } catch {
     return false;
@@ -39,7 +41,9 @@ export function writeBrowserStorage(key: string, value: string): boolean {
 
 export function removeBrowserStorage(key: string): boolean {
   try {
-    getBrowserStorage()?.removeItem(key);
+    const storage = getBrowserStorage();
+    if (storage == null) return false;
+    storage.removeItem(key);
     return true;
   } catch {
     return false;
