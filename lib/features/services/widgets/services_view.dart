@@ -15,6 +15,7 @@ import '../services_controller.dart';
 import 'ai_exposure_dialogs.dart';
 import 'ai_exposure_monitoring_dialogs.dart';
 import 'ai_exposure_proxy_dialog.dart';
+import 'ai_model_proxy_service_card.dart';
 import 'service_dialog_controls.dart';
 
 const double _kServiceCardRadius = 22;
@@ -46,6 +47,10 @@ class ServicesView extends StatelessWidget {
         children: const <Widget>[
           SettingsAwareAppearOnce(
             child: RepaintBoundary(child: _AiExposureServiceCard()),
+          ),
+          kOpenHandGap14,
+          SettingsAwareAppearOnce(
+            child: RepaintBoundary(child: AiModelProxyServiceCard()),
           ),
         ],
       ),

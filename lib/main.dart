@@ -243,6 +243,9 @@ Future<void> _bootstrap() async {
   agentsControllerHandle = agents.controller;
   _runMainBackgroundTask(agents.controller.refresh(), '刷新智能体');
   final services = await servicesModuleFuture;
+  services.aiModelProxyController.attachModelsProvider(
+    () => settingsController.aiModels,
+  );
   services.controller.attachSelectedAiModelProvider(
     () => settingsController.selectedAiModel,
   );

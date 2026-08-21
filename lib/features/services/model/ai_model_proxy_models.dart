@@ -1,0 +1,386 @@
+import '../../../shared/util/input_value_parsing.dart';
+
+int _proxyBoundedInt(Object? value, int fallback, int min, int max) {
+  final parsed = value is num ? value.toInt() : int.tryParse('$value');
+  return (parsed ?? fallback).clamp(min, max).toInt();
+}
+
+enum AiModelProxyApiStyle {
+  openAiChatCompletions('openai_chat_completions', 'OpenAI Chat Completions'),
+  openAiResponses('openai_responses', 'OpenAI Responses'),
+  claude('claude', 'Claude'),
+  gemini('gemini', 'Gemini');
+
+  const AiModelProxyApiStyle(this.id, this.label);
+  final String id;
+  final String label;
+
+  static AiModelProxyApiStyle fromId(Object? value) => enumByStorageValueOr(
+    values,
+    value,
+    (item) => item.id,
+    fallback: openAiResponses,
+  );
+}
+
+enum AiModelProxyLimitMode {
+  rpm('rpm', 'RPM'),
+  tpm('tpm', 'TPM');
+
+  const AiModelProxyLimitMode(this.id, this.label);
+  final String id;
+  final String label;
+
+  static AiModelProxyLimitMode fromId(Object? value) =>
+      enumByStorageValueOr(values, value, (item) => item.id, fallback: rpm);
+}
+
+enum AiModelProxyRetryPolicy {
+  failFast('fail_fast', '立即失败'),
+  retrySame('retry_same', '重试后失败'),
+  retryAndFailover('retry_and_failover', '重试后接力');
+
+  const AiModelProxyRetryPolicy(this.id, this.label);
+  final String id;
+  final String label;
+
+  static AiModelProxyRetryPolicy fromId(Object? value) => enumByStorageValueOr(
+    values,
+    value,
+    (item) => item.id,
+    fallback: failFast,
+  );
+}
+
+enum AiModelProxySchedulingStrategy {
+  roundRobin('round_robin', '轮询调度'),
+  random('random', '随机调度'),
+  priority('priority', '优先级调度'),
+  conservative('conservative', '保守调度'),
+  sticky('sticky', '粘性调度');
+
+  const AiModelProxySchedulingStrategy(this.id, this.label);
+  final String id;
+  final String label;
+
+  static AiModelProxySchedulingStrategy fromId(Object? value) =>
+      enumByStorageValueOr(
+        values,
+        value,
+        (item) => item.id,
+        fallback: roundRobin,
+      );
+}
+
+class AiModelProxyBackend {
+  const AiModelProxyBackend({
+    required this.providerId,
+    required this.modelId,
+    this.enabled = true,
+  });
+
+  factory AiModelProxyBackend.fromJson(Object? raw) {
+    final json = raw is Map
+        ? Map<String, Object?>.from(raw)
+        : const <String, Object?>{};
+    return AiModelProxyBackend(
+      providerId: '${json['provider_id'] ?? ''}'.trim(),
+      modelId: '${json['model_id'] ?? ''}'.trim(),
+      enabled: json['enabled'] as bool? ?? true,
+    );
+  }
+
+  final String providerId;
+  final String modelId;
+  final bool enabled;
+
+  AiModelProxyBackend copyWith({bool? enabled}) => AiModelProxyBackend(
+    providerId: providerId,
+    modelId: modelId,
+    enabled: enabled ?? this.enabled,
+  );
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'provider_id': providerId,
+    'model_id': modelId,
+    'enabled': enabled,
+  };
+}
+
+class AiModelProxyRequestRecord {
+  const AiModelProxyRequestRecord({
+    required this.id,
+    required this.startedAt,
+    required this.providerId,
+    required this.modelId,
+    required this.apiStyle,
+    required this.tokens,
+    required this.durationMs,
+    required this.success,
+    this.error,
+  });
+
+  factory AiModelProxyRequestRecord.fromJson(Object? raw) {
+    final json = raw is Map
+        ? Map<String, Object?>.from(raw)
+        : const <String, Object?>{};
+    return AiModelProxyRequestRecord(
+      id: '${json['id'] ?? ''}',
+      startedAt:
+          DateTime.tryParse('${json['started_at'] ?? ''}')?.toLocal() ??
+          DateTime.now(),
+      providerId: '${json['provider_id'] ?? ''}',
+      modelId: '${json['model_id'] ?? ''}',
+      apiStyle: '${json['api_style'] ?? ''}',
+      tokens: _proxyBoundedInt(json['tokens'], 0, 0, 1 << 31),
+      durationMs: _proxyBoundedInt(json['duration_ms'], 0, 0, 1 << 31),
+      success: json['success'] as bool? ?? false,
+      error: nullIfBlank('${json['error'] ?? ''}'),
+    );
+  }
+
+  final String id;
+  final DateTime startedAt;
+  final String providerId;
+  final String modelId;
+  final String apiStyle;
+  final int tokens;
+  final int durationMs;
+  final bool success;
+  final String? error;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'id': id,
+    'started_at': startedAt.toUtc().toIso8601String(),
+    'provider_id': providerId,
+    'model_id': modelId,
+    'api_style': apiStyle,
+    'tokens': tokens,
+    'duration_ms': durationMs,
+    'success': success,
+    if (error != null) 'error': error,
+  };
+}
+
+class AiModelProxyRoute {
+  const AiModelProxyRoute({required this.exposedModel, required this.backends});
+
+  factory AiModelProxyRoute.fromJson(Object? raw) {
+    final json = raw is Map
+        ? Map<String, Object?>.from(raw)
+        : const <String, Object?>{};
+    final exposedModel = '${json['exposed_model'] ?? ''}'.trim();
+    final backends =
+        (json['backends'] is List
+                ? json['backends'] as List
+                : const <Object?>[])
+            .map(AiModelProxyBackend.fromJson)
+            .where(
+              (item) => item.providerId.isNotEmpty && item.modelId.isNotEmpty,
+            )
+            .toList(growable: false);
+    return AiModelProxyRoute(exposedModel: exposedModel, backends: backends);
+  }
+
+  final String exposedModel;
+  final List<AiModelProxyBackend> backends;
+
+  AiModelProxyRoute copyWith({List<AiModelProxyBackend>? backends}) =>
+      AiModelProxyRoute(
+        exposedModel: exposedModel,
+        backends: backends ?? this.backends,
+      );
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'exposed_model': exposedModel,
+    'backends': backends.map((item) => item.toJson()).toList(growable: false),
+  };
+}
+
+class AiModelProxySettings {
+  const AiModelProxySettings({
+    this.enabled = false,
+    this.requireAuthentication = false,
+    this.apiKey = '',
+    this.apiStyle = AiModelProxyApiStyle.openAiResponses,
+    this.limitMode = AiModelProxyLimitMode.rpm,
+    this.limitThreshold = 30,
+    this.retryPolicy = AiModelProxyRetryPolicy.failFast,
+    this.retryCount = 2,
+    this.scheduling = AiModelProxySchedulingStrategy.roundRobin,
+    this.routes = const <AiModelProxyRoute>[],
+    this.requestCount = 0,
+    this.successCount = 0,
+    this.failureCount = 0,
+    this.totalTokens = 0,
+    this.totalDurationMs = 0,
+    this.lastRequestAt,
+    this.recentRequests = const <AiModelProxyRequestRecord>[],
+  });
+
+  factory AiModelProxySettings.fromJson(Object? raw) {
+    final json = raw is Map
+        ? Map<String, Object?>.from(raw)
+        : const <String, Object?>{};
+    final routes =
+        (json['routes'] is List ? json['routes'] as List : const <Object?>[])
+            .map(AiModelProxyRoute.fromJson)
+            .where((item) => item.exposedModel.isNotEmpty)
+            .toList(growable: false);
+    final records =
+        (json['recent_requests'] is List
+                ? json['recent_requests'] as List
+                : const <Object?>[])
+            .map(AiModelProxyRequestRecord.fromJson)
+            .where((item) => item.id.isNotEmpty)
+            .toList(growable: false);
+    return AiModelProxySettings(
+      enabled: json['enabled'] as bool? ?? false,
+      requireAuthentication: json['require_authentication'] as bool? ?? false,
+      apiKey: '${json['api_key'] ?? ''}',
+      apiStyle: AiModelProxyApiStyle.fromId(json['api_style']),
+      limitMode: AiModelProxyLimitMode.fromId(json['limit_mode']),
+      limitThreshold: _boundedInt(json['limit_threshold'], 30, 1, 1000000),
+      retryPolicy: AiModelProxyRetryPolicy.fromId(json['retry_policy']),
+      retryCount: _boundedInt(json['retry_count'], 2, 1, 10),
+      scheduling: AiModelProxySchedulingStrategy.fromId(json['scheduling']),
+      routes: routes,
+      requestCount: _boundedInt(json['request_count'], 0, 0, 1 << 31),
+      successCount: _boundedInt(json['success_count'], 0, 0, 1 << 31),
+      failureCount: _boundedInt(json['failure_count'], 0, 0, 1 << 31),
+      totalTokens: _boundedInt(json['total_tokens'], 0, 0, 1 << 52),
+      totalDurationMs: _boundedInt(json['total_duration_ms'], 0, 0, 1 << 52),
+      lastRequestAt: DateTime.tryParse(
+        '${json['last_request_at'] ?? ''}',
+      )?.toLocal(),
+      recentRequests: records.length <= 200
+          ? records
+          : records.sublist(records.length - 200),
+    );
+  }
+
+  final bool enabled;
+  final bool requireAuthentication;
+  final String apiKey;
+  final AiModelProxyApiStyle apiStyle;
+  final AiModelProxyLimitMode limitMode;
+  final int limitThreshold;
+  final AiModelProxyRetryPolicy retryPolicy;
+  final int retryCount;
+  final AiModelProxySchedulingStrategy scheduling;
+  final List<AiModelProxyRoute> routes;
+  final int requestCount;
+  final int successCount;
+  final int failureCount;
+  final int totalTokens;
+  final int totalDurationMs;
+  final DateTime? lastRequestAt;
+  final List<AiModelProxyRequestRecord> recentRequests;
+
+  double get successRate => requestCount == 0 ? 0 : successCount / requestCount;
+  double get averageDurationMs =>
+      requestCount == 0 ? 0 : totalDurationMs / requestCount;
+
+  AiModelProxySettings copyWith({
+    bool? enabled,
+    bool? requireAuthentication,
+    String? apiKey,
+    AiModelProxyApiStyle? apiStyle,
+    AiModelProxyLimitMode? limitMode,
+    int? limitThreshold,
+    AiModelProxyRetryPolicy? retryPolicy,
+    int? retryCount,
+    AiModelProxySchedulingStrategy? scheduling,
+    List<AiModelProxyRoute>? routes,
+    int? requestCount,
+    int? successCount,
+    int? failureCount,
+    int? totalTokens,
+    int? totalDurationMs,
+    DateTime? lastRequestAt,
+    List<AiModelProxyRequestRecord>? recentRequests,
+  }) => AiModelProxySettings(
+    enabled: enabled ?? this.enabled,
+    requireAuthentication: requireAuthentication ?? this.requireAuthentication,
+    apiKey: apiKey ?? this.apiKey,
+    apiStyle: apiStyle ?? this.apiStyle,
+    limitMode: limitMode ?? this.limitMode,
+    limitThreshold: limitThreshold ?? this.limitThreshold,
+    retryPolicy: retryPolicy ?? this.retryPolicy,
+    retryCount: retryCount ?? this.retryCount,
+    scheduling: scheduling ?? this.scheduling,
+    routes: routes ?? this.routes,
+    requestCount: requestCount ?? this.requestCount,
+    successCount: successCount ?? this.successCount,
+    failureCount: failureCount ?? this.failureCount,
+    totalTokens: totalTokens ?? this.totalTokens,
+    totalDurationMs: totalDurationMs ?? this.totalDurationMs,
+    lastRequestAt: lastRequestAt ?? this.lastRequestAt,
+    recentRequests: recentRequests ?? this.recentRequests,
+  );
+
+  AiModelProxySettings record({
+    required bool success,
+    required int tokens,
+    required int durationMs,
+    String providerId = '',
+    String modelId = '',
+    String apiStyle = '',
+    String? error,
+  }) {
+    final now = DateTime.now();
+    final record = AiModelProxyRequestRecord(
+      id: 'proxy-${now.microsecondsSinceEpoch}',
+      startedAt: now,
+      providerId: providerId,
+      modelId: modelId,
+      apiStyle: apiStyle,
+      tokens: tokens.clamp(0, 1 << 30),
+      durationMs: durationMs.clamp(0, 1 << 30),
+      success: success,
+      error: error,
+    );
+    final nextRecords = <AiModelProxyRequestRecord>[...recentRequests, record];
+    if (nextRecords.length > 200) {
+      nextRecords.removeRange(0, nextRecords.length - 200);
+    }
+    return copyWith(
+      requestCount: requestCount + 1,
+      successCount: successCount + (success ? 1 : 0),
+      failureCount: failureCount + (success ? 0 : 1),
+      totalTokens: totalTokens + tokens.clamp(0, 1 << 30),
+      totalDurationMs: totalDurationMs + durationMs.clamp(0, 1 << 30),
+      lastRequestAt: now,
+      recentRequests: nextRecords,
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'enabled': enabled,
+    'require_authentication': requireAuthentication,
+    'api_key': apiKey,
+    'api_style': apiStyle.id,
+    'limit_mode': limitMode.id,
+    'limit_threshold': limitThreshold,
+    'retry_policy': retryPolicy.id,
+    'retry_count': retryCount,
+    'scheduling': scheduling.id,
+    'routes': routes.map((item) => item.toJson()).toList(growable: false),
+    'request_count': requestCount,
+    'success_count': successCount,
+    'failure_count': failureCount,
+    'total_tokens': totalTokens,
+    'total_duration_ms': totalDurationMs,
+    if (lastRequestAt != null)
+      'last_request_at': lastRequestAt!.toUtc().toIso8601String(),
+    'recent_requests': recentRequests
+        .take(200)
+        .map((item) => item.toJson())
+        .toList(growable: false),
+  };
+
+  static int _boundedInt(Object? value, int fallback, int min, int max) {
+    final parsed = value is num ? value.toInt() : int.tryParse('$value');
+    return (parsed ?? fallback).clamp(min, max).toInt();
+  }
+}
