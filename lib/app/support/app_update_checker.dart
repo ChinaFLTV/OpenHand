@@ -1,4 +1,4 @@
-// 应用更新检查服务。抽象数据源层以便日后迁移到其他平台。
+// 应用更新检查服务。
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';

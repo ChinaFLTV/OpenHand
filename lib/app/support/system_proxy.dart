@@ -43,17 +43,14 @@ class SystemProxyResolver {
 
   AppProxySettings get effectiveSettings => _settings;
 
-  /// 来自设置中心的代理配置变更。立即生效，后续 `findProxyFor` 立刻
-  /// 使用新配置。`settings.mode` 可为 `manual` 或 `automatic`。
+  /// 应用设置中心的代理配置变更，并立即生效。
   void applyConfig(AppProxySettings settings) {
     if (_settings == settings) return;
     _settings = settings;
     _revision.value = _revision.value + 1;
   }
 
-  /// 任何会改变代理决策的事件（applyConfig / 重新探测）后 +1。
-  /// 子进程（持久 bash session）等需要在 env 失效时回收的资源
-  /// 监听这个信号并按需重启。
+  /// 代理决策变更后的版本号，供依赖代理环境的资源重启。
   final ValueNotifier<int> _revision = ValueNotifier<int>(0);
   ValueListenable<int> get revision => _revision;
 
@@ -61,15 +58,12 @@ class SystemProxyResolver {
   bool _initialized = false;
   bool get isInitialized => _initialized;
 
-  /// 自动模式下从环境变量 / `scutil --proxy` 推断到的端点
-  /// （格式 `host:port`），供"系统设置 → 代理"卡片在禁用文本框里
-  /// 实时回填显示。优先级：HTTPS > HTTP > SOCKS。无任何探测结果返回 null。
+  /// 自动模式下探测到的端点，优先级为 HTTPS、HTTP、SOCKS。
   String? get detectedAutomaticEndpoint {
     return _normalizedProxyEndpoint(_httpsProxy ?? _httpProxy ?? _socksProxy);
   }
 
   /// 供受管本地服务复用的 HTTP/HTTPS 路由快照。
-  /// 只保存在内存中；未命中代理时对应端点为空，由服务回退 DIRECT。
   SystemProxyRouteSnapshot resolveRuntimeRoute() {
     String? httpProxy;
     String? httpsProxy;
@@ -278,20 +272,8 @@ class SystemProxyResolver {
     return IOClient(createRawHttpClient(connectionTimeout: connectionTimeout));
   }
 
-  /// 把当前生效的代理配置翻译成给子进程注入的 POSIX 环境变量。
-  /// 与所有主流 CLI（curl / wget / git / pip / npm / node / go ...）
-  /// 形成约定俗成的对接：
-  ///
-  /// * `HTTP_PROXY` / `http_proxy`：HTTP 出站
-  /// * `HTTPS_PROXY` / `https_proxy`：HTTPS 出站（CONNECT 隧道）
-  /// * `ALL_PROXY` / `all_proxy`：兜底，且当配置了 SOCKS 时使用 socks://
-  /// * `NO_PROXY` / `no_proxy`：例外清单，逗号分隔
-  ///
-  /// 当 mode == disabled 或没有可用代理时返回空 map，调用方可视情况
-  /// 不注入或保留进程默认环境。
-  ///
-  /// 同时返回大小写两种键名，因为不同 CLI 习惯不一（curl 接受全大写
-  /// + 全小写，但 wget 仅认全小写；Python urllib 仅认全小写）。
+  /// 将当前代理配置转换为子进程环境变量。无可用代理时返回空映射，
+  /// 同时提供大小写两种键名以兼容不同 CLI。
   Map<String, String> resolveSubprocessEnvironment({
     bool includeNoProxy = true,
   }) {
@@ -314,15 +296,6 @@ class SystemProxyResolver {
         if (wantsHttp) httpEndpoint = endpoint;
         if (wantsHttps) httpsEndpoint = endpoint;
         if (wantsSocks) socksEndpoint = endpoint;
-        // manual 模式：HTTP/HTTPS 走 host:port（http://host:port 形式），
-        // 即便用户未勾选某协议也回退到至少有一个。
-        if (httpEndpoint == null && httpsEndpoint == null && wantsSocks) {
-          // 仅 SOCKS 时不为 HTTP/HTTPS 注入，让 CLI 自然走直连。
-        } else if (httpEndpoint == null && httpsEndpoint != null) {
-          httpEndpoint = httpsEndpoint;
-        } else if (httpsEndpoint == null && httpEndpoint != null) {
-          httpsEndpoint = httpEndpoint;
-        }
         for (final pattern in _settings.exceptions) {
           final trimmed = nullIfBlank(pattern);
           if (trimmed != null) exceptions.add(trimmed);
@@ -331,14 +304,16 @@ class SystemProxyResolver {
         httpEndpoint = _normalizedProxyEndpoint(_httpProxy);
         httpsEndpoint = _normalizedProxyEndpoint(_httpsProxy);
         socksEndpoint = _normalizedProxyEndpoint(_socksProxy);
-        if (httpEndpoint == null && httpsEndpoint != null) {
-          httpEndpoint = httpsEndpoint;
-        } else if (httpsEndpoint == null && httpEndpoint != null) {
-          httpsEndpoint = httpEndpoint;
-        }
         for (final pattern in _noProxyHosts) {
           if (pattern.isNotEmpty) exceptions.add(pattern);
         }
+    }
+
+    // 未单独配置 HTTP 或 HTTPS 时，复用另一个 HTTP 端点。
+    if (httpEndpoint == null && httpsEndpoint != null) {
+      httpEndpoint = httpsEndpoint;
+    } else if (httpsEndpoint == null && httpEndpoint != null) {
+      httpsEndpoint = httpEndpoint;
     }
 
     final result = <String, String>{};
