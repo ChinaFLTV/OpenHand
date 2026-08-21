@@ -358,10 +358,7 @@ class _MessageBubbleState extends State<_MessageBubble>
         if (_layoutChangeThrottleTimer?.isActive ?? false) {
           return false;
         }
-        _layoutChangeThrottleTimer = startSafeTimer(
-          kOpenHandMotion200,
-          () {},
-        );
+        _layoutChangeThrottleTimer = startSafeTimer(kOpenHandMotion200, () {});
         widget.onLayoutChanged();
         return false;
       },
@@ -2248,14 +2245,18 @@ Future<void> _downloadRemoteUriToFile({
   }
 
   try {
-    final request = await client
-        .getUrl(uri)
-        .timeout(deadline.limit(_remoteMediaOpenTimeout));
+    final request = await openHttpClientRequestBounded(
+      () => client.getUrl(uri),
+      timeout: deadline.limit(_remoteMediaOpenTimeout),
+      timeoutMessage: '远程媒体请求打开超时。',
+    );
     if (cancelled) {
       throw const _MediaDownloadCancelled();
     }
-    final response = await request.close().timeout(
-      deadline.limit(_remoteMediaHeaderTimeout),
+    final response = await closeHttpClientRequestBounded(
+      request,
+      timeout: deadline.limit(_remoteMediaHeaderTimeout),
+      timeoutMessage: '远程媒体响应头获取超时。',
     );
     if (isHttpFailureStatus(response.statusCode)) {
       throw HttpException('媒体下载失败：HTTP ${response.statusCode}。', uri: uri);

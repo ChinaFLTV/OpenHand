@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/net/bounded_http_request.dart';
 import '../../shared/net/bounded_server_bind.dart';
 import '../../shared/net/http_response_utils.dart';
 import '../../shared/util/async_concurrency.dart';
@@ -389,13 +390,19 @@ class WebReverseBrowserLauncher {
         connectionTimeout: timeout,
         idleTimeout: timeout,
         action: (client) async {
-          final request = await client
-              .getUrl(uri)
-              .timeout(deadline.remaining());
+          final request = await openHttpClientRequestBounded(
+            () => client.getUrl(uri),
+            timeout: deadline.remaining(),
+            timeoutMessage: 'Web 调试地址请求打开超时。',
+          );
           request
             ..followRedirects = false
             ..persistentConnection = false;
-          final response = await request.close().timeout(deadline.remaining());
+          final response = await closeHttpClientRequestBounded(
+            request,
+            timeout: deadline.remaining(),
+            timeoutMessage: 'Web 调试地址响应头获取超时。',
+          );
           if (!readBody) {
             return (statusCode: response.statusCode, body: '');
           }

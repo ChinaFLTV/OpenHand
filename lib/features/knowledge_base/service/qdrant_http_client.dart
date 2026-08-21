@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../../../shared/net/bounded_http_request.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/argument_guards.dart';
@@ -155,21 +156,21 @@ Future<QdrantHttpResponse> _sendQdrantJsonRequestOnce({
     ..connectionTimeout = deadline.limit(connectionTimeout);
   Future<QdrantHttpResponse> send() async {
     final openBudget = deadline.limit(openTimeout);
-    final request = await client
-        .openUrl(method, uri)
-        .timeout(
-          openBudget,
-          onTimeout: () => throw TimeoutException('Qdrant 连接建立超时。', openBudget),
-        );
+    final request = await openHttpClientRequestBounded(
+      () => client.openUrl(method, uri),
+      timeout: openBudget,
+      timeoutMessage: 'Qdrant 连接建立超时。',
+    );
     request.headers.set(HttpHeaders.acceptHeader, ContentType.json.mimeType);
     if (body != null) {
       request.headers.contentType = ContentType.json;
       request.write(jsonEncode(body));
     }
     final responseBudget = deadline.remaining();
-    final response = await request.close().timeout(
-      responseBudget,
-      onTimeout: () => throw TimeoutException('Qdrant 等待响应超时。', responseBudget),
+    final response = await closeHttpClientRequestBounded(
+      request,
+      timeout: responseBudget,
+      timeoutMessage: 'Qdrant 等待响应超时。',
     );
     final bodyBudget = deadline.remaining();
     final idleBudget = responseIdleTimeout < bodyBudget

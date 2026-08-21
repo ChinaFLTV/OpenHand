@@ -22,6 +22,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/net/bounded_http_request.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/util/async_concurrency.dart';
@@ -1894,11 +1895,17 @@ class WebMessagePlatformService {
     final deadline = MonotonicDeadline(timeout, timeoutMessage: 'Web 健康检查超时。');
     final client = HttpClient()..connectionTimeout = timeout;
     try {
-      final request = await client
-          .openUrl(health.method, uri)
-          .timeout(deadline.remaining());
+      final request = await openHttpClientRequestBounded(
+        () => client.openUrl(health.method, uri),
+        timeout: deadline.remaining(),
+        timeoutMessage: 'Web 健康检查请求打开超时。',
+      );
       request.followRedirects = health.followRedirects;
-      final response = await request.close().timeout(deadline.remaining());
+      final response = await closeHttpClientRequestBounded(
+        request,
+        timeout: deadline.remaining(),
+        timeoutMessage: 'Web 健康检查响应头获取超时。',
+      );
       final remaining = deadline.remaining();
       final body = await readBoundedHttpResponseText(
         response,
@@ -2011,11 +2018,17 @@ class WebMessagePlatformService {
 
         addLog('开始探测 ${endpoint.host}:${endpoint.port} -> $endpoint');
         try {
-          final request = await client
-              .getUrl(endpoint)
-              .timeout(deadline.remaining());
+          final request = await openHttpClientRequestBounded(
+            () => client.getUrl(endpoint),
+            timeout: deadline.remaining(),
+            timeoutMessage: 'Web 连通性请求打开超时。',
+          );
           request.followRedirects = false;
-          final response = await request.close().timeout(deadline.remaining());
+          final response = await closeHttpClientRequestBounded(
+            request,
+            timeout: deadline.remaining(),
+            timeoutMessage: 'Web 连通性响应头获取超时。',
+          );
           final remaining = deadline.remaining();
           final body = await readBoundedHttpResponseText(
             response,
@@ -9026,8 +9039,7 @@ class WebMessagePlatformService {
 
   /// 极简 MIME 推断，只覆盖 Vite 构建会产生的扩展名。
   /// 文件扩展名 → Content-Type 映射表。
-  static const Map<String, String> _contentTypeByExtension =
-      <String, String>{
+  static const Map<String, String> _contentTypeByExtension = <String, String>{
     '.js': _kJavaScriptContentType,
     '.mjs': _kJavaScriptContentType,
     '.css': _kCssContentType,

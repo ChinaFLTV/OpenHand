@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/net/bounded_http_request.dart';
 import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/net/http_response_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
@@ -363,9 +364,11 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
     );
 
     try {
-      final req = await client
-          .openUrl(_method, uri)
-          .timeout(deadline.remaining());
+      final req = await openHttpClientRequestBounded(
+        () => client.openUrl(_method, uri),
+        timeout: deadline.remaining(),
+        timeoutMessage: 'HTTP 重放请求打开超时。',
+      );
       // 默认不自动补 Host/Content-Length/Content-Type；由用户在 headers 里
       // 显式控制。仅当用户没写 Content-Length 且有 body 时由 HttpClient 自动加。
       req.followRedirects = false;
@@ -380,7 +383,11 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       if (bodyBytes != null && bodyBytes.isNotEmpty) {
         req.add(bodyBytes);
       }
-      final resp = await req.close().timeout(deadline.remaining());
+      final resp = await closeHttpClientRequestBounded(
+        req,
+        timeout: deadline.remaining(),
+        timeoutMessage: 'HTTP 重放响应头获取超时。',
+      );
       final remainingReadTime = deadline.remaining();
       final readIdleTimeout = remainingReadTime < _kResponseReadIdleTimeout
           ? remainingReadTime

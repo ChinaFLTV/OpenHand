@@ -10,6 +10,7 @@ import 'package:shelf_router/shelf_router.dart';
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/net/bounded_http_request.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
@@ -560,7 +561,11 @@ class McpServerOpsRuntime {
     );
     final client = HttpClient()..connectionTimeout = _connectivityTimeout;
     try {
-      final request = await client.postUrl(uri).timeout(deadline.remaining());
+      final request = await openHttpClientRequestBounded(
+        () => client.postUrl(uri),
+        timeout: deadline.remaining(),
+        timeoutMessage: 'MCP 连通性请求打开超时。',
+      );
       request.headers
         ..set(HttpHeaders.contentTypeHeader, kApplicationJsonMimeType)
         ..set(
@@ -574,7 +579,11 @@ class McpServerOpsRuntime {
         request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
       }
       request.add(utf8.encode(jsonEncode(_initializeProbePayload)));
-      final response = await request.close().timeout(deadline.remaining());
+      final response = await closeHttpClientRequestBounded(
+        request,
+        timeout: deadline.remaining(),
+        timeoutMessage: 'MCP 连通性响应头获取超时。',
+      );
       final remaining = deadline.remaining();
       final body = await readBoundedHttpResponseText(
         response,
@@ -1780,7 +1789,9 @@ class McpServerOpsRuntime {
           'user_agent': request.headers[kUserAgentHeaderName],
           'mcp_protocol_version': request.headers[kMcpProtocolVersionHeader],
           'origin': redactSensitiveUriForLogging(request.headers['origin']),
-          'referer': redactSensitiveUriForLogging(request.headers[HttpHeaders.refererHeader]),
+          'referer': redactSensitiveUriForLogging(
+            request.headers[HttpHeaders.refererHeader],
+          ),
           'peer_ip': peer.ipAddress,
           if (peer.port != null) 'peer_port': peer.port,
           'write_mode': _config.writeMode.storageValue,

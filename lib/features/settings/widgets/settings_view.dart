@@ -35,6 +35,7 @@ import '../../../app/theme/openhand_theme_preset.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/fps/openhand_fps_monitor.dart';
+import '../../../shared/net/bounded_http_request.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/ui/animated_appearance.dart';
@@ -125,13 +126,9 @@ const int _kSettingsToolResultCompressionWindowMaxChars = 8 * kBytesPerKiB;
 const int _kSettingsToolResultCompressionMaxPathHits = 200;
 const int _kSettingsWriteToolSummaryMaxChars = 8 * kBytesPerKiB;
 const int _kThrottleConfigImportMaxBytes = 1 * kBytesPerMiB;
-
-
 bool _settingsMotionEnabled(BuildContext context) {
   return openHandTickerMotionEnabled(context);
 }
-
-
 DialogAnimationSettings _settingsListItemMotionSettings(
   BuildContext context,
   SettingsController settingsController,

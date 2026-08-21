@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../../shared/net/bounded_http_request.dart';
 import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/net/http_response_utils.dart';
 import '../../shared/util/async_concurrency.dart';
@@ -228,7 +229,9 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         initialUri: initialDownloadUri,
         connectionTimeout: _kUpdateDownloadConnectionTimeout,
         remainingBudget: remainingBudget,
-        headers: const <String, String>{kUserAgentHeaderName: _kUpdateCheckerUserAgent},
+        headers: const <String, String>{
+          kUserAgentHeaderName: _kUpdateCheckerUserAgent,
+        },
       );
       final response = result.response;
       final downloadUri = result.uri;
@@ -381,17 +384,24 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
     var uri = initialUri;
     for (var redirects = 0; ; redirects += 1) {
       _validateSecureUpdateUri(uri);
-      final request = await client
-          .getUrl(uri)
-          .timeout(shorterDuration(connectionTimeout, remainingBudget()));
+      final request = await openHttpClientRequestBounded(
+        () => client.getUrl(uri),
+        timeout: shorterDuration(connectionTimeout, remainingBudget()),
+        timeoutMessage: '更新请求打开超时。',
+      );
       request
         ..followRedirects = false
         ..maxRedirects = 0;
       for (final header in headers.entries) {
         request.headers.set(header.key, header.value);
       }
-      final response = await request.close().timeout(
-        shorterDuration(_kUpdateResponseHeaderTimeout, remainingBudget()),
+      final response = await closeHttpClientRequestBounded(
+        request,
+        timeout: shorterDuration(
+          _kUpdateResponseHeaderTimeout,
+          remainingBudget(),
+        ),
+        timeoutMessage: '更新请求响应头获取超时。',
       );
       if (!isRedirectStatusCode(response.statusCode)) {
         return (response: response, uri: uri);

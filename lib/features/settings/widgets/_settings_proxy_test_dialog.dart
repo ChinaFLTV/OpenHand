@@ -541,7 +541,8 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       httpClient = resolver.createRawHttpClient(
         connectionTimeout: _httpConnectionTimeout,
       );
-      _activeHttpClient = httpClient;
+      final activeHttpClient = httpClient;
+      _activeHttpClient = activeHttpClient;
       _log(
         _ProxyTestLogLevel.info,
         'HTTP',
@@ -564,13 +565,19 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         _httpRequestTimeout,
         timeoutMessage: 'HTTP 探测超过总时限。',
       );
-      final request = await httpClient
-          .getUrl(uri)
-          .timeout(httpDeadline.remaining());
+      final request = await openHttpClientRequestBounded(
+        () => activeHttpClient.getUrl(uri),
+        timeout: httpDeadline.remaining(),
+        timeoutMessage: '代理 HTTP 请求打开超时。',
+      );
       if (!mounted || generation != _diagnosticGeneration) return;
       request.headers.set('User-Agent', 'OpenHand-ProxyDiag/1.0');
       request.headers.set('Accept', '*/*');
-      final response = await request.close().timeout(httpDeadline.remaining());
+      final response = await closeHttpClientRequestBounded(
+        request,
+        timeout: httpDeadline.remaining(),
+        timeoutMessage: '代理 HTTP 响应头获取超时。',
+      );
       if (!mounted || generation != _diagnosticGeneration) return;
       final ttfb = _totalStopwatch.elapsedMilliseconds - httpStart;
       _log(
@@ -690,10 +697,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     final hMax = mediaSize.height - 32;
     final dialog = TweenAnimationBuilder<double>(
       tween: Tween<double>(end: _maximized ? 1.0 : 0.0),
-      duration: openHandMotionDuration(
-        context,
-        kOpenHandMotion380,
-      ),
+      duration: openHandMotionDuration(context, kOpenHandMotion380),
       curve: kOpenHandEntranceCurve,
       builder: (context, t, _) {
         // easeOutBack 会短暂越界；保留少量弹性，最终仍由外层约束兜底。

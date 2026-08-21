@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import '../util/argument_guards.dart';
 import '../util/async_concurrency.dart';
 import '../util/timer_safety.dart';
+import 'bounded_http_request.dart';
 import 'http_redirect_utils.dart';
 import 'http_status_utils.dart';
 
@@ -75,8 +76,16 @@ Future<Uint8List> fetchBoundedHttpBytes({
   }
 
   try {
-    final request = await client.getUrl(uri).timeout(nextOpenTimeout());
-    final response = await request.close().timeout(nextOpenTimeout());
+    final request = await openHttpClientRequestBounded(
+      () => client.getUrl(uri),
+      timeout: nextOpenTimeout(),
+      timeoutMessage: 'HTTP 请求打开超过连接时限。',
+    );
+    final response = await closeHttpClientRequestBounded(
+      request,
+      timeout: nextOpenTimeout(),
+      timeoutMessage: 'HTTP 响应头获取超过连接时限。',
+    );
     var responseConsumptionStarted = false;
     try {
       if (isHttpFailureStatus(response.statusCode)) {

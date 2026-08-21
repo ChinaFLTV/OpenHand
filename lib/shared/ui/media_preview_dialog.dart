@@ -16,6 +16,7 @@ import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
 import '../../l10n/app_localizations.dart';
 import '../db/atomic_file_operations.dart';
+import '../net/bounded_http_request.dart';
 import '../net/http_redirect_utils.dart';
 import '../net/http_response_utils.dart';
 import '../net/http_status_utils.dart';
@@ -623,11 +624,15 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       connectionTimeout: deadline.limit(_kNetworkTimeout),
     );
     try {
-      final request = await client
-          .getUrl(uri)
-          .timeout(deadline.limit(_kNetworkTimeout));
-      final response = await request.close().timeout(
-        deadline.limit(_kNetworkTimeout),
+      final request = await openHttpClientRequestBounded(
+        () => client.getUrl(uri),
+        timeout: deadline.limit(_kNetworkTimeout),
+        timeoutMessage: '媒体下载请求打开超时。',
+      );
+      final response = await closeHttpClientRequestBounded(
+        request,
+        timeout: deadline.limit(_kNetworkTimeout),
+        timeoutMessage: '媒体下载响应头获取超时。',
       );
       var consumptionStarted = false;
       try {

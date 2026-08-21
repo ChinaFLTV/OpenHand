@@ -15,6 +15,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/net/bounded_http_request.dart';
 import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
@@ -502,13 +503,18 @@ class MediaCacheService {
       if (_disposed || _clearing || generation != _generation) return null;
       final destPath = _cacheFilePathForUrl(normalizedUrl, dir.path, cacheKind);
       tempFile = _uniqueTempFile(destPath, generation);
-      client = _createHttpClient(_requestOpenTimeout);
-      _activeClients.add(client);
-      final request = await client
-          .getUrl(uri)
-          .timeout(deadline.limit(_requestOpenTimeout));
-      final response = await request.close().timeout(
-        deadline.limit(_responseHeaderTimeout),
+      final httpClient = _createHttpClient(_requestOpenTimeout);
+      client = httpClient;
+      _activeClients.add(httpClient);
+      final request = await openHttpClientRequestBounded(
+        () => httpClient.getUrl(uri),
+        timeout: deadline.limit(_requestOpenTimeout),
+        timeoutMessage: '媒体缓存请求打开超时。',
+      );
+      final response = await closeHttpClientRequestBounded(
+        request,
+        timeout: deadline.limit(_responseHeaderTimeout),
+        timeoutMessage: '媒体缓存响应头获取超时。',
       );
       if (isHttpFailureStatus(response.statusCode)) {
         return null;

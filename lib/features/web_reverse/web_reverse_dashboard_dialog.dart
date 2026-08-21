@@ -19,6 +19,7 @@ import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/db/atomic_file_operations.dart';
+import '../../shared/net/bounded_http_request.dart';
 import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/net/http_response_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
@@ -162,7 +163,6 @@ const EdgeInsets _kDashboardDialogInsetPadding = EdgeInsets.all(24);
 const Duration _kSwitchDuration = kOpenHandMotion220;
 const Duration _kDevToolsDiscoveryTimeout = Duration(seconds: 3);
 const int _kDevToolsDiscoveryMaxResponseBytes = 4 * kBytesPerMiB;
-
 
 bool _wrMotionEnabled(BuildContext context) {
   return openHandTickerMotionEnabled(context);
@@ -530,8 +530,7 @@ class _DashboardScriptWorkspace extends StatelessWidget {
                         : ListView.separated(
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             itemCount: itemCount,
-                            separatorBuilder: (_, _) =>
-                                kOpenHandGap2,
+                            separatorBuilder: (_, _) => kOpenHandGap2,
                             itemBuilder: itemBuilder,
                           ),
                   ),
@@ -1851,10 +1850,16 @@ Future<void> _openOfficialDevToolsForController(
       connectionTimeout: _kDevToolsDiscoveryTimeout,
       idleTimeout: _kDevToolsDiscoveryTimeout,
       action: (client) async {
-        final req = await client
-            .getUrl(webReverseCdpHttpUri(port, '/json/list'))
-            .timeout(deadline.remaining());
-        final res = await req.close().timeout(deadline.remaining());
+        final req = await openHttpClientRequestBounded(
+          () => client.getUrl(webReverseCdpHttpUri(port, '/json/list')),
+          timeout: deadline.remaining(),
+          timeoutMessage: 'Web 调试端点请求打开超时。',
+        );
+        final res = await closeHttpClientRequestBounded(
+          req,
+          timeout: deadline.remaining(),
+          timeoutMessage: 'Web 调试端点响应头获取超时。',
+        );
         final remainingReadTime = deadline.remaining();
         final body = await readBoundedHttpResponseText(
           res,
@@ -3329,8 +3334,6 @@ String _wrConsoleLabel(BuildContext context) {
     ja: 'コンソール',
   );
 }
-
-
 
 String _wrEditLabel(BuildContext context) {
   return openHandLocalizedText(

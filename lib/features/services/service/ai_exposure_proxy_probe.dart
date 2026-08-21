@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import '../../../shared/net/bounded_http_request.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/util/byte_size_format.dart';
@@ -410,15 +411,19 @@ Future<Uint8List> _loadIdentityThroughHttpProxy(Uri proxy) async {
     );
   }
   try {
-    final request = await client
-        .getUrl(Uri.parse(_kProxyIdentityHttpsUrl))
-        .timeout(_remaining(_kProxyIdentityTimeout, stopwatch));
+    final request = await openHttpClientRequestBounded(
+      () => client.getUrl(Uri.parse(_kProxyIdentityHttpsUrl)),
+      timeout: _remaining(_kProxyIdentityTimeout, stopwatch),
+      timeoutMessage: '代理出口身份请求打开超时。',
+    );
     request
       ..followRedirects = false
       ..headers.set(HttpHeaders.acceptHeader, kApplicationJsonMimeType)
       ..headers.set(HttpHeaders.connectionHeader, kConnectionClose);
-    final response = await request.close().timeout(
-      _remaining(_kProxyIdentityTimeout, stopwatch),
+    final response = await closeHttpClientRequestBounded(
+      request,
+      timeout: _remaining(_kProxyIdentityTimeout, stopwatch),
+      timeoutMessage: '代理出口身份响应头获取超时。',
     );
     final authError = _proxyIdentityAuthError(response.statusCode);
     if (authError != null) throw FormatException(authError);

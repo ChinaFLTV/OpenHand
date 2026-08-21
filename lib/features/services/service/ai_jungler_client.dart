@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import '../../../shared/net/bounded_http_request.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/sse_line_parsing.dart';
@@ -399,9 +400,11 @@ class AiJunglerClient {
     required MonotonicDeadline deadline,
   }) async {
     final uri = baseUri.resolve(path);
-    final request = await _httpClient
-        .openUrl(method, uri)
-        .timeout(deadline.remaining());
+    final request = await openHttpClientRequestBounded(
+      () => _httpClient.openUrl(method, uri),
+      timeout: deadline.remaining(),
+      timeoutMessage: '扫描引擎请求打开超时。',
+    );
     request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $accessToken');
     return request;
   }
@@ -411,13 +414,10 @@ class AiJunglerClient {
     MonotonicDeadline deadline,
   ) {
     final timeout = deadline.remaining();
-    return request.close().timeout(
-      timeout,
-      onTimeout: () {
-        final error = deadline.timeoutException();
-        request.abort(error);
-        throw error;
-      },
+    return closeHttpClientRequestBounded(
+      request,
+      timeout: timeout,
+      timeoutMessage: deadline.timeoutMessage,
     );
   }
 
