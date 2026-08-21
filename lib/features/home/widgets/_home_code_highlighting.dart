@@ -34,14 +34,8 @@ final _HighlightSpanCache _highlightSpanCache = _HighlightSpanCache(
 );
 final Set<int> _pendingHighlightWarmups = <int>{};
 
-/// 全局帧分散调度器。当一条消息含 N 个代码块同时展开时，
-/// 所有代码块的 highlight 回调都注册到同一个 addPostFrameCallback，
-/// 导致下一帧仍然要同步执行 N 次 tokenize。此调度器将 N 个任务分散
-/// 到 ceil(N/2) 个帧中执行（每帧最多处理 2 个），彻底消除 ANR。
-/// 每帧最多执行一个 highlight 任务。
-/// 一些大段 bash/log 输出 tokenize 单次可能 ~30ms；同帧多个任务会直接撑爆
-/// 60 fps 帧预算。1/帧 让慢机器也能稳；配合 [_HighlightSpanCache]，第二次
-/// 展开 / 滚回时仍能瞬时拉起。
+/// 全局帧分散调度器，将同时展开的代码块高亮任务拆分到多个帧执行。
+/// 每帧仅执行一个任务，避免大段输出分词阻塞界面；缓存命中时可直接复用结果。
 final _FrameTaskScheduler _highlightFrameScheduler = _FrameTaskScheduler(
   maxPerFrame: 1,
 );
@@ -3485,8 +3479,6 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           } catch (_) {}
         })();
       ''');
-    } on PlatformException catch (error, stack) {
-      silentLog('home_code_highlighting', '执行 Mermaid 命令失败', error, stack);
     } catch (error, stack) {
       silentLog('home_code_highlighting', '执行 Mermaid 命令失败', error, stack);
     }
