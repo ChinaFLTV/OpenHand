@@ -551,14 +551,8 @@ class SettingsController extends ChangeNotifier {
   String get settingsFilePath => _store.settingsFilePath;
   String get displaySettingsFilePath =>
       OpenHandPaths.shortenHomePath(_store.settingsFilePath);
-  // Cached unmodifiable views: returning a fresh `List.unmodifiable` from the
-  // getter on every call breaks `context.select` deduplication (each `==`
-  // check sees a brand-new list reference) and makes downstream widgets that
-  // only depend on these slices rebuild on every unrelated controller
-  // notification (which fire frequently during streaming). The cached views
-  // are invalidated through `_invalidateAiModelsView` /
-  // `_invalidateRecentModelSelectionsView` from every mutation site so the
-  // visible state remains correct.
+  // 缓存不可变列表视图，避免 getter 每次创建新引用导致 context.select 去重失效、
+  // 流式通知时触发无关组件重建。每个修改入口都会使对应缓存失效。
   List<AiModelConfig>? _cachedAiModelsView;
   List<RecentModelSelection>? _cachedRecentModelSelectionsView;
 
@@ -593,19 +587,17 @@ class SettingsController extends ChangeNotifier {
   bool get telemetryCaptureEnvironment => _telemetryCaptureEnvironment;
   int get telemetryMaxPayloadChars => _telemetryMaxPayloadChars;
 
-  /// Whether the Hermes Talker self-learning scheduler is active.
+  /// 是否启用 Hermes Talker 自学习调度器。
   bool get selfLearningEnabled => _selfLearningEnabled;
 
-  /// Maximum concurrent self-learning sub-agent dispatches.
+  /// 自学习子代理并发上限。
   int get selfLearningConcurrency => _selfLearningConcurrency;
 
   /// 自学习卡片流式输出后台刷新（持久化）间隔，毫秒。
   int get selfLearningStreamFlushIntervalMs =>
       _selfLearningStreamFlushIntervalMs;
 
-  /// Whether self-learning cards are rendered in the chat transcript.
-  /// Independent of [selfLearningEnabled] which only controls the
-  /// background scheduler.
+  /// 是否在会话记录中显示自学习卡片，与 [selfLearningEnabled] 独立。
   bool get showSelfLearningMessages => _showSelfLearningMessages;
 
   /// 是否在冷启动时自动清理超过保留期的 cron 执行历史。
@@ -1918,9 +1910,7 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  /// Returns a flattened list of (providerConfigId, modelId) pairs for the
-  /// model selector UI. Each entry represents one selectable model across all
-  /// providers. Providers with no available models are skipped.
+  /// 返回模型选择器使用的扁平模型列表；跳过没有可选模型的服务商。
   List<({String providerConfigId, String modelId, String providerLabel})>
   get flatModelEntries {
     final entries =

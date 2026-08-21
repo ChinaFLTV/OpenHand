@@ -66,8 +66,7 @@ extension AppProxyProtocolJson on AppProxyProtocol {
   }
 }
 
-/// Settings backing the proxy configuration card. Immutable; mutate via
-/// `copyWith`.
+/// 代理配置卡片的不可变设置，通过 `copyWith` 创建更新后的实例。
 class AppProxySettings {
   const AppProxySettings({
     required this.mode,
@@ -95,9 +94,8 @@ class AppProxySettings {
     exceptions: <String>[],
   );
 
-  /// Lenient JSON decoder. Unknown fields are ignored. Bad shapes fall
-  /// back to defaults() so a corrupted settings file never crashes the
-  /// app boot.
+  /// 宽容解析 JSON：忽略未知字段，结构无效时回退默认值，避免损坏的设置文件
+  /// 中断应用启动。
   factory AppProxySettings.fromJson(Object? rawJson) {
     final json = optionalStringKeyedMapFromValueOrJsonText(rawJson);
     if (json == null) {

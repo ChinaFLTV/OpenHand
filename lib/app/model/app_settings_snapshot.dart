@@ -318,7 +318,7 @@ class AppSettingsSnapshot {
            ),
        aiTtsSettings = aiTtsSettings ?? AiTtsSettings.defaults();
 
-  /// Default and bounds for Hermes Talker self-learning concurrency.
+  /// Hermes Talker 自学习并发数的默认值与边界。
   static const int defaultSelfLearningConcurrency = 5;
   static const int minSelfLearningConcurrency = 1;
   static const int maxSelfLearningConcurrency = 10;
@@ -386,7 +386,8 @@ class AppSettingsSnapshot {
   /// 上下文，但会占用更多 tokens。0 表示不保留首尾片段。
   static const int defaultAiToolResultCompressionHeadTailWindowChars = 256;
   static const int minAiToolResultCompressionHeadTailWindowChars = 0;
-  static const int maxAiToolResultCompressionHeadTailWindowChars = 8 * kBytesPerKiB;
+  static const int maxAiToolResultCompressionHeadTailWindowChars =
+      8 * kBytesPerKiB;
 
   /// 压缩摘要中提取的文件路径条数上限。0 表示不提取。
   static const int defaultAiToolResultCompressionMaxPathHits = 12;
@@ -395,16 +396,8 @@ class AppSettingsSnapshot {
 
   static const bool defaultAiMicroCompressionEnabled = true;
 
-  /// 成本控制：是否启用输入缓存优化。开启后，Prompt
-  /// Builder 统一保持静态前缀（系统指令/工具/技能/MCP/记忆/指令）稳定
-  /// 前置；Anthropic native 注入 cache_control 断点，OpenAI-compatible
-  /// 请求注入统一缓存保留提示、稳定会话/Prompt 亲和键并保持 messages
-  /// 位于请求体末尾；同时锁定服务商/模型选择，降低跨轮缓存击穿概率。
-  ///
-  /// 默认为 `true`。Claude 协议会在对应 provider 开关开启时注入
-  /// `cache_control: {type: ephemeral}` 断点；OpenAI-compatible 协议会使用
-  /// 缓存保留提示、稳定亲和键与请求体顺序优化。少数场景需要关闭时再在
-  /// "输入缓存"设置里手动关闭。
+  /// 是否启用输入缓存优化。开启后保持 Prompt 静态前缀、缓存断点与请求顺序稳定，
+  /// 按协议注入缓存控制信息，降低跨轮缓存失效概率。
   static const bool defaultAiInputCacheEnabled = true;
 
   /// 缓存断点更新模式：allMessages | userMessages | tokens。
@@ -449,7 +442,7 @@ class AppSettingsSnapshot {
   static const int minAiWriteToolSummaryMaxChars = 0;
   static const int maxAiWriteToolSummaryMaxChars = 8 * kBytesPerKiB;
 
-  /// Default cap for per-message raw payload capture (characters).
+  /// 单条消息原始遥测载荷的最大字符数。
   static const int defaultTelemetryMaxPayloadChars = 200000;
   static const int minTelemetryMaxPayloadChars = 4000;
   static const int maxTelemetryMaxPayloadChars = 2000000;
@@ -475,7 +468,6 @@ class AppSettingsSnapshot {
     return AiToolCallLimitPolicy.normalizeSequentialRound(value);
   }
 
-  /// Group A: AI 会话控制参数。
   static const int defaultAiMaxRecentErrors = 20;
   static const int minAiMaxRecentErrors = 0;
   static const int maxAiMaxRecentErrors = 1000;
@@ -492,7 +484,6 @@ class AppSettingsSnapshot {
   static const int minAiEstimatedCharactersPerToken = 1;
   static const int maxAiEstimatedCharactersPerToken = 32;
 
-  /// Group B: 工具调用与确认参数。
   static const int defaultAiMaxToolOutputChars =
       AiToolExecutionLimitPolicy.defaultMaxToolOutputChars;
 
@@ -545,7 +536,6 @@ class AppSettingsSnapshot {
     return AiToolExecutionLimitPolicy.normalizeMaxHookTextCharacters(value);
   }
 
-  /// Group C: 附件与流式缓冲参数。
   static const int defaultAiAttachmentMaxInlineImageDimension = 1568;
   static const int minAiAttachmentMaxInlineImageDimension = 64;
   static const int maxAiAttachmentMaxInlineImageDimension = 16384;
@@ -593,21 +583,17 @@ class AppSettingsSnapshot {
   static const int minAiMaxWorkspaceDocumentCharacters = 1000;
   static const int maxAiMaxWorkspaceDocumentCharacters = 1000000;
 
-  /// Default per-image attachment size cap (1 MiB).
-  ///
-  /// When a user attaches an image larger than this threshold, the attachment
-  /// pipeline downscales it before the editor opens so that storage, prompt
-  /// payload and clipboard handoff remain bounded.
+  /// 单张图片附件的默认大小上限（1 MiB）。超过时先缩小图片，限制存储、
+  /// Prompt 载荷和剪贴板传递的资源占用。
   static const int defaultAiImageSizeLimitBytes = kBytesPerMiB;
 
-  /// Hard floor to prevent users from saving an unusable threshold.
+  /// 最小值，防止保存不可用阈值。
   static const int minAiImageSizeLimitBytes = 64 * kBytesPerKiB;
 
-  /// Hard ceiling so a misconfigured value cannot blow up memory at runtime.
+  /// 最大值，防止错误配置造成运行时内存膨胀。
   static const int maxAiImageSizeLimitBytes = 64 * kBytesPerMiB;
 
-  /// Timeout (seconds) for establishing the HTTP connection and receiving
-  /// initial response headers from the AI provider.
+  /// 与 AI 服务建立连接并接收首个响应头的超时秒数。
   static const int defaultAiConnectTimeoutSeconds =
       AiRequestTimeoutPolicy.defaultConnectTimeoutSeconds;
   static const int minAiConnectTimeoutSeconds =
@@ -623,7 +609,7 @@ class AppSettingsSnapshot {
     return AiRequestTimeoutPolicy.normalizeConnectTimeoutSeconds(value);
   }
 
-  /// Timeout (seconds) for receiving a complete non-streaming AI response.
+  /// 接收完整非流式 AI 响应的超时秒数。
   static const int defaultAiResponseTimeoutSeconds =
       AiRequestTimeoutPolicy.defaultResponseTimeoutSeconds;
   static const int minAiResponseTimeoutSeconds =
@@ -639,9 +625,7 @@ class AppSettingsSnapshot {
     return AiRequestTimeoutPolicy.normalizeResponseTimeoutSeconds(value);
   }
 
-  /// Per-chunk idle timeout (seconds) for streaming AI responses.
-  /// When the stream receives no new data within this window, the request
-  /// is aborted and an error is shown (the "Request timed out." case).
+  /// 流式响应单个数据块的空闲超时秒数；期间未收到新数据即中止并报告超时。
   static const int defaultAiStreamIdleTimeoutSeconds =
       AiRequestTimeoutPolicy.defaultStreamIdleTimeoutSeconds;
   static const int minAiStreamIdleTimeoutSeconds =
@@ -790,7 +774,7 @@ class AppSettingsSnapshot {
     return AiToolExecutionLimitPolicy.normalizeMaxConcurrentTools(value);
   }
 
-  /// Default session mode string: 'chat' or 'plan'.
+  /// 默认会话模式：`chat` 或 `plan`。
   static const String defaultAiDefaultSessionMode = 'chat';
 
   /// MCP 工具懒加载默认配置。
@@ -922,16 +906,12 @@ class AppSettingsSnapshot {
   final int aiSingleRoundToolCallLimit;
   final int aiSequentialToolRoundLimit;
 
-  /// Group A: 会话错误记录保留上限。
   final int aiMaxRecentErrors;
 
-  /// Group A: plan_history 保留上限。
   final int aiMaxPlanHistoryEntries;
 
-  /// Group A: 超长响应被截断后的自动续接轮次上限。
   final int aiMaxTruncationContinuations;
 
-  /// Group A: token 估算系数（每个 token 平均多少字符）。
   final int aiEstimatedCharactersPerToken;
   final int aiMaxToolOutputChars;
   final int aiWriteConfirmationTimeoutMs;
@@ -943,28 +923,20 @@ class AppSettingsSnapshot {
   final int aiAttachmentMaxImageRawBytes;
   final int aiChatMaxStreamLineBufferBytes;
 
-  /// Group D — 回退标题最大字符数。
   final int aiFallbackTitleMaxCharacters;
 
-  /// Group D — 自动生成标题最大字符数。
   final int aiGeneratedTitleMaxCharacters;
 
-  /// Group D — 线程会话标题获取最大重试次数。
   final int aiAutoTitleMaxRetryCount;
 
-  /// Group D — 标题获取方式。
   final AiAutoTitleFetchMode aiAutoTitleFetchMode;
 
-  /// Group D — 有效中文标题最小字符数。
   final int aiMinimumMeaningfulTitleCharacters;
 
-  /// Group D — 有效拉丁标题最小词数。
   final int aiMinimumMeaningfulLatinTitleWords;
 
-  /// Group E — Skill 内容字符上限。
   final int aiMaxSkillContentLength;
 
-  /// Group E — 工作区指令文档字符上限。
   final int aiMaxWorkspaceDocumentCharacters;
   final int aiImageSizeLimitBytes;
   final AiTranslationSettings aiTranslationSettings;
@@ -1030,30 +1002,25 @@ class AppSettingsSnapshot {
   final bool telemetryDebugEnabled;
   final bool telemetryCaptureRawPayload;
 
-  /// Controls whether a session/message-level environment snapshot
-  /// (working directory, OS env variables, platform info) is persisted
-  /// into message metadata for audit. Off by default because
-  /// `Platform.environment` can contain secrets (tokens, API keys).
+  /// 是否为审计持久化会话或消息的环境快照（工作目录、环境变量和平台信息）。
+  /// 默认关闭，因为 `Platform.environment` 可能包含令牌、密钥等敏感信息。
   final bool telemetryCaptureEnvironment;
   final int telemetryMaxPayloadChars;
 
-  /// Whether the Hermes Talker self-learning scheduler is active.
-  /// When false, [SelfLearningScheduler.tick] short-circuits to a no-op.
+  /// 是否启用 Hermes Talker 自学习调度器。关闭时调度周期不执行任务。
   final bool selfLearningEnabled;
 
-  /// Upper bound on concurrent self-learning sub-agent dispatches.
-  /// Clamped to [minSelfLearningConcurrency] .. [maxSelfLearningConcurrency].
+  /// 自学习子代理并发上限，范围为
+  /// [minSelfLearningConcurrency] 至 [maxSelfLearningConcurrency]。
   final int selfLearningConcurrency;
 
-  /// 自学习卡片流式输出后台刷新（持久化）间隔，毫秒。
-  /// Clamped to [minSelfLearningStreamFlushIntervalMs] ..
-  /// [maxSelfLearningStreamFlushIntervalMs].
+  /// 自学习卡片流式输出后台持久化刷新间隔，单位为毫秒。
+  /// 范围为 [minSelfLearningStreamFlushIntervalMs] 至
+  /// [maxSelfLearningStreamFlushIntervalMs]。
   final int selfLearningStreamFlushIntervalMs;
 
-  /// Whether self-learning (Hermes Talker) cards are rendered in the chat
-  /// transcript. Independent of [selfLearningEnabled]: the scheduler may
-  /// still produce cards in the background; this flag only controls UI
-  /// visibility. Default true.
+  /// 是否在会话记录中显示自学习卡片。该设置独立于 [selfLearningEnabled]，
+  /// 关闭后调度器仍可在后台生成卡片。
   final bool showSelfLearningMessages;
 
   /// 冷启动后是否异步清理过期 cron 执行历史。
@@ -1424,7 +1391,7 @@ class AppSettingsSnapshot {
   }
 }
 
-/// A recently selected model entry for quick access in the model selector.
+/// 最近选择的模型，用于模型选择器快捷访问。
 class RecentModelSelection {
   const RecentModelSelection({required this.configId, required this.modelId});
 

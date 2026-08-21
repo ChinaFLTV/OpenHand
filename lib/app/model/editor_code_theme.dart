@@ -1,23 +1,23 @@
 import '../../shared/util/input_value_parsing.dart';
 
-/// Available code highlighting colour themes for the editor.
+/// 编辑器可选的代码高亮主题。
 enum EditorCodeTheme {
-  /// Default Material You pastel tones.
+  /// 默认的 Material You 柔和配色。
   materialYou,
 
-  /// Monokai-inspired warm tones.
+  /// Monokai 风格暖色配色。
   monokai,
 
-  /// Solarized palette with blue-green emphasis.
+  /// 以蓝绿色为主的 Solarized 配色。
   solarized,
 
-  /// One Dark (Atom-inspired) theme.
+  /// Atom 风格的 One Dark 主题。
   oneDark,
 
-  /// GitHub light / dark style.
+  /// GitHub 明暗主题风格。
   github,
 
-  /// Dracula theme.
+  /// Dracula 主题。
   dracula;
 
   String get storageValue => name;
