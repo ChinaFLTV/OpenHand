@@ -130,6 +130,24 @@ class DingTalkGatewayCommandException implements Exception {
         normalized.contains('mcp backend dependency temporarily unavailable');
   }
 
+  bool get isCancelled => reason?.trim().toLowerCase() == 'cancelled';
+
+  /// dws 将网络请求失败包装为进程退出时，通常不会提供结构化 retryable 字段。
+  bool get isTransientNetworkFailure {
+    final normalized = message.trim().toLowerCase();
+    return const <String>[
+      'connection reset',
+      'connection closed',
+      'connection refused',
+      'broken pipe',
+      'network is unreachable',
+      'no route to host',
+      'tls handshake timeout',
+    ].any(normalized.contains) ||
+        normalized.contains('sending request') &&
+            RegExp(r'\beof\b').hasMatch(normalized);
+  }
+
   bool get isMessageEditLimitReached {
     final normalized = message.toLowerCase();
     final normalizedOperation = operation?.trim().toLowerCase() ?? '';
@@ -145,7 +163,8 @@ class DingTalkGatewayCommandException implements Exception {
   bool get isRetryable =>
       retryable ||
       reason?.trim().toLowerCase() == 'timeout' ||
-      isDependencyUnavailable;
+      isDependencyUnavailable ||
+      isTransientNetworkFailure;
 
   @override
   String toString() => message;
@@ -1038,13 +1057,13 @@ class DingTalkMessageGatewayService {
     return _executable ??= await resolvePluginDingtalkWorkspaceCliExecutable();
   }
 
-  Future<DingTalkAuthStatus> authStatus() async {
+  Future<DingTalkAuthStatus> authStatus({Future<void>? cancelSignal}) async {
     final decoded = await _runJson(const <String>[
       'auth',
       'status',
       '--format',
       'json',
-    ]);
+    ], cancelSignal: cancelSignal);
     final map = _asMap(decoded);
     final data = _asMap(map['data']);
     final authenticated =
@@ -1239,6 +1258,7 @@ class DingTalkMessageGatewayService {
   Future<DingTalkGatewayQueryResult> query({
     required DateTime start,
     required DateTime end,
+    Future<void>? cancelSignal,
   }) async {
     final now = DateTime.now();
     for (final capabilityKey in _messageQueryWindowPreserved) {
@@ -1282,6 +1302,7 @@ class DingTalkMessageGatewayService {
             capabilityKey: 'mentions',
             label: '@我消息',
             deadline: deadline,
+            cancelSignal: cancelSignal,
           ),
           _queryMessagePages(
             (cursor) => <String>[
@@ -1302,6 +1323,7 @@ class DingTalkMessageGatewayService {
             capabilityKey: 'all',
             label: '全部消息',
             deadline: deadline,
+            cancelSignal: cancelSignal,
           ),
         ],
       );
@@ -1341,6 +1363,7 @@ class DingTalkMessageGatewayService {
     required String capabilityKey,
     required String label,
     required MonotonicDeadline deadline,
+    Future<void>? cancelSignal,
   }) async {
     final now = DateTime.now();
     final unavailableUntil = _messageQueryUnavailableUntil[capabilityKey];
@@ -1364,9 +1387,11 @@ class DingTalkMessageGatewayService {
         page = await _runJson(
           buildArguments(cursor),
           timeout: deadline.limit(_commandTimeout),
+          cancelSignal: cancelSignal,
         );
       } catch (error, stack) {
         final commandError = _normalizeCommandException(error);
+        if (commandError?.isCancelled == true) rethrow;
         final dependencyUnavailable =
             commandError?.isDependencyUnavailable == true;
         final transientFailure =
@@ -2519,6 +2544,7 @@ class DingTalkMessageGatewayService {
     List<String> arguments, {
     String? workingDirectory,
     Duration? timeout,
+    Future<void>? cancelSignal,
   }) async {
     final operation = arguments.take(3).join(' ');
     final effectiveTimeout = timeout ?? _commandTimeout;
@@ -2547,6 +2573,7 @@ class DingTalkMessageGatewayService {
         // 默认 4,000 字符；截断行或丢弃前面的行都会破坏整体 JSON。
         maxCapturedLinesPerStream: 65536,
         maxLineCharacters: 64 * kBytesPerKiB,
+        cancelSignal: cancelSignal,
         onStderrLine: (line) =>
             _logRuntime('WARN', 'dws 标准错误：${_safeProcessLogLine(line)}'),
       );
@@ -2561,6 +2588,14 @@ class DingTalkMessageGatewayService {
       throw DingTalkGatewayCommandException(
         message: message,
         reason: 'timeout',
+        operation: operation,
+        retryable: true,
+      );
+    }
+    if (result.cancelled) {
+      throw DingTalkGatewayCommandException(
+        message: 'dws 执行已取消：$operation。',
+        reason: 'cancelled',
         operation: operation,
         retryable: true,
       );

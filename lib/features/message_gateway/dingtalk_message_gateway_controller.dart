@@ -166,7 +166,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const Duration _realtimeReconcilePollInterval = Duration(seconds: 10);
   // 编辑消息没有独立个人 IM 事件，保持有界低频对账，通常在一个轮询周期内可见。
   static const Duration _conversationReconcileInterval = Duration(seconds: 15);
-  static const Duration _pollCallbackTimeout = Duration(minutes: 2);
+  // 查询本身已有 40 秒服务端总时限；额外留出进程回收与结果解析时间。
+  static const Duration _pollQueryTimeout = Duration(seconds: 45);
+  static const Duration _pollAuthStatusTimeout = Duration(seconds: 10);
   static const Duration _conversationReconcileInitialBackoff = Duration(
     seconds: 30,
   );
@@ -254,6 +256,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   Future<void>? _eventRestartFuture;
   Future<void>? _periodicReconcileFuture;
   Future<void>? _pollingStopInFlight;
+  Completer<void>? _activePollCancellation;
   Future<void>? _persistInFlight;
   Future<void>? _shutdownInFlight;
   bool _persistQueued = false;
@@ -1555,9 +1558,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     return results.any((changed) => changed);
   }
 
-  Future<void> refreshAuthStatus() async {
+  Future<void> refreshAuthStatus({Future<void>? cancelSignal}) async {
     try {
-      final next = await _service.authStatus();
+      final next = await _service.authStatus(cancelSignal: cancelSignal);
       final previousIdentity = _authStatus.identity;
       final nextIdentity = next.identity;
       if (previousIdentity.userId != nextIdentity.userId ||
@@ -1571,6 +1574,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }
       _clearError();
     } catch (error, stack) {
+      if (error is DingTalkGatewayCommandException && error.isCancelled) {
+        return;
+      }
       _setError('读取钉钉授权状态', error, stack);
     }
     _notify();
@@ -1710,6 +1716,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final active = _pollingStopInFlight;
     if (active != null) return active;
     _isPolling = false;
+    _cancelActivePoll();
     _pollStartedAt = null;
     _pollingGeneration++;
     final pollingGeneration = _pollingGeneration;
@@ -2253,6 +2260,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (!_isPolling || _pollInFlight || !isAuthorized || _disposed) return;
     final pollingGeneration = _pollingGeneration;
     _pollInFlight = true;
+    final pollCancellation = Completer<void>();
+    _activePollCancellation = pollCancellation;
     try {
       final now = DateTime.now();
       final queryStart = _lastPollAt.isBefore(now)
@@ -2262,7 +2271,21 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final queryEnd = maxQueryEnd.isBefore(now) ? maxQueryEnd : now;
       Object? queryError;
       try {
-        final result = await _service.query(start: queryStart, end: queryEnd);
+        final result = await _service
+            .query(
+              start: queryStart,
+              end: queryEnd,
+              cancelSignal: pollCancellation.future,
+            )
+            .timeout(
+              _pollQueryTimeout,
+              onTimeout: () {
+                if (!pollCancellation.isCompleted) {
+                  pollCancellation.complete();
+                }
+                throw TimeoutException('钉钉消息轮询超过总时限。', _pollQueryTimeout);
+              },
+            );
         if (pollingGeneration != _pollingGeneration || !_isPolling) return;
         if (result.shouldAdvanceWindow) {
           _lastPollAt = queryEnd.subtract(const Duration(seconds: 2));
@@ -2278,7 +2301,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             error is TimeoutException ||
             error is DingTalkGatewayCommandException && error.isRetryable;
         if (transientFailure) {
-          _warningMessage = '钉钉消息同步较慢，已跳过本轮，下一轮将继续重试。';
+          _warningMessage = '钉钉网络暂时不可用，已保留同步窗口并将在稍后重试。';
           _clearError();
         } else {
           _setError('轮询钉钉消息', error, stack);
@@ -2294,15 +2317,38 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       } else if (queryError is! TimeoutException &&
           (queryError is! DingTalkGatewayCommandException ||
               !queryError.isRetryable)) {
-        await refreshAuthStatus();
+        try {
+          await refreshAuthStatus(
+            cancelSignal: pollCancellation.future,
+          ).timeout(
+            _pollAuthStatusTimeout,
+            onTimeout: () {
+              if (!pollCancellation.isCompleted) pollCancellation.complete();
+            },
+          );
+        } on TimeoutException {
+          if (_isPolling && pollingGeneration == _pollingGeneration) {
+            _warningMessage = '钉钉授权状态暂时无法确认，下一轮将继续检查。';
+          }
+        }
         if (!isAuthorized) await stopPolling();
       }
     } finally {
+      if (identical(_activePollCancellation, pollCancellation)) {
+        _activePollCancellation = null;
+      }
       _pollInFlight = false;
       if (!_disposed && _isPolling && pollingGeneration != _pollingGeneration) {
         unawaited(_pollOnce());
       }
       _notify();
+    }
+  }
+
+  void _cancelActivePoll() {
+    final cancellation = _activePollCancellation;
+    if (cancellation != null && !cancellation.isCompleted) {
+      cancellation.complete();
     }
   }
 
@@ -3706,10 +3752,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _pollTimer = startNonOverlappingPeriodicTimer(
       effectiveInterval,
       (_) => _pollOnce(),
-      callbackTimeout: _pollCallbackTimeout,
       cancelOnCallbackTimeout: false,
-      onError: (error, stack) =>
-          silentLog('dingtalk_gateway', '执行钉钉轮询定时任务', error, stack),
+      onError: (error, stack) {
+        if (error is TimeoutException) _cancelActivePoll();
+        silentLog('dingtalk_gateway', '执行钉钉轮询定时任务', error, stack);
+      },
     );
     if (immediate) unawaited(_pollOnce());
   }
@@ -5833,6 +5880,7 @@ ${_markdownStructuredFields(response)}''';
   Future<void> _shutdown() async {
     if (_disposed) return;
     _isPolling = false;
+    _cancelActivePoll();
     _usingPollingFallback = false;
     _pollTimer?.cancel();
     _pollTimer = null;
