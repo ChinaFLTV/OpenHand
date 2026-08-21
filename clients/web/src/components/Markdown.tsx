@@ -1,20 +1,4 @@
-// Markdown 高性能渲染组件 (基于 react-markdown + remark-gfm + rehype-highlight)。
-//
-// 设计要点:
-// - 通过 @preact/preset-vite 默认 alias react/react-dom → preact/compat,
-//   react-markdown 在 Preact 上零侵入运行.
-// - 代码块走 rehype-highlight (内置 highlight.js 子集), 按需 lazy-load
-//   主题样式; 主题样式由 components/markdown_styles.css 全局引入一次.
-// - 长内容 (> CONTENT_TOO_BIG_CHARS) 跳过 markdown，仅渲染有界文本预览，
-//   避免 reactdom 在 200KB+ 树上花费百毫秒. 与 App 端
-//   _SafeMarkdownBody 阈值语义对齐.
-// - 表格 / 任务列表 / 删除线由 remark-gfm 提供.
-// - 数学公式按需启用 remark-math + rehype-katex；同时兼容 AI 常用的
-//   \[...\] / \(...\) LaTeX 分隔符。
-// - 链接强制 target=_blank rel=noopener; 图片 lazy loading.
-// - 全局帧节流：同一帧内多个 Markdown 同时挂载时, 队列逐帧解析，
-//   每帧最多一个非平凡组件, 避免 60+ 长会话首屏 N 个 react-markdown
-//   并行 parse 卡死主线程; 1 KB 以下短消息保持同步, 减少视觉闪烁。
+// Markdown 渲染组件：按需加载插件，限制长内容解析，并为批量挂载分帧调度。
 
 import { memo } from 'preact/compat';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
@@ -40,70 +24,64 @@ import { useTimeoutController } from '../hooks/useTimeoutController';
 import { svgIconProps } from '../shared/ui/svg_icon';
 import 'katex/dist/katex.min.css';
 
-/// rehype-highlight 真正按需懒载：默认不在 entry / vendor 关键路径里拉，
-/// 直到首次遇到 ``` 代码块的消息才发起 dynamic import (chunk 已经 split，
-/// 浏览器拉 vendor-highlight.js 51KB gz)。整个进程内首次解析后插件被缓存，
-/// 之后所有 Markdown 实例共享。
 type RehypeHighlightPlugin = unknown;
 type MarkdownPlugin = unknown;
-let rehypeHighlightCache: RehypeHighlightPlugin | null = null;
-let rehypeHighlightLoading: Promise<RehypeHighlightPlugin> | null = null;
+
+interface LazyPluginState<T> {
+  value: T | null;
+  loading: Promise<T> | null;
+}
+
+function loadLazyPlugin<T>(
+  state: LazyPluginState<T>,
+  importer: () => Promise<unknown>,
+): Promise<T> {
+  if (state.value != null) return Promise.resolve(state.value);
+  if (state.loading != null) return state.loading;
+  state.loading = importer()
+    .then((module) => (module as { default?: T }).default ?? (module as T))
+    .then(
+      (plugin) => {
+        state.value = plugin;
+        state.loading = null;
+        return plugin;
+      },
+      (error: unknown) => {
+        state.loading = null;
+        throw error;
+      },
+    );
+  return state.loading;
+}
+
+const rehypeHighlightState: LazyPluginState<RehypeHighlightPlugin> = {
+  value: null,
+  loading: null,
+};
+const remarkMathState: LazyPluginState<MarkdownPlugin> = {
+  value: null,
+  loading: null,
+};
+const rehypeKatexState: LazyPluginState<MarkdownPlugin> = {
+  value: null,
+  loading: null,
+};
+
 function loadRehypeHighlight(): Promise<RehypeHighlightPlugin> {
-  if (rehypeHighlightCache != null) return Promise.resolve(rehypeHighlightCache);
-  if (rehypeHighlightLoading != null) return rehypeHighlightLoading;
-  rehypeHighlightLoading = import('rehype-highlight').then((mod) => {
-    const plugin = (mod as { default?: RehypeHighlightPlugin }).default ?? mod;
-    rehypeHighlightCache = plugin;
-    rehypeHighlightLoading = null;
-    return plugin;
-  }).catch((err) => {
-    rehypeHighlightLoading = null;
-    throw err;
-  });
-  return rehypeHighlightLoading;
+  return loadLazyPlugin(rehypeHighlightState, () => import('rehype-highlight'));
 }
 
-let remarkMathCache: MarkdownPlugin | null = null;
-let remarkMathLoading: Promise<MarkdownPlugin> | null = null;
 function loadRemarkMath(): Promise<MarkdownPlugin> {
-  if (remarkMathCache != null) return Promise.resolve(remarkMathCache);
-  if (remarkMathLoading != null) return remarkMathLoading;
-  remarkMathLoading = import('remark-math').then((mod) => {
-    const plugin = (mod as { default?: MarkdownPlugin }).default ?? mod;
-    remarkMathCache = plugin;
-    remarkMathLoading = null;
-    return plugin;
-  }).catch((err) => {
-    remarkMathLoading = null;
-    throw err;
-  });
-  return remarkMathLoading;
+  return loadLazyPlugin(remarkMathState, () => import('remark-math'));
 }
 
-let rehypeKatexCache: MarkdownPlugin | null = null;
-let rehypeKatexLoading: Promise<MarkdownPlugin> | null = null;
 function loadRehypeKatex(): Promise<MarkdownPlugin> {
-  if (rehypeKatexCache != null) return Promise.resolve(rehypeKatexCache);
-  if (rehypeKatexLoading != null) return rehypeKatexLoading;
-  rehypeKatexLoading = import('rehype-katex').then((mod) => {
-    const plugin = (mod as { default?: MarkdownPlugin }).default ?? mod;
-    rehypeKatexCache = plugin;
-    rehypeKatexLoading = null;
-    return plugin;
-  }).catch((err) => {
-    rehypeKatexLoading = null;
-    throw err;
-  });
-  return rehypeKatexLoading;
+  return loadLazyPlugin(rehypeKatexState, () => import('rehype-katex'));
 }
 
 const CONTENT_TOO_BIG_CHARS = 120 * 1024;
 const OVERSIZED_MARKDOWN_PREVIEW_MAX_CHARS = 12 * 1024;
-/// 8 KB 以上才走帧节流 deferred 路径 (首帧骨架占位 + 下一空闲帧
-/// 补回 markdown)。早期 1 KB 阈值过保守：用户截图中的 mermaid 流程图 + 图例
-/// 文本普遍 2-4 KB，会被错误丢进占位符。8 KB 以上通常已经包含较长正文、
-/// 表格或代码块；打开长会话时将这类卡片推迟到空闲帧解析，能明显降低
-/// 首屏主线程尖峰，同时短消息仍保持同步渲染，避免闪烁。
+/// 超过该阈值的 Markdown 首次挂载走分帧解析，短消息保持同步渲染。
 const MARKDOWN_DEFERRED_PARSE_THRESHOLD = 8 * 1024;
 const HISTORICAL_MARKDOWN_DEFERRED_PARSE_THRESHOLD = 768;
 const MARKDOWN_PLACEHOLDER_MIN_HEIGHT_PX = 44;
@@ -113,15 +91,12 @@ const MARKDOWN_PLACEHOLDER_LINE_HEIGHT_PX = 24;
 const MARKDOWN_PLACEHOLDER_GAP_PX = 9;
 const MARKDOWN_PLACEHOLDER_MAX_LINES = 24;
 const MARKDOWN_PLACEHOLDER_WIDTHS = [72, 90, 64, 82, 58, 46] as const;
-// 流式节流：parseReady=true 后的内容变更，若增量很小且距上次 flush 不久，
-// 短期 coalesce 到一帧。覆盖 SSE 80ms 一 tick 期间内容追加只增几字符的场景，
-// 把"每 token 重 parse 整棵 react-markdown 树"压成最多 ~12 次/秒。
+// 小增量流式更新合并到固定间隔，避免重复解析整棵 Markdown 树。
 const MARKDOWN_STREAM_FLUSH_MS = 80;
 const MARKDOWN_STREAM_FLUSH_DELTA = 64;
 const MARKDOWN_IDLE_CALLBACK_TIMEOUT_MS = 100;
 const MARKDOWN_FRAME_FALLBACK_TIMEOUT_MS = 16;
-// 跳过 highlight：无 ``` 代码块的消息没必要把 rehype-highlight (内置
-// highlight.js 子集) 跑一遍。大段中文/英文纯文本消息全跳过，主线程压力骤降。
+// 无围栏代码块时跳过高亮插件。
 const FENCED_CODE_RE = /(^|\n)[ \t]*```/;
 const MATH_DELIMITER_RE = /\\\(|\\\[|\$\$/;
 const FENCED_CODE_LINE_RE = /^[ \t]{0,3}(`{3,}|~{3,})/;
@@ -130,12 +105,7 @@ const MARKDOWN_MEDIA_REF = /!?\[[^\]\n]{0,240}\]\(([^)\r\n]+)\)/g;
 const INLINE_DIFF_PREVIEW_LINE_LIMIT = 28;
 const INLINE_DIFF_HUNK_HEADER_RE = /^@@\s+-(\d+)(?:,(\d+))?(?:\s+\+(\d+)(?:,(\d+))?)?/;
 
-/// 全局帧节流的 markdown 解析调度器。打开长会话时多张消息卡片
-/// 在同一帧内全部 mount, 之前每张都同步走 react-markdown / rehype 解析,
-/// 主线程一次性占用数百毫秒 (JS thread 卡死, 用户看到 white blank)。
-/// 改为按帧节流, 每帧最多 1 个 markdown 升级渲染, 剩下的卡片以骨架
-/// 占位, 直到本帧完成后下一帧再升级。与 App 端
-/// _MarkdownFrameScheduler 思路完全对齐。
+/// Markdown 解析调度器：每帧仅升级一个延迟挂载组件。
 const MARKDOWN_FRAME_BUDGET_PER_FRAME = 1;
 const MARKDOWN_PARSE_READY_CACHE_LIMIT = 768;
 const HTML_SANITIZE_CACHE_LIMIT = 256;
@@ -155,10 +125,6 @@ const HTML_COMPLEX_PREVIEW_SCAN_CHARS = 12 * 1024;
 const HTML_LIKE_DETECT_CACHE_LIMIT = 512;
 
 function contentCacheKey(prefix: string, content: string): string {
-  return `${prefix}:${content.length}:${boundedFnv1aHashBase36(content)}`;
-}
-
-function profileCacheKey(prefix: string, content: string): string {
   return `${prefix}:${content.length}:${boundedFnv1aHashBase36(content)}`;
 }
 
@@ -478,7 +444,7 @@ function extractHtmlPreviewText(source: string): string {
 }
 
 function htmlRenderProfile(source: string): HtmlRenderProfile {
-  const key = profileCacheKey('html-profile', source);
+  const key = contentCacheKey('html-profile', source);
   const cached = htmlRenderProfileCache.get(key);
   if (cached != null) {
     rememberLru(htmlRenderProfileCache, key, cached, HTML_RENDER_PROFILE_CACHE_LIMIT);
@@ -790,7 +756,7 @@ const ProgressiveHtmlBody = memo(function ProgressiveHtmlBody({
   mono: boolean;
   deferInitialRender: boolean;
 }) {
-  const profileKey = useMemo(() => profileCacheKey('html-profile', source), [source]);
+  const profileKey = useMemo(() => contentCacheKey('html-profile', source), [source]);
   const [profileState, setProfileState] = useState<{
     key: string;
     profile: HtmlRenderProfile;
@@ -1368,7 +1334,7 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
   // 渲染 markdown（代码块降级为普通 pre），加载完成 setState 触发一次重渲。
   // 进程级共享缓存，多张含代码消息只触发一次网络请求。
   const [rehypeHighlightPlugin, setRehypeHighlightPlugin] = useState<RehypeHighlightPlugin | null>(
-    () => rehypeHighlightCache,
+    () => rehypeHighlightState.value,
   );
   useEffect(() => {
     if (!hasFencedCode || rehypeHighlightPlugin != null) return;
@@ -1381,10 +1347,10 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
     return () => { cancelled = true; };
   }, [hasFencedCode, rehypeHighlightPlugin]);
   const [remarkMathPlugin, setRemarkMathPlugin] = useState<MarkdownPlugin | null>(
-    () => remarkMathCache,
+    () => remarkMathState.value,
   );
   const [rehypeKatexPlugin, setRehypeKatexPlugin] = useState<MarkdownPlugin | null>(
-    () => rehypeKatexCache,
+    () => rehypeKatexState.value,
   );
   useEffect(() => {
     if (!hasMath || (remarkMathPlugin != null && rehypeKatexPlugin != null)) return;
