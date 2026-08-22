@@ -260,9 +260,19 @@ final class AiOperationHttp {
     }
     if (extraBody.isEmpty && directExtras.isEmpty) return body;
     final merged = <String, Object?>{...body, ...directExtras};
+    // OpenAI 官方协议不允许同时提交两种输出 token 字段，优先保留调用方明确传入的新版字段。
+    if (merged['max_completion_tokens'] != null &&
+        merged['max_tokens'] != null) {
+      if (directExtras.containsKey('max_completion_tokens') ||
+          !directExtras.containsKey('max_tokens')) {
+        merged.remove('max_tokens');
+      } else {
+        merged.remove('max_completion_tokens');
+      }
+    }
     // 官方请求体中的 generationConfig/text/reasoning 等对象通常只覆盖
     // 其中一两个字段；递归合并可保留适配器已经计算出的安全默认值。
-    return deepMergeObjectMaps(
+    final result = deepMergeObjectMaps(
       merged,
       <String, Object?>{...directExtras, ...extraBody},
       deepMergeKeys: const <String>{
@@ -273,6 +283,17 @@ final class AiOperationHttp {
         'response_format',
       },
     );
+    if (result['max_completion_tokens'] != null &&
+        result['max_tokens'] != null) {
+      if (directExtras.containsKey('max_completion_tokens') ||
+          extraBody.containsKey('max_completion_tokens') ||
+          !directExtras.containsKey('max_tokens')) {
+        result.remove('max_tokens');
+      } else {
+        result.remove('max_completion_tokens');
+      }
+    }
+    return result;
   }
 
   static Uri uriWithExtraQuery(

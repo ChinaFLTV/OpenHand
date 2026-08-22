@@ -116,12 +116,68 @@ class AiModelProxyHttpServer {
         );
         return;
       }
-      if (method == 'GET' && path == '/v1/models') {
-        await _writeJson(request, 200, _dispatcher.buildModelsResponse());
+      final style = _controller.settings.apiStyle;
+      if (method == 'GET' &&
+          (path == '/v1/models' || path == '/models') &&
+          style != AiModelProxyApiStyle.gemini) {
+        await _writeJson(request, 200, _buildModelsResponse(style));
         return;
       }
-      if (method == 'GET' && path == '/models') {
-        await _writeJson(request, 200, _dispatcher.buildModelsResponse());
+      if (method == 'GET' && path == '/v1beta/models') {
+        if (style != AiModelProxyApiStyle.gemini) {
+          await _writeError(
+            request,
+            404,
+            '请求路径不存在。',
+            type: 'invalid_request_error',
+            apiStyle: style,
+          );
+          return;
+        }
+        await _writeJson(request, 200, _buildGeminiModelsResponse());
+        return;
+      }
+      if (method == 'GET' &&
+          ((path.startsWith('/v1/models/') &&
+                  style != AiModelProxyApiStyle.gemini) ||
+              (path.startsWith('/v1beta/models/') &&
+                  style == AiModelProxyApiStyle.gemini))) {
+        final modelId = _modelIdFromGetPath(path);
+        final model = _findModelMetadata(modelId);
+        if (model == null) {
+          await _writeError(
+            request,
+            404,
+            '模型不存在。',
+            type: 'invalid_request_error',
+            apiStyle: style,
+          );
+          return;
+        }
+        await _writeJson(
+          request,
+          200,
+          style == AiModelProxyApiStyle.gemini
+              ? _toGeminiModel(model)
+              : style == AiModelProxyApiStyle.claude
+              ? _toClaudeModel(model)
+              : model,
+        );
+        return;
+      }
+      if (method == 'GET' &&
+          (path == '/v1/models' ||
+              path == '/models' ||
+              path.startsWith('/v1/models/') ||
+              path == '/v1beta/models' ||
+              path.startsWith('/v1beta/models/'))) {
+        await _writeError(
+          request,
+          404,
+          '请求路径不存在。',
+          type: 'invalid_request_error',
+          apiStyle: style,
+        );
         return;
       }
       if (method != 'POST') {
@@ -134,7 +190,6 @@ class AiModelProxyHttpServer {
         return;
       }
 
-      final style = _controller.settings.apiStyle;
       final route = _routeFor(path, style);
       if (route == null) {
         await _writeError(
@@ -194,20 +249,42 @@ class AiModelProxyHttpServer {
       final response = _buildResponse(result, route, requestedModel);
       await _writeJson(request, 200, response);
     } on AiModelProxyException catch (error) {
-      await _writeError(request, error.statusCode, error.message);
+      await _writeError(
+        request,
+        error.statusCode,
+        error.message,
+        apiStyle: _controller.settings.apiStyle,
+      );
     } on FormatException catch (error) {
       await _writeError(
         request,
         400,
         '请求 JSON 无效：${error.message}',
         type: 'invalid_request_error',
+        apiStyle: _controller.settings.apiStyle,
       );
     } on TimeoutException {
-      await _writeError(request, 408, '请求读取超时。', type: 'timeout_error');
+      await _writeError(
+        request,
+        408,
+        '请求读取超时。',
+        type: 'timeout_error',
+        apiStyle: _controller.settings.apiStyle,
+      );
     } on SocketException catch (error) {
-      await _writeError(request, 503, '中转站网络服务不可用：${error.message}');
+      await _writeError(
+        request,
+        503,
+        '中转站网络服务不可用：${error.message}',
+        apiStyle: _controller.settings.apiStyle,
+      );
     } on Object catch (error) {
-      await _writeError(request, 500, '中转站处理请求失败：$error');
+      await _writeError(
+        request,
+        500,
+        '中转站处理请求失败：$error',
+        apiStyle: _controller.settings.apiStyle,
+      );
     }
   }
 
@@ -242,7 +319,7 @@ class AiModelProxyHttpServer {
         : const <String, Object?>{};
     return switch (route) {
       _ProxyRoute.chat => _parseChatMessages(payload['messages']),
-      _ProxyRoute.responses => _parseResponsesInput(payload['input']),
+      _ProxyRoute.responses => _parseResponsesPayload(payload),
       _ProxyRoute.claude => _parseClaudeMessages(payload),
       _ProxyRoute.gemini => _parseGeminiMessages(payload),
     };
@@ -261,6 +338,7 @@ class AiModelProxyHttpServer {
     if (raw is String) {
       return <AiChatTurn>[AiChatTurn(role: AiChatRole.user, content: raw)];
     }
+    if (raw is Map) raw = <Object?>[raw];
     if (raw is! List) return const <AiChatTurn>[];
     final result = <AiChatTurn>[];
     for (final item in raw.take(256)) {
@@ -270,11 +348,26 @@ class AiModelProxyHttpServer {
         final map = Map<String, Object?>.from(item);
         final type = _readString(map['type']);
         final role = _parseRole(
-          map['role'] ?? (type == 'message' ? 'assistant' : null),
+          map['role'] ??
+              (type == 'message'
+                  ? 'assistant'
+                  : type.startsWith('input_')
+                  ? 'user'
+                  : null),
         );
-        final text = _extractText(
-          map['content'] ?? map['text'] ?? map['input'],
-        );
+        final rawContent =
+            map['content'] ??
+            map['text'] ??
+            map['input'] ??
+            map['output'] ??
+            (type.startsWith('input_') ? map : null);
+        final text = _extractText(rawContent);
+        final contentFallback =
+            text.isEmpty &&
+                ((rawContent is List && rawContent.isNotEmpty) ||
+                    rawContent is Map)
+            ? jsonEncode(rawContent)
+            : text;
         final toolCallId = _readString(
           map['call_id'] ?? map['tool_call_id'] ?? map['id'],
         );
@@ -300,13 +393,13 @@ class AiModelProxyHttpServer {
             ? AiChatRole.assistant
             : role;
         if (effectiveRole != null &&
-            (text.trim().isNotEmpty ||
+            (contentFallback.trim().isNotEmpty ||
                 toolCallId.isNotEmpty ||
                 functionCalls.isNotEmpty)) {
           result.add(
             AiChatTurn(
               role: effectiveRole,
-              content: text,
+              content: contentFallback,
               toolCallId: toolCallId.isEmpty ? null : toolCallId,
               toolCalls: functionCalls,
               reasoningContent:
@@ -320,6 +413,16 @@ class AiModelProxyHttpServer {
         }
       }
     }
+    return result;
+  }
+
+  List<AiChatTurn> _parseResponsesPayload(Map<String, Object?> payload) {
+    final result = <AiChatTurn>[];
+    final instructions = _extractText(payload['instructions']);
+    if (instructions.isNotEmpty) {
+      result.add(AiChatTurn(role: AiChatRole.system, content: instructions));
+    }
+    result.addAll(_parseResponsesInput(payload['input']));
     return result;
   }
 
@@ -339,6 +442,7 @@ class AiModelProxyHttpServer {
         final toolCalls = <AiToolCall>[];
         var toolCallId = '';
         final textParts = <String>[];
+        final reasoningParts = <String>[];
         final content = map['content'];
         if (content is List) {
           for (final block in content) {
@@ -349,7 +453,10 @@ class AiModelProxyHttpServer {
               if (text.isNotEmpty) textParts.add(text);
             } else if (type == 'thinking') {
               final thinking = _readString(block['thinking'] ?? block['text']);
-              if (thinking.isNotEmpty) textParts.add(thinking);
+              if (thinking.isNotEmpty) reasoningParts.add(thinking);
+            } else if (type == 'redacted_thinking') {
+              final thinking = _readString(block['data']);
+              if (thinking.isNotEmpty) reasoningParts.add(thinking);
             } else if (type == 'tool_use') {
               final id = _readString(block['id']);
               final name = _readString(block['name']);
@@ -375,6 +482,7 @@ class AiModelProxyHttpServer {
           if (text.isNotEmpty) textParts.add(text);
         }
         final text = textParts.join('\n');
+        final reasoning = reasoningParts.join('\n');
         final effectiveRole = toolCallId.isNotEmpty ? AiChatRole.tool : role;
         if (text.isNotEmpty || toolCalls.isNotEmpty || toolCallId.isNotEmpty) {
           result.add(
@@ -383,6 +491,7 @@ class AiModelProxyHttpServer {
               content: text,
               toolCallId: toolCallId.isEmpty ? null : toolCallId,
               toolCalls: toolCalls,
+              reasoningContent: reasoning.isEmpty ? null : reasoning,
             ),
           );
         }
@@ -414,6 +523,7 @@ class AiModelProxyHttpServer {
           ? AiChatRole.assistant
           : AiChatRole.user;
       final text = _extractGeminiText(map['parts']);
+      final responseTextParts = <String>[];
       final toolCalls = <AiToolCall>[];
       var toolCallId = '';
       if (map['parts'] is List) {
@@ -439,17 +549,29 @@ class AiModelProxyHttpServer {
           }
           if (functionResponse is Map) {
             toolCallId = _readString(functionResponse['name']);
+            final response = functionResponse['response'];
+            if (response is String) {
+              if (response.trim().isNotEmpty) {
+                responseTextParts.add(response.trim());
+              }
+            } else if (response != null) {
+              responseTextParts.add(jsonEncode(response));
+            }
           }
         }
       }
       final effectiveRole = toolCallId.isNotEmpty ? AiChatRole.tool : role;
-      if (text.trim().isNotEmpty ||
+      final combinedText = <String>[
+        text,
+        ...responseTextParts,
+      ].where((value) => value.trim().isNotEmpty).join('\n');
+      if (combinedText.trim().isNotEmpty ||
           toolCalls.isNotEmpty ||
           toolCallId.isNotEmpty) {
         result.add(
           AiChatTurn(
             role: effectiveRole,
-            content: text,
+            content: combinedText,
             toolCallId: toolCallId.isEmpty ? null : toolCallId,
             toolCalls: toolCalls,
           ),
@@ -464,7 +586,12 @@ class AiModelProxyHttpServer {
     final map = Map<String, Object?>.from(raw);
     final role = _parseRole(map['role']);
     if (role == null) return null;
-    final content = _extractText(map['content']);
+    final rawContent = map['content'];
+    final extractedContent = _extractText(rawContent);
+    final content =
+        extractedContent.isEmpty && rawContent is List && rawContent.isNotEmpty
+        ? jsonEncode(rawContent)
+        : extractedContent;
     final toolCalls = _parseToolCalls(map['tool_calls']);
     final reasoning = _readString(map['reasoning_content'] ?? map['reasoning']);
     if (content.trim().isEmpty && toolCalls.isEmpty && reasoning.isEmpty) {
@@ -508,9 +635,10 @@ class AiModelProxyHttpServer {
 
   AiChatRole? _parseRole(Object? value) => switch ('$value'.toLowerCase()) {
     'system' => AiChatRole.system,
+    'developer' => AiChatRole.system,
     'user' => AiChatRole.user,
     'assistant' || 'model' => AiChatRole.assistant,
-    'tool' => AiChatRole.tool,
+    'tool' || 'function' => AiChatRole.tool,
     _ => null,
   };
 
@@ -744,7 +872,7 @@ class AiModelProxyHttpServer {
     final id = 'openhand-${DateTime.now().microsecondsSinceEpoch}';
     final created = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     if (route == _ProxyRoute.chat) {
-      _writeSse(request, <String, Object?>{
+      await _writeSse(request, <String, Object?>{
         'id': id,
         'object': 'chat.completion.chunk',
         'created': created,
@@ -758,7 +886,7 @@ class AiModelProxyHttpServer {
         ],
       });
     } else if (route == _ProxyRoute.claude) {
-      _writeSse(request, <String, Object?>{
+      await _writeSse(request, <String, Object?>{
         'type': 'message_start',
         'message': <String, Object?>{
           'id': id,
@@ -775,7 +903,7 @@ class AiModelProxyHttpServer {
         },
       });
     } else if (route == _ProxyRoute.responses) {
-      _writeSse(request, <String, Object?>{
+      await _writeSse(request, <String, Object?>{
         'type': 'response.created',
         'response': <String, Object?>{
           'id': id,
@@ -786,7 +914,22 @@ class AiModelProxyHttpServer {
         },
       });
     }
-    var toolBlockIndex = 0;
+    var nextClaudeBlockIndex = 0;
+    int? claudeTextBlockIndex;
+    int? claudeThinkingBlockIndex;
+    final claudeToolBlockIndexes = <int, int>{};
+    final responseToolArguments = <int, StringBuffer>{};
+    final responseToolIds = <int, String>{};
+    final responseToolNames = <int, String>{};
+    final responseToolOutputIndexes = <int, int>{};
+    final responseText = StringBuffer();
+    final responseReasoning = StringBuffer();
+    var nextResponseOutputIndex = 0;
+    int? responseTextOutputIndex;
+    int? responseReasoningOutputIndex;
+    var responseTextStarted = false;
+    var responseReasoningStarted = false;
+    final responseToolStarted = <int>{};
     try {
       await for (final event in dispatch.response.events) {
         switch (route) {
@@ -812,7 +955,7 @@ class AiModelProxyHttpServer {
               ];
             }
             if (delta.isNotEmpty) {
-              _writeSse(request, <String, Object?>{
+              await _writeSse(request, <String, Object?>{
                 'id': id,
                 'object': 'chat.completion.chunk',
                 'created': created,
@@ -828,44 +971,143 @@ class AiModelProxyHttpServer {
             }
           case _ProxyRoute.responses:
             if (event.type == AiChatStreamEventType.textDelta) {
-              _writeSse(request, <String, Object?>{
+              final delta = event.textDelta ?? '';
+              final outputIndex = responseTextOutputIndex ??=
+                  nextResponseOutputIndex++;
+              if (!responseTextStarted) {
+                responseTextStarted = true;
+                await _writeSse(request, <String, Object?>{
+                  'type': 'response.output_item.added',
+                  'output_index': outputIndex,
+                  'item': <String, Object?>{
+                    'id': '$id-output',
+                    'type': 'message',
+                    'status': 'in_progress',
+                    'role': 'assistant',
+                    'content': const <Object?>[],
+                  },
+                });
+                await _writeSse(request, <String, Object?>{
+                  'type': 'response.content_part.added',
+                  'item_id': '$id-output',
+                  'output_index': outputIndex,
+                  'content_index': 0,
+                  'part': <String, Object?>{
+                    'type': 'output_text',
+                    'text': '',
+                    'annotations': const <Object?>[],
+                  },
+                });
+              }
+              responseText.write(delta);
+              await _writeSse(request, <String, Object?>{
                 'type': 'response.output_text.delta',
                 'item_id': '$id-output',
-                'output_index': 0,
+                'output_index': outputIndex,
                 'content_index': 0,
-                'delta': event.textDelta ?? '',
+                'delta': delta,
               });
             } else if (event.type == AiChatStreamEventType.reasoningDelta) {
-              _writeSse(request, <String, Object?>{
+              final delta = event.reasoningDelta ?? '';
+              final outputIndex = responseReasoningOutputIndex ??=
+                  nextResponseOutputIndex++;
+              if (!responseReasoningStarted) {
+                responseReasoningStarted = true;
+                await _writeSse(request, <String, Object?>{
+                  'type': 'response.output_item.added',
+                  'output_index': outputIndex,
+                  'item': <String, Object?>{
+                    'id': '$id-reasoning',
+                    'type': 'reasoning',
+                    'status': 'in_progress',
+                    'summary': const <Object?>[],
+                  },
+                });
+              }
+              responseReasoning.write(delta);
+              await _writeSse(request, <String, Object?>{
                 'type': 'response.reasoning_summary_text.delta',
                 'item_id': '$id-reasoning',
-                'output_index': 0,
+                'output_index': outputIndex,
                 'summary_index': 0,
-                'delta': event.reasoningDelta ?? '',
+                'delta': delta,
               });
             } else if (event.type == AiChatStreamEventType.toolCallDelta) {
               final call = event.toolCallDelta!;
-              _writeSse(request, <String, Object?>{
+              final index = call.index;
+              final outputIndex = responseToolOutputIndexes.putIfAbsent(
+                index,
+                () => nextResponseOutputIndex++,
+              );
+              final itemId = call.id ?? '$id-tool-$index';
+              responseToolIds[index] = itemId;
+              if (call.name != null && call.name!.isNotEmpty) {
+                responseToolNames[index] = call.name!;
+              }
+              final arguments = responseToolArguments.putIfAbsent(
+                index,
+                StringBuffer.new,
+              );
+              arguments.write(call.argumentsFragment);
+              if (responseToolStarted.add(index)) {
+                await _writeSse(request, <String, Object?>{
+                  'type': 'response.output_item.added',
+                  'output_index': outputIndex,
+                  'item': <String, Object?>{
+                    'id': itemId,
+                    'type': 'function_call',
+                    'status': 'in_progress',
+                    'name': call.name ?? '',
+                    'call_id': itemId,
+                    'arguments': '',
+                  },
+                });
+              }
+              await _writeSse(request, <String, Object?>{
                 'type': 'response.function_call_arguments.delta',
-                'item_id': call.id ?? '$id-tool-${call.index}',
-                'output_index': call.index,
+                'item_id': itemId,
+                'output_index': outputIndex,
                 'delta': call.argumentsFragment,
               });
             }
           case _ProxyRoute.claude:
             if (event.type == AiChatStreamEventType.textDelta) {
-              _writeSse(request, <String, Object?>{
+              final index = claudeTextBlockIndex ??= nextClaudeBlockIndex++;
+              if (responseTextStarted == false) {
+                responseTextStarted = true;
+                await _writeSse(request, <String, Object?>{
+                  'type': 'content_block_start',
+                  'index': index,
+                  'content_block': <String, Object?>{
+                    'type': 'text',
+                    'text': '',
+                  },
+                });
+              }
+              await _writeSse(request, <String, Object?>{
                 'type': 'content_block_delta',
-                'index': 0,
+                'index': index,
                 'delta': <String, Object?>{
                   'type': 'text_delta',
                   'text': event.textDelta ?? '',
                 },
               });
             } else if (event.type == AiChatStreamEventType.reasoningDelta) {
-              _writeSse(request, <String, Object?>{
+              final index = claudeThinkingBlockIndex ??= nextClaudeBlockIndex++;
+              if (!responseReasoningStarted) {
+                responseReasoningStarted = true;
+                await _writeSse(request, <String, Object?>{
+                  'type': 'content_block_start',
+                  'index': index,
+                  'content_block': <String, Object?>{
+                    'type': 'thinking',
+                    'thinking': '',
+                  },
+                });
+              }
+              await _writeSse(request, <String, Object?>{
                 'type': 'content_block_delta',
-                'index': 0,
+                'index': index,
                 'delta': <String, Object?>{
                   'type': 'thinking_delta',
                   'thinking': event.reasoningDelta ?? '',
@@ -873,19 +1115,27 @@ class AiModelProxyHttpServer {
               });
             } else if (event.type == AiChatStreamEventType.toolCallDelta) {
               final call = event.toolCallDelta!;
-              final index = toolBlockIndex++;
-              _writeSse(request, <String, Object?>{
-                'type': 'content_block_start',
-                'index': index,
-                'content_block': <String, Object?>{
-                  'type': 'tool_use',
-                  'id': call.id ?? '$id-tool-${call.index}',
-                  'name': call.name ?? '',
-                  'input': const <String, Object?>{},
-                },
-              });
+              final isNewToolBlock = !claudeToolBlockIndexes.containsKey(
+                call.index,
+              );
+              final index = claudeToolBlockIndexes.putIfAbsent(
+                call.index,
+                () => nextClaudeBlockIndex++,
+              );
+              if (isNewToolBlock) {
+                await _writeSse(request, <String, Object?>{
+                  'type': 'content_block_start',
+                  'index': index,
+                  'content_block': <String, Object?>{
+                    'type': 'tool_use',
+                    'id': call.id ?? '$id-tool-${call.index}',
+                    'name': call.name ?? '',
+                    'input': const <String, Object?>{},
+                  },
+                });
+              }
               if (call.argumentsFragment.isNotEmpty) {
-                _writeSse(request, <String, Object?>{
+                await _writeSse(request, <String, Object?>{
                   'type': 'content_block_delta',
                   'index': index,
                   'delta': <String, Object?>{
@@ -914,7 +1164,7 @@ class AiModelProxyHttpServer {
               });
             }
             if (parts.isNotEmpty) {
-              _writeSse(request, <String, Object?>{
+              await _writeSse(request, <String, Object?>{
                 'candidates': <Object?>[
                   <String, Object?>{
                     'content': <String, Object?>{
@@ -943,7 +1193,7 @@ class AiModelProxyHttpServer {
       );
       switch (route) {
         case _ProxyRoute.chat:
-          _writeSse(request, <String, Object?>{
+          await _writeSse(request, <String, Object?>{
             'id': id,
             'object': 'chat.completion.chunk',
             'created': created,
@@ -960,14 +1210,102 @@ class AiModelProxyHttpServer {
             if (includeUsage) 'usage': _openAiUsage(response['usage']),
           });
           request.response.write('data: [DONE]\n\n');
+          await request.response.flush();
         case _ProxyRoute.responses:
-          _writeSse(request, <String, Object?>{
+          if (responseTextStarted) {
+            final outputIndex = responseTextOutputIndex!;
+            await _writeSse(request, <String, Object?>{
+              'type': 'response.output_text.done',
+              'item_id': '$id-output',
+              'output_index': outputIndex,
+              'content_index': 0,
+              'text': responseText.toString(),
+            });
+            await _writeSse(request, <String, Object?>{
+              'type': 'response.output_item.done',
+              'output_index': outputIndex,
+              'item': <String, Object?>{
+                'id': '$id-output',
+                'type': 'message',
+                'status': 'completed',
+                'role': 'assistant',
+                'content': <Object?>[
+                  <String, Object?>{
+                    'type': 'output_text',
+                    'text': responseText.toString(),
+                    'annotations': const <Object?>[],
+                  },
+                ],
+              },
+            });
+          }
+          if (responseReasoningStarted) {
+            final outputIndex = responseReasoningOutputIndex!;
+            await _writeSse(request, <String, Object?>{
+              'type': 'response.reasoning_summary_text.done',
+              'item_id': '$id-reasoning',
+              'output_index': outputIndex,
+              'summary_index': 0,
+              'text': responseReasoning.toString(),
+            });
+            await _writeSse(request, <String, Object?>{
+              'type': 'response.output_item.done',
+              'output_index': outputIndex,
+              'item': <String, Object?>{
+                'id': '$id-reasoning',
+                'type': 'reasoning',
+                'status': 'completed',
+                'summary': <Object?>[
+                  <String, Object?>{
+                    'type': 'summary_text',
+                    'text': responseReasoning.toString(),
+                  },
+                ],
+              },
+            });
+          }
+          for (final index in responseToolArguments.keys.toList()..sort()) {
+            final itemId = responseToolIds[index] ?? '$id-tool-$index';
+            final outputIndex = responseToolOutputIndexes[index] ?? index;
+            final arguments = responseToolArguments[index]!.toString();
+            await _writeSse(request, <String, Object?>{
+              'type': 'response.function_call_arguments.done',
+              'item_id': itemId,
+              'output_index': outputIndex,
+              'arguments': arguments,
+            });
+            await _writeSse(request, <String, Object?>{
+              'type': 'response.output_item.done',
+              'output_index': outputIndex,
+              'item': <String, Object?>{
+                'id': itemId,
+                'type': 'function_call',
+                'status': 'completed',
+                'name': responseToolNames[index] ?? '',
+                'call_id': itemId,
+                'arguments': arguments,
+              },
+            });
+          }
+          await _writeSse(request, <String, Object?>{
             'type': 'response.completed',
             'response': response,
           });
           request.response.write('data: [DONE]\n\n');
+          await request.response.flush();
         case _ProxyRoute.claude:
-          _writeSse(request, <String, Object?>{
+          final claudeBlockIndexes = <int?>[
+            claudeTextBlockIndex,
+            claudeThinkingBlockIndex,
+            ...claudeToolBlockIndexes.values,
+          ].whereType<int>().toSet().toList()..sort();
+          for (final index in claudeBlockIndexes) {
+            await _writeSse(request, <String, Object?>{
+              'type': 'content_block_stop',
+              'index': index,
+            });
+          }
+          await _writeSse(request, <String, Object?>{
             'type': 'message_delta',
             'delta': <String, Object?>{
               'stop_reason': streamResult.toolCalls.isNotEmpty
@@ -977,9 +1315,9 @@ class AiModelProxyHttpServer {
             },
             'usage': response['usage'],
           });
-          _writeSse(request, <String, Object?>{'type': 'message_stop'});
+          await _writeSse(request, <String, Object?>{'type': 'message_stop'});
         case _ProxyRoute.gemini:
-          _writeSse(request, <String, Object?>{
+          await _writeSse(request, <String, Object?>{
             'candidates': <Object?>[
               <String, Object?>{'finishReason': 'STOP'},
             ],
@@ -987,19 +1325,27 @@ class AiModelProxyHttpServer {
           });
       }
     } on Object catch (error) {
-      _writeSse(request, <String, Object?>{
-        'type': 'error',
-        'error': <String, Object?>{'message': '$error'},
-      });
+      try {
+        await _writeSse(request, <String, Object?>{
+          'type': 'error',
+          'error': <String, Object?>{'type': 'api_error', 'message': '$error'},
+        });
+      } on Object {
+        // 客户端断开时无需再次写入错误事件。
+      }
     } finally {
-      await request.response.close();
+      await _closeRequest(request);
     }
   }
 
-  static void _writeSse(HttpRequest request, Map<String, Object?> data) {
+  static Future<void> _writeSse(
+    HttpRequest request,
+    Map<String, Object?> data,
+  ) async {
     final event = _readString(data['type']);
     if (event.isNotEmpty) request.response.write('event: $event\n');
     request.response.write('data: ${jsonEncode(data)}\n\n');
+    await request.response.flush();
   }
 
   static bool _isStreaming(Map<String, Object?> payload) =>
@@ -1014,6 +1360,96 @@ class AiModelProxyHttpServer {
   static Map<String, Object?> _openAiUsage(Object? raw) {
     if (raw is Map) return Map<String, Object?>.from(raw);
     return const <String, Object?>{};
+  }
+
+  Map<String, Object?> _buildModelsResponse(AiModelProxyApiStyle style) {
+    final base = _dispatcher.buildModelsResponse();
+    final data = base['data'];
+    final models = data is List
+        ? data
+              .whereType<Map>()
+              .map((item) => Map<String, Object?>.from(item))
+              .toList(growable: false)
+        : const <Map<String, Object?>>[];
+    if (style == AiModelProxyApiStyle.claude) {
+      return <String, Object?>{
+        'data': models.map(_toClaudeModel).toList(growable: false),
+        'has_more': false,
+        'first_id': models.isEmpty ? null : _readString(models.first['id']),
+        'last_id': models.isEmpty ? null : _readString(models.last['id']),
+      };
+    }
+    if (style == AiModelProxyApiStyle.gemini) {
+      return _buildGeminiModelsResponse();
+    }
+    return base;
+  }
+
+  Map<String, Object?> _buildGeminiModelsResponse() {
+    final base = _dispatcher.buildModelsResponse();
+    final data = base['data'];
+    final models = data is List
+        ? data
+              .whereType<Map>()
+              .map((item) => Map<String, Object?>.from(item))
+              .toList(growable: false)
+        : const <Map<String, Object?>>[];
+    return <String, Object?>{
+      'models': models.map(_toGeminiModel).toList(growable: false),
+    };
+  }
+
+  Map<String, Object?>? _findModelMetadata(String modelId) {
+    final data = _dispatcher.buildModelsResponse()['data'];
+    if (data is! List) return null;
+    for (final raw in data) {
+      if (raw is! Map) continue;
+      final model = Map<String, Object?>.from(raw);
+      if (_readString(model['id']) == modelId) return model;
+    }
+    return null;
+  }
+
+  static Map<String, Object?> _toClaudeModel(Map<String, Object?> model) {
+    final created = model['created'];
+    final createdAt = created is num
+        ? DateTime.fromMillisecondsSinceEpoch(
+            created.toInt() * 1000,
+            isUtc: true,
+          ).toIso8601String()
+        : DateTime.now().toUtc().toIso8601String();
+    return <String, Object?>{
+      'type': 'model',
+      'id': _readString(model['id']),
+      'display_name': _readString(model['display_name'] ?? model['id']),
+      'created_at': createdAt,
+    };
+  }
+
+  static Map<String, Object?> _toGeminiModel(Map<String, Object?> model) {
+    final id = _readString(model['id']);
+    return <String, Object?>{
+      'name': 'models/$id',
+      'baseModelId': id,
+      'displayName': _readString(model['display_name'] ?? id),
+      'description': _readString(model['description']),
+      if (model['context_length'] is num)
+        'inputTokenLimit': model['context_length'],
+      if (model['max_output_tokens'] is num)
+        'outputTokenLimit': model['max_output_tokens'],
+      'supportedGenerationMethods': const <String>[
+        'generateContent',
+        'streamGenerateContent',
+      ],
+    };
+  }
+
+  static String _modelIdFromGetPath(String path) {
+    final prefix = path.startsWith('/v1beta/models/')
+        ? '/v1beta/models/'
+        : '/v1/models/';
+    final value = path.substring(prefix.length);
+    return Uri.decodeComponent(value).trim();
   }
 
   Future<void> _writeJson(
@@ -1039,19 +1475,48 @@ class AiModelProxyHttpServer {
     int status,
     String message, {
     String type = 'server_error',
+    AiModelProxyApiStyle? apiStyle,
   }) async {
     try {
-      await _writeJson(request, status, <String, Object?>{
-        'error': <String, Object?>{
-          'message': message,
-          'type': type,
-          'code': status,
+      final style = apiStyle ?? _controller.settings.apiStyle;
+      final body = switch (style) {
+        AiModelProxyApiStyle.claude => <String, Object?>{
+          'type': 'error',
+          'error': <String, Object?>{'type': type, 'message': message},
         },
-      });
+        AiModelProxyApiStyle.gemini => <String, Object?>{
+          'error': <String, Object?>{
+            'code': status,
+            'message': message,
+            'status': _geminiErrorStatus(status),
+          },
+        },
+        AiModelProxyApiStyle.openAiChatCompletions ||
+        AiModelProxyApiStyle.openAiResponses => <String, Object?>{
+          'error': <String, Object?>{
+            'message': message,
+            'type': type,
+            'code': status,
+          },
+        },
+      };
+      await _writeJson(request, status, body);
     } on Object {
       await _closeRequest(request);
     }
   }
+
+  static String _geminiErrorStatus(int status) => switch (status) {
+    400 => 'INVALID_ARGUMENT',
+    401 => 'UNAUTHENTICATED',
+    403 => 'PERMISSION_DENIED',
+    404 => 'NOT_FOUND',
+    408 => 'DEADLINE_EXCEEDED',
+    409 => 'ABORTED',
+    429 => 'RESOURCE_EXHAUSTED',
+    503 => 'UNAVAILABLE',
+    _ => 'INTERNAL',
+  };
 
   Future<void> _closeRequest(HttpRequest request) async {
     try {
@@ -1066,6 +1531,15 @@ class AiModelProxyHttpServer {
     request.headers.forEach((name, values) {
       result[name.toLowerCase()] = values.join(',');
     });
+    final queryKey =
+        request.uri.queryParameters['key'] ??
+        request.uri.queryParameters['api_key'] ??
+        request.uri.queryParameters['x-goog-api-key'];
+    if (queryKey != null &&
+        queryKey.trim().isNotEmpty &&
+        !result.containsKey('x-api-key')) {
+      result['x-api-key'] = queryKey.trim();
+    }
     result['x-client-ip'] = request.connectionInfo?.remoteAddress.address ?? '';
     result['x-client-port'] = '${request.connectionInfo?.remotePort ?? ''}';
     return result;

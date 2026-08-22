@@ -320,6 +320,25 @@ class AiModelProxyDispatcher {
     Map<String, Object?> request,
   ) {
     final extras = _requestBodyExtras(request);
+    final style = controller.settings.apiStyle;
+    if (style == AiModelProxyApiStyle.openAiChatCompletions &&
+        model.protocolType != AiProtocolType.claude &&
+        model.protocolType != AiProtocolType.gemini &&
+        request['messages'] is List) {
+      extras['messages'] = request['messages'];
+    } else if (style == AiModelProxyApiStyle.openAiResponses &&
+        model.protocolType == AiProtocolType.openai &&
+        request['input'] != null) {
+      extras['input'] = request['input'];
+    } else if (style == AiModelProxyApiStyle.claude &&
+        model.protocolType == AiProtocolType.claude &&
+        request['messages'] is List) {
+      extras['messages'] = request['messages'];
+    } else if (style == AiModelProxyApiStyle.gemini &&
+        model.protocolType == AiProtocolType.gemini &&
+        request['contents'] is List) {
+      extras['contents'] = request['contents'];
+    }
     if (extras.isEmpty) return model;
     final operationExtras = <String, Object?>{...model.operationExtras};
     final global = _map(operationExtras['global']);
@@ -353,8 +372,8 @@ class AiModelProxyDispatcher {
             entry.key == 'messages' ||
             entry.key == 'input' ||
             entry.key == 'stream' ||
-            entry.key == 'stream_options' ||
-            entry.key == 'contents') {
+            entry.key == 'contents' ||
+            entry.key == 'tools') {
           continue;
         }
         extras[entry.key] = entry.value;
@@ -363,7 +382,7 @@ class AiModelProxyDispatcher {
     final rawTools = request['tools'];
     if (rawTools is List &&
         rawTools.isNotEmpty &&
-        _parseTools(request).isEmpty) {
+        (_parseTools(request).isEmpty || _shouldPreserveRawTools(rawTools))) {
       extras['tools'] = rawTools;
     }
     return extras;
@@ -411,6 +430,41 @@ class AiModelProxyDispatcher {
       }
     }
     return List<AiToolDefinition>.unmodifiable(tools);
+  }
+
+  bool _containsUnsupportedOpenAiTool(List<Object?> rawTools) {
+    final style = controller.settings.apiStyle;
+    if (style != AiModelProxyApiStyle.openAiChatCompletions &&
+        style != AiModelProxyApiStyle.openAiResponses) {
+      return false;
+    }
+    return rawTools.any((item) {
+      if (item is! Map) return true;
+      final map = Map<String, Object?>.from(item);
+      if (_map(map['function']).isNotEmpty) return false;
+      return '${map['type'] ?? ''}' != 'function';
+    });
+  }
+
+  bool _shouldPreserveRawTools(List<Object?> rawTools) {
+    final style = controller.settings.apiStyle;
+    if (style == AiModelProxyApiStyle.openAiChatCompletions ||
+        style == AiModelProxyApiStyle.openAiResponses) {
+      return _containsUnsupportedOpenAiTool(rawTools);
+    }
+    if (style == AiModelProxyApiStyle.gemini) {
+      return rawTools.any(
+        (item) => item is Map && item['functionDeclarations'] is List,
+      );
+    }
+    if (style == AiModelProxyApiStyle.claude) {
+      return rawTools.every((item) {
+        if (item is! Map) return false;
+        final map = Map<String, Object?>.from(item);
+        return map['name'] != null || map['input_schema'] != null;
+      });
+    }
+    return false;
   }
 
   static Map<String, Object?> _map(Object? value) {
