@@ -1221,6 +1221,125 @@ Future<bool> showAiModelEditorDialog(
   return submitted == true;
 }
 
+/// 测试模型提供商并保存已探测的接口类型。
+Future<void> testAiModelConfiguration(
+  BuildContext context,
+  AiModelConfig model,
+) async {
+  final service = AiChatService();
+  try {
+    final result = await service.testModel(model);
+    if (!context.mounted) return;
+    final remembersChatRoute =
+        result.chatApiFamily == AiApiFamily.responses ||
+        result.chatApiFamily == AiApiFamily.chatCompletions;
+    if (remembersChatRoute) {
+      final saved = await context
+          .read<SettingsController>()
+          .updateAiModelVerifiedChatApiFamily(model.id, result.chatApiFamily);
+      if (!context.mounted) return;
+      if (!saved) {
+        showOpenHandErrorSnack(
+          context,
+          AppLocalizations.of(context)!.settingsPersistenceSaveFailedBody,
+        );
+        return;
+      }
+    }
+    final endpointLabel = switch (result.chatApiFamily) {
+      AiApiFamily.responses => 'Responses',
+      AiApiFamily.chatCompletions => 'Chat Completions',
+      _ => null,
+    };
+    final routeMessage = endpointLabel == null
+        ? ''
+        : openHandLocalizedText(
+            context,
+            zh: '已记住 $endpointLabel 接口。',
+            zhHant: '已記住 $endpointLabel 介面。',
+            en: '$endpointLabel endpoint saved.',
+            fr: 'Endpoint $endpointLabel enregistré.',
+            de: '$endpointLabel-Endpunkt gespeichert.',
+            ja: '$endpointLabel エンドポイントを保存しました。',
+          );
+    final l10n = AppLocalizations.of(context)!;
+    flashOpenHandSnack(
+      context,
+      '${l10n.aiModelTestSuccess(model.providerLabel)}${routeMessage.isEmpty ? '' : ' $routeMessage'}',
+      kind: OpenHandSnackKind.success,
+    );
+  } on AiChatException catch (error) {
+    if (!context.mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+    showFriendlyErrorSnackBar(
+      context,
+      message: l10n.aiModelTestFailure(
+        model.providerLabel,
+        _normalizeAiModelCardTestMessage(error.message, l10n.chatRequestFailed),
+      ),
+      fallback: l10n.chatRequestFailed,
+      sources: error.sources,
+    );
+  } catch (error) {
+    if (!context.mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+    showFriendlyErrorSnackBar(
+      context,
+      message: l10n.aiModelTestFailure(
+        model.providerLabel,
+        _normalizeAiModelCardTestMessage('$error', l10n.chatRequestFailed),
+      ),
+      fallback: l10n.chatRequestFailed,
+    );
+  } finally {
+    service.dispose();
+  }
+}
+
+String _normalizeAiModelCardTestMessage(String raw, String fallback) {
+  final lines = raw
+      .split('\n')
+      .map((line) => line.replaceAll(RegExp(r'[ \t]+'), ' ').trim())
+      .where((line) => line.isNotEmpty);
+  final normalized = lines.join('\n').trim();
+  return normalized.isEmpty ? fallback : normalized;
+}
+
+/// 构建统一的模型提供商卡片，供设置页与中转站提供商弹窗复用。
+Widget buildAiModelProviderCard({
+  required AiModelConfig model,
+  required int dragIndex,
+  required bool isSelected,
+  required bool isTesting,
+  required bool isFirst,
+  required bool isLast,
+  required bool actionsEnabled,
+  required VoidCallback onSelect,
+  required VoidCallback onTest,
+  required VoidCallback onEdit,
+  required VoidCallback onMoveUp,
+  required VoidCallback onMoveDown,
+  required VoidCallback onDelete,
+  required void Function(String modelId) onActiveModelChanged,
+}) {
+  return _AiModelTile(
+    model: model,
+    dragIndex: dragIndex,
+    isSelected: isSelected,
+    isTesting: isTesting,
+    isFirst: isFirst,
+    isLast: isLast,
+    actionsEnabled: actionsEnabled,
+    onSelect: onSelect,
+    onTest: onTest,
+    onEdit: onEdit,
+    onMoveUp: onMoveUp,
+    onMoveDown: onMoveDown,
+    onDelete: onDelete,
+    onActiveModelChanged: onActiveModelChanged,
+  );
+}
+
 class _SettingsViewState extends State<SettingsView> {
   late final TextEditingController _skillsPathController;
   late final FocusNode _skillsPathFocusNode;
@@ -1389,7 +1508,7 @@ class _SettingsViewState extends State<SettingsView> {
       padding: const EdgeInsets.only(bottom: 14),
       child: OpenHandListRemovalTransition(
         collapsed: _removingAiModelIds.contains(model.id),
-        child: _AiModelTile(
+        child: buildAiModelProviderCard(
           model: model,
           dragIndex: index < 0 ? 0 : index,
           isSelected: settingsController.selectedAiModelId == model.id,
@@ -6560,79 +6679,9 @@ class _SettingsViewState extends State<SettingsView> {
     setState(() {
       _testingAiModelIds.add(model.id);
     });
-    final service = AiChatService();
     try {
-      final result = await service.testModel(model);
-      if (!mounted) {
-        return;
-      }
-      final remembersChatRoute =
-          result.chatApiFamily == AiApiFamily.responses ||
-          result.chatApiFamily == AiApiFamily.chatCompletions;
-      if (remembersChatRoute) {
-        final saved = await context
-            .read<SettingsController>()
-            .updateAiModelVerifiedChatApiFamily(model.id, result.chatApiFamily);
-        if (!mounted) return;
-        if (!saved) {
-          _showPersistenceFailureSnackBar(context);
-          return;
-        }
-      }
-      final l10n = AppLocalizations.of(context)!;
-      final endpointLabel = switch (result.chatApiFamily) {
-        AiApiFamily.responses => 'Responses',
-        AiApiFamily.chatCompletions => 'Chat Completions',
-        _ => null,
-      };
-      final routeMessage = endpointLabel == null
-          ? ''
-          : openHandLocalizedText(
-              context,
-              zh: '已记住 $endpointLabel 接口。',
-              zhHant: '已記住 $endpointLabel 介面。',
-              en: '$endpointLabel endpoint saved.',
-              fr: 'Endpoint $endpointLabel enregistré.',
-              de: '$endpointLabel-Endpunkt gespeichert.',
-              ja: '$endpointLabel エンドポイントを保存しました。',
-            );
-      flashOpenHandSnack(
-        context,
-        '${l10n.aiModelTestSuccess(model.providerLabel)}${routeMessage.isEmpty ? '' : ' $routeMessage'}',
-        kind: OpenHandSnackKind.success,
-      );
-    } on AiChatException catch (error) {
-      if (!mounted) {
-        return;
-      }
-      final l10n = AppLocalizations.of(context)!;
-      showFriendlyErrorSnackBar(
-        context,
-        message: l10n.aiModelTestFailure(
-          model.providerLabel,
-          _normalizeAiModelTestMessage(
-            _buildAiModelTestErrorDetails(error),
-            l10n.chatRequestFailed,
-          ),
-        ),
-        fallback: l10n.chatRequestFailed,
-        sources: error.sources,
-      );
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      final l10n = AppLocalizations.of(context)!;
-      showFriendlyErrorSnackBar(
-        context,
-        message: l10n.aiModelTestFailure(
-          model.providerLabel,
-          _normalizeAiModelTestMessage('$error', l10n.chatRequestFailed),
-        ),
-        fallback: l10n.chatRequestFailed,
-      );
+      await testAiModelConfiguration(context, model);
     } finally {
-      service.dispose();
       if (mounted) {
         setState(() {
           _testingAiModelIds.remove(model.id);
@@ -6667,22 +6716,6 @@ class _SettingsViewState extends State<SettingsView> {
       l10n.settingsPersistenceSaveFailedBody,
       kind: OpenHandSnackKind.error,
     );
-  }
-
-  String _normalizeAiModelTestMessage(String raw, String fallback) {
-    // 保留换行，仅压缩单行内连续空格。这样上游传下来的
-    // 结构化错误文案能进入下游 SnackBar 与「详情」对话框，
-    // 避免原本的多行诊断全部被推成一句读不顺的长句。
-    final lines = raw
-        .split('\n')
-        .map((line) => line.replaceAll(RegExp(r'[ \t]+'), ' ').trim())
-        .where((line) => line.isNotEmpty);
-    final normalized = lines.join('\n').trim();
-    return normalized.isEmpty ? fallback : normalized;
-  }
-
-  String _buildAiModelTestErrorDetails(AiChatException error) {
-    return error.message.trim();
   }
 
   Future<void> _showShortcutRecorderDialog(

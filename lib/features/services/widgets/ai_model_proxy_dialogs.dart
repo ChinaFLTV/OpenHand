@@ -8,15 +8,21 @@ import '../../../app/state/settings_controller.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/reorder_proxy_decorator.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
 import '../../settings/index.dart'
-    show AiUsageAnalyticsView, showAiModelEditorDialog;
+    show
+        AiUsageAnalyticsView,
+        buildAiModelProviderCard,
+        showAiModelEditorDialog,
+        testAiModelConfiguration;
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_model_proxy_models.dart';
 import 'service_dialog_controls.dart';
@@ -150,19 +156,127 @@ class _RoundHeaderButton extends StatelessWidget {
   }
 }
 
-class _ProxyProvidersDialog extends StatelessWidget {
+class _ProxyProvidersDialog extends StatefulWidget {
   const _ProxyProvidersDialog();
+
+  @override
+  State<_ProxyProvidersDialog> createState() => _ProxyProvidersDialogState();
+}
+
+class _ProxyProvidersDialogState extends State<_ProxyProvidersDialog> {
+  final Set<String> _mutatingIds = <String>{};
+  final Set<String> _removingIds = <String>{};
+  final Set<String> _testingIds = <String>{};
 
   Future<void> _add(BuildContext context) async {
     final settings = context.read<SettingsController>();
     final existing = settings.aiModels.map((item) => item.id).toSet();
     final saved = await showAiModelEditorDialog(context);
     if (!context.mounted || !saved) return;
-    final models = settings.aiModels;
-    final createdIndex = models.indexWhere(
+    final createdIndex = settings.aiModels.indexWhere(
       (item) => !existing.contains(item.id),
     );
     if (createdIndex > 0) await settings.moveAiModel(createdIndex, 0);
+  }
+
+  Future<void> _move(AiModelConfig model, int direction) async {
+    if (_mutatingIds.isNotEmpty || !mounted) return;
+    final settings = context.read<SettingsController>();
+    final index = settings.aiModels.indexWhere((item) => item.id == model.id);
+    final target = index + direction;
+    if (index < 0 || target < 0 || target >= settings.aiModels.length) return;
+    setState(() => _mutatingIds.add(model.id));
+    var moved = false;
+    try {
+      moved = await settings.moveAiModel(index, target);
+    } catch (_) {
+      moved = false;
+    }
+    if (!mounted) return;
+    setState(() => _mutatingIds.remove(model.id));
+    if (!moved) {
+      showOpenHandErrorSnack(
+        context,
+        AppLocalizations.of(context)!.settingsPersistenceSaveFailedBody,
+      );
+    }
+  }
+
+  Future<void> _reorder(int oldIndex, int newIndex) async {
+    if (_mutatingIds.isNotEmpty) return;
+    if (newIndex > oldIndex) newIndex -= 1;
+    final settings = context.read<SettingsController>();
+    if (oldIndex < 0 ||
+        newIndex < 0 ||
+        oldIndex >= settings.aiModels.length ||
+        newIndex >= settings.aiModels.length ||
+        oldIndex == newIndex) {
+      return;
+    }
+    dismissOpenHandTooltipsSafely(debugLabel: '拖动模型提供商前收起工具提示');
+    final model = settings.aiModels[oldIndex];
+    setState(() => _mutatingIds.add(model.id));
+    var moved = false;
+    try {
+      moved = await settings.moveAiModel(oldIndex, newIndex);
+    } catch (_) {
+      moved = false;
+    }
+    if (!mounted) return;
+    setState(() => _mutatingIds.remove(model.id));
+    if (!moved) {
+      showOpenHandErrorSnack(
+        context,
+        AppLocalizations.of(context)!.settingsPersistenceSaveFailedBody,
+      );
+    }
+  }
+
+  Future<void> _delete(AiModelConfig model) async {
+    if (_mutatingIds.isNotEmpty) return;
+    final text = openHandTextResolver(context);
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: text(zh: '删除模型提供商', en: 'Delete model provider'),
+      message: text(
+        zh: '确认删除“${model.providerLabel}”吗？',
+        en: 'Delete “${model.providerLabel}”?',
+      ),
+      cancelLabel: openHandCancelLabel(context),
+      confirmLabel: text(zh: '删除', en: 'Delete'),
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    final settings = context.read<SettingsController>();
+    setState(() {
+      _mutatingIds.add(model.id);
+      _removingIds.add(model.id);
+    });
+    await awaitOpenHandListRemoval(context);
+    if (!mounted) return;
+    var deleted = false;
+    try {
+      deleted = await settings.deleteAiModel(model.id);
+    } catch (_) {
+      deleted = false;
+    }
+    if (!mounted) return;
+    setState(() {
+      _mutatingIds.remove(model.id);
+      _removingIds.remove(model.id);
+    });
+    if (deleted) {
+      flashOpenHandSnack(
+        context,
+        text(zh: '模型提供商配置已删除。', en: 'Provider deleted.'),
+        kind: OpenHandSnackKind.success,
+      );
+    } else {
+      showOpenHandErrorSnack(
+        context,
+        AppLocalizations.of(context)!.settingsPersistenceSaveFailedBody,
+      );
+    }
   }
 
   @override
@@ -211,409 +325,69 @@ class _ProxyProvidersDialog extends StatelessWidget {
                   : ReorderableListView.builder(
                       buildDefaultDragHandles: false,
                       itemCount: models.length,
-                      onReorder: (oldIndex, newIndex) async {
-                        final target = newIndex > oldIndex
-                            ? newIndex - 1
-                            : newIndex;
-                        dismissOpenHandTooltipsSafely(
-                          debugLabel: '模型提供商重排前收起工具提示',
-                        );
-                        await settings.moveAiModel(oldIndex, target);
-                      },
+                      onReorder: _reorder,
                       proxyDecorator: (child, index, animation) =>
                           buildOpenHandReorderProxy(context, child, animation),
                       itemBuilder: (context, index) {
                         final model = models[index];
-                        return _ProviderTile(
+                        final enabled = !_mutatingIds.contains(model.id);
+                        return KeyedSubtree(
                           key: ValueKey<String>(model.id),
-                          index: index,
-                          model: model,
-                          onEdit: () => showAiModelEditorDialog(
-                            context,
-                            initialModel: model,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: OpenHandListRemovalTransition(
+                              collapsed: _removingIds.contains(model.id),
+                              child: buildAiModelProviderCard(
+                                model: model,
+                                dragIndex: index,
+                                isSelected:
+                                    settings.selectedAiModelId == model.id,
+                                isTesting: _testingIds.contains(model.id),
+                                isFirst: index == 0,
+                                isLast: index == models.length - 1,
+                                actionsEnabled: enabled,
+                                onSelect: () =>
+                                    settings.updateSelectedAiModel(model.id),
+                                onTest: () async {
+                                  if (!enabled ||
+                                      _testingIds.contains(model.id)) {
+                                    return;
+                                  }
+                                  setState(() => _testingIds.add(model.id));
+                                  try {
+                                    await testAiModelConfiguration(
+                                      context,
+                                      model,
+                                    );
+                                  } finally {
+                                    if (mounted) {
+                                      setState(
+                                        () => _testingIds.remove(model.id),
+                                      );
+                                    }
+                                  }
+                                },
+                                onEdit: () => showAiModelEditorDialog(
+                                  context,
+                                  initialModel: model,
+                                ),
+                                onMoveUp: () => _move(model, -1),
+                                onMoveDown: () => _move(model, 1),
+                                onDelete: () => _delete(model),
+                                onActiveModelChanged: (modelId) =>
+                                    settings.updateProviderActiveModel(
+                                      model.id,
+                                      modelId,
+                                      alsoSelectProvider: false,
+                                    ),
+                              ),
+                            ),
                           ),
-                          onDelete: () {
-                            dismissOpenHandTooltipsSafely(
-                              debugLabel: '删除模型提供商前收起工具提示',
-                            );
-                            return settings.deleteAiModel(model.id);
-                          },
                         );
                       },
                     ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ProviderTile extends StatelessWidget {
-  const _ProviderTile({
-    super.key,
-    required this.index,
-    required this.model,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  final int index;
-  final AiModelConfig model;
-  final VoidCallback onEdit;
-  final Future<bool> Function() onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = Theme.of(context).colorScheme;
-    final text = openHandTextResolver(context);
-    final l10n = AppLocalizations.of(context)!;
-    final isDraggingProxy = OpenHandReorderProxyContext.isProxy(context);
-    final allModels = model.allModelIds;
-    final visibleModels = allModels.take(8).toList(growable: false);
-    final hiddenCount = allModels.length - visibleModels.length;
-    final card = Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: isDraggingProxy
-            ? Colors.transparent
-            : colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(kOpenHandRadius24),
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: colors.primaryContainer,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '${index + 1}',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: colors.onPrimaryContainer,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    kOpenHandHGap14,
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            model.providerLabel,
-                            style: theme.textTheme.titleLarge,
-                          ),
-                          kOpenHandGap4,
-                          Text(
-                            '${model.protocolType.label(l10n)} · ${model.authScheme.label(l10n)} · ${text(zh: '模型 ${allModels.length} 个', en: '${allModels.length} models')}',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colors.onSurfaceVariant,
-                            ),
-                          ),
-                          if (model.modelId.trim().isNotEmpty) ...[
-                            kOpenHandGap4,
-                            Text(
-                              text(
-                                zh: '当前模型：${model.modelId}',
-                                en: 'Active: ${model.modelId}',
-                              ),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colors.primary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              kOpenHandHGap12,
-              Wrap(
-                spacing: 4,
-                children: [
-                  _ProxyReorderHandle(
-                    index: index,
-                    label: text(zh: '拖动排序', en: 'Reorder'),
-                    child: IconButton(
-                      onPressed: () {},
-                      tooltip: text(zh: '拖动排序', en: 'Reorder'),
-                      icon: const Icon(Icons.drag_indicator_rounded),
-                    ),
-                  ),
-                  _ProxySemanticIconButton(
-                    label: text(zh: '编辑', en: 'Edit'),
-                    onPressed: onEdit,
-                    icon: const Icon(Icons.edit_outlined),
-                  ),
-                  _ProxySemanticIconButton(
-                    label: text(zh: '删除', en: 'Delete'),
-                    onPressed: onDelete,
-                    icon: const Icon(Icons.delete_outline_rounded),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          kOpenHandGap14,
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _ProxyProviderInfoChip(
-                icon: Icons.link_rounded,
-                label: model.normalizedBaseUrl,
-              ),
-              _ProxyProviderInfoChip(
-                icon: model.autoCompleteBaseUrl
-                    ? Icons.auto_fix_high_rounded
-                    : Icons.rule_rounded,
-                label: model.autoCompleteBaseUrl
-                    ? text(zh: '自动补全', en: 'Auto-complete')
-                    : text(zh: '精确 Base URL', en: 'Exact Base URL'),
-              ),
-              _ProxyProviderInfoChip(
-                icon: Icons.vpn_key_outlined,
-                label: model.maskedToken.isEmpty
-                    ? text(zh: '无 Token', en: 'No token')
-                    : model.maskedToken,
-              ),
-              _ProxyProviderInfoChip(
-                icon: Icons.route_rounded,
-                label: model.apiDialect.storageValue,
-              ),
-            ],
-          ),
-          if (visibleModels.isNotEmpty) ...[
-            kOpenHandGap10,
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                for (final modelId in visibleModels)
-                  _ProxyModelChip(
-                    modelId: modelId,
-                    active: modelId == model.modelId,
-                  ),
-                if (hiddenCount > 0)
-                  _ProxyOverflowChip(hiddenCount: hiddenCount),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-    return card;
-  }
-}
-
-class _ProxyReorderHandle extends StatelessWidget {
-  const _ProxyReorderHandle({
-    required this.index,
-    required this.label,
-    required this.child,
-  });
-
-  final int index;
-  final String label;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: label,
-      excludeSemantics: true,
-      child: Listener(
-        onPointerDown: (_) =>
-            dismissOpenHandTooltipsSafely(debugLabel: '开始拖动模型提供商前收起工具提示'),
-        child: ReorderableDragStartListener(index: index, child: child),
-      ),
-    );
-  }
-}
-
-class _ProxySemanticIconButton extends StatelessWidget {
-  const _ProxySemanticIconButton({
-    required this.label,
-    required this.onPressed,
-    required this.icon,
-  });
-
-  final String label;
-  final VoidCallback onPressed;
-  final Widget icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: label,
-      excludeSemantics: true,
-      child: IconButton(onPressed: onPressed, icon: icon),
-    );
-  }
-}
-
-class _ProxyProviderInfoChip extends StatelessWidget {
-  const _ProxyProviderInfoChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final chipTheme = theme.chipTheme;
-    final labelStyle =
-        chipTheme.labelStyle ?? theme.textTheme.labelLarge ?? const TextStyle();
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 360, minHeight: 40),
-      child: RawChip(
-        avatar: Icon(icon, size: 18),
-        avatarBoxConstraints: const BoxConstraints.tightFor(
-          width: 18,
-          height: 18,
-        ),
-        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-        labelStyle: labelStyle,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-        visualDensity: VisualDensity.standard,
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        backgroundColor: chipTheme.backgroundColor,
-        side: chipTheme.side,
-        shape: chipTheme.shape,
-        iconTheme: chipTheme.iconTheme,
-        clipBehavior: Clip.antiAlias,
-      ),
-    );
-  }
-}
-
-class _ProxyModelChip extends StatelessWidget {
-  const _ProxyModelChip({required this.modelId, required this.active});
-
-  final String modelId;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
-    final baseColor = active
-        ? Color.alphaBlend(
-            colors.primary.withValues(alpha: isDark ? 0.10 : 0.03),
-            Color.lerp(
-                  colors.surfaceContainerLowest,
-                  colors.primaryContainer,
-                  isDark ? 0.74 : 0.66,
-                ) ??
-                colors.primaryContainer,
-          )
-        : colors.surfaceContainerHighest.withValues(
-            alpha: isDark ? 0.54 : 0.94,
-          );
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 26),
-      child: Material(
-        clipBehavior: Clip.antiAlias,
-        shape: StadiumBorder(
-          side: BorderSide(
-            color: active
-                ? colors.primary.withValues(alpha: isDark ? 0.62 : 0.52)
-                : colors.outlineVariant.withValues(alpha: isDark ? 0.76 : 0.94),
-            width: active ? 1.15 : 1,
-          ),
-        ),
-        color: baseColor,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                active ? Icons.star_rounded : Icons.smart_toy_outlined,
-                size: 14,
-                color: active ? colors.primary : colors.onSurfaceVariant,
-              ),
-              kOpenHandHGap5,
-              Text(
-                modelId,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: active
-                      ? colors.onPrimaryContainer
-                      : colors.onSurfaceVariant,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProxyOverflowChip extends StatelessWidget {
-  const _ProxyOverflowChip({required this.hiddenCount});
-
-  final int hiddenCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 26),
-      child: DecoratedBox(
-        decoration: ShapeDecoration(
-          color: colors.surfaceContainerHighest.withValues(
-            alpha: theme.brightness == Brightness.dark ? 0.54 : 0.94,
-          ),
-          shape: StadiumBorder(
-            side: BorderSide(color: colors.outlineVariant),
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.more_horiz_rounded,
-                size: 14,
-                color: colors.onSurfaceVariant,
-              ),
-              kOpenHandHGap5,
-              Text(
-                '+$hiddenCount',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colors.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
