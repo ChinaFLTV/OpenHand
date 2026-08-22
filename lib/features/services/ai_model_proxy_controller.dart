@@ -218,6 +218,7 @@ class AiModelProxyController extends ChangeNotifier {
       '/v1beta/models',
       '/v1beta/models/{model}',
       '/v1beta/models:generateContent',
+      '/v1beta/models:streamGenerateContent?alt=sse',
       '/v1beta/models/{model}:streamGenerateContent?alt=sse',
     ],
   };
