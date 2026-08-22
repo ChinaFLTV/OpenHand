@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
@@ -7,7 +8,8 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
-import '../../settings/index.dart' show showAiModelEditorDialog;
+import '../../settings/index.dart'
+    show AiUsageAnalyticsView, showAiModelEditorDialog;
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_model_proxy_models.dart';
 import 'service_dialog_controls.dart';
@@ -189,9 +191,7 @@ class _ProxyProvidersDialog extends StatelessWidget {
                 _RoundHeaderButton(
                   tooltip: text(zh: '模型映射', en: 'Model routing'),
                   icon: Icons.account_tree_outlined,
-                  onPressed: () async {
-                    await showAiModelProxyModelsDialog(context);
-                  },
+                  onPressed: () => showAiModelProxyModelsDialog(context),
                 ),
               ],
             ),
@@ -253,46 +253,220 @@ class _ProviderTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final colors = Theme.of(context).colorScheme;
     final text = openHandTextResolver(context);
-    final modelCount = model.allModelIds.length;
-    return Card(
+    final allModels = model.allModelIds;
+    final visibleModels = allModels.take(8).toList(growable: false);
+    final hiddenCount = allModels.length - visibleModels.length;
+    final card = Container(
+      width: double.infinity,
       margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: colors.secondaryContainer,
-          foregroundColor: colors.onSecondaryContainer,
-          child: Text('${index + 1}'),
-        ),
-        title: Text(model.providerLabel),
-        subtitle: Text(
-          '${model.apiDialect.storageValue} · ${text(zh: '模型 $modelCount 个', en: '$modelCount models')}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: Wrap(
-          spacing: 4,
-          children: [
-            IconButton(
-              tooltip: text(zh: '编辑', en: 'Edit'),
-              onPressed: onEdit,
-              icon: const Icon(Icons.edit_outlined),
-            ),
-            IconButton(
-              tooltip: text(zh: '删除', en: 'Delete'),
-              onPressed: onDelete,
-              icon: const Icon(Icons.delete_outline_rounded),
-            ),
-            ReorderableDragStartListener(
-              index: index,
-              child: IconButton(
-                tooltip: text(zh: '拖动排序', en: 'Reorder'),
-                onPressed: () {},
-                icon: const Icon(Icons.drag_indicator_rounded),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(kOpenHandRadius24),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: colors.primaryContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '${index + 1}',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: colors.onPrimaryContainer,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    kOpenHandHGap14,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            model.providerLabel,
+                            style: theme.textTheme.titleLarge,
+                          ),
+                          kOpenHandGap4,
+                          Text(
+                            '${model.protocolType.storageValue} · ${text(zh: '模型 ${allModels.length} 个', en: '${allModels.length} models')}',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colors.onSurfaceVariant,
+                            ),
+                          ),
+                          if (model.modelId.trim().isNotEmpty) ...[
+                            kOpenHandGap4,
+                            Text(
+                              text(
+                                zh: '当前模型：${model.modelId}',
+                                en: 'Active: ${model.modelId}',
+                              ),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colors.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              kOpenHandHGap12,
+              Wrap(
+                spacing: 4,
+                children: [
+                  IconButton(
+                    tooltip: text(zh: '编辑', en: 'Edit'),
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
+                  IconButton(
+                    tooltip: text(zh: '删除', en: 'Delete'),
+                    onPressed: onDelete,
+                    icon: const Icon(Icons.delete_outline_rounded),
+                  ),
+                  ReorderableDragStartListener(
+                    index: index,
+                    child: IconButton(
+                      tooltip: text(zh: '拖动排序', en: 'Reorder'),
+                      onPressed: () {},
+                      icon: const Icon(Icons.drag_indicator_rounded),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          kOpenHandGap14,
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _ProxyProviderInfoChip(
+                icon: Icons.link_rounded,
+                label: model.normalizedBaseUrl,
+              ),
+              _ProxyProviderInfoChip(
+                icon: model.autoCompleteBaseUrl
+                    ? Icons.auto_fix_high_rounded
+                    : Icons.rule_rounded,
+                label: model.autoCompleteBaseUrl
+                    ? text(zh: '自动补全', en: 'Auto-complete')
+                    : text(zh: '精确 Base URL', en: 'Exact Base URL'),
+              ),
+              _ProxyProviderInfoChip(
+                icon: Icons.vpn_key_outlined,
+                label: model.maskedToken.isEmpty
+                    ? text(zh: '无 Token', en: 'No token')
+                    : model.maskedToken,
+              ),
+              _ProxyProviderInfoChip(
+                icon: Icons.route_rounded,
+                label: model.apiDialect.storageValue,
+              ),
+            ],
+          ),
+          if (visibleModels.isNotEmpty) ...[
+            kOpenHandGap10,
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                for (final modelId in visibleModels)
+                  _ProxyModelChip(
+                    modelId: modelId,
+                    active: modelId == model.modelId,
+                  ),
+                if (hiddenCount > 0)
+                  _ProxyModelChip(modelId: '+$hiddenCount', active: false),
+              ],
             ),
           ],
+        ],
+      ),
+    );
+    return card;
+  }
+}
+
+class _ProxyProviderInfoChip extends StatelessWidget {
+  const _ProxyProviderInfoChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 360),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: colors.onSurfaceVariant),
+          kOpenHandHGap8,
+          Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProxyModelChip extends StatelessWidget {
+  const _ProxyModelChip({required this.modelId, required this.active});
+
+  final String modelId;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: active
+            ? colors.primaryContainer
+            : colors.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: active ? colors.primary : colors.outlineVariant,
         ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            active ? Icons.star_rounded : Icons.smart_toy_outlined,
+            size: 16,
+            color: active ? colors.primary : colors.onSurfaceVariant,
+          ),
+          kOpenHandHGap6,
+          Text(modelId, style: const TextStyle(fontWeight: FontWeight.w600)),
+        ],
       ),
     );
   }
@@ -667,7 +841,7 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
         child: Column(
           children: [
             _ProxyDialogHeader(
-              title: text(zh: '中转站服务设置', en: 'Proxy service settings'),
+              title: text(zh: '服务设置', en: 'Service settings'),
               subtitle: text(
                 zh: '配置对外协议、鉴权、限流与故障接力策略。',
                 en: 'Configure protocol, authentication, limits and failover.',
@@ -679,16 +853,13 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
             Expanded(
               child: ListView(
                 children: [
-                  SwitchListTile.adaptive(
-                    contentPadding: EdgeInsets.zero,
+                  _ProxyToggleRow(
                     value: _auth,
                     onChanged: (value) => setState(() => _auth = value),
-                    title: Text(text(zh: 'API 鉴权', en: 'API authentication')),
-                    subtitle: Text(
-                      text(
-                        zh: '启用后请求必须携带与 API 风格一致的 Key。',
-                        en: 'Require a matching API key on incoming requests.',
-                      ),
+                    title: text(zh: 'API 鉴权', en: 'API authentication'),
+                    subtitle: text(
+                      zh: '启用后请求必须携带与 API 风格一致的 Key。',
+                      en: 'Require a matching API key on incoming requests.',
                     ),
                   ),
                   if (_auth) ...[
@@ -807,7 +978,7 @@ class _DropdownField<T> extends StatelessWidget {
   );
 }
 
-class _NumberStepper extends StatelessWidget {
+class _NumberStepper extends StatefulWidget {
   const _NumberStepper({
     required this.label,
     required this.value,
@@ -820,70 +991,186 @@ class _NumberStepper extends StatelessWidget {
   final int min;
   final int max;
   final ValueChanged<int> onChanged;
+
+  @override
+  State<_NumberStepper> createState() => _NumberStepperState();
+}
+
+class _NumberStepperState extends State<_NumberStepper> {
+  late final TextEditingController _controller;
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: '${widget.value}');
+    _focusNode = FocusNode();
+    _focusNode.addListener(_handleFocusChange);
+  }
+
+  @override
+  void didUpdateWidget(covariant _NumberStepper oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value &&
+        !_focusNode.hasFocus &&
+        _controller.text != '${widget.value}') {
+      _setControllerValue(widget.value);
+    }
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_handleFocusChange);
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _handleFocusChange() {
+    if (!_focusNode.hasFocus && int.tryParse(_controller.text.trim()) == null) {
+      _setControllerValue(widget.value);
+    }
+  }
+
+  void _setControllerValue(int value) {
+    final text = '$value';
+    _controller.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+
+  void _commit(String raw) {
+    final parsed = int.tryParse(raw.trim());
+    if (parsed == null) return;
+    final next = parsed.clamp(widget.min, widget.max).toInt();
+    if (_controller.text != '$next') _setControllerValue(next);
+    widget.onChanged(next);
+  }
+
+  void _changeBy(int delta) {
+    final next = (widget.value + delta).clamp(widget.min, widget.max).toInt();
+    _setControllerValue(next);
+    widget.onChanged(next);
+  }
+
   @override
   Widget build(BuildContext context) => InputDecorator(
-    decoration: InputDecoration(labelText: label),
+    decoration: InputDecoration(labelText: widget.label),
     child: Row(
       children: [
         IconButton(
-          onPressed: value <= min ? null : () => onChanged(value - 1),
+          onPressed: widget.value <= widget.min ? null : () => _changeBy(-1),
           icon: const Icon(Icons.remove_rounded),
+          style: IconButton.styleFrom(shape: const CircleBorder()),
         ),
         Expanded(
-          child: Center(
-            child: Text(
-              '$value',
-              style: Theme.of(context).textTheme.titleMedium,
+          child: TextField(
+            controller: _controller,
+            focusNode: _focusNode,
+            textAlign: TextAlign.center,
+            keyboardType: TextInputType.number,
+            inputFormatters: <TextInputFormatter>[
+              FilteringTextInputFormatter.digitsOnly,
+            ],
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
             ),
+            onChanged: _commit,
+            onSubmitted: _commit,
+            onEditingComplete: () {
+              if (int.tryParse(_controller.text.trim()) == null) {
+                _setControllerValue(widget.value);
+              } else {
+                _commit(_controller.text);
+              }
+              _focusNode.unfocus();
+            },
           ),
         ),
         IconButton(
-          onPressed: value >= max ? null : () => onChanged(value + 1),
+          onPressed: widget.value >= widget.max ? null : () => _changeBy(1),
           icon: const Icon(Icons.add_rounded),
+          style: IconButton.styleFrom(shape: const CircleBorder()),
         ),
       ],
     ),
   );
 }
 
-class _ProxyUsageDialog extends StatefulWidget {
-  const _ProxyUsageDialog();
+class _ProxyToggleRow extends StatelessWidget {
+  const _ProxyToggleRow({
+    required this.value,
+    required this.onChanged,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final String title;
+  final String subtitle;
+
   @override
-  State<_ProxyUsageDialog> createState() => _ProxyUsageDialogState();
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsetsDirectional.fromSTEB(16, 14, 10, 14),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(kOpenHandRadius16),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: theme.textTheme.titleMedium),
+                kOpenHandGap4,
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
+              if (states.contains(WidgetState.selected)) {
+                return const Icon(Icons.check_rounded, size: 16);
+              }
+              return const Icon(Icons.close_rounded, size: 16);
+            }),
+            trackColor: WidgetStateProperty.resolveWith((states) {
+              return states.contains(WidgetState.selected)
+                  ? colors.primary
+                  : colors.surfaceContainerHighest;
+            }),
+            trackOutlineColor: WidgetStatePropertyAll(colors.outlineVariant),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-class _ProxyUsageDialogState extends State<_ProxyUsageDialog> {
-  AiUsageSnapshot? _snapshot;
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final snapshot = await AiUsageTracker.instance.loadSnapshot(
-        const AiUsageFilter(),
-      );
-      if (mounted) {
-        setState(() {
-          _snapshot = snapshot;
-          _loading = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
+class _ProxyUsageDialog extends StatelessWidget {
+  const _ProxyUsageDialog();
 
   @override
   Widget build(BuildContext context) {
     final text = openHandTextResolver(context);
     final proxy = context.watch<AiModelProxyController>();
     final stats = proxy.settings;
-    final snapshot = _snapshot;
     final records = stats.recentRequests;
     return ServiceDialogInteractionTheme(
       child: Padding(
@@ -891,7 +1178,7 @@ class _ProxyUsageDialogState extends State<_ProxyUsageDialog> {
         child: Column(
           children: [
             _ProxyDialogHeader(
-              title: text(zh: '中转站使用统计', en: 'Proxy usage analytics'),
+              title: text(zh: '使用统计', en: 'Usage analytics'),
               subtitle: text(
                 zh: '汇总请求、成功率、Token、成本与耗时，保留全局追踪的详细记录。',
                 en: 'Requests, success rate, tokens, cost and latency with global traces.',
@@ -900,60 +1187,181 @@ class _ProxyUsageDialogState extends State<_ProxyUsageDialog> {
               onClose: () => Navigator.of(context).pop(),
             ),
             kOpenHandGap16,
-            if (_loading) const LinearProgressIndicator(minHeight: 3),
-            kOpenHandGap14,
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _Metric(
-                  label: text(zh: '请求', en: 'Requests'),
-                  value: '${stats.requestCount}',
-                ),
-                _Metric(
-                  label: text(zh: '成功率', en: 'Success rate'),
-                  value: '${(stats.successRate * 100).toStringAsFixed(1)}%',
-                ),
-                _Metric(
-                  label: text(zh: 'Token', en: 'Tokens'),
-                  value: '${stats.totalTokens}',
-                ),
-                _Metric(
-                  label: text(zh: '平均耗时', en: 'Avg latency'),
-                  value: '${stats.averageDurationMs.toStringAsFixed(0)} ms',
-                ),
-              ],
-            ),
-            kOpenHandGap16,
             Expanded(
-              child: records.isNotEmpty
-                  ? ListView.separated(
-                      itemCount: records.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) => _ProxyRecordTile(
-                        record: records.reversed.elementAt(index),
-                      ),
-                    )
-                  : snapshot == null
-                  ? Center(
-                      child: Text(
-                        text(
-                          zh: '暂无全局请求追踪记录。',
-                          en: 'No global request traces yet.',
-                        ),
-                      ),
-                    )
-                  : ListView.separated(
-                      itemCount: snapshot.recentRequests.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) => _UsageRecordTile(
-                        record: snapshot.recentRequests[index],
-                      ),
+              child: SingleChildScrollView(
+                physics: openHandDialogAwareScrollPhysics(context),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const AiUsageAnalyticsView(embedded: true),
+                    kOpenHandGap16,
+                    _ProxyServiceTraceExtension(
+                      records: records,
+                      requestCount: stats.requestCount,
+                      successRate: stats.successRate,
+                      totalTokens: stats.totalTokens,
+                      averageDurationMs: stats.averageDurationMs,
                     ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ProxyServiceTraceExtension extends StatelessWidget {
+  const _ProxyServiceTraceExtension({
+    required this.records,
+    required this.requestCount,
+    required this.successRate,
+    required this.totalTokens,
+    required this.averageDurationMs,
+  });
+
+  final List<AiModelProxyRequestRecord> records;
+  final int requestCount;
+  final double successRate;
+  final int totalTokens;
+  final double averageDurationMs;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final text = openHandTextResolver(context);
+    final recent = records.reversed.take(12).toList(growable: false);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(kOpenHandRadius20),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      text(zh: '请求追踪', en: 'Request traces'),
+                      style: theme.textTheme.titleLarge,
+                    ),
+                    kOpenHandGap4,
+                    Text(
+                      text(
+                        zh: '记录实际服务商、模型、协议、Token、耗时与失败原因。',
+                        en: 'Inspect provider, model, protocol, tokens, latency and errors.',
+                      ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _ProxyTraceBadge(
+                label: text(
+                  zh: '最近 ${recent.length} 条',
+                  en: '${recent.length} recent',
+                ),
+              ),
+            ],
+          ),
+          kOpenHandGap14,
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _Metric(
+                label: text(zh: '请求数', en: 'Requests'),
+                value: '$requestCount',
+              ),
+              _Metric(
+                label: text(zh: '成功率', en: 'Success rate'),
+                value: '${(successRate * 100).toStringAsFixed(1)}%',
+              ),
+              _Metric(
+                label: text(zh: 'Token', en: 'Tokens'),
+                value: '$totalTokens',
+              ),
+              _Metric(
+                label: text(zh: '平均耗时', en: 'Average latency'),
+                value: '${averageDurationMs.toStringAsFixed(1)} ms',
+              ),
+            ],
+          ),
+          kOpenHandGap16,
+          if (recent.isEmpty)
+            _ProxyTraceEmpty(
+              text: text(
+                zh: '暂无中转请求记录，启动服务并完成请求后会在这里显示。',
+                en: 'No proxy requests yet. Traces appear after the service handles a request.',
+              ),
+            )
+          else
+            Column(
+              children: [
+                for (final record in recent) _ProxyRecordTile(record: record),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProxyTraceBadge extends StatelessWidget {
+  const _ProxyTraceBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      decoration: BoxDecoration(
+        color: colors.secondaryContainer,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: colors.onSecondaryContainer,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProxyTraceEmpty extends StatelessWidget {
+  const _ProxyTraceEmpty({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(kOpenHandRadius16),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Text(text, style: TextStyle(color: colors.onSurfaceVariant)),
     );
   }
 }
@@ -963,39 +1371,32 @@ class _Metric extends StatelessWidget {
   final String label;
   final String value;
   @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minWidth: 150),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(kOpenHandRadius16),
+        border: Border.all(color: colors.outlineVariant),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: Theme.of(context).textTheme.labelMedium),
-          const SizedBox(height: 4),
-          Text(value, style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+          kOpenHandGap4,
+          Text(value, style: theme.textTheme.titleLarge),
         ],
       ),
-    ),
-  );
-}
-
-class _UsageRecordTile extends StatelessWidget {
-  const _UsageRecordTile({required this.record});
-  final AiUsageRequestRecord record;
-  @override
-  Widget build(BuildContext context) => Card(
-    child: ListTile(
-      leading: Icon(
-        record.status == AiUsageRequestStatus.success
-            ? Icons.check_circle_outline_rounded
-            : Icons.error_outline_rounded,
-      ),
-      title: Text('${record.providerName} / ${record.modelId}'),
-      subtitle: Text(
-        '${record.apiFamily} · ${record.usage.totalTokens} tokens · ${record.durationMs} ms',
-      ),
-      trailing: Text(record.startedAt.toLocal().toString().substring(0, 16)),
-    ),
-  );
+    );
+  }
 }
 
 class _ProxyRecordTile extends StatelessWidget {

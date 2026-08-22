@@ -77,7 +77,9 @@ Widget _buildAiUsageAnimatedSwap(BuildContext context, Widget child) {
 }
 
 class _AiUsageSettingsSection extends StatefulWidget {
-  const _AiUsageSettingsSection();
+  const _AiUsageSettingsSection({this.embedded = false});
+
+  final bool embedded;
 
   @override
   State<_AiUsageSettingsSection> createState() =>
@@ -206,6 +208,51 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
 
   @override
   Widget build(BuildContext context) {
+    final child = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildToolbar(context),
+        if (_loading && _snapshot == null) ...[
+          kOpenHandGap24,
+          const LinearProgressIndicator(minHeight: 3),
+          kOpenHandGap18,
+          _AiUsageLoadingState(),
+        ] else if (_error != null && _snapshot == null) ...[
+          kOpenHandGap20,
+          Column(
+            children: [
+              _SettingsStateBox(
+                icon: Icons.query_stats_rounded,
+                title: openHandLocalizedText(
+                  context,
+                  zh: '使用统计加载失败',
+                  en: 'Usage analytics could not be loaded',
+                ),
+                body: '$_error',
+              ),
+              kOpenHandGap12,
+              FilledButton.tonalIcon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh_rounded),
+                label: Text(openHandRetryLabel(context)),
+              ),
+            ],
+          ),
+        ] else if (_snapshot case final snapshot?) ...[
+          kOpenHandGap20,
+          _buildAiUsageAnimatedSwap(
+            context,
+            KeyedSubtree(
+              key: ValueKey<int>(snapshot.generatedAt.microsecondsSinceEpoch),
+              child: snapshot.summary.requestCount == 0
+                  ? _AiUsageEmptyState(hasFilters: _activeFilterCount > 0)
+                  : _buildAnalytics(context, snapshot),
+            ),
+          ),
+        ],
+      ],
+    );
+    if (widget.embedded) return child;
     return _SettingsSubsectionCard(
       title: openHandLocalizedText(context, zh: '使用统计', en: 'Usage Analytics'),
       description: openHandLocalizedText(
@@ -213,50 +260,7 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
         zh: '查看线程、知识库、智能体与辅助 AI 请求的 Token 消耗、成本、缓存效率和性能追踪。',
         en: 'Inspect token usage, cost, cache efficiency, and performance traces across threads, knowledge, agents, and supporting AI requests.',
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildToolbar(context),
-          if (_loading && _snapshot == null) ...[
-            kOpenHandGap24,
-            const LinearProgressIndicator(minHeight: 3),
-            kOpenHandGap18,
-            _AiUsageLoadingState(),
-          ] else if (_error != null && _snapshot == null) ...[
-            kOpenHandGap20,
-            Column(
-              children: [
-                _SettingsStateBox(
-                  icon: Icons.query_stats_rounded,
-                  title: openHandLocalizedText(
-                    context,
-                    zh: '使用统计加载失败',
-                    en: 'Usage analytics could not be loaded',
-                  ),
-                  body: '$_error',
-                ),
-                kOpenHandGap12,
-                FilledButton.tonalIcon(
-                  onPressed: _load,
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: Text(openHandRetryLabel(context)),
-                ),
-              ],
-            ),
-          ] else if (_snapshot case final snapshot?) ...[
-            kOpenHandGap20,
-            _buildAiUsageAnimatedSwap(
-              context,
-              KeyedSubtree(
-                key: ValueKey<int>(snapshot.generatedAt.microsecondsSinceEpoch),
-                child: snapshot.summary.requestCount == 0
-                    ? _AiUsageEmptyState(hasFilters: _activeFilterCount > 0)
-                    : _buildAnalytics(context, snapshot),
-              ),
-            ),
-          ],
-        ],
-      ),
+      child: child,
     );
   }
 
@@ -385,6 +389,17 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
       ],
     );
   }
+}
+
+/// 服务弹窗复用全局设置中的完整使用统计与请求追踪结构。
+class AiUsageAnalyticsView extends StatelessWidget {
+  const AiUsageAnalyticsView({super.key, this.embedded = false});
+
+  final bool embedded;
+
+  @override
+  Widget build(BuildContext context) =>
+      _AiUsageSettingsSection(embedded: embedded);
 }
 
 class _AiUsageHero extends StatelessWidget {
@@ -827,7 +842,7 @@ class _AiUsageMetricCard extends StatelessWidget {
             ),
           ),
           if (data.progress case final progress?) ...[
-             kOpenHandGap11,
+            kOpenHandGap11,
             ClipRRect(
               borderRadius: kOpenHandPillBorderRadius,
               child: LinearProgressIndicator(
@@ -1666,15 +1681,21 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
         child: AnimatedOpacity(
           opacity: _tooltipVisible ? 1 : 0,
           duration: duration,
-          curve: _tooltipVisible ? kOpenHandSwitchInCurve : kOpenHandSwitchOutCurve,
+          curve: _tooltipVisible
+              ? kOpenHandSwitchInCurve
+              : kOpenHandSwitchOutCurve,
           child: AnimatedSlide(
             offset: _tooltipVisible ? Offset.zero : const Offset(0, 0.08),
             duration: duration,
-            curve: _tooltipVisible ? kOpenHandEntranceCurve : kOpenHandSwitchOutCurve,
+            curve: _tooltipVisible
+                ? kOpenHandEntranceCurve
+                : kOpenHandSwitchOutCurve,
             child: AnimatedScale(
               scale: _tooltipVisible ? 1 : 0.9,
               duration: duration,
-              curve: _tooltipVisible ? kOpenHandEntranceCurve : kOpenHandSwitchOutCurve,
+              curve: _tooltipVisible
+                  ? kOpenHandEntranceCurve
+                  : kOpenHandSwitchOutCurve,
               alignment: Alignment.topCenter,
               child: Material(
                 elevation: 8,
@@ -3436,7 +3457,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
                     color: theme.colorScheme.onPrimaryContainer,
                   ),
                 ),
-                 kOpenHandWidth13,
+                kOpenHandWidth13,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -3489,7 +3510,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
                           : _filter.copyWith(providerConfigId: value),
                     ),
                   ),
-                   kOpenHandGap22,
+                  kOpenHandGap22,
                   _buildFacet(
                     context,
                     title: openHandModelLabel(context),
@@ -3501,7 +3522,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
                           : _filter.copyWith(modelId: value),
                     ),
                   ),
-                   kOpenHandGap22,
+                  kOpenHandGap22,
                   _buildFacet(
                     context,
                     title: openHandSourceLabel(context),
@@ -3559,7 +3580,10 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
     bool sourceLabels = false,
   }) {
     final theme = Theme.of(context);
-    final selectionDuration = openHandMotionDuration(context, kOpenHandMotion180);
+    final selectionDuration = openHandMotionDuration(
+      context,
+      kOpenHandMotion180,
+    );
     final options = <({String label, String? value})>[
       (label: openHandAllLabel(context), value: null),
       for (final facet in facets)

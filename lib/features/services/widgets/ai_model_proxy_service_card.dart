@@ -51,7 +51,6 @@ class AiModelProxyServiceCard extends StatelessWidget {
                   busy: controller.busy,
                   onToggle: controller.toggle,
                   onProviders: () => showAiModelProxyProvidersDialog(context),
-                  onModels: () => showAiModelProxyModelsDialog(context),
                   onUsage: () => showAiModelProxyUsageDialog(context),
                   onSettings: () => showAiModelProxySettingsDialog(context),
                 );
@@ -217,7 +216,6 @@ class _ProxyActions extends StatelessWidget {
     required this.busy,
     required this.onToggle,
     required this.onProviders,
-    required this.onModels,
     required this.onUsage,
     required this.onSettings,
   });
@@ -225,7 +223,6 @@ class _ProxyActions extends StatelessWidget {
   final bool busy;
   final Future<void> Function() onToggle;
   final VoidCallback onProviders;
-  final VoidCallback onModels;
   final VoidCallback onUsage;
   final VoidCallback onSettings;
   @override
@@ -264,11 +261,6 @@ class _ProxyActions extends StatelessWidget {
           Icons.hub_outlined,
           text(zh: 'AI 模型提供商', en: 'AI model providers'),
           onProviders,
-        ),
-        action(
-          Icons.account_tree_outlined,
-          text(zh: '模型映射', en: 'Model routing'),
-          onModels,
         ),
         action(
           Icons.query_stats_rounded,
