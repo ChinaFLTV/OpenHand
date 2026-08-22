@@ -583,7 +583,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                 const SizedBox(width: 8),
                 _RoundHeaderButton(
                   tooltip: text(zh: '清空暴露模型', en: 'Clear exposed models'),
-                  icon: Icons.clear_all_rounded,
+                  icon: Icons.delete_sweep_rounded,
                   onPressed: exposedModels.isEmpty || _isClearing
                       ? null
                       : () => _clearExposedModels(context),
@@ -902,7 +902,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                             ),
                                           ),
                                           icon: const Icon(
-                                            Icons.clear_all_rounded,
+                                            Icons.delete_sweep_rounded,
                                           ),
                                           label: Text(
                                             text(
