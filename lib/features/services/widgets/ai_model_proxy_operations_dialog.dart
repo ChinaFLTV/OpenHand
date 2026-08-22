@@ -372,6 +372,13 @@ class _ProxyOpsMetricGrid extends StatelessWidget {
         cs.primary,
       ),
       _ProxyOpsMetricData(
+        Icons.input_rounded,
+        text(zh: '入口请求', en: 'Ingress requests'),
+        '${data.controller.runtimeRequestCount}',
+        text(zh: '本次运行', en: 'This run'),
+        cs.secondary,
+      ),
+      _ProxyOpsMetricData(
         Icons.task_alt_rounded,
         text(zh: '成功数量', en: 'Succeeded'),
         '${data.successTotal}',
@@ -383,6 +390,13 @@ class _ProxyOpsMetricGrid extends StatelessWidget {
         text(zh: '失败数量', en: 'Failures'),
         '${data.failureTotal}',
         '${(data.failureRate * 100).toStringAsFixed(1)}%',
+        cs.error,
+      ),
+      _ProxyOpsMetricData(
+        Icons.report_problem_outlined,
+        text(zh: '入口错误', en: 'Ingress errors'),
+        '${data.controller.runtimeErrorCount}',
+        text(zh: 'HTTP 4xx/5xx', en: 'HTTP 4xx/5xx'),
         cs.error,
       ),
       _ProxyOpsMetricData(
@@ -558,8 +572,8 @@ class _ProxyOpsTrendRow extends StatelessWidget {
           _ProxyOpsTrendPanel(
             title: text(zh: '请求趋势', en: 'Request trend'),
             subtitle: text(
-              zh: '最近 12 分钟 · 成功与失败',
-              en: 'Last 12 minutes · success and failure',
+              zh: '最近 12 分钟 · 模型调用成功与失败',
+              en: 'Last 12 minutes · model-call success and failure',
             ),
             series: [
               OpenHandChartSeries(

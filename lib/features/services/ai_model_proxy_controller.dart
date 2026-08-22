@@ -27,9 +27,13 @@ class AiModelProxyController extends ChangeNotifier {
   String? _errorMessage;
   bool _disposed = false;
   int _activeRequests = 0;
+  int _unknownConnectionRequests = 0;
   int _runtimeInboundBytes = 0;
   int _runtimeOutboundBytes = 0;
+  int _runtimeRequestCount = 0;
+  int _runtimeErrorCount = 0;
   DateTime? _startedAt;
+  final Map<String, int> _connectionReferences = <String, int>{};
   final Map<String, int> _roundRobinCursors = <String, int>{};
   final Map<String, int> _proxyRoundRobinCursors = <String, int>{};
   final List<DateTime> _rateWindow = <DateTime>[];
@@ -45,10 +49,13 @@ class AiModelProxyController extends ChangeNotifier {
   AiModelProxyLifecycle get lifecycle => _lifecycle;
   bool get busy => _busy;
   String? get errorMessage => _errorMessage;
-  int get currentConnections => _activeRequests;
+  int get currentConnections =>
+      _connectionReferences.length + _unknownConnectionRequests;
   int get activeRequests => _activeRequests;
   int get runtimeInboundBytes => _runtimeInboundBytes;
   int get runtimeOutboundBytes => _runtimeOutboundBytes;
+  int get runtimeRequestCount => _runtimeRequestCount;
+  int get runtimeErrorCount => _runtimeErrorCount;
   DateTime? get startedAt => _startedAt;
   Duration get uptime {
     final start = _startedAt;
@@ -298,8 +305,12 @@ class AiModelProxyController extends ChangeNotifier {
             _modelsProvider?.call() ?? const <AiModelConfig>[],
       );
       _activeRequests = 0;
+      _unknownConnectionRequests = 0;
+      _connectionReferences.clear();
       _runtimeInboundBytes = 0;
       _runtimeOutboundBytes = 0;
+      _runtimeRequestCount = 0;
+      _runtimeErrorCount = 0;
       await server.start();
       _startedAt = DateTime.now();
       _settings = _settings.copyWith(enabled: true);
@@ -309,6 +320,8 @@ class AiModelProxyController extends ChangeNotifier {
       await _httpServer?.stop();
       _startedAt = null;
       _activeRequests = 0;
+      _unknownConnectionRequests = 0;
+      _connectionReferences.clear();
       _settings = _settings.copyWith(enabled: false);
       try {
         await _writes.enqueue(() => _store.save(_settings));
@@ -332,6 +345,8 @@ class AiModelProxyController extends ChangeNotifier {
       await _httpServer?.stop();
       _startedAt = null;
       _activeRequests = 0;
+      _unknownConnectionRequests = 0;
+      _connectionReferences.clear();
       _settings = _settings.copyWith(enabled: false);
       await _writes.enqueue(() => _store.save(_settings));
       _lifecycle = AiModelProxyLifecycle.stopped;
@@ -361,6 +376,8 @@ class AiModelProxyController extends ChangeNotifier {
     _lifecycle = AiModelProxyLifecycle.stopped;
     _startedAt = null;
     _activeRequests = 0;
+    _unknownConnectionRequests = 0;
+    _connectionReferences.clear();
     await _writes.idle;
   }
 
@@ -431,30 +448,61 @@ class AiModelProxyController extends ChangeNotifier {
     }
   }
 
-  /// 记录 HTTP 请求生命周期，供服务运维面板展示实时并发。
-  void runtimeRequestStarted({int inboundBytes = 0}) {
+  /// 记录已进入服务入口的请求，包含被限流或鉴权拒绝的请求。
+  void runtimeRequestObserved({int inboundBytes = 0}) {
     if (_disposed) return;
-    _activeRequests = (_activeRequests + 1).clamp(0, 1 << 30).toInt();
     _runtimeInboundBytes =
         (_runtimeInboundBytes + inboundBytes.clamp(0, 1 << 31))
             .clamp(0, 1 << 62)
             .toInt();
+    _runtimeRequestCount = (_runtimeRequestCount + 1).clamp(0, 1 << 62).toInt();
+    _notify();
+  }
+
+  /// 记录进入并发执行阶段的请求，供服务运维面板展示实时并发。
+  void runtimeRequestStarted({String? connectionKey}) {
+    if (_disposed) return;
+    _activeRequests = (_activeRequests + 1).clamp(0, 1 << 30).toInt();
+    final key = connectionKey?.trim() ?? '';
+    if (key.isEmpty) {
+      _unknownConnectionRequests = (_unknownConnectionRequests + 1)
+          .clamp(0, 1 << 30)
+          .toInt();
+    } else {
+      _connectionReferences[key] = (_connectionReferences[key] ?? 0) + 1;
+    }
     _notify();
   }
 
   /// 记录响应载荷大小，避免把展示层的流量指标写死为零。
-  void runtimeResponseWritten({int outboundBytes = 0}) {
+  void runtimeResponseWritten({int outboundBytes = 0, int statusCode = 200}) {
     if (_disposed) return;
     _runtimeOutboundBytes =
         (_runtimeOutboundBytes + outboundBytes.clamp(0, 1 << 31))
             .clamp(0, 1 << 62)
             .toInt();
+    if (statusCode >= 400) {
+      _runtimeErrorCount = (_runtimeErrorCount + 1).clamp(0, 1 << 62).toInt();
+    }
     _notify();
   }
 
-  void runtimeRequestFinished() {
+  void runtimeRequestFinished({String? connectionKey}) {
     if (_disposed) return;
     _activeRequests = (_activeRequests - 1).clamp(0, 1 << 30).toInt();
+    final key = connectionKey?.trim() ?? '';
+    if (key.isEmpty) {
+      _unknownConnectionRequests = (_unknownConnectionRequests - 1)
+          .clamp(0, 1 << 30)
+          .toInt();
+    } else {
+      final references = _connectionReferences[key] ?? 0;
+      if (references <= 1) {
+        _connectionReferences.remove(key);
+      } else {
+        _connectionReferences[key] = references - 1;
+      }
+    }
     _notify();
   }
 
@@ -548,6 +596,8 @@ class AiModelProxyController extends ChangeNotifier {
     _disposed = true;
     _startedAt = null;
     _activeRequests = 0;
+    _unknownConnectionRequests = 0;
+    _connectionReferences.clear();
     unawaited(_httpServer?.dispose());
     _httpServer = null;
     super.dispose();

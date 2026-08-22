@@ -83,6 +83,9 @@ class AiModelProxyHttpServer {
           await _closeRequest(request);
           continue;
         }
+        _controller.runtimeRequestObserved(
+          inboundBytes: request.contentLength < 0 ? 0 : request.contentLength,
+        );
         if (_activeRequests >= _maxConcurrentRequests) {
           await _writeError(
             request,
@@ -93,13 +96,12 @@ class AiModelProxyHttpServer {
           continue;
         }
         _activeRequests += 1;
-        _controller.runtimeRequestStarted(
-          inboundBytes: request.contentLength < 0 ? 0 : request.contentLength,
-        );
+        final connectionKey = _connectionKey(request);
+        _controller.runtimeRequestStarted(connectionKey: connectionKey);
         unawaited(
           _handleRequest(request).whenComplete(() {
             _activeRequests = (_activeRequests - 1).clamp(0, 1 << 30).toInt();
-            _controller.runtimeRequestFinished();
+            _controller.runtimeRequestFinished(connectionKey: connectionKey);
           }),
         );
       }
@@ -324,6 +326,15 @@ class AiModelProxyHttpServer {
         apiStyle: _controller.settings.apiStyle,
       );
     }
+  }
+
+  String? _connectionKey(HttpRequest request) {
+    final info = request.connectionInfo;
+    if (info == null) return null;
+    final address = info.remoteAddress.address.trim();
+    final port = info.remotePort;
+    if (address.isEmpty || port <= 0) return null;
+    return '$address:$port';
   }
 
   Future<Map<String, Object?>> _readJsonBody(HttpRequest request) async {
@@ -1795,6 +1806,7 @@ class AiModelProxyHttpServer {
       request.response.write(payload);
       _controller.runtimeResponseWritten(
         outboundBytes: utf8.encode(payload).length,
+        statusCode: status,
       );
     }
     await request.response.close();

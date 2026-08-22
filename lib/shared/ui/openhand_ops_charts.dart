@@ -373,8 +373,7 @@ void _paintChartText(
 
 /// 运维面板共用的占比环画笔。
 ///
-/// 当 [values] 和 [colors] 长度不一致时，未配对的数据不会绘制，避免循环颜色
-/// 造成不同实体拥有相同颜色。
+/// 颜色表长度允许与数据段不同；颜色不足时按索引循环，保证数据仍按占比绘制。
 class OpenHandDonutChartPainter extends CustomPainter {
   const OpenHandDonutChartPainter({
     required this.values,
@@ -437,10 +436,28 @@ class OpenHandDonutChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant OpenHandDonutChartPainter oldDelegate) {
-    return oldDelegate.values != values ||
-        oldDelegate.colors != colors ||
+    return !_sameNumValues(oldDelegate.values, values) ||
+        !_sameColors(oldDelegate.colors, colors) ||
         oldDelegate.trackColor != trackColor;
   }
+}
+
+bool _sameNumValues(List<num> left, List<num> right) {
+  if (identical(left, right)) return true;
+  if (left.length != right.length) return false;
+  for (var index = 0; index < left.length; index++) {
+    if (left[index] != right[index]) return false;
+  }
+  return true;
+}
+
+bool _sameColors(List<Color> left, List<Color> right) {
+  if (identical(left, right)) return true;
+  if (left.length != right.length) return false;
+  for (var index = 0; index < left.length; index++) {
+    if (left[index] != right[index]) return false;
+  }
+  return true;
 }
 
 class _DonutGeometry {
