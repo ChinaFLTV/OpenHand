@@ -421,6 +421,18 @@ enum AiExposureProxyStrategy {
   );
 }
 
+/// 代理底层请求时使用的路由来源。
+enum AiExposureProxyMode {
+  pool('pool'),
+  system('system');
+
+  const AiExposureProxyMode(this.id);
+  final String id;
+
+  static AiExposureProxyMode fromId(Object? value) =>
+      enumByStorageValueOr(values, value, (item) => item.id, fallback: pool);
+}
+
 enum AiExposureProxyRoute { pool, system, direct }
 
 class AiExposureHealth {
@@ -1423,6 +1435,7 @@ class AiExposureProxyEndpoint {
 class AiExposureProxyConfiguration {
   const AiExposureProxyConfiguration({
     required this.enabled,
+    this.mode = AiExposureProxyMode.pool,
     required this.strategy,
     required this.rotationEvery,
     required this.bypassLocal,
@@ -1455,6 +1468,7 @@ class AiExposureProxyConfiguration {
     }
     return AiExposureProxyConfiguration(
       enabled: _boolValue(json['enabled']),
+      mode: AiExposureProxyMode.fromId(json['mode'] ?? json['proxyMode']),
       strategy: AiExposureProxyStrategy.fromId(
         _optionalString(json['strategy']),
       ),
@@ -1483,6 +1497,7 @@ class AiExposureProxyConfiguration {
   }
 
   final bool enabled;
+  final AiExposureProxyMode mode;
   final AiExposureProxyStrategy strategy;
   final int rotationEvery;
   final bool bypassLocal;
@@ -1499,6 +1514,7 @@ class AiExposureProxyConfiguration {
     bool includeSamples = true,
   }) => <String, Object?>{
     'enabled': enabled,
+    'mode': mode.id,
     'strategy': strategy.id,
     'rotationEvery': rotationEvery.clamp(1, kAiExposureMaxProxyRotationEvery),
     'bypassLocal': bypassLocal,
@@ -1525,6 +1541,7 @@ class AiExposureProxyConfiguration {
     Map<String, Object?> systemProxy = const <String, Object?>{},
   }) => <String, Object?>{
     'enabled': enabled,
+    'mode': mode.id,
     'strategy': strategy.id,
     'rotationEvery': rotationEvery.clamp(1, kAiExposureMaxProxyRotationEvery),
     'bypassLocal': bypassLocal,
@@ -1541,6 +1558,7 @@ class AiExposureProxyConfiguration {
 
   AiExposureProxyConfiguration copyWith({
     bool? enabled,
+    AiExposureProxyMode? mode,
     AiExposureProxyStrategy? strategy,
     int? rotationEvery,
     bool? bypassLocal,
@@ -1550,6 +1568,7 @@ class AiExposureProxyConfiguration {
     int? inspectionConcurrency,
   }) => AiExposureProxyConfiguration(
     enabled: enabled ?? this.enabled,
+    mode: mode ?? this.mode,
     strategy: strategy ?? this.strategy,
     rotationEvery: rotationEvery ?? this.rotationEvery,
     bypassLocal: bypassLocal ?? this.bypassLocal,

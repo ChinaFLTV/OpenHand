@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/support/silent_log.dart';
+import '../../../app/support/system_proxy.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
@@ -106,6 +107,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   late bool _inspectionEnabled;
   late int _inspectionIntervalMinutes;
   late int _inspectionConcurrency;
+  late AiExposureProxyMode _proxyMode;
   late AiExposureProxyStrategy _strategy;
   late double _rotationEvery;
   late List<AiExposureProxyEndpoint> _endpoints;
@@ -130,6 +132,11 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     _servicesController = context.read<ServicesController>();
     final configuration = _servicesController.proxyConfiguration;
     _enabled = configuration.enabled;
+    _proxyMode =
+        configuration.mode == AiExposureProxyMode.system &&
+            !_servicesController.systemProxyAvailable
+        ? AiExposureProxyMode.pool
+        : configuration.mode;
     _bypassLocal = configuration.bypassLocal;
     _inspectionEnabled = configuration.inspectionEnabled;
     _inspectionIntervalMinutes = configuration.inspectionIntervalMinutes;
@@ -168,9 +175,12 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     );
     final inspectionBusy = _inspectionBusy || controllerInspectionBusy;
     final activeCount = _endpoints.where((endpoint) => endpoint.enabled).length;
-    final route = _enabled && activeCount > 0
+    final route =
+        _enabled && _proxyMode == AiExposureProxyMode.pool && activeCount > 0
         ? AiExposureProxyRoute.pool
-        : systemProxyAvailable
+        : _enabled &&
+              _proxyMode == AiExposureProxyMode.system &&
+              systemProxyAvailable
         ? AiExposureProxyRoute.system
         : AiExposureProxyRoute.direct;
     final statusStatistics = <String, AiExposureProxyUsageStatistics>{
@@ -798,6 +808,52 @@ class _ProxyDialogState extends State<_ProxyDialog> {
               ),
             ],
           ),
+          kOpenHandGap12,
+          DropdownButtonFormField<AiExposureProxyMode>(
+            initialValue: _proxyMode,
+            decoration: InputDecoration(
+              labelText: text(zh: '代理方式', en: 'Proxy mode'),
+              helperText: text(
+                zh: '默认使用代理池；系统代理仅在探测到有效配置时可选。',
+                en: 'Proxy pool is the default. System proxy requires a valid detected configuration.',
+              ),
+              border: const OutlineInputBorder(),
+            ),
+            items: AiExposureProxyMode.values
+                .map(
+                  (item) => DropdownMenuItem<AiExposureProxyMode>(
+                    value: item,
+                    enabled:
+                        item != AiExposureProxyMode.system ||
+                        systemProxyAvailable,
+                    child: Text(
+                      item == AiExposureProxyMode.pool
+                          ? text(zh: '代理池代理', en: 'Proxy pool')
+                          : text(zh: '系统代理', en: 'System proxy'),
+                    ),
+                  ),
+                )
+                .toList(growable: false),
+            onChanged: !_enabled
+                ? null
+                : (value) {
+                    if (value == null) return;
+                    setState(() => _proxyMode = value);
+                  },
+          ),
+          AnimatedSwitcher(
+            duration: openHandMotionDuration(context, kOpenHandMotion220),
+            switchInCurve: kOpenHandSwitchInCurve,
+            switchOutCurve: kOpenHandSwitchOutCurve,
+            child: _proxyMode == AiExposureProxyMode.system
+                ? _buildSystemProxyDetails(
+                    context,
+                    available: systemProxyAvailable,
+                  )
+                : const SizedBox.shrink(
+                    key: ValueKey<String>('system-proxy-details-hidden'),
+                  ),
+          ),
           AnimatedOpacity(
             duration: openHandMotionDuration(context, kOpenHandMotion240),
             curve: kOpenHandSwitchInCurve,
@@ -886,20 +942,18 @@ class _ProxyDialogState extends State<_ProxyDialog> {
             duration: openHandMotionDuration(context, kOpenHandMotion220),
             switchInCurve: kOpenHandSwitchInCurve,
             switchOutCurve: kOpenHandSwitchOutCurve,
-            child: _enabled && activeCount == 0
+            child:
+                _enabled &&
+                    _proxyMode == AiExposureProxyMode.pool &&
+                    activeCount == 0
                 ? Padding(
                     key: const ValueKey<String>('empty-proxy-pool-hint'),
                     padding: const EdgeInsets.only(top: 10),
                     child: Text(
-                      systemProxyAvailable
-                          ? text(
-                              zh: '代理池暂无启用节点，保存后请求将回退全局系统代理。',
-                              en: 'No proxy pool node is enabled; requests will use the global system proxy.',
-                            )
-                          : text(
-                              zh: '代理池暂无启用节点，保存后请求将使用 DIRECT 直连。',
-                              en: 'No proxy pool node is enabled; requests will use a DIRECT connection.',
-                            ),
+                      text(
+                        zh: '代理池暂无启用节点，保存后请求将使用 DIRECT 直连。',
+                        en: 'No proxy pool node is enabled; requests will use a DIRECT connection.',
+                      ),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colors.tertiary,
                       ),
@@ -1050,6 +1104,63 @@ class _ProxyDialogState extends State<_ProxyDialog> {
             },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSystemProxyDetails(
+    BuildContext context, {
+    required bool available,
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    final text = openHandTextResolver(context);
+    final snapshot = SystemProxyResolver.instance.resolveRuntimeRoute();
+    final routes = <String>[
+      if (snapshot.httpProxy != null)
+        '${text(zh: 'HTTP', en: 'HTTP')}: ${_maskProxyForDisplay(snapshot.httpProxy!)}',
+      if (snapshot.httpsProxy != null)
+        '${text(zh: 'HTTPS', en: 'HTTPS')}: ${_maskProxyForDisplay(snapshot.httpsProxy!)}',
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: available
+              ? colors.secondaryContainer.withValues(alpha: 0.42)
+              : colors.errorContainer.withValues(alpha: 0.42),
+          borderRadius: kServiceInteractiveBorderRadius,
+          border: Border.all(
+            color: available ? colors.secondary : colors.error,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              available ? Icons.verified_user_outlined : Icons.warning_amber,
+              color: available ? colors.secondary : colors.error,
+            ),
+            kOpenHandHGap10,
+            Expanded(
+              child: Text(
+                available
+                    ? routes.isEmpty
+                          ? text(
+                              zh: '已探测到系统代理，但当前路由没有可用端点。',
+                              en: 'A system proxy was detected, but no usable route is available.',
+                            )
+                          : routes.join('  ·  ')
+                    : text(
+                        zh: '未探测到有效系统代理，该选项不可用。',
+                        en: 'No valid system proxy was detected. This option is unavailable.',
+                      ),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1719,6 +1830,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
           'type': 'openhand_ai_exposure_proxy_pool',
           'version': 2,
           'enabled': _enabled,
+          'mode': _proxyMode.id,
           'strategy': _strategy.id,
           'rotationEvery': _rotationEvery.round(),
           'bypassLocal': _bypassLocal,
@@ -1764,6 +1876,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     final updated = await controller.updateProxyConfiguration(
       AiExposureProxyConfiguration(
         enabled: _enabled,
+        mode: _proxyMode,
         strategy: _strategy,
         rotationEvery: _rotationEvery.round(),
         bypassLocal: _bypassLocal,
@@ -6301,6 +6414,12 @@ String _strategyLabel(
   AiExposureProxyStrategy.random => text(zh: '均衡随机', en: 'Random'),
   AiExposureProxyStrategy.stickyHost => text(zh: '目标粘性', en: 'Sticky host'),
 };
+
+String _maskProxyForDisplay(String value) {
+  final uri = Uri.tryParse(value);
+  if (uri == null || uri.userInfo.isEmpty) return value;
+  return uri.replace(userInfo: '******').toString();
+}
 
 String _intervalLabel(
   int minutes,

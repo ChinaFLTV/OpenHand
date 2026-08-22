@@ -24,7 +24,7 @@ class AiModelProxyStore {
       final decoded = jsonDecode('${rows.first['value']}');
       return AiModelProxySettings.fromJson(decoded);
     } catch (error, stack) {
-      silentLog('ai_model_proxy_store', '读取模型中转站设置', error, stack);
+      silentLog('ai_model_proxy_store', '读取模型服务设置', error, stack);
       return const AiModelProxySettings();
     }
   }

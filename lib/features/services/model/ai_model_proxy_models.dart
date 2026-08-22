@@ -118,6 +118,12 @@ class AiModelProxyRequestRecord {
     required this.durationMs,
     required this.success,
     this.error,
+    this.clientIp = '',
+    this.clientPort = '',
+    this.proxyMode = '',
+    this.proxyEndpoint = '',
+    this.remoteHost = '',
+    this.remotePort = '',
   });
 
   factory AiModelProxyRequestRecord.fromJson(Object? raw) {
@@ -136,6 +142,12 @@ class AiModelProxyRequestRecord {
       durationMs: _proxyBoundedInt(json['duration_ms'], 0, 0, 1 << 31),
       success: json['success'] as bool? ?? false,
       error: nullIfBlank('${json['error'] ?? ''}'),
+      clientIp: '${json['client_ip'] ?? ''}',
+      clientPort: '${json['client_port'] ?? ''}',
+      proxyMode: '${json['proxy_mode'] ?? ''}',
+      proxyEndpoint: '${json['proxy_endpoint'] ?? ''}',
+      remoteHost: '${json['remote_host'] ?? ''}',
+      remotePort: '${json['remote_port'] ?? ''}',
     );
   }
 
@@ -148,6 +160,12 @@ class AiModelProxyRequestRecord {
   final int durationMs;
   final bool success;
   final String? error;
+  final String clientIp;
+  final String clientPort;
+  final String proxyMode;
+  final String proxyEndpoint;
+  final String remoteHost;
+  final String remotePort;
 
   Map<String, Object?> toJson() => <String, Object?>{
     'id': id,
@@ -159,6 +177,12 @@ class AiModelProxyRequestRecord {
     'duration_ms': durationMs,
     'success': success,
     if (error != null) 'error': error,
+    if (clientIp.trim().isNotEmpty) 'client_ip': clientIp.trim(),
+    if (clientPort.trim().isNotEmpty) 'client_port': clientPort.trim(),
+    if (proxyMode.trim().isNotEmpty) 'proxy_mode': proxyMode.trim(),
+    if (proxyEndpoint.trim().isNotEmpty) 'proxy_endpoint': proxyEndpoint.trim(),
+    if (remoteHost.trim().isNotEmpty) 'remote_host': remoteHost.trim(),
+    if (remotePort.trim().isNotEmpty) 'remote_port': remotePort.trim(),
   };
 }
 
@@ -327,6 +351,12 @@ class AiModelProxySettings {
     String modelId = '',
     String apiStyle = '',
     String? error,
+    String clientIp = '',
+    String clientPort = '',
+    String proxyMode = '',
+    String proxyEndpoint = '',
+    String remoteHost = '',
+    String remotePort = '',
   }) {
     final now = DateTime.now();
     final record = AiModelProxyRequestRecord(
@@ -339,6 +369,12 @@ class AiModelProxySettings {
       durationMs: durationMs.clamp(0, 1 << 30),
       success: success,
       error: error,
+      clientIp: clientIp,
+      clientPort: clientPort,
+      proxyMode: proxyMode,
+      proxyEndpoint: proxyEndpoint,
+      remoteHost: remoteHost,
+      remotePort: remotePort,
     );
     final nextRecords = <AiModelProxyRequestRecord>[...recentRequests, record];
     if (nextRecords.length > 200) {

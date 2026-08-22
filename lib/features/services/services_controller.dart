@@ -238,9 +238,15 @@ class ServicesController extends ChangeNotifier {
 
   bool get usesProxyPool =>
       _proxyConfiguration.enabled &&
+      _proxyConfiguration.mode == AiExposureProxyMode.pool &&
       _proxyConfiguration.activeEndpoints.isNotEmpty;
 
-  bool get usesSystemProxyFallback => !usesProxyPool && systemProxyAvailable;
+  bool get usesSystemProxy =>
+      _proxyConfiguration.enabled &&
+      _proxyConfiguration.mode == AiExposureProxyMode.system &&
+      systemProxyAvailable;
+
+  bool get usesSystemProxyFallback => usesSystemProxy;
 
   bool get systemProxyAvailable {
     final status = _proxyStatus;
@@ -269,7 +275,7 @@ class ServicesController extends ChangeNotifier {
 
   AiExposureProxyRoute get proxyRoute => usesProxyPool
       ? AiExposureProxyRoute.pool
-      : usesSystemProxyFallback
+      : usesSystemProxy
       ? AiExposureProxyRoute.system
       : AiExposureProxyRoute.direct;
 
@@ -1018,14 +1024,25 @@ class ServicesController extends ChangeNotifier {
 
   Future<bool> updateProxyConfiguration(
     AiExposureProxyConfiguration configuration,
-  ) => _applyProxyConfiguration(
-    configuration,
-    logMessage: configuration.enabled
-        ? configuration.activeEndpoints.isEmpty
-              ? '代理池已启用但暂无可用节点，网络请求将使用 ${systemProxyAvailable ? '系统代理' : 'DIRECT'}。'
-              : '代理池已启用，共 ${configuration.activeEndpoints.length} 个可用节点。'
-        : '代理池已停用，网络请求将使用 ${systemProxyAvailable ? '系统代理' : 'DIRECT'}。',
-  );
+  ) async {
+    if (configuration.enabled &&
+        configuration.mode == AiExposureProxyMode.system &&
+        !systemProxyAvailable) {
+      _errorMessage = '当前未探测到有效的系统代理，无法启用系统代理方式。';
+      _notify();
+      return false;
+    }
+    return _applyProxyConfiguration(
+      configuration,
+      logMessage: configuration.enabled
+          ? configuration.mode == AiExposureProxyMode.system
+                ? '系统代理已启用。'
+                : configuration.activeEndpoints.isEmpty
+                ? '代理池已启用但暂无可用节点，网络请求将使用 DIRECT。'
+                : '代理池已启用，共 ${configuration.activeEndpoints.length} 个可用节点。'
+          : '代理已停用，网络请求将使用 DIRECT。',
+    );
+  }
 
   Future<bool> updateProxyEndpoints(List<AiExposureProxyEndpoint> endpoints) {
     final activeCount = endpoints.where((endpoint) => endpoint.enabled).length;

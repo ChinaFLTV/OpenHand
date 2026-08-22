@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../shared/util/serial_task_queue.dart';
 import '../ai/index.dart';
 import 'data/ai_model_proxy_store.dart';
+import 'model/ai_exposure_models.dart';
 import 'model/ai_model_proxy_models.dart';
 
 enum AiModelProxyLifecycle { stopped, starting, running, stopping, error }
@@ -21,9 +22,11 @@ class AiModelProxyController extends ChangeNotifier {
   String? _errorMessage;
   bool _disposed = false;
   final Map<String, int> _roundRobinCursors = <String, int>{};
+  final Map<String, int> _proxyRoundRobinCursors = <String, int>{};
   final List<DateTime> _rateWindow = <DateTime>[];
   int _rateWindowTokens = 0;
   List<AiModelConfig> Function()? _modelsProvider;
+  AiExposureProxyConfiguration Function()? _networkProxyProvider;
 
   AiModelProxySettings get settings => _settings;
   AiModelProxyLifecycle get lifecycle => _lifecycle;
@@ -32,6 +35,49 @@ class AiModelProxyController extends ChangeNotifier {
 
   void attachModelsProvider(List<AiModelConfig> Function() provider) {
     _modelsProvider = provider;
+  }
+
+  /// 复用暴露面扫描服务的代理池配置，保证两个服务选择同一条网络策略。
+  void attachNetworkProxyProvider(
+    AiExposureProxyConfiguration Function() provider,
+  ) {
+    _networkProxyProvider = provider;
+  }
+
+  AiExposureProxyConfiguration? get networkProxyConfiguration =>
+      _networkProxyProvider?.call();
+
+  AiExposureProxyEndpoint? resolveProxyEndpoint({String targetHost = ''}) {
+    final configuration = networkProxyConfiguration;
+    if (configuration == null ||
+        !configuration.enabled ||
+        configuration.mode != AiExposureProxyMode.pool) {
+      return null;
+    }
+    final endpoints = configuration.activeEndpoints;
+    if (endpoints.isEmpty) return null;
+    switch (configuration.strategy) {
+      case AiExposureProxyStrategy.fixed:
+        return endpoints.first;
+      case AiExposureProxyStrategy.random:
+        return endpoints[math.Random().nextInt(endpoints.length)];
+      case AiExposureProxyStrategy.stickyHost:
+        final key = targetHost.trim().toLowerCase();
+        final index = key.isEmpty
+            ? 0
+            : (key.hashCode & 0x7fffffff) % endpoints.length;
+        return endpoints[index];
+      case AiExposureProxyStrategy.roundRobin:
+        final key = targetHost.trim().toLowerCase().isEmpty
+            ? 'default'
+            : targetHost.trim().toLowerCase();
+        final index = _proxyRoundRobinCursors.update(
+          key,
+          (value) => (value + 1) % endpoints.length,
+          ifAbsent: () => 0,
+        );
+        return endpoints[index];
+    }
   }
 
   bool authorize(Map<String, String> headers) {
@@ -180,6 +226,12 @@ class AiModelProxyController extends ChangeNotifier {
     String modelId = '',
     String apiStyle = '',
     String? error,
+    String clientIp = '',
+    String clientPort = '',
+    String proxyMode = '',
+    String proxyEndpoint = '',
+    String remoteHost = '',
+    String remotePort = '',
   }) => saveSettings(
     _settings.record(
       success: success,
@@ -189,6 +241,12 @@ class AiModelProxyController extends ChangeNotifier {
       modelId: modelId,
       apiStyle: apiStyle,
       error: error,
+      clientIp: clientIp,
+      clientPort: clientPort,
+      proxyMode: proxyMode,
+      proxyEndpoint: proxyEndpoint,
+      remoteHost: remoteHost,
+      remotePort: remotePort,
     ),
   );
 

@@ -25,13 +25,17 @@ class ServicesModule {
       silentLog('services_module', '加载扫描服务设置', error, stack);
       preferences = AiExposurePreferences.defaults();
     }
+    final controller = ServicesController(
+      preferencesStore: store,
+      initialPreferences: preferences,
+    );
     final aiModelProxyController = AiModelProxyController();
+    aiModelProxyController.attachNetworkProxyProvider(
+      () => controller.proxyConfiguration,
+    );
     await aiModelProxyController.load();
     return ServicesModule._(
-      controller: ServicesController(
-        preferencesStore: store,
-        initialPreferences: preferences,
-      ),
+      controller: controller,
       aiModelProxyController: aiModelProxyController,
     );
   }

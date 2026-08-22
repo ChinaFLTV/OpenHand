@@ -207,10 +207,20 @@ pub enum ProxyRotationStrategy {
     StickyHost,
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProxyMode {
+    #[default]
+    Pool,
+    System,
+}
+
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProxyConfigurationInput {
     pub enabled: bool,
+    #[serde(default)]
+    pub mode: ProxyMode,
     #[serde(default)]
     pub strategy: ProxyRotationStrategy,
     #[serde(default = "default_proxy_rotation_every")]
@@ -398,6 +408,7 @@ struct ProxyClientCache {
 
 struct ProxyRuntime {
     enabled: bool,
+    mode: ProxyMode,
     strategy: ProxyRotationStrategy,
     rotation_every: u64,
     bypass_local: bool,
@@ -601,6 +612,7 @@ impl DynamicProxySelector {
         }
         let ProxyConfigurationInput {
             enabled,
+            mode,
             strategy,
             rotation_every,
             bypass_local,
@@ -663,6 +675,7 @@ impl DynamicProxySelector {
             .retain(&unique);
         let runtime = ProxyRuntime::configured(
             enabled,
+            mode,
             strategy,
             rotation_every,
             bypass_local,
@@ -804,6 +817,9 @@ impl HttpRequestObserver for DynamicProxySelector {
             .read()
             .unwrap_or_else(|error| error.into_inner())
             .clone();
+        if !matches!(runtime.mode, ProxyMode::System) {
+            return Ok(None);
+        }
         let Some(proxy) = runtime.system_proxy.proxy_for(request.url()) else {
             return Ok(None);
         };
@@ -828,9 +844,14 @@ impl HttpRequestObserver for DynamicProxySelector {
             .read()
             .unwrap_or_else(|error| error.into_inner())
             .clone();
+        let proxy = if matches!(runtime.mode, ProxyMode::System) {
+            runtime.system_proxy.proxy_for(target).cloned()
+        } else {
+            None
+        };
         Ok(ExternalHttpRequestRoute {
             ticket: None,
-            proxy: runtime.system_proxy.proxy_for(target).cloned(),
+            proxy,
         })
     }
 
@@ -887,6 +908,7 @@ impl ProxyRuntime {
     fn direct() -> Self {
         Self {
             enabled: false,
+            mode: ProxyMode::Pool,
             strategy: ProxyRotationStrategy::RoundRobin,
             rotation_every: 1,
             bypass_local: true,
@@ -900,6 +922,7 @@ impl ProxyRuntime {
 
     fn configured(
         enabled: bool,
+        mode: ProxyMode,
         strategy: ProxyRotationStrategy,
         rotation_every: u64,
         bypass_local: bool,
@@ -917,6 +940,7 @@ impl ProxyRuntime {
             .sum();
         Self {
             enabled,
+            mode,
             strategy,
             rotation_every: rotation_every.clamp(1, 10_000),
             bypass_local,
@@ -929,7 +953,8 @@ impl ProxyRuntime {
     }
 
     fn route(&self, target: &reqwest::Url) -> Option<ProxyRoute> {
-        if self.enabled
+        if matches!(self.mode, ProxyMode::Pool)
+            && self.enabled
             && !self.endpoints.is_empty()
             && !(self.bypass_local && is_local_target(target))
         {
@@ -952,10 +977,14 @@ impl ProxyRuntime {
                 }
             }));
         }
-        self.system_proxy
-            .proxy_for(target)
-            .cloned()
-            .map(ProxyRoute::System)
+        if matches!(self.mode, ProxyMode::System) {
+            return self
+                .system_proxy
+                .proxy_for(target)
+                .cloned()
+                .map(ProxyRoute::System);
+        }
+        None
     }
 
     fn status(&self) -> ProxyConfigurationStatus {
@@ -3717,6 +3746,7 @@ mod tests {
         selector
             .update(ProxyConfigurationInput {
                 enabled: true,
+                mode: ProxyMode::Pool,
                 strategy: ProxyRotationStrategy::RoundRobin,
                 rotation_every: 1,
                 bypass_local: true,
@@ -3787,11 +3817,12 @@ mod tests {
     }
 
     #[test]
-    fn prioritizes_pool_then_falls_back_to_system_proxy() {
+    fn keeps_pool_mode_direct_when_pool_has_no_route() {
         let selector = DynamicProxySelector::new();
         selector
             .update(ProxyConfigurationInput {
                 enabled: true,
+                mode: ProxyMode::Pool,
                 strategy: ProxyRotationStrategy::Fixed,
                 rotation_every: 1,
                 bypass_local: true,
@@ -3813,24 +3844,18 @@ mod tests {
         assert!(pool_route.ticket.is_some());
 
         let fallback_route = selector.begin_external_fallback(&remote).unwrap();
-        assert_eq!(
-            fallback_route.proxy.as_ref().map(reqwest::Url::as_str),
-            Some("socks5://127.0.0.1:9081")
-        );
+        assert!(fallback_route.proxy.is_none());
         assert!(fallback_route.ticket.is_none());
 
         let local = reqwest::Url::parse("http://192.168.1.20/status").unwrap();
         let system_route = selector.begin_external(&local).unwrap();
-        assert_eq!(
-            system_route.proxy.as_ref().map(reqwest::Url::as_str),
-            Some("http://127.0.0.1:9080/")
-        );
+        assert!(system_route.proxy.is_none());
         assert!(system_route.ticket.is_none());
         assert_eq!(selector.status().total_selections, 1);
     }
 
     #[test]
-    fn uses_system_proxy_when_pool_is_disabled_or_empty() {
+    fn uses_system_proxy_only_when_system_mode_is_selected() {
         for (enabled, endpoints) in [
             (
                 false,
@@ -3842,6 +3867,7 @@ mod tests {
             selector
                 .update(ProxyConfigurationInput {
                     enabled,
+                    mode: ProxyMode::System,
                     endpoints,
                     system_proxy: Some(SystemProxyInput {
                         https: Some("http://127.0.0.1:9080".to_owned()),
@@ -3892,6 +3918,7 @@ mod tests {
         selector
             .update(ProxyConfigurationInput {
                 enabled: true,
+                mode: ProxyMode::Pool,
                 strategy: ProxyRotationStrategy::Fixed,
                 rotation_every: 1,
                 bypass_local: true,
@@ -3928,6 +3955,7 @@ mod tests {
         selector
             .update(ProxyConfigurationInput {
                 enabled: true,
+                mode: ProxyMode::Pool,
                 strategy: ProxyRotationStrategy::Fixed,
                 rotation_every: 1,
                 bypass_local: true,
@@ -3966,6 +3994,7 @@ mod tests {
         let selector = DynamicProxySelector::new();
         let configuration = || ProxyConfigurationInput {
             enabled: true,
+            mode: ProxyMode::Pool,
             strategy: ProxyRotationStrategy::Fixed,
             rotation_every: 1,
             bypass_local: true,
@@ -3994,6 +4023,7 @@ mod tests {
         selector
             .update(ProxyConfigurationInput {
                 enabled: true,
+                mode: ProxyMode::Pool,
                 strategy: ProxyRotationStrategy::Fixed,
                 rotation_every: 1,
                 bypass_local: true,

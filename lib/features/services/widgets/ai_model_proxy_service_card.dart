@@ -8,6 +8,7 @@ import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../ai_model_proxy_controller.dart';
+import 'ai_exposure_proxy_dialog.dart';
 import 'ai_model_proxy_dialogs.dart';
 
 class AiModelProxyServiceCard extends StatelessWidget {
@@ -51,6 +52,7 @@ class AiModelProxyServiceCard extends StatelessWidget {
                   busy: controller.busy,
                   onToggle: controller.toggle,
                   onProviders: () => showAiModelProxyProvidersDialog(context),
+                  onNetworkProxy: () => showAiExposureProxyDialog(context),
                   onUsage: () => showAiModelProxyUsageDialog(context),
                   onSettings: () => showAiModelProxySettingsDialog(context),
                 );
@@ -216,6 +218,7 @@ class _ProxyActions extends StatelessWidget {
     required this.busy,
     required this.onToggle,
     required this.onProviders,
+    required this.onNetworkProxy,
     required this.onUsage,
     required this.onSettings,
   });
@@ -223,6 +226,7 @@ class _ProxyActions extends StatelessWidget {
   final bool busy;
   final Future<void> Function() onToggle;
   final VoidCallback onProviders;
+  final VoidCallback onNetworkProxy;
   final VoidCallback onUsage;
   final VoidCallback onSettings;
   @override
@@ -261,6 +265,11 @@ class _ProxyActions extends StatelessWidget {
           Icons.hub_outlined,
           text(zh: 'AI 模型提供商', en: 'AI model providers'),
           onProviders,
+        ),
+        action(
+          Icons.lan_outlined,
+          text(zh: '网络代理', en: 'Network proxy'),
+          onNetworkProxy,
         ),
         action(
           Icons.query_stats_rounded,
