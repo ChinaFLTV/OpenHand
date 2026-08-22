@@ -3852,6 +3852,11 @@ String _usageSourceLabel(BuildContext context, String source) {
       zh: '模型测试',
       en: 'Model Test',
     ),
+    AiUsageSource.modelProxy => openHandLocalizedText(
+      context,
+      zh: 'AI模型服务中转站',
+      en: 'AI Model Service Proxy',
+    ),
     _ => openHandOtherLabel(context),
   };
 }
@@ -3913,6 +3918,11 @@ String _usageOperationLabel(BuildContext context, String operation) {
       context,
       zh: '语音合成',
       en: 'Speech Synthesis',
+    ),
+    'proxy_request' => openHandLocalizedText(
+      context,
+      zh: '中转站请求',
+      en: 'Proxy Request',
     ),
     'self_learning_round' => openHandLocalizedText(
       context,

@@ -27,6 +27,7 @@ abstract final class AiUsageSource {
   static const String webSearch = 'web_search';
   static const String webFetch = 'web_fetch';
   static const String modelTest = 'model_test';
+  static const String modelProxy = 'model_proxy';
   static const String other = 'other';
 }
 
@@ -94,7 +95,8 @@ class AiUsageTracker {
   static const int _defaultEstimatedCharactersPerToken = 4;
   static const int _pruneInterval = 256;
   static const int _maxErrorMessageCharacters = 8000;
-  static const Duration runtimeCleanupTimeout = kOpenHandServiceRuntimeCleanupTimeout;
+  static const Duration runtimeCleanupTimeout =
+      kOpenHandServiceRuntimeCleanupTimeout;
 
   final AiUsageStore _store = const AiUsageStore();
   final SerialTaskQueue _writes = SerialTaskQueue(maxPendingTasks: 2048);

@@ -82,12 +82,33 @@ class AiModelProxyDispatcher {
           : null;
       final chatClient = routedClient?.service ?? _chatClient;
       try {
-        final result = await chatClient.sendMessage(
-          model: model,
-          messages: messages,
-          creationRequest: AiCreationRequest.none,
-          allowResponsesFallback:
-              settings.apiStyle == AiModelProxyApiStyle.openAiResponses,
+        final result = await AiUsageTraceContext.runDerived(
+          surface: 'service',
+          source: AiUsageSource.modelProxy,
+          operation: 'proxy_request',
+          metadata: <String, Object?>{
+            'exposed_model': exposedModel,
+            'proxy_mode': network.mode,
+            'proxy_endpoint': network.endpoint,
+            'remote_host': network.remoteHost,
+            'remote_port': network.remotePort,
+            'client_ip': _headerValue(headers, const <String>[
+              'x-forwarded-for',
+              'x-real-ip',
+              'x-client-ip',
+            ]),
+            'client_port': _headerValue(headers, const <String>[
+              'x-forwarded-port',
+              'x-client-port',
+            ]),
+          },
+          body: () => chatClient.sendMessage(
+            model: model,
+            messages: messages,
+            creationRequest: AiCreationRequest.none,
+            allowResponsesFallback:
+                settings.apiStyle == AiModelProxyApiStyle.openAiResponses,
+          ),
         );
         final endedAt = DateTime.now();
         final durationMs = endedAt.difference(startedAt).inMilliseconds;
