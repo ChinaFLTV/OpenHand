@@ -408,6 +408,7 @@ class _ProxyModelsDialog extends StatefulWidget {
 
 class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
   String? _selectedModel;
+  int _displayedExposedModelCount = 0;
   late final ScrollController _diagramHorizontalController;
 
   static const double _nodeHeight = 96;
@@ -470,7 +471,10 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
           '${backend.providerId.trim().toLowerCase()}\u0000${backend.modelId.trim().toLowerCase()}';
       if (backendKeys.add(key)) backendItems.add(backend);
     }
-    final middleCount = math.max(exposedModels.length, 1);
+    final middleCount = math.max(
+      math.max(exposedModels.length, _displayedExposedModelCount),
+      1,
+    );
     final backendCount = backendItems.length;
     final backendItemsHeight = backendCount > 0
         ? backendCount * (_backendHeight + _nodeGap)
@@ -561,6 +565,8 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                       items: exposedModels,
                                       itemKey: (model) => model,
                                       gap: _nodeGap,
+                                      onDisplayItemsChanged:
+                                          _updateDisplayedExposedModelCount,
                                       emptyChild: Column(
                                         children: [
                                           _EmptyBackendCard(
@@ -657,6 +663,9 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                     _AnimatedMappingItems<AiModelProxyBackend>(
                                       key: const ValueKey<String>(
                                         'proxy-backend-items',
+                                      ),
+                                      displayGroupKey: _modelKey(
+                                        activeModel ?? '',
                                       ),
                                       items: backendItems,
                                       itemKey: (backend) =>
@@ -776,6 +785,11 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
         ),
       ),
     );
+  }
+
+  void _updateDisplayedExposedModelCount(int count) {
+    if (!mounted || _displayedExposedModelCount == count) return;
+    setState(() => _displayedExposedModelCount = count);
   }
 
   Future<void> _toggleExposedModel(String exposedModel, bool enabled) async {
@@ -1227,6 +1241,8 @@ class _AnimatedMappingItems<T> extends StatefulWidget {
     required this.emptyChild,
     required this.gap,
     this.onReorder,
+    this.onDisplayItemsChanged,
+    this.displayGroupKey,
   });
 
   final List<T> items;
@@ -1235,6 +1251,8 @@ class _AnimatedMappingItems<T> extends StatefulWidget {
   final Widget emptyChild;
   final double gap;
   final void Function(int oldIndex, int newIndex)? onReorder;
+  final ValueChanged<int>? onDisplayItemsChanged;
+  final String? displayGroupKey;
 
   @override
   State<_AnimatedMappingItems<T>> createState() =>
@@ -1243,16 +1261,24 @@ class _AnimatedMappingItems<T> extends StatefulWidget {
 
 class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
   late List<T> _displayedItems;
+  int? _lastReportedDisplayCount;
 
   @override
   void initState() {
     super.initState();
     _displayedItems = List<T>.of(widget.items);
+    _scheduleDisplayCountNotification();
   }
 
   @override
   void didUpdateWidget(covariant _AnimatedMappingItems<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.displayGroupKey != widget.displayGroupKey) {
+      _displayedItems = List<T>.of(widget.items);
+      _lastReportedDisplayCount = null;
+      _scheduleDisplayCountNotification();
+      return;
+    }
     final currentKeys = widget.items.map(widget.itemKey).toSet();
     final nextDisplayed = List<T>.of(widget.items);
     for (var index = 0; index < _displayedItems.length; index++) {
@@ -1262,6 +1288,20 @@ class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
       }
     }
     _displayedItems = nextDisplayed;
+    _scheduleDisplayCountNotification();
+  }
+
+  void _scheduleDisplayCountNotification() {
+    final callback = widget.onDisplayItemsChanged;
+    if (callback == null || _lastReportedDisplayCount == _displayedItems.length) {
+      return;
+    }
+    final count = _displayedItems.length;
+    _lastReportedDisplayCount = count;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || widget.onDisplayItemsChanged == null) return;
+      widget.onDisplayItemsChanged!(count);
+    });
   }
 
   void _removeDismissed(String itemKey) {
@@ -1270,6 +1310,7 @@ class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
     setState(() {
       _displayedItems.removeWhere((item) => widget.itemKey(item) == itemKey);
     });
+    _scheduleDisplayCountNotification();
   }
 
   @override
