@@ -1335,17 +1335,17 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
             ),
             kOpenHandGap14,
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 OpenHandDialogActionButton.secondary(
                   label: text(zh: '取消', en: 'Cancel'),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
                 kOpenHandHGap10,
-                FilledButton.icon(
+                OpenHandDialogActionButton.primary(
                   onPressed: _save,
-                  icon: const Icon(Icons.save_outlined),
-                  label: Text(text(zh: '保存设置', en: 'Save settings')),
+                  icon: Icons.save_outlined,
+                  label: text(zh: '保存设置', en: 'Save settings'),
                 ),
               ],
             ),
