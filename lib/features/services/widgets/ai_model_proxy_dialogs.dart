@@ -268,6 +268,7 @@ class _ProviderTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = Theme.of(context).colorScheme;
     final text = openHandTextResolver(context);
+    final isDraggingProxy = OpenHandReorderProxyContext.isProxy(context);
     final allModels = model.allModelIds;
     final visibleModels = allModels.take(8).toList(growable: false);
     final hiddenCount = allModels.length - visibleModels.length;
@@ -276,7 +277,9 @@ class _ProviderTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
+        color: isDraggingProxy
+            ? Colors.transparent
+            : colors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(kOpenHandRadius24),
         border: Border.all(color: colors.outlineVariant),
       ),
