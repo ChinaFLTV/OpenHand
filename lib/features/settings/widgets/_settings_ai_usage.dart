@@ -380,11 +380,29 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
           title: openHandLocalizedText(context, zh: '使用趋势', en: 'Usage Trend'),
           subtitle: openHandLocalizedText(
             context,
-            zh: '输入、输出、状态与请求总数随时间变化，双指缩放调整范围',
-            en: 'Input, output, status and total requests over time; pinch to zoom the range',
+            zh: '输入、输出与缓存命中随时间变化，双指缩放调整范围',
+            en: 'Input, output and cache hits over time; pinch to zoom the range',
           ),
           trailing: Text(_usageRangeLabel(context, snapshot.filter.range)),
           child: _AiUsageTrendChart(buckets: snapshot.trend),
+        ),
+        kOpenHandGap14,
+        _AiUsagePanel(
+          title: openHandLocalizedText(
+            context,
+            zh: '请求状态趋势',
+            en: 'Request Status Trend',
+          ),
+          subtitle: openHandLocalizedText(
+            context,
+            zh: '成功、失败、超时与请求总数随时间变化，独立统计请求结果',
+            en: 'Success, failures, timeouts and total requests over time',
+          ),
+          trailing: Text(_usageRangeLabel(context, snapshot.filter.range)),
+          child: _AiUsageTrendChart(
+            buckets: snapshot.trend,
+            mode: _AiUsageTrendMode.status,
+          ),
         ),
         kOpenHandGap14,
         _AiUsageHealthPanel(snapshot: snapshot),
@@ -1826,10 +1844,16 @@ class _AiUsagePanel extends StatelessWidget {
   }
 }
 
+enum _AiUsageTrendMode { usage, status }
+
 class _AiUsageTrendChart extends StatefulWidget {
-  const _AiUsageTrendChart({required this.buckets});
+  const _AiUsageTrendChart({
+    required this.buckets,
+    this.mode = _AiUsageTrendMode.usage,
+  });
 
   final List<AiUsageBucket> buckets;
+  final _AiUsageTrendMode mode;
 
   @override
   State<_AiUsageTrendChart> createState() => _AiUsageTrendChartState();
@@ -1841,6 +1865,21 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
   bool _tooltipVisible = false;
   double _visibleFraction = 1;
   double _gestureStartFraction = 1;
+
+  @override
+  void didUpdateWidget(covariant _AiUsageTrendChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.buckets == widget.buckets && oldWidget.mode == widget.mode) {
+      return;
+    }
+    _selectedIndex = null;
+    _tooltipIndex = null;
+    _tooltipVisible = false;
+    if (oldWidget.buckets != widget.buckets) {
+      _visibleFraction = 1;
+      _gestureStartFraction = 1;
+    }
+  }
 
   List<AiUsageBucket> get _displayBuckets {
     final buckets = widget.buckets;
@@ -1871,38 +1910,45 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
           spacing: 16,
           runSpacing: 7,
           children: [
-            _AiUsageLegendDot(
-              color: theme.colorScheme.primary,
-              label: _settingsAiUsagInputLabel(context),
-            ),
-            _AiUsageLegendDot(
-              color: theme.colorScheme.tertiary,
-              label: openHandOutputLabel(context),
-            ),
-            _AiUsageLegendDot(
-              color: OpenHandStatusColors.success,
-              label: openHandLocalizedText(
-                context,
-                zh: '缓存命中',
-                en: 'Cache Read',
+            if (widget.mode == _AiUsageTrendMode.usage) ...[
+              _AiUsageLegendDot(
+                color: theme.colorScheme.primary,
+                label: _settingsAiUsagInputLabel(context),
               ),
-            ),
-            _AiUsageLegendDot(
-              color: theme.colorScheme.primary,
-              label: openHandLocalizedText(context, zh: '成功数', en: 'Success'),
-            ),
-            _AiUsageLegendDot(
-              color: theme.colorScheme.error,
-              label: openHandLocalizedText(context, zh: '失败数', en: 'Failed'),
-            ),
-            _AiUsageLegendDot(
-              color: theme.colorScheme.tertiary,
-              label: openHandLocalizedText(context, zh: '超时数', en: 'Timeout'),
-            ),
-            _AiUsageLegendDot(
-              color: theme.colorScheme.onSurface,
-              label: openHandLocalizedText(context, zh: '请求总数', en: 'Requests'),
-            ),
+              _AiUsageLegendDot(
+                color: theme.colorScheme.tertiary,
+                label: openHandOutputLabel(context),
+              ),
+              _AiUsageLegendDot(
+                color: OpenHandStatusColors.success,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '缓存命中',
+                  en: 'Cache Read',
+                ),
+              ),
+            ] else ...[
+              _AiUsageLegendDot(
+                color: OpenHandStatusColors.success,
+                label: openHandLocalizedText(context, zh: '成功数', en: 'Success'),
+              ),
+              _AiUsageLegendDot(
+                color: theme.colorScheme.error,
+                label: openHandLocalizedText(context, zh: '失败数', en: 'Failed'),
+              ),
+              _AiUsageLegendDot(
+                color: theme.colorScheme.tertiary,
+                label: openHandLocalizedText(context, zh: '超时数', en: 'Timeout'),
+              ),
+              _AiUsageLegendDot(
+                color: theme.colorScheme.onSurface,
+                label: openHandLocalizedText(
+                  context,
+                  zh: '请求总数',
+                  en: 'Requests',
+                ),
+              ),
+            ],
           ],
         ),
         kOpenHandGap14,
@@ -1944,6 +1990,7 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
                               buckets: buckets,
                               colorScheme: theme.colorScheme,
                               selectedIndex: _selectedIndex,
+                              mode: widget.mode,
                             ),
                           ),
                         ),
@@ -2044,24 +2091,27 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
                           ),
                         ),
                         kOpenHandGap5,
-                        Text('Token  ${_usageInteger(bucket.totalTokens)}'),
-                        Text(
-                          '${_settingsAiUsagInputLabel(context)}  ${_usageInteger(bucket.promptTokens)}  ·  '
-                          '${openHandOutputLabel(context)}  ${_usageInteger(bucket.completionTokens)}',
-                        ),
-                        Text(
-                          '${_settingsAiUsagCostLabel(context)}  ${bucket.pricedRequestCount == 0
-                              ? '—'
-                              : bucket.pricedRequestCount < bucket.requestCount
-                              ? '≥${_usageMoney(bucket.totalCostUsd)}'
-                              : _usageMoney(bucket.totalCostUsd)}',
-                        ),
-                        Text(
-                          '${openHandLocalizedText(context, zh: '成功', en: 'Success')}  ${bucket.successCount}  ·  '
-                          '${openHandLocalizedText(context, zh: '失败', en: 'Failed')}  ${bucket.failedCount}  ·  '
-                          '${openHandLocalizedText(context, zh: '超时', en: 'Timeout')}  ${bucket.timeoutCount}  ·  '
-                          '${openHandLocalizedText(context, zh: '总请求', en: 'Requests')}  ${bucket.requestCount}',
-                        ),
+                        if (widget.mode == _AiUsageTrendMode.usage) ...[
+                          Text('Token  ${_usageInteger(bucket.totalTokens)}'),
+                          Text(
+                            '${_settingsAiUsagInputLabel(context)}  ${_usageInteger(bucket.promptTokens)}  ·  '
+                            '${openHandOutputLabel(context)}  ${_usageInteger(bucket.completionTokens)}',
+                          ),
+                          Text(
+                            '${_settingsAiUsagCostLabel(context)}  ${bucket.pricedRequestCount == 0
+                                ? '—'
+                                : bucket.pricedRequestCount < bucket.requestCount
+                                ? '≥${_usageMoney(bucket.totalCostUsd)}'
+                                : _usageMoney(bucket.totalCostUsd)}',
+                          ),
+                        ] else ...[
+                          Text(
+                            '${openHandLocalizedText(context, zh: '成功', en: 'Success')}  ${bucket.successCount}  ·  '
+                            '${openHandLocalizedText(context, zh: '失败', en: 'Failed')}  ${bucket.failedCount}  ·  '
+                            '${openHandLocalizedText(context, zh: '超时', en: 'Timeout')}  ${bucket.timeoutCount}  ·  '
+                            '${openHandLocalizedText(context, zh: '总请求', en: 'Requests')}  ${bucket.requestCount}',
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -2080,11 +2130,13 @@ class _AiUsageTrendPainter extends CustomPainter {
     required this.buckets,
     required this.colorScheme,
     required this.selectedIndex,
+    required this.mode,
   });
 
   final List<AiUsageBucket> buckets;
   final ColorScheme colorScheme;
   final int? selectedIndex;
+  final _AiUsageTrendMode mode;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -2188,13 +2240,26 @@ class _AiUsageTrendPainter extends CustomPainter {
     }
 
     final inputPath = smoothPath(inputPoints);
-    final areaPath = Path.from(inputPath)
-      ..lineTo(size.width, top + chartHeight)
-      ..lineTo(0, top + chartHeight)
-      ..close();
+    final statusSuccessPoints = statusPoints((bucket) => bucket.successCount);
+    final statusFailedPoints = statusPoints((bucket) => bucket.failedCount);
+    final statusTimeoutPoints = statusPoints((bucket) => bucket.timeoutCount);
+    final statusRequestPoints = statusPoints((bucket) => bucket.requestCount);
+    final statusRequestPath = smoothPath(statusRequestPoints);
+    final areaPath =
+        Path.from(
+            mode == _AiUsageTrendMode.usage ? inputPath : statusRequestPath,
+          )
+          ..lineTo(size.width, top + chartHeight)
+          ..lineTo(0, top + chartHeight)
+          ..close();
     canvas.drawPath(
       areaPath,
-      Paint()..color = colorScheme.primary.withValues(alpha: 0.08),
+      Paint()
+        ..color =
+            (mode == _AiUsageTrendMode.usage
+                    ? colorScheme.primary
+                    : colorScheme.onSurface)
+                .withValues(alpha: 0.08),
     );
     void drawSeries(Path path, Color color, double width) {
       canvas.drawPath(
@@ -2208,29 +2273,20 @@ class _AiUsageTrendPainter extends CustomPainter {
       );
     }
 
-    drawSeries(inputPath, colorScheme.primary, 2.6);
-    drawSeries(smoothPath(outputPoints), colorScheme.tertiary, 2.2);
-    drawSeries(smoothPath(cachePoints), OpenHandStatusColors.success, 2.2);
-    drawSeries(
-      smoothPath(statusPoints((bucket) => bucket.successCount)),
-      colorScheme.primary.withValues(alpha: 0.72),
-      2.4,
-    );
-    drawSeries(
-      smoothPath(statusPoints((bucket) => bucket.failedCount)),
-      colorScheme.error,
-      2.2,
-    );
-    drawSeries(
-      smoothPath(statusPoints((bucket) => bucket.timeoutCount)),
-      colorScheme.tertiary.withValues(alpha: 0.82),
-      2.2,
-    );
-    drawSeries(
-      smoothPath(statusPoints((bucket) => bucket.requestCount)),
-      colorScheme.onSurface,
-      2.8,
-    );
+    if (mode == _AiUsageTrendMode.usage) {
+      drawSeries(inputPath, colorScheme.primary, 2.6);
+      drawSeries(smoothPath(outputPoints), colorScheme.tertiary, 2.2);
+      drawSeries(smoothPath(cachePoints), OpenHandStatusColors.success, 2.2);
+    } else {
+      drawSeries(
+        smoothPath(statusSuccessPoints),
+        OpenHandStatusColors.success,
+        2.4,
+      );
+      drawSeries(smoothPath(statusFailedPoints), colorScheme.error, 2.2);
+      drawSeries(smoothPath(statusTimeoutPoints), colorScheme.tertiary, 2.2);
+      drawSeries(smoothPath(statusRequestPoints), colorScheme.onSurface, 2.8);
+    }
     final selected = selectedIndex;
     if (selected != null) {
       final x = buckets.length <= 1 ? size.width / 2 : selected * step;
@@ -2253,9 +2309,16 @@ class _AiUsageTrendPainter extends CustomPainter {
         canvas.drawCircle(point, 3.2, Paint()..color = color);
       }
 
-      drawPoint(inputPoints, colorScheme.primary);
-      drawPoint(outputPoints, colorScheme.tertiary);
-      drawPoint(cachePoints, OpenHandStatusColors.success);
+      if (mode == _AiUsageTrendMode.usage) {
+        drawPoint(inputPoints, colorScheme.primary);
+        drawPoint(outputPoints, colorScheme.tertiary);
+        drawPoint(cachePoints, OpenHandStatusColors.success);
+      } else {
+        drawPoint(statusSuccessPoints, OpenHandStatusColors.success);
+        drawPoint(statusFailedPoints, colorScheme.error);
+        drawPoint(statusTimeoutPoints, colorScheme.tertiary);
+        drawPoint(statusRequestPoints, colorScheme.onSurface);
+      }
     }
     final labelStyle = TextStyle(
       color: colorScheme.onSurfaceVariant,
@@ -2290,7 +2353,8 @@ class _AiUsageTrendPainter extends CustomPainter {
   bool shouldRepaint(covariant _AiUsageTrendPainter oldDelegate) {
     return oldDelegate.buckets != buckets ||
         oldDelegate.colorScheme != colorScheme ||
-        oldDelegate.selectedIndex != selectedIndex;
+        oldDelegate.selectedIndex != selectedIndex ||
+        oldDelegate.mode != mode;
   }
 }
 
