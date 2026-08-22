@@ -6,6 +6,8 @@ import '../../../app/state/settings_controller.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_tooltip_dismissal.dart';
+import '../../../shared/ui/reorder_proxy_decorator.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
 import '../../settings/index.dart'
@@ -213,8 +215,13 @@ class _ProxyProvidersDialog extends StatelessWidget {
                         final target = newIndex > oldIndex
                             ? newIndex - 1
                             : newIndex;
+                        dismissOpenHandTooltipsSafely(
+                          debugLabel: '模型提供商重排前收起工具提示',
+                        );
                         await settings.moveAiModel(oldIndex, target);
                       },
+                      proxyDecorator: (child, index, animation) =>
+                          buildOpenHandReorderProxy(context, child, animation),
                       itemBuilder: (context, index) {
                         final model = models[index];
                         return _ProviderTile(
@@ -225,7 +232,12 @@ class _ProxyProvidersDialog extends StatelessWidget {
                             context,
                             initialModel: model,
                           ),
-                          onDelete: () => settings.deleteAiModel(model.id),
+                          onDelete: () {
+                            dismissOpenHandTooltipsSafely(
+                              debugLabel: '删除模型提供商前收起工具提示',
+                            );
+                            return settings.deleteAiModel(model.id);
+                          },
                         );
                       },
                     ),
@@ -333,20 +345,20 @@ class _ProviderTile extends StatelessWidget {
               Wrap(
                 spacing: 4,
                 children: [
-                  IconButton(
-                    tooltip: text(zh: '编辑', en: 'Edit'),
+                  _ProxySemanticIconButton(
+                    label: text(zh: '编辑', en: 'Edit'),
                     onPressed: onEdit,
                     icon: const Icon(Icons.edit_outlined),
                   ),
-                  IconButton(
-                    tooltip: text(zh: '删除', en: 'Delete'),
+                  _ProxySemanticIconButton(
+                    label: text(zh: '删除', en: 'Delete'),
                     onPressed: onDelete,
                     icon: const Icon(Icons.delete_outline_rounded),
                   ),
-                  ReorderableDragStartListener(
+                  _ProxyReorderHandle(
                     index: index,
+                    label: text(zh: '拖动排序', en: 'Reorder'),
                     child: IconButton(
-                      tooltip: text(zh: '拖动排序', en: 'Reorder'),
                       onPressed: () {},
                       icon: const Icon(Icons.drag_indicator_rounded),
                     ),
@@ -404,6 +416,54 @@ class _ProviderTile extends StatelessWidget {
       ),
     );
     return card;
+  }
+}
+
+class _ProxyReorderHandle extends StatelessWidget {
+  const _ProxyReorderHandle({
+    required this.index,
+    required this.label,
+    required this.child,
+  });
+
+  final int index;
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: Listener(
+        onPointerDown: (_) =>
+            dismissOpenHandTooltipsSafely(debugLabel: '开始拖动模型提供商前收起工具提示'),
+        child: ReorderableDragStartListener(index: index, child: child),
+      ),
+    );
+  }
+}
+
+class _ProxySemanticIconButton extends StatelessWidget {
+  const _ProxySemanticIconButton({
+    required this.label,
+    required this.onPressed,
+    required this.icon,
+  });
+
+  final String label;
+  final VoidCallback onPressed;
+  final Widget icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: IconButton(onPressed: onPressed, icon: icon),
+    );
   }
 }
 
