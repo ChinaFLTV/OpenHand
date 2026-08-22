@@ -1233,6 +1233,7 @@ class _ProxySettingsDialog extends StatefulWidget {
 }
 
 class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
+  late final TextEditingController _listenHost;
   late bool _auth;
   late AiModelProxyApiStyle _style;
   late AiModelProxyLimitMode _limitMode;
@@ -1240,12 +1241,15 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
   late AiModelProxySchedulingStrategy _scheduling;
   late int _threshold;
   late int _retryCount;
+  late int _listenPort;
   late TextEditingController _key;
 
   @override
   void initState() {
     super.initState();
     final value = context.read<AiModelProxyController>().settings;
+    _listenHost = TextEditingController(text: value.listenHost);
+    _listenPort = value.listenPort;
     _auth = value.requireAuthentication;
     _style = value.apiStyle;
     _limitMode = value.limitMode;
@@ -1258,6 +1262,7 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
 
   @override
   void dispose() {
+    _listenHost.dispose();
     _key.dispose();
     super.dispose();
   }
@@ -1266,6 +1271,10 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
     final controller = context.read<AiModelProxyController>();
     await controller.saveSettings(
       controller.settings.copyWith(
+        listenHost: _listenHost.text.trim().isEmpty
+            ? aiModelProxyDefaultListenHost
+            : _listenHost.text.trim(),
+        listenPort: _listenPort,
         requireAuthentication: _auth,
         apiKey: _key.text.trim(),
         apiStyle: _style,
@@ -1300,6 +1309,28 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
             Expanded(
               child: ListView(
                 children: [
+                  TextField(
+                    controller: _listenHost,
+                    textInputAction: TextInputAction.next,
+                    keyboardType: TextInputType.text,
+                    decoration: InputDecoration(
+                      labelText: text(zh: '监听地址', en: 'Listen address'),
+                      prefixIcon: const Icon(Icons.lan_outlined),
+                      helperText: text(
+                        zh: '默认 $aiModelProxyDefaultListenHost，仅本机访问。',
+                        en: 'Default $aiModelProxyDefaultListenHost; local access only.',
+                      ),
+                    ),
+                  ),
+                  kOpenHandGap12,
+                  _NumberStepper(
+                    label: text(zh: '监听端口', en: 'Listen port'),
+                    value: _listenPort,
+                    min: aiModelProxyMinListenPort,
+                    max: aiModelProxyMaxListenPort,
+                    onChanged: (value) => setState(() => _listenPort = value),
+                  ),
+                  kOpenHandGap14,
                   _ProxyToggleRow(
                     value: _auth,
                     onChanged: (value) => setState(() => _auth = value),

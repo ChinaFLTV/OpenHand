@@ -1,5 +1,10 @@
 import '../../../shared/util/input_value_parsing.dart';
 
+const String aiModelProxyDefaultListenHost = '127.0.0.1';
+const int aiModelProxyDefaultListenPort = 6699;
+const int aiModelProxyMinListenPort = 1;
+const int aiModelProxyMaxListenPort = 65535;
+
 int _proxyBoundedInt(Object? value, int fallback, int min, int max) {
   final parsed = value is num ? value.toInt() : int.tryParse('$value');
   return (parsed ?? fallback).clamp(min, max).toInt();
@@ -224,6 +229,8 @@ class AiModelProxyRoute {
 class AiModelProxySettings {
   const AiModelProxySettings({
     this.enabled = false,
+    this.listenHost = aiModelProxyDefaultListenHost,
+    this.listenPort = aiModelProxyDefaultListenPort,
     this.requireAuthentication = false,
     this.apiKey = '',
     this.apiStyle = AiModelProxyApiStyle.openAiResponses,
@@ -260,6 +267,13 @@ class AiModelProxySettings {
             .toList(growable: false);
     return AiModelProxySettings(
       enabled: json['enabled'] as bool? ?? false,
+      listenHost: _normalizeListenHost(json['listen_host']),
+      listenPort: _boundedInt(
+        json['listen_port'],
+        aiModelProxyDefaultListenPort,
+        aiModelProxyMinListenPort,
+        aiModelProxyMaxListenPort,
+      ),
       requireAuthentication: json['require_authentication'] as bool? ?? false,
       apiKey: '${json['api_key'] ?? ''}',
       apiStyle: AiModelProxyApiStyle.fromId(json['api_style']),
@@ -284,6 +298,8 @@ class AiModelProxySettings {
   }
 
   final bool enabled;
+  final String listenHost;
+  final int listenPort;
   final bool requireAuthentication;
   final String apiKey;
   final AiModelProxyApiStyle apiStyle;
@@ -307,6 +323,8 @@ class AiModelProxySettings {
 
   AiModelProxySettings copyWith({
     bool? enabled,
+    String? listenHost,
+    int? listenPort,
     bool? requireAuthentication,
     String? apiKey,
     AiModelProxyApiStyle? apiStyle,
@@ -325,6 +343,11 @@ class AiModelProxySettings {
     List<AiModelProxyRequestRecord>? recentRequests,
   }) => AiModelProxySettings(
     enabled: enabled ?? this.enabled,
+    listenHost: _normalizeListenHost(listenHost ?? this.listenHost),
+    listenPort: (listenPort ?? this.listenPort).clamp(
+      aiModelProxyMinListenPort,
+      aiModelProxyMaxListenPort,
+    ),
     requireAuthentication: requireAuthentication ?? this.requireAuthentication,
     apiKey: apiKey ?? this.apiKey,
     apiStyle: apiStyle ?? this.apiStyle,
@@ -393,6 +416,11 @@ class AiModelProxySettings {
 
   Map<String, Object?> toJson() => <String, Object?>{
     'enabled': enabled,
+    'listen_host': _normalizeListenHost(listenHost),
+    'listen_port': listenPort.clamp(
+      aiModelProxyMinListenPort,
+      aiModelProxyMaxListenPort,
+    ),
     'require_authentication': requireAuthentication,
     'api_key': apiKey,
     'api_style': apiStyle.id,
@@ -418,5 +446,12 @@ class AiModelProxySettings {
   static int _boundedInt(Object? value, int fallback, int min, int max) {
     final parsed = value is num ? value.toInt() : int.tryParse('$value');
     return (parsed ?? fallback).clamp(min, max).toInt();
+  }
+
+  static String _normalizeListenHost(Object? value) {
+    final host = '$value'.trim();
+    return host.isEmpty || host == 'null'
+        ? aiModelProxyDefaultListenHost
+        : host;
   }
 }
