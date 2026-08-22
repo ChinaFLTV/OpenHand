@@ -11,6 +11,60 @@ int _proxyBoundedInt(Object? value, int fallback, int min, int max) {
   return (parsed ?? fallback).clamp(min, max).toInt();
 }
 
+String _proxyModelKey(String value) => value.trim().toLowerCase();
+
+List<AiModelProxyBackend> _normalizeProxyBackends(
+  Iterable<AiModelProxyBackend> backends,
+) {
+  final result = <AiModelProxyBackend>[];
+  final keys = <String>{};
+  for (final backend in backends) {
+    final providerId = backend.providerId.trim();
+    final modelId = backend.modelId.trim();
+    if (providerId.isEmpty || modelId.isEmpty) continue;
+    final key = '${_proxyModelKey(providerId)}\u0000${_proxyModelKey(modelId)}';
+    if (keys.add(key)) {
+      result.add(
+        providerId == backend.providerId && modelId == backend.modelId
+            ? backend
+            : AiModelProxyBackend(
+                providerId: providerId,
+                modelId: modelId,
+                enabled: backend.enabled,
+              ),
+      );
+    }
+  }
+  return result;
+}
+
+List<AiModelProxyRoute> _normalizeProxyRoutes(
+  Iterable<AiModelProxyRoute> routes,
+) {
+  final result = <AiModelProxyRoute>[];
+  final indexes = <String, int>{};
+  for (final route in routes) {
+    final exposedModel = route.exposedModel.trim();
+    final key = _proxyModelKey(exposedModel);
+    if (key.isEmpty) continue;
+    final normalized = route.copyWith(exposedModel: exposedModel);
+    final existingIndex = indexes[key];
+    if (existingIndex == null) {
+      indexes[key] = result.length;
+      result.add(normalized);
+      continue;
+    }
+    final existing = result[existingIndex];
+    result[existingIndex] = existing.copyWith(
+      backends: _normalizeProxyBackends([
+        ...existing.backends,
+        ...normalized.backends,
+      ]),
+    );
+  }
+  return result;
+}
+
 enum AiModelProxyApiStyle {
   openAiChatCompletions('openai_chat_completions', 'OpenAI Chat Completions'),
   openAiResponses('openai_responses', 'OpenAI Responses'),
@@ -204,15 +258,10 @@ class AiModelProxyRoute {
         ? Map<String, Object?>.from(raw)
         : const <String, Object?>{};
     final exposedModel = '${json['exposed_model'] ?? ''}'.trim();
-    final backends =
-        (json['backends'] is List
-                ? json['backends'] as List
-                : const <Object?>[])
-            .map(AiModelProxyBackend.fromJson)
-            .where(
-              (item) => item.providerId.isNotEmpty && item.modelId.isNotEmpty,
-            )
-            .toList(growable: false);
+    final backends = _normalizeProxyBackends(
+      (json['backends'] is List ? json['backends'] as List : const <Object?>[])
+          .map(AiModelProxyBackend.fromJson),
+    );
     final profile = json['profile'] is Map
         ? AiModelProfile.fromJson(
             Map<String, Object?>.from(json['profile'] as Map),
@@ -234,9 +283,9 @@ class AiModelProxyRoute {
     AiModelProfile? profile,
     List<AiModelProxyBackend>? backends,
   }) => AiModelProxyRoute(
-    exposedModel: exposedModel ?? this.exposedModel,
+    exposedModel: (exposedModel ?? this.exposedModel).trim(),
     profile: profile ?? this.profile,
-    backends: backends ?? this.backends,
+    backends: _normalizeProxyBackends(backends ?? this.backends),
   );
 
   Map<String, Object?> toJson() => <String, Object?>{
@@ -273,11 +322,11 @@ class AiModelProxySettings {
     final json = raw is Map
         ? Map<String, Object?>.from(raw)
         : const <String, Object?>{};
-    final routes =
-        (json['routes'] is List ? json['routes'] as List : const <Object?>[])
-            .map(AiModelProxyRoute.fromJson)
-            .where((item) => item.exposedModel.isNotEmpty)
-            .toList(growable: false);
+    final routes = _normalizeProxyRoutes(
+      (json['routes'] is List ? json['routes'] as List : const <Object?>[]).map(
+        AiModelProxyRoute.fromJson,
+      ),
+    );
     final records =
         (json['recent_requests'] is List
                 ? json['recent_requests'] as List
@@ -376,7 +425,7 @@ class AiModelProxySettings {
     retryPolicy: retryPolicy ?? this.retryPolicy,
     retryCount: retryCount ?? this.retryCount,
     scheduling: scheduling ?? this.scheduling,
-    routes: routes ?? this.routes,
+    routes: _normalizeProxyRoutes(routes ?? this.routes),
     requestCount: requestCount ?? this.requestCount,
     successCount: successCount ?? this.successCount,
     failureCount: failureCount ?? this.failureCount,
@@ -449,7 +498,9 @@ class AiModelProxySettings {
     'retry_policy': retryPolicy.id,
     'retry_count': retryCount,
     'scheduling': scheduling.id,
-    'routes': routes.map((item) => item.toJson()).toList(growable: false),
+    'routes': _normalizeProxyRoutes(
+      routes,
+    ).map((item) => item.toJson()).toList(growable: false),
     'request_count': requestCount,
     'success_count': successCount,
     'failure_count': failureCount,

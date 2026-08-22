@@ -253,9 +253,10 @@ class AiModelProxyController extends ChangeNotifier {
   }
 
   Future<void> saveSettings(AiModelProxySettings settings) async {
-    _settings = settings;
+    final normalized = settings.copyWith();
+    _settings = normalized;
     _notify();
-    await _writes.enqueue(() => _store.save(settings));
+    await _writes.enqueue(() => _store.save(normalized));
   }
 
   Future<void> saveRoutes(List<AiModelProxyRoute> routes) =>

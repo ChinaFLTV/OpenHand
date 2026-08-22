@@ -416,6 +416,8 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
   static const double _rootColumnWidth = 164;
   static const double _modelColumnWidth = 268;
 
+  static String _modelKey(String value) => value.trim().toLowerCase();
+
   @override
   void initState() {
     super.initState();
@@ -434,19 +436,40 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     final settings = context.watch<SettingsController>();
     final proxy = context.watch<AiModelProxyController>();
     final routes = proxy.settings.routes;
-    final exposedModels = routes
-        .map((item) => item.exposedModel.trim())
-        .where((item) => item.isNotEmpty)
-        .toList(growable: false);
-    final selected =
-        _selectedModel != null && exposedModels.contains(_selectedModel)
-        ? _selectedModel!
-        : (exposedModels.isEmpty ? null : exposedModels.first);
-    final route = selected == null
+    final exposedModels = <String>[];
+    final exposedModelKeys = <String>{};
+    for (final route in routes) {
+      final model = route.exposedModel.trim();
+      final key = _modelKey(model);
+      if (model.isNotEmpty && exposedModelKeys.add(key)) {
+        exposedModels.add(model);
+      }
+    }
+    final activeModel = exposedModels
+        .where(
+          (model) =>
+              _selectedModel != null &&
+              _modelKey(model) == _modelKey(_selectedModel!),
+        )
+        .firstOrNull ??
+        exposedModels.firstOrNull;
+    final route = activeModel == null
         ? null
-        : routes.where((item) => item.exposedModel == selected).firstOrNull;
+        : routes
+              .where(
+                (item) =>
+                    _modelKey(item.exposedModel) == _modelKey(activeModel),
+              )
+              .firstOrNull;
+    final backendItems = <AiModelProxyBackend>[];
+    final backendKeys = <String>{};
+    for (final backend in route?.backends ?? const <AiModelProxyBackend>[]) {
+      final key =
+          '${backend.providerId.trim().toLowerCase()}\u0000${backend.modelId.trim().toLowerCase()}';
+      if (backendKeys.add(key)) backendItems.add(backend);
+    }
     final middleCount = math.max(exposedModels.length, 1);
-    final backendCount = route?.backends.length ?? 0;
+    final backendCount = backendItems.length;
     final backendItemsHeight = backendCount > 0
         ? backendCount * _backendHeight + (backendCount - 1) * _nodeGap
         : 56;
@@ -460,9 +483,9 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
             backendContentHeight,
           ),
     );
-    final selectedIndex = selected == null
+    final selectedIndex = activeModel == null
         ? 0
-        : exposedModels.indexOf(selected);
+        : exposedModels.indexOf(activeModel);
     final selectedCenter =
         _diagramTopPadding +
         _nodeHeight / 2 +
@@ -585,7 +608,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                         child: _MindMapNode(
                                           title: model,
                                           icon: Icons.api_rounded,
-                                          selected: model == selected,
+                                          selected: model == activeModel,
                                           onTap: () => setState(
                                             () => _selectedModel = model,
                                           ),
@@ -599,7 +622,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                             _MindMapConnector(
                               height: diagramHeight,
                               sourceY: selectedCenter,
-                              branchCount: route?.backends.length ?? 0,
+                              branchCount: backendItems.length,
                               branchTop: backendTop,
                               branchHeight: _backendHeight,
                               gap: _nodeGap,
@@ -619,18 +642,16 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                       key: const ValueKey<String>(
                                         'proxy-backend-items',
                                       ),
-                                      items:
-                                          route?.backends ??
-                                          const <AiModelProxyBackend>[],
+                                      items: backendItems,
                                       itemKey: (backend) =>
                                           '${backend.providerId.trim()}\u0000${backend.modelId.trim()}',
                                       gap: _nodeGap,
                                       emptyChild: _EmptyBackendCard(
                                         text: text(
-                                          zh: selected == null
+                                          zh: activeModel == null
                                               ? '选择一个暴露模型查看后备模型。'
                                               : '该模型还没有后备模型。',
-                                          en: selected == null
+                                          en: activeModel == null
                                               ? 'Select an exposed model.'
                                               : 'This model has no backends yet.',
                                         ),
@@ -645,12 +666,12 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                             backend: backend,
                                             settings: settings,
                                             onToggle: (enabled) {
-                                              if (selected == null ||
+                                              if (activeModel == null ||
                                                   backendIndex < 0) {
                                                 return;
                                               }
                                               _updateBackend(
-                                                selected,
+                                                activeModel,
                                                 backendIndex,
                                                 backend.copyWith(
                                                   enabled: enabled,
@@ -658,12 +679,12 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                               );
                                             },
                                             onRemove: () {
-                                              if (selected == null ||
+                                              if (activeModel == null ||
                                                   backendIndex < 0) {
                                                 return;
                                               }
                                               _removeBackend(
-                                                selected,
+                                                activeModel,
                                                 backendIndex,
                                               );
                                             },
@@ -676,11 +697,11 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                       alignment:
                                           AlignmentDirectional.centerStart,
                                       child: FilledButton.tonalIcon(
-                                        onPressed: selected == null
+                                        onPressed: activeModel == null
                                             ? null
                                             : () => _addBackend(
                                                 context,
-                                                selected,
+                                                activeModel,
                                               ),
                                         style: FilledButton.styleFrom(
                                           minimumSize: const Size(0, 42),
@@ -788,7 +809,9 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     if (!context.mounted || modelId == null || modelId.isEmpty) return;
     final proxy = context.read<AiModelProxyController>();
     final routes = proxy.settings.routes;
-    if (routes.any((route) => route.exposedModel == modelId)) {
+    if (routes.any(
+      (route) => _modelKey(route.exposedModel) == _modelKey(modelId),
+    )) {
       showOpenHandErrorSnack(
         context,
         text(zh: '该暴露模型已存在。', en: 'That exposed model already exists.'),
@@ -826,12 +849,15 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     final nextModelId = result.modelId.trim();
     if (nextModelId.isEmpty) return;
     final currentRoutes = proxy.settings.routes;
+    final routeKey = _modelKey(route.exposedModel);
     final routeIndex = currentRoutes.indexWhere(
-      (item) => item.exposedModel == route.exposedModel,
+      (item) => _modelKey(item.exposedModel) == routeKey,
     );
     if (routeIndex < 0) return;
-    if (nextModelId != route.exposedModel &&
-        currentRoutes.any((item) => item.exposedModel == nextModelId)) {
+    if (_modelKey(nextModelId) != routeKey &&
+        currentRoutes.any(
+          (item) => _modelKey(item.exposedModel) == _modelKey(nextModelId),
+        )) {
       showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
