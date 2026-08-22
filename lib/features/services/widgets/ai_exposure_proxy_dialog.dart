@@ -1112,53 +1112,161 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     BuildContext context, {
     required bool available,
   }) {
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final text = openHandTextResolver(context);
     final snapshot = SystemProxyResolver.instance.resolveRuntimeRoute();
-    final routes = <String>[
+    final routes = <({String protocol, String endpoint, IconData icon})>[
       if (snapshot.httpProxy != null)
-        '${text(zh: 'HTTP', en: 'HTTP')}: ${_maskProxyForDisplay(snapshot.httpProxy!)}',
+        (
+          protocol: text(zh: 'HTTP', en: 'HTTP'),
+          endpoint: _maskProxyForDisplay(snapshot.httpProxy!),
+          icon: Icons.http_rounded,
+        ),
       if (snapshot.httpsProxy != null)
-        '${text(zh: 'HTTPS', en: 'HTTPS')}: ${_maskProxyForDisplay(snapshot.httpsProxy!)}',
+        (
+          protocol: text(zh: 'HTTPS', en: 'HTTPS'),
+          endpoint: _maskProxyForDisplay(snapshot.httpsProxy!),
+          icon: Icons.lock_outline_rounded,
+        ),
     ];
+    final routeReady = available && routes.isNotEmpty;
     return Padding(
       padding: const EdgeInsets.only(top: 10),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
         decoration: BoxDecoration(
-          color: available
-              ? colors.secondaryContainer.withValues(alpha: 0.42)
-              : colors.errorContainer.withValues(alpha: 0.42),
-          borderRadius: kServiceInteractiveBorderRadius,
+          color: colors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(kOpenHandRadius16),
           border: Border.all(
-            color: available ? colors.secondary : colors.error,
+            color: routeReady
+                ? colors.primary.withValues(alpha: 0.58)
+                : colors.outlineVariant,
           ),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Icon(
-              available ? Icons.verified_user_outlined : Icons.warning_amber,
-              color: available ? colors.secondary : colors.error,
-            ),
-            kOpenHandHGap10,
-            Expanded(
-              child: Text(
-                available
-                    ? routes.isEmpty
-                          ? text(
-                              zh: '已探测到系统代理，但当前路由没有可用端点。',
-                              en: 'A system proxy was detected, but no usable route is available.',
-                            )
-                          : routes.join('  ·  ')
-                    : text(
-                        zh: '未探测到有效系统代理，该选项不可用。',
-                        en: 'No valid system proxy was detected. This option is unavailable.',
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: routeReady
+                        ? colors.primaryContainer
+                        : colors.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(kOpenHandRadius12),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    routeReady
+                        ? Icons.verified_user_outlined
+                        : Icons.warning_amber_rounded,
+                    color: routeReady
+                        ? colors.onPrimaryContainer
+                        : colors.onSurfaceVariant,
+                  ),
+                ),
+                kOpenHandHGap10,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        text(zh: '系统代理配置', en: 'System proxy configuration'),
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+                      kOpenHandGap4,
+                      Text(
+                        routeReady
+                            ? text(
+                                zh: '已探测到可用于底层请求的系统代理。',
+                                en: 'A usable system proxy is available for network requests.',
+                              )
+                            : available
+                            ? text(
+                                zh: '已探测到配置，但没有可用的协议端点。',
+                                en: 'Configuration was detected, but no usable protocol endpoint is available.',
+                              )
+                            : text(
+                                zh: '未探测到有效配置，系统代理方式暂不可用。',
+                                en: 'No valid configuration was detected. System proxy is unavailable.',
+                              ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                kOpenHandHGap10,
+                OpenHandStatusPill(
+                  icon: routeReady
+                      ? Icons.check_circle_outline_rounded
+                      : Icons.info_outline_rounded,
+                  label: routeReady
+                      ? text(zh: '可用', en: 'Available')
+                      : text(zh: '不可用', en: 'Unavailable'),
+                  color: routeReady ? colors.primary : colors.onSurfaceVariant,
+                ),
+              ],
             ),
+            if (routes.isNotEmpty) ...[
+              kOpenHandGap12,
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final route in routes)
+                    _SystemProxyEndpointTile(
+                      protocol: route.protocol,
+                      endpoint: route.endpoint,
+                      icon: route.icon,
+                    ),
+                ],
+              ),
+            ],
+            if (snapshot.exceptions.isNotEmpty) ...[
+              kOpenHandGap10,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: colors.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(kOpenHandRadius12),
+                  border: Border.all(color: colors.outlineVariant),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.rule_rounded,
+                      size: 19,
+                      color: colors.onSurfaceVariant,
+                    ),
+                    kOpenHandHGap8,
+                    Expanded(
+                      child: Text(
+                        text(
+                          zh: '直连例外：${snapshot.exceptions.join('、')}',
+                          en: 'Direct connection exceptions: ${snapshot.exceptions.join(', ')}',
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -1895,6 +2003,73 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       }
       _closeDialog();
     }
+  }
+}
+
+class _SystemProxyEndpointTile extends StatelessWidget {
+  const _SystemProxyEndpointTile({
+    required this.protocol,
+    required this.endpoint,
+    required this.icon,
+  });
+
+  final String protocol;
+  final String endpoint;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 260, maxWidth: 520),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(kOpenHandRadius12),
+          border: Border.all(color: colors.outlineVariant),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: colors.primaryContainer,
+                borderRadius: BorderRadius.circular(kOpenHandRadius8),
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, size: 18, color: colors.onPrimaryContainer),
+            ),
+            kOpenHandHGap10,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    protocol,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: colors.primary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  kOpenHandGap2,
+                  Text(
+                    endpoint,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
