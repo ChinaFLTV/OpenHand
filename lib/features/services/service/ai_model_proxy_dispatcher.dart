@@ -19,6 +19,7 @@ class AiModelProxyDispatchResult {
     this.usage,
     this.reasoningContent,
     this.toolCalls = const <AiToolCall>[],
+    this.rawResponse,
   });
 
   final String reply;
@@ -28,6 +29,7 @@ class AiModelProxyDispatchResult {
   final AiTokenUsage? usage;
   final String? reasoningContent;
   final List<AiToolCall> toolCalls;
+  final String? rawResponse;
 }
 
 class AiModelProxyStreamDispatch {
@@ -102,6 +104,7 @@ class AiModelProxyDispatcher {
       final model = _modelForRequest(
         provider.copyWith(modelId: backend.modelId),
         request,
+        headers: headers,
       );
       final tools = _parseTools(request);
       final startedAt = DateTime.now();
@@ -171,6 +174,7 @@ class AiModelProxyDispatcher {
           usage: result.usage,
           reasoningContent: result.reasoningContent,
           toolCalls: result.toolCalls,
+          rawResponse: result.rawResponse,
         );
       } catch (error) {
         lastError = error;
@@ -196,10 +200,17 @@ class AiModelProxyDispatcher {
           remoteHost: network.remoteHost,
           remotePort: network.remotePort,
         );
-        if (settings.retryPolicy == AiModelProxyRetryPolicy.failFast) break;
+        if (settings.retryPolicy == AiModelProxyRetryPolicy.failFast ||
+            !_isRetryableBackendError(error)) {
+          break;
+        }
       } finally {
         routedClient?.dispose();
       }
+    }
+    final statusCode = _backendErrorStatusCode(lastError);
+    if (statusCode != null) {
+      throw AiModelProxyException(statusCode, _backendErrorMessage(lastError));
     }
     throw AiModelProxyException(502, '后备模型请求失败：$lastError');
   }
@@ -237,6 +248,7 @@ class AiModelProxyDispatcher {
     final model = _modelForRequest(
       provider.copyWith(modelId: backend.modelId),
       request,
+      headers: headers,
     );
     final tools = _parseTools(request);
     final startedAt = DateTime.now();
@@ -307,6 +319,13 @@ class AiModelProxyDispatcher {
         exposedModel: exposedModel,
         backend: backend,
       );
+    } on AiChatException catch (error) {
+      routedClient?.dispose();
+      final statusCode = _backendErrorStatusCode(error);
+      throw AiModelProxyException(
+        statusCode ?? 502,
+        _backendErrorMessage(error),
+      );
     } on Object {
       routedClient?.dispose();
       rethrow;
@@ -317,35 +336,79 @@ class AiModelProxyDispatcher {
   /// 请求体时合并 operation extras，因此不会污染持久化的模型设置。
   AiModelConfig _modelForRequest(
     AiModelConfig model,
-    Map<String, Object?> request,
-  ) {
+    Map<String, Object?> request, {
+    Map<String, String> headers = const <String, String>{},
+  }) {
+    if (controller.settings.apiStyle != AiModelProxyApiStyle.openAiResponses &&
+        model.apiDialect == AiApiDialect.openAiCompat) {
+      final capabilities = <AiApiFamily, String>{
+        ...model.capabilityOverrides,
+        AiApiFamily.responses: 'disabled',
+      };
+      model = model.copyWith(capabilityOverrides: capabilities);
+    }
     final extras = _requestBodyExtras(request);
     final style = controller.settings.apiStyle;
     if (style == AiModelProxyApiStyle.openAiChatCompletions &&
-        model.protocolType != AiProtocolType.claude &&
-        model.protocolType != AiProtocolType.gemini &&
+        model.apiDialect == AiApiDialect.openAiCompat &&
         request['messages'] is List) {
       extras['messages'] = request['messages'];
     } else if (style == AiModelProxyApiStyle.openAiResponses &&
-        model.protocolType == AiProtocolType.openai &&
+        model.apiDialect == AiApiDialect.openAiCompat &&
+        '${model.capabilityStatusFor(AiApiFamily.responses)}'.toLowerCase() !=
+            'disabled' &&
         request['input'] != null) {
       extras['input'] = request['input'];
     } else if (style == AiModelProxyApiStyle.claude &&
-        model.protocolType == AiProtocolType.claude &&
+        model.apiDialect == AiApiDialect.anthropicNative &&
         request['messages'] is List) {
       extras['messages'] = request['messages'];
     } else if (style == AiModelProxyApiStyle.gemini &&
-        model.protocolType == AiProtocolType.gemini &&
+        model.apiDialect == AiApiDialect.geminiNative &&
         request['contents'] is List) {
       extras['contents'] = request['contents'];
     }
-    if (extras.isEmpty) return model;
+    final forwardedHeaders = _forwardedRequestHeaders(headers);
+    if (extras.isEmpty && forwardedHeaders.isEmpty) return model;
     final operationExtras = <String, Object?>{...model.operationExtras};
     final global = _map(operationExtras['global']);
     final existingBody = _map(global['body']);
     global['body'] = <String, Object?>{...existingBody, ...extras};
+    if (forwardedHeaders.isNotEmpty) {
+      global['headers'] = <String, String>{
+        ..._stringMap(global['headers']),
+        ...forwardedHeaders,
+      };
+    }
     operationExtras['global'] = global;
     return model.copyWith(operationExtras: operationExtras);
+  }
+
+  static Map<String, String> _forwardedRequestHeaders(
+    Map<String, String> headers,
+  ) {
+    const allowed = <String>{
+      'anthropic-version',
+      'anthropic-beta',
+      'openai-beta',
+      'openai-organization',
+      'openai-project',
+      'x-goog-user-project',
+      'x-goog-api-client',
+    };
+    return <String, String>{
+      for (final entry in headers.entries)
+        if (allowed.contains(entry.key.toLowerCase()) &&
+            entry.value.trim().isNotEmpty)
+          entry.key.toLowerCase(): entry.value.trim(),
+    };
+  }
+
+  static Map<String, String> _stringMap(Object? value) {
+    if (value is! Map) return const <String, String>{};
+    return <String, String>{
+      for (final entry in value.entries) '${entry.key}': '${entry.value}',
+    };
   }
 
   Map<String, Object?> _requestBodyExtras(Map<String, Object?> request) {
@@ -470,6 +533,26 @@ class AiModelProxyDispatcher {
   static Map<String, Object?> _map(Object? value) {
     if (value is Map) return Map<String, Object?>.from(value);
     return <String, Object?>{};
+  }
+
+  static int? _backendErrorStatusCode(Object? error) {
+    if (error is AiChatException) return error.statusCode;
+    return null;
+  }
+
+  static bool _isRetryableBackendError(Object error) {
+    final statusCode = _backendErrorStatusCode(error);
+    if (statusCode == null) return true;
+    return statusCode == 408 ||
+        statusCode == 409 ||
+        statusCode == 425 ||
+        statusCode == 429 ||
+        statusCode >= 500;
+  }
+
+  static String _backendErrorMessage(Object? error) {
+    if (error is AiChatException) return error.message;
+    return '$error';
   }
 
   Future<

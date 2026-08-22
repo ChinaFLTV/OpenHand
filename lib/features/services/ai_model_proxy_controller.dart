@@ -154,14 +154,19 @@ class AiModelProxyController extends ChangeNotifier {
         .trim();
     final apiKey = headers.entries
         .firstWhere(
-          (entry) => entry.key.toLowerCase() == 'x-api-key',
+          (entry) =>
+              entry.key.toLowerCase() == 'x-api-key' ||
+              entry.key.toLowerCase() == 'x-goog-api-key' ||
+              entry.key.toLowerCase() == 'api-key',
           orElse: () => const MapEntry<String, String>('', ''),
         )
         .value
         .trim();
-    return apiKey == expected ||
-        authorization == expected ||
-        authorization == 'Bearer $expected';
+    final authorizationValue = authorization.replaceFirst(
+      RegExp(r'^bearer\s+', caseSensitive: false),
+      '',
+    );
+    return apiKey == expected || authorizationValue == expected;
   }
 
   /// 只有已启用的暴露模型才会出现在中转服务的模型空间中。

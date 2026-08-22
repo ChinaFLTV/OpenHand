@@ -23,6 +23,11 @@ class AiModelProxyHttpServer {
          modelsProvider: modelsProvider,
        );
 
+  static const String _corsAllowedHeaders =
+      'authorization, content-type, x-api-key, x-goog-api-key, api-key, '
+      'anthropic-version, anthropic-beta, openai-beta, openai-organization, '
+      'openai-project, x-goog-user-project, x-goog-api-client';
+
   static const int _maxRequestBodyBytes = 8 * 1024 * 1024;
   static const int _maxConcurrentRequests = 16;
   static const Duration _bindTimeout = Duration(seconds: 10);
@@ -120,7 +125,11 @@ class AiModelProxyHttpServer {
       if (method == 'GET' &&
           (path == '/v1/models' || path == '/models') &&
           style != AiModelProxyApiStyle.gemini) {
-        await _writeJson(request, 200, _buildModelsResponse(style));
+        await _writeJson(
+          request,
+          200,
+          _buildModelsResponse(style, request.uri.queryParameters),
+        );
         return;
       }
       if (method == 'GET' && path == '/v1beta/models') {
@@ -134,7 +143,11 @@ class AiModelProxyHttpServer {
           );
           return;
         }
-        await _writeJson(request, 200, _buildGeminiModelsResponse());
+        await _writeJson(
+          request,
+          200,
+          _buildGeminiModelsResponse(request.uri.queryParameters),
+        );
         return;
       }
       if (method == 'GET' &&
@@ -212,9 +225,12 @@ class AiModelProxyHttpServer {
         return;
       }
       final payloadModel = _readString(payload['model']);
-      final requestedModel = payloadModel.isNotEmpty
+      final pathModel = _modelFromPath(path, route);
+      final requestedModel = pathModel.isNotEmpty
+          ? pathModel
+          : payloadModel.isNotEmpty
           ? payloadModel
-          : _modelFromPath(path, route);
+          : _defaultGeminiModel(route);
       if (requestedModel.isEmpty) {
         await _writeError(
           request,
@@ -224,7 +240,7 @@ class AiModelProxyHttpServer {
         );
         return;
       }
-      if (_isStreaming(payload)) {
+      if (_isStreaming(payload, path)) {
         final stream = await _dispatcher.dispatchStream(
           exposedModel: requestedModel,
           messages: messages,
@@ -670,6 +686,14 @@ class AiModelProxyHttpServer {
     _ProxyRoute route,
     String requestedModel,
   ) {
+    final native = _nativeResponseMap(result.rawResponse, route);
+    if (native != null) {
+      native['model'] = requestedModel;
+      if (route == _ProxyRoute.responses) {
+        native['object'] = 'response';
+      }
+      return native;
+    }
     final id = 'openhand-${DateTime.now().microsecondsSinceEpoch}';
     final usage = result.usage;
     final inputTokens = usage?.promptTokens ?? 0;
@@ -847,6 +871,29 @@ class AiModelProxyHttpServer {
     };
   }
 
+  static Map<String, Object?>? _nativeResponseMap(
+    String? rawResponse,
+    _ProxyRoute route,
+  ) {
+    if (rawResponse == null || rawResponse.trim().isEmpty) return null;
+    try {
+      final decoded = jsonDecode(rawResponse);
+      if (decoded is! Map) return null;
+      final map = Map<String, Object?>.from(decoded);
+      final matches = switch (route) {
+        _ProxyRoute.chat => map['choices'] is List,
+        _ProxyRoute.responses =>
+          map['object'] == 'response' && map['output'] is List,
+        _ProxyRoute.claude =>
+          map['type'] == 'message' && map['content'] is List,
+        _ProxyRoute.gemini => map['candidates'] is List,
+      };
+      return matches ? map : null;
+    } on Object {
+      return null;
+    }
+  }
+
   Future<void> _writeNativeStreamingResponse(
     HttpRequest request,
     AiModelProxyStreamDispatch dispatch,
@@ -865,10 +912,7 @@ class AiModelProxyHttpServer {
       ..headers.set('connection', 'keep-alive')
       ..headers.set('access-control-allow-origin', '*')
       ..headers.set('access-control-allow-methods', 'GET, POST, OPTIONS')
-      ..headers.set(
-        'access-control-allow-headers',
-        'authorization, content-type, x-api-key, anthropic-version',
-      );
+      ..headers.set('access-control-allow-headers', _corsAllowedHeaders);
     final id = 'openhand-${DateTime.now().microsecondsSinceEpoch}';
     final created = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     if (route == _ProxyRoute.chat) {
@@ -1187,6 +1231,7 @@ class AiModelProxyHttpServer {
           usage: streamResult.usage,
           reasoningContent: streamResult.reasoning,
           toolCalls: streamResult.toolCalls,
+          rawResponse: streamResult.rawResponse,
         ),
         route,
         requestedModel,
@@ -1207,8 +1252,17 @@ class AiModelProxyHttpServer {
                     : 'stop',
               },
             ],
-            if (includeUsage) 'usage': _openAiUsage(response['usage']),
           });
+          if (includeUsage) {
+            await _writeSse(request, <String, Object?>{
+              'id': id,
+              'object': 'chat.completion.chunk',
+              'created': created,
+              'model': requestedModel,
+              'choices': const <Object?>[],
+              'usage': _openAiUsage(response['usage']),
+            });
+          }
           request.response.write('data: [DONE]\n\n');
           await request.response.flush();
         case _ProxyRoute.responses:
@@ -1291,8 +1345,6 @@ class AiModelProxyHttpServer {
             'type': 'response.completed',
             'response': response,
           });
-          request.response.write('data: [DONE]\n\n');
-          await request.response.flush();
         case _ProxyRoute.claude:
           final claudeBlockIndexes = <int?>[
             claudeTextBlockIndex,
@@ -1348,7 +1400,8 @@ class AiModelProxyHttpServer {
     await request.response.flush();
   }
 
-  static bool _isStreaming(Map<String, Object?> payload) =>
+  static bool _isStreaming(Map<String, Object?> payload, String path) =>
+      path.contains(':streamGenerateContent') ||
       payload['stream'] == true ||
       '${payload['stream']}'.toLowerCase() == 'true';
 
@@ -1362,50 +1415,178 @@ class AiModelProxyHttpServer {
     return const <String, Object?>{};
   }
 
-  Map<String, Object?> _buildModelsResponse(AiModelProxyApiStyle style) {
+  Map<String, Object?> _buildModelsResponse(
+    AiModelProxyApiStyle style,
+    Map<String, String> query,
+  ) {
     final base = _dispatcher.buildModelsResponse();
     final data = base['data'];
-    final models = data is List
+    final allModels = data is List
         ? data
               .whereType<Map>()
               .map((item) => Map<String, Object?>.from(item))
               .toList(growable: false)
         : const <Map<String, Object?>>[];
     if (style == AiModelProxyApiStyle.claude) {
+      final page = _paginateClaudeModels(allModels, query);
+      final models = page.models;
       return <String, Object?>{
         'data': models.map(_toClaudeModel).toList(growable: false),
-        'has_more': false,
+        'has_more': page.hasMore,
         'first_id': models.isEmpty ? null : _readString(models.first['id']),
         'last_id': models.isEmpty ? null : _readString(models.last['id']),
       };
     }
     if (style == AiModelProxyApiStyle.gemini) {
-      return _buildGeminiModelsResponse();
+      return _buildGeminiModelsResponse(query);
     }
-    return base;
+    final page = _paginateOpenAiModels(allModels, query);
+    return <String, Object?>{
+      ...base,
+      'data': page.models,
+      'has_more': page.hasMore,
+    };
   }
 
-  Map<String, Object?> _buildGeminiModelsResponse() {
+  Map<String, Object?> _buildGeminiModelsResponse(Map<String, String> query) {
     final base = _dispatcher.buildModelsResponse();
     final data = base['data'];
-    final models = data is List
+    final allModels = data is List
         ? data
               .whereType<Map>()
               .map((item) => Map<String, Object?>.from(item))
               .toList(growable: false)
         : const <Map<String, Object?>>[];
+    final filter = _readString(query['filter']);
+    final filtered = filter.isEmpty
+        ? allModels
+        : allModels
+              .where((model) => _geminiModelMatchesFilter(model, filter))
+              .toList(growable: false);
+    final pageSize = _queryInt(query['pageSize'], fallback: 50, max: 1000);
+    final offset = _queryOffset(query['pageToken']);
+    final page = offset >= filtered.length
+        ? const <Map<String, Object?>>[]
+        : filtered.skip(offset).take(pageSize).toList(growable: false);
+    final nextOffset = offset + page.length;
     return <String, Object?>{
-      'models': models.map(_toGeminiModel).toList(growable: false),
+      'models': page.map(_toGeminiModel).toList(growable: false),
+      if (nextOffset < filtered.length) 'nextPageToken': '$nextOffset',
     };
   }
 
+  ({List<Map<String, Object?>> models, bool hasMore}) _paginateOpenAiModels(
+    List<Map<String, Object?>> models,
+    Map<String, String> query,
+  ) {
+    final result = List<Map<String, Object?>>.of(models);
+    if (_readString(query['order']).toLowerCase() == 'desc') {
+      result.setAll(0, result.reversed.toList(growable: false));
+    }
+    final before = _readString(query['before']);
+    final after = _readString(query['after']);
+    var start = 0;
+    var end = result.length;
+    if (after.isNotEmpty) {
+      final index = result.indexWhere(
+        (model) => _readString(model['id']) == after,
+      );
+      if (index >= 0) start = index + 1;
+    }
+    if (before.isNotEmpty) {
+      final index = result.indexWhere(
+        (model) => _readString(model['id']) == before,
+      );
+      if (index >= 0) end = index;
+    }
+    if (start > end) {
+      return (models: const <Map<String, Object?>>[], hasMore: false);
+    }
+    final pageSize = _queryInt(query['limit'], fallback: 100, max: 100);
+    final pageEnd = (start + pageSize).clamp(start, end).toInt();
+    return (
+      models: result
+          .skip(start)
+          .take(end - start)
+          .take(pageSize)
+          .toList(growable: false),
+      hasMore: pageEnd < end,
+    );
+  }
+
+  ({List<Map<String, Object?>> models, bool hasMore}) _paginateClaudeModels(
+    List<Map<String, Object?>> models,
+    Map<String, String> query,
+  ) {
+    final result = List<Map<String, Object?>>.of(models);
+    final after = _readString(query['after_id']);
+    final before = _readString(query['before_id']);
+    var start = 0;
+    var end = result.length;
+    if (after.isNotEmpty) {
+      final index = result.indexWhere(
+        (model) => _readString(model['id']) == after,
+      );
+      if (index >= 0) start = index + 1;
+    }
+    if (before.isNotEmpty) {
+      final index = result.indexWhere(
+        (model) => _readString(model['id']) == before,
+      );
+      if (index >= 0) end = index;
+    }
+    if (start > end) {
+      return (models: const <Map<String, Object?>>[], hasMore: false);
+    }
+    final limit = _queryInt(query['limit'], fallback: 20, max: 1000);
+    final pageEnd = (start + limit).clamp(start, end).toInt();
+    return (
+      models: result
+          .skip(start)
+          .take(end - start)
+          .take(limit)
+          .toList(growable: false),
+      hasMore: pageEnd < end,
+    );
+  }
+
+  static bool _geminiModelMatchesFilter(
+    Map<String, Object?> model,
+    String filter,
+  ) {
+    final normalized = filter.trim();
+    final match = RegExp(
+      r"""^name\s*=\s*["']([^"']+)["']$""",
+      caseSensitive: false,
+    ).firstMatch(normalized);
+    if (match != null) {
+      final expected = match.group(1)!.trim();
+      return _readString(model['id']) == expected ||
+          'models/${_readString(model['id'])}' == expected;
+    }
+    return _readString(model['id']).contains(normalized);
+  }
+
+  static int _queryInt(String? raw, {required int fallback, required int max}) {
+    final value = int.tryParse(_readString(raw));
+    return (value ?? fallback).clamp(1, max).toInt();
+  }
+
+  static int _queryOffset(String? raw) {
+    final value = int.tryParse(_readString(raw));
+    return (value ?? 0).clamp(0, 1 << 30).toInt();
+  }
+
   Map<String, Object?>? _findModelMetadata(String modelId) {
+    final normalizedModelId = modelId.startsWith('models/')
+        ? modelId.substring('models/'.length)
+        : modelId;
     final data = _dispatcher.buildModelsResponse()['data'];
     if (data is! List) return null;
     for (final raw in data) {
       if (raw is! Map) continue;
       final model = Map<String, Object?>.from(raw);
-      if (_readString(model['id']) == modelId) return model;
+      if (_readString(model['id']) == normalizedModelId) return model;
     }
     return null;
   }
@@ -1462,10 +1643,7 @@ class AiModelProxyHttpServer {
       ..headers.contentType = ContentType.json
       ..headers.set('access-control-allow-origin', '*')
       ..headers.set('access-control-allow-methods', 'GET, POST, OPTIONS')
-      ..headers.set(
-        'access-control-allow-headers',
-        'authorization, content-type, x-api-key, anthropic-version',
-      );
+      ..headers.set('access-control-allow-headers', _corsAllowedHeaders);
     if (status != 204) request.response.write(jsonEncode(body));
     await request.response.close();
   }
@@ -1535,10 +1713,9 @@ class AiModelProxyHttpServer {
         request.uri.queryParameters['key'] ??
         request.uri.queryParameters['api_key'] ??
         request.uri.queryParameters['x-goog-api-key'];
-    if (queryKey != null &&
-        queryKey.trim().isNotEmpty &&
-        !result.containsKey('x-api-key')) {
-      result['x-api-key'] = queryKey.trim();
+    if (queryKey != null && queryKey.trim().isNotEmpty) {
+      result.putIfAbsent('x-goog-api-key', () => queryKey.trim());
+      result.putIfAbsent('x-api-key', () => queryKey.trim());
     }
     result['x-client-ip'] = request.connectionInfo?.remoteAddress.address ?? '';
     result['x-client-port'] = '${request.connectionInfo?.remotePort ?? ''}';
@@ -1577,6 +1754,12 @@ class AiModelProxyHttpServer {
     final value = path.substring(prefix.length);
     final separator = value.indexOf(':');
     return (separator < 0 ? value : value.substring(0, separator)).trim();
+  }
+
+  String _defaultGeminiModel(_ProxyRoute route) {
+    if (route != _ProxyRoute.gemini) return '';
+    final models = _controller.buildModelsMetadata();
+    return models.length == 1 ? _readString(models.single['id']) : '';
   }
 
   static String _normalizePath(String path) {

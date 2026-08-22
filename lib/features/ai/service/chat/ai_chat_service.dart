@@ -545,6 +545,7 @@ class AiChatService implements AiChatClient {
   AiChatException _chatExceptionFromResponses(AiResponsesHttpException error) {
     return AiChatException(
       error.message,
+      statusCode: error.statusCode,
       telemetry: AiChatRequestTelemetry(
         requestUrl: error.request.url,
         requestMethod: error.request.method,
@@ -1058,6 +1059,7 @@ class AiChatService implements AiChatClient {
         );
         throw AiChatException(
           message,
+          statusCode: response.statusCode,
           telemetry: telemetry(
             rawResponse: response.body,
             endedAt: endedAt,
@@ -1664,6 +1666,7 @@ class AiChatService implements AiChatClient {
         );
         throw AiChatException(
           message,
+          statusCode: streamedResponse.statusCode,
           telemetry: telemetrySnapshot(
             rawResponse: finalErrorBody,
             error: message,
@@ -3521,9 +3524,15 @@ void _processGeminiStreamEvent(
 }
 
 class AiChatException implements Exception {
-  const AiChatException(this.message, {this.telemetry, this.sources});
+  const AiChatException(
+    this.message, {
+    this.statusCode,
+    this.telemetry,
+    this.sources,
+  });
 
   final String message;
+  final int? statusCode;
   final AiChatRequestTelemetry? telemetry;
 
   /// 结构化错误源（可选）。非空时表示该错误由多个来源组成（如双端点测试
@@ -3643,15 +3652,13 @@ extension on AiChatService {
       ...?error.sources,
       if (hasSources && probeDiagnosis != null)
         AiErrorSource(
-          label: StructuredErrorText.pick(
-            zh: '探测补充',
-            en: 'Probe follow-up',
-          ),
+          label: StructuredErrorText.pick(zh: '探测补充', en: 'Probe follow-up'),
           body: probeDiagnosis,
         ),
     ];
     return AiChatException(
       detail,
+      statusCode: error.statusCode,
       telemetry: error.telemetry,
       sources: sources.isEmpty ? null : sources,
     );
