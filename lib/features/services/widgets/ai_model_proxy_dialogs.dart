@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
@@ -769,14 +770,32 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                         ),
                                     ],
                                     const SizedBox(height: 12),
-                                    FilledButton.tonalIcon(
-                                      onPressed: selected == null
-                                          ? null
-                                          : () =>
-                                                _addBackend(context, selected),
-                                      icon: const Icon(Icons.add_rounded),
-                                      label: Text(
-                                        text(zh: '添加后备模型', en: 'Add backend'),
+                                    Align(
+                                      alignment:
+                                          AlignmentDirectional.centerStart,
+                                      child: FilledButton.tonalIcon(
+                                        onPressed: selected == null
+                                            ? null
+                                            : () => _addBackend(
+                                                context,
+                                                selected,
+                                              ),
+                                        style: FilledButton.styleFrom(
+                                          minimumSize: const Size(0, 42),
+                                          maximumSize: const Size(
+                                            double.infinity,
+                                            42,
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                          ),
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                        icon: const Icon(Icons.add_rounded),
+                                        label: Text(
+                                          text(zh: '添加后备模型', en: 'Add backend'),
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -806,24 +825,15 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     final existing = {
       for (final backend
           in currentRoute?.backends ?? const <AiModelProxyBackend>[])
-        '${backend.providerId}\u0000${backend.modelId}',
+        '${backend.providerId.trim()}\u0000${backend.modelId.trim()}',
     };
-    final candidates =
-        <({String providerId, String providerName, String modelId})>[
-          for (final provider in settings.aiModels)
-            for (final modelId in provider.allModelIds)
-              if (!existing.contains('${provider.id}\u0000$modelId'))
-                (
-                  providerId: provider.id,
-                  providerName: provider.displayName,
-                  modelId: modelId,
-                ),
-        ];
-    final chosen =
-        await showAnimatedDialog<({String providerId, String modelId})>(
-          context: context,
-          builder: (_) => _BackendPickerDialog(candidates: candidates),
-        );
+    final chosen = await showModelSearchSelector(
+      context: context,
+      models: settings.aiModels,
+      recentSelections: settings.recentModelSelections,
+      modelFilter: (config, modelId) =>
+          !existing.contains('${config.id.trim()}\u0000${modelId.trim()}'),
+    );
     if (!context.mounted || chosen == null) return;
     final current = proxy.settings.routes;
     final index = current.indexWhere(
@@ -833,19 +843,13 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
         ? AiModelProxyRoute(
             exposedModel: exposedModel,
             backends: [
-              AiModelProxyBackend(
-                providerId: chosen.providerId,
-                modelId: chosen.modelId,
-              ),
+              AiModelProxyBackend(providerId: chosen.$1, modelId: chosen.$2),
             ],
           )
         : current[index].copyWith(
             backends: [
               ...current[index].backends,
-              AiModelProxyBackend(
-                providerId: chosen.providerId,
-                modelId: chosen.modelId,
-              ),
+              AiModelProxyBackend(providerId: chosen.$1, modelId: chosen.$2),
             ],
           );
     final next = List<AiModelProxyRoute>.of(current);
@@ -1134,54 +1138,6 @@ class _BackendTile extends StatelessWidget {
       ),
     );
   }
-}
-
-class _BackendPickerDialog extends StatelessWidget {
-  const _BackendPickerDialog({required this.candidates});
-  final List<({String providerId, String providerName, String modelId})>
-  candidates;
-  @override
-  Widget build(BuildContext context) => buildOpenHandDialog(
-    maxWidth: kOpenHandDialogWidthStandard,
-    maxHeight: kOpenHandDialogHeightTall,
-    child: Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          Text(
-            openHandLocalizedText(context, zh: '选择后备模型', en: 'Choose backend'),
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          kOpenHandGap12,
-          Expanded(
-            child: ListView(
-              children: [
-                if (candidates.isEmpty)
-                  _EmptyBackendCard(
-                    text: openHandLocalizedText(
-                      context,
-                      zh: '没有可添加的后备模型。请先配置其他提供商或模型。',
-                      en: 'No backend candidates. Add another provider or model first.',
-                    ),
-                  )
-                else
-                  for (final item in candidates)
-                    ListTile(
-                      leading: const Icon(Icons.cloud_outlined),
-                      title: Text(item.modelId),
-                      subtitle: Text(item.providerName),
-                      onTap: () => Navigator.of(context).pop((
-                        providerId: item.providerId,
-                        modelId: item.modelId,
-                      )),
-                    ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
 }
 
 class _ProxySettingsDialog extends StatefulWidget {
