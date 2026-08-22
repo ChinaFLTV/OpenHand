@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/model_search_selector.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -408,13 +410,12 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
   String? _selectedModel;
   late final ScrollController _diagramHorizontalController;
 
-  static const double _nodeHeight = 72;
-  static const double _backendHeight = 82;
+  static const double _nodeHeight = 96;
+  static const double _backendHeight = 96;
   static const double _nodeGap = 12;
   static const double _diagramTopPadding = 18;
-  static const double _diagramMinWidth = 944;
-  static const double _rootColumnWidth = 164;
-  static const double _modelColumnWidth = 268;
+  static const double _diagramMinWidth = 1080;
+  static const double _modelColumnWidth = 392;
 
   static String _modelKey(String value) => value.trim().toLowerCase();
 
@@ -445,13 +446,14 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
         exposedModels.add(model);
       }
     }
-    final activeModel = exposedModels
-        .where(
-          (model) =>
-              _selectedModel != null &&
-              _modelKey(model) == _modelKey(_selectedModel!),
-        )
-        .firstOrNull ??
+    final activeModel =
+        exposedModels
+            .where(
+              (model) =>
+                  _selectedModel != null &&
+                  _modelKey(model) == _modelKey(_selectedModel!),
+            )
+            .firstOrNull ??
         exposedModels.firstOrNull;
     final route = activeModel == null
         ? null
@@ -471,15 +473,14 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     final middleCount = math.max(exposedModels.length, 1);
     final backendCount = backendItems.length;
     final backendItemsHeight = backendCount > 0
-        ? backendCount * _backendHeight + (backendCount - 1) * _nodeGap
+        ? backendCount * (_backendHeight + _nodeGap)
         : 56;
-    final backendContentHeight =
-        backendItemsHeight + 12 + 48 + (route == null ? 0 : 12 + 96);
+    final backendContentHeight = backendItemsHeight + 12 + 48;
     final diagramHeight = math.max(
       420.0,
       _diagramTopPadding * 2 +
           math.max(
-            middleCount * _nodeHeight + (middleCount - 1) * _nodeGap,
+            middleCount * (_nodeHeight + _nodeGap),
             backendContentHeight,
           ),
     );
@@ -507,8 +508,8 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
             _ProxyDialogHeader(
               title: text(zh: '模型映射', en: 'Model routing map'),
               subtitle: text(
-                zh: '左侧是 OpenHand，中间是 /models 暴露模型，右侧是可调度的后备模型。',
-                en: 'OpenHand routes exposed /models entries to one or more provider backends.',
+                zh: '左侧是 /models 暴露模型，右侧是按优先级调度的后备模型。',
+                en: 'Exposed /models entries route to prioritized provider backends.',
               ),
               icon: Icons.account_tree_outlined,
               onClose: () => Navigator.of(context).pop(),
@@ -543,27 +544,6 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            SizedBox(
-                              width: _rootColumnWidth,
-                              child: Center(
-                                child: _MindMapNode(
-                                  title: text(zh: 'OpenHand', en: 'OpenHand'),
-                                  icon: Icons.apps_rounded,
-                                  primary: true,
-                                ),
-                              ),
-                            ),
-                            _MindMapConnector(
-                              height: diagramHeight,
-                              sourceY: diagramHeight / 2,
-                              branchCount: exposedModels.length,
-                              branchTop: _diagramTopPadding,
-                              branchHeight: _nodeHeight,
-                              gap: _nodeGap,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.primary.withValues(alpha: 0.56),
-                            ),
                             SizedBox(
                               width: _modelColumnWidth,
                               child: Padding(
@@ -603,17 +583,53 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                           ),
                                         ],
                                       ),
-                                      itemBuilder: (model) => SizedBox(
-                                        height: _nodeHeight,
-                                        child: _MindMapNode(
-                                          title: model,
-                                          icon: Icons.api_rounded,
-                                          selected: model == activeModel,
-                                          onTap: () => setState(
-                                            () => _selectedModel = model,
+                                      onReorder: _reorderExposedModels,
+                                      itemBuilder: (model) {
+                                        final modelRoute = routes
+                                            .where(
+                                              (item) =>
+                                                  _modelKey(
+                                                    item.exposedModel,
+                                                  ) ==
+                                                  _modelKey(model),
+                                            )
+                                            .firstOrNull;
+                                        return SizedBox(
+                                          height: _nodeHeight,
+                                          child: _ProxyMappingCard(
+                                            title: model,
+                                            subtitle: text(
+                                              zh: '对外暴露模型',
+                                              en: 'Exposed model',
+                                            ),
+                                            enabled:
+                                                modelRoute?.enabled ?? true,
+                                            selected: model == activeModel,
+                                            onTap: () => setState(
+                                              () => _selectedModel = model,
+                                            ),
+                                            onToggle: modelRoute == null
+                                                ? null
+                                                : (enabled) =>
+                                                      _toggleExposedModel(
+                                                        model,
+                                                        enabled,
+                                                      ),
+                                            onEdit: modelRoute == null
+                                                ? null
+                                                : () => _editExposedModel(
+                                                    context,
+                                                    modelRoute,
+                                                  ),
+                                            onRemove: modelRoute == null
+                                                ? null
+                                                : () => _removeExposedModel(
+                                                    context,
+                                                    modelRoute,
+                                                  ),
                                           ),
-                                        ),
-                                      ),
+                                        );
+                                      },
                                     ),
                                   ],
                                 ),
@@ -646,6 +662,14 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                       itemKey: (backend) =>
                                           '${backend.providerId.trim()}\u0000${backend.modelId.trim()}',
                                       gap: _nodeGap,
+                                      onReorder: activeModel == null
+                                          ? null
+                                          : (oldIndex, newIndex) =>
+                                                _reorderBackends(
+                                                  activeModel,
+                                                  oldIndex,
+                                                  newIndex,
+                                                ),
                                       emptyChild: _EmptyBackendCard(
                                         text: text(
                                           zh: activeModel == null
@@ -660,34 +684,49 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                         final backendIndex =
                                             route?.backends.indexOf(backend) ??
                                             -1;
+                                        final provider = settings.aiModels
+                                            .where(
+                                              (item) =>
+                                                  item.id == backend.providerId,
+                                            )
+                                            .firstOrNull;
                                         return SizedBox(
                                           height: _backendHeight,
-                                          child: _BackendTile(
-                                            backend: backend,
-                                            settings: settings,
-                                            onToggle: (enabled) {
-                                              if (activeModel == null ||
-                                                  backendIndex < 0) {
-                                                return;
-                                              }
-                                              _updateBackend(
-                                                activeModel,
-                                                backendIndex,
-                                                backend.copyWith(
-                                                  enabled: enabled,
-                                                ),
-                                              );
-                                            },
-                                            onRemove: () {
-                                              if (activeModel == null ||
-                                                  backendIndex < 0) {
-                                                return;
-                                              }
-                                              _removeBackend(
-                                                activeModel,
-                                                backendIndex,
-                                              );
-                                            },
+                                          child: _ProxyMappingCard(
+                                            title: backend.modelId,
+                                            subtitle:
+                                                provider?.displayName ??
+                                                backend.providerId,
+                                            enabled: backend.enabled,
+                                            onToggle:
+                                                activeModel == null ||
+                                                    backendIndex < 0
+                                                ? null
+                                                : (enabled) => _updateBackend(
+                                                    activeModel,
+                                                    backendIndex,
+                                                    backend.copyWith(
+                                                      enabled: enabled,
+                                                    ),
+                                                  ),
+                                            onEdit:
+                                                activeModel == null ||
+                                                    backendIndex < 0
+                                                ? null
+                                                : () => _editBackendModel(
+                                                    context,
+                                                    activeModel,
+                                                    backend,
+                                                    backendIndex,
+                                                  ),
+                                            onRemove:
+                                                activeModel == null ||
+                                                    backendIndex < 0
+                                                ? null
+                                                : () => _removeBackend(
+                                                    activeModel,
+                                                    backendIndex,
+                                                  ),
                                           ),
                                         );
                                       },
@@ -721,63 +760,6 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                         ),
                                       ),
                                     ),
-                                    if (route != null) ...[
-                                      const SizedBox(height: 12),
-                                      Wrap(
-                                        spacing: 8,
-                                        runSpacing: 8,
-                                        children: [
-                                          OutlinedButton.icon(
-                                            onPressed: () => _editExposedModel(
-                                              context,
-                                              route,
-                                            ),
-                                            icon: const Icon(
-                                              Icons.tune_rounded,
-                                            ),
-                                            label: Text(
-                                              text(
-                                                zh: '编辑暴露模型参数',
-                                                en: 'Edit exposed parameters',
-                                              ),
-                                            ),
-                                          ),
-                                          if (route.backends.isNotEmpty)
-                                            OutlinedButton.icon(
-                                              onPressed: () =>
-                                                  _copyBackendProfile(
-                                                    context,
-                                                    route,
-                                                  ),
-                                              icon: const Icon(
-                                                Icons.content_copy_rounded,
-                                              ),
-                                              label: Text(
-                                                text(
-                                                  zh: '复制后备模型参数',
-                                                  en: 'Copy backend parameters',
-                                                ),
-                                              ),
-                                            ),
-                                          Tooltip(
-                                            message: text(
-                                              zh: '删除暴露模型',
-                                              en: 'Remove exposed model',
-                                            ),
-                                            child: IconButton.filledTonal(
-                                              onPressed: () =>
-                                                  _removeExposedModel(
-                                                    context,
-                                                    route,
-                                                  ),
-                                              icon: const Icon(
-                                                Icons.delete_outline_rounded,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
                                   ],
                                 ),
                               ),
@@ -796,17 +778,92 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     );
   }
 
+  Future<void> _toggleExposedModel(String exposedModel, bool enabled) async {
+    final proxy = context.read<AiModelProxyController>();
+    final routeIndex = proxy.settings.routes.indexWhere(
+      (item) => _modelKey(item.exposedModel) == _modelKey(exposedModel),
+    );
+    if (routeIndex < 0) return;
+    final routes = List<AiModelProxyRoute>.of(proxy.settings.routes);
+    routes[routeIndex] = routes[routeIndex].copyWith(enabled: enabled);
+    await proxy.saveRoutes(routes);
+  }
+
+  void _reorderExposedModels(int oldIndex, int newIndex) {
+    final proxy = context.read<AiModelProxyController>();
+    final routes = List<AiModelProxyRoute>.of(proxy.settings.routes);
+    if (newIndex > oldIndex) newIndex -= 1;
+    if (oldIndex < 0 ||
+        newIndex < 0 ||
+        oldIndex >= routes.length ||
+        newIndex >= routes.length ||
+        oldIndex == newIndex) {
+      return;
+    }
+    dismissOpenHandTooltipsSafely(debugLabel: '拖动暴露模型前收起工具提示');
+    final route = routes.removeAt(oldIndex);
+    routes.insert(newIndex, route);
+    unawaited(_persistReorderedRoutes(routes));
+  }
+
+  void _reorderBackends(String exposedModel, int oldIndex, int newIndex) {
+    final proxy = context.read<AiModelProxyController>();
+    final routeIndex = proxy.settings.routes.indexWhere(
+      (item) => _modelKey(item.exposedModel) == _modelKey(exposedModel),
+    );
+    if (routeIndex < 0) return;
+    final route = proxy.settings.routes[routeIndex];
+    if (newIndex > oldIndex) newIndex -= 1;
+    if (oldIndex < 0 ||
+        newIndex < 0 ||
+        oldIndex >= route.backends.length ||
+        newIndex >= route.backends.length ||
+        oldIndex == newIndex) {
+      return;
+    }
+    dismissOpenHandTooltipsSafely(debugLabel: '拖动后备模型前收起工具提示');
+    final backends = List<AiModelProxyBackend>.of(route.backends);
+    final backend = backends.removeAt(oldIndex);
+    backends.insert(newIndex, backend);
+    final routes = List<AiModelProxyRoute>.of(proxy.settings.routes);
+    routes[routeIndex] = route.copyWith(backends: backends);
+    unawaited(_persistReorderedRoutes(routes));
+  }
+
+  Future<void> _persistReorderedRoutes(List<AiModelProxyRoute> routes) async {
+    try {
+      await context.read<AiModelProxyController>().saveRoutes(routes);
+    } catch (_) {
+      if (!mounted) return;
+      showOpenHandErrorSnack(
+        context,
+        AppLocalizations.of(context)!.settingsPersistenceSaveFailedBody,
+      );
+    }
+  }
+
   Future<void> _addExposedModel(BuildContext context) async {
     final text = openHandTextResolver(context);
-    final modelId = await showOpenHandTextInputDialog(
-      context: context,
-      title: text(zh: '新增暴露模型', en: 'Add exposed model'),
-      hintText: text(zh: '输入对外暴露的模型 ID', en: 'Exposed model ID'),
-      confirmLabel: text(zh: '下一步', en: 'Next'),
-      icon: const Icon(Icons.api_rounded),
-      maxWidth: 460,
-    );
-    if (!context.mounted || modelId == null || modelId.isEmpty) return;
+    final draft = await _showProxyNewExposedModelDialog(context);
+    if (!context.mounted || draft == null) return;
+    var modelId = draft.modelId.trim();
+    var profile = const AiModelProfile();
+    if (draft.importExisting) {
+      final settings = context.read<SettingsController>();
+      final chosen = await showModelSearchSelector(
+        context: context,
+        models: settings.aiModels,
+        recentSelections: settings.recentModelSelections,
+      );
+      if (!context.mounted || chosen == null) return;
+      final provider = settings.aiModels
+          .where((item) => item.id == chosen.$1)
+          .firstOrNull;
+      if (provider == null) return;
+      modelId = chosen.$2.trim();
+      profile = provider.profileFor(modelId);
+    }
+    if (modelId.isEmpty) return;
     final proxy = context.read<AiModelProxyController>();
     final routes = proxy.settings.routes;
     if (routes.any(
@@ -820,13 +877,21 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     }
     await proxy.saveRoutes([
       ...routes,
-      AiModelProxyRoute(exposedModel: modelId, backends: const []),
+      AiModelProxyRoute(
+        exposedModel: modelId,
+        profile: profile,
+        backends: const [],
+      ),
     ]);
     if (!mounted || !context.mounted) return;
     setState(() => _selectedModel = modelId);
     await _editExposedModel(
       context,
-      AiModelProxyRoute(exposedModel: modelId, backends: const []),
+      AiModelProxyRoute(
+        exposedModel: modelId,
+        profile: profile,
+        backends: const [],
+      ),
     );
   }
 
@@ -879,18 +944,14 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     }
   }
 
-  Future<void> _copyBackendProfile(
+  Future<void> _editBackendModel(
     BuildContext context,
-    AiModelProxyRoute route,
+    String exposedModel,
+    AiModelProxyBackend backend,
+    int backendIndex,
   ) async {
-    if (route.backends.isEmpty) return;
-    final backend = route.backends.firstWhere(
-      (item) => item.enabled,
-      orElse: () => route.backends.first,
-    );
-    final provider = context
-        .read<SettingsController>()
-        .aiModels
+    final settings = context.read<SettingsController>();
+    final provider = settings.aiModels
         .where((item) => item.id == backend.providerId)
         .firstOrNull;
     if (provider == null) {
@@ -898,22 +959,57 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
         context,
         openHandLocalizedText(
           context,
-          zh: '后备模型提供商已不存在，无法复制参数。',
+          zh: '后备模型提供商已不存在，无法编辑参数。',
           en: 'The backend provider no longer exists.',
         ),
       );
       return;
     }
-    final proxy = context.read<AiModelProxyController>();
-    final routeIndex = proxy.settings.routes.indexWhere(
-      (item) => item.exposedModel == route.exposedModel,
+    final result = await showAiModelProfileEditorDialog(
+      context,
+      modelId: backend.modelId,
+      initialProfile:
+          provider.modelProfiles[backend.modelId] ?? const AiModelProfile(),
+      effectiveProfile: provider.profileFor(backend.modelId),
+      protocolType: provider.protocolType,
+      existingModelIds: provider.allModelIds,
     );
-    if (routeIndex < 0) return;
-    final routes = List<AiModelProxyRoute>.of(proxy.settings.routes);
-    routes[routeIndex] = routes[routeIndex].copyWith(
-      profile: provider.profileFor(backend.modelId),
+    if (!context.mounted || result == null) return;
+    final nextModelId = result.modelId.trim();
+    if (nextModelId.isEmpty) return;
+    final modelProfiles = Map<String, AiModelProfile>.of(
+      provider.modelProfiles,
     );
-    await proxy.saveRoutes(routes);
+    if (nextModelId != backend.modelId) {
+      modelProfiles.remove(backend.modelId);
+    }
+    modelProfiles[nextModelId] = result.profile;
+    final saved = await settings.saveAiModel(
+      provider.copyWith(
+        modelProfiles: modelProfiles,
+        availableModelIds: <String>[...provider.availableModelIds, nextModelId],
+      ),
+    );
+    if (!context.mounted || !saved) {
+      if (context.mounted && !saved) {
+        showOpenHandErrorSnack(
+          context,
+          AppLocalizations.of(context)!.settingsPersistenceSaveFailedBody,
+        );
+      }
+      return;
+    }
+    if (nextModelId != backend.modelId) {
+      await _updateBackend(
+        exposedModel,
+        backendIndex,
+        AiModelProxyBackend(
+          providerId: backend.providerId,
+          modelId: nextModelId,
+          enabled: backend.enabled,
+        ),
+      );
+    }
   }
 
   Future<void> _removeExposedModel(
@@ -939,7 +1035,10 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     if (!confirmed || !context.mounted) return;
     final proxy = context.read<AiModelProxyController>();
     final routes = proxy.settings.routes
-        .where((item) => item.exposedModel != route.exposedModel)
+        .where(
+          (item) =>
+              _modelKey(item.exposedModel) != _modelKey(route.exposedModel),
+        )
         .toList(growable: false);
     await proxy.saveRoutes(routes);
     if (!mounted) return;
@@ -960,24 +1059,27 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     final settings = context.read<SettingsController>();
     final proxy = context.read<AiModelProxyController>();
     final currentRoute = proxy.settings.routes
-        .where((item) => item.exposedModel == exposedModel)
+        .where(
+          (item) => _modelKey(item.exposedModel) == _modelKey(exposedModel),
+        )
         .firstOrNull;
     final existing = {
       for (final backend
           in currentRoute?.backends ?? const <AiModelProxyBackend>[])
-        '${backend.providerId.trim()}\u0000${backend.modelId.trim()}',
+        '${backend.providerId.trim().toLowerCase()}\u0000${backend.modelId.trim().toLowerCase()}',
     };
     final chosen = await showModelSearchSelector(
       context: context,
       models: settings.aiModels,
       recentSelections: settings.recentModelSelections,
-      modelFilter: (config, modelId) =>
-          !existing.contains('${config.id.trim()}\u0000${modelId.trim()}'),
+      modelFilter: (config, modelId) => !existing.contains(
+        '${config.id.trim().toLowerCase()}\u0000${modelId.trim().toLowerCase()}',
+      ),
     );
     if (!context.mounted || chosen == null) return;
     final current = proxy.settings.routes;
     final index = current.indexWhere(
-      (item) => item.exposedModel == exposedModel,
+      (item) => _modelKey(item.exposedModel) == _modelKey(exposedModel),
     );
     final route = index < 0
         ? AiModelProxyRoute(
@@ -1008,7 +1110,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
   ) async {
     final proxy = context.read<AiModelProxyController>();
     final routeIndex = proxy.settings.routes.indexWhere(
-      (item) => item.exposedModel == exposedModel,
+      (item) => _modelKey(item.exposedModel) == _modelKey(exposedModel),
     );
     if (routeIndex < 0) return;
     final route = proxy.settings.routes[routeIndex];
@@ -1023,7 +1125,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
   Future<void> _removeBackend(String exposedModel, int backendIndex) async {
     final proxy = context.read<AiModelProxyController>();
     final routeIndex = proxy.settings.routes.indexWhere(
-      (item) => item.exposedModel == exposedModel,
+      (item) => _modelKey(item.exposedModel) == _modelKey(exposedModel),
     );
     if (routeIndex < 0) return;
     final route = proxy.settings.routes[routeIndex];
@@ -1033,6 +1135,84 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     final routes = List<AiModelProxyRoute>.of(proxy.settings.routes);
     routes[routeIndex] = route.copyWith(backends: backends);
     await proxy.saveRoutes(routes);
+  }
+}
+
+class _ProxyNewExposedModelDraft {
+  const _ProxyNewExposedModelDraft({required this.modelId})
+    : importExisting = false;
+
+  const _ProxyNewExposedModelDraft.import()
+    : modelId = '',
+      importExisting = true;
+
+  final String modelId;
+  final bool importExisting;
+}
+
+Future<_ProxyNewExposedModelDraft?> _showProxyNewExposedModelDialog(
+  BuildContext context,
+) async {
+  final text = openHandTextResolver(context);
+  final controller = TextEditingController();
+  try {
+    return await showAnimatedDialog<_ProxyNewExposedModelDraft>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) {
+          final canSubmit = controller.text.trim().isNotEmpty;
+          return buildOpenHandAlertDialog(
+            icon: const Icon(Icons.api_rounded),
+            title: Text(text(zh: '新增暴露模型', en: 'Add exposed model')),
+            content: SizedBox(
+              width: 460,
+              child: TextField(
+                controller: controller,
+                autofocus: true,
+                textInputAction: TextInputAction.done,
+                onChanged: (_) => setState(() {}),
+                onSubmitted: canSubmit
+                    ? (_) => Navigator.of(dialogContext).pop(
+                        _ProxyNewExposedModelDraft(
+                          modelId: controller.text.trim(),
+                        ),
+                      )
+                    : null,
+                decoration: InputDecoration(
+                  hintText: text(zh: '输入对外暴露的模型 ID', en: 'Exposed model ID'),
+                ),
+              ),
+            ),
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                icon: Icons.file_download_outlined,
+                label: text(zh: '从已有模型导入', en: 'Import existing model'),
+                onPressed: () => Navigator.of(
+                  dialogContext,
+                ).pop(const _ProxyNewExposedModelDraft.import()),
+              ),
+              OpenHandDialogActionButton.secondary(
+                label: openHandCancelLabel(context),
+                onPressed: () => Navigator.of(dialogContext).pop(),
+              ),
+              OpenHandDialogActionButton.primary(
+                icon: Icons.arrow_forward_rounded,
+                label: text(zh: '下一步', en: 'Next'),
+                onPressed: canSubmit
+                    ? () => Navigator.of(dialogContext).pop(
+                        _ProxyNewExposedModelDraft(
+                          modelId: controller.text.trim(),
+                        ),
+                      )
+                    : null,
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  } finally {
+    controller.dispose();
   }
 }
 
@@ -1046,6 +1226,7 @@ class _AnimatedMappingItems<T> extends StatefulWidget {
     required this.itemBuilder,
     required this.emptyChild,
     required this.gap,
+    this.onReorder,
   });
 
   final List<T> items;
@@ -1053,6 +1234,7 @@ class _AnimatedMappingItems<T> extends StatefulWidget {
   final Widget Function(T item) itemBuilder;
   final Widget emptyChild;
   final double gap;
+  final void Function(int oldIndex, int newIndex)? onReorder;
 
   @override
   State<_AnimatedMappingItems<T>> createState() =>
@@ -1097,23 +1279,51 @@ class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
       OpenHandMotionSettingsScope.dialog,
     );
     final currentKeys = widget.items.map(widget.itemKey).toSet();
+    Widget buildItem(T item) {
+      final itemId = widget.itemKey(item);
+      return AnimatedAppearance(
+        key: ValueKey<String>('proxy-mapping-item-$itemId'),
+        settings: motionSettings,
+        present: currentKeys.contains(itemId),
+        onDismissed: () => _removeDismissed(itemId),
+        child: IgnorePointer(
+          ignoring: !currentKeys.contains(itemId),
+          child: Padding(
+            padding: EdgeInsets.only(bottom: widget.gap),
+            child: widget.itemBuilder(item),
+          ),
+        ),
+      );
+    }
+
+    final items = widget.onReorder == null
+        ? <Widget>[for (final item in _displayedItems) buildItem(item)]
+        : <Widget>[
+            ReorderableListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              buildDefaultDragHandles: false,
+              proxyDecorator: (child, index, animation) =>
+                  buildOpenHandReorderProxy(context, child, animation),
+              itemCount: _displayedItems.length,
+              onReorder: widget.onReorder!,
+              itemBuilder: (context, index) {
+                final item = _displayedItems[index];
+                final itemId = widget.itemKey(item);
+                return KeyedSubtree(
+                  key: ValueKey<String>('proxy-reorder-item-$itemId'),
+                  child: ReorderableDelayedDragStartListener(
+                    index: index,
+                    child: buildItem(item),
+                  ),
+                );
+              },
+            ),
+          ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final item in _displayedItems)
-          AnimatedAppearance(
-            key: ValueKey<String>('proxy-mapping-item-${widget.itemKey(item)}'),
-            settings: motionSettings,
-            present: currentKeys.contains(widget.itemKey(item)),
-            onDismissed: () => _removeDismissed(widget.itemKey(item)),
-            child: IgnorePointer(
-              ignoring: !currentKeys.contains(widget.itemKey(item)),
-              child: Padding(
-                padding: EdgeInsets.only(bottom: widget.gap),
-                child: widget.itemBuilder(item),
-              ),
-            ),
-          ),
+        ...items,
         AnimatedAppearance(
           key: const ValueKey<String>('proxy-mapping-empty-item'),
           settings: motionSettings,
@@ -1221,57 +1431,113 @@ class _MindMapConnectorPainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
-class _MindMapNode extends StatelessWidget {
-  const _MindMapNode({
+class _ProxyMappingCard extends StatelessWidget {
+  const _ProxyMappingCard({
     required this.title,
-    required this.icon,
-    this.primary = false,
+    required this.subtitle,
+    required this.enabled,
     this.selected = false,
     this.onTap,
+    this.onToggle,
+    this.onEdit,
+    this.onRemove,
   });
+
   final String title;
-  final IconData icon;
-  final bool primary;
+  final String subtitle;
+  final bool enabled;
   final bool selected;
   final VoidCallback? onTap;
+  final ValueChanged<bool>? onToggle;
+  final VoidCallback? onEdit;
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final child = Container(
-      constraints: const BoxConstraints(minHeight: 62),
-      padding: const EdgeInsets.all(12),
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final borderRadius = BorderRadius.circular(kOpenHandRadius16);
+    final card = AnimatedContainer(
+      duration: openHandMotionDuration(context, kOpenHandMotion180),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsetsDirectional.fromSTEB(16, 10, 8, 10),
       decoration: BoxDecoration(
-        color: primary
-            ? colors.primaryContainer
-            : selected
-            ? colors.primaryContainer
-            : colors.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
+        color: enabled
+            ? selected
+                  ? colors.primaryContainer
+                  : colors.surfaceContainerHighest
+            : colors.surfaceContainerLow,
+        borderRadius: borderRadius,
         border: Border.all(
-          color: selected ? colors.primary : colors.outlineVariant,
+          color: selected
+              ? colors.primary
+              : enabled
+              ? colors.outlineVariant
+              : colors.outlineVariant.withValues(alpha: 0.72),
+          width: selected ? 1.6 : 1,
         ),
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: primary ? colors.onPrimaryContainer : colors.primary,
-          ),
-          kOpenHandHGap10,
           Expanded(
-            child: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: enabled ? null : colors.onSurfaceVariant,
+                    ),
+                  ),
+                  kOpenHandGap4,
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Switch(value: enabled, onChanged: onToggle),
+          const SizedBox(width: 4),
+          ServiceDialogCompactIconButton(
+            tooltip: openHandLocalizedText(
+              context,
+              zh: '编辑模型参数',
+              en: 'Edit model parameters',
+            ),
+            foregroundColor: colors.primary,
+            icon: const Icon(Icons.tune_rounded, size: 20),
+            onPressed: onEdit,
+          ),
+          const SizedBox(width: 4),
+          ServiceDialogCompactIconButton(
+            tooltip: openHandLocalizedText(
+              context,
+              zh: '删除模型',
+              en: 'Delete model',
+            ),
+            foregroundColor: colors.error,
+            icon: const Icon(Icons.delete_outline_rounded, size: 20),
+            onPressed: onRemove,
           ),
         ],
       ),
     );
-    return onTap == null
-        ? child
-        : InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
-            child: child,
-          );
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(onTap: onTap, borderRadius: borderRadius, child: card),
+    );
   }
 }
 
@@ -1289,82 +1555,6 @@ class _EmptyBackendCard extends StatelessWidget {
         border: Border.all(color: colors.outlineVariant),
       ),
       child: Text(text),
-    );
-  }
-}
-
-class _BackendTile extends StatelessWidget {
-  const _BackendTile({
-    required this.backend,
-    required this.settings,
-    required this.onToggle,
-    required this.onRemove,
-  });
-  final AiModelProxyBackend backend;
-  final SettingsController settings;
-  final ValueChanged<bool> onToggle;
-  final VoidCallback onRemove;
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final provider = settings.aiModels
-        .where((item) => item.id == backend.providerId)
-        .firstOrNull;
-    return Container(
-      padding: const EdgeInsetsDirectional.fromSTEB(14, 10, 8, 10),
-      decoration: BoxDecoration(
-        color: backend.enabled
-            ? colors.primaryContainer.withValues(alpha: 0.72)
-            : colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(kOpenHandRadius16),
-        border: Border.all(
-          color: backend.enabled ? colors.primary : colors.outlineVariant,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            backend.enabled
-                ? Icons.check_circle_rounded
-                : Icons.pause_circle_outline_rounded,
-            color: backend.enabled ? colors.primary : colors.onSurfaceVariant,
-          ),
-          kOpenHandHGap10,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  backend.modelId,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-                kOpenHandGap4,
-                Text(
-                  provider?.displayName ?? backend.providerId,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch(value: backend.enabled, onChanged: onToggle),
-          ServiceDialogCompactIconButton(
-            tooltip: openHandLocalizedText(
-              context,
-              zh: '移除后备模型',
-              en: 'Remove backend',
-            ),
-            icon: const Icon(Icons.close_rounded, size: 20),
-            onPressed: onRemove,
-          ),
-        ],
-      ),
     );
   }
 }

@@ -50,6 +50,9 @@ class AiModelProxyDispatcher {
     if (!controller.authorize(headers)) {
       throw const AiModelProxyException(401, 'API 鉴权失败。');
     }
+    if (!controller.isExposedModelEnabled(exposedModel)) {
+      throw const AiModelProxyException(404, '模型不存在。');
+    }
     if (!controller.consumeRateLimit(
       tokens: messages.fold<int>(
         0,

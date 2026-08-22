@@ -144,9 +144,16 @@ class AiModelProxyController extends ChangeNotifier {
         authorization == 'Bearer $expected';
   }
 
+  /// 只有已启用的暴露模型才会出现在中转服务的模型空间中。
+  bool isExposedModelEnabled(String exposedModel) => _settings.routes.any(
+    (route) => route.enabled && route.exposedModel == exposedModel.trim(),
+  );
+
   AiModelProxyBackend? resolveBackend(String exposedModel) {
     final route = _settings.routes
-        .where((item) => item.exposedModel == exposedModel)
+        .where(
+          (item) => item.enabled && item.exposedModel == exposedModel.trim(),
+        )
         .firstOrNull;
     if (route == null) return null;
     final enabled = route.backends
@@ -214,10 +221,13 @@ class AiModelProxyController extends ChangeNotifier {
     _errorMessage = null;
     _notify();
     try {
-      if (_settings.routes.isEmpty) {
+      final enabledRoutes = _settings.routes
+          .where((route) => route.enabled)
+          .toList(growable: false);
+      if (enabledRoutes.isEmpty) {
         throw StateError('至少需要配置一个对外暴露模型。');
       }
-      if (_settings.routes.any(
+      if (enabledRoutes.any(
         (route) => !route.backends.any((item) => item.enabled),
       )) {
         throw StateError('每个对外暴露模型至少需要一个启用的后备模型。');
@@ -265,7 +275,7 @@ class AiModelProxyController extends ChangeNotifier {
   /// 构建 OpenAI 兼容的 `/v1/models` 元数据，不暴露提供商密钥和地址。
   List<Map<String, Object?>> buildModelsMetadata() {
     return List<Map<String, Object?>>.unmodifiable(
-      _settings.routes.map(_buildModelMetadata),
+      _settings.routes.where((route) => route.enabled).map(_buildModelMetadata),
     );
   }
 

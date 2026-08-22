@@ -250,6 +250,7 @@ class AiModelProxyRoute {
   const AiModelProxyRoute({
     required this.exposedModel,
     this.profile = const AiModelProfile(),
+    this.enabled = true,
     required this.backends,
   });
 
@@ -270,26 +271,31 @@ class AiModelProxyRoute {
     return AiModelProxyRoute(
       exposedModel: exposedModel,
       profile: profile,
+      enabled: json['enabled'] as bool? ?? true,
       backends: backends,
     );
   }
 
   final String exposedModel;
   final AiModelProfile profile;
+  final bool enabled;
   final List<AiModelProxyBackend> backends;
 
   AiModelProxyRoute copyWith({
     String? exposedModel,
     AiModelProfile? profile,
+    bool? enabled,
     List<AiModelProxyBackend>? backends,
   }) => AiModelProxyRoute(
     exposedModel: (exposedModel ?? this.exposedModel).trim(),
     profile: profile ?? this.profile,
+    enabled: enabled ?? this.enabled,
     backends: _normalizeProxyBackends(backends ?? this.backends),
   );
 
   Map<String, Object?> toJson() => <String, Object?>{
     'exposed_model': exposedModel,
+    'enabled': enabled,
     if (profile.hasUserOverrides) 'profile': profile.toJson(),
     'backends': backends.map((item) => item.toJson()).toList(growable: false),
   };

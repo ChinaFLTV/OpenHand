@@ -22,6 +22,15 @@ class AiModelProxyServiceCard extends StatelessWidget {
     final controller = context.watch<AiModelProxyController>();
     final settings = controller.settings;
     final running = controller.lifecycle == AiModelProxyLifecycle.running;
+    final enabledRouteCount = settings.routes
+        .where((route) => route.enabled)
+        .length;
+    final enabledProviderCount = settings.routes
+        .where((route) => route.enabled)
+        .expand((route) => route.backends)
+        .map((backend) => backend.providerId)
+        .toSet()
+        .length;
     final statusColor = running ? OpenHandStatusColors.success : colors.outline;
     final subtitle = text(
       zh: '统一暴露模型接口，按优先级调度多个云厂商后备模型。',
@@ -95,16 +104,16 @@ class AiModelProxyServiceCard extends StatelessWidget {
                 OpenHandStatusPill(
                   icon: Icons.hub_outlined,
                   label: text(
-                    zh: '提供商 ${settings.routes.expand((item) => item.backends).map((item) => item.providerId).toSet().length}',
-                    en: '${settings.routes.expand((item) => item.backends).map((item) => item.providerId).toSet().length} providers',
+                    zh: '提供商 $enabledProviderCount',
+                    en: '$enabledProviderCount providers',
                   ),
                   color: colors.secondary,
                 ),
                 OpenHandStatusPill(
                   icon: Icons.api_rounded,
                   label: text(
-                    zh: '暴露模型 ${settings.routes.length}',
-                    en: '${settings.routes.length} exposed models',
+                    zh: '已启用暴露模型 $enabledRouteCount',
+                    en: '$enabledRouteCount enabled exposed models',
                   ),
                   color: colors.primary,
                 ),
