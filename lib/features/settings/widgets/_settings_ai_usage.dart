@@ -285,11 +285,22 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
           children: [
             for (final range in AiUsageRange.values)
               ChoiceChip(
-                label: Text(_usageRangeLabel(context, range)),
+                showCheckmark: false,
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_filter.range == range) ...[
+                      Icon(
+                        Icons.check_rounded,
+                        size: 16,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+                      const SizedBox(width: 5),
+                    ],
+                    Text(_usageRangeLabel(context, range)),
+                  ],
+                ),
                 selected: _filter.range == range,
-                avatar: _filter.range == range
-                    ? const Icon(Icons.check_rounded, size: 16)
-                    : null,
                 onSelected: (selected) {
                   if (!selected || _filter.range == range) return;
                   setState(() => _filter = _filter.copyWith(range: range));
@@ -3973,13 +3984,28 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
           children: [
             for (final option in options)
               ChoiceChip(
-                label: Text(
-                  openHandLocalizedText(context, zh: option.$2, en: option.$3),
+                showCheckmark: false,
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_filter.scope == option.$1) ...[
+                      Icon(
+                        Icons.check_rounded,
+                        size: 17,
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
+                      const SizedBox(width: 5),
+                    ],
+                    Text(
+                      openHandLocalizedText(
+                        context,
+                        zh: option.$2,
+                        en: option.$3,
+                      ),
+                    ),
+                  ],
                 ),
                 selected: _filter.scope == option.$1,
-                avatar: _filter.scope == option.$1
-                    ? const Icon(Icons.check_rounded, size: 17)
-                    : null,
                 onSelected: (_) => setState(
                   () => _filter = _filter.copyWith(scope: option.$1),
                 ),
