@@ -33,6 +33,53 @@ class AiModelProxyController extends ChangeNotifier {
   bool get busy => _busy;
   String? get errorMessage => _errorMessage;
 
+  /// 判断模型 Base URL 是否指向当前 OpenHand 中转站监听端点。
+  ///
+  /// 监听地址变化后通过 [settings] 读取最新配置，避免设置页和服务弹窗
+  /// 各自维护一份可能失真的端点判断逻辑。
+  bool isSelfProxyBaseUrl(String baseUrl) {
+    final trimmed = baseUrl.trim();
+    if (trimmed.isEmpty) return false;
+    try {
+      final uri = Uri.tryParse(trimmed);
+      if (uri == null) return false;
+      final scheme = uri.scheme.toLowerCase();
+      if (scheme != 'http' && scheme != 'https') return false;
+      final providerHost = _normalizeEndpointHost(uri.host);
+      if (providerHost.isEmpty) return false;
+      final providerPort = uri.hasPort
+          ? uri.port
+          : (scheme == 'https' ? 443 : 80);
+      if (providerPort != _settings.listenPort) return false;
+
+      final configuredHost = _normalizeEndpointHost(_settings.listenHost);
+      if (configuredHost.isEmpty || providerHost == configuredHost) {
+        return configuredHost.isNotEmpty && providerHost == configuredHost;
+      }
+      return _isLocalOrWildcardHost(providerHost) &&
+          _isLocalOrWildcardHost(configuredHost);
+    } on FormatException {
+      // Uri 的端口在访问时才解析，非法端口需要安全降级为非匹配。
+      return false;
+    }
+  }
+
+  static String _normalizeEndpointHost(String host) {
+    final value = host.trim().toLowerCase();
+    if (value.length >= 2 && value.startsWith('[') && value.endsWith(']')) {
+      return value.substring(1, value.length - 1);
+    }
+    return value;
+  }
+
+  static bool _isLocalOrWildcardHost(String host) {
+    if (host == 'localhost' || host == 'localhost.localdomain') return true;
+    if (host == '0.0.0.0' || host == '*' || host == '::') return true;
+    if (host == '::1' || host == '0:0:0:0:0:0:0:1') return true;
+    if (RegExp(r'^127(?:\.\d{1,3}){3}$').hasMatch(host)) return true;
+    return RegExp(r'^::ffff:127(?:\.\d{1,3}){3}$').hasMatch(host);
+  }
+
   void attachModelsProvider(List<AiModelConfig> Function() provider) {
     _modelsProvider = provider;
   }

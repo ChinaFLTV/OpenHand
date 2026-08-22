@@ -365,6 +365,7 @@ class SettingsController extends ChangeNotifier {
   bool _canPersistSettings;
   bool _isDisposed = false;
   bool _isShuttingDown = false;
+  bool Function(String baseUrl)? _aiModelProviderEndpointGuard;
   final SerialTaskQueue _mutationQueue = SerialTaskQueue();
   Future<void>? _shutdownFuture;
 
@@ -683,6 +684,23 @@ class SettingsController extends ChangeNotifier {
       }
     }
     return null;
+  }
+
+  /// 注入当前服务层的模型提供商端点校验，保证所有编辑入口使用同一规则。
+  void attachAiModelProviderEndpointGuard(bool Function(String baseUrl) guard) {
+    _aiModelProviderEndpointGuard = guard;
+  }
+
+  /// 判断模型提供商是否指向 OpenHand 自身中转站。
+  bool isAiModelProviderEndpointBlocked(String baseUrl) {
+    final guard = _aiModelProviderEndpointGuard;
+    if (guard == null) return false;
+    try {
+      return guard(baseUrl);
+    } catch (error, stack) {
+      silentLog('settings_controller', '检查模型提供商端点', error, stack);
+      return true;
+    }
   }
 
   void clearPersistenceIssue() {
@@ -1660,6 +1678,9 @@ class SettingsController extends ChangeNotifier {
 
   Future<bool> saveAiModel(AiModelConfig value) async {
     return _commitMutation(() {
+      if (isAiModelProviderEndpointBlocked(value.baseUrl)) {
+        return _MutationDisposition.reject;
+      }
       final normalizedAvailableModelIds = AiModelConfig.normalizeModelIds(
         value.availableModelIds,
       );

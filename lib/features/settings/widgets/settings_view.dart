@@ -1221,11 +1221,31 @@ Future<bool> showAiModelEditorDialog(
   return submitted == true;
 }
 
+String _aiModelProxyEndpointBlockedMessage(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '该 Base URL 指向 OpenHand 当前的 AI 模型中转站，不能作为模型提供商，以避免请求无限循环。',
+    zhHant: '此 Base URL 指向 OpenHand 目前的 AI 模型中轉站，不能作為模型提供商，以避免請求無限循環。',
+    en: "This Base URL points to OpenHand's current AI model proxy and cannot be used as a provider to prevent request loops.",
+    fr: "Cette URL de base pointe vers le proxy de modèles IA actuel d'OpenHand et ne peut pas servir de fournisseur afin d'éviter les boucles de requêtes.",
+    de: 'Diese Basis-URL verweist auf den aktuellen OpenHand-KI-Modellproxy und kann zur Vermeidung von Anforderungsschleifen nicht als Anbieter verwendet werden.',
+    ja: 'この Base URL は OpenHand の現在の AI モデルプロキシを指すため、リクエストのループを防ぐ目的でプロバイダーには使用できません。',
+  );
+}
+
 /// 测试模型提供商并保存已探测的接口类型。
 Future<void> testAiModelConfiguration(
   BuildContext context,
   AiModelConfig model,
 ) async {
+  final settingsController = context.read<SettingsController>();
+  if (settingsController.isAiModelProviderEndpointBlocked(model.baseUrl)) {
+    showOpenHandErrorSnack(
+      context,
+      _aiModelProxyEndpointBlockedMessage(context),
+    );
+    return;
+  }
   final service = AiChatService();
   try {
     final result = await service.testModel(model);

@@ -294,6 +294,15 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       _errorPulse.value++;
       return;
     }
+    if (context.read<SettingsController>().isAiModelProviderEndpointBlocked(
+      baseUrl,
+    )) {
+      setState(() {
+        _scanError = _aiModelProxyEndpointBlockedMessage(context);
+      });
+      _errorPulse.value++;
+      return;
+    }
 
     setState(() {
       _isScanning = true;
@@ -2661,9 +2670,19 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       ),
     );
 
+    final settingsController = context.read<SettingsController>();
+    if (settingsController.isAiModelProviderEndpointBlocked(model.baseUrl)) {
+      setState(() {
+        _isSaving = false;
+        _errorMessage = _aiModelProxyEndpointBlockedMessage(context);
+      });
+      _errorPulse.value++;
+      return;
+    }
+
     late final bool saved;
     try {
-      saved = await context.read<SettingsController>().saveAiModel(model);
+      saved = await settingsController.saveAiModel(model);
     } catch (_) {
       if (!mounted) {
         return;
