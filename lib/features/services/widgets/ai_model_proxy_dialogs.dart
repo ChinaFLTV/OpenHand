@@ -703,7 +703,8 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                               AnimatedBuilder(
                                 animation: _diagramVerticalController,
                                 child: Row(
-                                    children: [
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
                                       const SizedBox(width: _modelColumnWidth),
                                       _MindMapConnector(
                                         height: diagramHeight,
@@ -735,8 +736,8 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                               _AnimatedMappingItems<
                                                 AiModelProxyBackend
                                               >(
-                                                key: const ValueKey<String>(
-                                                  'proxy-backend-items',
+                                                key: ValueKey<String>(
+                                                  'proxy-backend-items-${_modelKey(activeModel ?? '')}',
                                                 ),
                                                 displayGroupKey: _modelKey(
                                                   activeModel ?? '',
@@ -1521,6 +1522,7 @@ class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
     if (useLazyList) {
       return ReorderableListView.builder(
         scrollController: widget.scrollController,
+        primary: false,
         padding: widget.scrollPadding,
         physics: widget.scrollPhysics,
         itemExtent: widget.itemExtent,
@@ -1543,12 +1545,16 @@ class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
       );
     }
 
-    final items = widget.onReorder == null
+    final items = _displayedItems.isEmpty
+        ? const <Widget>[]
+        : widget.onReorder == null
         ? <Widget>[for (final item in _displayedItems) buildItem(item)]
         : <Widget>[
             ReorderableListView.builder(
+              primary: false,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
               itemExtent: widget.itemExtent,
               buildDefaultDragHandles: false,
               proxyDecorator: (child, index, animation) =>
