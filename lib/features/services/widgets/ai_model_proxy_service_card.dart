@@ -159,14 +159,14 @@ class _ProxyIdentity extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: colors.tertiaryContainer,
+                color: colors.primaryContainer,
                 borderRadius: BorderRadius.circular(18),
               ),
               alignment: Alignment.center,
               child: Icon(
                 Icons.hub_rounded,
                 size: 31,
-                color: colors.onTertiaryContainer,
+                color: colors.onPrimaryContainer,
               ),
             ),
             Positioned(
