@@ -124,13 +124,11 @@ class _RoundHeaderButton extends StatelessWidget {
     required this.tooltip,
     required this.icon,
     required this.onPressed,
-    this.primary = false,
   });
 
   final String tooltip;
   final IconData icon;
   final VoidCallback onPressed;
-  final bool primary;
 
   @override
   Widget build(BuildContext context) {
@@ -141,10 +139,8 @@ class _RoundHeaderButton extends StatelessWidget {
         onPressed: onPressed,
         icon: Icon(icon),
         style: IconButton.styleFrom(
-          backgroundColor: primary
-              ? colors.primary
-              : colors.surfaceContainerHighest,
-          foregroundColor: primary ? colors.onPrimary : colors.onSurfaceVariant,
+          backgroundColor: colors.surfaceContainerHighest,
+          foregroundColor: colors.onSurfaceVariant,
           shape: const CircleBorder(),
         ),
       ),
@@ -189,7 +185,6 @@ class _ProxyProvidersDialog extends StatelessWidget {
                 _RoundHeaderButton(
                   tooltip: text(zh: '新增提供商', en: 'Add provider'),
                   icon: Icons.add_rounded,
-                  primary: true,
                   onPressed: () => _add(context),
                 ),
                 const SizedBox(width: 8),
