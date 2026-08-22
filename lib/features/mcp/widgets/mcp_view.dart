@@ -6443,7 +6443,9 @@ class _McpOpsDistributionPanel extends StatelessWidget {
                     child: CustomPaint(
                       painter: OpenHandDonutChartPainter(
                         values: top.map((entry) => entry.value).toList(),
-                        colors: palette,
+                        colors: palette
+                            .take(top.length)
+                            .toList(growable: false),
                         trackColor: cs.surfaceContainerHighest,
                       ),
                       child: Center(

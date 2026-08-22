@@ -26,6 +26,10 @@ class AiModelProxyController extends ChangeNotifier {
   Completer<void>? _busyCompleter;
   String? _errorMessage;
   bool _disposed = false;
+  int _activeRequests = 0;
+  int _runtimeInboundBytes = 0;
+  int _runtimeOutboundBytes = 0;
+  DateTime? _startedAt;
   final Map<String, int> _roundRobinCursors = <String, int>{};
   final Map<String, int> _proxyRoundRobinCursors = <String, int>{};
   final List<DateTime> _rateWindow = <DateTime>[];
@@ -41,6 +45,18 @@ class AiModelProxyController extends ChangeNotifier {
   AiModelProxyLifecycle get lifecycle => _lifecycle;
   bool get busy => _busy;
   String? get errorMessage => _errorMessage;
+  int get currentConnections => _activeRequests;
+  int get activeRequests => _activeRequests;
+  int get runtimeInboundBytes => _runtimeInboundBytes;
+  int get runtimeOutboundBytes => _runtimeOutboundBytes;
+  DateTime? get startedAt => _startedAt;
+  Duration get uptime {
+    final start = _startedAt;
+    if (start == null || _lifecycle != AiModelProxyLifecycle.running) {
+      return Duration.zero;
+    }
+    return DateTime.now().difference(start);
+  }
 
   /// 判断模型 Base URL 是否指向当前 OpenHand 中转站监听端点。
   ///
@@ -281,12 +297,18 @@ class AiModelProxyController extends ChangeNotifier {
         modelsProvider: () =>
             _modelsProvider?.call() ?? const <AiModelConfig>[],
       );
+      _activeRequests = 0;
+      _runtimeInboundBytes = 0;
+      _runtimeOutboundBytes = 0;
       await server.start();
+      _startedAt = DateTime.now();
       _settings = _settings.copyWith(enabled: true);
       await _writes.enqueue(() => _store.save(_settings));
       _lifecycle = AiModelProxyLifecycle.running;
     } catch (error) {
       await _httpServer?.stop();
+      _startedAt = null;
+      _activeRequests = 0;
       _settings = _settings.copyWith(enabled: false);
       try {
         await _writes.enqueue(() => _store.save(_settings));
@@ -308,6 +330,8 @@ class AiModelProxyController extends ChangeNotifier {
     _notify();
     try {
       await _httpServer?.stop();
+      _startedAt = null;
+      _activeRequests = 0;
       _settings = _settings.copyWith(enabled: false);
       await _writes.enqueue(() => _store.save(_settings));
       _lifecycle = AiModelProxyLifecycle.stopped;
@@ -335,6 +359,8 @@ class AiModelProxyController extends ChangeNotifier {
     await _httpServer?.dispose();
     _httpServer = null;
     _lifecycle = AiModelProxyLifecycle.stopped;
+    _startedAt = null;
+    _activeRequests = 0;
     await _writes.idle;
   }
 
@@ -403,6 +429,33 @@ class AiModelProxyController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog('ai_model_proxy_controller', '记录中转站请求统计', error, stack);
     }
+  }
+
+  /// 记录 HTTP 请求生命周期，供服务运维面板展示实时并发。
+  void runtimeRequestStarted({int inboundBytes = 0}) {
+    if (_disposed) return;
+    _activeRequests = (_activeRequests + 1).clamp(0, 1 << 30).toInt();
+    _runtimeInboundBytes =
+        (_runtimeInboundBytes + inboundBytes.clamp(0, 1 << 31))
+            .clamp(0, 1 << 62)
+            .toInt();
+    _notify();
+  }
+
+  /// 记录响应载荷大小，避免把展示层的流量指标写死为零。
+  void runtimeResponseWritten({int outboundBytes = 0}) {
+    if (_disposed) return;
+    _runtimeOutboundBytes =
+        (_runtimeOutboundBytes + outboundBytes.clamp(0, 1 << 31))
+            .clamp(0, 1 << 62)
+            .toInt();
+    _notify();
+  }
+
+  void runtimeRequestFinished() {
+    if (_disposed) return;
+    _activeRequests = (_activeRequests - 1).clamp(0, 1 << 30).toInt();
+    _notify();
   }
 
   void clearError() {
@@ -493,6 +546,8 @@ class AiModelProxyController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _startedAt = null;
+    _activeRequests = 0;
     unawaited(_httpServer?.dispose());
     _httpServer = null;
     super.dispose();

@@ -404,7 +404,9 @@ class OpenHandDonutChartPainter extends CustomPainter {
       paint..color = trackColor,
     );
 
-    if (values.length != colors.length || values.isEmpty) return;
+    // 颜色表允许比数据段更长或更短；按索引循环取色，避免一个颜色数量
+    // 不匹配就整圈回退为未着色轨道。
+    if (values.isEmpty || colors.isEmpty) return;
     final count = values.length;
     final pairedValues = List<double>.generate(
       count,
@@ -426,7 +428,7 @@ class OpenHandDonutChartPainter extends CustomPainter {
           start,
           visibleSweep,
           false,
-          paint..color = colors[index],
+          paint..color = colors[index % colors.length],
         );
       }
       start += sweep;

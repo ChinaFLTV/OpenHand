@@ -12,6 +12,7 @@ import '../model/ai_exposure_models.dart';
 import '../services_controller.dart';
 import 'ai_exposure_proxy_dialog.dart';
 import 'ai_model_proxy_dialogs.dart';
+import 'ai_model_proxy_operations_dialog.dart';
 
 class AiModelProxyServiceCard extends StatelessWidget {
   const AiModelProxyServiceCard({super.key});
@@ -77,6 +78,7 @@ class AiModelProxyServiceCard extends StatelessWidget {
                   onProviders: () => showAiModelProxyProvidersDialog(context),
                   onNetworkProxy: () => showAiExposureProxyDialog(context),
                   onUsage: () => showAiModelProxyUsageDialog(context),
+                  onOperations: () => showAiModelProxyOperationsDialog(context),
                   onSettings: () => showAiModelProxySettingsDialog(context),
                 );
                 return compact
@@ -265,6 +267,7 @@ class _ProxyActions extends StatelessWidget {
     required this.onProviders,
     required this.onNetworkProxy,
     required this.onUsage,
+    required this.onOperations,
     required this.onSettings,
   });
   final bool running;
@@ -273,6 +276,7 @@ class _ProxyActions extends StatelessWidget {
   final VoidCallback onProviders;
   final VoidCallback onNetworkProxy;
   final VoidCallback onUsage;
+  final VoidCallback onOperations;
   final VoidCallback onSettings;
   @override
   Widget build(BuildContext context) {
@@ -309,6 +313,11 @@ class _ProxyActions extends StatelessWidget {
                   )
                 : Icon(running ? Icons.stop_rounded : Icons.play_arrow_rounded),
           ),
+        ),
+        action(
+          Icons.monitor_heart_outlined,
+          text(zh: '服务运维', en: 'Service operations'),
+          onOperations,
         ),
         action(
           Icons.hub_outlined,

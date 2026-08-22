@@ -93,9 +93,13 @@ class AiModelProxyHttpServer {
           continue;
         }
         _activeRequests += 1;
+        _controller.runtimeRequestStarted(
+          inboundBytes: request.contentLength < 0 ? 0 : request.contentLength,
+        );
         unawaited(
           _handleRequest(request).whenComplete(() {
-            _activeRequests = (_activeRequests - 1).clamp(0, 1 << 30);
+            _activeRequests = (_activeRequests - 1).clamp(0, 1 << 30).toInt();
+            _controller.runtimeRequestFinished();
           }),
         );
       }
@@ -1529,13 +1533,16 @@ class AiModelProxyHttpServer {
     }
   }
 
-  static Future<void> _writeSse(
-    HttpRequest request,
-    Map<String, Object?> data,
-  ) async {
+  Future<void> _writeSse(HttpRequest request, Map<String, Object?> data) async {
     final event = _readString(data['type']);
-    if (event.isNotEmpty) request.response.write('event: $event\n');
-    request.response.write('data: ${jsonEncode(data)}\n\n');
+    final payload = StringBuffer();
+    if (event.isNotEmpty) payload.write('event: $event\n');
+    payload.write('data: ${jsonEncode(data)}\n\n');
+    final encoded = payload.toString();
+    request.response.write(encoded);
+    _controller.runtimeResponseWritten(
+      outboundBytes: utf8.encode(encoded).length,
+    );
     await request.response.flush();
   }
 
@@ -1783,7 +1790,13 @@ class AiModelProxyHttpServer {
       ..headers.set('access-control-allow-origin', '*')
       ..headers.set('access-control-allow-methods', 'GET, POST, OPTIONS')
       ..headers.set('access-control-allow-headers', _corsAllowedHeaders);
-    if (status != 204) request.response.write(jsonEncode(body));
+    if (status != 204) {
+      final payload = jsonEncode(body);
+      request.response.write(payload);
+      _controller.runtimeResponseWritten(
+        outboundBytes: utf8.encode(payload).length,
+      );
+    }
     await request.response.close();
   }
 
