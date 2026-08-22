@@ -198,6 +198,8 @@ class _OpenRouterModelSyncDialogState
   }
 
   Widget _buildStats(BuildContext context) {
+    const spacing = 10.0;
+    const minimumCardWidth = 160.0;
     final labels = <String, String>{
       '处理': '${_progress.processed} / ${_progress.total}',
       '写入': '${_progress.upserted}',
@@ -206,31 +208,58 @@ class _OpenRouterModelSyncDialogState
       '速度': '${_progress.speed.toStringAsFixed(1)} 条/秒',
       '耗时': _formatDuration(_progress.elapsed),
     };
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: labels.entries
-          .map(
-            (entry) => Container(
-              width: 200,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(entry.key),
-                  Text(
-                    entry.value,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth;
+        final columns = !availableWidth.isFinite
+            ? 3
+            : availableWidth >= minimumCardWidth * 3 + spacing * 2
+            ? 3
+            : availableWidth >= minimumCardWidth * 2 + spacing
+            ? 2
+            : 1;
+        final cardWidth = availableWidth.isFinite
+            ? (availableWidth - spacing * (columns - 1)) / columns
+            : 200.0;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: labels.entries
+              .map(
+                (entry) => SizedBox(
+                  width: cardWidth,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 11,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(entry.key),
+                        Flexible(
+                          child: Text(
+                            entry.value,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.end,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
-            ),
-          )
-          .toList(growable: false),
+                ),
+              )
+              .toList(growable: false),
+        );
+      },
     );
   }
 
