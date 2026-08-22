@@ -248,6 +248,9 @@ Future<void> _bootstrap() async {
   agentsControllerHandle = agents.controller;
   _runMainBackgroundTask(agents.controller.refresh(), '刷新智能体');
   final services = await servicesModuleFuture;
+  services.aiModelProxyController.attachModelsProvider(
+    () => settingsController.aiModels,
+  );
   settingsController.attachAiModelProviderEndpointGuard(
     services.aiModelProxyController.isSelfProxyBaseUrl,
   );
@@ -420,6 +423,13 @@ Future<void> _bootstrap() async {
 
   final pluginService = await pluginServiceModuleFuture;
   services.controller.attachPluginServiceController(pluginService.controller);
+  // 中转站配置为启用时恢复真实 HTTP 监听；只有绑定成功后控制器才会显示运行中。
+  if (services.aiModelProxyController.settings.enabled) {
+    _runMainBackgroundTask(
+      services.aiModelProxyController.start(),
+      '恢复 AI 模型中转站监听',
+    );
+  }
   _runMainBackgroundTask(pluginService.controller.initialize(), '初始化插件服务');
   agents.controller.setRuntimeAvailabilityProvider(
     () => AgentRuntimeAvailability.fromHermesPlugin(
@@ -481,6 +491,7 @@ Future<void> _bootstrap() async {
     ..register('记忆控制器', memory.controller.shutdown)
     ..register('插件服务控制器', pluginService.controller.shutdown)
     ..register('智能体控制器', agents.controller.shutdown)
+    ..register('AI 模型中转站控制器', services.aiModelProxyController.shutdown)
     ..register('扫描服务控制器', services.controller.shutdown)
     ..register('指令控制器', instructions.controller.shutdown)
     ..register('模板运行时联动控制器', templateRuntimeLinkageController.dispose)

@@ -1,11 +1,15 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
+import '../../app/support/silent_log.dart';
 import '../../shared/util/serial_task_queue.dart';
+import '../ai/index.dart';
 import 'data/ai_model_proxy_store.dart';
 import 'model/ai_exposure_models.dart';
 import 'model/ai_model_proxy_models.dart';
+import 'service/ai_model_proxy_http_server.dart';
 
 enum AiModelProxyLifecycle { stopped, starting, running, stopping, error }
 
@@ -18,13 +22,17 @@ class AiModelProxyController extends ChangeNotifier {
   AiModelProxySettings _settings = const AiModelProxySettings();
   AiModelProxyLifecycle _lifecycle = AiModelProxyLifecycle.stopped;
   bool _busy = false;
+  Completer<void>? _busyCompleter;
   String? _errorMessage;
   bool _disposed = false;
   final Map<String, int> _roundRobinCursors = <String, int>{};
   final Map<String, int> _proxyRoundRobinCursors = <String, int>{};
   final List<DateTime> _rateWindow = <DateTime>[];
+  final List<int> _rateWindowTokenCounts = <int>[];
   int _rateWindowTokens = 0;
   AiExposureProxyConfiguration Function()? _networkProxyProvider;
+  List<AiModelConfig> Function()? _modelsProvider;
+  AiModelProxyHttpServer? _httpServer;
 
   AiModelProxySettings get settings => _settings;
   AiModelProxyLifecycle get lifecycle => _lifecycle;
@@ -121,6 +129,17 @@ class AiModelProxyController extends ChangeNotifier {
     }
   }
 
+  /// 接入应用当前的模型配置。使用回调避免控制器复制一份可能过期的列表。
+  void attachModelsProvider(List<AiModelConfig> Function() provider) {
+    if (_disposed) return;
+    _modelsProvider = provider;
+    if (_httpServer != null) return;
+    _httpServer = AiModelProxyHttpServer(
+      controller: this,
+      modelsProvider: () => _modelsProvider?.call() ?? const <AiModelConfig>[],
+    );
+  }
+
   bool authorize(Map<String, String> headers) {
     if (!_settings.requireAuthentication) return true;
     final expected = _settings.apiKey.trim();
@@ -191,17 +210,25 @@ class AiModelProxyController extends ChangeNotifier {
 
   bool consumeRateLimit({required int tokens}) {
     final now = DateTime.now();
-    _rateWindow.removeWhere(
-      (time) => now.difference(time) >= const Duration(minutes: 1),
-    );
+    for (var index = _rateWindow.length - 1; index >= 0; index -= 1) {
+      if (now.difference(_rateWindow[index]) < const Duration(minutes: 1)) {
+        continue;
+      }
+      _rateWindowTokens -= _rateWindowTokenCounts[index];
+      _rateWindow.removeAt(index);
+      _rateWindowTokenCounts.removeAt(index);
+    }
+    if (_rateWindowTokens < 0) _rateWindowTokens = 0;
     if (_settings.limitMode == AiModelProxyLimitMode.rpm) {
       if (_rateWindow.length >= _settings.limitThreshold) return false;
       _rateWindow.add(now);
+      _rateWindowTokenCounts.add(0);
       return true;
     }
     final safeTokens = tokens.clamp(0, 1 << 30);
     if (_rateWindowTokens + safeTokens > _settings.limitThreshold) return false;
     _rateWindow.add(now);
+    _rateWindowTokenCounts.add(safeTokens);
     _rateWindowTokens += safeTokens;
     return true;
   }
@@ -216,7 +243,7 @@ class AiModelProxyController extends ChangeNotifier {
 
   Future<void> start() async {
     if (_busy || _lifecycle == AiModelProxyLifecycle.running) return;
-    _busy = true;
+    _beginBusy();
     _lifecycle = AiModelProxyLifecycle.starting;
     _errorMessage = null;
     _notify();
@@ -232,24 +259,38 @@ class AiModelProxyController extends ChangeNotifier {
       )) {
         throw StateError('每个对外暴露模型至少需要一个启用的后备模型。');
       }
+      final server = _httpServer ??= AiModelProxyHttpServer(
+        controller: this,
+        modelsProvider: () =>
+            _modelsProvider?.call() ?? const <AiModelConfig>[],
+      );
+      await server.start();
       _settings = _settings.copyWith(enabled: true);
       await _store.save(_settings);
       _lifecycle = AiModelProxyLifecycle.running;
     } catch (error) {
+      await _httpServer?.stop();
+      _settings = _settings.copyWith(enabled: false);
+      try {
+        await _store.save(_settings);
+      } catch (_) {
+        // 监听失败时保留原始绑定错误，持久化失败不再覆盖它。
+      }
       _lifecycle = AiModelProxyLifecycle.error;
       _errorMessage = '$error';
     } finally {
-      _busy = false;
+      _endBusy();
       _notify();
     }
   }
 
   Future<void> stop() async {
     if (_busy || _lifecycle == AiModelProxyLifecycle.stopped) return;
-    _busy = true;
+    _beginBusy();
     _lifecycle = AiModelProxyLifecycle.stopping;
     _notify();
     try {
+      await _httpServer?.stop();
       _settings = _settings.copyWith(enabled: false);
       await _store.save(_settings);
       _lifecycle = AiModelProxyLifecycle.stopped;
@@ -257,16 +298,39 @@ class AiModelProxyController extends ChangeNotifier {
       _lifecycle = AiModelProxyLifecycle.error;
       _errorMessage = '$error';
     } finally {
-      _busy = false;
+      _endBusy();
       _notify();
     }
   }
 
+  /// 进程退出前释放监听端口和中转请求客户端。
+  Future<void> shutdown() async {
+    if (_disposed) return;
+    final busy = _busyCompleter?.future;
+    if (busy != null) {
+      try {
+        await busy.timeout(const Duration(seconds: 15));
+      } on Object {
+        // 启停操作已超过退出预算时继续强制关闭句柄。
+      }
+    }
+    await _httpServer?.dispose();
+    _httpServer = null;
+    _lifecycle = AiModelProxyLifecycle.stopped;
+    await _writes.idle;
+  }
+
   Future<void> saveSettings(AiModelProxySettings settings) async {
+    final previous = _settings;
     final normalized = settings.copyWith();
     _settings = normalized;
     _notify();
     await _writes.enqueue(() => _store.save(normalized));
+    if (_lifecycle == AiModelProxyLifecycle.running &&
+        (previous.listenHost != normalized.listenHost ||
+            previous.listenPort != normalized.listenPort)) {
+      await _rebindServer();
+    }
   }
 
   Future<void> saveRoutes(List<AiModelProxyRoute> routes) =>
@@ -299,23 +363,29 @@ class AiModelProxyController extends ChangeNotifier {
     String proxyEndpoint = '',
     String remoteHost = '',
     String remotePort = '',
-  }) => saveSettings(
-    _settings.record(
-      success: success,
-      tokens: tokens,
-      durationMs: durationMs,
-      providerId: providerId,
-      modelId: modelId,
-      apiStyle: apiStyle,
-      error: error,
-      clientIp: clientIp,
-      clientPort: clientPort,
-      proxyMode: proxyMode,
-      proxyEndpoint: proxyEndpoint,
-      remoteHost: remoteHost,
-      remotePort: remotePort,
-    ),
-  );
+  }) async {
+    try {
+      await saveSettings(
+        _settings.record(
+          success: success,
+          tokens: tokens,
+          durationMs: durationMs,
+          providerId: providerId,
+          modelId: modelId,
+          apiStyle: apiStyle,
+          error: error,
+          clientIp: clientIp,
+          clientPort: clientPort,
+          proxyMode: proxyMode,
+          proxyEndpoint: proxyEndpoint,
+          remoteHost: remoteHost,
+          remotePort: remotePort,
+        ),
+      );
+    } catch (error, stack) {
+      silentLog('ai_model_proxy_controller', '记录中转站请求统计', error, stack);
+    }
+  }
 
   void clearError() {
     if (_errorMessage == null) return;
@@ -405,6 +475,47 @@ class AiModelProxyController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    unawaited(_httpServer?.dispose());
+    _httpServer = null;
     super.dispose();
+  }
+
+  Future<void> _rebindServer() async {
+    if (_busy || _lifecycle != AiModelProxyLifecycle.running) return;
+    _beginBusy();
+    _lifecycle = AiModelProxyLifecycle.starting;
+    _errorMessage = null;
+    _notify();
+    try {
+      final server = _httpServer;
+      if (server == null) throw StateError('中转站 HTTP 服务未初始化。');
+      await server.stop();
+      await server.start();
+      _lifecycle = AiModelProxyLifecycle.running;
+    } catch (error) {
+      _lifecycle = AiModelProxyLifecycle.error;
+      _errorMessage = '重新绑定中转站端口失败：$error';
+      _settings = _settings.copyWith(enabled: false);
+      try {
+        await _store.save(_settings);
+      } catch (_) {
+        // 绑定失败时持久化失败不覆盖原始错误。
+      }
+    } finally {
+      _endBusy();
+      _notify();
+    }
+  }
+
+  void _beginBusy() {
+    _busy = true;
+    _busyCompleter = Completer<void>();
+  }
+
+  void _endBusy() {
+    _busy = false;
+    final completer = _busyCompleter;
+    _busyCompleter = null;
+    if (completer != null && !completer.isCompleted) completer.complete();
   }
 }
