@@ -22,6 +22,7 @@ import '../../settings/index.dart'
         AiUsageAnalyticsView,
         buildAiModelProviderCard,
         showAiModelEditorDialog,
+        showAiModelProfileEditorDialog,
         testAiModelConfiguration;
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_model_proxy_models.dart';
@@ -431,10 +432,10 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     final settings = context.watch<SettingsController>();
     final proxy = context.watch<AiModelProxyController>();
     final routes = proxy.settings.routes;
-    final exposedModels = <String>{
-      ...routes.map((item) => item.exposedModel),
-      for (final provider in settings.aiModels) ...provider.allModelIds,
-    }.where((item) => item.trim().isNotEmpty).toList()..sort();
+    final exposedModels = routes
+        .map((item) => item.exposedModel.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
     final selected =
         _selectedModel != null && exposedModels.contains(_selectedModel)
         ? _selectedModel!
@@ -447,7 +448,8 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     final backendItemsHeight = backendCount > 0
         ? backendCount * _backendHeight + (backendCount - 1) * _nodeGap
         : 56;
-    final backendContentHeight = backendItemsHeight + 12 + 48;
+    final backendContentHeight =
+        backendItemsHeight + 12 + 48 + (route == null ? 0 : 12 + 96);
     final diagramHeight = math.max(
       420.0,
       _diagramTopPadding * 2 +
@@ -485,6 +487,13 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
               ),
               icon: Icons.account_tree_outlined,
               onClose: () => Navigator.of(context).pop(),
+              actions: [
+                _RoundHeaderButton(
+                  tooltip: text(zh: '新增暴露模型', en: 'Add exposed model'),
+                  icon: Icons.add_rounded,
+                  onPressed: () => _addExposedModel(context),
+                ),
+              ],
             ),
             kOpenHandGap18,
             Flexible(
@@ -556,11 +565,27 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                         const SizedBox(height: _nodeGap),
                                     ],
                                     if (exposedModels.isEmpty)
-                                      _EmptyBackendCard(
-                                        text: text(
-                                          zh: '暂无可暴露模型',
-                                          en: 'No exposed models',
-                                        ),
+                                      Column(
+                                        children: [
+                                          _EmptyBackendCard(
+                                            text: text(
+                                              zh: '暂无可暴露模型，请先新增并配置。',
+                                              en: 'No exposed models. Add and configure one first.',
+                                            ),
+                                          ),
+                                          kOpenHandGap10,
+                                          FilledButton.tonalIcon(
+                                            onPressed: () =>
+                                                _addExposedModel(context),
+                                            icon: const Icon(Icons.add_rounded),
+                                            label: Text(
+                                              text(
+                                                zh: '新增暴露模型',
+                                                en: 'Add exposed model',
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                   ],
                                 ),
@@ -658,6 +683,63 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                         ),
                                       ),
                                     ),
+                                    if (route != null) ...[
+                                      const SizedBox(height: 12),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: [
+                                          OutlinedButton.icon(
+                                            onPressed: () => _editExposedModel(
+                                              context,
+                                              route,
+                                            ),
+                                            icon: const Icon(
+                                              Icons.tune_rounded,
+                                            ),
+                                            label: Text(
+                                              text(
+                                                zh: '编辑暴露模型参数',
+                                                en: 'Edit exposed parameters',
+                                              ),
+                                            ),
+                                          ),
+                                          if (route.backends.isNotEmpty)
+                                            OutlinedButton.icon(
+                                              onPressed: () =>
+                                                  _copyBackendProfile(
+                                                    context,
+                                                    route,
+                                                  ),
+                                              icon: const Icon(
+                                                Icons.content_copy_rounded,
+                                              ),
+                                              label: Text(
+                                                text(
+                                                  zh: '复制后备模型参数',
+                                                  en: 'Copy backend parameters',
+                                                ),
+                                              ),
+                                            ),
+                                          Tooltip(
+                                            message: text(
+                                              zh: '删除暴露模型',
+                                              en: 'Remove exposed model',
+                                            ),
+                                            child: IconButton.filledTonal(
+                                              onPressed: () =>
+                                                  _removeExposedModel(
+                                                    context,
+                                                    route,
+                                                  ),
+                                              icon: const Icon(
+                                                Icons.delete_outline_rounded,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -675,6 +757,161 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
       ),
     );
   }
+
+  Future<void> _addExposedModel(BuildContext context) async {
+    final text = openHandTextResolver(context);
+    final modelId = await showOpenHandTextInputDialog(
+      context: context,
+      title: text(zh: '新增暴露模型', en: 'Add exposed model'),
+      hintText: text(zh: '输入对外暴露的模型 ID', en: 'Exposed model ID'),
+      confirmLabel: text(zh: '下一步', en: 'Next'),
+      icon: const Icon(Icons.api_rounded),
+      maxWidth: 460,
+    );
+    if (!context.mounted || modelId == null || modelId.isEmpty) return;
+    final proxy = context.read<AiModelProxyController>();
+    final routes = proxy.settings.routes;
+    if (routes.any((route) => route.exposedModel == modelId)) {
+      showOpenHandErrorSnack(
+        context,
+        text(zh: '该暴露模型已存在。', en: 'That exposed model already exists.'),
+      );
+      return;
+    }
+    await proxy.saveRoutes([
+      ...routes,
+      AiModelProxyRoute(exposedModel: modelId, backends: const []),
+    ]);
+    if (!mounted || !context.mounted) return;
+    setState(() => _selectedModel = modelId);
+    await _editExposedModel(
+      context,
+      AiModelProxyRoute(exposedModel: modelId, backends: const []),
+    );
+  }
+
+  Future<void> _editExposedModel(
+    BuildContext context,
+    AiModelProxyRoute route,
+  ) async {
+    final proxy = context.read<AiModelProxyController>();
+    final result = await showAiModelProfileEditorDialog(
+      context,
+      modelId: route.exposedModel,
+      initialProfile: route.profile,
+      effectiveProfile: route.profile,
+      protocolType: _proxyProtocolType(proxy.settings.apiStyle),
+      existingModelIds: proxy.settings.routes
+          .map((item) => item.exposedModel)
+          .toList(growable: false),
+    );
+    if (!mounted || !context.mounted || result == null) return;
+    final nextModelId = result.modelId.trim();
+    if (nextModelId.isEmpty) return;
+    final currentRoutes = proxy.settings.routes;
+    final routeIndex = currentRoutes.indexWhere(
+      (item) => item.exposedModel == route.exposedModel,
+    );
+    if (routeIndex < 0) return;
+    if (nextModelId != route.exposedModel &&
+        currentRoutes.any((item) => item.exposedModel == nextModelId)) {
+      showOpenHandErrorSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '该暴露模型 ID 已存在。',
+          en: 'That exposed model ID already exists.',
+        ),
+      );
+      return;
+    }
+    final nextRoutes = List<AiModelProxyRoute>.of(currentRoutes);
+    nextRoutes[routeIndex] = currentRoutes[routeIndex].copyWith(
+      exposedModel: nextModelId,
+      profile: result.profile,
+    );
+    await proxy.saveRoutes(nextRoutes);
+    if (mounted && nextModelId != route.exposedModel) {
+      setState(() => _selectedModel = nextModelId);
+    }
+  }
+
+  Future<void> _copyBackendProfile(
+    BuildContext context,
+    AiModelProxyRoute route,
+  ) async {
+    if (route.backends.isEmpty) return;
+    final backend = route.backends.firstWhere(
+      (item) => item.enabled,
+      orElse: () => route.backends.first,
+    );
+    final provider = context
+        .read<SettingsController>()
+        .aiModels
+        .where((item) => item.id == backend.providerId)
+        .firstOrNull;
+    if (provider == null) {
+      showOpenHandErrorSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '后备模型提供商已不存在，无法复制参数。',
+          en: 'The backend provider no longer exists.',
+        ),
+      );
+      return;
+    }
+    final proxy = context.read<AiModelProxyController>();
+    final routeIndex = proxy.settings.routes.indexWhere(
+      (item) => item.exposedModel == route.exposedModel,
+    );
+    if (routeIndex < 0) return;
+    final routes = List<AiModelProxyRoute>.of(proxy.settings.routes);
+    routes[routeIndex] = routes[routeIndex].copyWith(
+      profile: provider.profileFor(backend.modelId),
+    );
+    await proxy.saveRoutes(routes);
+  }
+
+  Future<void> _removeExposedModel(
+    BuildContext context,
+    AiModelProxyRoute route,
+  ) async {
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: openHandLocalizedText(
+        context,
+        zh: '删除暴露模型',
+        en: 'Remove exposed model',
+      ),
+      message: openHandLocalizedText(
+        context,
+        zh: '确认删除“${route.exposedModel}”及其后备模型配置吗？',
+        en: 'Remove “${route.exposedModel}” and its backend configuration?',
+      ),
+      cancelLabel: openHandCancelLabel(context),
+      confirmLabel: openHandLocalizedText(context, zh: '删除', en: 'Remove'),
+      destructive: true,
+    );
+    if (!confirmed || !context.mounted) return;
+    final proxy = context.read<AiModelProxyController>();
+    final routes = proxy.settings.routes
+        .where((item) => item.exposedModel != route.exposedModel)
+        .toList(growable: false);
+    await proxy.saveRoutes(routes);
+    if (!mounted) return;
+    setState(
+      () => _selectedModel = routes.isEmpty ? null : routes.first.exposedModel,
+    );
+  }
+
+  static AiProtocolType _proxyProtocolType(AiModelProxyApiStyle style) =>
+      switch (style) {
+        AiModelProxyApiStyle.claude => AiProtocolType.claude,
+        AiModelProxyApiStyle.gemini => AiProtocolType.gemini,
+        AiModelProxyApiStyle.openAiChatCompletions ||
+        AiModelProxyApiStyle.openAiResponses => AiProtocolType.openai,
+      };
 
   Future<void> _addBackend(BuildContext context, String exposedModel) async {
     final settings = context.read<SettingsController>();

@@ -246,9 +246,6 @@ Future<void> _bootstrap() async {
   settingsController.attachAiModelProviderEndpointGuard(
     services.aiModelProxyController.isSelfProxyBaseUrl,
   );
-  services.aiModelProxyController.attachModelsProvider(
-    () => settingsController.aiModels,
-  );
   services.controller.attachSelectedAiModelProvider(
     () => settingsController.selectedAiModel,
   );

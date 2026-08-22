@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 
 import '../../shared/util/serial_task_queue.dart';
-import '../ai/index.dart';
 import 'data/ai_model_proxy_store.dart';
 import 'model/ai_exposure_models.dart';
 import 'model/ai_model_proxy_models.dart';
@@ -25,7 +24,6 @@ class AiModelProxyController extends ChangeNotifier {
   final Map<String, int> _proxyRoundRobinCursors = <String, int>{};
   final List<DateTime> _rateWindow = <DateTime>[];
   int _rateWindowTokens = 0;
-  List<AiModelConfig> Function()? _modelsProvider;
   AiExposureProxyConfiguration Function()? _networkProxyProvider;
 
   AiModelProxySettings get settings => _settings;
@@ -78,10 +76,6 @@ class AiModelProxyController extends ChangeNotifier {
     if (host == '::1' || host == '0:0:0:0:0:0:0:1') return true;
     if (RegExp(r'^127(?:\.\d{1,3}){3}$').hasMatch(host)) return true;
     return RegExp(r'^::ffff:127(?:\.\d{1,3}){3}$').hasMatch(host);
-  }
-
-  void attachModelsProvider(List<AiModelConfig> Function() provider) {
-    _modelsProvider = provider;
   }
 
   /// 复用暴露面扫描服务的代理池配置，保证两个服务选择同一条网络策略。
@@ -220,11 +214,13 @@ class AiModelProxyController extends ChangeNotifier {
     _errorMessage = null;
     _notify();
     try {
-      _ensureRoutesFromProviders();
-      if (_settings.routes.every(
-        (route) => route.backends.every((item) => !item.enabled),
+      if (_settings.routes.isEmpty) {
+        throw StateError('至少需要配置一个对外暴露模型。');
+      }
+      if (_settings.routes.any(
+        (route) => !route.backends.any((item) => item.enabled),
       )) {
-        throw StateError('至少需要一个启用的后备模型。');
+        throw StateError('每个对外暴露模型至少需要一个启用的后备模型。');
       }
       _settings = _settings.copyWith(enabled: true);
       await _store.save(_settings);
@@ -264,6 +260,19 @@ class AiModelProxyController extends ChangeNotifier {
 
   Future<void> saveRoutes(List<AiModelProxyRoute> routes) =>
       saveSettings(_settings.copyWith(routes: routes));
+
+  /// 构建 OpenAI 兼容的 `/v1/models` 元数据，不暴露提供商密钥和地址。
+  List<Map<String, Object?>> buildModelsMetadata() {
+    return List<Map<String, Object?>>.unmodifiable(
+      _settings.routes.map(_buildModelMetadata),
+    );
+  }
+
+  /// 构建可直接作为 `/v1/models` 响应体的对象。
+  Map<String, Object?> buildModelsResponse() => <String, Object?>{
+    'object': 'list',
+    'data': buildModelsMetadata(),
+  };
 
   Future<void> recordRequest({
     required bool success,
@@ -319,22 +328,67 @@ class AiModelProxyController extends ChangeNotifier {
     return enabled[index];
   }
 
-  void _ensureRoutesFromProviders() {
-    if (_settings.routes.isNotEmpty) return;
-    final providers = _modelsProvider?.call() ?? const <AiModelConfig>[];
-    final routes = <AiModelProxyRoute>[
-      for (final provider in providers)
-        for (final modelId in provider.allModelIds)
-          AiModelProxyRoute(
-            exposedModel: modelId,
-            backends: <AiModelProxyBackend>[
-              AiModelProxyBackend(providerId: provider.id, modelId: modelId),
-            ],
-          ),
-    ];
-    if (routes.isNotEmpty) {
-      _settings = _settings.copyWith(routes: routes);
-    }
+  Map<String, Object?> _buildModelMetadata(AiModelProxyRoute route) {
+    final profile = route.profile;
+    final metadata = <String, Object?>{
+      'id': route.exposedModel,
+      'object': 'model',
+      'owned_by': 'OpenHand',
+      'display_name': profile.displayName ?? route.exposedModel,
+      if (profile.description != null) 'description': profile.description,
+      if (profile.created != null) 'created': profile.created,
+      if (profile.isMultimodal != null) 'is_multimodal': profile.isMultimodal,
+      if (profile.supportedModalities.isNotEmpty)
+        'supported_modalities': profile.supportedModalities
+            .map((item) => item.storageValue)
+            .toList(growable: false),
+      if (profile.maxContextLength != null)
+        'context_length': profile.maxContextLength,
+      if (profile.maxOutputLength != null)
+        'max_output_tokens': profile.maxOutputLength,
+      if (profile.maxThinkingLength != null)
+        'max_thinking_tokens': profile.maxThinkingLength,
+      if (profile.thinkingEnabled != null)
+        'thinking_enabled': profile.thinkingEnabled,
+      if (profile.reasoningEffort != null)
+        'reasoning_effort': profile.reasoningEffort,
+      if (profile.capabilities.isNotEmpty)
+        'capabilities': profile.capabilities
+            .map((item) => item.storageValue)
+            .toList(growable: false),
+      if (profile.supportsAttachments != null)
+        'supports_attachments': profile.supportsAttachments,
+      if (profile.supportedParameters.isNotEmpty)
+        'supported_parameters': profile.supportedParameters,
+      if (profile.defaultParameters.isNotEmpty)
+        'default_parameters': profile.defaultParameters,
+      if (profile.inputUsdPer1M != null ||
+          profile.outputUsdPer1M != null ||
+          profile.cacheReadUsdPer1M != null ||
+          profile.cacheWriteUsdPer1M != null)
+        'pricing': <String, Object?>{
+          if (profile.inputUsdPer1M != null)
+            'input_usd_per_1m': profile.inputUsdPer1M,
+          if (profile.outputUsdPer1M != null)
+            'output_usd_per_1m': profile.outputUsdPer1M,
+          if (profile.cacheReadUsdPer1M != null)
+            'cache_read_usd_per_1m': profile.cacheReadUsdPer1M,
+          if (profile.cacheWriteUsdPer1M != null)
+            'cache_write_usd_per_1m': profile.cacheWriteUsdPer1M,
+        },
+      if (profile.canonicalSlug != null)
+        'canonical_slug': profile.canonicalSlug,
+      if (profile.huggingFaceId != null)
+        'hugging_face_id': profile.huggingFaceId,
+      if (profile.knowledgeCutoff != null)
+        'knowledge_cutoff': profile.knowledgeCutoff,
+      if (profile.expirationDate != null)
+        'expiration_date': profile.expirationDate,
+      if (profile.links != null && !profile.links!.isEmpty)
+        'links': profile.links!.toJson(),
+      'metadata': profile.toJson(),
+    };
+    return metadata;
   }
 
   @override

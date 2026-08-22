@@ -1221,6 +1221,44 @@ Future<bool> showAiModelEditorDialog(
   return submitted == true;
 }
 
+/// 复用全局设置中的完整模型参数编辑器，供中转站配置暴露模型。
+Future<AiModelProfileEditorResult?> showAiModelProfileEditorDialog(
+  BuildContext context, {
+  required String modelId,
+  required AiModelProfile initialProfile,
+  required AiModelProfile effectiveProfile,
+  required AiProtocolType protocolType,
+  List<String> existingModelIds = const <String>[],
+}) async {
+  final result = await showAnimatedDialog<_ModelProfileEditorResult>(
+    context: context,
+    builder: (_) => _ModelProfileEditorDialog(
+      modelId: modelId,
+      existingModelIds: existingModelIds,
+      initialProfile: initialProfile,
+      effectiveProfile: effectiveProfile,
+      protocolType: protocolType,
+      showDuplicateAction: false,
+      onDuplicate: (sourceModelId, _) => sourceModelId,
+    ),
+  );
+  if (result == null) return null;
+  return AiModelProfileEditorResult(
+    modelId: result.modelId,
+    profile: result.profile,
+  );
+}
+
+class AiModelProfileEditorResult {
+  const AiModelProfileEditorResult({
+    required this.modelId,
+    required this.profile,
+  });
+
+  final String modelId;
+  final AiModelProfile profile;
+}
+
 String _aiModelProxyEndpointBlockedMessage(BuildContext context) {
   return openHandLocalizedText(
     context,
@@ -1923,8 +1961,7 @@ class _SettingsViewState extends State<SettingsView> {
                 child: ListView.separated(
                   padding: const EdgeInsets.fromLTRB(0, 2, 0, 8),
                   itemCount: sections.length,
-                  separatorBuilder: (context, index) =>
-                      kOpenHandGap18,
+                  separatorBuilder: (context, index) => kOpenHandGap18,
                   itemBuilder: (context, index) {
                     return _buildSettingsSection(
                       context,
@@ -3531,7 +3568,10 @@ class _SettingsViewState extends State<SettingsView> {
               kOpenHandGap16,
               AnimatedSwitcher(
                 duration: openHandMotionDuration(context, kOpenHandMotion260),
-                reverseDuration: openHandMotionDuration(context, kOpenHandMotion220),
+                reverseDuration: openHandMotionDuration(
+                  context,
+                  kOpenHandMotion220,
+                ),
                 switchInCurve: kOpenHandEntranceCurve,
                 switchOutCurve: kOpenHandSwitchOutCurve,
                 transitionBuilder: (child, animation) {
@@ -4098,8 +4138,7 @@ class _SettingsViewState extends State<SettingsView> {
                     primary: false,
                     padding: EdgeInsets.zero,
                     itemCount: allowCommandRules.length,
-                    separatorBuilder: (context, index) =>
-                        kOpenHandGap12,
+                    separatorBuilder: (context, index) => kOpenHandGap12,
                     itemBuilder: (context, index) {
                       final rule = allowCommandRules[index];
                       return AppearOnce(
@@ -4155,8 +4194,7 @@ class _SettingsViewState extends State<SettingsView> {
                     primary: false,
                     padding: EdgeInsets.zero,
                     itemCount: denyCommandRules.length,
-                    separatorBuilder: (context, index) =>
-                        kOpenHandGap12,
+                    separatorBuilder: (context, index) => kOpenHandGap12,
                     itemBuilder: (context, index) {
                       final rule = denyCommandRules[index];
                       return AppearOnce(
@@ -4785,8 +4823,7 @@ class _SettingsViewState extends State<SettingsView> {
                     primary: false,
                     padding: EdgeInsets.zero,
                     itemCount: sorted.length,
-                    separatorBuilder: (context, index) =>
-                        kOpenHandGap10,
+                    separatorBuilder: (context, index) => kOpenHandGap10,
                     itemBuilder: (context, index) {
                       final config = sorted[index];
                       return _BuiltinToolTile(

@@ -38,6 +38,10 @@ class AiModelProxyDispatcher {
   final AiChatClient _chatClient;
   final bool _usesDefaultChatClient;
 
+  /// 返回中转站当前已配置的暴露模型，供 `/v1/models` 端点直接使用。
+  Map<String, Object?> buildModelsResponse() =>
+      controller.buildModelsResponse();
+
   Future<AiModelProxyDispatchResult> dispatch({
     required String exposedModel,
     required List<AiChatTurn> messages,

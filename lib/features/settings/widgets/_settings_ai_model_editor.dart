@@ -2760,6 +2760,7 @@ class _ModelProfileEditorDialog extends StatefulWidget {
     required this.effectiveProfile,
     required this.protocolType,
     required this.onDuplicate,
+    this.showDuplicateAction = true,
   });
 
   final String modelId;
@@ -2768,6 +2769,7 @@ class _ModelProfileEditorDialog extends StatefulWidget {
   final AiModelProfile effectiveProfile;
   final AiProtocolType protocolType;
   final _DuplicateModelProfileCallback onDuplicate;
+  final bool showDuplicateAction;
 
   @override
   State<_ModelProfileEditorDialog> createState() =>
@@ -4224,7 +4226,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               padding: const WidgetStatePropertyAll(
                 EdgeInsets.symmetric(horizontal: 12),
               ),
-              shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius8)),
+              shape: const WidgetStatePropertyAll(
+                RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius8),
+              ),
               textStyle: WidgetStatePropertyAll(
                 theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w600,
@@ -4608,7 +4612,10 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                           ),
                     icon: AnimatedRotation(
                       turns: draft.expanded ? 0.5 : 0,
-                      duration: openHandMotionDuration(context, kOpenHandMotion220),
+                      duration: openHandMotionDuration(
+                        context,
+                        kOpenHandMotion220,
+                      ),
                       curve: kOpenHandSwitchInCurve,
                       child: const Icon(Icons.keyboard_arrow_down_rounded),
                     ),
@@ -6083,11 +6090,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           onPressed: _reset,
           label: AppLocalizations.of(context)!.mdlEdReset,
         ),
-        OpenHandDialogActionButton.secondary(
-          onPressed: _duplicateCurrentModel,
-          icon: Icons.copy_rounded,
-          label: AppLocalizations.of(context)!.commonCopy,
-        ),
+        if (widget.showDuplicateAction)
+          OpenHandDialogActionButton.secondary(
+            onPressed: _duplicateCurrentModel,
+            icon: Icons.copy_rounded,
+            label: AppLocalizations.of(context)!.commonCopy,
+          ),
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
           label: AppLocalizations.of(context)!.mdlEdCancel,

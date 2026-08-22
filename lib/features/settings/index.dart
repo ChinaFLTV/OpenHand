@@ -2,10 +2,12 @@
 // 仅导出入口组件和顶层弹窗辅助方法。
 export 'widgets/settings_view.dart'
     show
+        AiModelProfileEditorResult,
         AiUsageAnalyticsView,
         SettingsView,
         buildAiModelProviderCard,
         showAiModelEditorDialog,
+        showAiModelProfileEditorDialog,
         testAiModelConfiguration;
 export 'widgets/thread_session_management_dialog.dart'
     show showThreadSessionManagementDialog;

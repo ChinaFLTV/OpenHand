@@ -1,4 +1,5 @@
 import '../../../shared/util/input_value_parsing.dart';
+import '../../ai/index.dart';
 
 const String aiModelProxyDefaultListenHost = '127.0.0.1';
 const int aiModelProxyDefaultListenPort = 6699;
@@ -192,7 +193,11 @@ class AiModelProxyRequestRecord {
 }
 
 class AiModelProxyRoute {
-  const AiModelProxyRoute({required this.exposedModel, required this.backends});
+  const AiModelProxyRoute({
+    required this.exposedModel,
+    this.profile = const AiModelProfile(),
+    required this.backends,
+  });
 
   factory AiModelProxyRoute.fromJson(Object? raw) {
     final json = raw is Map
@@ -208,20 +213,35 @@ class AiModelProxyRoute {
               (item) => item.providerId.isNotEmpty && item.modelId.isNotEmpty,
             )
             .toList(growable: false);
-    return AiModelProxyRoute(exposedModel: exposedModel, backends: backends);
+    final profile = json['profile'] is Map
+        ? AiModelProfile.fromJson(
+            Map<String, Object?>.from(json['profile'] as Map),
+          )
+        : const AiModelProfile();
+    return AiModelProxyRoute(
+      exposedModel: exposedModel,
+      profile: profile,
+      backends: backends,
+    );
   }
 
   final String exposedModel;
+  final AiModelProfile profile;
   final List<AiModelProxyBackend> backends;
 
-  AiModelProxyRoute copyWith({List<AiModelProxyBackend>? backends}) =>
-      AiModelProxyRoute(
-        exposedModel: exposedModel,
-        backends: backends ?? this.backends,
-      );
+  AiModelProxyRoute copyWith({
+    String? exposedModel,
+    AiModelProfile? profile,
+    List<AiModelProxyBackend>? backends,
+  }) => AiModelProxyRoute(
+    exposedModel: exposedModel ?? this.exposedModel,
+    profile: profile ?? this.profile,
+    backends: backends ?? this.backends,
+  );
 
   Map<String, Object?> toJson() => <String, Object?>{
     'exposed_model': exposedModel,
+    if (profile.hasUserOverrides) 'profile': profile.toJson(),
     'backends': backends.map((item) => item.toJson()).toList(growable: false),
   };
 }
