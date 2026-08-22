@@ -409,16 +409,23 @@ class _ProxyModelsDialog extends StatefulWidget {
 class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
   String? _selectedModel;
   int _displayedExposedModelCount = 0;
+  int _displayedBackendItemCount = 0;
   late final ScrollController _diagramHorizontalController;
 
   static const double _nodeHeight = 96;
   static const double _backendHeight = 96;
   static const double _nodeGap = 12;
   static const double _diagramTopPadding = 18;
-  static const double _diagramMinWidth = 1080;
+  static const double _diagramMinWidth = 860;
+  static const double _connectorWidth = 56;
   static const double _modelColumnWidth = 392;
+  static const double _backendColumnWidth = 360;
+  static const double _emptyBackendCardHeight = 56;
 
   static String _modelKey(String value) => value.trim().toLowerCase();
+
+  static String _backendKey(AiModelProxyBackend backend) =>
+      '${backend.providerId.trim().toLowerCase()}\u0000${backend.modelId.trim().toLowerCase()}';
 
   @override
   void initState() {
@@ -435,18 +442,22 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
   @override
   Widget build(BuildContext context) {
     final text = openHandTextResolver(context);
-    final settings = context.watch<SettingsController>();
-    final proxy = context.watch<AiModelProxyController>();
-    final routes = proxy.settings.routes;
-    final exposedModels = <String>[];
-    final exposedModelKeys = <String>{};
-    for (final route in routes) {
-      final model = route.exposedModel.trim();
-      final key = _modelKey(model);
-      if (model.isNotEmpty && exposedModelKeys.add(key)) {
-        exposedModels.add(model);
-      }
+    final modelProviders = context
+        .select<SettingsController, List<AiModelConfig>>(
+          (controller) => controller.aiModels,
+        );
+    final routes = context
+        .select<AiModelProxyController, List<AiModelProxyRoute>>(
+          (controller) => controller.settings.routes,
+        );
+    final routesByKey = <String, AiModelProxyRoute>{};
+    for (final item in routes) {
+      final key = _modelKey(item.exposedModel);
+      if (key.isNotEmpty) routesByKey.putIfAbsent(key, () => item);
     }
+    final exposedModels = routesByKey.values
+        .map((item) => item.exposedModel)
+        .toList(growable: false);
     final activeModel =
         exposedModels
             .where(
@@ -458,27 +469,32 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
         exposedModels.firstOrNull;
     final route = activeModel == null
         ? null
-        : routes
-              .where(
-                (item) =>
-                    _modelKey(item.exposedModel) == _modelKey(activeModel),
-              )
-              .firstOrNull;
+        : routesByKey[_modelKey(activeModel)];
     final backendItems = <AiModelProxyBackend>[];
     final backendKeys = <String>{};
-    for (final backend in route?.backends ?? const <AiModelProxyBackend>[]) {
-      final key =
-          '${backend.providerId.trim().toLowerCase()}\u0000${backend.modelId.trim().toLowerCase()}';
+    final backendIndexes = <String, int>{};
+    for (final (index, backend)
+        in (route?.backends ?? const <AiModelProxyBackend>[]).indexed) {
+      final key = _backendKey(backend);
       if (backendKeys.add(key)) backendItems.add(backend);
+      backendIndexes.putIfAbsent(key, () => index);
     }
+    final providersByKey = <String, AiModelConfig>{
+      for (final provider in modelProviders)
+        provider.id.trim().toLowerCase(): provider,
+    };
     final middleCount = math.max(
       math.max(exposedModels.length, _displayedExposedModelCount),
       1,
     );
     final backendCount = backendItems.length;
-    final backendItemsHeight = backendCount > 0
-        ? backendCount * (_backendHeight + _nodeGap)
-        : 56;
+    final displayedBackendCount = math.max(
+      backendCount,
+      _displayedBackendItemCount,
+    );
+    final backendItemsHeight = displayedBackendCount > 0
+        ? displayedBackendCount * (_backendHeight + _nodeGap)
+        : _emptyBackendCardHeight;
     final backendContentHeight = backendItemsHeight + 12 + 48;
     final diagramHeight = math.max(
       420.0,
@@ -536,6 +552,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                         : _diagramMinWidth,
                   );
                   return SingleChildScrollView(
+                    primary: false,
                     physics: openHandDialogAwareScrollPhysics(context),
                     child: SingleChildScrollView(
                       controller: _diagramHorizontalController,
@@ -591,15 +608,8 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                       ),
                                       onReorder: _reorderExposedModels,
                                       itemBuilder: (model) {
-                                        final modelRoute = routes
-                                            .where(
-                                              (item) =>
-                                                  _modelKey(
-                                                    item.exposedModel,
-                                                  ) ==
-                                                  _modelKey(model),
-                                            )
-                                            .firstOrNull;
+                                        final modelRoute =
+                                            routesByKey[_modelKey(model)];
                                         return SizedBox(
                                           height: _nodeHeight,
                                           child: _ProxyMappingCard(
@@ -611,9 +621,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                             enabled:
                                                 modelRoute?.enabled ?? true,
                                             selected: model == activeModel,
-                                            onTap: () => setState(
-                                              () => _selectedModel = model,
-                                            ),
+                                            onTap: () => _selectModel(model),
                                             onToggle: modelRoute == null
                                                 ? null
                                                 : (enabled) =>
@@ -644,15 +652,19 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                             _MindMapConnector(
                               height: diagramHeight,
                               sourceY: selectedCenter,
-                              branchCount: backendItems.length,
+                              branchCount: displayedBackendCount,
                               branchTop: backendTop,
+                              branchCenterY: displayedBackendCount == 0
+                                  ? backendTop + _emptyBackendCardHeight / 2
+                                  : null,
                               branchHeight: _backendHeight,
                               gap: _nodeGap,
                               color: Theme.of(
                                 context,
                               ).colorScheme.tertiary.withValues(alpha: 0.62),
                             ),
-                            Expanded(
+                            SizedBox(
+                              width: _backendColumnWidth,
                               child: Padding(
                                 padding: EdgeInsets.only(top: backendTop),
                                 child: Column(
@@ -671,6 +683,8 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                       itemKey: (backend) =>
                                           '${backend.providerId.trim()}\u0000${backend.modelId.trim()}',
                                       gap: _nodeGap,
+                                      onDisplayItemsChanged:
+                                          _updateDisplayedBackendItemCount,
                                       onReorder: activeModel == null
                                           ? null
                                           : (oldIndex, newIndex) =>
@@ -691,14 +705,14 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                       ),
                                       itemBuilder: (backend) {
                                         final backendIndex =
-                                            route?.backends.indexOf(backend) ??
+                                            backendIndexes[_backendKey(
+                                              backend,
+                                            )] ??
                                             -1;
-                                        final provider = settings.aiModels
-                                            .where(
-                                              (item) =>
-                                                  item.id == backend.providerId,
-                                            )
-                                            .firstOrNull;
+                                        final provider =
+                                            providersByKey[backend.providerId
+                                                .trim()
+                                                .toLowerCase()];
                                         return SizedBox(
                                           height: _backendHeight,
                                           child: _ProxyMappingCard(
@@ -733,8 +747,9 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                                     backendIndex < 0
                                                 ? null
                                                 : () => _removeBackend(
+                                                    context,
                                                     activeModel,
-                                                    backendIndex,
+                                                    backend,
                                                   ),
                                           ),
                                         );
@@ -792,6 +807,16 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     setState(() => _displayedExposedModelCount = count);
   }
 
+  void _updateDisplayedBackendItemCount(int count) {
+    if (!mounted || _displayedBackendItemCount == count) return;
+    setState(() => _displayedBackendItemCount = count);
+  }
+
+  void _selectModel(String model) {
+    if (_modelKey(_selectedModel ?? '') == _modelKey(model)) return;
+    setState(() => _selectedModel = model);
+  }
+
   Future<void> _toggleExposedModel(String exposedModel, bool enabled) async {
     final proxy = context.read<AiModelProxyController>();
     final routeIndex = proxy.settings.routes.indexWhere(
@@ -800,7 +825,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     if (routeIndex < 0) return;
     final routes = List<AiModelProxyRoute>.of(proxy.settings.routes);
     routes[routeIndex] = routes[routeIndex].copyWith(enabled: enabled);
-    await proxy.saveRoutes(routes);
+    await _persistRoutes(routes);
   }
 
   void _reorderExposedModels(int oldIndex, int newIndex) {
@@ -845,14 +870,21 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
   }
 
   Future<void> _persistReorderedRoutes(List<AiModelProxyRoute> routes) async {
+    await _persistRoutes(routes);
+  }
+
+  Future<bool> _persistRoutes(List<AiModelProxyRoute> routes) async {
     try {
       await context.read<AiModelProxyController>().saveRoutes(routes);
+      return true;
     } catch (_) {
-      if (!mounted) return;
-      showOpenHandErrorSnack(
-        context,
-        AppLocalizations.of(context)!.settingsPersistenceSaveFailedBody,
-      );
+      if (mounted) {
+        showOpenHandErrorSnack(
+          context,
+          AppLocalizations.of(context)!.settingsPersistenceSaveFailedBody,
+        );
+      }
+      return false;
     }
   }
 
@@ -889,7 +921,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
       );
       return;
     }
-    await proxy.saveRoutes([
+    final saved = await _persistRoutes([
       ...routes,
       AiModelProxyRoute(
         exposedModel: modelId,
@@ -897,6 +929,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
         backends: const [],
       ),
     ]);
+    if (!saved) return;
     if (!mounted || !context.mounted) return;
     setState(() => _selectedModel = modelId);
     await _editExposedModel(
@@ -952,7 +985,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
       exposedModel: nextModelId,
       profile: result.profile,
     );
-    await proxy.saveRoutes(nextRoutes);
+    if (!await _persistRoutes(nextRoutes)) return;
     if (mounted && nextModelId != route.exposedModel) {
       setState(() => _selectedModel = nextModelId);
     }
@@ -1054,7 +1087,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
               _modelKey(item.exposedModel) != _modelKey(route.exposedModel),
         )
         .toList(growable: false);
-    await proxy.saveRoutes(routes);
+    if (!await _persistRoutes(routes)) return;
     if (!mounted) return;
     setState(
       () => _selectedModel = routes.isEmpty ? null : routes.first.exposedModel,
@@ -1114,7 +1147,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     } else {
       next[index] = route;
     }
-    await proxy.saveRoutes(next);
+    await _persistRoutes(next);
   }
 
   Future<void> _updateBackend(
@@ -1133,22 +1166,46 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     backends[backendIndex] = backend;
     final routes = List<AiModelProxyRoute>.of(proxy.settings.routes);
     routes[routeIndex] = route.copyWith(backends: backends);
-    await proxy.saveRoutes(routes);
+    await _persistRoutes(routes);
   }
 
-  Future<void> _removeBackend(String exposedModel, int backendIndex) async {
+  Future<void> _removeBackend(
+    BuildContext context,
+    String exposedModel,
+    AiModelProxyBackend backend,
+  ) async {
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: openHandLocalizedText(
+        context,
+        zh: '删除后备模型',
+        en: 'Remove backend model',
+      ),
+      message: openHandLocalizedText(
+        context,
+        zh: '确认删除“${backend.modelId}”这个后备模型吗？',
+        en: 'Remove backend model “${backend.modelId}”?',
+      ),
+      cancelLabel: openHandCancelLabel(context),
+      confirmLabel: openHandLocalizedText(context, zh: '删除', en: 'Remove'),
+      destructive: true,
+    );
+    if (!confirmed || !mounted || !context.mounted) return;
     final proxy = context.read<AiModelProxyController>();
     final routeIndex = proxy.settings.routes.indexWhere(
       (item) => _modelKey(item.exposedModel) == _modelKey(exposedModel),
     );
     if (routeIndex < 0) return;
     final route = proxy.settings.routes[routeIndex];
-    if (backendIndex < 0 || backendIndex >= route.backends.length) return;
+    final currentBackendIndex = route.backends.indexWhere(
+      (item) => _backendKey(item) == _backendKey(backend),
+    );
+    if (currentBackendIndex < 0) return;
     final backends = List<AiModelProxyBackend>.of(route.backends)
-      ..removeAt(backendIndex);
+      ..removeAt(currentBackendIndex);
     final routes = List<AiModelProxyRoute>.of(proxy.settings.routes);
     routes[routeIndex] = route.copyWith(backends: backends);
-    await proxy.saveRoutes(routes);
+    await _persistRoutes(routes);
   }
 }
 
@@ -1293,7 +1350,8 @@ class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
 
   void _scheduleDisplayCountNotification() {
     final callback = widget.onDisplayItemsChanged;
-    if (callback == null || _lastReportedDisplayCount == _displayedItems.length) {
+    if (callback == null ||
+        _lastReportedDisplayCount == _displayedItems.length) {
       return;
     }
     final count = _displayedItems.length;
@@ -1382,6 +1440,7 @@ class _MindMapConnector extends StatelessWidget {
     required this.sourceY,
     required this.branchCount,
     required this.branchTop,
+    this.branchCenterY,
     required this.branchHeight,
     required this.gap,
     required this.color,
@@ -1391,19 +1450,21 @@ class _MindMapConnector extends StatelessWidget {
   final double sourceY;
   final int branchCount;
   final double branchTop;
+  final double? branchCenterY;
   final double branchHeight;
   final double gap;
   final Color color;
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: 56,
+    width: _ProxyModelsDialogState._connectorWidth,
     height: height,
     child: CustomPaint(
       painter: _MindMapConnectorPainter(
         sourceY: sourceY,
         branchCount: branchCount,
         branchTop: branchTop,
+        branchCenterY: branchCenterY,
         branchHeight: branchHeight,
         gap: gap,
         color: color,
@@ -1417,6 +1478,7 @@ class _MindMapConnectorPainter extends CustomPainter {
     required this.sourceY,
     required this.branchCount,
     required this.branchTop,
+    this.branchCenterY,
     required this.branchHeight,
     required this.gap,
     required this.color,
@@ -1425,6 +1487,7 @@ class _MindMapConnectorPainter extends CustomPainter {
   final double sourceY;
   final int branchCount;
   final double branchTop;
+  final double? branchCenterY;
   final double branchHeight;
   final double gap;
   final Color color;
@@ -1440,9 +1503,17 @@ class _MindMapConnectorPainter extends CustomPainter {
     final source = sourceY.clamp(0.0, size.height).toDouble();
     canvas.drawLine(Offset(0, source), Offset(spineX, source), paint);
     if (branchCount <= 0) {
+      final branchCenter = (branchCenterY ?? source)
+          .clamp(0.0, size.height)
+          .toDouble();
       canvas.drawLine(
         Offset(spineX, source),
-        Offset(size.width, source),
+        Offset(spineX, branchCenter),
+        paint,
+      );
+      canvas.drawLine(
+        Offset(spineX, branchCenter),
+        Offset(size.width, branchCenter),
         paint,
       );
       return;
@@ -1467,6 +1538,7 @@ class _MindMapConnectorPainter extends CustomPainter {
       oldDelegate.sourceY != sourceY ||
       oldDelegate.branchCount != branchCount ||
       oldDelegate.branchTop != branchTop ||
+      oldDelegate.branchCenterY != branchCenterY ||
       oldDelegate.branchHeight != branchHeight ||
       oldDelegate.gap != gap ||
       oldDelegate.color != color;
