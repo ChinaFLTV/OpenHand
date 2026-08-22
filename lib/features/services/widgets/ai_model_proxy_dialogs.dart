@@ -456,6 +456,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
   @override
   Widget build(BuildContext context) {
     final text = openHandTextResolver(context);
+    final colors = Theme.of(context).colorScheme;
     final modelProviders = context
         .select<SettingsController, List<AiModelConfig>>(
           (controller) => controller.aiModels,
@@ -870,7 +871,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                           ),
                                         ),
                                         const SizedBox(width: 8),
-                                        OutlinedButton.icon(
+                                        FilledButton.tonalIcon(
                                           onPressed:
                                               activeModel == null ||
                                                   backendItems.isEmpty ||
@@ -880,7 +881,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                                   context,
                                                   activeModel,
                                                 ),
-                                          style: OutlinedButton.styleFrom(
+                                          style: FilledButton.styleFrom(
                                             minimumSize: const Size(0, 42),
                                             maximumSize: const Size(
                                               double.infinity,
@@ -891,15 +892,11 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                             ),
                                             tapTargetSize: MaterialTapTargetSize
                                                 .shrinkWrap,
-                                            foregroundColor: Theme.of(
-                                              context,
-                                            ).colorScheme.error,
-                                            side: BorderSide(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .error
-                                                  .withValues(alpha: 0.55),
-                                            ),
+                                            backgroundColor: colors
+                                                .errorContainer
+                                                .withValues(alpha: 0.78),
+                                            foregroundColor:
+                                                colors.onErrorContainer,
                                           ),
                                           icon: const Icon(
                                             Icons.delete_sweep_rounded,
