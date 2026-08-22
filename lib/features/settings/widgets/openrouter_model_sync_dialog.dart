@@ -165,8 +165,7 @@ class _OpenRouterModelSyncDialogState
               ),
             ],
             kOpenHandGap12,
-            Align(
-              alignment: Alignment.centerRight,
+            Center(
               child: OpenHandDialogActionButton.primary(
                 label: isRunning
                     ? l10n(
