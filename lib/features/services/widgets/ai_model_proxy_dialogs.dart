@@ -2018,6 +2018,7 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
   late int _retryCount;
   late int _listenPort;
   late TextEditingController _key;
+  bool _showApiKey = false;
 
   @override
   void initState() {
@@ -2108,7 +2109,10 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
                   kOpenHandGap14,
                   _ProxyToggleRow(
                     value: _auth,
-                    onChanged: (value) => setState(() => _auth = value),
+                    onChanged: (value) => setState(() {
+                      _auth = value;
+                      if (!value) _showApiKey = false;
+                    }),
                     title: text(zh: 'API 鉴权', en: 'API authentication'),
                     subtitle: text(
                       zh: '启用后请求必须携带与 API 风格一致的 Key。',
@@ -2119,9 +2123,31 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
                     kOpenHandGap8,
                     TextField(
                       controller: _key,
-                      obscureText: true,
+                      obscureText: !_showApiKey,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      keyboardType: TextInputType.visiblePassword,
+                      textInputAction: TextInputAction.done,
                       decoration: InputDecoration(
                         labelText: text(zh: 'API Key', en: 'API key'),
+                        suffixIcon: ServiceDialogCompactIconButton(
+                          size: 32,
+                          tooltip: _showApiKey
+                              ? text(zh: '隐藏 API Key', en: 'Hide API key')
+                              : text(zh: '显示 API Key', en: 'Show API key'),
+                          onPressed: () =>
+                              setState(() => _showApiKey = !_showApiKey),
+                          icon: Icon(
+                            _showApiKey
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            size: 18,
+                          ),
+                        ),
+                        suffixIconConstraints: const BoxConstraints.tightFor(
+                          width: 40,
+                          height: 40,
+                        ),
                       ),
                     ),
                   ],
