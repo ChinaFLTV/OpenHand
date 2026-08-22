@@ -16,4 +16,10 @@ class OpenHandStatusColors {
 
   /// 信息或中性提示。
   static const Color info = Color(0xFF3B82F6);
+
+  /// 运行中服务的停止操作按钮样式，与 MCP 服务卡片保持一致。
+  static ButtonStyle runningStopButtonStyle() => IconButton.styleFrom(
+    backgroundColor: success.withValues(alpha: 0.15),
+    foregroundColor: success,
+  );
 }

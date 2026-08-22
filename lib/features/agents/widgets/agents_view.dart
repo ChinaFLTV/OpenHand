@@ -14,6 +14,7 @@ import '../../../app/model/dialog_animation_settings.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_appearance.dart';
@@ -585,6 +586,14 @@ class _AgentCard extends StatelessWidget {
                           : l10n.agentsStartAgent,
                       child: IconButton.filledTonal(
                         onPressed: () => onToggleEnabled(!agent.enabled),
+                        style: agent.enabled
+                            ? OpenHandStatusColors.runningStopButtonStyle()
+                                .copyWith(
+                                  shape: const WidgetStatePropertyAll(
+                                    CircleBorder(),
+                                  ),
+                                )
+                            : null,
                         icon: Icon(
                           agent.enabled
                               ? Icons.stop_rounded

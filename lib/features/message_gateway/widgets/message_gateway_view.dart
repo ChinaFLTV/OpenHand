@@ -670,6 +670,9 @@ class _WebPlatformServiceCard extends StatelessWidget {
                               controller,
                               stop: isRunning,
                             ),
+                      style: isRunning
+                          ? OpenHandStatusColors.runningStopButtonStyle()
+                          : null,
                       icon: Icon(
                         isRunning
                             ? Icons.stop_rounded
@@ -11934,10 +11937,11 @@ class _DingTalkActionButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: filled
-          ? IconButton.filled(
+          ? IconButton.filledTonal(
               tooltip: tooltip,
               onPressed: onPressed,
               icon: child,
+              style: OpenHandStatusColors.runningStopButtonStyle(),
             )
           : IconButton.filledTonal(
               tooltip: tooltip,

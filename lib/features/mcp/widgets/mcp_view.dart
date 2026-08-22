@@ -10459,11 +10459,7 @@ class _StdioProcessButtons extends StatelessWidget {
                           }
                         },
                   style: info.isRunning
-                      ? IconButton.styleFrom(
-                          backgroundColor: OpenHandStatusColors.success
-                              .withValues(alpha: 0.15),
-                          foregroundColor: OpenHandStatusColors.success,
-                        )
+                      ? OpenHandStatusColors.runningStopButtonStyle()
                       : null,
                   icon: OpenHandBusyStatusIcon(
                     busy: info.isTransitioning,

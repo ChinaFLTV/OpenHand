@@ -449,6 +449,9 @@ class _ServiceActions extends StatelessWidget {
               : text(zh: '启动服务', en: 'Start service'),
           child: IconButton.filledTonal(
             onPressed: busy ? null : onToggle,
+            style: running
+                ? OpenHandStatusColors.runningStopButtonStyle()
+                : null,
             icon: busy
                 ? const SizedBox.square(
                     dimension: 18,

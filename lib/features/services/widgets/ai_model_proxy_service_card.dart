@@ -261,7 +261,11 @@ class _ProxyActions extends StatelessWidget {
               : text(zh: '启动服务', en: 'Start service'),
           child: IconButton.filledTonal(
             onPressed: busy ? null : onToggle,
-            style: IconButton.styleFrom(shape: const CircleBorder()),
+            style: running
+                ? OpenHandStatusColors.runningStopButtonStyle().copyWith(
+                    shape: const WidgetStatePropertyAll(CircleBorder()),
+                  )
+                : IconButton.styleFrom(shape: const CircleBorder()),
             icon: busy
                 ? const SizedBox.square(
                     dimension: 18,
