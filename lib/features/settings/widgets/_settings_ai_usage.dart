@@ -77,9 +77,13 @@ Widget _buildAiUsageAnimatedSwap(BuildContext context, Widget child) {
 }
 
 class _AiUsageSettingsSection extends StatefulWidget {
-  const _AiUsageSettingsSection({this.embedded = false});
+  const _AiUsageSettingsSection({
+    this.embedded = false,
+    this.initialFilter = const AiUsageFilter(),
+  });
 
   final bool embedded;
+  final AiUsageFilter initialFilter;
 
   @override
   State<_AiUsageSettingsSection> createState() =>
@@ -87,7 +91,7 @@ class _AiUsageSettingsSection extends StatefulWidget {
 }
 
 class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
-  AiUsageFilter _filter = const AiUsageFilter();
+  late AiUsageFilter _filter = widget.initialFilter;
   AiUsageSnapshot? _snapshot;
   Object? _error;
   bool _loading = true;
@@ -346,7 +350,8 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
   int get _activeFilterCount =>
       (_filter.providerConfigId == null ? 0 : 1) +
       (_filter.modelId == null ? 0 : 1) +
-      (_filter.source == null ? 0 : 1);
+      (_filter.source == null ? 0 : 1) +
+      (_filter.scope == AiUsageDataScope.all ? 0 : 1);
 
   Widget _buildAnalytics(BuildContext context, AiUsageSnapshot snapshot) {
     return Column(
@@ -362,12 +367,14 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
           title: openHandLocalizedText(context, zh: '使用趋势', en: 'Usage Trend'),
           subtitle: openHandLocalizedText(
             context,
-            zh: '输入、输出、缓存与成本随时间的变化',
-            en: 'Input, output, cache, and cost over time',
+            zh: '输入、输出、状态与请求总数随时间变化，双指缩放调整范围',
+            en: 'Input, output, status and total requests over time; pinch to zoom the range',
           ),
           trailing: Text(_usageRangeLabel(context, snapshot.filter.range)),
           child: _AiUsageTrendChart(buckets: snapshot.trend),
         ),
+        kOpenHandGap14,
+        _AiUsageHealthPanel(snapshot: snapshot),
         kOpenHandGap14,
         _AiUsagePanel(
           title: openHandLocalizedText(
@@ -393,13 +400,18 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
 
 /// 服务弹窗复用全局设置中的完整使用统计与请求追踪结构。
 class AiUsageAnalyticsView extends StatelessWidget {
-  const AiUsageAnalyticsView({super.key, this.embedded = false});
+  const AiUsageAnalyticsView({
+    super.key,
+    this.embedded = false,
+    this.initialFilter = const AiUsageFilter(),
+  });
 
   final bool embedded;
+  final AiUsageFilter initialFilter;
 
   @override
   Widget build(BuildContext context) =>
-      _AiUsageSettingsSection(embedded: embedded);
+      _AiUsageSettingsSection(embedded: embedded, initialFilter: initialFilter);
 }
 
 class _AiUsageHero extends StatelessWidget {
@@ -855,6 +867,264 @@ class _AiUsageMetricCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _AiUsageHealthPanel extends StatelessWidget {
+  const _AiUsageHealthPanel({required this.snapshot});
+
+  final AiUsageSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return _AiUsagePanel(
+      title: openHandLocalizedText(
+        context,
+        zh: '实时健康概览',
+        en: 'Live Health Overview',
+      ),
+      subtitle: openHandLocalizedText(
+        context,
+        zh: '供应商与网络代理的请求质量、成功率和异常占比',
+        en: 'Request quality, success rate and error mix by provider and route',
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final cards = <Widget>[
+            _AiUsageHealthCard(
+              title: _settingsAiUsagProviderLabel(context),
+              icon: Icons.cloud_outlined,
+              color: colors.primary,
+              items: snapshot.healthProviders.isEmpty
+                  ? snapshot.providers
+                  : snapshot.healthProviders,
+              emptyMessage: openHandLocalizedText(
+                context,
+                zh: '当前范围暂无供应商记录',
+                en: 'No provider records in this range',
+              ),
+            ),
+            _AiUsageHealthCard(
+              title: openHandLocalizedText(
+                context,
+                zh: '网络代理',
+                en: 'Network Proxy',
+              ),
+              icon: Icons.lan_outlined,
+              color: colors.tertiary,
+              items: snapshot.proxyRoutes,
+              emptyMessage: openHandLocalizedText(
+                context,
+                zh: '当前范围暂无中转站代理记录',
+                en: 'No proxy route records in this range',
+              ),
+              labelBuilder: (item) => switch (item.key) {
+                'pool' => openHandLocalizedText(
+                  context,
+                  zh: '代理池',
+                  en: 'Proxy pool',
+                ),
+                'system' => openHandLocalizedText(
+                  context,
+                  zh: '系统代理',
+                  en: 'System proxy',
+                ),
+                'direct' => openHandLocalizedText(
+                  context,
+                  zh: '直连',
+                  en: 'Direct',
+                ),
+                _ => item.label,
+              },
+            ),
+          ];
+          if (constraints.maxWidth >= _kAiUsageDistributionTwoColumnMinWidth) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: cards[0]),
+                kOpenHandHGap12,
+                Expanded(child: cards[1]),
+              ],
+            );
+          }
+          return Column(children: [cards[0], kOpenHandGap12, cards[1]]);
+        },
+      ),
+    );
+  }
+}
+
+class _AiUsageHealthCard extends StatelessWidget {
+  const _AiUsageHealthCard({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.items,
+    required this.emptyMessage,
+    this.labelBuilder,
+  });
+
+  final String title;
+  final IconData icon;
+  final Color color;
+  final List<AiUsageBreakdown> items;
+  final String emptyMessage;
+  final String Function(AiUsageBreakdown item)? labelBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLowest,
+        borderRadius: kOpenHandBorderRadius18,
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color),
+                kOpenHandHGap8,
+                Expanded(
+                  child: Text(title, style: theme.textTheme.titleMedium),
+                ),
+                if (items.isNotEmpty)
+                  Text(
+                    '${items.fold<int>(0, (sum, item) => sum + item.requestCount)} ${openHandLocalizedText(context, zh: '次', en: 'req')}',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+              ],
+            ),
+            kOpenHandGap12,
+            if (items.isEmpty)
+              Text(
+                emptyMessage,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              )
+            else
+              for (final item in items.take(6)) ...[
+                _AiUsageHealthRow(
+                  label: labelBuilder?.call(item) ?? item.label,
+                  item: item,
+                  color: color,
+                ),
+                if (item != items.take(6).last) kOpenHandGap10,
+              ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AiUsageHealthRow extends StatelessWidget {
+  const _AiUsageHealthRow({
+    required this.label,
+    required this.item,
+    required this.color,
+  });
+
+  final String label;
+  final AiUsageBreakdown item;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final success = item.successRate;
+    final timeout = item.requestCount == 0
+        ? 0.0
+        : item.timeoutCount / item.requestCount;
+    final failed = item.requestCount == 0
+        ? 0.0
+        : math.max(0, item.failureCount - item.timeoutCount) /
+              item.requestCount;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelLarge,
+              ),
+            ),
+            Text(
+              '${(success * 100).toStringAsFixed(0)}%',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            kOpenHandHGap8,
+            Text(
+              '${item.requestCount}',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        kOpenHandGap5,
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: Row(
+            children: [
+              Expanded(
+                flex: math.max(1, (success * 1000).round()),
+                child: ColoredBox(
+                  color: color,
+                  child: const SizedBox(height: 6),
+                ),
+              ),
+              if (failed > 0)
+                Expanded(
+                  flex: math.max(1, (failed * 1000).round()),
+                  child: ColoredBox(
+                    color: colors.error.withValues(alpha: 0.78),
+                    child: const SizedBox(height: 6),
+                  ),
+                ),
+              if (timeout > 0)
+                Expanded(
+                  flex: math.max(1, (timeout * 1000).round()),
+                  child: ColoredBox(
+                    color: colors.tertiary.withValues(alpha: 0.8),
+                    child: const SizedBox(height: 6),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        kOpenHandGap4,
+        Text(
+          openHandLocalizedText(
+            context,
+            zh: '成功 ${(success * 100).toStringAsFixed(0)}% · 失败 ${(failed * 100).toStringAsFixed(0)}% · 超时 ${(timeout * 100).toStringAsFixed(0)}%',
+            en: 'Success ${(success * 100).toStringAsFixed(0)}% · Failed ${(failed * 100).toStringAsFixed(0)}% · Timeout ${(timeout * 100).toStringAsFixed(0)}%',
+          ),
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: colors.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1556,11 +1826,20 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
   int? _selectedIndex;
   int? _tooltipIndex;
   bool _tooltipVisible = false;
+  double _visibleFraction = 1;
+  double _gestureStartFraction = 1;
+
+  List<AiUsageBucket> get _displayBuckets {
+    final buckets = widget.buckets;
+    if (buckets.length < 3 || _visibleFraction >= 0.999) return buckets;
+    final count = math.max(2, (buckets.length * _visibleFraction).round());
+    return buckets.sublist(math.max(0, buckets.length - count));
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final buckets = widget.buckets;
+    final buckets = _displayBuckets;
     if (buckets.isEmpty) {
       return SizedBox(
         height: 180,
@@ -1595,6 +1874,22 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
                 en: 'Cache Read',
               ),
             ),
+            _AiUsageLegendDot(
+              color: theme.colorScheme.primary,
+              label: openHandLocalizedText(context, zh: '成功数', en: 'Success'),
+            ),
+            _AiUsageLegendDot(
+              color: theme.colorScheme.error,
+              label: openHandLocalizedText(context, zh: '失败数', en: 'Failed'),
+            ),
+            _AiUsageLegendDot(
+              color: theme.colorScheme.tertiary,
+              label: openHandLocalizedText(context, zh: '超时数', en: 'Timeout'),
+            ),
+            _AiUsageLegendDot(
+              color: theme.colorScheme.onSurface,
+              label: openHandLocalizedText(context, zh: '请求总数', en: 'Requests'),
+            ),
           ],
         ),
         kOpenHandGap14,
@@ -1609,6 +1904,21 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
                 behavior: HitTestBehavior.opaque,
                 onTapDown: (details) =>
                     _selectBucket(details.localPosition.dx, width),
+                onScaleStart: (_) => _gestureStartFraction = _visibleFraction,
+                onScaleUpdate: (details) {
+                  if (details.scale == 1) return;
+                  final next = (_gestureStartFraction / details.scale).clamp(
+                    0.2,
+                    1.0,
+                  );
+                  if ((next - _visibleFraction).abs() < 0.01) return;
+                  setState(() {
+                    _visibleFraction = next;
+                    _selectedIndex = null;
+                    _tooltipIndex = null;
+                    _tooltipVisible = false;
+                  });
+                },
                 child: SizedBox(
                   height: height,
                   child: Stack(
@@ -1639,12 +1949,13 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
   }
 
   void _selectBucket(double dx, double width) {
-    if (widget.buckets.isEmpty || width <= 0) return;
-    final index = widget.buckets.length == 1
+    final buckets = _displayBuckets;
+    if (buckets.isEmpty || width <= 0) return;
+    final index = buckets.length == 1
         ? 0
-        : (dx / width * (widget.buckets.length - 1)).round().clamp(
+        : (dx / width * (buckets.length - 1)).round().clamp(
             0,
-            widget.buckets.length - 1,
+            buckets.length - 1,
           );
     if (_selectedIndex == index && _tooltipVisible) return;
     setState(() {
@@ -1664,11 +1975,12 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
 
   Widget _buildTooltip(BuildContext context, int index, double width) {
     final theme = Theme.of(context);
-    final bucket = widget.buckets[index];
+    final buckets = _displayBuckets;
+    final bucket = buckets[index];
     final tooltipWidth = math.min(width, 210.0);
-    final center = widget.buckets.length == 1
+    final center = buckets.length == 1
         ? width / 2
-        : index * width / (widget.buckets.length - 1);
+        : index * width / (buckets.length - 1);
     final left = (center - tooltipWidth / 2).clamp(0.0, width - tooltipWidth);
     final duration = openHandMotionDuration(context, kOpenHandMotion220);
     return AnimatedPositioned(
@@ -1731,6 +2043,12 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
                               ? '≥${_usageMoney(bucket.totalCostUsd)}'
                               : _usageMoney(bucket.totalCostUsd)}',
                         ),
+                        Text(
+                          '${openHandLocalizedText(context, zh: '成功', en: 'Success')}  ${bucket.successCount}  ·  '
+                          '${openHandLocalizedText(context, zh: '失败', en: 'Failed')}  ${bucket.failedCount}  ·  '
+                          '${openHandLocalizedText(context, zh: '超时', en: 'Timeout')}  ${bucket.timeoutCount}  ·  '
+                          '${openHandLocalizedText(context, zh: '总请求', en: 'Requests')}  ${bucket.requestCount}',
+                        ),
                       ],
                     ),
                   ),
@@ -1774,6 +2092,19 @@ class _AiUsageTrendPainter extends CustomPainter {
         math.max(
           bucket.promptTokens,
           math.max(bucket.completionTokens, bucket.cacheReadTokens),
+        ),
+      ),
+    );
+    final maxStatus = buckets.fold<int>(
+      1,
+      (maxValue, bucket) => math.max(
+        maxValue,
+        math.max(
+          bucket.requestCount,
+          math.max(
+            bucket.successCount,
+            math.max(bucket.failedCount, bucket.timeoutCount),
+          ),
         ),
       ),
     );
@@ -1828,6 +2159,21 @@ class _AiUsageTrendPainter extends CustomPainter {
     final inputPoints = pointsFor((bucket) => bucket.promptTokens);
     final outputPoints = pointsFor((bucket) => bucket.completionTokens);
     final cachePoints = pointsFor((bucket) => bucket.cacheReadTokens);
+    List<Offset> statusPoints(int Function(AiUsageBucket) valueOf) {
+      if (buckets.length == 1) {
+        final value = valueOf(buckets.first);
+        final y = top + chartHeight * (1 - value / maxStatus);
+        return <Offset>[Offset(0, y), Offset(size.width, y)];
+      }
+      return <Offset>[
+        for (var index = 0; index < buckets.length; index++)
+          Offset(
+            index * step,
+            top + chartHeight * (1 - valueOf(buckets[index]) / maxStatus),
+          ),
+      ];
+    }
+
     final inputPath = smoothPath(inputPoints);
     final areaPath = Path.from(inputPath)
       ..lineTo(size.width, top + chartHeight)
@@ -1852,6 +2198,26 @@ class _AiUsageTrendPainter extends CustomPainter {
     drawSeries(inputPath, colorScheme.primary, 2.6);
     drawSeries(smoothPath(outputPoints), colorScheme.tertiary, 2.2);
     drawSeries(smoothPath(cachePoints), OpenHandStatusColors.success, 2.2);
+    drawSeries(
+      smoothPath(statusPoints((bucket) => bucket.successCount)),
+      colorScheme.primary.withValues(alpha: 0.72),
+      2.4,
+    );
+    drawSeries(
+      smoothPath(statusPoints((bucket) => bucket.failedCount)),
+      colorScheme.error,
+      2.2,
+    );
+    drawSeries(
+      smoothPath(statusPoints((bucket) => bucket.timeoutCount)),
+      colorScheme.tertiary.withValues(alpha: 0.82),
+      2.2,
+    );
+    drawSeries(
+      smoothPath(statusPoints((bucket) => bucket.requestCount)),
+      colorScheme.onSurface,
+      2.8,
+    );
     final selected = selectedIndex;
     if (selected != null) {
       final x = buckets.length <= 1 ? size.width / 2 : selected * step;
@@ -3499,6 +3865,8 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  _buildScopeFacet(context),
+                  kOpenHandGap22,
                   _buildFacet(
                     context,
                     title: _settingsAiUsagProviderLabel(context),
@@ -3568,6 +3936,57 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildScopeFacet(BuildContext context) {
+    final theme = Theme.of(context);
+    final options = <(AiUsageDataScope, String, String)>[
+      (AiUsageDataScope.proxyOnly, '中转站统计', 'Proxy only'),
+      (AiUsageDataScope.nonProxy, '非中转站统计', 'Non-proxy only'),
+      (AiUsageDataScope.all, '全部统计数据', 'All statistics'),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          openHandLocalizedText(context, zh: '数据统计范围', en: 'Data scope'),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        kOpenHandGap6,
+        Text(
+          openHandLocalizedText(
+            context,
+            zh: '先选择统计来源，再叠加供应商、模型和来源条件',
+            en: 'Choose the data scope before adding provider, model or source filters',
+          ),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        kOpenHandGap10,
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final option in options)
+              ChoiceChip(
+                label: Text(
+                  openHandLocalizedText(context, zh: option.$2, en: option.$3),
+                ),
+                selected: _filter.scope == option.$1,
+                avatar: _filter.scope == option.$1
+                    ? const Icon(Icons.check_rounded, size: 17)
+                    : null,
+                onSelected: (_) => setState(
+                  () => _filter = _filter.copyWith(scope: option.$1),
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 

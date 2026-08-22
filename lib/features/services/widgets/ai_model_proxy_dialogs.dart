@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
@@ -1623,8 +1624,15 @@ class _ProxyToggleRow extends StatelessWidget {
   }
 }
 
-class _ProxyUsageDialog extends StatelessWidget {
+class _ProxyUsageDialog extends StatefulWidget {
   const _ProxyUsageDialog();
+
+  @override
+  State<_ProxyUsageDialog> createState() => _ProxyUsageDialogState();
+}
+
+class _ProxyUsageDialogState extends State<_ProxyUsageDialog> {
+  AiUsageDataScope _scope = AiUsageDataScope.proxyOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -1645,6 +1653,34 @@ class _ProxyUsageDialog extends StatelessWidget {
               ),
               icon: Icons.query_stats_rounded,
               onClose: () => Navigator.of(context).pop(),
+              actions: [
+                AnimatedPopupMenuButton<AiUsageDataScope>(
+                  tooltip: text(zh: '过滤统计范围', en: 'Filter data scope'),
+                  initialValue: _scope,
+                  onSelected: (value) => setState(() => _scope = value),
+                  icon: const Icon(Icons.filter_alt_outlined),
+                  itemBuilder: (context) => [
+                    _scopeMenuItem(
+                      context,
+                      AiUsageDataScope.proxyOnly,
+                      '仅展示中转站统计数据',
+                      'Proxy only',
+                    ),
+                    _scopeMenuItem(
+                      context,
+                      AiUsageDataScope.nonProxy,
+                      '仅展示非中转站统计数据',
+                      'Non-proxy only',
+                    ),
+                    _scopeMenuItem(
+                      context,
+                      AiUsageDataScope.all,
+                      '展示所有统计数据',
+                      'All statistics',
+                    ),
+                  ],
+                ),
+              ],
             ),
             kOpenHandGap16,
             Expanded(
@@ -1653,21 +1689,49 @@ class _ProxyUsageDialog extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const AiUsageAnalyticsView(embedded: true),
-                    kOpenHandGap16,
-                    _ProxyServiceTraceExtension(
-                      records: records,
-                      requestCount: stats.requestCount,
-                      successRate: stats.successRate,
-                      totalTokens: stats.totalTokens,
-                      averageDurationMs: stats.averageDurationMs,
+                    AiUsageAnalyticsView(
+                      key: ValueKey<AiUsageDataScope>(_scope),
+                      embedded: true,
+                      initialFilter: AiUsageFilter(scope: _scope),
                     ),
+                    if (_scope == AiUsageDataScope.proxyOnly) ...[
+                      kOpenHandGap16,
+                      _ProxyServiceTraceExtension(
+                        records: records,
+                        requestCount: stats.requestCount,
+                        successRate: stats.successRate,
+                        totalTokens: stats.totalTokens,
+                        averageDurationMs: stats.averageDurationMs,
+                      ),
+                    ],
                   ],
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  PopupMenuItem<AiUsageDataScope> _scopeMenuItem(
+    BuildContext context,
+    AiUsageDataScope value,
+    String zh,
+    String en,
+  ) {
+    return PopupMenuItem<AiUsageDataScope>(
+      value: value,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 24,
+            child: _scope == value
+                ? const Icon(Icons.check_rounded, size: 18)
+                : null,
+          ),
+          Text(openHandLocalizedText(context, zh: zh, en: en)),
+        ],
       ),
     );
   }

@@ -153,6 +153,10 @@ class AiUsageStore {
       filter.copyWith(range: AiUsageRange.year),
       now: now,
     );
+    final facetWhere = _buildWhere(
+      filter.copyWith(clearProvider: true, clearModel: true, clearSource: true),
+      now: now,
+    );
     final results = await Future.wait<Object>(<Future<Object>>[
       _loadSummary(where),
       _loadTrend(where, filter.range),
@@ -169,9 +173,15 @@ class AiUsageStore {
         omitBlank: true,
       ),
       _loadRecent(where),
-      _loadFacets('provider_config_id', 'provider_name'),
-      _loadFacets('model_id', 'model_id'),
-      _loadFacets('source', 'source'),
+      _loadFacets(facetWhere, 'provider_config_id', 'provider_name'),
+      _loadFacets(facetWhere, 'model_id', 'model_id'),
+      _loadFacets(facetWhere, 'source', 'source'),
+      _loadBreakdown(
+        _sourceWhere(where, AiUsageDataScope.proxySource),
+        r"CASE WHEN json_valid(metadata_json) THEN COALESCE(json_extract(metadata_json, '$.proxy_mode'), 'direct') ELSE 'direct' END",
+        r"CASE WHEN json_valid(metadata_json) THEN COALESCE(json_extract(metadata_json, '$.proxy_mode'), '直连') ELSE '直连' END",
+      ),
+      _loadBreakdown(where, 'provider_config_id', 'provider_name', limit: 100),
     ]);
     return AiUsageSnapshot(
       generatedAt: now,
@@ -189,6 +199,8 @@ class AiUsageStore {
       providerFacets: results[10] as List<AiUsageFacet>,
       modelFacets: results[11] as List<AiUsageFacet>,
       sourceFacets: results[12] as List<AiUsageFacet>,
+      proxyRoutes: results[13] as List<AiUsageBreakdown>,
+      healthProviders: results[14] as List<AiUsageBreakdown>,
     );
   }
 
@@ -350,7 +362,13 @@ class AiUsageStore {
         SUM(cache_read_tokens) AS cache_read_tokens,
         SUM(total_tokens) AS total_tokens,
         SUM(CASE WHEN total_cost_usd IS NOT NULL THEN 1 ELSE 0 END) AS priced_count,
-        SUM(COALESCE(total_cost_usd, 0)) AS total_cost_usd
+        SUM(COALESCE(total_cost_usd, 0)) AS total_cost_usd,
+        SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) AS success_count,
+        SUM(CASE WHEN status IN ('failed', 'error') THEN 1 ELSE 0 END) AS failed_count,
+        SUM(CASE WHEN status != 'success' THEN 1 ELSE 0 END) AS failure_count,
+        SUM(CASE WHEN status = 'timeout' THEN 1 ELSE 0 END) AS timeout_count,
+        SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) AS error_count,
+        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_count
       FROM $tableName ${where.sql}
       GROUP BY bucket_key
       ORDER BY bucket_key ASC
@@ -367,6 +385,12 @@ class AiUsageStore {
             totalTokens: _int(row['total_tokens']),
             totalCostUsd: _double(row['total_cost_usd']),
             pricedRequestCount: _int(row['priced_count']),
+            successCount: _int(row['success_count']),
+            failedCount: _int(row['failed_count']),
+            failureCount: _int(row['failure_count']),
+            timeoutCount: _int(row['timeout_count']),
+            errorCount: _int(row['error_count']),
+            cancelledCount: _int(row['cancelled_count']),
           ),
         )
         .where((item) => item.key.isNotEmpty)
@@ -378,6 +402,7 @@ class AiUsageStore {
     String keyColumn,
     String labelColumn, {
     bool omitBlank = false,
+    int limit = 12,
   }) async {
     final effectiveWhere = !omitBlank
         ? where.sql
@@ -391,11 +416,15 @@ class AiUsageStore {
         SUM(total_tokens) AS total_tokens,
         SUM(CASE WHEN total_cost_usd IS NOT NULL THEN 1 ELSE 0 END) AS priced_count,
         SUM(COALESCE(total_cost_usd, 0)) AS total_cost_usd,
-        AVG(duration_ms) AS average_duration_ms
+        AVG(duration_ms) AS average_duration_ms,
+        SUM(CASE WHEN status != 'success' THEN 1 ELSE 0 END) AS failure_count,
+        SUM(CASE WHEN status = 'timeout' THEN 1 ELSE 0 END) AS timeout_count,
+        SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) AS error_count,
+        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_count
       FROM $tableName $effectiveWhere
       GROUP BY item_key, item_label
       ORDER BY total_tokens DESC, request_count DESC
-      LIMIT 12
+      LIMIT $limit
       ''', where.arguments);
     return rows
         .map(
@@ -408,6 +437,10 @@ class AiUsageStore {
             totalCostUsd: _double(row['total_cost_usd']),
             pricedRequestCount: _int(row['priced_count']),
             averageDurationMs: _double(row['average_duration_ms']),
+            failureCount: _int(row['failure_count']),
+            timeoutCount: _int(row['timeout_count']),
+            errorCount: _int(row['error_count']),
+            cancelledCount: _int(row['cancelled_count']),
           ),
         )
         .where((item) => item.key.isNotEmpty)
@@ -424,18 +457,18 @@ class AiUsageStore {
   }
 
   Future<List<AiUsageFacet>> _loadFacets(
+    _UsageWhere where,
     String valueColumn,
     String labelColumn,
   ) async {
     final rows = await _db.rawQuery('''
       SELECT $valueColumn AS facet_value, $labelColumn AS facet_label,
         SUM(total_tokens) AS total_tokens
-      FROM $tableName
-      WHERE $valueColumn != ''
+      FROM $tableName ${where.sql.isEmpty ? 'WHERE' : '${where.sql} AND'} $valueColumn != ''
       GROUP BY facet_value, facet_label
       ORDER BY total_tokens DESC
       LIMIT 100
-      ''');
+    ''', where.arguments);
     return rows
         .map(
           (row) => AiUsageFacet(
@@ -470,9 +503,29 @@ class AiUsageStore {
       clauses.add('source = ?');
       arguments.add(source);
     }
+    switch (filter.scope) {
+      case AiUsageDataScope.proxyOnly:
+        clauses.add('source = ?');
+        arguments.add(AiUsageDataScope.proxySource);
+      case AiUsageDataScope.nonProxy:
+        clauses.add('source != ?');
+        arguments.add(AiUsageDataScope.proxySource);
+      case AiUsageDataScope.all:
+        break;
+    }
     return _UsageWhere(
       sql: clauses.isEmpty ? '' : 'WHERE ${clauses.join(' AND ')}',
       arguments: arguments,
+    );
+  }
+
+  _UsageWhere _sourceWhere(_UsageWhere where, String source) {
+    final sql = where.sql.isEmpty
+        ? 'WHERE source = ?'
+        : '${where.sql} AND source = ?';
+    return _UsageWhere(
+      sql: sql,
+      arguments: <Object?>[...where.arguments, source],
     );
   }
 

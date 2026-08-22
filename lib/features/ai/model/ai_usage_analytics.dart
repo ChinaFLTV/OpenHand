@@ -9,6 +9,18 @@ abstract final class AiUsageRequestStatus {
   static const String cancelled = 'cancelled';
 }
 
+enum AiUsageDataScope {
+  proxyOnly('proxy_only'),
+  nonProxy('non_proxy'),
+  all('all');
+
+  const AiUsageDataScope(this.id);
+
+  final String id;
+
+  static const String proxySource = 'model_proxy';
+}
+
 enum AiUsageRange {
   today,
   sevenDays,
@@ -35,12 +47,14 @@ class AiUsageFilter {
     this.providerConfigId,
     this.modelId,
     this.source,
+    this.scope = AiUsageDataScope.all,
   });
 
   final AiUsageRange range;
   final String? providerConfigId;
   final String? modelId;
   final String? source;
+  final AiUsageDataScope scope;
 
   AiUsageFilter copyWith({
     AiUsageRange? range,
@@ -50,6 +64,7 @@ class AiUsageFilter {
     bool clearModel = false,
     String? source,
     bool clearSource = false,
+    AiUsageDataScope? scope,
   }) {
     return AiUsageFilter(
       range: range ?? this.range,
@@ -58,6 +73,7 @@ class AiUsageFilter {
           : providerConfigId ?? this.providerConfigId,
       modelId: clearModel ? null : modelId ?? this.modelId,
       source: clearSource ? null : source ?? this.source,
+      scope: scope ?? this.scope,
     );
   }
 }
@@ -149,6 +165,12 @@ class AiUsageBucket {
     this.completionTokens = 0,
     this.cacheCreationTokens = 0,
     this.cacheReadTokens = 0,
+    this.successCount = 0,
+    this.failedCount = 0,
+    this.failureCount = 0,
+    this.timeoutCount = 0,
+    this.errorCount = 0,
+    this.cancelledCount = 0,
   });
 
   final String key;
@@ -160,6 +182,12 @@ class AiUsageBucket {
   final int completionTokens;
   final int cacheCreationTokens;
   final int cacheReadTokens;
+  final int successCount;
+  final int failedCount;
+  final int failureCount;
+  final int timeoutCount;
+  final int errorCount;
+  final int cancelledCount;
 }
 
 class AiUsageBreakdown {
@@ -172,6 +200,10 @@ class AiUsageBreakdown {
     required this.totalCostUsd,
     required this.pricedRequestCount,
     required this.averageDurationMs,
+    this.failureCount = 0,
+    this.timeoutCount = 0,
+    this.errorCount = 0,
+    this.cancelledCount = 0,
   });
 
   final String key;
@@ -182,6 +214,18 @@ class AiUsageBreakdown {
   final double totalCostUsd;
   final int pricedRequestCount;
   final double averageDurationMs;
+  final int failureCount;
+  final int timeoutCount;
+  final int errorCount;
+  final int cancelledCount;
+
+  double get successRate => requestCount == 0 ? 0 : successCount / requestCount;
+
+  double get healthScore {
+    if (requestCount == 0) return 0;
+    final penalty = failureCount + timeoutCount * 1.25;
+    return (1 - penalty / requestCount).clamp(0, 1).toDouble();
+  }
 }
 
 class AiUsageRequestRecord {
@@ -251,6 +295,8 @@ class AiUsageSnapshot {
     required this.providerFacets,
     required this.modelFacets,
     required this.sourceFacets,
+    this.proxyRoutes = const <AiUsageBreakdown>[],
+    this.healthProviders = const <AiUsageBreakdown>[],
   });
 
   final DateTime generatedAt;
@@ -268,4 +314,6 @@ class AiUsageSnapshot {
   final List<AiUsageFacet> providerFacets;
   final List<AiUsageFacet> modelFacets;
   final List<AiUsageFacet> sourceFacets;
+  final List<AiUsageBreakdown> proxyRoutes;
+  final List<AiUsageBreakdown> healthProviders;
 }
