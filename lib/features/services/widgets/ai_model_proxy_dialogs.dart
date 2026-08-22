@@ -1717,16 +1717,18 @@ class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
               },
             ),
           ];
+    // 退场动画期间保留旧条目，等其完全移除后再挂载空状态，避免两者叠加撑高布局。
+    final showEmptyChild = widget.items.isEmpty && _displayedItems.isEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ...items,
-        AnimatedAppearance(
-          key: const ValueKey<String>('proxy-mapping-empty-item'),
-          settings: itemMotionSettings,
-          present: widget.items.isEmpty,
-          child: widget.emptyChild,
-        ),
+        if (showEmptyChild)
+          AnimatedAppearance(
+            key: const ValueKey<String>('proxy-mapping-empty-item'),
+            settings: itemMotionSettings,
+            child: widget.emptyChild,
+          ),
       ],
     );
   }
