@@ -206,6 +206,7 @@ class AiModelProxyController extends ChangeNotifier {
     AiModelProxyApiStyle.gemini => const <String>[
       '/v1/models',
       '/v1beta/models:generateContent',
+      '/v1beta/models/{model}:streamGenerateContent?alt=sse',
     ],
   };
 

@@ -259,7 +259,20 @@ final class AiOperationHttp {
       directExtras[entry.key] = _stableJsonValue(entry.value);
     }
     if (extraBody.isEmpty && directExtras.isEmpty) return body;
-    return <String, Object?>{...body, ...directExtras, ...extraBody};
+    final merged = <String, Object?>{...body, ...directExtras};
+    // 官方请求体中的 generationConfig/text/reasoning 等对象通常只覆盖
+    // 其中一两个字段；递归合并可保留适配器已经计算出的安全默认值。
+    return deepMergeObjectMaps(
+      merged,
+      <String, Object?>{...directExtras, ...extraBody},
+      deepMergeKeys: const <String>{
+        'generationConfig',
+        'generation_config',
+        'text',
+        'reasoning',
+        'response_format',
+      },
+    );
   }
 
   static Uri uriWithExtraQuery(

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
@@ -16,6 +17,8 @@ class AiModelProxyDispatchResult {
     required this.backend,
     required this.durationMs,
     this.usage,
+    this.reasoningContent,
+    this.toolCalls = const <AiToolCall>[],
   });
 
   final String reply;
@@ -23,6 +26,20 @@ class AiModelProxyDispatchResult {
   final AiModelProxyBackend backend;
   final int durationMs;
   final AiTokenUsage? usage;
+  final String? reasoningContent;
+  final List<AiToolCall> toolCalls;
+}
+
+class AiModelProxyStreamDispatch {
+  const AiModelProxyStreamDispatch({
+    required this.response,
+    required this.exposedModel,
+    required this.backend,
+  });
+
+  final AiChatStreamingResponse response;
+  final String exposedModel;
+  final AiModelProxyBackend backend;
 }
 
 class AiModelProxyDispatcher {
@@ -45,6 +62,7 @@ class AiModelProxyDispatcher {
   Future<AiModelProxyDispatchResult> dispatch({
     required String exposedModel,
     required List<AiChatTurn> messages,
+    Map<String, Object?> request = const <String, Object?>{},
     Map<String, String> headers = const <String, String>{},
   }) async {
     if (!controller.authorize(headers)) {
@@ -81,7 +99,11 @@ class AiModelProxyDispatcher {
         lastError = StateError('后备模型提供商不存在。');
         continue;
       }
-      final model = provider.copyWith(modelId: backend.modelId);
+      final model = _modelForRequest(
+        provider.copyWith(modelId: backend.modelId),
+        request,
+      );
+      final tools = _parseTools(request);
       final startedAt = DateTime.now();
       final network = await _resolveNetworkRoute(Uri.tryParse(model.baseUrl));
       final routedClient = _usesDefaultChatClient
@@ -112,6 +134,7 @@ class AiModelProxyDispatcher {
           body: () => chatClient.sendMessage(
             model: model,
             messages: messages,
+            tools: tools,
             creationRequest: AiCreationRequest.none,
             allowResponsesFallback:
                 settings.apiStyle == AiModelProxyApiStyle.openAiResponses,
@@ -146,6 +169,8 @@ class AiModelProxyDispatcher {
           backend: backend,
           durationMs: durationMs,
           usage: result.usage,
+          reasoningContent: result.reasoningContent,
+          toolCalls: result.toolCalls,
         );
       } catch (error) {
         lastError = error;
@@ -177,6 +202,220 @@ class AiModelProxyDispatcher {
       }
     }
     throw AiModelProxyException(502, '后备模型请求失败：$lastError');
+  }
+
+  Future<AiModelProxyStreamDispatch> dispatchStream({
+    required String exposedModel,
+    required List<AiChatTurn> messages,
+    Map<String, Object?> request = const <String, Object?>{},
+    Map<String, String> headers = const <String, String>{},
+  }) async {
+    if (!controller.authorize(headers)) {
+      throw const AiModelProxyException(401, 'API 鉴权失败。');
+    }
+    if (!controller.isExposedModelEnabled(exposedModel)) {
+      throw const AiModelProxyException(404, '模型不存在。');
+    }
+    if (!controller.consumeRateLimit(
+      tokens: messages.fold<int>(
+        0,
+        (sum, item) => sum + item.content.length ~/ 4,
+      ),
+    )) {
+      throw const AiModelProxyException(429, '请求超过当前限流阈值。');
+    }
+    final backend = controller.resolveBackend(exposedModel);
+    if (backend == null) {
+      throw const AiModelProxyException(404, '没有可用的后备模型。');
+    }
+    final provider = modelsProvider()
+        .where((item) => item.id == backend.providerId)
+        .firstOrNull;
+    if (provider == null) {
+      throw const AiModelProxyException(404, '后备模型提供商不存在。');
+    }
+    final model = _modelForRequest(
+      provider.copyWith(modelId: backend.modelId),
+      request,
+    );
+    final tools = _parseTools(request);
+    final startedAt = DateTime.now();
+    final network = await _resolveNetworkRoute(Uri.tryParse(model.baseUrl));
+    final routedClient = _usesDefaultChatClient
+        ? await _createRoutedChatClient(network)
+        : null;
+    final chatClient = routedClient?.service ?? _chatClient;
+    try {
+      final response = await chatClient.sendMessageStream(
+        model: model,
+        messages: messages,
+        tools: tools,
+        creationRequest: AiCreationRequest.none,
+      );
+      unawaited(
+        response.result
+            .then<void>(
+              (result) async {
+                await controller.recordRequest(
+                  success: !result.wasCancelled,
+                  tokens: result.usage?.totalTokens ?? 0,
+                  durationMs: DateTime.now()
+                      .difference(startedAt)
+                      .inMilliseconds,
+                  providerId: provider.id,
+                  modelId: backend.modelId,
+                  apiStyle: controller.settings.apiStyle.id,
+                  clientIp: _headerValue(headers, const <String>[
+                    'x-forwarded-for',
+                    'x-real-ip',
+                    'x-client-ip',
+                  ]),
+                  clientPort: _headerValue(headers, const <String>[
+                    'x-forwarded-port',
+                    'x-client-port',
+                  ]),
+                  proxyMode: network.mode,
+                  proxyEndpoint: network.endpoint,
+                  remoteHost: network.remoteHost,
+                  remotePort: network.remotePort,
+                );
+              },
+              onError: (Object error, StackTrace stack) async {
+                await controller.recordRequest(
+                  success: false,
+                  tokens: 0,
+                  durationMs: DateTime.now()
+                      .difference(startedAt)
+                      .inMilliseconds,
+                  providerId: provider.id,
+                  modelId: backend.modelId,
+                  apiStyle: controller.settings.apiStyle.id,
+                  error: '$error',
+                  proxyMode: network.mode,
+                  proxyEndpoint: network.endpoint,
+                  remoteHost: network.remoteHost,
+                  remotePort: network.remotePort,
+                );
+              },
+            )
+            .whenComplete(() {
+              routedClient?.dispose();
+            }),
+      );
+      return AiModelProxyStreamDispatch(
+        response: response,
+        exposedModel: exposedModel,
+        backend: backend,
+      );
+    } on Object {
+      routedClient?.dispose();
+      rethrow;
+    }
+  }
+
+  /// 将暴露 API 的本次请求参数注入底层模型配置。协议适配器会在生成
+  /// 请求体时合并 operation extras，因此不会污染持久化的模型设置。
+  AiModelConfig _modelForRequest(
+    AiModelConfig model,
+    Map<String, Object?> request,
+  ) {
+    final extras = _requestBodyExtras(request);
+    if (extras.isEmpty) return model;
+    final operationExtras = <String, Object?>{...model.operationExtras};
+    final global = _map(operationExtras['global']);
+    final existingBody = _map(global['body']);
+    global['body'] = <String, Object?>{...existingBody, ...extras};
+    operationExtras['global'] = global;
+    return model.copyWith(operationExtras: operationExtras);
+  }
+
+  Map<String, Object?> _requestBodyExtras(Map<String, Object?> request) {
+    final extras = <String, Object?>{};
+    final style = controller.settings.apiStyle;
+    if (style == AiModelProxyApiStyle.gemini) {
+      final generationConfig = _map(request['generationConfig']);
+      if (generationConfig.isNotEmpty) {
+        extras['generationConfig'] = generationConfig;
+      }
+      for (final entry in request.entries) {
+        if (entry.key == 'model' ||
+            entry.key == 'contents' ||
+            entry.key == 'generationConfig' ||
+            entry.key == 'stream' ||
+            entry.key == 'tools') {
+          continue;
+        }
+        extras[entry.key] = entry.value;
+      }
+    } else {
+      for (final entry in request.entries) {
+        if (entry.key == 'model' ||
+            entry.key == 'messages' ||
+            entry.key == 'input' ||
+            entry.key == 'stream' ||
+            entry.key == 'stream_options' ||
+            entry.key == 'contents') {
+          continue;
+        }
+        extras[entry.key] = entry.value;
+      }
+    }
+    final rawTools = request['tools'];
+    if (rawTools is List &&
+        rawTools.isNotEmpty &&
+        _parseTools(request).isEmpty) {
+      extras['tools'] = rawTools;
+    }
+    return extras;
+  }
+
+  List<AiToolDefinition> _parseTools(Map<String, Object?> request) {
+    final raw = request['tools'];
+    if (raw is! List) return const <AiToolDefinition>[];
+    final tools = <AiToolDefinition>[];
+    final names = <String>{};
+    void addTool(Object? value) {
+      if (value is! Map) return;
+      final item = Map<String, Object?>.from(value);
+      final function = item['function'] is Map
+          ? Map<String, Object?>.from(item['function'] as Map)
+          : item;
+      final name = '${function['name'] ?? ''}'.trim();
+      if (name.isEmpty || !names.add(name)) return;
+      final parameters = _map(
+        function['parameters'] ??
+            function['input_schema'] ??
+            function['parametersJson'],
+      );
+      tools.add(
+        AiToolDefinition(
+          name: name,
+          description: '${function['description'] ?? ''}',
+          parameters: parameters.isEmpty
+              ? const <String, Object?>{'type': 'object'}
+              : parameters,
+          strict: function['strict'] is bool
+              ? function['strict'] as bool
+              : null,
+        ),
+      );
+    }
+
+    for (final item in raw) {
+      if (item is Map && item['functionDeclarations'] is List) {
+        for (final declaration in item['functionDeclarations'] as List) {
+          addTool(declaration);
+        }
+      } else {
+        addTool(item);
+      }
+    }
+    return List<AiToolDefinition>.unmodifiable(tools);
+  }
+
+  static Map<String, Object?> _map(Object? value) {
+    if (value is Map) return Map<String, Object?>.from(value);
+    return <String, Object?>{};
   }
 
   Future<
