@@ -970,6 +970,7 @@ class _MindMapConnectorPainter extends CustomPainter {
     );
     final first = centers.first.clamp(0.0, size.height).toDouble();
     final last = centers.last.clamp(0.0, size.height).toDouble();
+    canvas.drawLine(Offset(spineX, source), Offset(spineX, first), paint);
     canvas.drawLine(Offset(spineX, first), Offset(spineX, last), paint);
     for (final center in centers) {
       final y = center.clamp(0.0, size.height).toDouble();
