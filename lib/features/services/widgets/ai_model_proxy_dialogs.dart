@@ -547,11 +547,27 @@ class _ProxyModelsDialog extends StatefulWidget {
 
 class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
   String? _selectedModel;
+  late final ScrollController _diagramHorizontalController;
 
   static const double _nodeHeight = 72;
   static const double _backendHeight = 82;
   static const double _nodeGap = 12;
   static const double _diagramTopPadding = 18;
+  static const double _diagramMinWidth = 944;
+  static const double _rootColumnWidth = 164;
+  static const double _modelColumnWidth = 268;
+
+  @override
+  void initState() {
+    super.initState();
+    _diagramHorizontalController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _diagramHorizontalController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -571,9 +587,11 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
         ? null
         : routes.where((item) => item.exposedModel == selected).firstOrNull;
     final middleCount = math.max(exposedModels.length, 1);
-    final backendCount = math.max(route?.backends.length ?? 0, 1);
-    final backendContentHeight =
-        backendCount * _backendHeight + (backendCount - 1) * _nodeGap + 12 + 48;
+    final backendCount = route?.backends.length ?? 0;
+    final backendItemsHeight = backendCount > 0
+        ? backendCount * _backendHeight + (backendCount - 1) * _nodeGap
+        : 56;
+    final backendContentHeight = backendItemsHeight + 12 + 48;
     final diagramHeight = math.max(
       420.0,
       _diagramTopPadding * 2 +
@@ -589,10 +607,19 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
         _diagramTopPadding +
         _nodeHeight / 2 +
         math.max(selectedIndex, 0) * (_nodeHeight + _nodeGap);
+    final maxBackendTop = math.max(
+      _diagramTopPadding,
+      diagramHeight - backendContentHeight - _diagramTopPadding,
+    );
+    final backendTop = (selectedCenter - backendContentHeight / 2).clamp(
+      _diagramTopPadding,
+      maxBackendTop,
+    );
     return ServiceDialogInteractionTheme(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             _ProxyDialogHeader(
               title: text(zh: '模型映射', en: 'Model routing map'),
@@ -604,14 +631,20 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
               onClose: () => Navigator.of(context).pop(),
             ),
             kOpenHandGap18,
-            Expanded(
+            Flexible(
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  const diagramWidth = 980.0;
-                  final width = math.max(diagramWidth, constraints.maxWidth);
+                  final width = math.max(
+                    _diagramMinWidth,
+                    constraints.maxWidth.isFinite
+                        ? constraints.maxWidth
+                        : _diagramMinWidth,
+                  );
                   return SingleChildScrollView(
                     physics: openHandDialogAwareScrollPhysics(context),
                     child: SingleChildScrollView(
+                      controller: _diagramHorizontalController,
+                      primary: false,
                       scrollDirection: Axis.horizontal,
                       physics: openHandDialogAwareScrollPhysics(context),
                       child: SizedBox(
@@ -621,7 +654,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             SizedBox(
-                              width: 188,
+                              width: _rootColumnWidth,
                               child: Center(
                                 child: _MindMapNode(
                                   title: text(zh: 'OpenHand', en: 'OpenHand'),
@@ -642,7 +675,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                               ).colorScheme.primary.withValues(alpha: 0.56),
                             ),
                             SizedBox(
-                              width: 272,
+                              width: _modelColumnWidth,
                               child: Padding(
                                 padding: const EdgeInsets.only(
                                   top: _diagramTopPadding,
@@ -681,108 +714,78 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                               height: diagramHeight,
                               sourceY: selectedCenter,
                               branchCount: route?.backends.length ?? 0,
-                              branchTop: _diagramTopPadding,
+                              branchTop: backendTop,
                               branchHeight: _backendHeight,
                               gap: _nodeGap,
                               color: Theme.of(
                                 context,
                               ).colorScheme.tertiary.withValues(alpha: 0.62),
                             ),
-                            SizedBox(
-                              width: 392,
+                            Expanded(
                               child: Padding(
-                                padding: const EdgeInsets.only(
-                                  top: _diagramTopPadding,
-                                ),
-                                child: route == null
-                                    ? Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          _EmptyBackendCard(
-                                            text: text(
-                                              zh: selected == null
-                                                  ? '选择一个暴露模型查看后备模型。'
-                                                  : '该模型还没有后备模型。',
-                                              en: selected == null
-                                                  ? 'Select an exposed model.'
-                                                  : 'This model has no backends yet.',
-                                            ),
-                                          ),
-                                          const SizedBox(height: 12),
-                                          FilledButton.tonalIcon(
-                                            onPressed: selected == null
-                                                ? null
-                                                : () => _addBackend(
-                                                    context,
-                                                    selected,
-                                                  ),
-                                            icon: const Icon(Icons.add_rounded),
-                                            label: Text(
-                                              text(
-                                                zh: '添加后备模型',
-                                                en: 'Add backend',
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      )
-                                    : Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          for (final (index, backend)
-                                              in route.backends.indexed) ...[
-                                            SizedBox(
-                                              height: _backendHeight,
-                                              child: _BackendTile(
-                                                backend: backend,
-                                                settings: settings,
-                                                onToggle: (enabled) =>
-                                                    _updateBackend(
-                                                      selected!,
-                                                      index,
-                                                      backend.copyWith(
-                                                        enabled: enabled,
-                                                      ),
-                                                    ),
-                                                onRemove: () => _removeBackend(
+                                padding: EdgeInsets.only(top: backendTop),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    if (route == null) ...[
+                                      _EmptyBackendCard(
+                                        text: text(
+                                          zh: selected == null
+                                              ? '选择一个暴露模型查看后备模型。'
+                                              : '该模型还没有后备模型。',
+                                          en: selected == null
+                                              ? 'Select an exposed model.'
+                                              : 'This model has no backends yet.',
+                                        ),
+                                      ),
+                                    ] else ...[
+                                      for (final (index, backend)
+                                          in route.backends.indexed) ...[
+                                        SizedBox(
+                                          height: _backendHeight,
+                                          child: _BackendTile(
+                                            backend: backend,
+                                            settings: settings,
+                                            onToggle: (enabled) =>
+                                                _updateBackend(
                                                   selected!,
                                                   index,
-                                                ),
-                                              ),
-                                            ),
-                                            if (index !=
-                                                route.backends.length - 1)
-                                              const SizedBox(height: _nodeGap),
-                                          ],
-                                          if (route.backends.isEmpty)
-                                            _EmptyBackendCard(
-                                              text: text(
-                                                zh: '暂无后备模型',
-                                                en: 'No backends',
-                                              ),
-                                            ),
-                                          const SizedBox(height: 12),
-                                          FilledButton.tonalIcon(
-                                            onPressed: selected == null
-                                                ? null
-                                                : () => _addBackend(
-                                                    context,
-                                                    selected,
+                                                  backend.copyWith(
+                                                    enabled: enabled,
                                                   ),
-                                            icon: const Icon(Icons.add_rounded),
-                                            label: Text(
-                                              text(
-                                                zh: '添加后备模型',
-                                                en: 'Add backend',
-                                              ),
+                                                ),
+                                            onRemove: () => _removeBackend(
+                                              selected!,
+                                              index,
                                             ),
                                           ),
-                                        ],
+                                        ),
+                                        if (index != route.backends.length - 1)
+                                          const SizedBox(height: _nodeGap),
+                                      ],
+                                      if (route.backends.isEmpty)
+                                        _EmptyBackendCard(
+                                          text: text(
+                                            zh: '暂无后备模型',
+                                            en: 'No backends',
+                                          ),
+                                        ),
+                                    ],
+                                    const SizedBox(height: 12),
+                                    FilledButton.tonalIcon(
+                                      onPressed: selected == null
+                                          ? null
+                                          : () =>
+                                                _addBackend(context, selected),
+                                      icon: const Icon(Icons.add_rounded),
+                                      label: Text(
+                                        text(zh: '添加后备模型', en: 'Add backend'),
                                       ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
