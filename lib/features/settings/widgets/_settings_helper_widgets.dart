@@ -5296,8 +5296,8 @@ class _AiProviderInfoChip extends StatelessWidget {
 
 class _AiModelTile extends StatefulWidget {
   const _AiModelTile({
-    super.key,
     required this.model,
+    required this.dragIndex,
     required this.isSelected,
     required this.isTesting,
     required this.isFirst,
@@ -5313,6 +5313,7 @@ class _AiModelTile extends StatefulWidget {
   });
 
   final AiModelConfig model;
+  final int dragIndex;
   final bool isSelected;
   final bool isTesting;
   final bool isFirst;
@@ -5516,36 +5517,60 @@ class _AiModelTileState extends State<_AiModelTile> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: Column(
+                      child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            widget.model.providerLabel,
-                            style: theme.textTheme.titleLarge,
-                          ),
-                          kOpenHandGap4,
-                          _buildProviderMetaLine(
-                            context: context,
-                            l10n: l10n,
-                            modelCountLabel: modelCountLabel,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
+                          Container(
+                            width: 48,
+                            height: 48,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer,
+                              shape: BoxShape.circle,
                             ),
-                          ),
-                          if (widget.model.modelId.trim().isNotEmpty) ...[
-                            kOpenHandGap4,
-                            Text(
-                              openHandLocalizedText(
-                                context,
-                                zh: '当前模型：${widget.model.modelId}',
-                                en: 'Active: ${widget.model.modelId}',
-                              ),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.primary,
-                                fontWeight: FontWeight.w600,
+                            child: Text(
+                              '${widget.dragIndex + 1}',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: colorScheme.onPrimaryContainer,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
-                          ],
+                          ),
+                          kOpenHandHGap14,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.model.providerLabel,
+                                  style: theme.textTheme.titleLarge,
+                                ),
+                                kOpenHandGap4,
+                                _buildProviderMetaLine(
+                                  context: context,
+                                  l10n: l10n,
+                                  modelCountLabel: modelCountLabel,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                if (widget.model.modelId.trim().isNotEmpty) ...[
+                                  kOpenHandGap4,
+                                  Text(
+                                    openHandLocalizedText(
+                                      context,
+                                      zh: '当前模型：${widget.model.modelId}',
+                                      en: 'Active: ${widget.model.modelId}',
+                                    ),
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.primary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -5595,6 +5620,21 @@ class _AiModelTileState extends State<_AiModelTile> {
                               ),
                             ),
                           ),
+                        IgnorePointer(
+                          ignoring: !widget.actionsEnabled,
+                          child: ReorderableDragStartListener(
+                            index: widget.dragIndex,
+                            child: IconButton(
+                              onPressed: () {},
+                              tooltip: openHandLocalizedText(
+                                context,
+                                zh: '拖动排序',
+                                en: 'Reorder',
+                              ),
+                              icon: const Icon(Icons.drag_indicator_rounded),
+                            ),
+                          ),
+                        ),
                         IconButton(
                           onPressed: widget.actionsEnabled && !widget.isFirst
                               ? widget.onMoveUp

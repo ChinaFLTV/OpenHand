@@ -38,7 +38,6 @@ import '../../../shared/fps/openhand_fps_monitor.dart';
 import '../../../shared/net/bounded_http_request.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/tcp_port_utils.dart';
-import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_expandable.dart';
 import '../../../shared/ui/animated_menu.dart';
@@ -52,6 +51,7 @@ import '../../../shared/ui/first_frame_pulse_box.dart';
 import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/key_tweakable_slider.dart';
+import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/micro_press_feedback.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -70,6 +70,7 @@ import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_tap_region.dart';
+import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/ui/persistence_issue_card.dart';
 import '../../../shared/ui/reorder_proxy_decorator.dart';
@@ -128,15 +129,6 @@ const int _kSettingsWriteToolSummaryMaxChars = 8 * kBytesPerKiB;
 const int _kThrottleConfigImportMaxBytes = 1 * kBytesPerMiB;
 bool _settingsMotionEnabled(BuildContext context) {
   return openHandTickerMotionEnabled(context);
-}
-DialogAnimationSettings _settingsListItemMotionSettings(
-  BuildContext context,
-  SettingsController settingsController,
-) {
-  if (!_settingsMotionEnabled(context)) {
-    return OpenHandMotionDefaults.disabled;
-  }
-  return settingsController.listItemAnimationSettings.normalized();
 }
 
 void _syncControllerText(TextEditingController controller, String text) {
@@ -1285,8 +1277,8 @@ class _SettingsViewState extends State<SettingsView> {
   late final TextEditingController _mcpAutoProbeConcurrencyController;
   late final FocusNode _mcpAutoProbeConcurrencyFocusNode;
   final Set<String> _testingAiModelIds = <String>{};
-  GlobalKey<AnimatedListState> _aiModelListKey = GlobalKey<AnimatedListState>();
   final Set<String> _mutatingAiModelIds = <String>{};
+  final Set<String> _removingAiModelIds = <String>{};
   final List<AiModelConfig> _animatedAiModels = <AiModelConfig>[];
   final OpenHandKeyedSingleFlight<String, void> _editorLspManifestRefreshes =
       OpenHandKeyedSingleFlight<String, void>();
@@ -1381,70 +1373,25 @@ class _SettingsViewState extends State<SettingsView> {
     _testingAiModelIds.removeWhere(
       (id) => !_animatedAiModels.any((model) => model.id == id),
     );
-    _aiModelListKey = GlobalKey<AnimatedListState>();
   }
 
   int _indexOfAnimatedAiModel(String id) {
     return _animatedAiModels.indexWhere((model) => model.id == id);
   }
 
-  void _removeAnimatedAiModelAt(
-    int index, {
-    required DialogAnimationSettings settings,
-  }) {
-    final removedModel = _animatedAiModels.removeAt(index);
-    final listState = _aiModelListKey.currentState;
-    if (listState == null) {
-      return;
-    }
-    listState.removeItem(
-      index,
-      (context, animation) => _buildAnimatedAiModelRow(
-        context,
-        removedModel,
-        animation,
-        settings: settings,
-        phase: AnimatedAppearancePhase.exit,
-      ),
-      duration: settings.exitDuration,
-    );
-  }
-
-  void _insertAnimatedAiModelAt(
-    int index,
-    AiModelConfig model, {
-    required DialogAnimationSettings settings,
-  }) {
-    _animatedAiModels.insert(index, model);
-    final listState = _aiModelListKey.currentState;
-    if (listState == null) {
-      return;
-    }
-    listState.insertItem(index, duration: settings.entranceDuration);
-  }
-
-  Widget _buildAnimatedAiModelRow(
-    BuildContext context,
-    AiModelConfig model,
-    Animation<double> animation, {
-    required DialogAnimationSettings settings,
-    required AnimatedAppearancePhase phase,
-  }) {
+  Widget _buildAiModelRow(BuildContext context, AiModelConfig model) {
     final settingsController = context.read<SettingsController>();
     final index = _indexOfAnimatedAiModel(model.id);
     final isPresent = index != -1;
     final isMutating = _mutatingAiModelIds.contains(model.id);
     return Padding(
+      key: ValueKey<String>(model.id),
       padding: const EdgeInsets.only(bottom: 14),
-      child: AnimatedListAppearance(
-        animation: animation,
-        settings: settings,
-        phase: phase,
+      child: OpenHandListRemovalTransition(
+        collapsed: _removingAiModelIds.contains(model.id),
         child: _AiModelTile(
-          key: ValueKey<String>(
-            'ai-model-${model.id}-${phase == AnimatedAppearancePhase.exit ? 'exit' : 'live'}',
-          ),
           model: model,
+          dragIndex: index < 0 ? 0 : index,
           isSelected: settingsController.selectedAiModelId == model.id,
           isTesting: _testingAiModelIds.contains(model.id),
           isFirst: !isPresent || index == 0,
@@ -1477,10 +1424,6 @@ class _SettingsViewState extends State<SettingsView> {
   Future<void> _deleteAiModelWithAnimation(AiModelConfig model) async {
     final settingsController = context.read<SettingsController>();
     final l10n = AppLocalizations.of(context)!;
-    final settings = _settingsListItemMotionSettings(
-      context,
-      settingsController,
-    );
     final index = _indexOfAnimatedAiModel(model.id);
     if (index == -1) {
       final deleted = await settingsController.deleteAiModel(model.id);
@@ -1498,19 +1441,23 @@ class _SettingsViewState extends State<SettingsView> {
     }
     setState(() {
       _mutatingAiModelIds.add(model.id);
-      _removeAnimatedAiModelAt(index, settings: settings);
+      _removingAiModelIds.add(model.id);
     });
+    await awaitOpenHandListRemoval(context);
     final deleted = await settingsController.deleteAiModel(model.id);
     if (!mounted) return;
     if (!deleted) {
       setState(() {
-        _insertAnimatedAiModelAt(index, model, settings: settings);
+        _removingAiModelIds.remove(model.id);
         _mutatingAiModelIds.remove(model.id);
       });
       _showPersistenceFailureSnackBar(context);
       return;
     }
     setState(() {
+      final currentIndex = _indexOfAnimatedAiModel(model.id);
+      if (currentIndex != -1) _animatedAiModels.removeAt(currentIndex);
+      _removingAiModelIds.remove(model.id);
       _mutatingAiModelIds.remove(model.id);
       _testingAiModelIds.remove(model.id);
     });
@@ -1534,15 +1481,12 @@ class _SettingsViewState extends State<SettingsView> {
       return;
     }
     final settingsController = context.read<SettingsController>();
-    final settings = _settingsListItemMotionSettings(
-      context,
-      settingsController,
-    );
     final model = _animatedAiModels[fromIndex];
     setState(() {
       _mutatingAiModelIds.add(id);
-      _removeAnimatedAiModelAt(fromIndex, settings: settings);
-      _insertAnimatedAiModelAt(toIndex, model, settings: settings);
+      _animatedAiModels
+        ..removeAt(fromIndex)
+        ..insert(toIndex, model);
     });
     final moved = await settingsController.moveAiModel(fromIndex, toIndex);
     if (!mounted) return;
@@ -1550,8 +1494,9 @@ class _SettingsViewState extends State<SettingsView> {
       final rollbackIndex = _indexOfAnimatedAiModel(id);
       setState(() {
         if (rollbackIndex != -1) {
-          _removeAnimatedAiModelAt(rollbackIndex, settings: settings);
-          _insertAnimatedAiModelAt(fromIndex, model, settings: settings);
+          _animatedAiModels
+            ..removeAt(rollbackIndex)
+            ..insert(fromIndex, model);
         }
         _mutatingAiModelIds.remove(id);
       });
@@ -1561,6 +1506,45 @@ class _SettingsViewState extends State<SettingsView> {
     setState(() {
       _mutatingAiModelIds.remove(id);
     });
+  }
+
+  Future<void> _reorderAiModels(int oldIndex, int newIndex) async {
+    if (_mutatingAiModelIds.isNotEmpty) return;
+    if (newIndex > oldIndex) newIndex -= 1;
+    if (oldIndex < 0 ||
+        oldIndex >= _animatedAiModels.length ||
+        newIndex < 0 ||
+        newIndex >= _animatedAiModels.length ||
+        oldIndex == newIndex) {
+      return;
+    }
+    dismissOpenHandTooltipsSafely(debugLabel: '拖动模型提供商前收起工具提示');
+    final model = _animatedAiModels[oldIndex];
+    setState(() {
+      _mutatingAiModelIds.add(model.id);
+      _animatedAiModels
+        ..removeAt(oldIndex)
+        ..insert(newIndex, model);
+    });
+    final moved = await context.read<SettingsController>().moveAiModel(
+      oldIndex,
+      newIndex,
+    );
+    if (!mounted) return;
+    if (!moved) {
+      final currentIndex = _indexOfAnimatedAiModel(model.id);
+      setState(() {
+        if (currentIndex != -1) {
+          _animatedAiModels
+            ..removeAt(currentIndex)
+            ..insert(oldIndex, model);
+        }
+        _mutatingAiModelIds.remove(model.id);
+      });
+      _showPersistenceFailureSnackBar(context);
+      return;
+    }
+    setState(() => _mutatingAiModelIds.remove(model.id));
   }
 
   @override
@@ -3439,24 +3423,22 @@ class _SettingsViewState extends State<SettingsView> {
                     : ConstrainedBox(
                         key: const ValueKey<String>('aiModelsList'),
                         constraints: const BoxConstraints(maxHeight: 520),
-                        child: AnimatedList(
-                          key: _aiModelListKey,
+                        child: ReorderableListView.builder(
                           primary: false,
-                          initialItemCount: _animatedAiModels.length,
-                          itemBuilder: (context, index, animation) {
-                            final model = _animatedAiModels[index];
-                            final settings = _settingsListItemMotionSettings(
-                              context,
-                              settingsController,
-                            );
-                            return _buildAnimatedAiModelRow(
-                              context,
-                              model,
-                              animation,
-                              settings: settings,
-                              phase: AnimatedAppearancePhase.enter,
-                            );
-                          },
+                          shrinkWrap: true,
+                          buildDefaultDragHandles: false,
+                          proxyDecorator: (child, index, animation) =>
+                              buildOpenHandReorderProxy(
+                                context,
+                                child,
+                                animation,
+                              ),
+                          itemCount: _animatedAiModels.length,
+                          onReorder: _reorderAiModels,
+                          itemBuilder: (context, index) => _buildAiModelRow(
+                            context,
+                            _animatedAiModels[index],
+                          ),
                         ),
                       ),
               ),

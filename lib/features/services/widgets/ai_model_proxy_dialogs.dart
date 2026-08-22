@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/model_search_selector.dart';
@@ -267,6 +268,7 @@ class _ProviderTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = Theme.of(context).colorScheme;
     final text = openHandTextResolver(context);
+    final l10n = AppLocalizations.of(context)!;
     final isDraggingProxy = OpenHandReorderProxyContext.isProxy(context);
     final allModels = model.allModelIds;
     final visibleModels = allModels.take(8).toList(growable: false);
@@ -319,7 +321,7 @@ class _ProviderTile extends StatelessWidget {
                           ),
                           kOpenHandGap4,
                           Text(
-                            '${model.protocolType.storageValue} · ${text(zh: '模型 ${allModels.length} 个', en: '${allModels.length} models')}',
+                            '${model.protocolType.label(l10n)} · ${model.authScheme.label(l10n)} · ${text(zh: '模型 ${allModels.length} 个', en: '${allModels.length} models')}',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: colors.onSurfaceVariant,
                             ),
@@ -347,6 +349,15 @@ class _ProviderTile extends StatelessWidget {
               Wrap(
                 spacing: 4,
                 children: [
+                  _ProxyReorderHandle(
+                    index: index,
+                    label: text(zh: '拖动排序', en: 'Reorder'),
+                    child: IconButton(
+                      onPressed: () {},
+                      tooltip: text(zh: '拖动排序', en: 'Reorder'),
+                      icon: const Icon(Icons.drag_indicator_rounded),
+                    ),
+                  ),
                   _ProxySemanticIconButton(
                     label: text(zh: '编辑', en: 'Edit'),
                     onPressed: onEdit,
@@ -356,14 +367,6 @@ class _ProviderTile extends StatelessWidget {
                     label: text(zh: '删除', en: 'Delete'),
                     onPressed: onDelete,
                     icon: const Icon(Icons.delete_outline_rounded),
-                  ),
-                  _ProxyReorderHandle(
-                    index: index,
-                    label: text(zh: '拖动排序', en: 'Reorder'),
-                    child: IconButton(
-                      onPressed: () {},
-                      icon: const Icon(Icons.drag_indicator_rounded),
-                    ),
                   ),
                 ],
               ),
@@ -410,7 +413,7 @@ class _ProviderTile extends StatelessWidget {
                     active: modelId == model.modelId,
                   ),
                 if (hiddenCount > 0)
-                  _ProxyModelChip(modelId: '+$hiddenCount', active: false),
+                  _ProxyOverflowChip(hiddenCount: hiddenCount),
               ],
             ),
           ],
@@ -477,22 +480,29 @@ class _ProxyProviderInfoChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 360),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: colors.onSurfaceVariant),
-          kOpenHandHGap8,
-          Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
-        ],
+    final theme = Theme.of(context);
+    final chipTheme = theme.chipTheme;
+    final labelStyle =
+        chipTheme.labelStyle ?? theme.textTheme.labelLarge ?? const TextStyle();
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 360, minHeight: 40),
+      child: RawChip(
+        avatar: Icon(icon, size: 18),
+        avatarBoxConstraints: const BoxConstraints.tightFor(
+          width: 18,
+          height: 18,
+        ),
+        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        labelStyle: labelStyle,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+        visualDensity: VisualDensity.standard,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        backgroundColor: chipTheme.backgroundColor,
+        side: chipTheme.side,
+        shape: chipTheme.shape,
+        iconTheme: chipTheme.iconTheme,
+        clipBehavior: Clip.antiAlias,
       ),
     );
   }
@@ -506,29 +516,105 @@ class _ProxyModelChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: active
-            ? colors.primaryContainer
-            : colors.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: active ? colors.primary : colors.outlineVariant,
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final baseColor = active
+        ? Color.alphaBlend(
+            colors.primary.withValues(alpha: isDark ? 0.10 : 0.03),
+            Color.lerp(
+                  colors.surfaceContainerLowest,
+                  colors.primaryContainer,
+                  isDark ? 0.74 : 0.66,
+                ) ??
+                colors.primaryContainer,
+          )
+        : colors.surfaceContainerHighest.withValues(
+            alpha: isDark ? 0.54 : 0.94,
+          );
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 26),
+      child: Material(
+        clipBehavior: Clip.antiAlias,
+        shape: StadiumBorder(
+          side: BorderSide(
+            color: active
+                ? colors.primary.withValues(alpha: isDark ? 0.62 : 0.52)
+                : colors.outlineVariant.withValues(alpha: isDark ? 0.76 : 0.94),
+            width: active ? 1.15 : 1,
+          ),
+        ),
+        color: baseColor,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                active ? Icons.star_rounded : Icons.smart_toy_outlined,
+                size: 14,
+                color: active ? colors.primary : colors.onSurfaceVariant,
+              ),
+              kOpenHandHGap5,
+              Text(
+                modelId,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: active
+                      ? colors.onPrimaryContainer
+                      : colors.onSurfaceVariant,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            active ? Icons.star_rounded : Icons.smart_toy_outlined,
-            size: 16,
-            color: active ? colors.primary : colors.onSurfaceVariant,
+    );
+  }
+}
+
+class _ProxyOverflowChip extends StatelessWidget {
+  const _ProxyOverflowChip({required this.hiddenCount});
+
+  final int hiddenCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 26),
+      child: DecoratedBox(
+        decoration: ShapeDecoration(
+          color: colors.surfaceContainerHighest.withValues(
+            alpha: theme.brightness == Brightness.dark ? 0.54 : 0.94,
           ),
-          kOpenHandHGap6,
-          Text(modelId, style: const TextStyle(fontWeight: FontWeight.w600)),
-        ],
+          shape: StadiumBorder(
+            side: BorderSide(color: colors.outlineVariant),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.more_horiz_rounded,
+                size: 14,
+                color: colors.onSurfaceVariant,
+              ),
+              kOpenHandHGap5,
+              Text(
+                '+$hiddenCount',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
