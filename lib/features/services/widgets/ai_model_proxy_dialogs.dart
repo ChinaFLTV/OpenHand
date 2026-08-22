@@ -142,7 +142,7 @@ class _RoundHeaderButton extends StatelessWidget {
 
   final String tooltip;
   final IconData icon;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -409,6 +409,7 @@ class _ProxyModelsDialog extends StatefulWidget {
 
 class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
   String? _selectedModel;
+  bool _isClearing = false;
   int _displayedExposedModelCount = 0;
   int _displayedBackendItemCount = 0;
   String? _displayedBackendGroupKey;
@@ -575,7 +576,17 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                 _RoundHeaderButton(
                   tooltip: text(zh: '新增暴露模型', en: 'Add exposed model'),
                   icon: Icons.add_rounded,
-                  onPressed: () => _addExposedModel(context),
+                  onPressed: _isClearing
+                      ? null
+                      : () => _addExposedModel(context),
+                ),
+                const SizedBox(width: 8),
+                _RoundHeaderButton(
+                  tooltip: text(zh: '清空暴露模型', en: 'Clear exposed models'),
+                  icon: Icons.clear_all_rounded,
+                  onPressed: exposedModels.isEmpty || _isClearing
+                      ? null
+                      : () => _clearExposedModels(context),
                 ),
               ],
             ),
@@ -827,29 +838,80 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                   const SizedBox(height: 12),
                                   Align(
                                     alignment: AlignmentDirectional.centerStart,
-                                    child: FilledButton.tonalIcon(
-                                      onPressed: activeModel == null
-                                          ? null
-                                          : () => _addBackend(
-                                              context,
-                                              activeModel,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        FilledButton.tonalIcon(
+                                          onPressed:
+                                              activeModel == null || _isClearing
+                                              ? null
+                                              : () => _addBackend(
+                                                  context,
+                                                  activeModel,
+                                                ),
+                                          style: FilledButton.styleFrom(
+                                            minimumSize: const Size(0, 42),
+                                            maximumSize: const Size(
+                                              double.infinity,
+                                              42,
                                             ),
-                                      style: FilledButton.styleFrom(
-                                        minimumSize: const Size(0, 42),
-                                        maximumSize: const Size(
-                                          double.infinity,
-                                          42,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                            ),
+                                            tapTargetSize: MaterialTapTargetSize
+                                                .shrinkWrap,
+                                          ),
+                                          icon: const Icon(Icons.add_rounded),
+                                          label: Text(
+                                            text(
+                                              zh: '添加后备模型',
+                                              en: 'Add backend',
+                                            ),
+                                          ),
                                         ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
+                                        const SizedBox(width: 8),
+                                        OutlinedButton.icon(
+                                          onPressed:
+                                              activeModel == null ||
+                                                  backendItems.isEmpty ||
+                                                  _isClearing
+                                              ? null
+                                              : () => _clearBackends(
+                                                  context,
+                                                  activeModel,
+                                                ),
+                                          style: OutlinedButton.styleFrom(
+                                            minimumSize: const Size(0, 42),
+                                            maximumSize: const Size(
+                                              double.infinity,
+                                              42,
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 14,
+                                            ),
+                                            tapTargetSize: MaterialTapTargetSize
+                                                .shrinkWrap,
+                                            foregroundColor: Theme.of(
+                                              context,
+                                            ).colorScheme.error,
+                                            side: BorderSide(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .error
+                                                  .withValues(alpha: 0.55),
+                                            ),
+                                          ),
+                                          icon: const Icon(
+                                            Icons.clear_all_rounded,
+                                          ),
+                                          label: Text(
+                                            text(
+                                              zh: '清空后备模型',
+                                              en: 'Clear backends',
+                                            ),
+                                          ),
                                         ),
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                      ),
-                                      icon: const Icon(Icons.add_rounded),
-                                      label: Text(
-                                        text(zh: '添加后备模型', en: 'Add backend'),
-                                      ),
+                                      ],
                                     ),
                                   ),
                                 ],
@@ -896,6 +958,99 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
         _cachedRoutesByKey[_modelKey(model)]?.exposedModel ?? model;
     if (_modelKey(_selectedModel ?? '') == _modelKey(canonicalModel)) return;
     setState(() => _selectedModel = canonicalModel);
+  }
+
+  Future<void> _clearExposedModels(BuildContext context) async {
+    if (_isClearing || !mounted) return;
+    final proxy = context.read<AiModelProxyController>();
+    if (proxy.settings.routes.isEmpty) return;
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: openHandLocalizedText(
+        context,
+        zh: '清空暴露模型',
+        en: 'Clear exposed models',
+      ),
+      message: openHandLocalizedText(
+        context,
+        zh: '确认清空全部暴露模型及其对应的后备模型配置吗？此操作不可撤销。',
+        en: 'Clear all exposed models and their backend configurations? This cannot be undone.',
+      ),
+      cancelLabel: openHandCancelLabel(context),
+      confirmLabel: openHandLocalizedText(context, zh: '清空', en: 'Clear'),
+      destructive: true,
+    );
+    if (!confirmed || !mounted || !context.mounted) return;
+    setState(() => _isClearing = true);
+    try {
+      if (await _persistRoutes(const <AiModelProxyRoute>[])) {
+        if (!mounted || !context.mounted) return;
+        setState(() => _selectedModel = null);
+        flashOpenHandSnack(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '已清空全部暴露模型及其后备模型配置。',
+            en: 'All exposed models and backend configurations were cleared.',
+          ),
+          kind: OpenHandSnackKind.success,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isClearing = false);
+    }
+  }
+
+  Future<void> _clearBackends(BuildContext context, String exposedModel) async {
+    if (_isClearing || !mounted) return;
+    final proxy = context.read<AiModelProxyController>();
+    final route = proxy.settings.routes
+        .where(
+          (item) => _modelKey(item.exposedModel) == _modelKey(exposedModel),
+        )
+        .firstOrNull;
+    if (route == null || route.backends.isEmpty) return;
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: openHandLocalizedText(
+        context,
+        zh: '清空后备模型',
+        en: 'Clear backend models',
+      ),
+      message: openHandLocalizedText(
+        context,
+        zh: '确认清空“${route.exposedModel}”的全部后备模型吗？此操作不可撤销。',
+        en: 'Clear all backend models for “${route.exposedModel}”? This cannot be undone.',
+      ),
+      cancelLabel: openHandCancelLabel(context),
+      confirmLabel: openHandLocalizedText(context, zh: '清空', en: 'Clear'),
+      destructive: true,
+    );
+    if (!confirmed || !mounted || !context.mounted) return;
+    setState(() => _isClearing = true);
+    try {
+      final currentRoutes = proxy.settings.routes;
+      final routeIndex = currentRoutes.indexWhere(
+        (item) => _modelKey(item.exposedModel) == _modelKey(exposedModel),
+      );
+      if (routeIndex < 0 || currentRoutes[routeIndex].backends.isEmpty) return;
+      final routes = List<AiModelProxyRoute>.of(currentRoutes);
+      routes[routeIndex] = routes[routeIndex].copyWith(backends: const []);
+      if (!await _persistRoutes(routes) || !mounted || !context.mounted) {
+        return;
+      }
+      flashOpenHandSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '已清空当前暴露模型的后备模型。',
+          en: 'Backend models for the selected exposed model were cleared.',
+        ),
+        kind: OpenHandSnackKind.success,
+      );
+    } finally {
+      if (mounted) setState(() => _isClearing = false);
+    }
   }
 
   Future<void> _toggleExposedModel(String exposedModel, bool enabled) async {
