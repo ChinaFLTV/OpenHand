@@ -1626,8 +1626,15 @@ class ServicesController extends ChangeNotifier {
     final previousStatus = _proxyStatus;
     _cancelProxyInspection();
     _proxyConfiguration = AiExposureProxyConfiguration.defaults();
+    final client = _client;
     try {
-      final client = _client;
+      if (!await _persistPreferences()) {
+        _proxyConfiguration = previousConfiguration;
+        _scheduleProxyInspection();
+        _scheduleProxyStatisticsSync();
+        _notify();
+        return false;
+      }
       if (client != null) {
         await client.clearProxy();
         _proxyStatus = await client.proxyStatus();
@@ -1651,14 +1658,31 @@ class ServicesController extends ChangeNotifier {
     } catch (error, stack) {
       _proxyConfiguration = previousConfiguration;
       _proxyStatus = previousStatus;
+      var rollbackError = false;
+      try {
+        rollbackError = !await _persistPreferences();
+      } catch (_) {
+        rollbackError = true;
+      }
+      if (client != null) {
+        try {
+          _proxyStatus = await _updateProxyRuntime(
+            client,
+            configuration: previousConfiguration,
+          );
+        } catch (_) {
+          rollbackError = true;
+        }
+      }
       _scheduleProxyInspection();
       _scheduleProxyStatisticsSync();
-      _errorMessage = _reportServicesFailure(
+      final failure = _reportServicesFailure(
         '清除代理配置',
         error,
         stack,
         fallback: '清除代理配置失败，请检查扫描服务状态后重试。',
       );
+      _errorMessage = rollbackError ? '$failure 配置恢复失败，请重启应用后检查代理设置。' : failure;
       _notify();
       return false;
     }

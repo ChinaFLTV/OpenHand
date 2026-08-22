@@ -8,6 +8,8 @@ import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../ai_model_proxy_controller.dart';
+import '../model/ai_exposure_models.dart';
+import '../services_controller.dart';
 import 'ai_exposure_proxy_dialog.dart';
 import 'ai_model_proxy_dialogs.dart';
 
@@ -20,6 +22,18 @@ class AiModelProxyServiceCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final controller = context.watch<AiModelProxyController>();
+    final proxyState = context
+        .select<
+          ServicesController,
+          ({bool enabled, AiExposureProxyMode mode, int activeCount})
+        >((service) {
+          final proxy = service.proxyConfiguration;
+          return (
+            enabled: proxy.enabled,
+            mode: proxy.mode,
+            activeCount: proxy.activeEndpoints.length,
+          );
+        });
     final settings = controller.settings;
     final running = controller.lifecycle == AiModelProxyLifecycle.running;
     final enabledRouteCount = settings.routes
@@ -122,6 +136,28 @@ class AiModelProxyServiceCard extends StatelessWidget {
                   label:
                       '${settings.limitMode.label} ${settings.limitThreshold}',
                   color: colors.tertiary,
+                ),
+                OpenHandStatusPill(
+                  icon:
+                      proxyState.enabled &&
+                          proxyState.mode == AiExposureProxyMode.pool
+                      ? Icons.lan_rounded
+                      : proxyState.enabled
+                      ? Icons.public_rounded
+                      : Icons.link_rounded,
+                  label: !proxyState.enabled
+                      ? text(zh: '网络直连', en: 'Direct connection')
+                      : proxyState.mode == AiExposureProxyMode.system
+                      ? text(zh: '系统代理', en: 'System proxy')
+                      : text(
+                          zh: '代理节点 ${proxyState.activeCount}',
+                          en: 'Proxies ${proxyState.activeCount}',
+                        ),
+                  color: !proxyState.enabled
+                      ? colors.onSurfaceVariant
+                      : proxyState.mode == AiExposureProxyMode.system
+                      ? colors.secondary
+                      : colors.tertiary,
                 ),
               ],
             ),
