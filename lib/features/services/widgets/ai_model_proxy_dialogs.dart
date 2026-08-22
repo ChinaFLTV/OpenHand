@@ -1480,8 +1480,8 @@ class _NumberStepperState extends State<_NumberStepper> {
               icon: const Icon(Icons.remove_rounded),
               tooltip: openHandLocalizedText(context, zh: '减少', en: 'Decrease'),
               style: IconButton.styleFrom(
-                foregroundColor: colors.onSecondaryContainer,
-                backgroundColor: colors.secondaryContainer,
+                foregroundColor: colors.onPrimaryContainer,
+                backgroundColor: colors.primaryContainer,
                 disabledForegroundColor: colors.onSurface.withValues(
                   alpha: 0.38,
                 ),
@@ -1546,8 +1546,8 @@ class _NumberStepperState extends State<_NumberStepper> {
               icon: const Icon(Icons.add_rounded),
               tooltip: openHandLocalizedText(context, zh: '增加', en: 'Increase'),
               style: IconButton.styleFrom(
-                foregroundColor: colors.onSecondaryContainer,
-                backgroundColor: colors.secondaryContainer,
+                foregroundColor: colors.onPrimaryContainer,
+                backgroundColor: colors.primaryContainer,
                 disabledForegroundColor: colors.onSurface.withValues(
                   alpha: 0.38,
                 ),
@@ -1855,13 +1855,13 @@ class _ProxyTraceBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
       decoration: BoxDecoration(
-        color: colors.secondaryContainer,
+        color: colors.primaryContainer,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Text(
         label,
         style: TextStyle(
-          color: colors.onSecondaryContainer,
+          color: colors.onPrimaryContainer,
           fontWeight: FontWeight.w700,
         ),
       ),
