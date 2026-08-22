@@ -34,6 +34,8 @@ class AiModelProxyController extends ChangeNotifier {
   AiExposureProxyConfiguration Function()? _networkProxyProvider;
   List<AiModelConfig> Function()? _modelsProvider;
   AiModelProxyHttpServer? _httpServer;
+  Future<void>? _rebindFuture;
+  bool _rebindRequested = false;
 
   AiModelProxySettings get settings => _settings;
   AiModelProxyLifecycle get lifecycle => _lifecycle;
@@ -321,6 +323,7 @@ class AiModelProxyController extends ChangeNotifier {
   /// 进程退出前释放监听端口和中转请求客户端。
   Future<void> shutdown() async {
     if (_disposed) return;
+    _rebindRequested = false;
     final busy = _busyCompleter?.future;
     if (busy != null) {
       try {
@@ -335,17 +338,17 @@ class AiModelProxyController extends ChangeNotifier {
     await _writes.idle;
   }
 
+  /// 保存并立即应用配置；监听端点变更会在当前生命周期操作结束后自动重绑定。
   Future<void> saveSettings(AiModelProxySettings settings) async {
     final previous = _settings;
     final normalized = settings.copyWith();
+    final listenEndpointChanged =
+        previous.listenHost != normalized.listenHost ||
+        previous.listenPort != normalized.listenPort;
     _settings = normalized;
     _notify();
     await _writes.enqueue(() => _store.save(normalized));
-    if (_lifecycle == AiModelProxyLifecycle.running &&
-        (previous.listenHost != normalized.listenHost ||
-            previous.listenPort != normalized.listenPort)) {
-      await _rebindServer();
-    }
+    if (listenEndpointChanged) await _requestServerRebind();
   }
 
   Future<void> saveRoutes(List<AiModelProxyRoute> routes) =>
@@ -495,8 +498,35 @@ class AiModelProxyController extends ChangeNotifier {
     super.dispose();
   }
 
+  Future<void> _requestServerRebind() {
+    _rebindRequested = true;
+    final existing = _rebindFuture;
+    if (existing != null) return existing;
+    final future = _drainServerRebindRequests();
+    _rebindFuture = future;
+    unawaited(
+      future.whenComplete(() {
+        if (identical(_rebindFuture, future)) _rebindFuture = null;
+      }),
+    );
+    return future;
+  }
+
+  Future<void> _drainServerRebindRequests() async {
+    while (_rebindRequested) {
+      _rebindRequested = false;
+      while (_busy) {
+        final busy = _busyCompleter?.future;
+        if (busy == null) break;
+        await busy;
+      }
+      if (_disposed || _lifecycle != AiModelProxyLifecycle.running) continue;
+      await _rebindServer();
+    }
+  }
+
   Future<void> _rebindServer() async {
-    if (_busy || _lifecycle != AiModelProxyLifecycle.running) return;
+    if (_lifecycle != AiModelProxyLifecycle.running) return;
     _beginBusy();
     _lifecycle = AiModelProxyLifecycle.starting;
     _errorMessage = null;
