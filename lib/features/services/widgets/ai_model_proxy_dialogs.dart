@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -545,6 +547,11 @@ class _ProxyModelsDialog extends StatefulWidget {
 class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
   String? _selectedModel;
 
+  static const double _nodeHeight = 72;
+  static const double _backendHeight = 82;
+  static const double _nodeGap = 12;
+  static const double _diagramTopPadding = 18;
+
   @override
   Widget build(BuildContext context) {
     final text = openHandTextResolver(context);
@@ -559,9 +566,28 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
         _selectedModel != null && exposedModels.contains(_selectedModel)
         ? _selectedModel!
         : (exposedModels.isEmpty ? null : exposedModels.first);
-    final route = routes
-        .where((item) => item.exposedModel == selected)
-        .firstOrNull;
+    final route = selected == null
+        ? null
+        : routes.where((item) => item.exposedModel == selected).firstOrNull;
+    final middleCount = math.max(exposedModels.length, 1);
+    final backendCount = math.max(route?.backends.length ?? 0, 1);
+    final backendContentHeight =
+        backendCount * _backendHeight + (backendCount - 1) * _nodeGap + 12 + 48;
+    final diagramHeight = math.max(
+      420.0,
+      _diagramTopPadding * 2 +
+          math.max(
+            middleCount * _nodeHeight + (middleCount - 1) * _nodeGap,
+            backendContentHeight,
+          ),
+    );
+    final selectedIndex = selected == null
+        ? 0
+        : exposedModels.indexOf(selected);
+    final selectedCenter =
+        _diagramTopPadding +
+        _nodeHeight / 2 +
+        math.max(selectedIndex, 0) * (_nodeHeight + _nodeGap);
     return ServiceDialogInteractionTheme(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
@@ -578,71 +604,192 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
             ),
             kOpenHandGap18,
             Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Expanded(
-                    child: _MindMapNode(
-                      title: 'OpenHand',
-                      icon: Icons.apps_rounded,
-                      primary: true,
-                    ),
-                  ),
-                  const _MindMapConnector(),
-                  SizedBox(
-                    width: 220,
-                    child: ListView(
-                      children: [
-                        for (final model in exposedModels)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: _MindMapNode(
-                              title: model,
-                              icon: Icons.api_rounded,
-                              selected: model == selected,
-                              onTap: () =>
-                                  setState(() => _selectedModel = model),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const _MindMapConnector(),
-                  Expanded(
-                    flex: 2,
-                    child: route == null
-                        ? Center(
-                            child: Text(
-                              text(
-                                zh: '选择一个暴露模型查看后备模型。',
-                                en: 'Select an exposed model.',
-                              ),
-                            ),
-                          )
-                        : ListView(
-                            children: [
-                              if (route.backends.isEmpty)
-                                _EmptyBackendCard(
-                                  text: text(zh: '暂无后备模型', en: 'No backends'),
-                                ),
-                              for (final backend in route.backends)
-                                _BackendTile(
-                                  backend: backend,
-                                  settings: settings,
-                                ),
-                              const SizedBox(height: 8),
-                              FilledButton.tonalIcon(
-                                onPressed: () =>
-                                    _addBackend(context, selected!),
-                                icon: const Icon(Icons.add_rounded),
-                                label: Text(
-                                  text(zh: '添加后备模型', en: 'Add backend'),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  const diagramWidth = 980.0;
+                  final width = math.max(diagramWidth, constraints.maxWidth);
+                  return SingleChildScrollView(
+                    physics: openHandDialogAwareScrollPhysics(context),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: openHandDialogAwareScrollPhysics(context),
+                      child: SizedBox(
+                        width: width,
+                        height: diagramHeight,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(
+                              width: 188,
+                              child: Center(
+                                child: _MindMapNode(
+                                  title: text(zh: 'OpenHand', en: 'OpenHand'),
+                                  icon: Icons.apps_rounded,
+                                  primary: true,
                                 ),
                               ),
-                            ],
-                          ),
-                  ),
-                ],
+                            ),
+                            _MindMapConnector(
+                              height: diagramHeight,
+                              sourceY: diagramHeight / 2,
+                              branchCount: exposedModels.length,
+                              branchTop: _diagramTopPadding,
+                              branchHeight: _nodeHeight,
+                              gap: _nodeGap,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primary.withValues(alpha: 0.56),
+                            ),
+                            SizedBox(
+                              width: 272,
+                              child: Padding(
+                                padding: const EdgeInsets.only(
+                                  top: _diagramTopPadding,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    for (final model in exposedModels) ...[
+                                      SizedBox(
+                                        height: _nodeHeight,
+                                        child: _MindMapNode(
+                                          title: model,
+                                          icon: Icons.api_rounded,
+                                          selected: model == selected,
+                                          onTap: () => setState(
+                                            () => _selectedModel = model,
+                                          ),
+                                        ),
+                                      ),
+                                      if (model != exposedModels.last)
+                                        const SizedBox(height: _nodeGap),
+                                    ],
+                                    if (exposedModels.isEmpty)
+                                      _EmptyBackendCard(
+                                        text: text(
+                                          zh: '暂无可暴露模型',
+                                          en: 'No exposed models',
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            _MindMapConnector(
+                              height: diagramHeight,
+                              sourceY: selectedCenter,
+                              branchCount: route?.backends.length ?? 0,
+                              branchTop: _diagramTopPadding,
+                              branchHeight: _backendHeight,
+                              gap: _nodeGap,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.tertiary.withValues(alpha: 0.62),
+                            ),
+                            SizedBox(
+                              width: 392,
+                              child: Padding(
+                                padding: const EdgeInsets.only(
+                                  top: _diagramTopPadding,
+                                ),
+                                child: route == null
+                                    ? Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          _EmptyBackendCard(
+                                            text: text(
+                                              zh: selected == null
+                                                  ? '选择一个暴露模型查看后备模型。'
+                                                  : '该模型还没有后备模型。',
+                                              en: selected == null
+                                                  ? 'Select an exposed model.'
+                                                  : 'This model has no backends yet.',
+                                            ),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          FilledButton.tonalIcon(
+                                            onPressed: selected == null
+                                                ? null
+                                                : () => _addBackend(
+                                                    context,
+                                                    selected,
+                                                  ),
+                                            icon: const Icon(Icons.add_rounded),
+                                            label: Text(
+                                              text(
+                                                zh: '添加后备模型',
+                                                en: 'Add backend',
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          for (final (index, backend)
+                                              in route.backends.indexed) ...[
+                                            SizedBox(
+                                              height: _backendHeight,
+                                              child: _BackendTile(
+                                                backend: backend,
+                                                settings: settings,
+                                                onToggle: (enabled) =>
+                                                    _updateBackend(
+                                                      selected!,
+                                                      index,
+                                                      backend.copyWith(
+                                                        enabled: enabled,
+                                                      ),
+                                                    ),
+                                                onRemove: () => _removeBackend(
+                                                  selected!,
+                                                  index,
+                                                ),
+                                              ),
+                                            ),
+                                            if (index !=
+                                                route.backends.length - 1)
+                                              const SizedBox(height: _nodeGap),
+                                          ],
+                                          if (route.backends.isEmpty)
+                                            _EmptyBackendCard(
+                                              text: text(
+                                                zh: '暂无后备模型',
+                                                en: 'No backends',
+                                              ),
+                                            ),
+                                          const SizedBox(height: 12),
+                                          FilledButton.tonalIcon(
+                                            onPressed: selected == null
+                                                ? null
+                                                : () => _addBackend(
+                                                    context,
+                                                    selected,
+                                                  ),
+                                            icon: const Icon(Icons.add_rounded),
+                                            label: Text(
+                                              text(
+                                                zh: '添加后备模型',
+                                                en: 'Add backend',
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ],
@@ -654,15 +801,24 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
   Future<void> _addBackend(BuildContext context, String exposedModel) async {
     final settings = context.read<SettingsController>();
     final proxy = context.read<AiModelProxyController>();
+    final currentRoute = proxy.settings.routes
+        .where((item) => item.exposedModel == exposedModel)
+        .firstOrNull;
+    final existing = {
+      for (final backend
+          in currentRoute?.backends ?? const <AiModelProxyBackend>[])
+        '${backend.providerId}\u0000${backend.modelId}',
+    };
     final candidates =
         <({String providerId, String providerName, String modelId})>[
           for (final provider in settings.aiModels)
             for (final modelId in provider.allModelIds)
-              (
-                providerId: provider.id,
-                providerName: provider.displayName,
-                modelId: modelId,
-              ),
+              if (!existing.contains('${provider.id}\u0000$modelId'))
+                (
+                  providerId: provider.id,
+                  providerName: provider.displayName,
+                  modelId: modelId,
+                ),
         ];
     final chosen =
         await showAnimatedDialog<({String providerId, String modelId})>(
@@ -701,21 +857,135 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     }
     await proxy.saveRoutes(next);
   }
+
+  Future<void> _updateBackend(
+    String exposedModel,
+    int backendIndex,
+    AiModelProxyBackend backend,
+  ) async {
+    final proxy = context.read<AiModelProxyController>();
+    final routeIndex = proxy.settings.routes.indexWhere(
+      (item) => item.exposedModel == exposedModel,
+    );
+    if (routeIndex < 0) return;
+    final route = proxy.settings.routes[routeIndex];
+    if (backendIndex < 0 || backendIndex >= route.backends.length) return;
+    final backends = List<AiModelProxyBackend>.of(route.backends);
+    backends[backendIndex] = backend;
+    final routes = List<AiModelProxyRoute>.of(proxy.settings.routes);
+    routes[routeIndex] = route.copyWith(backends: backends);
+    await proxy.saveRoutes(routes);
+  }
+
+  Future<void> _removeBackend(String exposedModel, int backendIndex) async {
+    final proxy = context.read<AiModelProxyController>();
+    final routeIndex = proxy.settings.routes.indexWhere(
+      (item) => item.exposedModel == exposedModel,
+    );
+    if (routeIndex < 0) return;
+    final route = proxy.settings.routes[routeIndex];
+    if (backendIndex < 0 || backendIndex >= route.backends.length) return;
+    final backends = List<AiModelProxyBackend>.of(route.backends)
+      ..removeAt(backendIndex);
+    final routes = List<AiModelProxyRoute>.of(proxy.settings.routes);
+    routes[routeIndex] = route.copyWith(backends: backends);
+    await proxy.saveRoutes(routes);
+  }
 }
 
 class _MindMapConnector extends StatelessWidget {
-  const _MindMapConnector();
+  const _MindMapConnector({
+    required this.height,
+    required this.sourceY,
+    required this.branchCount,
+    required this.branchTop,
+    required this.branchHeight,
+    required this.gap,
+    required this.color,
+  });
+
+  final double height;
+  final double sourceY;
+  final int branchCount;
+  final double branchTop;
+  final double branchHeight;
+  final double gap;
+  final Color color;
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: 34,
-    child: Center(
-      child: Container(
-        height: 2,
-        color: Theme.of(context).colorScheme.outlineVariant,
+    width: 56,
+    height: height,
+    child: CustomPaint(
+      painter: _MindMapConnectorPainter(
+        sourceY: sourceY,
+        branchCount: branchCount,
+        branchTop: branchTop,
+        branchHeight: branchHeight,
+        gap: gap,
+        color: color,
       ),
     ),
   );
+}
+
+class _MindMapConnectorPainter extends CustomPainter {
+  const _MindMapConnectorPainter({
+    required this.sourceY,
+    required this.branchCount,
+    required this.branchTop,
+    required this.branchHeight,
+    required this.gap,
+    required this.color,
+  });
+
+  final double sourceY;
+  final int branchCount;
+  final double branchTop;
+  final double branchHeight;
+  final double gap;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final spineX = size.width / 2;
+    final source = sourceY.clamp(0.0, size.height).toDouble();
+    canvas.drawLine(Offset(0, source), Offset(spineX, source), paint);
+    if (branchCount <= 0) {
+      canvas.drawLine(
+        Offset(spineX, source),
+        Offset(size.width, source),
+        paint,
+      );
+      return;
+    }
+    final centers = List<double>.generate(
+      branchCount,
+      (index) => branchTop + branchHeight / 2 + index * (branchHeight + gap),
+      growable: false,
+    );
+    final first = centers.first.clamp(0.0, size.height).toDouble();
+    final last = centers.last.clamp(0.0, size.height).toDouble();
+    canvas.drawLine(Offset(spineX, first), Offset(spineX, last), paint);
+    for (final center in centers) {
+      final y = center.clamp(0.0, size.height).toDouble();
+      canvas.drawLine(Offset(spineX, y), Offset(size.width, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_MindMapConnectorPainter oldDelegate) =>
+      oldDelegate.sourceY != sourceY ||
+      oldDelegate.branchCount != branchCount ||
+      oldDelegate.branchTop != branchTop ||
+      oldDelegate.branchHeight != branchHeight ||
+      oldDelegate.gap != gap ||
+      oldDelegate.color != color;
 }
 
 class _MindMapNode extends StatelessWidget {
@@ -742,7 +1012,7 @@ class _MindMapNode extends StatelessWidget {
         color: primary
             ? colors.primaryContainer
             : selected
-            ? colors.secondaryContainer
+            ? colors.primaryContainer
             : colors.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
@@ -776,29 +1046,91 @@ class _EmptyBackendCard extends StatelessWidget {
   const _EmptyBackendCard({required this.text});
   final String text;
   @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(padding: const EdgeInsets.all(18), child: Text(text)),
-  );
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(kOpenHandRadius16),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Text(text),
+    );
+  }
 }
 
 class _BackendTile extends StatelessWidget {
-  const _BackendTile({required this.backend, required this.settings});
+  const _BackendTile({
+    required this.backend,
+    required this.settings,
+    required this.onToggle,
+    required this.onRemove,
+  });
   final AiModelProxyBackend backend;
   final SettingsController settings;
+  final ValueChanged<bool> onToggle;
+  final VoidCallback onRemove;
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     final provider = settings.aiModels
         .where((item) => item.id == backend.providerId)
         .firstOrNull;
-    return Card(
-      child: ListTile(
-        leading: Icon(
-          backend.enabled
-              ? Icons.check_circle_outline_rounded
-              : Icons.pause_circle_outline_rounded,
+    return Container(
+      padding: const EdgeInsetsDirectional.fromSTEB(14, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: backend.enabled
+            ? colors.primaryContainer.withValues(alpha: 0.72)
+            : colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(kOpenHandRadius16),
+        border: Border.all(
+          color: backend.enabled ? colors.primary : colors.outlineVariant,
         ),
-        title: Text(backend.modelId),
-        subtitle: Text(provider?.displayName ?? backend.providerId),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            backend.enabled
+                ? Icons.check_circle_rounded
+                : Icons.pause_circle_outline_rounded,
+            color: backend.enabled ? colors.primary : colors.onSurfaceVariant,
+          ),
+          kOpenHandHGap10,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  backend.modelId,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                kOpenHandGap4,
+                Text(
+                  provider?.displayName ?? backend.providerId,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(value: backend.enabled, onChanged: onToggle),
+          ServiceDialogCompactIconButton(
+            tooltip: openHandLocalizedText(
+              context,
+              zh: '移除后备模型',
+              en: 'Remove backend',
+            ),
+            icon: const Icon(Icons.close_rounded, size: 20),
+            onPressed: onRemove,
+          ),
+        ],
       ),
     );
   }
@@ -824,15 +1156,25 @@ class _BackendPickerDialog extends StatelessWidget {
           Expanded(
             child: ListView(
               children: [
-                for (final item in candidates)
-                  ListTile(
-                    leading: const Icon(Icons.cloud_outlined),
-                    title: Text(item.modelId),
-                    subtitle: Text(item.providerName),
-                    onTap: () => Navigator.of(
+                if (candidates.isEmpty)
+                  _EmptyBackendCard(
+                    text: openHandLocalizedText(
                       context,
-                    ).pop((providerId: item.providerId, modelId: item.modelId)),
-                  ),
+                      zh: '没有可添加的后备模型。请先配置其他提供商或模型。',
+                      en: 'No backend candidates. Add another provider or model first.',
+                    ),
+                  )
+                else
+                  for (final item in candidates)
+                    ListTile(
+                      leading: const Icon(Icons.cloud_outlined),
+                      title: Text(item.modelId),
+                      subtitle: Text(item.providerName),
+                      onTap: () => Navigator.of(context).pop((
+                        providerId: item.providerId,
+                        modelId: item.modelId,
+                      )),
+                    ),
               ],
             ),
           ),
@@ -1118,49 +1460,104 @@ class _NumberStepperState extends State<_NumberStepper> {
   }
 
   @override
-  Widget build(BuildContext context) => InputDecorator(
-    decoration: InputDecoration(labelText: widget.label),
-    child: Row(
-      children: [
-        IconButton(
-          onPressed: widget.value <= widget.min ? null : () => _changeBy(-1),
-          icon: const Icon(Icons.remove_rounded),
-          style: IconButton.styleFrom(shape: const CircleBorder()),
-        ),
-        Expanded(
-          child: TextField(
-            controller: _controller,
-            focusNode: _focusNode,
-            textAlign: TextAlign.center,
-            keyboardType: TextInputType.number,
-            inputFormatters: <TextInputFormatter>[
-              FilteringTextInputFormatter.digitsOnly,
-            ],
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return InputDecorator(
+      decoration: InputDecoration(
+        labelText: widget.label,
+        contentPadding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 48,
+            height: 48,
+            child: IconButton.filledTonal(
+              onPressed: widget.value <= widget.min
+                  ? null
+                  : () => _changeBy(-1),
+              icon: const Icon(Icons.remove_rounded),
+              tooltip: openHandLocalizedText(context, zh: '减少', en: 'Decrease'),
+              style: IconButton.styleFrom(
+                foregroundColor: colors.onSecondaryContainer,
+                backgroundColor: colors.secondaryContainer,
+                disabledForegroundColor: colors.onSurface.withValues(
+                  alpha: 0.38,
+                ),
+                disabledBackgroundColor: colors.surfaceContainerHighest,
+              ),
             ),
-            onChanged: _commit,
-            onSubmitted: _commit,
-            onEditingComplete: () {
-              if (int.tryParse(_controller.text.trim()) == null) {
-                _setControllerValue(widget.value);
-              } else {
-                _commit(_controller.text);
-              }
-              _focusNode.unfocus();
-            },
           ),
-        ),
-        IconButton(
-          onPressed: widget.value >= widget.max ? null : () => _changeBy(1),
-          icon: const Icon(Icons.add_rounded),
-          style: IconButton.styleFrom(shape: const CircleBorder()),
-        ),
-      ],
-    ),
-  );
+          const SizedBox(width: 12),
+          Expanded(
+            child: SizedBox(
+              height: 52,
+              child: TextField(
+                controller: _controller,
+                focusNode: _focusNode,
+                textAlign: TextAlign.center,
+                textInputAction: TextInputAction.done,
+                keyboardType: TextInputType.number,
+                inputFormatters: <TextInputFormatter>[
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                style: Theme.of(context).textTheme.titleMedium,
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: colors.surfaceContainerLow,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(kOpenHandRadius12),
+                    borderSide: BorderSide(color: colors.outlineVariant),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(kOpenHandRadius12),
+                    borderSide: BorderSide(color: colors.outlineVariant),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(kOpenHandRadius12),
+                    borderSide: BorderSide(color: colors.primary, width: 2),
+                  ),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 14,
+                  ),
+                ),
+                onChanged: _commit,
+                onSubmitted: _commit,
+                onEditingComplete: () {
+                  if (int.tryParse(_controller.text.trim()) == null) {
+                    _setControllerValue(widget.value);
+                  } else {
+                    _commit(_controller.text);
+                  }
+                  _focusNode.unfocus();
+                },
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 48,
+            height: 48,
+            child: IconButton.filledTonal(
+              onPressed: widget.value >= widget.max ? null : () => _changeBy(1),
+              icon: const Icon(Icons.add_rounded),
+              tooltip: openHandLocalizedText(context, zh: '增加', en: 'Increase'),
+              style: IconButton.styleFrom(
+                foregroundColor: colors.onSecondaryContainer,
+                backgroundColor: colors.secondaryContainer,
+                disabledForegroundColor: colors.onSurface.withValues(
+                  alpha: 0.38,
+                ),
+                disabledBackgroundColor: colors.surfaceContainerHighest,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ProxyToggleRow extends StatelessWidget {
