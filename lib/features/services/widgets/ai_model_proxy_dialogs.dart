@@ -410,6 +410,13 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
   String? _selectedModel;
   int _displayedExposedModelCount = 0;
   int _displayedBackendItemCount = 0;
+  List<AiModelProxyRoute>? _cachedRoutesSource;
+  Map<String, AiModelProxyRoute> _cachedRoutesByKey =
+      const <String, AiModelProxyRoute>{};
+  List<String> _cachedExposedModels = const <String>[];
+  List<AiModelConfig>? _cachedProvidersSource;
+  Map<String, AiModelConfig> _cachedProvidersByKey =
+      const <String, AiModelConfig>{};
   late final ScrollController _diagramHorizontalController;
 
   static const double _nodeHeight = 96;
@@ -450,22 +457,22 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
         .select<AiModelProxyController, List<AiModelProxyRoute>>(
           (controller) => controller.settings.routes,
         );
-    final routesByKey = <String, AiModelProxyRoute>{};
-    for (final item in routes) {
-      final key = _modelKey(item.exposedModel);
-      if (key.isNotEmpty) routesByKey.putIfAbsent(key, () => item);
+    if (!identical(_cachedRoutesSource, routes)) {
+      final routesByKey = <String, AiModelProxyRoute>{};
+      for (final item in routes) {
+        final key = _modelKey(item.exposedModel);
+        if (key.isNotEmpty) routesByKey.putIfAbsent(key, () => item);
+      }
+      _cachedRoutesSource = routes;
+      _cachedRoutesByKey = routesByKey;
+      _cachedExposedModels = List<String>.unmodifiable(
+        routesByKey.values.map((item) => item.exposedModel),
+      );
     }
-    final exposedModels = routesByKey.values
-        .map((item) => item.exposedModel)
-        .toList(growable: false);
+    final routesByKey = _cachedRoutesByKey;
+    final exposedModels = _cachedExposedModels;
     final activeModel =
-        exposedModels
-            .where(
-              (model) =>
-                  _selectedModel != null &&
-                  _modelKey(model) == _modelKey(_selectedModel!),
-            )
-            .firstOrNull ??
+        routesByKey[_modelKey(_selectedModel ?? '')]?.exposedModel ??
         exposedModels.firstOrNull;
     final route = activeModel == null
         ? null
@@ -479,10 +486,14 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
       if (backendKeys.add(key)) backendItems.add(backend);
       backendIndexes.putIfAbsent(key, () => index);
     }
-    final providersByKey = <String, AiModelConfig>{
-      for (final provider in modelProviders)
-        provider.id.trim().toLowerCase(): provider,
-    };
+    if (!identical(_cachedProvidersSource, modelProviders)) {
+      _cachedProvidersSource = modelProviders;
+      _cachedProvidersByKey = <String, AiModelConfig>{
+        for (final provider in modelProviders)
+          provider.id.trim().toLowerCase(): provider,
+      };
+    }
+    final providersByKey = _cachedProvidersByKey;
     final middleCount = math.max(
       math.max(exposedModels.length, _displayedExposedModelCount),
       1,
@@ -582,6 +593,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                       items: exposedModels,
                                       itemKey: (model) => model,
                                       gap: _nodeGap,
+                                      itemExtent: _nodeHeight + _nodeGap,
                                       onDisplayItemsChanged:
                                           _updateDisplayedExposedModelCount,
                                       emptyChild: Column(
@@ -683,6 +695,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                       itemKey: (backend) =>
                                           '${backend.providerId.trim()}\u0000${backend.modelId.trim()}',
                                       gap: _nodeGap,
+                                      itemExtent: _backendHeight + _nodeGap,
                                       onDisplayItemsChanged:
                                           _updateDisplayedBackendItemCount,
                                       onReorder: activeModel == null
@@ -1297,6 +1310,7 @@ class _AnimatedMappingItems<T> extends StatefulWidget {
     required this.itemBuilder,
     required this.emptyChild,
     required this.gap,
+    this.itemExtent,
     this.onReorder,
     this.onDisplayItemsChanged,
     this.displayGroupKey,
@@ -1307,6 +1321,7 @@ class _AnimatedMappingItems<T> extends StatefulWidget {
   final Widget Function(T item) itemBuilder;
   final Widget emptyChild;
   final double gap;
+  final double? itemExtent;
   final void Function(int oldIndex, int newIndex)? onReorder;
   final ValueChanged<int>? onDisplayItemsChanged;
   final String? displayGroupKey;
@@ -1318,25 +1333,37 @@ class _AnimatedMappingItems<T> extends StatefulWidget {
 
 class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
   late List<T> _displayedItems;
+  List<T>? _currentKeysSource;
+  Set<String>? _currentKeys;
   int? _lastReportedDisplayCount;
 
   @override
   void initState() {
     super.initState();
     _displayedItems = List<T>.of(widget.items);
+    _currentKeysSource = widget.items;
+    _currentKeys = widget.items.map(widget.itemKey).toSet();
     _scheduleDisplayCountNotification();
   }
 
   @override
   void didUpdateWidget(covariant _AnimatedMappingItems<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.items, widget.items) &&
+        oldWidget.displayGroupKey == widget.displayGroupKey) {
+      return;
+    }
     if (oldWidget.displayGroupKey != widget.displayGroupKey) {
       _displayedItems = List<T>.of(widget.items);
+      _currentKeysSource = widget.items;
+      _currentKeys = widget.items.map(widget.itemKey).toSet();
       _lastReportedDisplayCount = null;
       _scheduleDisplayCountNotification();
       return;
     }
-    final currentKeys = widget.items.map(widget.itemKey).toSet();
+    _currentKeysSource = widget.items;
+    _currentKeys = widget.items.map(widget.itemKey).toSet();
+    final currentKeys = _currentKeys!;
     final nextDisplayed = List<T>.of(widget.items);
     for (var index = 0; index < _displayedItems.length; index++) {
       final previous = _displayedItems[index];
@@ -1363,7 +1390,7 @@ class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
   }
 
   void _removeDismissed(String itemKey) {
-    if (widget.items.any((item) => widget.itemKey(item) == itemKey)) return;
+    if (_keysFor(widget.items).contains(itemKey)) return;
     if (!mounted) return;
     setState(() {
       _displayedItems.removeWhere((item) => widget.itemKey(item) == itemKey);
@@ -1377,7 +1404,7 @@ class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
       context,
       OpenHandMotionSettingsScope.dialog,
     );
-    final currentKeys = widget.items.map(widget.itemKey).toSet();
+    final currentKeys = _keysFor(widget.items);
     Widget buildItem(T item) {
       final itemId = widget.itemKey(item);
       return AnimatedAppearance(
@@ -1401,6 +1428,7 @@ class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
             ReorderableListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
+              itemExtent: widget.itemExtent,
               buildDefaultDragHandles: false,
               proxyDecorator: (child, index, animation) =>
                   buildOpenHandReorderProxy(context, child, animation),
@@ -1431,6 +1459,14 @@ class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
         ),
       ],
     );
+  }
+
+  Set<String> _keysFor(List<T> items) {
+    if (identical(_currentKeysSource, items) && _currentKeys != null) {
+      return _currentKeys!;
+    }
+    _currentKeysSource = items;
+    return _currentKeys = items.map(widget.itemKey).toSet();
   }
 }
 
@@ -1518,17 +1554,16 @@ class _MindMapConnectorPainter extends CustomPainter {
       );
       return;
     }
-    final centers = List<double>.generate(
-      branchCount,
-      (index) => branchTop + branchHeight / 2 + index * (branchHeight + gap),
-      growable: false,
-    );
-    final first = centers.first.clamp(0.0, size.height).toDouble();
-    final last = centers.last.clamp(0.0, size.height).toDouble();
+    final firstCenter = branchTop + branchHeight / 2;
+    final lastCenter = firstCenter + (branchCount - 1) * (branchHeight + gap);
+    final first = firstCenter.clamp(0.0, size.height).toDouble();
+    final last = lastCenter.clamp(0.0, size.height).toDouble();
     canvas.drawLine(Offset(spineX, source), Offset(spineX, first), paint);
     canvas.drawLine(Offset(spineX, first), Offset(spineX, last), paint);
-    for (final center in centers) {
-      final y = center.clamp(0.0, size.height).toDouble();
+    for (var index = 0; index < branchCount; index++) {
+      final y = (firstCenter + index * (branchHeight + gap))
+          .clamp(0.0, size.height)
+          .toDouble();
       canvas.drawLine(Offset(spineX, y), Offset(size.width, y), paint);
     }
   }
