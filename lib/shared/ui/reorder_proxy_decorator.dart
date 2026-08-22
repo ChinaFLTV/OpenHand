@@ -42,7 +42,12 @@ Widget buildOpenHandReorderProxy(
       color: Colors.transparent,
       shadowColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
-      child: OpenHandReorderProxyContext(child: child),
+      child: OpenHandReorderProxyContext(
+        // ReorderableListView 会把副本移入 Overlay；Tooltip 的
+        // OverlayPortal 若在此时重新挂载，会在布局阶段触发 RenderObject 变更。
+        // 拖拽副本无需提示气泡，直接禁用其 Tooltip，保留语义信息。
+        child: TooltipVisibility(visible: false, child: child),
+      ),
     ),
     builder: (context, proxyChild) {
       final raw = animation.value.clamp(0.0, 1.0);
