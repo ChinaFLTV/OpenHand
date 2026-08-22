@@ -321,6 +321,8 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
               icon: Badge(
                 isLabelVisible: _activeFilterCount > 0,
                 label: Text('$_activeFilterCount'),
+                backgroundColor: colorScheme.primary,
+                textColor: colorScheme.onPrimary,
                 child: const Icon(Icons.tune_rounded, size: 19),
               ),
               label: Text(

@@ -1644,6 +1644,7 @@ class _ProxyUsageDialogState extends State<_ProxyUsageDialog> {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             _ProxyDialogHeader(
               title: text(zh: '使用统计', en: 'Usage analytics'),
@@ -1683,7 +1684,7 @@ class _ProxyUsageDialogState extends State<_ProxyUsageDialog> {
               ],
             ),
             kOpenHandGap16,
-            Expanded(
+            Flexible(
               child: SingleChildScrollView(
                 physics: openHandDialogAwareScrollPhysics(context),
                 child: Column(
@@ -1855,13 +1856,14 @@ class _ProxyTraceBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
       decoration: BoxDecoration(
-        color: colors.primaryContainer,
+        color: colors.surfaceContainerHighest,
+        border: Border.all(color: colors.outlineVariant),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Text(
         label,
         style: TextStyle(
-          color: colors.onPrimaryContainer,
+          color: colors.onSurfaceVariant,
           fontWeight: FontWeight.w700,
         ),
       ),
