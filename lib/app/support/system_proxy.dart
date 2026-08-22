@@ -268,8 +268,14 @@ class SystemProxyResolver {
   /// 创建遵循当前代理设置的独立 HTTP 客户端。
   http.Client createHttpClient({
     Duration connectionTimeout = const Duration(seconds: 15),
+    String? userAgent,
   }) {
-    return IOClient(createRawHttpClient(connectionTimeout: connectionTimeout));
+    return IOClient(
+      createRawHttpClient(
+        connectionTimeout: connectionTimeout,
+        userAgent: userAgent,
+      ),
+    );
   }
 
   /// 将当前代理配置转换为子进程环境变量。无可用代理时返回空映射，
@@ -365,10 +371,14 @@ class SystemProxyResolver {
   /// 创建支持代理、凭据和强制取消的底层 HTTP 客户端。
   HttpClient createRawHttpClient({
     Duration connectionTimeout = const Duration(seconds: 15),
+    String? userAgent,
   }) {
     final inner = HttpClient()
       ..connectionTimeout = connectionTimeout
       ..findProxy = findProxyFor;
+    if (userAgent?.trim().isNotEmpty ?? false) {
+      inner.userAgent = userAgent!.trim();
+    }
     final manualHostPort = _manualHostPort;
     final username = nullIfBlank(_settings.username);
     if (_settings.mode == AppProxyMode.manual &&

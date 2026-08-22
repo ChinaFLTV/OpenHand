@@ -10,6 +10,9 @@ import '../ai_model_proxy_controller.dart';
 import '../model/ai_exposure_models.dart';
 import '../model/ai_model_proxy_models.dart';
 
+const String _kAiModelProxyUserAgent =
+    'OpenHand/0.1.0 (macOS; Flutter; AI-Model-Proxy)';
+
 class AiModelProxyDispatchResult {
   const AiModelProxyDispatchResult({
     required this.reply,
@@ -207,6 +210,7 @@ class AiModelProxyDispatcher {
             'x-forwarded-port',
             'x-client-port',
           ]),
+          clientUserAgent: _headerValue(headers, const <String>['user-agent']),
           proxyMode: network.mode,
           proxyEndpoint: network.endpoint,
           remoteHost: network.remoteHost,
@@ -241,6 +245,7 @@ class AiModelProxyDispatcher {
             'x-forwarded-port',
             'x-client-port',
           ]),
+          clientUserAgent: _headerValue(headers, const <String>['user-agent']),
           proxyMode: network.mode,
           proxyEndpoint: network.endpoint,
           remoteHost: network.remoteHost,
@@ -384,6 +389,9 @@ class AiModelProxyDispatcher {
                       'x-forwarded-port',
                       'x-client-port',
                     ]),
+                    clientUserAgent: _headerValue(headers, const <String>[
+                      'user-agent',
+                    ]),
                     proxyMode: network.mode,
                     proxyEndpoint: network.endpoint,
                     remoteHost: network.remoteHost,
@@ -409,6 +417,9 @@ class AiModelProxyDispatcher {
                     clientPort: _headerValue(headers, const <String>[
                       'x-forwarded-port',
                       'x-client-port',
+                    ]),
+                    clientUserAgent: _headerValue(headers, const <String>[
+                      'user-agent',
                     ]),
                     proxyMode: network.mode,
                     proxyEndpoint: network.endpoint,
@@ -775,14 +786,19 @@ class AiModelProxyDispatcher {
     route,
   ) async {
     if (route.mode == 'system') {
-      final transport = SystemProxyResolver.instance.createHttpClient();
+      final transport = SystemProxyResolver.instance.createHttpClient(
+        userAgent: _kAiModelProxyUserAgent,
+      );
       return _RoutedChatClient(
         service: AiChatService(client: transport),
         transport: transport,
       );
     }
     if (route.mode != 'pool') {
-      final transport = IOClient(HttpClient()..findProxy = (_) => 'DIRECT');
+      final raw = HttpClient();
+      raw.findProxy = (_) => 'DIRECT';
+      raw.userAgent = _kAiModelProxyUserAgent;
+      final transport = IOClient(raw);
       return _RoutedChatClient(
         service: AiChatService(client: transport),
         transport: transport,
@@ -793,9 +809,9 @@ class AiModelProxyDispatcher {
     if (uri == null || uri.host.isEmpty || uri.port <= 0) {
       throw const AiModelProxyException(502, '中转代理地址无效，无法建立后备模型连接。');
     }
-    final raw = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 15)
-      ..findProxy = (_) => 'PROXY ${uri.host}:${uri.port}';
+    final raw = HttpClient()..connectionTimeout = const Duration(seconds: 15);
+    raw.findProxy = (_) => 'PROXY ${uri.host}:${uri.port}';
+    raw.userAgent = _kAiModelProxyUserAgent;
     if (uri.userInfo.isNotEmpty) {
       final parts = uri.userInfo.split(':');
       try {
@@ -841,7 +857,8 @@ String _headerValue(Map<String, String> headers, List<String> names) {
   for (final name in names) {
     for (final entry in headers.entries) {
       if (entry.key.toLowerCase() == name && entry.value.trim().isNotEmpty) {
-        return entry.value.split(',').first.trim();
+        final value = entry.value.split(',').first.trim();
+        return value.length <= 512 ? value : value.substring(0, 512);
       }
     }
   }

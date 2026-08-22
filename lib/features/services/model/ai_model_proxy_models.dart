@@ -180,6 +180,7 @@ class AiModelProxyRequestRecord {
     this.error,
     this.clientIp = '',
     this.clientPort = '',
+    this.clientUserAgent = '',
     this.proxyMode = '',
     this.proxyEndpoint = '',
     this.remoteHost = '',
@@ -204,6 +205,7 @@ class AiModelProxyRequestRecord {
       error: nullIfBlank('${json['error'] ?? ''}'),
       clientIp: '${json['client_ip'] ?? ''}',
       clientPort: '${json['client_port'] ?? ''}',
+      clientUserAgent: '${json['client_user_agent'] ?? ''}',
       proxyMode: '${json['proxy_mode'] ?? ''}',
       proxyEndpoint: '${json['proxy_endpoint'] ?? ''}',
       remoteHost: '${json['remote_host'] ?? ''}',
@@ -222,6 +224,7 @@ class AiModelProxyRequestRecord {
   final String? error;
   final String clientIp;
   final String clientPort;
+  final String clientUserAgent;
   final String proxyMode;
   final String proxyEndpoint;
   final String remoteHost;
@@ -239,6 +242,8 @@ class AiModelProxyRequestRecord {
     if (error != null) 'error': error,
     if (clientIp.trim().isNotEmpty) 'client_ip': clientIp.trim(),
     if (clientPort.trim().isNotEmpty) 'client_port': clientPort.trim(),
+    if (clientUserAgent.trim().isNotEmpty)
+      'client_user_agent': clientUserAgent.trim(),
     if (proxyMode.trim().isNotEmpty) 'proxy_mode': proxyMode.trim(),
     if (proxyEndpoint.trim().isNotEmpty) 'proxy_endpoint': proxyEndpoint.trim(),
     if (remoteHost.trim().isNotEmpty) 'remote_host': remoteHost.trim(),
@@ -451,6 +456,7 @@ class AiModelProxySettings {
     String? error,
     String clientIp = '',
     String clientPort = '',
+    String clientUserAgent = '',
     String proxyMode = '',
     String proxyEndpoint = '',
     String remoteHost = '',
@@ -469,6 +475,7 @@ class AiModelProxySettings {
       error: error,
       clientIp: clientIp,
       clientPort: clientPort,
+      clientUserAgent: clientUserAgent,
       proxyMode: proxyMode,
       proxyEndpoint: proxyEndpoint,
       remoteHost: remoteHost,

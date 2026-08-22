@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/state/settings_controller.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -15,6 +16,7 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
+import '../../ai/index.dart';
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_model_proxy_models.dart';
 import 'service_dialog_controls.dart';
@@ -24,6 +26,7 @@ const double _kProxyOpsPanelRadius = 16;
 const double _kProxyOpsMaxWidth = 1180;
 const double _kProxyOpsMaxHeight = 860;
 const int _kProxyOpsTrendBuckets = 12;
+const double _kProxyOpsRecentMaxHeight = 360;
 
 Future<void> showAiModelProxyOperationsDialog(BuildContext context) =>
     showAnimatedDialog<void>(
@@ -73,7 +76,10 @@ class _AiModelProxyOperationsDialogState
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<AiModelProxyController>();
-    final data = _ProxyOpsSnapshot.from(controller);
+    final providers = context.select<SettingsController, List<AiModelConfig>>(
+      (settings) => settings.aiModels,
+    );
+    final data = _ProxyOpsSnapshot.from(controller, providers: providers);
     final text = openHandTextResolver(context);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
@@ -160,23 +166,46 @@ class _ProxyOpsSnapshot {
     required this.controller,
     required this.settings,
     required this.records,
+    required this.providerNames,
     required this.p95LatencyMs,
     required this.trendSuccess,
     required this.trendFailure,
+    required this.trendEndAt,
+    required this.usesHistoricalTrendWindow,
   });
 
-  factory _ProxyOpsSnapshot.from(AiModelProxyController controller) {
+  factory _ProxyOpsSnapshot.from(
+    AiModelProxyController controller, {
+    required List<AiModelConfig> providers,
+  }) {
     final settings = controller.settings;
     final records = settings.recentRequests;
+    final providerNames = <String, String>{
+      for (final provider in providers)
+        if (provider.id.trim().isNotEmpty)
+          provider.id.trim().toLowerCase(): _providerDisplayName(provider),
+    };
     final durations = records.map((item) => item.durationMs).toList()..sort();
     final p95Index = durations.isEmpty
         ? -1
         : ((durations.length - 1) * 0.95).round();
     final now = DateTime.now();
+    final latestRecord = records.isEmpty
+        ? null
+        : records.reduce(
+            (latest, item) =>
+                item.startedAt.isAfter(latest.startedAt) ? item : latest,
+          );
+    final usesHistoricalTrendWindow =
+        latestRecord != null &&
+        (now.difference(latestRecord.startedAt) >=
+                const Duration(minutes: _kProxyOpsTrendBuckets) ||
+            latestRecord.startedAt.isAfter(now));
+    final trendEndAt = usesHistoricalTrendWindow ? latestRecord.startedAt : now;
     final success = List<double>.filled(_kProxyOpsTrendBuckets, 0);
     final failure = List<double>.filled(_kProxyOpsTrendBuckets, 0);
     for (final record in records) {
-      final age = now.difference(record.startedAt).inMinutes;
+      final age = trendEndAt.difference(record.startedAt).inMinutes;
       if (age < 0 || age >= _kProxyOpsTrendBuckets) continue;
       final index = _kProxyOpsTrendBuckets - age - 1;
       (record.success ? success : failure)[index] += 1;
@@ -185,18 +214,24 @@ class _ProxyOpsSnapshot {
       controller: controller,
       settings: settings,
       records: records,
+      providerNames: providerNames,
       p95LatencyMs: p95Index < 0 ? 0 : durations[p95Index],
       trendSuccess: success,
       trendFailure: failure,
+      trendEndAt: trendEndAt,
+      usesHistoricalTrendWindow: usesHistoricalTrendWindow,
     );
   }
 
   final AiModelProxyController controller;
   final AiModelProxySettings settings;
   final List<AiModelProxyRequestRecord> records;
+  final Map<String, String> providerNames;
   final int p95LatencyMs;
   final List<double> trendSuccess;
   final List<double> trendFailure;
+  final DateTime trendEndAt;
+  final bool usesHistoricalTrendWindow;
 
   int get requestTotal => settings.requestCount;
   int get successTotal => settings.successCount;
@@ -208,6 +243,33 @@ class _ProxyOpsSnapshot {
       ? 0
       : (failureTotal / requestTotal).clamp(0.0, 1.0).toDouble();
   String get endpoint => '${settings.listenHost}:${settings.listenPort}';
+
+  String providerLabelFor(
+    AiModelProxyRequestRecord record, {
+    String unknown = '未知',
+  }) {
+    final providerId = record.providerId.trim();
+    final normalized = providerId.toLowerCase();
+    final configured = providerNames[normalized];
+    if (configured?.trim().isNotEmpty == true) return configured!;
+    final remoteHost = record.remoteHost.trim();
+    if (remoteHost.isNotEmpty &&
+        (providerId.isEmpty || RegExp(r'^\d+$').hasMatch(providerId))) {
+      return remoteHost;
+    }
+    return providerId.isEmpty || RegExp(r'^\d+$').hasMatch(providerId)
+        ? unknown
+        : providerId;
+  }
+}
+
+String _providerDisplayName(AiModelConfig provider) {
+  final name = provider.name.trim();
+  if (name.isNotEmpty) return name;
+  final modelName = provider.modelId.trim();
+  if (modelName.isNotEmpty) return modelName;
+  final host = Uri.tryParse(provider.baseUrl)?.host.trim();
+  return host?.isNotEmpty == true ? host! : provider.id.trim();
 }
 
 class _ProxyOpsHero extends StatelessWidget {
@@ -572,8 +634,12 @@ class _ProxyOpsTrendRow extends StatelessWidget {
           _ProxyOpsTrendPanel(
             title: text(zh: '请求趋势', en: 'Request trend'),
             subtitle: text(
-              zh: '最近 12 分钟 · 模型调用成功与失败',
-              en: 'Last 12 minutes · model-call success and failure',
+              zh: data.usesHistoricalTrendWindow
+                  ? '最近 12 个采样桶 · 模型调用成功与失败'
+                  : '最近 12 分钟 · 模型调用成功与失败',
+              en: data.usesHistoricalTrendWindow
+                  ? 'Last 12 samples · model-call success and failure'
+                  : 'Last 12 minutes · model-call success and failure',
             ),
             series: [
               OpenHandChartSeries(
@@ -592,8 +658,12 @@ class _ProxyOpsTrendRow extends StatelessWidget {
           _ProxyOpsTrendPanel(
             title: text(zh: '耗时曲线', en: 'Latency curve'),
             subtitle: text(
-              zh: '平均耗时与 P95 尾延迟',
-              en: 'Average and P95 tail latency',
+              zh: data.usesHistoricalTrendWindow
+                  ? '最近 12 个采样桶 · 平均耗时与 P95 尾延迟'
+                  : '平均耗时与 P95 尾延迟',
+              en: data.usesHistoricalTrendWindow
+                  ? 'Last 12 samples · average and P95 latency'
+                  : 'Average and P95 tail latency',
             ),
             series: [
               OpenHandChartSeries(
@@ -637,9 +707,8 @@ class _ProxyOpsTrendRow extends StatelessWidget {
       _kProxyOpsTrendBuckets,
       (_) => <int>[],
     );
-    final now = DateTime.now();
     for (final record in data.records) {
-      final age = now.difference(record.startedAt).inMinutes;
+      final age = data.trendEndAt.difference(record.startedAt).inMinutes;
       if (age >= 0 && age < _kProxyOpsTrendBuckets) {
         buckets[_kProxyOpsTrendBuckets - age - 1].add(record.durationMs);
       }
@@ -760,7 +829,10 @@ class _ProxyOpsDistributionGrid extends StatelessWidget {
         icon: Icons.hub_outlined,
         values: _countBy(
           data.records,
-          (item) => item.providerId,
+          (item) => data.providerLabelFor(
+            item,
+            unknown: text(zh: '未知', en: 'Unknown'),
+          ),
           text(zh: '未知', en: 'Unknown'),
         ),
         colors: [
@@ -794,7 +866,7 @@ class _ProxyOpsDistributionGrid extends StatelessWidget {
           data.records,
           (item) => item.apiStyle.isEmpty
               ? text(zh: '未知协议', en: 'Unknown protocol')
-              : item.apiStyle,
+              : _clientDistributionLabel(item),
           text(zh: '未知', en: 'Unknown'),
         ),
         colors: [
@@ -834,6 +906,25 @@ class _ProxyOpsDistributionGrid extends StatelessWidget {
       counts[normalized] = (counts[normalized] ?? 0) + 1;
     }
     return counts;
+  }
+
+  static String _clientDistributionLabel(AiModelProxyRequestRecord record) {
+    final protocol = record.apiStyle.trim();
+    final userAgent = record.clientUserAgent.trim();
+    if (userAgent.isEmpty) return protocol;
+    return '$protocol · ${_userAgentFamily(userAgent)}';
+  }
+
+  static String _userAgentFamily(String value) {
+    final normalized = value.toLowerCase();
+    if (normalized.contains('claude')) return 'Claude Code';
+    if (normalized.contains('chrome')) return 'Chrome';
+    if (normalized.contains('firefox')) return 'Firefox';
+    if (normalized.contains('safari')) return 'Safari';
+    if (normalized.contains('curl')) return 'curl';
+    if (normalized.contains('python')) return 'Python';
+    if (normalized.contains('dart')) return 'Dart';
+    return value.length > 36 ? '${value.substring(0, 36)}…' : value;
   }
 }
 
@@ -980,7 +1071,7 @@ class _ProxyOpsRecentRequests extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = openHandTextResolver(context);
-    final recent = data.records.reversed.take(12).toList(growable: false);
+    final recent = data.records.reversed.toList(growable: false);
     return _ProxyOpsPanel(
       title: text(zh: '最近请求', en: 'Recent requests'),
       subtitle: text(
@@ -995,24 +1086,38 @@ class _ProxyOpsRecentRequests extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             )
-          : Column(
-              children: [
-                for (final record in recent)
-                  _ProxyOpsRequestTile(record: record),
-              ],
+          : SizedBox(
+              height: _kProxyOpsRecentMaxHeight,
+              child: Scrollbar(
+                child: ListView.builder(
+                  itemCount: recent.length,
+                  physics: openHandDialogAwareScrollPhysics(context),
+                  itemBuilder: (context, index) => _ProxyOpsRequestTile(
+                    record: recent[index],
+                    providerLabel: data.providerLabelFor(
+                      recent[index],
+                      unknown: text(zh: '未知', en: 'Unknown'),
+                    ),
+                  ),
+                ),
+              ),
             ),
     );
   }
 }
 
 class _ProxyOpsRequestTile extends StatelessWidget {
-  const _ProxyOpsRequestTile({required this.record});
+  const _ProxyOpsRequestTile({
+    required this.record,
+    required this.providerLabel,
+  });
   final AiModelProxyRequestRecord record;
+  final String providerLabel;
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final title = [
-      record.providerId,
+      providerLabel,
       record.modelId,
     ].where((value) => value.trim().isNotEmpty).join(' / ');
     final details = [
@@ -1021,6 +1126,8 @@ class _ProxyOpsRequestTile extends StatelessWidget {
       '${record.durationMs} ms',
       if (record.proxyMode.trim().isNotEmpty) record.proxyMode,
       if (record.clientIp.trim().isNotEmpty) record.clientIp,
+      if (record.clientUserAgent.trim().isNotEmpty)
+        'UA ${record.clientUserAgent.trim()}',
     ].join(' · ');
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
