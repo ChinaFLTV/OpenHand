@@ -411,6 +411,8 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
   String? _selectedModel;
   int _displayedExposedModelCount = 0;
   int _displayedBackendItemCount = 0;
+  String? _displayedBackendGroupKey;
+  int _sourceBackendItemCount = 0;
   List<AiModelProxyRoute>? _cachedRoutesSource;
   Map<String, AiModelProxyRoute> _cachedRoutesByKey =
       const <String, AiModelProxyRoute>{};
@@ -459,6 +461,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
           (controller) => controller.settings.routes,
         );
     if (!identical(_cachedRoutesSource, routes)) {
+      final previousExposedModelCount = _cachedExposedModels.length;
       final routesByKey = <String, AiModelProxyRoute>{};
       for (final item in routes) {
         final key = _modelKey(item.exposedModel);
@@ -468,6 +471,12 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
       _cachedRoutesByKey = routesByKey;
       _cachedExposedModels = List<String>.unmodifiable(
         routesByKey.values.map((item) => item.exposedModel),
+      );
+      // 删除时子列表还要保留旧卡片播放退场动画，父级高度同步保留旧数量，
+      // 避免新数据先收缩导致最后一项溢出。
+      _displayedExposedModelCount = math.max(
+        _displayedExposedModelCount,
+        math.max(previousExposedModelCount, _cachedExposedModels.length),
       );
     }
     final routesByKey = _cachedRoutesByKey;
@@ -486,6 +495,18 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
       final key = _backendKey(backend);
       if (backendKeys.add(key)) backendItems.add(backend);
       backendIndexes.putIfAbsent(key, () => index);
+    }
+    final backendGroupKey = _modelKey(activeModel ?? '');
+    if (_displayedBackendGroupKey != backendGroupKey) {
+      _displayedBackendGroupKey = backendGroupKey;
+      _sourceBackendItemCount = backendItems.length;
+      _displayedBackendItemCount = backendItems.length;
+    } else {
+      _displayedBackendItemCount = math.max(
+        _displayedBackendItemCount,
+        _sourceBackendItemCount,
+      );
+      _sourceBackendItemCount = backendItems.length;
     }
     if (!identical(_cachedProvidersSource, modelProviders)) {
       _cachedProvidersSource = modelProviders;
