@@ -433,6 +433,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
   static const double _modelColumnWidth = 392;
   static const double _backendColumnWidth = 360;
   static const double _emptyBackendCardHeight = 56;
+  static const double _backendActionHeight = 42;
 
   static String _modelKey(String value) => value.trim().toLowerCase();
 
@@ -533,7 +534,10 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     final backendItemsHeight = displayedBackendCount > 0
         ? displayedBackendCount * (_backendHeight + _nodeGap)
         : _emptyBackendCardHeight;
-    final backendContentHeight = backendItemsHeight + 12 + 48;
+    final backendContentHeight =
+        backendItemsHeight +
+        (displayedBackendCount > 0 ? 0 : _nodeGap) +
+        _backendActionHeight;
     final diagramHeight = math.max(
       420.0,
       _diagramTopPadding * 2 +
@@ -836,7 +840,8 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                       );
                                     },
                                   ),
-                                  const SizedBox(height: 12),
+                                  if (displayedBackendCount == 0)
+                                    const SizedBox(height: _nodeGap),
                                   Align(
                                     alignment: AlignmentDirectional.centerStart,
                                     child: Row(
