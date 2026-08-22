@@ -604,290 +604,270 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                       height: viewportHeight,
                       child: Stack(
                         children: [
-                              Positioned(
-                                left: 0,
-                                top: 0,
-                                width: _modelColumnWidth,
-                                bottom: 0,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(
-                                    top: _diagramTopPadding,
-                                  ),
-                                  child: _AnimatedMappingItems<String>(
-                                    key: const ValueKey<String>(
-                                      'proxy-exposed-model-items',
-                                    ),
-                                    items: exposedModels,
-                                    itemKey: (model) => model,
-                                    gap: _nodeGap,
-                                    itemExtent: _nodeHeight + _nodeGap,
-                                    scrollController:
-                                        _diagramVerticalController,
-                                    scrollPadding: EdgeInsets.only(
-                                      bottom: math.max(
-                                        0,
-                                        diagramHeight -
-                                            _diagramTopPadding -
-                                            middleCount *
-                                                (_nodeHeight + _nodeGap),
-                                      ),
-                                    ),
-                                    scrollPhysics:
-                                        openHandDialogAwareScrollPhysics(
-                                          context,
-                                        ),
-                                    onDisplayItemsChanged:
-                                        _updateDisplayedExposedModelCount,
-                                    emptyChild: Column(
-                                      children: [
-                                        _EmptyBackendCard(
-                                          text: text(
-                                            zh: '暂无可暴露模型，请先新增并配置。',
-                                            en: 'No exposed models. Add and configure one first.',
-                                          ),
-                                        ),
-                                        kOpenHandGap10,
-                                        FilledButton.tonalIcon(
-                                          onPressed: () =>
-                                              _addExposedModel(context),
-                                          icon: const Icon(Icons.add_rounded),
-                                          label: Text(
-                                            text(
-                                              zh: '新增暴露模型',
-                                              en: 'Add exposed model',
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    onReorder: _reorderExposedModels,
-                                    itemBuilder: (model) {
-                                      final modelRoute =
-                                          routesByKey[_modelKey(model)];
-                                      return SizedBox(
-                                        width: _modelColumnWidth,
-                                        height: _nodeHeight,
-                                        child: _ProxyMappingCard(
-                                          title: model,
-                                          subtitle: text(
-                                            zh: '对外暴露模型',
-                                            en: 'Exposed model',
-                                          ),
-                                          enabled:
-                                              modelRoute?.enabled ?? true,
-                                          selected: _modelKey(model) ==
-                                              _modelKey(activeModel ?? ''),
-                                          onTap: () => _selectModel(model),
-                                          onToggle: modelRoute == null
-                                              ? null
-                                              : (enabled) =>
-                                                    _toggleExposedModel(
-                                                      model,
-                                                      enabled,
-                                                    ),
-                                          onEdit: modelRoute == null
-                                              ? null
-                                              : () => _editExposedModel(
-                                                  context,
-                                                  modelRoute,
-                                                ),
-                                          onRemove: modelRoute == null
-                                              ? null
-                                              : () => _removeExposedModel(
-                                                  context,
-                                                  modelRoute,
-                                                ),
-                                        ),
-                                      );
-                                    },
+                          Positioned(
+                            left: 0,
+                            top: 0,
+                            width: _modelColumnWidth,
+                            bottom: 0,
+                            child: Padding(
+                              padding: const EdgeInsets.only(
+                                top: _diagramTopPadding,
+                              ),
+                              child: _AnimatedMappingItems<String>(
+                                key: const ValueKey<String>(
+                                  'proxy-exposed-model-items',
+                                ),
+                                items: exposedModels,
+                                itemKey: (model) => model,
+                                gap: _nodeGap,
+                                itemExtent: _nodeHeight + _nodeGap,
+                                scrollController: _diagramVerticalController,
+                                scrollPadding: EdgeInsets.only(
+                                  bottom: math.max(
+                                    0,
+                                    diagramHeight -
+                                        _diagramTopPadding -
+                                        middleCount * (_nodeHeight + _nodeGap),
                                   ),
                                 ),
-                              ),
-                              AnimatedBuilder(
-                                animation: _diagramVerticalController,
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                scrollPhysics: openHandDialogAwareScrollPhysics(
+                                  context,
+                                ),
+                                onDisplayItemsChanged:
+                                    _updateDisplayedExposedModelCount,
+                                emptyChild: Column(
                                   children: [
-                                    const IgnorePointer(
-                                      child: SizedBox(
-                                        width: _modelColumnWidth,
+                                    _EmptyBackendCard(
+                                      text: text(
+                                        zh: '暂无可暴露模型，请先新增并配置。',
+                                        en: 'No exposed models. Add and configure one first.',
                                       ),
                                     ),
-                                    IgnorePointer(
-                                      child: _MindMapConnector(
-                                        height: diagramHeight,
-                                        sourceY: selectedCenter,
-                                        branchCount: displayedBackendCount,
-                                        branchTop: backendTop,
-                                        branchCenterY: displayedBackendCount == 0
-                                            ? backendTop +
-                                                _emptyBackendCardHeight / 2
-                                            : null,
-                                        branchHeight: _backendHeight,
-                                        gap: _nodeGap,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .tertiary
-                                            .withValues(alpha: 0.62),
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      width: _backendColumnWidth,
-                                      child: Padding(
-                                        padding: EdgeInsets.only(
-                                          top: backendTop,
-                                        ),
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.stretch,
-                                          children: [
-                                            _AnimatedMappingItems<
-                                              AiModelProxyBackend
-                                            >(
-                                              key: ValueKey<String>(
-                                                'proxy-backend-items-${_modelKey(activeModel ?? '')}',
-                                              ),
-                                              displayGroupKey: _modelKey(
-                                                activeModel ?? '',
-                                              ),
-                                              items: backendItems,
-                                              itemKey: (backend) =>
-                                                  '${backend.providerId.trim()}\u0000${backend.modelId.trim()}',
-                                              gap: _nodeGap,
-                                              itemExtent:
-                                                  _backendHeight + _nodeGap,
-                                              onDisplayItemsChanged:
-                                                  _updateDisplayedBackendItemCount,
-                                              onReorder: activeModel == null
-                                                  ? null
-                                                  : (oldIndex, newIndex) =>
-                                                        _reorderBackends(
-                                                          activeModel,
-                                                          oldIndex,
-                                                          newIndex,
-                                                        ),
-                                              emptyChild: _EmptyBackendCard(
-                                                text: text(
-                                                  zh: activeModel == null
-                                                      ? '选择一个暴露模型查看后备模型。'
-                                                      : '该模型还没有后备模型。',
-                                                  en: activeModel == null
-                                                      ? 'Select an exposed model.'
-                                                      : 'This model has no backends yet.',
-                                                ),
-                                              ),
-                                              itemBuilder: (backend) {
-                                                final backendIndex =
-                                                    backendIndexes[_backendKey(
-                                                      backend,
-                                                    )] ??
-                                                    -1;
-                                                final provider =
-                                                    providersByKey[backend
-                                                        .providerId
-                                                        .trim()
-                                                        .toLowerCase()];
-                                                return SizedBox(
-                                                  width: _backendColumnWidth,
-                                                  height: _backendHeight,
-                                                  child: _ProxyMappingCard(
-                                                    title: backend.modelId,
-                                                    subtitle:
-                                                        provider?.displayName ??
-                                                        backend.providerId,
-                                                    enabled: backend.enabled,
-                                                    onToggle: activeModel ==
-                                                                null ||
-                                                            backendIndex < 0
-                                                        ? null
-                                                        : (enabled) =>
-                                                              _updateBackend(
-                                                                activeModel,
-                                                                backendIndex,
-                                                                backend.copyWith(
-                                                                  enabled:
-                                                                      enabled,
-                                                                ),
-                                                              ),
-                                                    onEdit: activeModel ==
-                                                                null ||
-                                                            backendIndex < 0
-                                                        ? null
-                                                        : () =>
-                                                              _editBackendModel(
-                                                                context,
-                                                                activeModel,
-                                                                backend,
-                                                                backendIndex,
-                                                              ),
-                                                    onRemove: activeModel ==
-                                                                null ||
-                                                            backendIndex < 0
-                                                        ? null
-                                                        : () => _removeBackend(
-                                                              context,
-                                                              activeModel,
-                                                              backend,
-                                                            ),
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                            const SizedBox(height: 12),
-                                            Align(
-                                              alignment: AlignmentDirectional
-                                                  .centerStart,
-                                              child: FilledButton.tonalIcon(
-                                                onPressed: activeModel == null
-                                                    ? null
-                                                    : () => _addBackend(
-                                                        context,
-                                                        activeModel,
-                                                      ),
-                                                style: FilledButton.styleFrom(
-                                                  minimumSize:
-                                                      const Size(0, 42),
-                                                  maximumSize: const Size(
-                                                    double.infinity,
-                                                    42,
-                                                  ),
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                    horizontal: 16,
-                                                  ),
-                                                  tapTargetSize:
-                                                      MaterialTapTargetSize
-                                                          .shrinkWrap,
-                                                ),
-                                                icon: const Icon(
-                                                  Icons.add_rounded,
-                                                ),
-                                                label: Text(
-                                                  text(
-                                                    zh: '添加后备模型',
-                                                    en: 'Add backend',
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
+                                    kOpenHandGap10,
+                                    FilledButton.tonalIcon(
+                                      onPressed: () =>
+                                          _addExposedModel(context),
+                                      icon: const Icon(Icons.add_rounded),
+                                      label: Text(
+                                        text(
+                                          zh: '新增暴露模型',
+                                          en: 'Add exposed model',
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
-                                builder: (context, child) {
-                                  final scrollOffset =
-                                      _diagramVerticalController.hasClients
-                                      ? _diagramVerticalController.offset
-                                      : 0.0;
-                                  return Transform.translate(
-                                    offset: Offset(0, -scrollOffset),
-                                    child: child,
+                                onReorder: _reorderExposedModels,
+                                itemBuilder: (model) {
+                                  final modelRoute =
+                                      routesByKey[_modelKey(model)];
+                                  return SizedBox(
+                                    width: _modelColumnWidth,
+                                    height: _nodeHeight,
+                                    child: _ProxyMappingCard(
+                                      title: model,
+                                      subtitle: text(
+                                        zh: '对外暴露模型',
+                                        en: 'Exposed model',
+                                      ),
+                                      enabled: modelRoute?.enabled ?? true,
+                                      selected:
+                                          _modelKey(model) ==
+                                          _modelKey(activeModel ?? ''),
+                                      onTap: () => _selectModel(model),
+                                      onToggle: modelRoute == null
+                                          ? null
+                                          : (enabled) => _toggleExposedModel(
+                                              model,
+                                              enabled,
+                                            ),
+                                      onEdit: modelRoute == null
+                                          ? null
+                                          : () => _editExposedModel(
+                                              context,
+                                              modelRoute,
+                                            ),
+                                      onRemove: modelRoute == null
+                                          ? null
+                                          : () => _removeExposedModel(
+                                              context,
+                                              modelRoute,
+                                            ),
+                                    ),
                                   );
                                 },
                               ),
+                            ),
+                          ),
+                          AnimatedBuilder(
+                            animation: _diagramVerticalController,
+                            child: IgnorePointer(
+                              child: _MindMapConnector(
+                                height: diagramHeight,
+                                sourceY: selectedCenter,
+                                branchCount: displayedBackendCount,
+                                branchTop: backendTop,
+                                branchCenterY: displayedBackendCount == 0
+                                    ? backendTop + _emptyBackendCardHeight / 2
+                                    : null,
+                                branchHeight: _backendHeight,
+                                gap: _nodeGap,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.tertiary.withValues(alpha: 0.62),
+                              ),
+                            ),
+                            builder: (context, child) {
+                              final scrollOffset =
+                                  _diagramVerticalController.hasClients
+                                  ? _diagramVerticalController.offset
+                                  : 0.0;
+                              return Positioned(
+                                left: _modelColumnWidth,
+                                top: -scrollOffset,
+                                width: _connectorWidth,
+                                height: diagramHeight,
+                                child: child!,
+                              );
+                            },
+                          ),
+                          AnimatedBuilder(
+                            animation: _diagramVerticalController,
+                            child: SizedBox(
+                              width: _backendColumnWidth,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _AnimatedMappingItems<AiModelProxyBackend>(
+                                    key: ValueKey<String>(
+                                      'proxy-backend-items-${_modelKey(activeModel ?? '')}',
+                                    ),
+                                    displayGroupKey: _modelKey(
+                                      activeModel ?? '',
+                                    ),
+                                    items: backendItems,
+                                    itemKey: (backend) =>
+                                        '${backend.providerId.trim()}\u0000${backend.modelId.trim()}',
+                                    gap: _nodeGap,
+                                    itemExtent: _backendHeight + _nodeGap,
+                                    onDisplayItemsChanged:
+                                        _updateDisplayedBackendItemCount,
+                                    onReorder: activeModel == null
+                                        ? null
+                                        : (oldIndex, newIndex) =>
+                                              _reorderBackends(
+                                                activeModel,
+                                                oldIndex,
+                                                newIndex,
+                                              ),
+                                    emptyChild: _EmptyBackendCard(
+                                      text: text(
+                                        zh: activeModel == null
+                                            ? '选择一个暴露模型查看后备模型。'
+                                            : '该模型还没有后备模型。',
+                                        en: activeModel == null
+                                            ? 'Select an exposed model.'
+                                            : 'This model has no backends yet.',
+                                      ),
+                                    ),
+                                    itemBuilder: (backend) {
+                                      final backendIndex =
+                                          backendIndexes[_backendKey(
+                                            backend,
+                                          )] ??
+                                          -1;
+                                      final provider =
+                                          providersByKey[backend.providerId
+                                              .trim()
+                                              .toLowerCase()];
+                                      return SizedBox(
+                                        width: _backendColumnWidth,
+                                        height: _backendHeight,
+                                        child: _ProxyMappingCard(
+                                          title: backend.modelId,
+                                          subtitle:
+                                              provider?.displayName ??
+                                              backend.providerId,
+                                          enabled: backend.enabled,
+                                          onToggle:
+                                              activeModel == null ||
+                                                  backendIndex < 0
+                                              ? null
+                                              : (enabled) => _updateBackend(
+                                                  activeModel,
+                                                  backendIndex,
+                                                  backend.copyWith(
+                                                    enabled: enabled,
+                                                  ),
+                                                ),
+                                          onEdit:
+                                              activeModel == null ||
+                                                  backendIndex < 0
+                                              ? null
+                                              : () => _editBackendModel(
+                                                  context,
+                                                  activeModel,
+                                                  backend,
+                                                  backendIndex,
+                                                ),
+                                          onRemove:
+                                              activeModel == null ||
+                                                  backendIndex < 0
+                                              ? null
+                                              : () => _removeBackend(
+                                                  context,
+                                                  activeModel,
+                                                  backend,
+                                                ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Align(
+                                    alignment: AlignmentDirectional.centerStart,
+                                    child: FilledButton.tonalIcon(
+                                      onPressed: activeModel == null
+                                          ? null
+                                          : () => _addBackend(
+                                              context,
+                                              activeModel,
+                                            ),
+                                      style: FilledButton.styleFrom(
+                                        minimumSize: const Size(0, 42),
+                                        maximumSize: const Size(
+                                          double.infinity,
+                                          42,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                        ),
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      icon: const Icon(Icons.add_rounded),
+                                      label: Text(
+                                        text(zh: '添加后备模型', en: 'Add backend'),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            builder: (context, child) {
+                              final scrollOffset =
+                                  _diagramVerticalController.hasClients
+                                  ? _diagramVerticalController.offset
+                                  : 0.0;
+                              return Positioned(
+                                left: _modelColumnWidth + _connectorWidth,
+                                top: backendTop - scrollOffset,
+                                width: _backendColumnWidth,
+                                child: child!,
+                              );
+                            },
+                          ),
                         ],
                       ),
                     ),
