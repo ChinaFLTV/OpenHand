@@ -1609,10 +1609,14 @@ class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
     _currentKeys = widget.items.map(widget.itemKey).toSet();
     final currentKeys = _currentKeys!;
     final nextDisplayed = List<T>.of(widget.items);
+    // 同数量更新通常是模型 ID 或配置项替换，新条目应原位接管，避免旧条目
+    // 退场时与新条目叠成两行；数量减少时才保留旧条目播放退场动画。
+    final preserveRemovedItems = oldWidget.items.length != widget.items.length;
     var hasRemovedItems = false;
     for (var index = 0; index < _displayedItems.length; index++) {
       final previous = _displayedItems[index];
       if (!currentKeys.contains(widget.itemKey(previous))) {
+        if (!preserveRemovedItems) continue;
         hasRemovedItems = true;
         nextDisplayed.insert(index.clamp(0, nextDisplayed.length), previous);
       }
