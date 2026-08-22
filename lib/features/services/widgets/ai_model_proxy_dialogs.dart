@@ -11,6 +11,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -623,85 +624,102 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                       height: viewportHeight,
                       child: Stack(
                         children: [
-                          Positioned(
-                            left: 0,
-                            top: 0,
-                            width: _modelColumnWidth,
-                            bottom: 0,
-                            child: Padding(
-                              padding: const EdgeInsets.only(
-                                top: _diagramTopPadding,
+                          if (exposedModels.isEmpty &&
+                              _displayedExposedModelCount == 0)
+                            Positioned.fill(
+                              child: Padding(
+                                padding: const EdgeInsets.only(
+                                  top: _diagramTopPadding,
+                                ),
+                                child: FeatureStateCard.centered(
+                                  icon: Icons.account_tree_outlined,
+                                  tone: FeatureStateTone.neutral,
+                                  title: text(
+                                    zh: '暂无暴露模型',
+                                    en: 'No exposed models',
+                                  ),
+                                  body: text(
+                                    zh: '点击右上角“新增暴露模型”按钮开始配置。',
+                                    en: 'Click “Add exposed model” in the top-right corner to get started.',
+                                  ),
+                                ),
                               ),
-                              child: _AnimatedMappingItems<String>(
-                                key: const ValueKey<String>(
-                                  'proxy-exposed-model-items',
+                            )
+                          else
+                            Positioned(
+                              left: 0,
+                              top: 0,
+                              width: _modelColumnWidth,
+                              bottom: 0,
+                              child: Padding(
+                                padding: const EdgeInsets.only(
+                                  top: _diagramTopPadding,
                                 ),
-                                items: exposedModels,
-                                itemKey: (model) => model,
-                                gap: _nodeGap,
-                                itemExtent: _nodeHeight + _nodeGap,
-                                scrollController: _diagramVerticalController,
-                                scrollPadding: EdgeInsets.only(
-                                  bottom: math.max(
-                                    0,
-                                    diagramHeight -
-                                        _diagramTopPadding -
-                                        middleCount * (_nodeHeight + _nodeGap),
+                                child: _AnimatedMappingItems<String>(
+                                  key: const ValueKey<String>(
+                                    'proxy-exposed-model-items',
                                   ),
-                                ),
-                                scrollPhysics: openHandDialogAwareScrollPhysics(
-                                  context,
-                                ),
-                                onDisplayItemsChanged:
-                                    _updateDisplayedExposedModelCount,
-                                emptyChild: _EmptyBackendCard(
-                                  text: text(
-                                    zh: '暂无可暴露模型，请使用右上角按钮新增并配置。',
-                                    en: 'No exposed models. Use the top-right button to add one.',
-                                  ),
-                                ),
-                                onReorder: _reorderExposedModels,
-                                itemBuilder: (model) {
-                                  final modelRoute =
-                                      routesByKey[_modelKey(model)];
-                                  return SizedBox(
-                                    width: _modelColumnWidth,
-                                    height: _nodeHeight,
-                                    child: _ProxyMappingCard(
-                                      title: model,
-                                      subtitle: text(
-                                        zh: '对外暴露模型',
-                                        en: 'Exposed model',
-                                      ),
-                                      enabled: modelRoute?.enabled ?? true,
-                                      selected:
-                                          _modelKey(model) ==
-                                          _modelKey(activeModel ?? ''),
-                                      onTap: () => _selectModel(model),
-                                      onToggle: modelRoute == null
-                                          ? null
-                                          : (enabled) => _toggleExposedModel(
-                                              model,
-                                              enabled,
-                                            ),
-                                      onEdit: modelRoute == null
-                                          ? null
-                                          : () => _editExposedModel(
-                                              context,
-                                              modelRoute,
-                                            ),
-                                      onRemove: modelRoute == null
-                                          ? null
-                                          : () => _removeExposedModel(
-                                              context,
-                                              modelRoute,
-                                            ),
+                                  items: exposedModels,
+                                  itemKey: (model) => model,
+                                  gap: _nodeGap,
+                                  itemExtent: _nodeHeight + _nodeGap,
+                                  scrollController: _diagramVerticalController,
+                                  scrollPadding: EdgeInsets.only(
+                                    bottom: math.max(
+                                      0,
+                                      diagramHeight -
+                                          _diagramTopPadding -
+                                          middleCount *
+                                              (_nodeHeight + _nodeGap),
                                     ),
-                                  );
-                                },
+                                  ),
+                                  scrollPhysics:
+                                      openHandDialogAwareScrollPhysics(context),
+                                  onDisplayItemsChanged:
+                                      _updateDisplayedExposedModelCount,
+                                  emptyChild: const SizedBox.shrink(),
+                                  onReorder: _reorderExposedModels,
+                                  itemBuilder: (model) {
+                                    final modelRoute =
+                                        routesByKey[_modelKey(model)];
+                                    return SizedBox(
+                                      width: _modelColumnWidth,
+                                      height: _nodeHeight,
+                                      child: _ProxyMappingCard(
+                                        title: model,
+                                        subtitle: text(
+                                          zh: '对外暴露模型',
+                                          en: 'Exposed model',
+                                        ),
+                                        enabled: modelRoute?.enabled ?? true,
+                                        selected:
+                                            _modelKey(model) ==
+                                            _modelKey(activeModel ?? ''),
+                                        onTap: () => _selectModel(model),
+                                        onToggle: modelRoute == null
+                                            ? null
+                                            : (enabled) => _toggleExposedModel(
+                                                model,
+                                                enabled,
+                                              ),
+                                        onEdit: modelRoute == null
+                                            ? null
+                                            : () => _editExposedModel(
+                                                context,
+                                                modelRoute,
+                                              ),
+                                        onRemove: modelRoute == null
+                                            ? null
+                                            : () => _removeExposedModel(
+                                                context,
+                                                modelRoute,
+                                              ),
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
                             ),
-                          ),
                           if (exposedModels.isNotEmpty) ...[
                             AnimatedBuilder(
                               animation: _diagramVerticalController,
