@@ -141,7 +141,10 @@ class AiModelProxyController extends ChangeNotifier {
     final endpoints = activeEndpoints
         .where((endpoint) => !excluded.contains(endpoint.url))
         .toList(growable: false);
-    final candidates = endpoints.isEmpty ? activeEndpoints : endpoints;
+    // 当前请求已明确排除代理时，不能在候选耗尽后重新选回失败节点。
+    // 返回 null 让调用方决定是否直连或结束本次重试。
+    if (endpoints.isEmpty && excluded.isNotEmpty) return null;
+    final candidates = endpoints;
     switch (configuration.strategy) {
       case AiExposureProxyStrategy.fixed:
         return candidates.first;

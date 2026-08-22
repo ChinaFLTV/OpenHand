@@ -90,7 +90,11 @@ class AiModelProxyDispatcher {
                   : 0);
     Object? lastError;
     final failedProxyEndpoints = <String>{};
-    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+    var directFallbackPending = false;
+    for (var attempt = 0; attempt < maxAttempts + 1; attempt++) {
+      final directFallback = attempt >= maxAttempts;
+      if (directFallback && !directFallbackPending) break;
+      directFallbackPending = false;
       final backend = controller.resolveBackend(exposedModel);
       if (backend == null) {
         throw const AiModelProxyException(404, '没有可用的后备模型。');
@@ -134,6 +138,7 @@ class AiModelProxyDispatcher {
       }
       final tools = _parseTools(request);
       final startedAt = DateTime.now();
+      var directRouteFallback = directFallback;
       var network = (
         mode: 'direct',
         endpoint: '',
@@ -146,7 +151,11 @@ class AiModelProxyDispatcher {
         network = await _resolveNetworkRoute(
           Uri.tryParse(model.baseUrl),
           excludedProxyEndpoints: failedProxyEndpoints,
+          directOnly: directFallback,
         );
+        directRouteFallback =
+            directFallback ||
+            (network.mode == 'direct' && failedProxyEndpoints.isNotEmpty);
         routedClient = _usesDefaultChatClient
             ? await _createRoutedChatClient(network)
             : null;
@@ -241,8 +250,12 @@ class AiModelProxyDispatcher {
         if (retryable) {
           final failedEndpoint = network.selected?.url;
           if (failedEndpoint != null) failedProxyEndpoints.add(failedEndpoint);
+          if (!directRouteFallback && network.mode == 'pool') {
+            directFallbackPending = true;
+          }
         }
-        if (settings.retryPolicy == AiModelProxyRetryPolicy.failFast ||
+        if (directRouteFallback ||
+            settings.retryPolicy == AiModelProxyRetryPolicy.failFast ||
             !retryable) {
           break;
         }
@@ -286,7 +299,11 @@ class AiModelProxyDispatcher {
                   : 0);
     Object? lastError;
     final failedProxyEndpoints = <String>{};
-    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+    var directFallbackPending = false;
+    for (var attempt = 0; attempt < maxAttempts + 1; attempt++) {
+      final directFallback = attempt >= maxAttempts;
+      if (directFallback && !directFallbackPending) break;
+      directFallbackPending = false;
       final backend = controller.resolveBackend(exposedModel);
       if (backend == null) {
         lastError = const AiModelProxyException(404, '没有可用的后备模型。');
@@ -314,6 +331,7 @@ class AiModelProxyDispatcher {
         headers: headers,
       );
       final startedAt = DateTime.now();
+      var directRouteFallback = directFallback;
       var network = (
         mode: 'direct',
         endpoint: '',
@@ -329,7 +347,11 @@ class AiModelProxyDispatcher {
         network = await _resolveNetworkRoute(
           Uri.tryParse(model.baseUrl),
           excludedProxyEndpoints: failedProxyEndpoints,
+          directOnly: directFallback,
         );
+        directRouteFallback =
+            directFallback ||
+            (network.mode == 'direct' && failedProxyEndpoints.isNotEmpty);
         routedClient = _usesDefaultChatClient
             ? await _createRoutedChatClient(network)
             : null;
@@ -424,8 +446,12 @@ class AiModelProxyDispatcher {
         if (retryable) {
           final failedEndpoint = network.selected?.url;
           if (failedEndpoint != null) failedProxyEndpoints.add(failedEndpoint);
+          if (!directRouteFallback && network.mode == 'pool') {
+            directFallbackPending = true;
+          }
         }
-        if (settings.retryPolicy == AiModelProxyRetryPolicy.failFast ||
+        if (directRouteFallback ||
+            settings.retryPolicy == AiModelProxyRetryPolicy.failFast ||
             !retryable) {
           break;
         }
@@ -648,7 +674,14 @@ class AiModelProxyDispatcher {
   }
 
   static bool _isRetryableBackendError(Object error) {
-    if (error is AiModelProxyException) return false;
+    if (error is AiModelProxyException) {
+      final statusCode = error.statusCode;
+      return statusCode == 408 ||
+          statusCode == 409 ||
+          statusCode == 425 ||
+          statusCode == 429 ||
+          statusCode >= 500;
+    }
     final statusCode = _backendErrorStatusCode(error);
     if (statusCode == null) return true;
     return statusCode == 408 ||
@@ -676,6 +709,7 @@ class AiModelProxyDispatcher {
   _resolveNetworkRoute(
     Uri? target, {
     Set<String> excludedProxyEndpoints = const <String>{},
+    bool directOnly = false,
   }) async {
     final remoteHost = target?.host ?? '';
     final remotePort = target == null
@@ -686,7 +720,10 @@ class AiModelProxyDispatcher {
               ? 443
               : 80}';
     final configuration = controller.networkProxyConfiguration;
-    if (configuration == null || !configuration.enabled) {
+    if (directOnly ||
+        configuration == null ||
+        !configuration.enabled ||
+        (configuration.bypassLocal && _isLocalTarget(remoteHost))) {
       return (
         mode: 'direct',
         endpoint: '',
@@ -718,6 +755,13 @@ class AiModelProxyDispatcher {
       remotePort: remotePort,
       selected: endpoint,
     );
+  }
+
+  static bool _isLocalTarget(String host) {
+    final normalized = host.trim().toLowerCase();
+    if (normalized.isEmpty || isLoopbackHost(normalized)) return true;
+    final parsed = InternetAddress.tryParse(normalized);
+    return parsed?.isLoopback ?? false;
   }
 
   Future<_RoutedChatClient?> _createRoutedChatClient(
