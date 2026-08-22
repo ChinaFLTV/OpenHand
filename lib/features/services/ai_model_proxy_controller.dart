@@ -18,7 +18,8 @@ class AiModelProxyController extends ChangeNotifier {
     : _store = store ?? AiModelProxyStore();
 
   final AiModelProxyStore _store;
-  final SerialTaskQueue _writes = SerialTaskQueue(maxPendingTasks: 2048);
+  // 设置变更只需保证最终快照落盘，丢弃尚未开始的旧快照即可避免快速操作堆积。
+  final LatestTaskQueue _writes = LatestTaskQueue();
   AiModelProxySettings _settings = const AiModelProxySettings();
   AiModelProxyLifecycle _lifecycle = AiModelProxyLifecycle.stopped;
   bool _busy = false;
@@ -266,13 +267,13 @@ class AiModelProxyController extends ChangeNotifier {
       );
       await server.start();
       _settings = _settings.copyWith(enabled: true);
-      await _store.save(_settings);
+      await _writes.enqueue(() => _store.save(_settings));
       _lifecycle = AiModelProxyLifecycle.running;
     } catch (error) {
       await _httpServer?.stop();
       _settings = _settings.copyWith(enabled: false);
       try {
-        await _store.save(_settings);
+        await _writes.enqueue(() => _store.save(_settings));
       } catch (_) {
         // 监听失败时保留原始绑定错误，持久化失败不再覆盖它。
       }
@@ -292,7 +293,7 @@ class AiModelProxyController extends ChangeNotifier {
     try {
       await _httpServer?.stop();
       _settings = _settings.copyWith(enabled: false);
-      await _store.save(_settings);
+      await _writes.enqueue(() => _store.save(_settings));
       _lifecycle = AiModelProxyLifecycle.stopped;
     } catch (error) {
       _lifecycle = AiModelProxyLifecycle.error;
@@ -497,7 +498,7 @@ class AiModelProxyController extends ChangeNotifier {
       _errorMessage = '重新绑定中转站端口失败：$error';
       _settings = _settings.copyWith(enabled: false);
       try {
-        await _store.save(_settings);
+        await _writes.enqueue(() => _store.save(_settings));
       } catch (_) {
         // 绑定失败时持久化失败不覆盖原始错误。
       }

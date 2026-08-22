@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/model/dialog_animation_settings.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_appearance.dart';
@@ -1301,7 +1302,7 @@ Future<_ProxyNewExposedModelDraft?> _showProxyNewExposedModelDialog(
 }
 
 /// 模型映射图中的动态条目容器：保留已移除条目直到退场动画完成，避免列表
-/// 数据变化时卡片瞬间消失；新增条目使用全局弹窗动效自然进入。
+/// 数据变化时卡片瞬间消失；新增条目直接复用稳定布局，避免并行动画阻塞交互。
 class _AnimatedMappingItems<T> extends StatefulWidget {
   const _AnimatedMappingItems({
     super.key,
@@ -1343,7 +1344,8 @@ class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
     _displayedItems = List<T>.of(widget.items);
     _currentKeysSource = widget.items;
     _currentKeys = widget.items.map(widget.itemKey).toSet();
-    _scheduleDisplayCountNotification();
+    _lastReportedDisplayCount = _displayedItems.length;
+    // 弹窗自身已经负责进场动画，避免每个条目再创建一套并行动画。
   }
 
   @override
@@ -1357,22 +1359,25 @@ class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
       _displayedItems = List<T>.of(widget.items);
       _currentKeysSource = widget.items;
       _currentKeys = widget.items.map(widget.itemKey).toSet();
-      _lastReportedDisplayCount = null;
-      _scheduleDisplayCountNotification();
       return;
     }
     _currentKeysSource = widget.items;
     _currentKeys = widget.items.map(widget.itemKey).toSet();
     final currentKeys = _currentKeys!;
     final nextDisplayed = List<T>.of(widget.items);
+    var hasRemovedItems = false;
     for (var index = 0; index < _displayedItems.length; index++) {
       final previous = _displayedItems[index];
       if (!currentKeys.contains(widget.itemKey(previous))) {
+        hasRemovedItems = true;
         nextDisplayed.insert(index.clamp(0, nextDisplayed.length), previous);
       }
     }
     _displayedItems = nextDisplayed;
-    _scheduleDisplayCountNotification();
+    if (hasRemovedItems) {
+      _lastReportedDisplayCount = null;
+      _scheduleDisplayCountNotification();
+    }
   }
 
   void _scheduleDisplayCountNotification() {
@@ -1404,19 +1409,24 @@ class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
       context,
       OpenHandMotionSettingsScope.dialog,
     );
+    final itemMotionSettings = motionSettings.copyWith(
+      entranceStyle: DialogAnimationStyle.none,
+    );
     final currentKeys = _keysFor(widget.items);
     Widget buildItem(T item) {
       final itemId = widget.itemKey(item);
       return AnimatedAppearance(
         key: ValueKey<String>('proxy-mapping-item-$itemId'),
-        settings: motionSettings,
+        settings: itemMotionSettings,
         present: currentKeys.contains(itemId),
         onDismissed: () => _removeDismissed(itemId),
         child: IgnorePointer(
           ignoring: !currentKeys.contains(itemId),
-          child: Padding(
-            padding: EdgeInsets.only(bottom: widget.gap),
-            child: widget.itemBuilder(item),
+          child: RepaintBoundary(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: widget.gap),
+              child: widget.itemBuilder(item),
+            ),
           ),
         ),
       );
@@ -1453,7 +1463,7 @@ class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
         ...items,
         AnimatedAppearance(
           key: const ValueKey<String>('proxy-mapping-empty-item'),
-          settings: motionSettings,
+          settings: itemMotionSettings,
           present: widget.items.isEmpty,
           child: widget.emptyChild,
         ),
