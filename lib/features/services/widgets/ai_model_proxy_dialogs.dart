@@ -432,7 +432,8 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
   static const double _connectorWidth = 56;
   static const double _modelColumnWidth = 392;
   static const double _backendColumnWidth = 360;
-  static const double _emptyBackendCardHeight = 56;
+  // 空状态卡片包含 18px 内边距和 1px 边框，实际高度为 58px。
+  static const double _emptyBackendCardHeight = 58;
   static const double _backendActionHeight = 42;
 
   static String _modelKey(String value) => value.trim().toLowerCase();
