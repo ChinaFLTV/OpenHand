@@ -293,6 +293,7 @@ class AiModelProxyHttpServer {
         request,
         error.statusCode,
         error.message,
+        type: _errorTypeForStatus(error.statusCode),
         apiStyle: _controller.settings.apiStyle,
       );
     } on FormatException catch (error) {
@@ -1531,6 +1532,8 @@ class AiModelProxyHttpServer {
           });
       }
     } on Object catch (error) {
+      // SSE 已发送 200 后无法再修改 HTTP 状态，仍将上游失败计入入口错误遥测。
+      _controller.runtimeResponseWritten(statusCode: 502);
       try {
         await writeSse(<String, Object?>{
           'type': 'error',
@@ -1738,12 +1741,13 @@ class AiModelProxyHttpServer {
     final normalizedModelId = modelId.startsWith('models/')
         ? modelId.substring('models/'.length)
         : modelId;
+    final lookupKey = normalizedModelId.trim().toLowerCase();
     final data = _dispatcher.buildModelsResponse()['data'];
     if (data is! List) return null;
     for (final raw in data) {
       if (raw is! Map) continue;
       final model = Map<String, Object?>.from(raw);
-      if (_readString(model['id']) == normalizedModelId) return model;
+      if (_readString(model['id']).toLowerCase() == lookupKey) return model;
     }
     return null;
   }
@@ -1860,6 +1864,16 @@ class AiModelProxyHttpServer {
     _ => 'INTERNAL',
   };
 
+  static String _errorTypeForStatus(int status) => switch (status) {
+    400 || 422 => 'invalid_request_error',
+    401 => 'authentication_error',
+    403 => 'permission_error',
+    404 => 'not_found_error',
+    408 => 'timeout_error',
+    409 || 425 || 429 => 'rate_limit_error',
+    _ => 'api_error',
+  };
+
   Future<void> _closeRequest(HttpRequest request) async {
     try {
       await request.response.close();
@@ -1895,7 +1909,8 @@ class AiModelProxyHttpServer {
         style == AiModelProxyApiStyle.openAiResponses) {
       return _ProxyRoute.responses;
     }
-    if (path == '/v1/messages' && style == AiModelProxyApiStyle.claude) {
+    if ((path == '/v1/messages' || path == '/messages') &&
+        style == AiModelProxyApiStyle.claude) {
       return _ProxyRoute.claude;
     }
     if ((path.startsWith('/v1beta/models:generateContent') ||

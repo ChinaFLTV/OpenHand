@@ -122,36 +122,47 @@ class AiModelProxyController extends ChangeNotifier {
   AiExposureProxyConfiguration? get networkProxyConfiguration =>
       _networkProxyProvider?.call();
 
-  AiExposureProxyEndpoint? resolveProxyEndpoint({String targetHost = ''}) {
+  AiExposureProxyEndpoint? resolveProxyEndpoint({
+    String targetHost = '',
+    Set<String> excludedUrls = const <String>{},
+  }) {
     final configuration = networkProxyConfiguration;
     if (configuration == null ||
         !configuration.enabled ||
         configuration.mode != AiExposureProxyMode.pool) {
       return null;
     }
-    final endpoints = configuration.activeEndpoints;
-    if (endpoints.isEmpty) return null;
+    final activeEndpoints = configuration.activeEndpoints;
+    if (activeEndpoints.isEmpty) return null;
+    final excluded = excludedUrls
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet();
+    final endpoints = activeEndpoints
+        .where((endpoint) => !excluded.contains(endpoint.url))
+        .toList(growable: false);
+    final candidates = endpoints.isEmpty ? activeEndpoints : endpoints;
     switch (configuration.strategy) {
       case AiExposureProxyStrategy.fixed:
-        return endpoints.first;
+        return candidates.first;
       case AiExposureProxyStrategy.random:
-        return endpoints[math.Random().nextInt(endpoints.length)];
+        return candidates[math.Random().nextInt(candidates.length)];
       case AiExposureProxyStrategy.stickyHost:
         final key = targetHost.trim().toLowerCase();
         final index = key.isEmpty
             ? 0
-            : (key.hashCode & 0x7fffffff) % endpoints.length;
-        return endpoints[index];
+            : (key.hashCode & 0x7fffffff) % candidates.length;
+        return candidates[index];
       case AiExposureProxyStrategy.roundRobin:
         final key = targetHost.trim().toLowerCase().isEmpty
             ? 'default'
             : targetHost.trim().toLowerCase();
         final index = _proxyRoundRobinCursors.update(
           key,
-          (value) => (value + 1) % endpoints.length,
+          (value) => (value + 1) % candidates.length,
           ifAbsent: () => 0,
         );
-        return endpoints[index];
+        return candidates[index];
     }
   }
 
@@ -196,13 +207,19 @@ class AiModelProxyController extends ChangeNotifier {
 
   /// 只有已启用的暴露模型才会出现在中转服务的模型空间中。
   bool isExposedModelEnabled(String exposedModel) => _settings.routes.any(
-    (route) => route.enabled && route.exposedModel == exposedModel.trim(),
+    (route) =>
+        route.enabled &&
+        route.exposedModel.trim().toLowerCase() ==
+            exposedModel.trim().toLowerCase(),
   );
 
   AiModelProxyBackend? resolveBackend(String exposedModel) {
+    final normalizedModel = exposedModel.trim().toLowerCase();
     final route = _settings.routes
         .where(
-          (item) => item.enabled && item.exposedModel == exposedModel.trim(),
+          (item) =>
+              item.enabled &&
+              item.exposedModel.trim().toLowerCase() == normalizedModel,
         )
         .firstOrNull;
     if (route == null) return null;
@@ -214,7 +231,7 @@ class AiModelProxyController extends ChangeNotifier {
       AiModelProxySchedulingStrategy.random =>
         enabled[math.Random().nextInt(enabled.length)],
       AiModelProxySchedulingStrategy.roundRobin => _nextRoundRobin(
-        exposedModel,
+        normalizedModel,
         enabled,
       ),
       AiModelProxySchedulingStrategy.priority ||
@@ -238,6 +255,7 @@ class AiModelProxyController extends ChangeNotifier {
       '/v1/models',
       '/v1/models/{model}',
       '/v1/messages',
+      '/messages',
     ],
     AiModelProxyApiStyle.gemini => const <String>[
       '/v1beta/models',
@@ -426,23 +444,25 @@ class AiModelProxyController extends ChangeNotifier {
     String remotePort = '',
   }) async {
     try {
-      await saveSettings(
-        _settings.record(
-          success: success,
-          tokens: tokens,
-          durationMs: durationMs,
-          providerId: providerId,
-          modelId: modelId,
-          apiStyle: apiStyle,
-          error: error,
-          clientIp: clientIp,
-          clientPort: clientPort,
-          proxyMode: proxyMode,
-          proxyEndpoint: proxyEndpoint,
-          remoteHost: remoteHost,
-          remotePort: remotePort,
-        ),
+      // 统计请求可能并发完成。先在内存中基于最新快照累加，再让最新任务落盘，
+      // 避免 LatestTaskQueue 丢弃等待任务时覆盖前一个请求的统计。
+      _settings = _settings.record(
+        success: success,
+        tokens: tokens,
+        durationMs: durationMs,
+        providerId: providerId,
+        modelId: modelId,
+        apiStyle: apiStyle,
+        error: error,
+        clientIp: clientIp,
+        clientPort: clientPort,
+        proxyMode: proxyMode,
+        proxyEndpoint: proxyEndpoint,
+        remoteHost: remoteHost,
+        remotePort: remotePort,
       );
+      _notify();
+      await _writes.enqueue(() => _store.save(_settings));
     } catch (error, stack) {
       silentLog('ai_model_proxy_controller', '记录中转站请求统计', error, stack);
     }

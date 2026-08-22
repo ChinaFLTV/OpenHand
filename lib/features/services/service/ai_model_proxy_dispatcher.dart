@@ -89,6 +89,7 @@ class AiModelProxyDispatcher {
                   ? 1
                   : 0);
     Object? lastError;
+    final failedProxyEndpoints = <String>{};
     for (var attempt = 0; attempt < maxAttempts; attempt++) {
       final backend = controller.resolveBackend(exposedModel);
       if (backend == null) {
@@ -98,22 +99,58 @@ class AiModelProxyDispatcher {
           .where((item) => item.id == backend.providerId)
           .firstOrNull;
       if (provider == null) {
-        lastError = StateError('后备模型提供商不存在。');
-        continue;
+        lastError = const AiModelProxyException(404, '后备模型提供商不存在。');
+        await controller.recordRequest(
+          success: false,
+          tokens: 0,
+          durationMs: 0,
+          providerId: backend.providerId,
+          modelId: backend.modelId,
+          apiStyle: settings.apiStyle.id,
+          error: '$lastError',
+        );
+        break;
       }
       final model = _modelForRequest(
         provider.copyWith(modelId: backend.modelId),
         request,
         headers: headers,
       );
+      if (controller.isSelfProxyBaseUrl(model.baseUrl)) {
+        lastError = const AiModelProxyException(
+          400,
+          '后备模型端点不能指向当前中转站，否则会形成请求循环。',
+        );
+        await controller.recordRequest(
+          success: false,
+          tokens: 0,
+          durationMs: 0,
+          providerId: provider.id,
+          modelId: backend.modelId,
+          apiStyle: settings.apiStyle.id,
+          error: lastError.toString(),
+        );
+        break;
+      }
       final tools = _parseTools(request);
       final startedAt = DateTime.now();
-      final network = await _resolveNetworkRoute(Uri.tryParse(model.baseUrl));
-      final routedClient = _usesDefaultChatClient
-          ? await _createRoutedChatClient(network)
-          : null;
-      final chatClient = routedClient?.service ?? _chatClient;
+      var network = (
+        mode: 'direct',
+        endpoint: '',
+        remoteHost: '',
+        remotePort: '',
+        selected: null as AiExposureProxyEndpoint?,
+      );
+      _RoutedChatClient? routedClient;
       try {
+        network = await _resolveNetworkRoute(
+          Uri.tryParse(model.baseUrl),
+          excludedProxyEndpoints: failedProxyEndpoints,
+        );
+        routedClient = _usesDefaultChatClient
+            ? await _createRoutedChatClient(network)
+            : null;
+        final chatClient = routedClient?.service ?? _chatClient;
         final result = await AiUsageTraceContext.runDerived(
           surface: 'service',
           source: AiUsageSource.modelProxy,
@@ -200,8 +237,13 @@ class AiModelProxyDispatcher {
           remoteHost: network.remoteHost,
           remotePort: network.remotePort,
         );
+        final retryable = _isRetryableBackendError(error);
+        if (retryable) {
+          final failedEndpoint = network.selected?.url;
+          if (failedEndpoint != null) failedProxyEndpoints.add(failedEndpoint);
+        }
         if (settings.retryPolicy == AiModelProxyRetryPolicy.failFast ||
-            !_isRetryableBackendError(error)) {
+            !retryable) {
           break;
         }
       } finally {
@@ -235,101 +277,165 @@ class AiModelProxyDispatcher {
     )) {
       throw const AiModelProxyException(429, '请求超过当前限流阈值。');
     }
-    final backend = controller.resolveBackend(exposedModel);
-    if (backend == null) {
-      throw const AiModelProxyException(404, '没有可用的后备模型。');
+    final settings = controller.settings;
+    final maxAttempts = settings.retryPolicy == AiModelProxyRetryPolicy.failFast
+        ? 1
+        : settings.retryCount.clamp(1, 10).toInt() +
+              (settings.retryPolicy == AiModelProxyRetryPolicy.retryAndFailover
+                  ? 1
+                  : 0);
+    Object? lastError;
+    final failedProxyEndpoints = <String>{};
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      final backend = controller.resolveBackend(exposedModel);
+      if (backend == null) {
+        lastError = const AiModelProxyException(404, '没有可用的后备模型。');
+        break;
+      }
+      final provider = modelsProvider()
+          .where((item) => item.id == backend.providerId)
+          .firstOrNull;
+      if (provider == null) {
+        lastError = const AiModelProxyException(404, '后备模型提供商不存在。');
+        await controller.recordRequest(
+          success: false,
+          tokens: 0,
+          durationMs: 0,
+          providerId: backend.providerId,
+          modelId: backend.modelId,
+          apiStyle: settings.apiStyle.id,
+          error: lastError.toString(),
+        );
+        break;
+      }
+      final model = _modelForRequest(
+        provider.copyWith(modelId: backend.modelId),
+        request,
+        headers: headers,
+      );
+      final startedAt = DateTime.now();
+      var network = (
+        mode: 'direct',
+        endpoint: '',
+        remoteHost: '',
+        remotePort: '',
+        selected: null as AiExposureProxyEndpoint?,
+      );
+      _RoutedChatClient? routedClient;
+      try {
+        if (controller.isSelfProxyBaseUrl(model.baseUrl)) {
+          throw const AiModelProxyException(400, '后备模型端点不能指向当前中转站，否则会形成请求循环。');
+        }
+        network = await _resolveNetworkRoute(
+          Uri.tryParse(model.baseUrl),
+          excludedProxyEndpoints: failedProxyEndpoints,
+        );
+        routedClient = _usesDefaultChatClient
+            ? await _createRoutedChatClient(network)
+            : null;
+        final chatClient = routedClient?.service ?? _chatClient;
+        final response = await chatClient.sendMessageStream(
+          model: model,
+          messages: messages,
+          tools: _parseTools(request),
+          creationRequest: AiCreationRequest.none,
+        );
+        unawaited(
+          response.result
+              .then<void>(
+                (result) async {
+                  await controller.recordRequest(
+                    success: !result.wasCancelled,
+                    tokens: result.usage?.totalTokens ?? 0,
+                    durationMs: DateTime.now()
+                        .difference(startedAt)
+                        .inMilliseconds,
+                    providerId: provider.id,
+                    modelId: backend.modelId,
+                    apiStyle: controller.settings.apiStyle.id,
+                    clientIp: _headerValue(headers, const <String>[
+                      'x-forwarded-for',
+                      'x-real-ip',
+                      'x-client-ip',
+                    ]),
+                    clientPort: _headerValue(headers, const <String>[
+                      'x-forwarded-port',
+                      'x-client-port',
+                    ]),
+                    proxyMode: network.mode,
+                    proxyEndpoint: network.endpoint,
+                    remoteHost: network.remoteHost,
+                    remotePort: network.remotePort,
+                  );
+                },
+                onError: (Object error, StackTrace stack) async {
+                  await controller.recordRequest(
+                    success: false,
+                    tokens: 0,
+                    durationMs: DateTime.now()
+                        .difference(startedAt)
+                        .inMilliseconds,
+                    providerId: provider.id,
+                    modelId: backend.modelId,
+                    apiStyle: controller.settings.apiStyle.id,
+                    error: '$error',
+                    clientIp: _headerValue(headers, const <String>[
+                      'x-forwarded-for',
+                      'x-real-ip',
+                      'x-client-ip',
+                    ]),
+                    clientPort: _headerValue(headers, const <String>[
+                      'x-forwarded-port',
+                      'x-client-port',
+                    ]),
+                    proxyMode: network.mode,
+                    proxyEndpoint: network.endpoint,
+                    remoteHost: network.remoteHost,
+                    remotePort: network.remotePort,
+                  );
+                },
+              )
+              .whenComplete(() {
+                routedClient?.dispose();
+              }),
+        );
+        return AiModelProxyStreamDispatch(
+          response: response,
+          exposedModel: exposedModel,
+          backend: backend,
+        );
+      } catch (error) {
+        lastError = error;
+        await controller.recordRequest(
+          success: false,
+          tokens: 0,
+          durationMs: DateTime.now().difference(startedAt).inMilliseconds,
+          providerId: provider.id,
+          modelId: backend.modelId,
+          apiStyle: settings.apiStyle.id,
+          error: '$error',
+          proxyMode: network.mode,
+          proxyEndpoint: network.endpoint,
+          remoteHost: network.remoteHost,
+          remotePort: network.remotePort,
+        );
+        routedClient?.dispose();
+        final retryable = _isRetryableBackendError(error);
+        if (retryable) {
+          final failedEndpoint = network.selected?.url;
+          if (failedEndpoint != null) failedProxyEndpoints.add(failedEndpoint);
+        }
+        if (settings.retryPolicy == AiModelProxyRetryPolicy.failFast ||
+            !retryable) {
+          break;
+        }
+      }
     }
-    final provider = modelsProvider()
-        .where((item) => item.id == backend.providerId)
-        .firstOrNull;
-    if (provider == null) {
-      throw const AiModelProxyException(404, '后备模型提供商不存在。');
+    final statusCode = _backendErrorStatusCode(lastError);
+    if (statusCode != null) {
+      throw AiModelProxyException(statusCode, _backendErrorMessage(lastError));
     }
-    final model = _modelForRequest(
-      provider.copyWith(modelId: backend.modelId),
-      request,
-      headers: headers,
-    );
-    final tools = _parseTools(request);
-    final startedAt = DateTime.now();
-    final network = await _resolveNetworkRoute(Uri.tryParse(model.baseUrl));
-    final routedClient = _usesDefaultChatClient
-        ? await _createRoutedChatClient(network)
-        : null;
-    final chatClient = routedClient?.service ?? _chatClient;
-    try {
-      final response = await chatClient.sendMessageStream(
-        model: model,
-        messages: messages,
-        tools: tools,
-        creationRequest: AiCreationRequest.none,
-      );
-      unawaited(
-        response.result
-            .then<void>(
-              (result) async {
-                await controller.recordRequest(
-                  success: !result.wasCancelled,
-                  tokens: result.usage?.totalTokens ?? 0,
-                  durationMs: DateTime.now()
-                      .difference(startedAt)
-                      .inMilliseconds,
-                  providerId: provider.id,
-                  modelId: backend.modelId,
-                  apiStyle: controller.settings.apiStyle.id,
-                  clientIp: _headerValue(headers, const <String>[
-                    'x-forwarded-for',
-                    'x-real-ip',
-                    'x-client-ip',
-                  ]),
-                  clientPort: _headerValue(headers, const <String>[
-                    'x-forwarded-port',
-                    'x-client-port',
-                  ]),
-                  proxyMode: network.mode,
-                  proxyEndpoint: network.endpoint,
-                  remoteHost: network.remoteHost,
-                  remotePort: network.remotePort,
-                );
-              },
-              onError: (Object error, StackTrace stack) async {
-                await controller.recordRequest(
-                  success: false,
-                  tokens: 0,
-                  durationMs: DateTime.now()
-                      .difference(startedAt)
-                      .inMilliseconds,
-                  providerId: provider.id,
-                  modelId: backend.modelId,
-                  apiStyle: controller.settings.apiStyle.id,
-                  error: '$error',
-                  proxyMode: network.mode,
-                  proxyEndpoint: network.endpoint,
-                  remoteHost: network.remoteHost,
-                  remotePort: network.remotePort,
-                );
-              },
-            )
-            .whenComplete(() {
-              routedClient?.dispose();
-            }),
-      );
-      return AiModelProxyStreamDispatch(
-        response: response,
-        exposedModel: exposedModel,
-        backend: backend,
-      );
-    } on AiChatException catch (error) {
-      routedClient?.dispose();
-      final statusCode = _backendErrorStatusCode(error);
-      throw AiModelProxyException(
-        statusCode ?? 502,
-        _backendErrorMessage(error),
-      );
-    } on Object {
-      routedClient?.dispose();
-      rethrow;
-    }
+    throw AiModelProxyException(502, '后备模型请求失败：$lastError');
   }
 
   /// 将暴露 API 的本次请求参数注入底层模型配置。协议适配器会在生成
@@ -537,10 +643,12 @@ class AiModelProxyDispatcher {
 
   static int? _backendErrorStatusCode(Object? error) {
     if (error is AiChatException) return error.statusCode;
+    if (error is AiModelProxyException) return error.statusCode;
     return null;
   }
 
   static bool _isRetryableBackendError(Object error) {
+    if (error is AiModelProxyException) return false;
     final statusCode = _backendErrorStatusCode(error);
     if (statusCode == null) return true;
     return statusCode == 408 ||
@@ -552,6 +660,7 @@ class AiModelProxyDispatcher {
 
   static String _backendErrorMessage(Object? error) {
     if (error is AiChatException) return error.message;
+    if (error is AiModelProxyException) return error.message;
     return '$error';
   }
 
@@ -564,7 +673,10 @@ class AiModelProxyDispatcher {
       AiExposureProxyEndpoint? selected,
     })
   >
-  _resolveNetworkRoute(Uri? target) async {
+  _resolveNetworkRoute(
+    Uri? target, {
+    Set<String> excludedProxyEndpoints = const <String>{},
+  }) async {
     final remoteHost = target?.host ?? '';
     final remotePort = target == null
         ? ''
@@ -595,7 +707,10 @@ class AiModelProxyDispatcher {
         selected: null,
       );
     }
-    final endpoint = controller.resolveProxyEndpoint(targetHost: remoteHost);
+    final endpoint = controller.resolveProxyEndpoint(
+      targetHost: remoteHost,
+      excludedUrls: excludedProxyEndpoints,
+    );
     return (
       mode: endpoint == null ? 'direct' : 'pool',
       endpoint: endpoint == null ? '' : endpoint.maskedUrl,
@@ -632,11 +747,7 @@ class AiModelProxyDispatcher {
     final endpoint = route.selected;
     final uri = endpoint == null ? null : Uri.tryParse(endpoint.url);
     if (uri == null || uri.host.isEmpty || uri.port <= 0) {
-      final transport = IOClient(HttpClient()..findProxy = (_) => 'DIRECT');
-      return _RoutedChatClient(
-        service: AiChatService(client: transport),
-        transport: transport,
-      );
+      throw const AiModelProxyException(502, '中转代理地址无效，无法建立后备模型连接。');
     }
     final raw = HttpClient()
       ..connectionTimeout = const Duration(seconds: 15)
@@ -657,7 +768,7 @@ class AiModelProxyDispatcher {
         );
       } on Object {
         raw.close(force: true);
-        return null;
+        throw const AiModelProxyException(502, '中转代理凭据无效。');
       }
     }
     final transport = IOClient(raw);
