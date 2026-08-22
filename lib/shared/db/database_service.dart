@@ -19,7 +19,7 @@ class DatabaseService {
   Database? _database;
   BoundedRandomAccessFileLease? _instanceLock;
 
-  static const int schemaVersion = 16;
+  static const int schemaVersion = 17;
   static const String _databaseFileName = 'openhand.db';
   static const String _harnessSessionsTable = 'harness_sessions';
   static const String _harnessEngineeringTemplateId = 'harness_engineering';
@@ -75,6 +75,13 @@ class DatabaseService {
   static const String _createAiExposureProxyRequestHistoryIndexSql =
       'CREATE INDEX IF NOT EXISTS idx_ai_exposure_proxy_request_history_at '
       'ON ai_exposure_proxy_request_history(at_ms DESC)';
+  static const String _createOpenRouterModelProfilesTableSql = '''
+    CREATE TABLE IF NOT EXISTS openrouter_model_profiles (
+      model_id    TEXT PRIMARY KEY,
+      profile_json TEXT NOT NULL,
+      updated_at  TEXT NOT NULL
+    )
+  ''';
   static const List<int> _legacyHarnessPrefixCodeUnits = <int>[
     104,
     97,
@@ -436,6 +443,7 @@ class DatabaseService {
     batch.execute(_createAiExposureProxySamplesTableSql);
     batch.execute(_createAiExposureProxyRequestHistoryTableSql);
     batch.execute(_createAiExposureProxyRequestHistoryIndexSql);
+    batch.execute(_createOpenRouterModelProfilesTableSql);
 
     await batch.commit(noResult: true);
   }
@@ -769,6 +777,9 @@ class DatabaseService {
         }
       }
       await batch.commit(noResult: true);
+    }
+    if (oldVersion < 17) {
+      await db.execute(_createOpenRouterModelProfilesTableSql);
     }
   }
 

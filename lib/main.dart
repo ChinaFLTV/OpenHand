@@ -192,6 +192,11 @@ Future<void> _bootstrap() async {
   final knowledgeBaseModuleFuture = KnowledgeBaseModule.bootstrap();
   // 预加载输出格式控制 Prompt 片段；未就绪时 AiPromptBuilder 会回退到内置兜底。
   _runMainBackgroundTask(AiOutputFormatPrompts.ensureLoaded(), '加载输出格式 Prompt');
+  // 后台恢复已同步的 OpenRouter 模型档案，不阻塞首帧启动。
+  _runMainBackgroundTask(
+    OpenRouterModelProfileStore.instance.ensureLoaded(),
+    '加载 OpenRouter 模型参数',
+  );
   // 系统代理检测与控制器并行启动；内部 HTTP 客户端会按需读取结果。
   final systemProxyFuture = SystemProxyResolver.instance.initialize();
 

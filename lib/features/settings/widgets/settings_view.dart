@@ -100,6 +100,7 @@ import '../../skills/skills_controller.dart';
 import '../data_cleanup/data_cleanup_models.dart';
 import '../data_cleanup/data_cleanup_service.dart';
 import '../service/throttle_cloud_sync_service.dart';
+import 'openrouter_model_sync_dialog.dart';
 import 'prompt_cache_breakpoint_bar.dart';
 import 'thread_session_management_dialog.dart';
 part '_settings_ai_model_editor.dart';
@@ -1456,6 +1457,7 @@ class _SettingsViewState extends State<SettingsView> {
   final Set<String> _testingAiModelIds = <String>{};
   final Set<String> _mutatingAiModelIds = <String>{};
   final Set<String> _removingAiModelIds = <String>{};
+  bool _isSyncingOpenRouterModels = false;
   final List<AiModelConfig> _animatedAiModels = <AiModelConfig>[];
   final OpenHandKeyedSingleFlight<String, void> _editorLspManifestRefreshes =
       OpenHandKeyedSingleFlight<String, void>();
@@ -3560,10 +3562,41 @@ class _SettingsViewState extends State<SettingsView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              FilledButton.icon(
-                onPressed: () => _showAiModelDialog(context),
-                icon: const Icon(Icons.add_rounded),
-                label: Text(l10n.aiModelAdd),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  FilledButton.icon(
+                    onPressed: _isSyncingOpenRouterModels
+                        ? null
+                        : () => _showAiModelDialog(context),
+                    icon: const Icon(Icons.add_rounded),
+                    label: Text(l10n.aiModelAdd),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: _isSyncingOpenRouterModels
+                        ? null
+                        : () => _syncOpenRouterModels(),
+                    icon: _isSyncingOpenRouterModels
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.cloud_sync_rounded),
+                    label: Text(
+                      openHandLocalizedText(
+                        context,
+                        zh: '从 OpenRouter 同步模型参数',
+                        zhHant: '從 OpenRouter 同步模型參數',
+                        en: 'Sync model parameters from OpenRouter',
+                        fr: 'Synchroniser les paramètres depuis OpenRouter',
+                        de: 'Modellparameter von OpenRouter synchronisieren',
+                        ja: 'OpenRouter からモデルパラメータを同期',
+                      ),
+                    ),
+                  ),
+                ],
               ),
               kOpenHandGap16,
               AnimatedSwitcher(
@@ -6727,6 +6760,31 @@ class _SettingsViewState extends State<SettingsView> {
       l10n.aiModelSaveSuccess,
       kind: OpenHandSnackKind.success,
     );
+  }
+
+  Future<void> _syncOpenRouterModels() async {
+    if (_isSyncingOpenRouterModels) return;
+    setState(() => _isSyncingOpenRouterModels = true);
+    try {
+      final result = await showOpenRouterModelSyncDialog(context);
+      if (!mounted || result == null) return;
+      flashOpenHandSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '已同步 ${result.upserted} 个模型参数，跳过 ${result.skipped} 个，失败 ${result.failed} 个。',
+          zhHant:
+              '已同步 ${result.upserted} 個模型參數，跳過 ${result.skipped} 個，失敗 ${result.failed} 個。',
+          en: 'Synced ${result.upserted} model profiles; skipped ${result.skipped}, failed ${result.failed}.',
+          fr: '${result.upserted} profils synchronisés ; ${result.skipped} ignorés, ${result.failed} échecs.',
+          de: '${result.upserted} Modellprofile synchronisiert; ${result.skipped} übersprungen, ${result.failed} fehlgeschlagen.',
+          ja: '${result.upserted} 件のモデル設定を同期しました。スキップ ${result.skipped} 件、失敗 ${result.failed} 件。',
+        ),
+        kind: OpenHandSnackKind.success,
+      );
+    } finally {
+      if (mounted) setState(() => _isSyncingOpenRouterModels = false);
+    }
   }
 
   Future<void> _testAiModel(AiModelConfig model) async {

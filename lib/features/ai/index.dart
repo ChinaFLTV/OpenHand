@@ -5,6 +5,7 @@ export 'ai_session_controller.dart';
 
 // 数据
 export 'data/ai_session_store.dart';
+export 'data/openrouter_model_profile_store.dart';
 
 // 模型
 export 'model/ai_allow_command_rule.dart';
@@ -63,6 +64,7 @@ export 'service/media/ai_image_generation_service.dart';
 export 'service/media/media_cache_service.dart';
 export 'service/model_registry/ai_model_scanner.dart';
 export 'service/model_registry/ai_title_model_resolver.dart';
+export 'service/model_registry/openrouter_model_sync_service.dart';
 export 'service/operations/ai_embeddings_service.dart';
 export 'service/operations/ai_minimax_voice_service.dart';
 export 'service/operations/ai_operation_http.dart';

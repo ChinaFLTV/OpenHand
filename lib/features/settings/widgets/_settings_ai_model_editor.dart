@@ -464,6 +464,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   }
 
   Future<void> _editModelProfile(String modelId) async {
+    try {
+      await OpenRouterModelProfileStore.instance.ensureLoaded();
+    } catch (_) {
+      // 缓存不可用时继续使用内置目录和已有显式配置。
+    }
+    if (!mounted) return;
     final existing = _modelProfiles[modelId] ?? const AiModelProfile();
     final effectiveModel = AiModelConfig(
       id: widget.initialModel?.id ?? '',

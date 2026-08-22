@@ -9,6 +9,26 @@ class AiModelCatalog {
   AiModelCatalog._();
 
   static final RegExp _stepContextPattern = RegExp(r'(\d+)k');
+  static final Map<String, AiModelProfile> _externalProfiles =
+      <String, AiModelProfile>{};
+
+  /// 注册运行时同步的模型档案。动态数据优先于内置目录，但不会覆盖调用方
+  /// 在服务商配置中保存的显式覆盖项。
+  static void registerExternalProfiles(
+    Map<String, AiModelProfile> profiles, {
+    bool replace = false,
+  }) {
+    if (replace) _externalProfiles.clear();
+    profiles.forEach((modelId, profile) {
+      final key = optionalLowercaseStringFromValue(modelId);
+      if (key != null) _externalProfiles[key] = profile;
+    });
+  }
+
+  static AiModelProfile? externalProfileFor(String modelId) {
+    final key = optionalLowercaseStringFromValue(modelId);
+    return key == null ? null : _externalProfiles[key];
+  }
 
   // 对外接口
 
@@ -24,6 +44,8 @@ class AiModelCatalog {
     }
 
     for (final candidate in candidates) {
+      final external = _externalProfiles[candidate];
+      if (external != null) return external;
       final exact = _exactModelProfiles[candidate];
       if (exact != null) {
         final operationProfile = _gatewayOperationProfile(candidate);
