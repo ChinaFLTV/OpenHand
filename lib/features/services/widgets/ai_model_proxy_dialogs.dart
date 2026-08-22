@@ -6,10 +6,12 @@ import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/model_search_selector.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
@@ -549,23 +551,14 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                   crossAxisAlignment:
                                       CrossAxisAlignment.stretch,
                                   children: [
-                                    for (final model in exposedModels) ...[
-                                      SizedBox(
-                                        height: _nodeHeight,
-                                        child: _MindMapNode(
-                                          title: model,
-                                          icon: Icons.api_rounded,
-                                          selected: model == selected,
-                                          onTap: () => setState(
-                                            () => _selectedModel = model,
-                                          ),
-                                        ),
+                                    _AnimatedMappingItems<String>(
+                                      key: const ValueKey<String>(
+                                        'proxy-exposed-model-items',
                                       ),
-                                      if (model != exposedModels.last)
-                                        const SizedBox(height: _nodeGap),
-                                    ],
-                                    if (exposedModels.isEmpty)
-                                      Column(
+                                      items: exposedModels,
+                                      itemKey: (model) => model,
+                                      gap: _nodeGap,
+                                      emptyChild: Column(
                                         children: [
                                           _EmptyBackendCard(
                                             text: text(
@@ -587,6 +580,18 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                           ),
                                         ],
                                       ),
+                                      itemBuilder: (model) => SizedBox(
+                                        height: _nodeHeight,
+                                        child: _MindMapNode(
+                                          title: model,
+                                          icon: Icons.api_rounded,
+                                          selected: model == selected,
+                                          onTap: () => setState(
+                                            () => _selectedModel = model,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -610,8 +615,17 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                   crossAxisAlignment:
                                       CrossAxisAlignment.stretch,
                                   children: [
-                                    if (route == null) ...[
-                                      _EmptyBackendCard(
+                                    _AnimatedMappingItems<AiModelProxyBackend>(
+                                      key: const ValueKey<String>(
+                                        'proxy-backend-items',
+                                      ),
+                                      items:
+                                          route?.backends ??
+                                          const <AiModelProxyBackend>[],
+                                      itemKey: (backend) =>
+                                          '${backend.providerId.trim()}\u0000${backend.modelId.trim()}',
+                                      gap: _nodeGap,
+                                      emptyChild: _EmptyBackendCard(
                                         text: text(
                                           zh: selected == null
                                               ? '选择一个暴露模型查看后备模型。'
@@ -621,39 +635,42 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                               : 'This model has no backends yet.',
                                         ),
                                       ),
-                                    ] else ...[
-                                      for (final (index, backend)
-                                          in route.backends.indexed) ...[
-                                        SizedBox(
+                                      itemBuilder: (backend) {
+                                        final backendIndex =
+                                            route?.backends.indexOf(backend) ??
+                                            -1;
+                                        return SizedBox(
                                           height: _backendHeight,
                                           child: _BackendTile(
                                             backend: backend,
                                             settings: settings,
-                                            onToggle: (enabled) =>
-                                                _updateBackend(
-                                                  selected!,
-                                                  index,
-                                                  backend.copyWith(
-                                                    enabled: enabled,
-                                                  ),
+                                            onToggle: (enabled) {
+                                              if (selected == null ||
+                                                  backendIndex < 0) {
+                                                return;
+                                              }
+                                              _updateBackend(
+                                                selected,
+                                                backendIndex,
+                                                backend.copyWith(
+                                                  enabled: enabled,
                                                 ),
-                                            onRemove: () => _removeBackend(
-                                              selected!,
-                                              index,
-                                            ),
+                                              );
+                                            },
+                                            onRemove: () {
+                                              if (selected == null ||
+                                                  backendIndex < 0) {
+                                                return;
+                                              }
+                                              _removeBackend(
+                                                selected,
+                                                backendIndex,
+                                              );
+                                            },
                                           ),
-                                        ),
-                                        if (index != route.backends.length - 1)
-                                          const SizedBox(height: _nodeGap),
-                                      ],
-                                      if (route.backends.isEmpty)
-                                        _EmptyBackendCard(
-                                          text: text(
-                                            zh: '暂无后备模型',
-                                            en: 'No backends',
-                                          ),
-                                        ),
-                                    ],
+                                        );
+                                      },
+                                    ),
                                     const SizedBox(height: 12),
                                     Align(
                                       alignment:
@@ -990,6 +1007,95 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     final routes = List<AiModelProxyRoute>.of(proxy.settings.routes);
     routes[routeIndex] = route.copyWith(backends: backends);
     await proxy.saveRoutes(routes);
+  }
+}
+
+/// 模型映射图中的动态条目容器：保留已移除条目直到退场动画完成，避免列表
+/// 数据变化时卡片瞬间消失；新增条目使用全局弹窗动效自然进入。
+class _AnimatedMappingItems<T> extends StatefulWidget {
+  const _AnimatedMappingItems({
+    super.key,
+    required this.items,
+    required this.itemKey,
+    required this.itemBuilder,
+    required this.emptyChild,
+    required this.gap,
+  });
+
+  final List<T> items;
+  final String Function(T item) itemKey;
+  final Widget Function(T item) itemBuilder;
+  final Widget emptyChild;
+  final double gap;
+
+  @override
+  State<_AnimatedMappingItems<T>> createState() =>
+      _AnimatedMappingItemsState<T>();
+}
+
+class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
+  late List<T> _displayedItems;
+
+  @override
+  void initState() {
+    super.initState();
+    _displayedItems = List<T>.of(widget.items);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedMappingItems<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final currentKeys = widget.items.map(widget.itemKey).toSet();
+    final nextDisplayed = List<T>.of(widget.items);
+    for (var index = 0; index < _displayedItems.length; index++) {
+      final previous = _displayedItems[index];
+      if (!currentKeys.contains(widget.itemKey(previous))) {
+        nextDisplayed.insert(index.clamp(0, nextDisplayed.length), previous);
+      }
+    }
+    _displayedItems = nextDisplayed;
+  }
+
+  void _removeDismissed(String itemKey) {
+    if (widget.items.any((item) => widget.itemKey(item) == itemKey)) return;
+    if (!mounted) return;
+    setState(() {
+      _displayedItems.removeWhere((item) => widget.itemKey(item) == itemKey);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final motionSettings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    final currentKeys = widget.items.map(widget.itemKey).toSet();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final item in _displayedItems)
+          AnimatedAppearance(
+            key: ValueKey<String>('proxy-mapping-item-${widget.itemKey(item)}'),
+            settings: motionSettings,
+            present: currentKeys.contains(widget.itemKey(item)),
+            onDismissed: () => _removeDismissed(widget.itemKey(item)),
+            child: IgnorePointer(
+              ignoring: !currentKeys.contains(widget.itemKey(item)),
+              child: Padding(
+                padding: EdgeInsets.only(bottom: widget.gap),
+                child: widget.itemBuilder(item),
+              ),
+            ),
+          ),
+        AnimatedAppearance(
+          key: const ValueKey<String>('proxy-mapping-empty-item'),
+          settings: motionSettings,
+          present: widget.items.isEmpty,
+          child: widget.emptyChild,
+        ),
+      ],
+    );
   }
 }
 
