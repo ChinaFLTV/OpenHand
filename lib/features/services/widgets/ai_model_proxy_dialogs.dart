@@ -923,6 +923,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
                                 left: _modelColumnWidth + _connectorWidth,
                                 top: backendTop - scrollOffset,
                                 width: _backendColumnWidth,
+                                height: backendContentHeight,
                                 child: child!,
                               );
                             },
