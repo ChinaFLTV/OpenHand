@@ -60,6 +60,10 @@ class AiModelProxyDispatcher {
   final AiChatClient _chatClient;
   final bool _usesDefaultChatClient;
 
+  static const int _maxProxyTools = 256;
+  static const int _maxProxyToolNameLength = 128;
+  static const int _maxProxyToolDescriptionLength = 16 * 1024;
+
   /// 返回中转站当前已配置的暴露模型，供 `/v1/models` 端点直接使用。
   Map<String, Object?> buildModelsResponse() =>
       controller.buildModelsResponse();
@@ -153,7 +157,7 @@ class AiModelProxyDispatcher {
         );
         break;
       }
-      final tools = _parseTools(request);
+      final tools = _parseToolsForRequest(request);
       final startedAt = DateTime.now();
       var directRouteFallback = directFallback;
       var network = (
@@ -373,7 +377,7 @@ class AiModelProxyDispatcher {
         final response = await chatClient.sendMessageStream(
           model: model,
           messages: messages,
-          tools: _parseTools(request),
+          tools: _parseToolsForRequest(request),
           creationRequest: AiCreationRequest.none,
         );
         unawaited(
@@ -545,7 +549,7 @@ class AiModelProxyDispatcher {
       };
       model = model.copyWith(capabilityOverrides: capabilities);
     }
-    final extras = _requestBodyExtras(request);
+    final extras = _requestBodyExtras(request, model);
     final style = controller.settings.apiStyle;
     if (style == AiModelProxyApiStyle.openAiChatCompletions &&
         model.apiDialect == AiApiDialect.openAiCompat &&
@@ -609,7 +613,10 @@ class AiModelProxyDispatcher {
     };
   }
 
-  Map<String, Object?> _requestBodyExtras(Map<String, Object?> request) {
+  Map<String, Object?> _requestBodyExtras(
+    Map<String, Object?> request,
+    AiModelConfig model,
+  ) {
     final extras = <String, Object?>{};
     final style = controller.settings.apiStyle;
     if (style == AiModelProxyApiStyle.gemini) {
@@ -640,18 +647,166 @@ class AiModelProxyDispatcher {
         extras[entry.key] = entry.value;
       }
     }
-    final rawTools = request['tools'];
-    if (rawTools is List &&
-        rawTools.isNotEmpty &&
-        (_parseTools(request).isEmpty || _shouldPreserveRawTools(rawTools))) {
-      extras['tools'] = rawTools;
+    final preservedTools = _preservedRawTools(request['tools'], model);
+    if (preservedTools != null && preservedTools.isNotEmpty) {
+      extras['tools'] = preservedTools;
+    }
+    _normalizeCrossProtocolExtras(extras, request, model);
+    if (_choiceType(request['tool_choice']) == 'none') {
+      extras.remove('tools');
     }
     return extras;
+  }
+
+  void _normalizeCrossProtocolExtras(
+    Map<String, Object?> extras,
+    Map<String, Object?> request,
+    AiModelConfig model,
+  ) {
+    final inboundStyle = controller.settings.apiStyle;
+    switch (model.apiDialect) {
+      case AiApiDialect.openAiCompat:
+        if (inboundStyle == AiModelProxyApiStyle.claude) {
+          for (final key in const <String>[
+            'system',
+            'thinking',
+            'output_config',
+            'top_k',
+          ]) {
+            extras.remove(key);
+          }
+          final maxOutputTokens = request['max_output_tokens'];
+          if (maxOutputTokens is num) {
+            extras['max_tokens'] = maxOutputTokens;
+          }
+          extras.remove('max_output_tokens');
+          final stop = _stopValue(request['stop_sequences']);
+          if (stop != null) extras['stop'] = stop;
+          extras.remove('stop_sequences');
+          final choice = _openAiToolChoice(request['tool_choice']);
+          if (choice == null) {
+            extras.remove('tool_choice');
+          } else {
+            extras['tool_choice'] = choice;
+          }
+        }
+      case AiApiDialect.anthropicNative:
+        if (inboundStyle != AiModelProxyApiStyle.claude) {
+          for (final key in const <String>[
+            'instructions',
+            'response_format',
+            'reasoning_effort',
+            'max_completion_tokens',
+            'stream_options',
+          ]) {
+            extras.remove(key);
+          }
+          final maxOutputTokens = request['max_output_tokens'];
+          if (maxOutputTokens is num) {
+            extras['max_tokens'] = maxOutputTokens;
+          }
+          extras.remove('max_output_tokens');
+          final stop = _stopValue(request['stop']);
+          if (stop != null) extras['stop_sequences'] = stop;
+          extras.remove('stop');
+          final choice = _claudeToolChoice(request['tool_choice']);
+          if (choice == null) {
+            extras.remove('tool_choice');
+          } else {
+            extras['tool_choice'] = choice;
+          }
+        }
+      case AiApiDialect.geminiNative:
+        extras.remove('tool_choice');
+        final generationConfig = _map(extras['generationConfig']);
+        final temperature = request['temperature'];
+        final topP = request['top_p'];
+        final maxTokens =
+            request['max_tokens'] ??
+            request['max_completion_tokens'] ??
+            request['max_output_tokens'];
+        if (temperature is num) generationConfig['temperature'] = temperature;
+        if (topP is num) generationConfig['topP'] = topP;
+        if (maxTokens is num) generationConfig['maxOutputTokens'] = maxTokens;
+        final stop = _stopValue(request['stop'] ?? request['stop_sequences']);
+        if (stop is String) {
+          generationConfig['stopSequences'] = <String>[stop];
+        } else if (stop is List) {
+          generationConfig['stopSequences'] = stop;
+        }
+        if (generationConfig.isNotEmpty) {
+          extras['generationConfig'] = generationConfig;
+        }
+        for (final key in const <String>[
+          'temperature',
+          'top_p',
+          'max_tokens',
+          'max_completion_tokens',
+          'max_output_tokens',
+          'stop',
+          'stop_sequences',
+          'response_format',
+          'reasoning_effort',
+        ]) {
+          extras.remove(key);
+        }
+    }
+  }
+
+  static Object? _stopValue(Object? value) {
+    if (value is String && value.trim().isNotEmpty) return value.trim();
+    if (value is List) {
+      final values = value
+          .whereType<String>()
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .take(4)
+          .toList(growable: false);
+      if (values.isNotEmpty) return values;
+    }
+    return null;
+  }
+
+  static String? _choiceType(Object? value) {
+    if (value is String) return value.trim().toLowerCase();
+    if (value is Map) {
+      return '${_map(value)['type'] ?? ''}'.trim().toLowerCase();
+    }
+    return null;
+  }
+
+  static Object? _openAiToolChoice(Object? value) {
+    final type = _choiceType(value);
+    return switch (type) {
+      'auto' => 'auto',
+      'none' => 'none',
+      'required' || 'any' => 'required',
+      _ => null,
+    };
+  }
+
+  static Map<String, Object?>? _claudeToolChoice(Object? value) {
+    final type = _choiceType(value);
+    return switch (type) {
+      'auto' => const <String, Object?>{'type': 'auto'},
+      'required' || 'any' => const <String, Object?>{'type': 'any'},
+      'tool' => () {
+        final map = _map(value);
+        final name = map['name'];
+        return name is String && name.trim().isNotEmpty
+            ? <String, Object?>{'type': 'tool', 'name': name.trim()}
+            : null;
+      }(),
+      _ => null,
+    };
   }
 
   List<AiToolDefinition> _parseTools(Map<String, Object?> request) {
     final raw = request['tools'];
     if (raw is! List) return const <AiToolDefinition>[];
+    if (raw.length > _maxProxyTools) {
+      throw const AiModelProxyException(400, '工具数量超过限制。');
+    }
     final tools = <AiToolDefinition>[];
     final names = <String>{};
     void addTool(Object? value) {
@@ -660,8 +815,14 @@ class AiModelProxyDispatcher {
       final function = item['function'] is Map
           ? Map<String, Object?>.from(item['function'] as Map)
           : item;
-      final name = '${function['name'] ?? ''}'.trim();
-      if (name.isEmpty || !names.add(name)) return;
+      final nameValue = function['name'];
+      if (nameValue is! String) return;
+      final name = nameValue.trim();
+      if (name.isEmpty ||
+          name.length > _maxProxyToolNameLength ||
+          !names.add(name)) {
+        return;
+      }
       final parameters = _map(
         function['parameters'] ??
             function['input_schema'] ??
@@ -670,7 +831,7 @@ class AiModelProxyDispatcher {
       tools.add(
         AiToolDefinition(
           name: name,
-          description: '${function['description'] ?? ''}',
+          description: _boundedToolDescription(function['description']),
           parameters: parameters.isEmpty
               ? const <String, Object?>{'type': 'object'}
               : parameters,
@@ -681,9 +842,12 @@ class AiModelProxyDispatcher {
       );
     }
 
-    for (final item in raw) {
+    for (final item in raw.take(_maxProxyTools)) {
       if (item is Map && item['functionDeclarations'] is List) {
-        for (final declaration in item['functionDeclarations'] as List) {
+        final declarations = item['functionDeclarations'] as List;
+        for (final declaration in declarations.take(
+          _maxProxyTools - tools.length,
+        )) {
           addTool(declaration);
         }
       } else {
@@ -693,39 +857,68 @@ class AiModelProxyDispatcher {
     return List<AiToolDefinition>.unmodifiable(tools);
   }
 
-  bool _containsUnsupportedOpenAiTool(List<Object?> rawTools) {
-    final style = controller.settings.apiStyle;
-    if (style != AiModelProxyApiStyle.openAiChatCompletions &&
-        style != AiModelProxyApiStyle.openAiResponses) {
-      return false;
+  List<AiToolDefinition> _parseToolsForRequest(Map<String, Object?> request) {
+    if (_choiceType(request['tool_choice']) == 'none') {
+      return const <AiToolDefinition>[];
     }
-    return rawTools.any((item) {
-      if (item is! Map) return true;
-      final map = Map<String, Object?>.from(item);
-      if (_map(map['function']).isNotEmpty) return false;
-      return '${map['type'] ?? ''}' != 'function';
+    return _parseTools(request);
+  }
+
+  static String _boundedToolDescription(Object? value) {
+    if (value is! String) return '';
+    final description = value.trim();
+    return description.length <= _maxProxyToolDescriptionLength
+        ? description
+        : description.substring(0, _maxProxyToolDescriptionLength);
+  }
+
+  /// 入站协议和上游协议可能不同，原样工具只能按后备模型方言透传。
+  List<Object?>? _preservedRawTools(Object? raw, AiModelConfig model) {
+    if (raw is! List || raw.isEmpty || raw.length > _maxProxyTools) {
+      return null;
+    }
+    final maps = raw.whereType<Map>().toList(growable: false);
+    if (maps.length != raw.length) return null;
+    return switch (model.apiDialect) {
+      AiApiDialect.openAiCompat => _isOpenAiToolList(maps) ? raw : null,
+      AiApiDialect.anthropicNative => _isClaudeToolList(maps) ? raw : null,
+      AiApiDialect.geminiNative => _isGeminiToolList(maps) ? raw : null,
+    };
+  }
+
+  bool _isOpenAiToolList(List<Map> tools) {
+    return tools.every((raw) {
+      final map = _map(raw);
+      final type = map['type'];
+      if (type is! String || type.trim().isEmpty || type.length > 64) {
+        return false;
+      }
+      if (type == 'function') {
+        final name = _map(map['function'])['name'];
+        return name is String &&
+            name.trim().isNotEmpty &&
+            name.trim().length <= _maxProxyToolNameLength;
+      }
+      return true;
     });
   }
 
-  bool _shouldPreserveRawTools(List<Object?> rawTools) {
-    final style = controller.settings.apiStyle;
-    if (style == AiModelProxyApiStyle.openAiChatCompletions ||
-        style == AiModelProxyApiStyle.openAiResponses) {
-      return _containsUnsupportedOpenAiTool(rawTools);
-    }
-    if (style == AiModelProxyApiStyle.gemini) {
-      return rawTools.any(
-        (item) => item is Map && item['functionDeclarations'] is List,
-      );
-    }
-    if (style == AiModelProxyApiStyle.claude) {
-      return rawTools.every((item) {
-        if (item is! Map) return false;
-        final map = Map<String, Object?>.from(item);
-        return map['name'] != null || map['input_schema'] != null;
-      });
-    }
-    return false;
+  bool _isClaudeToolList(List<Map> tools) {
+    return tools.every((raw) {
+      final map = _map(raw);
+      final name = map['name'];
+      return name is String &&
+          name.trim().isNotEmpty &&
+          name.trim().length <= _maxProxyToolNameLength &&
+          _map(map['input_schema']).isNotEmpty;
+    });
+  }
+
+  bool _isGeminiToolList(List<Map> tools) {
+    return tools.every((raw) {
+      final declarations = _map(raw)['functionDeclarations'];
+      return declarations is List && declarations.isNotEmpty;
+    });
   }
 
   static Map<String, Object?> _map(Object? value) {

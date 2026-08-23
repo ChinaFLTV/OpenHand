@@ -345,11 +345,12 @@ class AiModelProxyHttpServer {
         '中转站网络服务不可用：${error.message}',
         apiStyle: _controller.settings.apiStyle,
       );
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      silentLog('ai_model_proxy_http_server', '处理中转请求', error, stack);
       await _writeError(
         request,
         500,
-        '中转站处理请求失败：$error',
+        '中转站处理请求失败，请稍后重试。',
         apiStyle: _controller.settings.apiStyle,
       );
     }
