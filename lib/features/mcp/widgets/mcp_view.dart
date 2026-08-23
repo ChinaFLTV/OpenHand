@@ -4464,6 +4464,7 @@ Widget buildMcpOpsSubDialog({
     child: _McpOpsDialogSurface(
       child: _McpOpsConsoleShell(
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: children,
         ),
@@ -7044,28 +7045,27 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
         children: [
           _buildHero(context, theme, cs),
           kOpenHandGap14,
-          Expanded(
-            child: SingleChildScrollView(
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
               physics: openHandDialogAwareScrollPhysics(context),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (_editable)
-                    _McpOpsSchemaFormEditor(
-                      scope: _schemaDraft,
-                      onChanged: () {
-                        setState(() {
-                          _error = null;
-                          _syncSourceFromDraft();
-                        });
-                      },
-                    )
-                  else
-                    _McpOpsSchemaFieldList(fields: fields),
-                  const SizedBox(height: _mcpOpsGridGap),
-                  _buildSourcePanel(context),
-                ],
-              ),
+              padding: EdgeInsets.zero,
+              children: [
+                if (_editable)
+                  _McpOpsSchemaFormEditor(
+                    scope: _schemaDraft,
+                    onChanged: () {
+                      setState(() {
+                        _error = null;
+                        _syncSourceFromDraft();
+                      });
+                    },
+                  )
+                else
+                  _McpOpsSchemaFieldList(fields: fields),
+                const SizedBox(height: _mcpOpsGridGap),
+                _buildSourcePanel(context),
+              ],
             ),
           ),
           OpenHandVerticalRevealSwitcher(
@@ -8418,8 +8418,9 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
       children: [
         _buildHero(context, statusColor),
         kOpenHandGap14,
-        Expanded(
+        Flexible(
           child: ListView(
+            shrinkWrap: true,
             physics: openHandDialogAwareScrollPhysics(context),
             padding: EdgeInsets.zero,
             children: [
@@ -17428,18 +17429,17 @@ class _McpOpsInsightDialog extends StatelessWidget {
             ],
           ),
           kOpenHandGap14,
-          Expanded(
-            child: SingleChildScrollView(
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
               physics: openHandDialogAwareScrollPhysics(context),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var i = 0; i < children.length; i++) ...[
-                    if (i != 0) const SizedBox(height: _mcpOpsGridGap),
-                    children[i],
-                  ],
+              padding: EdgeInsets.zero,
+              children: [
+                for (var i = 0; i < children.length; i++) ...[
+                  if (i != 0) const SizedBox(height: _mcpOpsGridGap),
+                  children[i],
                 ],
-              ),
+              ],
             ),
           ),
         ],
@@ -17648,9 +17648,11 @@ Widget _mcpOpsBoundedList(
 }) {
   return ConstrainedBox(
     constraints: BoxConstraints(maxHeight: maxHeight),
-    child: SingleChildScrollView(
+    child: ListView(
+      shrinkWrap: true,
       physics: openHandDialogAwareScrollPhysics(context),
-      child: child,
+      padding: EdgeInsets.zero,
+      children: [child],
     ),
   );
 }

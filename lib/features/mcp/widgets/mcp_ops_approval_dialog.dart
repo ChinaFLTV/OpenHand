@@ -160,10 +160,10 @@ class _McpOpsWriteApprovalDialogState
           horizontal: 28,
           vertical: 24,
         ),
-        expandToMax: true,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               buildOpenHandApprovalDialogHeader(
@@ -221,7 +221,7 @@ class _McpOpsWriteApprovalDialogState
                 ],
               ),
               kOpenHandGap16,
-              Expanded(
+              Flexible(
                 child: OpenHandSafeScrollbar(
                   controller: _bodyScrollController,
                   thumbVisibility: false,
@@ -229,6 +229,7 @@ class _McpOpsWriteApprovalDialogState
                     controller: _bodyScrollController,
                     physics: openHandDialogAwareScrollPhysics(context),
                     padding: EdgeInsets.zero,
+                    shrinkWrap: true,
                     children: [
                       _ApprovalInfoPanel(
                         icon: Icons.route_rounded,
@@ -415,19 +416,11 @@ class _ApprovalPayloadPanel extends StatelessWidget {
     final parsed = _parseApprovalPayload(text);
     final accent = cs.primary;
     return AnimatedContainer(
-      duration: openHandMotionDuration(context, kOpenHandMotion180,
-      ),
+      duration: openHandMotionDuration(context, kOpenHandMotion180),
       curve: kOpenHandSwitchInCurve,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: AlignmentDirectional.topStart,
-          end: AlignmentDirectional.bottomEnd,
-          colors: [
-            accent.withValues(alpha: 0.08),
-            cs.surfaceContainerHighest.withValues(alpha: 0.32),
-          ],
-        ),
+        color: accent.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(kOpenHandRadius18),
         border: Border.all(color: accent.withValues(alpha: 0.24)),
         boxShadow: <BoxShadow>[
@@ -507,8 +500,7 @@ class _ApprovalPayloadPanel extends StatelessWidget {
           ),
           kOpenHandGap12,
           AnimatedSize(
-            duration: openHandMotionDuration(context, kOpenHandMotion180,
-            ),
+            duration: openHandMotionDuration(context, kOpenHandMotion180),
             curve: kOpenHandSwitchInCurve,
             alignment: Alignment.topCenter,
             child: AnimatedSwitcher(
