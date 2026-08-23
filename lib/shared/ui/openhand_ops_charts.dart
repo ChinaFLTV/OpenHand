@@ -53,22 +53,91 @@ const double _kRankBodyMaxHeight = 348;
 const double _kRankCellPadding = 12;
 const double _kRankValueMinWidth = 64;
 const double _kRankLeadingMinWidth = 148;
-const double _kRankCellMaxWidth = 560;
+const double _kRankLeadingMaxWidth = 280;
+const double _kRankCompactMaxWidth = 120;
+const double _kRankTextMinWidth = 96;
+const double _kRankTextMaxWidth = 280;
+const double _kRankDateTimeMinWidth = 168;
 const double _kRankResizeHandleWidth = 8;
 const double _kRankUserMinWidth = 56;
 const double _kRankUserMaxWidth = 720;
 final RegExp _kRankDateTimePattern = RegExp(
   r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$',
 );
+final RegExp _kRankPlaceholderPattern = RegExp(r'^(?:—|--|-|–)$');
+final RegExp _kRankCompactCellPattern = RegExp(
+  r'^(?:\d+(?:\.\d+)?%|\d+(?:\.\d+)?\s*(?:ms|s|B|KB|MB|GB|TB|PB)|\d+(?:\.\d+)?|\d{1,2}:\d{2}(?::\d{2})?|(?:成功|失败|启用|停用|OK|Fail|On|Off)(?:\s+\d{1,3})?)$',
+  caseSensitive: false,
+);
+
+enum _RankColumnKind { datetime, compact, leading, text }
 
 bool _isRankDateTimeCell(String text) => _kRankDateTimePattern.hasMatch(text);
 
-double _rankTextWidth(String text, TextStyle? style) {
+bool _isRankCompactCell(String text) {
+  final value = text.trim();
+  if (value.isEmpty || _kRankPlaceholderPattern.hasMatch(value)) return true;
+  return _kRankCompactCellPattern.hasMatch(value);
+}
+
+bool _rankHeaderPrefersText(String header) {
+  final value = header.trim().toLowerCase();
+  return value.contains('原因') ||
+      value.contains('reason') ||
+      value.contains('错误') ||
+      value.contains('error');
+}
+
+_RankColumnKind _rankColumnKind({
+  required int index,
+  required String header,
+  required Iterable<String> cells,
+}) {
+  var datetime = _isRankDateTimeCell(header);
+  var seen = false;
+  var allCompact = true;
+  for (final cell in cells) {
+    if (_isRankDateTimeCell(cell)) datetime = true;
+    final trimmed = cell.trim();
+    if (trimmed.isEmpty) continue;
+    seen = true;
+    if (!_isRankCompactCell(trimmed)) allCompact = false;
+  }
+  if (datetime) return _RankColumnKind.datetime;
+  if (_rankHeaderPrefersText(header)) return _RankColumnKind.text;
+  if (seen && allCompact) return _RankColumnKind.compact;
+  if (index == 0) return _RankColumnKind.leading;
+  return _RankColumnKind.text;
+}
+
+double _rankFitColumnWidth(_RankColumnKind kind, double padded) {
+  final minWidth = switch (kind) {
+    _RankColumnKind.datetime => _kRankDateTimeMinWidth,
+    _RankColumnKind.compact => _kRankValueMinWidth,
+    _RankColumnKind.leading => _kRankLeadingMinWidth,
+    _RankColumnKind.text => _kRankTextMinWidth,
+  };
+  final maxWidth = switch (kind) {
+    _RankColumnKind.datetime => double.infinity,
+    _RankColumnKind.compact => _kRankCompactMaxWidth,
+    _RankColumnKind.leading => _kRankLeadingMaxWidth,
+    _RankColumnKind.text => _kRankTextMaxWidth,
+  };
+  if (!maxWidth.isFinite) return math.max(padded, minWidth);
+  return padded.clamp(minWidth, maxWidth).toDouble();
+}
+
+double _rankTextWidth(
+  String text,
+  TextStyle? style, {
+  TextScaler textScaler = TextScaler.noScaling,
+}) {
   if (text.isEmpty) return 0;
   final painter = TextPainter(
     text: TextSpan(text: text, style: style),
     maxLines: 1,
     textDirection: TextDirection.ltr,
+    textScaler: textScaler,
   )..layout();
   final width = painter.width;
   painter.dispose();
@@ -2114,7 +2183,7 @@ class OpenHandOperationalRankRow {
 }
 
 /// 可用于任意运维实体的排名表。视觉对齐用量分析表：圆角边框、表头灰底、奇偶行。
-/// 列宽按文字实测，超出视口时水平滚动；表头边界可拖拽调宽；省略单元格悬停展示全文。
+/// 列宽按列类型适配：时间列完整展示，数值列紧凑，原因等文本列限宽省略；表头可拖拽调宽，省略内容悬停看全文。
 class OpenHandOperationalRankTable extends StatefulWidget {
   const OpenHandOperationalRankTable({
     super.key,
@@ -2145,6 +2214,7 @@ class _OpenHandOperationalRankTableState
   late final AnimationController _transition;
   DialogAnimationSettings _motion = OpenHandMotionDefaults.menu;
   List<double>? _userWidths;
+  bool _userResized = false;
   int? _dragColumn;
   int? _hoverHandle;
   double _dragOriginWidth = 0;
@@ -2181,6 +2251,7 @@ class _OpenHandOperationalRankTableState
     super.didUpdateWidget(oldWidget);
     if (oldWidget.headers.length != widget.headers.length) {
       _userWidths = null;
+      _userResized = false;
     }
   }
 
@@ -2197,7 +2268,19 @@ class _OpenHandOperationalRankTableState
 
   List<double> _syncWidths(List<double> natural) {
     final current = _userWidths;
-    if (current != null && current.length == natural.length) return current;
+    if (_userResized && current != null && current.length == natural.length) {
+      return current;
+    }
+    if (current != null && current.length == natural.length) {
+      var close = true;
+      for (var i = 0; i < current.length; i++) {
+        if ((current[i] - natural[i]).abs() > 0.5) {
+          close = false;
+          break;
+        }
+      }
+      if (close) return current;
+    }
     final next = List<double>.from(natural);
     _userWidths = next;
     return next;
@@ -2334,30 +2417,29 @@ class _OpenHandOperationalRankTableState
     final subtitleStyle = theme.textTheme.labelSmall?.copyWith(
       color: colors.onSurfaceVariant,
     );
+    final scaler = MediaQuery.textScalerOf(context);
     final columnCount = widget.headers.length;
     final natural = List<double>.filled(columnCount, 0);
     for (var i = 0; i < columnCount; i++) {
-      var content = _rankTextWidth(widget.headers[i], headerStyle);
-      var hasDateTime = _isRankDateTimeCell(widget.headers[i]);
-      for (final row in sortedRows) {
-        final cell = i < row.cells.length ? row.cells[i] : '--';
-        content = math.max(content, _rankTextWidth(cell, valueStyle));
-        if (_isRankDateTimeCell(cell)) hasDateTime = true;
-        if (i == 0 && row.subtitle.trim().isNotEmpty) {
-          content = math.max(
-            content,
-            _rankTextWidth(row.subtitle.trim(), subtitleStyle),
-          );
-        }
+      var content = _rankTextWidth(
+        widget.headers[i],
+        headerStyle,
+        textScaler: scaler,
+      );
+      final samples = <String>[
+        for (final row in sortedRows)
+          i < row.cells.length ? row.cells[i] : '--',
+      ];
+      for (final cell in samples) {
+        content = math.max(
+          content,
+          _rankTextWidth(cell, valueStyle, textScaler: scaler),
+        );
       }
-      final padded = content + _kRankCellPadding * 2;
-      if (hasDateTime) {
-        natural[i] = math.max(padded, _kRankValueMinWidth);
-      } else if (i == 0) {
-        natural[i] = padded.clamp(_kRankLeadingMinWidth, _kRankCellMaxWidth);
-      } else {
-        natural[i] = padded.clamp(_kRankValueMinWidth, _kRankCellMaxWidth);
-      }
+      natural[i] = _rankFitColumnWidth(
+        _rankColumnKind(index: i, header: widget.headers[i], cells: samples),
+        content + _kRankCellPadding * 2,
+      );
     }
     final widths = _syncWidths(natural);
     return OverlayPortal(
@@ -2387,7 +2469,9 @@ class _OpenHandOperationalRankTableState
                   0.0,
                   widths[index] - _kRankCellPadding * 2,
                 );
-                final overflow = _rankTextWidth(text, style) > inner + 0.5;
+                final overflow =
+                    _rankTextWidth(text, style, textScaler: scaler) >
+                    inner + 0.5;
                 final label = Text(
                   text,
                   maxLines: 1,
@@ -2507,6 +2591,7 @@ class _OpenHandOperationalRankTableState
                                       behavior: HitTestBehavior.opaque,
                                       onHorizontalDragStart: (details) {
                                         _scheduleHideTip();
+                                        _userResized = true;
                                         _dragColumn = i;
                                         _dragOriginWidth = widths[i];
                                         _dragStartX = details.globalPosition.dx;
