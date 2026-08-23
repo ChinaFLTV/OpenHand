@@ -11,7 +11,8 @@ import '../../ai/index.dart';
 import '../ai_model_health_controller.dart';
 import '../model/ai_model_health.dart';
 
-const double _aiHealthControlHeight = 120;
+// 输入框主题的 60px 边框加辅助说明后的统一表单高度。
+const double _aiHealthControlHeight = 84;
 
 class AiModelHealthSettingsPanel extends StatefulWidget {
   const AiModelHealthSettingsPanel({super.key, this.showRequestMode = false});
@@ -55,12 +56,18 @@ class _AiModelHealthSettingsPanelState
     }
     final text = openHandTextResolver(context);
     final theme = Theme.of(context);
+    final settingTitleStyle = theme.textTheme.titleMedium?.copyWith(
+      fontWeight: FontWeight.w800,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: Text(text(zh: '定时健康巡检', en: 'Scheduled health checks')),
+          title: Text(
+            text(zh: '定时健康巡检', en: 'Scheduled health checks'),
+            style: settingTitleStyle,
+          ),
           subtitle: Text(
             text(
               zh: '按固定间隔检查所有提供商的所有模型，并保存每次结果。',
@@ -76,25 +83,29 @@ class _AiModelHealthSettingsPanelState
           }),
         ),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: TextField(
-                controller: _intervalController,
-                focusNode: _intervalFocusNode,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: text(zh: '巡检间隔（分钟）', en: 'Interval (minutes)'),
-                  helperText: text(
-                    zh: '范围 1-1440 分钟。',
-                    en: 'Range: 1-1440 minutes.',
+              child: SizedBox(
+                height: _aiHealthControlHeight,
+                child: TextField(
+                  controller: _intervalController,
+                  focusNode: _intervalFocusNode,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: text(zh: '巡检间隔（分钟）', en: 'Interval (minutes)'),
+                    helperText: text(
+                      zh: '范围 1-1440 分钟。',
+                      en: 'Range: 1-1440 minutes.',
+                    ),
                   ),
+                  onSubmitted: (value) {
+                    final minutes = int.tryParse(value);
+                    if (minutes != null) {
+                      controller.updateSettings(intervalMinutes: minutes);
+                    }
+                  },
                 ),
-                onSubmitted: (value) {
-                  final minutes = int.tryParse(value);
-                  if (minutes != null) {
-                    controller.updateSettings(intervalMinutes: minutes);
-                  }
-                },
               ),
             ),
             kOpenHandHGap12,
@@ -139,9 +150,12 @@ class _AiModelHealthSettingsPanelState
           ],
         ),
         if (!widget.showRequestMode)
-          SwitchListTile.adaptive(
+          SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(text(zh: '使用系统代理', en: 'Use system proxy')),
+            title: Text(
+              text(zh: '使用系统代理', en: 'Use system proxy'),
+              style: settingTitleStyle,
+            ),
             subtitle: Text(
               text(
                 zh: '健康巡检请求通过应用当前系统代理设置发出。',
@@ -155,6 +169,11 @@ class _AiModelHealthSettingsPanelState
                   ? AiModelHealthRequestMode.systemProxy
                   : AiModelHealthRequestMode.direct,
             ),
+            thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
+              return states.contains(WidgetState.selected)
+                  ? const Icon(Icons.check_rounded, size: 16)
+                  : const Icon(Icons.close_rounded, size: 16);
+            }),
           ),
         if (widget.showRequestMode) ...[
           kOpenHandGap8,

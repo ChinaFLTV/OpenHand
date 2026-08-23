@@ -322,85 +322,85 @@ class _ProxyProvidersDialogState extends State<_ProxyProvidersDialog> {
                 ),
               ],
             ),
-            const AiModelHealthSettingsPanel(showRequestMode: true),
-            kOpenHandGap16,
             Expanded(
-              child: models.isEmpty
-                  ? Center(
-                      child: Text(
-                        text(
-                          zh: '还没有提供商配置，请先新增。',
-                          en: 'Add a provider to get started.',
+              child: ReorderableListView.builder(
+                buildDefaultDragHandles: false,
+                padding: const EdgeInsets.only(bottom: 14),
+                header: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const AiModelHealthSettingsPanel(showRequestMode: true),
+                    kOpenHandGap16,
+                    if (models.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 18),
+                        child: Text(
+                          text(
+                            zh: '还没有提供商配置，请先新增。',
+                            en: 'Add a provider to get started.',
+                          ),
                         ),
                       ),
-                    )
-                  : ReorderableListView.builder(
-                      buildDefaultDragHandles: false,
-                      itemCount: models.length,
-                      onReorder: _reorder,
-                      proxyDecorator: (child, index, animation) =>
-                          buildOpenHandReorderProxy(context, child, animation),
-                      itemBuilder: (context, index) {
-                        final model = models[index];
-                        final enabled = !_mutatingIds.contains(model.id);
-                        return KeyedSubtree(
-                          key: ValueKey<String>(model.id),
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 14),
-                            child: OpenHandListRemovalTransition(
-                              collapsed: _removingIds.contains(model.id),
-                              child: buildAiModelProviderCard(
-                                model: model,
-                                dragIndex: index,
-                                isSelected:
-                                    settings.selectedAiModelId == model.id,
-                                isTesting: _testingIds.contains(model.id),
-                                isFirst: index == 0,
-                                isLast: index == models.length - 1,
-                                actionsEnabled: enabled,
-                                onSelect: () =>
-                                    settings.updateSelectedAiModel(model.id),
-                                onTest: () async {
-                                  if (!enabled ||
-                                      _testingIds.contains(model.id)) {
-                                    return;
-                                  }
-                                  setState(() => _testingIds.add(model.id));
-                                  try {
-                                    await testAiModelConfiguration(
-                                      context,
-                                      model,
-                                    );
-                                  } finally {
-                                    if (mounted) {
-                                      setState(
-                                        () => _testingIds.remove(model.id),
-                                      );
-                                    }
-                                  }
-                                },
-                                onHealthCheck: () => context
-                                    .read<AiModelHealthController>()
-                                    .checkProvider(model),
-                                onEdit: () => showAiModelEditorDialog(
-                                  context,
-                                  initialModel: model,
-                                ),
-                                onMoveUp: () => _move(model, -1),
-                                onMoveDown: () => _move(model, 1),
-                                onDelete: () => _delete(model),
-                                onActiveModelChanged: (modelId) =>
-                                    settings.updateProviderActiveModel(
-                                      model.id,
-                                      modelId,
-                                      alsoSelectProvider: false,
-                                    ),
-                              ),
-                            ),
+                  ],
+                ),
+                itemCount: models.length,
+                onReorder: _reorder,
+                proxyDecorator: (child, index, animation) =>
+                    buildOpenHandReorderProxy(context, child, animation),
+                itemBuilder: (context, index) {
+                  final model = models[index];
+                  final enabled = !_mutatingIds.contains(model.id);
+                  return KeyedSubtree(
+                    key: ValueKey<String>(model.id),
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: OpenHandListRemovalTransition(
+                        collapsed: _removingIds.contains(model.id),
+                        child: buildAiModelProviderCard(
+                          model: model,
+                          dragIndex: index,
+                          isSelected: settings.selectedAiModelId == model.id,
+                          isTesting: _testingIds.contains(model.id),
+                          isFirst: index == 0,
+                          isLast: index == models.length - 1,
+                          actionsEnabled: enabled,
+                          onSelect: () =>
+                              settings.updateSelectedAiModel(model.id),
+                          onTest: () async {
+                            if (!enabled || _testingIds.contains(model.id)) {
+                              return;
+                            }
+                            setState(() => _testingIds.add(model.id));
+                            try {
+                              await testAiModelConfiguration(context, model);
+                            } finally {
+                              if (mounted) {
+                                setState(() => _testingIds.remove(model.id));
+                              }
+                            }
+                          },
+                          onHealthCheck: () => context
+                              .read<AiModelHealthController>()
+                              .checkProvider(model),
+                          onEdit: () => showAiModelEditorDialog(
+                            context,
+                            initialModel: model,
                           ),
-                        );
-                      },
+                          onMoveUp: () => _move(model, -1),
+                          onMoveDown: () => _move(model, 1),
+                          onDelete: () => _delete(model),
+                          onActiveModelChanged: (modelId) =>
+                              settings.updateProviderActiveModel(
+                                model.id,
+                                modelId,
+                                alsoSelectProvider: false,
+                              ),
+                        ),
+                      ),
                     ),
+                  );
+                },
+              ),
             ),
           ],
         ),
