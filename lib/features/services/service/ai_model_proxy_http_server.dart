@@ -8,6 +8,7 @@ import '../../ai/index.dart';
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_model_proxy_models.dart';
 import 'ai_model_proxy_dispatcher.dart';
+import 'ai_model_proxy_status_page.dart';
 
 /// OpenHand 模型中转站的本地 HTTP 入口。
 ///
@@ -116,6 +117,11 @@ class AiModelProxyHttpServer {
       final path = _normalizePath(request.uri.path);
       if (method == 'OPTIONS') {
         await _writeJson(request, 204, const <String, Object?>{});
+        return;
+      }
+      if ((method == 'GET' || method == 'HEAD') &&
+          isAiModelProxyStatusPath(path)) {
+        await _writeStatusPage(request, headOnly: method == 'HEAD');
         return;
       }
       if (!_controller.authorize(_headers(request))) {
@@ -1796,6 +1802,72 @@ class AiModelProxyHttpServer {
         : '/v1/models/';
     final value = path.substring(prefix.length);
     return Uri.decodeComponent(value).trim();
+  }
+
+  Future<void> _writeStatusPage(
+    HttpRequest request, {
+    required bool headOnly,
+  }) async {
+    final started = DateTime.now();
+    final headers = _headers(request);
+    var status = 200;
+    var html = '';
+    try {
+      final look = _controller.resolveThemeLook();
+      html = buildAiModelProxyStatusPage(
+        controller: _controller,
+        themeMode: look.themeMode,
+        themePreset: look.preset,
+      );
+    } on Object {
+      status = 500;
+      html =
+          '<!DOCTYPE html><html><head><meta charset="utf-8"><title>OpenHand</title></head><body>Status unavailable.</body></html>';
+    }
+    final bytes = utf8.encode(html);
+    try {
+      request.response
+        ..statusCode = status
+        ..headers.contentType = ContentType('text', 'html', charset: 'utf-8')
+        ..headers.set('cache-control', 'no-store')
+        ..headers.set('x-content-type-options', 'nosniff')
+        ..headers.set('access-control-allow-origin', '*')
+        ..headers.set('access-control-allow-methods', 'GET, HEAD, OPTIONS')
+        ..headers.set('access-control-allow-headers', _corsAllowedHeaders)
+        ..contentLength = headOnly ? 0 : bytes.length;
+      if (!headOnly) {
+        request.response.add(bytes);
+      }
+      await request.response.close();
+    } on Object {
+      await _closeRequest(request);
+    }
+    final outbound = headOnly ? 0 : bytes.length;
+    _controller.runtimeResponseWritten(
+      outboundBytes: outbound,
+      statusCode: status,
+    );
+    final durationMs = DateTime.now().difference(started).inMilliseconds;
+    unawaited(
+      _controller.recordRequest(
+        success: status < 400,
+        tokens: 0,
+        durationMs: durationMs < 0 ? 0 : durationMs,
+        modelId: aiModelProxyStatusModelId,
+        apiStyle: aiModelProxyStatusMode,
+        error: status < 400 ? null : 'status_page_unavailable',
+        clientIp: headers['x-client-ip'] ?? '',
+        clientPort: headers['x-client-port'] ?? '',
+        clientUserAgent: headers['user-agent'] ?? '',
+        proxyMode: aiModelProxyStatusMode,
+        proxyEndpoint: _controller.publicStatusUrl,
+        exposedModel: aiModelProxyStatusModelId,
+        requestPath: _normalizePath(request.uri.path),
+        inboundBytes: request.contentLength < 0 ? 0 : request.contentLength,
+        outboundBytes: outbound,
+        statusCode: status,
+      ),
+    );
   }
 
   Future<void> _writeJson(

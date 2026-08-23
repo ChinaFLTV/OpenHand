@@ -45,8 +45,6 @@ const int _kProxyOpsRankMaxRows = 12;
 const int _kProxyOpsHourBuckets = 24;
 const int _kProxyOpsFastLatencyMs = 1000;
 const int _kProxyOpsSlowLatencyMs = 3000;
-const double _kProxyOpsHealthHealthyRate = 0.99;
-const double _kProxyOpsHealthDegradedRate = 0.90;
 
 Future<void> showAiModelProxyOperationsDialog(BuildContext context) =>
     showAnimatedDialog<void>(
@@ -530,7 +528,7 @@ void _proxyOpsAccumulateRecord(
   group.outboundBytes += record.outboundBytes;
   if (record.stream) group.streams += 1;
   if (record.attempt > 1) group.retries += 1;
-  if (record.durationMs >= _kProxyOpsSlowLatencyMs) group.slowCount += 1;
+  if (record.durationMs >= aiModelProxySlowLatencyMs) group.slowCount += 1;
   if (record.durationMs > group.maxMs) group.maxMs = record.durationMs;
   group.durations.add(record.durationMs);
   final peer = record.clientEndpoint.isNotEmpty
@@ -547,6 +545,10 @@ void _proxyOpsAccumulateRecord(
   final model = record.modelId.trim();
   if (model.isNotEmpty) {
     group.modelCounts[model] = (group.modelCounts[model] ?? 0) + 1;
+  }
+  if (isAiModelProxyStatusRecord(record)) {
+    group.statusRequests += 1;
+    if (record.success) group.statusSuccesses += 1;
   }
 }
 
@@ -566,6 +568,8 @@ class _ProxyOpsGroupStat {
   int streams = 0;
   int slowCount = 0;
   int retries = 0;
+  int statusRequests = 0;
+  int statusSuccesses = 0;
   DateTime? lastAt;
   final Set<String> peers = <String>{};
   final List<int> durations = <int>[];
@@ -596,7 +600,11 @@ String _proxyOpsClientMixLabel(
   AiModelProxyRequestRecord record,
   String unknownProtocol,
 ) {
-  final protocol = record.apiStyle.trim();
+  var protocol = record.apiStyle.trim();
+  if (isAiModelProxyStatusRecord(record) ||
+      protocol == aiModelProxyStatusMode) {
+    protocol = openHandAmbientText(zh: '状态页', en: 'Status');
+  }
   final userAgent = record.clientUserAgent.trim();
   if (protocol.isEmpty && userAgent.isEmpty) return unknownProtocol;
   if (userAgent.isEmpty) return protocol;
@@ -663,6 +671,13 @@ class _ProxyOpsHero extends StatelessWidget {
                 label: data.settings.scheduling.label,
                 color: cs.primary,
               ),
+              if (running)
+                _ProxyOpsChip(
+                  icon: Icons.public_rounded,
+                  label: data.controller.publicStatusUrl,
+                  color: cs.secondary,
+                  monospace: true,
+                ),
             ],
           ),
           kOpenHandGap12,
@@ -2276,11 +2291,25 @@ String _proxyOpsRequestTitle(
   AiModelProxyRequestRecord record,
   String unknown,
 ) {
+  if (isAiModelProxyStatusRecord(record)) {
+    return openHandAmbientText(zh: '状态页', en: 'Status page');
+  }
   final title = [
     data.providerLabelFor(record, unknown: unknown),
     record.modelId,
   ].where((value) => value.trim().isNotEmpty).join(' / ');
   return title.isEmpty ? unknown : title;
+}
+
+String _proxyOpsModelGroupLabel(
+  AiModelProxyRequestRecord record,
+  String unknown,
+) {
+  if (isAiModelProxyStatusRecord(record)) {
+    return openHandAmbientText(zh: '状态页', en: 'Status page');
+  }
+  final id = record.modelId.trim();
+  return id.isEmpty ? unknown : id;
 }
 
 Widget _proxyOpsChartPanel({
@@ -2517,15 +2546,24 @@ String? _proxyOpsTopCountLabel(Map<String, int> counts) {
 }
 
 _ProxyOpsServiceHealth _proxyOpsHourHealth(_ProxyOpsGroupStat hour) {
-  if (hour.requests <= 0) return _ProxyOpsServiceHealth.idle;
-  if (hour.successRate < _kProxyOpsHealthDegradedRate) {
-    return _ProxyOpsServiceHealth.outage;
+  final inference = math.max(0, hour.requests - hour.statusRequests);
+  if (inference <= 0) {
+    return hour.statusRequests > 0
+        ? _ProxyOpsServiceHealth.healthy
+        : _ProxyOpsServiceHealth.idle;
   }
-  if (hour.successRate < _kProxyOpsHealthHealthyRate ||
-      hour.p95Ms >= _kProxyOpsSlowLatencyMs) {
-    return _ProxyOpsServiceHealth.degraded;
-  }
-  return _ProxyOpsServiceHealth.healthy;
+  final successes = math.max(0, hour.successes - hour.statusSuccesses);
+  return switch (classifyAiModelProxyHealth(
+    requests: inference,
+    successes: successes,
+    slowCount: hour.slowCount,
+    p95Ms: hour.p95Ms,
+  )) {
+    AiModelProxyHealth.idle => _ProxyOpsServiceHealth.idle,
+    AiModelProxyHealth.healthy => _ProxyOpsServiceHealth.healthy,
+    AiModelProxyHealth.degraded => _ProxyOpsServiceHealth.degraded,
+    AiModelProxyHealth.outage => _ProxyOpsServiceHealth.outage,
+  };
 }
 
 _ProxyOpsServiceHealth _proxyOpsOverallHealth(List<_ProxyOpsGroupStat> hours) {
@@ -3257,6 +3295,8 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                     ? text(zh: '已启用', en: 'Enabled')
                     : text(zh: '未启用', en: 'Disabled'),
                 text(zh: '接口风格', en: 'API style'): data.settings.apiStyle.label,
+                text(zh: '状态页', en: 'Status page'):
+                    data.controller.publicStatusUrl,
                 text(zh: '运行时长', en: 'Uptime'): formatCompactDuration(
                   data.controller.uptime,
                 ),
@@ -3382,6 +3422,14 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                     .toStringAsFixed(1),
                 helper: text(zh: '每分钟', en: 'per minute'),
                 color: cs.tertiary,
+              ),
+              _proxyOpsInsightTile(
+                context,
+                Icons.public_rounded,
+                text(zh: '状态页访问', en: 'Status hits'),
+                '${data.records.where(isAiModelProxyStatusRecord).length}',
+                helper: text(zh: '近窗样本', en: 'in window'),
+                color: cs.secondary,
               ),
             ],
           ),
@@ -3550,7 +3598,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
             [success, cs.primary, OpenHandStatusColors.warning],
           );
           final models = data.groupBy(
-            (record) => record.modelId,
+            (record) => _proxyOpsModelGroupLabel(record, unknownModel),
             unknown: unknownModel,
             where: (record) => record.success,
           );
@@ -3621,7 +3669,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
             palette,
           );
           final models = data.groupBy(
-            (record) => record.modelId,
+            (record) => _proxyOpsModelGroupLabel(record, unknownModel),
             unknown: unknownModel,
             where: (record) => !record.success,
           );
@@ -3810,7 +3858,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
         sections: (context, data) {
           final avg = data.settings.averageDurationMs;
           final models = data.groupBy(
-            (record) => record.modelId,
+            (record) => _proxyOpsModelGroupLabel(record, unknownModel),
             unknown: unknownModel,
           );
           return [
@@ -4198,6 +4246,9 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
           final disabled = math.max(0, data.settings.routes.length - enabled);
           final usageByExposed = <String, _ProxyOpsGroupStat>{
             for (final group in data.groupBy((record) {
+              if (isAiModelProxyStatusRecord(record)) {
+                return openHandAmbientText(zh: '状态页', en: 'Status page');
+              }
               final exposed = record.exposedModel.trim();
               return exposed.isEmpty ? record.modelId : exposed;
             }, unknown: unknownModel))
@@ -5104,10 +5155,13 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
         ),
         sections: (context, data) {
           final groups = data.groupBy(
-            (record) => record.modelId,
+            (record) => _proxyOpsModelGroupLabel(record, unknownModel),
             unknown: unknownModel,
           );
           final routed = data.groupBy((record) {
+            if (isAiModelProxyStatusRecord(record)) {
+              return openHandAmbientText(zh: '状态页', en: 'Status page');
+            }
             final exposed = record.exposedModel.trim();
             final model = record.modelId.trim().isEmpty
                 ? unknownModel

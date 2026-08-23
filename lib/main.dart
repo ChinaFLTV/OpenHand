@@ -251,6 +251,12 @@ Future<void> _bootstrap() async {
   services.aiModelProxyController.attachModelsProvider(
     () => settingsController.aiModels,
   );
+  services.aiModelProxyController.attachThemeProvider(
+    () => (
+      themeMode: settingsController.themeMode,
+      preset: settingsController.themePreset,
+    ),
+  );
   settingsController.attachAiModelProviderEndpointGuard(
     services.aiModelProxyController.isSelfProxyBaseUrl,
   );

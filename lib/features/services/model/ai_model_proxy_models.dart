@@ -5,6 +5,252 @@ const String aiModelProxyDefaultListenHost = '127.0.0.1';
 const int aiModelProxyDefaultListenPort = 6699;
 const int aiModelProxyMinListenPort = 1;
 const int aiModelProxyMaxListenPort = 65535;
+const String aiModelProxyStatusPath = '/status.html';
+const String aiModelProxyStatusAliasPath = '/status';
+const String aiModelProxyStatusMode = 'status';
+const String aiModelProxyStatusModelId = 'status.html';
+const int aiModelProxyStatusHistoryDays = 90;
+const int aiModelProxySlowLatencyMs = 3000;
+const double aiModelProxyHealthHealthyRate = 0.99;
+const double aiModelProxyHealthDegradedRate = 0.90;
+const int aiModelProxyDailyModelCap = 64;
+
+bool isAiModelProxyStatusPath(String path) {
+  final value = path.trim();
+  return value == aiModelProxyStatusPath ||
+      value == aiModelProxyStatusAliasPath;
+}
+
+bool isAiModelProxyStatusRecord(AiModelProxyRequestRecord record) {
+  if (record.proxyMode.trim() == aiModelProxyStatusMode) return true;
+  if (record.modelId.trim() == aiModelProxyStatusModelId) return true;
+  return isAiModelProxyStatusPath(record.requestPath);
+}
+
+String aiModelProxyDayKey(DateTime value) {
+  final local = value.toLocal();
+  return '${local.year.toString().padLeft(4, '0')}-'
+      '${local.month.toString().padLeft(2, '0')}-'
+      '${local.day.toString().padLeft(2, '0')}';
+}
+
+String aiModelProxyStatusUrl({
+  required String listenHost,
+  required int listenPort,
+}) {
+  var host = listenHost.trim();
+  if (host.isEmpty ||
+      host == '0.0.0.0' ||
+      host == '*' ||
+      host == '::' ||
+      host == '[::]') {
+    host = '127.0.0.1';
+  }
+  if (host.contains(':') && !host.startsWith('[')) {
+    host = '[$host]';
+  }
+  return 'http://$host:$listenPort$aiModelProxyStatusPath';
+}
+
+enum AiModelProxyHealth { idle, healthy, degraded, outage }
+
+AiModelProxyHealth classifyAiModelProxyHealth({
+  required int requests,
+  required int successes,
+  int slowCount = 0,
+  int p95Ms = 0,
+}) {
+  if (requests <= 0) return AiModelProxyHealth.idle;
+  final rate = successes / requests;
+  if (rate < aiModelProxyHealthDegradedRate) {
+    return AiModelProxyHealth.outage;
+  }
+  if (rate < aiModelProxyHealthHealthyRate ||
+      p95Ms >= aiModelProxySlowLatencyMs ||
+      slowCount / requests >= 0.2) {
+    return AiModelProxyHealth.degraded;
+  }
+  return AiModelProxyHealth.healthy;
+}
+
+class AiModelProxyDailyComponent {
+  const AiModelProxyDailyComponent({
+    this.requests = 0,
+    this.successes = 0,
+    this.durationMs = 0,
+    this.slowCount = 0,
+  });
+
+  factory AiModelProxyDailyComponent.fromJson(Object? raw) {
+    final json = raw is Map
+        ? Map<String, Object?>.from(raw)
+        : const <String, Object?>{};
+    return AiModelProxyDailyComponent(
+      requests: _proxyBoundedInt(json['requests'], 0, 0, 1 << 31),
+      successes: _proxyBoundedInt(json['successes'], 0, 0, 1 << 31),
+      durationMs: _proxyBoundedInt(json['duration_ms'], 0, 0, 1 << 52),
+      slowCount: _proxyBoundedInt(json['slow'], 0, 0, 1 << 31),
+    );
+  }
+
+  final int requests;
+  final int successes;
+  final int durationMs;
+  final int slowCount;
+
+  int get failures => requests <= successes ? 0 : requests - successes;
+  double get successRate =>
+      requests <= 0 ? 0 : (successes / requests).clamp(0.0, 1.0).toDouble();
+  int get avgMs => requests <= 0 ? 0 : (durationMs / requests).round();
+  AiModelProxyHealth get health => classifyAiModelProxyHealth(
+    requests: requests,
+    successes: successes,
+    slowCount: slowCount,
+    p95Ms: avgMs >= aiModelProxySlowLatencyMs ? avgMs : 0,
+  );
+
+  AiModelProxyDailyComponent add({
+    required bool success,
+    required int durationMs,
+  }) {
+    final safeMs = durationMs.clamp(0, 1 << 30);
+    return AiModelProxyDailyComponent(
+      requests: requests + 1,
+      successes: successes + (success ? 1 : 0),
+      durationMs: this.durationMs + safeMs,
+      slowCount: slowCount + (safeMs >= aiModelProxySlowLatencyMs ? 1 : 0),
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'requests': requests,
+    'successes': successes,
+    if (durationMs > 0) 'duration_ms': durationMs,
+    if (slowCount > 0) 'slow': slowCount,
+  };
+}
+
+class AiModelProxyDailyHealth {
+  const AiModelProxyDailyHealth({
+    required this.day,
+    this.total = const AiModelProxyDailyComponent(),
+    this.statusPage = const AiModelProxyDailyComponent(),
+    this.models = const <String, AiModelProxyDailyComponent>{},
+  });
+
+  factory AiModelProxyDailyHealth.fromJson(Object? raw) {
+    final json = raw is Map
+        ? Map<String, Object?>.from(raw)
+        : const <String, Object?>{};
+    final modelsRaw = json['models'];
+    final models = <String, AiModelProxyDailyComponent>{};
+    if (modelsRaw is Map) {
+      for (final entry in modelsRaw.entries) {
+        final key = '${entry.key}'.trim();
+        if (key.isEmpty) continue;
+        models[key] = AiModelProxyDailyComponent.fromJson(entry.value);
+        if (models.length >= aiModelProxyDailyModelCap) break;
+      }
+    }
+    return AiModelProxyDailyHealth(
+      day: '${json['day'] ?? ''}'.trim(),
+      total: AiModelProxyDailyComponent.fromJson(json['total']),
+      statusPage: AiModelProxyDailyComponent.fromJson(json['status_page']),
+      models: models,
+    );
+  }
+
+  final String day;
+  final AiModelProxyDailyComponent total;
+  final AiModelProxyDailyComponent statusPage;
+  final Map<String, AiModelProxyDailyComponent> models;
+
+  AiModelProxyDailyHealth add(AiModelProxyRequestRecord record) {
+    final nextTotal = total.add(
+      success: record.success,
+      durationMs: record.durationMs,
+    );
+    if (isAiModelProxyStatusRecord(record)) {
+      return AiModelProxyDailyHealth(
+        day: day,
+        total: nextTotal,
+        statusPage: statusPage.add(
+          success: record.success,
+          durationMs: record.durationMs,
+        ),
+        models: models,
+      );
+    }
+    final key = record.exposedModel.trim().isNotEmpty
+        ? record.exposedModel.trim()
+        : record.modelId.trim();
+    if (key.isEmpty) {
+      return AiModelProxyDailyHealth(
+        day: day,
+        total: nextTotal,
+        statusPage: statusPage,
+        models: models,
+      );
+    }
+    final nextModels = Map<String, AiModelProxyDailyComponent>.from(models);
+    final current = nextModels[key] ?? const AiModelProxyDailyComponent();
+    if (!nextModels.containsKey(key) &&
+        nextModels.length >= aiModelProxyDailyModelCap) {
+      return AiModelProxyDailyHealth(
+        day: day,
+        total: nextTotal,
+        statusPage: statusPage,
+        models: models,
+      );
+    }
+    nextModels[key] = current.add(
+      success: record.success,
+      durationMs: record.durationMs,
+    );
+    return AiModelProxyDailyHealth(
+      day: day,
+      total: nextTotal,
+      statusPage: statusPage,
+      models: nextModels,
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'day': day,
+    'total': total.toJson(),
+    if (statusPage.requests > 0) 'status_page': statusPage.toJson(),
+    if (models.isNotEmpty)
+      'models': <String, Object?>{
+        for (final entry in models.entries) entry.key: entry.value.toJson(),
+      },
+  };
+}
+
+List<AiModelProxyDailyHealth> _advanceDailyHealth(
+  List<AiModelProxyDailyHealth> current,
+  AiModelProxyRequestRecord record,
+) {
+  final day = aiModelProxyDayKey(record.startedAt);
+  if (day.isEmpty) return current;
+  final next = [...current];
+  final index = next.indexWhere((item) => item.day == day);
+  if (index >= 0) {
+    next[index] = next[index].add(record);
+  } else {
+    next.add(AiModelProxyDailyHealth(day: day).add(record));
+  }
+  final cutoff = record.startedAt.toLocal().subtract(
+    const Duration(days: aiModelProxyStatusHistoryDays),
+  );
+  final cutoffKey = aiModelProxyDayKey(cutoff);
+  next.removeWhere(
+    (item) => item.day.isEmpty || item.day.compareTo(cutoffKey) < 0,
+  );
+  if (next.length > aiModelProxyStatusHistoryDays) {
+    next.removeRange(0, next.length - aiModelProxyStatusHistoryDays);
+  }
+  return next;
+}
 
 int _proxyBoundedInt(Object? value, int fallback, int min, int max) {
   final parsed = value is num ? value.toInt() : int.tryParse('$value');
@@ -391,6 +637,7 @@ class AiModelProxySettings {
     this.totalDurationMs = 0,
     this.lastRequestAt,
     this.recentRequests = const <AiModelProxyRequestRecord>[],
+    this.dailyHealth = const <AiModelProxyDailyHealth>[],
   });
 
   factory AiModelProxySettings.fromJson(Object? raw) {
@@ -408,6 +655,13 @@ class AiModelProxySettings {
                 : const <Object?>[])
             .map(AiModelProxyRequestRecord.fromJson)
             .where((item) => item.id.isNotEmpty)
+            .toList(growable: false);
+    final daily =
+        (json['daily_health'] is List
+                ? json['daily_health'] as List
+                : const <Object?>[])
+            .map(AiModelProxyDailyHealth.fromJson)
+            .where((item) => item.day.isNotEmpty)
             .toList(growable: false);
     return AiModelProxySettings(
       enabled: json['enabled'] as bool? ?? false,
@@ -439,6 +693,9 @@ class AiModelProxySettings {
       recentRequests: records.length <= 200
           ? records
           : records.sublist(records.length - 200),
+      dailyHealth: daily.length <= aiModelProxyStatusHistoryDays
+          ? daily
+          : daily.sublist(daily.length - aiModelProxyStatusHistoryDays),
     );
   }
 
@@ -462,6 +719,7 @@ class AiModelProxySettings {
   final int totalDurationMs;
   final DateTime? lastRequestAt;
   final List<AiModelProxyRequestRecord> recentRequests;
+  final List<AiModelProxyDailyHealth> dailyHealth;
 
   double get successRate => requestCount == 0 ? 0 : successCount / requestCount;
   double get averageDurationMs =>
@@ -488,6 +746,7 @@ class AiModelProxySettings {
     int? totalDurationMs,
     DateTime? lastRequestAt,
     List<AiModelProxyRequestRecord>? recentRequests,
+    List<AiModelProxyDailyHealth>? dailyHealth,
   }) => AiModelProxySettings(
     enabled: enabled ?? this.enabled,
     listenHost: _normalizeListenHost(listenHost ?? this.listenHost),
@@ -512,6 +771,7 @@ class AiModelProxySettings {
     totalDurationMs: totalDurationMs ?? this.totalDurationMs,
     lastRequestAt: lastRequestAt ?? this.lastRequestAt,
     recentRequests: recentRequests ?? this.recentRequests,
+    dailyHealth: dailyHealth ?? this.dailyHealth,
   );
 
   AiModelProxySettings record({
@@ -579,6 +839,7 @@ class AiModelProxySettings {
       totalDurationMs: totalDurationMs + durationMs.clamp(0, 1 << 30),
       lastRequestAt: now,
       recentRequests: nextRecords,
+      dailyHealth: _advanceDailyHealth(dailyHealth, record),
     );
   }
 
@@ -612,6 +873,10 @@ class AiModelProxySettings {
         .take(200)
         .map((item) => item.toJson())
         .toList(growable: false),
+    if (dailyHealth.isNotEmpty)
+      'daily_health': dailyHealth
+          .map((item) => item.toJson())
+          .toList(growable: false),
   };
 
   static int _boundedInt(Object? value, int fallback, int min, int max) {

@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../app/theme/openhand_theme_preset.dart';
 import '../../shared/util/serial_task_queue.dart';
 import '../ai/index.dart';
 import 'data/ai_model_proxy_store.dart';
@@ -40,6 +41,8 @@ class AiModelProxyController extends ChangeNotifier {
       <String, _RateLimitWindowState>{};
   AiExposureProxyConfiguration Function()? _networkProxyProvider;
   List<AiModelConfig> Function()? _modelsProvider;
+  ({ThemeMode themeMode, OpenHandThemePreset preset}) Function()?
+  _themeProvider;
   AiModelProxyHttpServer? _httpServer;
   Future<void>? _rebindFuture;
   bool _rebindRequested = false;
@@ -178,6 +181,26 @@ class AiModelProxyController extends ChangeNotifier {
       modelsProvider: () => _modelsProvider?.call() ?? const <AiModelConfig>[],
     );
   }
+
+  /// 状态页跟随应用当前主题预设与明暗，而不是写死一套配色。
+  void attachThemeProvider(
+    ({ThemeMode themeMode, OpenHandThemePreset preset}) Function() provider,
+  ) {
+    if (_disposed) return;
+    _themeProvider = provider;
+  }
+
+  ({ThemeMode themeMode, OpenHandThemePreset preset}) resolveThemeLook() {
+    return _themeProvider?.call() ??
+        (themeMode: ThemeMode.system, preset: OpenHandThemePreset.deepSeaBlue);
+  }
+
+  String get publicStatusUrl => aiModelProxyStatusUrl(
+    listenHost: _settings.listenHost,
+    listenPort: boundPort ?? _settings.listenPort,
+  );
+
+  int? get boundPort => _httpServer?.boundPort;
 
   bool authorize(Map<String, String> headers) {
     if (!_settings.requireAuthentication) return true;
