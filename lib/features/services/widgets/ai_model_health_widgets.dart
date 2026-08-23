@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
 import '../ai_model_health_controller.dart';
@@ -242,23 +245,25 @@ class AiModelHealthIndicator extends StatelessWidget {
       bars[barCount - index - 1] = records[index];
     }
     final colors = Theme.of(context).colorScheme;
+    final indicator = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final record in bars)
+          _HealthBar(
+            record: record,
+            emptyColor: colors.outlineVariant.withValues(alpha: 0.45),
+            compact: compact,
+          ),
+      ],
+    );
+    if (records.isNotEmpty) return indicator;
     return Tooltip(
       message: openHandLocalizedText(
         context,
-        zh: records.isEmpty ? '暂无巡检记录' : '健康巡检历史',
-        en: records.isEmpty ? 'No health records yet' : 'Health-check history',
+        zh: '暂无巡检记录',
+        en: 'No health records yet',
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final record in bars)
-            _HealthBar(
-              record: record,
-              emptyColor: colors.outlineVariant.withValues(alpha: 0.45),
-              compact: compact,
-            ),
-        ],
-      ),
+      child: indicator,
     );
   }
 }
@@ -294,41 +299,129 @@ class _HealthBar extends StatelessWidget {
     );
     final content = record == null
         ? bar
-        : Tooltip(
-            richMessage: TextSpan(
-              style: DefaultTextStyle.of(context).style,
-              children: [
-                TextSpan(text: '${record!.providerName}\n'),
-                TextSpan(
-                  text: '${record!.modelId}\n',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                TextSpan(
-                  text:
-                      '${record!.success ? '健康' : '异常'} · '
-                      '${record!.latencyMs} ms · 耗时 ${record!.durationMs} ms\n',
-                ),
-                TextSpan(
-                  text:
-                      '${record!.checkedAt.toLocal()} · '
-                      '${record!.requestMode.storageValue}\n',
-                ),
-                if (record!.host.isNotEmpty)
-                  TextSpan(
-                    text:
-                        '${record!.host}${record!.port == null ? '' : ':${record!.port}'}\n',
-                  ),
-                if (record!.responseCode != null)
-                  TextSpan(text: 'HTTP ${record!.responseCode}\n'),
-                if (record!.errorMessage.isNotEmpty)
-                  TextSpan(text: record!.errorMessage),
-              ],
-            ),
+        : OpenHandChartTooltipTrigger(
+            tooltip: _healthRecordTooltip(context, record!),
+            accent: color,
             child: bar,
           );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 1.2),
       child: content,
     );
+  }
+
+  OpenHandChartTooltip _healthRecordTooltip(
+    BuildContext context,
+    AiModelHealthRecord record,
+  ) {
+    final text = openHandTextResolver(context);
+    final statusColor = record.success
+        ? OpenHandStatusColors.success
+        : OpenHandStatusColors.error;
+    final modeLabel = switch (record.requestMode) {
+      AiModelHealthRequestMode.direct => text(zh: '直连', en: 'Direct'),
+      AiModelHealthRequestMode.systemProxy => text(
+        zh: '系统代理',
+        en: 'System proxy',
+      ),
+      AiModelHealthRequestMode.proxyPool => text(zh: '代理池代理', en: 'Proxy pool'),
+    };
+    final metadata = record.metadata;
+    final probeType = '${metadata['probe_type'] ?? ''}'.trim();
+    final requestMethod = '${metadata['request_method'] ?? ''}'.trim();
+    final requestUrl = _safeHealthUrl('${metadata['request_url'] ?? ''}');
+    final endpoint = record.host.isEmpty
+        ? text(zh: '未解析', en: 'Unavailable')
+        : '${record.host}${record.port == null ? '' : ':${record.port}'}';
+    return OpenHandChartTooltip(
+      title: record.modelId,
+      subtitle:
+          '${record.providerName} · ${formatListDateTime(record.checkedAt)}',
+      badge: record.success
+          ? text(zh: '健康', en: 'Healthy')
+          : text(zh: '异常', en: 'Unhealthy'),
+      badgeColor: statusColor,
+      summary: record.success
+          ? text(
+              zh: '本次模型健康巡检通过，请求链路可用。',
+              en: 'This model health check passed and the request path is available.',
+            )
+          : text(
+              zh: '本次模型健康巡检未通过，请根据失败信息检查配置或服务状态。',
+              en: 'This model health check failed. Review the error and provider status.',
+            ),
+      metrics: [
+        OpenHandChartTooltipMetric(
+          label: text(zh: '健康判定', en: 'Verdict'),
+          value: record.success
+              ? text(zh: '正常', en: 'Healthy')
+              : text(zh: '异常', en: 'Unhealthy'),
+          hint: record.status,
+          icon: Icons.monitor_heart_rounded,
+          color: statusColor,
+        ),
+        OpenHandChartTooltipMetric(
+          label: text(zh: '延迟', en: 'Latency'),
+          value: '${record.latencyMs} ms',
+          icon: Icons.speed_rounded,
+          color: statusColor,
+        ),
+        OpenHandChartTooltipMetric(
+          label: text(zh: '耗时', en: 'Duration'),
+          value: '${record.durationMs} ms',
+          icon: Icons.timer_outlined,
+          color: statusColor,
+        ),
+        OpenHandChartTooltipMetric(
+          label: text(zh: '响应码', en: 'Status code'),
+          value: record.responseCode == null
+              ? '—'
+              : 'HTTP ${record.responseCode}',
+          icon: Icons.http_rounded,
+          color: record.success
+              ? OpenHandStatusColors.success
+              : OpenHandStatusColors.error,
+        ),
+        OpenHandChartTooltipMetric(
+          label: text(zh: '请求模式', en: 'Request mode'),
+          value: modeLabel,
+          icon: Icons.route_rounded,
+          color: statusColor,
+        ),
+        OpenHandChartTooltipMetric(
+          label: text(zh: '模型类型', en: 'Model kind'),
+          value: record.modelKind,
+          icon: Icons.category_outlined,
+          color: statusColor,
+        ),
+        if (requestMethod.isNotEmpty)
+          OpenHandChartTooltipMetric(
+            label: text(zh: '请求方法', en: 'Method'),
+            value: requestMethod,
+            icon: Icons.swap_horiz_rounded,
+            color: statusColor,
+          ),
+        OpenHandChartTooltipMetric(
+          label: text(zh: '巡检端点', en: 'Endpoint'),
+          value: endpoint,
+          icon: Icons.dns_outlined,
+          color: statusColor,
+        ),
+      ],
+      notes: [
+        if (record.errorMessage.trim().isNotEmpty) record.errorMessage.trim(),
+        if (probeType.isNotEmpty)
+          text(zh: '探测类型：$probeType', en: 'Probe: $probeType'),
+        if (requestUrl.isNotEmpty)
+          text(zh: '请求地址：$requestUrl', en: 'Request URL: $requestUrl'),
+        text(zh: '代理：$modeLabel', en: 'Proxy: $modeLabel'),
+      ],
+    );
+  }
+
+  String _safeHealthUrl(String raw) {
+    final uri = Uri.tryParse(raw.trim());
+    if (uri == null || uri.host.isEmpty) return '';
+    return uri.replace(userInfo: '', query: '', fragment: '').toString();
   }
 }

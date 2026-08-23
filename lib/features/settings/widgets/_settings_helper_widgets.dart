@@ -5111,8 +5111,8 @@ class _AiProviderModelChip extends StatelessWidget {
                       ),
                       tooltip: openHandLocalizedText(
                         context,
-                        zh: '检查此模型健康状态',
-                        en: 'Check this model health',
+                        zh: '检查模型健康状态',
+                        en: 'Check model health',
                       ),
                       onPressed: effectiveOnHealthCheck,
                       icon: healthCheckBusy

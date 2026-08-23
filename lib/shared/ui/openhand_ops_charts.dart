@@ -213,6 +213,182 @@ class OpenHandChartTooltip {
   }
 }
 
+/// 复用运维热力图悬停卡片的通用触发器。
+///
+/// 适用于状态条、紧凑指标等非图表控件，保持与热力图相同的定位、动画和
+/// 边界处理。鼠标移入内容卡片时会保留显示，避免跨越间隙时闪烁。
+class OpenHandChartTooltipTrigger extends StatefulWidget {
+  const OpenHandChartTooltipTrigger({
+    super.key,
+    required this.child,
+    required this.tooltip,
+    required this.accent,
+  });
+
+  final Widget child;
+  final OpenHandChartTooltip tooltip;
+  final Color accent;
+
+  @override
+  State<OpenHandChartTooltipTrigger> createState() =>
+      _OpenHandChartTooltipTriggerState();
+}
+
+class _OpenHandChartTooltipTriggerState
+    extends State<OpenHandChartTooltipTrigger>
+    with SingleTickerProviderStateMixin {
+  final OverlayPortalController _portal = OverlayPortalController();
+  late final AnimationController _transition;
+  DialogAnimationSettings _settings = OpenHandMotionDefaults.menu;
+  Timer? _showTimer;
+  Timer? _hideTimer;
+  int _generation = 0;
+  bool _showQueued = false;
+  Rect? _anchorGlobal;
+
+  @override
+  void initState() {
+    super.initState();
+    _transition = AnimationController(vsync: this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _settings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.menu,
+    );
+    _transition
+      ..duration = _settings.entranceDuration
+      ..reverseDuration = _settings.exitDuration;
+  }
+
+  @override
+  void dispose() {
+    _generation += 1;
+    _showTimer?.cancel();
+    _hideTimer?.cancel();
+    _transition.dispose();
+    super.dispose();
+  }
+
+  void _captureAnchor(BuildContext childContext) {
+    final renderObject = childContext.findRenderObject();
+    if (renderObject is RenderBox &&
+        renderObject.hasSize &&
+        renderObject.attached) {
+      _anchorGlobal =
+          renderObject.localToGlobal(Offset.zero) & renderObject.size;
+    }
+  }
+
+  void _show(BuildContext childContext) {
+    _hideTimer?.cancel();
+    _captureAnchor(childContext);
+    _showQueued = true;
+    if (_portal.isShowing) {
+      _transition.forward();
+      return;
+    }
+    final generation = ++_generation;
+    _showTimer?.cancel();
+    final delay = openHandTickerMotionEnabled(context)
+        ? _kHeatmapHoverShowDelay
+        : Duration.zero;
+    _showTimer = startSafeTimer(delay, () {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_showQueued || generation != _generation) return;
+        if (!_portal.isShowing) _portal.show();
+        _transition.forward();
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
+    });
+  }
+
+  void _scheduleHide() {
+    _showQueued = false;
+    _showTimer?.cancel();
+    final generation = ++_generation;
+    _hideTimer?.cancel();
+    _hideTimer = startSafeTimer(_kHeatmapHoverExitGrace, () {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted || _showQueued || generation != _generation) return;
+        try {
+          await _transition.reverse().orCancel;
+        } on TickerCanceled {
+          return;
+        }
+        if (!mounted || _showQueued || generation != _generation) return;
+        if (_portal.isShowing) _portal.hide();
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
+    });
+  }
+
+  Widget _buildOverlay(BuildContext overlayContext) {
+    return Positioned.fill(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final metrics = _HeatmapHoverMetrics.resolve(
+            context: context,
+            overlaySize: Size(constraints.maxWidth, constraints.maxHeight),
+            anchor: _anchorGlobal,
+          );
+          return CustomSingleChildLayout(
+            delegate: _HeatmapHoverLayoutDelegate(metrics),
+            child: MouseRegion(
+              onEnter: (_) {
+                _hideTimer?.cancel();
+                _showQueued = true;
+              },
+              onExit: (_) => _scheduleHide(),
+              child: AnimatedBuilder(
+                animation: _transition,
+                child: _HeatmapHoverCard(
+                  tooltip: widget.tooltip,
+                  accent: widget.accent,
+                ),
+                builder: (context, child) => buildAnimationStyleTransition(
+                  animation: _transition,
+                  settings: _settings,
+                  profile: OpenHandAnimationTransitionProfile(
+                    alignment: metrics.placedAbove
+                        ? Alignment.bottomCenter
+                        : Alignment.topCenter,
+                  ),
+                  child: child!,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return OverlayPortal(
+      controller: _portal,
+      overlayChildBuilder: _buildOverlay,
+      child: Builder(
+        builder: (childContext) => MouseRegion(
+          cursor: SystemMouseCursors.precise,
+          onEnter: (_) => _show(childContext),
+          onHover: (_) => _captureAnchor(childContext),
+          onExit: (_) => _scheduleHide(),
+          child: Semantics(
+            label: widget.tooltip.semanticsLabel,
+            button: true,
+            child: widget.child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// 固定颜色、标签和值的通用运维图表分段。
 ///
 /// 调用者应为每个分段提供稳定颜色；图表不会循环复用颜色。
