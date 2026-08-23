@@ -1,12 +1,18 @@
 /// 主题无关的运维图表和数据展示组件。
 library;
 
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+import '../../app/model/dialog_animation_settings.dart';
 import '../../shared/ui/openhand_spacing.dart';
+import '../util/timer_safety.dart';
+import 'animated_dialog.dart';
 import 'motion_durations.dart';
+import 'motion_preference.dart';
 import 'openhand_safe_scrollbar.dart';
 
 /// 图表四周留白与底部标签区高度。
@@ -33,6 +39,14 @@ const double _kVerticalBarBodyMaxWidth = 42;
 const double _kStatusStripHeight = 38;
 const double _kStatusStripNamedMaxWidth = 96;
 const double _kStatusStripRadius = 4;
+const double _kHeatmapHoverMinWidth = 292;
+const double _kHeatmapHoverMaxWidth = 372;
+const double _kHeatmapHoverMaxHeight = 468;
+const double _kHeatmapHoverAnchorGap = 10;
+const double _kHeatmapHoverViewportPadding = 12;
+const double _kHeatmapHoverPreferAboveMin = 168;
+const Duration _kHeatmapHoverShowDelay = Duration(milliseconds: 90);
+const Duration _kHeatmapHoverExitGrace = Duration(milliseconds: 80);
 const double _kRankHeaderHeight = 46;
 const double _kRankRowHeight = 58;
 const double _kRankBodyMaxHeight = 348;
@@ -65,6 +79,58 @@ double _finite(num value, {double fallback = 0}) {
   return result.isFinite ? result : fallback;
 }
 
+/// 热力条着色策略：强度用透明度表达，状态用分段原色表达。
+enum OpenHandHeatmapTone { intensity, categorical }
+
+/// 热力悬停卡中的一条指标。
+class OpenHandChartTooltipMetric {
+  const OpenHandChartTooltipMetric({
+    required this.label,
+    required this.value,
+    this.hint,
+    this.icon,
+    this.color,
+  });
+
+  final String label;
+  final String value;
+  final String? hint;
+  final IconData? icon;
+  final Color? color;
+}
+
+/// 热力色块悬停时的结构化说明，避免只丢两个数字。
+class OpenHandChartTooltip {
+  const OpenHandChartTooltip({
+    required this.title,
+    this.subtitle,
+    this.badge,
+    this.badgeColor,
+    this.summary,
+    this.metrics = const <OpenHandChartTooltipMetric>[],
+    this.notes = const <String>[],
+  });
+
+  final String title;
+  final String? subtitle;
+  final String? badge;
+  final Color? badgeColor;
+  final String? summary;
+  final List<OpenHandChartTooltipMetric> metrics;
+  final List<String> notes;
+
+  String get semanticsLabel {
+    return [
+      title,
+      if (badge != null && badge!.trim().isNotEmpty) badge!.trim(),
+      if (subtitle != null && subtitle!.trim().isNotEmpty) subtitle!.trim(),
+      if (summary != null && summary!.trim().isNotEmpty) summary!.trim(),
+      for (final metric in metrics) '${metric.label} ${metric.value}',
+      ...notes,
+    ].join('，');
+  }
+}
+
 /// 固定颜色、标签和值的通用运维图表分段。
 ///
 /// 调用者应为每个分段提供稳定颜色；图表不会循环复用颜色。
@@ -75,6 +141,7 @@ class OpenHandChartSegment {
     required this.color,
     this.valueLabel,
     this.icon,
+    this.tooltip,
   });
 
   final String label;
@@ -82,6 +149,7 @@ class OpenHandChartSegment {
   final Color color;
   final String? valueLabel;
   final IconData? icon;
+  final OpenHandChartTooltip? tooltip;
 
   double get safeValue => _nonNegative(value);
 }
@@ -2356,165 +2424,859 @@ class _OpenHandOperationalRankTableState
   }
 }
 
-/// 状态条热力：等高校色圆角条，强度用透明度表达，悬停显示标签与数值。
-class OpenHandOperationalHeatmap extends StatelessWidget {
+/// 状态条热力：等高校色圆角条；强度或离散状态着色，悬停展示结构化说明卡。
+class OpenHandOperationalHeatmap extends StatefulWidget {
   const OpenHandOperationalHeatmap({
     super.key,
     required this.segments,
     required this.color,
     this.emptyLabel = '暂无可用数据',
     this.valueLabel,
+    this.tone = OpenHandHeatmapTone.intensity,
+    this.keepIdleCells = false,
   });
 
   final List<OpenHandChartSegment> segments;
   final Color color;
   final String emptyLabel;
   final String Function(OpenHandChartSegment segment)? valueLabel;
+  final OpenHandHeatmapTone tone;
+  final bool keepIdleCells;
+
+  @override
+  State<OpenHandOperationalHeatmap> createState() =>
+      _OpenHandOperationalHeatmapState();
+}
+
+class _OpenHandOperationalHeatmapState extends State<OpenHandOperationalHeatmap>
+    with SingleTickerProviderStateMixin {
+  final OverlayPortalController _portal = OverlayPortalController();
+  late final AnimationController _transition;
+  DialogAnimationSettings _settings = OpenHandMotionDefaults.menu;
+  Timer? _showTimer;
+  Timer? _hideTimer;
+  int _generation = 0;
+  int? _hoveredIndex;
+  int? _pressedIndex;
+  bool _showQueued = false;
+  bool _pinned = false;
+  Rect? _anchorGlobal;
+  OpenHandChartTooltip? _activeTooltip;
+  Color? _activeAccent;
+
+  @override
+  void initState() {
+    super.initState();
+    _transition = AnimationController(vsync: this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final settings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.menu,
+    );
+    _settings = settings;
+    _transition
+      ..duration = settings.entranceDuration
+      ..reverseDuration = settings.exitDuration;
+  }
+
+  @override
+  void didUpdateWidget(covariant OpenHandOperationalHeatmap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.segments, widget.segments) &&
+        _hoveredIndex != null &&
+        _hoveredIndex! >= widget.segments.length) {
+      _pinned = false;
+      _scheduleHide();
+    }
+  }
+
+  @override
+  void dispose() {
+    _generation += 1;
+    _showTimer?.cancel();
+    _hideTimer?.cancel();
+    _transition.dispose();
+    super.dispose();
+  }
+
+  String _labelFor(OpenHandChartSegment segment) =>
+      widget.valueLabel?.call(segment) ??
+      segment.valueLabel ??
+      _finite(segment.value).toStringAsFixed(0);
+
+  OpenHandChartTooltip _tooltipFor(OpenHandChartSegment segment) {
+    return segment.tooltip ??
+        OpenHandChartTooltip(
+          title: segment.label,
+          badge: _labelFor(segment),
+          badgeColor: segment.color,
+          summary: '该分段当前观测值为 ${_labelFor(segment)}。',
+          metrics: [
+            OpenHandChartTooltipMetric(
+              label: '观测值',
+              value: _labelFor(segment),
+              icon: Icons.insights_rounded,
+              color: segment.color,
+            ),
+          ],
+        );
+  }
+
+  Color _fillFor(OpenHandChartSegment segment, double maximum) {
+    final base = segment.color;
+    if (widget.tone == OpenHandHeatmapTone.categorical) {
+      return segment.safeValue <= 0 ? base.withValues(alpha: 0.32) : base;
+    }
+    if (segment.safeValue <= 0 || maximum <= 0) {
+      return base.withValues(alpha: 0.12);
+    }
+    final ratio = (segment.safeValue / maximum).clamp(0.0, 1.0);
+    return base.withValues(alpha: 0.22 + ratio * 0.78);
+  }
+
+  void _captureAnchor(BuildContext cellContext) {
+    final box = cellContext.findRenderObject();
+    if (box is RenderBox && box.hasSize && box.attached) {
+      _anchorGlobal = box.localToGlobal(Offset.zero) & box.size;
+    }
+  }
+
+  void _showAt(int index, BuildContext cellContext) {
+    if (index < 0 || index >= widget.segments.length) return;
+    _hideTimer?.cancel();
+    final segment = widget.segments[index];
+    _hoveredIndex = index;
+    _activeTooltip = _tooltipFor(segment);
+    _activeAccent = _fillFor(
+      segment,
+      widget.segments.fold<double>(
+        0,
+        (maximum, item) => math.max(maximum, item.safeValue),
+      ),
+    );
+    _captureAnchor(cellContext);
+    _showQueued = true;
+    if (mounted) setState(() {});
+    if (_portal.isShowing) {
+      _transition.forward();
+      return;
+    }
+    final generation = ++_generation;
+    _showTimer?.cancel();
+    final delay = openHandTickerMotionEnabled(context)
+        ? _kHeatmapHoverShowDelay
+        : Duration.zero;
+    _showTimer = startSafeTimer(delay, () {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_showQueued || generation != _generation) return;
+        if (!_portal.isShowing) _portal.show();
+        _transition.forward();
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
+    });
+  }
+
+  void _scheduleHide() {
+    if (_pinned) return;
+    _showQueued = false;
+    _showTimer?.cancel();
+    final generation = ++_generation;
+    _hideTimer?.cancel();
+    _hideTimer = startSafeTimer(_kHeatmapHoverExitGrace, () {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted || _showQueued || generation != _generation) return;
+        try {
+          await _transition.reverse().orCancel;
+        } on TickerCanceled {
+          return;
+        }
+        if (!mounted || _showQueued || generation != _generation) return;
+        if (_portal.isShowing) _portal.hide();
+        if (mounted) {
+          setState(() {
+            _hoveredIndex = null;
+            _pressedIndex = null;
+          });
+        }
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
+    });
+  }
+
+  void _togglePin(int index, BuildContext cellContext) {
+    if (_pinned && _hoveredIndex == index) {
+      _pinned = false;
+      _scheduleHide();
+      return;
+    }
+    _pinned = true;
+    _showAt(index, cellContext);
+  }
+
+  Widget _buildOverlay(BuildContext overlayContext) {
+    final tooltip = _activeTooltip;
+    final accent = _activeAccent ?? widget.color;
+    if (tooltip == null) return const SizedBox.shrink();
+    return Positioned.fill(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final metrics = _HeatmapHoverMetrics.resolve(
+            context: context,
+            overlaySize: Size(constraints.maxWidth, constraints.maxHeight),
+            anchor: _anchorGlobal,
+          );
+          return CustomSingleChildLayout(
+            delegate: _HeatmapHoverLayoutDelegate(metrics),
+            child: MouseRegion(
+              onEnter: (_) {
+                _hideTimer?.cancel();
+                _showQueued = true;
+              },
+              onExit: (_) => _scheduleHide(),
+              child: AnimatedBuilder(
+                animation: _transition,
+                child: _HeatmapHoverCard(tooltip: tooltip, accent: accent),
+                builder: (context, child) => buildAnimationStyleTransition(
+                  animation: _transition,
+                  settings: _settings,
+                  profile: OpenHandAnimationTransitionProfile(
+                    alignment: metrics.placedAbove
+                        ? Alignment.bottomCenter
+                        : Alignment.topCenter,
+                  ),
+                  child: child!,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final segments = widget.segments;
     final maximum = segments.fold<double>(
       0,
       (maximum, segment) => math.max(maximum, segment.safeValue),
     );
-    if (maximum <= 0 || segments.isEmpty) {
-      return _EmptyChartLabel(label: emptyLabel);
-    }
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
     final hourPattern = RegExp(r'^\d{1,2}$');
     final hourStrip =
         (segments.length == 12 || segments.length == 24) &&
         segments.every((segment) => hourPattern.hasMatch(segment.label));
-    return RepaintBoundary(
-      child: Semantics(
-        label:
-            '热力条，${segments.map((segment) => '${segment.label} ${_labelFor(segment)}').join('，')}',
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final n = segments.length;
-            final available = constraints.maxWidth.isFinite
-                ? constraints.maxWidth
-                : _kStatusStripNamedMaxWidth * n;
-            final gap = hourStrip ? 3.0 : 10.0;
-            final even = (available - gap * (n - 1)) / n;
-            final slotWidth = hourStrip
-                ? math.max(4.0, even)
-                : even.clamp(8.0, _kStatusStripNamedMaxWidth);
-            final glyphWidth = hourStrip
-                ? slotWidth
-                : math.min(28.0, slotWidth);
-            final total = slotWidth * n + gap * (n - 1);
-            final tickEvery = n == 24
-                ? 6
-                : n == 12
-                ? 3
-                : 1;
-            Widget cell(int index) {
-              final segment = segments[index];
-              final ratio = (segment.safeValue / maximum).clamp(0.0, 1.0);
-              final fill = segment.safeValue <= 0
-                  ? color.withValues(alpha: 0.10)
-                  : color.withValues(alpha: 0.18 + ratio * 0.82);
-              final showTick =
-                  !hourStrip ||
-                  index == 0 ||
-                  index == n - 1 ||
-                  index % tickEvery == 0;
-              return SizedBox(
-                width: slotWidth,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Tooltip(
-                      waitDuration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                      decoration: BoxDecoration(
-                        color: colors.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(kOpenHandRadius10),
-                        border: Border.all(
-                          color: colors.outlineVariant.withValues(alpha: 0.7),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: colors.shadow.withValues(alpha: 0.12),
-                            blurRadius: 16,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      textStyle: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurface,
-                        fontWeight: FontWeight.w600,
-                        height: 1.35,
-                      ),
-                      message: '${segment.label}\n${_labelFor(segment)}',
-                      child: Semantics(
-                        label: '${segment.label} ${_labelFor(segment)}',
-                        child: Center(
-                          child: AnimatedContainer(
-                            duration: kOpenHandMotion180,
-                            curve: Curves.easeOutCubic,
-                            width: glyphWidth,
-                            height: _kStatusStripHeight,
-                            decoration: BoxDecoration(
-                              color: fill,
-                              borderRadius: BorderRadius.circular(
-                                _kStatusStripRadius,
+    final keepIdle = widget.keepIdleCells || hourStrip;
+    if (segments.isEmpty || (maximum <= 0 && !keepIdle)) {
+      return _EmptyChartLabel(label: widget.emptyLabel);
+    }
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return OverlayPortal(
+      controller: _portal,
+      overlayChildBuilder: _buildOverlay,
+      child: RepaintBoundary(
+        child: Semantics(
+          label:
+              '热力条，${segments.map((segment) => '${segment.label} ${_labelFor(segment)}').join('，')}',
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final n = segments.length;
+              final available = constraints.maxWidth.isFinite
+                  ? constraints.maxWidth
+                  : _kStatusStripNamedMaxWidth * n;
+              final gap = hourStrip ? 3.0 : 10.0;
+              final even = n <= 1 ? available : (available - gap * (n - 1)) / n;
+              final slotWidth = hourStrip
+                  ? math.max(4.0, even)
+                  : even.clamp(8.0, _kStatusStripNamedMaxWidth);
+              final glyphWidth = hourStrip
+                  ? slotWidth
+                  : math.min(28.0, slotWidth);
+              final total = slotWidth * n + gap * (n - 1);
+              final tickEvery = n == 24
+                  ? 6
+                  : n == 12
+                  ? 3
+                  : 1;
+              Widget cell(int index) {
+                final segment = segments[index];
+                final fill = _fillFor(segment, maximum);
+                final hovered = _hoveredIndex == index;
+                final pressed = _pressedIndex == index;
+                final showTick =
+                    !hourStrip ||
+                    index == 0 ||
+                    index == n - 1 ||
+                    index % tickEvery == 0;
+                final tooltip = _tooltipFor(segment);
+                return SizedBox(
+                  width: slotWidth,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Builder(
+                        builder: (cellContext) => MouseRegion(
+                          cursor: SystemMouseCursors.precise,
+                          onEnter: (_) => _showAt(index, cellContext),
+                          onHover: (_) => _captureAnchor(cellContext),
+                          onExit: (_) => _scheduleHide(),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTapDown: (_) {
+                              setState(() => _pressedIndex = index);
+                            },
+                            onTapUp: (_) {
+                              if (_pressedIndex == index) {
+                                setState(() => _pressedIndex = null);
+                              }
+                            },
+                            onTapCancel: () {
+                              if (_pressedIndex == index) {
+                                setState(() => _pressedIndex = null);
+                              }
+                            },
+                            onTap: () => _togglePin(index, cellContext),
+                            child: Semantics(
+                              label: tooltip.semanticsLabel,
+                              button: true,
+                              child: Center(
+                                child: AnimatedScale(
+                                  scale: pressed
+                                      ? 0.92
+                                      : hovered
+                                      ? 1.08
+                                      : 1.0,
+                                  duration: openHandMotionDuration(
+                                    context,
+                                    kOpenHandMotion180,
+                                  ),
+                                  curve: hovered
+                                      ? kOpenHandEntranceCurve
+                                      : kOpenHandSwitchOutCurve,
+                                  child: AnimatedContainer(
+                                    duration: openHandMotionDuration(
+                                      context,
+                                      kOpenHandMotion180,
+                                    ),
+                                    curve: kOpenHandSwitchInCurve,
+                                    width: glyphWidth,
+                                    height: _kStatusStripHeight,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(
+                                        _kStatusStripRadius,
+                                      ),
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          Color.lerp(
+                                            fill,
+                                            Colors.white,
+                                            hovered ? 0.28 : 0.14,
+                                          )!,
+                                          fill,
+                                          Color.lerp(fill, Colors.black, 0.16)!,
+                                        ],
+                                      ),
+                                      border: Border.all(
+                                        color: fill.withValues(
+                                          alpha: hovered ? 0.98 : 0.42,
+                                        ),
+                                        width: hovered ? 1.5 : 1,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: fill.withValues(
+                                            alpha: hovered ? 0.42 : 0.16,
+                                          ),
+                                          blurRadius: hovered ? 14 : 5,
+                                          offset: Offset(0, hovered ? 5 : 1),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    kOpenHandGap8,
-                    SizedBox(
-                      height: hourStrip ? 16 : 32,
-                      child: showTick
-                          ? Text(
-                              hourStrip
-                                  ? segment.label
-                                  : '${segment.label}\n${_labelFor(segment)}',
-                              maxLines: hourStrip ? 1 : 2,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: colors.onSurfaceVariant,
-                                fontWeight: FontWeight.w700,
-                                height: 1.2,
-                              ),
-                            )
-                          : null,
-                    ),
-                  ],
+                      kOpenHandGap8,
+                      SizedBox(
+                        height: hourStrip ? 16 : 32,
+                        child: showTick
+                            ? Text(
+                                segment.label,
+                                maxLines: hourStrip ? 1 : 2,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: hovered
+                                      ? colors.onSurface
+                                      : colors.onSurfaceVariant,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.2,
+                                ),
+                              )
+                            : null,
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return Align(
+                alignment: hourStrip ? Alignment.centerLeft : Alignment.center,
+                child: SizedBox(
+                  width: math.min(total, available),
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < n; i++) ...[
+                        if (i != 0) SizedBox(width: gap),
+                        cell(i),
+                      ],
+                    ],
+                  ),
                 ),
               );
-            }
-
-            return Align(
-              alignment: hourStrip ? Alignment.centerLeft : Alignment.center,
-              child: SizedBox(
-                width: math.min(total, available),
-                child: Row(
-                  children: [
-                    for (var i = 0; i < n; i++) ...[
-                      if (i != 0) SizedBox(width: gap),
-                      cell(i),
-                    ],
-                  ],
-                ),
-              ),
-            );
-          },
+            },
+          ),
         ),
       ),
     );
   }
+}
 
-  String _labelFor(OpenHandChartSegment segment) =>
-      valueLabel?.call(segment) ??
-      segment.valueLabel ??
-      _finite(segment.value).toStringAsFixed(0);
+class _HeatmapHoverMetrics {
+  const _HeatmapHoverMetrics({
+    required this.safeRect,
+    required this.anchorRect,
+    required this.placedAbove,
+    required this.maxHeight,
+    required this.minWidth,
+    required this.maxWidth,
+  });
+
+  final Rect safeRect;
+  final Rect anchorRect;
+  final bool placedAbove;
+  final double maxHeight;
+  final double minWidth;
+  final double maxWidth;
+
+  static _HeatmapHoverMetrics resolve({
+    required BuildContext context,
+    required Size overlaySize,
+    required Rect? anchor,
+  }) {
+    final padding = MediaQuery.paddingOf(context);
+    final width = overlaySize.width.isFinite && overlaySize.width > 0
+        ? overlaySize.width
+        : 0.0;
+    final height = overlaySize.height.isFinite && overlaySize.height > 0
+        ? overlaySize.height
+        : 0.0;
+    final left = (padding.left + _kHeatmapHoverViewportPadding)
+        .clamp(0, width)
+        .toDouble();
+    final top = (padding.top + _kHeatmapHoverViewportPadding)
+        .clamp(0, height)
+        .toDouble();
+    final right = math.max(
+      left,
+      width - padding.right - _kHeatmapHoverViewportPadding,
+    );
+    final bottom = math.max(
+      top,
+      height - padding.bottom - _kHeatmapHoverViewportPadding,
+    );
+    final safeRect = Rect.fromLTRB(left, top, right, bottom);
+    final overlayBox = Overlay.maybeOf(context)?.context.findRenderObject();
+    Rect anchorRect;
+    if (anchor == null) {
+      anchorRect = Rect.fromLTWH(safeRect.left, safeRect.top, 0, 0);
+    } else if (overlayBox is RenderBox && overlayBox.attached) {
+      final origin = overlayBox.localToGlobal(Offset.zero);
+      anchorRect = anchor.translate(-origin.dx, -origin.dy);
+    } else {
+      anchorRect = anchor;
+    }
+    final belowHeight =
+        safeRect.bottom - anchorRect.bottom - _kHeatmapHoverAnchorGap;
+    final aboveHeight = anchorRect.top - safeRect.top - _kHeatmapHoverAnchorGap;
+    final placedAbove =
+        belowHeight < _kHeatmapHoverPreferAboveMin && aboveHeight > belowHeight;
+    final rawHeight = placedAbove ? aboveHeight : belowHeight;
+    final maxHeight = rawHeight.isFinite
+        ? rawHeight
+              .clamp(96.0, math.min(_kHeatmapHoverMaxHeight, safeRect.height))
+              .toDouble()
+        : math.min(_kHeatmapHoverMaxHeight, safeRect.height);
+    final maxWidth = math.min(
+      _kHeatmapHoverMaxWidth,
+      math.max(0.0, safeRect.width),
+    );
+    final minWidth = math.min(_kHeatmapHoverMinWidth, maxWidth);
+    return _HeatmapHoverMetrics(
+      safeRect: safeRect,
+      anchorRect: anchorRect,
+      placedAbove: placedAbove,
+      maxHeight: math.max(0.0, maxHeight),
+      minWidth: minWidth,
+      maxWidth: maxWidth,
+    );
+  }
+}
+
+class _HeatmapHoverLayoutDelegate extends SingleChildLayoutDelegate {
+  const _HeatmapHoverLayoutDelegate(this.metrics);
+
+  final _HeatmapHoverMetrics metrics;
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    return BoxConstraints(
+      minWidth: metrics.minWidth,
+      maxWidth: metrics.maxWidth,
+      maxHeight: metrics.maxHeight,
+    );
+  }
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) {
+    final safe = metrics.safeRect;
+    final rawLeft = metrics.anchorRect.center.dx - childSize.width / 2;
+    final left = _clampHeatmapCoord(
+      rawLeft,
+      lower: safe.left,
+      upper: safe.right - childSize.width,
+    );
+    final rawTop = metrics.placedAbove
+        ? metrics.anchorRect.top - childSize.height - _kHeatmapHoverAnchorGap
+        : metrics.anchorRect.bottom + _kHeatmapHoverAnchorGap;
+    final top = _clampHeatmapCoord(
+      rawTop,
+      lower: safe.top,
+      upper: safe.bottom - childSize.height,
+    );
+    return Offset(left, top);
+  }
+
+  @override
+  bool shouldRelayout(covariant _HeatmapHoverLayoutDelegate oldDelegate) {
+    return oldDelegate.metrics.safeRect != metrics.safeRect ||
+        oldDelegate.metrics.anchorRect != metrics.anchorRect ||
+        oldDelegate.metrics.placedAbove != metrics.placedAbove ||
+        oldDelegate.metrics.maxHeight != metrics.maxHeight ||
+        oldDelegate.metrics.minWidth != metrics.minWidth ||
+        oldDelegate.metrics.maxWidth != metrics.maxWidth;
+  }
+}
+
+double _clampHeatmapCoord(
+  double value, {
+  required double lower,
+  required double upper,
+}) {
+  if (!value.isFinite) return lower;
+  if (upper <= lower) return lower;
+  return value.clamp(lower, upper).toDouble();
+}
+
+class _HeatmapHoverCard extends StatelessWidget {
+  const _HeatmapHoverCard({required this.tooltip, required this.accent});
+
+  final OpenHandChartTooltip tooltip;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final badge = tooltip.badge?.trim();
+    final subtitle = tooltip.subtitle?.trim();
+    final summary = tooltip.summary?.trim();
+    final badgeColor = tooltip.badgeColor ?? accent;
+    return Material(
+      color: Colors.transparent,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: _kHeatmapHoverMaxWidth),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(kOpenHandRadius16),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color.lerp(colors.surface, accent, 0.16)!,
+                colors.surfaceContainerHigh,
+                Color.lerp(colors.surfaceContainerHighest, accent, 0.08)!,
+              ],
+            ),
+            border: Border.all(color: accent.withValues(alpha: 0.42)),
+            boxShadow: [
+              BoxShadow(
+                color: accent.withValues(alpha: 0.22),
+                blurRadius: 28,
+                offset: const Offset(0, 14),
+              ),
+              BoxShadow(
+                color: colors.shadow.withValues(alpha: 0.18),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(kOpenHandRadius16),
+            child: ListView(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              children: [
+                Container(
+                  height: 4,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Color.lerp(accent, Colors.white, 0.35)!,
+                        accent,
+                        Color.lerp(accent, Colors.black, 0.12)!,
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 4,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: accent,
+                              borderRadius: BorderRadius.circular(
+                                kOpenHandRadius4,
+                              ),
+                            ),
+                          ),
+                          kOpenHandHGap10,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  tooltip.title,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                    height: 1.2,
+                                  ),
+                                ),
+                                if (subtitle != null &&
+                                    subtitle.isNotEmpty) ...[
+                                  kOpenHandGap3,
+                                  Text(
+                                    subtitle,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: colors.onSurfaceVariant,
+                                      height: 1.3,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          if (badge != null && badge.isNotEmpty) ...[
+                            kOpenHandHGap8,
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 9,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: badgeColor.withValues(alpha: 0.16),
+                                borderRadius: BorderRadius.circular(
+                                  kOpenHandRadius20,
+                                ),
+                                border: Border.all(
+                                  color: badgeColor.withValues(alpha: 0.4),
+                                ),
+                              ),
+                              child: Text(
+                                badge,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: badgeColor,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (summary != null && summary.isNotEmpty) ...[
+                        kOpenHandGap10,
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: accent.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(
+                              kOpenHandRadius10,
+                            ),
+                            border: Border.all(
+                              color: accent.withValues(alpha: 0.16),
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                            child: Text(
+                              summary,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                height: 1.45,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (tooltip.metrics.isNotEmpty) ...[
+                        kOpenHandGap12,
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final metric in tooltip.metrics)
+                              _HeatmapHoverMetricTile(
+                                metric: metric,
+                                fallback: accent,
+                              ),
+                          ],
+                        ),
+                      ],
+                      if (tooltip.notes.isNotEmpty) ...[
+                        kOpenHandGap12,
+                        for (var i = 0; i < tooltip.notes.length; i++) ...[
+                          if (i != 0) kOpenHandGap6,
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(top: 3),
+                                child: Icon(
+                                  Icons.info_outline_rounded,
+                                  size: 13,
+                                  color: accent.withValues(alpha: 0.9),
+                                ),
+                              ),
+                              kOpenHandHGap6,
+                              Expanded(
+                                child: Text(
+                                  tooltip.notes[i],
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: colors.onSurfaceVariant,
+                                    height: 1.4,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeatmapHoverMetricTile extends StatelessWidget {
+  const _HeatmapHoverMetricTile({required this.metric, required this.fallback});
+
+  final OpenHandChartTooltipMetric metric;
+  final Color fallback;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final tone = metric.color ?? fallback;
+    final hint = metric.hint?.trim();
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 132, maxWidth: 164),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: tone.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(kOpenHandRadius12),
+          border: Border.all(color: tone.withValues(alpha: 0.22)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    metric.icon ?? Icons.analytics_outlined,
+                    size: 14,
+                    color: tone,
+                  ),
+                  kOpenHandHGap5,
+                  Expanded(
+                    child: Text(
+                      metric.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              kOpenHandGap4,
+              Text(
+                metric.value,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  color: tone,
+                  height: 1.15,
+                ),
+              ),
+              if (hint != null && hint.isNotEmpty) ...[
+                kOpenHandGap3,
+                Text(
+                  hint,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// 延迟分位数或范围比较组件。分位数和颜色由调用方提供，不依赖具体服务模型。

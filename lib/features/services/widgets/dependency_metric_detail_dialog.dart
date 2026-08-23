@@ -3787,20 +3787,80 @@ class _TtlHeatmap extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) => OpenHandOperationalHeatmap(
-    segments: values.entries
-        .map(
-          (item) => OpenHandChartSegment(
+  Widget build(BuildContext context) {
+    final total = values.values.fold<int>(0, (sum, count) => sum + count);
+    return OpenHandOperationalHeatmap(
+      segments: [
+        for (final item in values.entries)
+          OpenHandChartSegment(
             label: item.key,
             value: item.value,
             color: color,
             valueLabel: '${item.value} 个 Key',
+            tooltip: OpenHandChartTooltip(
+              title: item.key,
+              subtitle: '当前已加载 Key 样本中的 TTL 区间',
+              badge: item.value <= 0 ? '空闲' : '${item.value} 个 Key',
+              badgeColor: color,
+              summary: item.value <= 0
+                  ? '这个 TTL 区间当前没有 Key。浅色格表示空闲，不是过期事故。'
+                  : '这个区间有 ${item.value} 个 Key，占已加载样本 ${total <= 0 ? '0%' : '${((item.value / total) * 100).toStringAsFixed(1)}%'}。颜色越深表示该过期策略下的 Key 越多。',
+              metrics: [
+                OpenHandChartTooltipMetric(
+                  label: 'Key 数量',
+                  value: '${item.value}',
+                  icon: Icons.key_rounded,
+                  color: color,
+                ),
+                OpenHandChartTooltipMetric(
+                  label: '样本占比',
+                  value: total <= 0
+                      ? '—'
+                      : '${((item.value / total) * 100).toStringAsFixed(1)}%',
+                  hint: '共 $total 个已加载 Key',
+                  icon: Icons.pie_chart_rounded,
+                  color: color,
+                ),
+                OpenHandChartTooltipMetric(
+                  label: '区间含义',
+                  value: _ttlBucketMeaning(item.key),
+                  icon: Icons.schedule_rounded,
+                  color: color,
+                ),
+              ],
+              notes: [
+                _ttlBucketAdvice(item.key),
+                '此图统计的是当前样本里的过期时间分布，不是 Redis 实例的健康状态。',
+              ],
+            ),
           ),
-        )
-        .toList(growable: false),
-    color: color,
-    emptyLabel: '暂无 TTL 数据',
-  );
+      ],
+      color: color,
+      emptyLabel: '暂无 TTL 数据',
+    );
+  }
+}
+
+String _ttlBucketMeaning(String bucket) {
+  return switch (bucket) {
+    '即将过期 < 1 分钟' => '剩余 TTL 不足 1 分钟，很快会从缓存消失',
+    '1 分钟 - 1 小时' => '短期缓存，适合会话、验证码和热点缓冲',
+    '1 - 24 小时' => '日内缓存，适合列表页和配置快照',
+    '大于 24 小时' => '长 TTL，适合相对稳定的字典或物化结果',
+    '永久' => '未设置过期时间，会一直占用内存直到被淘汰或手动删除',
+    _ => '按剩余 TTL 划分的样本桶',
+  };
+}
+
+String _ttlBucketAdvice(String bucket) {
+  return switch (bucket) {
+    '即将过期 < 1 分钟' => '若这一桶突然变深，说明大量 Key 会在一分钟内集体过期，可能带来击穿。',
+    '1 分钟 - 1 小时' => '常见的短缓存带。深度上升通常只是业务高峰，不一定是风险。',
+    '1 - 24 小时' => '中等寿命缓存。可结合内存占用判断是否需要缩短 TTL。',
+    '大于 24 小时' => '长寿命 Key 变多时，要留意内存被旧数据长期占用。',
+    '永久' => '永久 Key 不会自动释放。占比过高时，应核对是否遗漏了过期策略。',
+    _ => '颜色深度只表示该区间的 Key 数量。',
+  };
 }
 
 class _RadialMeter extends StatelessWidget {

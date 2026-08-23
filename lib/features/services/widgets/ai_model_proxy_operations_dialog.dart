@@ -45,6 +45,8 @@ const int _kProxyOpsRankMaxRows = 12;
 const int _kProxyOpsHourBuckets = 24;
 const int _kProxyOpsFastLatencyMs = 1000;
 const int _kProxyOpsSlowLatencyMs = 3000;
+const double _kProxyOpsHealthHealthyRate = 0.99;
+const double _kProxyOpsHealthDegradedRate = 0.90;
 
 Future<void> showAiModelProxyOperationsDialog(BuildContext context) =>
     showAnimatedDialog<void>(
@@ -238,6 +240,7 @@ class _ProxyOpsSnapshot {
     required this.hourRequestCounts,
     required this.hourPeerCounts,
     required this.hourFailureCounts,
+    required this.hourStats,
     required this.trendEndAt,
     required this.usesHistoricalTrendWindow,
   });
@@ -273,11 +276,9 @@ class _ProxyOpsSnapshot {
       _kProxyOpsTrendBuckets,
       (_) => <int>[],
     );
-    final hourRequests = List<int>.filled(_kProxyOpsHourBuckets, 0);
-    final hourFailures = List<int>.filled(_kProxyOpsHourBuckets, 0);
-    final hourPeerSets = List<Set<String>>.generate(
+    final hourStats = List<_ProxyOpsGroupStat>.generate(
       _kProxyOpsHourBuckets,
-      (_) => <String>{},
+      (hour) => _ProxyOpsGroupStat(twoDigit(hour)),
     );
     final peers = <String>{};
     final ports = <String>{};
@@ -287,15 +288,11 @@ class _ProxyOpsSnapshot {
       durations.add(record.durationMs);
       if (record.tokens > maxTokens) maxTokens = record.tokens;
       final hour = record.startedAt.hour.clamp(0, _kProxyOpsHourBuckets - 1);
-      hourRequests[hour] += 1;
-      if (!record.success) hourFailures[hour] += 1;
+      _proxyOpsAccumulateRecord(hourStats[hour], record);
       final peer = record.clientEndpoint.isNotEmpty
           ? record.clientEndpoint
           : record.clientIp.trim();
-      if (peer.isNotEmpty) {
-        peers.add(peer);
-        hourPeerSets[hour].add(peer);
-      }
+      if (peer.isNotEmpty) peers.add(peer);
       final port = record.clientPort.trim();
       if (port.isNotEmpty) ports.add(port);
       final age = trendEndAt.difference(record.startedAt).inMinutes;
@@ -331,9 +328,10 @@ class _ProxyOpsSnapshot {
       averageLatencyBuckets: averageLatency,
       p95LatencyBuckets: p95Latency,
       tokenBuckets: tokens,
-      hourRequestCounts: hourRequests,
-      hourPeerCounts: [for (final set in hourPeerSets) set.length],
-      hourFailureCounts: hourFailures,
+      hourRequestCounts: [for (final hour in hourStats) hour.requests],
+      hourPeerCounts: [for (final hour in hourStats) hour.peers.length],
+      hourFailureCounts: [for (final hour in hourStats) hour.failures],
+      hourStats: hourStats,
       trendEndAt: trendEndAt,
       usesHistoricalTrendWindow: usesHistoricalTrendWindow,
     );
@@ -358,6 +356,7 @@ class _ProxyOpsSnapshot {
   final List<int> hourRequestCounts;
   final List<int> hourPeerCounts;
   final List<int> hourFailureCounts;
+  final List<_ProxyOpsGroupStat> hourStats;
   final DateTime trendEndAt;
   final bool usesHistoricalTrendWindow;
 
@@ -466,24 +465,7 @@ class _ProxyOpsSnapshot {
         normalized,
         () => _ProxyOpsGroupStat(normalized),
       );
-      group.requests += 1;
-      if (record.success) group.successes += 1;
-      group.tokens += record.tokens;
-      group.promptTokens += record.promptTokens;
-      group.completionTokens += record.completionTokens;
-      group.durationMs += record.durationMs;
-      group.inboundBytes += record.inboundBytes;
-      group.outboundBytes += record.outboundBytes;
-      if (record.stream) group.streams += 1;
-      if (record.durationMs > group.maxMs) group.maxMs = record.durationMs;
-      group.durations.add(record.durationMs);
-      final peer = record.clientEndpoint.isNotEmpty
-          ? record.clientEndpoint
-          : record.clientIp.trim();
-      if (peer.isNotEmpty) group.peers.add(peer);
-      if (group.lastAt == null || record.startedAt.isAfter(group.lastAt!)) {
-        group.lastAt = record.startedAt;
-      }
+      _proxyOpsAccumulateRecord(group, record);
     }
     return groups.values.toList()
       ..sort((a, b) => b.requests.compareTo(a.requests));
@@ -534,6 +516,40 @@ int _proxyOpsPercentileSorted(List<int> sorted, double percentile) {
   return sorted[index.clamp(0, sorted.length - 1)];
 }
 
+void _proxyOpsAccumulateRecord(
+  _ProxyOpsGroupStat group,
+  AiModelProxyRequestRecord record,
+) {
+  group.requests += 1;
+  if (record.success) group.successes += 1;
+  group.tokens += record.tokens;
+  group.promptTokens += record.promptTokens;
+  group.completionTokens += record.completionTokens;
+  group.durationMs += record.durationMs;
+  group.inboundBytes += record.inboundBytes;
+  group.outboundBytes += record.outboundBytes;
+  if (record.stream) group.streams += 1;
+  if (record.attempt > 1) group.retries += 1;
+  if (record.durationMs >= _kProxyOpsSlowLatencyMs) group.slowCount += 1;
+  if (record.durationMs > group.maxMs) group.maxMs = record.durationMs;
+  group.durations.add(record.durationMs);
+  final peer = record.clientEndpoint.isNotEmpty
+      ? record.clientEndpoint
+      : record.clientIp.trim();
+  if (peer.isNotEmpty) group.peers.add(peer);
+  if (group.lastAt == null || record.startedAt.isAfter(group.lastAt!)) {
+    group.lastAt = record.startedAt;
+  }
+  final error = record.error?.trim() ?? '';
+  if (error.isNotEmpty) {
+    group.errors[error] = (group.errors[error] ?? 0) + 1;
+  }
+  final model = record.modelId.trim();
+  if (model.isNotEmpty) {
+    group.modelCounts[model] = (group.modelCounts[model] ?? 0) + 1;
+  }
+}
+
 class _ProxyOpsGroupStat {
   _ProxyOpsGroupStat(this.label);
 
@@ -548,9 +564,13 @@ class _ProxyOpsGroupStat {
   int inboundBytes = 0;
   int outboundBytes = 0;
   int streams = 0;
+  int slowCount = 0;
+  int retries = 0;
   DateTime? lastAt;
   final Set<String> peers = <String>{};
   final List<int> durations = <int>[];
+  final Map<String, int> errors = <String, int>{};
+  final Map<String, int> modelCounts = <String, int>{};
 
   int get failures => math.max(0, requests - successes);
   int get avgMs => requests <= 0 ? 0 : (durationMs / requests).round();
@@ -2493,20 +2513,546 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
   );
 }
 
-List<OpenHandChartSegment> _proxyOpsHourSegments(List<int> hours, Color color) {
+enum _ProxyOpsServiceHealth { idle, healthy, degraded, outage }
+
+String _proxyOpsHourRangeLabel(int hour) {
+  final safe = hour.clamp(0, _kProxyOpsHourBuckets - 1);
+  final next = (safe + 1) % _kProxyOpsHourBuckets;
+  return '${twoDigit(safe)}:00 – ${twoDigit(next)}:00';
+}
+
+String? _proxyOpsTopCountLabel(Map<String, int> counts) {
+  MapEntry<String, int>? top;
+  for (final entry in counts.entries) {
+    if (top == null || entry.value > top.value) top = entry;
+  }
+  return top?.key;
+}
+
+_ProxyOpsServiceHealth _proxyOpsHourHealth(_ProxyOpsGroupStat hour) {
+  if (hour.requests <= 0) return _ProxyOpsServiceHealth.idle;
+  if (hour.successRate < _kProxyOpsHealthDegradedRate) {
+    return _ProxyOpsServiceHealth.outage;
+  }
+  if (hour.successRate < _kProxyOpsHealthHealthyRate ||
+      hour.p95Ms >= _kProxyOpsSlowLatencyMs) {
+    return _ProxyOpsServiceHealth.degraded;
+  }
+  return _ProxyOpsServiceHealth.healthy;
+}
+
+_ProxyOpsServiceHealth _proxyOpsOverallHealth(List<_ProxyOpsGroupStat> hours) {
+  var seenTraffic = false;
+  var seenDegraded = false;
+  for (final hour in hours) {
+    switch (_proxyOpsHourHealth(hour)) {
+      case _ProxyOpsServiceHealth.outage:
+        return _ProxyOpsServiceHealth.outage;
+      case _ProxyOpsServiceHealth.degraded:
+        seenDegraded = true;
+        seenTraffic = true;
+      case _ProxyOpsServiceHealth.healthy:
+        seenTraffic = true;
+      case _ProxyOpsServiceHealth.idle:
+        break;
+    }
+  }
+  if (seenDegraded) return _ProxyOpsServiceHealth.degraded;
+  if (seenTraffic) return _ProxyOpsServiceHealth.healthy;
+  return _ProxyOpsServiceHealth.idle;
+}
+
+Color _proxyOpsServiceHealthColor(
+  ColorScheme cs,
+  _ProxyOpsServiceHealth health,
+) {
+  return switch (health) {
+    _ProxyOpsServiceHealth.idle => cs.onSurfaceVariant,
+    _ProxyOpsServiceHealth.healthy => OpenHandStatusColors.success,
+    _ProxyOpsServiceHealth.degraded => OpenHandStatusColors.warning,
+    _ProxyOpsServiceHealth.outage => OpenHandStatusColors.error,
+  };
+}
+
+String _proxyOpsServiceHealthLabel(
+  OpenHandLocalizedTextResolver text,
+  _ProxyOpsServiceHealth health,
+) {
+  return switch (health) {
+    _ProxyOpsServiceHealth.idle => text(zh: '空闲待命', en: 'Idle'),
+    _ProxyOpsServiceHealth.healthy => text(zh: '正常运行', en: 'Operational'),
+    _ProxyOpsServiceHealth.degraded => text(zh: '服务降级', en: 'Degraded'),
+    _ProxyOpsServiceHealth.outage => text(zh: '服务中断', en: 'Outage'),
+  };
+}
+
+List<OpenHandChartTooltipMetric> _proxyOpsHourTooltipMetrics({
+  required OpenHandLocalizedTextResolver text,
+  required _ProxyOpsGroupStat hour,
+  required Color tone,
+  int dayRequests = 0,
+}) {
+  final share = dayRequests <= 0 || hour.requests <= 0
+      ? null
+      : text(
+          zh: '占近窗样本 ${_proxyOpsPercentLabel(hour.requests / dayRequests)}',
+          en: '${_proxyOpsPercentLabel(hour.requests / dayRequests)} of samples',
+        );
+  final topModel = _proxyOpsTopCountLabel(hour.modelCounts);
   return [
-    for (
-      var hour = 0;
-      hour < hours.length && hour < _kProxyOpsHourBuckets;
-      hour++
-    )
+    OpenHandChartTooltipMetric(
+      label: text(zh: '请求次数', en: 'Requests'),
+      value: '${hour.requests}',
+      hint: share,
+      icon: Icons.call_made_rounded,
+      color: tone,
+    ),
+    OpenHandChartTooltipMetric(
+      label: text(zh: '成功率', en: 'Success'),
+      value: hour.requests <= 0 ? '—' : _proxyOpsPercentLabel(hour.successRate),
+      hint: '${hour.successes} / ${hour.requests}',
+      icon: Icons.verified_rounded,
+      color: OpenHandStatusColors.success,
+    ),
+    OpenHandChartTooltipMetric(
+      label: text(zh: '失败次数', en: 'Failures'),
+      value: '${hour.failures}',
+      hint: hour.failures <= 0
+          ? text(zh: '该时段无失败', en: 'No failures')
+          : _proxyOpsTopCountLabel(hour.errors),
+      icon: Icons.error_outline_rounded,
+      color: hour.failures > 0
+          ? OpenHandStatusColors.error
+          : OpenHandStatusColors.success,
+    ),
+    OpenHandChartTooltipMetric(
+      label: text(zh: '平均耗时', en: 'Avg latency'),
+      value: _proxyOpsDurationLabel(hour.avgMs),
+      icon: Icons.timer_outlined,
+      color: tone,
+    ),
+    OpenHandChartTooltipMetric(
+      label: 'P95',
+      value: _proxyOpsDurationLabel(hour.p95Ms),
+      hint: text(zh: '尾延迟', en: 'Tail latency'),
+      icon: Icons.speed_rounded,
+      color: hour.p95Ms >= _kProxyOpsSlowLatencyMs
+          ? OpenHandStatusColors.warning
+          : tone,
+    ),
+    OpenHandChartTooltipMetric(
+      label: text(zh: '慢请求', en: 'Slow calls'),
+      value: '${hour.slowCount}',
+      hint: text(zh: '耗时 ≥ 3s', en: 'Latency ≥ 3s'),
+      icon: Icons.hourglass_bottom_rounded,
+      color: hour.slowCount > 0 ? OpenHandStatusColors.warning : tone,
+    ),
+    OpenHandChartTooltipMetric(
+      label: 'Token',
+      value: '${hour.tokens}',
+      hint: hour.avgTokens <= 0
+          ? null
+          : text(zh: '单均 ${hour.avgTokens}', en: 'Avg ${hour.avgTokens}'),
+      icon: Icons.token_rounded,
+      color: tone,
+    ),
+    OpenHandChartTooltipMetric(
+      label: text(zh: '独立对端', en: 'Peers'),
+      value: '${hour.peers.length}',
+      hint: topModel == null
+          ? null
+          : text(zh: '主模型 $topModel', en: 'Top model $topModel'),
+      icon: Icons.devices_rounded,
+      color: tone,
+    ),
+  ];
+}
+
+OpenHandChartTooltip _proxyOpsHourVolumeTooltip({
+  required OpenHandLocalizedTextResolver text,
+  required _ProxyOpsGroupStat hour,
+  required Color tone,
+  required String subtitle,
+  required String summary,
+  required List<String> notes,
+  String? badge,
+  int dayRequests = 0,
+}) {
+  final hourIndex = int.tryParse(hour.label) ?? 0;
+  return OpenHandChartTooltip(
+    title: _proxyOpsHourRangeLabel(hourIndex),
+    subtitle: subtitle,
+    badge: badge ?? '${hour.requests}',
+    badgeColor: tone,
+    summary: summary,
+    metrics: [
+      ..._proxyOpsHourTooltipMetrics(
+        text: text,
+        hour: hour,
+        tone: tone,
+        dayRequests: dayRequests,
+      ),
+      if (hour.lastAt != null)
+        OpenHandChartTooltipMetric(
+          label: text(zh: '最近请求', en: 'Latest'),
+          value: formatMonthDayHmsLocal(hour.lastAt!),
+          icon: Icons.schedule_rounded,
+          color: tone,
+        ),
+    ],
+    notes: notes,
+  );
+}
+
+List<OpenHandChartSegment> _proxyOpsHourSegments(
+  List<_ProxyOpsGroupStat> hours,
+  Color color, {
+  required num Function(_ProxyOpsGroupStat hour) valueOf,
+  required String Function(_ProxyOpsGroupStat hour) valueLabelOf,
+  required OpenHandChartTooltip Function(_ProxyOpsGroupStat hour) tooltipOf,
+}) {
+  return [
+    for (final hour in hours)
       OpenHandChartSegment(
-        label: twoDigit(hour),
-        value: hours[hour],
+        label: hour.label,
+        value: valueOf(hour),
         color: color,
-        valueLabel: '${hours[hour]}',
+        valueLabel: valueLabelOf(hour),
+        tooltip: tooltipOf(hour),
       ),
   ];
+}
+
+Widget _proxyOpsServiceHealthPanel(
+  BuildContext context,
+  _ProxyOpsSnapshot data,
+) {
+  final text = openHandTextResolver(context);
+  final theme = Theme.of(context);
+  final cs = theme.colorScheme;
+  final overall = _proxyOpsOverallHealth(data.hourStats);
+  final tone = _proxyOpsServiceHealthColor(cs, overall);
+  var degradedHours = 0;
+  var outageHours = 0;
+  var activeHours = 0;
+  for (final hour in data.hourStats) {
+    switch (_proxyOpsHourHealth(hour)) {
+      case _ProxyOpsServiceHealth.outage:
+        outageHours += 1;
+        activeHours += 1;
+      case _ProxyOpsServiceHealth.degraded:
+        degradedHours += 1;
+        activeHours += 1;
+      case _ProxyOpsServiceHealth.healthy:
+        activeHours += 1;
+      case _ProxyOpsServiceHealth.idle:
+        break;
+    }
+  }
+  final title = switch (overall) {
+    _ProxyOpsServiceHealth.idle => text(
+      zh: '当前暂无对外流量',
+      en: 'No public traffic yet',
+    ),
+    _ProxyOpsServiceHealth.healthy => text(
+      zh: '对外中转服务整体运行正常',
+      en: 'Public proxy is fully operational',
+    ),
+    _ProxyOpsServiceHealth.degraded => text(
+      zh: '部分时段出现服务降级',
+      en: 'Some hours are degraded',
+    ),
+    _ProxyOpsServiceHealth.outage => text(
+      zh: '存在不可用时段',
+      en: 'Some hours had an outage',
+    ),
+  };
+  final body = switch (overall) {
+    _ProxyOpsServiceHealth.idle => text(
+      zh: '近窗还没有请求样本。下方 24 格保持待命灰，一旦有流量就会按成功率与尾延迟上色。',
+      en: 'No samples in the recent window. The 24 cells stay idle-gray until traffic arrives.',
+    ),
+    _ProxyOpsServiceHealth.healthy => text(
+      zh: '有流量的 $activeHours 个整点均未跌破健康阈值：成功率 ≥ 99%，且 P95 < 3s。',
+      en: 'All $activeHours hours with traffic stayed healthy: success ≥ 99% and P95 < 3s.',
+    ),
+    _ProxyOpsServiceHealth.degraded => text(
+      zh: '有 $degradedHours 个整点成功率低于 99% 或 P95 达到 3 秒。服务仍可响应，但客户端可能感到变慢。',
+      en: '$degradedHours hours fell below 99% success or hit a 3s P95. The proxy still answers, but clients may feel slowness.',
+    ),
+    _ProxyOpsServiceHealth.outage => text(
+      zh: '有 $outageHours 个整点失败率达到 10% 以上，这些时段的对外中转可能已经中断或大量失败。',
+      en: '$outageHours hours had a failure rate of 10% or more. Clients may have seen interruptions then.',
+    ),
+  };
+  Widget legendDot(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 11,
+          height: 11,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(kOpenHandRadius3),
+            boxShadow: [
+              BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 6),
+            ],
+          ),
+        ),
+        kOpenHandHGap6,
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+
+  return _ProxyOpsPanel(
+    icon: Icons.monitor_heart_rounded,
+    title: text(zh: '对外服务时段健康', en: 'Service health by hour'),
+    subtitle: text(
+      zh: '按自然小时汇总近窗请求的可用性，颜色表示健康状态而不是流量大小',
+      en: 'Clock-hour availability of the public proxy. Color is health, not volume.',
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(kOpenHandRadius14),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                tone.withValues(alpha: 0.22),
+                tone.withValues(alpha: 0.08),
+                cs.surfaceContainerHighest.withValues(alpha: 0.55),
+              ],
+            ),
+            border: Border.all(color: tone.withValues(alpha: 0.38)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: tone.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius12),
+                  border: Border.all(color: tone.withValues(alpha: 0.4)),
+                ),
+                child: Icon(switch (overall) {
+                  _ProxyOpsServiceHealth.idle => Icons.hourglass_empty_rounded,
+                  _ProxyOpsServiceHealth.healthy => Icons.verified_rounded,
+                  _ProxyOpsServiceHealth.degraded =>
+                    Icons.warning_amber_rounded,
+                  _ProxyOpsServiceHealth.outage => Icons.report_rounded,
+                }, color: tone),
+              ),
+              kOpenHandHGap12,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        color: tone,
+                      ),
+                    ),
+                    kOpenHandGap4,
+                    Text(
+                      body,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        height: 1.45,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              kOpenHandHGap8,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: tone.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius20),
+                  border: Border.all(color: tone.withValues(alpha: 0.4)),
+                ),
+                child: Text(
+                  _proxyOpsServiceHealthLabel(text, overall),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: tone,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        kOpenHandGap12,
+        Wrap(
+          spacing: 14,
+          runSpacing: 8,
+          children: [
+            legendDot(
+              OpenHandStatusColors.success,
+              text(zh: '正常', en: 'Operational'),
+            ),
+            legendDot(
+              OpenHandStatusColors.warning,
+              text(zh: '降级', en: 'Degraded'),
+            ),
+            legendDot(OpenHandStatusColors.error, text(zh: '中断', en: 'Outage')),
+            legendDot(
+              cs.onSurfaceVariant.withValues(alpha: 0.45),
+              text(zh: '空闲', en: 'Idle'),
+            ),
+          ],
+        ),
+        kOpenHandGap14,
+        OpenHandOperationalHeatmap(
+          keepIdleCells: true,
+          tone: OpenHandHeatmapTone.categorical,
+          color: tone,
+          emptyLabel: text(zh: '等待请求样本', en: 'Waiting for traffic'),
+          segments: [
+            for (final hour in data.hourStats)
+              () {
+                final health = _proxyOpsHourHealth(hour);
+                final color = _proxyOpsServiceHealthColor(cs, health);
+                final hourIndex = int.tryParse(hour.label) ?? 0;
+                final rule = switch (health) {
+                  _ProxyOpsServiceHealth.idle => text(
+                    zh: '该小时没有请求样本，因此标为空闲待命，而不是事故。',
+                    en: 'No samples this hour, so it is idle rather than an incident.',
+                  ),
+                  _ProxyOpsServiceHealth.healthy => text(
+                    zh: '成功率 ≥ 99% 且 P95 < 3s，判定为正常运行。',
+                    en: 'Success ≥ 99% and P95 < 3s, so this hour is operational.',
+                  ),
+                  _ProxyOpsServiceHealth.degraded => text(
+                    zh: '成功率低于 99% 或 P95 ≥ 3s，判定为降级：仍可响应，但体验变差。',
+                    en: 'Success below 99% or P95 ≥ 3s, so this hour is degraded.',
+                  ),
+                  _ProxyOpsServiceHealth.outage => text(
+                    zh: '成功率低于 90%，判定为中断：该小时失败过于集中。',
+                    en: 'Success below 90%, so this hour is treated as an outage.',
+                  ),
+                };
+                final topError = _proxyOpsTopCountLabel(hour.errors);
+                return OpenHandChartSegment(
+                  label: hour.label,
+                  value: health == _ProxyOpsServiceHealth.idle ? 0 : 1,
+                  color: color,
+                  valueLabel: _proxyOpsServiceHealthLabel(text, health),
+                  tooltip: OpenHandChartTooltip(
+                    title: _proxyOpsHourRangeLabel(hourIndex),
+                    subtitle: text(
+                      zh: '该整点对外中转健康',
+                      en: 'Public proxy health this hour',
+                    ),
+                    badge: _proxyOpsServiceHealthLabel(text, health),
+                    badgeColor: color,
+                    summary: switch (health) {
+                      _ProxyOpsServiceHealth.idle => text(
+                        zh: '这一小时没有对外请求。灰格只表示空闲，客户端并没有撞上故障。',
+                        en: 'No public requests this hour. Gray only means idle, not a client-facing fault.',
+                      ),
+                      _ProxyOpsServiceHealth.healthy => text(
+                        zh: '这一小时请求 ${hour.requests} 次，成功 ${_proxyOpsPercentLabel(hour.successRate)}，P95 ${_proxyOpsDurationLabel(hour.p95Ms)}，处于健康阈值内。',
+                        en: '${hour.requests} requests this hour, ${_proxyOpsPercentLabel(hour.successRate)} succeeded, P95 ${_proxyOpsDurationLabel(hour.p95Ms)} — within the healthy band.',
+                      ),
+                      _ProxyOpsServiceHealth.degraded => text(
+                        zh: '这一小时仍能完成大部分请求，但成功率 ${_proxyOpsPercentLabel(hour.successRate)} 或尾延迟 ${_proxyOpsDurationLabel(hour.p95Ms)} 已越过健康线。',
+                        en: 'Most calls still completed, but success ${_proxyOpsPercentLabel(hour.successRate)} or P95 ${_proxyOpsDurationLabel(hour.p95Ms)} crossed the healthy line.',
+                      ),
+                      _ProxyOpsServiceHealth.outage => text(
+                        zh: '这一小时失败 ${hour.failures} / ${hour.requests}，失败率偏高，对外中转在该时段很可能已经中断。',
+                        en: '${hour.failures} / ${hour.requests} failed this hour. The public proxy likely interrupted callers.',
+                      ),
+                    },
+                    metrics: [
+                      OpenHandChartTooltipMetric(
+                        label: text(zh: '健康判定', en: 'Verdict'),
+                        value: _proxyOpsServiceHealthLabel(text, health),
+                        hint: rule,
+                        icon: Icons.monitor_heart_rounded,
+                        color: color,
+                      ),
+                      ..._proxyOpsHourTooltipMetrics(
+                        text: text,
+                        hour: hour,
+                        tone: color,
+                        dayRequests: data.records.length,
+                      ),
+                      OpenHandChartTooltipMetric(
+                        label: text(zh: '流式请求', en: 'Streams'),
+                        value: '${hour.streams}',
+                        icon: Icons.stream_rounded,
+                        color: color,
+                      ),
+                      OpenHandChartTooltipMetric(
+                        label: text(zh: '重试请求', en: 'Retries'),
+                        value: '${hour.retries}',
+                        icon: Icons.replay_rounded,
+                        color: hour.retries > 0
+                            ? OpenHandStatusColors.warning
+                            : color,
+                      ),
+                      if (hour.lastAt != null)
+                        OpenHandChartTooltipMetric(
+                          label: text(zh: '最近请求', en: 'Latest'),
+                          value: formatMonthDayHmsLocal(hour.lastAt!),
+                          icon: Icons.schedule_rounded,
+                          color: color,
+                        ),
+                    ],
+                    notes: [
+                      rule,
+                      text(
+                        zh: '绿 / 黄 / 红表示健康，灰表示空闲。请求量深浅请看「入口请求」里的到达热力。',
+                        en: 'Green / yellow / red is health; gray is idle. Volume depth lives on the Ingress arrival heat.',
+                      ),
+                      if (topError != null)
+                        text(
+                          zh: '主要失败原因：$topError',
+                          en: 'Top error: $topError',
+                        ),
+                    ],
+                  ),
+                );
+              }(),
+          ],
+        ),
+        kOpenHandGap10,
+        Text(
+          text(
+            zh: '健康判定：成功率 ≥ 99% 且 P95 < 3s 为正常；成功率 ≥ 90% 或尾延迟偏高为降级；成功率 < 90% 为中断。空闲时段会保留灰格，避免把“没流量”误当成事故。',
+            en: 'Healthy: success ≥ 99% and P95 < 3s. Degraded: success ≥ 90% or a slow tail. Outage: success < 90%. Idle hours stay gray so “no traffic” is not mistaken for a fault.',
+          ),
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: cs.onSurfaceVariant,
+            height: 1.4,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 String _proxyOpsUpstreamEndpoint(
@@ -2666,12 +3212,48 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
             _proxyOpsChartPanel(
               icon: Icons.view_week_rounded,
               title: text(zh: '对端活跃时段', en: 'Peer Hours'),
-              empty: data.hourPeerCounts.every((value) => value <= 0),
+              empty: false,
               emptyLabel: emptyChart,
+              subtitle: text(
+                zh: '颜色深度表示该整点连入的独立客户端数',
+                en: 'Color depth is unique clients in that clock hour',
+              ),
               chart: OpenHandOperationalHeatmap(
+                keepIdleCells: true,
                 segments: _proxyOpsHourSegments(
-                  data.hourPeerCounts,
+                  data.hourStats,
                   cs.primary,
+                  valueOf: (hour) => hour.peers.length,
+                  valueLabelOf: (hour) => '${hour.peers.length}',
+                  tooltipOf: (hour) => _proxyOpsHourVolumeTooltip(
+                    text: text,
+                    hour: hour,
+                    tone: cs.primary,
+                    badge: text(
+                      zh: '${hour.peers.length} 个对端',
+                      en: '${hour.peers.length} peers',
+                    ),
+                    subtitle: text(
+                      zh: '该整点独立客户端活跃度',
+                      en: 'Unique clients this clock hour',
+                    ),
+                    summary: hour.peers.isEmpty
+                        ? text(
+                            zh: '这一小时没有记录到客户端对端。灰格表示空闲，不代表服务中断。',
+                            en: 'No client peers in this hour. Gray means idle, not an outage.',
+                          )
+                        : text(
+                            zh: '这一小时有 ${hour.peers.length} 个独立对端连入，共 ${hour.requests} 次请求。颜色越深表示对端越密集，与底部健康条的绿黄红含义不同。',
+                            en: '${hour.peers.length} unique peers sent ${hour.requests} requests. Darker color means denser clients, not health.',
+                          ),
+                    notes: [
+                      text(
+                        zh: '此图统计的是客户端多样性，不是成功率。整体对外健康请看「请求总览」底部的时段健康条。',
+                        en: 'This strip measures client diversity, not success rate. Overall health is on the Requests dialog.',
+                      ),
+                    ],
+                    dayRequests: data.records.length,
+                  ),
                 ),
                 color: cs.primary,
               ),
@@ -2784,7 +3366,10 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
       return _ProxyOpsInsightSpec(
         icon: Icons.call_made_rounded,
         title: text(zh: '请求总览', en: 'Requests'),
-        subtitle: text(zh: '累计体量与吞吐曲线', en: 'Lifetime volume and throughput'),
+        subtitle: text(
+          zh: '累计体量、吞吐曲线与对外时段健康',
+          en: 'Volume, throughput and hourly service health',
+        ),
         sections: (context, data) => [
           _ProxyOpsStatPanel(
             icon: Icons.analytics_rounded,
@@ -2828,6 +3413,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
             columns: [text(zh: '吞吐', en: 'Throughput')],
             emptyLabel: text(zh: '等待请求样本', en: 'Waiting for traffic'),
           ),
+          _proxyOpsServiceHealthPanel(context, data),
         ],
       );
 
@@ -2901,12 +3487,48 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
             _proxyOpsChartPanel(
               icon: Icons.view_week_rounded,
               title: text(zh: '到达时段热力', en: 'Arrival Heat'),
-              empty: data.hourRequestCounts.every((value) => value <= 0),
+              empty: false,
               emptyLabel: emptyChart,
+              subtitle: text(
+                zh: '颜色深度表示该整点到达的请求量',
+                en: 'Color depth is arrival volume in that clock hour',
+              ),
               chart: OpenHandOperationalHeatmap(
+                keepIdleCells: true,
                 segments: _proxyOpsHourSegments(
-                  data.hourRequestCounts,
+                  data.hourStats,
                   cs.secondary,
+                  valueOf: (hour) => hour.requests,
+                  valueLabelOf: (hour) => '${hour.requests}',
+                  tooltipOf: (hour) => _proxyOpsHourVolumeTooltip(
+                    text: text,
+                    hour: hour,
+                    tone: cs.secondary,
+                    badge: text(
+                      zh: '${hour.requests} 次到达',
+                      en: '${hour.requests} arrivals',
+                    ),
+                    subtitle: text(
+                      zh: '该整点入口到达量',
+                      en: 'Ingress arrivals this clock hour',
+                    ),
+                    summary: hour.requests <= 0
+                        ? text(
+                            zh: '这一小时没有入口请求到达。灰格表示空闲，不代表事故。',
+                            en: 'No ingress arrived this hour. Gray means idle, not an incident.',
+                          )
+                        : text(
+                            zh: '这一小时到达 ${hour.requests} 次请求，成功 ${hour.successes} 次、失败 ${hour.failures} 次。颜色越深只说明更忙，不表示更健康。',
+                            en: '${hour.requests} arrivals, ${hour.successes} succeeded and ${hour.failures} failed. Darker only means busier, not healthier.',
+                          ),
+                    notes: [
+                      text(
+                        zh: '到达热力只描述流量何时进来。对外服务是否正常，请看「请求总览」底部的绿/黄/红健康条。',
+                        en: 'Arrival heat only shows when traffic came in. Service health is the green/yellow/red strip on Requests.',
+                      ),
+                    ],
+                    dayRequests: data.records.length,
+                  ),
                 ),
                 color: cs.secondary,
               ),
@@ -3134,12 +3756,58 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
             _proxyOpsChartPanel(
               icon: Icons.view_week_rounded,
               title: text(zh: '失败时段热力', en: 'Failure Hours'),
-              empty: data.hourFailureCounts.every((value) => value <= 0),
+              empty: false,
               emptyLabel: emptyChart,
+              subtitle: text(
+                zh: '颜色深度表示该整点失败次数',
+                en: 'Color depth is failure count in that clock hour',
+              ),
               chart: OpenHandOperationalHeatmap(
+                keepIdleCells: true,
                 segments: _proxyOpsHourSegments(
-                  data.hourFailureCounts,
+                  data.hourStats,
                   cs.error,
+                  valueOf: (hour) => hour.failures,
+                  valueLabelOf: (hour) => '${hour.failures}',
+                  tooltipOf: (hour) {
+                    final topError = _proxyOpsTopCountLabel(hour.errors);
+                    return _proxyOpsHourVolumeTooltip(
+                      text: text,
+                      hour: hour,
+                      tone: cs.error,
+                      badge: hour.failures <= 0
+                          ? text(zh: '无失败', en: 'No failures')
+                          : text(
+                              zh: '${hour.failures} 次失败',
+                              en: '${hour.failures} failures',
+                            ),
+                      subtitle: text(
+                        zh: '该整点上游/网关失败集中度',
+                        en: 'Failure concentration this clock hour',
+                      ),
+                      summary: hour.failures <= 0
+                          ? text(
+                              zh: '这一小时没有失败样本。浅色格表示没有失败，不代表完全没有流量。',
+                              en: 'No failures in this hour. A pale cell means no failures, not necessarily no traffic.',
+                            )
+                          : text(
+                              zh: '这一小时失败 ${hour.failures} 次，占该时段 ${_proxyOpsPercentLabel(hour.requests <= 0 ? 0 : hour.failures / hour.requests)}。颜色越深表示失败越集中。',
+                              en: '${hour.failures} failures (${_proxyOpsPercentLabel(hour.requests <= 0 ? 0 : hour.failures / hour.requests)} of the hour). Darker means more concentrated failures.',
+                            ),
+                      notes: [
+                        if (topError != null)
+                          text(
+                            zh: '主要失败原因：$topError',
+                            en: 'Top error: $topError',
+                          ),
+                        text(
+                          zh: '此图只看失败次数。若要看该小时是否中断，请到「请求总览」底部的阶段健康热力。',
+                          en: 'This strip counts failures only. Hourly outage vs idle is on the Requests health strip.',
+                        ),
+                      ],
+                      dayRequests: data.records.length,
+                    );
+                  },
                 ),
                 color: cs.error,
               ),
@@ -3549,15 +4217,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
         sections: (context, data) {
           final enabled = data.enabledRouteCount;
           final disabled = math.max(0, data.settings.routes.length - enabled);
-          final heat = [
-            for (final route in data.settings.routes)
-              OpenHandChartSegment(
-                label: route.exposedModel,
-                value: route.backends.length,
-                color: route.enabled ? success : cs.onSurfaceVariant,
-                valueLabel: '${route.backends.length}',
-              ),
-          ];
           final usageByExposed = <String, _ProxyOpsGroupStat>{
             for (final group in data.groupBy((record) {
               final exposed = record.exposedModel.trim();
@@ -3565,6 +4224,94 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
             }, unknown: unknownModel))
               group.label: group,
           };
+          final heat = [
+            for (final route in data.settings.routes)
+              () {
+                final usage = usageByExposed[route.exposedModel];
+                final enabledBackends = route.backends
+                    .where((backend) => backend.enabled)
+                    .length;
+                return OpenHandChartSegment(
+                  label: route.exposedModel,
+                  value: route.backends.length,
+                  color: route.enabled ? success : cs.onSurfaceVariant,
+                  valueLabel: '${route.backends.length}',
+                  tooltip: OpenHandChartTooltip(
+                    title: route.exposedModel,
+                    subtitle: text(
+                      zh: '对外暴露模型的后备规模',
+                      en: 'Backend footprint of this exposed model',
+                    ),
+                    badge: route.enabled
+                        ? text(zh: '已启用', en: 'Enabled')
+                        : text(zh: '已停用', en: 'Disabled'),
+                    badgeColor: route.enabled ? success : cs.onSurfaceVariant,
+                    summary: route.enabled
+                        ? text(
+                            zh: '该对外模型当前启用，挂了 ${route.backends.length} 个后备（其中 $enabledBackends 个启用）。颜色来自启用状态，深浅来自后备数量。',
+                            en: 'This exposed model is enabled with ${route.backends.length} backends ($enabledBackends on). Color is enablement; depth is footprint.',
+                          )
+                        : text(
+                            zh: '该对外模型当前停用，仍保留 ${route.backends.length} 个后备配置，不会承接新流量。',
+                            en: 'This exposed model is disabled. It still has ${route.backends.length} backends configured but will not take new traffic.',
+                          ),
+                    metrics: [
+                      OpenHandChartTooltipMetric(
+                        label: text(zh: '后备总数', en: 'Backends'),
+                        value: '${route.backends.length}',
+                        icon: Icons.storage_rounded,
+                        color: route.enabled ? success : cs.onSurfaceVariant,
+                      ),
+                      OpenHandChartTooltipMetric(
+                        label: text(zh: '启用后备', en: 'Enabled backends'),
+                        value: '$enabledBackends',
+                        icon: Icons.check_circle_outline_rounded,
+                        color: success,
+                      ),
+                      OpenHandChartTooltipMetric(
+                        label: text(zh: '近窗请求', en: 'Window requests'),
+                        value: '${usage?.requests ?? 0}',
+                        icon: Icons.call_made_rounded,
+                        color: cs.primary,
+                      ),
+                      OpenHandChartTooltipMetric(
+                        label: text(zh: '成功率', en: 'Success'),
+                        value: usage == null
+                            ? '—'
+                            : _proxyOpsPercentLabel(usage.successRate),
+                        icon: Icons.verified_rounded,
+                        color: success,
+                      ),
+                      OpenHandChartTooltipMetric(
+                        label: 'Token',
+                        value: '${usage?.tokens ?? 0}',
+                        icon: Icons.token_rounded,
+                        color: cs.tertiary,
+                      ),
+                      OpenHandChartTooltipMetric(
+                        label: text(zh: '均耗时', en: 'Avg'),
+                        value: usage == null
+                            ? '—'
+                            : _proxyOpsDurationLabel(usage.avgMs),
+                        icon: Icons.timer_outlined,
+                        color: cs.primary,
+                      ),
+                    ],
+                    notes: [
+                      text(
+                        zh: '此图描述路由配置规模，不是调用热度。调用次数请看「模型分布」。',
+                        en: 'This strip is routing footprint, not call heat. Call volume is on Model Mix.',
+                      ),
+                      if (usage?.lastAt case final latest?)
+                        text(
+                          zh: '最近一次调用 ${formatMonthDayHmsLocal(latest)}',
+                          en: 'Last call ${formatMonthDayHmsLocal(latest)}',
+                        ),
+                    ],
+                  ),
+                );
+              }(),
+          ];
           return [
             _proxyOpsPanelRow([
               _proxyOpsChartPanel(
@@ -3596,8 +4343,12 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               _proxyOpsChartPanel(
                 icon: Icons.view_week_rounded,
                 title: text(zh: '后备规模热力', en: 'Backend Footprint'),
-                empty: heat.every((segment) => segment.safeValue <= 0),
+                empty: heat.isEmpty,
                 emptyLabel: emptyChart,
+                subtitle: text(
+                  zh: '色块表示启用状态，深度表示后备数量',
+                  en: 'Hue is enablement; depth is backend count',
+                ),
                 chart: OpenHandOperationalHeatmap(
                   segments: heat,
                   color: cs.primary,
@@ -4003,29 +4754,42 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                   value: data.p95LatencyBuckets[i],
                 ),
           ];
-          final hourDurations = List<List<int>>.generate(
-            _kProxyOpsHourBuckets,
-            (_) => <int>[],
-          );
-          for (final record in data.records) {
-            if (record.durationMs <= 0) continue;
-            hourDurations[record.startedAt.hour.clamp(
-                  0,
-                  _kProxyOpsHourBuckets - 1,
-                )]
-                .add(record.durationMs);
-          }
-          final hourP95 = [
-            for (var hour = 0; hour < hourDurations.length; hour++)
-              OpenHandChartSegment(
-                label: twoDigit(hour),
-                value: _proxyOpsPercentile(hourDurations[hour], 0.95),
-                color: cs.tertiary,
-                valueLabel: _proxyOpsDurationLabel(
-                  _proxyOpsPercentile(hourDurations[hour], 0.95),
+          final hourP95 = _proxyOpsHourSegments(
+            data.hourStats,
+            cs.tertiary,
+            valueOf: (hour) => hour.p95Ms,
+            valueLabelOf: (hour) => _proxyOpsDurationLabel(hour.p95Ms),
+            tooltipOf: (hour) => _proxyOpsHourVolumeTooltip(
+              text: text,
+              hour: hour,
+              tone: cs.tertiary,
+              badge: hour.requests <= 0
+                  ? text(zh: '无样本', en: 'No samples')
+                  : 'P95 ${_proxyOpsDurationLabel(hour.p95Ms)}',
+              subtitle: text(zh: '该整点尾延迟', en: 'Tail latency this clock hour'),
+              summary: hour.requests <= 0
+                  ? text(
+                      zh: '这一小时没有耗时样本，P95 无法计算。浅色格表示空闲，不是延迟为 0。',
+                      en: 'No latency samples this hour, so P95 is undefined. A pale cell is idle, not 0 ms.',
+                    )
+                  : text(
+                      zh: '这一小时 ${hour.requests} 次请求，平均 ${_proxyOpsDurationLabel(hour.avgMs)}，P95 ${_proxyOpsDurationLabel(hour.p95Ms)}，最慢 ${_proxyOpsDurationLabel(hour.maxMs)}。颜色越深表示尾延迟越高。',
+                      en: '${hour.requests} requests this hour, avg ${_proxyOpsDurationLabel(hour.avgMs)}, P95 ${_proxyOpsDurationLabel(hour.p95Ms)}, max ${_proxyOpsDurationLabel(hour.maxMs)}. Darker means a slower tail.',
+                    ),
+              notes: [
+                text(
+                  zh: '此图看的是延迟高低，不是成功率。绿黄红健康请看「请求总览」底部的时段健康条。',
+                  en: 'This strip is latency, not success. Green/yellow/red health is on the Requests dialog.',
                 ),
-              ),
-          ];
+                if (hour.slowCount > 0)
+                  text(
+                    zh: '其中 ${hour.slowCount} 次耗时 ≥ 3s。',
+                    en: '${hour.slowCount} calls took 3s or more.',
+                  ),
+              ],
+              dayRequests: data.records.length,
+            ),
+          );
           return [
             _ProxyOpsStatPanel(
               icon: Icons.speed_rounded,
@@ -4101,9 +4865,14 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
             _proxyOpsChartPanel(
               icon: Icons.view_week_rounded,
               title: text(zh: '小时 P95 热力', en: 'Hourly P95 Heat'),
-              empty: hourP95.every((segment) => segment.safeValue <= 0),
+              empty: false,
               emptyLabel: emptyChart,
+              subtitle: text(
+                zh: '颜色深度表示该整点 P95 尾延迟',
+                en: 'Color depth is P95 tail latency that clock hour',
+              ),
               chart: OpenHandOperationalHeatmap(
+                keepIdleCells: true,
                 segments: hourP95,
                 color: cs.tertiary,
               ),
@@ -4403,6 +5172,10 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 title: text(zh: '模型调用热力', en: 'Model Heat'),
                 empty: groups.isEmpty,
                 emptyLabel: emptyChart,
+                subtitle: text(
+                  zh: '颜色深度表示该模型近窗被调度次数',
+                  en: 'Color depth is how often this model was dispatched',
+                ),
                 chart: OpenHandOperationalHeatmap(
                   segments: [
                     for (var i = 0; i < groups.length; i++)
@@ -4411,6 +5184,97 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                         value: groups[i].requests,
                         color: palette[i % palette.length],
                         valueLabel: '${groups[i].requests}',
+                        tooltip: OpenHandChartTooltip(
+                          title: groups[i].label,
+                          subtitle: text(
+                            zh: '近窗上游模型调用热度',
+                            en: 'Upstream model heat in the recent window',
+                          ),
+                          badge: text(
+                            zh: '${groups[i].requests} 次调用',
+                            en: '${groups[i].requests} calls',
+                          ),
+                          badgeColor: palette[i % palette.length],
+                          summary: text(
+                            zh: '${groups[i].label} 近窗被调度 ${groups[i].requests} 次，成功 ${_proxyOpsPercentLabel(groups[i].successRate)}，单均 Token ${groups[i].avgTokens}，平均 ${_proxyOpsDurationLabel(groups[i].avgMs)}。',
+                            en: '${groups[i].label} was dispatched ${groups[i].requests} times, ${_proxyOpsPercentLabel(groups[i].successRate)} succeeded, ${groups[i].avgTokens} tokens/call, avg ${_proxyOpsDurationLabel(groups[i].avgMs)}.',
+                          ),
+                          metrics: [
+                            OpenHandChartTooltipMetric(
+                              label: text(zh: '调用次数', en: 'Calls'),
+                              value: '${groups[i].requests}',
+                              hint: text(
+                                zh: '占近窗 ${_proxyOpsPercentLabel(data.records.isEmpty ? 0 : groups[i].requests / data.records.length)}',
+                                en: '${_proxyOpsPercentLabel(data.records.isEmpty ? 0 : groups[i].requests / data.records.length)} of window',
+                              ),
+                              icon: Icons.model_training_outlined,
+                              color: palette[i % palette.length],
+                            ),
+                            OpenHandChartTooltipMetric(
+                              label: text(zh: '成功率', en: 'Success'),
+                              value: _proxyOpsPercentLabel(
+                                groups[i].successRate,
+                              ),
+                              hint:
+                                  '${groups[i].successes} / ${groups[i].requests}',
+                              icon: Icons.verified_rounded,
+                              color: OpenHandStatusColors.success,
+                            ),
+                            OpenHandChartTooltipMetric(
+                              label: text(zh: '失败', en: 'Fail'),
+                              value: '${groups[i].failures}',
+                              icon: Icons.error_outline_rounded,
+                              color: groups[i].failures > 0
+                                  ? OpenHandStatusColors.error
+                                  : OpenHandStatusColors.success,
+                            ),
+                            OpenHandChartTooltipMetric(
+                              label: 'Token',
+                              value: '${groups[i].tokens}',
+                              hint: text(
+                                zh: '单均 ${groups[i].avgTokens}',
+                                en: 'Avg ${groups[i].avgTokens}',
+                              ),
+                              icon: Icons.token_rounded,
+                              color: cs.tertiary,
+                            ),
+                            OpenHandChartTooltipMetric(
+                              label: text(zh: '均耗时', en: 'Avg'),
+                              value: _proxyOpsDurationLabel(groups[i].avgMs),
+                              icon: Icons.timer_outlined,
+                              color: cs.primary,
+                            ),
+                            OpenHandChartTooltipMetric(
+                              label: 'P95',
+                              value: _proxyOpsDurationLabel(groups[i].p95Ms),
+                              icon: Icons.speed_rounded,
+                              color: groups[i].p95Ms >= _kProxyOpsSlowLatencyMs
+                                  ? OpenHandStatusColors.warning
+                                  : cs.primary,
+                            ),
+                            OpenHandChartTooltipMetric(
+                              label: text(zh: '对端', en: 'Peers'),
+                              value: '${groups[i].peers.length}',
+                              icon: Icons.devices_rounded,
+                              color: cs.secondary,
+                            ),
+                            if (groups[i].lastAt != null)
+                              OpenHandChartTooltipMetric(
+                                label: text(zh: '最近', en: 'Latest'),
+                                value: formatMonthDayHmsLocal(
+                                  groups[i].lastAt!,
+                                ),
+                                icon: Icons.schedule_rounded,
+                                color: palette[i % palette.length],
+                              ),
+                          ],
+                          notes: [
+                            text(
+                              zh: '此图按实际上游模型汇总调用次数。对外暴露名与后备映射请看「启用模型」。',
+                              en: 'This strip groups actual upstream models. Exposed names and backends are on Exposed Models.',
+                            ),
+                          ],
+                        ),
                       ),
                   ],
                   color: cs.primary,
