@@ -24,11 +24,15 @@ class AiModelArchitectureMetadata {
 
   factory AiModelArchitectureMetadata.fromJson(Map<String, Object?> json) {
     return AiModelArchitectureMetadata(
-      modality: json['modality'] as String?,
+      modality: json['modality'] is String ? json['modality'] as String : null,
       inputModalities: stringListFromListValue(json['input_modalities']),
       outputModalities: stringListFromListValue(json['output_modalities']),
-      tokenizer: json['tokenizer'] as String?,
-      instructType: json['instruct_type'] as String?,
+      tokenizer: json['tokenizer'] is String
+          ? json['tokenizer'] as String
+          : null,
+      instructType: json['instruct_type'] is String
+          ? json['instruct_type'] as String
+          : null,
     );
   }
 
@@ -634,9 +638,9 @@ class AiModelProfile {
 
   factory AiModelProfile.fromJson(Map<String, Object?> json) {
     return AiModelProfile(
-      displayName: json['display_name'] as String?,
-      description: json['description'] as String?,
-      isMultimodal: json['is_multimodal'] as bool?,
+      displayName: _readString(json['display_name']),
+      description: _readString(json['description']),
+      isMultimodal: _readBool(json['is_multimodal']),
       supportedModalities: _parseModalities(json['supported_modalities']),
       maxContextLength: _readNullablePositiveInt(json['max_context_length']),
       maxSummaryLength: _readNullablePositiveInt(json['max_summary_length']),
@@ -650,9 +654,9 @@ class AiModelProfile {
       reasoningEffortOptions: _parseReasoningEffortOptions(
         json[_reasoningEffortOptionsJsonKey],
       ),
-      requiresReasoningEcho: json['requires_reasoning_echo'] as bool?,
+      requiresReasoningEcho: _readBool(json['requires_reasoning_echo']),
       capabilities: _parseCapabilities(json['capabilities']),
-      supportsAttachments: json['supports_attachments'] as bool?,
+      supportsAttachments: _readBool(json['supports_attachments']),
       inputUsdPer1M: _readNullableNonNegativeDouble(json['input_usd_per_1m']),
       outputUsdPer1M: _readNullableNonNegativeDouble(json['output_usd_per_1m']),
       cacheReadUsdPer1M: _readNullableNonNegativeDouble(
@@ -661,8 +665,8 @@ class AiModelProfile {
       cacheWriteUsdPer1M: _readNullableNonNegativeDouble(
         json['cache_write_usd_per_1m'],
       ),
-      canonicalSlug: json['canonical_slug'] as String?,
-      huggingFaceId: json['hugging_face_id'] as String?,
+      canonicalSlug: _readString(json['canonical_slug']),
+      huggingFaceId: _readString(json['hugging_face_id']),
       created: _readNullableInt(json['created']),
       architecture: json['architecture'] is Map
           ? AiModelArchitectureMetadata.fromJson(
@@ -672,8 +676,8 @@ class AiModelProfile {
       supportedParameters: _parseStringList(json['supported_parameters']),
       defaultParameters: _parseObjectMap(json['default_parameters']),
       supportedVoices: _parseStringList(json['supported_voices']),
-      knowledgeCutoff: json['knowledge_cutoff'] as String?,
-      expirationDate: json['expiration_date'] as String?,
+      knowledgeCutoff: _readString(json['knowledge_cutoff']),
+      expirationDate: _readString(json['expiration_date']),
       links: json['links'] is Map
           ? AiModelLinksMetadata.fromJson(
               stringKeyedMapFromValue(json['links']),
@@ -689,42 +693,58 @@ class AiModelProfile {
       ),
       embeddingSupportsCustomDimensions:
           _readBool(json['embedding_supports_custom_dimensions']) ?? false,
-      embeddingEndpointPath: json['embedding_endpoint_path'] as String?,
+      embeddingEndpointPath: _readString(json['embedding_endpoint_path']),
       embeddingBatchSize: _readNullablePositiveInt(
         json['embedding_batch_size'],
       ),
       embeddingRequiresSpecialBody:
           _readBool(json['embedding_requires_special_body']) ?? false,
-      embeddingQueryModelId: json['embedding_query_model_id'] as String?,
-      embeddingDocumentModelId: json['embedding_document_model_id'] as String?,
+      embeddingQueryModelId: _readString(json['embedding_query_model_id']),
+      embeddingDocumentModelId: _readString(
+        json['embedding_document_model_id'],
+      ),
       embeddingInputTypes: _parseStringList(json['embedding_input_types']),
-      embeddingDefaultInputType:
-          json['embedding_default_input_type'] as String?,
-      embeddingQueryInputType: json['embedding_query_input_type'] as String?,
-      embeddingDocumentInputType:
-          json['embedding_document_input_type'] as String?,
+      embeddingDefaultInputType: _readString(
+        json['embedding_default_input_type'],
+      ),
+      embeddingQueryInputType: _readString(json['embedding_query_input_type']),
+      embeddingDocumentInputType: _readString(
+        json['embedding_document_input_type'],
+      ),
       embeddingSupportedTaskTypes: _parseStringList(
         json['embedding_supported_task_types'],
       ),
-      embeddingDefaultTaskType: json['embedding_default_task_type'] as String?,
-      embeddingDefaultQueryTaskType:
-          json['embedding_default_query_task_type'] as String?,
-      embeddingDefaultDocumentTaskType:
-          json['embedding_default_document_task_type'] as String?,
-      embeddingQueryTextPrefix: json['embedding_query_text_prefix'] as String?,
-      embeddingDocumentTextPrefix:
-          json['embedding_document_text_prefix'] as String?,
+      embeddingDefaultTaskType: _readString(
+        json['embedding_default_task_type'],
+      ),
+      embeddingDefaultQueryTaskType: _readString(
+        json['embedding_default_query_task_type'],
+      ),
+      embeddingDefaultDocumentTaskType: _readString(
+        json['embedding_default_document_task_type'],
+      ),
+      embeddingQueryTextPrefix: _readString(
+        json['embedding_query_text_prefix'],
+      ),
+      embeddingDocumentTextPrefix: _readString(
+        json['embedding_document_text_prefix'],
+      ),
       embeddingEncodingFormats: _parseStringList(
         json['embedding_encoding_formats'],
       ),
-      embeddingDefaultEncodingFormat:
-          json['embedding_default_encoding_format'] as String?,
+      embeddingDefaultEncodingFormat: _readString(
+        json['embedding_default_encoding_format'],
+      ),
       embeddingOutputDTypes: _parseStringList(json['embedding_output_dtypes']),
-      embeddingDefaultOutputDType:
-          json['embedding_default_output_dtype'] as String?,
-      embeddingDefaultTruncation:
-          json['embedding_default_truncation'] as String?,
-      embeddingSimilarityMetric: json['embedding_similarity_metric'] as String?,
+      embeddingDefaultOutputDType: _readString(
+        json['embedding_default_output_dtype'],
+      ),
+      embeddingDefaultTruncation: _readString(
+        json['embedding_default_truncation'],
+      ),
+      embeddingSimilarityMetric: _readString(
+        json['embedding_similarity_metric'],
+      ),
       embeddingOutputsNormalized: _readBool(
         json['embedding_outputs_normalized'],
       ),
@@ -742,7 +762,7 @@ class AiModelProfile {
       ),
       embeddingSupportsTruncation:
           _readBool(json['embedding_supports_truncation']) ?? false,
-      rerankEndpointPath: json['rerank_endpoint_path'] as String?,
+      rerankEndpointPath: _readString(json['rerank_endpoint_path']),
       rerankMaxInputTokens: _readNullablePositiveInt(
         json['rerank_max_input_tokens'],
       ),
@@ -757,7 +777,7 @@ class AiModelProfile {
           _readBool(json['rerank_supports_return_documents']) ?? false,
       rerankSupportsInstruction:
           _readBool(json['rerank_supports_instruction']) ?? false,
-      rerankDefaultInstruction: json['rerank_default_instruction'] as String?,
+      rerankDefaultInstruction: _readString(json['rerank_default_instruction']),
       rerankSupportsTruncation:
           _readBool(json['rerank_supports_truncation']) ?? false,
       rerankDefaultTruncation: _readBool(json['rerank_default_truncation']),
@@ -1504,6 +1524,10 @@ class AiModelProfile {
   static bool? _readBool(Object? value) {
     return optionalBoolFromValue(value);
   }
+
+  static String? _readString(Object? value) {
+    return value is String ? value : null;
+  }
 }
 
 // 服务商配置
@@ -1552,7 +1576,7 @@ class AiModelConfig {
       requestMethod: _parseRequestMethod(json['request_method']),
       maxTokens: _readNullablePositiveInt(json['max_tokens']),
       temperature: _readNullableDouble(json['temperature']),
-      streamEnabled: json['stream_enabled'] as bool? ?? true,
+      streamEnabled: optionalBoolFromValue(json['stream_enabled']) ?? true,
       modelProfiles: _parseModelProfiles(json['model_profiles']),
       endpointOverrides: parseAiEndpointOverrides(json['endpoint_overrides']),
       operationRouting:

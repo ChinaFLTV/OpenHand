@@ -1365,7 +1365,8 @@ MachineTerminalDirectorySnapshot parseMachineTerminalDirectoryProtocol(
     final fields = protocolLine.split('\t');
     if (fields.isEmpty) continue;
     if (fields.first == 'P' && fields.length >= 2) {
-      directoryPath = _decodeProtocolText(fields[1]);
+      final decodedPath = _decodeProtocolTextOrNull(fields[1]);
+      if (decodedPath != null) directoryPath = decodedPath;
       continue;
     }
     if (fields.first == 'T') {
@@ -1375,8 +1376,11 @@ MachineTerminalDirectorySnapshot parseMachineTerminalDirectoryProtocol(
     if (fields.first != 'E' || fields.length < 7 || directoryPath == null) {
       continue;
     }
-    final name = _decodeProtocolText(fields[5]);
-    if (name.isEmpty || name == '.' || name == '..') continue;
+    final name = _decodeProtocolTextOrNull(fields[5]);
+    if (name == null || name.isEmpty || name == '.' || name == '..') continue;
+    final linkTarget = fields[6].isEmpty
+        ? null
+        : _decodeProtocolTextOrNull(fields[6]);
     final path = machineTerminalJoinPath(directoryPath, name);
     entriesByPath[path] = MachineTerminalFileEntry(
       name: name,
@@ -1385,7 +1389,7 @@ MachineTerminalDirectorySnapshot parseMachineTerminalDirectoryProtocol(
       size: nonNegativeIntFromText(fields[2], fallback: 0),
       modifiedAt: _dateTimeFromEpoch(fields[3]),
       permissions: fields[4],
-      linkTarget: fields[6].isEmpty ? null : _decodeProtocolText(fields[6]),
+      linkTarget: linkTarget,
       childDirectoryCount: fields.length > 7
           ? nonNegativeIntFromText(fields[7], fallback: 0)
           : 0,
@@ -1850,6 +1854,14 @@ DateTime? _dateTimeFromEpoch(String value) {
 String _decodeProtocolText(String value) {
   if (value.isEmpty) return '';
   return utf8.decode(base64Decode(value), allowMalformed: true);
+}
+
+String? _decodeProtocolTextOrNull(String value) {
+  try {
+    return _decodeProtocolText(value);
+  } on FormatException {
+    return null;
+  }
 }
 
 String _listDirectoryCommand(String? path) {

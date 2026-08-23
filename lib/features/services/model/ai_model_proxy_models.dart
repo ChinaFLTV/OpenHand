@@ -90,9 +90,7 @@ class AiModelProxyDailyComponent {
   });
 
   factory AiModelProxyDailyComponent.fromJson(Object? raw) {
-    final json = raw is Map
-        ? Map<String, Object?>.from(raw)
-        : const <String, Object?>{};
+    final json = stringKeyedMapFromValue(raw);
     return AiModelProxyDailyComponent(
       requests: _proxyBoundedInt(json['requests'], 0, 0, 1 << 31),
       successes: _proxyBoundedInt(json['successes'], 0, 0, 1 << 31),
@@ -147,9 +145,7 @@ class AiModelProxyDailyHealth {
   });
 
   factory AiModelProxyDailyHealth.fromJson(Object? raw) {
-    final json = raw is Map
-        ? Map<String, Object?>.from(raw)
-        : const <String, Object?>{};
+    final json = stringKeyedMapFromValue(raw);
     final modelsRaw = json['models'];
     final models = <String, AiModelProxyDailyComponent>{};
     if (modelsRaw is Map) {
@@ -406,13 +402,11 @@ class AiModelProxyBackend {
   });
 
   factory AiModelProxyBackend.fromJson(Object? raw) {
-    final json = raw is Map
-        ? Map<String, Object?>.from(raw)
-        : const <String, Object?>{};
+    final json = stringKeyedMapFromValue(raw);
     return AiModelProxyBackend(
       providerId: '${json['provider_id'] ?? ''}'.trim(),
       modelId: '${json['model_id'] ?? ''}'.trim(),
-      enabled: json['enabled'] as bool? ?? true,
+      enabled: boolFromValue(json['enabled'], defaultValue: true),
     );
   }
 
@@ -463,9 +457,7 @@ class AiModelProxyRequestRecord {
   });
 
   factory AiModelProxyRequestRecord.fromJson(Object? raw) {
-    final json = raw is Map
-        ? Map<String, Object?>.from(raw)
-        : const <String, Object?>{};
+    final json = stringKeyedMapFromValue(raw);
     return AiModelProxyRequestRecord(
       id: '${json['id'] ?? ''}',
       startedAt:
@@ -476,7 +468,7 @@ class AiModelProxyRequestRecord {
       apiStyle: '${json['api_style'] ?? ''}',
       tokens: _proxyBoundedInt(json['tokens'], 0, 0, 1 << 31),
       durationMs: _proxyBoundedInt(json['duration_ms'], 0, 0, 1 << 31),
-      success: json['success'] as bool? ?? false,
+      success: boolFromValue(json['success']),
       error: nullIfBlank('${json['error'] ?? ''}'),
       clientIp: '${json['client_ip'] ?? ''}',
       clientPort: '${json['client_port'] ?? ''}',
@@ -498,7 +490,7 @@ class AiModelProxyRequestRecord {
       outboundBytes: _proxyBoundedInt(json['outbound_bytes'], 0, 0, 1 << 31),
       statusCode: _proxyBoundedInt(json['status_code'], 0, 0, 599),
       attempt: _proxyBoundedInt(json['attempt'], 1, 1, 32),
-      stream: json['stream'] as bool? ?? false,
+      stream: boolFromValue(json['stream']),
     );
   }
 
@@ -577,23 +569,19 @@ class AiModelProxyRoute {
   });
 
   factory AiModelProxyRoute.fromJson(Object? raw) {
-    final json = raw is Map
-        ? Map<String, Object?>.from(raw)
-        : const <String, Object?>{};
+    final json = stringKeyedMapFromValue(raw);
     final exposedModel = '${json['exposed_model'] ?? ''}'.trim();
     final backends = _normalizeProxyBackends(
       (json['backends'] is List ? json['backends'] as List : const <Object?>[])
           .map(AiModelProxyBackend.fromJson),
     );
     final profile = json['profile'] is Map
-        ? AiModelProfile.fromJson(
-            Map<String, Object?>.from(json['profile'] as Map),
-          )
+        ? AiModelProfile.fromJson(stringKeyedMapFromValue(json['profile']))
         : const AiModelProfile();
     return AiModelProxyRoute(
       exposedModel: exposedModel,
       profile: profile,
-      enabled: json['enabled'] as bool? ?? true,
+      enabled: boolFromValue(json['enabled'], defaultValue: true),
       backends: backends,
     );
   }
@@ -649,9 +637,7 @@ class AiModelProxySettings {
   });
 
   factory AiModelProxySettings.fromJson(Object? raw) {
-    final json = raw is Map
-        ? Map<String, Object?>.from(raw)
-        : const <String, Object?>{};
+    final json = stringKeyedMapFromValue(raw);
     final routes = _normalizeProxyRoutes(
       (json['routes'] is List ? json['routes'] as List : const <Object?>[]).map(
         AiModelProxyRoute.fromJson,
@@ -672,7 +658,7 @@ class AiModelProxySettings {
             .where((item) => item.day.isNotEmpty)
             .toList(growable: false);
     return AiModelProxySettings(
-      enabled: json['enabled'] as bool? ?? false,
+      enabled: boolFromValue(json['enabled']),
       listenHost: _normalizeListenHost(json['listen_host']),
       listenPort: _boundedInt(
         json['listen_port'],
@@ -680,7 +666,7 @@ class AiModelProxySettings {
         aiModelProxyMinListenPort,
         aiModelProxyMaxListenPort,
       ),
-      requireAuthentication: json['require_authentication'] as bool? ?? false,
+      requireAuthentication: boolFromValue(json['require_authentication']),
       apiKey: '${json['api_key'] ?? ''}',
       apiStyle: AiModelProxyApiStyle.fromId(json['api_style']),
       limitScope: AiModelProxyLimitScope.fromId(json['limit_scope']),

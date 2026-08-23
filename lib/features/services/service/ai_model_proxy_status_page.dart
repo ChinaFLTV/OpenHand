@@ -68,6 +68,15 @@ class _StatusPageCopy {
     ja: 'コピーしました',
   );
 
+  String get copyFailed => _t(
+    zh: '复制失败，请手动复制地址',
+    zhHant: '複製失敗，請手動複製地址',
+    en: 'Copy failed; copy the address manually',
+    fr: 'Échec de la copie ; copiez l’adresse manuellement',
+    de: 'Kopieren fehlgeschlagen; Adresse manuell kopieren',
+    ja: 'コピーに失敗しました。アドレスを手動でコピーしてください',
+  );
+
   String get systemStatus => _t(
     zh: '系统状态',
     zhHant: '系統狀態',
@@ -407,6 +416,7 @@ class _StatusPageCopy {
     'noIncidents': noIncidents,
     'copyIdle': copyLink,
     'copyDone': copied,
+    'copyFailed': copyFailed,
     'historyOpen': viewHistory,
     'historyClose': hideHistory,
   };
@@ -879,9 +889,29 @@ window.addEventListener('resize', () => {
 });
 const copyBtn = document.getElementById('copy-link');
 let copyTimer = 0;
+async function copyText(value){
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    try { await navigator.clipboard.writeText(value); return true; } catch (_) {}
+  }
+  const area = document.createElement('textarea');
+  area.value = value;
+  area.setAttribute('readonly', '');
+  area.style.position = 'fixed'; area.style.opacity = '0';
+  document.body.appendChild(area);
+  area.select();
+  try {
+    return typeof document.execCommand === 'function' && document.execCommand('copy');
+  } catch (_) {
+    return false;
+  } finally {
+    area.remove();
+  }
+}
 copyBtn.addEventListener('click', async () => {
-  try { await navigator.clipboard.writeText(location.href); } catch (e) {}
-  copyBtn.textContent = i18n.copyDone || copyBtn.textContent;
+  const copied = await copyText(location.href);
+  copyBtn.textContent = copied
+    ? (i18n.copyDone || copyBtn.textContent)
+    : (i18n.copyFailed || copyBtn.textContent);
   window.clearTimeout(copyTimer);
   copyTimer = window.setTimeout(() => {
     copyBtn.textContent = i18n.copyIdle || copyBtn.textContent;
