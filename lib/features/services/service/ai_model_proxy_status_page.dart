@@ -108,6 +108,10 @@ String buildAiModelProxyStatusPage({
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="${dark ? 'dark' : 'light'}">
+<meta name="theme-color" content="${_cssHex(cs.primary)}">
+<link rel="icon" type="image/png" href="$aiModelProxyLogoPath">
+<link rel="shortcut icon" type="image/png" href="$aiModelProxyFaviconPath">
+<link rel="apple-touch-icon" href="$aiModelProxyLogoPath">
 <title>OpenHand · ${openHandAmbientText(zh: '模型中转状态', en: 'Model proxy status')}</title>
 <style>
 :root {
@@ -144,10 +148,9 @@ body {
 }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 22px; letter-spacing: -.03em; }
 .brand small { display: block; font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
-.mark {
-  width: 36px; height: 36px; border-radius: 12px;
-  background: var(--primary);
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--primary) 28%, transparent);
+.logo {
+  width: 36px; height: 36px; border-radius: 12px; object-fit: contain;
+  display: block; background: var(--card); flex: none;
 }
 .copy-btn, .ghost-btn {
   border: 1px solid var(--outline); background: var(--text); color: var(--bg);
@@ -231,7 +234,7 @@ body {
 <div class="wrap">
   <div class="top">
     <div class="brand">
-      <span class="mark"></span>
+      <img class="logo" src="$aiModelProxyLogoPath" width="36" height="36" alt="OpenHand">
       <div>OpenHand<small>${openHandAmbientText(zh: 'AI 模型中转站状态', en: 'AI model proxy status')}</small></div>
     </div>
     <button class="copy-btn" id="copy-link" type="button">${openHandAmbientText(zh: '复制状态页链接', en: 'Copy status URL')}</button>

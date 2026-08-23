@@ -9,6 +9,9 @@ const String aiModelProxyStatusPath = '/status.html';
 const String aiModelProxyStatusAliasPath = '/status';
 const String aiModelProxyStatusMode = 'status';
 const String aiModelProxyStatusModelId = 'status.html';
+const String aiModelProxyLogoAsset = 'assets/branding/openhand_logo.png';
+const String aiModelProxyLogoPath = '/openhand_logo.png';
+const String aiModelProxyFaviconPath = '/favicon.ico';
 const int aiModelProxyStatusHistoryDays = 90;
 const int aiModelProxySlowLatencyMs = 3000;
 const double aiModelProxyHealthHealthyRate = 0.99;
@@ -19,6 +22,11 @@ bool isAiModelProxyStatusPath(String path) {
   final value = path.trim();
   return value == aiModelProxyStatusPath ||
       value == aiModelProxyStatusAliasPath;
+}
+
+bool isAiModelProxyBrandingPath(String path) {
+  final value = path.trim();
+  return value == aiModelProxyLogoPath || value == aiModelProxyFaviconPath;
 }
 
 bool isAiModelProxyStatusRecord(AiModelProxyRequestRecord record) {

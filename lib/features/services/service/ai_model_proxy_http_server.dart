@@ -3,7 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/services.dart';
+
+import '../../../app/support/silent_log.dart';
 import '../../../shared/net/bounded_server_bind.dart';
+import '../../../shared/net/http_redirect_utils.dart';
 import '../../ai/index.dart';
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_model_proxy_models.dart';
@@ -34,12 +38,14 @@ class AiModelProxyHttpServer {
   static const Duration _bindTimeout = Duration(seconds: 10);
   static const Duration _requestReadTimeout = Duration(seconds: 30);
   static const Duration _requestKeepAliveTimeout = Duration(seconds: 30);
+  static const String _logoCacheControl = 'public, max-age=86400';
 
   final AiModelProxyController _controller;
   final AiModelProxyDispatcher _dispatcher;
   HttpServer? _server;
   int _activeRequests = 0;
   bool _closing = false;
+  Uint8List? _logoPng;
 
   bool get isRunning => _server != null && !_closing;
   int? get boundPort => _server?.port;
@@ -84,6 +90,11 @@ class AiModelProxyHttpServer {
           await _closeRequest(request);
           continue;
         }
+        final path = _normalizePath(request.uri.path);
+        if (isAiModelProxyBrandingPath(path)) {
+          unawaited(_handleRequest(request));
+          continue;
+        }
         _controller.runtimeRequestObserved(
           inboundBytes: request.contentLength < 0 ? 0 : request.contentLength,
         );
@@ -117,6 +128,11 @@ class AiModelProxyHttpServer {
       final path = _normalizePath(request.uri.path);
       if (method == 'OPTIONS') {
         await _writeJson(request, 204, const <String, Object?>{});
+        return;
+      }
+      if ((method == 'GET' || method == 'HEAD') &&
+          isAiModelProxyBrandingPath(path)) {
+        await _writeBrandingAsset(request, headOnly: method == 'HEAD');
         return;
       }
       if ((method == 'GET' || method == 'HEAD') &&
@@ -1802,6 +1818,54 @@ class AiModelProxyHttpServer {
         : '/v1/models/';
     final value = path.substring(prefix.length);
     return Uri.decodeComponent(value).trim();
+  }
+
+  Future<Uint8List?> _loadLogoPng() async {
+    final cached = _logoPng;
+    if (cached != null && cached.isNotEmpty) return cached;
+    try {
+      final data = await rootBundle.load(aiModelProxyLogoAsset);
+      if (data.lengthInBytes <= 0) return null;
+      final bytes = data.buffer.asUint8List(
+        data.offsetInBytes,
+        data.lengthInBytes,
+      );
+      if (bytes.isEmpty) return null;
+      _logoPng = bytes;
+      return bytes;
+    } on Object catch (error, stack) {
+      silentLog('ai_model_proxy_http_server', '加载状态页 Logo', error, stack);
+      return null;
+    }
+  }
+
+  Future<void> _writeBrandingAsset(
+    HttpRequest request, {
+    required bool headOnly,
+  }) async {
+    final bytes = await _loadLogoPng();
+    if (bytes == null || bytes.isEmpty) {
+      request.response.statusCode = 404;
+      await _closeRequest(request);
+      return;
+    }
+    try {
+      request.response
+        ..statusCode = 200
+        ..headers.contentType = ContentType.parse(kImagePngMimeType)
+        ..headers.set('cache-control', _logoCacheControl)
+        ..headers.set('x-content-type-options', 'nosniff')
+        ..headers.set('access-control-allow-origin', '*')
+        ..headers.set('access-control-allow-methods', 'GET, HEAD, OPTIONS')
+        ..headers.set('access-control-allow-headers', _corsAllowedHeaders)
+        ..contentLength = headOnly ? 0 : bytes.length;
+      if (!headOnly) {
+        request.response.add(bytes);
+      }
+      await request.response.close();
+    } on Object {
+      await _closeRequest(request);
+    }
   }
 
   Future<void> _writeStatusPage(
