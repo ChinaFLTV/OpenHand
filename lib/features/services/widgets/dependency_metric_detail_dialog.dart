@@ -3800,7 +3800,6 @@ class _TtlHeatmap extends StatelessWidget {
         .toList(growable: false),
     color: color,
     emptyLabel: '暂无 TTL 数据',
-    columnCountForWidth: (width, itemCount) => width < 520 ? 2 : itemCount,
   );
 }
 

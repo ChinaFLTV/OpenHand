@@ -41,7 +41,7 @@ const double _kProxyOpsMetricMinCellWidth = 120;
 const double _kProxyOpsPanelPairBreakpoint = 480;
 const double _kProxyOpsDonutHeight = 220;
 const double _kProxyOpsGaugeSize = 108;
-const double _kProxyOpsHeatCellExtent = 88;
+const double _kProxyOpsMetricHelperHeight = 16;
 const int _kProxyOpsLogMaxEntries = 30;
 const int _kProxyOpsTopLogEntries = 12;
 const int _kProxyOpsRankMaxRows = 12;
@@ -877,6 +877,7 @@ class _ProxyOpsMetric extends StatelessWidget {
       child: AnimatedContainer(
         duration: openHandMotionDuration(context, kOpenHandMotion180),
         curve: kOpenHandSwitchInCurve,
+        width: double.infinity,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: cs.surfaceContainerHigh.withValues(alpha: 0.66),
@@ -938,18 +939,21 @@ class _ProxyOpsMetric extends StatelessWidget {
                 height: 1.05,
               ),
             ),
-            if (metric.helper.trim().isNotEmpty) ...[
-              kOpenHandGap4,
-              _ProxyOpsCopyText(
-                metric.helper.trim(),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: metric.color.withValues(alpha: 0.86),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+            kOpenHandGap4,
+            SizedBox(
+              height: _kProxyOpsMetricHelperHeight,
+              child: metric.helper.trim().isEmpty
+                  ? null
+                  : _ProxyOpsCopyText(
+                      metric.helper.trim(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: metric.color.withValues(alpha: 0.86),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+            ),
           ],
         ),
       ),
@@ -2178,17 +2182,20 @@ class _ProxyOpsInsightMetricGrid extends StatelessWidget {
           rows.add(
             Padding(
               padding: EdgeInsets.only(top: start == 0 ? 0 : _kProxyOpsGap),
-              child: Row(
-                children: [
-                  for (var i = 0; i < slice.length; i++) ...[
-                    if (i != 0) const SizedBox(width: _kProxyOpsGap),
-                    Expanded(child: Center(child: slice[i])),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < slice.length; i++) ...[
+                      if (i != 0) const SizedBox(width: _kProxyOpsGap),
+                      Expanded(child: slice[i]),
+                    ],
+                    for (var i = slice.length; i < columns; i++) ...[
+                      const SizedBox(width: _kProxyOpsGap),
+                      const Expanded(child: SizedBox.shrink()),
+                    ],
                   ],
-                  for (var i = slice.length; i < columns; i++) ...[
-                    const SizedBox(width: _kProxyOpsGap),
-                    const Expanded(child: SizedBox.shrink()),
-                  ],
-                ],
+                ),
               ),
             ),
           );
@@ -2617,7 +2624,7 @@ OpenHandOperationalMeter _proxyOpsCountMeter({
   required num maximum,
   required Color color,
   String? helper,
-  bool semicircular = true,
+  bool semicircular = false,
 }) {
   final cap = math.max(maximum.toDouble(), math.max(value.toDouble(), 1));
   return OpenHandOperationalMeter(
@@ -2673,14 +2680,6 @@ List<OpenHandChartSegment> _proxyOpsSegments(
         valueLabel: '${sorted[i].value}',
       ),
   ];
-}
-
-int _proxyOpsHourHeatColumns(double width, int itemCount) {
-  if (!width.isFinite || width <= 0) return math.min(4, itemCount);
-  if (width >= 720) return math.min(12, itemCount);
-  if (width >= 520) return math.min(8, itemCount);
-  if (width >= 360) return math.min(6, itemCount);
-  return math.min(4, itemCount);
 }
 
 List<OpenHandChartSegment> _proxyOpsHourSegments(List<int> hours, Color color) {
@@ -2943,7 +2942,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               ),
             ),
             _proxyOpsChartPanel(
-              icon: Icons.grid_view_rounded,
+              icon: Icons.view_week_rounded,
               title: text(zh: '对端活跃时段', en: 'Peer Hours'),
               empty: data.hourPeerCounts.every((value) => value <= 0),
               emptyLabel: emptyChart,
@@ -2953,8 +2952,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                   cs.primary,
                 ),
                 color: cs.primary,
-                maxCrossAxisExtent: _kProxyOpsHeatCellExtent,
-                columnCountForWidth: _proxyOpsHourHeatColumns,
               ),
             ),
             _ProxyOpsDetailSection(
@@ -3007,7 +3004,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                       maximum: limit,
                       color: cs.tertiary,
                       helper: '${data.settings.limitMode.label} / $limit',
-                      semicircular: false,
                     ),
                     _proxyOpsCountMeter(
                       label: data.settings.limitMode.label,
@@ -3018,7 +3014,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                         zh: '近窗 ${data.windowRequestCount}',
                         en: 'Window ${data.windowRequestCount}',
                       ),
-                      semicircular: false,
                     ),
                   ],
                 ),
@@ -3182,7 +3177,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               ),
             ]),
             _proxyOpsChartPanel(
-              icon: Icons.grid_view_rounded,
+              icon: Icons.view_week_rounded,
               title: text(zh: '到达时段热力', en: 'Arrival Heat'),
               empty: data.hourRequestCounts.every((value) => value <= 0),
               emptyLabel: emptyChart,
@@ -3192,8 +3187,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                   cs.secondary,
                 ),
                 color: cs.secondary,
-                maxCrossAxisExtent: _kProxyOpsHeatCellExtent,
-                columnCountForWidth: _proxyOpsHourHeatColumns,
               ),
             ),
           ];
@@ -3436,7 +3429,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               ),
             ]),
             _proxyOpsChartPanel(
-              icon: Icons.grid_view_rounded,
+              icon: Icons.view_week_rounded,
               title: text(zh: '失败时段热力', en: 'Failure Hours'),
               empty: data.hourFailureCounts.every((value) => value <= 0),
               emptyLabel: emptyChart,
@@ -3446,8 +3439,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                   cs.error,
                 ),
                 color: cs.error,
-                maxCrossAxisExtent: _kProxyOpsHeatCellExtent,
-                columnCountForWidth: _proxyOpsHourHeatColumns,
               ),
             ),
           ];
@@ -3671,7 +3662,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                       zh: '累计 ${data.settings.totalTokens}',
                       en: 'Total ${data.settings.totalTokens}',
                     ),
-                    semicircular: false,
                   ),
                 ],
               ),
@@ -3913,14 +3903,13 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ),
               ),
               _proxyOpsChartPanel(
-                icon: Icons.grid_view_rounded,
+                icon: Icons.view_week_rounded,
                 title: text(zh: '后备规模热力', en: 'Backend Footprint'),
                 empty: heat.every((segment) => segment.safeValue <= 0),
                 emptyLabel: emptyChart,
                 chart: OpenHandOperationalHeatmap(
                   segments: heat,
                   color: cs.primary,
-                  maxCrossAxisExtent: 160,
                 ),
               ),
             ]),
@@ -4152,7 +4141,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
           return [
             _proxyOpsPanelRow([
               _proxyOpsChartPanel(
-                icon: Icons.grid_view_rounded,
+                icon: Icons.view_week_rounded,
                 title: text(zh: '模型调用热力', en: 'Model Heat'),
                 empty: groups.isEmpty,
                 emptyLabel: emptyChart,
@@ -4167,7 +4156,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                       ),
                   ],
                   color: cs.primary,
-                  maxCrossAxisExtent: 160,
                 ),
               ),
               _proxyOpsChartPanel(

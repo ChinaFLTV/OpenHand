@@ -23,9 +23,15 @@ const double _kTrendHitRadius = 22;
 const double _kDonutMaxStroke = 18;
 const double _kDonutStrokeRatio = 0.16;
 const double _kDonutSegmentGap = 0.018;
-const double _kHeatmapMinCellHeight = 56;
-const double _kHeatmapSpacing = 8;
-const double _kHeatmapCellPadding = 8;
+const double _kFillTrackHeight = 10;
+const double _kFillTrackRadius = 5;
+const double _kVerticalBarChartHeight = 156;
+const double _kVerticalBarMaxSlotWidth = 76;
+const double _kVerticalBarSlotGap = 14;
+const double _kVerticalBarBodyMaxWidth = 42;
+const double _kStatusStripHeight = 38;
+const double _kStatusStripNamedMaxWidth = 96;
+const double _kStatusStripRadius = 4;
 
 double _nonNegative(num value) {
   final result = value.toDouble();
@@ -1407,7 +1413,7 @@ class OpenHandOperationalMeter extends StatelessWidget {
         valueLabel ??
         (unavailable ? '暂未接入' : '${(ratio * 100).toStringAsFixed(1)}%');
     final box = gaugeSize ?? (semicircular ? 96.0 : 112.0);
-    final gaugeHeight = semicircular ? box * 0.58 : box;
+    final gaugeHeight = semicircular ? box * 0.62 : box;
     return Semantics(
       label: '$label，$display',
       child: Column(
@@ -1417,10 +1423,12 @@ class OpenHandOperationalMeter extends StatelessWidget {
             width: box,
             height: gaugeHeight,
             child: ClipRect(
-              child: Align(
-                alignment: semicircular
-                    ? Alignment.topCenter
-                    : Alignment.center,
+              child: OverflowBox(
+                alignment: Alignment.topCenter,
+                minWidth: box,
+                maxWidth: box,
+                minHeight: box,
+                maxHeight: box,
                 child: SizedBox(
                   width: box,
                   height: box,
@@ -1429,7 +1437,7 @@ class OpenHandOperationalMeter extends StatelessWidget {
                       painter: _MeterPainter(
                         ratio: ratio,
                         color: color,
-                        trackColor: colors.surfaceContainerHighest,
+                        trackColor: colors.onSurface.withValues(alpha: 0.12),
                         semicircular: semicircular,
                       ),
                     ),
@@ -1438,6 +1446,7 @@ class OpenHandOperationalMeter extends StatelessWidget {
               ),
             ),
           ),
+          kOpenHandGap8,
           Text(label, style: Theme.of(context).textTheme.labelLarge),
           kOpenHandGap2,
           Text(display, style: Theme.of(context).textTheme.titleMedium),
@@ -1638,6 +1647,54 @@ class _ChartActionSurfaceState extends State<_ChartActionSurface> {
   }
 }
 
+class _ChartFillTrack extends StatelessWidget {
+  const _ChartFillTrack({
+    required this.ratio,
+    required this.color,
+    required this.trackColor,
+    this.height = _kFillTrackHeight,
+  });
+
+  final double ratio;
+  final Color color;
+  final Color trackColor;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final factor = ratio.isFinite ? ratio.clamp(0.0, 1.0).toDouble() : 0.0;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(_kFillTrackRadius),
+      child: SizedBox(
+        height: height,
+        width: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ColoredBox(color: trackColor),
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: factor),
+              duration: kOpenHandMotion420,
+              curve: Curves.easeOutCubic,
+              builder: (context, value, _) {
+                if (value <= 0) return const SizedBox.shrink();
+                return Align(
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: value,
+                    heightFactor: 1,
+                    child: ColoredBox(color: color),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _HorizontalComparisonBars extends StatelessWidget {
   const _HorizontalComparisonBars({
     required this.segments,
@@ -1654,6 +1711,7 @@ class _HorizontalComparisonBars extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final track = colors.onSurface.withValues(alpha: 0.08);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1675,27 +1733,10 @@ class _HorizontalComparisonBars extends StatelessWidget {
                 kOpenHandHGap8,
                 Expanded(
                   flex: 5,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(kOpenHandRadius4),
-                    child: SizedBox(
-                      height: 10,
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            child: ColoredBox(
-                              color: colors.surfaceContainerHighest,
-                            ),
-                          ),
-                          FractionallySizedBox(
-                            widthFactor: (segment.safeValue / maximum).clamp(
-                              0.0,
-                              1.0,
-                            ),
-                            child: ColoredBox(color: segment.color),
-                          ),
-                        ],
-                      ),
-                    ),
+                  child: _ChartFillTrack(
+                    ratio: maximum <= 0 ? 0 : segment.safeValue / maximum,
+                    color: segment.color,
+                    trackColor: track,
                   ),
                 ),
                 kOpenHandHGap8,
@@ -1735,69 +1776,128 @@ class _VerticalComparisonBars extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return SizedBox(
-      height: 148,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          for (final segment in segments)
-            Expanded(
-              child: _ChartActionSurface(
-                semanticLabel: '${segment.label}，${valueLabel(segment)}',
-                onTap: onSegmentTap == null
-                    ? null
-                    : () => onSegmentTap!(segment),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(
-                        valueLabel(segment),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelSmall,
-                      ),
-                      kOpenHandGap5,
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.bottomCenter,
-                          child: FractionallySizedBox(
-                            heightFactor: segment.safeValue <= 0
-                                ? 0
-                                : (segment.safeValue / maximum).clamp(
-                                    0.03,
-                                    1.0,
+    final track = colors.onSurface.withValues(alpha: 0.08);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final n = math.max(1, segments.length);
+        final available = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : _kVerticalBarMaxSlotWidth * n;
+        final even = (available - _kVerticalBarSlotGap * (n - 1)) / n;
+        final slotWidth = even.clamp(4.0, _kVerticalBarMaxSlotWidth);
+        final total = slotWidth * n + _kVerticalBarSlotGap * (n - 1);
+        final bodyWidth = math.min(
+          _kVerticalBarBodyMaxWidth,
+          math.max(8.0, slotWidth - 8),
+        );
+        return SizedBox(
+          height: _kVerticalBarChartHeight,
+          width: double.infinity,
+          child: Align(
+            child: SizedBox(
+              width: math.min(total, available),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  for (var i = 0; i < segments.length; i++) ...[
+                    if (i != 0) const SizedBox(width: _kVerticalBarSlotGap),
+                    SizedBox(
+                      width: slotWidth,
+                      child: _ChartActionSurface(
+                        semanticLabel:
+                            '${segments[i].label}，${valueLabel(segments[i])}',
+                        onTap: onSegmentTap == null
+                            ? null
+                            : () => onSegmentTap!(segments[i]),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text(
+                              valueLabel(segments[i]),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
+                            kOpenHandGap5,
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.bottomCenter,
+                                child: SizedBox(
+                                  width: bodyWidth,
+                                  child: Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          color: track,
+                                          borderRadius:
+                                              const BorderRadius.vertical(
+                                                top: Radius.circular(
+                                                  kOpenHandRadius6,
+                                                ),
+                                              ),
+                                        ),
+                                      ),
+                                      TweenAnimationBuilder<double>(
+                                        tween: Tween<double>(
+                                          begin: 0,
+                                          end: segments[i].safeValue <= 0
+                                              ? 0
+                                              : (segments[i].safeValue /
+                                                        maximum)
+                                                    .clamp(0.04, 1.0),
+                                        ),
+                                        duration: kOpenHandMotion420,
+                                        curve: Curves.easeOutCubic,
+                                        builder: (context, value, _) {
+                                          if (value <= 0) {
+                                            return const SizedBox.shrink();
+                                          }
+                                          return Align(
+                                            alignment: Alignment.bottomCenter,
+                                            child: FractionallySizedBox(
+                                              heightFactor: value,
+                                              widthFactor: 1,
+                                              child: DecoratedBox(
+                                                decoration: BoxDecoration(
+                                                  color: segments[i].color,
+                                                  borderRadius:
+                                                      const BorderRadius.vertical(
+                                                        top: Radius.circular(
+                                                          kOpenHandRadius6,
+                                                        ),
+                                                      ),
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ],
                                   ),
-                            child: Container(
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: segment.color,
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(kOpenHandRadius4),
                                 ),
                               ),
                             ),
-                          ),
+                            kOpenHandGap5,
+                            Text(
+                              segments[i].label,
+                              maxLines: 2,
+                              textAlign: TextAlign.center,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(color: colors.onSurfaceVariant),
+                            ),
+                          ],
                         ),
                       ),
-                      kOpenHandGap5,
-                      Text(
-                        segment.label,
-                        maxLines: 2,
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                    ),
+                  ],
+                ],
               ),
             ),
-        ],
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -1998,7 +2098,7 @@ class OpenHandOperationalRankTable extends StatelessWidget {
   }
 }
 
-/// 网格热力图。单一强度颜色由 [color] 提供，透明度表达数值大小。
+/// 状态条热力：等高校色圆角条，强度用透明度表达，悬停显示标签与数值。
 class OpenHandOperationalHeatmap extends StatelessWidget {
   const OpenHandOperationalHeatmap({
     super.key,
@@ -2006,16 +2106,12 @@ class OpenHandOperationalHeatmap extends StatelessWidget {
     required this.color,
     this.emptyLabel = '暂无可用数据',
     this.valueLabel,
-    this.maxCrossAxisExtent = 150,
-    this.columnCountForWidth,
   });
 
   final List<OpenHandChartSegment> segments;
   final Color color;
   final String emptyLabel;
   final String Function(OpenHandChartSegment segment)? valueLabel;
-  final double maxCrossAxisExtent;
-  final int Function(double width, int itemCount)? columnCountForWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -2023,98 +2119,133 @@ class OpenHandOperationalHeatmap extends StatelessWidget {
       0,
       (maximum, segment) => math.max(maximum, segment.safeValue),
     );
-    if (maximum <= 0) return _EmptyChartLabel(label: emptyLabel);
-    final extent = maxCrossAxisExtent.isFinite && maxCrossAxisExtent > 32
-        ? maxCrossAxisExtent
-        : 150.0;
+    if (maximum <= 0 || segments.isEmpty) {
+      return _EmptyChartLabel(label: emptyLabel);
+    }
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final hourPattern = RegExp(r'^\d{1,2}$');
+    final hourStrip =
+        (segments.length == 12 || segments.length == 24) &&
+        segments.every((segment) => hourPattern.hasMatch(segment.label));
     return RepaintBoundary(
       child: Semantics(
         label:
-            '热力图，${segments.map((segment) => '${segment.label} ${_labelFor(segment)}').join('，')}',
+            '热力条，${segments.map((segment) => '${segment.label} ${_labelFor(segment)}').join('，')}',
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final width = constraints.maxWidth.isFinite
+            final n = segments.length;
+            final available = constraints.maxWidth.isFinite
                 ? constraints.maxWidth
-                : extent;
-            final requestedColumns =
-                columnCountForWidth?.call(width, segments.length) ??
-                (width / extent).floor();
-            final columns = requestedColumns
-                .clamp(1, math.max(1, segments.length))
-                .toInt();
-            final cellWidth = math.max(
-              1.0,
-              (width - _kHeatmapSpacing * (columns - 1)) / columns,
-            );
-            final cellHeight = math.max(
-              _kHeatmapMinCellHeight,
-              cellWidth / 1.65,
-            );
-            final aspect = cellWidth / cellHeight;
-            return GridView.count(
-              crossAxisCount: columns,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: _kHeatmapSpacing,
-              crossAxisSpacing: _kHeatmapSpacing,
-              childAspectRatio: aspect.isFinite && aspect > 0 ? aspect : 1,
-              children: [
-                for (final segment in segments)
-                  Builder(
-                    builder: (context) {
-                      final ratio = (segment.safeValue / maximum).clamp(
-                        0.0,
-                        1.0,
-                      );
-                      return Semantics(
-                        label: '${segment.label} ${_labelFor(segment)}',
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.16 + ratio * 0.84),
-                            borderRadius: BorderRadius.circular(
-                              kOpenHandRadius9,
-                            ),
-                            border: Border.all(
-                              color: color.withValues(
-                                alpha: 0.24 + ratio * 0.5,
-                              ),
-                            ),
+                : _kStatusStripNamedMaxWidth * n;
+            final gap = hourStrip ? 3.0 : 10.0;
+            final even = (available - gap * (n - 1)) / n;
+            final slotWidth = hourStrip
+                ? math.max(4.0, even)
+                : even.clamp(8.0, _kStatusStripNamedMaxWidth);
+            final glyphWidth = hourStrip
+                ? slotWidth
+                : math.min(28.0, slotWidth);
+            final total = slotWidth * n + gap * (n - 1);
+            final tickEvery = n == 24
+                ? 6
+                : n == 12
+                ? 3
+                : 1;
+            Widget cell(int index) {
+              final segment = segments[index];
+              final ratio = (segment.safeValue / maximum).clamp(0.0, 1.0);
+              final fill = segment.safeValue <= 0
+                  ? color.withValues(alpha: 0.10)
+                  : color.withValues(alpha: 0.18 + ratio * 0.82);
+              final showTick =
+                  !hourStrip ||
+                  index == 0 ||
+                  index == n - 1 ||
+                  index % tickEvery == 0;
+              return SizedBox(
+                width: slotWidth,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Tooltip(
+                      waitDuration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(kOpenHandRadius10),
+                        border: Border.all(
+                          color: colors.outlineVariant.withValues(alpha: 0.7),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colors.shadow.withValues(alpha: 0.12),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(_kHeatmapCellPadding),
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    segment.label,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.labelMedium,
-                                  ),
-                                  kOpenHandGap2,
-                                  Text(
-                                    _labelFor(segment),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleSmall,
-                                  ),
-                                ],
+                        ],
+                      ),
+                      textStyle: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurface,
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                      ),
+                      message: '${segment.label}\n${_labelFor(segment)}',
+                      child: Semantics(
+                        label: '${segment.label} ${_labelFor(segment)}',
+                        child: Center(
+                          child: AnimatedContainer(
+                            duration: kOpenHandMotion180,
+                            curve: Curves.easeOutCubic,
+                            width: glyphWidth,
+                            height: _kStatusStripHeight,
+                            decoration: BoxDecoration(
+                              color: fill,
+                              borderRadius: BorderRadius.circular(
+                                _kStatusStripRadius,
                               ),
                             ),
                           ),
                         ),
-                      );
-                    },
-                  ),
-              ],
+                      ),
+                    ),
+                    kOpenHandGap8,
+                    SizedBox(
+                      height: hourStrip ? 16 : 32,
+                      child: showTick
+                          ? Text(
+                              hourStrip
+                                  ? segment.label
+                                  : '${segment.label}\n${_labelFor(segment)}',
+                              maxLines: hourStrip ? 1 : 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colors.onSurfaceVariant,
+                                fontWeight: FontWeight.w700,
+                                height: 1.2,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return Align(
+              alignment: hourStrip ? Alignment.centerLeft : Alignment.center,
+              child: SizedBox(
+                width: math.min(total, available),
+                child: Row(
+                  children: [
+                    for (var i = 0; i < n; i++) ...[
+                      if (i != 0) SizedBox(width: gap),
+                      cell(i),
+                    ],
+                  ],
+                ),
+              ),
             );
           },
         ),
@@ -2167,27 +2298,11 @@ class OpenHandOperationalLatencyRange extends StatelessWidget {
                     ),
                   ),
                   Expanded(
-                    child: ClipRRect(
-                      borderRadius: kOpenHandBorderRadius5,
-                      child: SizedBox(
-                        height: 12,
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: ColoredBox(
-                                color: colors.surfaceContainerHighest,
-                              ),
-                            ),
-                            FractionallySizedBox(
-                              widthFactor: (segment.safeValue / maximum).clamp(
-                                0.0,
-                                1.0,
-                              ),
-                              child: ColoredBox(color: segment.color),
-                            ),
-                          ],
-                        ),
-                      ),
+                    child: _ChartFillTrack(
+                      ratio: segment.safeValue / maximum,
+                      color: segment.color,
+                      trackColor: colors.onSurface.withValues(alpha: 0.08),
+                      height: 12,
                     ),
                   ),
                   kOpenHandHGap8,
