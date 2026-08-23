@@ -2851,15 +2851,7 @@ Widget _proxyOpsServiceHealthPanel(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(kOpenHandRadius14),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                tone.withValues(alpha: 0.22),
-                tone.withValues(alpha: 0.08),
-                cs.surfaceContainerHighest.withValues(alpha: 0.55),
-              ],
-            ),
+            color: tone.withValues(alpha: 0.14),
             border: Border.all(color: tone.withValues(alpha: 0.38)),
           ),
           child: Row(

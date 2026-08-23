@@ -2739,19 +2739,7 @@ class _OpenHandOperationalHeatmapState extends State<OpenHandOperationalHeatmap>
                                       borderRadius: BorderRadius.circular(
                                         _kStatusStripRadius,
                                       ),
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: [
-                                          Color.lerp(
-                                            fill,
-                                            Colors.white,
-                                            hovered ? 0.28 : 0.14,
-                                          )!,
-                                          fill,
-                                          Color.lerp(fill, Colors.black, 0.16)!,
-                                        ],
-                                      ),
+                                      color: fill,
                                       border: Border.all(
                                         color: fill.withValues(
                                           alpha: hovered ? 0.98 : 0.42,
@@ -2978,15 +2966,7 @@ class _HeatmapHoverCard extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(kOpenHandRadius16),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color.lerp(colors.surface, accent, 0.16)!,
-                colors.surfaceContainerHigh,
-                Color.lerp(colors.surfaceContainerHighest, accent, 0.08)!,
-              ],
-            ),
+            color: colors.surfaceContainerHigh,
             border: Border.all(color: accent.withValues(alpha: 0.42)),
             boxShadow: [
               BoxShadow(
@@ -3007,18 +2987,7 @@ class _HeatmapHoverCard extends StatelessWidget {
               shrinkWrap: true,
               padding: EdgeInsets.zero,
               children: [
-                Container(
-                  height: 4,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Color.lerp(accent, Colors.white, 0.35)!,
-                        accent,
-                        Color.lerp(accent, Colors.black, 0.12)!,
-                      ],
-                    ),
-                  ),
-                ),
+                Container(height: 4, color: accent),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
                   child: Column(

@@ -133,10 +133,7 @@ String buildAiModelProxyStatusPage({
 html, body { margin: 0; min-height: 100%; }
 body {
   font-family: "SF Pro Text", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
-  background:
-    radial-gradient(1200px 480px at 12% -10%, color-mix(in srgb, var(--primary) 18%, transparent), transparent 60%),
-    radial-gradient(900px 420px at 100% 0%, color-mix(in srgb, var(--ok) 12%, transparent), transparent 55%),
-    var(--bg);
+  background: var(--bg);
   color: var(--text);
   line-height: 1.45;
 }
@@ -149,7 +146,7 @@ body {
 .brand small { display: block; font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
 .mark {
   width: 36px; height: 36px; border-radius: 12px;
-  background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 55%, var(--ok)));
+  background: var(--primary);
   box-shadow: 0 8px 18px color-mix(in srgb, var(--primary) 28%, transparent);
 }
 .copy-btn, .ghost-btn {
