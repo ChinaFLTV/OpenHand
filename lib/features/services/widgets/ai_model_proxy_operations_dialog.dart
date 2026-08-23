@@ -26,6 +26,9 @@ const double _kProxyOpsGap = 16;
 const double _kProxyOpsPanelRadius = 16;
 const double _kProxyOpsMaxWidth = 1180;
 const double _kProxyOpsMaxHeight = 860;
+const double _kProxyOpsOuterRadius = 28;
+const double _kProxyOpsShellRadius = 20;
+const double _kProxyOpsControlRadius = 12;
 const int _kProxyOpsTrendBuckets = 12;
 const double _kProxyOpsRecentMaxHeight = 360;
 
@@ -41,7 +44,6 @@ Future<void> showAiModelProxyOperationsDialog(BuildContext context) =>
         minAvailableWidth: 320,
         horizontalMargin: 24,
         verticalMargin: 42,
-        expandToMax: true,
         child: const ServiceDialogInteractionTheme(
           child: _AiModelProxyOperationsDialog(),
         ),
@@ -87,6 +89,7 @@ class _AiModelProxyOperationsDialogState
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
@@ -137,7 +140,7 @@ class _AiModelProxyOperationsDialogState
             ],
           ),
           kOpenHandGap16,
-          Expanded(
+          Flexible(
             child: SingleChildScrollView(
               physics: openHandDialogAwareScrollPhysics(context),
               child: Column(
@@ -625,9 +628,16 @@ class _ProxyOpsMetric extends StatelessWidget {
         curve: kOpenHandSwitchInCurve,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: cs.surfaceContainerHigh.withValues(alpha: 0.7),
+          color: cs.surfaceContainerHigh.withValues(alpha: 0.66),
           borderRadius: BorderRadius.circular(_kProxyOpsPanelRadius),
           border: Border.all(color: metric.color.withValues(alpha: 0.26)),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: cs.shadow.withValues(alpha: 0.04),
+              blurRadius: 14,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -640,6 +650,9 @@ class _ProxyOpsMetric extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: metric.color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: metric.color.withValues(alpha: 0.22),
+                    ),
                   ),
                   alignment: Alignment.center,
                   child: Icon(metric.icon, size: 17, color: metric.color),
@@ -1092,6 +1105,7 @@ class _ProxyOpsDistribution extends StatelessWidget {
       ..sort((a, b) => b.value.compareTo(a.value));
     final top = sorted.take(5).toList(growable: false);
     final total = values.values.fold<int>(0, (sum, value) => sum + value);
+    final palette = colors.isEmpty ? <Color>[cs.primary] : colors;
     return _ProxyOpsPanel(
       title: title,
       icon: icon,
@@ -1119,7 +1133,10 @@ class _ProxyOpsDistribution extends StatelessWidget {
                         values: top
                             .map((entry) => entry.value)
                             .toList(growable: false),
-                        colors: colors.take(top.length).toList(growable: false),
+                        colors: [
+                          for (var index = 0; index < top.length; index++)
+                            palette[index % palette.length],
+                        ],
                         trackColor: cs.surfaceContainerHighest,
                       ),
                       child: Center(
@@ -1142,7 +1159,7 @@ class _ProxyOpsDistribution extends StatelessWidget {
                           label: top[index].key,
                           value: top[index].value,
                           total: total,
-                          color: colors[index % colors.length],
+                          color: palette[index % palette.length],
                         ),
                     ],
                   ),
@@ -1388,21 +1405,26 @@ class _ProxyOpsPanel extends StatelessWidget {
           ],
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  width: 30,
-                  height: 30,
+                  width: 34,
+                  height: 34,
                   decoration: BoxDecoration(
                     color: cs.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(11),
+                    border: Border.all(
+                      color: cs.primary.withValues(alpha: 0.24),
+                    ),
                   ),
                   alignment: Alignment.center,
-                  child: Icon(icon, size: 17, color: cs.primary),
+                  child: Icon(icon, size: 19, color: cs.primary),
                 ),
-                kOpenHandHGap8,
+                kOpenHandHGap11,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1416,10 +1438,11 @@ class _ProxyOpsPanel extends StatelessWidget {
                       if (subtitle != null)
                         Text(
                           subtitle!,
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: cs.onSurfaceVariant,
+                            height: 1.3,
                           ),
                         ),
                     ],
@@ -1458,7 +1481,7 @@ class _ProxyOpsChip extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.1),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(_kProxyOpsControlRadius),
       border: Border.all(color: color.withValues(alpha: 0.25)),
     ),
     child: Row(
@@ -1514,28 +1537,19 @@ class _ProxyOpsInsightDialog extends StatelessWidget {
         maxWidth: 940,
         maxHeight: 800,
         maxWidthFraction: 0.94,
-        maxHeightFraction: 0.9,
+        maxHeightFraction: 0.92,
         minAvailableWidth: 320,
+        horizontalMargin: 24,
+        verticalMargin: 42,
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: cs.surface,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: cs.outlineVariant.withValues(alpha: 0.72),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: cs.shadow.withValues(alpha: 0.18),
-                blurRadius: 38,
-                offset: const Offset(0, 20),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_kProxyOpsOuterRadius),
+        ),
+        child: _ProxyOpsDialogSurface(
+          child: _ProxyOpsConsoleShell(
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
@@ -1548,7 +1562,7 @@ class _ProxyOpsInsightDialog extends StatelessWidget {
                         color: accent.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(13),
                         border: Border.all(
-                          color: accent.withValues(alpha: 0.28),
+                          color: accent.withValues(alpha: 0.26),
                         ),
                       ),
                       child: Icon(_proxyOpsInsightIcon(kind), color: accent),
@@ -1569,7 +1583,7 @@ class _ProxyOpsInsightDialog extends StatelessWidget {
                           kOpenHandGap3,
                           Text(
                             _proxyOpsInsightSubtitle(context, kind),
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: cs.onSurfaceVariant,
@@ -1588,7 +1602,7 @@ class _ProxyOpsInsightDialog extends StatelessWidget {
                   ],
                 ),
                 kOpenHandGap14,
-                Expanded(
+                Flexible(
                   child: SingleChildScrollView(
                     physics: openHandDialogAwareScrollPhysics(context),
                     child: _buildProxyOpsInsightBody(context, data, kind),
@@ -1599,6 +1613,53 @@ class _ProxyOpsInsightDialog extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ProxyOpsDialogSurface extends StatelessWidget {
+  const _ProxyOpsDialogSurface({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(_kProxyOpsOuterRadius),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.72)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: 0.18),
+            blurRadius: 38,
+            offset: const Offset(0, 20),
+          ),
+        ],
+      ),
+      child: Padding(padding: const EdgeInsets.all(16), child: child),
+    );
+  }
+}
+
+class _ProxyOpsConsoleShell extends StatelessWidget {
+  const _ProxyOpsConsoleShell({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: openHandMotionDuration(context, kOpenHandMotion180),
+      curve: kOpenHandSwitchInCurve,
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.46),
+        borderRadius: BorderRadius.circular(_kProxyOpsShellRadius),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.74)),
+      ),
+      child: Padding(padding: const EdgeInsets.all(14), child: child),
     );
   }
 }
@@ -1763,12 +1824,7 @@ class _ProxyOpsUniqueDetail extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  cs.primary.withValues(alpha: 0.14),
-                  cs.tertiary.withValues(alpha: 0.08),
-                ],
-              ),
+              color: cs.primary.withValues(alpha: 0.09),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: cs.primary.withValues(alpha: 0.22)),
             ),
@@ -2982,12 +3038,7 @@ class _ProxyOpsErrorBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            cs.error.withValues(alpha: 0.16),
-            cs.error.withValues(alpha: 0.05),
-          ],
-        ),
+        color: cs.error.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: cs.error.withValues(alpha: 0.34)),
       ),
@@ -3610,6 +3661,7 @@ class _ProxyOpsStatusDonut extends StatelessWidget {
         .where((entry) => entry.value > 0)
         .toList(growable: false);
     final total = entries.fold<int>(0, (sum, item) => sum + item.value);
+    final palette = colors.isEmpty ? <Color>[cs.primary] : colors;
     return _ProxyOpsPanel(
       title: title,
       icon: Icons.donut_small_rounded,
@@ -3631,9 +3683,10 @@ class _ProxyOpsStatusDonut extends StatelessWidget {
                         values: entries
                             .map((entry) => entry.value)
                             .toList(growable: false),
-                        colors: colors
-                            .take(entries.length)
-                            .toList(growable: false),
+                        colors: [
+                          for (var index = 0; index < entries.length; index++)
+                            palette[index % palette.length],
+                        ],
                         trackColor: cs.surfaceContainerHighest,
                       ),
                       child: Center(
@@ -3659,7 +3712,7 @@ class _ProxyOpsStatusDonut extends StatelessWidget {
                                 width: 10,
                                 height: 10,
                                 decoration: BoxDecoration(
-                                  color: colors[index % colors.length],
+                                  color: palette[index % palette.length],
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -3677,7 +3730,7 @@ class _ProxyOpsStatusDonut extends StatelessWidget {
                                 '${(entries[index].value / total * 100).toStringAsFixed(1)}%',
                                 style: Theme.of(context).textTheme.labelSmall
                                     ?.copyWith(
-                                      color: colors[index % colors.length],
+                                      color: palette[index % palette.length],
                                       fontWeight: FontWeight.w900,
                                     ),
                               ),
