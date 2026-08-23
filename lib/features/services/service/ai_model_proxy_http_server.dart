@@ -1876,17 +1876,17 @@ class AiModelProxyHttpServer {
     final headers = _headers(request);
     var status = 200;
     var html = '';
+    final look = _controller.resolveThemeLook();
     try {
-      final look = _controller.resolveThemeLook();
       html = buildAiModelProxyStatusPage(
         controller: _controller,
         themeMode: look.themeMode,
         themePreset: look.preset,
+        locale: look.locale,
       );
     } on Object {
       status = 500;
-      html =
-          '<!DOCTYPE html><html><head><meta charset="utf-8"><title>OpenHand</title></head><body>Status unavailable.</body></html>';
+      html = buildAiModelProxyStatusUnavailablePage(look.locale);
     }
     final bytes = utf8.encode(html);
     try {

@@ -255,6 +255,7 @@ Future<void> _bootstrap() async {
     () => (
       themeMode: settingsController.themeMode,
       preset: settingsController.themePreset,
+      locale: settingsController.locale,
     ),
   );
   settingsController.attachAiModelProviderEndpointGuard(

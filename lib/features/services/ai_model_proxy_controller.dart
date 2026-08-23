@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../app/theme/openhand_theme_preset.dart';
+import '../../shared/util/localized_text.dart';
 import '../../shared/util/serial_task_queue.dart';
 import '../ai/index.dart';
 import 'data/ai_model_proxy_store.dart';
@@ -41,7 +42,7 @@ class AiModelProxyController extends ChangeNotifier {
       <String, _RateLimitWindowState>{};
   AiExposureProxyConfiguration Function()? _networkProxyProvider;
   List<AiModelConfig> Function()? _modelsProvider;
-  ({ThemeMode themeMode, OpenHandThemePreset preset}) Function()?
+  ({ThemeMode themeMode, OpenHandThemePreset preset, Locale locale}) Function()?
   _themeProvider;
   AiModelProxyHttpServer? _httpServer;
   Future<void>? _rebindFuture;
@@ -182,17 +183,24 @@ class AiModelProxyController extends ChangeNotifier {
     );
   }
 
-  /// 状态页跟随应用当前主题预设与明暗，而不是写死一套配色。
+  /// 状态页跟随应用当前主题、明暗与界面语言，而不是写死一套外观。
   void attachThemeProvider(
-    ({ThemeMode themeMode, OpenHandThemePreset preset}) Function() provider,
+    ({ThemeMode themeMode, OpenHandThemePreset preset, Locale locale})
+    Function()
+    provider,
   ) {
     if (_disposed) return;
     _themeProvider = provider;
   }
 
-  ({ThemeMode themeMode, OpenHandThemePreset preset}) resolveThemeLook() {
+  ({ThemeMode themeMode, OpenHandThemePreset preset, Locale locale})
+  resolveThemeLook() {
     return _themeProvider?.call() ??
-        (themeMode: ThemeMode.system, preset: OpenHandThemePreset.deepSeaBlue);
+        (
+          themeMode: ThemeMode.system,
+          preset: OpenHandThemePreset.deepSeaBlue,
+          locale: openHandAmbientLocale,
+        );
   }
 
   String get publicStatusUrl => aiModelProxyStatusUrl(

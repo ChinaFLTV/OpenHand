@@ -10,11 +10,419 @@ import '../../../shared/util/localized_text.dart';
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_model_proxy_models.dart';
 
+const int _kStatusCopyAckMs = 1600;
+
+String _statusPageLang(Locale locale) {
+  final ui = openHandSupportedUiLocale(locale);
+  if (ui.languageCode != 'zh') return ui.languageCode;
+  return ui.scriptCode?.toLowerCase() == 'hant' ? 'zh-Hant' : 'zh-Hans';
+}
+
+class _StatusPageCopy {
+  _StatusPageCopy(this._t);
+
+  factory _StatusPageCopy.forLocale(Locale locale) {
+    return _StatusPageCopy(
+      openHandTextResolverForLocale(openHandSupportedUiLocale(locale)),
+    );
+  }
+
+  final OpenHandLocalizedTextResolver _t;
+
+  String get title => _t(
+    zh: '模型中转状态',
+    zhHant: '模型中轉狀態',
+    en: 'Model proxy status',
+    fr: 'État du relais de modèles',
+    de: 'Modell-Proxy-Status',
+    ja: 'モデル中継ステータス',
+  );
+
+  String get brandSubtitle => _t(
+    zh: 'AI 模型中转站状态',
+    zhHant: 'AI 模型中轉站狀態',
+    en: 'AI model proxy status',
+    fr: 'État du relais de modèles IA',
+    de: 'KI-Modell-Proxy-Status',
+    ja: 'AI モデル中継の稼働状況',
+  );
+
+  String get copyLink => _t(
+    zh: '复制状态页链接',
+    zhHant: '複製狀態頁連結',
+    en: 'Copy status URL',
+    fr: 'Copier le lien d’état',
+    de: 'Status-URL kopieren',
+    ja: 'ステータスページのリンクをコピー',
+  );
+
+  String get copied => _t(
+    zh: '已复制',
+    zhHant: '已複製',
+    en: 'Copied',
+    fr: 'Copié',
+    de: 'Kopiert',
+    ja: 'コピーしました',
+  );
+
+  String get systemStatus => _t(
+    zh: '系统状态',
+    zhHant: '系統狀態',
+    en: 'System status',
+    fr: 'État du système',
+    de: 'Systemstatus',
+    ja: 'システムステータス',
+  );
+
+  String get viewHistory => _t(
+    zh: '查看历史事件',
+    zhHant: '查看歷史事件',
+    en: 'View history',
+    fr: 'Voir l’historique',
+    de: 'Verlauf anzeigen',
+    ja: '履歴を表示',
+  );
+
+  String get hideHistory => _t(
+    zh: '收起历史事件',
+    zhHant: '收起歷史事件',
+    en: 'Hide history',
+    fr: 'Masquer l’historique',
+    de: 'Verlauf ausblenden',
+    ja: '履歴を隠す',
+  );
+
+  String get incidentHistory => _t(
+    zh: '历史事件',
+    zhHant: '歷史事件',
+    en: 'Incident history',
+    fr: 'Historique des incidents',
+    de: 'Ereignisverlauf',
+    ja: '障害履歴',
+  );
+
+  String get footnote => _t(
+    zh: '可用性按近 90 个自然日、在本中转站实际处理过的请求汇总。空闲灰格表示当天没有流量，不代表事故。状态页访问会计入网关遥测，但不计入暴露模型的成功率。',
+    zhHant:
+        '可用性按近 90 個自然日、在本中轉站實際處理過的請求彙總。空閒灰格表示當天沒有流量，不代表事故。狀態頁造訪會計入閘道遙測，但不計入暴露模型的成功率。',
+    en: 'Availability covers the last 90 calendar days of traffic this proxy actually served. Gray means idle, not an outage. Status-page hits are gateway telemetry and are excluded from exposed-model success rates.',
+    fr: 'La disponibilité couvre les 90 derniers jours de trafic réellement traité par ce relais. Le gris signifie inactif, pas une panne. Les visites de la page d’état relèvent de la télémétrie de la passerelle, pas du taux de succès des modèles exposés.',
+    de: 'Die Verfügbarkeit umfasst die letzten 90 Kalendertage des tatsächlich von diesem Proxy verarbeiteten Traffics. Grau bedeutet Leerlauf, keinen Ausfall. Aufrufe der Statusseite zählen zur Gateway-Telemetrie, nicht zur Erfolgsrate bereitgestellter Modelle.',
+    ja: '可用性は直近 90 日、この中継が実際に処理したリクエストで集計します。灰色はアイドルであり障害ではありません。ステータスページへのアクセスはゲートウェイ計測に含まれ、公開モデルの成功率には含めません。',
+  );
+
+  String get healthy => _t(
+    zh: '正常运行',
+    zhHant: '正常運作',
+    en: 'Operational',
+    fr: 'Opérationnel',
+    de: 'Betriebsbereit',
+    ja: '正常',
+  );
+
+  String get degraded => _t(
+    zh: '服务降级',
+    zhHant: '服務降級',
+    en: 'Degraded',
+    fr: 'Dégradé',
+    de: 'Eingeschränkt',
+    ja: '劣化',
+  );
+
+  String get outage => _t(
+    zh: '服务中断',
+    zhHant: '服務中斷',
+    en: 'Outage',
+    fr: 'Panne',
+    de: 'Ausfall',
+    ja: '障害',
+  );
+
+  String get idle => _t(
+    zh: '空闲待命',
+    zhHant: '空閒待命',
+    en: 'Idle',
+    fr: 'Inactif',
+    de: 'Leerlauf',
+    ja: 'アイドル',
+  );
+
+  String get componentSuffix => _t(
+    zh: ' 个组件',
+    zhHant: ' 個元件',
+    en: ' components',
+    fr: ' composants',
+    de: ' Komponenten',
+    ja: ' 件のコンポーネント',
+  );
+
+  String get requests => _t(
+    zh: '请求',
+    zhHant: '請求',
+    en: 'Requests',
+    fr: 'Requêtes',
+    de: 'Anfragen',
+    ja: 'リクエスト',
+  );
+
+  String get successRate => _t(
+    zh: '成功率',
+    zhHant: '成功率',
+    en: 'Success',
+    fr: 'Succès',
+    de: 'Erfolg',
+    ja: '成功率',
+  );
+
+  String get failures => _t(
+    zh: '失败',
+    zhHant: '失敗',
+    en: 'Failures',
+    fr: 'Échecs',
+    de: 'Fehler',
+    ja: '失敗',
+  );
+
+  String get slow => _t(
+    zh: '慢请求',
+    zhHant: '慢請求',
+    en: 'Slow',
+    fr: 'Lents',
+    de: 'Langsam',
+    ja: '低速',
+  );
+
+  String get noIncidents => _t(
+    zh: '近窗没有降级或中断事件。',
+    zhHant: '近窗沒有降級或中斷事件。',
+    en: 'No degraded or outage days in this window.',
+    fr: 'Aucun jour dégradé ou en panne dans cette fenêtre.',
+    de: 'Keine Beeinträchtigung oder Ausfälle in diesem Fenster.',
+    ja: 'この期間に劣化・障害の日はありません。',
+  );
+
+  String get uptimeSuffix => _t(
+    zh: '可用',
+    zhHant: '可用',
+    en: 'uptime',
+    fr: 'dispo.',
+    de: 'verfügbar',
+    ja: '稼働',
+  );
+
+  String get gateway => _t(
+    zh: '中转网关',
+    zhHant: '中轉閘道',
+    en: 'Gateway',
+    fr: 'Passerelle',
+    de: 'Gateway',
+    ja: '中継ゲートウェイ',
+  );
+
+  String get statusPage => _t(
+    zh: '状态页',
+    zhHant: '狀態頁',
+    en: 'Status page',
+    fr: 'Page d’état',
+    de: 'Statusseite',
+    ja: 'ステータスページ',
+  );
+
+  String get exposedModels => _t(
+    zh: '暴露模型',
+    zhHant: '暴露模型',
+    en: 'Exposed models',
+    fr: 'Modèles exposés',
+    de: 'Bereitgestellte Modelle',
+    ja: '公開モデル',
+  );
+
+  String get unavailable => _t(
+    zh: '状态页暂不可用',
+    zhHant: '狀態頁暫無法使用',
+    en: 'Status unavailable.',
+    fr: 'Page d’état indisponible.',
+    de: 'Statusseite nicht verfügbar.',
+    ja: 'ステータスページは利用できません。',
+  );
+
+  String get noTraffic => _t(
+    zh: '无流量',
+    zhHant: '無流量',
+    en: 'No traffic',
+    fr: 'Aucun trafic',
+    de: 'Kein Traffic',
+    ja: 'トラフィックなし',
+  );
+
+  (String, String) banner(AiModelProxyHealth health, {required bool running}) {
+    return switch (health) {
+      AiModelProxyHealth.healthy => (
+        _t(
+          zh: '对外中转整体运行正常',
+          zhHant: '對外中轉整體運作正常',
+          en: 'Fully operational',
+          fr: 'Relais entièrement opérationnel',
+          de: 'Vollständig betriebsbereit',
+          ja: '中継は正常に稼働しています',
+        ),
+        _t(
+          zh: '当前没有已知故障。近窗有流量的组件均处于健康阈值内。',
+          zhHant: '目前沒有已知故障。近窗有流量的元件均處於健康閾值內。',
+          en: 'No known issues. Components with traffic are within the healthy band.',
+          fr: 'Aucun incident connu. Les composants avec du trafic sont dans la plage saine.',
+          de: 'Keine bekannten Störungen. Komponenten mit Traffic liegen im gesunden Bereich.',
+          ja: '既知の障害はありません。トラフィックのあるコンポーネントは健全な閾値内です。',
+        ),
+      ),
+      AiModelProxyHealth.degraded => (
+        _t(
+          zh: '部分组件出现服务降级',
+          zhHant: '部分元件出現服務降級',
+          en: 'Partial degradation',
+          fr: 'Dégradation partielle',
+          de: 'Teilweise eingeschränkt',
+          ja: '一部のコンポーネントが劣化しています',
+        ),
+        _t(
+          zh: '部分模型或网关时段成功率偏低或尾延迟偏高，请求仍可完成。',
+          zhHant: '部分模型或閘道時段成功率偏低或尾延遲偏高，請求仍可完成。',
+          en: 'Some models or gateway hours are slower or less successful, but requests still complete.',
+          fr: 'Certains modèles ou créneaux de passerelle sont plus lents ou moins fiables, mais les requêtes aboutissent encore.',
+          de: 'Einige Modelle oder Gateway-Stunden sind langsamer oder weniger erfolgreich, Anfragen werden aber noch abgeschlossen.',
+          ja: '一部のモデルやゲートウェイ時間帯で成功率低下や尾遅延がありますが、リクエストは完了します。',
+        ),
+      ),
+      AiModelProxyHealth.outage => (
+        _t(
+          zh: '存在不可用组件',
+          zhHant: '存在無法使用的元件',
+          en: 'Incident in progress',
+          fr: 'Incident en cours',
+          de: 'Störung läuft',
+          ja: '利用できないコンポーネントがあります',
+        ),
+        _t(
+          zh: '至少一个组件在近窗出现了较高失败率，客户端可能已经感知中断。',
+          zhHant: '至少一個元件在近窗出現較高失敗率，用戶端可能已經感知中斷。',
+          en: 'At least one component had a high failure rate. Callers may have seen interruptions.',
+          fr: 'Au moins un composant a eu un taux d’échec élevé. Les clients ont pu voir des interruptions.',
+          de: 'Mindestens eine Komponente hatte eine hohe Fehlerrate. Aufrufer haben möglicherweise Unterbrechungen gesehen.',
+          ja: '少なくとも 1 件のコンポーネントで失敗率が高く、呼び出し側は中断を検知している可能性があります。',
+        ),
+      ),
+      AiModelProxyHealth.idle => (
+        running
+            ? _t(
+                zh: '中转站已启动，等待流量',
+                zhHant: '中轉站已啟動，等待流量',
+                en: 'Proxy is up, waiting for traffic',
+                fr: 'Relais démarré, en attente de trafic',
+                de: 'Proxy läuft, wartet auf Traffic',
+                ja: '中継は起動済みで、トラフィック待ちです',
+              )
+            : _t(
+                zh: '暂无状态样本',
+                zhHant: '暫無狀態樣本',
+                en: 'No status samples yet',
+                fr: 'Aucun échantillon d’état',
+                de: 'Noch keine Statusdaten',
+                ja: 'ステータスサンプルはまだありません',
+              ),
+        _t(
+          zh: '近 90 天还没有可汇总的对外请求。灰格表示空闲待命，不代表事故。',
+          zhHant: '近 90 天還沒有可彙總的對外請求。灰格表示空閒待命，不代表事故。',
+          en: 'No public traffic in the last 90 days. Gray cells are idle, not an outage.',
+          fr: 'Aucun trafic public sur 90 jours. Les cases grises sont inactives, pas une panne.',
+          de: 'Kein öffentlicher Traffic in den letzten 90 Tagen. Graue Zellen sind Leerlauf, kein Ausfall.',
+          ja: '直近 90 日に集計できる公開リクエストはありません。灰色はアイドルであり障害ではありません。',
+        ),
+      ),
+    };
+  }
+
+  String daySummary(AiModelProxyDailyComponent day) {
+    if (day.requests <= 0) return noTraffic;
+    final percent = _percent(day.successRate);
+    return _t(
+      zh: '成功率 $percent · ${day.requests} 次',
+      zhHant: '成功率 $percent · ${day.requests} 次',
+      en: '$percent success · ${day.requests} calls',
+      fr: '$percent de succès · ${day.requests} appels',
+      de: '$percent Erfolg · ${day.requests} Aufrufe',
+      ja: '成功率 $percent · ${day.requests} 件',
+    );
+  }
+
+  String dayNote(AiModelProxyHealth health) {
+    return switch (health) {
+      AiModelProxyHealth.idle => _t(
+        zh: '这一天没有该组件的请求样本，灰格表示空闲。',
+        zhHant: '這一天沒有該元件的請求樣本，灰格表示空閒。',
+        en: 'No samples for this component that day. Gray means idle.',
+        fr: 'Aucun échantillon pour ce composant ce jour-là. Le gris signifie inactif.',
+        de: 'Keine Stichproben für diese Komponente an diesem Tag. Grau bedeutet Leerlauf.',
+        ja: 'この日、当該コンポーネントのサンプルはありません。灰色はアイドルです。',
+      ),
+      AiModelProxyHealth.healthy => _t(
+        zh: '成功率与耗时都处于健康阈值内。',
+        zhHant: '成功率與耗時都處於健康閾值內。',
+        en: 'Success rate and latency stayed in the healthy band.',
+        fr: 'Le taux de succès et la latence sont restés dans la plage saine.',
+        de: 'Erfolgsrate und Latenz blieben im gesunden Bereich.',
+        ja: '成功率とレイテンシは健全な閾値内でした。',
+      ),
+      AiModelProxyHealth.degraded => _t(
+        zh: '仍可响应，但成功率偏低或慢请求偏多。',
+        zhHant: '仍可回應，但成功率偏低或慢請求偏多。',
+        en: 'Still serving, but success dipped or slow calls increased.',
+        fr: 'Toujours en service, mais le succès a baissé ou les appels lents ont augmenté.',
+        de: 'Weiterhin erreichbar, aber die Erfolgsrate sank oder langsame Aufrufe nahmen zu.',
+        ja: '応答は継続していますが、成功率が低い、または低速呼び出しが増えています。',
+      ),
+      AiModelProxyHealth.outage => _t(
+        zh: '失败过于集中，这一天应视为中断。',
+        zhHant: '失敗過於集中，這一天應視為中斷。',
+        en: 'Failures were concentrated enough to count as an outage.',
+        fr: 'Les échecs étaient assez concentrés pour compter comme une panne.',
+        de: 'Die Fehler waren konzentriert genug, um als Ausfall zu zählen.',
+        ja: '失敗が集中しており、この日は障害と見なします。',
+      ),
+    };
+  }
+
+  Map<String, String> get scriptLabels => <String, String>{
+    'healthy': healthy,
+    'degraded': degraded,
+    'outage': outage,
+    'idle': idle,
+    'components': componentSuffix,
+    'requests': requests,
+    'success': successRate,
+    'failures': failures,
+    'slow': slow,
+    'noIncidents': noIncidents,
+    'copyIdle': copyLink,
+    'copyDone': copied,
+    'historyOpen': viewHistory,
+    'historyClose': hideHistory,
+  };
+}
+
+String buildAiModelProxyStatusUnavailablePage(Locale locale) {
+  final copy = _StatusPageCopy.forLocale(locale);
+  final lang = _statusPageLang(locale);
+  return '<!DOCTYPE html><html lang="$lang"><head><meta charset="utf-8"><title>OpenHand</title></head><body>${_htmlEscape(copy.unavailable)}</body></html>';
+}
+
 String buildAiModelProxyStatusPage({
   required AiModelProxyController controller,
   required ThemeMode themeMode,
   required OpenHandThemePreset themePreset,
+  Locale? locale,
 }) {
+  final copy = _StatusPageCopy.forLocale(locale ?? openHandAmbientLocale);
+  final lang = _statusPageLang(locale ?? openHandAmbientLocale);
   final settings = controller.settings;
   final dark = _statusPageDark(themeMode);
   final theme = dark
@@ -42,7 +450,7 @@ String buildAiModelProxyStatusPage({
   ]..sort((a, b) => b.requests.compareTo(a.requests));
   final gateway = _StatusComponent(
     id: 'gateway',
-    name: openHandAmbientText(zh: '中转网关', en: 'Gateway'),
+    name: copy.gateway,
     days: gatewayDays,
     children: [
       _StatusComponent(
@@ -54,14 +462,14 @@ String buildAiModelProxyStatusPage({
       ),
       _StatusComponent(
         id: 'status-page',
-        name: openHandAmbientText(zh: '状态页', en: 'Status page'),
+        name: copy.statusPage,
         days: statusDays,
       ),
     ],
   );
   final models = _StatusComponent(
     id: 'models',
-    name: openHandAmbientText(zh: '暴露模型', en: 'Exposed models'),
+    name: copy.exposedModels,
     days: [for (final day in days) _sumComponents(day.models.values)],
     children: modelRows,
   );
@@ -72,7 +480,10 @@ String buildAiModelProxyStatusPage({
   final overall = _worstHealth([
     for (final component in components) component.health,
   ]);
-  final banner = _bannerCopy(overall, controller);
+  final banner = copy.banner(
+    overall,
+    running: controller.lifecycle == AiModelProxyLifecycle.running,
+  );
   final start = days.isEmpty
       ? DateTime.now()
       : DateTime.tryParse(days.first.day);
@@ -88,7 +499,7 @@ String buildAiModelProxyStatusPage({
             'day': days[i].day,
             'name': _htmlEscape(component.name),
             'level': component.days[i].health.name,
-            'detail': _htmlEscape(_daySummary(component.days[i])),
+            'detail': _htmlEscape(copy.daySummary(component.days[i])),
           },
   ];
   final payload = <String, Object?>{
@@ -96,12 +507,13 @@ String buildAiModelProxyStatusPage({
     'warn': _healthCss(OpenHandStatusColors.warning),
     'bad': _healthCss(OpenHandStatusColors.error),
     'idle': _cssHex(cs.onSurfaceVariant),
-    'components': [for (final component in components) component.toJson(days)],
+    'components': [
+      for (final component in components) component.toJson(days, copy),
+    ],
     'incidents': incidents,
+    'i18n': copy.scriptLabels,
+    'copyAckMs': _kStatusCopyAckMs,
   };
-  final lang = openHandAmbientLocale.languageCode.toLowerCase().startsWith('zh')
-      ? 'zh'
-      : 'en';
   return '''<!DOCTYPE html>
 <html lang="$lang">
 <head>
@@ -112,7 +524,7 @@ String buildAiModelProxyStatusPage({
 <link rel="icon" type="image/png" href="$aiModelProxyLogoPath">
 <link rel="shortcut icon" type="image/png" href="$aiModelProxyFaviconPath">
 <link rel="apple-touch-icon" href="$aiModelProxyLogoPath">
-<title>OpenHand · ${openHandAmbientText(zh: '模型中转状态', en: 'Model proxy status')}</title>
+<title>OpenHand · ${_htmlEscape(copy.title)}</title>
 <style>
 :root {
   --bg: ${_cssHex(cs.surface)};
@@ -136,7 +548,7 @@ String buildAiModelProxyStatusPage({
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }
 body {
-  font-family: "SF Pro Text", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", sans-serif;
+  font-family: "SF Pro Text", "Segoe UI", "PingFang SC", "PingFang TC", "Hiragino Sans GB", "Hiragino Kaku Gothic ProN", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif;
   background: var(--bg);
   color: var(--text);
   line-height: 1.45;
@@ -235,41 +647,37 @@ body {
   <div class="top">
     <div class="brand">
       <img class="logo" src="$aiModelProxyLogoPath" width="36" height="36" alt="OpenHand">
-      <div>OpenHand<small>${openHandAmbientText(zh: 'AI 模型中转站状态', en: 'AI model proxy status')}</small></div>
+      <div>OpenHand<small>${_htmlEscape(copy.brandSubtitle)}</small></div>
     </div>
-    <button class="copy-btn" id="copy-link" type="button">${openHandAmbientText(zh: '复制状态页链接', en: 'Copy status URL')}</button>
+    <button class="copy-btn" id="copy-link" type="button">${_htmlEscape(copy.copyLink)}</button>
   </div>
   <section class="banner">
-    <div class="banner-head">${_bannerIcon(overall)} ${banner.$1}</div>
-    <div class="banner-body">${banner.$2}</div>
+    <div class="banner-head">${_bannerIcon(overall)} ${_htmlEscape(banner.$1)}</div>
+    <div class="banner-body">${_htmlEscape(banner.$2)}</div>
   </section>
   <section class="card">
     <div class="card-h">
-      <h2>${openHandAmbientText(zh: '系统状态', en: 'System status')}</h2>
+      <h2>${_htmlEscape(copy.systemStatus)}</h2>
       <div class="range">$rangeLabel</div>
     </div>
     <div id="rows"></div>
   </section>
   <div class="foot">
-    <button class="ghost-btn" id="toggle-history" type="button">${openHandAmbientText(zh: '查看历史事件', en: 'View history')}</button>
+    <button class="ghost-btn" id="toggle-history" type="button">${_htmlEscape(copy.viewHistory)}</button>
   </div>
   <section class="history card" id="history">
-    <div class="card-h"><h2>${openHandAmbientText(zh: '历史事件', en: 'Incident history')}</h2></div>
+    <div class="card-h"><h2>${_htmlEscape(copy.incidentHistory)}</h2></div>
     <div id="incidents" style="padding: 0 18px 12px;"></div>
   </section>
-  <p class="note">${openHandAmbientText(zh: '可用性按近 90 个自然日、在本中转站实际处理过的请求汇总。空闲灰格表示当天没有流量，不代表事故。状态页访问会计入网关遥测，但不计入暴露模型的成功率。', en: 'Availability covers the last 90 calendar days of traffic this proxy actually served. Gray means idle, not an outage. Status-page hits are gateway telemetry and are excluded from exposed-model success rates.')}</p>
+  <p class="note">${_htmlEscape(copy.footnote)}</p>
 </div>
 <div class="tip" id="tip"></div>
 <script type="application/json" id="data">${_jsonForScript(payload)}</script>
 <script>
 const data = JSON.parse(document.getElementById('data').textContent);
+const i18n = data.i18n || {};
 const tone = {healthy:data.ok, degraded:data.warn, outage:data.bad, idle:data.idle};
-const label = {
-  healthy: ${jsonEncode(openHandAmbientText(zh: '正常运行', en: 'Operational'))},
-  degraded: ${jsonEncode(openHandAmbientText(zh: '服务降级', en: 'Degraded'))},
-  outage: ${jsonEncode(openHandAmbientText(zh: '服务中断', en: 'Outage'))},
-  idle: ${jsonEncode(openHandAmbientText(zh: '空闲待命', en: 'Idle'))}
-};
+const label = {healthy:i18n.healthy, degraded:i18n.degraded, outage:i18n.outage, idle:i18n.idle};
 const tip = document.getElementById('tip');
 function bars(days){
   return '<div class="bars">' + days.map((d,i) => {
@@ -279,7 +687,7 @@ function bars(days){
   }).join('') + '</div>';
 }
 function row(c, nested){
-  const count = c.children && c.children.length ? (c.children.length + ${jsonEncode(openHandAmbientText(zh: ' 个组件', en: ' components'))}) : '';
+  const count = c.children && c.children.length ? (c.children.length + (i18n.components || '')) : '';
   const openable = c.children && c.children.length;
   return '<article class="row'+(nested?' child':'')+'" style="--tone:'+(tone[c.health]||data.idle)+'">' +
     '<div class="row-h"'+(openable?' data-toggle="1"':'')+'>' +
@@ -319,10 +727,10 @@ document.querySelectorAll('#rows > .row').forEach((el, i) => walk(el, data.compo
 function showTip(ev, d){
   tip.style.setProperty('--tone', tone[d.h] || data.idle);
   tip.innerHTML = '<b>'+d.d+'</b><span class="badge">'+(label[d.h]||d.h)+'</span>' +
-    '<div class="grid"><div class="tile"><span>${openHandAmbientText(zh: '请求', en: 'Requests')}</span><strong>'+d.req+'</strong></div>' +
-    '<div class="tile"><span>${openHandAmbientText(zh: '成功率', en: 'Success')}</span><strong>'+d.rate+'</strong></div>' +
-    '<div class="tile"><span>${openHandAmbientText(zh: '失败', en: 'Failures')}</span><strong>'+d.fail+'</strong></div>' +
-    '<div class="tile"><span>${openHandAmbientText(zh: '慢请求', en: 'Slow')}</span><strong>'+d.slow+'</strong></div></div>' +
+    '<div class="grid"><div class="tile"><span>'+i18n.requests+'</span><strong>'+d.req+'</strong></div>' +
+    '<div class="tile"><span>'+i18n.success+'</span><strong>'+d.rate+'</strong></div>' +
+    '<div class="tile"><span>'+i18n.failures+'</span><strong>'+d.fail+'</strong></div>' +
+    '<div class="tile"><span>'+i18n.slow+'</span><strong>'+d.slow+'</strong></div></div>' +
     '<p>'+d.note+'</p>';
   moveTip(ev); tip.classList.add('show');
 }
@@ -332,14 +740,27 @@ function moveTip(ev){
   x = Math.max(w/2 + pad, Math.min(window.innerWidth - w/2 - pad, x));
   tip.style.left = x + 'px'; tip.style.top = y + 'px';
 }
-document.getElementById('copy-link').addEventListener('click', async () => {
+const copyBtn = document.getElementById('copy-link');
+let copyTimer = 0;
+copyBtn.addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(location.href); } catch (e) {}
+  copyBtn.textContent = i18n.copyDone || copyBtn.textContent;
+  window.clearTimeout(copyTimer);
+  copyTimer = window.setTimeout(() => {
+    copyBtn.textContent = i18n.copyIdle || copyBtn.textContent;
+  }, Number(data.copyAckMs) || 1600);
 });
 const hist = document.getElementById('history');
-document.getElementById('toggle-history').addEventListener('click', () => hist.classList.toggle('open'));
+const histBtn = document.getElementById('toggle-history');
+histBtn.addEventListener('click', () => {
+  hist.classList.toggle('open');
+  histBtn.textContent = hist.classList.contains('open')
+    ? (i18n.historyClose || histBtn.textContent)
+    : (i18n.historyOpen || histBtn.textContent);
+});
 const inc = document.getElementById('incidents');
 if (!data.incidents.length) {
-  inc.innerHTML = '<p class="note" style="margin:8px 0 16px">${openHandAmbientText(zh: '近窗没有降级或中断事件。', en: 'No degraded or outage days in this window.')}</p>';
+  inc.innerHTML = '<p class="note" style="margin:8px 0 16px">'+(i18n.noIncidents||'')+'</p>';
 } else {
   inc.innerHTML = data.incidents.map(item => '<div class="incident"><strong>'+item.day+'</strong><span>'+item.name+' · '+(label[item.level]||item.level)+'</span><span>'+item.detail+'</span></div>').join('');
 }
@@ -386,24 +807,29 @@ class _StatusComponent {
   int get successes => days.fold<int>(0, (sum, day) => sum + day.successes);
   AiModelProxyHealth get health =>
       _worstHealth([for (final day in days) day.health]);
-  String get uptime {
-    if (requests <= 0) return '—';
-    return '${(successRate * 100).toStringAsFixed(2)}% ${openHandAmbientText(zh: '可用', en: 'uptime')}';
-  }
 
   double get successRate =>
       requests <= 0 ? 0 : (successes / requests).clamp(0.0, 1.0).toDouble();
 
-  Map<String, Object?> toJson(List<_StatusDay> calendar) => <String, Object?>{
+  String uptimeLabel(String suffix) {
+    if (requests <= 0) return '—';
+    return '${(successRate * 100).toStringAsFixed(2)}% $suffix';
+  }
+
+  Map<String, Object?> toJson(
+    List<_StatusDay> calendar,
+    _StatusPageCopy copy,
+  ) => <String, Object?>{
     'id': id,
     'name': _htmlEscape(name),
     'health': health.name,
-    'uptime': uptime,
+    'uptime': uptimeLabel(copy.uptimeSuffix),
     'days': [
-      for (var i = 0; i < days.length; i++) _dayJson(calendar[i].day, days[i]),
+      for (var i = 0; i < days.length; i++)
+        _dayJson(calendar[i].day, days[i], copy),
     ],
     if (children.isNotEmpty)
-      'children': [for (final child in children) child.toJson(calendar)],
+      'children': [for (final child in children) child.toJson(calendar, copy)],
   };
 }
 
@@ -495,48 +921,6 @@ AiModelProxyHealth _worstHealth(Iterable<AiModelProxyHealth> values) {
   return AiModelProxyHealth.idle;
 }
 
-(String, String) _bannerCopy(
-  AiModelProxyHealth health,
-  AiModelProxyController controller,
-) {
-  final running = controller.lifecycle == AiModelProxyLifecycle.running;
-  return switch (health) {
-    AiModelProxyHealth.healthy => (
-      openHandAmbientText(zh: '对外中转整体运行正常', en: 'Fully operational'),
-      openHandAmbientText(
-        zh: '当前没有已知故障。近窗有流量的组件均处于健康阈值内。',
-        en: 'No known issues. Components with traffic are within the healthy band.',
-      ),
-    ),
-    AiModelProxyHealth.degraded => (
-      openHandAmbientText(zh: '部分组件出现服务降级', en: 'Partial degradation'),
-      openHandAmbientText(
-        zh: '部分模型或网关时段成功率偏低或尾延迟偏高，请求仍可完成。',
-        en: 'Some models or gateway hours are slower or less successful, but requests still complete.',
-      ),
-    ),
-    AiModelProxyHealth.outage => (
-      openHandAmbientText(zh: '存在不可用组件', en: 'Incident in progress'),
-      openHandAmbientText(
-        zh: '至少一个组件在近窗出现了较高失败率，客户端可能已经感知中断。',
-        en: 'At least one component had a high failure rate. Callers may have seen interruptions.',
-      ),
-    ),
-    AiModelProxyHealth.idle => (
-      running
-          ? openHandAmbientText(
-              zh: '中转站已启动，等待流量',
-              en: 'Proxy is up, waiting for traffic',
-            )
-          : openHandAmbientText(zh: '暂无状态样本', en: 'No status samples yet'),
-      openHandAmbientText(
-        zh: '近 90 天还没有可汇总的对外请求。灰格表示空闲待命，不代表事故。',
-        en: 'No public traffic in the last 90 days. Gray cells are idle, not an outage.',
-      ),
-    ),
-  };
-}
-
 String _bannerIcon(AiModelProxyHealth health) => switch (health) {
   AiModelProxyHealth.outage => '●',
   AiModelProxyHealth.degraded => '●',
@@ -554,36 +938,12 @@ Color _bannerFill(ColorScheme cs, AiModelProxyHealth health) {
   return Color.lerp(cs.surface, _healthColor(health), 0.22) ?? cs.surface;
 }
 
-String _daySummary(AiModelProxyDailyComponent day) {
-  if (day.requests <= 0) {
-    return openHandAmbientText(zh: '无流量', en: 'No traffic');
-  }
-  return openHandAmbientText(
-    zh: '成功率 ${_percent(day.successRate)} · ${day.requests} 次',
-    en: '${_percent(day.successRate)} success · ${day.requests} calls',
-  );
-}
-
-Map<String, Object?> _dayJson(String day, AiModelProxyDailyComponent stat) {
+Map<String, Object?> _dayJson(
+  String day,
+  AiModelProxyDailyComponent stat,
+  _StatusPageCopy copy,
+) {
   final health = stat.health;
-  final note = switch (health) {
-    AiModelProxyHealth.idle => openHandAmbientText(
-      zh: '这一天没有该组件的请求样本，灰格表示空闲。',
-      en: 'No samples for this component that day. Gray means idle.',
-    ),
-    AiModelProxyHealth.healthy => openHandAmbientText(
-      zh: '成功率与耗时都处于健康阈值内。',
-      en: 'Success rate and latency stayed in the healthy band.',
-    ),
-    AiModelProxyHealth.degraded => openHandAmbientText(
-      zh: '仍可响应，但成功率偏低或慢请求偏多。',
-      en: 'Still serving, but success dipped or slow calls increased.',
-    ),
-    AiModelProxyHealth.outage => openHandAmbientText(
-      zh: '失败过于集中，这一天应视为中断。',
-      en: 'Failures were concentrated enough to count as an outage.',
-    ),
-  };
   return <String, Object?>{
     'd': day,
     'h': health.name,
@@ -592,7 +952,7 @@ Map<String, Object?> _dayJson(String day, AiModelProxyDailyComponent stat) {
     'fail': stat.failures,
     'slow': stat.slowCount,
     'rate': stat.requests <= 0 ? '—' : _percent(stat.successRate),
-    'note': note,
+    'note': copy.dayNote(health),
   };
 }
 
