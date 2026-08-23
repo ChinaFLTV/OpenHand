@@ -2267,7 +2267,7 @@ class _DropdownField<T> extends StatelessWidget {
   final String Function(T) labelOf;
   final ValueChanged<T> onChanged;
   @override
-  Widget build(BuildContext context) => DropdownButtonFormField<T>(
+  Widget build(BuildContext context) => AnimatedDropdownButtonFormField<T>(
     initialValue: value,
     decoration: InputDecoration(labelText: label),
     items: [

@@ -809,7 +809,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
             ],
           ),
           kOpenHandGap12,
-          DropdownButtonFormField<AiExposureProxyMode>(
+          AnimatedDropdownButtonFormField<AiExposureProxyMode>(
             initialValue: _proxyMode,
             decoration: InputDecoration(
               labelText: text(zh: '代理方式', en: 'Proxy mode'),
@@ -867,7 +867,9 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final strategy =
-                          DropdownButtonFormField<AiExposureProxyStrategy>(
+                          AnimatedDropdownButtonFormField<
+                            AiExposureProxyStrategy
+                          >(
                             initialValue: _strategy,
                             decoration: InputDecoration(
                               labelText: text(zh: '代理策略', en: 'Proxy strategy'),
@@ -1001,7 +1003,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
               );
               final interval = SizedBox(
                 width: 180,
-                child: DropdownButtonFormField<int>(
+                child: AnimatedDropdownButtonFormField<int>(
                   initialValue: _normalizedInspectionInterval,
                   decoration: InputDecoration(
                     labelText: text(zh: '巡检周期', en: 'Interval'),
@@ -1026,7 +1028,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
               );
               final concurrency = SizedBox(
                 width: 180,
-                child: DropdownButtonFormField<int>(
+                child: AnimatedDropdownButtonFormField<int>(
                   initialValue: _normalizedInspectionConcurrency,
                   decoration: InputDecoration(
                     labelText: text(zh: '测试线程', en: 'Test threads'),
@@ -5531,7 +5533,7 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
               kOpenHandGap10,
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final scheme = DropdownButtonFormField<String>(
+                  final scheme = AnimatedDropdownButtonFormField<String>(
                     initialValue: _scheme,
                     isExpanded: true,
                     decoration: InputDecoration(

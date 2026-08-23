@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
@@ -401,7 +402,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
             icon: Icons.table_rows_rounded,
             trailing: _SurfaceToolbar(
               fieldWidth: _kPostgresqlTableFieldWidth,
-              field: DropdownButtonFormField<String>(
+              field: AnimatedDropdownButtonFormField<String>(
                 initialValue: _table,
                 isExpanded: true,
                 decoration: const InputDecoration(

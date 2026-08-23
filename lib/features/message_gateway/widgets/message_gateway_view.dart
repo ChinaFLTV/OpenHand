@@ -22303,7 +22303,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                     ),
                   ),
                   kOpenHandGap14,
-                  DropdownButtonFormField<DingTalkReminderMode>(
+                  AnimatedDropdownButtonFormField<DingTalkReminderMode>(
                     initialValue: _reminderMode,
                     decoration: const InputDecoration(
                       labelText: '提醒方式',
@@ -22603,7 +22603,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                     icon: Icons.auto_awesome_rounded,
                     title: 'Agent 提示词模板',
                     subtitle: '选择钉钉消息会话使用的线程模板',
-                    child: DropdownButtonFormField<String>(
+                    child: AnimatedDropdownButtonFormField<String>(
                       initialValue:
                           _availableTemplateIds().contains(_templateId)
                           ? _templateId

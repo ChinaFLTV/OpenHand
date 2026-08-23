@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
@@ -1924,7 +1925,7 @@ class _ToolConfigurationCardState extends State<_ToolConfigurationCard> {
                       children: [
                         const Divider(height: 1),
                         kOpenHandGap12,
-                        DropdownButtonFormField<
+                        AnimatedDropdownButtonFormField<
                           AiExposureToolSelectionStrategy
                         >(
                           initialValue: configuration.strategy,
@@ -2272,7 +2273,7 @@ class _ToolProfileCardState extends State<_ToolProfileCard> {
       );
     }
     if (spec.type == _ToolFieldType.select) {
-      return DropdownButtonFormField<String>(
+      return AnimatedDropdownButtonFormField<String>(
         key: ValueKey<String>('${_profile.id}-${spec.key}'),
         initialValue: spec.options.contains(value) ? value : '',
         decoration: InputDecoration(

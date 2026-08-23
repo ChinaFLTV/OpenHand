@@ -1527,9 +1527,8 @@ class _PopupMenuDefaultsM2 extends PopupMenuThemeData {
   Color? get color => Theme.of(context).cardColor;
 
   @override
-  ShapeBorder? get shape => const RoundedRectangleBorder(
-    borderRadius: kOpenHandBorderRadius8,
-  );
+  ShapeBorder? get shape =>
+      const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius16);
 
   @override
   EdgeInsets? get menuPadding => const EdgeInsets.symmetric(vertical: 8);
@@ -1550,9 +1549,8 @@ class _PopupMenuDefaultsM3 extends PopupMenuThemeData {
   Color? get surfaceTintColor => Colors.transparent;
 
   @override
-  ShapeBorder? get shape => const RoundedRectangleBorder(
-    borderRadius: kOpenHandBorderRadius8,
-  );
+  ShapeBorder? get shape =>
+      const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius16);
 
   @override
   EdgeInsets? get menuPadding => const EdgeInsets.symmetric(vertical: 8);

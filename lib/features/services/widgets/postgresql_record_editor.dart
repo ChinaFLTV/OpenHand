@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
@@ -445,7 +446,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
           trailing: _TypeBadge(label: column.dataType),
         ),
         kOpenHandGap8,
-        DropdownButtonFormField<String>(
+        AnimatedDropdownButtonFormField<String>(
           initialValue: _selectValues[column.name],
           isExpanded: true,
           decoration: InputDecoration(
@@ -1160,7 +1161,7 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
     required bool showKey,
   }) {
     final colors = Theme.of(context).colorScheme;
-    final typeField = DropdownButtonFormField<_PostgresqlJsonValueType>(
+    final typeField = AnimatedDropdownButtonFormField<_PostgresqlJsonValueType>(
       initialValue: draft.type,
       isExpanded: true,
       decoration: const InputDecoration(
@@ -1250,7 +1251,7 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
     final colors = Theme.of(context).colorScheme;
     switch (draft.type) {
       case _PostgresqlJsonValueType.boolean:
-        return DropdownButtonFormField<bool>(
+        return AnimatedDropdownButtonFormField<bool>(
           initialValue: draft.booleanValue,
           decoration: const InputDecoration(
             labelText: '布尔值',

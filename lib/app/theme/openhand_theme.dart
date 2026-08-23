@@ -207,6 +207,16 @@ abstract final class OpenHandTheme {
           borderSide: BorderSide(color: colorScheme.primary, width: 1.6),
         ),
       ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: colorScheme.surfaceContainer,
+        elevation: 3,
+        shadowColor: colorScheme.shadow,
+        surfaceTintColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(
+          borderRadius: kOpenHandBorderRadius16,
+        ),
+        menuPadding: const EdgeInsets.symmetric(vertical: 8),
+      ),
       listTileTheme: ListTileThemeData(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius24)),

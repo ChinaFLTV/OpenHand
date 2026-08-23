@@ -158,7 +158,7 @@ extension on _SettingsViewState {
             control: AnimatedDropdownButton<int>(
               value: settingsController.editorIndentSpaces,
               underline: const SizedBox.shrink(),
-              borderRadius: kOpenHandBorderRadius12,
+              borderRadius: kOpenHandBorderRadius16,
               items: editorIndentSpaceOptions
                   .map(
                     (spaces) => DropdownMenuItem<int>(
@@ -197,7 +197,7 @@ extension on _SettingsViewState {
             control: AnimatedDropdownButton<EditorCodeTheme>(
               value: settingsController.editorCodeTheme,
               underline: const SizedBox.shrink(),
-              borderRadius: kOpenHandBorderRadius12,
+              borderRadius: kOpenHandBorderRadius16,
               items: EditorCodeTheme.values
                   .map((theme) {
                     final darkSurface =
