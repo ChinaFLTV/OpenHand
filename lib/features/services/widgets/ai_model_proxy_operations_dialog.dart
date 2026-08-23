@@ -976,41 +976,63 @@ class _ProxyOpsTappableCard extends StatefulWidget {
 
 class _ProxyOpsTappableCardState extends State<_ProxyOpsTappableCard> {
   bool _pressed = false;
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
     if (widget.onTap == null) return widget.child;
     final duration = openHandMotionDuration(context, kOpenHandMotion120);
+    final overlayColor = _pressed
+        ? widget.tone.withValues(alpha: 0.10)
+        : _hovered
+        ? widget.tone.withValues(alpha: 0.05)
+        : Colors.transparent;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapCancel: () => setState(() => _pressed = false),
-        onTapUp: (_) => setState(() => _pressed = false),
-        onTap: widget.onTap,
-        child: AnimatedScale(
-          scale: _pressed ? 0.975 : 1,
-          duration: duration,
-          curve: kOpenHandSwitchInCurve,
-          child: Stack(
-            children: [
-              widget.child,
-              Positioned.fill(
-                child: IgnorePointer(
+      onEnter: (_) {
+        if (!_hovered) setState(() => _hovered = true);
+      },
+      onExit: (_) {
+        if (_hovered || _pressed) {
+          setState(() {
+            _hovered = false;
+            _pressed = false;
+          });
+        }
+      },
+      child: Semantics(
+        button: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (_) {
+            if (!_pressed) setState(() => _pressed = true);
+          },
+          onTapCancel: () {
+            if (_pressed) setState(() => _pressed = false);
+          },
+          onTapUp: (_) {
+            if (_pressed) setState(() => _pressed = false);
+          },
+          onTap: widget.onTap,
+          child: AnimatedScale(
+            scale: _pressed ? 0.97 : 1,
+            duration: duration,
+            curve: kOpenHandSwitchInCurve,
+            child: Stack(
+              children: [
+                IgnorePointer(child: widget.child),
+                Positioned.fill(
                   child: AnimatedContainer(
                     duration: duration,
                     curve: kOpenHandSwitchInCurve,
                     decoration: BoxDecoration(
-                      color: _pressed
-                          ? widget.tone.withValues(alpha: 0.08)
-                          : Colors.transparent,
+                      color: overlayColor,
                       borderRadius: BorderRadius.circular(widget.radius),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
