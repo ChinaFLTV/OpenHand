@@ -53,6 +53,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   bool _modelSearchVisible = false;
   bool _isSaving = false;
   bool _isScanning = false;
+  final Set<String> _healthCheckingModelIds = <String>{};
   String? _errorMessage;
   String? _scanError;
   final ValueNotifier<int> _errorPulse = ValueNotifier<int>(0);
@@ -283,6 +284,20 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         _modelSearchFocusNode.requestFocus();
       }
     });
+  }
+
+  Future<void> _checkModelHealth(String modelId) async {
+    final provider = widget.initialModel;
+    if (provider == null || _healthCheckingModelIds.contains(modelId)) return;
+    setState(() => _healthCheckingModelIds.add(modelId));
+    try {
+      await context.read<AiModelHealthController>().checkModel(
+        provider,
+        modelId: modelId,
+      );
+    } finally {
+      if (mounted) setState(() => _healthCheckingModelIds.remove(modelId));
+    }
   }
 
   Future<void> _scanModels() async {
@@ -1489,6 +1504,13 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                                   modelId: id,
                                                   isActive: isActive,
                                                   enabled: !_isSaving,
+                                                  healthProvider:
+                                                      widget.initialModel,
+                                                  onHealthCheck: () =>
+                                                      _checkModelHealth(id),
+                                                  healthCheckBusy:
+                                                      _healthCheckingModelIds
+                                                          .contains(id),
                                                   hasProfile:
                                                       _modelProfiles[id]
                                                           ?.hasUserOverrides ==

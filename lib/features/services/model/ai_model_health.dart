@@ -21,6 +21,7 @@ class AiModelHealthSettings {
   const AiModelHealthSettings({
     this.enabled = false,
     this.intervalMinutes = 30,
+    this.concurrency = 8,
     this.useSystemProxy = false,
     this.requestMode = AiModelHealthRequestMode.direct,
     this.retentionDays = 90,
@@ -31,6 +32,7 @@ class AiModelHealthSettings {
     return AiModelHealthSettings(
       enabled: optionalBoolFromValue(json['enabled']) ?? false,
       intervalMinutes: _clampInt(json['interval_minutes'], 30, 1, 1440),
+      concurrency: _clampInt(json['concurrency'], 8, 1, 32),
       useSystemProxy: optionalBoolFromValue(json['use_system_proxy']) ?? false,
       requestMode: AiModelHealthRequestMode.fromStorage(json['request_mode']),
       retentionDays: _clampInt(json['retention_days'], 90, 1, 3650),
@@ -39,6 +41,7 @@ class AiModelHealthSettings {
 
   final bool enabled;
   final int intervalMinutes;
+  final int concurrency;
   final bool useSystemProxy;
   final AiModelHealthRequestMode requestMode;
   final int retentionDays;
@@ -46,12 +49,14 @@ class AiModelHealthSettings {
   AiModelHealthSettings copyWith({
     bool? enabled,
     int? intervalMinutes,
+    int? concurrency,
     bool? useSystemProxy,
     AiModelHealthRequestMode? requestMode,
     int? retentionDays,
   }) => AiModelHealthSettings(
     enabled: enabled ?? this.enabled,
     intervalMinutes: _clampInt(intervalMinutes, this.intervalMinutes, 1, 1440),
+    concurrency: _clampInt(concurrency, this.concurrency, 1, 32),
     useSystemProxy: useSystemProxy ?? this.useSystemProxy,
     requestMode: requestMode ?? this.requestMode,
     retentionDays: _clampInt(retentionDays, this.retentionDays, 1, 3650),
@@ -60,6 +65,7 @@ class AiModelHealthSettings {
   Map<String, Object?> toJson() => <String, Object?>{
     'enabled': enabled,
     'interval_minutes': intervalMinutes,
+    'concurrency': concurrency,
     'use_system_proxy': useSystemProxy,
     'request_mode': requestMode.storageValue,
     'retention_days': retentionDays,
@@ -70,6 +76,7 @@ class AiModelHealthSettings {
       other is AiModelHealthSettings &&
       other.enabled == enabled &&
       other.intervalMinutes == intervalMinutes &&
+      other.concurrency == concurrency &&
       other.useSystemProxy == useSystemProxy &&
       other.requestMode == requestMode &&
       other.retentionDays == retentionDays;
@@ -78,6 +85,7 @@ class AiModelHealthSettings {
   int get hashCode => Object.hash(
     enabled,
     intervalMinutes,
+    concurrency,
     useSystemProxy,
     requestMode,
     retentionDays,

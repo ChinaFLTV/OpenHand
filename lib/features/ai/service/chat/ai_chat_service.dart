@@ -118,10 +118,19 @@ abstract class AiChatClient {
 }
 
 class AiModelTestResult {
-  const AiModelTestResult({required this.reply, required this.chatApiFamily});
+  const AiModelTestResult({
+    required this.reply,
+    required this.chatApiFamily,
+    this.requestUrl,
+    this.requestMethod,
+    this.durationMs,
+  });
 
   final String reply;
   final AiApiFamily chatApiFamily;
+  final String? requestUrl;
+  final String? requestMethod;
+  final int? durationMs;
 }
 
 class AiChatRequestTelemetry {
@@ -2902,7 +2911,13 @@ class AiChatService implements AiChatClient {
                 ),
         );
       }
-      return AiModelTestResult(reply: normalizedReply, chatApiFamily: family);
+      return AiModelTestResult(
+        reply: normalizedReply,
+        chatApiFamily: family,
+        requestUrl: completion.requestUrl,
+        requestMethod: completion.requestMethod,
+        durationMs: completion.durationMs,
+      );
     }
 
     final fallbackFamily = AiProtocolRegistry.adapterForModel(

@@ -253,7 +253,10 @@ class _SettingsSubsectionCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final motionEnabled = _settingsMotionEnabled(context);
     final revealDuration = openHandMotionDuration(context, kOpenHandMotion420);
-    final revealReverseDuration = openHandMotionDuration(context, kOpenHandMotion260);
+    final revealReverseDuration = openHandMotionDuration(
+      context,
+      kOpenHandMotion260,
+    );
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1974,7 +1977,10 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                       ? null
                       : () => _loadMiniMaxVoices(model),
                   icon: AnimatedSwitcher(
-                    duration: openHandMotionDuration(context, kOpenHandMotion220),
+                    duration: openHandMotionDuration(
+                      context,
+                      kOpenHandMotion220,
+                    ),
                     child: _loadingMiniMaxVoices
                         ? const SizedBox.square(
                             key: ValueKey<String>('loading'),
@@ -2844,9 +2850,7 @@ class _AiProviderInsertionGuide extends StatelessWidget {
     return ClipRect(
       child: AnimatedSize(
         duration: motionEnabled ? kOpenHandMotion220 : Duration.zero,
-        reverseDuration: motionEnabled
-            ? kOpenHandMotion180
-            : Duration.zero,
+        reverseDuration: motionEnabled ? kOpenHandMotion180 : Duration.zero,
         curve: kOpenHandEntranceCurve,
         child: AnimatedOpacity(
           duration: motionEnabled ? kOpenHandMotion180 : Duration.zero,
@@ -4829,7 +4833,10 @@ class _SettingsElasticExpansion extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final duration = openHandMotionDuration(context, kOpenHandMotion280);
-    final reverseDuration = openHandMotionDuration(context, const Duration(milliseconds: 190));
+    final reverseDuration = openHandMotionDuration(
+      context,
+      const Duration(milliseconds: 190),
+    );
 
     return AnimatedSize(
       duration: duration,
@@ -4952,6 +4959,9 @@ class _AiProviderModelChip extends StatelessWidget {
     this.compact = false,
     this.enabled = true,
     this.hasProfile = false,
+    this.healthProvider,
+    this.onHealthCheck,
+    this.healthCheckBusy = false,
   });
 
   final String modelId;
@@ -4963,6 +4973,9 @@ class _AiProviderModelChip extends StatelessWidget {
   final bool compact;
   final bool enabled;
   final bool hasProfile;
+  final AiModelConfig? healthProvider;
+  final VoidCallback? onHealthCheck;
+  final bool healthCheckBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -5013,6 +5026,7 @@ class _AiProviderModelChip extends StatelessWidget {
     final effectiveOnPressed = enabled ? onPressed : null;
     final effectiveOnEdit = enabled ? onEdit : null;
     final effectiveOnDeleted = enabled ? onDeleted : null;
+    final effectiveOnHealthCheck = enabled ? onHealthCheck : null;
     final iconSize = compact ? 14.0 : 16.0;
 
     // 使用 Material 和 InkWell，避免 InputChip 吞掉标签内操作按钮的点击。
@@ -5057,9 +5071,11 @@ class _AiProviderModelChip extends StatelessWidget {
                 color: accentColor,
               ),
               SizedBox(width: compact ? 5 : 7),
-              Flexible(
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: compact ? 180 : 280),
                 child: Text(
                   modelId,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style:
                       (compact
@@ -5073,6 +5089,39 @@ class _AiProviderModelChip extends StatelessWidget {
                           ),
                 ),
               ),
+              if (healthProvider != null) ...<Widget>[
+                kOpenHandHGap4,
+                AiModelHealthIndicator(
+                  provider: healthProvider!,
+                  modelId: modelId,
+                  barCount: compact ? 10 : 16,
+                  compact: compact,
+                ),
+                if (effectiveOnHealthCheck != null) ...<Widget>[
+                  kOpenHandHGap2,
+                  SizedBox.square(
+                    dimension: compact ? 26 : 30,
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      tooltip: openHandLocalizedText(
+                        context,
+                        zh: '检查此模型健康状态',
+                        en: 'Check this model health',
+                      ),
+                      onPressed: effectiveOnHealthCheck,
+                      icon: healthCheckBusy
+                          ? const SizedBox.square(
+                              dimension: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              Icons.wifi_tethering_rounded,
+                              size: compact ? 16 : 18,
+                            ),
+                    ),
+                  ),
+                ],
+              ],
               if (effectiveOnEdit != null) ...<Widget>[
                 kOpenHandHGap4,
                 GestureDetector(
@@ -5502,7 +5551,10 @@ class _AiModelTileState extends State<_AiModelTile> {
     final matchedModels = _filterAiModelIds(allModels, modelSearchQuery);
     final matchedModelIds = matchedModels.toSet();
     final matchedModelCount = matchedModels.length;
-    final animationDuration = openHandMotionDuration(context, kOpenHandMotion260);
+    final animationDuration = openHandMotionDuration(
+      context,
+      kOpenHandMotion260,
+    );
 
     return MicroPressFeedback(
       child: InkWell(
@@ -5591,7 +5643,10 @@ class _AiModelTileState extends State<_AiModelTile> {
                                     en: 'Show all models',
                                   ),
                             icon: AnimatedSwitcher(
-                              duration: openHandMotionDuration(context, kOpenHandMotion220),
+                              duration: openHandMotionDuration(
+                                context,
+                                kOpenHandMotion220,
+                              ),
                               switchInCurve: kOpenHandEntranceCurve,
                               switchOutCurve: kOpenHandSwitchOutCurve,
                               transitionBuilder: (child, animation) =>
@@ -5788,11 +5843,20 @@ class _AiModelTileState extends State<_AiModelTile> {
                         final hiddenCount = ordered.length - visible.length;
                         return AnimatedSize(
                           alignment: Alignment.topLeft,
-                          duration: openHandMotionDuration(context, kOpenHandMotion420),
-                          reverseDuration: openHandMotionDuration(context, kOpenHandMotion260),
+                          duration: openHandMotionDuration(
+                            context,
+                            kOpenHandMotion420,
+                          ),
+                          reverseDuration: openHandMotionDuration(
+                            context,
+                            kOpenHandMotion260,
+                          ),
                           curve: kOpenHandEntranceCurve,
                           child: AnimatedSwitcher(
-                            duration: openHandMotionDuration(context, kOpenHandMotion260),
+                            duration: openHandMotionDuration(
+                              context,
+                              kOpenHandMotion260,
+                            ),
                             switchInCurve: kOpenHandEntranceCurve,
                             switchOutCurve: kOpenHandSwitchOutCurve,
                             layoutBuilder: (currentChild, previousChildren) {
@@ -5830,6 +5894,12 @@ class _AiModelTileState extends State<_AiModelTile> {
                                         modelId: id,
                                         isActive: id == activeId,
                                         compact: true,
+                                        enabled: widget.actionsEnabled,
+                                        healthProvider: widget.model,
+                                        onHealthCheck: () =>
+                                            _checkModelHealth(id),
+                                        healthCheckBusy: _healthCheckingModelIds
+                                            .contains(id),
                                         tooltip: id == activeId
                                             ? openHandLocalizedText(
                                                 ctx,
@@ -5846,46 +5916,6 @@ class _AiModelTileState extends State<_AiModelTile> {
                                             : () => widget.onActiveModelChanged(
                                                 id,
                                               ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      AiModelHealthIndicator(
-                                        provider: widget.model,
-                                        modelId: id,
-                                        barCount: 16,
-                                        compact: true,
-                                      ),
-                                      SizedBox(
-                                        width: 28,
-                                        height: 28,
-                                        child: IconButton(
-                                          padding: EdgeInsets.zero,
-                                          tooltip: openHandLocalizedText(
-                                            ctx,
-                                            zh: '检查此模型健康状态',
-                                            en: 'Check this model health',
-                                          ),
-                                          onPressed:
-                                              widget.actionsEnabled &&
-                                                  !_healthCheckingModelIds
-                                                      .contains(id)
-                                              ? () => _checkModelHealth(id)
-                                              : null,
-                                          icon:
-                                              _healthCheckingModelIds.contains(
-                                                id,
-                                              )
-                                              ? const SizedBox.square(
-                                                  dimension: 14,
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                      ),
-                                                )
-                                              : const Icon(
-                                                  Icons.wifi_tethering_rounded,
-                                                  size: 17,
-                                                ),
-                                        ),
                                       ),
                                     ],
                                   ),
@@ -6080,9 +6110,18 @@ class _AnimatedSettingReveal extends StatelessWidget {
       return visible ? child : const SizedBox.shrink();
     }
     final sizeDuration = openHandMotionDuration(context, kOpenHandMotion420);
-    final sizeReverseDuration = openHandMotionDuration(context, kOpenHandMotion260);
-    final switcherDuration = openHandMotionDuration(context, kOpenHandMotion320);
-    final switcherReverseDuration = openHandMotionDuration(context, kOpenHandMotion200);
+    final sizeReverseDuration = openHandMotionDuration(
+      context,
+      kOpenHandMotion260,
+    );
+    final switcherDuration = openHandMotionDuration(
+      context,
+      kOpenHandMotion320,
+    );
+    final switcherReverseDuration = openHandMotionDuration(
+      context,
+      kOpenHandMotion200,
+    );
     return ClipRect(
       child: AnimatedSize(
         duration: sizeDuration,

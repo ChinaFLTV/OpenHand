@@ -44,7 +44,15 @@ class AiModelHealthStore {
         orderBy: 'checked_at_ms DESC',
         limit: limit.clamp(1, 10000),
       );
-      return rows.map(_recordFromRow).toList(growable: false);
+      final records = <AiModelHealthRecord>[];
+      for (final row in rows) {
+        try {
+          records.add(_recordFromRow(row));
+        } catch (error, stack) {
+          silentLog('ai_model_health_store', '跳过损坏的模型健康记录', error, stack);
+        }
+      }
+      return records;
     } catch (error, stack) {
       silentLog('ai_model_health_store', '读取模型健康巡检记录', error, stack);
       return const <AiModelHealthRecord>[];

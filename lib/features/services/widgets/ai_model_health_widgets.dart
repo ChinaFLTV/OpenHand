@@ -88,6 +88,30 @@ class _AiModelHealthSettingsPanelState
               ),
             ),
             kOpenHandHGap12,
+            SizedBox(
+              width: 150,
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  labelText: text(zh: '测试线程', en: 'Test threads'),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: AnimatedDropdownButton<int>(
+                    isExpanded: true,
+                    value: settings.concurrency,
+                    items: [
+                      for (final value in const <int>[1, 2, 4, 8, 16, 32])
+                        DropdownMenuItem(value: value, child: Text('$value')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        controller.updateSettings(concurrency: value);
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ),
+            kOpenHandHGap12,
             FilledButton.tonalIcon(
               onPressed: controller.checking ? null : controller.checkAll,
               icon: controller.checking
@@ -114,7 +138,7 @@ class _AiModelHealthSettingsPanelState
             onChanged: (value) => controller.updateSettings(
               useSystemProxy: value,
               requestMode: value
-                  ? settings.requestMode
+                  ? AiModelHealthRequestMode.systemProxy
                   : AiModelHealthRequestMode.direct,
             ),
           ),

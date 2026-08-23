@@ -36,7 +36,11 @@ class AiModelHealthController extends ChangeNotifier {
   bool get checking => _checking;
 
   Future<void> load() async {
-    _settings = await _store.loadSettings();
+    final loaded = await _store.loadSettings();
+    _settings = loaded.copyWith(
+      useSystemProxy:
+          loaded.requestMode == AiModelHealthRequestMode.systemProxy,
+    );
     _records
       ..clear()
       ..addAll(await _store.loadRecent());
@@ -56,17 +60,31 @@ class AiModelHealthController extends ChangeNotifier {
   Future<bool> updateSettings({
     bool? enabled,
     int? intervalMinutes,
+    int? concurrency,
     bool? useSystemProxy,
     AiModelHealthRequestMode? requestMode,
     int? retentionDays,
   }) async {
-    final next = _settings.copyWith(
+    var next = _settings.copyWith(
       enabled: enabled,
       intervalMinutes: intervalMinutes,
+      concurrency: concurrency,
       useSystemProxy: useSystemProxy,
       requestMode: requestMode,
       retentionDays: retentionDays,
     );
+    if (requestMode != null) {
+      next = next.copyWith(
+        useSystemProxy: requestMode == AiModelHealthRequestMode.systemProxy,
+      );
+    } else if (useSystemProxy != null) {
+      next = next.copyWith(
+        useSystemProxy: useSystemProxy,
+        requestMode: useSystemProxy
+            ? AiModelHealthRequestMode.systemProxy
+            : AiModelHealthRequestMode.direct,
+      );
+    }
     if (next == _settings) return true;
     try {
       await _store.saveSettings(next);
@@ -83,13 +101,16 @@ class AiModelHealthController extends ChangeNotifier {
   List<AiModelHealthRecord> recordsFor(String providerId, String modelId) {
     final provider = providerId.trim();
     final model = modelId.trim();
-    return _records
-        .where(
-          (record) =>
-              record.providerConfigId == provider && record.modelId == model,
-        )
-        .take(36)
-        .toList(growable: false);
+    final values =
+        _records
+            .where(
+              (record) =>
+                  record.providerConfigId == provider &&
+                  record.modelId == model,
+            )
+            .toList(growable: false)
+          ..sort((a, b) => b.checkedAt.compareTo(a.checkedAt));
+    return values.take(36).toList(growable: false);
   }
 
   AiModelHealthRecord? latestFor(String providerId, String modelId) {
@@ -106,10 +127,10 @@ class AiModelHealthController extends ChangeNotifier {
     try {
       final pending = <Future<AiModelHealthRecord?>>[];
       for (final provider in models) {
-        for (final modelId in provider.allModelIds) {
+        for (final modelId in _healthModelIds(provider)) {
           if (_disposed) return;
           pending.add(checkModel(provider, modelId: modelId, notify: false));
-          if (pending.length >= 4) {
+          if (pending.length >= _settings.concurrency) {
             await Future.wait(pending);
             pending.clear();
           }
@@ -138,19 +159,29 @@ class AiModelHealthController extends ChangeNotifier {
     var status = 'failed';
     int? responseCode;
     var errorMessage = '';
-    var modelKind = _modelKind(model);
+    final modelKind = _modelKind(provider, selectedModelId);
+    String? requestUrl;
+    String? requestMethod;
+    int? requestDurationMs;
     try {
-      if (_isTextModel(model)) {
+      if (_isTextModel(model, selectedModelId)) {
         final client = _createClient(mode, uri?.host ?? '');
         final service = AiChatService(client: client);
         try {
-          await service.testModel(model);
+          final result = await service.testModel(model);
           success = true;
           status = 'healthy';
           responseCode = 200;
+          requestUrl = result.requestUrl;
+          requestMethod = result.requestMethod;
+          requestDurationMs = result.durationMs;
         } on AiChatException catch (error) {
           errorMessage = error.message;
           responseCode = error.statusCode;
+          status = 'unhealthy';
+          requestUrl = error.telemetry?.requestUrl;
+          requestMethod = error.telemetry?.requestMethod;
+          requestDurationMs = error.telemetry?.durationMs;
         } finally {
           service.dispose();
           client.close();
@@ -159,6 +190,8 @@ class AiModelHealthController extends ChangeNotifier {
         final client = _createClient(mode, uri?.host ?? '');
         try {
           final target = _modelProbeUri(model, selectedModelId);
+          requestUrl = target.toString();
+          requestMethod = 'GET';
           final headers = _headers(model);
           var request = http.Request('GET', target)..headers.addAll(headers);
           var response = await client
@@ -171,39 +204,75 @@ class AiModelHealthController extends ChangeNotifier {
               (response.statusCode == 404 || response.statusCode == 405)) {
             final operationPath = switch (modelKind) {
               'embedding' => 'embeddings',
+              'moderation' => 'moderations',
+              'image_edit' => 'images/edits',
               'image' => 'images/generations',
               'video' => 'videos/generations',
               'audio' => 'audio/speech',
+              'transcription' => 'audio/transcriptions',
+              'translation' => 'audio/translations',
+              'rerank' => 'rerank',
               _ => 'models/${Uri.encodeComponent(selectedModelId)}',
             };
-            final body = switch (modelKind) {
-              'embedding' => <String, Object?>{
-                'model': selectedModelId,
-                'input': <String>['health check'],
-              },
-              'image' || 'video' => <String, Object?>{
-                'model': selectedModelId,
-                'prompt': 'health check',
-              },
-              'audio' => <String, Object?>{
-                'model': selectedModelId,
-                'input': 'health check',
-              },
-              _ => <String, Object?>{'model': selectedModelId},
-            };
-            request =
-                http.Request('POST', _appendBasePath(model, operationPath))
-                  ..headers.addAll(<String, String>{
-                    ...headers,
-                    'content-type': 'application/json',
-                  })
-                  ..body = jsonEncode(body);
-            response = await client
-                .send(request)
-                .timeout(const Duration(seconds: 20));
-            responseCode = response.statusCode;
-            await response.stream.drain();
-            success = response.statusCode >= 200 && response.statusCode < 300;
+            if (_requiresSafeCapabilityProbe(modelKind)) {
+              request = http.Request(
+                'OPTIONS',
+                _appendBasePath(model, operationPath),
+              )..headers.addAll(headers);
+              requestUrl = request.url.toString();
+              requestMethod = 'OPTIONS';
+              response = await client
+                  .send(request)
+                  .timeout(const Duration(seconds: 20));
+              responseCode = response.statusCode;
+              await response.stream.drain();
+              success = response.statusCode >= 200 && response.statusCode < 300;
+              status = success ? 'healthy' : 'unhealthy';
+              if (!success) errorMessage = 'HTTP $responseCode';
+              // OPTIONS 不会触发生成或转码，避免巡检产生实际费用。
+            } else {
+              final body = switch (modelKind) {
+                'embedding' => <String, Object?>{
+                  'model': selectedModelId,
+                  'input': <String>['health check'],
+                },
+                'moderation' => <String, Object?>{
+                  'model': selectedModelId,
+                  'input': 'health check',
+                },
+                'image' || 'image_edit' || 'video' => <String, Object?>{
+                  'model': selectedModelId,
+                  'prompt': 'health check',
+                },
+                'audio' => <String, Object?>{
+                  'model': selectedModelId,
+                  'input': 'health check',
+                },
+                'transcription' ||
+                'translation' => <String, Object?>{'model': selectedModelId},
+                'rerank' => <String, Object?>{
+                  'model': selectedModelId,
+                  'query': 'health check',
+                  'documents': <String>['health check'],
+                },
+                _ => <String, Object?>{'model': selectedModelId},
+              };
+              request =
+                  http.Request('POST', _appendBasePath(model, operationPath))
+                    ..headers.addAll(<String, String>{
+                      ...headers,
+                      'content-type': 'application/json',
+                    })
+                    ..body = jsonEncode(body);
+              requestUrl = request.url.toString();
+              requestMethod = 'POST';
+              response = await client
+                  .send(request)
+                  .timeout(const Duration(seconds: 20));
+              responseCode = response.statusCode;
+              await response.stream.drain();
+              success = response.statusCode >= 200 && response.statusCode < 300;
+            }
           }
           status = success ? 'healthy' : 'unhealthy';
           if (!success) errorMessage = 'HTTP $responseCode';
@@ -216,6 +285,7 @@ class AiModelHealthController extends ChangeNotifier {
       status = 'error';
     }
     stopwatch.stop();
+    requestDurationMs ??= stopwatch.elapsedMilliseconds;
     final checkedAt = DateTime.now().toUtc();
     final record = AiModelHealthRecord(
       id: const Uuid().v4(),
@@ -235,7 +305,24 @@ class AiModelHealthController extends ChangeNotifier {
       errorMessage: errorMessage,
       metadata: <String, Object?>{
         'protocol': model.protocolType.storageValue,
+        'api_dialect': model.apiDialect.storageValue,
+        'auth_scheme': model.authScheme.storageValue,
+        'model_kind': modelKind,
+        'model_modalities': model
+            .profileFor(selectedModelId)
+            .supportedModalities
+            .map((item) => item.storageValue)
+            .toList(growable: false),
         'base_url': model.normalizedBaseUrl,
+        'request_url': requestUrl ?? '',
+        'request_method': requestMethod ?? '',
+        'request_duration_ms': requestDurationMs,
+        'probe_type': _probeType(modelKind, requestMethod),
+        'proxy_endpoint': _proxyEndpointFor(mode, uri?.host ?? ''),
+        'platform': Platform.operatingSystem,
+        'platform_version': Platform.operatingSystemVersion,
+        'dart_version': Platform.version.split(' ').first,
+        'checked_at_utc': checkedAt.toIso8601String(),
       },
     );
     _records.insert(0, record);
@@ -257,8 +344,28 @@ class AiModelHealthController extends ChangeNotifier {
     return _settings.requestMode;
   }
 
-  bool _isTextModel(AiModelConfig model) {
-    final profile = model.profileFor(model.modelId);
+  List<String> _healthModelIds(AiModelConfig provider) {
+    return AiModelConfig.normalizeModelIds(<String>[
+      ...provider.allModelIds,
+      provider.operationRouting.chatModelId ?? '',
+      provider.operationRouting.responsesModelId ?? '',
+      provider.operationRouting.completionModelId ?? '',
+      provider.operationRouting.embeddingModelId ?? '',
+      provider.operationRouting.moderationModelId ?? '',
+      provider.operationRouting.rerankModelId ?? '',
+      provider.operationRouting.imageModelId ?? '',
+      provider.operationRouting.imageEditModelId ?? '',
+      provider.operationRouting.videoModelId ?? '',
+      provider.operationRouting.speechModelId ?? '',
+      provider.operationRouting.transcriptionModelId ?? '',
+      provider.operationRouting.translationModelId ?? '',
+      provider.operationRouting.realtimeModelId ?? '',
+    ]);
+  }
+
+  bool _isTextModel(AiModelConfig model, String modelId) {
+    if (_modelKind(model, modelId) != 'text') return false;
+    final profile = model.profileFor(modelId);
     if (profile.supportedModalities.contains(AiModelModality.text) ||
         profile.supportedModalities.isEmpty) {
       return !profile.capabilities.any(
@@ -267,14 +374,28 @@ class AiModelHealthController extends ChangeNotifier {
             capability != AiModelCapability.rerank &&
             capability != AiModelCapability.imageGeneration &&
             capability != AiModelCapability.videoGeneration &&
-            capability != AiModelCapability.audioGeneration,
+            capability != AiModelCapability.audioGeneration &&
+            capability != AiModelCapability.readerConversion,
       );
     }
     return false;
   }
 
-  String _modelKind(AiModelConfig model) {
-    final profile = model.profileFor(model.modelId);
+  String _modelKind(AiModelConfig provider, String modelId) {
+    final routing = provider.operationRouting;
+    if (routing.transcriptionModelId == modelId) return 'transcription';
+    if (routing.translationModelId == modelId) return 'translation';
+    if (routing.speechModelId == modelId) return 'audio';
+    if (routing.moderationModelId == modelId) return 'moderation';
+    if (routing.realtimeModelId == modelId) return 'realtime';
+    if (routing.embeddingModelId == modelId) return 'embedding';
+    if (routing.rerankModelId == modelId) return 'rerank';
+    if (routing.imageEditModelId == modelId) return 'image_edit';
+    if (routing.imageModelId == modelId) {
+      return 'image';
+    }
+    if (routing.videoModelId == modelId) return 'video';
+    final profile = provider.profileFor(modelId);
     if (profile.capabilities.contains(AiModelCapability.embeddingGeneration)) {
       return 'embedding';
     }
@@ -286,6 +407,14 @@ class AiModelHealthController extends ChangeNotifier {
     }
     if (profile.capabilities.contains(AiModelCapability.audioGeneration)) {
       return 'audio';
+    }
+    if (profile.capabilities.contains(AiModelCapability.pdfGeneration) ||
+        profile.capabilities.contains(AiModelCapability.pptGeneration) ||
+        profile.capabilities.contains(AiModelCapability.readerConversion)) {
+      return 'document';
+    }
+    if (profile.capabilities.contains(AiModelCapability.rerank)) {
+      return 'rerank';
     }
     return 'text';
   }
@@ -329,11 +458,74 @@ class AiModelHealthController extends ChangeNotifier {
     } else {
       final endpoint = _proxyResolver?.call(targetHost: host);
       final proxyUri = endpoint == null ? null : Uri.tryParse(endpoint.url);
+      if (proxyUri != null && proxyUri.userInfo.isNotEmpty) {
+        final separator = proxyUri.userInfo.indexOf(':');
+        final username = Uri.decodeComponent(
+          separator < 0
+              ? proxyUri.userInfo
+              : proxyUri.userInfo.substring(0, separator),
+        );
+        final password = separator < 0
+            ? ''
+            : Uri.decodeComponent(proxyUri.userInfo.substring(separator + 1));
+        raw.addProxyCredentials(
+          proxyUri.host,
+          proxyUri.port,
+          '',
+          HttpClientBasicCredentials(username, password),
+        );
+      }
       raw.findProxy = (_) => proxyUri == null
           ? 'DIRECT'
           : 'PROXY ${proxyUri.host}:${proxyUri.port}';
     }
     return IOClient(raw);
+  }
+
+  String _proxyEndpointFor(AiModelHealthRequestMode mode, String host) {
+    if (mode == AiModelHealthRequestMode.direct) return '';
+    if (mode == AiModelHealthRequestMode.systemProxy) {
+      final route = SystemProxyResolver.instance.resolveRuntimeRoute();
+      return _maskedProxyEndpoint(route.httpsProxy ?? route.httpProxy);
+    }
+    return _proxyResolver?.call(targetHost: host)?.maskedUrl ?? '';
+  }
+
+  String _maskedProxyEndpoint(String? raw) {
+    final value = raw?.trim() ?? '';
+    if (value.isEmpty) return '';
+    final normalized = value.contains('://') ? value : 'http://$value';
+    return maskAiExposureProxyUrl(normalized, fallback: '');
+  }
+
+  String _probeType(String modelKind, String? requestMethod) {
+    if (requestMethod == 'GET') return 'model_metadata';
+    return switch (modelKind) {
+      'embedding' => 'embedding_minimal_input',
+      'moderation' => 'moderation_minimal_input',
+      'rerank' => 'rerank_minimal_input',
+      'image' || 'image_edit' || 'video' => 'generation_minimal_prompt',
+      'audio' => 'speech_minimal_input',
+      'transcription' => 'transcription_capability',
+      'translation' => 'translation_capability',
+      'document' => 'document_capability',
+      'realtime' => 'realtime_model_metadata',
+      _ => 'text_availability_probe',
+    };
+  }
+
+  bool _requiresSafeCapabilityProbe(String modelKind) {
+    return switch (modelKind) {
+      'image' ||
+      'image_edit' ||
+      'video' ||
+      'audio' ||
+      'transcription' ||
+      'translation' ||
+      'document' ||
+      'realtime' => true,
+      _ => false,
+    };
   }
 
   void _restartTimer() {

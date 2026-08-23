@@ -2558,6 +2558,19 @@ class AiModelConfig {
       ...availableModelIds,
       if (normalizedModelId != null) normalizedModelId,
       if (normalizedTitleModelId != null) normalizedTitleModelId,
+      operationRouting.chatModelId ?? '',
+      operationRouting.responsesModelId ?? '',
+      operationRouting.completionModelId ?? '',
+      operationRouting.embeddingModelId ?? '',
+      operationRouting.moderationModelId ?? '',
+      operationRouting.rerankModelId ?? '',
+      operationRouting.imageModelId ?? '',
+      operationRouting.imageEditModelId ?? '',
+      operationRouting.videoModelId ?? '',
+      operationRouting.speechModelId ?? '',
+      operationRouting.transcriptionModelId ?? '',
+      operationRouting.translationModelId ?? '',
+      operationRouting.realtimeModelId ?? '',
     ]);
   }
 
