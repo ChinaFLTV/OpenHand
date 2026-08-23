@@ -11,6 +11,9 @@ import '../ai_model_proxy_controller.dart';
 import '../model/ai_model_proxy_models.dart';
 
 const int _kStatusCopyAckMs = 1600;
+const int _kStatusPagePhoneMaxPx = 640;
+const int _kStatusPageCompactMaxPx = 720;
+const int _kStatusPageTapMinPx = 44;
 
 String _statusPageLang(Locale locale) {
   final ui = openHandSupportedUiLocale(locale);
@@ -518,7 +521,7 @@ String buildAiModelProxyStatusPage({
 <html lang="$lang">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="${dark ? 'dark' : 'light'}">
 <meta name="theme-color" content="${_cssHex(cs.primary)}">
 <link rel="icon" type="image/png" href="$aiModelProxyLogoPath">
@@ -544,101 +547,178 @@ String buildAiModelProxyStatusPage({
   --banner-edge: ${_cssHex(_healthColor(overall))};
   --shadow: ${dark ? 'rgba(0,0,0,.28)' : 'rgba(15,23,42,.08)'};
   --radius: 18px;
+  --pad: 18px;
+  --bar-gap: 3px;
+  --bar-h: 34px;
+  --nest: 32px;
+  --tip-shift-y: calc(-100% - 10px);
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overflow-x: hidden;
+}
 body {
   font-family: "SF Pro Text", "Segoe UI", "PingFang SC", "PingFang TC", "Hiragino Sans GB", "Hiragino Kaku Gothic ProN", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif;
   background: var(--bg);
   color: var(--text);
   line-height: 1.45;
+  overflow-x: hidden;
 }
-.wrap { width: min(920px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 64px; }
+.wrap {
+  width: min(920px, 100%);
+  margin: 0 auto;
+  padding: max(28px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(56px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+}
 .top {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 16px; margin-bottom: 22px;
+  gap: 12px 16px; margin-bottom: 22px; flex-wrap: wrap;
 }
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 22px; letter-spacing: -.03em; }
-.brand small { display: block; font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+.brand {
+  display: flex; align-items: center; gap: 10px; font-weight: 800;
+  font-size: clamp(18px, 4.2vw, 22px); letter-spacing: -.03em;
+  min-width: 0; flex: 1 1 220px;
+}
+.brand > div { min-width: 0; }
+.brand small {
+  display: block; font-size: 12px; font-weight: 600; color: var(--muted);
+  letter-spacing: 0; overflow-wrap: anywhere;
+}
 .logo {
   width: 36px; height: 36px; border-radius: 12px; object-fit: contain;
   display: block; background: var(--card); flex: none;
 }
 .copy-btn, .ghost-btn {
   border: 1px solid var(--outline); background: var(--text); color: var(--bg);
-  border-radius: 999px; padding: 9px 16px; font-weight: 700; cursor: pointer;
+  border-radius: 999px; padding: 10px 16px; font: inherit; font-weight: 700;
+  cursor: pointer; appearance: none; -webkit-appearance: none;
+  touch-action: manipulation; min-height: ${_kStatusPageTapMinPx}px;
   transition: transform 180ms cubic-bezier(.22,1.2,.36,1), box-shadow 180ms ease;
+  flex: 0 0 auto;
 }
 .ghost-btn { background: var(--card); color: var(--text); }
-.copy-btn:hover, .ghost-btn:hover { transform: translateY(-1px) scale(1.02); box-shadow: 0 10px 24px var(--shadow); }
+.copy-btn:focus-visible, .ghost-btn:focus-visible {
+  outline: 2px solid var(--primary); outline-offset: 3px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .copy-btn:hover, .ghost-btn:hover { transform: translateY(-1px) scale(1.02); box-shadow: 0 10px 24px var(--shadow); }
+}
 .banner {
   border: 1px solid var(--banner-edge); border-radius: var(--radius); overflow: hidden;
   background: var(--card); margin-bottom: 18px;
   animation: rise 420ms cubic-bezier(.22,1.2,.36,1);
 }
 .banner-head {
-  display: flex; align-items: center; gap: 10px;
-  padding: 16px 18px; background: var(--banner); font-weight: 800; font-size: 18px;
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 16px var(--pad); background: var(--banner); font-weight: 800;
+  font-size: clamp(16px, 3.6vw, 18px); overflow-wrap: anywhere;
 }
-.banner-body { padding: 14px 18px 16px; color: var(--text); font-weight: 600; }
+.banner-body {
+  padding: 14px var(--pad) 16px; color: var(--text); font-weight: 600;
+  overflow-wrap: anywhere;
+}
 .card {
   background: var(--card); border: 1px solid var(--outline); border-radius: var(--radius);
   box-shadow: 0 16px 40px var(--shadow); overflow: hidden;
   animation: rise 520ms cubic-bezier(.22,1.2,.36,1);
 }
 .card-h {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 18px 18px 8px;
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 8px 12px; padding: 18px var(--pad) 8px; flex-wrap: wrap;
 }
-.card-h h2 { margin: 0; font-size: 18px; }
-.range { color: var(--muted); font-weight: 700; font-size: 13px; }
-.row { border-top: 1px solid color-mix(in srgb, var(--outline) 80%, transparent); padding: 16px 18px 14px; }
-.row-h { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
-.row-h:hover .name { color: var(--primary); }
+.card-h h2 { margin: 0; font-size: clamp(16px, 3.6vw, 18px); min-width: 0; }
+.range { color: var(--muted); font-weight: 700; font-size: 13px; white-space: nowrap; }
+.row { border-top: 1px solid color-mix(in srgb, var(--outline) 80%, transparent); padding: 16px var(--pad) 14px; }
+.row-h {
+  display: flex; align-items: center; gap: 8px 10px; cursor: pointer;
+  user-select: none; flex-wrap: wrap;
+}
+@media (hover: hover) and (pointer: fine) {
+  .row-h:hover .name { color: var(--primary); }
+}
 .dot {
   width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
   background: color-mix(in srgb, var(--tone) 18%, transparent); color: var(--tone); flex: none;
 }
-.name { font-weight: 800; }
-.meta { color: var(--muted); font-size: 13px; font-weight: 650; margin-left: 6px; }
-.uptime { margin-left: auto; color: var(--muted); font-weight: 700; font-size: 13px; }
-.bars { display: flex; gap: 3px; margin-top: 10px; height: 34px; align-items: stretch; }
-.bar {
-  flex: 1; min-width: 4px; border-radius: 4px; background: var(--fill);
-  transform-origin: bottom; transition: transform 160ms cubic-bezier(.22,1.2,.36,1), filter 160ms ease;
+.name { font-weight: 800; min-width: 0; overflow-wrap: anywhere; flex: 1 1 140px; }
+.meta { color: var(--muted); font-size: 13px; font-weight: 650; }
+.uptime {
+  margin-left: auto; color: var(--muted); font-weight: 700; font-size: 13px;
+  white-space: nowrap;
 }
-.bar:hover { transform: scaleY(1.18); filter: brightness(1.08); }
-.children { display: none; padding: 4px 0 0 32px; }
+.bars {
+  display: flex; gap: var(--bar-gap); margin-top: 10px; height: var(--bar-h);
+  align-items: stretch; width: 100%; touch-action: manipulation;
+}
+.bar {
+  flex: 1 1 0; min-width: 0; border-radius: 3px; background: var(--fill);
+  transform-origin: bottom;
+  transition: transform 160ms cubic-bezier(.22,1.2,.36,1), filter 160ms ease;
+}
+.bar.on { transform: scaleY(1.18); filter: brightness(1.12); }
+@media (hover: hover) and (pointer: fine) {
+  .bar:hover { transform: scaleY(1.18); filter: brightness(1.08); }
+}
+.children { display: none; padding: 4px 0 0 var(--nest); }
 .row.open .children { display: block; animation: rise 240ms ease; }
 .child { padding: 12px 0 8px; }
 .foot { display: flex; justify-content: center; margin-top: 22px; }
+.foot .ghost-btn { max-width: 100%; }
 .history { display: none; margin-top: 18px; }
 .history.open { display: block; animation: rise 280ms ease; }
+.incidents { padding: 0 var(--pad) 12px; }
 .incident {
-  display: grid; grid-template-columns: 110px 1fr auto; gap: 12px; padding: 12px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--outline) 70%, transparent);
-  font-size: 13px;
+  display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 8px 12px;
+  padding: 12px 0; border-bottom: 1px solid color-mix(in srgb, var(--outline) 70%, transparent);
+  font-size: 13px; overflow-wrap: anywhere;
 }
-.note { margin-top: 28px; text-align: center; color: var(--muted); font-size: 12px; max-width: 640px; margin-left: auto; margin-right: auto; }
+.note {
+  margin-top: 28px; text-align: center; color: var(--muted); font-size: 12px;
+  max-width: 640px; margin-left: auto; margin-right: auto; overflow-wrap: anywhere;
+  padding: 0 4px;
+}
 .tip {
-  position: fixed; z-index: 20; min-width: 240px; max-width: 320px; pointer-events: none;
+  position: fixed; z-index: 20; width: max-content;
+  min-width: min(240px, calc(100vw - 24px));
+  max-width: min(320px, calc(100vw - 24px));
+  pointer-events: none;
   background: var(--card); color: var(--text); border: 1px solid var(--outline);
   border-radius: 16px; box-shadow: 0 18px 40px var(--shadow); padding: 12px 14px;
-  transform: translate(-50%, calc(-100% - 10px)) scale(.96); opacity: 0;
+  transform: translate(-50%, var(--tip-shift-y)) scale(.96); opacity: 0;
   transition: opacity 140ms ease, transform 180ms cubic-bezier(.22,1.2,.36,1);
 }
-.tip.show { opacity: 1; transform: translate(-50%, calc(-100% - 10px)) scale(1); }
+.tip.show { opacity: 1; transform: translate(-50%, var(--tip-shift-y)) scale(1); }
+.tip.below { --tip-shift-y: 10px; }
 .tip b { display: block; font-size: 13px; margin-bottom: 4px; }
 .tip .badge { font-size: 11px; font-weight: 800; color: var(--tone); }
-.tip p { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
+.tip p { margin: 8px 0 0; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
-.tile { background: color-mix(in srgb, var(--tone) 10%, var(--bg-accent)); border-radius: 10px; padding: 7px 8px; }
+.tile { background: color-mix(in srgb, var(--tone) 10%, var(--bg-accent)); border-radius: 10px; padding: 7px 8px; min-width: 0; }
 .tile span { display: block; font-size: 10px; color: var(--muted); font-weight: 700; }
-.tile strong { font-size: 13px; }
+.tile strong { font-size: 13px; overflow-wrap: anywhere; }
 @keyframes rise { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
-@media (max-width: 640px) {
+@media (max-width: ${_kStatusPageCompactMaxPx}px) {
+  :root { --pad: 14px; --nest: 20px; --bar-gap: 2px; }
+  .top { flex-direction: column; align-items: stretch; }
+  .copy-btn, .foot .ghost-btn { width: 100%; }
+  .range { white-space: normal; }
+}
+@media (max-width: ${_kStatusPagePhoneMaxPx}px) {
+  :root { --radius: 16px; --bar-h: 28px; --bar-gap: 1px; --nest: 14px; }
   .incident { grid-template-columns: 1fr; }
-  .uptime { display: none; }
+  .uptime { margin-left: 32px; }
+}
+@media (pointer: coarse) {
+  :root { --bar-h: 40px; }
+  .bars { cursor: pointer; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important; transition: none !important;
+  }
+  .bar.on, .bar:hover { transform: none; }
 }
 </style>
 </head>
@@ -667,7 +747,7 @@ body {
   </div>
   <section class="history card" id="history">
     <div class="card-h"><h2>${_htmlEscape(copy.incidentHistory)}</h2></div>
-    <div id="incidents" style="padding: 0 18px 12px;"></div>
+    <div class="incidents" id="incidents"></div>
   </section>
   <p class="note">${_htmlEscape(copy.footnote)}</p>
 </div>
@@ -702,21 +782,43 @@ document.getElementById('rows').innerHTML = data.components.map(c => row(c,false
 document.querySelectorAll('[data-toggle]').forEach(el => {
   el.addEventListener('click', () => el.closest('.row').classList.toggle('open'));
 });
+const coarse = window.matchMedia('(pointer: coarse)').matches;
+let pinnedStrip = null;
+function dayIndex(strip, ev, n){
+  const r = strip.getBoundingClientRect();
+  if (n <= 0 || r.width <= 0) return 0;
+  return Math.max(0, Math.min(n - 1, Math.floor(((ev.clientX - r.left) / r.width) * n)));
+}
+function clearOn(strip){
+  strip.querySelectorAll('.bar.on').forEach(el => el.classList.remove('on'));
+}
 function bindTips(root, days){
-  root.querySelectorAll(':scope > .bars .bar').forEach(bar => {
-    const i = Number(bar.dataset.i);
+  const strip = root.querySelector(':scope > .bars');
+  if (!strip || !days || !days.length) return;
+  const reveal = (ev) => {
+    const i = dayIndex(strip, ev, days.length);
     const d = days[i];
+    const bar = strip.children[i];
     if (!d) return;
-    bar.addEventListener('pointerenter', ev => showTip(ev, d));
-    bar.addEventListener('pointermove', ev => moveTip(ev));
-    bar.addEventListener('pointerleave', () => tip.classList.remove('show'));
-  });
-  root.querySelectorAll(':scope > .children > .row').forEach((child, idx) => {
-    const component = root.__comp && root.__comp.children ? root.__comp.children[idx] : null;
-  });
+    clearOn(strip);
+    if (bar) bar.classList.add('on');
+    showTip(ev, d, bar || strip);
+  };
+  if (coarse) {
+    strip.addEventListener('pointerdown', (ev) => {
+      pinnedStrip = strip;
+      reveal(ev);
+    });
+  } else {
+    strip.addEventListener('pointerenter', reveal);
+    strip.addEventListener('pointermove', reveal);
+    strip.addEventListener('pointerleave', () => {
+      clearOn(strip);
+      tip.classList.remove('show');
+    });
+  }
 }
 function walk(el, component){
-  el.__comp = component;
   bindTips(el, component.days);
   (component.children || []).forEach((child, i) => {
     const node = el.querySelectorAll(':scope > .children > .row')[i];
@@ -724,22 +826,57 @@ function walk(el, component){
   });
 }
 document.querySelectorAll('#rows > .row').forEach((el, i) => walk(el, data.components[i]));
-function showTip(ev, d){
+if (coarse) {
+  document.addEventListener('pointerdown', (ev) => {
+    if (!pinnedStrip) return;
+    if (pinnedStrip.contains(ev.target)) return;
+    clearOn(pinnedStrip);
+    tip.classList.remove('show');
+    pinnedStrip = null;
+  });
+}
+function showTip(ev, d, anchor){
   tip.style.setProperty('--tone', tone[d.h] || data.idle);
   tip.innerHTML = '<b>'+d.d+'</b><span class="badge">'+(label[d.h]||d.h)+'</span>' +
     '<div class="grid"><div class="tile"><span>'+i18n.requests+'</span><strong>'+d.req+'</strong></div>' +
     '<div class="tile"><span>'+i18n.success+'</span><strong>'+d.rate+'</strong></div>' +
     '<div class="tile"><span>'+i18n.failures+'</span><strong>'+d.fail+'</strong></div>' +
     '<div class="tile"><span>'+i18n.slow+'</span><strong>'+d.slow+'</strong></div></div>' +
-    '<p>'+d.note+'</p>';
-  moveTip(ev); tip.classList.add('show');
+    '<p>'+(d.note||'')+'</p>';
+  tip.classList.add('show');
+  moveTip(ev, anchor);
 }
-function moveTip(ev){
-  const pad = 16; const w = tip.offsetWidth || 260;
-  let x = ev.clientX, y = ev.clientY;
-  x = Math.max(w/2 + pad, Math.min(window.innerWidth - w/2 - pad, x));
-  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+function moveTip(ev, anchor){
+  const pad = 12;
+  const w = tip.offsetWidth || 240;
+  const h = tip.offsetHeight || 160;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  let x = ev.clientX, y = ev.clientY, below = false;
+  if (anchor && anchor.getBoundingClientRect) {
+    const r = anchor.getBoundingClientRect();
+    x = r.left + r.width / 2;
+    const canAbove = r.top - h - 12 >= pad;
+    const canBelow = r.bottom + 12 + h <= vh - pad;
+    below = !canAbove && canBelow;
+    y = below ? r.bottom : r.top;
+  } else {
+    below = y - h - 12 < pad && y + 12 + h <= vh - pad;
+  }
+  const minX = w / 2 + pad;
+  const maxX = vw - w / 2 - pad;
+  x = minX > maxX ? vw / 2 : Math.max(minX, Math.min(maxX, x));
+  tip.classList.toggle('below', below);
+  tip.style.left = x + 'px';
+  tip.style.top = y + 'px';
 }
+window.addEventListener('resize', () => {
+  tip.classList.remove('show');
+  if (pinnedStrip) {
+    clearOn(pinnedStrip);
+    pinnedStrip = null;
+  }
+});
 const copyBtn = document.getElementById('copy-link');
 let copyTimer = 0;
 copyBtn.addEventListener('click', async () => {
