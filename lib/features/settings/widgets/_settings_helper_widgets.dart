@@ -5090,7 +5090,7 @@ class _AiProviderModelChip extends StatelessWidget {
                 ),
               ),
               if (healthProvider != null) ...<Widget>[
-                kOpenHandHGap6,
+                kOpenHandHGap4,
                 AiModelHealthIndicator(
                   provider: healthProvider!,
                   modelId: modelId,
@@ -5098,13 +5098,19 @@ class _AiProviderModelChip extends StatelessWidget {
                   compact: compact,
                 ),
                 if (effectiveOnHealthCheck != null) ...<Widget>[
-                  kOpenHandHGap4,
+                  kOpenHandHGap2,
                   SizedBox.square(
                     dimension: compact ? 26 : 30,
                     child: IconButton(
                       padding: EdgeInsets.zero,
                       style: IconButton.styleFrom(
                         backgroundColor: Colors.transparent,
+                        foregroundColor: accentColor,
+                        overlayColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        surfaceTintColor: Colors.transparent,
+                        elevation: 0,
+                        splashFactory: NoSplash.splashFactory,
                         minimumSize: Size.zero,
                         maximumSize: Size.square(compact ? 26 : 30),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -5126,7 +5132,7 @@ class _AiProviderModelChip extends StatelessWidget {
                 ],
               ],
               if (effectiveOnEdit != null) ...<Widget>[
-                kOpenHandHGap6,
+                kOpenHandHGap4,
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: effectiveOnEdit,
