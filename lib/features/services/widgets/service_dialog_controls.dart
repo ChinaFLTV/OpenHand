@@ -332,7 +332,7 @@ String serviceProxyRouteText(
           )
         : text(zh: '代理池', en: 'Proxy pool'),
   AiExposureProxyRoute.system => text(zh: '系统代理', en: 'System proxy'),
-  AiExposureProxyRoute.direct => 'DIRECT',
+  AiExposureProxyRoute.direct => text(zh: '直连', en: 'Direct'),
 };
 
 /// 扫描数据源展示名。除「手工目标」外都是产品专名，不随语言变化，因此

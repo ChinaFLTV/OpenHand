@@ -2823,6 +2823,8 @@ class _ProxyRecordTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final text = openHandTextResolver(context);
+    final mode = record.proxyMode.trim();
     return Card(
       child: ListTile(
         leading: Icon(
@@ -2833,8 +2835,8 @@ class _ProxyRecordTile extends StatelessWidget {
         ),
         title: Text('${record.providerId} / ${record.modelId}'),
         subtitle: Text(
-          '${record.apiStyle} · ${record.tokens} tokens · ${record.durationMs} ms'
-          '${record.proxyMode.isEmpty ? '' : ' · ${record.proxyMode}'}'
+          '${aiModelProxyApiStyleLabel(record.apiStyle, text)} · ${record.tokens} tokens · ${record.durationMs} ms'
+          '${mode.isEmpty ? '' : ' · ${aiModelProxyDispatchModeLabel(mode, text)}'}'
           '${record.proxyEndpoint.isEmpty ? '' : ' · ${record.proxyEndpoint}'}'
           '${record.clientEndpoint.isEmpty ? '' : ' · ${record.clientEndpoint}'}'
           '${record.error == null ? '' : ' · ${record.error}'}',

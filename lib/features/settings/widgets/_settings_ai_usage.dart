@@ -951,24 +951,10 @@ class _AiUsageHealthPanel extends StatelessWidget {
                 zh: '当前范围暂无中转站代理记录',
                 en: 'No proxy route records in this range',
               ),
-              labelBuilder: (item) => switch (item.key) {
-                'pool' => openHandLocalizedText(
-                  context,
-                  zh: '代理池',
-                  en: 'Proxy pool',
-                ),
-                'system' => openHandLocalizedText(
-                  context,
-                  zh: '系统代理',
-                  en: 'System proxy',
-                ),
-                'direct' => openHandLocalizedText(
-                  context,
-                  zh: '直连',
-                  en: 'Direct',
-                ),
-                _ => item.label,
-              },
+              labelBuilder: (item) => aiModelProxyDispatchModeLabel(
+                item.key,
+                openHandTextResolver(context),
+              ),
             ),
           ];
           if (constraints.maxWidth >= _kAiUsageDistributionTwoColumnMinWidth) {

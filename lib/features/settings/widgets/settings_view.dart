@@ -96,6 +96,7 @@ import '../../instructions/instructions_controller.dart';
 import '../../mcp/index.dart';
 import '../../memory/index.dart';
 import '../../message_gateway/index.dart' show MessageGatewayController;
+import '../../services/index.dart' show aiModelProxyDispatchModeLabel;
 import '../../skills/skills_controller.dart';
 import '../data_cleanup/data_cleanup_models.dart';
 import '../data_cleanup/data_cleanup_service.dart';

@@ -8,6 +8,10 @@ import '../model/ai_context_usage.dart';
 import '../model/ai_token_usage.dart';
 import '../model/ai_usage_analytics.dart';
 
+/// 库内只存英文调度模式 id；界面文案由调用方按语言映射。key 与 label 必须同一表达式，避免缺省与显式 direct 被拆成两行。
+const String _aiUsageProxyModeSql =
+    r"CASE WHEN json_valid(metadata_json) THEN COALESCE(NULLIF(trim(json_extract(metadata_json, '$.proxy_mode')), ''), 'direct') ELSE 'direct' END";
+
 class AiUsageStorageRecord {
   const AiUsageStorageRecord({
     required this.id,
@@ -178,8 +182,8 @@ class AiUsageStore {
       _loadFacets(facetWhere, 'source', 'source'),
       _loadBreakdown(
         _sourceWhere(where, AiUsageDataScope.proxySource),
-        r"CASE WHEN json_valid(metadata_json) THEN COALESCE(json_extract(metadata_json, '$.proxy_mode'), 'direct') ELSE 'direct' END",
-        r"CASE WHEN json_valid(metadata_json) THEN COALESCE(json_extract(metadata_json, '$.proxy_mode'), '直连') ELSE '直连' END",
+        _aiUsageProxyModeSql,
+        _aiUsageProxyModeSql,
       ),
       _loadBreakdown(where, 'provider_config_id', 'provider_name', limit: 100),
     ]);

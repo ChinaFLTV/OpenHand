@@ -8,6 +8,9 @@ const int aiModelProxyMaxListenPort = 65535;
 const String aiModelProxyStatusPath = '/status.html';
 const String aiModelProxyStatusAliasPath = '/status';
 const String aiModelProxyStatusMode = 'status';
+const String aiModelProxyPoolMode = 'pool';
+const String aiModelProxySystemMode = 'system';
+const String aiModelProxyDirectMode = 'direct';
 const String aiModelProxyStatusModelId = 'status.html';
 const String aiModelProxyLogoAsset = 'assets/branding/openhand_logo.png';
 const String aiModelProxyLogoPath = '/openhand_logo.png';
@@ -30,9 +33,41 @@ bool isAiModelProxyBrandingPath(String path) {
 }
 
 bool isAiModelProxyStatusRecord(AiModelProxyRequestRecord record) {
-  if (record.proxyMode.trim() == aiModelProxyStatusMode) return true;
-  if (record.modelId.trim() == aiModelProxyStatusModelId) return true;
+  if (record.proxyMode.trim().toLowerCase() == aiModelProxyStatusMode) {
+    return true;
+  }
+  if (record.modelId.trim().toLowerCase() == aiModelProxyStatusModelId) {
+    return true;
+  }
   return isAiModelProxyStatusPath(record.requestPath);
+}
+
+typedef AiModelProxyLabelText =
+    String Function({required String zh, required String en});
+
+/// Maps stored dispatch-mode ids (`pool` / `system` / `direct` / `status`) to UI copy.
+String aiModelProxyDispatchModeLabel(String mode, AiModelProxyLabelText text) {
+  return switch (mode.trim().toLowerCase()) {
+    aiModelProxyPoolMode => text(zh: '代理池', en: 'Proxy pool'),
+    aiModelProxySystemMode => text(zh: '系统代理', en: 'System proxy'),
+    aiModelProxyDirectMode => text(zh: '直连', en: 'Direct'),
+    aiModelProxyStatusMode => text(zh: '状态页', en: 'Status page'),
+    _ => text(zh: '未知模式', en: 'Unknown mode'),
+  };
+}
+
+/// Maps stored API-style ids to display names; status probes are not a protocol.
+String aiModelProxyApiStyleLabel(String raw, AiModelProxyLabelText text) {
+  final id = raw.trim();
+  if (id.isEmpty) return '';
+  final normalized = id.toLowerCase();
+  if (normalized == aiModelProxyStatusMode) {
+    return text(zh: '状态页', en: 'Status page');
+  }
+  for (final style in AiModelProxyApiStyle.values) {
+    if (style.id.toLowerCase() == normalized) return style.label;
+  }
+  return text(zh: '未知协议', en: 'Unknown protocol');
 }
 
 String aiModelProxyDayKey(DateTime value) {

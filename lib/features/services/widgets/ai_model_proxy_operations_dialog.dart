@@ -600,11 +600,9 @@ String _proxyOpsClientMixLabel(
   AiModelProxyRequestRecord record,
   String unknownProtocol,
 ) {
-  var protocol = record.apiStyle.trim();
-  if (isAiModelProxyStatusRecord(record) ||
-      protocol == aiModelProxyStatusMode) {
-    protocol = openHandAmbientText(zh: '状态页', en: 'Status');
-  }
+  final protocol = isAiModelProxyStatusRecord(record)
+      ? openHandAmbientText(zh: '状态页', en: 'Status page')
+      : aiModelProxyApiStyleLabel(record.apiStyle, openHandAmbientText);
   final userAgent = record.clientUserAgent.trim();
   if (protocol.isEmpty && userAgent.isEmpty) return unknownProtocol;
   if (userAgent.isEmpty) return protocol;
@@ -2464,7 +2462,8 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
             formatListDateTime(record.startedAt),
             _proxyOpsRequestTitle(data, record, unknown),
             [
-              if (record.apiStyle.trim().isNotEmpty) record.apiStyle.trim(),
+              if (record.apiStyle.trim().isNotEmpty)
+                aiModelProxyApiStyleLabel(record.apiStyle, text),
               if (record.exposedModel.trim().isNotEmpty)
                 record.exposedModel.trim(),
             ].join(' · '),
@@ -2483,7 +2482,8 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
               if (record.clientEndpoint.isNotEmpty) record.clientEndpoint,
             ].join(' · '),
             [
-              if (record.proxyMode.trim().isNotEmpty) record.proxyMode.trim(),
+              if (record.proxyMode.trim().isNotEmpty)
+                aiModelProxyDispatchModeLabel(record.proxyMode, text),
               if (record.remoteHost.trim().isNotEmpty)
                 _proxyOpsUpstreamEndpoint(record, unknown),
             ].join(' · '),
@@ -3278,7 +3278,10 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
           final limit = data.settings.limitThreshold;
           final idle = math.max(0, data.controller.currentConnections - active);
           final modeSegments = _proxyOpsSegments(
-            data.countBy((record) => record.proxyMode, unknown: unknownMode),
+            data.countBy(
+              (record) => aiModelProxyDispatchModeLabel(record.proxyMode, text),
+              unknown: unknownMode,
+            ),
             palette,
           );
           return [
@@ -5263,7 +5266,12 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
             palette,
           );
           final protocols = _proxyOpsSegments(
-            data.countBy((record) => record.apiStyle, unknown: unknownProtocol),
+            data.countBy(
+              (record) => isAiModelProxyStatusRecord(record)
+                  ? text(zh: '状态页', en: 'Status page')
+                  : aiModelProxyApiStyleLabel(record.apiStyle, text),
+              unknown: unknownProtocol,
+            ),
             palette,
           );
           final families = data.groupBy((record) {
@@ -5281,7 +5289,9 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
             palette,
           );
           final protocolQuality = data.groupBy(
-            (record) => record.apiStyle,
+            (record) => isAiModelProxyStatusRecord(record)
+                ? text(zh: '状态页', en: 'Status page')
+                : aiModelProxyApiStyleLabel(record.apiStyle, text),
             unknown: unknownProtocol,
           );
           return [
