@@ -197,6 +197,15 @@ class AiModelProxyRequestRecord {
     this.proxyEndpoint = '',
     this.remoteHost = '',
     this.remotePort = '',
+    this.exposedModel = '',
+    this.requestPath = '',
+    this.promptTokens = 0,
+    this.completionTokens = 0,
+    this.inboundBytes = 0,
+    this.outboundBytes = 0,
+    this.statusCode = 0,
+    this.attempt = 1,
+    this.stream = false,
   });
 
   factory AiModelProxyRequestRecord.fromJson(Object? raw) {
@@ -222,6 +231,20 @@ class AiModelProxyRequestRecord {
       proxyEndpoint: '${json['proxy_endpoint'] ?? ''}',
       remoteHost: '${json['remote_host'] ?? ''}',
       remotePort: '${json['remote_port'] ?? ''}',
+      exposedModel: '${json['exposed_model'] ?? ''}',
+      requestPath: '${json['request_path'] ?? ''}',
+      promptTokens: _proxyBoundedInt(json['prompt_tokens'], 0, 0, 1 << 31),
+      completionTokens: _proxyBoundedInt(
+        json['completion_tokens'],
+        0,
+        0,
+        1 << 31,
+      ),
+      inboundBytes: _proxyBoundedInt(json['inbound_bytes'], 0, 0, 1 << 31),
+      outboundBytes: _proxyBoundedInt(json['outbound_bytes'], 0, 0, 1 << 31),
+      statusCode: _proxyBoundedInt(json['status_code'], 0, 0, 599),
+      attempt: _proxyBoundedInt(json['attempt'], 1, 1, 32),
+      stream: json['stream'] as bool? ?? false,
     );
   }
 
@@ -241,6 +264,15 @@ class AiModelProxyRequestRecord {
   final String proxyEndpoint;
   final String remoteHost;
   final String remotePort;
+  final String exposedModel;
+  final String requestPath;
+  final int promptTokens;
+  final int completionTokens;
+  final int inboundBytes;
+  final int outboundBytes;
+  final int statusCode;
+  final int attempt;
+  final bool stream;
 
   /// 返回用于观测展示的客户端端点，兼容旧记录和 IPv6 地址。
   String get clientEndpoint {
@@ -270,6 +302,15 @@ class AiModelProxyRequestRecord {
     if (proxyEndpoint.trim().isNotEmpty) 'proxy_endpoint': proxyEndpoint.trim(),
     if (remoteHost.trim().isNotEmpty) 'remote_host': remoteHost.trim(),
     if (remotePort.trim().isNotEmpty) 'remote_port': remotePort.trim(),
+    if (exposedModel.trim().isNotEmpty) 'exposed_model': exposedModel.trim(),
+    if (requestPath.trim().isNotEmpty) 'request_path': requestPath.trim(),
+    if (promptTokens > 0) 'prompt_tokens': promptTokens,
+    if (completionTokens > 0) 'completion_tokens': completionTokens,
+    if (inboundBytes > 0) 'inbound_bytes': inboundBytes,
+    if (outboundBytes > 0) 'outbound_bytes': outboundBytes,
+    if (statusCode > 0) 'status_code': statusCode,
+    if (attempt > 1) 'attempt': attempt,
+    if (stream) 'stream': true,
   };
 }
 
@@ -488,6 +529,15 @@ class AiModelProxySettings {
     String proxyEndpoint = '',
     String remoteHost = '',
     String remotePort = '',
+    String exposedModel = '',
+    String requestPath = '',
+    int promptTokens = 0,
+    int completionTokens = 0,
+    int inboundBytes = 0,
+    int outboundBytes = 0,
+    int statusCode = 0,
+    int attempt = 1,
+    bool stream = false,
   }) {
     final now = DateTime.now();
     final record = AiModelProxyRequestRecord(
@@ -507,6 +557,15 @@ class AiModelProxySettings {
       proxyEndpoint: proxyEndpoint,
       remoteHost: remoteHost,
       remotePort: remotePort,
+      exposedModel: exposedModel,
+      requestPath: requestPath,
+      promptTokens: promptTokens.clamp(0, 1 << 30),
+      completionTokens: completionTokens.clamp(0, 1 << 30),
+      inboundBytes: inboundBytes.clamp(0, 1 << 30),
+      outboundBytes: outboundBytes.clamp(0, 1 << 30),
+      statusCode: statusCode.clamp(0, 599),
+      attempt: attempt.clamp(1, 32),
+      stream: stream,
     );
     final nextRecords = <AiModelProxyRequestRecord>[...recentRequests, record];
     if (nextRecords.length > 200) {

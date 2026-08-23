@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import 'motion_durations.dart';
+import 'openhand_safe_scrollbar.dart';
 
 /// 图表四周留白与底部标签区高度。
 const double _kChartInset = 8;
@@ -32,6 +33,10 @@ const double _kVerticalBarBodyMaxWidth = 42;
 const double _kStatusStripHeight = 38;
 const double _kStatusStripNamedMaxWidth = 96;
 const double _kStatusStripRadius = 4;
+const double _kRankHeaderHeight = 46;
+const double _kRankRowHeight = 58;
+const double _kRankBodyMaxHeight = 348;
+const int _kRankLeadingFlex = 28;
 
 double _nonNegative(num value) {
   final result = value.toDouble();
@@ -2010,14 +2015,18 @@ class OpenHandOperationalRankRow {
     required this.cells,
     required this.value,
     this.highlightColor,
+    this.icon,
+    this.subtitle = '',
   });
 
   final List<String> cells;
   final num value;
   final Color? highlightColor;
+  final IconData? icon;
+  final String subtitle;
 }
 
-/// 可用于任意运维实体的排名表。
+/// 可用于任意运维实体的排名表。视觉对齐用量分析表：圆角边框、表头灰底、奇偶行、左侧徽章。
 class OpenHandOperationalRankTable extends StatelessWidget {
   const OpenHandOperationalRankTable({
     super.key,
@@ -2025,69 +2034,234 @@ class OpenHandOperationalRankTable extends StatelessWidget {
     required this.rows,
     this.emptyLabel = '暂无可用数据',
     this.onRowTap,
+    this.sortByValue = true,
+    this.leadingIcon,
   });
 
   final List<String> headers;
   final List<OpenHandOperationalRankRow> rows;
   final String emptyLabel;
   final ValueChanged<OpenHandOperationalRankRow>? onRowTap;
+  final bool sortByValue;
+  final IconData? leadingIcon;
 
   @override
   Widget build(BuildContext context) {
     if (headers.isEmpty || rows.isEmpty) {
       return _EmptyChartLabel(label: emptyLabel);
     }
-    final colors = Theme.of(context).colorScheme;
-    final sortedRows = [...rows]
-      ..sort(
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final sortedRows = [...rows];
+    if (sortByValue) {
+      sortedRows.sort(
         (left, right) =>
             _nonNegative(right.value).compareTo(_nonNegative(left.value)),
       );
+    }
+    final headerStyle = theme.textTheme.labelMedium?.copyWith(
+      color: colors.onSurfaceVariant,
+      fontWeight: FontWeight.w800,
+    );
+    final valueStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontWeight: FontWeight.w700,
+    );
+    final subtitleStyle = theme.textTheme.labelSmall?.copyWith(
+      color: colors.onSurfaceVariant,
+    );
+    final columnCount = headers.length;
+    final valueFlex = columnCount <= 1
+        ? 12
+        : math.max(9, (72 / (columnCount - 1)).round());
     return RepaintBoundary(
       child: Semantics(
         label: '排行表，共 ${sortedRows.length} 行',
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final minWidth = constraints.maxWidth.isFinite
-                ? constraints.maxWidth
-                : 0.0;
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minWidth: minWidth),
-                child: DataTable(
-                  headingRowColor: WidgetStatePropertyAll(
-                    colors.surfaceContainerHigh,
+            final tableWidth = math.max(
+              constraints.maxWidth.isFinite ? constraints.maxWidth : 0.0,
+              math.max(560.0, columnCount * 108.0),
+            );
+            final bodyHeight = math.min(
+              _kRankBodyMaxHeight,
+              sortedRows.length * _kRankRowHeight,
+            );
+            Widget cell({
+              required int flex,
+              required Widget child,
+              Alignment alignment = Alignment.centerRight,
+            }) {
+              return Expanded(
+                flex: flex,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Align(alignment: alignment, child: child),
+                ),
+              );
+            }
+
+            Widget textCell(
+              String text, {
+              required bool header,
+              TextAlign align = TextAlign.right,
+            }) {
+              return Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: align,
+                style: header ? headerStyle : valueStyle,
+              );
+            }
+
+            Widget rowFor(
+              OpenHandOperationalRankRow? row, {
+              bool header = false,
+            }) {
+              return DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: colors.outlineVariant,
+                      width: 0.7,
+                    ),
                   ),
-                  columns: [
-                    for (final header in headers)
-                      DataColumn(label: Text(header)),
-                  ],
-                  rows: [
-                    for (final row in sortedRows)
-                      DataRow(
-                        onSelectChanged: onRowTap == null
-                            ? null
-                            : (_) => onRowTap!(row),
-                        color: row.highlightColor == null
-                            ? null
-                            : WidgetStatePropertyAll(
-                                row.highlightColor!.withValues(alpha: 0.08),
-                              ),
-                        cells: List<DataCell>.generate(
-                          headers.length,
-                          (index) => DataCell(
-                            Text(
-                              index < row.cells.length
-                                  ? row.cells[index]
-                                  : '--',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                ),
+                child: Row(
+                  children: [
+                    cell(
+                      flex: _kRankLeadingFlex,
+                      alignment: Alignment.centerLeft,
+                      child: header
+                          ? textCell(
+                              headers.first,
+                              header: true,
+                              align: TextAlign.left,
+                            )
+                          : Row(
+                              children: [
+                                Container(
+                                  width: 30,
+                                  height: 30,
+                                  decoration: BoxDecoration(
+                                    color:
+                                        (row?.highlightColor ?? colors.primary)
+                                            .withValues(alpha: 0.14),
+                                    borderRadius: BorderRadius.circular(
+                                      kOpenHandRadius9,
+                                    ),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    row?.icon ??
+                                        leadingIcon ??
+                                        Icons.table_rows_rounded,
+                                    size: 16,
+                                    color:
+                                        row?.highlightColor ?? colors.primary,
+                                  ),
+                                ),
+                                kOpenHandHGap10,
+                                Expanded(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        row!.cells.isEmpty
+                                            ? '--'
+                                            : row.cells.first,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: valueStyle,
+                                      ),
+                                      if (row.subtitle.trim().isNotEmpty) ...[
+                                        kOpenHandGap3,
+                                        Text(
+                                          row.subtitle.trim(),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: subtitleStyle,
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
+                    ),
+                    for (var i = 1; i < columnCount; i++)
+                      cell(
+                        flex: valueFlex,
+                        child: textCell(
+                          header
+                              ? headers[i]
+                              : (row != null && i < row.cells.length
+                                    ? row.cells[i]
+                                    : '--'),
+                          header: header,
                         ),
                       ),
                   ],
+                ),
+              );
+            }
+
+            return ClipRRect(
+              borderRadius: kOpenHandBorderRadius16,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colors.surfaceContainerLowest,
+                  border: Border.all(color: colors.outlineVariant),
+                  borderRadius: kOpenHandBorderRadius16,
+                ),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: tableWidth,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          height: _kRankHeaderHeight,
+                          child: ColoredBox(
+                            color: colors.surfaceContainerHighest,
+                            child: rowFor(null, header: true),
+                          ),
+                        ),
+                        SizedBox(
+                          height: bodyHeight,
+                          child: OpenHandSafeScrollbar(
+                            child: ListView.builder(
+                              padding: EdgeInsets.zero,
+                              itemCount: sortedRows.length,
+                              itemExtent: _kRankRowHeight,
+                              physics: const ClampingScrollPhysics(),
+                              itemBuilder: (context, index) {
+                                final row = sortedRows[index];
+                                final painted = ColoredBox(
+                                  color: index.isEven
+                                      ? colors.surfaceContainerLowest
+                                      : colors.surfaceContainerLow,
+                                  child: rowFor(row),
+                                );
+                                if (onRowTap == null) return painted;
+                                return MouseRegion(
+                                  cursor: SystemMouseCursors.click,
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () => onRowTap!(row),
+                                    child: painted,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             );

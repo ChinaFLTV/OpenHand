@@ -538,6 +538,15 @@ class AiModelProxyController extends ChangeNotifier {
     String proxyEndpoint = '',
     String remoteHost = '',
     String remotePort = '',
+    String exposedModel = '',
+    String requestPath = '',
+    int promptTokens = 0,
+    int completionTokens = 0,
+    int inboundBytes = 0,
+    int outboundBytes = 0,
+    int statusCode = 0,
+    int attempt = 1,
+    bool stream = false,
   }) async {
     try {
       // 统计请求可能并发完成。先在内存中基于最新快照累加，再让最新任务落盘，
@@ -557,6 +566,15 @@ class AiModelProxyController extends ChangeNotifier {
         proxyEndpoint: proxyEndpoint,
         remoteHost: remoteHost,
         remotePort: remotePort,
+        exposedModel: exposedModel,
+        requestPath: requestPath,
+        promptTokens: promptTokens,
+        completionTokens: completionTokens,
+        inboundBytes: inboundBytes,
+        outboundBytes: outboundBytes,
+        statusCode: statusCode,
+        attempt: attempt,
+        stream: stream,
       );
       _notify();
       await _writes.enqueue(() => _store.save(_settings));

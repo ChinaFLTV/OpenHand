@@ -69,6 +69,8 @@ class AiModelProxyDispatcher {
     required List<AiChatTurn> messages,
     Map<String, Object?> request = const <String, Object?>{},
     Map<String, String> headers = const <String, String>{},
+    String requestPath = '',
+    int inboundBytes = 0,
   }) async {
     if (!controller.authorize(headers)) {
       throw const AiModelProxyException(401, 'API 鉴权失败。');
@@ -109,17 +111,19 @@ class AiModelProxyDispatcher {
           .firstOrNull;
       if (provider == null) {
         lastError = const AiModelProxyException(404, '后备模型提供商不存在。');
-        await controller.recordRequest(
+        await _recordDispatch(
           success: false,
-          tokens: 0,
           durationMs: 0,
           providerId: backend.providerId,
           modelId: backend.modelId,
+          exposedModel: exposedModel,
+          headers: headers,
           apiStyle: settings.apiStyle.id,
           error: '$lastError',
-          clientIp: _clientIp(headers),
-          clientPort: _clientPort(headers),
-          clientUserAgent: _clientUserAgent(headers),
+          failure: lastError,
+          requestPath: requestPath,
+          inboundBytes: inboundBytes,
+          attempt: attempt + 1,
         );
         break;
       }
@@ -133,17 +137,19 @@ class AiModelProxyDispatcher {
           400,
           '后备模型端点不能指向当前中转站，否则会形成请求循环。',
         );
-        await controller.recordRequest(
+        await _recordDispatch(
           success: false,
-          tokens: 0,
           durationMs: 0,
           providerId: provider.id,
           modelId: backend.modelId,
+          exposedModel: exposedModel,
+          headers: headers,
           apiStyle: settings.apiStyle.id,
           error: lastError.toString(),
-          clientIp: _clientIp(headers),
-          clientPort: _clientPort(headers),
-          clientUserAgent: _clientUserAgent(headers),
+          failure: lastError,
+          requestPath: requestPath,
+          inboundBytes: inboundBytes,
+          attempt: attempt + 1,
         );
         break;
       }
@@ -195,20 +201,24 @@ class AiModelProxyDispatcher {
         );
         final endedAt = DateTime.now();
         final durationMs = endedAt.difference(startedAt).inMilliseconds;
-        await controller.recordRequest(
+        await _recordDispatch(
           success: true,
-          tokens: result.usage?.totalTokens ?? 0,
           durationMs: durationMs,
           providerId: provider.id,
           modelId: backend.modelId,
+          exposedModel: exposedModel,
+          headers: headers,
           apiStyle: settings.apiStyle.id,
-          clientIp: _clientIp(headers),
-          clientPort: _clientPort(headers),
-          clientUserAgent: _clientUserAgent(headers),
+          usage: result.usage,
           proxyMode: network.mode,
           proxyEndpoint: network.endpoint,
           remoteHost: network.remoteHost,
           remotePort: network.remotePort,
+          requestPath: requestPath,
+          inboundBytes: inboundBytes,
+          outboundBytes:
+              result.reply.length + (result.rawResponse?.length ?? 0),
+          attempt: attempt + 1,
         );
         return AiModelProxyDispatchResult(
           reply: result.reply,
@@ -222,21 +232,23 @@ class AiModelProxyDispatcher {
         );
       } catch (error) {
         lastError = error;
-        await controller.recordRequest(
+        await _recordDispatch(
           success: false,
-          tokens: 0,
           durationMs: DateTime.now().difference(startedAt).inMilliseconds,
           providerId: provider.id,
           modelId: backend.modelId,
+          exposedModel: exposedModel,
+          headers: headers,
           apiStyle: settings.apiStyle.id,
           error: '$error',
-          clientIp: _clientIp(headers),
-          clientPort: _clientPort(headers),
-          clientUserAgent: _clientUserAgent(headers),
+          failure: error,
           proxyMode: network.mode,
           proxyEndpoint: network.endpoint,
           remoteHost: network.remoteHost,
           remotePort: network.remotePort,
+          requestPath: requestPath,
+          inboundBytes: inboundBytes,
+          attempt: attempt + 1,
         );
         final retryable = _isRetryableBackendError(error);
         if (retryable) {
@@ -267,6 +279,8 @@ class AiModelProxyDispatcher {
     required List<AiChatTurn> messages,
     Map<String, Object?> request = const <String, Object?>{},
     Map<String, String> headers = const <String, String>{},
+    String requestPath = '',
+    int inboundBytes = 0,
   }) async {
     if (!controller.authorize(headers)) {
       throw const AiModelProxyException(401, 'API 鉴权失败。');
@@ -308,17 +322,20 @@ class AiModelProxyDispatcher {
           .firstOrNull;
       if (provider == null) {
         lastError = const AiModelProxyException(404, '后备模型提供商不存在。');
-        await controller.recordRequest(
+        await _recordDispatch(
           success: false,
-          tokens: 0,
           durationMs: 0,
           providerId: backend.providerId,
           modelId: backend.modelId,
+          exposedModel: exposedModel,
+          headers: headers,
           apiStyle: settings.apiStyle.id,
           error: lastError.toString(),
-          clientIp: _clientIp(headers),
-          clientPort: _clientPort(headers),
-          clientUserAgent: _clientUserAgent(headers),
+          failure: lastError,
+          requestPath: requestPath,
+          inboundBytes: inboundBytes,
+          attempt: attempt + 1,
+          stream: true,
         );
         break;
       }
@@ -363,42 +380,49 @@ class AiModelProxyDispatcher {
           response.result
               .then<void>(
                 (result) async {
-                  await controller.recordRequest(
+                  await _recordDispatch(
                     success: !result.wasCancelled,
-                    tokens: result.usage?.totalTokens ?? 0,
                     durationMs: DateTime.now()
                         .difference(startedAt)
                         .inMilliseconds,
                     providerId: provider.id,
                     modelId: backend.modelId,
+                    exposedModel: exposedModel,
+                    headers: headers,
                     apiStyle: controller.settings.apiStyle.id,
-                    clientIp: _clientIp(headers),
-                    clientPort: _clientPort(headers),
-                    clientUserAgent: _clientUserAgent(headers),
+                    usage: result.usage,
                     proxyMode: network.mode,
                     proxyEndpoint: network.endpoint,
                     remoteHost: network.remoteHost,
                     remotePort: network.remotePort,
+                    requestPath: requestPath,
+                    inboundBytes: inboundBytes,
+                    outboundBytes: result.reply.length,
+                    attempt: attempt + 1,
+                    stream: true,
                   );
                 },
                 onError: (Object error, StackTrace stack) async {
-                  await controller.recordRequest(
+                  await _recordDispatch(
                     success: false,
-                    tokens: 0,
                     durationMs: DateTime.now()
                         .difference(startedAt)
                         .inMilliseconds,
                     providerId: provider.id,
                     modelId: backend.modelId,
+                    exposedModel: exposedModel,
+                    headers: headers,
                     apiStyle: controller.settings.apiStyle.id,
                     error: '$error',
-                    clientIp: _clientIp(headers),
-                    clientPort: _clientPort(headers),
-                    clientUserAgent: _clientUserAgent(headers),
+                    failure: error,
                     proxyMode: network.mode,
                     proxyEndpoint: network.endpoint,
                     remoteHost: network.remoteHost,
                     remotePort: network.remotePort,
+                    requestPath: requestPath,
+                    inboundBytes: inboundBytes,
+                    attempt: attempt + 1,
+                    stream: true,
                   );
                 },
               )
@@ -413,21 +437,24 @@ class AiModelProxyDispatcher {
         );
       } catch (error) {
         lastError = error;
-        await controller.recordRequest(
+        await _recordDispatch(
           success: false,
-          tokens: 0,
           durationMs: DateTime.now().difference(startedAt).inMilliseconds,
           providerId: provider.id,
           modelId: backend.modelId,
+          exposedModel: exposedModel,
+          headers: headers,
           apiStyle: settings.apiStyle.id,
           error: '$error',
-          clientIp: _clientIp(headers),
-          clientPort: _clientPort(headers),
-          clientUserAgent: _clientUserAgent(headers),
+          failure: error,
           proxyMode: network.mode,
           proxyEndpoint: network.endpoint,
           remoteHost: network.remoteHost,
           remotePort: network.remotePort,
+          requestPath: requestPath,
+          inboundBytes: inboundBytes,
+          attempt: attempt + 1,
+          stream: true,
         );
         routedClient?.dispose();
         final retryable = _isRetryableBackendError(error);
@@ -450,6 +477,57 @@ class AiModelProxyDispatcher {
       throw AiModelProxyException(statusCode, _backendErrorMessage(lastError));
     }
     throw AiModelProxyException(502, '后备模型请求失败：$lastError');
+  }
+
+  Future<void> _recordDispatch({
+    required bool success,
+    required int durationMs,
+    required String providerId,
+    required String modelId,
+    required String exposedModel,
+    required Map<String, String> headers,
+    required String apiStyle,
+    String? error,
+    Object? failure,
+    AiTokenUsage? usage,
+    String proxyMode = '',
+    String proxyEndpoint = '',
+    String remoteHost = '',
+    String remotePort = '',
+    String requestPath = '',
+    int inboundBytes = 0,
+    int outboundBytes = 0,
+    int attempt = 1,
+    bool stream = false,
+  }) {
+    final statusCode = success
+        ? 200
+        : (_backendErrorStatusCode(failure) ?? (error == null ? 0 : 502));
+    return controller.recordRequest(
+      success: success,
+      tokens: usage?.totalTokens ?? 0,
+      durationMs: durationMs,
+      providerId: providerId,
+      modelId: modelId,
+      apiStyle: apiStyle,
+      error: error,
+      clientIp: _clientIp(headers),
+      clientPort: _clientPort(headers),
+      clientUserAgent: _clientUserAgent(headers),
+      proxyMode: proxyMode,
+      proxyEndpoint: proxyEndpoint,
+      remoteHost: remoteHost,
+      remotePort: remotePort,
+      exposedModel: exposedModel,
+      requestPath: requestPath,
+      promptTokens: usage?.promptTokens ?? 0,
+      completionTokens: usage?.completionTokens ?? 0,
+      inboundBytes: inboundBytes,
+      outboundBytes: outboundBytes,
+      statusCode: statusCode,
+      attempt: attempt,
+      stream: stream,
+    );
   }
 
   /// 将暴露 API 的本次请求参数注入底层模型配置。协议适配器会在生成

@@ -259,6 +259,8 @@ class AiModelProxyHttpServer {
           messages: messages,
           request: payload,
           headers: _headers(request),
+          requestPath: path,
+          inboundBytes: request.contentLength < 0 ? 0 : request.contentLength,
         );
         await _writeNativeStreamingResponse(
           request,
@@ -275,6 +277,8 @@ class AiModelProxyHttpServer {
         messages: messages,
         request: payload,
         headers: _headers(request),
+        requestPath: path,
+        inboundBytes: request.contentLength < 0 ? 0 : request.contentLength,
       );
       final response = route == _ProxyRoute.responses
           ? _decorateResponsesResponse(

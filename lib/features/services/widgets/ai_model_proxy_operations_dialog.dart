@@ -11,7 +11,6 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
-import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/byte_size_format.dart';
@@ -31,8 +30,6 @@ const double _kProxyOpsOuterRadius = 28;
 const double _kProxyOpsShellRadius = 20;
 const double _kProxyOpsControlRadius = 12;
 const int _kProxyOpsTrendBuckets = 12;
-const double _kProxyOpsRecentMaxHeight = 360;
-const double _kProxyOpsListMaxHeight = 340;
 const double _kProxyOpsSubDialogWidthFraction = 0.94;
 const double _kProxyOpsSubDialogHeightFraction = 0.92;
 const double _kProxyOpsInsightMaxWidth = 940;
@@ -48,22 +45,6 @@ const int _kProxyOpsRankMaxRows = 12;
 const int _kProxyOpsHourBuckets = 24;
 const int _kProxyOpsFastLatencyMs = 1000;
 const int _kProxyOpsSlowLatencyMs = 3000;
-
-Widget _proxyOpsBoundedList(
-  BuildContext context,
-  Widget child, {
-  double maxHeight = _kProxyOpsListMaxHeight,
-}) {
-  return ConstrainedBox(
-    constraints: BoxConstraints(maxHeight: maxHeight),
-    child: ListView(
-      shrinkWrap: true,
-      physics: openHandDialogAwareScrollPhysics(context),
-      padding: EdgeInsets.zero,
-      children: [child],
-    ),
-  );
-}
 
 Future<void> showAiModelProxyOperationsDialog(BuildContext context) =>
     showAnimatedDialog<void>(
@@ -476,7 +457,21 @@ class _ProxyOpsSnapshot {
       group.requests += 1;
       if (record.success) group.successes += 1;
       group.tokens += record.tokens;
+      group.promptTokens += record.promptTokens;
+      group.completionTokens += record.completionTokens;
       group.durationMs += record.durationMs;
+      group.inboundBytes += record.inboundBytes;
+      group.outboundBytes += record.outboundBytes;
+      if (record.stream) group.streams += 1;
+      if (record.durationMs > group.maxMs) group.maxMs = record.durationMs;
+      group.durations.add(record.durationMs);
+      final peer = record.clientEndpoint.isNotEmpty
+          ? record.clientEndpoint
+          : record.clientIp.trim();
+      if (peer.isNotEmpty) group.peers.add(peer);
+      if (group.lastAt == null || record.startedAt.isAfter(group.lastAt!)) {
+        group.lastAt = record.startedAt;
+      }
     }
     return groups.values.toList()
       ..sort((a, b) => b.requests.compareTo(a.requests));
@@ -534,9 +529,21 @@ class _ProxyOpsGroupStat {
   int requests = 0;
   int successes = 0;
   int tokens = 0;
+  int promptTokens = 0;
+  int completionTokens = 0;
   int durationMs = 0;
+  int maxMs = 0;
+  int inboundBytes = 0;
+  int outboundBytes = 0;
+  int streams = 0;
+  DateTime? lastAt;
+  final Set<String> peers = <String>{};
+  final List<int> durations = <int>[];
 
+  int get failures => math.max(0, requests - successes);
   int get avgMs => requests <= 0 ? 0 : (durationMs / requests).round();
+  int get avgTokens => requests <= 0 ? 0 : (tokens / requests).round();
+  int get p95Ms => _proxyOpsPercentile(durations, 0.95);
   double get successRate =>
       requests <= 0 ? 0 : (successes / requests).clamp(0.0, 1.0).toDouble();
 }
@@ -1455,34 +1462,19 @@ class _ProxyOpsDistributionRow extends StatelessWidget {
   }
 }
 
-class _ProxyOpsRecentRequests extends StatefulWidget {
+class _ProxyOpsRecentRequests extends StatelessWidget {
   const _ProxyOpsRecentRequests({required this.data});
   final _ProxyOpsSnapshot data;
 
   @override
-  State<_ProxyOpsRecentRequests> createState() =>
-      _ProxyOpsRecentRequestsState();
-}
-
-class _ProxyOpsRecentRequestsState extends State<_ProxyOpsRecentRequests> {
-  final ScrollController _scrollController = ScrollController();
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final text = openHandTextResolver(context);
-    final data = widget.data;
     final recent = data.records.reversed.toList(growable: false);
     return _ProxyOpsPanel(
       title: text(zh: '最近请求', en: 'Recent requests'),
       subtitle: text(
-        zh: '保留最近 200 条摘要，帮助快速定位后备模型、客户端与失败原因。',
-        en: 'Up to 200 summaries for fast provider, client and failure diagnosis.',
+        zh: '时间、模型、协议、Token、客户端与调度路径，保留最近 200 条。',
+        en: 'Time, model, protocol, tokens, client and routing for the last 200 calls.',
       ),
       icon: Icons.receipt_long_rounded,
       child: recent.isEmpty
@@ -1492,106 +1484,14 @@ class _ProxyOpsRecentRequestsState extends State<_ProxyOpsRecentRequests> {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             )
-          : ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxHeight: _kProxyOpsRecentMaxHeight,
-              ),
-              child: OpenHandSafeScrollbar(
-                controller: _scrollController,
-                child: ListView.builder(
-                  controller: _scrollController,
-                  primary: false,
-                  shrinkWrap: true,
-                  itemCount: recent.length,
-                  physics: openHandDialogAwareScrollPhysics(context),
-                  itemBuilder: (context, index) => _ProxyOpsRequestTile(
-                    record: recent[index],
-                    providerLabel: data.providerLabelFor(
-                      recent[index],
-                      unknown: text(zh: '未知', en: 'Unknown'),
-                    ),
-                  ),
-                ),
-              ),
+          : _proxyOpsTraceTable(
+              context: context,
+              data: data,
+              records: recent,
+              emptyLabel: text(zh: '暂无中转请求记录。', en: 'No proxy requests yet.'),
+              showError: true,
+              maxEntries: 200,
             ),
-    );
-  }
-}
-
-class _ProxyOpsRequestTile extends StatelessWidget {
-  const _ProxyOpsRequestTile({
-    required this.record,
-    required this.providerLabel,
-  });
-  final AiModelProxyRequestRecord record;
-  final String providerLabel;
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final title = [
-      providerLabel,
-      record.modelId,
-    ].where((value) => value.trim().isNotEmpty).join(' / ');
-    final details = [
-      if (record.apiStyle.trim().isNotEmpty) record.apiStyle,
-      '${record.tokens} tokens',
-      '${record.durationMs} ms',
-      if (record.proxyMode.trim().isNotEmpty) record.proxyMode,
-      if (record.clientEndpoint.isNotEmpty) record.clientEndpoint,
-      if (record.clientUserAgent.trim().isNotEmpty)
-        'UA ${record.clientUserAgent.trim()}',
-    ].join(' · ');
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh.withValues(alpha: 0.58),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            record.success
-                ? Icons.check_circle_outline_rounded
-                : Icons.error_outline_rounded,
-            color: record.success ? OpenHandStatusColors.success : cs.error,
-            size: 20,
-          ),
-          kOpenHandHGap10,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title.isEmpty ? '未知请求' : title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                kOpenHandGap4,
-                Text(
-                  record.error == null ? details : '$details · ${record.error}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                ),
-              ],
-            ),
-          ),
-          kOpenHandHGap10,
-          Text(
-            formatMonthDayHm(record.startedAt),
-            style: Theme.of(
-              context,
-            ).textTheme.labelSmall?.copyWith(color: cs.onSurfaceVariant),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -1615,14 +1515,12 @@ class _ProxyOpsPanel extends StatelessWidget {
     required this.icon,
     required this.child,
     this.subtitle,
-    this.trailing,
     this.onTap,
   });
   final String title;
   final String? subtitle;
   final IconData icon;
   final Widget child;
-  final Widget? trailing;
   final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) {
@@ -1683,8 +1581,7 @@ class _ProxyOpsPanel extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (trailing != null) ...[kOpenHandHGap8, trailing!],
-                if (trailing == null && onTap != null) ...[
+                if (onTap != null) ...[
                   kOpenHandHGap8,
                   Icon(
                     Icons.chevron_right_rounded,
@@ -2018,93 +1915,6 @@ class _ProxyOpsInsightEmpty extends StatelessWidget {
   }
 }
 
-class _ProxyOpsStatusChip extends StatelessWidget {
-  const _ProxyOpsStatusChip({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final maxLabelWidth = math.min(
-      460.0,
-      math.max(120.0, MediaQuery.sizeOf(context).width * 0.58),
-    );
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: kOpenHandPillBorderRadius,
-        border: Border.all(color: color.withValues(alpha: 0.24)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: color),
-          kOpenHandHGap6,
-          ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: maxLabelWidth),
-            child: _ProxyOpsCopyText(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProxyOpsMiniTag extends StatelessWidget {
-  const _ProxyOpsMiniTag({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: kOpenHandPillBorderRadius,
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: cs.onSurfaceVariant),
-          kOpenHandHGap4,
-          Flexible(
-            child: _ProxyOpsCopyText(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: cs.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ProxyOpsTableCell extends StatelessWidget {
   const _ProxyOpsTableCell({
     required this.text,
@@ -2364,168 +2174,6 @@ class _ProxyOpsTrendDetailPanel extends StatelessWidget {
   }
 }
 
-class _ProxyOpsLogListPanel extends StatelessWidget {
-  const _ProxyOpsLogListPanel({
-    required this.icon,
-    required this.title,
-    required this.records,
-    required this.data,
-    required this.emptyLabel,
-    this.showReason = false,
-    this.maxEntries = _kProxyOpsLogMaxEntries,
-  });
-
-  final IconData icon;
-  final String title;
-  final List<AiModelProxyRequestRecord> records;
-  final _ProxyOpsSnapshot data;
-  final String emptyLabel;
-  final bool showReason;
-  final int maxEntries;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final shown = records.take(maxEntries).toList(growable: false);
-    return _ProxyOpsPanel(
-      icon: icon,
-      title: title,
-      trailing: records.isEmpty
-          ? null
-          : _ProxyOpsStatusChip(
-              icon: Icons.list_alt_rounded,
-              label: '${records.length}',
-              color: cs.primary,
-            ),
-      child: shown.isEmpty
-          ? _ProxyOpsInsightEmpty(label: emptyLabel)
-          : _proxyOpsBoundedList(
-              context,
-              Column(
-                children: [
-                  for (var i = 0; i < shown.length; i++) ...[
-                    if (i != 0)
-                      Divider(
-                        height: 16,
-                        color: cs.outlineVariant.withValues(alpha: 0.4),
-                      ),
-                    _ProxyOpsLogRow(
-                      record: shown[i],
-                      data: data,
-                      showReason: showReason,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-    );
-  }
-}
-
-class _ProxyOpsLogRow extends StatelessWidget {
-  const _ProxyOpsLogRow({
-    required this.record,
-    required this.data,
-    this.showReason = false,
-  });
-
-  final AiModelProxyRequestRecord record;
-  final _ProxyOpsSnapshot data;
-  final bool showReason;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final text = openHandTextResolver(context);
-    final unknown = text(zh: '未知', en: 'Unknown');
-    final statusColor = record.success
-        ? OpenHandStatusColors.success
-        : cs.error;
-    final client = record.clientUserAgent.trim().isEmpty
-        ? (record.apiStyle.trim().isEmpty
-              ? text(zh: '未知客户端', en: 'Unknown client')
-              : record.apiStyle.trim())
-        : _proxyOpsUserAgentFamily(record.clientUserAgent);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 4,
-          height: 38,
-          margin: const EdgeInsets.only(top: 2, right: 10),
-          decoration: BoxDecoration(
-            color: statusColor,
-            borderRadius: kOpenHandPillBorderRadius,
-          ),
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _ProxyOpsCopyText(
-                      _proxyOpsRequestTitle(data, record, unknown),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  kOpenHandHGap8,
-                  _ProxyOpsCopyText(
-                    formatMonthDayHmsLocal(record.startedAt),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-              kOpenHandGap4,
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  if (record.clientEndpoint.isNotEmpty)
-                    _ProxyOpsMiniTag(
-                      icon: Icons.public_rounded,
-                      label: record.clientEndpoint,
-                    ),
-                  _ProxyOpsMiniTag(icon: Icons.devices_rounded, label: client),
-                  _ProxyOpsMiniTag(
-                    icon: Icons.timer_rounded,
-                    label: '${record.durationMs}ms',
-                  ),
-                  if (record.tokens > 0)
-                    _ProxyOpsMiniTag(
-                      icon: Icons.token_rounded,
-                      label: '${record.tokens} tokens',
-                    ),
-                ],
-              ),
-              if (showReason && (record.error?.trim().isNotEmpty ?? false)) ...[
-                kOpenHandGap4,
-                _ProxyOpsCopyText(
-                  record.error!.trim(),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: statusColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _ProxyOpsDetailSection extends StatelessWidget {
   const _ProxyOpsDetailSection({
     required this.title,
@@ -2683,6 +2331,156 @@ List<OpenHandChartSegment> _proxyOpsSegments(
   ];
 }
 
+String _proxyOpsPercentLabel(double rate) =>
+    '${(rate * 100).toStringAsFixed(1)}%';
+
+String _proxyOpsDurationLabel(int ms) {
+  if (ms <= 0) return '—';
+  if (ms >= 10000) return '${(ms / 1000).toStringAsFixed(1)}s';
+  return '${ms}ms';
+}
+
+OpenHandOperationalRankTable _proxyOpsGroupTable({
+  required BuildContext context,
+  required List<_ProxyOpsGroupStat> groups,
+  required String leadingHeader,
+  required IconData icon,
+  required Color tone,
+  required String emptyLabel,
+  num Function(_ProxyOpsGroupStat group)? valueOf,
+}) {
+  final text = openHandTextResolver(context);
+  return OpenHandOperationalRankTable(
+    leadingIcon: icon,
+    emptyLabel: emptyLabel,
+    headers: [
+      leadingHeader,
+      text(zh: '请求', en: 'Requests'),
+      text(zh: '成功', en: 'OK'),
+      text(zh: '失败', en: 'Fail'),
+      text(zh: '成功率', en: 'Success'),
+      'Token',
+      text(zh: '均耗时', en: 'Avg'),
+      'P95',
+      text(zh: '对端', en: 'Peers'),
+      text(zh: '最近', en: 'Latest'),
+    ],
+    rows: [
+      for (final group in groups.take(_kProxyOpsRankMaxRows))
+        OpenHandOperationalRankRow(
+          icon: icon,
+          highlightColor: tone,
+          subtitle: [
+            if (group.promptTokens > 0 || group.completionTokens > 0)
+              '↑${group.promptTokens}  ↓${group.completionTokens}',
+            if (group.avgTokens > 0) '单均 ${group.avgTokens}',
+            if (group.streams > 0) '流式 ${group.streams}',
+            if (group.inboundBytes + group.outboundBytes > 0)
+              '${formatByteSize(group.inboundBytes)} → ${formatByteSize(group.outboundBytes)}',
+          ].join(' · '),
+          cells: [
+            group.label,
+            '${group.requests}',
+            '${group.successes}',
+            '${group.failures}',
+            _proxyOpsPercentLabel(group.successRate),
+            '${group.tokens}',
+            _proxyOpsDurationLabel(group.avgMs),
+            _proxyOpsDurationLabel(group.p95Ms),
+            '${group.peers.length}',
+            group.lastAt == null ? '—' : formatMonthDayHmsLocal(group.lastAt!),
+          ],
+          value: valueOf?.call(group) ?? group.requests,
+        ),
+    ],
+  );
+}
+
+OpenHandOperationalRankTable _proxyOpsTraceTable({
+  required BuildContext context,
+  required _ProxyOpsSnapshot data,
+  required List<AiModelProxyRequestRecord> records,
+  required String emptyLabel,
+  bool showError = false,
+  int maxEntries = _kProxyOpsLogMaxEntries,
+}) {
+  final text = openHandTextResolver(context);
+  final cs = Theme.of(context).colorScheme;
+  final unknown = text(zh: '未知', en: 'Unknown');
+  final shown = records.take(maxEntries).toList(growable: false);
+  return OpenHandOperationalRankTable(
+    sortByValue: false,
+    emptyLabel: emptyLabel,
+    leadingIcon: Icons.receipt_long_rounded,
+    headers: [
+      text(zh: '时间', en: 'Time'),
+      text(zh: '模型', en: 'Model'),
+      text(zh: '协议', en: 'Protocol'),
+      'Token',
+      text(zh: '耗时', en: 'Latency'),
+      text(zh: '客户端', en: 'Client'),
+      text(zh: '调度', en: 'Route'),
+      text(zh: '状态', en: 'Status'),
+      if (showError) text(zh: '原因', en: 'Reason'),
+    ],
+    rows: [
+      for (final record in shown)
+        OpenHandOperationalRankRow(
+          icon: record.success
+              ? Icons.check_rounded
+              : Icons.error_outline_rounded,
+          highlightColor: record.success
+              ? OpenHandStatusColors.success
+              : cs.error,
+          subtitle: [
+            if (record.requestPath.trim().isNotEmpty) record.requestPath.trim(),
+            if (record.stream) text(zh: '流式', en: 'Stream'),
+            if (record.attempt > 1) '#${record.attempt}',
+          ].join(' · '),
+          cells: [
+            formatMonthDayHmsLocal(record.startedAt),
+            _proxyOpsRequestTitle(data, record, unknown),
+            [
+              if (record.apiStyle.trim().isNotEmpty) record.apiStyle.trim(),
+              if (record.exposedModel.trim().isNotEmpty)
+                record.exposedModel.trim(),
+            ].join(' · '),
+            record.tokens <= 0
+                ? '—'
+                : record.promptTokens + record.completionTokens > 0
+                ? '${record.tokens}  ↑${record.promptTokens} ↓${record.completionTokens}'
+                : '${record.tokens}',
+            _proxyOpsDurationLabel(record.durationMs),
+            [
+              _proxyOpsUserAgentFamily(
+                record.clientUserAgent.trim().isEmpty
+                    ? unknown
+                    : record.clientUserAgent,
+              ),
+              if (record.clientEndpoint.isNotEmpty) record.clientEndpoint,
+            ].join(' · '),
+            [
+              if (record.proxyMode.trim().isNotEmpty) record.proxyMode.trim(),
+              if (record.remoteHost.trim().isNotEmpty)
+                _proxyOpsUpstreamEndpoint(record, unknown),
+            ].join(' · '),
+            [
+              record.success
+                  ? text(zh: '成功', en: 'OK')
+                  : text(zh: '失败', en: 'Fail'),
+              if (record.statusCode > 0) '${record.statusCode}',
+            ].join(' '),
+            if (showError)
+              (record.error?.trim().isEmpty ?? true)
+                  ? '—'
+                  : record.error!.trim(),
+          ],
+          value: record.durationMs,
+        ),
+    ],
+  );
+}
+
 List<OpenHandChartSegment> _proxyOpsHourSegments(List<int> hours, Color color) {
   return [
     for (
@@ -2725,95 +2523,6 @@ Widget _proxyOpsDonut({
     height: _kProxyOpsDonutHeight,
     showSelectionHighlight: false,
     onSelectionChanged: null,
-  );
-}
-
-Widget _proxyOpsEntityRow(
-  BuildContext context, {
-  required String title,
-  required String subtitle,
-  required bool enabled,
-}) {
-  final theme = Theme.of(context);
-  final cs = theme.colorScheme;
-  final text = openHandTextResolver(context);
-  final tone = enabled ? OpenHandStatusColors.success : cs.onSurfaceVariant;
-  return Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Container(
-        width: 4,
-        height: 34,
-        margin: const EdgeInsets.only(top: 2, right: 10),
-        decoration: BoxDecoration(
-          color: tone,
-          borderRadius: kOpenHandPillBorderRadius,
-        ),
-      ),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _ProxyOpsCopyText(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            if (subtitle.trim().isNotEmpty)
-              _ProxyOpsCopyText(
-                subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-              ),
-          ],
-        ),
-      ),
-      kOpenHandHGap8,
-      _ProxyOpsStatusChip(
-        icon: enabled ? Icons.check_circle_rounded : Icons.pause_circle_rounded,
-        label: enabled
-            ? text(zh: '启用', en: 'Enabled')
-            : text(zh: '停用', en: 'Disabled'),
-        color: tone,
-      ),
-    ],
-  );
-}
-
-Widget _proxyOpsEntityListPanel(
-  BuildContext context, {
-  required IconData icon,
-  required String title,
-  required List<Widget> rows,
-  required String emptyLabel,
-}) {
-  final cs = Theme.of(context).colorScheme;
-  return _ProxyOpsPanel(
-    icon: icon,
-    title: title,
-    child: rows.isEmpty
-        ? _ProxyOpsInsightEmpty(label: emptyLabel)
-        : _proxyOpsBoundedList(
-            context,
-            Column(
-              children: [
-                for (var i = 0; i < rows.length; i++) ...[
-                  if (i != 0)
-                    Divider(
-                      height: 16,
-                      color: cs.outlineVariant.withValues(alpha: 0.4),
-                    ),
-                  rows[i],
-                ],
-              ],
-            ),
-          ),
   );
 }
 
@@ -3257,26 +2966,13 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               title: text(zh: '成功模型排行', en: 'Successful Models'),
               empty: models.isEmpty,
               emptyLabel: emptyChart,
-              chart: OpenHandOperationalRankTable(
-                headers: [
-                  text(zh: '模型', en: 'Model'),
-                  text(zh: '次数', en: 'Count'),
-                  text(zh: '均耗时', en: 'Avg'),
-                  text(zh: 'Token', en: 'Tokens'),
-                ],
-                rows: [
-                  for (final group in models.take(_kProxyOpsRankMaxRows))
-                    OpenHandOperationalRankRow(
-                      cells: [
-                        group.label,
-                        '${group.requests}',
-                        '${group.avgMs}ms',
-                        '${group.tokens}',
-                      ],
-                      value: group.requests,
-                      highlightColor: success,
-                    ),
-                ],
+              chart: _proxyOpsGroupTable(
+                context: context,
+                groups: models,
+                leadingHeader: text(zh: '模型', en: 'Model'),
+                icon: Icons.model_training_outlined,
+                tone: success,
+                emptyLabel: emptyChart,
               ),
             ),
           ];
@@ -3343,33 +3039,27 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               title: text(zh: '失败模型排行', en: 'Failed Models'),
               empty: models.isEmpty,
               emptyLabel: emptyChart,
-              chart: OpenHandOperationalRankTable(
-                headers: [
-                  text(zh: '模型', en: 'Model'),
-                  text(zh: '失败', en: 'Failed'),
-                  text(zh: '均耗时', en: 'Avg'),
-                ],
-                rows: [
-                  for (final group in models.take(_kProxyOpsRankMaxRows))
-                    OpenHandOperationalRankRow(
-                      cells: [
-                        group.label,
-                        '${group.requests}',
-                        '${group.avgMs}ms',
-                      ],
-                      value: group.requests,
-                      highlightColor: cs.error,
-                    ),
-                ],
+              chart: _proxyOpsGroupTable(
+                context: context,
+                groups: models,
+                leadingHeader: text(zh: '模型', en: 'Model'),
+                icon: Icons.model_training_outlined,
+                tone: cs.error,
+                emptyLabel: emptyChart,
               ),
             ),
-            _ProxyOpsLogListPanel(
+            _proxyOpsChartPanel(
               icon: Icons.bug_report_rounded,
               title: text(zh: '失败记录', en: 'Failure Log'),
-              records: logs,
-              data: data,
-              showReason: true,
+              empty: logs.isEmpty,
               emptyLabel: text(zh: '暂无失败记录', en: 'No failures'),
+              chart: _proxyOpsTraceTable(
+                context: context,
+                data: data,
+                records: logs,
+                emptyLabel: text(zh: '暂无失败记录', en: 'No failures'),
+                showError: true,
+              ),
             ),
           ];
         },
@@ -3623,15 +3313,21 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               columns: ['p95'],
               emptyLabel: text(zh: '暂无耗时样本', en: 'No latency samples'),
             ),
-            _ProxyOpsLogListPanel(
+            _proxyOpsChartPanel(
               icon: Icons.trending_down_rounded,
               title: text(zh: '最慢调用', en: 'Slowest Calls'),
-              records: slowest
-                  .where((record) => record.durationMs > 0)
-                  .toList(growable: false),
-              data: data,
-              maxEntries: _kProxyOpsTopLogEntries,
+              empty: slowest.every((record) => record.durationMs <= 0),
               emptyLabel: text(zh: '暂无耗时样本', en: 'No latency samples'),
+              chart: _proxyOpsTraceTable(
+                context: context,
+                data: data,
+                records: slowest
+                    .where((record) => record.durationMs > 0)
+                    .toList(growable: false),
+                emptyLabel: text(zh: '暂无耗时样本', en: 'No latency samples'),
+                showError: true,
+                maxEntries: _kProxyOpsTopLogEntries,
+              ),
             ),
           ];
         },
@@ -3687,26 +3383,14 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               title: text(zh: '提供商 Token 排行', en: 'Tokens by Provider'),
               empty: providers.isEmpty,
               emptyLabel: emptyChart,
-              chart: OpenHandOperationalRankTable(
-                headers: [
-                  text(zh: '提供商', en: 'Provider'),
-                  text(zh: 'Token', en: 'Tokens'),
-                  text(zh: '请求', en: 'Requests'),
-                  text(zh: '单均', en: 'Avg'),
-                ],
-                rows: [
-                  for (final group in providers.take(_kProxyOpsRankMaxRows))
-                    OpenHandOperationalRankRow(
-                      cells: [
-                        group.label,
-                        '${group.tokens}',
-                        '${group.requests}',
-                        '${group.requests <= 0 ? 0 : (group.tokens / group.requests).round()}',
-                      ],
-                      value: group.tokens,
-                      highlightColor: cs.tertiary,
-                    ),
-                ],
+              chart: _proxyOpsGroupTable(
+                context: context,
+                groups: providers,
+                leadingHeader: text(zh: '提供商', en: 'Provider'),
+                icon: Icons.hub_outlined,
+                tone: cs.tertiary,
+                emptyLabel: emptyChart,
+                valueOf: (group) => group.tokens,
               ),
             ),
           ];
@@ -3833,26 +3517,13 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               title: text(zh: '上游端点排行', en: 'Upstream Endpoints'),
               empty: upstream.isEmpty,
               emptyLabel: emptyChart,
-              chart: OpenHandOperationalRankTable(
-                headers: [
-                  text(zh: '上游', en: 'Upstream'),
-                  text(zh: '请求', en: 'Requests'),
-                  text(zh: '成功', en: 'OK'),
-                  text(zh: '总耗时', en: 'Time'),
-                ],
-                rows: [
-                  for (final group in upstream.take(_kProxyOpsRankMaxRows))
-                    OpenHandOperationalRankRow(
-                      cells: [
-                        group.label,
-                        '${group.requests}',
-                        '${group.successes}',
-                        '${group.durationMs}ms',
-                      ],
-                      value: group.requests,
-                      highlightColor: cs.tertiary,
-                    ),
-                ],
+              chart: _proxyOpsGroupTable(
+                context: context,
+                groups: upstream,
+                leadingHeader: text(zh: '上游', en: 'Upstream'),
+                icon: Icons.cloud_outlined,
+                tone: cs.tertiary,
+                emptyLabel: emptyChart,
               ),
             ),
           ];
@@ -3875,6 +3546,13 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 valueLabel: '${route.backends.length}',
               ),
           ];
+          final usageByExposed = <String, _ProxyOpsGroupStat>{
+            for (final group in data.groupBy((record) {
+              final exposed = record.exposedModel.trim();
+              return exposed.isEmpty ? record.modelId : exposed;
+            }, unknown: unknownModel))
+              group.label: group,
+          };
           return [
             _proxyOpsPanelRow([
               _proxyOpsChartPanel(
@@ -3914,23 +3592,64 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ),
               ),
             ]),
-            _proxyOpsEntityListPanel(
-              context,
+            _proxyOpsChartPanel(
               icon: Icons.list_alt_rounded,
               title: text(zh: '模型列表', en: 'Model List'),
+              empty: data.settings.routes.isEmpty,
               emptyLabel: text(zh: '暂无注册模型', en: 'No models registered'),
-              rows: [
-                for (final route in data.settings.routes)
-                  _proxyOpsEntityRow(
-                    context,
-                    title: route.exposedModel,
-                    subtitle: text(
-                      zh: '${route.backends.where((backend) => backend.enabled).length} 个启用后备',
-                      en: '${route.backends.where((backend) => backend.enabled).length} enabled backends',
+              chart: OpenHandOperationalRankTable(
+                sortByValue: false,
+                leadingIcon: Icons.hub_rounded,
+                emptyLabel: text(zh: '暂无注册模型', en: 'No models registered'),
+                headers: [
+                  text(zh: '模型', en: 'Model'),
+                  text(zh: '状态', en: 'Status'),
+                  text(zh: '后备', en: 'Backends'),
+                  text(zh: '请求', en: 'Requests'),
+                  text(zh: '成功率', en: 'Success'),
+                  'Token',
+                  text(zh: '均耗时', en: 'Avg'),
+                  text(zh: '最近', en: 'Latest'),
+                ],
+                rows: [
+                  for (final route in data.settings.routes)
+                    OpenHandOperationalRankRow(
+                      icon: Icons.hub_rounded,
+                      highlightColor: route.enabled
+                          ? success
+                          : cs.onSurfaceVariant,
+                      subtitle: text(
+                        zh: '${route.backends.where((backend) => backend.enabled).length} 个启用后备',
+                        en: '${route.backends.where((backend) => backend.enabled).length} enabled backends',
+                      ),
+                      cells: [
+                        route.exposedModel,
+                        route.enabled
+                            ? text(zh: '启用', en: 'On')
+                            : text(zh: '停用', en: 'Off'),
+                        '${route.backends.length}',
+                        '${usageByExposed[route.exposedModel]?.requests ?? 0}',
+                        usageByExposed[route.exposedModel] == null
+                            ? '—'
+                            : _proxyOpsPercentLabel(
+                                usageByExposed[route.exposedModel]!.successRate,
+                              ),
+                        '${usageByExposed[route.exposedModel]?.tokens ?? 0}',
+                        usageByExposed[route.exposedModel] == null
+                            ? '—'
+                            : _proxyOpsDurationLabel(
+                                usageByExposed[route.exposedModel]!.avgMs,
+                              ),
+                        usageByExposed[route.exposedModel]?.lastAt == null
+                            ? '—'
+                            : formatMonthDayHmsLocal(
+                                usageByExposed[route.exposedModel]!.lastAt!,
+                              ),
+                      ],
+                      value: usageByExposed[route.exposedModel]?.requests ?? 0,
                     ),
-                    enabled: route.enabled,
-                  ),
-              ],
+                ],
+              ),
             ),
           ];
         },
@@ -3951,6 +3670,14 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 color: palette[i % palette.length],
               ),
           ].where((segment) => segment.safeValue > 0).toList(growable: false);
+          final usageByBackend = <String, _ProxyOpsGroupStat>{
+            for (final group in data.groupBy(
+              (record) =>
+                  '${record.providerId.trim()}\u0000${record.modelId.trim()}',
+              unknown: unknownModel,
+            ))
+              group.label: group,
+          };
           return [
             _proxyOpsPanelRow([
               _ProxyOpsDetailSection(
@@ -3979,22 +3706,76 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ),
               ),
             ]),
-            _proxyOpsEntityListPanel(
-              context,
+            _proxyOpsChartPanel(
               icon: Icons.list_alt_rounded,
               title: text(zh: '后备列表', en: 'Backend List'),
+              empty: data.settings.routes.every(
+                (route) => route.backends.isEmpty,
+              ),
               emptyLabel: text(zh: '暂无后备模型', en: 'No backends'),
-              rows: [
-                for (final route in data.settings.routes)
-                  for (final backend in route.backends)
-                    _proxyOpsEntityRow(
-                      context,
-                      title:
-                          '${data.providerLabelForId(backend.providerId) ?? backend.providerId} / ${backend.modelId}',
-                      subtitle: route.exposedModel,
-                      enabled: route.enabled && backend.enabled,
-                    ),
-              ],
+              chart: OpenHandOperationalRankTable(
+                sortByValue: false,
+                leadingIcon: Icons.storage_rounded,
+                emptyLabel: text(zh: '暂无后备模型', en: 'No backends'),
+                headers: [
+                  text(zh: '后备', en: 'Backend'),
+                  text(zh: '暴露模型', en: 'Exposed'),
+                  text(zh: '状态', en: 'Status'),
+                  text(zh: '请求', en: 'Requests'),
+                  text(zh: '成功率', en: 'Success'),
+                  'Token',
+                  text(zh: '均耗时', en: 'Avg'),
+                  text(zh: '最近', en: 'Latest'),
+                ],
+                rows: [
+                  for (final route in data.settings.routes)
+                    for (final backend in route.backends)
+                      OpenHandOperationalRankRow(
+                        icon: Icons.storage_rounded,
+                        highlightColor: route.enabled && backend.enabled
+                            ? success
+                            : cs.onSurfaceVariant,
+                        subtitle:
+                            data.providerLabelForId(backend.providerId) ??
+                            backend.providerId,
+                        cells: [
+                          backend.modelId,
+                          route.exposedModel,
+                          route.enabled && backend.enabled
+                              ? text(zh: '启用', en: 'On')
+                              : text(zh: '停用', en: 'Off'),
+                          '${usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']?.requests ?? 0}',
+                          usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}'] ==
+                                  null
+                              ? '—'
+                              : _proxyOpsPercentLabel(
+                                  usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']!
+                                      .successRate,
+                                ),
+                          '${usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']?.tokens ?? 0}',
+                          usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}'] ==
+                                  null
+                              ? '—'
+                              : _proxyOpsDurationLabel(
+                                  usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']!
+                                      .avgMs,
+                                ),
+                          usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']
+                                      ?.lastAt ==
+                                  null
+                              ? '—'
+                              : formatMonthDayHmsLocal(
+                                  usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']!
+                                      .lastAt!,
+                                ),
+                        ],
+                        value:
+                            usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']
+                                ?.requests ??
+                            0,
+                      ),
+                ],
+              ),
             ),
           ];
         },
@@ -4105,24 +3886,14 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 title: text(zh: '提供商成功率', en: 'Provider Quality'),
                 empty: groups.isEmpty,
                 emptyLabel: emptyChart,
-                chart: OpenHandOperationalRankTable(
-                  headers: [
-                    text(zh: '提供商', en: 'Provider'),
-                    text(zh: '请求', en: 'Requests'),
-                    text(zh: '成功率', en: 'Success'),
-                  ],
-                  rows: [
-                    for (final group in groups.take(_kProxyOpsRankMaxRows))
-                      OpenHandOperationalRankRow(
-                        cells: [
-                          group.label,
-                          '${group.requests}',
-                          '${(group.successRate * 100).toStringAsFixed(1)}%',
-                        ],
-                        value: group.successRate,
-                        highlightColor: cs.tertiary,
-                      ),
-                  ],
+                chart: _proxyOpsGroupTable(
+                  context: context,
+                  groups: groups,
+                  leadingHeader: text(zh: '提供商', en: 'Provider'),
+                  icon: Icons.hub_outlined,
+                  tone: cs.tertiary,
+                  emptyLabel: emptyChart,
+                  valueOf: (group) => group.successRate,
                 ),
               ),
             ]),
@@ -4164,23 +3935,14 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 title: text(zh: '模型成功率', en: 'Model Quality'),
                 empty: groups.isEmpty,
                 emptyLabel: emptyChart,
-                chart: OpenHandOperationalRankTable(
-                  headers: [
-                    text(zh: '模型', en: 'Model'),
-                    text(zh: '请求', en: 'Requests'),
-                    text(zh: '成功率', en: 'Success'),
-                  ],
-                  rows: [
-                    for (final group in groups.take(_kProxyOpsRankMaxRows))
-                      OpenHandOperationalRankRow(
-                        cells: [
-                          group.label,
-                          '${group.requests}',
-                          '${(group.successRate * 100).toStringAsFixed(1)}%',
-                        ],
-                        value: group.successRate,
-                      ),
-                  ],
+                chart: _proxyOpsGroupTable(
+                  context: context,
+                  groups: groups,
+                  leadingHeader: text(zh: '模型', en: 'Model'),
+                  icon: Icons.model_training_outlined,
+                  tone: cs.primary,
+                  emptyLabel: emptyChart,
+                  valueOf: (group) => group.successRate,
                 ),
               ),
             ]),
