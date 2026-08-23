@@ -8487,31 +8487,31 @@ abstract class AppLocalizations {
   /// No description provided for @mdlEdCanonicalSlug.
   ///
   /// In zh, this message translates to:
-  /// **'规范模型标识（canonical_slug）'**
+  /// **'规范模型标识'**
   String get mdlEdCanonicalSlug;
 
   /// No description provided for @mdlEdHuggingFaceId.
   ///
   /// In zh, this message translates to:
-  /// **'Hugging Face 模型标识（hugging_face_id）'**
+  /// **'Hugging Face 模型标识'**
   String get mdlEdHuggingFaceId;
 
   /// No description provided for @mdlEdKnowledgeCutoff.
   ///
   /// In zh, this message translates to:
-  /// **'知识截止日期（knowledge_cutoff）'**
+  /// **'知识截止日期'**
   String get mdlEdKnowledgeCutoff;
 
   /// No description provided for @mdlEdExpirationDate.
   ///
   /// In zh, this message translates to:
-  /// **'过期日期（expiration_date）'**
+  /// **'过期日期'**
   String get mdlEdExpirationDate;
 
   /// No description provided for @mdlEdSupportedParametersCsv.
   ///
   /// In zh, this message translates to:
-  /// **'支持的参数（CSV）'**
+  /// **'支持的参数'**
   String get mdlEdSupportedParametersCsv;
 
   /// No description provided for @mdlEdSupportedParametersCsvHint.
@@ -8523,7 +8523,7 @@ abstract class AppLocalizations {
   /// No description provided for @mdlEdDefaultParametersJson.
   ///
   /// In zh, this message translates to:
-  /// **'默认参数（JSON）'**
+  /// **'默认参数'**
   String get mdlEdDefaultParametersJson;
 
   /// No description provided for @mdlEdDefaultParametersJsonHint.

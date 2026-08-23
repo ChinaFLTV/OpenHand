@@ -4604,26 +4604,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mdlEdOpenRouterMetadataOverrides => 'OpenRouter 元数据覆盖';
 
   @override
-  String get mdlEdCanonicalSlug => '规范模型标识（canonical_slug）';
+  String get mdlEdCanonicalSlug => '规范模型标识';
 
   @override
-  String get mdlEdHuggingFaceId => 'Hugging Face 模型标识（hugging_face_id）';
+  String get mdlEdHuggingFaceId => 'Hugging Face 模型标识';
 
   @override
-  String get mdlEdKnowledgeCutoff => '知识截止日期（knowledge_cutoff）';
+  String get mdlEdKnowledgeCutoff => '知识截止日期';
 
   @override
-  String get mdlEdExpirationDate => '过期日期（expiration_date）';
+  String get mdlEdExpirationDate => '过期日期';
 
   @override
-  String get mdlEdSupportedParametersCsv => '支持的参数（CSV）';
+  String get mdlEdSupportedParametersCsv => '支持的参数';
 
   @override
   String get mdlEdSupportedParametersCsvHint =>
       '例如 input、model、input_type、truncate';
 
   @override
-  String get mdlEdDefaultParametersJson => '默认参数（JSON）';
+  String get mdlEdDefaultParametersJson => '默认参数';
 
   @override
   String get mdlEdDefaultParametersJsonHint => '例如 encoding_format: float';
@@ -15398,26 +15398,26 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get mdlEdOpenRouterMetadataOverrides => 'OpenRouter 元資料覆寫';
 
   @override
-  String get mdlEdCanonicalSlug => '規範模型識別（canonical_slug）';
+  String get mdlEdCanonicalSlug => '規範模型識別';
 
   @override
-  String get mdlEdHuggingFaceId => 'Hugging Face 模型識別（hugging_face_id）';
+  String get mdlEdHuggingFaceId => 'Hugging Face 模型識別';
 
   @override
-  String get mdlEdKnowledgeCutoff => '知識截止日期（knowledge_cutoff）';
+  String get mdlEdKnowledgeCutoff => '知識截止日期';
 
   @override
-  String get mdlEdExpirationDate => '到期日期（expiration_date）';
+  String get mdlEdExpirationDate => '到期日期';
 
   @override
-  String get mdlEdSupportedParametersCsv => '支援的參數（CSV）';
+  String get mdlEdSupportedParametersCsv => '支援的參數';
 
   @override
   String get mdlEdSupportedParametersCsvHint =>
       '例如 input、model、input_type、truncate';
 
   @override
-  String get mdlEdDefaultParametersJson => '預設參數（JSON）';
+  String get mdlEdDefaultParametersJson => '預設參數';
 
   @override
   String get mdlEdDefaultParametersJsonHint => '例如 encoding_format: float';

@@ -4664,26 +4664,26 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mdlEdOpenRouterMetadataOverrides => 'OpenRouter メタデータ上書き';
 
   @override
-  String get mdlEdCanonicalSlug => '正規モデルスラッグ（canonical_slug）';
+  String get mdlEdCanonicalSlug => '正規モデルスラッグ';
 
   @override
-  String get mdlEdHuggingFaceId => 'Hugging Face モデル ID（hugging_face_id）';
+  String get mdlEdHuggingFaceId => 'Hugging Face モデル ID';
 
   @override
-  String get mdlEdKnowledgeCutoff => '知識カットオフ（knowledge_cutoff）';
+  String get mdlEdKnowledgeCutoff => '知識カットオフ';
 
   @override
-  String get mdlEdExpirationDate => '有効期限（expiration_date）';
+  String get mdlEdExpirationDate => '有効期限';
 
   @override
-  String get mdlEdSupportedParametersCsv => '対応パラメータ（CSV）';
+  String get mdlEdSupportedParametersCsv => '対応パラメータ';
 
   @override
   String get mdlEdSupportedParametersCsvHint =>
       '例：input、model、input_type、truncate';
 
   @override
-  String get mdlEdDefaultParametersJson => '既定パラメータ（JSON）';
+  String get mdlEdDefaultParametersJson => '既定パラメータ';
 
   @override
   String get mdlEdDefaultParametersJsonHint => '例：encoding_format: float';

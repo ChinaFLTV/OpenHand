@@ -4844,28 +4844,26 @@ class AppLocalizationsFr extends AppLocalizations {
       'Surcharges des métadonnées OpenRouter';
 
   @override
-  String get mdlEdCanonicalSlug => 'Slug canonique du modèle (canonical_slug)';
+  String get mdlEdCanonicalSlug => 'Slug canonique du modèle';
 
   @override
-  String get mdlEdHuggingFaceId =>
-      'Identifiant du modèle Hugging Face (hugging_face_id)';
+  String get mdlEdHuggingFaceId => 'Identifiant du modèle Hugging Face';
 
   @override
-  String get mdlEdKnowledgeCutoff =>
-      'Date limite des connaissances (knowledge_cutoff)';
+  String get mdlEdKnowledgeCutoff => 'Date limite des connaissances';
 
   @override
-  String get mdlEdExpirationDate => 'Date d’expiration (expiration_date)';
+  String get mdlEdExpirationDate => 'Date d’expiration';
 
   @override
-  String get mdlEdSupportedParametersCsv => 'Paramètres pris en charge (CSV)';
+  String get mdlEdSupportedParametersCsv => 'Paramètres pris en charge';
 
   @override
   String get mdlEdSupportedParametersCsvHint =>
       'Exemple : input, model, input_type, truncate';
 
   @override
-  String get mdlEdDefaultParametersJson => 'Paramètres par défaut (JSON)';
+  String get mdlEdDefaultParametersJson => 'Paramètres par défaut';
 
   @override
   String get mdlEdDefaultParametersJsonHint =>

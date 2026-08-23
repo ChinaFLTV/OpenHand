@@ -4782,26 +4782,26 @@ class AppLocalizationsEn extends AppLocalizations {
       'OpenRouter Metadata Overrides';
 
   @override
-  String get mdlEdCanonicalSlug => 'Canonical model slug (canonical_slug)';
+  String get mdlEdCanonicalSlug => 'Canonical model slug';
 
   @override
-  String get mdlEdHuggingFaceId => 'Hugging Face model ID (hugging_face_id)';
+  String get mdlEdHuggingFaceId => 'Hugging Face model ID';
 
   @override
-  String get mdlEdKnowledgeCutoff => 'Knowledge cutoff (knowledge_cutoff)';
+  String get mdlEdKnowledgeCutoff => 'Knowledge cutoff';
 
   @override
-  String get mdlEdExpirationDate => 'Expiration date (expiration_date)';
+  String get mdlEdExpirationDate => 'Expiration date';
 
   @override
-  String get mdlEdSupportedParametersCsv => 'Supported parameters (CSV)';
+  String get mdlEdSupportedParametersCsv => 'Supported parameters';
 
   @override
   String get mdlEdSupportedParametersCsvHint =>
       'For example: input, model, input_type, truncate';
 
   @override
-  String get mdlEdDefaultParametersJson => 'Default parameters (JSON)';
+  String get mdlEdDefaultParametersJson => 'Default parameters';
 
   @override
   String get mdlEdDefaultParametersJsonHint =>
