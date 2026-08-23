@@ -1473,7 +1473,7 @@ class McpServerOpsRuntime {
     if (_config.requireAuthToken) {
       final expected = nullIfBlank(_config.authToken);
       final provided = _requestToken(request);
-      if (expected == null || provided != expected) {
+      if (expected == null || !constantTimeStringEquals(provided, expected)) {
         _recordBlocked(
           request,
           inboundBytes: inboundBytes,

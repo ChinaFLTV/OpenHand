@@ -17,7 +17,7 @@ use std::{
     path::{Path, PathBuf},
     process::Stdio,
     sync::{
-        Arc, LazyLock, Mutex, RwLock,
+        Arc, LazyLock, Mutex, Once, RwLock,
         atomic::{AtomicU64, Ordering},
     },
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -118,6 +118,15 @@ const CDP_PAGE_TIMEOUT: Duration = Duration::from_secs(35);
 const CDP_COMMAND_TIMEOUT: Duration = Duration::from_secs(6);
 const CDP_IDLE_DELAY: Duration = Duration::from_millis(1200);
 const CDP_CHALLENGE_DELAY: Duration = Duration::from_secs(2);
+
+pub fn ensure_rustls_crypto_provider() {
+    static INITIALIZE: Once = Once::new();
+    INITIALIZE.call_once(|| {
+        if rustls::crypto::CryptoProvider::get_default().is_none() {
+            let _ = rustls::crypto::ring::default_provider().install_default();
+        }
+    });
+}
 const CDP_PROCESS_STOP_TIMEOUT: Duration = Duration::from_secs(3);
 const CDP_HTTP_TIMEOUT: Duration = Duration::from_secs(3);
 const CDP_START_POLL_DELAY: Duration = Duration::from_millis(150);
@@ -1285,6 +1294,7 @@ impl CdpBrowserProcess {
         generation: u64,
         proxy: Option<CdpProxy>,
     ) -> Result<Self, String> {
+        ensure_rustls_crypto_provider();
         let http = Client::builder()
             .no_proxy()
             .timeout(CDP_HTTP_TIMEOUT)
@@ -4580,9 +4590,7 @@ mod tests {
     }
 
     fn fallback_observer() -> Arc<FallbackObserver> {
-        if rustls::crypto::CryptoProvider::get_default().is_none() {
-            let _ = rustls::crypto::ring::default_provider().install_default();
-        }
+        ensure_rustls_crypto_provider();
         let proxy = reqwest::Proxy::all("http://127.0.0.1:1").unwrap();
         Arc::new(FallbackObserver {
             primary_client: Client::builder().no_proxy().proxy(proxy).build().unwrap(),
@@ -4625,6 +4633,7 @@ mod tests {
             let _ = stream.read(&mut request).await.unwrap();
             stream.write_all(response.as_bytes()).await.unwrap();
         });
+        ensure_rustls_crypto_provider();
         let response = Client::builder()
             .no_proxy()
             .build()
@@ -4762,6 +4771,7 @@ mod tests {
 
     #[test]
     fn builds_jina_post_request_with_official_fields() {
+        ensure_rustls_crypto_provider();
         let observer = Arc::new(CompletionObserver::default());
         let client = ObservedHttpClient::new(Client::new(), observer);
         let profile = ToolProfile {

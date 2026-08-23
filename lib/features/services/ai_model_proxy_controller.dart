@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../../app/theme/openhand_theme_preset.dart';
 import '../../shared/util/localized_text.dart';
+import '../../shared/util/sensitive_data.dart';
 import '../../shared/util/serial_task_queue.dart';
 import '../ai/index.dart';
 import 'data/ai_model_proxy_store.dart';
@@ -28,8 +30,8 @@ class AiModelProxyController extends ChangeNotifier {
   Completer<void>? _busyCompleter;
   String? _errorMessage;
   bool _disposed = false;
-  int _activeRequests = 0;
   int _unknownConnectionRequests = 0;
+  int _runtimeRequestSequence = 0;
   int _runtimeInboundBytes = 0;
   int _runtimeOutboundBytes = 0;
   int _runtimeRequestCount = 0;
@@ -37,6 +39,8 @@ class AiModelProxyController extends ChangeNotifier {
   DateTime? _startedAt;
   final Map<String, _LiveConnectionState> _liveConnections =
       <String, _LiveConnectionState>{};
+  final Map<int, String> _runtimeRequests = <int, String>{};
+  final math.Random _random = math.Random();
   final Map<String, int> _roundRobinCursors = <String, int>{};
   final Map<String, int> _proxyRoundRobinCursors = <String, int>{};
   final Map<String, _RateLimitWindowState> _rateLimitWindows =
@@ -56,7 +60,8 @@ class AiModelProxyController extends ChangeNotifier {
   int get currentConnections =>
       _liveConnections.length + _unknownConnectionRequests;
   int get unknownLiveConnections => _unknownConnectionRequests;
-  int get activeRequests => _activeRequests;
+  int get activeRequests => _runtimeRequests.length;
+  int get concurrentRequestLimit => aiModelProxyMaxConcurrentRequests;
   List<AiModelProxyLiveConnection> get liveConnections => [
     for (final entry in _liveConnections.entries)
       AiModelProxyLiveConnection(
@@ -120,11 +125,24 @@ class AiModelProxyController extends ChangeNotifier {
   }
 
   static bool _isLocalOrWildcardHost(String host) {
-    if (host == 'localhost' || host == 'localhost.localdomain') return true;
+    if (isLoopbackListenHost(host)) return true;
     if (host == '0.0.0.0' || host == '*' || host == '::') return true;
-    if (host == '::1' || host == '0:0:0:0:0:0:0:1') return true;
-    if (RegExp(r'^127(?:\.\d{1,3}){3}$').hasMatch(host)) return true;
-    return RegExp(r'^::ffff:127(?:\.\d{1,3}){3}$').hasMatch(host);
+    return false;
+  }
+
+  static bool isLoopbackListenHost(String host) {
+    final normalized = _normalizeEndpointHost(host);
+    if (normalized == 'localhost' || normalized == 'localhost.localdomain') {
+      return true;
+    }
+    const mappedIpv4Prefix = '::ffff:';
+    if (normalized.startsWith(mappedIpv4Prefix)) {
+      return InternetAddress.tryParse(
+            normalized.substring(mappedIpv4Prefix.length),
+          )?.isLoopback ??
+          false;
+    }
+    return InternetAddress.tryParse(normalized)?.isLoopback ?? false;
   }
 
   /// 复用暴露面扫描服务的代理池配置，保证两个服务选择同一条网络策略。
@@ -164,7 +182,7 @@ class AiModelProxyController extends ChangeNotifier {
       case AiExposureProxyStrategy.fixed:
         return candidates.first;
       case AiExposureProxyStrategy.random:
-        return candidates[math.Random().nextInt(candidates.length)];
+        return candidates[_random.nextInt(candidates.length)];
       case AiExposureProxyStrategy.stickyHost:
         final key = targetHost.trim().toLowerCase();
         final index = key.isEmpty
@@ -247,7 +265,8 @@ class AiModelProxyController extends ChangeNotifier {
       RegExp(r'^bearer\s+', caseSensitive: false),
       '',
     );
-    return apiKey == expected || authorizationValue == expected;
+    return constantTimeStringEquals(apiKey, expected) ||
+        constantTimeStringEquals(authorizationValue, expected);
   }
 
   /// 只有已启用的暴露模型才会出现在中转服务的模型空间中。
@@ -258,7 +277,11 @@ class AiModelProxyController extends ChangeNotifier {
             exposedModel.trim().toLowerCase(),
   );
 
-  AiModelProxyBackend? resolveBackend(String exposedModel) {
+  AiModelProxyBackend? resolveBackend(
+    String exposedModel, {
+    Set<AiModelProxyBackend> excludedBackends = const <AiModelProxyBackend>{},
+    String affinityKey = '',
+  }) {
     final normalizedModel = exposedModel.trim().toLowerCase();
     final route = _settings.routes
         .where(
@@ -269,19 +292,22 @@ class AiModelProxyController extends ChangeNotifier {
         .firstOrNull;
     if (route == null) return null;
     final enabled = route.backends
-        .where((item) => item.enabled)
+        .where((item) => item.enabled && !excludedBackends.contains(item))
         .toList(growable: false);
     if (enabled.isEmpty) return null;
     return switch (_settings.scheduling) {
       AiModelProxySchedulingStrategy.random =>
-        enabled[math.Random().nextInt(enabled.length)],
+        enabled[_random.nextInt(enabled.length)],
       AiModelProxySchedulingStrategy.roundRobin => _nextRoundRobin(
         normalizedModel,
         enabled,
       ),
-      AiModelProxySchedulingStrategy.priority ||
-      AiModelProxySchedulingStrategy.conservative ||
-      AiModelProxySchedulingStrategy.sticky => enabled.first,
+      AiModelProxySchedulingStrategy.priority => enabled.first,
+      AiModelProxySchedulingStrategy.sticky =>
+        enabled[affinityKey.trim().isEmpty
+            ? 0
+            : (affinityKey.trim().toLowerCase().hashCode & 0x7fffffff) %
+                  enabled.length],
     };
   }
 
@@ -435,6 +461,7 @@ class AiModelProxyController extends ChangeNotifier {
     _errorMessage = null;
     _notify();
     try {
+      _validateSecuritySettings(_settings);
       final enabledRoutes = _settings.routes
           .where((route) => route.enabled)
           .toList(growable: false);
@@ -528,6 +555,7 @@ class AiModelProxyController extends ChangeNotifier {
   Future<void> saveSettings(AiModelProxySettings settings) async {
     final previous = _settings;
     final normalized = settings.copyWith();
+    _validateSecuritySettings(normalized);
     final listenEndpointChanged =
         previous.listenHost != normalized.listenHost ||
         previous.listenPort != normalized.listenPort;
@@ -538,7 +566,16 @@ class AiModelProxyController extends ChangeNotifier {
       _resetRateLimitWindows();
     }
     _notify();
-    await _writes.enqueue(() => _store.save(normalized));
+    try {
+      await _writes.enqueue(() => _store.save(normalized));
+    } catch (_) {
+      if (identical(_settings, normalized)) {
+        _settings = previous;
+        _resetRateLimitWindows();
+        _notify();
+      }
+      rethrow;
+    }
     if (listenEndpointChanged) await _requestServerRebind();
   }
 
@@ -630,10 +667,11 @@ class AiModelProxyController extends ChangeNotifier {
   }
 
   /// 记录进入并发执行阶段的请求，供服务运维面板展示实时并发。
-  void runtimeRequestStarted({String? connectionKey, String? userAgent}) {
-    if (_disposed) return;
-    _activeRequests = (_activeRequests + 1).clamp(0, 1 << 30).toInt();
+  int? runtimeRequestStarted({String? connectionKey, String? userAgent}) {
+    if (_disposed) return null;
+    final requestId = ++_runtimeRequestSequence;
     final key = connectionKey?.trim() ?? '';
+    _runtimeRequests[requestId] = key;
     if (key.isEmpty) {
       _unknownConnectionRequests = (_unknownConnectionRequests + 1)
           .clamp(0, 1 << 30)
@@ -656,6 +694,7 @@ class AiModelProxyController extends ChangeNotifier {
       }
     }
     _notify();
+    return requestId;
   }
 
   /// 记录响应载荷大小，避免把展示层的流量指标写死为零。
@@ -671,10 +710,10 @@ class AiModelProxyController extends ChangeNotifier {
     _notify();
   }
 
-  void runtimeRequestFinished({String? connectionKey}) {
+  void runtimeRequestFinished(int? requestId) {
     if (_disposed) return;
-    _activeRequests = (_activeRequests - 1).clamp(0, 1 << 30).toInt();
-    final key = connectionKey?.trim() ?? '';
+    final key = requestId == null ? null : _runtimeRequests.remove(requestId);
+    if (key == null) return;
     if (key.isEmpty) {
       _unknownConnectionRequests = (_unknownConnectionRequests - 1)
           .clamp(0, 1 << 30)
@@ -823,6 +862,7 @@ class AiModelProxyController extends ChangeNotifier {
       final server = _httpServer;
       if (server == null) throw StateError('中转站 HTTP 服务未初始化。');
       await server.stop();
+      _resetRuntimeOccupancy();
       _resetRateLimitWindows();
       await server.start();
       _lifecycle = AiModelProxyLifecycle.running;
@@ -854,9 +894,19 @@ class AiModelProxyController extends ChangeNotifier {
   }
 
   void _resetRuntimeOccupancy() {
-    _activeRequests = 0;
+    _runtimeRequests.clear();
     _unknownConnectionRequests = 0;
     _liveConnections.clear();
+  }
+
+  static void _validateSecuritySettings(AiModelProxySettings settings) {
+    if (settings.requireAuthentication && settings.apiKey.trim().isEmpty) {
+      throw StateError('启用 API 鉴权后必须配置密钥。');
+    }
+    if (!settings.requireAuthentication &&
+        !isLoopbackListenHost(settings.listenHost)) {
+      throw StateError('监听非本机回环地址时必须启用 API 鉴权。');
+    }
   }
 }
 

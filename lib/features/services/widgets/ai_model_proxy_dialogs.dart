@@ -582,8 +582,8 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
             _ProxyDialogHeader(
               title: text(zh: '模型映射', en: 'Model routing map'),
               subtitle: text(
-                zh: '左侧是 /models 暴露模型，右侧是按优先级调度的后备模型。',
-                en: 'Exposed /models entries route to prioritized provider backends.',
+                zh: '左侧是 /models 暴露模型，右侧是按所选策略调度的后备模型。',
+                en: 'Exposed /models entries route by the selected backend strategy.',
               ),
               icon: Icons.account_tree_outlined,
               onClose: () => Navigator.of(context).pop(),
@@ -2029,6 +2029,7 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
   late int _listenPort;
   late TextEditingController _key;
   bool _showApiKey = false;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -2055,25 +2056,62 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
   }
 
   Future<void> _save() async {
+    if (_saving) return;
+    final text = openHandTextResolver(context);
+    final host = _listenHost.text.trim().isEmpty
+        ? aiModelProxyDefaultListenHost
+        : _listenHost.text.trim();
+    final apiKey = _key.text.trim();
+    if (_auth && apiKey.isEmpty) {
+      showOpenHandErrorSnack(
+        context,
+        text(
+          zh: '启用 API 鉴权后必须填写 API Key。',
+          en: 'Enter an API key when authentication is enabled.',
+        ),
+      );
+      return;
+    }
+    if (!_auth && !AiModelProxyController.isLoopbackListenHost(host)) {
+      showOpenHandErrorSnack(
+        context,
+        text(
+          zh: '监听非本机回环地址时必须启用 API 鉴权。',
+          en: 'Authentication is required for non-loopback listeners.',
+        ),
+      );
+      return;
+    }
     final controller = context.read<AiModelProxyController>();
-    await controller.saveSettings(
-      controller.settings.copyWith(
-        listenHost: _listenHost.text.trim().isEmpty
-            ? aiModelProxyDefaultListenHost
-            : _listenHost.text.trim(),
-        listenPort: _listenPort,
-        requireAuthentication: _auth,
-        apiKey: _key.text.trim(),
-        apiStyle: _style,
-        limitScope: _limitScope,
-        limitMode: _limitMode,
-        limitThreshold: _threshold,
-        retryPolicy: _retry,
-        retryCount: _retryCount,
-        scheduling: _scheduling,
-      ),
-    );
-    if (mounted) Navigator.of(context).pop();
+    setState(() => _saving = true);
+    try {
+      await controller.saveSettings(
+        controller.settings.copyWith(
+          listenHost: host,
+          listenPort: _listenPort,
+          requireAuthentication: _auth,
+          apiKey: apiKey,
+          apiStyle: _style,
+          limitScope: _limitScope,
+          limitMode: _limitMode,
+          limitThreshold: _threshold,
+          retryPolicy: _retry,
+          retryCount: _retryCount,
+          scheduling: _scheduling,
+        ),
+      );
+      if (mounted) Navigator.of(context).pop();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      showOpenHandErrorSnack(
+        context,
+        text(
+          zh: '保存中转站设置失败，请重试。',
+          en: 'Failed to save proxy settings. Try again.',
+        ),
+      );
+    }
   }
 
   @override
@@ -2105,8 +2143,8 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
                       labelText: text(zh: '监听地址', en: 'Listen address'),
                       prefixIcon: const Icon(Icons.lan_outlined),
                       helperText: text(
-                        zh: '默认 $aiModelProxyDefaultListenHost，仅本机访问。',
-                        en: 'Default $aiModelProxyDefaultListenHost; local access only.',
+                        zh: '默认 $aiModelProxyDefaultListenHost；非回环地址必须启用鉴权。',
+                        en: 'Default $aiModelProxyDefaultListenHost; remote listeners require authentication.',
                       ),
                     ),
                   ),
@@ -2176,15 +2214,15 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
                   ),
                   kOpenHandGap12,
                   _DropdownField<AiModelProxyLimitScope>(
-                    label: text(zh: '并发限制范围', en: 'Rate limit scope'),
+                    label: text(zh: '限流范围', en: 'Rate limit scope'),
                     value: _limitScope,
                     values: AiModelProxyLimitScope.values,
-                    labelOf: (item) => item.label,
+                    labelOf: (item) => aiModelProxyLimitScopeLabel(item, text),
                     onChanged: (value) => setState(() => _limitScope = value),
                   ),
                   kOpenHandGap12,
                   _DropdownField<AiModelProxyLimitMode>(
-                    label: text(zh: '并发限制方式', en: 'Rate limit mode'),
+                    label: text(zh: '限流方式', en: 'Rate limit mode'),
                     value: _limitMode,
                     values: AiModelProxyLimitMode.values,
                     labelOf: (item) => item.label,
@@ -2204,7 +2242,7 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
                     label: text(zh: '重试策略', en: 'Retry policy'),
                     value: _retry,
                     values: AiModelProxyRetryPolicy.values,
-                    labelOf: (item) => item.label,
+                    labelOf: (item) => aiModelProxyRetryPolicyLabel(item, text),
                     onChanged: (value) => setState(() => _retry = value),
                   ),
                   if (_retry != AiModelProxyRetryPolicy.failFast) ...[
@@ -2223,7 +2261,8 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
                       label: text(zh: '服务商调度策略', en: 'Provider scheduling'),
                       value: _scheduling,
                       values: AiModelProxySchedulingStrategy.values,
-                      labelOf: (item) => item.label,
+                      labelOf: (item) =>
+                          aiModelProxySchedulingLabel(item, text),
                       onChanged: (value) => setState(() => _scheduling = value),
                     ),
                   ],
@@ -2243,6 +2282,7 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
                   onPressed: _save,
                   icon: Icons.save_outlined,
                   label: text(zh: '保存设置', en: 'Save settings'),
+                  busy: _saving,
                 ),
               ],
             ),

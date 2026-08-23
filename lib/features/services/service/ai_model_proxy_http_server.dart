@@ -32,9 +32,10 @@ class AiModelProxyHttpServer {
       'authorization, content-type, x-api-key, x-goog-api-key, api-key, '
       'anthropic-version, anthropic-beta, openai-beta, openai-organization, '
       'openai-project, x-goog-user-project, x-goog-api-client';
+  static const String _corsApiMethods = 'GET, POST, OPTIONS';
+  static const String _corsReadMethods = 'GET, HEAD, OPTIONS';
 
   static const int _maxRequestBodyBytes = 8 * 1024 * 1024;
-  static const int _maxConcurrentRequests = 16;
   static const Duration _bindTimeout = Duration(seconds: 10);
   static const Duration _requestReadTimeout = Duration(seconds: 30);
   static const Duration _requestKeepAliveTimeout = Duration(seconds: 30);
@@ -98,7 +99,7 @@ class AiModelProxyHttpServer {
         _controller.runtimeRequestObserved(
           inboundBytes: request.contentLength < 0 ? 0 : request.contentLength,
         );
-        if (_activeRequests >= _maxConcurrentRequests) {
+        if (_activeRequests >= aiModelProxyMaxConcurrentRequests) {
           await _writeError(
             request,
             429,
@@ -109,14 +110,14 @@ class AiModelProxyHttpServer {
         }
         _activeRequests += 1;
         final connectionKey = _connectionKey(request);
-        _controller.runtimeRequestStarted(
+        final runtimeRequestId = _controller.runtimeRequestStarted(
           connectionKey: connectionKey,
           userAgent: request.headers.value(HttpHeaders.userAgentHeader),
         );
         unawaited(
           _handleRequest(request).whenComplete(() {
             _activeRequests = (_activeRequests - 1).clamp(0, 1 << 30).toInt();
-            _controller.runtimeRequestFinished(connectionKey: connectionKey);
+            _controller.runtimeRequestFinished(runtimeRequestId);
           }),
         );
       }
@@ -1055,11 +1056,9 @@ class AiModelProxyHttpServer {
         'event-stream',
         charset: 'utf-8',
       )
-      ..headers.set('cache-control', 'no-cache')
-      ..headers.set('connection', 'keep-alive')
-      ..headers.set('access-control-allow-origin', '*')
-      ..headers.set('access-control-allow-methods', 'GET, POST, OPTIONS')
-      ..headers.set('access-control-allow-headers', _corsAllowedHeaders);
+      ..headers.set(HttpHeaders.cacheControlHeader, 'no-cache')
+      ..headers.set(HttpHeaders.connectionHeader, kConnectionKeepAlive);
+    _applyCorsHeaders(request, methods: _corsApiMethods);
     final id = 'openhand-${DateTime.now().microsecondsSinceEpoch}';
     final created = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final chatStreamMetadata = <String, Object?>{
@@ -1399,6 +1398,9 @@ class AiModelProxyHttpServer {
         }
       }
       final streamResult = await dispatch.response.result;
+      if (streamResult.wasCancelled) {
+        throw const AiModelProxyException(499, '流式请求已取消。');
+      }
       final response = _buildResponse(
         AiModelProxyDispatchResult(
           reply: streamResult.reply,
@@ -1562,15 +1564,32 @@ class AiModelProxyHttpServer {
           });
       }
     } on Object catch (error) {
-      // SSE 已发送 200 后无法再修改 HTTP 状态，仍将上游失败计入入口错误遥测。
-      _controller.runtimeResponseWritten(statusCode: 502);
-      try {
-        await writeSse(<String, Object?>{
-          'type': 'error',
-          'error': <String, Object?>{'type': 'api_error', 'message': '$error'},
-        });
-      } on Object {
-        // 客户端断开时无需再次写入错误事件。
+      // SSE 已发送 200 后无法再修改 HTTP 状态，仍按真实原因记录入口错误遥测。
+      _controller.runtimeResponseWritten(
+        statusCode: error is AiModelProxyException ? error.statusCode : 502,
+      );
+      final cancel = dispatch.response.cancel;
+      if (cancel != null) {
+        try {
+          await cancel();
+        } on Object {
+          // 取消逻辑已有独立超时，失败时继续关闭下游响应。
+        }
+      }
+      if (error is! SocketException && error is! HttpException) {
+        final message = switch (error) {
+          AiModelProxyException error => error.message,
+          AiChatException error => error.message,
+          _ => '中转站流式响应失败。',
+        };
+        try {
+          await writeSse(<String, Object?>{
+            'type': 'error',
+            'error': <String, Object?>{'type': 'api_error', 'message': message},
+          });
+        } on Object {
+          // 客户端断开时无需再次写入错误事件。
+        }
       }
     } finally {
       await _closeRequest(request);
@@ -1857,12 +1876,14 @@ class AiModelProxyHttpServer {
       request.response
         ..statusCode = 200
         ..headers.contentType = ContentType.parse(kImagePngMimeType)
-        ..headers.set('cache-control', _logoCacheControl)
+        ..headers.set(HttpHeaders.cacheControlHeader, _logoCacheControl)
         ..headers.set('x-content-type-options', 'nosniff')
-        ..headers.set('access-control-allow-origin', '*')
-        ..headers.set('access-control-allow-methods', 'GET, HEAD, OPTIONS')
-        ..headers.set('access-control-allow-headers', _corsAllowedHeaders)
         ..contentLength = headOnly ? 0 : bytes.length;
+      _applyCorsHeaders(
+        request,
+        methods: _corsReadMethods,
+        publiclyReadable: true,
+      );
       if (!headOnly) {
         request.response.add(bytes);
       }
@@ -1897,12 +1918,14 @@ class AiModelProxyHttpServer {
       request.response
         ..statusCode = status
         ..headers.contentType = ContentType('text', 'html', charset: 'utf-8')
-        ..headers.set('cache-control', 'no-store')
+        ..headers.set(HttpHeaders.cacheControlHeader, kCacheControlNoStore)
         ..headers.set('x-content-type-options', 'nosniff')
-        ..headers.set('access-control-allow-origin', '*')
-        ..headers.set('access-control-allow-methods', 'GET, HEAD, OPTIONS')
-        ..headers.set('access-control-allow-headers', _corsAllowedHeaders)
         ..contentLength = headOnly ? 0 : bytes.length;
+      _applyCorsHeaders(
+        request,
+        methods: _corsReadMethods,
+        publiclyReadable: true,
+      );
       if (!headOnly) {
         request.response.add(bytes);
       }
@@ -1945,10 +1968,8 @@ class AiModelProxyHttpServer {
   ) async {
     request.response
       ..statusCode = status
-      ..headers.contentType = ContentType.json
-      ..headers.set('access-control-allow-origin', '*')
-      ..headers.set('access-control-allow-methods', 'GET, POST, OPTIONS')
-      ..headers.set('access-control-allow-headers', _corsAllowedHeaders);
+      ..headers.contentType = ContentType.json;
+    _applyCorsHeaders(request, methods: _corsApiMethods);
     if (status != 204) {
       final payload = jsonEncode(body);
       request.response.write(payload);
@@ -2024,6 +2045,42 @@ class AiModelProxyHttpServer {
     } on Object {
       // 客户端提前断开时无需继续抛出异常。
     }
+  }
+
+  void _applyCorsHeaders(
+    HttpRequest request, {
+    required String methods,
+    bool publiclyReadable = false,
+  }) {
+    final headers = request.response.headers;
+    headers
+      ..set('access-control-allow-methods', methods)
+      ..set('access-control-allow-headers', _corsAllowedHeaders);
+    final origin = request.headers.value('origin')?.trim() ?? '';
+    if (publiclyReadable ||
+        origin.isEmpty ||
+        _controller.settings.requireAuthentication) {
+      headers.set('access-control-allow-origin', '*');
+    } else if (_isLoopbackOrigin(origin)) {
+      headers
+        ..set('access-control-allow-origin', origin)
+        ..set('vary', 'Origin');
+    }
+  }
+
+  static bool _isLoopbackOrigin(String origin) {
+    final uri = Uri.tryParse(origin);
+    if (uri == null ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasQuery ||
+        uri.hasFragment ||
+        (uri.path.isNotEmpty && uri.path != '/')) {
+      return false;
+    }
+    final host = uri.host.toLowerCase();
+    return host.endsWith('.localhost') ||
+        AiModelProxyController.isLoopbackListenHost(host);
   }
 
   Map<String, String> _headers(HttpRequest request) {

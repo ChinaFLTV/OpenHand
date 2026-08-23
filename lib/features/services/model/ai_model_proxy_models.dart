@@ -20,6 +20,7 @@ const int aiModelProxySlowLatencyMs = 3000;
 const double aiModelProxyHealthHealthyRate = 0.99;
 const double aiModelProxyHealthDegradedRate = 0.90;
 const int aiModelProxyDailyModelCap = 64;
+const int aiModelProxyMaxConcurrentRequests = 16;
 
 bool isAiModelProxyStatusPath(String path) {
   final value = path.trim();
@@ -57,7 +58,7 @@ String aiModelProxyClientEndpoint(String ip, String port) {
 typedef AiModelProxyLabelText =
     String Function({required String zh, required String en});
 
-/// Maps stored dispatch-mode ids (`pool` / `system` / `direct` / `status`) to UI copy.
+/// 将持久化的调度模式标识转换为界面文案。
 String aiModelProxyDispatchModeLabel(String mode, AiModelProxyLabelText text) {
   return switch (mode.trim().toLowerCase()) {
     aiModelProxyPoolMode => text(zh: '代理池', en: 'Proxy pool'),
@@ -68,7 +69,7 @@ String aiModelProxyDispatchModeLabel(String mode, AiModelProxyLabelText text) {
   };
 }
 
-/// Maps stored API-style ids to display names; status probes are not a protocol.
+/// 将持久化的接口风格标识转换为界面文案；状态页探测不属于协议。
 String aiModelProxyApiStyleLabel(String raw, AiModelProxyLabelText text) {
   final id = raw.trim();
   if (id.isEmpty) return '';
@@ -425,21 +426,62 @@ enum AiModelProxySchedulingStrategy {
   roundRobin('round_robin', '轮询调度'),
   random('random', '随机调度'),
   priority('priority', '优先级调度'),
-  conservative('conservative', '保守调度'),
   sticky('sticky', '粘性调度');
 
   const AiModelProxySchedulingStrategy(this.id, this.label);
   final String id;
   final String label;
 
-  static AiModelProxySchedulingStrategy fromId(Object? value) =>
-      enumByStorageValueOr(
-        values,
-        value,
-        (item) => item.id,
-        fallback: roundRobin,
-      );
+  static AiModelProxySchedulingStrategy fromId(Object? value) {
+    // 旧版“保守调度”与优先级调度实现完全相同，读取时归并为唯一语义。
+    if ('$value'.trim().toLowerCase() == 'conservative') return priority;
+    return enumByStorageValueOr(
+      values,
+      value,
+      (item) => item.id,
+      fallback: roundRobin,
+    );
+  }
 }
+
+String aiModelProxyLimitScopeLabel(
+  AiModelProxyLimitScope scope,
+  AiModelProxyLabelText text,
+) => switch (scope) {
+  AiModelProxyLimitScope.perIp => text(zh: '单个 IP', en: 'Per IP'),
+  AiModelProxyLimitScope.clientClass => text(zh: '同类客户端', en: 'Client class'),
+};
+
+String aiModelProxyRetryPolicyLabel(
+  AiModelProxyRetryPolicy policy,
+  AiModelProxyLabelText text,
+) => switch (policy) {
+  AiModelProxyRetryPolicy.failFast => text(zh: '立即失败', en: 'Fail fast'),
+  AiModelProxyRetryPolicy.retrySame => text(
+    zh: '同后备重试',
+    en: 'Retry same backend',
+  ),
+  AiModelProxyRetryPolicy.retryAndFailover => text(
+    zh: '重试并接力',
+    en: 'Retry with failover',
+  ),
+};
+
+String aiModelProxySchedulingLabel(
+  AiModelProxySchedulingStrategy strategy,
+  AiModelProxyLabelText text,
+) => switch (strategy) {
+  AiModelProxySchedulingStrategy.roundRobin => text(
+    zh: '轮询调度',
+    en: 'Round robin',
+  ),
+  AiModelProxySchedulingStrategy.random => text(zh: '随机调度', en: 'Random'),
+  AiModelProxySchedulingStrategy.priority => text(zh: '优先级调度', en: 'Priority'),
+  AiModelProxySchedulingStrategy.sticky => text(
+    zh: '客户端粘性',
+    en: 'Client affinity',
+  ),
+};
 
 class AiModelProxyBackend {
   const AiModelProxyBackend({
@@ -466,6 +508,17 @@ class AiModelProxyBackend {
     modelId: modelId,
     enabled: enabled ?? this.enabled,
   );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AiModelProxyBackend &&
+          providerId == other.providerId &&
+          modelId == other.modelId &&
+          enabled == other.enabled;
+
+  @override
+  int get hashCode => Object.hash(providerId, modelId, enabled);
 
   Map<String, Object?> toJson() => <String, Object?>{
     'provider_id': providerId,

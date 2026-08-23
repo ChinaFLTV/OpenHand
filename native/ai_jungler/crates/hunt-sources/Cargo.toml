@@ -13,6 +13,7 @@ futures.workspace = true
 hunt-core = { path = "../hunt-core" }
 regex.workspace = true
 reqwest.workspace = true
+rustls.workspace = true
 secrecy.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -21,6 +22,3 @@ tokio.workspace = true
 tokio-tungstenite.workspace = true
 url.workspace = true
 urlencoding.workspace = true
-
-[dev-dependencies]
-rustls.workspace = true

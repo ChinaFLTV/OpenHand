@@ -7,6 +7,22 @@ final RegExp _sensitiveKeySeparator = RegExp(r'[^a-z0-9]+');
 final RegExp _sensitiveCamelCaseBoundary = RegExp(r'([a-z0-9])([A-Z])');
 const Set<String> _sensitiveExactKeys = <String>{'cookie', 'set-cookie'};
 
+/// 固定遍历长度比较凭据，避免普通字符串短路比较泄露首个差异位置。
+bool constantTimeStringEquals(String left, String right) {
+  final leftUnits = left.codeUnits;
+  final rightUnits = right.codeUnits;
+  final length = leftUnits.length > rightUnits.length
+      ? leftUnits.length
+      : rightUnits.length;
+  var difference = leftUnits.length ^ rightUnits.length;
+  for (var index = 0; index < length; index++) {
+    final leftUnit = index < leftUnits.length ? leftUnits[index] : 0;
+    final rightUnit = index < rightUnits.length ? rightUnits[index] : 0;
+    difference |= leftUnit ^ rightUnit;
+  }
+  return difference == 0;
+}
+
 /// 整体或以 `-` 结尾即视为凭据的键名。
 ///
 /// 用「整体相等或以 `-<后缀>` 结尾」而不是子串包含：`authorization-scope`

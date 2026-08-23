@@ -9,6 +9,7 @@ import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_exposure_models.dart';
+import '../model/ai_model_proxy_models.dart';
 import '../services_controller.dart';
 import 'ai_exposure_proxy_dialog.dart';
 import 'ai_model_proxy_dialogs.dart';
@@ -48,8 +49,8 @@ class AiModelProxyServiceCard extends StatelessWidget {
         .length;
     final statusColor = running ? OpenHandStatusColors.success : colors.outline;
     final subtitle = text(
-      zh: '统一暴露模型接口，按优先级调度多个云厂商后备模型。',
-      en: 'Expose one model API and route requests across prioritized provider backends.',
+      zh: '统一暴露模型接口，按所选策略调度多个云厂商后备模型。',
+      en: 'Expose one model API and route requests by the selected backend strategy.',
     );
     return Card(
       key: const ValueKey<String>('ai-model-proxy-service-card'),
@@ -136,7 +137,7 @@ class AiModelProxyServiceCard extends StatelessWidget {
                 OpenHandStatusPill(
                   icon: Icons.speed_rounded,
                   label:
-                      '${settings.limitScope.label} · ${settings.limitMode.label} ${settings.limitThreshold}',
+                      '${aiModelProxyLimitScopeLabel(settings.limitScope, text)} · ${settings.limitMode.label} ${settings.limitThreshold}',
                   color: colors.tertiary,
                 ),
                 OpenHandStatusPill(

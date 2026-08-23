@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
@@ -76,37 +77,24 @@ class AiModelProxyDispatcher {
     String requestPath = '',
     int inboundBytes = 0,
   }) async {
-    if (!controller.authorize(headers)) {
-      throw const AiModelProxyException(401, 'API 鉴权失败。');
-    }
-    if (!controller.isExposedModelEnabled(exposedModel)) {
-      throw const AiModelProxyException(404, '模型不存在。');
-    }
-    if (!controller.consumeRateLimit(
-      tokens: messages.fold<int>(
-        0,
-        (sum, item) => sum + item.content.length ~/ 4,
-      ),
-      clientIp: _clientIp(headers),
-      userAgent: _clientUserAgent(headers),
-    )) {
-      throw const AiModelProxyException(429, '请求超过当前限流阈值。');
-    }
+    _validateRequest(exposedModel, messages, headers);
+    final tools = _parseToolsForRequest(request);
     final settings = controller.settings;
-    final maxAttempts = settings.retryPolicy == AiModelProxyRetryPolicy.failFast
-        ? 1
-        : settings.retryCount.clamp(1, 10).toInt() +
-              (settings.retryPolicy == AiModelProxyRetryPolicy.retryAndFailover
-                  ? 1
-                  : 0);
+    final maxAttempts = _configuredAttemptCount(settings);
     Object? lastError;
     final failedProxyEndpoints = <String>{};
+    final backendPlan = _ProxyBackendAttemptPlan(
+      controller: controller,
+      exposedModel: exposedModel,
+      policy: settings.retryPolicy,
+      affinityKey: _backendAffinityKey(headers),
+    );
     var directFallbackPending = false;
     for (var attempt = 0; attempt < maxAttempts + 1; attempt++) {
       final directFallback = attempt >= maxAttempts;
       if (directFallback && !directFallbackPending) break;
       directFallbackPending = false;
-      final backend = controller.resolveBackend(exposedModel);
+      final backend = backendPlan.select(directFallback: directFallback);
       if (backend == null) {
         throw const AiModelProxyException(404, '没有可用的后备模型。');
       }
@@ -129,6 +117,10 @@ class AiModelProxyDispatcher {
           inboundBytes: inboundBytes,
           attempt: attempt + 1,
         );
+        if (_canFailover(settings, attempt, maxAttempts)) {
+          backendPlan.exclude(backend);
+          continue;
+        }
         break;
       }
       final model = _modelForRequest(
@@ -155,9 +147,12 @@ class AiModelProxyDispatcher {
           inboundBytes: inboundBytes,
           attempt: attempt + 1,
         );
+        if (_canFailover(settings, attempt, maxAttempts)) {
+          backendPlan.exclude(backend);
+          continue;
+        }
         break;
       }
-      final tools = _parseToolsForRequest(request);
       final startedAt = DateTime.now();
       var directRouteFallback = directFallback;
       var network = (
@@ -256,6 +251,10 @@ class AiModelProxyDispatcher {
         );
         final retryable = _isRetryableBackendError(error);
         if (retryable) {
+          backendPlan.recordRetryableFailure(
+            backend,
+            viaProxyPool: !directRouteFallback && network.mode == 'pool',
+          );
           final failedEndpoint = network.selected?.url;
           if (failedEndpoint != null) failedProxyEndpoints.add(failedEndpoint);
           if (!directRouteFallback && network.mode == 'pool') {
@@ -286,37 +285,24 @@ class AiModelProxyDispatcher {
     String requestPath = '',
     int inboundBytes = 0,
   }) async {
-    if (!controller.authorize(headers)) {
-      throw const AiModelProxyException(401, 'API 鉴权失败。');
-    }
-    if (!controller.isExposedModelEnabled(exposedModel)) {
-      throw const AiModelProxyException(404, '模型不存在。');
-    }
-    if (!controller.consumeRateLimit(
-      tokens: messages.fold<int>(
-        0,
-        (sum, item) => sum + item.content.length ~/ 4,
-      ),
-      clientIp: _clientIp(headers),
-      userAgent: _clientUserAgent(headers),
-    )) {
-      throw const AiModelProxyException(429, '请求超过当前限流阈值。');
-    }
+    _validateRequest(exposedModel, messages, headers);
+    final tools = _parseToolsForRequest(request);
     final settings = controller.settings;
-    final maxAttempts = settings.retryPolicy == AiModelProxyRetryPolicy.failFast
-        ? 1
-        : settings.retryCount.clamp(1, 10).toInt() +
-              (settings.retryPolicy == AiModelProxyRetryPolicy.retryAndFailover
-                  ? 1
-                  : 0);
+    final maxAttempts = _configuredAttemptCount(settings);
     Object? lastError;
     final failedProxyEndpoints = <String>{};
+    final backendPlan = _ProxyBackendAttemptPlan(
+      controller: controller,
+      exposedModel: exposedModel,
+      policy: settings.retryPolicy,
+      affinityKey: _backendAffinityKey(headers),
+    );
     var directFallbackPending = false;
     for (var attempt = 0; attempt < maxAttempts + 1; attempt++) {
       final directFallback = attempt >= maxAttempts;
       if (directFallback && !directFallbackPending) break;
       directFallbackPending = false;
-      final backend = controller.resolveBackend(exposedModel);
+      final backend = backendPlan.select(directFallback: directFallback);
       if (backend == null) {
         lastError = const AiModelProxyException(404, '没有可用的后备模型。');
         break;
@@ -341,6 +327,10 @@ class AiModelProxyDispatcher {
           attempt: attempt + 1,
           stream: true,
         );
+        if (_canFailover(settings, attempt, maxAttempts)) {
+          backendPlan.exclude(backend);
+          continue;
+        }
         break;
       }
       final model = _modelForRequest(
@@ -348,6 +338,32 @@ class AiModelProxyDispatcher {
         request,
         headers: headers,
       );
+      if (controller.isSelfProxyBaseUrl(model.baseUrl)) {
+        lastError = const AiModelProxyException(
+          400,
+          '后备模型端点不能指向当前中转站，否则会形成请求循环。',
+        );
+        await _recordDispatch(
+          success: false,
+          durationMs: 0,
+          providerId: provider.id,
+          modelId: backend.modelId,
+          exposedModel: exposedModel,
+          headers: headers,
+          apiStyle: settings.apiStyle.id,
+          error: lastError.toString(),
+          failure: lastError,
+          requestPath: requestPath,
+          inboundBytes: inboundBytes,
+          attempt: attempt + 1,
+          stream: true,
+        );
+        if (_canFailover(settings, attempt, maxAttempts)) {
+          backendPlan.exclude(backend);
+          continue;
+        }
+        break;
+      }
       final startedAt = DateTime.now();
       var directRouteFallback = directFallback;
       var network = (
@@ -359,9 +375,6 @@ class AiModelProxyDispatcher {
       );
       _RoutedChatClient? routedClient;
       try {
-        if (controller.isSelfProxyBaseUrl(model.baseUrl)) {
-          throw const AiModelProxyException(400, '后备模型端点不能指向当前中转站，否则会形成请求循环。');
-        }
         network = await _resolveNetworkRoute(
           Uri.tryParse(model.baseUrl),
           excludedProxyEndpoints: failedProxyEndpoints,
@@ -377,13 +390,14 @@ class AiModelProxyDispatcher {
         final response = await chatClient.sendMessageStream(
           model: model,
           messages: messages,
-          tools: _parseToolsForRequest(request),
+          tools: tools,
           creationRequest: AiCreationRequest.none,
         );
         unawaited(
           response.result
               .then<void>(
                 (result) async {
+                  const cancelledError = AiModelProxyException(499, '流式请求已取消。');
                   await _recordDispatch(
                     success: !result.wasCancelled,
                     durationMs: DateTime.now()
@@ -394,6 +408,8 @@ class AiModelProxyDispatcher {
                     exposedModel: exposedModel,
                     headers: headers,
                     apiStyle: controller.settings.apiStyle.id,
+                    error: result.wasCancelled ? cancelledError.message : null,
+                    failure: result.wasCancelled ? cancelledError : null,
                     usage: result.usage,
                     proxyMode: network.mode,
                     proxyEndpoint: network.endpoint,
@@ -463,6 +479,10 @@ class AiModelProxyDispatcher {
         routedClient?.dispose();
         final retryable = _isRetryableBackendError(error);
         if (retryable) {
+          backendPlan.recordRetryableFailure(
+            backend,
+            viaProxyPool: !directRouteFallback && network.mode == 'pool',
+          );
           final failedEndpoint = network.selected?.url;
           if (failedEndpoint != null) failedProxyEndpoints.add(failedEndpoint);
           if (!directRouteFallback && network.mode == 'pool') {
@@ -533,6 +553,46 @@ class AiModelProxyDispatcher {
       stream: stream,
     );
   }
+
+  void _validateRequest(
+    String exposedModel,
+    List<AiChatTurn> messages,
+    Map<String, String> headers,
+  ) {
+    if (!controller.authorize(headers)) {
+      throw const AiModelProxyException(401, 'API 鉴权失败。');
+    }
+    if (!controller.isExposedModelEnabled(exposedModel)) {
+      throw const AiModelProxyException(404, '模型不存在。');
+    }
+    final totalCharacters = messages.fold<int>(
+      0,
+      (sum, item) => sum + item.content.length,
+    );
+    final estimatedTokens = totalCharacters <= 0
+        ? 0
+        : math.max(1, (totalCharacters + 3) ~/ 4);
+    if (!controller.consumeRateLimit(
+      tokens: estimatedTokens,
+      clientIp: _clientIp(headers),
+      userAgent: _clientUserAgent(headers),
+    )) {
+      throw const AiModelProxyException(429, '请求超过当前限流阈值。');
+    }
+  }
+
+  static int _configuredAttemptCount(AiModelProxySettings settings) {
+    if (settings.retryPolicy == AiModelProxyRetryPolicy.failFast) return 1;
+    return settings.retryCount.clamp(1, 10).toInt() + 1;
+  }
+
+  static bool _canFailover(
+    AiModelProxySettings settings,
+    int attempt,
+    int maxAttempts,
+  ) =>
+      settings.retryPolicy == AiModelProxyRetryPolicy.retryAndFailover &&
+      attempt + 1 < maxAttempts;
 
   /// 将暴露 API 的本次请求参数注入底层模型配置。协议适配器会在生成
   /// 请求体时合并 operation extras，因此不会污染持久化的模型设置。
@@ -1089,6 +1149,77 @@ class AiModelProxyDispatcher {
   void dispose() => _chatClient.dispose();
 }
 
+/// 为单次入口请求维护后备模型重试策略，避免同步与流式链路各自解释策略。
+class _ProxyBackendAttemptPlan {
+  _ProxyBackendAttemptPlan({
+    required this.controller,
+    required this.exposedModel,
+    required this.policy,
+    required this.affinityKey,
+  });
+
+  final AiModelProxyController controller;
+  final String exposedModel;
+  final AiModelProxyRetryPolicy policy;
+  final String affinityKey;
+  final Set<AiModelProxyBackend> _failedBackends = <AiModelProxyBackend>{};
+  AiModelProxyBackend? _fixedBackend;
+  AiModelProxyBackend? _directFallbackBackend;
+  AiModelProxyBackend? _lastFailedBackend;
+
+  AiModelProxyBackend? select({required bool directFallback}) {
+    if (directFallback && _directFallbackBackend != null) {
+      return _directFallbackBackend;
+    }
+    if (policy == AiModelProxyRetryPolicy.retrySame && _fixedBackend != null) {
+      return _fixedBackend;
+    }
+    var backend = controller.resolveBackend(
+      exposedModel,
+      excludedBackends: policy == AiModelProxyRetryPolicy.retryAndFailover
+          ? _failedBackends
+          : const <AiModelProxyBackend>{},
+      affinityKey: affinityKey,
+    );
+    if (backend == null && _failedBackends.isNotEmpty) {
+      final lastFailed = _lastFailedBackend;
+      _failedBackends.clear();
+      if (lastFailed != null) _failedBackends.add(lastFailed);
+      backend = controller.resolveBackend(
+        exposedModel,
+        excludedBackends: _failedBackends,
+        affinityKey: affinityKey,
+      );
+      if (backend == null) {
+        _failedBackends.clear();
+        backend = controller.resolveBackend(
+          exposedModel,
+          affinityKey: affinityKey,
+        );
+      }
+    }
+    if (policy == AiModelProxyRetryPolicy.retrySame) {
+      _fixedBackend = backend;
+    }
+    return backend;
+  }
+
+  void recordRetryableFailure(
+    AiModelProxyBackend backend, {
+    required bool viaProxyPool,
+  }) {
+    if (policy == AiModelProxyRetryPolicy.retryAndFailover) {
+      exclude(backend);
+    }
+    if (viaProxyPool) _directFallbackBackend = backend;
+  }
+
+  void exclude(AiModelProxyBackend backend) {
+    _failedBackends.add(backend);
+    _lastFailedBackend = backend;
+  }
+}
+
 class _RoutedChatClient {
   const _RoutedChatClient({required this.service, required this.transport});
 
@@ -1125,6 +1256,11 @@ String _clientIp(Map<String, String> headers) {
 
 String _clientUserAgent(Map<String, String> headers) =>
     _headerValue(headers, const ['user-agent']);
+
+String _backendAffinityKey(Map<String, String> headers) {
+  final clientIp = _clientIp(headers);
+  return clientIp.isEmpty ? _clientUserAgent(headers) : clientIp;
+}
 
 String _clientPort(Map<String, String> headers) {
   final hasServerPort = headers.keys.any(

@@ -12,7 +12,7 @@ use hunt_sources::{
     BrowserAutomationConfiguration, CdpBrowserConfiguration, ExternalHttpRequestRoute,
     HttpRequestObservation, HttpRequestObserver, HttpRequestOutcome, ObservedHttpClient,
     ObservedRequestBuilder, SourceCredentials, SourceRegistry, SourceToolKind,
-    ToolConfigurationInput,
+    ToolConfigurationInput, ensure_rustls_crypto_provider,
 };
 use hunt_store::HuntStore;
 use ipnet::IpNet;
@@ -1853,14 +1853,8 @@ impl Drop for RedisLease {
     }
 }
 
-fn install_crypto_provider() {
-    if rustls::crypto::CryptoProvider::get_default().is_none() {
-        let _ = rustls::crypto::ring::default_provider().install_default();
-    }
-}
-
 fn build_http_client(proxy: Option<&reqwest::Url>) -> reqwest::Result<Client> {
-    install_crypto_provider();
+    ensure_rustls_crypto_provider();
     let builder = Client::builder()
         .timeout(HTTP_TIMEOUT)
         .redirect(reqwest::redirect::Policy::none())

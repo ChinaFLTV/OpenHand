@@ -748,7 +748,10 @@ class _ProxyOpsHero extends StatelessWidget {
               ),
               _ProxyOpsChip(
                 icon: Icons.alt_route_rounded,
-                label: data.settings.scheduling.label,
+                label: aiModelProxySchedulingLabel(
+                  data.settings.scheduling,
+                  text,
+                ),
                 color: cs.primary,
               ),
               if (running)
@@ -841,9 +844,9 @@ class _ProxyOpsMetricGrid extends StatelessWidget {
     final metrics = <_ProxyOpsMetricData>[
       _ProxyOpsMetricData(
         Icons.link_rounded,
-        text(zh: '当前连接数', en: 'Connections'),
+        text(zh: '活跃连接', en: 'Active connections'),
         '${data.controller.currentConnections}',
-        text(zh: '实时连接', en: 'Live connections'),
+        text(zh: '当前占用入口', en: 'Occupying ingress'),
         cs.primary,
         insight: _ProxyOpsInsightKind.connections,
       ),
@@ -3442,7 +3445,8 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
         sections: (context, data) {
           final active = data.controller.activeRequests;
           final limit = data.settings.limitThreshold;
-          final idle = math.max(0, data.controller.currentConnections - active);
+          final requestCapacity = data.controller.concurrentRequestLimit;
+          final available = math.max(0, requestCapacity - active);
           final modeSegments = _proxyOpsSegments(
             data.countBy(
               (record) => aiModelProxyDispatchModeLabel(record.proxyMode, text),
@@ -3460,9 +3464,12 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                     _proxyOpsCountMeter(
                       label: text(zh: '执行中', en: 'In flight'),
                       value: active,
-                      maximum: limit,
+                      maximum: requestCapacity,
                       color: cs.tertiary,
-                      helper: '${data.settings.limitMode.label} / $limit',
+                      helper: text(
+                        zh: '并发上限 $requestCapacity',
+                        en: 'Concurrency cap $requestCapacity',
+                      ),
                     ),
                     _proxyOpsCountMeter(
                       label: data.settings.limitMode.label,
@@ -3479,24 +3486,24 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               ),
               _proxyOpsChartPanel(
                 icon: Icons.stacked_bar_chart_rounded,
-                title: text(zh: '忙闲套接字', en: 'Busy / Idle Sockets'),
-                empty: active <= 0 && idle <= 0,
+                title: text(zh: '并发槽位', en: 'Concurrency Slots'),
+                empty: requestCapacity <= 0,
                 emptyLabel: emptyChart,
                 chart: OpenHandOperationalStatusBand(
                   segments: [
                     OpenHandChartSegment(
-                      label: text(zh: '忙碌', en: 'Busy'),
+                      label: text(zh: '占用', en: 'Used'),
                       value: active,
                       color: cs.tertiary,
                       icon: Icons.bolt_rounded,
                       valueLabel: '$active',
                     ),
                     OpenHandChartSegment(
-                      label: text(zh: '空闲', en: 'Idle'),
-                      value: idle,
+                      label: text(zh: '可用', en: 'Available'),
+                      value: available,
                       color: cs.primary,
-                      icon: Icons.link_rounded,
-                      valueLabel: '$idle',
+                      icon: Icons.check_circle_outline_rounded,
+                      valueLabel: '$available',
                     ),
                   ],
                 ),
@@ -4577,10 +4584,17 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 icon: Icons.tune_rounded,
                 title: text(zh: '调度与重试', en: 'Routing Policy'),
                 rows: {
-                  text(zh: '调度策略', en: 'Scheduling'):
-                      data.settings.scheduling.label,
-                  text(zh: '重试策略', en: 'Retry'):
-                      data.settings.retryPolicy.label,
+                  text(
+                    zh: '调度策略',
+                    en: 'Scheduling',
+                  ): aiModelProxySchedulingLabel(
+                    data.settings.scheduling,
+                    text,
+                  ),
+                  text(zh: '重试策略', en: 'Retry'): aiModelProxyRetryPolicyLabel(
+                    data.settings.retryPolicy,
+                    text,
+                  ),
                   text(zh: '重试次数', en: 'Retries'):
                       '${data.settings.retryCount}',
                   data.settings.limitMode.label:
