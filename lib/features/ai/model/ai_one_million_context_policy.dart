@@ -14,9 +14,10 @@ class AiOneMillionContextPolicy {
   static bool isEnabledBy({
     required String modelId,
     required String maxContextLength,
+    bool includeContextLength = true,
   }) {
     return hasModelIdSuffix(modelId) ||
-        isPolicyContextLengthText(maxContextLength);
+        includeContextLength && isPolicyContextLengthText(maxContextLength);
   }
 
   static bool isPolicyContextLengthText(String value) {

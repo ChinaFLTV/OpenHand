@@ -7,6 +7,7 @@ import 'ai_api_dialect.dart';
 import 'ai_api_family.dart';
 import 'ai_endpoint_override.dart';
 import 'ai_model_catalog.dart';
+import 'ai_one_million_context_policy.dart';
 import 'ai_operation_routing.dart';
 import 'ai_realtime_config.dart';
 
@@ -1691,7 +1692,7 @@ class AiModelConfig {
   /// 合并用户配置与内置目录，用户显式字段优先。
   AiModelProfile profileFor(String id) {
     final trimmedId = nullIfBlank(id) ?? '';
-    final override = modelProfiles[trimmedId];
+    AiModelProfile? override = _modelProfileOverrideFor(trimmedId);
     final catalog = AiModelCatalog.lookup(trimmedId, protocolType);
     if (override == null) {
       return _withReasoningEffortDefaults(
@@ -1709,35 +1710,42 @@ class AiModelConfig {
     }
     return _withReasoningEffortDefaults(
       catalog.copyWith(
-        displayName: override.displayName,
-        description: override.description,
-        isMultimodal: override.isMultimodal,
+        displayName: override.displayName ?? catalog.displayName,
+        description: override.description ?? catalog.description,
+        isMultimodal: override.isMultimodal ?? catalog.isMultimodal,
         supportedModalities: override.supportedModalities.isNotEmpty
             ? override.supportedModalities
             : catalog.supportedModalities,
-        maxContextLength: override.maxContextLength,
-        maxSummaryLength: override.maxSummaryLength,
-        maxOutputLength: override.maxOutputLength,
-        maxThinkingLength: override.maxThinkingLength,
-        thinkingEnabled: override.thinkingEnabled,
-        reasoningEffortControlEnabled: override.reasoningEffortControlEnabled,
-        reasoningEffort: override.reasoningEffort,
+        maxContextLength: override.maxContextLength ?? catalog.maxContextLength,
+        maxSummaryLength: override.maxSummaryLength ?? catalog.maxSummaryLength,
+        maxOutputLength: override.maxOutputLength ?? catalog.maxOutputLength,
+        maxThinkingLength:
+            override.maxThinkingLength ?? catalog.maxThinkingLength,
+        thinkingEnabled: override.thinkingEnabled ?? catalog.thinkingEnabled,
+        reasoningEffortControlEnabled:
+            override.reasoningEffortControlEnabled ??
+            catalog.reasoningEffortControlEnabled,
+        reasoningEffort: override.reasoningEffort ?? catalog.reasoningEffort,
         reasoningEffortOptions: override.reasoningEffortOptions.isNotEmpty
             ? override.reasoningEffortOptions
             : catalog.reasoningEffortOptions,
-        requiresReasoningEcho: override.requiresReasoningEcho,
+        requiresReasoningEcho:
+            override.requiresReasoningEcho ?? catalog.requiresReasoningEcho,
         capabilities: override.capabilities.isNotEmpty
             ? override.capabilities
             : catalog.capabilities,
-        supportsAttachments: override.supportsAttachments,
-        inputUsdPer1M: override.inputUsdPer1M,
-        outputUsdPer1M: override.outputUsdPer1M,
-        cacheReadUsdPer1M: override.cacheReadUsdPer1M,
-        cacheWriteUsdPer1M: override.cacheWriteUsdPer1M,
-        canonicalSlug: override.canonicalSlug,
-        huggingFaceId: override.huggingFaceId,
-        created: override.created,
-        architecture: override.architecture,
+        supportsAttachments:
+            override.supportsAttachments ?? catalog.supportsAttachments,
+        inputUsdPer1M: override.inputUsdPer1M ?? catalog.inputUsdPer1M,
+        outputUsdPer1M: override.outputUsdPer1M ?? catalog.outputUsdPer1M,
+        cacheReadUsdPer1M:
+            override.cacheReadUsdPer1M ?? catalog.cacheReadUsdPer1M,
+        cacheWriteUsdPer1M:
+            override.cacheWriteUsdPer1M ?? catalog.cacheWriteUsdPer1M,
+        canonicalSlug: override.canonicalSlug ?? catalog.canonicalSlug,
+        huggingFaceId: override.huggingFaceId ?? catalog.huggingFaceId,
+        created: override.created ?? catalog.created,
+        architecture: override.architecture ?? catalog.architecture,
         supportedParameters: override.supportedParameters.isNotEmpty
             ? override.supportedParameters
             : catalog.supportedParameters,
@@ -1747,10 +1755,12 @@ class AiModelConfig {
         supportedVoices: override.supportedVoices.isNotEmpty
             ? override.supportedVoices
             : catalog.supportedVoices,
-        knowledgeCutoff: override.knowledgeCutoff,
-        expirationDate: override.expirationDate,
-        links: override.links,
-        isGlobalDefaultTitleModel: override.isGlobalDefaultTitleModel,
+        knowledgeCutoff: override.knowledgeCutoff ?? catalog.knowledgeCutoff,
+        expirationDate: override.expirationDate ?? catalog.expirationDate,
+        links: override.links ?? catalog.links,
+        isGlobalDefaultTitleModel:
+            override.isGlobalDefaultTitleModel ||
+            catalog.isGlobalDefaultTitleModel,
         embeddingDimensions:
             override.embeddingDimensions ?? catalog.embeddingDimensions,
         embeddingMaxInputTokens:
@@ -1869,6 +1879,20 @@ class AiModelConfig {
       modelId: trimmedId,
       protocolType: protocolType,
     );
+  }
+
+  AiModelProfile? _modelProfileOverrideFor(String modelId) {
+    final normalizedId = modelId.toLowerCase();
+    final baseId = AiOneMillionContextPolicy.stripModelIdSuffix(normalizedId);
+    for (final entry in modelProfiles.entries) {
+      final key = entry.key.toLowerCase();
+      if (key == normalizedId) return entry.value;
+    }
+    if (baseId == normalizedId) return null;
+    for (final entry in modelProfiles.entries) {
+      if (entry.key.toLowerCase() == baseId) return entry.value;
+    }
+    return null;
   }
 
   static AiModelProfile _withReasoningEffortDefaults(

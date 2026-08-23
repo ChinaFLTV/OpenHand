@@ -3821,6 +3821,10 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     _oneMillionContextEnabled = AiOneMillionContextPolicy.isEnabledBy(
       modelId: initialModelIdText,
       maxContextLength: initialMaxContextText,
+      // 目录中的原生 1M 能力不是用户打开的 1M 覆盖开关；仅显式覆盖值可恢复旧版状态。
+      includeContextLength:
+          widget.initialProfile.maxContextLength ==
+          AiOneMillionContextPolicy.contextTokens,
     );
     if (!_oneMillionContextEnabled) {
       return;
@@ -3886,10 +3890,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       widget.protocolType,
     )?.maxContextLength;
     final fallbackContextLength =
-        catalogContextLength != null &&
-            catalogContextLength != AiOneMillionContextPolicy.contextTokens
-        ? catalogContextLength
-        : kInferredModelContextWindowTokens;
+        catalogContextLength ?? kInferredModelContextWindowTokens;
     return fallbackContextLength.toString();
   }
 

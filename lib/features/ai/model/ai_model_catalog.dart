@@ -1,6 +1,7 @@
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/reader_file_type.dart';
 import 'ai_model_config.dart';
+import 'ai_one_million_context_policy.dart';
 import 'openrouter_exact_model_catalog.dart';
 import 'openrouter_latest_model_catalog.dart';
 
@@ -71,12 +72,20 @@ class AiModelCatalog {
   }
 
   static List<String> _modelIdSuffixCandidates(String id) {
-    final segments = id.split('/').where((part) => part.isNotEmpty).toList();
-    if (segments.length <= 1) return <String>[id];
-    return <String>[
-      for (var index = 0; index < segments.length; index++)
-        segments.sublist(index).join('/'),
-    ];
+    final normalizedId = AiOneMillionContextPolicy.stripModelIdSuffix(id);
+    final segments = normalizedId
+        .split('/')
+        .where((part) => part.isNotEmpty)
+        .toList();
+    final candidates = <String>[id];
+    if (normalizedId != id) candidates.add(normalizedId);
+    if (segments.length > 1) {
+      candidates.addAll(<String>[
+        for (var index = 0; index < segments.length; index++)
+          segments.sublist(index).join('/'),
+      ]);
+    }
+    return candidates.toSet().toList(growable: false);
   }
 
   static AiModelProfile? _lookupByProtocol(

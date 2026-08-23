@@ -6,6 +6,7 @@ import 'package:sqflite_common/sqlite_api.dart';
 import '../../../shared/db/database_service.dart';
 import '../model/ai_model_catalog.dart';
 import '../model/ai_model_config.dart';
+import '../model/ai_one_million_context_policy.dart';
 
 /// OpenRouter 模型档案的本地缓存。缓存独立于应用设置，避免设置 JSON 过大。
 class OpenRouterModelProfileStore {
@@ -31,7 +32,9 @@ class OpenRouterModelProfileStore {
   }
 
   AiModelProfile? profileFor(String modelId) {
-    return _profiles[modelId.trim().toLowerCase()];
+    final normalizedId = modelId.trim().toLowerCase();
+    return _profiles[normalizedId] ??
+        _profiles[AiOneMillionContextPolicy.stripModelIdSuffix(normalizedId)];
   }
 
   Future<void> _load() async {
