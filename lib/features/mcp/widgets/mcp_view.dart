@@ -136,7 +136,6 @@ final Set<String> _mcpThreadTemplateIds = Set<String>.unmodifiable(
   _mcpThreadTemplateInfos.map((template) => template.id),
 );
 
-
 typedef _McpServerItemBuilder =
     Widget Function(
       BuildContext context,
@@ -713,7 +712,8 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     // 对于 STDIO 类型的 npx/uvx 服务，询问是否同时清理底层包
     bool shouldCleanupDeps = false;
     final isNpxService =
-        server.type == McpServerType.stdio && isMcpPackageManagerCommandLine(server.command);
+        server.type == McpServerType.stdio &&
+        isMcpPackageManagerCommandLine(server.command);
     final npxPackageName = isNpxService ? _extractPackageName(server) : null;
 
     final confirmed = await showOpenHandConfirmDialog(
@@ -2327,6 +2327,7 @@ const double _mcpOpsSubDialogHeightFraction = 0.92;
 const double _mcpOpsPanelRadius = 14;
 const double _mcpOpsControlRadius = 12;
 const double _mcpOpsGridGap = 16;
+const double _mcpOpsListMaxHeight = 340;
 const double _mcpOpsTerminalRadius = 12;
 const double _mcpOpsPayloadFieldRadius = 13;
 const double _mcpOpsPayloadRailWidth = 3;
@@ -3962,42 +3963,49 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
               ],
             ),
           ),
-          for (final entry in visibleRows.indexed) ...[
-            _McpOpsExposureTile(
-              surface: surface,
-              row: entry.$2,
-              itemVisible: !_hiddenItems.contains(
-                mcpOpsItemKey(surface, entry.$2.id),
-              ),
-              endpointVisible: (endpoint) => !_hiddenEndpoints.contains(
-                mcpOpsEndpointKey(surface, '${entry.$2.id}:$endpoint'),
-              ),
-              onItemChanged: (value) {
-                setState(() {
-                  final key = mcpOpsItemKey(surface, entry.$2.id);
-                  if (value) {
-                    _hiddenItems.remove(key);
-                  } else {
-                    _hiddenItems.add(key);
-                  }
-                });
-              },
-              onEndpointChanged: (endpoint, value) {
-                setState(() {
-                  final key = mcpOpsEndpointKey(
-                    surface,
-                    '${entry.$2.id}:$endpoint',
-                  );
-                  if (value) {
-                    _hiddenEndpoints.remove(key);
-                  } else {
-                    _hiddenEndpoints.add(key);
-                  }
-                });
-              },
+          _mcpOpsBoundedList(
+            context,
+            Column(
+              children: [
+                for (final entry in visibleRows.indexed) ...[
+                  _McpOpsExposureTile(
+                    surface: surface,
+                    row: entry.$2,
+                    itemVisible: !_hiddenItems.contains(
+                      mcpOpsItemKey(surface, entry.$2.id),
+                    ),
+                    endpointVisible: (endpoint) => !_hiddenEndpoints.contains(
+                      mcpOpsEndpointKey(surface, '${entry.$2.id}:$endpoint'),
+                    ),
+                    onItemChanged: (value) {
+                      setState(() {
+                        final key = mcpOpsItemKey(surface, entry.$2.id);
+                        if (value) {
+                          _hiddenItems.remove(key);
+                        } else {
+                          _hiddenItems.add(key);
+                        }
+                      });
+                    },
+                    onEndpointChanged: (endpoint, value) {
+                      setState(() {
+                        final key = mcpOpsEndpointKey(
+                          surface,
+                          '${entry.$2.id}:$endpoint',
+                        );
+                        if (value) {
+                          _hiddenEndpoints.remove(key);
+                        } else {
+                          _hiddenEndpoints.add(key);
+                        }
+                      });
+                    },
+                  ),
+                  if (entry.$1 != visibleRows.length - 1) kOpenHandGap8,
+                ],
+              ],
             ),
-            if (entry.$1 != visibleRows.length - 1) kOpenHandGap8,
-          ],
+          ),
         ],
       ),
     );
@@ -4832,7 +4840,10 @@ class _McpOpsHeaderTabButtons extends StatelessWidget {
                     ? null
                     : () => tabController.animateTo(
                         tab.index,
-                        duration: openHandMotionDuration(context, kOpenHandMotion220),
+                        duration: openHandMotionDuration(
+                          context,
+                          kOpenHandMotion220,
+                        ),
                         curve: kOpenHandSwitchInCurve,
                       ),
               ),
@@ -6105,14 +6116,7 @@ class _McpOpsPanel extends StatelessWidget {
                   height: 34,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        cs.primary.withValues(alpha: 0.18),
-                        cs.primary.withValues(alpha: 0.08),
-                      ],
-                    ),
+                    color: cs.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(kOpenHandRadius11),
                     border: Border.all(
                       color: cs.primary.withValues(alpha: 0.24),
@@ -6217,12 +6221,7 @@ class _McpOpsFieldGroup extends StatelessWidget {
               child: Container(
                 height: 1,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      cs.outlineVariant.withValues(alpha: 0.5),
-                      cs.outlineVariant.withValues(alpha: 0),
-                    ],
-                  ),
+                  color: cs.outlineVariant.withValues(alpha: 0.5),
                 ),
               ),
             ),
@@ -6337,14 +6336,7 @@ class _McpOpsExposureSummary extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            cs.primary.withValues(alpha: 0.1),
-            cs.primary.withValues(alpha: 0.03),
-          ],
-        ),
+        color: cs.primary.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
         border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
       ),
@@ -8785,14 +8777,7 @@ class _McpOpsPayloadInspectorHeader extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: AlignmentDirectional.topStart,
-          end: AlignmentDirectional.bottomEnd,
-          colors: [
-            accent.withValues(alpha: 0.10),
-            cs.surfaceContainerHigh.withValues(alpha: 0.52),
-          ],
-        ),
+        color: accent.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(_mcpOpsPayloadFieldRadius),
         border: Border.all(color: accent.withValues(alpha: 0.18)),
       ),
@@ -9329,38 +9314,43 @@ class _McpOpsApprovalPanel extends StatelessWidget {
     return _McpOpsPanel(
       icon: Icons.verified_user_rounded,
       title: _localizedText(context, zh: '写调用审批', en: 'Write Approvals'),
-      child: Column(
-        children: [
-          for (final request in requests)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: _McpOpsCopyText(request.toolName),
-              subtitle: _McpOpsCopyText(
-                '${request.clientName} · ${request.ipAddress} · ${formatMonthDayHmsLocal(request.requestedAt)}',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              trailing: Wrap(
-                spacing: 8,
-                children: [
-                  OutlinedButton(
-                    onPressed: () => context
-                        .read<McpController>()
-                        .resolveOpsApproval(request.id, approved: false),
-                    child: Text(
-                      _localizedText(context, zh: '拒绝', en: 'Reject'),
+      child: _mcpOpsBoundedList(
+        context,
+        Column(
+          children: [
+            for (final request in requests)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: _McpOpsCopyText(request.toolName),
+                subtitle: _McpOpsCopyText(
+                  '${request.clientName} · ${request.ipAddress} · ${formatMonthDayHmsLocal(request.requestedAt)}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: Wrap(
+                  spacing: 8,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () => context
+                          .read<McpController>()
+                          .resolveOpsApproval(request.id, approved: false),
+                      child: Text(
+                        _localizedText(context, zh: '拒绝', en: 'Reject'),
+                      ),
                     ),
-                  ),
-                  FilledButton(
-                    onPressed: () => context
-                        .read<McpController>()
-                        .resolveOpsApproval(request.id, approved: true),
-                    child: Text(_localizedText(context, zh: '放行', en: 'Allow')),
-                  ),
-                ],
+                    FilledButton(
+                      onPressed: () => context
+                          .read<McpController>()
+                          .resolveOpsApproval(request.id, approved: true),
+                      child: Text(
+                        _localizedText(context, zh: '放行', en: 'Allow'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -10343,7 +10333,10 @@ class _McpServerCardState extends State<_McpServerCard> {
                         : null,
                   ),
                   AnimatedSwitcher(
-                    duration: openHandMotionDuration(context, kOpenHandMotion400),
+                    duration: openHandMotionDuration(
+                      context,
+                      kOpenHandMotion400,
+                    ),
                     switchInCurve: kOpenHandEntranceCurve,
                     switchOutCurve: Curves.easeInBack,
                     transitionBuilder: (child, animation) {
@@ -10393,7 +10386,9 @@ class _McpServerCardState extends State<_McpServerCard> {
                                         ),
                                       )
                                     : null,
-                                border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius18),
+                                border: const OutlineInputBorder(
+                                  borderRadius: kOpenHandBorderRadius18,
+                                ),
                                 contentPadding: const EdgeInsets.symmetric(
                                   vertical: 12,
                                   horizontal: 16,
@@ -12806,7 +12801,10 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
             en: 'This service is disabled. Refresh manually to inspect its tools.',
           );
     final toolVisualKey = _mcpToolVisualKey(filteredTools);
-    final animationDuration = openHandMotionDuration(context, kOpenHandMotion220);
+    final animationDuration = openHandMotionDuration(
+      context,
+      kOpenHandMotion220,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -12846,7 +12844,10 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
                   },
                   icon: AnimatedRotation(
                     turns: _expanded ? 0.5 : 0.0,
-                    duration: openHandMotionDuration(context, kOpenHandMotion220),
+                    duration: openHandMotionDuration(
+                      context,
+                      kOpenHandMotion220,
+                    ),
                     curve: kOpenHandSwitchInCurve,
                     child: const Icon(Icons.expand_more_rounded),
                   ),
@@ -13828,7 +13829,9 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                                 zh: '选择 Tool',
                                 en: 'Tool',
                               ),
-                              border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius18),
+                              border: const OutlineInputBorder(
+                                borderRadius: kOpenHandBorderRadius18,
+                              ),
                               suffixIcon: Icon(
                                 _toolMenuOpen
                                     ? Icons.arrow_drop_up_rounded
@@ -13891,7 +13894,9 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                             zh: '请输入 JSON 对象，例如 {"page": 1}',
                             en: 'Enter a JSON object, for example {"page": 1}',
                           ),
-                          border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius18),
+                          border: const OutlineInputBorder(
+                            borderRadius: kOpenHandBorderRadius18,
+                          ),
                         ),
                       ),
                       kOpenHandGap16,
@@ -14333,7 +14338,10 @@ class _ToolSchemaPanel extends StatelessWidget {
     final content = prettyPrintJson(_jsonFriendlyValue(schema));
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(color: _mcpOpsTerminalSurface, borderRadius: kOpenHandBorderRadius18),
+      decoration: const BoxDecoration(
+        color: _mcpOpsTerminalSurface,
+        borderRadius: kOpenHandBorderRadius18,
+      ),
       padding: const EdgeInsets.all(14),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -14545,7 +14553,10 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
 
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(color: _mcpOpsTerminalSurface, borderRadius: kOpenHandBorderRadius18),
+      decoration: const BoxDecoration(
+        color: _mcpOpsTerminalSurface,
+        borderRadius: kOpenHandBorderRadius18,
+      ),
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -14644,7 +14655,10 @@ class _ToolConsolePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(color: _mcpOpsTerminalSurface, borderRadius: kOpenHandBorderRadius18),
+      decoration: const BoxDecoration(
+        color: _mcpOpsTerminalSurface,
+        borderRadius: kOpenHandBorderRadius18,
+      ),
       padding: const EdgeInsets.all(14),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -17260,6 +17274,7 @@ String _formatRelativePast(BuildContext context, DateTime utc) {
   final d = diff.inDays;
   return l10n.mcpRelativeDaysAgo(d);
 }
+
 /// 从 STDIO MCP 服务配置中提取包名。
 /// 兼容两种输入习惯：
 ///   1. command="npx", args=["@playwright/mcp", "--headless"]  → "@playwright/mcp"
@@ -17494,17 +17509,20 @@ class _McpOpsBarPanel extends StatelessWidget {
                 en: 'No samples yet',
               ),
             )
-          : Column(
-              children: [
-                for (var i = 0; i < sorted.length; i++)
-                  _McpOpsDistributionRow(
-                    label: sorted[i].key,
-                    value: sorted[i].value,
-                    total: total,
-                    color: palette[i % palette.length],
-                    showPercent: true,
-                  ),
-              ],
+          : _mcpOpsBoundedList(
+              context,
+              Column(
+                children: [
+                  for (var i = 0; i < sorted.length; i++)
+                    _McpOpsDistributionRow(
+                      label: sorted[i].key,
+                      value: sorted[i].value,
+                      total: total,
+                      color: palette[i % palette.length],
+                      showPercent: true,
+                    ),
+                ],
+              ),
             ),
     );
   }
@@ -17622,6 +17640,21 @@ class _McpOpsTrendDetailPanel extends StatelessWidget {
   }
 }
 
+/// 限制运维列表的可视高度，记录过多时在列表内部滚动，避免撑高弹窗。
+Widget _mcpOpsBoundedList(
+  BuildContext context,
+  Widget child, {
+  double maxHeight = _mcpOpsListMaxHeight,
+}) {
+  return ConstrainedBox(
+    constraints: BoxConstraints(maxHeight: maxHeight),
+    child: SingleChildScrollView(
+      physics: openHandDialogAwareScrollPhysics(context),
+      child: child,
+    ),
+  );
+}
+
 /// Compact list of audit entries filtered to a single lens (blocked, failed,
 /// write, …). Shows a status-colored strip per row.
 class _McpOpsLogListPanel extends StatelessWidget {
@@ -17658,17 +17691,20 @@ class _McpOpsLogListPanel extends StatelessWidget {
             ),
       child: shown.isEmpty
           ? _McpOpsInsightEmpty(label: emptyLabel)
-          : Column(
-              children: [
-                for (var i = 0; i < shown.length; i++) ...[
-                  if (i != 0)
-                    Divider(
-                      height: 16,
-                      color: cs.outlineVariant.withValues(alpha: 0.4),
-                    ),
-                  _McpOpsLogRow(entry: shown[i], showReason: showReason),
+          : _mcpOpsBoundedList(
+              context,
+              Column(
+                children: [
+                  for (var i = 0; i < shown.length; i++) ...[
+                    if (i != 0)
+                      Divider(
+                        height: 16,
+                        color: cs.outlineVariant.withValues(alpha: 0.4),
+                      ),
+                    _McpOpsLogRow(entry: shown[i], showReason: showReason),
+                  ],
                 ],
-              ],
+              ),
             ),
     );
   }
@@ -18330,17 +18366,20 @@ _McpOpsInsightSpec _mcpOpsInsightSpec(
                       en: 'No servers registered',
                     ),
                   )
-                : Column(
-                    children: [
-                      for (var i = 0; i < data.servers.length; i++) ...[
-                        if (i != 0)
-                          Divider(
-                            height: 16,
-                            color: cs.outlineVariant.withValues(alpha: 0.4),
-                          ),
-                        _mcpOpsServerRow(context, data.servers[i]),
+                : _mcpOpsBoundedList(
+                    context,
+                    Column(
+                      children: [
+                        for (var i = 0; i < data.servers.length; i++) ...[
+                          if (i != 0)
+                            Divider(
+                              height: 16,
+                              color: cs.outlineVariant.withValues(alpha: 0.4),
+                            ),
+                          _mcpOpsServerRow(context, data.servers[i]),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
           ),
         ],

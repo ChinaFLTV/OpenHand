@@ -31,6 +31,21 @@ const double _kProxyOpsShellRadius = 20;
 const double _kProxyOpsControlRadius = 12;
 const int _kProxyOpsTrendBuckets = 12;
 const double _kProxyOpsRecentMaxHeight = 360;
+const double _kProxyOpsListMaxHeight = 340;
+
+Widget _proxyOpsBoundedList(
+  BuildContext context,
+  Widget child, {
+  double maxHeight = _kProxyOpsListMaxHeight,
+}) {
+  return ConstrainedBox(
+    constraints: BoxConstraints(maxHeight: maxHeight),
+    child: SingleChildScrollView(
+      physics: openHandDialogAwareScrollPhysics(context),
+      child: child,
+    ),
+  );
+}
 
 Future<void> showAiModelProxyOperationsDialog(BuildContext context) =>
     showAnimatedDialog<void>(
@@ -1722,16 +1737,19 @@ class _ProxyOpsDetailDistribution extends StatelessWidget {
                 context,
               ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
             )
-          : Column(
-              children: [
-                for (var index = 0; index < sorted.length; index++)
-                  _ProxyOpsDistributionRow(
-                    label: sorted[index].key,
-                    value: sorted[index].value,
-                    total: total,
-                    color: palette[index % palette.length],
-                  ),
-              ],
+          : _proxyOpsBoundedList(
+              context,
+              Column(
+                children: [
+                  for (var index = 0; index < sorted.length; index++)
+                    _ProxyOpsDistributionRow(
+                      label: sorted[index].key,
+                      value: sorted[index].value,
+                      total: total,
+                      color: palette[index % palette.length],
+                    ),
+                ],
+              ),
             ),
     );
   }
@@ -2528,26 +2546,29 @@ class _ProxyOpsAggregateTable extends StatelessWidget {
                 color: cs.onSurfaceVariant,
               ),
             )
-          : Column(
-              children: [
-                for (var index = 0; index < sorted.length; index++) ...[
-                  if (index > 0)
-                    Divider(
-                      height: 18,
-                      color: cs.outlineVariant.withValues(alpha: 0.48),
+          : _proxyOpsBoundedList(
+              context,
+              Column(
+                children: [
+                  for (var index = 0; index < sorted.length; index++) ...[
+                    if (index > 0)
+                      Divider(
+                        height: 18,
+                        color: cs.outlineVariant.withValues(alpha: 0.48),
+                      ),
+                    _ProxyOpsAggregateRow(
+                      rank: index + 1,
+                      label: sorted[index].key,
+                      aggregate: sorted[index].value,
+                      total: total,
+                      accent: accent,
+                      showLatency: showLatency,
+                      showTokens: showTokens,
+                      showSuccessRate: showSuccessRate,
                     ),
-                  _ProxyOpsAggregateRow(
-                    rank: index + 1,
-                    label: sorted[index].key,
-                    aggregate: sorted[index].value,
-                    total: total,
-                    accent: accent,
-                    showLatency: showLatency,
-                    showTokens: showTokens,
-                    showSuccessRate: showSuccessRate,
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
     );
   }
@@ -2674,20 +2695,23 @@ class _ProxyOpsRequestLedger extends StatelessWidget {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             )
-          : Column(
-              children: [
-                for (var index = 0; index < items.length; index++) ...[
-                  if (index > 0) const SizedBox(height: 8),
-                  _ProxyOpsLedgerRow(
-                    record: items[index],
-                    providerLabel: data.providerLabelFor(
-                      items[index],
-                      unknown: text(zh: '未知', en: 'Unknown'),
+          : _proxyOpsBoundedList(
+              context,
+              Column(
+                children: [
+                  for (var index = 0; index < items.length; index++) ...[
+                    if (index > 0) const SizedBox(height: 8),
+                    _ProxyOpsLedgerRow(
+                      record: items[index],
+                      providerLabel: data.providerLabelFor(
+                        items[index],
+                        unknown: text(zh: '未知', en: 'Unknown'),
+                      ),
+                      accent: accent,
                     ),
-                    accent: accent,
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
     );
   }
@@ -2718,80 +2742,83 @@ class _ProxyOpsSuccessTimeline extends StatelessWidget {
                 en: 'No successful samples.',
               ),
             )
-          : Column(
-              children: [
-                for (var index = 0; index < items.length; index++)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 30,
-                          height: 30,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: OpenHandStatusColors.success.withValues(
-                              alpha: 0.14,
+          : _proxyOpsBoundedList(
+              context,
+              Column(
+                children: [
+                  for (var index = 0; index < items.length; index++)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 30,
+                            height: 30,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: OpenHandStatusColors.success.withValues(
+                                alpha: 0.14,
+                              ),
+                              shape: BoxShape.circle,
                             ),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Text(
-                            '${index + 1}',
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(
-                                  color: OpenHandStatusColors.success,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                          ),
-                        ),
-                        kOpenHandHGap9,
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                items[index].modelId.isEmpty
-                                    ? '未知模型'
-                                    : items[index].modelId,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.labelLarge
-                                    ?.copyWith(fontWeight: FontWeight.w900),
-                              ),
-                              kOpenHandGap3,
-                              Text(
-                                '${data.providerLabelFor(items[index])} · ${items[index].tokens} tokens',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: cs.onSurfaceVariant),
-                              ),
-                            ],
-                          ),
-                        ),
-                        kOpenHandHGap8,
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              '${items[index].durationMs} ms',
-                              style: Theme.of(context).textTheme.labelMedium
+                            child: Text(
+                              '${index + 1}',
+                              style: Theme.of(context).textTheme.labelSmall
                                   ?.copyWith(
                                     color: OpenHandStatusColors.success,
                                     fontWeight: FontWeight.w900,
                                   ),
                             ),
-                            Text(
-                              formatMonthDayHm(items[index].startedAt),
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(color: cs.onSurfaceVariant),
+                          ),
+                          kOpenHandHGap9,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  items[index].modelId.isEmpty
+                                      ? '未知模型'
+                                      : items[index].modelId,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(fontWeight: FontWeight.w900),
+                                ),
+                                kOpenHandGap3,
+                                Text(
+                                  '${data.providerLabelFor(items[index])} · ${items[index].tokens} tokens',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(color: cs.onSurfaceVariant),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ],
+                          ),
+                          kOpenHandHGap8,
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '${items[index].durationMs} ms',
+                                style: Theme.of(context).textTheme.labelMedium
+                                    ?.copyWith(
+                                      color: OpenHandStatusColors.success,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                              ),
+                              Text(
+                                formatMonthDayHm(items[index].startedAt),
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(color: cs.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
     );
   }
@@ -2822,77 +2849,80 @@ class _ProxyOpsFailureLedger extends StatelessWidget {
                 en: 'No failure samples.',
               ),
             )
-          : Column(
-              children: [
-                for (var index = 0; index < items.length; index++)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: cs.error.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: cs.error.withValues(alpha: 0.24),
+          : _proxyOpsBoundedList(
+              context,
+              Column(
+                children: [
+                  for (var index = 0; index < items.length; index++)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: cs.error.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: cs.error.withValues(alpha: 0.24),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.error_outline_rounded,
+                                color: cs.error,
+                                size: 18,
+                              ),
+                              kOpenHandHGap7,
+                              Expanded(
+                                child: Text(
+                                  items[index].modelId.isEmpty
+                                      ? '未知模型'
+                                      : items[index].modelId,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(fontWeight: FontWeight.w900),
+                                ),
+                              ),
+                              Text(
+                                '${items[index].durationMs} ms',
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(
+                                      color: cs.error,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                              ),
+                            ],
+                          ),
+                          kOpenHandGap5,
+                          Text(
+                            items[index].error?.trim().isNotEmpty == true
+                                ? items[index].error!.trim()
+                                : openHandTextResolver(context)(
+                                    zh: '未提供错误原因',
+                                    en: 'No error reason',
+                                  ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: cs.error,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          kOpenHandGap5,
+                          Text(
+                            '${data.providerLabelFor(items[index])} · ${formatMonthDayHm(items[index].startedAt)}',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(color: cs.onSurfaceVariant),
+                          ),
+                        ],
                       ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.error_outline_rounded,
-                              color: cs.error,
-                              size: 18,
-                            ),
-                            kOpenHandHGap7,
-                            Expanded(
-                              child: Text(
-                                items[index].modelId.isEmpty
-                                    ? '未知模型'
-                                    : items[index].modelId,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.labelLarge
-                                    ?.copyWith(fontWeight: FontWeight.w900),
-                              ),
-                            ),
-                            Text(
-                              '${items[index].durationMs} ms',
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(
-                                    color: cs.error,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                            ),
-                          ],
-                        ),
-                        kOpenHandGap5,
-                        Text(
-                          items[index].error?.trim().isNotEmpty == true
-                              ? items[index].error!.trim()
-                              : openHandTextResolver(context)(
-                                  zh: '未提供错误原因',
-                                  en: 'No error reason',
-                                ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: cs.error,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                        kOpenHandGap5,
-                        Text(
-                          '${data.providerLabelFor(items[index])} · ${formatMonthDayHm(items[index].startedAt)}',
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(color: cs.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
     );
   }
@@ -3003,19 +3033,26 @@ class _ProxyOpsAddressLedger extends StatelessWidget {
                 en: 'No source addresses.',
               ),
             )
-          : Column(
-              children: [
-                for (var index = 0; index < sorted.length; index++)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _ProxyOpsDistributionRow(
-                      label: sorted[index].key,
-                      value: sorted[index].value,
-                      total: total,
-                      color: [cs.primary, cs.tertiary, cs.secondary][index % 3],
+          : _proxyOpsBoundedList(
+              context,
+              Column(
+                children: [
+                  for (var index = 0; index < sorted.length; index++)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _ProxyOpsDistributionRow(
+                        label: sorted[index].key,
+                        value: sorted[index].value,
+                        total: total,
+                        color: [
+                          cs.primary,
+                          cs.tertiary,
+                          cs.secondary,
+                        ][index % 3],
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
     );
   }
@@ -3207,18 +3244,25 @@ class _ProxyOpsTailLatencyPanel extends StatelessWidget {
             ),
           ),
           kOpenHandGap14,
-          for (var index = 0; index < records.length; index++) ...[
-            if (index > 0)
-              Divider(
-                height: 16,
-                color: cs.outlineVariant.withValues(alpha: 0.42),
-              ),
-            _ProxyOpsLedgerRow(
-              record: records[index],
-              providerLabel: data.providerLabelFor(records[index]),
-              accent: cs.tertiary,
+          _proxyOpsBoundedList(
+            context,
+            Column(
+              children: [
+                for (var index = 0; index < records.length; index++) ...[
+                  if (index > 0)
+                    Divider(
+                      height: 16,
+                      color: cs.outlineVariant.withValues(alpha: 0.42),
+                    ),
+                  _ProxyOpsLedgerRow(
+                    record: records[index],
+                    providerLabel: data.providerLabelFor(records[index]),
+                    accent: cs.tertiary,
+                  ),
+                ],
+              ],
             ),
-          ],
+          ),
           if (records.isEmpty)
             Text(
               openHandTextResolver(context)(
@@ -3534,18 +3578,25 @@ class _ProxyOpsRouteTopology extends StatelessWidget {
                 context,
               ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
             )
-          : Column(
-              children: [
-                for (var index = 0; index < routes.length; index++) ...[
-                  if (index > 0) const SizedBox(height: 10),
-                  _ProxyOpsRouteTopologyRow(
-                    route: routes[index],
-                    data: data,
-                    showBackends: showBackends,
-                    accent: [cs.primary, cs.tertiary, cs.secondary][index % 3],
-                  ),
+          : _proxyOpsBoundedList(
+              context,
+              Column(
+                children: [
+                  for (var index = 0; index < routes.length; index++) ...[
+                    if (index > 0) const SizedBox(height: 10),
+                    _ProxyOpsRouteTopologyRow(
+                      route: routes[index],
+                      data: data,
+                      showBackends: showBackends,
+                      accent: [
+                        cs.primary,
+                        cs.tertiary,
+                        cs.secondary,
+                      ][index % 3],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
     );
   }
@@ -3767,75 +3818,78 @@ class _ProxyOpsClientLedger extends StatelessWidget {
       ),
       child: shown.isEmpty
           ? Text(text(zh: '暂无客户端样本。', en: 'No client samples.'))
-          : Column(
-              children: [
-                for (var index = 0; index < shown.length; index++) ...[
-                  if (index > 0)
-                    Divider(
-                      height: 18,
-                      color: cs.outlineVariant.withValues(alpha: 0.4),
+          : _proxyOpsBoundedList(
+              context,
+              Column(
+                children: [
+                  for (var index = 0; index < shown.length; index++) ...[
+                    if (index > 0)
+                      Divider(
+                        height: 18,
+                        color: cs.outlineVariant.withValues(alpha: 0.4),
+                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: cs.secondary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(11),
+                          ),
+                          child: Icon(
+                            Icons.devices_rounded,
+                            size: 18,
+                            color: cs.secondary,
+                          ),
+                        ),
+                        kOpenHandHGap9,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                shown[index].clientUserAgent.trim().isEmpty
+                                    ? text(
+                                        zh: '未提供 User-Agent',
+                                        en: 'User-Agent unavailable',
+                                      )
+                                    : shown[index].clientUserAgent.trim(),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                              kOpenHandGap4,
+                              Text(
+                                [shown[index].apiStyle, shown[index].clientIp]
+                                    .where((item) => item.trim().isNotEmpty)
+                                    .join(' · '),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        kOpenHandHGap8,
+                        Text(
+                          formatMonthDayHm(shown[index].startedAt),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 34,
-                        height: 34,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: cs.secondary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(11),
-                        ),
-                        child: Icon(
-                          Icons.devices_rounded,
-                          size: 18,
-                          color: cs.secondary,
-                        ),
-                      ),
-                      kOpenHandHGap9,
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              shown[index].clientUserAgent.trim().isEmpty
-                                  ? text(
-                                      zh: '未提供 User-Agent',
-                                      en: 'User-Agent unavailable',
-                                    )
-                                  : shown[index].clientUserAgent.trim(),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                fontFamily: 'monospace',
-                              ),
-                            ),
-                            kOpenHandGap4,
-                            Text(
-                              [shown[index].apiStyle, shown[index].clientIp]
-                                  .where((item) => item.trim().isNotEmpty)
-                                  .join(' · '),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      kOpenHandHGap8,
-                      Text(
-                        formatMonthDayHm(shown[index].startedAt),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
     );
   }

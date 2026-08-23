@@ -2703,7 +2703,6 @@ Future<void> _showProxyRequestTelemetryDialog(BuildContext context) =>
         minAvailableHeight: 420,
         horizontalMargin: 20,
         verticalMargin: 40,
-        expandToMax: true,
         child: const ServiceDialogInteractionTheme(
           child: _ProxyRequestTelemetryDialog(),
         ),
@@ -3004,6 +3003,7 @@ class _ProxyRequestTelemetryDialogState
                     ),
                   ),
                   child: _ProxyRequestDistribution(
+                    requests: requests,
                     completed: completed,
                     successes: successes,
                     failures: failures,
@@ -3248,12 +3248,14 @@ class _ProxyTelemetryNotice extends StatelessWidget {
 
 class _ProxyRequestDistribution extends StatelessWidget {
   const _ProxyRequestDistribution({
+    required this.requests,
     required this.completed,
     required this.successes,
     required this.failures,
     required this.timeouts,
   });
 
+  final int requests;
   final int completed;
   final int successes;
   final int failures;
@@ -3261,80 +3263,53 @@ class _ProxyRequestDistribution extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
     final text = openHandTextResolver(context);
     String ratio(int value) => completed == 0
         ? '--'
         : '${(value * 100 / completed).toStringAsFixed(1)}%';
+    final cards = <_ProxyOutcomeCard>[
+      _ProxyOutcomeCard(
+        icon: Icons.call_made_rounded,
+        label: text(zh: '请求总数', en: 'Requests'),
+        value: requests,
+        ratio: text(zh: '已完成 $completed', en: '$completed completed'),
+        color: Theme.of(context).colorScheme.primary,
+      ),
+      _ProxyOutcomeCard(
+        icon: Icons.task_alt_rounded,
+        label: text(zh: '成功', en: 'Success'),
+        value: successes,
+        ratio: ratio(successes),
+        color: OpenHandStatusColors.success,
+      ),
+      _ProxyOutcomeCard(
+        icon: Icons.error_outline_rounded,
+        label: text(zh: '失败', en: 'Failed'),
+        value: failures,
+        ratio: ratio(failures),
+        color: OpenHandStatusColors.error,
+      ),
+      _ProxyOutcomeCard(
+        icon: Icons.timer_off_outlined,
+        label: text(zh: '超时', en: 'Timeout'),
+        value: timeouts,
+        ratio: ratio(timeouts),
+        color: OpenHandStatusColors.warning,
+      ),
+    ];
     return LayoutBuilder(
       builder: (context, constraints) {
-        final donut = SizedBox.square(
-          dimension: 136,
-          child: ServiceAnimatedDonutChart(
-            values: <int>[successes, failures, timeouts],
-            colors: const <Color>[
-              OpenHandStatusColors.success,
-              OpenHandStatusColors.error,
-              OpenHandStatusColors.warning,
-            ],
-            trackColor: colors.surfaceContainerHighest,
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '$completed',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  Text(
-                    text(zh: '已完成', en: 'Completed'),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-        final legend = Wrap(
-          alignment: WrapAlignment.end,
-          spacing: 12,
-          runSpacing: 10,
-          children: [
-            _ProxyOutcomeCard(
-              label: text(zh: '成功', en: 'Success'),
-              value: successes,
-              ratio: ratio(successes),
-              color: OpenHandStatusColors.success,
-            ),
-            _ProxyOutcomeCard(
-              label: text(zh: '失败', en: 'Failed'),
-              value: failures,
-              ratio: ratio(failures),
-              color: OpenHandStatusColors.error,
-            ),
-            _ProxyOutcomeCard(
-              label: text(zh: '超时', en: 'Timeout'),
-              value: timeouts,
-              ratio: ratio(timeouts),
-              color: OpenHandStatusColors.warning,
-            ),
-          ],
-        );
-        if (constraints.maxWidth < 520) {
-          return Column(children: [donut, kOpenHandGap12, legend]);
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            donut,
-            kOpenHandHGap20,
-            Expanded(child: legend),
-          ],
+        final columns = constraints.maxWidth >= 620 ? 2 : 1;
+        const gap = 10.0;
+        final width = columns == 1
+            ? constraints.maxWidth
+            : (constraints.maxWidth - gap) / columns;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: cards
+              .map((card) => SizedBox(width: width, child: card))
+              .toList(growable: false),
         );
       },
     );
@@ -3343,12 +3318,14 @@ class _ProxyRequestDistribution extends StatelessWidget {
 
 class _ProxyOutcomeCard extends StatelessWidget {
   const _ProxyOutcomeCard({
+    required this.icon,
     required this.label,
     required this.value,
     required this.ratio,
     required this.color,
   });
 
+  final IconData icon;
   final String label;
   final int value;
   final String ratio;
@@ -3357,39 +3334,65 @@ class _ProxyOutcomeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      width: 142,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    final colors = theme.colorScheme;
+    return AnimatedContainer(
+      duration: openHandMotionDuration(context, kOpenHandMotion180),
+      curve: kOpenHandSwitchInCurve,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(kOpenHandRadius9),
+        color: colors.surfaceContainerHigh.withValues(alpha: 0.66),
+        borderRadius: BorderRadius.circular(kOpenHandRadius10),
         border: Border.all(color: color.withValues(alpha: 0.24)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: colors.shadow.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 9,
-            height: 34,
+            width: 30,
+            height: 30,
             decoration: BoxDecoration(
-              color: color,
-              borderRadius: kOpenHandPillBorderRadius,
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(kOpenHandRadius10),
+              border: Border.all(color: color.withValues(alpha: 0.22)),
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, size: 17, color: color),
+          ),
+          kOpenHandGap8,
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          kOpenHandHGap9,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: theme.textTheme.labelSmall),
-                Text(
-                  '$value · $ratio',
-                  maxLines: 1,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
+          kOpenHandGap4,
+          Text(
+            '$value',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w900,
+              height: 1.05,
+            ),
+          ),
+          kOpenHandGap4,
+          Text(
+            ratio,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
