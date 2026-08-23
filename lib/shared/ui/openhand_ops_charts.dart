@@ -23,6 +23,9 @@ const double _kTrendHitRadius = 22;
 const double _kDonutMaxStroke = 18;
 const double _kDonutStrokeRatio = 0.16;
 const double _kDonutSegmentGap = 0.018;
+const double _kHeatmapMinCellHeight = 56;
+const double _kHeatmapSpacing = 8;
+const double _kHeatmapCellPadding = 8;
 
 double _nonNegative(num value) {
   final result = value.toDouble();
@@ -1403,21 +1406,34 @@ class OpenHandOperationalMeter extends StatelessWidget {
     final display =
         valueLabel ??
         (unavailable ? '暂未接入' : '${(ratio * 100).toStringAsFixed(1)}%');
+    final box = gaugeSize ?? (semicircular ? 96.0 : 112.0);
+    final gaugeHeight = semicircular ? box * 0.58 : box;
     return Semantics(
       label: '$label，$display',
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
-            width: gaugeSize ?? double.infinity,
-            height: gaugeSize ?? (semicircular ? 84 : 112),
-            child: RepaintBoundary(
-              child: CustomPaint(
-                painter: _MeterPainter(
-                  ratio: ratio,
-                  color: color,
-                  trackColor: colors.surfaceContainerHighest,
-                  semicircular: semicircular,
+            width: box,
+            height: gaugeHeight,
+            child: ClipRect(
+              child: Align(
+                alignment: semicircular
+                    ? Alignment.topCenter
+                    : Alignment.center,
+                child: SizedBox(
+                  width: box,
+                  height: box,
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      painter: _MeterPainter(
+                        ratio: ratio,
+                        color: color,
+                        trackColor: colors.surfaceContainerHighest,
+                        semicircular: semicircular,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -2026,13 +2042,22 @@ class OpenHandOperationalHeatmap extends StatelessWidget {
             final columns = requestedColumns
                 .clamp(1, math.max(1, segments.length))
                 .toInt();
+            final cellWidth = math.max(
+              1.0,
+              (width - _kHeatmapSpacing * (columns - 1)) / columns,
+            );
+            final cellHeight = math.max(
+              _kHeatmapMinCellHeight,
+              cellWidth / 1.65,
+            );
+            final aspect = cellWidth / cellHeight;
             return GridView.count(
               crossAxisCount: columns,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              childAspectRatio: 1.8,
+              mainAxisSpacing: _kHeatmapSpacing,
+              crossAxisSpacing: _kHeatmapSpacing,
+              childAspectRatio: aspect.isFinite && aspect > 0 ? aspect : 1,
               children: [
                 for (final segment in segments)
                   Builder(
@@ -2056,27 +2081,33 @@ class OpenHandOperationalHeatmap extends StatelessWidget {
                             ),
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  segment.label,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.labelMedium,
-                                ),
-                                kOpenHandGap3,
-                                Text(
-                                  _labelFor(segment),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.titleSmall,
-                                ),
-                              ],
+                            padding: const EdgeInsets.all(_kHeatmapCellPadding),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    segment.label,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.labelMedium,
+                                  ),
+                                  kOpenHandGap2,
+                                  Text(
+                                    _labelFor(segment),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleSmall,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),

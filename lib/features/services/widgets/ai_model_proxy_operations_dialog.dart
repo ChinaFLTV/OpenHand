@@ -37,11 +37,11 @@ const double _kProxyOpsSubDialogWidthFraction = 0.94;
 const double _kProxyOpsSubDialogHeightFraction = 0.92;
 const double _kProxyOpsInsightMaxWidth = 940;
 const double _kProxyOpsInsightMaxHeight = 800;
-const double _kProxyOpsMetricMinCellWidth = 168;
+const double _kProxyOpsMetricMinCellWidth = 120;
 const double _kProxyOpsPanelPairBreakpoint = 480;
 const double _kProxyOpsDonutHeight = 220;
-const double _kProxyOpsGaugeSize = 132;
-const double _kProxyOpsHeatCellExtent = 72;
+const double _kProxyOpsGaugeSize = 108;
+const double _kProxyOpsHeatCellExtent = 88;
 const int _kProxyOpsLogMaxEntries = 30;
 const int _kProxyOpsTopLogEntries = 12;
 const int _kProxyOpsRankMaxRows = 12;
@@ -2147,20 +2147,33 @@ class _ProxyOpsInsightMetricGrid extends StatelessWidget {
             ? children.length
             : math.max(1, (maxWidth / _kProxyOpsMetricMinCellWidth).floor());
         final columns = math.max(1, math.min(fit, children.length));
-        final width = maxWidth.isFinite
-            ? (maxWidth - _kProxyOpsGap * (columns - 1)) / columns
-            : 220.0;
-        return Wrap(
-          spacing: _kProxyOpsGap,
-          runSpacing: _kProxyOpsGap,
-          alignment: WrapAlignment.center,
-          children: [
-            for (final child in children)
-              SizedBox(
-                width: width < 0 ? 0 : width,
-                child: Center(child: child),
+        final rows = <Widget>[];
+        for (var start = 0; start < children.length; start += columns) {
+          final slice = children.sublist(
+            start,
+            math.min(start + columns, children.length),
+          );
+          rows.add(
+            Padding(
+              padding: EdgeInsets.only(top: start == 0 ? 0 : _kProxyOpsGap),
+              child: Row(
+                children: [
+                  for (var i = 0; i < slice.length; i++) ...[
+                    if (i != 0) const SizedBox(width: _kProxyOpsGap),
+                    Expanded(child: Center(child: slice[i])),
+                  ],
+                  for (var i = slice.length; i < columns; i++) ...[
+                    const SizedBox(width: _kProxyOpsGap),
+                    const Expanded(child: SizedBox.shrink()),
+                  ],
+                ],
               ),
-          ],
+            ),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: rows,
         );
       },
     );
@@ -2640,6 +2653,14 @@ List<OpenHandChartSegment> _proxyOpsSegments(
   ];
 }
 
+int _proxyOpsHourHeatColumns(double width, int itemCount) {
+  if (!width.isFinite || width <= 0) return math.min(4, itemCount);
+  if (width >= 720) return math.min(12, itemCount);
+  if (width >= 520) return math.min(8, itemCount);
+  if (width >= 360) return math.min(6, itemCount);
+  return math.min(4, itemCount);
+}
+
 List<OpenHandChartSegment> _proxyOpsHourSegments(List<int> hours, Color color) {
   return [
     for (
@@ -2911,6 +2932,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ),
                 color: cs.primary,
                 maxCrossAxisExtent: _kProxyOpsHeatCellExtent,
+                columnCountForWidth: _proxyOpsHourHeatColumns,
               ),
             ),
             _ProxyOpsDetailSection(
@@ -3149,6 +3171,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ),
                 color: cs.secondary,
                 maxCrossAxisExtent: _kProxyOpsHeatCellExtent,
+                columnCountForWidth: _proxyOpsHourHeatColumns,
               ),
             ),
           ];
@@ -3402,6 +3425,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ),
                 color: cs.error,
                 maxCrossAxisExtent: _kProxyOpsHeatCellExtent,
+                columnCountForWidth: _proxyOpsHourHeatColumns,
               ),
             ),
           ];
