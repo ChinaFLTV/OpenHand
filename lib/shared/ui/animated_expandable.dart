@@ -70,6 +70,8 @@ class OpenHandExpansionTile extends StatefulWidget {
     this.tilePadding = kOpenHandExpansionTilePadding,
     this.childrenPadding = EdgeInsets.zero,
     this.onExpansionChanged,
+    this.suppressHoverOverlay = false,
+    this.circularToggle = false,
   });
 
   final Widget title;
@@ -84,6 +86,12 @@ class OpenHandExpansionTile extends StatefulWidget {
   final EdgeInsetsGeometry tilePadding;
   final EdgeInsetsGeometry childrenPadding;
   final ValueChanged<bool>? onExpansionChanged;
+
+  /// 是否关闭磁贴的悬停、按下和水波纹覆盖色。
+  final bool suppressHoverOverlay;
+
+  /// 是否使用圆形折叠/展开指示器替代默认三角箭头。
+  final bool circularToggle;
 
   @override
   State<OpenHandExpansionTile> createState() => _OpenHandExpansionTileState();
@@ -106,6 +114,14 @@ class _OpenHandExpansionTileState extends State<OpenHandExpansionTile> {
       children: [
         InkWell(
           onTap: _toggle,
+          hoverColor: widget.suppressHoverOverlay ? Colors.transparent : null,
+          splashColor: widget.suppressHoverOverlay ? Colors.transparent : null,
+          highlightColor: widget.suppressHoverOverlay
+              ? Colors.transparent
+              : null,
+          overlayColor: widget.suppressHoverOverlay
+              ? const WidgetStatePropertyAll<Color>(Colors.transparent)
+              : null,
           child: Padding(
             padding: widget.tilePadding,
             child: Row(
@@ -132,10 +148,15 @@ class _OpenHandExpansionTileState extends State<OpenHandExpansionTile> {
                   widget.trailing!,
                 ],
                 kOpenHandHGap8,
-                AnimatedExpandChevron(
-                  expanded: _expanded,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                if (widget.circularToggle)
+                  IgnorePointer(
+                    child: _CircularExpansionToggle(expanded: _expanded),
+                  )
+                else
+                  AnimatedExpandChevron(
+                    expanded: _expanded,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
               ],
             ),
           ),
@@ -156,6 +177,44 @@ class _OpenHandExpansionTileState extends State<OpenHandExpansionTile> {
               : null,
         ),
       ],
+    );
+  }
+}
+
+class _CircularExpansionToggle extends StatelessWidget {
+  const _CircularExpansionToggle({required this.expanded});
+
+  final bool expanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final duration = openHandMotionDuration(context, kOpenHandMotion240);
+    final icon = expanded
+        ? Icons.keyboard_arrow_up_rounded
+        : Icons.keyboard_arrow_down_rounded;
+    return AnimatedContainer(
+      duration: duration,
+      curve: kOpenHandSwitchInCurve,
+      width: 34,
+      height: 34,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.76),
+        shape: BoxShape.circle,
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.8)),
+      ),
+      child: AnimatedSwitcher(
+        duration: duration,
+        switchInCurve: kOpenHandSwitchInCurve,
+        switchOutCurve: kOpenHandSwitchInCurve,
+        child: Icon(
+          icon,
+          key: ValueKey<bool>(expanded),
+          size: 20,
+          color: colors.onSurfaceVariant,
+        ),
+      ),
     );
   }
 }

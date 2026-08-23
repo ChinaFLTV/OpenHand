@@ -6057,6 +6057,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               kOpenHandGap16,
               OpenHandExpansionTile(
                 tilePadding: EdgeInsets.zero,
+                suppressHoverOverlay: true,
+                circularToggle: true,
                 title: _buildSectionHeader('OpenRouter Raw Metadata'),
                 subtitle: Text(
                   'id / canonical_slug / hugging_face_id / created / architecture / supported_parameters / default_parameters / supported_voices / knowledge_cutoff / expiration_date / links',
