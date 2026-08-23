@@ -28,12 +28,17 @@ class AiModelHealthController extends ChangeNotifier {
   AiModelHealthProxyResolver? _proxyResolver;
   Timer? _timer;
   bool _checking = false;
+  final Set<String> _checkingProviderIds = <String>{};
   bool _disposed = false;
 
   AiModelHealthSettings get settings => _settings;
   List<AiModelHealthRecord> get records =>
       List<AiModelHealthRecord>.unmodifiable(_records);
   bool get checking => _checking;
+
+  bool isProviderChecking(String providerId) {
+    return _checkingProviderIds.contains(providerId.trim());
+  }
 
   Future<void> load() async {
     final loaded = await _store.loadSettings();
@@ -132,11 +137,15 @@ class AiModelHealthController extends ChangeNotifier {
 
   Future<void> _checkProviders(Iterable<AiModelConfig> providers) async {
     if (_checking || _disposed) return;
+    final providerList = providers.toList(growable: false);
     _checking = true;
+    _checkingProviderIds
+      ..clear()
+      ..addAll(providerList.map((provider) => provider.id.trim()));
     notifyListeners();
     try {
       final pending = <Future<AiModelHealthRecord?>>[];
-      for (final provider in providers) {
+      for (final provider in providerList) {
         for (final modelId in _healthModelIds(provider)) {
           if (_disposed) return;
           pending.add(checkModel(provider, modelId: modelId, notify: false));
@@ -149,7 +158,8 @@ class AiModelHealthController extends ChangeNotifier {
       if (pending.isNotEmpty) await Future.wait(pending);
     } finally {
       _checking = false;
-      notifyListeners();
+      _checkingProviderIds.clear();
+      if (!_disposed) notifyListeners();
     }
   }
 
@@ -342,7 +352,7 @@ class AiModelHealthController extends ChangeNotifier {
     } catch (_) {
       // 网络结果仍保留在当前会话，数据库异常不阻断巡检队列。
     }
-    if (notify) notifyListeners();
+    if (notify && !_disposed) notifyListeners();
     return record;
   }
 
@@ -553,6 +563,7 @@ class AiModelHealthController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _timer?.cancel();
+    _checkingProviderIds.clear();
     super.dispose();
   }
 }

@@ -5550,6 +5550,9 @@ class _AiModelTileState extends State<_AiModelTile> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final healthChecking = context.select<AiModelHealthController, bool>(
+      (controller) => controller.isProviderChecking(widget.model.id),
+    );
+    final anyHealthChecking = context.select<AiModelHealthController, bool>(
       (controller) => controller.checking,
     );
     final allModels = widget.model.allModelIds;
@@ -5722,7 +5725,9 @@ class _AiModelTileState extends State<_AiModelTile> {
                           icon: const Icon(Icons.delete_outline_rounded),
                         ),
                         IconButton(
-                          onPressed: widget.actionsEnabled && !healthChecking
+                          onPressed:
+                              widget.actionsEnabled &&
+                              !anyHealthChecking
                               ? widget.onHealthCheck
                               : null,
                           tooltip: openHandLocalizedText(
