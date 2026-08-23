@@ -438,7 +438,9 @@ class AiJunglerRuntime {
     try {
       final decoded = jsonDecode(line);
       if (decoded is! Map || decoded['event'] != 'ready') return null;
-      final address = Uri.tryParse(decoded['address'] as String? ?? '');
+      final address = Uri.tryParse(
+        decoded['address'] is String ? decoded['address'] as String : '',
+      );
       if (address == null ||
           !address.isScheme('http') ||
           !isLoopbackHost(address.host) ||
@@ -448,7 +450,12 @@ class AiJunglerRuntime {
           (address.path.isNotEmpty && address.path != '/')) {
         return null;
       }
-      return (address: address, version: decoded['version'] as String? ?? '');
+      return (
+        address: address,
+        version: decoded['version'] is String
+            ? decoded['version'] as String
+            : '',
+      );
     } on FormatException {
       return null;
     }

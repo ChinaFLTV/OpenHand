@@ -65,7 +65,7 @@ class AiJunglerClient {
 
   Future<String> createJob(AiExposureScanRequest request) async {
     final json = await _jsonRequest('POST', _kApiJobs, body: request.toJson());
-    final jobId = json['jobId'] as String?;
+    final jobId = json['jobId'] is String ? json['jobId'] as String : null;
     if (jobId == null || jobId.isEmpty) {
       throw const AiJunglerApiException('扫描引擎未返回任务编号。');
     }
@@ -77,7 +77,7 @@ class AiJunglerClient {
 
   Future<String> resumeJob(String jobId) async {
     final json = await _jsonRequest('POST', _jobPath(jobId, suffix: '/resume'));
-    final resumedId = json['jobId'] as String?;
+    final resumedId = json['jobId'] is String ? json['jobId'] as String : null;
     if (resumedId == null || resumedId.isEmpty) {
       throw const AiJunglerApiException('扫描引擎未返回恢复后的任务编号。');
     }
