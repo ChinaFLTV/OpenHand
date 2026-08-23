@@ -110,7 +110,7 @@ class _AiModelProxyOperationsDialogState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      text(zh: 'AI 模型中转站运维', en: 'AI model proxy operations'),
+                      text(zh: '服务运维', en: 'Service operations'),
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
@@ -159,6 +159,39 @@ class _AiModelProxyOperationsDialogState
       ),
     );
   }
+}
+
+enum _ProxyOpsInsightKind {
+  connections,
+  activeRequests,
+  requests,
+  ingress,
+  succeeded,
+  failures,
+  ingressErrors,
+  averageLatency,
+  p95Latency,
+  tokens,
+  inbound,
+  outbound,
+  exposedModels,
+  backends,
+  requestTrend,
+  latencyTrend,
+  statusMix,
+  providerMix,
+  modelMix,
+  clientMix,
+  recentRequest,
+}
+
+void _showProxyOpsInsight(BuildContext context, _ProxyOpsInsightKind kind) {
+  showAnimatedDialog<void>(
+    context: context,
+    builder: (_) => ServiceDialogInteractionTheme(
+      child: _ProxyOpsInsightDialog(kind: kind),
+    ),
+  );
 }
 
 class _ProxyOpsSnapshot {
@@ -249,9 +282,8 @@ class _ProxyOpsSnapshot {
     String unknown = '未知',
   }) {
     final providerId = record.providerId.trim();
-    final normalized = providerId.toLowerCase();
-    final configured = providerNames[normalized];
-    if (configured?.trim().isNotEmpty == true) return configured!;
+    final configured = providerLabelForId(providerId);
+    if (configured != null) return configured;
     final remoteHost = record.remoteHost.trim();
     if (remoteHost.isNotEmpty &&
         (providerId.isEmpty || RegExp(r'^\d+$').hasMatch(providerId))) {
@@ -260,6 +292,12 @@ class _ProxyOpsSnapshot {
     return providerId.isEmpty || RegExp(r'^\d+$').hasMatch(providerId)
         ? unknown
         : providerId;
+  }
+
+  String? providerLabelForId(String providerId) {
+    final normalized = providerId.trim().toLowerCase();
+    final configured = providerNames[normalized]?.trim();
+    return configured?.isNotEmpty == true ? configured : null;
   }
 }
 
@@ -418,6 +456,7 @@ class _ProxyOpsMetricGrid extends StatelessWidget {
         '${data.controller.currentConnections}',
         text(zh: '实时连接', en: 'Live connections'),
         cs.primary,
+        insight: _ProxyOpsInsightKind.connections,
       ),
       _ProxyOpsMetricData(
         Icons.bolt_rounded,
@@ -425,6 +464,7 @@ class _ProxyOpsMetricGrid extends StatelessWidget {
         '${data.controller.activeRequests}',
         text(zh: '执行中', en: 'In flight'),
         cs.tertiary,
+        insight: _ProxyOpsInsightKind.activeRequests,
       ),
       _ProxyOpsMetricData(
         Icons.call_made_rounded,
@@ -432,6 +472,7 @@ class _ProxyOpsMetricGrid extends StatelessWidget {
         '${data.requestTotal}',
         text(zh: '累计请求', en: 'Total'),
         cs.primary,
+        insight: _ProxyOpsInsightKind.requests,
       ),
       _ProxyOpsMetricData(
         Icons.input_rounded,
@@ -439,6 +480,7 @@ class _ProxyOpsMetricGrid extends StatelessWidget {
         '${data.controller.runtimeRequestCount}',
         text(zh: '本次运行', en: 'This run'),
         cs.secondary,
+        insight: _ProxyOpsInsightKind.ingress,
       ),
       _ProxyOpsMetricData(
         Icons.task_alt_rounded,
@@ -446,6 +488,7 @@ class _ProxyOpsMetricGrid extends StatelessWidget {
         '${data.successTotal}',
         '${(data.successRate * 100).toStringAsFixed(1)}%',
         OpenHandStatusColors.success,
+        insight: _ProxyOpsInsightKind.succeeded,
       ),
       _ProxyOpsMetricData(
         Icons.error_outline_rounded,
@@ -453,6 +496,7 @@ class _ProxyOpsMetricGrid extends StatelessWidget {
         '${data.failureTotal}',
         '${(data.failureRate * 100).toStringAsFixed(1)}%',
         cs.error,
+        insight: _ProxyOpsInsightKind.failures,
       ),
       _ProxyOpsMetricData(
         Icons.report_problem_outlined,
@@ -460,6 +504,7 @@ class _ProxyOpsMetricGrid extends StatelessWidget {
         '${data.controller.runtimeErrorCount}',
         text(zh: 'HTTP 4xx/5xx', en: 'HTTP 4xx/5xx'),
         cs.error,
+        insight: _ProxyOpsInsightKind.ingressErrors,
       ),
       _ProxyOpsMetricData(
         Icons.speed_rounded,
@@ -467,6 +512,7 @@ class _ProxyOpsMetricGrid extends StatelessWidget {
         '${data.settings.averageDurationMs.toStringAsFixed(0)} ms',
         text(zh: '已完成请求', en: 'Completed'),
         cs.secondary,
+        insight: _ProxyOpsInsightKind.averageLatency,
       ),
       _ProxyOpsMetricData(
         Icons.timelapse_rounded,
@@ -474,6 +520,7 @@ class _ProxyOpsMetricGrid extends StatelessWidget {
         '${data.p95LatencyMs} ms',
         text(zh: '尾延迟', en: 'Tail latency'),
         cs.tertiary,
+        insight: _ProxyOpsInsightKind.p95Latency,
       ),
       _ProxyOpsMetricData(
         Icons.token_rounded,
@@ -481,6 +528,7 @@ class _ProxyOpsMetricGrid extends StatelessWidget {
         '${data.settings.totalTokens}',
         text(zh: '累计消耗', en: 'Consumed'),
         cs.primary,
+        insight: _ProxyOpsInsightKind.tokens,
       ),
       _ProxyOpsMetricData(
         Icons.south_west_rounded,
@@ -488,6 +536,7 @@ class _ProxyOpsMetricGrid extends StatelessWidget {
         formatByteSize(data.controller.runtimeInboundBytes),
         text(zh: '请求体', en: 'Request body'),
         cs.secondary,
+        insight: _ProxyOpsInsightKind.inbound,
       ),
       _ProxyOpsMetricData(
         Icons.north_east_rounded,
@@ -495,6 +544,7 @@ class _ProxyOpsMetricGrid extends StatelessWidget {
         formatByteSize(data.controller.runtimeOutboundBytes),
         text(zh: '响应体', en: 'Response body'),
         cs.tertiary,
+        insight: _ProxyOpsInsightKind.outbound,
       ),
       _ProxyOpsMetricData(
         Icons.hub_rounded,
@@ -502,6 +552,7 @@ class _ProxyOpsMetricGrid extends StatelessWidget {
         '${data.settings.routes.where((route) => route.enabled).length}',
         text(zh: '对外暴露', en: 'Published'),
         cs.primary,
+        insight: _ProxyOpsInsightKind.exposedModels,
       ),
       _ProxyOpsMetricData(
         Icons.storage_rounded,
@@ -509,6 +560,7 @@ class _ProxyOpsMetricGrid extends StatelessWidget {
         '${data.settings.routes.expand((route) => route.backends).where((backend) => backend.enabled).length}',
         text(zh: '启用后备', en: 'Enabled'),
         cs.secondary,
+        insight: _ProxyOpsInsightKind.backends,
       ),
     ];
     return LayoutBuilder(
@@ -542,13 +594,15 @@ class _ProxyOpsMetricData {
     this.label,
     this.value,
     this.helper,
-    this.color,
-  );
+    this.color, {
+    this.insight,
+  });
   final IconData icon;
   final String label;
   final String value;
   final String helper;
   final Color color;
+  final _ProxyOpsInsightKind? insight;
 }
 
 class _ProxyOpsMetric extends StatelessWidget {
@@ -559,63 +613,139 @@ class _ProxyOpsMetric extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(_kProxyOpsPanelRadius),
-        border: Border.all(color: metric.color.withValues(alpha: 0.26)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: metric.color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+    return _ProxyOpsTappableCard(
+      onTap: metric.insight == null
+          ? null
+          : () => _showProxyOpsInsight(context, metric.insight!),
+      radius: _kProxyOpsPanelRadius,
+      tone: metric.color,
+      child: AnimatedContainer(
+        duration: openHandMotionDuration(context, kOpenHandMotion180),
+        curve: kOpenHandSwitchInCurve,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHigh.withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(_kProxyOpsPanelRadius),
+          border: Border.all(color: metric.color.withValues(alpha: 0.26)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: metric.color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(metric.icon, size: 17, color: metric.color),
                 ),
-                alignment: Alignment.center,
-                child: Icon(metric.icon, size: 17, color: metric.color),
+                kOpenHandHGap8,
+                Expanded(
+                  child: Text(
+                    metric.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                if (metric.insight != null)
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: metric.color.withValues(alpha: 0.72),
+                  ),
+              ],
+            ),
+            kOpenHandGap8,
+            Text(
+              metric.value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+                height: 1.05,
               ),
-              kOpenHandHGap8,
-              Expanded(
-                child: Text(
-                  metric.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
+            ),
+            kOpenHandGap4,
+            Text(
+              metric.helper,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: metric.color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProxyOpsTappableCard extends StatefulWidget {
+  const _ProxyOpsTappableCard({
+    required this.child,
+    required this.radius,
+    required this.tone,
+    this.onTap,
+  });
+
+  final Widget child;
+  final double radius;
+  final Color tone;
+  final VoidCallback? onTap;
+
+  @override
+  State<_ProxyOpsTappableCard> createState() => _ProxyOpsTappableCardState();
+}
+
+class _ProxyOpsTappableCardState extends State<_ProxyOpsTappableCard> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.onTap == null) return widget.child;
+    final duration = openHandMotionDuration(context, kOpenHandMotion120);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _pressed ? 0.975 : 1,
+          duration: duration,
+          curve: kOpenHandSwitchInCurve,
+          child: Stack(
+            children: [
+              widget.child,
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: AnimatedContainer(
+                    duration: duration,
+                    curve: kOpenHandSwitchInCurve,
+                    decoration: BoxDecoration(
+                      color: _pressed
+                          ? widget.tone.withValues(alpha: 0.08)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(widget.radius),
+                    ),
                   ),
                 ),
               ),
             ],
           ),
-          kOpenHandGap8,
-          Text(
-            metric.value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w900,
-              height: 1.05,
-            ),
-          ),
-          kOpenHandGap4,
-          Text(
-            metric.helper,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: metric.color,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -654,6 +784,7 @@ class _ProxyOpsTrendRow extends StatelessWidget {
               ),
             ],
             valueSuffix: '',
+            insight: _ProxyOpsInsightKind.requestTrend,
           ),
           _ProxyOpsTrendPanel(
             title: text(zh: '耗时曲线', en: 'Latency curve'),
@@ -678,6 +809,7 @@ class _ProxyOpsTrendRow extends StatelessWidget {
               ),
             ],
             valueSuffix: ' ms',
+            insight: _ProxyOpsInsightKind.latencyTrend,
           ),
         ];
         if (constraints.maxWidth < 760) {
@@ -733,11 +865,13 @@ class _ProxyOpsTrendPanel extends StatelessWidget {
     required this.subtitle,
     required this.series,
     required this.valueSuffix,
+    this.insight,
   });
   final String title;
   final String subtitle;
   final List<OpenHandChartSeries> series;
   final String valueSuffix;
+  final _ProxyOpsInsightKind? insight;
 
   @override
   Widget build(BuildContext context) {
@@ -747,6 +881,9 @@ class _ProxyOpsTrendPanel extends StatelessWidget {
       title: title,
       subtitle: subtitle,
       icon: Icons.show_chart_rounded,
+      onTap: insight == null
+          ? null
+          : () => _showProxyOpsInsight(context, insight!),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -823,6 +960,7 @@ class _ProxyOpsDistributionGrid extends StatelessWidget {
           text(zh: '失败', en: 'Failure'): data.failureTotal,
         },
         colors: [OpenHandStatusColors.success, cs.error],
+        insight: _ProxyOpsInsightKind.statusMix,
       ),
       _ProxyOpsDistribution(
         title: text(zh: '提供商分布', en: 'Provider mix'),
@@ -842,6 +980,7 @@ class _ProxyOpsDistributionGrid extends StatelessWidget {
           OpenHandStatusColors.warning,
           cs.error,
         ],
+        insight: _ProxyOpsInsightKind.providerMix,
       ),
       _ProxyOpsDistribution(
         title: text(zh: '模型分布', en: 'Model mix'),
@@ -858,6 +997,7 @@ class _ProxyOpsDistributionGrid extends StatelessWidget {
           cs.secondary,
           cs.error,
         ],
+        insight: _ProxyOpsInsightKind.modelMix,
       ),
       _ProxyOpsDistribution(
         title: text(zh: '协议与客户端', en: 'Protocol and clients'),
@@ -876,6 +1016,7 @@ class _ProxyOpsDistributionGrid extends StatelessWidget {
           OpenHandStatusColors.warning,
           cs.error,
         ],
+        insight: _ProxyOpsInsightKind.clientMix,
       ),
     ];
     return LayoutBuilder(
@@ -934,11 +1075,13 @@ class _ProxyOpsDistribution extends StatelessWidget {
     required this.icon,
     required this.values,
     required this.colors,
+    this.insight,
   });
   final String title;
   final IconData icon;
   final Map<String, int> values;
   final List<Color> colors;
+  final _ProxyOpsInsightKind? insight;
 
   @override
   Widget build(BuildContext context) {
@@ -951,6 +1094,9 @@ class _ProxyOpsDistribution extends StatelessWidget {
     return _ProxyOpsPanel(
       title: title,
       icon: icon,
+      onTap: insight == null
+          ? null
+          : () => _showProxyOpsInsight(context, insight!),
       child: top.isEmpty
           ? Text(
               openHandTextResolver(context)(
@@ -1190,72 +1336,87 @@ class _ProxyOpsPanel extends StatelessWidget {
     required this.icon,
     required this.child,
     this.subtitle,
+    this.onTap,
   });
   final String title;
   final String? subtitle;
   final IconData icon;
   final Widget child;
+  final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLow.withValues(alpha: 0.78),
-        borderRadius: BorderRadius.circular(_kProxyOpsPanelRadius),
-        border: Border.all(color: cs.outlineVariant),
-        boxShadow: [
-          BoxShadow(
-            color: cs.shadow.withValues(alpha: 0.04),
-            blurRadius: 14,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: cs.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+    return _ProxyOpsTappableCard(
+      onTap: onTap,
+      radius: _kProxyOpsPanelRadius,
+      tone: cs.primary,
+      child: AnimatedContainer(
+        duration: openHandMotionDuration(context, kOpenHandMotion180),
+        curve: kOpenHandSwitchInCurve,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerLow.withValues(alpha: 0.78),
+          borderRadius: BorderRadius.circular(_kProxyOpsPanelRadius),
+          border: Border.all(color: cs.outlineVariant),
+          boxShadow: [
+            BoxShadow(
+              color: cs.shadow.withValues(alpha: 0.04),
+              blurRadius: 14,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(icon, size: 17, color: cs.primary),
                 ),
-                alignment: Alignment.center,
-                child: Icon(icon, size: 17, color: cs.primary),
-              ),
-              kOpenHandHGap8,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    if (subtitle != null)
+                kOpenHandHGap8,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        subtitle!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: cs.onSurfaceVariant,
+                        title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
-                  ],
+                      if (subtitle != null)
+                        Text(
+                          subtitle!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          kOpenHandGap14,
-          child,
-        ],
+                if (onTap != null)
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: cs.primary.withValues(alpha: 0.72),
+                  ),
+              ],
+            ),
+            kOpenHandGap14,
+            child,
+          ],
+        ),
       ),
     );
   }
@@ -1308,5 +1469,882 @@ String _lifecycleLabel(BuildContext context, AiModelProxyLifecycle lifecycle) {
     AiModelProxyLifecycle.stopping => text(zh: '停止中', en: 'Stopping'),
     AiModelProxyLifecycle.error => text(zh: '异常', en: 'Error'),
     AiModelProxyLifecycle.stopped => text(zh: '已停止', en: 'Stopped'),
+  };
+}
+
+class _ProxyOpsInsightDialog extends StatelessWidget {
+  const _ProxyOpsInsightDialog({required this.kind});
+
+  final _ProxyOpsInsightKind kind;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = context.watch<AiModelProxyController>();
+    final providers = context.select<SettingsController, List<AiModelConfig>>(
+      (settings) => settings.aiModels,
+    );
+    final data = _ProxyOpsSnapshot.from(controller, providers: providers);
+    final text = openHandTextResolver(context);
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final title = _proxyOpsInsightTitle(context, kind);
+    final accent = _proxyOpsInsightTone(context, kind);
+    return OpenHandEscapeDismissScope(
+      child: buildOpenHandResponsiveDialogShell(
+        context: context,
+        maxWidth: 940,
+        maxHeight: 800,
+        maxWidthFraction: 0.94,
+        maxHeightFraction: 0.9,
+        minAvailableWidth: 320,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: 0.72),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: cs.shadow.withValues(alpha: 0.18),
+                blurRadius: 38,
+                offset: const Offset(0, 20),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(13),
+                        border: Border.all(
+                          color: accent.withValues(alpha: 0.28),
+                        ),
+                      ),
+                      child: Icon(_proxyOpsInsightIcon(kind), color: accent),
+                    ),
+                    kOpenHandHGap10,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          kOpenHandGap3,
+                          Text(
+                            text(
+                              zh: '实时数据明细 · 点击外部区域或关闭按钮返回服务运维',
+                              en: 'Live details · close this view to return to service operations',
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: MaterialLocalizations.of(
+                        context,
+                      ).closeButtonTooltip,
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+                kOpenHandGap14,
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: openHandDialogAwareScrollPhysics(context),
+                    child: _buildProxyOpsInsightBody(context, data, kind),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Widget _buildProxyOpsInsightBody(
+  BuildContext context,
+  _ProxyOpsSnapshot data,
+  _ProxyOpsInsightKind kind,
+) {
+  final text = openHandTextResolver(context);
+  final cs = Theme.of(context).colorScheme;
+  Widget metric(
+    IconData icon,
+    String label,
+    String value, {
+    String helper = '',
+    Color? color,
+  }) => _ProxyOpsMetric(
+    metric: _ProxyOpsMetricData(
+      icon,
+      label,
+      value,
+      helper,
+      color ?? cs.primary,
+    ),
+  );
+  Widget statPanel(String title, IconData icon, List<Widget> tiles) =>
+      _ProxyOpsPanel(
+        title: title,
+        icon: icon,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = constraints.maxWidth >= 650 ? 2 : 1;
+            const gap = _kProxyOpsGap;
+            final width =
+                (constraints.maxWidth - gap * (columns - 1)) / columns;
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final tile in tiles) SizedBox(width: width, child: tile),
+              ],
+            );
+          },
+        ),
+      );
+  Widget recentPanel({
+    String title = '最近请求',
+    Iterable<AiModelProxyRequestRecord>? records,
+  }) {
+    final selected = (records ?? data.records).toList(growable: false);
+    return _ProxyOpsPanel(
+      title: text(zh: title, en: title == '最近请求' ? 'Recent requests' : title),
+      icon: Icons.receipt_long_rounded,
+      child: selected.isEmpty
+          ? Text(
+              text(zh: '暂无请求样本。', en: 'No request samples yet.'),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            )
+          : Column(
+              children: [
+                for (final record in selected.reversed.take(40))
+                  _ProxyOpsRequestTile(
+                    record: record,
+                    providerLabel: data.providerLabelFor(
+                      record,
+                      unknown: text(zh: '未知', en: 'Unknown'),
+                    ),
+                  ),
+              ],
+            ),
+    );
+  }
+
+  switch (kind) {
+    case _ProxyOpsInsightKind.connections:
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          statPanel(
+            text(zh: '连接概览', en: 'Connection overview'),
+            Icons.hub_rounded,
+            [
+              metric(
+                Icons.link_rounded,
+                text(zh: '当前连接', en: 'Connections'),
+                '${data.controller.currentConnections}',
+                helper: text(zh: '实时连接', en: 'Live connections'),
+              ),
+              metric(
+                Icons.bolt_rounded,
+                text(zh: '活跃请求', en: 'Active'),
+                '${data.controller.activeRequests}',
+                helper: text(zh: '执行中', en: 'In flight'),
+                color: cs.tertiary,
+              ),
+              metric(
+                Icons.schedule_rounded,
+                text(zh: '运行时长', en: 'Uptime'),
+                formatCompactDuration(data.controller.uptime),
+              ),
+              metric(
+                Icons.network_check_rounded,
+                text(zh: '入口地址', en: 'Endpoint'),
+                data.endpoint,
+              ),
+            ],
+          ),
+          const SizedBox(height: _kProxyOpsGap),
+          recentPanel(),
+        ],
+      );
+    case _ProxyOpsInsightKind.activeRequests:
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          statPanel(
+            text(zh: '实时吞吐', en: 'Live throughput'),
+            Icons.bolt_rounded,
+            [
+              metric(
+                Icons.bolt_rounded,
+                text(zh: '活跃请求', en: 'Active'),
+                '${data.controller.activeRequests}',
+                color: cs.tertiary,
+              ),
+              metric(
+                Icons.speed_rounded,
+                'RPM',
+                '${_proxyOpsCurrentRpm(data)}',
+                helper: data.settings.limitThreshold > 0
+                    ? '/ ${data.settings.limitThreshold}'
+                    : text(zh: '不限流', en: 'Unlimited'),
+              ),
+              metric(
+                Icons.call_made_rounded,
+                text(zh: '近窗请求', en: 'Recent'),
+                '${data.records.length}',
+              ),
+            ],
+          ),
+          const SizedBox(height: _kProxyOpsGap),
+          recentPanel(),
+        ],
+      );
+    case _ProxyOpsInsightKind.requests:
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          statPanel(
+            text(zh: '请求构成', en: 'Request composition'),
+            Icons.analytics_rounded,
+            [
+              metric(
+                Icons.call_made_rounded,
+                text(zh: '请求总数', en: 'Requests'),
+                '${data.requestTotal}',
+              ),
+              metric(
+                Icons.task_alt_rounded,
+                text(zh: '成功', en: 'Succeeded'),
+                '${data.successTotal}',
+                helper: '${(data.successRate * 100).toStringAsFixed(1)}%',
+                color: OpenHandStatusColors.success,
+              ),
+              metric(
+                Icons.error_outline_rounded,
+                text(zh: '失败', en: 'Failures'),
+                '${data.failureTotal}',
+                helper: '${(data.failureRate * 100).toStringAsFixed(1)}%',
+                color: cs.error,
+              ),
+              metric(
+                Icons.token_rounded,
+                text(zh: 'Token', en: 'Tokens'),
+                '${data.settings.totalTokens}',
+              ),
+            ],
+          ),
+          const SizedBox(height: _kProxyOpsGap),
+          _ProxyOpsTrendPanel(
+            title: text(zh: '请求趋势', en: 'Request trend'),
+            subtitle: text(zh: '最近 12 个采样桶', en: 'Last 12 samples'),
+            series: [
+              OpenHandChartSeries(
+                label: text(zh: '成功', en: 'Success'),
+                values: data.trendSuccess,
+                color: OpenHandStatusColors.success,
+              ),
+              OpenHandChartSeries(
+                label: text(zh: '失败', en: 'Failure'),
+                values: data.trendFailure,
+                color: cs.error,
+              ),
+            ],
+            valueSuffix: '',
+          ),
+          const SizedBox(height: _kProxyOpsGap),
+          recentPanel(),
+        ],
+      );
+    case _ProxyOpsInsightKind.ingress:
+    case _ProxyOpsInsightKind.ingressErrors:
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          statPanel(text(zh: '入口请求', en: 'Ingress'), Icons.input_rounded, [
+            metric(
+              Icons.input_rounded,
+              text(zh: '入口请求', en: 'Ingress'),
+              '${data.controller.runtimeRequestCount}',
+            ),
+            metric(
+              Icons.report_problem_outlined,
+              text(zh: '入口错误', en: 'Errors'),
+              '${data.controller.runtimeErrorCount}',
+              helper: 'HTTP 4xx/5xx',
+              color: cs.error,
+            ),
+            metric(
+              Icons.swap_vert_rounded,
+              text(zh: '入口流量', en: 'Inbound'),
+              formatByteSize(data.controller.runtimeInboundBytes),
+            ),
+          ]),
+          const SizedBox(height: _kProxyOpsGap),
+          recentPanel(),
+        ],
+      );
+    case _ProxyOpsInsightKind.succeeded:
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          statPanel(
+            text(zh: '成功概览', en: 'Success overview'),
+            Icons.verified_rounded,
+            [
+              metric(
+                Icons.task_alt_rounded,
+                text(zh: '成功数量', en: 'Succeeded'),
+                '${data.successTotal}',
+                helper: '${(data.successRate * 100).toStringAsFixed(1)}%',
+                color: OpenHandStatusColors.success,
+              ),
+              metric(
+                Icons.call_made_rounded,
+                text(zh: '请求总数', en: 'Requests'),
+                '${data.requestTotal}',
+              ),
+              metric(
+                Icons.speed_rounded,
+                text(zh: '平均耗时', en: 'Average'),
+                '${data.settings.averageDurationMs.toStringAsFixed(0)} ms',
+              ),
+            ],
+          ),
+          const SizedBox(height: _kProxyOpsGap),
+          recentPanel(
+            title: '成功请求',
+            records: data.records.where((record) => record.success),
+          ),
+        ],
+      );
+    case _ProxyOpsInsightKind.failures:
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          statPanel(
+            text(zh: '失败概览', en: 'Failure overview'),
+            Icons.report_rounded,
+            [
+              metric(
+                Icons.error_outline_rounded,
+                text(zh: '失败数量', en: 'Failures'),
+                '${data.failureTotal}',
+                helper: '${(data.failureRate * 100).toStringAsFixed(1)}%',
+                color: cs.error,
+              ),
+              metric(
+                Icons.call_made_rounded,
+                text(zh: '请求总数', en: 'Requests'),
+                '${data.requestTotal}',
+              ),
+              metric(
+                Icons.warning_amber_rounded,
+                text(zh: '入口错误', en: 'Ingress errors'),
+                '${data.controller.runtimeErrorCount}',
+                color: cs.error,
+              ),
+            ],
+          ),
+          const SizedBox(height: _kProxyOpsGap),
+          recentPanel(
+            title: '失败请求',
+            records: data.records.where((record) => !record.success),
+          ),
+        ],
+      );
+    case _ProxyOpsInsightKind.averageLatency:
+    case _ProxyOpsInsightKind.p95Latency:
+    case _ProxyOpsInsightKind.latencyTrend:
+      final slowest = [...data.records]
+        ..sort((a, b) => b.durationMs.compareTo(a.durationMs));
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          statPanel(
+            text(zh: '耗时概览', en: 'Latency overview'),
+            Icons.timer_rounded,
+            [
+              metric(
+                Icons.speed_rounded,
+                text(zh: '平均耗时', en: 'Average'),
+                '${data.settings.averageDurationMs.toStringAsFixed(0)} ms',
+              ),
+              metric(
+                Icons.timeline_rounded,
+                'P95',
+                '${data.p95LatencyMs} ms',
+                color: cs.tertiary,
+              ),
+              metric(
+                Icons.trending_down_rounded,
+                text(zh: '最慢调用', en: 'Slowest'),
+                slowest.isEmpty ? '0 ms' : '${slowest.first.durationMs} ms',
+                color: cs.error,
+              ),
+            ],
+          ),
+          const SizedBox(height: _kProxyOpsGap),
+          _ProxyOpsTrendPanel(
+            title: text(zh: '耗时曲线', en: 'Latency curve'),
+            subtitle: text(
+              zh: '平均耗时与 P95 尾延迟',
+              en: 'Average and P95 tail latency',
+            ),
+            series: [
+              OpenHandChartSeries(
+                label: text(zh: '平均', en: 'Average'),
+                values: _ProxyOpsTrendRow._latencySeries(data),
+                color: cs.primary,
+              ),
+              OpenHandChartSeries(
+                label: 'P95',
+                values: _ProxyOpsTrendRow._p95Series(data),
+                color: cs.tertiary,
+              ),
+            ],
+            valueSuffix: ' ms',
+          ),
+          const SizedBox(height: _kProxyOpsGap),
+          recentPanel(title: '最慢调用', records: slowest.take(20)),
+        ],
+      );
+    case _ProxyOpsInsightKind.tokens:
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          statPanel(
+            text(zh: 'Token 消耗', en: 'Token usage'),
+            Icons.token_rounded,
+            [
+              metric(
+                Icons.token_rounded,
+                text(zh: 'Token 总量', en: 'Total tokens'),
+                '${data.settings.totalTokens}',
+              ),
+              metric(
+                Icons.call_made_rounded,
+                text(zh: '请求总数', en: 'Requests'),
+                '${data.requestTotal}',
+              ),
+              metric(
+                Icons.analytics_rounded,
+                text(zh: '平均每次', en: 'Average/request'),
+                data.requestTotal <= 0
+                    ? '0'
+                    : (data.settings.totalTokens / data.requestTotal)
+                          .toStringAsFixed(1),
+              ),
+            ],
+          ),
+          const SizedBox(height: _kProxyOpsGap),
+          _ProxyOpsDetailDistribution(
+            title: text(zh: '模型 Token 请求分布', en: 'Token request model mix'),
+            icon: Icons.model_training_rounded,
+            values: _countProxyBy(
+              data.records,
+              (record) => record.modelId,
+              text(zh: '未知', en: 'Unknown'),
+            ),
+          ),
+        ],
+      );
+    case _ProxyOpsInsightKind.inbound:
+    case _ProxyOpsInsightKind.outbound:
+      final inbound = kind == _ProxyOpsInsightKind.inbound;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          statPanel(
+            inbound
+                ? text(zh: '入口流量', en: 'Inbound traffic')
+                : text(zh: '出口流量', en: 'Outbound traffic'),
+            inbound ? Icons.south_west_rounded : Icons.north_east_rounded,
+            [
+              metric(
+                inbound ? Icons.south_west_rounded : Icons.north_east_rounded,
+                inbound
+                    ? text(zh: '入口流量', en: 'Inbound')
+                    : text(zh: '出口流量', en: 'Outbound'),
+                formatByteSize(
+                  inbound
+                      ? data.controller.runtimeInboundBytes
+                      : data.controller.runtimeOutboundBytes,
+                ),
+              ),
+              metric(
+                Icons.call_made_rounded,
+                text(zh: '请求总数', en: 'Requests'),
+                '${data.requestTotal}',
+              ),
+            ],
+          ),
+          const SizedBox(height: _kProxyOpsGap),
+          recentPanel(),
+        ],
+      );
+    case _ProxyOpsInsightKind.exposedModels:
+      return _ProxyOpsRoutePanel(data: data, showBackends: false);
+    case _ProxyOpsInsightKind.backends:
+      return _ProxyOpsRoutePanel(data: data, showBackends: true);
+    case _ProxyOpsInsightKind.requestTrend:
+      return _ProxyOpsTrendPanel(
+        title: text(zh: '请求趋势', en: 'Request trend'),
+        subtitle: text(
+          zh: '最近 12 个采样桶 · 成功与失败',
+          en: 'Last 12 samples · success and failure',
+        ),
+        series: [
+          OpenHandChartSeries(
+            label: text(zh: '成功', en: 'Success'),
+            values: data.trendSuccess,
+            color: OpenHandStatusColors.success,
+          ),
+          OpenHandChartSeries(
+            label: text(zh: '失败', en: 'Failure'),
+            values: data.trendFailure,
+            color: cs.error,
+          ),
+        ],
+        valueSuffix: '',
+      );
+    case _ProxyOpsInsightKind.statusMix:
+      return _ProxyOpsDetailDistribution(
+        title: text(zh: '状态分布', en: 'Status mix'),
+        icon: Icons.donut_small_rounded,
+        values: {
+          text(zh: '成功', en: 'Success'): data.successTotal,
+          text(zh: '失败', en: 'Failure'): data.failureTotal,
+        },
+      );
+    case _ProxyOpsInsightKind.providerMix:
+      return _ProxyOpsDetailDistribution(
+        title: text(zh: '提供商分布', en: 'Provider mix'),
+        icon: Icons.hub_outlined,
+        values: _countProxyBy(
+          data.records,
+          (record) => data.providerLabelFor(
+            record,
+            unknown: text(zh: '未知', en: 'Unknown'),
+          ),
+          text(zh: '未知', en: 'Unknown'),
+        ),
+      );
+    case _ProxyOpsInsightKind.modelMix:
+      return _ProxyOpsDetailDistribution(
+        title: text(zh: '模型分布', en: 'Model mix'),
+        icon: Icons.model_training_outlined,
+        values: _countProxyBy(
+          data.records,
+          (record) => record.modelId,
+          text(zh: '未知', en: 'Unknown'),
+        ),
+      );
+    case _ProxyOpsInsightKind.clientMix:
+      return _ProxyOpsDetailDistribution(
+        title: text(zh: '协议与客户端', en: 'Protocol and clients'),
+        icon: Icons.devices_other_rounded,
+        values: _countProxyBy(
+          data.records,
+          _ProxyOpsDistributionGrid._clientDistributionLabel,
+          text(zh: '未知', en: 'Unknown'),
+        ),
+      );
+    case _ProxyOpsInsightKind.recentRequest:
+      return recentPanel();
+  }
+}
+
+int _proxyOpsCurrentRpm(_ProxyOpsSnapshot data) {
+  final now = DateTime.now();
+  return data.records.where((record) {
+    final age = now.difference(record.startedAt);
+    return age >= Duration.zero && age < const Duration(minutes: 1);
+  }).length;
+}
+
+Map<String, int> _countProxyBy(
+  Iterable<AiModelProxyRequestRecord> records,
+  String Function(AiModelProxyRequestRecord) keyOf,
+  String unknown,
+) {
+  final result = <String, int>{};
+  for (final record in records) {
+    final key = keyOf(record).trim();
+    final normalized = key.isEmpty ? unknown : key;
+    result[normalized] = (result[normalized] ?? 0) + 1;
+  }
+  return result;
+}
+
+class _ProxyOpsDetailDistribution extends StatelessWidget {
+  const _ProxyOpsDetailDistribution({
+    required this.title,
+    required this.icon,
+    required this.values,
+  });
+
+  final String title;
+  final IconData icon;
+  final Map<String, int> values;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final sorted = values.entries.where((entry) => entry.value > 0).toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final total = sorted.fold<int>(0, (sum, entry) => sum + entry.value);
+    final palette = [
+      cs.primary,
+      cs.tertiary,
+      cs.secondary,
+      OpenHandStatusColors.success,
+      OpenHandStatusColors.warning,
+      cs.error,
+    ];
+    return _ProxyOpsPanel(
+      title: title,
+      icon: icon,
+      child: sorted.isEmpty
+          ? Text(
+              openHandTextResolver(context)(
+                zh: '暂无样本数据。',
+                en: 'No samples yet.',
+              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            )
+          : Column(
+              children: [
+                for (var index = 0; index < sorted.length; index++)
+                  _ProxyOpsDistributionRow(
+                    label: sorted[index].key,
+                    value: sorted[index].value,
+                    total: total,
+                    color: palette[index % palette.length],
+                  ),
+              ],
+            ),
+    );
+  }
+}
+
+class _ProxyOpsRoutePanel extends StatelessWidget {
+  const _ProxyOpsRoutePanel({required this.data, required this.showBackends});
+
+  final _ProxyOpsSnapshot data;
+  final bool showBackends;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = openHandTextResolver(context);
+    final routes = data.settings.routes
+        .where((route) => route.enabled)
+        .toList(growable: false);
+    final rows = <Widget>[];
+    for (final route in routes) {
+      if (!showBackends) {
+        rows.add(
+          _ProxyOpsRouteRow(
+            title: route.exposedModel,
+            subtitle:
+                '${route.backends.where((backend) => backend.enabled).length} ${text(zh: '个后备模型', en: 'backends')}',
+            icon: Icons.hub_rounded,
+          ),
+        );
+      } else {
+        for (final backend in route.backends.where(
+          (backend) => backend.enabled,
+        )) {
+          rows.add(
+            _ProxyOpsRouteRow(
+              title: backend.modelId,
+              subtitle:
+                  '${data.providerLabelForId(backend.providerId) ?? backend.providerId} · ${route.exposedModel}',
+              icon: Icons.storage_rounded,
+            ),
+          );
+        }
+      }
+    }
+    return _ProxyOpsPanel(
+      title: showBackends
+          ? text(zh: '后备模型', en: 'Backends')
+          : text(zh: '启用模型', en: 'Exposed models'),
+      icon: showBackends ? Icons.storage_rounded : Icons.hub_rounded,
+      child: rows.isEmpty
+          ? Text(
+              text(zh: '暂无启用路由。', en: 'No enabled routes.'),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            )
+          : Column(
+              children: [
+                for (var i = 0; i < rows.length; i++) ...[
+                  if (i > 0) const Divider(height: 18),
+                  rows[i],
+                ],
+              ],
+            ),
+    );
+  }
+}
+
+class _ProxyOpsRouteRow extends StatelessWidget {
+  const _ProxyOpsRouteRow({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Row(
+      children: [
+        Icon(icon, color: cs.primary, size: 20),
+        kOpenHandHGap10,
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        kOpenHandHGap10,
+        Flexible(
+          child: Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.end,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+IconData _proxyOpsInsightIcon(_ProxyOpsInsightKind kind) => switch (kind) {
+  _ProxyOpsInsightKind.connections => Icons.link_rounded,
+  _ProxyOpsInsightKind.activeRequests => Icons.bolt_rounded,
+  _ProxyOpsInsightKind.requests => Icons.call_made_rounded,
+  _ProxyOpsInsightKind.ingress => Icons.input_rounded,
+  _ProxyOpsInsightKind.succeeded => Icons.task_alt_rounded,
+  _ProxyOpsInsightKind.failures ||
+  _ProxyOpsInsightKind.ingressErrors => Icons.error_outline_rounded,
+  _ProxyOpsInsightKind.averageLatency ||
+  _ProxyOpsInsightKind.p95Latency ||
+  _ProxyOpsInsightKind.latencyTrend => Icons.speed_rounded,
+  _ProxyOpsInsightKind.tokens => Icons.token_rounded,
+  _ProxyOpsInsightKind.inbound => Icons.south_west_rounded,
+  _ProxyOpsInsightKind.outbound => Icons.north_east_rounded,
+  _ProxyOpsInsightKind.exposedModels => Icons.hub_rounded,
+  _ProxyOpsInsightKind.backends => Icons.storage_rounded,
+  _ProxyOpsInsightKind.requestTrend => Icons.show_chart_rounded,
+  _ProxyOpsInsightKind.statusMix => Icons.donut_small_rounded,
+  _ProxyOpsInsightKind.providerMix => Icons.hub_outlined,
+  _ProxyOpsInsightKind.modelMix => Icons.model_training_outlined,
+  _ProxyOpsInsightKind.clientMix => Icons.devices_other_rounded,
+  _ProxyOpsInsightKind.recentRequest => Icons.receipt_long_rounded,
+};
+
+String _proxyOpsInsightTitle(BuildContext context, _ProxyOpsInsightKind kind) {
+  final text = openHandTextResolver(context);
+  return switch (kind) {
+    _ProxyOpsInsightKind.connections => text(zh: '连接明细', en: 'Connections'),
+    _ProxyOpsInsightKind.activeRequests => text(
+      zh: '活跃请求',
+      en: 'Active requests',
+    ),
+    _ProxyOpsInsightKind.requests => text(zh: '请求总览', en: 'Requests'),
+    _ProxyOpsInsightKind.ingress => text(zh: '入口请求', en: 'Ingress requests'),
+    _ProxyOpsInsightKind.succeeded => text(
+      zh: '成功请求',
+      en: 'Succeeded requests',
+    ),
+    _ProxyOpsInsightKind.failures => text(zh: '失败明细', en: 'Failures'),
+    _ProxyOpsInsightKind.ingressErrors => text(
+      zh: '入口错误',
+      en: 'Ingress errors',
+    ),
+    _ProxyOpsInsightKind.averageLatency ||
+    _ProxyOpsInsightKind.p95Latency ||
+    _ProxyOpsInsightKind.latencyTrend => text(zh: '耗时分析', en: 'Latency'),
+    _ProxyOpsInsightKind.tokens => text(zh: 'Token 消耗', en: 'Token usage'),
+    _ProxyOpsInsightKind.inbound => text(zh: '入口流量', en: 'Inbound traffic'),
+    _ProxyOpsInsightKind.outbound => text(zh: '出口流量', en: 'Outbound traffic'),
+    _ProxyOpsInsightKind.exposedModels => text(
+      zh: '启用模型',
+      en: 'Exposed models',
+    ),
+    _ProxyOpsInsightKind.backends => text(zh: '后备模型', en: 'Backends'),
+    _ProxyOpsInsightKind.requestTrend => text(zh: '请求趋势', en: 'Request trend'),
+    _ProxyOpsInsightKind.statusMix => text(zh: '状态分布', en: 'Status mix'),
+    _ProxyOpsInsightKind.providerMix => text(zh: '提供商分布', en: 'Provider mix'),
+    _ProxyOpsInsightKind.modelMix => text(zh: '模型分布', en: 'Model mix'),
+    _ProxyOpsInsightKind.clientMix => text(
+      zh: '协议与客户端',
+      en: 'Protocol and clients',
+    ),
+    _ProxyOpsInsightKind.recentRequest => text(
+      zh: '请求明细',
+      en: 'Request details',
+    ),
+  };
+}
+
+Color _proxyOpsInsightTone(BuildContext context, _ProxyOpsInsightKind kind) {
+  final cs = Theme.of(context).colorScheme;
+  return switch (kind) {
+    _ProxyOpsInsightKind.succeeded => OpenHandStatusColors.success,
+    _ProxyOpsInsightKind.failures ||
+    _ProxyOpsInsightKind.ingressErrors => cs.error,
+    _ProxyOpsInsightKind.activeRequests ||
+    _ProxyOpsInsightKind.p95Latency => cs.tertiary,
+    _ => cs.primary,
   };
 }
