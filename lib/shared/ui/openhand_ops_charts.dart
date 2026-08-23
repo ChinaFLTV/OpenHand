@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../../shared/ui/openhand_spacing.dart';
+import '../util/localized_text.dart';
 import '../util/timer_safety.dart';
 import 'animated_dialog.dart';
 import 'motion_durations.dart';
@@ -34,6 +35,12 @@ const double _kFillTrackHeight = 10;
 const double _kFillTrackRadius = 5;
 const double _kVerticalBarChartHeight = 156;
 const double _kVerticalBarMaxSlotWidth = 76;
+const double _kTrendLaneTrackHeight = 8;
+const double _kTrendLaneTimeWidth = 56;
+const double _kTrendLaneValueWidth = 72;
+const double _kTrendLaneSeriesWidth = 72;
+const double _kTrendLaneMaxHeight = 320;
+const double _kTrendLaneCompactBreakpoint = 360;
 const double _kVerticalBarSlotGap = 14;
 const double _kVerticalBarBodyMaxWidth = 42;
 const double _kStatusStripHeight = 38;
@@ -1686,6 +1693,196 @@ class _MeterPainter extends CustomPainter {
 }
 
 enum OpenHandComparisonBarOrientation { horizontal, vertical }
+
+/// 趋势图配套的分钟泳道：按时间铺满宽度，用色条表达各序列，而不是窄列表。
+class OpenHandOperationalTrendLanes extends StatelessWidget {
+  const OpenHandOperationalTrendLanes({
+    super.key,
+    required this.series,
+    required this.xLabels,
+    this.valueSuffix = '',
+    this.formatValue,
+  });
+
+  final List<OpenHandChartSeries> series;
+  final List<String> xLabels;
+  final String valueSuffix;
+  final String Function(double value)? formatValue;
+
+  @override
+  Widget build(BuildContext context) {
+    if (series.isEmpty) return const SizedBox.shrink();
+    final length = math.max(
+      xLabels.length,
+      series.fold<int>(0, (max, item) => math.max(max, item.values.length)),
+    );
+    final indexes = <int>[
+      for (var i = length - 1; i >= 0; i--)
+        if (series.any((item) => i < item.values.length && item.values[i] > 0))
+          i,
+    ];
+    if (indexes.isEmpty) return const SizedBox.shrink();
+    var maximum = 0.0;
+    for (final item in series) {
+      for (final value in item.values) {
+        maximum = math.max(maximum, _nonNegative(value));
+      }
+    }
+    if (maximum <= 0) return const SizedBox.shrink();
+    final theme = Theme.of(context);
+    final text = openHandTextResolver(context);
+    final track = theme.colorScheme.onSurface.withValues(alpha: 0.08);
+    final named = series.length > 1;
+    return Semantics(
+      label: text(
+        zh: '趋势明细，共 ${indexes.length} 个时段',
+        en: 'Trend detail, ${indexes.length} intervals',
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          kOpenHandGap14,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: _kTrendLaneMaxHeight),
+            child: ListView.separated(
+              shrinkWrap: true,
+              primary: false,
+              padding: EdgeInsets.zero,
+              physics: openHandDialogAwareScrollPhysics(context),
+              itemCount: indexes.length,
+              separatorBuilder: (_, index) => kOpenHandGap8,
+              itemBuilder: (context, n) {
+                final index = indexes[n];
+                return _laneCard(
+                  theme: theme,
+                  track: track,
+                  named: named,
+                  maximum: maximum,
+                  label: index < xLabels.length ? xLabels[index] : '$index',
+                  values: [
+                    for (final item in series)
+                      index < item.values.length
+                          ? _nonNegative(item.values[index])
+                          : 0.0,
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _laneValue(double value) {
+    if (formatValue != null) return formatValue!(value);
+    final rounded = value.round();
+    return valueSuffix.isEmpty ? '$rounded' : '$rounded$valueSuffix';
+  }
+
+  Widget _laneCard({
+    required ThemeData theme,
+    required Color track,
+    required bool named,
+    required double maximum,
+    required String label,
+    required List<double> values,
+  }) {
+    var lead = series.first.color;
+    var leadValue = 0.0;
+    for (var i = 0; i < series.length && i < values.length; i++) {
+      if (values[i] >= leadValue) {
+        leadValue = values[i];
+        lead = series[i].color;
+      }
+    }
+    final tracks = <Widget>[
+      for (var i = 0; i < series.length; i++) ...[
+        if (i != 0) kOpenHandGap6,
+        Row(
+          children: [
+            if (named) ...[
+              SizedBox(
+                width: _kTrendLaneSeriesWidth,
+                child: Text(
+                  series[i].label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: series[i].color,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              kOpenHandHGap8,
+            ],
+            Expanded(
+              child: _ChartFillTrack(
+                ratio: maximum <= 0 || i >= values.length
+                    ? 0
+                    : values[i] / maximum,
+                color: series[i].color,
+                trackColor: track,
+                height: _kTrendLaneTrackHeight,
+              ),
+            ),
+            kOpenHandHGap8,
+            SizedBox(
+              width: _kTrendLaneValueWidth,
+              child: Text(
+                _laneValue(i < values.length ? values[i] : 0),
+                textAlign: TextAlign.end,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: series[i].color,
+                  fontWeight: FontWeight.w900,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    ];
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: lead.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(kOpenHandRadius12),
+        border: Border.all(color: lead.withValues(alpha: 0.22)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final time = Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            );
+            if (constraints.maxWidth < _kTrendLaneCompactBreakpoint) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [time, kOpenHandGap8, ...tracks],
+              );
+            }
+            return Row(
+              children: [
+                SizedBox(width: _kTrendLaneTimeWidth, child: time),
+                kOpenHandHGap10,
+                Expanded(child: Column(children: tracks)),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
 
 /// 通用的横向或纵向比较条；每个分段使用调用者提供的颜色。
 class OpenHandOperationalComparisonBars extends StatelessWidget {

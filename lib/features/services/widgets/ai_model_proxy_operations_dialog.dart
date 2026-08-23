@@ -2104,7 +2104,6 @@ class _ProxyOpsTrendDetailPanel extends StatelessWidget {
     required this.subtitle,
     required this.series,
     required this.minutes,
-    required this.columns,
     required this.emptyLabel,
     this.valueSuffix = '',
   });
@@ -2114,26 +2113,13 @@ class _ProxyOpsTrendDetailPanel extends StatelessWidget {
   final String subtitle;
   final List<OpenHandChartSeries> series;
   final List<DateTime> minutes;
-  final List<String> columns;
   final String emptyLabel;
   final String valueSuffix;
 
   @override
   Widget build(BuildContext context) {
-    final text = openHandTextResolver(context);
-    final rankRows = <OpenHandOperationalRankRow>[
-      for (var i = minutes.length - 1; i >= 0; i--)
-        if (series.any((s) => i < s.values.length && s.values[i] > 0))
-          OpenHandOperationalRankRow(
-            cells: [
-              formatHourMinuteLocal(minutes[i]),
-              for (final item in series)
-                i < item.values.length
-                    ? '${item.values[i].round()}$valueSuffix'
-                    : '-',
-            ],
-            value: i,
-          ),
+    final labels = [
+      for (final minute in minutes) formatHourMinuteLocal(minute),
     ];
     return _ProxyOpsPanel(
       icon: icon,
@@ -2145,26 +2131,18 @@ class _ProxyOpsTrendDetailPanel extends StatelessWidget {
           OpenHandOperationalTrendChart(
             series: series,
             valueSuffix: valueSuffix,
-            xLabels: [
-              for (final minute in minutes) formatHourMinuteLocal(minute),
-            ],
+            xLabels: labels,
             emptyLabel: emptyLabel,
             area: true,
-            externalLegendProvided: rankRows.isNotEmpty,
+            showLegend: false,
+            externalLegendProvided: true,
             onSelectionChanged: null,
           ),
-          if (rankRows.isNotEmpty) ...[
-            kOpenHandGap14,
-            OpenHandOperationalRankTable(
-              sortByValue: false,
-              emptyLabel: emptyLabel,
-              headers: [
-                text(zh: '时间', en: 'Time'),
-                ...columns,
-              ],
-              rows: rankRows,
-            ),
-          ],
+          OpenHandOperationalTrendLanes(
+            series: series,
+            xLabels: labels,
+            valueSuffix: valueSuffix,
+          ),
         ],
       ),
     );
@@ -3123,10 +3101,6 @@ Widget _proxyOpsRequestTrendPanel(
       ),
     ],
     minutes: data.bucketMinutes,
-    columns: [
-      text(zh: '成功', en: 'Success'),
-      text(zh: '失败', en: 'Failed'),
-    ],
     emptyLabel: text(zh: '等待请求样本', en: 'Waiting for traffic'),
   );
 }
@@ -3155,10 +3129,6 @@ Widget _proxyOpsLatencyOverlayPanel(
     ],
     minutes: data.bucketMinutes,
     valueSuffix: 'ms',
-    columns: [
-      text(zh: '平均', en: 'Average'),
-      'p95',
-    ],
     emptyLabel: text(zh: '暂无耗时样本', en: 'No latency samples'),
   );
 }
@@ -3434,7 +3404,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               ),
             ],
             minutes: data.bucketMinutes,
-            columns: [text(zh: '吞吐', en: 'Throughput')],
             emptyLabel: text(zh: '等待请求样本', en: 'Waiting for traffic'),
           ),
           _proxyOpsServiceHealthPanel(context, data),
@@ -3916,7 +3885,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               ],
               minutes: data.bucketMinutes,
               valueSuffix: 'ms',
-              columns: [text(zh: '平均', en: 'Average')],
               emptyLabel: text(zh: '暂无耗时样本', en: 'No latency samples'),
             ),
           ];
@@ -4002,7 +3970,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               ],
               minutes: data.bucketMinutes,
               valueSuffix: 'ms',
-              columns: ['p95'],
               emptyLabel: text(zh: '暂无耗时样本', en: 'No latency samples'),
             ),
             _proxyOpsChartPanel(
@@ -4067,7 +4034,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ),
               ],
               minutes: data.bucketMinutes,
-              columns: ['Token'],
               emptyLabel: text(zh: '暂无 Token 样本', en: 'No token samples'),
             ),
             _proxyOpsGroupTablePanel(
@@ -4556,7 +4522,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
             }
           }
           final minutes = data.bucketMinutes;
-          final burstRows = <OpenHandOperationalRankRow>[];
+          final burstSegments = <OpenHandChartSegment>[];
           for (var i = 0; i < minutes.length; i++) {
             final ok = i < data.trendSuccess.length
                 ? data.trendSuccess[i]
@@ -4566,19 +4532,16 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 : 0.0;
             final total = ok + fail;
             if (total <= 0) continue;
-            burstRows.add(
-              OpenHandOperationalRankRow(
-                cells: [
-                  formatHourMinuteLocal(minutes[i]),
-                  '${total.round()}',
-                  '${ok.round()}',
-                  '${fail.round()}',
-                  _proxyOpsPercentLabel(fail / total),
-                ],
+            burstSegments.add(
+              OpenHandChartSegment(
+                label: formatHourMinuteLocal(minutes[i]),
                 value: total,
+                color: fail > 0 ? cs.error : success,
+                valueLabel: '${total.round()}',
               ),
             );
           }
+          burstSegments.sort((a, b) => b.safeValue.compareTo(a.safeValue));
           final streamGroups = data.groupBy(
             (record) => record.stream
                 ? text(zh: '流式', en: 'Stream')
@@ -4650,19 +4613,17 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ],
               ),
             ),
-            _proxyOpsRankTablePanel(
+            _proxyOpsChartPanel(
               icon: Icons.bolt_rounded,
               title: text(zh: '突发分钟', en: 'Burst Minutes'),
-              empty: burstRows.isEmpty,
+              empty: burstSegments.isEmpty,
               emptyLabel: emptyChart,
-              headers: [
-                text(zh: '分钟', en: 'Minute'),
-                text(zh: '总量', en: 'Total'),
-                text(zh: '成功', en: 'OK'),
-                text(zh: '失败', en: 'Fail'),
-                text(zh: '失败率', en: 'Fail rate'),
-              ],
-              rows: burstRows,
+              subtitle: text(zh: '按请求量从高到低', en: 'Ranked by request volume'),
+              chart: OpenHandOperationalComparisonBars(
+                orientation: OpenHandComparisonBarOrientation.horizontal,
+                emptyLabel: emptyChart,
+                segments: burstSegments,
+              ),
             ),
           ];
         },
@@ -4715,22 +4676,22 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
             [success, cs.primary, OpenHandStatusColors.warning],
           );
           final minutes = data.bucketMinutes;
-          final degraded = <OpenHandOperationalRankRow>[
-            for (var i = 0; i < minutes.length; i++)
-              if (i < data.p95LatencyBuckets.length &&
-                  data.p95LatencyBuckets[i] >= _kProxyOpsSlowLatencyMs)
-                OpenHandOperationalRankRow(
-                  cells: [
-                    formatHourMinuteLocal(minutes[i]),
-                    _proxyOpsDurationLabel(
-                      data.averageLatencyBuckets[i].round(),
-                    ),
-                    _proxyOpsDurationLabel(data.p95LatencyBuckets[i].round()),
-                    '${(i < data.throughputBuckets.length ? data.throughputBuckets[i] : 0).round()}',
-                  ],
-                  value: data.p95LatencyBuckets[i],
-                ),
-          ];
+          final degradedLabels = <String>[];
+          final degradedAvg = <double>[];
+          final degradedP95 = <double>[];
+          for (var i = 0; i < minutes.length; i++) {
+            if (i >= data.p95LatencyBuckets.length ||
+                data.p95LatencyBuckets[i] < _kProxyOpsSlowLatencyMs) {
+              continue;
+            }
+            degradedLabels.add(formatHourMinuteLocal(minutes[i]));
+            degradedAvg.add(
+              i < data.averageLatencyBuckets.length
+                  ? data.averageLatencyBuckets[i]
+                  : 0,
+            );
+            degradedP95.add(data.p95LatencyBuckets[i]);
+          }
           final hourP95 = _proxyOpsHourSegments(
             data.hourStats,
             cs.tertiary,
@@ -4817,21 +4778,34 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 segments: bands,
               ),
             ),
-            _proxyOpsRankTablePanel(
+            _proxyOpsChartPanel(
               icon: Icons.report_rounded,
               title: text(zh: '降级分钟', en: 'Degraded Minutes'),
-              empty: degraded.isEmpty,
+              empty: degradedLabels.isEmpty,
               emptyLabel: text(
                 zh: '窗口内无 P95 ≥ 3s',
                 en: 'No P95 ≥ 3s in window',
               ),
-              headers: [
-                text(zh: '分钟', en: 'Minute'),
-                text(zh: '均耗时', en: 'Avg'),
-                'P95',
-                text(zh: '请求', en: 'Requests'),
-              ],
-              rows: degraded,
+              subtitle: text(
+                zh: '仅列出 P95 ≥ 3s 的分钟',
+                en: 'Minutes whose P95 is at least 3s',
+              ),
+              chart: OpenHandOperationalTrendLanes(
+                series: [
+                  OpenHandChartSeries(
+                    label: text(zh: '平均', en: 'Average'),
+                    values: degradedAvg,
+                    color: cs.primary,
+                  ),
+                  OpenHandChartSeries(
+                    label: 'P95',
+                    values: degradedP95,
+                    color: cs.tertiary,
+                  ),
+                ],
+                xLabels: degradedLabels,
+                formatValue: (value) => _proxyOpsDurationLabel(value.round()),
+              ),
             ),
             _proxyOpsChartPanel(
               icon: Icons.view_week_rounded,

@@ -17528,8 +17528,7 @@ class _McpOpsBarPanel extends StatelessWidget {
   }
 }
 
-/// Trend chart with a per-minute breakdown table, used by the request/latency
-/// drill-downs.
+/// 趋势图配合同一时间轴的色条明细，替代逐分钟表格。
 class _McpOpsTrendDetailPanel extends StatelessWidget {
   const _McpOpsTrendDetailPanel({
     required this.icon,
@@ -17537,7 +17536,6 @@ class _McpOpsTrendDetailPanel extends StatelessWidget {
     required this.subtitle,
     required this.series,
     required this.minutes,
-    required this.columns,
     required this.emptyLabel,
     this.valueSuffix = '',
   });
@@ -17547,37 +17545,14 @@ class _McpOpsTrendDetailPanel extends StatelessWidget {
   final String subtitle;
   final List<OpenHandChartSeries> series;
   final List<DateTime> minutes;
-  final List<String> columns;
   final String emptyLabel;
   final String valueSuffix;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final maxValue = series
-        .expand((item) => item.values)
-        .fold<double>(0, (max, value) => math.max(max, value));
-    final rows = <TableRow>[];
-    for (var i = minutes.length - 1; i >= 0; i--) {
-      final hasData = series.any((s) => i < s.values.length && s.values[i] > 0);
-      if (!hasData) continue;
-      rows.add(
-        TableRow(
-          children: [
-            _McpOpsTableCell(text: formatHourMinuteLocal(minutes[i])),
-            for (final s in series)
-              _McpOpsTableCell(
-                text: i < s.values.length
-                    ? '${s.values[i].round()}$valueSuffix'
-                    : '-',
-                color: s.color,
-                alignEnd: true,
-              ),
-          ],
-        ),
-      );
-    }
+    final labels = [
+      for (final minute in minutes) formatHourMinuteLocal(minute),
+    ];
     return _McpOpsPanel(
       icon: icon,
       title: title,
@@ -17585,55 +17560,21 @@ class _McpOpsTrendDetailPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            height: 208,
-            child: RepaintBoundary(
-              child: CustomPaint(
-                painter: OpenHandSmoothLineChartPainter(
-                  series: series,
-                  gridColor: cs.outlineVariant.withValues(alpha: 0.46),
-                  labelColor: cs.onSurfaceVariant,
-                  emptyLabel: maxValue <= 0 ? emptyLabel : '',
-                  valueSuffix: valueSuffix,
-                  textDirection: Directionality.of(context),
-                ),
-              ),
-            ),
+          OpenHandOperationalTrendChart(
+            series: series,
+            valueSuffix: valueSuffix,
+            xLabels: labels,
+            emptyLabel: emptyLabel,
+            area: true,
+            showLegend: false,
+            externalLegendProvided: true,
+            onSelectionChanged: null,
           ),
-          kOpenHandGap12,
-          Wrap(
-            spacing: 10,
-            runSpacing: 8,
-            children: [
-              for (final item in series)
-                _McpOpsLegendPill(label: item.label, color: item.color),
-            ],
+          OpenHandOperationalTrendLanes(
+            series: series,
+            xLabels: labels,
+            valueSuffix: valueSuffix,
           ),
-          if (rows.isNotEmpty) ...[
-            kOpenHandGap14,
-            Table(
-              columnWidths: const <int, TableColumnWidth>{
-                0: FlexColumnWidth(1.2),
-              },
-              children: [
-                TableRow(
-                  children: [
-                    _McpOpsTableCell(
-                      text: _localizedText(context, zh: '时间', en: 'Time'),
-                      header: true,
-                    ),
-                    for (final column in columns)
-                      _McpOpsTableCell(
-                        text: column,
-                        header: true,
-                        alignEnd: true,
-                      ),
-                  ],
-                ),
-                ...rows,
-              ],
-            ),
-          ],
         ],
       ),
     );
@@ -17841,39 +17782,6 @@ class _McpOpsMiniTag extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _McpOpsTableCell extends StatelessWidget {
-  const _McpOpsTableCell({
-    required this.text,
-    this.header = false,
-    this.alignEnd = false,
-    this.color,
-  });
-
-  final String text;
-  final bool header;
-  final bool alignEnd;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
-      child: _McpOpsCopyText(
-        text,
-        textAlign: alignEnd ? TextAlign.end : TextAlign.start,
-        style:
-            (header ? theme.textTheme.labelSmall : theme.textTheme.labelMedium)
-                ?.copyWith(
-                  color: color ?? (header ? cs.onSurfaceVariant : null),
-                  fontWeight: header ? FontWeight.w800 : FontWeight.w600,
-                ),
       ),
     );
   }
@@ -18669,7 +18577,7 @@ List<Widget> _mcpOpsOutcomeTiles(
   ];
 }
 
-/// Request trend chart + per-minute table.
+/// 请求趋势图与同轴色条明细。
 Widget _mcpOpsRequestTrendPanel(BuildContext context, _McpOpsInsightData data) {
   return _McpOpsTrendDetailPanel(
     icon: Icons.show_chart_rounded,
@@ -18681,11 +18589,6 @@ Widget _mcpOpsRequestTrendPanel(BuildContext context, _McpOpsInsightData data) {
     ),
     series: data.stats.requestTrendSeries(context),
     minutes: data.stats.bucketMinutes,
-    columns: [
-      _localizedText(context, zh: '成功', en: 'Success'),
-      _localizedText(context, zh: '拦截', en: 'Blocked'),
-      _localizedText(context, zh: '失败', en: 'Failed'),
-    ],
     emptyLabel: _localizedText(
       context,
       zh: '等待请求样本',
@@ -18694,7 +18597,7 @@ Widget _mcpOpsRequestTrendPanel(BuildContext context, _McpOpsInsightData data) {
   );
 }
 
-/// Latency trend chart + per-minute table.
+/// 耗时趋势图与同轴色条明细。
 Widget _mcpOpsLatencyTrendPanel(BuildContext context, _McpOpsInsightData data) {
   return _McpOpsTrendDetailPanel(
     icon: Icons.timeline_rounded,
@@ -18707,10 +18610,6 @@ Widget _mcpOpsLatencyTrendPanel(BuildContext context, _McpOpsInsightData data) {
     series: data.stats.latencyTrendSeries(context),
     minutes: data.stats.bucketMinutes,
     valueSuffix: 'ms',
-    columns: [
-      _localizedText(context, zh: '平均', en: 'Average'),
-      'p95',
-    ],
     emptyLabel: _localizedText(context, zh: '暂无耗时样本', en: 'No latency samples'),
   );
 }
