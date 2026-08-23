@@ -3330,7 +3330,6 @@ class _HeatmapHoverCard extends StatelessWidget {
               shrinkWrap: true,
               padding: EdgeInsets.zero,
               children: [
-                Container(height: 4, color: accent),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
                   child: Column(
