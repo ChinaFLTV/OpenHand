@@ -13,8 +13,8 @@ import '../../ai/index.dart';
 import '../ai_model_health_controller.dart';
 import '../model/ai_model_health.dart';
 
-// 输入框主题的 60px 边框加辅助说明后的统一表单高度。
-const double _aiHealthControlHeight = 84;
+// 与应用输入框主题边框一致的统一控件高度。
+const double _aiHealthControlHeight = 60;
 
 class AiModelHealthSettingsPanel extends StatefulWidget {
   const AiModelHealthSettingsPanel({super.key, this.showRequestMode = false});
@@ -88,26 +88,23 @@ class _AiModelHealthSettingsPanelState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: SizedBox(
-                height: _aiHealthControlHeight,
-                child: TextField(
-                  controller: _intervalController,
-                  focusNode: _intervalFocusNode,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: text(zh: '巡检间隔（分钟）', en: 'Interval (minutes)'),
-                    helperText: text(
-                      zh: '范围 1-1440 分钟。',
-                      en: 'Range: 1-1440 minutes.',
-                    ),
+              child: TextField(
+                controller: _intervalController,
+                focusNode: _intervalFocusNode,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: text(zh: '巡检间隔（分钟）', en: 'Interval (minutes)'),
+                  helperText: text(
+                    zh: '范围 1-1440 分钟。',
+                    en: 'Range: 1-1440 minutes.',
                   ),
-                  onSubmitted: (value) {
-                    final minutes = int.tryParse(value);
-                    if (minutes != null) {
-                      controller.updateSettings(intervalMinutes: minutes);
-                    }
-                  },
                 ),
+                onSubmitted: (value) {
+                  final minutes = int.tryParse(value);
+                  if (minutes != null) {
+                    controller.updateSettings(intervalMinutes: minutes);
+                  }
+                },
               ),
             ),
             kOpenHandHGap12,
@@ -121,6 +118,7 @@ class _AiModelHealthSettingsPanelState
                 child: DropdownButtonHideUnderline(
                   child: AnimatedDropdownButton<int>(
                     isExpanded: true,
+                    isDense: true,
                     value: settings.concurrency,
                     items: [
                       for (final value in const <int>[1, 2, 4, 8, 16, 32])
@@ -188,6 +186,7 @@ class _AiModelHealthSettingsPanelState
               child: DropdownButtonHideUnderline(
                 child: AnimatedDropdownButton<AiModelHealthRequestMode>(
                   isExpanded: true,
+                  isDense: true,
                   value: settings.requestMode,
                   items: [
                     for (final mode in AiModelHealthRequestMode.values)
