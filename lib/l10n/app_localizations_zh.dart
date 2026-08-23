@@ -4601,6 +4601,41 @@ class AppLocalizationsZh extends AppLocalizations {
   String get mdlEdCacheWrite => '缓存写入价';
 
   @override
+  String get mdlEdOpenRouterMetadataOverrides => 'OpenRouter 元数据覆盖';
+
+  @override
+  String get mdlEdCanonicalSlug => '规范模型标识（canonical_slug）';
+
+  @override
+  String get mdlEdHuggingFaceId => 'Hugging Face 模型标识（hugging_face_id）';
+
+  @override
+  String get mdlEdKnowledgeCutoff => '知识截止日期（knowledge_cutoff）';
+
+  @override
+  String get mdlEdExpirationDate => '过期日期（expiration_date）';
+
+  @override
+  String get mdlEdSupportedParametersCsv => '支持的参数（CSV）';
+
+  @override
+  String get mdlEdSupportedParametersCsvHint =>
+      '例如 input、model、input_type、truncate';
+
+  @override
+  String get mdlEdDefaultParametersJson => '默认参数（JSON）';
+
+  @override
+  String get mdlEdDefaultParametersJsonHint => '例如 encoding_format: float';
+
+  @override
+  String get mdlEdOpenRouterRawMetadata => 'OpenRouter 原始元数据';
+
+  @override
+  String get mdlEdOpenRouterRawMetadataFields =>
+      '包含 id、canonical_slug、hugging_face_id、created、architecture、supported_parameters、default_parameters、supported_voices、knowledge_cutoff、expiration_date 和 links';
+
+  @override
   String get mdlEdReset => '重置';
 
   @override
@@ -15358,6 +15393,41 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get mdlEdCacheWrite => '缓存写入价';
+
+  @override
+  String get mdlEdOpenRouterMetadataOverrides => 'OpenRouter 元資料覆寫';
+
+  @override
+  String get mdlEdCanonicalSlug => '規範模型識別（canonical_slug）';
+
+  @override
+  String get mdlEdHuggingFaceId => 'Hugging Face 模型識別（hugging_face_id）';
+
+  @override
+  String get mdlEdKnowledgeCutoff => '知識截止日期（knowledge_cutoff）';
+
+  @override
+  String get mdlEdExpirationDate => '到期日期（expiration_date）';
+
+  @override
+  String get mdlEdSupportedParametersCsv => '支援的參數（CSV）';
+
+  @override
+  String get mdlEdSupportedParametersCsvHint =>
+      '例如 input、model、input_type、truncate';
+
+  @override
+  String get mdlEdDefaultParametersJson => '預設參數（JSON）';
+
+  @override
+  String get mdlEdDefaultParametersJsonHint => '例如 encoding_format: float';
+
+  @override
+  String get mdlEdOpenRouterRawMetadata => 'OpenRouter 原始元資料';
+
+  @override
+  String get mdlEdOpenRouterRawMetadataFields =>
+      '包含 id、canonical_slug、hugging_face_id、created、architecture、supported_parameters、default_parameters、supported_voices、knowledge_cutoff、expiration_date 與 links';
 
   @override
   String get mdlEdReset => '重置';

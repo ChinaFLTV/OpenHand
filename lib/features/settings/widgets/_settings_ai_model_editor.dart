@@ -4946,6 +4946,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
     return buildOpenHandAlertDialog(
       title: Text(
         AppLocalizations.of(context)!.mdlEdEditModelProfile,
@@ -5997,45 +5998,45 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 ],
               ),
               kOpenHandGap16,
-              _buildSectionHeader('OpenRouter Metadata Overrides'),
+              _buildSectionHeader(l10n.mdlEdOpenRouterMetadataOverrides),
               kOpenHandGap8,
               TextField(
                 controller: _canonicalSlugController,
-                decoration: const InputDecoration(
-                  labelText: 'canonical_slug',
+                decoration: InputDecoration(
+                  labelText: l10n.mdlEdCanonicalSlug,
                   isDense: true,
                 ),
               ),
               kOpenHandGap12,
               TextField(
                 controller: _huggingFaceIdController,
-                decoration: const InputDecoration(
-                  labelText: 'hugging_face_id',
+                decoration: InputDecoration(
+                  labelText: l10n.mdlEdHuggingFaceId,
                   isDense: true,
                 ),
               ),
               kOpenHandGap12,
               TextField(
                 controller: _knowledgeCutoffController,
-                decoration: const InputDecoration(
-                  labelText: 'knowledge_cutoff',
+                decoration: InputDecoration(
+                  labelText: l10n.mdlEdKnowledgeCutoff,
                   isDense: true,
                 ),
               ),
               kOpenHandGap12,
               TextField(
                 controller: _expirationDateController,
-                decoration: const InputDecoration(
-                  labelText: 'expiration_date',
+                decoration: InputDecoration(
+                  labelText: l10n.mdlEdExpirationDate,
                   isDense: true,
                 ),
               ),
               kOpenHandGap12,
               TextField(
                 controller: _supportedParametersController,
-                decoration: const InputDecoration(
-                  labelText: 'supported_parameters (CSV)',
-                  hintText: 'input, model, input_type, truncate',
+                decoration: InputDecoration(
+                  labelText: l10n.mdlEdSupportedParametersCsv,
+                  hintText: l10n.mdlEdSupportedParametersCsvHint,
                   isDense: true,
                 ),
               ),
@@ -6048,9 +6049,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   if (_profileErrorMessage == null) return;
                   setState(() => _profileErrorMessage = null);
                 },
-                decoration: const InputDecoration(
-                  labelText: 'default_parameters (JSON)',
-                  hintText: '{"encoding_format": "float"}',
+                decoration: InputDecoration(
+                  labelText: l10n.mdlEdDefaultParametersJson,
+                  hintText: l10n.mdlEdDefaultParametersJsonHint,
                   alignLabelWithHint: true,
                   isDense: true,
                 ),
@@ -6060,9 +6061,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 tilePadding: EdgeInsets.zero,
                 suppressHoverOverlay: true,
                 circularToggle: true,
-                title: _buildSectionHeader('OpenRouter Raw Metadata'),
+                title: _buildSectionHeader(l10n.mdlEdOpenRouterRawMetadata),
                 subtitle: Text(
-                  'id / canonical_slug / hugging_face_id / created / architecture / supported_parameters / default_parameters / supported_voices / knowledge_cutoff / expiration_date / links',
+                  l10n.mdlEdOpenRouterRawMetadataFields,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),

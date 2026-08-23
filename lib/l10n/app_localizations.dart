@@ -8478,6 +8478,72 @@ abstract class AppLocalizations {
   /// **'缓存写入价'**
   String get mdlEdCacheWrite;
 
+  /// No description provided for @mdlEdOpenRouterMetadataOverrides.
+  ///
+  /// In zh, this message translates to:
+  /// **'OpenRouter 元数据覆盖'**
+  String get mdlEdOpenRouterMetadataOverrides;
+
+  /// No description provided for @mdlEdCanonicalSlug.
+  ///
+  /// In zh, this message translates to:
+  /// **'规范模型标识（canonical_slug）'**
+  String get mdlEdCanonicalSlug;
+
+  /// No description provided for @mdlEdHuggingFaceId.
+  ///
+  /// In zh, this message translates to:
+  /// **'Hugging Face 模型标识（hugging_face_id）'**
+  String get mdlEdHuggingFaceId;
+
+  /// No description provided for @mdlEdKnowledgeCutoff.
+  ///
+  /// In zh, this message translates to:
+  /// **'知识截止日期（knowledge_cutoff）'**
+  String get mdlEdKnowledgeCutoff;
+
+  /// No description provided for @mdlEdExpirationDate.
+  ///
+  /// In zh, this message translates to:
+  /// **'过期日期（expiration_date）'**
+  String get mdlEdExpirationDate;
+
+  /// No description provided for @mdlEdSupportedParametersCsv.
+  ///
+  /// In zh, this message translates to:
+  /// **'支持的参数（CSV）'**
+  String get mdlEdSupportedParametersCsv;
+
+  /// No description provided for @mdlEdSupportedParametersCsvHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'例如 input、model、input_type、truncate'**
+  String get mdlEdSupportedParametersCsvHint;
+
+  /// No description provided for @mdlEdDefaultParametersJson.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认参数（JSON）'**
+  String get mdlEdDefaultParametersJson;
+
+  /// No description provided for @mdlEdDefaultParametersJsonHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'例如 encoding_format: float'**
+  String get mdlEdDefaultParametersJsonHint;
+
+  /// No description provided for @mdlEdOpenRouterRawMetadata.
+  ///
+  /// In zh, this message translates to:
+  /// **'OpenRouter 原始元数据'**
+  String get mdlEdOpenRouterRawMetadata;
+
+  /// No description provided for @mdlEdOpenRouterRawMetadataFields.
+  ///
+  /// In zh, this message translates to:
+  /// **'包含 id、canonical_slug、hugging_face_id、created、architecture、supported_parameters、default_parameters、supported_voices、knowledge_cutoff、expiration_date 和 links'**
+  String get mdlEdOpenRouterRawMetadataFields;
+
   /// No description provided for @mdlEdReset.
   ///
   /// In zh, this message translates to:

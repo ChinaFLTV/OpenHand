@@ -4840,6 +4840,45 @@ class AppLocalizationsFr extends AppLocalizations {
   String get mdlEdCacheWrite => 'Écriture cache';
 
   @override
+  String get mdlEdOpenRouterMetadataOverrides =>
+      'Surcharges des métadonnées OpenRouter';
+
+  @override
+  String get mdlEdCanonicalSlug => 'Slug canonique du modèle (canonical_slug)';
+
+  @override
+  String get mdlEdHuggingFaceId =>
+      'Identifiant du modèle Hugging Face (hugging_face_id)';
+
+  @override
+  String get mdlEdKnowledgeCutoff =>
+      'Date limite des connaissances (knowledge_cutoff)';
+
+  @override
+  String get mdlEdExpirationDate => 'Date d’expiration (expiration_date)';
+
+  @override
+  String get mdlEdSupportedParametersCsv => 'Paramètres pris en charge (CSV)';
+
+  @override
+  String get mdlEdSupportedParametersCsvHint =>
+      'Exemple : input, model, input_type, truncate';
+
+  @override
+  String get mdlEdDefaultParametersJson => 'Paramètres par défaut (JSON)';
+
+  @override
+  String get mdlEdDefaultParametersJsonHint =>
+      'Exemple : encoding_format: float';
+
+  @override
+  String get mdlEdOpenRouterRawMetadata => 'Métadonnées brutes OpenRouter';
+
+  @override
+  String get mdlEdOpenRouterRawMetadataFields =>
+      'Inclut id, canonical_slug, hugging_face_id, created, architecture, supported_parameters, default_parameters, supported_voices, knowledge_cutoff, expiration_date et links';
+
+  @override
   String get mdlEdReset => 'Réinitialiser';
 
   @override

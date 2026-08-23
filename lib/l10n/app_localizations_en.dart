@@ -4778,6 +4778,43 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mdlEdCacheWrite => 'Cache Write';
 
   @override
+  String get mdlEdOpenRouterMetadataOverrides =>
+      'OpenRouter Metadata Overrides';
+
+  @override
+  String get mdlEdCanonicalSlug => 'Canonical model slug (canonical_slug)';
+
+  @override
+  String get mdlEdHuggingFaceId => 'Hugging Face model ID (hugging_face_id)';
+
+  @override
+  String get mdlEdKnowledgeCutoff => 'Knowledge cutoff (knowledge_cutoff)';
+
+  @override
+  String get mdlEdExpirationDate => 'Expiration date (expiration_date)';
+
+  @override
+  String get mdlEdSupportedParametersCsv => 'Supported parameters (CSV)';
+
+  @override
+  String get mdlEdSupportedParametersCsvHint =>
+      'For example: input, model, input_type, truncate';
+
+  @override
+  String get mdlEdDefaultParametersJson => 'Default parameters (JSON)';
+
+  @override
+  String get mdlEdDefaultParametersJsonHint =>
+      'For example: encoding_format: float';
+
+  @override
+  String get mdlEdOpenRouterRawMetadata => 'OpenRouter Raw Metadata';
+
+  @override
+  String get mdlEdOpenRouterRawMetadataFields =>
+      'Includes id, canonical_slug, hugging_face_id, created, architecture, supported_parameters, default_parameters, supported_voices, knowledge_cutoff, expiration_date, and links';
+
+  @override
   String get mdlEdReset => 'Reset';
 
   @override

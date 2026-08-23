@@ -4661,6 +4661,41 @@ class AppLocalizationsJa extends AppLocalizations {
   String get mdlEdCacheWrite => 'キャッシュ書き込み';
 
   @override
+  String get mdlEdOpenRouterMetadataOverrides => 'OpenRouter メタデータ上書き';
+
+  @override
+  String get mdlEdCanonicalSlug => '正規モデルスラッグ（canonical_slug）';
+
+  @override
+  String get mdlEdHuggingFaceId => 'Hugging Face モデル ID（hugging_face_id）';
+
+  @override
+  String get mdlEdKnowledgeCutoff => '知識カットオフ（knowledge_cutoff）';
+
+  @override
+  String get mdlEdExpirationDate => '有効期限（expiration_date）';
+
+  @override
+  String get mdlEdSupportedParametersCsv => '対応パラメータ（CSV）';
+
+  @override
+  String get mdlEdSupportedParametersCsvHint =>
+      '例：input、model、input_type、truncate';
+
+  @override
+  String get mdlEdDefaultParametersJson => '既定パラメータ（JSON）';
+
+  @override
+  String get mdlEdDefaultParametersJsonHint => '例：encoding_format: float';
+
+  @override
+  String get mdlEdOpenRouterRawMetadata => 'OpenRouter 生メタデータ';
+
+  @override
+  String get mdlEdOpenRouterRawMetadataFields =>
+      'id、canonical_slug、hugging_face_id、created、architecture、supported_parameters、default_parameters、supported_voices、knowledge_cutoff、expiration_date、links を含みます';
+
+  @override
   String get mdlEdReset => 'リセット';
 
   @override
