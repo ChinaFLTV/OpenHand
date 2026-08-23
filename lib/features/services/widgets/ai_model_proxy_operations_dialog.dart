@@ -408,6 +408,18 @@ class _ProxyOpsSnapshot {
   List<AiModelProxyRequestRecord> get recentFirst =>
       records.reversed.toList(growable: false);
 
+  List<AiModelProxyRequestRecord> get windowRecords {
+    final start = trendEndAt.subtract(
+      const Duration(minutes: _kProxyOpsTrendBuckets),
+    );
+    final end = trendEndAt.add(const Duration(seconds: 59));
+    return [
+      for (final record in records)
+        if (!record.startedAt.isBefore(start) && !record.startedAt.isAfter(end))
+          record,
+    ];
+  }
+
   Map<String, int> countBy(
     String Function(AiModelProxyRequestRecord record) keyOf, {
     required String unknown,
@@ -3785,27 +3797,331 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
       return _ProxyOpsInsightSpec(
         icon: Icons.show_chart_rounded,
         title: text(zh: '请求趋势', en: 'Request Trend'),
-        subtitle: text(zh: '成功与失败叠加曲线', en: 'Success and failure overlay'),
-        sections: (context, data) => [
-          _proxyOpsRequestTrendPanel(context, data),
-        ],
+        subtitle: text(
+          zh: '窗口脉搏、突发分钟与流式占比',
+          en: 'Window pulse, burst minutes and stream share',
+        ),
+        sections: (context, data) {
+          final window = data.windowRecords;
+          final windowOk = window.where((record) => record.success).length;
+          final peak = data.throughputBuckets.fold<double>(
+            0,
+            (max, value) => math.max(max, value),
+          );
+          var quiet = 0;
+          var peakIndex = 0;
+          for (var i = 0; i < data.throughputBuckets.length; i++) {
+            if (data.throughputBuckets[i] <= 0) quiet += 1;
+            if (data.throughputBuckets[i] >=
+                data.throughputBuckets[peakIndex]) {
+              peakIndex = i;
+            }
+          }
+          final minutes = data.bucketMinutes;
+          final burstRows = <OpenHandOperationalRankRow>[];
+          for (var i = 0; i < minutes.length; i++) {
+            final ok = i < data.trendSuccess.length
+                ? data.trendSuccess[i]
+                : 0.0;
+            final fail = i < data.trendFailure.length
+                ? data.trendFailure[i]
+                : 0.0;
+            final total = ok + fail;
+            if (total <= 0) continue;
+            burstRows.add(
+              OpenHandOperationalRankRow(
+                icon: Icons.schedule_rounded,
+                highlightColor: cs.primary,
+                cells: [
+                  formatHourMinuteLocal(minutes[i]),
+                  '${total.round()}',
+                  '${ok.round()}',
+                  '${fail.round()}',
+                  _proxyOpsPercentLabel(fail / total),
+                ],
+                value: total,
+              ),
+            );
+          }
+          final streamGroups = data.groupBy(
+            (record) => record.stream
+                ? text(zh: '流式', en: 'Stream')
+                : text(zh: '一次性', en: 'Unary'),
+            unknown: unknown,
+            source: window,
+          );
+          return [
+            _ProxyOpsStatPanel(
+              icon: Icons.monitor_heart_rounded,
+              title: text(zh: '窗口脉搏', en: 'Window Pulse'),
+              tiles: [
+                _proxyOpsInsightTile(
+                  context,
+                  Icons.call_made_rounded,
+                  text(zh: '窗口请求', en: 'Window'),
+                  '${data.windowRequestCount}',
+                ),
+                _proxyOpsInsightTile(
+                  context,
+                  Icons.speed_rounded,
+                  text(zh: '峰值分钟', en: 'Peak minute'),
+                  '${peak.round()}',
+                  helper: minutes.isEmpty
+                      ? ''
+                      : formatHourMinuteLocal(minutes[peakIndex]),
+                ),
+                _proxyOpsInsightTile(
+                  context,
+                  Icons.hourglass_empty_rounded,
+                  text(zh: '静默分钟', en: 'Quiet minutes'),
+                  '$quiet',
+                  helper: text(
+                    zh: '/ $_kProxyOpsTrendBuckets',
+                    en: '/ $_kProxyOpsTrendBuckets',
+                  ),
+                ),
+                _proxyOpsInsightTile(
+                  context,
+                  Icons.verified_rounded,
+                  text(zh: '窗口成功率', en: 'Window success'),
+                  window.isEmpty
+                      ? '—'
+                      : _proxyOpsPercentLabel(windowOk / window.length),
+                  color: _proxyOpsHealthColor(
+                    cs,
+                    window.isEmpty ? 0 : windowOk / window.length,
+                  ),
+                ),
+              ],
+            ),
+            _proxyOpsRequestTrendPanel(context, data),
+            _proxyOpsPanelRow([
+              _proxyOpsChartPanel(
+                icon: Icons.stream_rounded,
+                title: text(zh: '窗口投递形态', en: 'Delivery Shape'),
+                empty: streamGroups.isEmpty,
+                emptyLabel: emptyChart,
+                chart: OpenHandOperationalComparisonBars(
+                  orientation: OpenHandComparisonBarOrientation.vertical,
+                  valueLabel: (segment) => '${segment.value.round()}',
+                  segments: [
+                    for (var i = 0; i < streamGroups.length; i++)
+                      OpenHandChartSegment(
+                        label: streamGroups[i].label,
+                        value: streamGroups[i].requests,
+                        color: palette[i % palette.length],
+                        valueLabel: '${streamGroups[i].requests}',
+                      ),
+                  ],
+                ),
+              ),
+              _proxyOpsChartPanel(
+                icon: Icons.bolt_rounded,
+                title: text(zh: '突发分钟', en: 'Burst Minutes'),
+                empty: burstRows.isEmpty,
+                emptyLabel: emptyChart,
+                chart: OpenHandOperationalRankTable(
+                  leadingIcon: Icons.schedule_rounded,
+                  emptyLabel: emptyChart,
+                  headers: [
+                    text(zh: '分钟', en: 'Minute'),
+                    text(zh: '总量', en: 'Total'),
+                    text(zh: '成功', en: 'OK'),
+                    text(zh: '失败', en: 'Fail'),
+                    text(zh: '失败率', en: 'Fail rate'),
+                  ],
+                  rows: burstRows,
+                ),
+              ),
+            ]),
+          ];
+        },
       );
 
     case _ProxyOpsInsightKind.latencyTrend:
       return _ProxyOpsInsightSpec(
         icon: Icons.timeline_rounded,
         title: text(zh: '耗时曲线', en: 'Latency Curve'),
-        subtitle: text(zh: '平均与 p95 叠加', en: 'Average and p95 overlay'),
-        sections: (context, data) => [
-          _proxyOpsLatencyOverlayPanel(context, data),
-        ],
+        subtitle: text(
+          zh: '窗口抖动、降级分钟与小时尾延迟',
+          en: 'Jitter, degraded minutes and hourly tail',
+        ),
+        sections: (context, data) {
+          final window = data.windowRecords;
+          final windowDurations = [
+            for (final record in window)
+              if (record.durationMs > 0) record.durationMs,
+          ];
+          final windowAvg = windowDurations.isEmpty
+              ? 0
+              : (windowDurations.reduce((a, b) => a + b) /
+                        windowDurations.length)
+                    .round();
+          final windowP95 = _proxyOpsPercentile(windowDurations, 0.95);
+          final activeAvg = [
+            for (final value in data.averageLatencyBuckets)
+              if (value > 0) value,
+          ];
+          final jitter = activeAvg.length < 2
+              ? 0
+              : (activeAvg.reduce(math.max) - activeAvg.reduce(math.min))
+                    .round();
+          final slow = window
+              .where((record) => record.durationMs >= _kProxyOpsSlowLatencyMs)
+              .length;
+          final fast = text(zh: '快速 < 1s', en: 'Fast < 1s');
+          final normal = text(zh: '正常 1-3s', en: 'Normal 1-3s');
+          final slowLabel = text(zh: '慢速 ≥ 3s', en: 'Slow ≥ 3s');
+          final bands = _proxyOpsSegments(
+            data.countBy(
+              (record) {
+                if (record.durationMs < _kProxyOpsFastLatencyMs) return fast;
+                if (record.durationMs < _kProxyOpsSlowLatencyMs) return normal;
+                return slowLabel;
+              },
+              unknown: unknown,
+              source: window,
+            ),
+            [success, cs.primary, OpenHandStatusColors.warning],
+          );
+          final minutes = data.bucketMinutes;
+          final degraded = <OpenHandOperationalRankRow>[
+            for (var i = 0; i < minutes.length; i++)
+              if (i < data.p95LatencyBuckets.length &&
+                  data.p95LatencyBuckets[i] >= _kProxyOpsSlowLatencyMs)
+                OpenHandOperationalRankRow(
+                  icon: Icons.warning_amber_rounded,
+                  highlightColor: OpenHandStatusColors.warning,
+                  cells: [
+                    formatHourMinuteLocal(minutes[i]),
+                    _proxyOpsDurationLabel(
+                      data.averageLatencyBuckets[i].round(),
+                    ),
+                    _proxyOpsDurationLabel(data.p95LatencyBuckets[i].round()),
+                    '${(i < data.throughputBuckets.length ? data.throughputBuckets[i] : 0).round()}',
+                  ],
+                  value: data.p95LatencyBuckets[i],
+                ),
+          ];
+          final hourDurations = List<List<int>>.generate(
+            _kProxyOpsHourBuckets,
+            (_) => <int>[],
+          );
+          for (final record in data.records) {
+            if (record.durationMs <= 0) continue;
+            hourDurations[record.startedAt.hour.clamp(
+                  0,
+                  _kProxyOpsHourBuckets - 1,
+                )]
+                .add(record.durationMs);
+          }
+          final hourP95 = [
+            for (var hour = 0; hour < hourDurations.length; hour++)
+              OpenHandChartSegment(
+                label: twoDigit(hour),
+                value: _proxyOpsPercentile(hourDurations[hour], 0.95),
+                color: cs.tertiary,
+                valueLabel: _proxyOpsDurationLabel(
+                  _proxyOpsPercentile(hourDurations[hour], 0.95),
+                ),
+              ),
+          ];
+          return [
+            _ProxyOpsStatPanel(
+              icon: Icons.speed_rounded,
+              title: text(zh: '窗口时延', en: 'Window Latency'),
+              tiles: [
+                _proxyOpsInsightTile(
+                  context,
+                  Icons.timer_rounded,
+                  text(zh: '窗口均耗时', en: 'Window avg'),
+                  _proxyOpsDurationLabel(windowAvg),
+                  color: cs.primary,
+                ),
+                _proxyOpsInsightTile(
+                  context,
+                  Icons.timelapse_rounded,
+                  'P95',
+                  _proxyOpsDurationLabel(windowP95),
+                  color: cs.tertiary,
+                ),
+                _proxyOpsInsightTile(
+                  context,
+                  Icons.graphic_eq_rounded,
+                  text(zh: '抖动', en: 'Jitter'),
+                  _proxyOpsDurationLabel(jitter),
+                  helper: text(zh: '均线峰谷差', en: 'Peak-trough of mean'),
+                ),
+                _proxyOpsInsightTile(
+                  context,
+                  Icons.warning_amber_rounded,
+                  text(zh: '慢请求', en: 'Slow calls'),
+                  window.isEmpty
+                      ? '—'
+                      : _proxyOpsPercentLabel(slow / window.length),
+                  helper: '$slow / ${window.length}',
+                  color: OpenHandStatusColors.warning,
+                ),
+              ],
+            ),
+            _proxyOpsLatencyOverlayPanel(context, data),
+            _proxyOpsPanelRow([
+              _proxyOpsChartPanel(
+                icon: Icons.stacked_bar_chart_rounded,
+                title: text(zh: '窗口耗时带', en: 'Window Latency Bands'),
+                empty: bands.isEmpty,
+                emptyLabel: emptyChart,
+                chart: OpenHandOperationalComparisonBars(
+                  orientation: OpenHandComparisonBarOrientation.vertical,
+                  valueLabel: (segment) => '${segment.value.round()}',
+                  segments: bands,
+                ),
+              ),
+              _proxyOpsChartPanel(
+                icon: Icons.report_rounded,
+                title: text(zh: '降级分钟', en: 'Degraded Minutes'),
+                empty: degraded.isEmpty,
+                emptyLabel: text(
+                  zh: '窗口内无 P95 ≥ 3s',
+                  en: 'No P95 ≥ 3s in window',
+                ),
+                chart: OpenHandOperationalRankTable(
+                  leadingIcon: Icons.warning_amber_rounded,
+                  emptyLabel: emptyChart,
+                  headers: [
+                    text(zh: '分钟', en: 'Minute'),
+                    text(zh: '均耗时', en: 'Avg'),
+                    'P95',
+                    text(zh: '请求', en: 'Requests'),
+                  ],
+                  rows: degraded,
+                ),
+              ),
+            ]),
+            _proxyOpsChartPanel(
+              icon: Icons.view_week_rounded,
+              title: text(zh: '小时 P95 热力', en: 'Hourly P95 Heat'),
+              empty: hourP95.every((segment) => segment.safeValue <= 0),
+              emptyLabel: emptyChart,
+              chart: OpenHandOperationalHeatmap(
+                segments: hourP95,
+                color: cs.tertiary,
+              ),
+            ),
+          ];
+        },
       );
 
     case _ProxyOpsInsightKind.statusMix:
       return _ProxyOpsInsightSpec(
         icon: Icons.donut_small_rounded,
         title: text(zh: '状态分布', en: 'Status Mix'),
+        subtitle: text(
+          zh: 'HTTP 族、重试结果与状态码排行',
+          en: 'HTTP class, retries and status ranks',
+        ),
         sections: (context, data) {
+          final unknownStatus = text(zh: '无状态码', en: 'No status');
           final segments = <OpenHandChartSegment>[
             if (data.successTotal > 0)
               OpenHandChartSegment(
@@ -3824,7 +4140,84 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 valueLabel: '${data.failureRateLabel}%',
               ),
           ];
+          String familyOf(int code) {
+            if (code <= 0) return unknownStatus;
+            if (code < 300) return '2xx';
+            if (code < 400) return '3xx';
+            if (code < 500) return '4xx';
+            return '5xx';
+          }
+
+          final families = _proxyOpsSegments(
+            data.countBy(
+              (record) => familyOf(record.statusCode),
+              unknown: unknownStatus,
+            ),
+            [success, cs.tertiary, OpenHandStatusColors.warning, cs.error],
+          );
+          final once = text(zh: '一次成功', en: 'First-try OK');
+          final retried = text(zh: '重试成功', en: 'Retry OK');
+          final failed = text(zh: '最终失败', en: 'Failed');
+          final attempts = _proxyOpsSegments(
+            data.countBy((record) {
+              if (!record.success) return failed;
+              return record.attempt > 1 ? retried : once;
+            }, unknown: unknown),
+            [success, cs.tertiary, cs.error],
+          );
+          final codes = data.groupBy(
+            (record) =>
+                record.statusCode <= 0 ? unknownStatus : '${record.statusCode}',
+            unknown: unknownStatus,
+          );
+          final streamed = data.records.where((record) => record.stream).length;
+          final retriedCount = data.records
+              .where((record) => record.attempt > 1)
+              .length;
           return [
+            _ProxyOpsStatPanel(
+              icon: Icons.flag_rounded,
+              title: text(zh: '结果构成', en: 'Outcome Mix'),
+              tiles: [
+                _proxyOpsInsightTile(
+                  context,
+                  Icons.task_alt_rounded,
+                  text(zh: '成功', en: 'Succeeded'),
+                  '${data.successTotal}',
+                  helper: '${data.successRateLabel}%',
+                  color: success,
+                ),
+                _proxyOpsInsightTile(
+                  context,
+                  Icons.error_outline_rounded,
+                  text(zh: '失败', en: 'Failed'),
+                  '${data.failureTotal}',
+                  helper: '${data.failureRateLabel}%',
+                  color: cs.error,
+                ),
+                _proxyOpsInsightTile(
+                  context,
+                  Icons.stream_rounded,
+                  text(zh: '流式请求', en: 'Streaming'),
+                  '$streamed',
+                  helper: data.records.isEmpty
+                      ? ''
+                      : _proxyOpsPercentLabel(streamed / data.records.length),
+                ),
+                _proxyOpsInsightTile(
+                  context,
+                  Icons.replay_rounded,
+                  text(zh: '发生重试', en: 'Retried'),
+                  '$retriedCount',
+                  helper: data.records.isEmpty
+                      ? ''
+                      : _proxyOpsPercentLabel(
+                          retriedCount / data.records.length,
+                        ),
+                  color: cs.tertiary,
+                ),
+              ],
+            ),
             _proxyOpsPanelRow([
               _proxyOpsChartPanel(
                 icon: Icons.donut_small_rounded,
@@ -3838,11 +4231,38 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ),
               ),
               _proxyOpsChartPanel(
-                icon: Icons.stacked_bar_chart_rounded,
-                title: text(zh: '状态色带', en: 'Status Band'),
-                empty: segments.isEmpty,
+                icon: Icons.http_rounded,
+                title: text(zh: 'HTTP 族', en: 'HTTP Class'),
+                empty: families.isEmpty,
                 emptyLabel: emptyChart,
-                chart: OpenHandOperationalStatusBand(segments: segments),
+                chart: OpenHandOperationalComparisonBars(
+                  orientation: OpenHandComparisonBarOrientation.vertical,
+                  valueLabel: (segment) => '${segment.value.round()}',
+                  segments: families,
+                ),
+              ),
+            ]),
+            _proxyOpsPanelRow([
+              _proxyOpsChartPanel(
+                icon: Icons.stacked_bar_chart_rounded,
+                title: text(zh: '重试结果', en: 'Retry Outcome'),
+                empty: attempts.isEmpty,
+                emptyLabel: emptyChart,
+                chart: OpenHandOperationalStatusBand(segments: attempts),
+              ),
+              _proxyOpsChartPanel(
+                icon: Icons.tag_rounded,
+                title: text(zh: '状态码排行', en: 'Status Codes'),
+                empty: codes.isEmpty,
+                emptyLabel: emptyChart,
+                chart: _proxyOpsGroupTable(
+                  context: context,
+                  groups: codes,
+                  leadingHeader: text(zh: '状态码', en: 'Status'),
+                  icon: Icons.tag_rounded,
+                  tone: cs.secondary,
+                  emptyLabel: emptyChart,
+                ),
               ),
             ]),
           ];
@@ -3853,6 +4273,10 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
       return _ProxyOpsInsightSpec(
         icon: Icons.hub_outlined,
         title: text(zh: '提供商分布', en: 'Provider Mix'),
+        subtitle: text(
+          zh: '份额、上游时延与出口字节',
+          en: 'Share, upstream latency and outbound bytes',
+        ),
         sections: (context, data) {
           final groups = data.groupBy(
             (record) => data.providerLabelFor(record, unknown: unknownProvider),
@@ -3865,6 +4289,24 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 value: groups[i].requests,
                 color: palette[i % palette.length],
                 valueLabel: '${groups[i].requests}',
+              ),
+          ];
+          final latencyBars = [
+            for (var i = 0; i < groups.length && i < 8; i++)
+              OpenHandChartSegment(
+                label: groups[i].label,
+                value: groups[i].avgMs,
+                color: palette[i % palette.length],
+                valueLabel: _proxyOpsDurationLabel(groups[i].avgMs),
+              ),
+          ];
+          final byteBars = [
+            for (var i = 0; i < groups.length && i < 8; i++)
+              OpenHandChartSegment(
+                label: groups[i].label,
+                value: groups[i].outboundBytes,
+                color: palette[i % palette.length],
+                valueLabel: formatByteSize(groups[i].outboundBytes),
               ),
           ];
           return [
@@ -3882,21 +4324,44 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ),
               ),
               _proxyOpsChartPanel(
-                icon: Icons.leaderboard_rounded,
-                title: text(zh: '提供商成功率', en: 'Provider Quality'),
-                empty: groups.isEmpty,
+                icon: Icons.timer_rounded,
+                title: text(zh: '提供商均耗时', en: 'Avg by Provider'),
+                empty: latencyBars.every((segment) => segment.safeValue <= 0),
                 emptyLabel: emptyChart,
-                chart: _proxyOpsGroupTable(
-                  context: context,
-                  groups: groups,
-                  leadingHeader: text(zh: '提供商', en: 'Provider'),
-                  icon: Icons.hub_outlined,
-                  tone: cs.tertiary,
-                  emptyLabel: emptyChart,
-                  valueOf: (group) => group.successRate,
+                chart: OpenHandOperationalComparisonBars(
+                  orientation: OpenHandComparisonBarOrientation.vertical,
+                  valueLabel: (segment) =>
+                      _proxyOpsDurationLabel(segment.value.round()),
+                  segments: latencyBars,
                 ),
               ),
             ]),
+            _proxyOpsChartPanel(
+              icon: Icons.north_east_rounded,
+              title: text(zh: '提供商出口字节', en: 'Outbound by Provider'),
+              empty: byteBars.every((segment) => segment.safeValue <= 0),
+              emptyLabel: emptyChart,
+              chart: OpenHandOperationalComparisonBars(
+                orientation: OpenHandComparisonBarOrientation.horizontal,
+                valueLabel: (segment) => formatByteSize(segment.value.round()),
+                segments: byteBars,
+              ),
+            ),
+            _proxyOpsChartPanel(
+              icon: Icons.leaderboard_rounded,
+              title: text(zh: '提供商质量表', en: 'Provider Quality'),
+              empty: groups.isEmpty,
+              emptyLabel: emptyChart,
+              chart: _proxyOpsGroupTable(
+                context: context,
+                groups: groups,
+                leadingHeader: text(zh: '提供商', en: 'Provider'),
+                icon: Icons.hub_outlined,
+                tone: cs.tertiary,
+                emptyLabel: emptyChart,
+                valueOf: (group) => group.successRate,
+              ),
+            ),
           ];
         },
       );
@@ -3905,11 +4370,32 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
       return _ProxyOpsInsightSpec(
         icon: Icons.model_training_outlined,
         title: text(zh: '模型分布', en: 'Model Mix'),
+        subtitle: text(
+          zh: '调用热力、调度映射与单均 Token',
+          en: 'Call heat, routing map and tokens per call',
+        ),
         sections: (context, data) {
           final groups = data.groupBy(
             (record) => record.modelId,
             unknown: unknownModel,
           );
+          final routed = data.groupBy((record) {
+            final exposed = record.exposedModel.trim();
+            final model = record.modelId.trim().isEmpty
+                ? unknownModel
+                : record.modelId.trim();
+            if (exposed.isEmpty || exposed == model) return model;
+            return '$exposed → $model';
+          }, unknown: unknownModel);
+          final tokenBars = [
+            for (var i = 0; i < groups.length && i < 8; i++)
+              OpenHandChartSegment(
+                label: groups[i].label,
+                value: groups[i].avgTokens,
+                color: palette[i % palette.length],
+                valueLabel: '${groups[i].avgTokens}',
+              ),
+          ];
           return [
             _proxyOpsPanelRow([
               _proxyOpsChartPanel(
@@ -3931,21 +4417,46 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ),
               ),
               _proxyOpsChartPanel(
-                icon: Icons.leaderboard_rounded,
-                title: text(zh: '模型成功率', en: 'Model Quality'),
-                empty: groups.isEmpty,
+                icon: Icons.token_rounded,
+                title: text(zh: '单均 Token', en: 'Tokens / Call'),
+                empty: tokenBars.every((segment) => segment.safeValue <= 0),
                 emptyLabel: emptyChart,
-                chart: _proxyOpsGroupTable(
-                  context: context,
-                  groups: groups,
-                  leadingHeader: text(zh: '模型', en: 'Model'),
-                  icon: Icons.model_training_outlined,
-                  tone: cs.primary,
-                  emptyLabel: emptyChart,
-                  valueOf: (group) => group.successRate,
+                chart: OpenHandOperationalComparisonBars(
+                  orientation: OpenHandComparisonBarOrientation.vertical,
+                  valueLabel: (segment) => '${segment.value.round()}',
+                  segments: tokenBars,
                 ),
               ),
             ]),
+            _proxyOpsChartPanel(
+              icon: Icons.alt_route_rounded,
+              title: text(zh: '暴露 → 后备映射', en: 'Exposed → Backend'),
+              empty: routed.isEmpty,
+              emptyLabel: emptyChart,
+              chart: _proxyOpsGroupTable(
+                context: context,
+                groups: routed,
+                leadingHeader: text(zh: '映射', en: 'Route'),
+                icon: Icons.alt_route_rounded,
+                tone: cs.secondary,
+                emptyLabel: emptyChart,
+              ),
+            ),
+            _proxyOpsChartPanel(
+              icon: Icons.leaderboard_rounded,
+              title: text(zh: '模型质量表', en: 'Model Quality'),
+              empty: groups.isEmpty,
+              emptyLabel: emptyChart,
+              chart: _proxyOpsGroupTable(
+                context: context,
+                groups: groups,
+                leadingHeader: text(zh: '模型', en: 'Model'),
+                icon: Icons.model_training_outlined,
+                tone: cs.primary,
+                emptyLabel: emptyChart,
+                valueOf: (group) => group.successRate,
+              ),
+            ),
           ];
         },
       );
@@ -3954,7 +4465,12 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
       return _ProxyOpsInsightSpec(
         icon: Icons.devices_other_rounded,
         title: text(zh: '协议与客户端', en: 'Protocol and Clients'),
+        subtitle: text(
+          zh: '客户端家族、对端与入口路径',
+          en: 'Client family, peers and ingress paths',
+        ),
         sections: (context, data) {
+          final unknownPath = text(zh: '未知路径', en: 'Unknown path');
           final agents = _proxyOpsSegments(
             data.countBy((record) {
               final ua = record.clientUserAgent.trim();
@@ -3965,6 +4481,24 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
           final protocols = _proxyOpsSegments(
             data.countBy((record) => record.apiStyle, unknown: unknownProtocol),
             palette,
+          );
+          final families = data.groupBy((record) {
+            final ua = record.clientUserAgent.trim();
+            return ua.isEmpty ? unknownClient : _proxyOpsUserAgentFamily(ua);
+          }, unknown: unknownClient);
+          final peers = data.groupBy((record) {
+            final peer = record.clientEndpoint.isNotEmpty
+                ? record.clientEndpoint
+                : record.clientIp.trim();
+            return peer.isEmpty ? unknown : peer;
+          }, unknown: unknown);
+          final paths = _proxyOpsSegments(
+            data.countBy((record) => record.requestPath, unknown: unknownPath),
+            palette,
+          );
+          final protocolQuality = data.groupBy(
+            (record) => record.apiStyle,
+            unknown: unknownProtocol,
           );
           return [
             _proxyOpsPanelRow([
@@ -3988,6 +4522,62 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                   segments: protocols,
                   orientation: OpenHandComparisonBarOrientation.vertical,
                   valueLabel: (segment) => '${segment.value.round()}',
+                ),
+              ),
+            ]),
+            _proxyOpsChartPanel(
+              icon: Icons.account_tree_rounded,
+              title: text(zh: '入口路径', en: 'Ingress Paths'),
+              empty: paths.isEmpty,
+              emptyLabel: emptyChart,
+              chart: OpenHandOperationalComparisonBars(
+                orientation: OpenHandComparisonBarOrientation.horizontal,
+                valueLabel: (segment) => '${segment.value.round()}',
+                segments: paths,
+              ),
+            ),
+            _proxyOpsChartPanel(
+              icon: Icons.devices_rounded,
+              title: text(zh: '客户端家族', en: 'Client Families'),
+              empty: families.isEmpty,
+              emptyLabel: emptyChart,
+              chart: _proxyOpsGroupTable(
+                context: context,
+                groups: families,
+                leadingHeader: text(zh: '客户端', en: 'Client'),
+                icon: Icons.devices_rounded,
+                tone: cs.secondary,
+                emptyLabel: emptyChart,
+              ),
+            ),
+            _proxyOpsPanelRow([
+              _proxyOpsChartPanel(
+                icon: Icons.public_rounded,
+                title: text(zh: '对端排行', en: 'Peer Rank'),
+                empty: peers.isEmpty,
+                emptyLabel: emptyChart,
+                chart: _proxyOpsGroupTable(
+                  context: context,
+                  groups: peers,
+                  leadingHeader: text(zh: '对端', en: 'Peer'),
+                  icon: Icons.public_rounded,
+                  tone: cs.primary,
+                  emptyLabel: emptyChart,
+                ),
+              ),
+              _proxyOpsChartPanel(
+                icon: Icons.api_rounded,
+                title: text(zh: '协议质量', en: 'Protocol Quality'),
+                empty: protocolQuality.isEmpty,
+                emptyLabel: emptyChart,
+                chart: _proxyOpsGroupTable(
+                  context: context,
+                  groups: protocolQuality,
+                  leadingHeader: text(zh: '协议', en: 'Protocol'),
+                  icon: Icons.api_rounded,
+                  tone: cs.tertiary,
+                  emptyLabel: emptyChart,
+                  valueOf: (group) => group.successRate,
                 ),
               ),
             ]),
