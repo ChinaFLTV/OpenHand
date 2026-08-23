@@ -1888,18 +1888,17 @@ class _ProxyOpsInsightDialog extends StatelessWidget {
             ],
           ),
           kOpenHandGap14,
-          Expanded(
-            child: SingleChildScrollView(
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
               physics: openHandDialogAwareScrollPhysics(context),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var i = 0; i < children.length; i++) ...[
-                    if (i != 0) const SizedBox(height: _kProxyOpsGap),
-                    children[i],
-                  ],
+              padding: EdgeInsets.zero,
+              children: [
+                for (var i = 0; i < children.length; i++) ...[
+                  if (i != 0) const SizedBox(height: _kProxyOpsGap),
+                  children[i],
                 ],
-              ),
+              ],
             ),
           ),
         ],
@@ -1928,6 +1927,7 @@ Widget _buildProxyOpsSubDialog({
     child: _ProxyOpsDialogSurface(
       child: _ProxyOpsConsoleShell(
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: children,
         ),
@@ -1997,6 +1997,7 @@ class _ProxyOpsInsightEmpty extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 22),
       alignment: Alignment.center,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             Icons.inbox_rounded,
