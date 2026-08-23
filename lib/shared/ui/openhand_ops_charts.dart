@@ -54,6 +54,9 @@ const double _kRankCellPadding = 12;
 const double _kRankValueMinWidth = 64;
 const double _kRankLeadingMinWidth = 148;
 const double _kRankCellMaxWidth = 560;
+const double _kRankResizeHandleWidth = 8;
+const double _kRankUserMinWidth = 56;
+const double _kRankUserMaxWidth = 720;
 final RegExp _kRankDateTimePattern = RegExp(
   r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$',
 );
@@ -2111,7 +2114,7 @@ class OpenHandOperationalRankRow {
 }
 
 /// 可用于任意运维实体的排名表。视觉对齐用量分析表：圆角边框、表头灰底、奇偶行。
-/// 列宽按文字实测，超出视口时水平滚动；日期时间列按完整 `yyyy-MM-dd HH:mm:ss` 计宽，不省略。
+/// 列宽按文字实测，超出视口时水平滚动；表头边界可拖拽调宽；省略单元格悬停展示全文。
 class OpenHandOperationalRankTable extends StatefulWidget {
   const OpenHandOperationalRankTable({
     super.key,
@@ -2134,15 +2137,177 @@ class OpenHandOperationalRankTable extends StatefulWidget {
 }
 
 class _OpenHandOperationalRankTableState
-    extends State<OpenHandOperationalRankTable> {
+    extends State<OpenHandOperationalRankTable>
+    with SingleTickerProviderStateMixin {
   final ScrollController _horizontal = ScrollController();
   final ScrollController _vertical = ScrollController();
+  final OverlayPortalController _portal = OverlayPortalController();
+  late final AnimationController _transition;
+  DialogAnimationSettings _motion = OpenHandMotionDefaults.menu;
+  List<double>? _userWidths;
+  int? _dragColumn;
+  int? _hoverHandle;
+  double _dragOriginWidth = 0;
+  double _dragStartX = 0;
+  Timer? _showTimer;
+  Timer? _hideTimer;
+  int _generation = 0;
+  bool _showQueued = false;
+  Rect? _anchorGlobal;
+  OpenHandChartTooltip? _activeTooltip;
+  Color? _activeAccent;
+
+  @override
+  void initState() {
+    super.initState();
+    _transition = AnimationController(vsync: this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final settings = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.menu,
+    );
+    _motion = settings;
+    _transition
+      ..duration = settings.entranceDuration
+      ..reverseDuration = settings.exitDuration;
+  }
+
+  @override
+  void didUpdateWidget(covariant OpenHandOperationalRankTable oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.headers.length != widget.headers.length) {
+      _userWidths = null;
+    }
+  }
 
   @override
   void dispose() {
+    _generation += 1;
+    _showTimer?.cancel();
+    _hideTimer?.cancel();
+    _transition.dispose();
     _horizontal.dispose();
     _vertical.dispose();
     super.dispose();
+  }
+
+  List<double> _syncWidths(List<double> natural) {
+    final current = _userWidths;
+    if (current != null && current.length == natural.length) return current;
+    final next = List<double>.from(natural);
+    _userWidths = next;
+    return next;
+  }
+
+  void _captureAnchor(BuildContext cellContext) {
+    final box = cellContext.findRenderObject();
+    if (box is RenderBox && box.hasSize && box.attached) {
+      _anchorGlobal = box.localToGlobal(Offset.zero) & box.size;
+    }
+  }
+
+  void _showCellTip({
+    required BuildContext cellContext,
+    required String title,
+    required String body,
+    String note = '',
+    required Color accent,
+  }) {
+    if (_dragColumn != null) return;
+    _hideTimer?.cancel();
+    _activeTooltip = OpenHandChartTooltip(
+      title: title,
+      badge: '完整内容',
+      badgeColor: accent,
+      summary: body,
+      notes: note.trim().isEmpty ? const <String>[] : <String>[note.trim()],
+    );
+    _activeAccent = accent;
+    _captureAnchor(cellContext);
+    _showQueued = true;
+    if (_portal.isShowing) {
+      _transition.forward();
+      return;
+    }
+    final generation = ++_generation;
+    _showTimer?.cancel();
+    final delay = openHandTickerMotionEnabled(context)
+        ? _kHeatmapHoverShowDelay
+        : Duration.zero;
+    _showTimer = startSafeTimer(delay, () {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_showQueued || generation != _generation) return;
+        if (!_portal.isShowing) _portal.show();
+        _transition.forward();
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
+    });
+  }
+
+  void _scheduleHideTip() {
+    _showQueued = false;
+    _showTimer?.cancel();
+    final generation = ++_generation;
+    _hideTimer?.cancel();
+    _hideTimer = startSafeTimer(_kHeatmapHoverExitGrace, () {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted || _showQueued || generation != _generation) return;
+        try {
+          await _transition.reverse().orCancel;
+        } on TickerCanceled {
+          return;
+        }
+        if (!mounted || _showQueued || generation != _generation) return;
+        if (_portal.isShowing) _portal.hide();
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
+    });
+  }
+
+  Widget _buildOverlay(BuildContext overlayContext) {
+    final tooltip = _activeTooltip;
+    final accent =
+        _activeAccent ?? Theme.of(overlayContext).colorScheme.primary;
+    if (tooltip == null) return const SizedBox.shrink();
+    return Positioned.fill(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final metrics = _HeatmapHoverMetrics.resolve(
+            context: context,
+            overlaySize: Size(constraints.maxWidth, constraints.maxHeight),
+            anchor: _anchorGlobal,
+          );
+          return CustomSingleChildLayout(
+            delegate: _HeatmapHoverLayoutDelegate(metrics),
+            child: MouseRegion(
+              onEnter: (_) {
+                _hideTimer?.cancel();
+                _showQueued = true;
+              },
+              onExit: (_) => _scheduleHideTip(),
+              child: AnimatedBuilder(
+                animation: _transition,
+                child: _HeatmapHoverCard(tooltip: tooltip, accent: accent),
+                builder: (context, child) => buildAnimationStyleTransition(
+                  animation: _transition,
+                  settings: _motion,
+                  profile: OpenHandAnimationTransitionProfile(
+                    alignment: metrics.placedAbove
+                        ? Alignment.bottomCenter
+                        : Alignment.topCenter,
+                  ),
+                  child: child!,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -2170,8 +2335,7 @@ class _OpenHandOperationalRankTableState
       color: colors.onSurfaceVariant,
     );
     final columnCount = widget.headers.length;
-    final widths = List<double>.filled(columnCount, 0);
-    final dateTimeColumn = List<bool>.filled(columnCount, false);
+    final natural = List<double>.filled(columnCount, 0);
     for (var i = 0; i < columnCount; i++) {
       var content = _rankTextWidth(widget.headers[i], headerStyle);
       var hasDateTime = _isRankDateTimeCell(widget.headers[i]);
@@ -2186,208 +2350,302 @@ class _OpenHandOperationalRankTableState
           );
         }
       }
-      dateTimeColumn[i] = hasDateTime;
       final padded = content + _kRankCellPadding * 2;
       if (hasDateTime) {
-        widths[i] = math.max(padded, _kRankValueMinWidth);
+        natural[i] = math.max(padded, _kRankValueMinWidth);
       } else if (i == 0) {
-        widths[i] = padded.clamp(_kRankLeadingMinWidth, _kRankCellMaxWidth);
+        natural[i] = padded.clamp(_kRankLeadingMinWidth, _kRankCellMaxWidth);
       } else {
-        widths[i] = padded.clamp(_kRankValueMinWidth, _kRankCellMaxWidth);
+        natural[i] = padded.clamp(_kRankValueMinWidth, _kRankCellMaxWidth);
       }
     }
-    final capped = [
-      for (var i = 0; i < columnCount; i++)
-        !dateTimeColumn[i] && widths[i] >= _kRankCellMaxWidth - 0.5,
-    ];
-    return RepaintBoundary(
-      child: Semantics(
-        label: '排行表，共 ${sortedRows.length} 行',
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final available = constraints.maxWidth.isFinite
-                ? constraints.maxWidth
-                : widths.fold<double>(0, (sum, width) => sum + width);
-            final contentWidth = widths.fold<double>(
-              0,
-              (sum, width) => sum + width,
-            );
-            final displayWidths = List<double>.from(widths);
-            if (contentWidth < available) {
-              displayWidths[0] += available - contentWidth;
-            }
-            final tableWidth = displayWidths.fold<double>(
-              0,
-              (sum, width) => sum + width,
-            );
-            final bodyHeight = math.min(
-              _kRankBodyMaxHeight,
-              sortedRows.length * _kRankRowHeight,
-            );
-            Widget cellText(
-              String text, {
-              required TextStyle? style,
-              required TextAlign align,
-              required bool capped,
-            }) {
-              final ellipsis = capped && !_isRankDateTimeCell(text);
-              final label = Text(
-                text,
-                maxLines: 1,
-                overflow: ellipsis
-                    ? TextOverflow.ellipsis
-                    : TextOverflow.visible,
-                softWrap: false,
-                textAlign: align,
-                style: style,
+    final widths = _syncWidths(natural);
+    return OverlayPortal(
+      controller: _portal,
+      overlayChildBuilder: _buildOverlay,
+      child: RepaintBoundary(
+        child: Semantics(
+          label: '排行表，共 ${sortedRows.length} 行',
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final tableWidth = widths.fold<double>(
+                0,
+                (sum, width) => sum + width,
               );
-              if (!ellipsis) return label;
-              return Tooltip(message: text, child: label);
-            }
+              final bodyHeight = math.min(
+                _kRankBodyMaxHeight,
+                sortedRows.length * _kRankRowHeight,
+              );
+              Widget paintedCell({
+                required int index,
+                required String text,
+                required TextStyle? style,
+                required TextAlign align,
+                String note = '',
+              }) {
+                final inner = math.max(
+                  0.0,
+                  widths[index] - _kRankCellPadding * 2,
+                );
+                final overflow = _rankTextWidth(text, style) > inner + 0.5;
+                final label = Text(
+                  text,
+                  maxLines: 1,
+                  overflow: overflow
+                      ? TextOverflow.ellipsis
+                      : TextOverflow.visible,
+                  softWrap: false,
+                  textAlign: align,
+                  style: style,
+                );
+                if (!overflow) return label;
+                return Builder(
+                  builder: (cellContext) => MouseRegion(
+                    onEnter: (_) => _showCellTip(
+                      cellContext: cellContext,
+                      title: widget.headers[index],
+                      body: text,
+                      note: note,
+                      accent: colors.primary,
+                    ),
+                    onHover: (_) => _captureAnchor(cellContext),
+                    onExit: (_) => _scheduleHideTip(),
+                    child: label,
+                  ),
+                );
+              }
 
-            Widget rowFor(
-              OpenHandOperationalRankRow? row, {
-              required bool header,
-            }) {
-              return DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: colors.outlineVariant,
-                      width: 0.7,
+              Widget rowFor(
+                OpenHandOperationalRankRow? row, {
+                required bool header,
+              }) {
+                return DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: colors.outlineVariant,
+                        width: 0.7,
+                      ),
                     ),
                   ),
-                ),
-                child: Row(
-                  children: [
-                    for (var i = 0; i < columnCount; i++)
-                      SizedBox(
-                        width: displayWidths[i],
-                        height: header ? _kRankHeaderHeight : _kRankRowHeight,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: _kRankCellPadding,
-                          ),
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: header || i != 0
-                                ? Align(
-                                    alignment: i == 0
-                                        ? Alignment.centerLeft
-                                        : Alignment.centerRight,
-                                    child: cellText(
-                                      header
-                                          ? widget.headers[i]
-                                          : (row != null && i < row.cells.length
-                                                ? row.cells[i]
-                                                : '--'),
-                                      style: header ? headerStyle : valueStyle,
-                                      align: i == 0
-                                          ? TextAlign.left
-                                          : TextAlign.right,
-                                      capped: capped[i],
-                                    ),
-                                  )
-                                : Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      cellText(
-                                        row!.cells.isEmpty
-                                            ? '--'
-                                            : row.cells.first,
-                                        style: valueStyle,
-                                        align: TextAlign.left,
-                                        capped: capped[i],
-                                      ),
-                                      if (row.subtitle.trim().isNotEmpty) ...[
-                                        kOpenHandGap3,
-                                        cellText(
-                                          row.subtitle.trim(),
-                                          style: subtitleStyle,
-                                          align: TextAlign.left,
-                                          capped: capped[i],
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < columnCount; i++)
+                        SizedBox(
+                          width: widths[i],
+                          height: header ? _kRankHeaderHeight : _kRankRowHeight,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: _kRankCellPadding,
+                                ),
+                                child: header || i != 0
+                                    ? Align(
+                                        alignment: i == 0
+                                            ? Alignment.centerLeft
+                                            : Alignment.centerRight,
+                                        child: paintedCell(
+                                          index: i,
+                                          text: header
+                                              ? widget.headers[i]
+                                              : (row != null &&
+                                                        i < row.cells.length
+                                                    ? row.cells[i]
+                                                    : '--'),
+                                          style: header
+                                              ? headerStyle
+                                              : valueStyle,
+                                          align: i == 0
+                                              ? TextAlign.left
+                                              : TextAlign.right,
                                         ),
-                                      ],
-                                    ],
-                                  ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              );
-            }
-
-            return ClipRRect(
-              borderRadius: kOpenHandBorderRadius16,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colors.surfaceContainerLowest,
-                  border: Border.all(color: colors.outlineVariant),
-                  borderRadius: kOpenHandBorderRadius16,
-                ),
-                child: OpenHandSafeScrollbar(
-                  controller: _horizontal,
-                  scrollbarOrientation: ScrollbarOrientation.bottom,
-                  thumbVisibility: true,
-                  child: SingleChildScrollView(
-                    controller: _horizontal,
-                    scrollDirection: Axis.horizontal,
-                    child: SizedBox(
-                      width: tableWidth,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ColoredBox(
-                            color: colors.surfaceContainerHighest,
-                            child: rowFor(null, header: true),
-                          ),
-                          SizedBox(
-                            height: bodyHeight,
-                            width: tableWidth,
-                            child: OpenHandSafeScrollbar(
-                              controller: _vertical,
-                              thumbVisibility:
-                                  sortedRows.length * _kRankRowHeight >
-                                  _kRankBodyMaxHeight,
-                              child: ListView.builder(
-                                controller: _vertical,
-                                primary: false,
-                                padding: EdgeInsets.zero,
-                                itemCount: sortedRows.length,
-                                itemExtent: _kRankRowHeight,
-                                physics: const ClampingScrollPhysics(),
-                                itemBuilder: (context, index) {
-                                  final row = sortedRows[index];
-                                  final painted = ColoredBox(
-                                    color: index.isEven
-                                        ? colors.surfaceContainerLowest
-                                        : colors.surfaceContainerLow,
-                                    child: rowFor(row, header: false),
-                                  );
-                                  if (widget.onRowTap == null) return painted;
-                                  return MouseRegion(
-                                    cursor: SystemMouseCursors.click,
+                                      )
+                                    : Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          paintedCell(
+                                            index: i,
+                                            text: row!.cells.isEmpty
+                                                ? '--'
+                                                : row.cells.first,
+                                            style: valueStyle,
+                                            align: TextAlign.left,
+                                            note: row.subtitle.trim(),
+                                          ),
+                                          if (row.subtitle
+                                              .trim()
+                                              .isNotEmpty) ...[
+                                            kOpenHandGap3,
+                                            paintedCell(
+                                              index: i,
+                                              text: row.subtitle.trim(),
+                                              style: subtitleStyle,
+                                              align: TextAlign.left,
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                              ),
+                              if (header)
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: MouseRegion(
+                                    cursor: SystemMouseCursors.resizeColumn,
+                                    onEnter: (_) =>
+                                        setState(() => _hoverHandle = i),
+                                    onExit: (_) {
+                                      if (_hoverHandle == i) {
+                                        setState(() => _hoverHandle = null);
+                                      }
+                                    },
                                     child: GestureDetector(
                                       behavior: HitTestBehavior.opaque,
-                                      onTap: () => widget.onRowTap!(row),
-                                      child: painted,
+                                      onHorizontalDragStart: (details) {
+                                        _scheduleHideTip();
+                                        _dragColumn = i;
+                                        _dragOriginWidth = widths[i];
+                                        _dragStartX = details.globalPosition.dx;
+                                      },
+                                      onHorizontalDragUpdate: (details) {
+                                        final current = _userWidths;
+                                        if (current == null ||
+                                            current.length != columnCount) {
+                                          return;
+                                        }
+                                        final next =
+                                            (_dragOriginWidth +
+                                                    details.globalPosition.dx -
+                                                    _dragStartX)
+                                                .clamp(
+                                                  _kRankUserMinWidth,
+                                                  _kRankUserMaxWidth,
+                                                )
+                                                .toDouble();
+                                        if ((current[i] - next).abs() < 0.5) {
+                                          return;
+                                        }
+                                        setState(() => current[i] = next);
+                                      },
+                                      onHorizontalDragEnd: (_) {
+                                        setState(() => _dragColumn = null);
+                                      },
+                                      onHorizontalDragCancel: () {
+                                        setState(() => _dragColumn = null);
+                                      },
+                                      child: SizedBox(
+                                        width: _kRankResizeHandleWidth,
+                                        child: Center(
+                                          child: AnimatedContainer(
+                                            duration: openHandMotionDuration(
+                                              context,
+                                              kOpenHandMotion180,
+                                            ),
+                                            curve: kOpenHandSwitchInCurve,
+                                            width: 2,
+                                            height: _kRankHeaderHeight - 12,
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  _dragColumn == i ||
+                                                      _hoverHandle == i
+                                                  ? colors.primary
+                                                  : colors.outlineVariant
+                                                        .withValues(alpha: 0.0),
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    kOpenHandRadius2,
+                                                  ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                                     ),
-                                  );
-                                },
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              }
+
+              return ClipRRect(
+                borderRadius: kOpenHandBorderRadius16,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerLowest,
+                    border: Border.all(color: colors.outlineVariant),
+                    borderRadius: kOpenHandBorderRadius16,
+                  ),
+                  child: OpenHandSafeScrollbar(
+                    controller: _horizontal,
+                    scrollbarOrientation: ScrollbarOrientation.bottom,
+                    thumbVisibility: true,
+                    child: SingleChildScrollView(
+                      controller: _horizontal,
+                      scrollDirection: Axis.horizontal,
+                      physics: _dragColumn == null
+                          ? const ClampingScrollPhysics()
+                          : const NeverScrollableScrollPhysics(),
+                      child: SizedBox(
+                        width: tableWidth,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ColoredBox(
+                              color: colors.surfaceContainerHighest,
+                              child: rowFor(null, header: true),
+                            ),
+                            SizedBox(
+                              height: bodyHeight,
+                              width: tableWidth,
+                              child: OpenHandSafeScrollbar(
+                                controller: _vertical,
+                                thumbVisibility:
+                                    sortedRows.length * _kRankRowHeight >
+                                    _kRankBodyMaxHeight,
+                                child: ListView.builder(
+                                  controller: _vertical,
+                                  primary: false,
+                                  padding: EdgeInsets.zero,
+                                  itemCount: sortedRows.length,
+                                  itemExtent: _kRankRowHeight,
+                                  physics: const ClampingScrollPhysics(),
+                                  itemBuilder: (context, index) {
+                                    final row = sortedRows[index];
+                                    final painted = ColoredBox(
+                                      color: index.isEven
+                                          ? colors.surfaceContainerLowest
+                                          : colors.surfaceContainerLow,
+                                      child: rowFor(row, header: false),
+                                    );
+                                    if (widget.onRowTap == null) return painted;
+                                    return MouseRegion(
+                                      cursor: SystemMouseCursors.click,
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap: () => widget.onRowTap!(row),
+                                        child: painted,
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );

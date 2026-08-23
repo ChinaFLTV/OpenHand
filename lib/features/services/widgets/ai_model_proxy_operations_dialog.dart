@@ -1962,39 +1962,6 @@ class _ProxyOpsInsightEmpty extends StatelessWidget {
   }
 }
 
-class _ProxyOpsTableCell extends StatelessWidget {
-  const _ProxyOpsTableCell({
-    required this.text,
-    this.header = false,
-    this.alignEnd = false,
-    this.color,
-  });
-
-  final String text;
-  final bool header;
-  final bool alignEnd;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
-      child: _ProxyOpsCopyText(
-        text,
-        textAlign: alignEnd ? TextAlign.end : TextAlign.start,
-        style:
-            (header ? theme.textTheme.labelSmall : theme.textTheme.labelMedium)
-                ?.copyWith(
-                  color: color ?? (header ? cs.onSurfaceVariant : null),
-                  fontWeight: header ? FontWeight.w800 : FontWeight.w600,
-                ),
-      ),
-    );
-  }
-}
-
 class _ProxyOpsStatPanel extends StatelessWidget {
   const _ProxyOpsStatPanel({
     required this.icon,
@@ -2152,26 +2119,21 @@ class _ProxyOpsTrendDetailPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rows = <TableRow>[];
-    for (var i = minutes.length - 1; i >= 0; i--) {
-      final hasData = series.any((s) => i < s.values.length && s.values[i] > 0);
-      if (!hasData) continue;
-      rows.add(
-        TableRow(
-          children: [
-            _ProxyOpsTableCell(text: formatHourMinuteLocal(minutes[i])),
-            for (final s in series)
-              _ProxyOpsTableCell(
-                text: i < s.values.length
-                    ? '${s.values[i].round()}$valueSuffix'
+    final text = openHandTextResolver(context);
+    final rankRows = <OpenHandOperationalRankRow>[
+      for (var i = minutes.length - 1; i >= 0; i--)
+        if (series.any((s) => i < s.values.length && s.values[i] > 0))
+          OpenHandOperationalRankRow(
+            cells: [
+              formatHourMinuteLocal(minutes[i]),
+              for (final item in series)
+                i < item.values.length
+                    ? '${item.values[i].round()}$valueSuffix'
                     : '-',
-                color: s.color,
-                alignEnd: true,
-              ),
-          ],
-        ),
-      );
-    }
+            ],
+            value: i,
+          ),
+    ];
     return _ProxyOpsPanel(
       icon: icon,
       title: title,
@@ -2187,32 +2149,19 @@ class _ProxyOpsTrendDetailPanel extends StatelessWidget {
             ],
             emptyLabel: emptyLabel,
             area: true,
-            externalLegendProvided: rows.isNotEmpty,
+            externalLegendProvided: rankRows.isNotEmpty,
             onSelectionChanged: null,
           ),
-          if (rows.isNotEmpty) ...[
+          if (rankRows.isNotEmpty) ...[
             kOpenHandGap14,
-            Table(
-              columnWidths: const <int, TableColumnWidth>{
-                0: FlexColumnWidth(1.2),
-              },
-              children: [
-                TableRow(
-                  children: [
-                    _ProxyOpsTableCell(
-                      text: openHandTextResolver(context)(zh: '时间', en: 'Time'),
-                      header: true,
-                    ),
-                    for (final column in columns)
-                      _ProxyOpsTableCell(
-                        text: column,
-                        header: true,
-                        alignEnd: true,
-                      ),
-                  ],
-                ),
-                ...rows,
+            OpenHandOperationalRankTable(
+              sortByValue: false,
+              emptyLabel: emptyLabel,
+              headers: [
+                text(zh: '时间', en: 'Time'),
+                ...columns,
               ],
+              rows: rankRows,
             ),
           ],
         ],
