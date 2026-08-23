@@ -11,6 +11,7 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
+import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -1211,12 +1212,28 @@ class _ProxyOpsDistributionRow extends StatelessWidget {
   }
 }
 
-class _ProxyOpsRecentRequests extends StatelessWidget {
+class _ProxyOpsRecentRequests extends StatefulWidget {
   const _ProxyOpsRecentRequests({required this.data});
   final _ProxyOpsSnapshot data;
+
+  @override
+  State<_ProxyOpsRecentRequests> createState() =>
+      _ProxyOpsRecentRequestsState();
+}
+
+class _ProxyOpsRecentRequestsState extends State<_ProxyOpsRecentRequests> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final text = openHandTextResolver(context);
+    final data = widget.data;
     final recent = data.records.reversed.toList(growable: false);
     return _ProxyOpsPanel(
       title: text(zh: '最近请求', en: 'Recent requests'),
@@ -1234,8 +1251,11 @@ class _ProxyOpsRecentRequests extends StatelessWidget {
             )
           : SizedBox(
               height: _kProxyOpsRecentMaxHeight,
-              child: Scrollbar(
+              child: OpenHandSafeScrollbar(
+                controller: _scrollController,
                 child: ListView.builder(
+                  controller: _scrollController,
+                  primary: false,
                   itemCount: recent.length,
                   physics: openHandDialogAwareScrollPhysics(context),
                   itemBuilder: (context, index) => _ProxyOpsRequestTile(
