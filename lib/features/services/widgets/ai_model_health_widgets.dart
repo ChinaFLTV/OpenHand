@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/motion_durations.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -307,25 +309,31 @@ class _HealthBar extends StatelessWidget {
         ? const Color(0xff32c887)
         : colorScheme.error;
     final height = compact ? 16.0 : 22.0;
-    final bar = AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      width: compact ? 3 : 4,
-      height: height,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(2),
-      ),
-    );
-    final content = record == null
-        ? bar
-        : OpenHandChartTooltipTrigger(
-            tooltip: _healthRecordTooltip(context, record!),
-            accent: color,
-            child: bar,
-          );
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 1.2),
-      child: content,
+    return TweenAnimationBuilder<Color?>(
+      tween: ColorTween(end: color),
+      duration: openHandMotionDuration(context, kOpenHandMotion260),
+      curve: kOpenHandEmphasizedTransitionCurve,
+      builder: (context, animatedColor, _) {
+        final visibleColor = animatedColor ?? color;
+        final bar = DecoratedBox(
+          decoration: BoxDecoration(
+            color: visibleColor,
+            borderRadius: BorderRadius.circular(2),
+          ),
+          child: SizedBox(width: compact ? 3 : 4, height: height),
+        );
+        final content = record == null
+            ? bar
+            : OpenHandChartTooltipTrigger(
+                tooltip: _healthRecordTooltip(context, record!),
+                accent: visibleColor,
+                child: bar,
+              );
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 1.2),
+          child: content,
+        );
+      },
     );
   }
 
