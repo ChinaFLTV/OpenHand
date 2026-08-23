@@ -2034,6 +2034,7 @@ class _ProxyOpsInsightMetricGrid extends StatelessWidget {
   }
 }
 
+/// 仅并排仪表、环图、柱图、热力等同级图卡。列表面板必须作为独立 section 独占一行。
 Widget _proxyOpsPanelRow(List<Widget> children) {
   if (children.isEmpty) return const SizedBox.shrink();
   if (children.length == 1) return children.first;
@@ -2277,6 +2278,29 @@ Widget _proxyOpsChartPanel({
   );
 }
 
+Widget _proxyOpsRankTablePanel({
+  required IconData icon,
+  required String title,
+  required bool empty,
+  required String emptyLabel,
+  required List<String> headers,
+  required List<OpenHandOperationalRankRow> rows,
+  bool sortByValue = true,
+}) {
+  return _proxyOpsChartPanel(
+    icon: icon,
+    title: title,
+    empty: empty,
+    emptyLabel: emptyLabel,
+    chart: OpenHandOperationalRankTable(
+      sortByValue: sortByValue,
+      emptyLabel: emptyLabel,
+      headers: headers,
+      rows: rows,
+    ),
+  );
+}
+
 OpenHandOperationalMeter _proxyOpsCountMeter({
   required String label,
   required num value,
@@ -2398,6 +2422,30 @@ OpenHandOperationalRankTable _proxyOpsGroupTable({
           value: valueOf?.call(group) ?? group.requests,
         ),
     ],
+  );
+}
+
+Widget _proxyOpsGroupTablePanel({
+  required BuildContext context,
+  required IconData icon,
+  required String title,
+  required List<_ProxyOpsGroupStat> groups,
+  required String leadingHeader,
+  required String emptyLabel,
+  num Function(_ProxyOpsGroupStat group)? valueOf,
+}) {
+  return _proxyOpsChartPanel(
+    icon: icon,
+    title: title,
+    empty: groups.isEmpty,
+    emptyLabel: emptyLabel,
+    chart: _proxyOpsGroupTable(
+      context: context,
+      groups: groups,
+      leadingHeader: leadingHeader,
+      emptyLabel: emptyLabel,
+      valueOf: valueOf,
+    ),
   );
 }
 
@@ -3571,17 +3619,13 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ),
               ),
             ]),
-            _proxyOpsChartPanel(
+            _proxyOpsGroupTablePanel(
+              context: context,
               icon: Icons.leaderboard_rounded,
               title: text(zh: '成功模型排行', en: 'Successful Models'),
-              empty: models.isEmpty,
+              groups: models,
+              leadingHeader: text(zh: '模型', en: 'Model'),
               emptyLabel: emptyChart,
-              chart: _proxyOpsGroupTable(
-                context: context,
-                groups: models,
-                leadingHeader: text(zh: '模型', en: 'Model'),
-                emptyLabel: emptyChart,
-              ),
             ),
           ];
         },
@@ -3642,17 +3686,13 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ),
               ),
             ]),
-            _proxyOpsChartPanel(
+            _proxyOpsGroupTablePanel(
+              context: context,
               icon: Icons.leaderboard_rounded,
               title: text(zh: '失败模型排行', en: 'Failed Models'),
-              empty: models.isEmpty,
+              groups: models,
+              leadingHeader: text(zh: '模型', en: 'Model'),
               emptyLabel: emptyChart,
-              chart: _proxyOpsGroupTable(
-                context: context,
-                groups: models,
-                leadingHeader: text(zh: '模型', en: 'Model'),
-                emptyLabel: emptyChart,
-              ),
             ),
             _proxyOpsChartPanel(
               icon: Icons.bug_report_rounded,
@@ -4030,18 +4070,14 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               columns: ['Token'],
               emptyLabel: text(zh: '暂无 Token 样本', en: 'No token samples'),
             ),
-            _proxyOpsChartPanel(
+            _proxyOpsGroupTablePanel(
+              context: context,
               icon: Icons.leaderboard_rounded,
               title: text(zh: '提供商 Token 排行', en: 'Tokens by Provider'),
-              empty: providers.isEmpty,
+              groups: providers,
+              leadingHeader: text(zh: '提供商', en: 'Provider'),
               emptyLabel: emptyChart,
-              chart: _proxyOpsGroupTable(
-                context: context,
-                groups: providers,
-                leadingHeader: text(zh: '提供商', en: 'Provider'),
-                emptyLabel: emptyChart,
-                valueOf: (group) => group.tokens,
-              ),
+              valueOf: (group) => group.tokens,
             ),
           ];
         },
@@ -4162,17 +4198,13 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ),
               ],
             ),
-            _proxyOpsChartPanel(
+            _proxyOpsGroupTablePanel(
+              context: context,
               icon: Icons.leaderboard_rounded,
               title: text(zh: '上游端点排行', en: 'Upstream Endpoints'),
-              empty: upstream.isEmpty,
+              groups: upstream,
+              leadingHeader: text(zh: '上游', en: 'Upstream'),
               emptyLabel: emptyChart,
-              chart: _proxyOpsGroupTable(
-                context: context,
-                groups: upstream,
-                leadingHeader: text(zh: '上游', en: 'Upstream'),
-                emptyLabel: emptyChart,
-              ),
             ),
           ];
         },
@@ -4326,59 +4358,56 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ),
               ),
             ]),
-            _proxyOpsChartPanel(
+            _proxyOpsRankTablePanel(
               icon: Icons.list_alt_rounded,
               title: text(zh: '模型列表', en: 'Model List'),
               empty: data.settings.routes.isEmpty,
               emptyLabel: text(zh: '暂无注册模型', en: 'No models registered'),
-              chart: OpenHandOperationalRankTable(
-                sortByValue: false,
-                emptyLabel: text(zh: '暂无注册模型', en: 'No models registered'),
-                headers: [
-                  text(zh: '模型', en: 'Model'),
-                  text(zh: '状态', en: 'Status'),
-                  text(zh: '后备', en: 'Backends'),
-                  text(zh: '请求', en: 'Requests'),
-                  text(zh: '成功率', en: 'Success'),
-                  'Token',
-                  text(zh: '均耗时', en: 'Avg'),
-                  text(zh: '最近', en: 'Latest'),
-                ],
-                rows: [
-                  for (final route in data.settings.routes)
-                    OpenHandOperationalRankRow(
-                      subtitle: text(
-                        zh: '${route.backends.where((backend) => backend.enabled).length} 个启用后备',
-                        en: '${route.backends.where((backend) => backend.enabled).length} enabled backends',
-                      ),
-                      cells: [
-                        route.exposedModel,
-                        route.enabled
-                            ? text(zh: '启用', en: 'On')
-                            : text(zh: '停用', en: 'Off'),
-                        '${route.backends.length}',
-                        '${usageByExposed[route.exposedModel]?.requests ?? 0}',
-                        usageByExposed[route.exposedModel] == null
-                            ? '—'
-                            : _proxyOpsPercentLabel(
-                                usageByExposed[route.exposedModel]!.successRate,
-                              ),
-                        '${usageByExposed[route.exposedModel]?.tokens ?? 0}',
-                        usageByExposed[route.exposedModel] == null
-                            ? '—'
-                            : _proxyOpsDurationLabel(
-                                usageByExposed[route.exposedModel]!.avgMs,
-                              ),
-                        usageByExposed[route.exposedModel]?.lastAt == null
-                            ? '—'
-                            : formatListDateTime(
-                                usageByExposed[route.exposedModel]!.lastAt!,
-                              ),
-                      ],
-                      value: usageByExposed[route.exposedModel]?.requests ?? 0,
+              sortByValue: false,
+              headers: [
+                text(zh: '模型', en: 'Model'),
+                text(zh: '状态', en: 'Status'),
+                text(zh: '后备', en: 'Backends'),
+                text(zh: '请求', en: 'Requests'),
+                text(zh: '成功率', en: 'Success'),
+                'Token',
+                text(zh: '均耗时', en: 'Avg'),
+                text(zh: '最近', en: 'Latest'),
+              ],
+              rows: [
+                for (final route in data.settings.routes)
+                  OpenHandOperationalRankRow(
+                    subtitle: text(
+                      zh: '${route.backends.where((backend) => backend.enabled).length} 个启用后备',
+                      en: '${route.backends.where((backend) => backend.enabled).length} enabled backends',
                     ),
-                ],
-              ),
+                    cells: [
+                      route.exposedModel,
+                      route.enabled
+                          ? text(zh: '启用', en: 'On')
+                          : text(zh: '停用', en: 'Off'),
+                      '${route.backends.length}',
+                      '${usageByExposed[route.exposedModel]?.requests ?? 0}',
+                      usageByExposed[route.exposedModel] == null
+                          ? '—'
+                          : _proxyOpsPercentLabel(
+                              usageByExposed[route.exposedModel]!.successRate,
+                            ),
+                      '${usageByExposed[route.exposedModel]?.tokens ?? 0}',
+                      usageByExposed[route.exposedModel] == null
+                          ? '—'
+                          : _proxyOpsDurationLabel(
+                              usageByExposed[route.exposedModel]!.avgMs,
+                            ),
+                      usageByExposed[route.exposedModel]?.lastAt == null
+                          ? '—'
+                          : formatListDateTime(
+                              usageByExposed[route.exposedModel]!.lastAt!,
+                            ),
+                    ],
+                    value: usageByExposed[route.exposedModel]?.requests ?? 0,
+                  ),
+              ],
             ),
           ];
         },
@@ -4435,71 +4464,68 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ),
               ),
             ]),
-            _proxyOpsChartPanel(
+            _proxyOpsRankTablePanel(
               icon: Icons.list_alt_rounded,
               title: text(zh: '后备列表', en: 'Backend List'),
               empty: data.settings.routes.every(
                 (route) => route.backends.isEmpty,
               ),
               emptyLabel: text(zh: '暂无后备模型', en: 'No backends'),
-              chart: OpenHandOperationalRankTable(
-                sortByValue: false,
-                emptyLabel: text(zh: '暂无后备模型', en: 'No backends'),
-                headers: [
-                  text(zh: '后备', en: 'Backend'),
-                  text(zh: '暴露模型', en: 'Exposed'),
-                  text(zh: '状态', en: 'Status'),
-                  text(zh: '请求', en: 'Requests'),
-                  text(zh: '成功率', en: 'Success'),
-                  'Token',
-                  text(zh: '均耗时', en: 'Avg'),
-                  text(zh: '最近', en: 'Latest'),
-                ],
-                rows: [
-                  for (final route in data.settings.routes)
-                    for (final backend in route.backends)
-                      OpenHandOperationalRankRow(
-                        subtitle:
-                            data.providerLabelForId(backend.providerId) ??
-                            backend.providerId,
-                        cells: [
-                          backend.modelId,
-                          route.exposedModel,
-                          route.enabled && backend.enabled
-                              ? text(zh: '启用', en: 'On')
-                              : text(zh: '停用', en: 'Off'),
-                          '${usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']?.requests ?? 0}',
-                          usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}'] ==
-                                  null
-                              ? '—'
-                              : _proxyOpsPercentLabel(
-                                  usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']!
-                                      .successRate,
-                                ),
-                          '${usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']?.tokens ?? 0}',
-                          usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}'] ==
-                                  null
-                              ? '—'
-                              : _proxyOpsDurationLabel(
-                                  usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']!
-                                      .avgMs,
-                                ),
+              sortByValue: false,
+              headers: [
+                text(zh: '后备', en: 'Backend'),
+                text(zh: '暴露模型', en: 'Exposed'),
+                text(zh: '状态', en: 'Status'),
+                text(zh: '请求', en: 'Requests'),
+                text(zh: '成功率', en: 'Success'),
+                'Token',
+                text(zh: '均耗时', en: 'Avg'),
+                text(zh: '最近', en: 'Latest'),
+              ],
+              rows: [
+                for (final route in data.settings.routes)
+                  for (final backend in route.backends)
+                    OpenHandOperationalRankRow(
+                      subtitle:
+                          data.providerLabelForId(backend.providerId) ??
+                          backend.providerId,
+                      cells: [
+                        backend.modelId,
+                        route.exposedModel,
+                        route.enabled && backend.enabled
+                            ? text(zh: '启用', en: 'On')
+                            : text(zh: '停用', en: 'Off'),
+                        '${usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']?.requests ?? 0}',
+                        usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}'] ==
+                                null
+                            ? '—'
+                            : _proxyOpsPercentLabel(
+                                usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']!
+                                    .successRate,
+                              ),
+                        '${usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']?.tokens ?? 0}',
+                        usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}'] ==
+                                null
+                            ? '—'
+                            : _proxyOpsDurationLabel(
+                                usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']!
+                                    .avgMs,
+                              ),
+                        usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']
+                                    ?.lastAt ==
+                                null
+                            ? '—'
+                            : formatListDateTime(
+                                usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']!
+                                    .lastAt!,
+                              ),
+                      ],
+                      value:
                           usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']
-                                      ?.lastAt ==
-                                  null
-                              ? '—'
-                              : formatListDateTime(
-                                  usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']!
-                                      .lastAt!,
-                                ),
-                        ],
-                        value:
-                            usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']
-                                ?.requests ??
-                            0,
-                      ),
-                ],
-              ),
+                              ?.requests ??
+                          0,
+                    ),
+              ],
             ),
           ];
         },
@@ -4605,44 +4631,39 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               ],
             ),
             _proxyOpsRequestTrendPanel(context, data),
-            _proxyOpsPanelRow([
-              _proxyOpsChartPanel(
-                icon: Icons.stream_rounded,
-                title: text(zh: '窗口投递形态', en: 'Delivery Shape'),
-                empty: streamGroups.isEmpty,
-                emptyLabel: emptyChart,
-                chart: OpenHandOperationalComparisonBars(
-                  orientation: OpenHandComparisonBarOrientation.vertical,
-                  valueLabel: (segment) => '${segment.value.round()}',
-                  segments: [
-                    for (var i = 0; i < streamGroups.length; i++)
-                      OpenHandChartSegment(
-                        label: streamGroups[i].label,
-                        value: streamGroups[i].requests,
-                        color: palette[i % palette.length],
-                        valueLabel: '${streamGroups[i].requests}',
-                      ),
-                  ],
-                ),
+            _proxyOpsChartPanel(
+              icon: Icons.stream_rounded,
+              title: text(zh: '窗口投递形态', en: 'Delivery Shape'),
+              empty: streamGroups.isEmpty,
+              emptyLabel: emptyChart,
+              chart: OpenHandOperationalComparisonBars(
+                orientation: OpenHandComparisonBarOrientation.vertical,
+                valueLabel: (segment) => '${segment.value.round()}',
+                segments: [
+                  for (var i = 0; i < streamGroups.length; i++)
+                    OpenHandChartSegment(
+                      label: streamGroups[i].label,
+                      value: streamGroups[i].requests,
+                      color: palette[i % palette.length],
+                      valueLabel: '${streamGroups[i].requests}',
+                    ),
+                ],
               ),
-              _proxyOpsChartPanel(
-                icon: Icons.bolt_rounded,
-                title: text(zh: '突发分钟', en: 'Burst Minutes'),
-                empty: burstRows.isEmpty,
-                emptyLabel: emptyChart,
-                chart: OpenHandOperationalRankTable(
-                  emptyLabel: emptyChart,
-                  headers: [
-                    text(zh: '分钟', en: 'Minute'),
-                    text(zh: '总量', en: 'Total'),
-                    text(zh: '成功', en: 'OK'),
-                    text(zh: '失败', en: 'Fail'),
-                    text(zh: '失败率', en: 'Fail rate'),
-                  ],
-                  rows: burstRows,
-                ),
-              ),
-            ]),
+            ),
+            _proxyOpsRankTablePanel(
+              icon: Icons.bolt_rounded,
+              title: text(zh: '突发分钟', en: 'Burst Minutes'),
+              empty: burstRows.isEmpty,
+              emptyLabel: emptyChart,
+              headers: [
+                text(zh: '分钟', en: 'Minute'),
+                text(zh: '总量', en: 'Total'),
+                text(zh: '成功', en: 'OK'),
+                text(zh: '失败', en: 'Fail'),
+                text(zh: '失败率', en: 'Fail rate'),
+              ],
+              rows: burstRows,
+            ),
           ];
         },
       );
@@ -4785,38 +4806,33 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               ],
             ),
             _proxyOpsLatencyOverlayPanel(context, data),
-            _proxyOpsPanelRow([
-              _proxyOpsChartPanel(
-                icon: Icons.stacked_bar_chart_rounded,
-                title: text(zh: '窗口耗时带', en: 'Window Latency Bands'),
-                empty: bands.isEmpty,
-                emptyLabel: emptyChart,
-                chart: OpenHandOperationalComparisonBars(
-                  orientation: OpenHandComparisonBarOrientation.vertical,
-                  valueLabel: (segment) => '${segment.value.round()}',
-                  segments: bands,
-                ),
+            _proxyOpsChartPanel(
+              icon: Icons.stacked_bar_chart_rounded,
+              title: text(zh: '窗口耗时带', en: 'Window Latency Bands'),
+              empty: bands.isEmpty,
+              emptyLabel: emptyChart,
+              chart: OpenHandOperationalComparisonBars(
+                orientation: OpenHandComparisonBarOrientation.vertical,
+                valueLabel: (segment) => '${segment.value.round()}',
+                segments: bands,
               ),
-              _proxyOpsChartPanel(
-                icon: Icons.report_rounded,
-                title: text(zh: '降级分钟', en: 'Degraded Minutes'),
-                empty: degraded.isEmpty,
-                emptyLabel: text(
-                  zh: '窗口内无 P95 ≥ 3s',
-                  en: 'No P95 ≥ 3s in window',
-                ),
-                chart: OpenHandOperationalRankTable(
-                  emptyLabel: emptyChart,
-                  headers: [
-                    text(zh: '分钟', en: 'Minute'),
-                    text(zh: '均耗时', en: 'Avg'),
-                    'P95',
-                    text(zh: '请求', en: 'Requests'),
-                  ],
-                  rows: degraded,
-                ),
+            ),
+            _proxyOpsRankTablePanel(
+              icon: Icons.report_rounded,
+              title: text(zh: '降级分钟', en: 'Degraded Minutes'),
+              empty: degraded.isEmpty,
+              emptyLabel: text(
+                zh: '窗口内无 P95 ≥ 3s',
+                en: 'No P95 ≥ 3s in window',
               ),
-            ]),
+              headers: [
+                text(zh: '分钟', en: 'Minute'),
+                text(zh: '均耗时', en: 'Avg'),
+                'P95',
+                text(zh: '请求', en: 'Requests'),
+              ],
+              rows: degraded,
+            ),
             _proxyOpsChartPanel(
               icon: Icons.view_week_rounded,
               title: text(zh: '小时 P95 热力', en: 'Hourly P95 Heat'),
@@ -4966,27 +4982,21 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ),
               ),
             ]),
-            _proxyOpsPanelRow([
-              _proxyOpsChartPanel(
-                icon: Icons.stacked_bar_chart_rounded,
-                title: text(zh: '重试结果', en: 'Retry Outcome'),
-                empty: attempts.isEmpty,
-                emptyLabel: emptyChart,
-                chart: OpenHandOperationalStatusBand(segments: attempts),
-              ),
-              _proxyOpsChartPanel(
-                icon: Icons.tag_rounded,
-                title: text(zh: '状态码排行', en: 'Status Codes'),
-                empty: codes.isEmpty,
-                emptyLabel: emptyChart,
-                chart: _proxyOpsGroupTable(
-                  context: context,
-                  groups: codes,
-                  leadingHeader: text(zh: '状态码', en: 'Status'),
-                  emptyLabel: emptyChart,
-                ),
-              ),
-            ]),
+            _proxyOpsChartPanel(
+              icon: Icons.stacked_bar_chart_rounded,
+              title: text(zh: '重试结果', en: 'Retry Outcome'),
+              empty: attempts.isEmpty,
+              emptyLabel: emptyChart,
+              chart: OpenHandOperationalStatusBand(segments: attempts),
+            ),
+            _proxyOpsGroupTablePanel(
+              context: context,
+              icon: Icons.tag_rounded,
+              title: text(zh: '状态码排行', en: 'Status Codes'),
+              groups: codes,
+              leadingHeader: text(zh: '状态码', en: 'Status'),
+              emptyLabel: emptyChart,
+            ),
           ];
         },
       );
@@ -5069,18 +5079,14 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 segments: byteBars,
               ),
             ),
-            _proxyOpsChartPanel(
+            _proxyOpsGroupTablePanel(
+              context: context,
               icon: Icons.leaderboard_rounded,
               title: text(zh: '提供商质量表', en: 'Provider Quality'),
-              empty: groups.isEmpty,
+              groups: groups,
+              leadingHeader: text(zh: '提供商', en: 'Provider'),
               emptyLabel: emptyChart,
-              chart: _proxyOpsGroupTable(
-                context: context,
-                groups: groups,
-                leadingHeader: text(zh: '提供商', en: 'Provider'),
-                emptyLabel: emptyChart,
-                valueOf: (group) => group.successRate,
-              ),
+              valueOf: (group) => group.successRate,
             ),
           ];
         },
@@ -5244,30 +5250,22 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ),
               ),
             ]),
-            _proxyOpsChartPanel(
+            _proxyOpsGroupTablePanel(
+              context: context,
               icon: Icons.alt_route_rounded,
               title: text(zh: '暴露 → 后备映射', en: 'Exposed → Backend'),
-              empty: routed.isEmpty,
+              groups: routed,
+              leadingHeader: text(zh: '映射', en: 'Route'),
               emptyLabel: emptyChart,
-              chart: _proxyOpsGroupTable(
-                context: context,
-                groups: routed,
-                leadingHeader: text(zh: '映射', en: 'Route'),
-                emptyLabel: emptyChart,
-              ),
             ),
-            _proxyOpsChartPanel(
+            _proxyOpsGroupTablePanel(
+              context: context,
               icon: Icons.leaderboard_rounded,
               title: text(zh: '模型质量表', en: 'Model Quality'),
-              empty: groups.isEmpty,
+              groups: groups,
+              leadingHeader: text(zh: '模型', en: 'Model'),
               emptyLabel: emptyChart,
-              chart: _proxyOpsGroupTable(
-                context: context,
-                groups: groups,
-                leadingHeader: text(zh: '模型', en: 'Model'),
-                emptyLabel: emptyChart,
-                valueOf: (group) => group.successRate,
-              ),
+              valueOf: (group) => group.successRate,
             ),
           ];
         },
@@ -5348,45 +5346,31 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 segments: paths,
               ),
             ),
-            _proxyOpsChartPanel(
+            _proxyOpsGroupTablePanel(
+              context: context,
               icon: Icons.devices_rounded,
               title: text(zh: '客户端家族', en: 'Client Families'),
-              empty: families.isEmpty,
+              groups: families,
+              leadingHeader: text(zh: '客户端', en: 'Client'),
               emptyLabel: emptyChart,
-              chart: _proxyOpsGroupTable(
-                context: context,
-                groups: families,
-                leadingHeader: text(zh: '客户端', en: 'Client'),
-                emptyLabel: emptyChart,
-              ),
             ),
-            _proxyOpsPanelRow([
-              _proxyOpsChartPanel(
-                icon: Icons.public_rounded,
-                title: text(zh: '对端排行', en: 'Peer Rank'),
-                empty: peers.isEmpty,
-                emptyLabel: emptyChart,
-                chart: _proxyOpsGroupTable(
-                  context: context,
-                  groups: peers,
-                  leadingHeader: text(zh: '对端', en: 'Peer'),
-                  emptyLabel: emptyChart,
-                ),
-              ),
-              _proxyOpsChartPanel(
-                icon: Icons.api_rounded,
-                title: text(zh: '协议质量', en: 'Protocol Quality'),
-                empty: protocolQuality.isEmpty,
-                emptyLabel: emptyChart,
-                chart: _proxyOpsGroupTable(
-                  context: context,
-                  groups: protocolQuality,
-                  leadingHeader: text(zh: '协议', en: 'Protocol'),
-                  emptyLabel: emptyChart,
-                  valueOf: (group) => group.successRate,
-                ),
-              ),
-            ]),
+            _proxyOpsGroupTablePanel(
+              context: context,
+              icon: Icons.public_rounded,
+              title: text(zh: '对端排行', en: 'Peer Rank'),
+              groups: peers,
+              leadingHeader: text(zh: '对端', en: 'Peer'),
+              emptyLabel: emptyChart,
+            ),
+            _proxyOpsGroupTablePanel(
+              context: context,
+              icon: Icons.api_rounded,
+              title: text(zh: '协议质量', en: 'Protocol Quality'),
+              groups: protocolQuality,
+              leadingHeader: text(zh: '协议', en: 'Protocol'),
+              emptyLabel: emptyChart,
+              valueOf: (group) => group.successRate,
+            ),
           ];
         },
       );
