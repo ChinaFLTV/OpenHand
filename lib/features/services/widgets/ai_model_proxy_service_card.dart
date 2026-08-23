@@ -136,7 +136,7 @@ class AiModelProxyServiceCard extends StatelessWidget {
                 OpenHandStatusPill(
                   icon: Icons.speed_rounded,
                   label:
-                      '${settings.limitMode.label} ${settings.limitThreshold}',
+                      '${settings.limitScope.label} · ${settings.limitMode.label} ${settings.limitThreshold}',
                   color: colors.tertiary,
                 ),
                 OpenHandStatusPill(

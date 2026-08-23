@@ -95,6 +95,18 @@ enum AiModelProxyLimitMode {
       enumByStorageValueOr(values, value, (item) => item.id, fallback: rpm);
 }
 
+enum AiModelProxyLimitScope {
+  perIp('per_ip', '单个IP'),
+  clientClass('client_class', '同一类客户端');
+
+  const AiModelProxyLimitScope(this.id, this.label);
+  final String id;
+  final String label;
+
+  static AiModelProxyLimitScope fromId(Object? value) =>
+      enumByStorageValueOr(values, value, (item) => item.id, fallback: perIp);
+}
+
 enum AiModelProxyRetryPolicy {
   failFast('fail_fast', '立即失败'),
   retrySame('retry_same', '重试后失败'),
@@ -314,6 +326,7 @@ class AiModelProxySettings {
     this.requireAuthentication = false,
     this.apiKey = '',
     this.apiStyle = AiModelProxyApiStyle.openAiResponses,
+    this.limitScope = AiModelProxyLimitScope.perIp,
     this.limitMode = AiModelProxyLimitMode.rpm,
     this.limitThreshold = 30,
     this.retryPolicy = AiModelProxyRetryPolicy.failFast,
@@ -357,6 +370,7 @@ class AiModelProxySettings {
       requireAuthentication: json['require_authentication'] as bool? ?? false,
       apiKey: '${json['api_key'] ?? ''}',
       apiStyle: AiModelProxyApiStyle.fromId(json['api_style']),
+      limitScope: AiModelProxyLimitScope.fromId(json['limit_scope']),
       limitMode: AiModelProxyLimitMode.fromId(json['limit_mode']),
       limitThreshold: _boundedInt(json['limit_threshold'], 30, 1, 1000000),
       retryPolicy: AiModelProxyRetryPolicy.fromId(json['retry_policy']),
@@ -383,6 +397,7 @@ class AiModelProxySettings {
   final bool requireAuthentication;
   final String apiKey;
   final AiModelProxyApiStyle apiStyle;
+  final AiModelProxyLimitScope limitScope;
   final AiModelProxyLimitMode limitMode;
   final int limitThreshold;
   final AiModelProxyRetryPolicy retryPolicy;
@@ -408,6 +423,7 @@ class AiModelProxySettings {
     bool? requireAuthentication,
     String? apiKey,
     AiModelProxyApiStyle? apiStyle,
+    AiModelProxyLimitScope? limitScope,
     AiModelProxyLimitMode? limitMode,
     int? limitThreshold,
     AiModelProxyRetryPolicy? retryPolicy,
@@ -431,6 +447,7 @@ class AiModelProxySettings {
     requireAuthentication: requireAuthentication ?? this.requireAuthentication,
     apiKey: apiKey ?? this.apiKey,
     apiStyle: apiStyle ?? this.apiStyle,
+    limitScope: limitScope ?? this.limitScope,
     limitMode: limitMode ?? this.limitMode,
     limitThreshold: limitThreshold ?? this.limitThreshold,
     retryPolicy: retryPolicy ?? this.retryPolicy,
@@ -506,6 +523,7 @@ class AiModelProxySettings {
     'require_authentication': requireAuthentication,
     'api_key': apiKey,
     'api_style': apiStyle.id,
+    'limit_scope': limitScope.id,
     'limit_mode': limitMode.id,
     'limit_threshold': limitThreshold,
     'retry_policy': retryPolicy.id,

@@ -2011,6 +2011,7 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
   late final TextEditingController _listenHost;
   late bool _auth;
   late AiModelProxyApiStyle _style;
+  late AiModelProxyLimitScope _limitScope;
   late AiModelProxyLimitMode _limitMode;
   late AiModelProxyRetryPolicy _retry;
   late AiModelProxySchedulingStrategy _scheduling;
@@ -2028,6 +2029,7 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
     _listenPort = value.listenPort;
     _auth = value.requireAuthentication;
     _style = value.apiStyle;
+    _limitScope = value.limitScope;
     _limitMode = value.limitMode;
     _retry = value.retryPolicy;
     _scheduling = value.scheduling;
@@ -2054,6 +2056,7 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
         requireAuthentication: _auth,
         apiKey: _key.text.trim(),
         apiStyle: _style,
+        limitScope: _limitScope,
         limitMode: _limitMode,
         limitThreshold: _threshold,
         retryPolicy: _retry,
@@ -2161,6 +2164,14 @@ class _ProxySettingsDialogState extends State<_ProxySettingsDialog> {
                     values: AiModelProxyApiStyle.values,
                     labelOf: (item) => item.label,
                     onChanged: (value) => setState(() => _style = value),
+                  ),
+                  kOpenHandGap12,
+                  _DropdownField<AiModelProxyLimitScope>(
+                    label: text(zh: '并发限制范围', en: 'Rate limit scope'),
+                    value: _limitScope,
+                    values: AiModelProxyLimitScope.values,
+                    labelOf: (item) => item.label,
+                    onChanged: (value) => setState(() => _limitScope = value),
                   ),
                   kOpenHandGap12,
                   _DropdownField<AiModelProxyLimitMode>(

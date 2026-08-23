@@ -36,9 +36,8 @@ class AiModelProxyController extends ChangeNotifier {
   final Map<String, int> _connectionReferences = <String, int>{};
   final Map<String, int> _roundRobinCursors = <String, int>{};
   final Map<String, int> _proxyRoundRobinCursors = <String, int>{};
-  final List<DateTime> _rateWindow = <DateTime>[];
-  final List<int> _rateWindowTokenCounts = <int>[];
-  int _rateWindowTokens = 0;
+  final Map<String, _RateLimitWindowState> _rateLimitWindows =
+      <String, _RateLimitWindowState>{};
   AiExposureProxyConfiguration Function()? _networkProxyProvider;
   List<AiModelConfig> Function()? _modelsProvider;
   AiModelProxyHttpServer? _httpServer;
@@ -269,33 +268,117 @@ class AiModelProxyController extends ChangeNotifier {
     ],
   };
 
-  bool consumeRateLimit({required int tokens}) {
+  bool consumeRateLimit({
+    required int tokens,
+    String clientIp = '',
+    String userAgent = '',
+  }) {
     final now = DateTime.now();
-    for (var index = _rateWindow.length - 1; index >= 0; index -= 1) {
-      if (now.difference(_rateWindow[index]) < const Duration(minutes: 1)) {
-        continue;
+    _pruneRateLimitWindows(now);
+    final key = _rateLimitKey(clientIp: clientIp, userAgent: userAgent);
+    var window = _rateLimitWindows[key];
+    if (window == null) {
+      if (_rateLimitWindows.length >= _maxRateLimitBuckets) {
+        _evictOldestRateLimitWindow();
       }
-      _rateWindowTokens -= _rateWindowTokenCounts[index];
-      _rateWindow.removeAt(index);
-      _rateWindowTokenCounts.removeAt(index);
+      window = _RateLimitWindowState(now);
+      _rateLimitWindows[key] = window;
     }
-    if (_rateWindowTokens < 0) _rateWindowTokens = 0;
+    window.lastUsed = now;
     if (_settings.limitMode == AiModelProxyLimitMode.rpm) {
-      if (_rateWindow.length >= _settings.limitThreshold) return false;
-      _rateWindow.add(now);
-      _rateWindowTokenCounts.add(0);
+      if (window.requestCount >= _settings.limitThreshold) return false;
+      window.add(now, 0);
       return true;
     }
     final safeTokens = tokens.clamp(0, 1 << 30);
-    if (_rateWindowTokens + safeTokens > _settings.limitThreshold) return false;
-    _rateWindow.add(now);
-    _rateWindowTokenCounts.add(safeTokens);
-    _rateWindowTokens += safeTokens;
+    if (safeTokens == 0) return true;
+    if (window.tokenTotal + safeTokens > _settings.limitThreshold) return false;
+    window.add(now, safeTokens);
     return true;
   }
 
+  static const Duration _rateLimitWindowDuration = Duration(minutes: 1);
+  static const int _maxRateLimitBuckets = 256;
+
+  String _rateLimitKey({required String clientIp, required String userAgent}) {
+    if (_settings.limitScope == AiModelProxyLimitScope.clientClass) {
+      return 'client:${_clientClassKey(userAgent)}';
+    }
+    var ip = clientIp.trim().toLowerCase();
+    final comma = ip.indexOf(',');
+    if (comma >= 0) ip = ip.substring(0, comma).trim();
+    final normalizedIp = ip.isEmpty
+        ? 'unknown-client'
+        : ip.substring(0, ip.length > 128 ? 128 : ip.length);
+    return 'ip:$normalizedIp';
+  }
+
+  static String _clientClassKey(String userAgent) {
+    final raw = userAgent.trim().toLowerCase();
+    final value = raw.length <= 512 ? raw : raw.substring(0, 512);
+    if (value.isEmpty) return 'unknown-client';
+    if (value.contains('claude')) return 'claude';
+    if (value.contains('edg/') || value.contains('edge/')) return 'edge';
+    if (value.contains('opr/') || value.contains('opera')) return 'opera';
+    if (value.contains('samsungbrowser')) return 'samsung-browser';
+    if (value.contains('chrome/') || value.contains('crios/')) return 'chrome';
+    if (value.contains('firefox/') || value.contains('fxios/')) {
+      return 'firefox';
+    }
+    if (value.contains('safari/')) return 'safari';
+    if (value.contains('curl/')) return 'curl';
+    if (value.contains('python-requests') || value.contains('python/')) {
+      return 'python';
+    }
+    if (value.contains('dart/')) {
+      return 'dart';
+    }
+    if (value.contains('node.js') || value.contains('node/')) {
+      return 'node';
+    }
+    final token = RegExp(
+      r'^[a-z0-9][a-z0-9._-]{0,31}',
+    ).firstMatch(value)?.group(0);
+    return token == null ? 'unknown-client' : 'other:$token';
+  }
+
+  void _pruneRateLimitWindows(DateTime now) {
+    final expired = <String>[];
+    for (final entry in _rateLimitWindows.entries) {
+      final window = entry.value;
+      window.prune(now, _rateLimitWindowDuration);
+      if (window.isEmpty &&
+          now.difference(window.lastUsed) >= _rateLimitWindowDuration) {
+        expired.add(entry.key);
+      }
+    }
+    for (final key in expired) {
+      _rateLimitWindows.remove(key);
+    }
+  }
+
+  void _evictOldestRateLimitWindow() {
+    String? oldestKey;
+    DateTime? oldestAt;
+    for (final entry in _rateLimitWindows.entries) {
+      if (oldestAt == null || entry.value.lastUsed.isBefore(oldestAt)) {
+        oldestKey = entry.key;
+        oldestAt = entry.value.lastUsed;
+      }
+    }
+    if (oldestKey != null) _rateLimitWindows.remove(oldestKey);
+  }
+
+  void _resetRateLimitWindows() => _rateLimitWindows.clear();
+
   Future<void> load() async {
+    final previous = _settings;
     _settings = await _store.load();
+    if (previous.limitScope != _settings.limitScope ||
+        previous.limitMode != _settings.limitMode ||
+        previous.limitThreshold != _settings.limitThreshold) {
+      _resetRateLimitWindows();
+    }
     _notify();
   }
 
@@ -328,6 +411,7 @@ class AiModelProxyController extends ChangeNotifier {
       _activeRequests = 0;
       _unknownConnectionRequests = 0;
       _connectionReferences.clear();
+      _resetRateLimitWindows();
       _runtimeInboundBytes = 0;
       _runtimeOutboundBytes = 0;
       _runtimeRequestCount = 0;
@@ -343,6 +427,7 @@ class AiModelProxyController extends ChangeNotifier {
       _activeRequests = 0;
       _unknownConnectionRequests = 0;
       _connectionReferences.clear();
+      _resetRateLimitWindows();
       _settings = _settings.copyWith(enabled: false);
       try {
         await _writes.enqueue(() => _store.save(_settings));
@@ -368,6 +453,7 @@ class AiModelProxyController extends ChangeNotifier {
       _activeRequests = 0;
       _unknownConnectionRequests = 0;
       _connectionReferences.clear();
+      _resetRateLimitWindows();
       _settings = _settings.copyWith(enabled: false);
       await _writes.enqueue(() => _store.save(_settings));
       _lifecycle = AiModelProxyLifecycle.stopped;
@@ -399,6 +485,7 @@ class AiModelProxyController extends ChangeNotifier {
     _activeRequests = 0;
     _unknownConnectionRequests = 0;
     _connectionReferences.clear();
+    _resetRateLimitWindows();
     await _writes.idle;
   }
 
@@ -410,6 +497,11 @@ class AiModelProxyController extends ChangeNotifier {
         previous.listenHost != normalized.listenHost ||
         previous.listenPort != normalized.listenPort;
     _settings = normalized;
+    if (previous.limitScope != normalized.limitScope ||
+        previous.limitMode != normalized.limitMode ||
+        previous.limitThreshold != normalized.limitThreshold) {
+      _resetRateLimitWindows();
+    }
     _notify();
     await _writes.enqueue(() => _store.save(normalized));
     if (listenEndpointChanged) await _requestServerRebind();
@@ -623,6 +715,7 @@ class AiModelProxyController extends ChangeNotifier {
     _activeRequests = 0;
     _unknownConnectionRequests = 0;
     _connectionReferences.clear();
+    _resetRateLimitWindows();
     unawaited(_httpServer?.dispose());
     _httpServer = null;
     super.dispose();
@@ -665,6 +758,7 @@ class AiModelProxyController extends ChangeNotifier {
       final server = _httpServer;
       if (server == null) throw StateError('中转站 HTTP 服务未初始化。');
       await server.stop();
+      _resetRateLimitWindows();
       await server.start();
       _lifecycle = AiModelProxyLifecycle.running;
     } catch (error) {
@@ -692,5 +786,38 @@ class AiModelProxyController extends ChangeNotifier {
     final completer = _busyCompleter;
     _busyCompleter = null;
     if (completer != null && !completer.isCompleted) completer.complete();
+  }
+}
+
+class _RateLimitWindowState {
+  _RateLimitWindowState(this.lastUsed);
+
+  final List<DateTime> timestamps = <DateTime>[];
+  final List<int> tokenCounts = <int>[];
+  DateTime lastUsed;
+  int offset = 0;
+  int tokenTotal = 0;
+
+  int get requestCount => timestamps.length - offset;
+  bool get isEmpty => offset >= timestamps.length;
+
+  void add(DateTime timestamp, int tokens) {
+    timestamps.add(timestamp);
+    tokenCounts.add(tokens);
+    tokenTotal += tokens;
+  }
+
+  void prune(DateTime now, Duration duration) {
+    while (offset < timestamps.length &&
+        now.difference(timestamps[offset]) >= duration) {
+      tokenTotal -= tokenCounts[offset];
+      offset += 1;
+    }
+    if (tokenTotal < 0) tokenTotal = 0;
+    if (offset > 128 && offset * 2 >= timestamps.length) {
+      timestamps.removeRange(0, offset);
+      tokenCounts.removeRange(0, offset);
+      offset = 0;
+    }
   }
 }

@@ -81,6 +81,8 @@ class AiModelProxyDispatcher {
         0,
         (sum, item) => sum + item.content.length ~/ 4,
       ),
+      clientIp: _clientIp(headers),
+      userAgent: _clientUserAgent(headers),
     )) {
       throw const AiModelProxyException(429, '请求超过当前限流阈值。');
     }
@@ -173,15 +175,8 @@ class AiModelProxyDispatcher {
             'proxy_endpoint': network.endpoint,
             'remote_host': network.remoteHost,
             'remote_port': network.remotePort,
-            'client_ip': _headerValue(headers, const <String>[
-              'x-forwarded-for',
-              'x-real-ip',
-              'x-client-ip',
-            ]),
-            'client_port': _headerValue(headers, const <String>[
-              'x-forwarded-port',
-              'x-client-port',
-            ]),
+            'client_ip': _clientIp(headers),
+            'client_port': _clientPort(headers),
           },
           body: () => chatClient.sendMessage(
             model: model,
@@ -201,16 +196,9 @@ class AiModelProxyDispatcher {
           providerId: provider.id,
           modelId: backend.modelId,
           apiStyle: settings.apiStyle.id,
-          clientIp: _headerValue(headers, const <String>[
-            'x-forwarded-for',
-            'x-real-ip',
-            'x-client-ip',
-          ]),
-          clientPort: _headerValue(headers, const <String>[
-            'x-forwarded-port',
-            'x-client-port',
-          ]),
-          clientUserAgent: _headerValue(headers, const <String>['user-agent']),
+          clientIp: _clientIp(headers),
+          clientPort: _clientPort(headers),
+          clientUserAgent: _clientUserAgent(headers),
           proxyMode: network.mode,
           proxyEndpoint: network.endpoint,
           remoteHost: network.remoteHost,
@@ -236,16 +224,9 @@ class AiModelProxyDispatcher {
           modelId: backend.modelId,
           apiStyle: settings.apiStyle.id,
           error: '$error',
-          clientIp: _headerValue(headers, const <String>[
-            'x-forwarded-for',
-            'x-real-ip',
-            'x-client-ip',
-          ]),
-          clientPort: _headerValue(headers, const <String>[
-            'x-forwarded-port',
-            'x-client-port',
-          ]),
-          clientUserAgent: _headerValue(headers, const <String>['user-agent']),
+          clientIp: _clientIp(headers),
+          clientPort: _clientPort(headers),
+          clientUserAgent: _clientUserAgent(headers),
           proxyMode: network.mode,
           proxyEndpoint: network.endpoint,
           remoteHost: network.remoteHost,
@@ -292,6 +273,8 @@ class AiModelProxyDispatcher {
         0,
         (sum, item) => sum + item.content.length ~/ 4,
       ),
+      clientIp: _clientIp(headers),
+      userAgent: _clientUserAgent(headers),
     )) {
       throw const AiModelProxyException(429, '请求超过当前限流阈值。');
     }
@@ -380,18 +363,9 @@ class AiModelProxyDispatcher {
                     providerId: provider.id,
                     modelId: backend.modelId,
                     apiStyle: controller.settings.apiStyle.id,
-                    clientIp: _headerValue(headers, const <String>[
-                      'x-forwarded-for',
-                      'x-real-ip',
-                      'x-client-ip',
-                    ]),
-                    clientPort: _headerValue(headers, const <String>[
-                      'x-forwarded-port',
-                      'x-client-port',
-                    ]),
-                    clientUserAgent: _headerValue(headers, const <String>[
-                      'user-agent',
-                    ]),
+                    clientIp: _clientIp(headers),
+                    clientPort: _clientPort(headers),
+                    clientUserAgent: _clientUserAgent(headers),
                     proxyMode: network.mode,
                     proxyEndpoint: network.endpoint,
                     remoteHost: network.remoteHost,
@@ -409,18 +383,9 @@ class AiModelProxyDispatcher {
                     modelId: backend.modelId,
                     apiStyle: controller.settings.apiStyle.id,
                     error: '$error',
-                    clientIp: _headerValue(headers, const <String>[
-                      'x-forwarded-for',
-                      'x-real-ip',
-                      'x-client-ip',
-                    ]),
-                    clientPort: _headerValue(headers, const <String>[
-                      'x-forwarded-port',
-                      'x-client-port',
-                    ]),
-                    clientUserAgent: _headerValue(headers, const <String>[
-                      'user-agent',
-                    ]),
+                    clientIp: _clientIp(headers),
+                    clientPort: _clientPort(headers),
+                    clientUserAgent: _clientUserAgent(headers),
                     proxyMode: network.mode,
                     proxyEndpoint: network.endpoint,
                     remoteHost: network.remoteHost,
@@ -863,6 +828,27 @@ String _headerValue(Map<String, String> headers, List<String> names) {
     }
   }
   return '';
+}
+
+String _clientIp(Map<String, String> headers) {
+  final hasServerAddress = headers.keys.any(
+    (key) => key.toLowerCase() == 'x-client-ip',
+  );
+  if (hasServerAddress) {
+    return _headerValue(headers, const ['x-client-ip']);
+  }
+  return _headerValue(headers, const ['x-forwarded-for', 'x-real-ip']);
+}
+
+String _clientUserAgent(Map<String, String> headers) =>
+    _headerValue(headers, const ['user-agent']);
+
+String _clientPort(Map<String, String> headers) {
+  final hasServerPort = headers.keys.any(
+    (key) => key.toLowerCase() == 'x-client-port',
+  );
+  if (hasServerPort) return _headerValue(headers, const ['x-client-port']);
+  return _headerValue(headers, const ['x-forwarded-port']);
 }
 
 String _maskProxyEndpoint(String value) {
