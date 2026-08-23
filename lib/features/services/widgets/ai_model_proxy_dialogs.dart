@@ -1146,6 +1146,7 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     if (!context.mounted || draft == null) return;
     var modelId = draft.modelId.trim();
     var profile = const AiModelProfile();
+    AiModelProxyBackend? importedBackend;
     if (draft.importExisting) {
       final settings = context.read<SettingsController>();
       final chosen = await showModelSearchSelector(
@@ -1155,11 +1156,20 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
       );
       if (!context.mounted || chosen == null) return;
       final provider = settings.aiModels
-          .where((item) => item.id == chosen.$1)
+          .where(
+            (item) =>
+                item.id.trim().toLowerCase() == chosen.$1.trim().toLowerCase(),
+          )
           .firstOrNull;
       if (provider == null) return;
       modelId = chosen.$2.trim();
       profile = provider.profileFor(modelId);
+      if (modelId.isNotEmpty) {
+        importedBackend = AiModelProxyBackend(
+          providerId: provider.id.trim(),
+          modelId: modelId,
+        );
+      }
     }
     if (modelId.isEmpty) return;
     final proxy = context.read<AiModelProxyController>();
@@ -1173,25 +1183,18 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
       );
       return;
     }
-    final saved = await _persistRoutes([
-      ...routes,
-      AiModelProxyRoute(
-        exposedModel: modelId,
-        profile: profile,
-        backends: const [],
-      ),
-    ]);
+    final newRoute = AiModelProxyRoute(
+      exposedModel: modelId,
+      profile: profile,
+      backends: importedBackend == null
+          ? const <AiModelProxyBackend>[]
+          : <AiModelProxyBackend>[importedBackend],
+    );
+    final saved = await _persistRoutes([...routes, newRoute]);
     if (!saved) return;
     if (!mounted || !context.mounted) return;
     setState(() => _selectedModel = modelId);
-    await _editExposedModel(
-      context,
-      AiModelProxyRoute(
-        exposedModel: modelId,
-        profile: profile,
-        backends: const [],
-      ),
-    );
+    await _editExposedModel(context, newRoute);
   }
 
   Future<void> _editExposedModel(
