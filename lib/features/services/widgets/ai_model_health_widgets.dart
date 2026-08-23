@@ -269,50 +269,52 @@ class _HealthBar extends StatelessWidget {
         ? const Color(0xff32c887)
         : colorScheme.error;
     final height = compact ? 16.0 : 22.0;
+    final bar = AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      width: compact ? 3 : 4,
+      height: height,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(2),
+      ),
+    );
+    final content = record == null
+        ? bar
+        : Tooltip(
+            richMessage: TextSpan(
+              style: DefaultTextStyle.of(context).style,
+              children: [
+                TextSpan(text: '${record!.providerName}\n'),
+                TextSpan(
+                  text: '${record!.modelId}\n',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                TextSpan(
+                  text:
+                      '${record!.success ? '健康' : '异常'} · '
+                      '${record!.latencyMs} ms · 耗时 ${record!.durationMs} ms\n',
+                ),
+                TextSpan(
+                  text:
+                      '${record!.checkedAt.toLocal()} · '
+                      '${record!.requestMode.storageValue}\n',
+                ),
+                if (record!.host.isNotEmpty)
+                  TextSpan(
+                    text:
+                        '${record!.host}${record!.port == null ? '' : ':${record!.port}'}\n',
+                  ),
+                if (record!.responseCode != null)
+                  TextSpan(text: 'HTTP ${record!.responseCode}\n'),
+                if (record!.errorMessage.isNotEmpty)
+                  TextSpan(text: record!.errorMessage),
+              ],
+            ),
+            child: bar,
+          );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 1.2),
-      child: Tooltip(
-        richMessage: record == null
-            ? null
-            : TextSpan(
-                style: DefaultTextStyle.of(context).style,
-                children: [
-                  TextSpan(text: '${record!.providerName}\n'),
-                  TextSpan(
-                    text: '${record!.modelId}\n',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  TextSpan(
-                    text:
-                        '${record!.success ? '健康' : '异常'} · '
-                        '${record!.latencyMs} ms · 耗时 ${record!.durationMs} ms\n',
-                  ),
-                  TextSpan(
-                    text:
-                        '${record!.checkedAt.toLocal()} · '
-                        '${record!.requestMode.storageValue}\n',
-                  ),
-                  if (record!.host.isNotEmpty)
-                    TextSpan(
-                      text:
-                          '${record!.host}${record!.port == null ? '' : ':${record!.port}'}\n',
-                    ),
-                  if (record!.responseCode != null)
-                    TextSpan(text: 'HTTP ${record!.responseCode}\n'),
-                  if (record!.errorMessage.isNotEmpty)
-                    TextSpan(text: record!.errorMessage),
-                ],
-              ),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          width: compact ? 3 : 4,
-          height: height,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-      ),
+      child: content,
     );
   }
 }
