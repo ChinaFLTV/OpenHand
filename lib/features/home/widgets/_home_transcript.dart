@@ -1661,7 +1661,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final settingsController = context.read<SettingsController>();
     final translationGeneration = _translationGeneration;
     final fallbackModel = _translationFallbackModel(settingsController);
-    final requestFingerprint = _translationRequestFingerprint(
+    final requestFingerprint = aiTranslationRequestFingerprint(
       settings,
       fallbackModel,
     );
@@ -1743,16 +1743,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       }
     }
     return settings.selectedAiModel;
-  }
-
-  String _translationRequestFingerprint(
-    AiTranslationSettings settings,
-    AiModelConfig? fallbackModel,
-  ) {
-    return stableJsonSha256(<String, Object?>{
-      'settings': settings.cacheFingerprint,
-      'fallback_model': fallbackModel?.toJson(),
-    });
   }
 
   Future<void> _setMessageFeedbackAnchored(
@@ -2805,7 +2795,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         translationEntry.sourceText ==
             _translatableMessageText(message, translationSettings) &&
         translationEntry.settingsFingerprint ==
-            _translationRequestFingerprint(
+            aiTranslationRequestFingerprint(
               translationSettings,
               _translationFallbackModel(settingsController),
             );

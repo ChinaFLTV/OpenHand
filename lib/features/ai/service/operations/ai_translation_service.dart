@@ -53,6 +53,16 @@ class AiTranslationException implements Exception {
   String toString() => message;
 }
 
+String aiTranslationRequestFingerprint(
+  AiTranslationSettings settings,
+  AiModelConfig? fallbackModel,
+) {
+  return stableJsonSha256(<String, Object?>{
+    'settings': settings.cacheFingerprint,
+    'fallback_model': fallbackModel?.toJson(),
+  });
+}
+
 class AiTranslationService {
   AiTranslationService({http.Client? client, AiChatClient? chatClient})
     : _transport = AiTransportClient(client: client),

@@ -79,6 +79,8 @@ import '../model/dingtalk_message_gateway.dart';
 import '../model/web_message_platform_config.dart';
 import '../service/web_message_platform_service.dart';
 
+const int _dingtalkTranslationCacheMaxEntries = 64;
+
 String _reportMessageGatewayUiFailure(
   String action,
   Object error,
@@ -12094,7 +12096,6 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   static const Duration _voiceOperationTimeout = Duration(seconds: 10);
   static const Duration _voiceCleanupTimeout = Duration(seconds: 5);
   static const int _voiceWaveformSampleCount = 40;
-  static const int _maxTranslationCacheEntries = 64;
   static const double _messageCacheExtent = 120;
   static const double _messagesScrollbarThickness = 6;
   static const Radius _messagesScrollbarRadius = kOpenHandPillRadius;
@@ -12786,7 +12787,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                           message.content &&
                                                       translation
                                                               .settingsFingerprint ==
-                                                          _translationFingerprint(
+                                                          aiTranslationRequestFingerprint(
                                                             translationSettings,
                                                             messageActionFallbackModel,
                                                           );
@@ -13303,16 +13304,6 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     }
   }
 
-  String _translationFingerprint(
-    AiTranslationSettings settings,
-    AiModelConfig? fallbackModel,
-  ) {
-    return stableJsonSha256(<String, Object?>{
-      'settings': settings.cacheFingerprint,
-      'fallback_model': fallbackModel?.toJson(),
-    });
-  }
-
   Future<void> _toggleMessageTranslation(
     DingTalkGatewayMessage message,
     AiTranslationSettings settings,
@@ -13323,7 +13314,10 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       setState(() => _visibleTranslationMessageIds.remove(messageId));
       return;
     }
-    final fingerprint = _translationFingerprint(settings, fallbackModel);
+    final fingerprint = aiTranslationRequestFingerprint(
+      settings,
+      fallbackModel,
+    );
     final cached = _translations[messageId];
     if (cached != null &&
         cached.sourceText == message.content &&
@@ -13348,7 +13342,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
           settingsFingerprint: fingerprint,
           translatedText: result.text,
         );
-        while (_translations.length > _maxTranslationCacheEntries) {
+        while (_translations.length > _dingtalkTranslationCacheMaxEntries) {
           final removed = _translations.keys.first;
           _translations.remove(removed);
           _visibleTranslationMessageIds.remove(removed);
@@ -17737,7 +17731,6 @@ class _DingTalkForwardedChatDialogState
   static const double _actionToggleMaxDistance = 8;
   static const Duration _actionToggleMaxDuration = Duration(milliseconds: 350);
   static const Duration _actionToggleDelay = Duration(milliseconds: 80);
-  static const int _maxTranslationCacheEntries = 64;
   static const int _maxClipboardImageBytes = 64 * kBytesPerMiB;
   static const Duration _mediaClipboardTimeout = Duration(seconds: 15);
   final AiTtsPlaybackService _ttsPlaybackService = AiTtsPlaybackService();
@@ -17931,7 +17924,7 @@ class _DingTalkForwardedChatDialogState
                 final textActionEnabled =
                     item.content.trim().isNotEmpty && resolvedMedia.isEmpty;
                 final translation = _translations[itemKey];
-                final translationFingerprint = _translationFingerprint(
+                final translationFingerprint = aiTranslationRequestFingerprint(
                   translationSettings,
                   fallbackModel,
                 );
@@ -18399,16 +18392,6 @@ class _DingTalkForwardedChatDialogState
     return '${widget.messageId}:$index:${id.isEmpty ? item.createdAt.microsecondsSinceEpoch : id}';
   }
 
-  String _translationFingerprint(
-    AiTranslationSettings settings,
-    AiModelConfig? fallbackModel,
-  ) {
-    return stableJsonSha256(<String, Object?>{
-      'settings': settings.cacheFingerprint,
-      'fallback_model': fallbackModel?.toJson(),
-    });
-  }
-
   Future<void> _toggleSpeech(
     String messageId,
     String content,
@@ -18444,7 +18427,10 @@ class _DingTalkForwardedChatDialogState
       setState(() => _visibleTranslationMessageIds.remove(messageId));
       return;
     }
-    final fingerprint = _translationFingerprint(settings, fallbackModel);
+    final fingerprint = aiTranslationRequestFingerprint(
+      settings,
+      fallbackModel,
+    );
     final cached = _translations[messageId];
     if (cached != null &&
         cached.sourceText == content &&
@@ -18469,7 +18455,7 @@ class _DingTalkForwardedChatDialogState
           settingsFingerprint: fingerprint,
           translatedText: result.text,
         );
-        while (_translations.length > _maxTranslationCacheEntries) {
+        while (_translations.length > _dingtalkTranslationCacheMaxEntries) {
           final removed = _translations.keys.first;
           _translations.remove(removed);
           _visibleTranslationMessageIds.remove(removed);

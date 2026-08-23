@@ -130,7 +130,6 @@ import '../../shared/util/localized_text.dart';
 import '../../shared/util/path_safety.dart';
 import '../../shared/util/physical_path_safety.dart';
 import '../../shared/util/platform_shell.dart';
-import '../../shared/util/stable_hash.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/text_fingerprint.dart';
 import '../../shared/util/text_normalization.dart';
