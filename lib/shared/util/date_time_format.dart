@@ -91,7 +91,8 @@ String formatYearMonthDayHms(DateTime value) {
 
 // 统一处理展示时间的本地时区转换。
 
-String formatHourMinuteLocal(DateTime value) => formatHourMinute(value.toLocal());
+String formatHourMinuteLocal(DateTime value) =>
+    formatHourMinute(value.toLocal());
 
 String formatHourMinuteSecondLocal(DateTime value) =>
     formatHourMinuteSecond(value.toLocal());
@@ -110,6 +111,9 @@ String formatYearMonthDayHmLocal(DateTime value) =>
 
 String formatYearMonthDayHmsLocal(DateTime value) =>
     formatYearMonthDayHms(value.toLocal());
+
+/// 列表记录统一日期时间：yyyy-MM-dd HH:mm:ss（本地时区，24 小时制）。
+String formatListDateTime(DateTime value) => formatYearMonthDayHmsLocal(value);
 
 bool isDateTimeInUtcRange(
   DateTime value, {

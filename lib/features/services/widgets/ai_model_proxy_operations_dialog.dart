@@ -2376,14 +2376,11 @@ OpenHandOperationalRankTable _proxyOpsGroupTable({
   required BuildContext context,
   required List<_ProxyOpsGroupStat> groups,
   required String leadingHeader,
-  required IconData icon,
-  required Color tone,
   required String emptyLabel,
   num Function(_ProxyOpsGroupStat group)? valueOf,
 }) {
   final text = openHandTextResolver(context);
   return OpenHandOperationalRankTable(
-    leadingIcon: icon,
     emptyLabel: emptyLabel,
     headers: [
       leadingHeader,
@@ -2400,8 +2397,6 @@ OpenHandOperationalRankTable _proxyOpsGroupTable({
     rows: [
       for (final group in groups.take(_kProxyOpsRankMaxRows))
         OpenHandOperationalRankRow(
-          icon: icon,
-          highlightColor: tone,
           subtitle: [
             if (group.promptTokens > 0 || group.completionTokens > 0)
               '↑${group.promptTokens}  ↓${group.completionTokens}',
@@ -2420,7 +2415,7 @@ OpenHandOperationalRankTable _proxyOpsGroupTable({
             _proxyOpsDurationLabel(group.avgMs),
             _proxyOpsDurationLabel(group.p95Ms),
             '${group.peers.length}',
-            group.lastAt == null ? '—' : formatMonthDayHmsLocal(group.lastAt!),
+            group.lastAt == null ? '—' : formatListDateTime(group.lastAt!),
           ],
           value: valueOf?.call(group) ?? group.requests,
         ),
@@ -2437,13 +2432,11 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
   int maxEntries = _kProxyOpsLogMaxEntries,
 }) {
   final text = openHandTextResolver(context);
-  final cs = Theme.of(context).colorScheme;
   final unknown = text(zh: '未知', en: 'Unknown');
   final shown = records.take(maxEntries).toList(growable: false);
   return OpenHandOperationalRankTable(
     sortByValue: false,
     emptyLabel: emptyLabel,
-    leadingIcon: Icons.receipt_long_rounded,
     headers: [
       text(zh: '时间', en: 'Time'),
       text(zh: '模型', en: 'Model'),
@@ -2458,19 +2451,13 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
     rows: [
       for (final record in shown)
         OpenHandOperationalRankRow(
-          icon: record.success
-              ? Icons.check_rounded
-              : Icons.error_outline_rounded,
-          highlightColor: record.success
-              ? OpenHandStatusColors.success
-              : cs.error,
           subtitle: [
             if (record.requestPath.trim().isNotEmpty) record.requestPath.trim(),
             if (record.stream) text(zh: '流式', en: 'Stream'),
             if (record.attempt > 1) '#${record.attempt}',
           ].join(' · '),
           cells: [
-            formatMonthDayHmsLocal(record.startedAt),
+            formatListDateTime(record.startedAt),
             _proxyOpsRequestTitle(data, record, unknown),
             [
               if (record.apiStyle.trim().isNotEmpty) record.apiStyle.trim(),
@@ -2695,7 +2682,7 @@ OpenHandChartTooltip _proxyOpsHourVolumeTooltip({
       if (hour.lastAt != null)
         OpenHandChartTooltipMetric(
           label: text(zh: '最近请求', en: 'Latest'),
-          value: formatMonthDayHmsLocal(hour.lastAt!),
+          value: formatListDateTime(hour.lastAt!),
           icon: Icons.schedule_rounded,
           color: tone,
         ),
@@ -3016,7 +3003,7 @@ Widget _proxyOpsServiceHealthPanel(
                       if (hour.lastAt != null)
                         OpenHandChartTooltipMetric(
                           label: text(zh: '最近请求', en: 'Latest'),
-                          value: formatMonthDayHmsLocal(hour.lastAt!),
+                          value: formatListDateTime(hour.lastAt!),
                           icon: Icons.schedule_rounded,
                           color: color,
                         ),
@@ -3604,8 +3591,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 context: context,
                 groups: models,
                 leadingHeader: text(zh: '模型', en: 'Model'),
-                icon: Icons.model_training_outlined,
-                tone: success,
                 emptyLabel: emptyChart,
               ),
             ),
@@ -3677,8 +3662,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 context: context,
                 groups: models,
                 leadingHeader: text(zh: '模型', en: 'Model'),
-                icon: Icons.model_training_outlined,
-                tone: cs.error,
                 emptyLabel: emptyChart,
               ),
             ),
@@ -4067,8 +4050,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 context: context,
                 groups: providers,
                 leadingHeader: text(zh: '提供商', en: 'Provider'),
-                icon: Icons.hub_outlined,
-                tone: cs.tertiary,
                 emptyLabel: emptyChart,
                 valueOf: (group) => group.tokens,
               ),
@@ -4201,8 +4182,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 context: context,
                 groups: upstream,
                 leadingHeader: text(zh: '上游', en: 'Upstream'),
-                icon: Icons.cloud_outlined,
-                tone: cs.tertiary,
                 emptyLabel: emptyChart,
               ),
             ),
@@ -4304,8 +4283,8 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                       ),
                       if (usage?.lastAt case final latest?)
                         text(
-                          zh: '最近一次调用 ${formatMonthDayHmsLocal(latest)}',
-                          en: 'Last call ${formatMonthDayHmsLocal(latest)}',
+                          zh: '最近一次调用 ${formatListDateTime(latest)}',
+                          en: 'Last call ${formatListDateTime(latest)}',
                         ),
                     ],
                   ),
@@ -4362,7 +4341,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               emptyLabel: text(zh: '暂无注册模型', en: 'No models registered'),
               chart: OpenHandOperationalRankTable(
                 sortByValue: false,
-                leadingIcon: Icons.hub_rounded,
                 emptyLabel: text(zh: '暂无注册模型', en: 'No models registered'),
                 headers: [
                   text(zh: '模型', en: 'Model'),
@@ -4377,10 +4355,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 rows: [
                   for (final route in data.settings.routes)
                     OpenHandOperationalRankRow(
-                      icon: Icons.hub_rounded,
-                      highlightColor: route.enabled
-                          ? success
-                          : cs.onSurfaceVariant,
                       subtitle: text(
                         zh: '${route.backends.where((backend) => backend.enabled).length} 个启用后备',
                         en: '${route.backends.where((backend) => backend.enabled).length} enabled backends',
@@ -4405,7 +4379,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                               ),
                         usageByExposed[route.exposedModel]?.lastAt == null
                             ? '—'
-                            : formatMonthDayHmsLocal(
+                            : formatListDateTime(
                                 usageByExposed[route.exposedModel]!.lastAt!,
                               ),
                       ],
@@ -4478,7 +4452,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               emptyLabel: text(zh: '暂无后备模型', en: 'No backends'),
               chart: OpenHandOperationalRankTable(
                 sortByValue: false,
-                leadingIcon: Icons.storage_rounded,
                 emptyLabel: text(zh: '暂无后备模型', en: 'No backends'),
                 headers: [
                   text(zh: '后备', en: 'Backend'),
@@ -4494,10 +4467,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                   for (final route in data.settings.routes)
                     for (final backend in route.backends)
                       OpenHandOperationalRankRow(
-                        icon: Icons.storage_rounded,
-                        highlightColor: route.enabled && backend.enabled
-                            ? success
-                            : cs.onSurfaceVariant,
                         subtitle:
                             data.providerLabelForId(backend.providerId) ??
                             backend.providerId,
@@ -4527,7 +4496,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                                       ?.lastAt ==
                                   null
                               ? '—'
-                              : formatMonthDayHmsLocal(
+                              : formatListDateTime(
                                   usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']!
                                       .lastAt!,
                                 ),
@@ -4581,8 +4550,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
             if (total <= 0) continue;
             burstRows.add(
               OpenHandOperationalRankRow(
-                icon: Icons.schedule_rounded,
-                highlightColor: cs.primary,
                 cells: [
                   formatHourMinuteLocal(minutes[i]),
                   '${total.round()}',
@@ -4672,7 +4639,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 empty: burstRows.isEmpty,
                 emptyLabel: emptyChart,
                 chart: OpenHandOperationalRankTable(
-                  leadingIcon: Icons.schedule_rounded,
                   emptyLabel: emptyChart,
                   headers: [
                     text(zh: '分钟', en: 'Minute'),
@@ -4741,8 +4707,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               if (i < data.p95LatencyBuckets.length &&
                   data.p95LatencyBuckets[i] >= _kProxyOpsSlowLatencyMs)
                 OpenHandOperationalRankRow(
-                  icon: Icons.warning_amber_rounded,
-                  highlightColor: OpenHandStatusColors.warning,
                   cells: [
                     formatHourMinuteLocal(minutes[i]),
                     _proxyOpsDurationLabel(
@@ -4850,7 +4814,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                   en: 'No P95 ≥ 3s in window',
                 ),
                 chart: OpenHandOperationalRankTable(
-                  leadingIcon: Icons.warning_amber_rounded,
                   emptyLabel: emptyChart,
                   headers: [
                     text(zh: '分钟', en: 'Minute'),
@@ -5028,8 +4991,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                   context: context,
                   groups: codes,
                   leadingHeader: text(zh: '状态码', en: 'Status'),
-                  icon: Icons.tag_rounded,
-                  tone: cs.secondary,
                   emptyLabel: emptyChart,
                 ),
               ),
@@ -5125,8 +5086,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 context: context,
                 groups: groups,
                 leadingHeader: text(zh: '提供商', en: 'Provider'),
-                icon: Icons.hub_outlined,
-                tone: cs.tertiary,
                 emptyLabel: emptyChart,
                 valueOf: (group) => group.successRate,
               ),
@@ -5261,9 +5220,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                             if (groups[i].lastAt != null)
                               OpenHandChartTooltipMetric(
                                 label: text(zh: '最近', en: 'Latest'),
-                                value: formatMonthDayHmsLocal(
-                                  groups[i].lastAt!,
-                                ),
+                                value: formatListDateTime(groups[i].lastAt!),
                                 icon: Icons.schedule_rounded,
                                 color: palette[i % palette.length],
                               ),
@@ -5301,8 +5258,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 context: context,
                 groups: routed,
                 leadingHeader: text(zh: '映射', en: 'Route'),
-                icon: Icons.alt_route_rounded,
-                tone: cs.secondary,
                 emptyLabel: emptyChart,
               ),
             ),
@@ -5315,8 +5270,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 context: context,
                 groups: groups,
                 leadingHeader: text(zh: '模型', en: 'Model'),
-                icon: Icons.model_training_outlined,
-                tone: cs.primary,
                 emptyLabel: emptyChart,
                 valueOf: (group) => group.successRate,
               ),
@@ -5409,8 +5362,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 context: context,
                 groups: families,
                 leadingHeader: text(zh: '客户端', en: 'Client'),
-                icon: Icons.devices_rounded,
-                tone: cs.secondary,
                 emptyLabel: emptyChart,
               ),
             ),
@@ -5424,8 +5375,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                   context: context,
                   groups: peers,
                   leadingHeader: text(zh: '对端', en: 'Peer'),
-                  icon: Icons.public_rounded,
-                  tone: cs.primary,
                   emptyLabel: emptyChart,
                 ),
               ),
@@ -5438,8 +5387,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                   context: context,
                   groups: protocolQuality,
                   leadingHeader: text(zh: '协议', en: 'Protocol'),
-                  icon: Icons.api_rounded,
-                  tone: cs.tertiary,
                   emptyLabel: emptyChart,
                   valueOf: (group) => group.successRate,
                 ),

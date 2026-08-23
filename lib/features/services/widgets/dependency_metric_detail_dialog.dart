@@ -741,9 +741,6 @@ class _DependencyMetricDetailDialogState
                       '${session['waitEvent'] ?? '无等待'} / ${_durationText(_integer(session['durationSeconds']))}',
                     ],
                     value: _integer(session['durationSeconds']).toDouble(),
-                    alert:
-                        session['blocked'] == true ||
-                        _integer(session['durationSeconds']) >= 300,
                   ),
                 )
                 .toList(growable: false),
@@ -888,7 +885,6 @@ class _DependencyMetricDetailDialogState
                       _compactCount(_integer(item['blocksRead'])),
                     ],
                     value: 1 - _normalizedRatio(item['hitRate']),
-                    alert: _normalizedRatio(item['hitRate']) < 0.9,
                   ),
                 )
                 .toList(growable: false),
@@ -1024,7 +1020,6 @@ class _DependencyMetricDetailDialogState
                       '${item['durationMs'] == null ? '--' : '${_integer(item['durationMs'])} ms'} / ${item['reason'] ?? '--'}',
                     ],
                     value: _integer(item['durationMs']).toDouble(),
-                    alert: true,
                   ),
                 )
                 .toList(growable: false),
@@ -1191,7 +1186,6 @@ class _DependencyMetricDetailDialogState
                       _ttlText(_integer(record['ttlSeconds'])),
                     ],
                     value: _integer(record['sizeBytes']).toDouble(),
-                    alert: _integer(record['sizeBytes']) >= kBytesPerMiB,
                   ),
                 )
                 .toList(growable: false),
@@ -1573,7 +1567,6 @@ class _DependencyMetricDetailDialogState
                       '${command['client'] ?? '--'}',
                     ],
                     value: _number(command['durationMs']),
-                    alert: _number(command['durationMs']) >= 10,
                   ),
                 )
                 .toList(growable: false),
@@ -1672,7 +1665,6 @@ class _DependencyMetricDetailDialogState
                       _compactCount(_integer(dimension['misses'])),
                     ],
                     value: 1 - _normalizedRatio(dimension['hitRate']),
-                    alert: _normalizedRatio(dimension['hitRate']) < 0.8,
                   ),
                 )
                 .toList(growable: false),
@@ -1832,9 +1824,6 @@ class _DependencyMetricDetailDialogState
                         _durationText(_integer(client['idleSeconds'])),
                       ],
                       value: _integer(client['idleSeconds']).toDouble(),
-                      alert:
-                          client['blocked'] == true ||
-                          _integer(client['idleSeconds']) >= 1800,
                     ),
                   )
                   .toList(growable: false),
@@ -3330,15 +3319,10 @@ class _HorizontalBars extends StatelessWidget {
 }
 
 class _RankRow {
-  const _RankRow({
-    required this.cells,
-    required this.value,
-    this.alert = false,
-  });
+  const _RankRow({required this.cells, required this.value});
 
   final List<String> cells;
   final double value;
-  final bool alert;
 }
 
 class _RankTable extends StatelessWidget {
@@ -3354,17 +3338,13 @@ class _RankTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (rows.isEmpty) return _InlineUnavailable(label: emptyLabel);
-    final colors = Theme.of(context).colorScheme;
     return OpenHandOperationalRankTable(
       headers: headers,
       emptyLabel: emptyLabel,
       rows: rows
           .map(
-            (row) => OpenHandOperationalRankRow(
-              cells: row.cells,
-              value: row.value,
-              highlightColor: row.alert ? colors.error : null,
-            ),
+            (row) =>
+                OpenHandOperationalRankRow(cells: row.cells, value: row.value),
           )
           .toList(growable: false),
       onRowTap: (row) => showServiceDetailsDialog(
@@ -3741,7 +3721,6 @@ class _CompactRecordList extends StatelessWidget {
           ListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
-            minLeadingWidth: 0,
             onTap: () => showServiceDetailsDialog(
               context,
               title: '${records[index]['key'] ?? '--'}',
@@ -3752,7 +3731,6 @@ class _CompactRecordList extends StatelessWidget {
                 _redisRecordMetadata(records[index]),
               ),
             ),
-            leading: Icon(Icons.key_rounded, size: 18, color: colors.primary),
             title: Text(
               '${records[index]['key'] ?? '--'}',
               maxLines: 1,
@@ -4196,7 +4174,7 @@ String _dateTimeText(Object? value) {
   return parsed == null ? '--' : _dateTime(parsed);
 }
 
-String _dateTime(DateTime value) => formatMonthDayHms(value);
+String _dateTime(DateTime value) => formatListDateTime(value);
 
 String _clockText(DateTime value) => formatHourMinuteSecond(value);
 

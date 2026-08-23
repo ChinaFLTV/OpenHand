@@ -51,11 +51,14 @@ const double _kRankHeaderHeight = 46;
 const double _kRankRowHeight = 58;
 const double _kRankBodyMaxHeight = 348;
 const double _kRankCellPadding = 12;
-const double _kRankIconBox = 30;
-const double _kRankIconGap = 10;
 const double _kRankValueMinWidth = 64;
-const double _kRankLeadingMinWidth = 168;
+const double _kRankLeadingMinWidth = 148;
 const double _kRankCellMaxWidth = 560;
+final RegExp _kRankDateTimePattern = RegExp(
+  r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$',
+);
+
+bool _isRankDateTimeCell(String text) => _kRankDateTimePattern.hasMatch(text);
 
 double _rankTextWidth(String text, TextStyle? style) {
   if (text.isEmpty) return 0;
@@ -2094,25 +2097,21 @@ class OpenHandOperationalStatusBand extends StatelessWidget {
       _finite(segment.value).toStringAsFixed(0);
 }
 
-/// 通用排行表的一行。警示颜色由调用方显式传入。
+/// 通用排行表的一行。
 class OpenHandOperationalRankRow {
   const OpenHandOperationalRankRow({
     required this.cells,
     required this.value,
-    this.highlightColor,
-    this.icon,
     this.subtitle = '',
   });
 
   final List<String> cells;
   final num value;
-  final Color? highlightColor;
-  final IconData? icon;
   final String subtitle;
 }
 
-/// 可用于任意运维实体的排名表。视觉对齐用量分析表：圆角边框、表头灰底、奇偶行、左侧徽章。
-/// 列宽按文字实测，超出视口时水平滚动，避免把日期、状态等短字段挤成省略号。
+/// 可用于任意运维实体的排名表。视觉对齐用量分析表：圆角边框、表头灰底、奇偶行。
+/// 列宽按文字实测，超出视口时水平滚动；日期时间列按完整 `yyyy-MM-dd HH:mm:ss` 计宽，不省略。
 class OpenHandOperationalRankTable extends StatefulWidget {
   const OpenHandOperationalRankTable({
     super.key,
@@ -2121,7 +2120,6 @@ class OpenHandOperationalRankTable extends StatefulWidget {
     this.emptyLabel = '暂无可用数据',
     this.onRowTap,
     this.sortByValue = true,
-    this.leadingIcon,
   });
 
   final List<String> headers;
@@ -2129,7 +2127,6 @@ class OpenHandOperationalRankTable extends StatefulWidget {
   final String emptyLabel;
   final ValueChanged<OpenHandOperationalRankRow>? onRowTap;
   final bool sortByValue;
-  final IconData? leadingIcon;
 
   @override
   State<OpenHandOperationalRankTable> createState() =>
@@ -2174,11 +2171,14 @@ class _OpenHandOperationalRankTableState
     );
     final columnCount = widget.headers.length;
     final widths = List<double>.filled(columnCount, 0);
+    final dateTimeColumn = List<bool>.filled(columnCount, false);
     for (var i = 0; i < columnCount; i++) {
       var content = _rankTextWidth(widget.headers[i], headerStyle);
+      var hasDateTime = _isRankDateTimeCell(widget.headers[i]);
       for (final row in sortedRows) {
         final cell = i < row.cells.length ? row.cells[i] : '--';
         content = math.max(content, _rankTextWidth(cell, valueStyle));
+        if (_isRankDateTimeCell(cell)) hasDateTime = true;
         if (i == 0 && row.subtitle.trim().isNotEmpty) {
           content = math.max(
             content,
@@ -2186,22 +2186,19 @@ class _OpenHandOperationalRankTableState
           );
         }
       }
+      dateTimeColumn[i] = hasDateTime;
       final padded = content + _kRankCellPadding * 2;
-      if (i == 0) {
-        widths[i] = (padded + _kRankIconBox + _kRankIconGap).clamp(
-          _kRankLeadingMinWidth,
-          _kRankCellMaxWidth + _kRankIconBox + _kRankIconGap,
-        );
+      if (hasDateTime) {
+        widths[i] = math.max(padded, _kRankValueMinWidth);
+      } else if (i == 0) {
+        widths[i] = padded.clamp(_kRankLeadingMinWidth, _kRankCellMaxWidth);
       } else {
         widths[i] = padded.clamp(_kRankValueMinWidth, _kRankCellMaxWidth);
       }
     }
     final capped = [
       for (var i = 0; i < columnCount; i++)
-        i == 0
-            ? widths[i] >=
-                  _kRankCellMaxWidth + _kRankIconBox + _kRankIconGap - 0.5
-            : widths[i] >= _kRankCellMaxWidth - 0.5,
+        !dateTimeColumn[i] && widths[i] >= _kRankCellMaxWidth - 0.5,
     ];
     return RepaintBoundary(
       child: Semantics(
@@ -2233,15 +2230,18 @@ class _OpenHandOperationalRankTableState
               required TextAlign align,
               required bool capped,
             }) {
+              final ellipsis = capped && !_isRankDateTimeCell(text);
               final label = Text(
                 text,
                 maxLines: 1,
-                overflow: capped ? TextOverflow.ellipsis : TextOverflow.visible,
+                overflow: ellipsis
+                    ? TextOverflow.ellipsis
+                    : TextOverflow.visible,
                 softWrap: false,
                 textAlign: align,
                 style: style,
               );
-              if (!capped) return label;
+              if (!ellipsis) return label;
               return Tooltip(message: text, child: label);
             }
 
@@ -2268,78 +2268,48 @@ class _OpenHandOperationalRankTableState
                           padding: const EdgeInsets.symmetric(
                             horizontal: _kRankCellPadding,
                           ),
-                          child: Align(
-                            alignment: i == 0
-                                ? Alignment.centerLeft
-                                : Alignment.centerRight,
+                          child: SizedBox(
+                            width: double.infinity,
                             child: header || i != 0
-                                ? cellText(
-                                    header
-                                        ? widget.headers[i]
-                                        : (row != null && i < row.cells.length
-                                              ? row.cells[i]
-                                              : '--'),
-                                    style: header ? headerStyle : valueStyle,
-                                    align: i == 0
-                                        ? TextAlign.left
-                                        : TextAlign.right,
-                                    capped: capped[i],
+                                ? Align(
+                                    alignment: i == 0
+                                        ? Alignment.centerLeft
+                                        : Alignment.centerRight,
+                                    child: cellText(
+                                      header
+                                          ? widget.headers[i]
+                                          : (row != null && i < row.cells.length
+                                                ? row.cells[i]
+                                                : '--'),
+                                      style: header ? headerStyle : valueStyle,
+                                      align: i == 0
+                                          ? TextAlign.left
+                                          : TextAlign.right,
+                                      capped: capped[i],
+                                    ),
                                   )
-                                : Row(
+                                : Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
                                     children: [
-                                      Container(
-                                        width: _kRankIconBox,
-                                        height: _kRankIconBox,
-                                        decoration: BoxDecoration(
-                                          color:
-                                              (row?.highlightColor ??
-                                                      colors.primary)
-                                                  .withValues(alpha: 0.14),
-                                          borderRadius: BorderRadius.circular(
-                                            kOpenHandRadius9,
-                                          ),
-                                        ),
-                                        alignment: Alignment.center,
-                                        child: Icon(
-                                          row?.icon ??
-                                              widget.leadingIcon ??
-                                              Icons.table_rows_rounded,
-                                          size: 16,
-                                          color:
-                                              row?.highlightColor ??
-                                              colors.primary,
-                                        ),
+                                      cellText(
+                                        row!.cells.isEmpty
+                                            ? '--'
+                                            : row.cells.first,
+                                        style: valueStyle,
+                                        align: TextAlign.left,
+                                        capped: capped[i],
                                       ),
-                                      const SizedBox(width: _kRankIconGap),
-                                      Expanded(
-                                        child: Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            cellText(
-                                              row!.cells.isEmpty
-                                                  ? '--'
-                                                  : row.cells.first,
-                                              style: valueStyle,
-                                              align: TextAlign.left,
-                                              capped: capped[i],
-                                            ),
-                                            if (row.subtitle
-                                                .trim()
-                                                .isNotEmpty) ...[
-                                              kOpenHandGap3,
-                                              cellText(
-                                                row.subtitle.trim(),
-                                                style: subtitleStyle,
-                                                align: TextAlign.left,
-                                                capped: capped[i],
-                                              ),
-                                            ],
-                                          ],
+                                      if (row.subtitle.trim().isNotEmpty) ...[
+                                        kOpenHandGap3,
+                                        cellText(
+                                          row.subtitle.trim(),
+                                          style: subtitleStyle,
+                                          align: TextAlign.left,
+                                          capped: capped[i],
                                         ),
-                                      ),
+                                      ],
                                     ],
                                   ),
                           ),
