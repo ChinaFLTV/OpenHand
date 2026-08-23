@@ -1411,7 +1411,7 @@ class _ProxyOpsRequestTile extends StatelessWidget {
       '${record.tokens} tokens',
       '${record.durationMs} ms',
       if (record.proxyMode.trim().isNotEmpty) record.proxyMode,
-      if (record.clientIp.trim().isNotEmpty) record.clientIp,
+      if (record.clientEndpoint.isNotEmpty) record.clientEndpoint,
       if (record.clientUserAgent.trim().isNotEmpty)
         'UA ${record.clientUserAgent.trim()}',
     ].join(' · ');
@@ -2383,10 +2383,10 @@ class _ProxyOpsLogRow extends StatelessWidget {
                 spacing: 6,
                 runSpacing: 6,
                 children: [
-                  if (record.clientIp.trim().isNotEmpty)
+                  if (record.clientEndpoint.isNotEmpty)
                     _ProxyOpsMiniTag(
                       icon: Icons.public_rounded,
-                      label: record.clientIp.trim(),
+                      label: record.clientEndpoint,
                     ),
                   _ProxyOpsMiniTag(icon: Icons.devices_rounded, label: client),
                   _ProxyOpsMiniTag(
@@ -2659,7 +2659,7 @@ _ProxyOpsInsightSpec _proxyOpsTrafficSpec(
           icon: Icons.public_rounded,
           title: text(zh: '来源地址分布', en: 'Peer Mix'),
           values: data.countBy(
-            (record) => record.clientIp,
+            (record) => record.clientEndpoint,
             unknown: text(zh: '未知地址', en: 'Unknown address'),
           ),
         ),
@@ -2857,7 +2857,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
             icon: Icons.public_rounded,
             title: text(zh: '来源地址分布', en: 'Peer Mix'),
             values: data.countBy(
-              (record) => record.clientIp,
+              (record) => record.clientEndpoint,
               unknown: unknownAddress,
             ),
           ),
@@ -2998,7 +2998,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 context,
                 Icons.public_rounded,
                 text(zh: '来源地址', en: 'Peers'),
-                '${data.countBy((record) => record.clientIp, unknown: unknownAddress).length}',
+                '${data.countBy((record) => record.clientEndpoint, unknown: unknownAddress).length}',
               ),
               _proxyOpsInsightTile(
                 context,
@@ -3020,7 +3020,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
             icon: Icons.public_rounded,
             title: text(zh: '来源地址分布', en: 'Peer Mix'),
             values: data.countBy(
-              (record) => record.clientIp,
+              (record) => record.clientEndpoint,
               unknown: unknownAddress,
             ),
           ),

@@ -117,6 +117,9 @@ class AiModelProxyDispatcher {
           modelId: backend.modelId,
           apiStyle: settings.apiStyle.id,
           error: '$lastError',
+          clientIp: _clientIp(headers),
+          clientPort: _clientPort(headers),
+          clientUserAgent: _clientUserAgent(headers),
         );
         break;
       }
@@ -138,6 +141,9 @@ class AiModelProxyDispatcher {
           modelId: backend.modelId,
           apiStyle: settings.apiStyle.id,
           error: lastError.toString(),
+          clientIp: _clientIp(headers),
+          clientPort: _clientPort(headers),
+          clientUserAgent: _clientUserAgent(headers),
         );
         break;
       }
@@ -310,6 +316,9 @@ class AiModelProxyDispatcher {
           modelId: backend.modelId,
           apiStyle: settings.apiStyle.id,
           error: lastError.toString(),
+          clientIp: _clientIp(headers),
+          clientPort: _clientPort(headers),
+          clientUserAgent: _clientUserAgent(headers),
         );
         break;
       }
@@ -412,6 +421,9 @@ class AiModelProxyDispatcher {
           modelId: backend.modelId,
           apiStyle: settings.apiStyle.id,
           error: '$error',
+          clientIp: _clientIp(headers),
+          clientPort: _clientPort(headers),
+          clientUserAgent: _clientUserAgent(headers),
           proxyMode: network.mode,
           proxyEndpoint: network.endpoint,
           remoteHost: network.remoteHost,

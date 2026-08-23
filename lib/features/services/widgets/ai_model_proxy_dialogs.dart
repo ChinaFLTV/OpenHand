@@ -2836,7 +2836,7 @@ class _ProxyRecordTile extends StatelessWidget {
           '${record.apiStyle} · ${record.tokens} tokens · ${record.durationMs} ms'
           '${record.proxyMode.isEmpty ? '' : ' · ${record.proxyMode}'}'
           '${record.proxyEndpoint.isEmpty ? '' : ' · ${record.proxyEndpoint}'}'
-          '${record.clientIp.isEmpty ? '' : ' · ${record.clientIp}${record.clientPort.isEmpty ? '' : ':${record.clientPort}'}'}'
+          '${record.clientEndpoint.isEmpty ? '' : ' · ${record.clientEndpoint}'}'
           '${record.error == null ? '' : ' · ${record.error}'}',
           maxLines: 2,
           overflow: TextOverflow.ellipsis,

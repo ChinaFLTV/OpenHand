@@ -242,6 +242,16 @@ class AiModelProxyRequestRecord {
   final String remoteHost;
   final String remotePort;
 
+  /// 返回用于观测展示的客户端端点，兼容旧记录和 IPv6 地址。
+  String get clientEndpoint {
+    final ip = clientIp.trim();
+    final port = clientPort.trim();
+    if (ip.isEmpty) return '';
+    if (port.isEmpty) return ip;
+    final displayIp = ip.contains(':') && !ip.startsWith('[') ? '[$ip]' : ip;
+    return '$displayIp:$port';
+  }
+
   Map<String, Object?> toJson() => <String, Object?>{
     'id': id,
     'started_at': startedAt.toUtc().toIso8601String(),

@@ -1895,8 +1895,10 @@ class AiModelProxyHttpServer {
       result.putIfAbsent('x-goog-api-key', () => queryKey.trim());
       result.putIfAbsent('x-api-key', () => queryKey.trim());
     }
-    result['x-client-ip'] = request.connectionInfo?.remoteAddress.address ?? '';
-    result['x-client-port'] = '${request.connectionInfo?.remotePort ?? ''}';
+    final connectionInfo = request.connectionInfo;
+    result['x-client-ip'] = connectionInfo?.remoteAddress.address ?? '';
+    final remotePort = connectionInfo?.remotePort ?? 0;
+    result['x-client-port'] = remotePort > 0 ? '$remotePort' : '';
     return result;
   }
 
