@@ -109,7 +109,10 @@ class AiModelProxyHttpServer {
         }
         _activeRequests += 1;
         final connectionKey = _connectionKey(request);
-        _controller.runtimeRequestStarted(connectionKey: connectionKey);
+        _controller.runtimeRequestStarted(
+          connectionKey: connectionKey,
+          userAgent: request.headers.value(HttpHeaders.userAgentHeader),
+        );
         unawaited(
           _handleRequest(request).whenComplete(() {
             _activeRequests = (_activeRequests - 1).clamp(0, 1 << 30).toInt();
@@ -362,7 +365,7 @@ class AiModelProxyHttpServer {
     final address = info.remoteAddress.address.trim();
     final port = info.remotePort;
     if (address.isEmpty || port <= 0) return null;
-    return '$address:$port';
+    return aiModelProxyClientEndpoint(address, '$port');
   }
 
   Future<Map<String, Object?>> _readJsonBody(HttpRequest request) async {

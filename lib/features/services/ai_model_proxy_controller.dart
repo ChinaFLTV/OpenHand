@@ -35,7 +35,8 @@ class AiModelProxyController extends ChangeNotifier {
   int _runtimeRequestCount = 0;
   int _runtimeErrorCount = 0;
   DateTime? _startedAt;
-  final Map<String, int> _connectionReferences = <String, int>{};
+  final Map<String, _LiveConnectionState> _liveConnections =
+      <String, _LiveConnectionState>{};
   final Map<String, int> _roundRobinCursors = <String, int>{};
   final Map<String, int> _proxyRoundRobinCursors = <String, int>{};
   final Map<String, _RateLimitWindowState> _rateLimitWindows =
@@ -53,8 +54,19 @@ class AiModelProxyController extends ChangeNotifier {
   bool get busy => _busy;
   String? get errorMessage => _errorMessage;
   int get currentConnections =>
-      _connectionReferences.length + _unknownConnectionRequests;
+      _liveConnections.length + _unknownConnectionRequests;
+  int get unknownLiveConnections => _unknownConnectionRequests;
   int get activeRequests => _activeRequests;
+  List<AiModelProxyLiveConnection> get liveConnections => [
+    for (final entry in _liveConnections.entries)
+      AiModelProxyLiveConnection(
+        endpoint: entry.key,
+        inflight: entry.value.inflight,
+        userAgent: entry.value.userAgent,
+        firstSeenAt: entry.value.firstSeenAt,
+        lastSeenAt: entry.value.lastSeenAt,
+      ),
+  ];
   int get runtimeInboundBytes => _runtimeInboundBytes;
   int get runtimeOutboundBytes => _runtimeOutboundBytes;
   int get runtimeRequestCount => _runtimeRequestCount;
@@ -439,9 +451,7 @@ class AiModelProxyController extends ChangeNotifier {
         modelsProvider: () =>
             _modelsProvider?.call() ?? const <AiModelConfig>[],
       );
-      _activeRequests = 0;
-      _unknownConnectionRequests = 0;
-      _connectionReferences.clear();
+      _resetRuntimeOccupancy();
       _resetRateLimitWindows();
       _runtimeInboundBytes = 0;
       _runtimeOutboundBytes = 0;
@@ -455,9 +465,7 @@ class AiModelProxyController extends ChangeNotifier {
     } catch (error) {
       await _httpServer?.stop();
       _startedAt = null;
-      _activeRequests = 0;
-      _unknownConnectionRequests = 0;
-      _connectionReferences.clear();
+      _resetRuntimeOccupancy();
       _resetRateLimitWindows();
       _settings = _settings.copyWith(enabled: false);
       try {
@@ -481,9 +489,7 @@ class AiModelProxyController extends ChangeNotifier {
     try {
       await _httpServer?.stop();
       _startedAt = null;
-      _activeRequests = 0;
-      _unknownConnectionRequests = 0;
-      _connectionReferences.clear();
+      _resetRuntimeOccupancy();
       _resetRateLimitWindows();
       _settings = _settings.copyWith(enabled: false);
       await _writes.enqueue(() => _store.save(_settings));
@@ -513,9 +519,7 @@ class AiModelProxyController extends ChangeNotifier {
     _httpServer = null;
     _lifecycle = AiModelProxyLifecycle.stopped;
     _startedAt = null;
-    _activeRequests = 0;
-    _unknownConnectionRequests = 0;
-    _connectionReferences.clear();
+    _resetRuntimeOccupancy();
     _resetRateLimitWindows();
     await _writes.idle;
   }
@@ -626,7 +630,7 @@ class AiModelProxyController extends ChangeNotifier {
   }
 
   /// 记录进入并发执行阶段的请求，供服务运维面板展示实时并发。
-  void runtimeRequestStarted({String? connectionKey}) {
+  void runtimeRequestStarted({String? connectionKey, String? userAgent}) {
     if (_disposed) return;
     _activeRequests = (_activeRequests + 1).clamp(0, 1 << 30).toInt();
     final key = connectionKey?.trim() ?? '';
@@ -635,7 +639,21 @@ class AiModelProxyController extends ChangeNotifier {
           .clamp(0, 1 << 30)
           .toInt();
     } else {
-      _connectionReferences[key] = (_connectionReferences[key] ?? 0) + 1;
+      final now = DateTime.now();
+      final agent = userAgent?.trim() ?? '';
+      final existing = _liveConnections[key];
+      if (existing == null) {
+        _liveConnections[key] = _LiveConnectionState(
+          inflight: 1,
+          userAgent: agent,
+          firstSeenAt: now,
+          lastSeenAt: now,
+        );
+      } else {
+        existing.inflight = (existing.inflight + 1).clamp(0, 1 << 30).toInt();
+        existing.lastSeenAt = now;
+        if (agent.isNotEmpty) existing.userAgent = agent;
+      }
     }
     _notify();
   }
@@ -662,11 +680,11 @@ class AiModelProxyController extends ChangeNotifier {
           .clamp(0, 1 << 30)
           .toInt();
     } else {
-      final references = _connectionReferences[key] ?? 0;
-      if (references <= 1) {
-        _connectionReferences.remove(key);
+      final existing = _liveConnections[key];
+      if (existing == null || existing.inflight <= 1) {
+        _liveConnections.remove(key);
       } else {
-        _connectionReferences[key] = references - 1;
+        existing.inflight -= 1;
       }
     }
     _notify();
@@ -761,9 +779,7 @@ class AiModelProxyController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _startedAt = null;
-    _activeRequests = 0;
-    _unknownConnectionRequests = 0;
-    _connectionReferences.clear();
+    _resetRuntimeOccupancy();
     _resetRateLimitWindows();
     unawaited(_httpServer?.dispose());
     _httpServer = null;
@@ -836,6 +852,26 @@ class AiModelProxyController extends ChangeNotifier {
     _busyCompleter = null;
     if (completer != null && !completer.isCompleted) completer.complete();
   }
+
+  void _resetRuntimeOccupancy() {
+    _activeRequests = 0;
+    _unknownConnectionRequests = 0;
+    _liveConnections.clear();
+  }
+}
+
+class _LiveConnectionState {
+  _LiveConnectionState({
+    required this.inflight,
+    required this.userAgent,
+    required this.firstSeenAt,
+    required this.lastSeenAt,
+  });
+
+  int inflight;
+  String userAgent;
+  DateTime firstSeenAt;
+  DateTime lastSeenAt;
 }
 
 class _RateLimitWindowState {

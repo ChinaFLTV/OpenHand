@@ -42,6 +42,9 @@ const double _kProxyOpsMetricHelperHeight = 16;
 const int _kProxyOpsLogMaxEntries = 30;
 const int _kProxyOpsTopLogEntries = 12;
 const int _kProxyOpsRankMaxRows = 12;
+const int _kProxyOpsConnectionListMaxRows = 200;
+const double _kProxyOpsRankBodyMaxHeight = 348;
+const double _kProxyOpsConnectionListMaxHeight = 290;
 const int _kProxyOpsHourBuckets = 24;
 const int _kProxyOpsFastLatencyMs = 1000;
 const int _kProxyOpsSlowLatencyMs = 3000;
@@ -287,9 +290,7 @@ class _ProxyOpsSnapshot {
       if (record.tokens > maxTokens) maxTokens = record.tokens;
       final hour = record.startedAt.hour.clamp(0, _kProxyOpsHourBuckets - 1);
       _proxyOpsAccumulateRecord(hourStats[hour], record);
-      final peer = record.clientEndpoint.isNotEmpty
-          ? record.clientEndpoint
-          : record.clientIp.trim();
+      final peer = _proxyOpsRecordPeer(record);
       if (peer.isNotEmpty) peers.add(peer);
       final port = record.clientPort.trim();
       if (port.isNotEmpty) ports.add(port);
@@ -531,9 +532,7 @@ void _proxyOpsAccumulateRecord(
   if (record.durationMs >= aiModelProxySlowLatencyMs) group.slowCount += 1;
   if (record.durationMs > group.maxMs) group.maxMs = record.durationMs;
   group.durations.add(record.durationMs);
-  final peer = record.clientEndpoint.isNotEmpty
-      ? record.clientEndpoint
-      : record.clientIp.trim();
+  final peer = _proxyOpsRecordPeer(record);
   if (peer.isNotEmpty) group.peers.add(peer);
   if (group.lastAt == null || record.startedAt.isAfter(group.lastAt!)) {
     group.lastAt = record.startedAt;
@@ -571,6 +570,8 @@ class _ProxyOpsGroupStat {
   int statusRequests = 0;
   int statusSuccesses = 0;
   DateTime? lastAt;
+  int inflight = 0;
+  String userAgentFamily = '';
   final Set<String> peers = <String>{};
   final List<int> durations = <int>[];
   final Map<String, int> errors = <String, int>{};
@@ -582,6 +583,87 @@ class _ProxyOpsGroupStat {
   int get p95Ms => _proxyOpsPercentile(durations, 0.95);
   double get successRate =>
       requests <= 0 ? 0 : (successes / requests).clamp(0.0, 1.0).toDouble();
+}
+
+String _proxyOpsRecordPeer(AiModelProxyRequestRecord record) {
+  if (record.clientEndpoint.isNotEmpty) return record.clientEndpoint;
+  return record.clientIp.trim();
+}
+
+String _proxyOpsPeerLabel(AiModelProxyRequestRecord record, String unknown) {
+  final peer = _proxyOpsRecordPeer(record);
+  return peer.isEmpty ? unknown : peer;
+}
+
+String _proxyOpsClientFamilyLabel(String userAgent, String unknown) {
+  final ua = userAgent.trim();
+  if (ua.isEmpty) return unknown;
+  final family = _proxyOpsUserAgentFamily(ua);
+  return family.isEmpty ? unknown : family;
+}
+
+List<_ProxyOpsGroupStat> _proxyOpsLiveAwareGroups({
+  required List<_ProxyOpsGroupStat> groups,
+  required Iterable<AiModelProxyLiveConnection> live,
+  required String Function(AiModelProxyLiveConnection connection) keyOf,
+  required String unknown,
+  int unknownInflight = 0,
+}) {
+  final history = <String, _ProxyOpsGroupStat>{
+    for (final group in groups) group.label: group,
+  };
+  final merged = <String, _ProxyOpsGroupStat>{};
+  void absorb({
+    required String label,
+    required int inflight,
+    String peer = '',
+    String userAgent = '',
+    DateTime? lastAt,
+  }) {
+    if (inflight <= 0) return;
+    final key = label.trim().isEmpty ? unknown : label.trim();
+    final group = merged.putIfAbsent(
+      key,
+      () => history[key] ?? _ProxyOpsGroupStat(key),
+    );
+    group.inflight = (group.inflight + inflight).clamp(0, 1 << 30).toInt();
+    final endpoint = peer.trim();
+    if (endpoint.isNotEmpty) group.peers.add(endpoint);
+    if (userAgent.trim().isNotEmpty) {
+      group.userAgentFamily = _proxyOpsUserAgentFamily(userAgent);
+    }
+    if (lastAt != null &&
+        (group.lastAt == null || lastAt.isAfter(group.lastAt!))) {
+      group.lastAt = lastAt;
+    }
+  }
+
+  for (final connection in live) {
+    absorb(
+      label: keyOf(connection),
+      inflight: connection.inflight,
+      peer: connection.endpoint,
+      userAgent: connection.userAgent,
+      lastAt: connection.lastSeenAt,
+    );
+  }
+  if (unknownInflight > 0) {
+    absorb(label: unknown, inflight: unknownInflight);
+  }
+  return merged.values.toList()..sort((left, right) {
+    final liveCmp = right.inflight.compareTo(left.inflight);
+    if (liveCmp != 0) return liveCmp;
+    final requestCmp = right.requests.compareTo(left.requests);
+    if (requestCmp != 0) return requestCmp;
+    final leftAt = left.lastAt;
+    final rightAt = right.lastAt;
+    if (leftAt == null && rightAt == null) {
+      return left.label.compareTo(right.label);
+    }
+    if (leftAt == null) return 1;
+    if (rightAt == null) return -1;
+    return rightAt.compareTo(leftAt);
+  });
 }
 
 String _proxyOpsUserAgentFamily(String value) {
@@ -2356,10 +2438,16 @@ OpenHandOperationalRankTable _proxyOpsGroupTable({
   required String leadingHeader,
   required String emptyLabel,
   num Function(_ProxyOpsGroupStat group)? valueOf,
+  int maxRows = _kProxyOpsRankMaxRows,
+  double? maxBodyHeight,
+  bool sortByValue = true,
 }) {
   final text = openHandTextResolver(context);
+  final shown = groups.take(maxRows).toList(growable: false);
   return OpenHandOperationalRankTable(
+    sortByValue: sortByValue,
     emptyLabel: emptyLabel,
+    maxBodyHeight: maxBodyHeight ?? _kProxyOpsRankBodyMaxHeight,
     headers: [
       leadingHeader,
       text(zh: '请求', en: 'Requests'),
@@ -2373,9 +2461,14 @@ OpenHandOperationalRankTable _proxyOpsGroupTable({
       text(zh: '最近', en: 'Latest'),
     ],
     rows: [
-      for (final group in groups.take(_kProxyOpsRankMaxRows))
+      for (final group in shown)
         OpenHandOperationalRankRow(
           subtitle: [
+            if (group.inflight > 0)
+              text(zh: '在线 ${group.inflight}', en: 'Live ${group.inflight}'),
+            if (group.userAgentFamily.isNotEmpty &&
+                group.userAgentFamily != group.label)
+              group.userAgentFamily,
             if (group.promptTokens > 0 || group.completionTokens > 0)
               '↑${group.promptTokens}  ↓${group.completionTokens}',
             if (group.avgTokens > 0) '单均 ${group.avgTokens}',
@@ -2408,11 +2501,16 @@ Widget _proxyOpsGroupTablePanel({
   required List<_ProxyOpsGroupStat> groups,
   required String leadingHeader,
   required String emptyLabel,
+  String? subtitle,
   num Function(_ProxyOpsGroupStat group)? valueOf,
+  int maxRows = _kProxyOpsRankMaxRows,
+  double? maxBodyHeight,
+  bool sortByValue = true,
 }) {
   return _proxyOpsChartPanel(
     icon: icon,
     title: title,
+    subtitle: subtitle,
     empty: groups.isEmpty,
     emptyLabel: emptyLabel,
     chart: _proxyOpsGroupTable(
@@ -2421,6 +2519,9 @@ Widget _proxyOpsGroupTablePanel({
       leadingHeader: leadingHeader,
       emptyLabel: emptyLabel,
       valueOf: valueOf,
+      maxRows: maxRows,
+      maxBodyHeight: maxBodyHeight,
+      sortByValue: sortByValue,
     ),
   );
 }
@@ -3162,6 +3263,35 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
         sections: (context, data) {
           final current = data.controller.currentConnections;
           final peerCap = math.max(data.uniquePeerCount, math.max(current, 1));
+          final live = data.controller.liveConnections;
+          final unknownInflight = data.controller.unknownLiveConnections;
+          final clients = _proxyOpsLiveAwareGroups(
+            groups: data.groupBy(
+              (record) => _proxyOpsClientFamilyLabel(
+                record.clientUserAgent,
+                unknownClient,
+              ),
+              unknown: unknownClient,
+            ),
+            live: live,
+            keyOf: (connection) =>
+                _proxyOpsClientFamilyLabel(connection.userAgent, unknownClient),
+            unknown: unknownClient,
+            unknownInflight: unknownInflight,
+          );
+          final peers = _proxyOpsLiveAwareGroups(
+            groups: data.groupBy(
+              (record) => _proxyOpsPeerLabel(record, unknown),
+              unknown: unknown,
+            ),
+            live: live,
+            keyOf: (connection) {
+              final endpoint = connection.endpoint.trim();
+              return endpoint.isEmpty ? unknown : endpoint;
+            },
+            unknown: unknown,
+            unknownInflight: unknownInflight,
+          );
           return [
             _ProxyOpsPanel(
               icon: Icons.speed_rounded,
@@ -3192,6 +3322,42 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                   ),
                 ],
               ),
+            ),
+            _proxyOpsGroupTablePanel(
+              context: context,
+              icon: Icons.devices_rounded,
+              title: text(zh: '客户端列表', en: 'Client List'),
+              subtitle: text(
+                zh: clients.isEmpty
+                    ? '正在占用入口的客户端家族'
+                    : '当前在线 ${clients.length} 个客户端家族',
+                en: clients.isEmpty
+                    ? 'Client families occupying the gateway'
+                    : '${clients.length} live client families',
+              ),
+              groups: clients,
+              leadingHeader: text(zh: '客户端', en: 'Client'),
+              emptyLabel: text(zh: '等待客户端连入', en: 'Waiting for clients'),
+              maxRows: _kProxyOpsConnectionListMaxRows,
+              maxBodyHeight: _kProxyOpsConnectionListMaxHeight,
+              sortByValue: false,
+            ),
+            _proxyOpsGroupTablePanel(
+              context: context,
+              icon: Icons.public_rounded,
+              title: text(zh: '对端列表', en: 'Peer List'),
+              subtitle: text(
+                zh: peers.isEmpty ? '正在占用入口的对端地址' : '当前在线 ${peers.length} 个对端',
+                en: peers.isEmpty
+                    ? 'Peers occupying the gateway'
+                    : '${peers.length} live peers',
+              ),
+              groups: peers,
+              leadingHeader: text(zh: '对端', en: 'Peer'),
+              emptyLabel: text(zh: '等待对端连入', en: 'Waiting for peers'),
+              maxRows: _kProxyOpsConnectionListMaxRows,
+              maxBodyHeight: _kProxyOpsConnectionListMaxHeight,
+              sortByValue: false,
             ),
             _proxyOpsChartPanel(
               icon: Icons.view_week_rounded,
@@ -5259,10 +5425,13 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
         sections: (context, data) {
           final unknownPath = text(zh: '未知路径', en: 'Unknown path');
           final agents = _proxyOpsSegments(
-            data.countBy((record) {
-              final ua = record.clientUserAgent.trim();
-              return ua.isEmpty ? unknownClient : _proxyOpsUserAgentFamily(ua);
-            }, unknown: unknownClient),
+            data.countBy(
+              (record) => _proxyOpsClientFamilyLabel(
+                record.clientUserAgent,
+                unknownClient,
+              ),
+              unknown: unknownClient,
+            ),
             palette,
           );
           final protocols = _proxyOpsSegments(
@@ -5274,16 +5443,17 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
             ),
             palette,
           );
-          final families = data.groupBy((record) {
-            final ua = record.clientUserAgent.trim();
-            return ua.isEmpty ? unknownClient : _proxyOpsUserAgentFamily(ua);
-          }, unknown: unknownClient);
-          final peers = data.groupBy((record) {
-            final peer = record.clientEndpoint.isNotEmpty
-                ? record.clientEndpoint
-                : record.clientIp.trim();
-            return peer.isEmpty ? unknown : peer;
-          }, unknown: unknown);
+          final families = data.groupBy(
+            (record) => _proxyOpsClientFamilyLabel(
+              record.clientUserAgent,
+              unknownClient,
+            ),
+            unknown: unknownClient,
+          );
+          final peers = data.groupBy(
+            (record) => _proxyOpsPeerLabel(record, unknown),
+            unknown: unknown,
+          );
           final paths = _proxyOpsSegments(
             data.countBy((record) => record.requestPath, unknown: unknownPath),
             palette,

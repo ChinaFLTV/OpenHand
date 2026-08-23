@@ -2565,6 +2565,7 @@ class OpenHandOperationalRankTable extends StatefulWidget {
     this.emptyLabel = '暂无可用数据',
     this.onRowTap,
     this.sortByValue = true,
+    this.maxBodyHeight = _kRankBodyMaxHeight,
   });
 
   final List<String> headers;
@@ -2572,6 +2573,7 @@ class OpenHandOperationalRankTable extends StatefulWidget {
   final String emptyLabel;
   final ValueChanged<OpenHandOperationalRankRow>? onRowTap;
   final bool sortByValue;
+  final double maxBodyHeight;
 
   @override
   State<OpenHandOperationalRankTable> createState() =>
@@ -2827,8 +2829,13 @@ class _OpenHandOperationalRankTableState
                 0,
                 (sum, width) => sum + width,
               );
+              final bodyCap =
+                  widget.maxBodyHeight.isFinite &&
+                      widget.maxBodyHeight > _kRankRowHeight
+                  ? widget.maxBodyHeight
+                  : _kRankBodyMaxHeight;
               final bodyHeight = math.min(
-                _kRankBodyMaxHeight,
+                bodyCap,
                 sortedRows.length * _kRankRowHeight,
               );
               Widget paintedCell({
@@ -3066,14 +3073,17 @@ class _OpenHandOperationalRankTableState
                                 controller: _vertical,
                                 thumbVisibility:
                                     sortedRows.length * _kRankRowHeight >
-                                    _kRankBodyMaxHeight,
+                                    bodyCap,
                                 child: ListView.builder(
                                   controller: _vertical,
                                   primary: false,
                                   padding: EdgeInsets.zero,
                                   itemCount: sortedRows.length,
                                   itemExtent: _kRankRowHeight,
-                                  physics: const ClampingScrollPhysics(),
+                                  physics: openHandDialogAwareScrollPhysics(
+                                    context,
+                                    fallback: const ClampingScrollPhysics(),
+                                  ),
                                   itemBuilder: (context, index) {
                                     final row = sortedRows[index];
                                     final painted = ColoredBox(

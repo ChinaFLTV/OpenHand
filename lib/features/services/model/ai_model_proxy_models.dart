@@ -42,6 +42,18 @@ bool isAiModelProxyStatusRecord(AiModelProxyRequestRecord record) {
   return isAiModelProxyStatusPath(record.requestPath);
 }
 
+/// 统一客户端对端展示：IPv6 加方括号，避免与端口号粘连。
+String aiModelProxyClientEndpoint(String ip, String port) {
+  final host = ip.trim();
+  if (host.isEmpty) return '';
+  final service = port.trim();
+  if (service.isEmpty) return host;
+  final displayHost = host.contains(':') && !host.startsWith('[')
+      ? '[$host]'
+      : host;
+  return '$displayHost:$service';
+}
+
 typedef AiModelProxyLabelText =
     String Function({required String zh, required String en});
 
@@ -556,14 +568,7 @@ class AiModelProxyRequestRecord {
   final bool stream;
 
   /// 返回用于观测展示的客户端端点，兼容旧记录和 IPv6 地址。
-  String get clientEndpoint {
-    final ip = clientIp.trim();
-    final port = clientPort.trim();
-    if (ip.isEmpty) return '';
-    if (port.isEmpty) return ip;
-    final displayIp = ip.contains(':') && !ip.startsWith('[') ? '[$ip]' : ip;
-    return '$displayIp:$port';
-  }
+  String get clientEndpoint => aiModelProxyClientEndpoint(clientIp, clientPort);
 
   Map<String, Object?> toJson() => <String, Object?>{
     'id': id,
@@ -593,6 +598,23 @@ class AiModelProxyRequestRecord {
     if (attempt > 1) 'attempt': attempt,
     if (stream) 'stream': true,
   };
+}
+
+/// 当前仍占用中转入口的客户端连接，按对端地址去重。
+class AiModelProxyLiveConnection {
+  const AiModelProxyLiveConnection({
+    required this.endpoint,
+    required this.inflight,
+    this.userAgent = '',
+    required this.firstSeenAt,
+    required this.lastSeenAt,
+  });
+
+  final String endpoint;
+  final int inflight;
+  final String userAgent;
+  final DateTime firstSeenAt;
+  final DateTime lastSeenAt;
 }
 
 class AiModelProxyRoute {
