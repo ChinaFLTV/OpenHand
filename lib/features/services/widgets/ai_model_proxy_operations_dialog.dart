@@ -50,9 +50,11 @@ Widget _proxyOpsBoundedList(
 }) {
   return ConstrainedBox(
     constraints: BoxConstraints(maxHeight: maxHeight),
-    child: SingleChildScrollView(
+    child: ListView(
+      shrinkWrap: true,
       physics: openHandDialogAwareScrollPhysics(context),
-      child: child,
+      padding: EdgeInsets.zero,
+      children: [child],
     ),
   );
 }
@@ -166,22 +168,21 @@ class _AiModelProxyOperationsDialogState
           ),
           kOpenHandGap16,
           Flexible(
-            child: SingleChildScrollView(
+            child: ListView(
+              shrinkWrap: true,
               physics: openHandDialogAwareScrollPhysics(context),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _ProxyOpsHero(data: data),
-                  const SizedBox(height: _kProxyOpsGap),
-                  _ProxyOpsMetricGrid(data: data),
-                  const SizedBox(height: _kProxyOpsGap),
-                  _ProxyOpsTrendRow(data: data),
-                  const SizedBox(height: _kProxyOpsGap),
-                  _ProxyOpsDistributionGrid(data: data),
-                  const SizedBox(height: _kProxyOpsGap),
-                  _ProxyOpsRecentRequests(data: data),
-                ],
-              ),
+              padding: EdgeInsets.zero,
+              children: [
+                _ProxyOpsHero(data: data),
+                const SizedBox(height: _kProxyOpsGap),
+                _ProxyOpsMetricGrid(data: data),
+                const SizedBox(height: _kProxyOpsGap),
+                _ProxyOpsTrendRow(data: data),
+                const SizedBox(height: _kProxyOpsGap),
+                _ProxyOpsDistributionGrid(data: data),
+                const SizedBox(height: _kProxyOpsGap),
+                _ProxyOpsRecentRequests(data: data),
+              ],
             ),
           ),
         ],
@@ -1369,13 +1370,16 @@ class _ProxyOpsRecentRequestsState extends State<_ProxyOpsRecentRequests> {
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             )
-          : SizedBox(
-              height: _kProxyOpsRecentMaxHeight,
+          : ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxHeight: _kProxyOpsRecentMaxHeight,
+              ),
               child: OpenHandSafeScrollbar(
                 controller: _scrollController,
                 child: ListView.builder(
                   controller: _scrollController,
                   primary: false,
+                  shrinkWrap: true,
                   itemCount: recent.length,
                   physics: openHandDialogAwareScrollPhysics(context),
                   itemBuilder: (context, index) => _ProxyOpsRequestTile(
@@ -1761,18 +1765,17 @@ class _ProxyOpsInsightDialog extends StatelessWidget {
             ],
           ),
           kOpenHandGap14,
-          Expanded(
-            child: SingleChildScrollView(
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
               physics: openHandDialogAwareScrollPhysics(context),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var i = 0; i < children.length; i++) ...[
-                    if (i != 0) const SizedBox(height: _kProxyOpsGap),
-                    children[i],
-                  ],
+              padding: EdgeInsets.zero,
+              children: [
+                for (var i = 0; i < children.length; i++) ...[
+                  if (i != 0) const SizedBox(height: _kProxyOpsGap),
+                  children[i],
                 ],
-              ),
+              ],
             ),
           ),
         ],
@@ -1801,6 +1804,7 @@ Widget _buildProxyOpsSubDialog({
     child: _ProxyOpsDialogSurface(
       child: _ProxyOpsConsoleShell(
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: children,
         ),
