@@ -38,7 +38,7 @@ const double _kProxyOpsSubDialogHeightFraction = 0.92;
 const double _kProxyOpsInsightMaxWidth = 940;
 const double _kProxyOpsInsightMaxHeight = 800;
 const double _kProxyOpsMetricMinCellWidth = 168;
-const double _kProxyOpsPanelPairBreakpoint = 720;
+const double _kProxyOpsPanelPairBreakpoint = 480;
 const double _kProxyOpsDonutHeight = 220;
 const double _kProxyOpsGaugeSize = 132;
 const double _kProxyOpsHeatCellExtent = 72;
@@ -1674,12 +1674,13 @@ class _ProxyOpsPanel extends StatelessWidget {
         ),
       ),
     );
-    if (onTap == null) return panel;
+    final sized = SizedBox(width: double.infinity, child: panel);
+    if (onTap == null) return sized;
     return _ProxyOpsTappableCard(
       onTap: onTap,
       radius: _kProxyOpsPanelRadius,
       tone: cs.primary,
-      child: panel,
+      child: sized,
     );
   }
 }
@@ -1861,17 +1862,18 @@ class _ProxyOpsInsightDialog extends StatelessWidget {
             ],
           ),
           kOpenHandGap14,
-          Flexible(
-            child: ListView(
-              shrinkWrap: true,
+          Expanded(
+            child: SingleChildScrollView(
               physics: openHandDialogAwareScrollPhysics(context),
-              padding: EdgeInsets.zero,
-              children: [
-                for (var i = 0; i < children.length; i++) ...[
-                  if (i != 0) const SizedBox(height: _kProxyOpsGap),
-                  children[i],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var i = 0; i < children.length; i++) ...[
+                    if (i != 0) const SizedBox(height: _kProxyOpsGap),
+                    children[i],
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ],
@@ -1900,7 +1902,6 @@ Widget _buildProxyOpsSubDialog({
     child: _ProxyOpsDialogSurface(
       child: _ProxyOpsConsoleShell(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: children,
         ),
@@ -2185,12 +2186,13 @@ Widget _proxyOpsPanelRow(List<Widget> children) {
           ],
         );
       }
-      return Wrap(
-        spacing: _kProxyOpsGap,
-        runSpacing: _kProxyOpsGap,
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          for (final child in children)
-            SizedBox(width: (maxWidth - _kProxyOpsGap) / 2, child: child),
+          for (var i = 0; i < children.length; i++) ...[
+            if (i != 0) const SizedBox(width: _kProxyOpsGap),
+            Expanded(child: children[i]),
+          ],
         ],
       );
     },
@@ -2678,6 +2680,7 @@ Widget _proxyOpsDonut({
     trackColor: cs.surfaceContainerHighest,
     centerLabel: centerLabel,
     height: _kProxyOpsDonutHeight,
+    showSelectionHighlight: false,
     onSelectionChanged: null,
   );
 }

@@ -933,6 +933,8 @@ class OpenHandOperationalDonutChart extends StatefulWidget {
     this.centerLabel,
     this.showLegend = true,
     this.externalLegendProvided = false,
+    this.showSelectionHighlight = true,
+    this.autofocus = false,
     this.formatValue,
     this.semanticLabel = '运维占比环图',
   });
@@ -950,6 +952,8 @@ class OpenHandOperationalDonutChart extends StatefulWidget {
   /// explicitly declares an external legend or table.
   final bool showLegend;
   final bool externalLegendProvided;
+  final bool showSelectionHighlight;
+  final bool autofocus;
   final String Function(OpenHandChartSegment segment)? formatValue;
   final String semanticLabel;
 
@@ -1099,7 +1103,7 @@ class _OpenHandOperationalDonutChartState
         increasedValue: hasDrawableData ? '下一个分段' : null,
         decreasedValue: hasDrawableData ? '上一个分段' : null,
         child: Focus(
-          autofocus: true,
+          autofocus: widget.autofocus,
           onKeyEvent: (node, event) {
             if (!hasDrawableData || event is! KeyDownEvent) {
               return KeyEventResult.ignored;
@@ -1173,11 +1177,14 @@ class _OpenHandOperationalDonutChartState
                                             .toList(growable: false),
                                         trackColor: widget.trackColor,
                                       ),
-                                      foregroundPainter: _DonutSelectionPainter(
-                                        selection: _selection,
-                                        segments: widget.segments,
-                                        color: colors.onSurface,
-                                      ),
+                                      foregroundPainter:
+                                          widget.showSelectionHighlight
+                                          ? _DonutSelectionPainter(
+                                              selection: _selection,
+                                              segments: widget.segments,
+                                              color: colors.onSurface,
+                                            )
+                                          : null,
                                     ),
                                   ),
                                   if (widget.centerLabel?.trim().isNotEmpty ??
@@ -2039,7 +2046,9 @@ class OpenHandOperationalHeatmap extends StatelessWidget {
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             color: color.withValues(alpha: 0.16 + ratio * 0.84),
-                            borderRadius: BorderRadius.circular(kOpenHandRadius9),
+                            borderRadius: BorderRadius.circular(
+                              kOpenHandRadius9,
+                            ),
                             border: Border.all(
                               color: color.withValues(
                                 alpha: 0.24 + ratio * 0.5,
