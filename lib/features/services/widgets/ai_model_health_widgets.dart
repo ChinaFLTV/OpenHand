@@ -8,6 +8,8 @@ import '../../ai/index.dart';
 import '../ai_model_health_controller.dart';
 import '../model/ai_model_health.dart';
 
+const double _aiHealthControlHeight = 120;
+
 class AiModelHealthSettingsPanel extends StatefulWidget {
   const AiModelHealthSettingsPanel({super.key, this.showRequestMode = false});
 
@@ -53,7 +55,7 @@ class _AiModelHealthSettingsPanelState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SwitchListTile.adaptive(
+        SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(text(zh: '定时健康巡检', en: 'Scheduled health checks')),
           subtitle: Text(
@@ -64,6 +66,11 @@ class _AiModelHealthSettingsPanelState
           ),
           value: settings.enabled,
           onChanged: (value) => controller.updateSettings(enabled: value),
+          thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
+            return states.contains(WidgetState.selected)
+                ? const Icon(Icons.check_rounded, size: 16)
+                : const Icon(Icons.close_rounded, size: 16);
+          }),
         ),
         Row(
           children: [
@@ -90,6 +97,7 @@ class _AiModelHealthSettingsPanelState
             kOpenHandHGap12,
             SizedBox(
               width: 150,
+              height: _aiHealthControlHeight,
               child: InputDecorator(
                 decoration: InputDecoration(
                   labelText: text(zh: '测试线程', en: 'Test threads'),
@@ -112,15 +120,18 @@ class _AiModelHealthSettingsPanelState
               ),
             ),
             kOpenHandHGap12,
-            FilledButton.tonalIcon(
-              onPressed: controller.checking ? null : controller.checkAll,
-              icon: controller.checking
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.wifi_tethering_rounded),
-              label: Text(text(zh: '立即巡检', en: 'Run now')),
+            SizedBox(
+              height: _aiHealthControlHeight,
+              child: FilledButton.tonalIcon(
+                onPressed: controller.checking ? null : controller.checkAll,
+                icon: controller.checking
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.wifi_tethering_rounded),
+                label: Text(text(zh: '立即巡检', en: 'Run now')),
+              ),
             ),
           ],
         ),
@@ -144,26 +155,29 @@ class _AiModelHealthSettingsPanelState
           ),
         if (widget.showRequestMode) ...[
           kOpenHandGap8,
-          InputDecorator(
-            decoration: InputDecoration(
-              labelText: text(zh: '巡检请求模式', en: 'Health-check request mode'),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: AnimatedDropdownButton<AiModelHealthRequestMode>(
-                isExpanded: true,
-                value: settings.requestMode,
-                items: [
-                  for (final mode in AiModelHealthRequestMode.values)
-                    DropdownMenuItem(
-                      value: mode,
-                      child: Text(_modeLabel(context, mode)),
-                    ),
-                ],
-                onChanged: (mode) {
-                  if (mode != null) {
-                    controller.updateSettings(requestMode: mode);
-                  }
-                },
+          SizedBox(
+            height: _aiHealthControlHeight,
+            child: InputDecorator(
+              decoration: InputDecoration(
+                labelText: text(zh: '巡检请求模式', en: 'Health-check request mode'),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: AnimatedDropdownButton<AiModelHealthRequestMode>(
+                  isExpanded: true,
+                  value: settings.requestMode,
+                  items: [
+                    for (final mode in AiModelHealthRequestMode.values)
+                      DropdownMenuItem(
+                        value: mode,
+                        child: Text(_modeLabel(context, mode)),
+                      ),
+                  ],
+                  onChanged: (mode) {
+                    if (mode != null) {
+                      controller.updateSettings(requestMode: mode);
+                    }
+                  },
+                ),
               ),
             ),
           ),

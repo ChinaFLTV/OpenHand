@@ -5090,7 +5090,7 @@ class _AiProviderModelChip extends StatelessWidget {
                 ),
               ),
               if (healthProvider != null) ...<Widget>[
-                kOpenHandHGap4,
+                kOpenHandHGap6,
                 AiModelHealthIndicator(
                   provider: healthProvider!,
                   modelId: modelId,
@@ -5098,11 +5098,17 @@ class _AiProviderModelChip extends StatelessWidget {
                   compact: compact,
                 ),
                 if (effectiveOnHealthCheck != null) ...<Widget>[
-                  kOpenHandHGap2,
+                  kOpenHandHGap4,
                   SizedBox.square(
                     dimension: compact ? 26 : 30,
                     child: IconButton(
                       padding: EdgeInsets.zero,
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        minimumSize: Size.zero,
+                        maximumSize: Size.square(compact ? 26 : 30),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
                       tooltip: openHandLocalizedText(
                         context,
                         zh: '检查此模型健康状态',
@@ -5114,16 +5120,13 @@ class _AiProviderModelChip extends StatelessWidget {
                               dimension: 14,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : Icon(
-                              Icons.wifi_tethering_rounded,
-                              size: compact ? 16 : 18,
-                            ),
+                          : Icon(Icons.wifi_tethering_rounded, size: iconSize),
                     ),
                   ),
                 ],
               ],
               if (effectiveOnEdit != null) ...<Widget>[
-                kOpenHandHGap4,
+                kOpenHandHGap6,
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: effectiveOnEdit,
@@ -5354,6 +5357,7 @@ class _AiModelTile extends StatefulWidget {
     required this.actionsEnabled,
     required this.onSelect,
     required this.onTest,
+    required this.onHealthCheck,
     required this.onEdit,
     required this.onMoveUp,
     required this.onMoveDown,
@@ -5370,6 +5374,7 @@ class _AiModelTile extends StatefulWidget {
   final bool actionsEnabled;
   final VoidCallback onSelect;
   final VoidCallback onTest;
+  final VoidCallback onHealthCheck;
   final VoidCallback onEdit;
   final VoidCallback onMoveUp;
   final VoidCallback onMoveDown;
@@ -5539,6 +5544,9 @@ class _AiModelTileState extends State<_AiModelTile> {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final healthChecking = context.select<AiModelHealthController, bool>(
+      (controller) => controller.checking,
+    );
     final allModels = widget.model.allModelIds;
     final modelCountLabel = allModels.isNotEmpty
         ? l10n.aiModelCount(allModels.length)
@@ -5707,6 +5715,23 @@ class _AiModelTileState extends State<_AiModelTile> {
                               : null,
                           tooltip: l10n.commonDelete,
                           icon: const Icon(Icons.delete_outline_rounded),
+                        ),
+                        IconButton(
+                          onPressed: widget.actionsEnabled && !healthChecking
+                              ? widget.onHealthCheck
+                              : null,
+                          tooltip: openHandLocalizedText(
+                            context,
+                            zh: healthChecking ? '正在检查提供商健康状态' : '检查提供商健康状态',
+                            en: healthChecking
+                                ? 'Checking provider health'
+                                : 'Check provider health',
+                          ),
+                          icon: OpenHandBusyStatusIcon(
+                            busy: healthChecking,
+                            icon: Icons.wifi_tethering_rounded,
+                            size: 24,
+                          ),
                         ),
                         IconButton(
                           onPressed: widget.actionsEnabled && !widget.isTesting

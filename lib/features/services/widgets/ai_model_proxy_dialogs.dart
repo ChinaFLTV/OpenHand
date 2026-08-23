@@ -30,6 +30,7 @@ import '../../settings/index.dart'
         showAiModelEditorDialog,
         showAiModelProfileEditorDialog,
         testAiModelConfiguration;
+import '../ai_model_health_controller.dart';
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_model_proxy_models.dart';
 import 'ai_model_health_widgets.dart';
@@ -378,6 +379,9 @@ class _ProxyProvidersDialogState extends State<_ProxyProvidersDialog> {
                                     }
                                   }
                                 },
+                                onHealthCheck: () => context
+                                    .read<AiModelHealthController>()
+                                    .checkProvider(model),
                                 onEdit: () => showAiModelEditorDialog(
                                   context,
                                   initialModel: model,

@@ -122,11 +122,21 @@ class AiModelHealthController extends ChangeNotifier {
     if (_checking || _disposed) return;
     final models = _modelsProvider?.call() ?? const <AiModelConfig>[];
     if (models.isEmpty) return;
+    await _checkProviders(models);
+  }
+
+  Future<void> checkProvider(AiModelConfig provider) async {
+    if (_checking || _disposed) return;
+    await _checkProviders(<AiModelConfig>[provider]);
+  }
+
+  Future<void> _checkProviders(Iterable<AiModelConfig> providers) async {
+    if (_checking || _disposed) return;
     _checking = true;
     notifyListeners();
     try {
       final pending = <Future<AiModelHealthRecord?>>[];
-      for (final provider in models) {
+      for (final provider in providers) {
         for (final modelId in _healthModelIds(provider)) {
           if (_disposed) return;
           pending.add(checkModel(provider, modelId: modelId, notify: false));
