@@ -10,10 +10,10 @@ import '../../../shared/util/localized_text.dart';
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_model_proxy_models.dart';
 
-const int _kStatusCopyAckMs = 1600;
 const int _kStatusPagePhoneMaxPx = 640;
 const int _kStatusPageCompactMaxPx = 720;
 const int _kStatusPageTapMinPx = 44;
+const int _kStatusHistoryMaxPx = 360;
 
 String _statusPageLang(Locale locale) {
   final ui = openHandSupportedUiLocale(locale);
@@ -48,33 +48,6 @@ class _StatusPageCopy {
     fr: 'État du relais de modèles IA',
     de: 'KI-Modell-Proxy-Status',
     ja: 'AI モデル中継の稼働状況',
-  );
-
-  String get copyLink => _t(
-    zh: '复制状态页链接',
-    zhHant: '複製狀態頁連結',
-    en: 'Copy status URL',
-    fr: 'Copier le lien d’état',
-    de: 'Status-URL kopieren',
-    ja: 'ステータスページのリンクをコピー',
-  );
-
-  String get copied => _t(
-    zh: '已复制',
-    zhHant: '已複製',
-    en: 'Copied',
-    fr: 'Copié',
-    de: 'Kopiert',
-    ja: 'コピーしました',
-  );
-
-  String get copyFailed => _t(
-    zh: '复制失败，请手动复制地址',
-    zhHant: '複製失敗，請手動複製地址',
-    en: 'Copy failed; copy the address manually',
-    fr: 'Échec de la copie ; copiez l’adresse manuellement',
-    de: 'Kopieren fehlgeschlagen; Adresse manuell kopieren',
-    ja: 'コピーに失敗しました。アドレスを手動でコピーしてください',
   );
 
   String get systemStatus => _t(
@@ -414,9 +387,6 @@ class _StatusPageCopy {
     'failures': failures,
     'slow': slow,
     'noIncidents': noIncidents,
-    'copyIdle': copyLink,
-    'copyDone': copied,
-    'copyFailed': copyFailed,
     'historyOpen': viewHistory,
     'historyClose': hideHistory,
   };
@@ -525,7 +495,6 @@ String buildAiModelProxyStatusPage({
     ],
     'incidents': incidents,
     'i18n': copy.scriptLabels,
-    'copyAckMs': _kStatusCopyAckMs,
   };
   return '''<!DOCTYPE html>
 <html lang="$lang">
@@ -561,6 +530,7 @@ String buildAiModelProxyStatusPage({
   --bar-gap: 3px;
   --bar-h: 34px;
   --nest: 32px;
+  --history-max: ${_kStatusHistoryMaxPx}px;
   --tip-shift-y: calc(-100% - 10px);
 }
 * { box-sizing: border-box; }
@@ -583,13 +553,13 @@ body {
   padding: max(28px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(56px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
 }
 .top {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px 16px; margin-bottom: 22px; flex-wrap: wrap;
+  display: flex; align-items: center;
+  gap: 12px; margin-bottom: 22px;
 }
 .brand {
   display: flex; align-items: center; gap: 10px; font-weight: 800;
   font-size: clamp(18px, 4.2vw, 22px); letter-spacing: -.03em;
-  min-width: 0; flex: 1 1 220px;
+  min-width: 0;
 }
 .brand > div { min-width: 0; }
 .brand small {
@@ -600,20 +570,18 @@ body {
   width: 36px; height: 36px; border-radius: 12px; object-fit: contain;
   display: block; background: var(--card); flex: none;
 }
-.copy-btn, .ghost-btn {
-  border: 1px solid var(--outline); background: var(--text); color: var(--bg);
+.ghost-btn {
+  border: 1px solid var(--outline); background: var(--card); color: var(--text);
   border-radius: 999px; padding: 10px 16px; font: inherit; font-weight: 700;
   cursor: pointer; appearance: none; -webkit-appearance: none;
   touch-action: manipulation; min-height: ${_kStatusPageTapMinPx}px;
   transition: transform 180ms cubic-bezier(.22,1.2,.36,1), box-shadow 180ms ease;
-  flex: 0 0 auto;
 }
-.ghost-btn { background: var(--card); color: var(--text); }
-.copy-btn:focus-visible, .ghost-btn:focus-visible {
+.ghost-btn:focus-visible {
   outline: 2px solid var(--primary); outline-offset: 3px;
 }
 @media (hover: hover) and (pointer: fine) {
-  .copy-btn:hover, .ghost-btn:hover { transform: translateY(-1px) scale(1.02); box-shadow: 0 10px 24px var(--shadow); }
+  .ghost-btn:hover { transform: translateY(-1px) scale(1.02); box-shadow: 0 10px 24px var(--shadow); }
 }
 .banner {
   border: 1px solid var(--banner-edge); border-radius: var(--radius); overflow: hidden;
@@ -677,13 +645,30 @@ body {
 .foot { display: flex; justify-content: center; margin-top: 22px; }
 .foot .ghost-btn { max-width: 100%; }
 .history { display: none; margin-top: 18px; }
-.history.open { display: block; animation: rise 280ms ease; }
-.incidents { padding: 0 var(--pad) 12px; }
+.history.open { display: block; animation: rise 280ms cubic-bezier(.22,1.2,.36,1); }
+.incidents {
+  padding: 0 var(--pad) 12px;
+  max-height: min(var(--history-max), 52vh);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 55%, transparent) transparent;
+}
+.incidents::-webkit-scrollbar { width: 8px; }
+.incidents::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--muted) 45%, transparent);
+  border-radius: 999px;
+}
+.incidents::-webkit-scrollbar-track { background: transparent; }
 .incident {
   display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 8px 12px;
   padding: 12px 0; border-bottom: 1px solid color-mix(in srgb, var(--outline) 70%, transparent);
   font-size: 13px; overflow-wrap: anywhere;
 }
+.incident:last-child { border-bottom: none; }
 .note {
   margin-top: 28px; text-align: center; color: var(--muted); font-size: 12px;
   max-width: 640px; margin-left: auto; margin-right: auto; overflow-wrap: anywhere;
@@ -711,8 +696,7 @@ body {
 @keyframes rise { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
 @media (max-width: ${_kStatusPageCompactMaxPx}px) {
   :root { --pad: 14px; --nest: 20px; --bar-gap: 2px; }
-  .top { flex-direction: column; align-items: stretch; }
-  .copy-btn, .foot .ghost-btn { width: 100%; }
+  .foot .ghost-btn { width: 100%; }
   .range { white-space: normal; }
 }
 @media (max-width: ${_kStatusPagePhoneMaxPx}px) {
@@ -739,7 +723,6 @@ body {
       <img class="logo" src="$aiModelProxyLogoPath" width="36" height="36" alt="OpenHand">
       <div>OpenHand<small>${_htmlEscape(copy.brandSubtitle)}</small></div>
     </div>
-    <button class="copy-btn" id="copy-link" type="button">${_htmlEscape(copy.copyLink)}</button>
   </div>
   <section class="banner">
     <div class="banner-head">${_bannerIcon(overall)} ${_htmlEscape(banner.$1)}</div>
@@ -886,36 +869,6 @@ window.addEventListener('resize', () => {
     clearOn(pinnedStrip);
     pinnedStrip = null;
   }
-});
-const copyBtn = document.getElementById('copy-link');
-let copyTimer = 0;
-async function copyText(value){
-  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-    try { await navigator.clipboard.writeText(value); return true; } catch (_) {}
-  }
-  const area = document.createElement('textarea');
-  area.value = value;
-  area.setAttribute('readonly', '');
-  area.style.position = 'fixed'; area.style.opacity = '0';
-  document.body.appendChild(area);
-  area.select();
-  try {
-    return typeof document.execCommand === 'function' && document.execCommand('copy');
-  } catch (_) {
-    return false;
-  } finally {
-    area.remove();
-  }
-}
-copyBtn.addEventListener('click', async () => {
-  const copied = await copyText(location.href);
-  copyBtn.textContent = copied
-    ? (i18n.copyDone || copyBtn.textContent)
-    : (i18n.copyFailed || copyBtn.textContent);
-  window.clearTimeout(copyTimer);
-  copyTimer = window.setTimeout(() => {
-    copyBtn.textContent = i18n.copyIdle || copyBtn.textContent;
-  }, Number(data.copyAckMs) || 1600);
 });
 const hist = document.getElementById('history');
 const histBtn = document.getElementById('toggle-history');
