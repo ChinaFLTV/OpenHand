@@ -5028,6 +5028,7 @@ class _AiProviderModelChip extends StatelessWidget {
     final effectiveOnDeleted = enabled ? onDeleted : null;
     final effectiveOnHealthCheck = enabled ? onHealthCheck : null;
     final iconSize = compact ? 14.0 : 16.0;
+    final healthActionDimension = compact ? 22.0 : 24.0;
 
     // 使用 Material 和 InkWell，避免 InputChip 吞掉标签内操作按钮的点击。
     final baseColor = enabled
@@ -5100,7 +5101,7 @@ class _AiProviderModelChip extends StatelessWidget {
                 if (effectiveOnHealthCheck != null) ...<Widget>[
                   kOpenHandHGap2,
                   SizedBox.square(
-                    dimension: compact ? 26 : 30,
+                    dimension: healthActionDimension,
                     child: IconButton(
                       padding: EdgeInsets.zero,
                       style: IconButton.styleFrom(
@@ -5112,7 +5113,7 @@ class _AiProviderModelChip extends StatelessWidget {
                         elevation: 0,
                         splashFactory: NoSplash.splashFactory,
                         minimumSize: Size.zero,
-                        maximumSize: Size.square(compact ? 26 : 30),
+                        maximumSize: Size.square(healthActionDimension),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                       tooltip: openHandLocalizedText(
@@ -5132,7 +5133,7 @@ class _AiProviderModelChip extends StatelessWidget {
                 ],
               ],
               if (effectiveOnEdit != null) ...<Widget>[
-                kOpenHandHGap4,
+                kOpenHandHGap2,
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: effectiveOnEdit,
