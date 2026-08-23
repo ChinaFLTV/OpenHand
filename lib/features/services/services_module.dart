@@ -2,6 +2,7 @@ import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
 import '../../app/support/silent_log.dart';
+import 'ai_model_health_controller.dart';
 import 'ai_model_proxy_controller.dart';
 import 'data/ai_exposure_preferences_store.dart';
 import 'model/ai_exposure_models.dart';
@@ -11,10 +12,12 @@ class ServicesModule {
   const ServicesModule._({
     required this.controller,
     required this.aiModelProxyController,
+    required this.aiModelHealthController,
   });
 
   final ServicesController controller;
   final AiModelProxyController aiModelProxyController;
+  final AiModelHealthController aiModelHealthController;
 
   static Future<ServicesModule> bootstrap() async {
     final store = AiExposurePreferencesStore();
@@ -34,9 +37,12 @@ class ServicesModule {
       () => controller.proxyConfiguration,
     );
     await aiModelProxyController.load();
+    final aiModelHealthController = AiModelHealthController();
+    await aiModelHealthController.load();
     return ServicesModule._(
       controller: controller,
       aiModelProxyController: aiModelProxyController,
+      aiModelHealthController: aiModelHealthController,
     );
   }
 
@@ -46,6 +52,9 @@ class ServicesModule {
     ChangeNotifierProvider<ServicesController>.value(value: module.controller),
     ChangeNotifierProvider<AiModelProxyController>.value(
       value: module.aiModelProxyController,
+    ),
+    ChangeNotifierProvider<AiModelHealthController>.value(
+      value: module.aiModelHealthController,
     ),
   ];
 }

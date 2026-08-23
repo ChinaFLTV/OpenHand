@@ -5336,6 +5336,7 @@ class _AiModelTileState extends State<_AiModelTile> {
   bool _modelSearchVisible = false;
   final TextEditingController _modelSearchController = TextEditingController();
   final FocusNode _modelSearchFocusNode = FocusNode();
+  final Set<String> _healthCheckingModelIds = <String>{};
 
   /// APP 运行期间稳定的胶囊排序。冷启动后第一次构建本卡片
   /// 时按"活跃模型优先"排好；之后用户切换活跃模型，胶囊位置不再动 —
@@ -5412,6 +5413,19 @@ class _AiModelTileState extends State<_AiModelTile> {
         _modelSearchFocusNode.requestFocus();
       }
     });
+  }
+
+  Future<void> _checkModelHealth(String modelId) async {
+    if (_healthCheckingModelIds.contains(modelId)) return;
+    setState(() => _healthCheckingModelIds.add(modelId));
+    try {
+      await context.read<AiModelHealthController>().checkModel(
+        widget.model,
+        modelId: modelId,
+      );
+    } finally {
+      if (mounted) setState(() => _healthCheckingModelIds.remove(modelId));
+    }
   }
 
   Future<void> _openOfficialWebsite(String url) async {
@@ -5809,24 +5823,71 @@ class _AiModelTileState extends State<_AiModelTile> {
                               runSpacing: 6,
                               children: [
                                 for (final id in visible)
-                                  _AiProviderModelChip(
-                                    modelId: id,
-                                    isActive: id == activeId,
-                                    compact: true,
-                                    tooltip: id == activeId
-                                        ? openHandLocalizedText(
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      _AiProviderModelChip(
+                                        modelId: id,
+                                        isActive: id == activeId,
+                                        compact: true,
+                                        tooltip: id == activeId
+                                            ? openHandLocalizedText(
+                                                ctx,
+                                                zh: '当前活跃模型',
+                                                en: 'Currently active model',
+                                              )
+                                            : openHandLocalizedText(
+                                                ctx,
+                                                zh: '点击切换为活跃模型',
+                                                en: 'Click to set as active model',
+                                              ),
+                                        onPressed: id == activeId
+                                            ? () {}
+                                            : () => widget.onActiveModelChanged(
+                                                id,
+                                              ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      AiModelHealthIndicator(
+                                        provider: widget.model,
+                                        modelId: id,
+                                        barCount: 16,
+                                        compact: true,
+                                      ),
+                                      SizedBox(
+                                        width: 28,
+                                        height: 28,
+                                        child: IconButton(
+                                          padding: EdgeInsets.zero,
+                                          tooltip: openHandLocalizedText(
                                             ctx,
-                                            zh: '当前活跃模型',
-                                            en: 'Currently active model',
-                                          )
-                                        : openHandLocalizedText(
-                                            ctx,
-                                            zh: '点击切换为活跃模型',
-                                            en: 'Click to set as active model',
+                                            zh: '检查此模型健康状态',
+                                            en: 'Check this model health',
                                           ),
-                                    onPressed: id == activeId
-                                        ? () {}
-                                        : () => widget.onActiveModelChanged(id),
+                                          onPressed:
+                                              widget.actionsEnabled &&
+                                                  !_healthCheckingModelIds
+                                                      .contains(id)
+                                              ? () => _checkModelHealth(id)
+                                              : null,
+                                          icon:
+                                              _healthCheckingModelIds.contains(
+                                                id,
+                                              )
+                                              ? const SizedBox.square(
+                                                  dimension: 14,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                      ),
+                                                )
+                                              : const Icon(
+                                                  Icons.wifi_tethering_rounded,
+                                                  size: 17,
+                                                ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 if (!isSearchingModels && hiddenCount > 0)
                                   _AiProviderOverflowChip(

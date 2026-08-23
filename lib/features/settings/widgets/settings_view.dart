@@ -96,7 +96,12 @@ import '../../instructions/instructions_controller.dart';
 import '../../mcp/index.dart';
 import '../../memory/index.dart';
 import '../../message_gateway/index.dart' show MessageGatewayController;
-import '../../services/index.dart' show aiModelProxyDispatchModeLabel;
+import '../../services/index.dart'
+    show
+        AiModelHealthController,
+        AiModelHealthIndicator,
+        AiModelHealthSettingsPanel,
+        aiModelProxyDispatchModeLabel;
 import '../../skills/skills_controller.dart';
 import '../data_cleanup/data_cleanup_models.dart';
 import '../data_cleanup/data_cleanup_service.dart';
@@ -3563,6 +3568,8 @@ class _SettingsViewState extends State<SettingsView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const AiModelHealthSettingsPanel(),
+              kOpenHandGap16,
               Wrap(
                 spacing: 10,
                 runSpacing: 10,

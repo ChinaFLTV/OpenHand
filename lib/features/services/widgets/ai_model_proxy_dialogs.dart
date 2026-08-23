@@ -32,6 +32,7 @@ import '../../settings/index.dart'
         testAiModelConfiguration;
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_model_proxy_models.dart';
+import 'ai_model_health_widgets.dart';
 import 'service_dialog_controls.dart';
 
 Future<void> showAiModelProxyProvidersDialog(BuildContext context) =>
@@ -320,6 +321,7 @@ class _ProxyProvidersDialogState extends State<_ProxyProvidersDialog> {
                 ),
               ],
             ),
+            const AiModelHealthSettingsPanel(showRequestMode: true),
             kOpenHandGap16,
             Expanded(
               child: models.isEmpty

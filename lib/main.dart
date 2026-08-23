@@ -251,6 +251,13 @@ Future<void> _bootstrap() async {
   services.aiModelProxyController.attachModelsProvider(
     () => settingsController.aiModels,
   );
+  services.aiModelHealthController.attachModelsProvider(
+    () => settingsController.aiModels,
+  );
+  services.aiModelHealthController.attachProxyResolver(
+    ({required String targetHost}) => services.aiModelProxyController
+        .resolveProxyEndpoint(targetHost: targetHost),
+  );
   services.aiModelProxyController.attachThemeProvider(
     () => (
       themeMode: settingsController.themeMode,
@@ -499,6 +506,7 @@ Future<void> _bootstrap() async {
     ..register('插件服务控制器', pluginService.controller.shutdown)
     ..register('智能体控制器', agents.controller.shutdown)
     ..register('AI 模型中转站控制器', services.aiModelProxyController.shutdown)
+    ..register('AI 模型健康巡检控制器', services.aiModelHealthController.dispose)
     ..register('扫描服务控制器', services.controller.shutdown)
     ..register('指令控制器', instructions.controller.shutdown)
     ..register('模板运行时联动控制器', templateRuntimeLinkageController.dispose)

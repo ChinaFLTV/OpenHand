@@ -19,7 +19,7 @@ class DatabaseService {
   Database? _database;
   BoundedRandomAccessFileLease? _instanceLock;
 
-  static const int schemaVersion = 17;
+  static const int schemaVersion = 18;
   static const String _databaseFileName = 'openhand.db';
   static const String _harnessSessionsTable = 'harness_sessions';
   static const String _harnessEngineeringTemplateId = 'harness_engineering';
@@ -82,6 +82,30 @@ class DatabaseService {
       updated_at  TEXT NOT NULL
     )
   ''';
+  static const String _createAiModelHealthRecordsTableSql = '''
+    CREATE TABLE IF NOT EXISTS ai_model_health_records (
+      id TEXT PRIMARY KEY,
+      provider_config_id TEXT NOT NULL DEFAULT '',
+      provider_name TEXT NOT NULL DEFAULT '',
+      model_id TEXT NOT NULL DEFAULT '',
+      checked_at_ms INTEGER NOT NULL,
+      checked_at TEXT NOT NULL,
+      success INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT '',
+      latency_ms INTEGER NOT NULL DEFAULT 0,
+      duration_ms INTEGER NOT NULL DEFAULT 0,
+      response_code INTEGER,
+      request_mode TEXT NOT NULL DEFAULT 'direct',
+      host TEXT NOT NULL DEFAULT '',
+      port INTEGER,
+      model_kind TEXT NOT NULL DEFAULT 'text',
+      error_message TEXT NOT NULL DEFAULT '',
+      metadata_json TEXT NOT NULL DEFAULT '{}'
+    )
+  ''';
+  static const String _createAiModelHealthRecordsIndexSql =
+      'CREATE INDEX IF NOT EXISTS idx_ai_model_health_provider_model_time '
+      'ON ai_model_health_records(provider_config_id, model_id, checked_at_ms DESC)';
   static const List<int> _legacyHarnessPrefixCodeUnits = <int>[
     104,
     97,
@@ -415,6 +439,8 @@ class DatabaseService {
         value TEXT NOT NULL
       )
     ''');
+    batch.execute(_createAiModelHealthRecordsTableSql);
+    batch.execute(_createAiModelHealthRecordsIndexSql);
 
     // Harness Engineering 会话。
     batch.execute('''
@@ -780,6 +806,10 @@ class DatabaseService {
     }
     if (oldVersion < 17) {
       await db.execute(_createOpenRouterModelProfilesTableSql);
+    }
+    if (oldVersion < 18) {
+      await db.execute(_createAiModelHealthRecordsTableSql);
+      await db.execute(_createAiModelHealthRecordsIndexSql);
     }
   }
 
