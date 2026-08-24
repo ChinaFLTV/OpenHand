@@ -96,13 +96,12 @@ class _StatusPageCopy {
   );
 
   String get footnote => _t(
-    zh: '可用性按近 90 个自然日、在本中转站实际处理过的请求汇总。空闲灰格表示当天没有流量，不代表事故。状态页访问会计入网关遥测，但不计入暴露模型的成功率。',
-    zhHant:
-        '可用性按近 90 個自然日、在本中轉站實際處理過的請求彙總。空閒灰格表示當天沒有流量，不代表事故。狀態頁造訪會計入閘道遙測，但不計入暴露模型的成功率。',
-    en: 'Availability covers the last 90 calendar days of traffic this proxy actually served. Gray means idle, not an outage. Status-page hits are gateway telemetry and are excluded from exposed-model success rates.',
-    fr: 'La disponibilité couvre les 90 derniers jours de trafic réellement traité par ce relais. Le gris signifie inactif, pas une panne. Les visites de la page d’état relèvent de la télémétrie de la passerelle, pas du taux de succès des modèles exposés.',
-    de: 'Die Verfügbarkeit umfasst die letzten 90 Kalendertage des tatsächlich von diesem Proxy verarbeiteten Traffics. Grau bedeutet Leerlauf, keinen Ausfall. Aufrufe der Statusseite zählen zur Gateway-Telemetrie, nicht zur Erfolgsrate bereitgestellter Modelle.',
-    ja: '可用性は直近 90 日、この中継が実際に処理したリクエストで集計します。灰色はアイドルであり障害ではありません。ステータスページへのアクセスはゲートウェイ計測に含まれ、公開モデルの成功率には含めません。',
+    zh: '可用性指标在所有层、模型和错误类型的聚合级别上报告。个别客户的可用性可能因其订阅层以及所使用的特定模型和API特性而异。',
+    zhHant: '可用性指標在所有層、模型和錯誤類型的聚合層級上報告。個別客戶的可用性可能因其訂閱層以及所使用的特定模型和 API 特性而異。',
+    en: 'Availability metrics are reported at an aggregate level across all tiers, models, and error types. Individual customer availability may vary depending on their subscription tier and the specific models and API features they use.',
+    fr: 'Les indicateurs de disponibilité sont rapportés au niveau agrégé, tous paliers, modèles et types d’erreur confondus. La disponibilité individuelle d’un client peut varier selon son palier d’abonnement ainsi que les modèles et fonctionnalités d’API utilisés.',
+    de: 'Verfügbarkeitskennzahlen werden aggregiert über alle Stufen, Modelle und Fehlertypen hinweg ausgewiesen. Die Verfügbarkeit einzelner Kunden kann je nach Abonnementstufe sowie den verwendeten Modellen und API-Funktionen abweichen.',
+    ja: '可用性指標は、すべての階層・モデル・エラー種別を集約したレベルで報告されます。個別のお客様の可用性は、契約階層およびご利用のモデルや API 機能によって異なる場合があります。',
   );
 
   String get healthy => _t(
