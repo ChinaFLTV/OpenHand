@@ -550,9 +550,12 @@ class AiTransportDiagnosticMessages {
     if (raw.isEmpty) {
       return null;
     }
+    final normalized = raw.toLowerCase();
     if (raw.contains('无可用渠道') ||
-        raw.toLowerCase().contains('distributor') ||
-        raw.toLowerCase().contains('channel')) {
+        normalized.contains('no route available') ||
+        normalized.contains('no available route') ||
+        normalized.contains('distributor') ||
+        normalized.contains('channel')) {
       return '中转站已收到请求，但当前账号所在分组/渠道没有这个模型的可用分发。通常不是 Base URL、协议或密钥格式错误，而是该模型在当前中转未上架、未分配到你的分组，或对应渠道暂时不可用。';
     }
     return null;
@@ -575,8 +578,7 @@ class AiTransportDiagnosticMessages {
             en: 'Resource not found ($httpCode · gRPC NOT_FOUND)',
           ),
           reason: _text(
-            zh:
-                '服务端以 gRPC NOT_FOUND 响应，表示请求的模型或资源在 API 层面不存在，而非 Base URL 路径错误。',
+            zh: '服务端以 gRPC NOT_FOUND 响应，表示请求的模型或资源在 API 层面不存在，而非 Base URL 路径错误。',
             en: 'The server responded with gRPC NOT_FOUND, meaning the requested model or resource does not exist at the API level — not that the Base URL path is wrong.',
           ),
           suggest: _text(
@@ -597,8 +599,7 @@ class AiTransportDiagnosticMessages {
             en: 'Permission denied ($httpCode · gRPC PERMISSION_DENIED)',
           ),
           reason: _text(
-            zh:
-                '服务端以 gRPC PERMISSION_DENIED 响应：当前令牌无权访问该模型或操作，或账号未开通相应权限。',
+            zh: '服务端以 gRPC PERMISSION_DENIED 响应：当前令牌无权访问该模型或操作，或账号未开通相应权限。',
             en: 'The server responded with gRPC PERMISSION_DENIED: the current credential cannot access this model or operation, or the account does not have the required permission.',
           ),
           suggest: _text(
@@ -617,8 +618,7 @@ class AiTransportDiagnosticMessages {
             en: 'Authentication failed ($httpCode · gRPC UNAUTHENTICATED)',
           ),
           reason: _text(
-            zh:
-                '服务端以 gRPC UNAUTHENTICATED 响应：身份令牌缺失、格式错误或已失效。',
+            zh: '服务端以 gRPC UNAUTHENTICATED 响应：身份令牌缺失、格式错误或已失效。',
             en: 'The server responded with gRPC UNAUTHENTICATED: the credential is missing, malformed, or has expired.',
           ),
           suggest: _text(
@@ -637,8 +637,7 @@ class AiTransportDiagnosticMessages {
             en: 'Rate limited ($httpCode · gRPC RESOURCE_EXHAUSTED)',
           ),
           reason: _text(
-            zh:
-                '服务端以 gRPC RESOURCE_EXHAUSTED 响应：调用频率超限或额度已用尽。',
+            zh: '服务端以 gRPC RESOURCE_EXHAUSTED 响应：调用频率超限或额度已用尽。',
             en: 'The server responded with gRPC RESOURCE_EXHAUSTED: the request rate exceeded the limit or the quota is exhausted.',
           ),
           suggest: _text(
@@ -655,8 +654,7 @@ class AiTransportDiagnosticMessages {
             en: 'Invalid argument ($httpCode · gRPC INVALID_ARGUMENT)',
           ),
           reason: _text(
-            zh:
-                '服务端以 gRPC INVALID_ARGUMENT 响应：请求中的某个参数（如模型 ID、消息格式、附件）不符合该协议规范。',
+            zh: '服务端以 gRPC INVALID_ARGUMENT 响应：请求中的某个参数（如模型 ID、消息格式、附件）不符合该协议规范。',
             en: 'The server responded with gRPC INVALID_ARGUMENT: a request parameter (such as the model ID, message shape, or attachment) does not match the expected protocol.',
           ),
           suggest: _text(
@@ -742,7 +740,10 @@ class AiTransportDiagnosticMessages {
 }
 
 /// 识别 `extractApiErrorMessage` 标记的 gRPC 文本：`"NOT_FOUND (gRPC code 5)"`。
-final RegExp _kGrpcCodePattern = RegExp(r'\(gRPC code\s*(\d+)\)', caseSensitive: false);
+final RegExp _kGrpcCodePattern = RegExp(
+  r'\(gRPC code\s*(\d+)\)',
+  caseSensitive: false,
+);
 
 class _GrpcDiagnosis {
   const _GrpcDiagnosis({

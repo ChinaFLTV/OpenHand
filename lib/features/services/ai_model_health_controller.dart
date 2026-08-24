@@ -16,6 +16,7 @@ import '../ai/index.dart';
 import 'data/ai_model_health_store.dart';
 import 'model/ai_exposure_models.dart';
 import 'model/ai_model_health.dart';
+import 'service/ai_exposure_proxy_client.dart';
 
 typedef AiModelHealthProxyResolver =
     AiExposureProxyEndpoint? Function({required String targetHost});
@@ -500,21 +501,11 @@ class AiModelHealthController extends ChangeNotifier {
         } else {
           final endpoint = _proxyResolver?.call(targetHost: host);
           final proxyUri = endpoint == null ? null : Uri.tryParse(endpoint.url);
-          if (proxyUri != null && proxyUri.userInfo.isNotEmpty) {
-            final credentials = aiExposureProxyCredentials(proxyUri.userInfo);
-            raw.addProxyCredentials(
-              proxyUri.host,
-              proxyUri.port,
-              '',
-              HttpClientBasicCredentials(
-                credentials.username,
-                credentials.password,
-              ),
-            );
+          if (proxyUri == null) {
+            raw.findProxy = (_) => 'DIRECT';
+          } else {
+            configureAiExposureProxyHttpClient(raw, proxyUri);
           }
-          raw.findProxy = (_) => proxyUri == null
-              ? 'DIRECT'
-              : 'PROXY ${aiExposureProxyAuthority(proxyUri)}';
         }
         client = IOClient(raw);
       } on Object {

@@ -140,6 +140,12 @@ class AiResponsesHttpException implements Exception {
     if (!isMissingEndpoint) return false;
     if (statusCode != HttpStatus.notFound) return true;
     final normalized = body.toLowerCase();
+    if (AiTransportDiagnosticMessages.relayModelAvailabilityReason(
+          normalized,
+        ) !=
+        null) {
+      return false;
+    }
     final resourceSpecificNotFound =
         const <String>['model', 'deployment'].any(normalized.contains) &&
         const <String>[
@@ -154,7 +160,7 @@ class AiResponsesHttpException implements Exception {
   }
 
   bool get isCompatibilityFailure {
-    if (isMissingEndpoint) return true;
+    if (isMissingEndpoint) return isEndpointIncompatible;
     if (!_schemaCompatibilityStatuses.contains(statusCode)) return false;
     final normalized = body.toLowerCase();
     if (normalized.contains('responses_translation_error')) return true;
@@ -1008,11 +1014,13 @@ class AiResponsesService {
       rawData = part['result'] ?? part['data'] ?? part['b64_json'];
       label = 'AI Generated Image';
     } else if (itemType == 'output_audio' || itemType == 'audio') {
-      mimeType = optionalStringFromValue(part['mime_type']) ?? kAudioMpegMimeType;
+      mimeType =
+          optionalStringFromValue(part['mime_type']) ?? kAudioMpegMimeType;
       rawData = part['data'] ?? part['audio'] ?? part['result'];
       label = optionalStringFromValue(part['transcript']) ?? 'AI Audio';
     } else if (itemType == 'output_video' || itemType == 'video') {
-      mimeType = optionalStringFromValue(part['mime_type']) ?? kVideoMp4MimeType;
+      mimeType =
+          optionalStringFromValue(part['mime_type']) ?? kVideoMp4MimeType;
       rawData = part['data'] ?? part['video'] ?? part['result'];
       label = 'AI Video';
     } else {

@@ -10,9 +10,14 @@ import '../../ai/index.dart';
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_exposure_models.dart';
 import '../model/ai_model_proxy_models.dart';
+import 'ai_exposure_proxy_client.dart';
 
 const String _kAiModelProxyUserAgent = 'OpenHand-AI-Model-Proxy/1';
 const Duration _kAiModelProxyConnectionTimeout = Duration(seconds: 15);
+const Duration _kAiModelProxyFailureCooldown = Duration(minutes: 2);
+const int _kAiModelProxyFailureCooldownLimit = 256;
+const int _kAiModelProxyRetryDelayMs = 150;
+const int _kAiModelProxyDirectFallbackAttempts = 2;
 
 class AiModelProxyDispatchResult {
   const AiModelProxyDispatchResult({
@@ -60,6 +65,7 @@ class AiModelProxyDispatcher {
   final List<AiModelConfig> Function() modelsProvider;
   final AiChatClient _chatClient;
   final bool _usesDefaultChatClient;
+  final Map<String, DateTime> _proxyFailureCooldowns = <String, DateTime>{};
 
   static const int _maxProxyTools = 256;
   static const int _maxProxyToolNameLength = 128;
@@ -89,11 +95,16 @@ class AiModelProxyDispatcher {
       policy: settings.retryPolicy,
       affinityKey: _backendAffinityKey(headers),
     );
-    var directFallbackPending = false;
-    for (var attempt = 0; attempt < maxAttempts + 1; attempt++) {
+    var directFallbackEnabled = false;
+    var directFallbackAttempts = 0;
+    AiExposureProxyEndpoint? preferredProxyEndpoint;
+    for (
+      var attempt = 0;
+      attempt < maxAttempts + _kAiModelProxyDirectFallbackAttempts;
+      attempt++
+    ) {
       final directFallback = attempt >= maxAttempts;
-      if (directFallback && !directFallbackPending) break;
-      directFallbackPending = false;
+      if (directFallback && !directFallbackEnabled) break;
       final backend = backendPlan.select(directFallback: directFallback);
       if (backend == null) {
         throw const AiModelProxyException(404, '没有可用的后备模型。');
@@ -166,12 +177,20 @@ class AiModelProxyDispatcher {
       try {
         network = await _resolveNetworkRoute(
           Uri.tryParse(model.baseUrl),
-          excludedProxyEndpoints: failedProxyEndpoints,
+          excludedProxyEndpoints: <String>{
+            ...failedProxyEndpoints,
+            ..._coolingProxyEndpoints(),
+          },
+          preferredProxyEndpoint: preferredProxyEndpoint,
           directOnly: directFallback,
         );
+        if (network.mode == 'pool') {
+          preferredProxyEndpoint = network.selected;
+        }
         directRouteFallback =
             directFallback ||
             (network.mode == 'direct' && failedProxyEndpoints.isNotEmpty);
+        if (directRouteFallback) directFallbackAttempts++;
         routedClient = _usesDefaultChatClient
             ? await _createRoutedChatClient(network)
             : null;
@@ -194,12 +213,11 @@ class AiModelProxyDispatcher {
             messages: messages,
             tools: tools,
             creationRequest: AiCreationRequest.none,
-            allowResponsesFallback:
-                settings.apiStyle == AiModelProxyApiStyle.openAiResponses,
           ),
         );
         final endedAt = DateTime.now();
         final durationMs = endedAt.difference(startedAt).inMilliseconds;
+        _forgetProxyFailure(network.selected?.url);
         await _recordDispatch(
           success: true,
           durationMs: durationMs,
@@ -249,22 +267,32 @@ class AiModelProxyDispatcher {
           inboundBytes: inboundBytes,
           attempt: attempt + 1,
         );
-        final retryable = _isRetryableBackendError(error);
-        if (retryable) {
-          backendPlan.recordRetryableFailure(
-            backend,
-            viaProxyPool: !directRouteFallback && network.mode == 'pool',
-          );
+        final failureKind = _classifyBackendFailure(error);
+        if (failureKind == _BackendFailureKind.transport) {
+          backendPlan.prepareDirectFallback(backend);
           final failedEndpoint = network.selected?.url;
-          if (failedEndpoint != null) failedProxyEndpoints.add(failedEndpoint);
-          if (!directRouteFallback && network.mode == 'pool') {
-            directFallbackPending = true;
+          if (failedEndpoint != null) {
+            failedProxyEndpoints.add(failedEndpoint);
+            _rememberProxyFailure(failedEndpoint);
           }
+          preferredProxyEndpoint = null;
+          if (!directRouteFallback && network.mode == 'pool') {
+            directFallbackEnabled = true;
+          }
+        } else if (failureKind == _BackendFailureKind.backend) {
+          backendPlan.recordBackendFailure(backend);
         }
-        if (directRouteFallback ||
-            settings.retryPolicy == AiModelProxyRetryPolicy.failFast ||
-            !retryable) {
+        if (failureKind == _BackendFailureKind.terminal ||
+            (directRouteFallback &&
+                directFallbackAttempts >=
+                    _kAiModelProxyDirectFallbackAttempts) ||
+            (settings.retryPolicy == AiModelProxyRetryPolicy.failFast &&
+                failureKind != _BackendFailureKind.transport)) {
           break;
+        }
+        if (failureKind == _BackendFailureKind.backend &&
+            attempt + 1 < maxAttempts) {
+          await _waitBeforeBackendRetry(attempt);
         }
       } finally {
         routedClient?.dispose();
@@ -297,11 +325,16 @@ class AiModelProxyDispatcher {
       policy: settings.retryPolicy,
       affinityKey: _backendAffinityKey(headers),
     );
-    var directFallbackPending = false;
-    for (var attempt = 0; attempt < maxAttempts + 1; attempt++) {
+    var directFallbackEnabled = false;
+    var directFallbackAttempts = 0;
+    AiExposureProxyEndpoint? preferredProxyEndpoint;
+    for (
+      var attempt = 0;
+      attempt < maxAttempts + _kAiModelProxyDirectFallbackAttempts;
+      attempt++
+    ) {
       final directFallback = attempt >= maxAttempts;
-      if (directFallback && !directFallbackPending) break;
-      directFallbackPending = false;
+      if (directFallback && !directFallbackEnabled) break;
       final backend = backendPlan.select(directFallback: directFallback);
       if (backend == null) {
         lastError = const AiModelProxyException(404, '没有可用的后备模型。');
@@ -377,12 +410,20 @@ class AiModelProxyDispatcher {
       try {
         network = await _resolveNetworkRoute(
           Uri.tryParse(model.baseUrl),
-          excludedProxyEndpoints: failedProxyEndpoints,
+          excludedProxyEndpoints: <String>{
+            ...failedProxyEndpoints,
+            ..._coolingProxyEndpoints(),
+          },
+          preferredProxyEndpoint: preferredProxyEndpoint,
           directOnly: directFallback,
         );
+        if (network.mode == 'pool') {
+          preferredProxyEndpoint = network.selected;
+        }
         directRouteFallback =
             directFallback ||
             (network.mode == 'direct' && failedProxyEndpoints.isNotEmpty);
+        if (directRouteFallback) directFallbackAttempts++;
         routedClient = _usesDefaultChatClient
             ? await _createRoutedChatClient(network)
             : null;
@@ -397,6 +438,7 @@ class AiModelProxyDispatcher {
           response.result
               .then<void>(
                 (result) async {
+                  _forgetProxyFailure(network.selected?.url);
                   const cancelledError = AiModelProxyException(499, '流式请求已取消。');
                   await _recordDispatch(
                     success: !result.wasCancelled,
@@ -423,6 +465,13 @@ class AiModelProxyDispatcher {
                   );
                 },
                 onError: (Object error, StackTrace stack) async {
+                  if (_classifyBackendFailure(error) ==
+                      _BackendFailureKind.transport) {
+                    final failedEndpoint = network.selected?.url;
+                    if (failedEndpoint != null) {
+                      _rememberProxyFailure(failedEndpoint);
+                    }
+                  }
                   await _recordDispatch(
                     success: false,
                     durationMs: DateTime.now()
@@ -477,22 +526,32 @@ class AiModelProxyDispatcher {
           stream: true,
         );
         routedClient?.dispose();
-        final retryable = _isRetryableBackendError(error);
-        if (retryable) {
-          backendPlan.recordRetryableFailure(
-            backend,
-            viaProxyPool: !directRouteFallback && network.mode == 'pool',
-          );
+        final failureKind = _classifyBackendFailure(error);
+        if (failureKind == _BackendFailureKind.transport) {
+          backendPlan.prepareDirectFallback(backend);
           final failedEndpoint = network.selected?.url;
-          if (failedEndpoint != null) failedProxyEndpoints.add(failedEndpoint);
-          if (!directRouteFallback && network.mode == 'pool') {
-            directFallbackPending = true;
+          if (failedEndpoint != null) {
+            failedProxyEndpoints.add(failedEndpoint);
+            _rememberProxyFailure(failedEndpoint);
           }
+          preferredProxyEndpoint = null;
+          if (!directRouteFallback && network.mode == 'pool') {
+            directFallbackEnabled = true;
+          }
+        } else if (failureKind == _BackendFailureKind.backend) {
+          backendPlan.recordBackendFailure(backend);
         }
-        if (directRouteFallback ||
-            settings.retryPolicy == AiModelProxyRetryPolicy.failFast ||
-            !retryable) {
+        if (failureKind == _BackendFailureKind.terminal ||
+            (directRouteFallback &&
+                directFallbackAttempts >=
+                    _kAiModelProxyDirectFallbackAttempts) ||
+            (settings.retryPolicy == AiModelProxyRetryPolicy.failFast &&
+                failureKind != _BackendFailureKind.transport)) {
           break;
+        }
+        if (failureKind == _BackendFailureKind.backend &&
+            attempt + 1 < maxAttempts) {
+          await _waitBeforeBackendRetry(attempt);
         }
       }
     }
@@ -601,7 +660,22 @@ class AiModelProxyDispatcher {
     Map<String, Object?> request, {
     Map<String, String> headers = const <String, String>{},
   }) {
-    if (controller.settings.apiStyle != AiModelProxyApiStyle.openAiResponses &&
+    final style = controller.settings.apiStyle;
+    if (style == AiModelProxyApiStyle.claude &&
+        model.apiDialect == AiApiDialect.openAiCompat) {
+      final rawMaxTokens =
+          request['max_tokens'] ??
+          request['max_output_tokens'] ??
+          request['max_completion_tokens'];
+      if (rawMaxTokens is num && rawMaxTokens.isFinite && rawMaxTokens > 0) {
+        final maxOutput =
+            model.profileFor(model.modelId).maxOutputLength ?? (1 << 20);
+        model = model.copyWith(
+          maxTokens: rawMaxTokens.toInt().clamp(1, maxOutput).toInt(),
+        );
+      }
+    }
+    if (style == AiModelProxyApiStyle.openAiChatCompletions &&
         model.apiDialect == AiApiDialect.openAiCompat) {
       final capabilities = <AiApiFamily, String>{
         ...model.capabilityOverrides,
@@ -610,7 +684,6 @@ class AiModelProxyDispatcher {
       model = model.copyWith(capabilityOverrides: capabilities);
     }
     final extras = _requestBodyExtras(request, model);
-    final style = controller.settings.apiStyle;
     if (style == AiModelProxyApiStyle.openAiChatCompletions &&
         model.apiDialect == AiApiDialect.openAiCompat &&
         request['messages'] is List) {
@@ -630,7 +703,10 @@ class AiModelProxyDispatcher {
         request['contents'] is List) {
       extras['contents'] = request['contents'];
     }
-    final forwardedHeaders = _forwardedRequestHeaders(headers);
+    final forwardedHeaders = _forwardedRequestHeaders(
+      headers,
+      model.apiDialect,
+    );
     if (extras.isEmpty && forwardedHeaders.isEmpty) return model;
     final operationExtras = <String, Object?>{...model.operationExtras};
     final global = _map(operationExtras['global']);
@@ -648,15 +724,22 @@ class AiModelProxyDispatcher {
 
   static Map<String, String> _forwardedRequestHeaders(
     Map<String, String> headers,
+    AiApiDialect dialect,
   ) {
-    const allowed = <String>{
-      'anthropic-version',
-      'anthropic-beta',
-      'openai-beta',
-      'openai-organization',
-      'openai-project',
-      'x-goog-user-project',
-      'x-goog-api-client',
+    final allowed = switch (dialect) {
+      AiApiDialect.openAiCompat => const <String>{
+        'openai-beta',
+        'openai-organization',
+        'openai-project',
+      },
+      AiApiDialect.anthropicNative => const <String>{
+        'anthropic-version',
+        'anthropic-beta',
+      },
+      AiApiDialect.geminiNative => const <String>{
+        'x-goog-user-project',
+        'x-goog-api-client',
+      },
     };
     return <String, String>{
       for (final entry in headers.entries)
@@ -732,14 +815,12 @@ class AiModelProxyDispatcher {
             'thinking',
             'output_config',
             'top_k',
+            'max_tokens',
+            'max_completion_tokens',
+            'max_output_tokens',
           ]) {
             extras.remove(key);
           }
-          final maxOutputTokens = request['max_output_tokens'];
-          if (maxOutputTokens is num) {
-            extras['max_tokens'] = maxOutputTokens;
-          }
-          extras.remove('max_output_tokens');
           final stop = _stopValue(request['stop_sequences']);
           if (stop != null) extras['stop'] = stop;
           extras.remove('stop_sequences');
@@ -992,23 +1073,57 @@ class AiModelProxyDispatcher {
     return null;
   }
 
-  static bool _isRetryableBackendError(Object error) {
-    if (error is AiModelProxyException) {
+  static _BackendFailureKind _classifyBackendFailure(Object error) {
+    if (error is AiChatException) {
       final statusCode = error.statusCode;
-      return statusCode == 408 ||
-          statusCode == 409 ||
-          statusCode == 425 ||
-          statusCode == 429 ||
-          statusCode >= 500;
+      if (statusCode != null) {
+        final rawResponse = error.telemetry?.rawResponse ?? error.message;
+        if (statusCode == HttpStatus.notFound &&
+            AiTransportDiagnosticMessages.relayModelAvailabilityReason(
+                  rawResponse,
+                ) !=
+                null) {
+          return _BackendFailureKind.backend;
+        }
+        return _isRetryableHttpStatus(statusCode)
+            ? _BackendFailureKind.backend
+            : _BackendFailureKind.terminal;
+      }
+      if (error.telemetry != null && error.telemetry?.rawResponse == null) {
+        return _BackendFailureKind.transport;
+      }
+      return AiTransportDiagnosticMessages.isRetryableTransportError(error)
+          ? _BackendFailureKind.transport
+          : _BackendFailureKind.terminal;
     }
-    final statusCode = _backendErrorStatusCode(error);
-    if (statusCode == null) return true;
-    return statusCode == 408 ||
-        statusCode == 409 ||
-        statusCode == 425 ||
-        statusCode == 429 ||
-        statusCode >= 500;
+    if (error is AiModelProxyException) {
+      return error.statusCode >= 500
+          ? _BackendFailureKind.transport
+          : _isRetryableHttpStatus(error.statusCode)
+          ? _BackendFailureKind.backend
+          : _BackendFailureKind.terminal;
+    }
+    if (error is TimeoutException ||
+        error is HandshakeException ||
+        error is TlsException ||
+        error is SocketException ||
+        error is http.ClientException) {
+      return _BackendFailureKind.transport;
+    }
+    return _BackendFailureKind.terminal;
   }
+
+  static bool _isRetryableHttpStatus(int statusCode) =>
+      statusCode == HttpStatus.requestTimeout ||
+      statusCode == HttpStatus.conflict ||
+      statusCode == 425 ||
+      statusCode == HttpStatus.tooManyRequests ||
+      statusCode >= 500;
+
+  static Future<void> _waitBeforeBackendRetry(int attempt) =>
+      Future<void>.delayed(
+        Duration(milliseconds: _kAiModelProxyRetryDelayMs * (attempt + 1)),
+      );
 
   static String _backendErrorMessage(Object? error) {
     if (error is AiChatException) return error.message;
@@ -1028,6 +1143,7 @@ class AiModelProxyDispatcher {
   _resolveNetworkRoute(
     Uri? target, {
     Set<String> excludedProxyEndpoints = const <String>{},
+    AiExposureProxyEndpoint? preferredProxyEndpoint,
     bool directOnly = false,
   }) async {
     final remoteHost = target?.host ?? '';
@@ -1063,7 +1179,18 @@ class AiModelProxyDispatcher {
         selected: null,
       );
     }
-    final endpoint = controller.resolveProxyEndpoint(
+    AiExposureProxyEndpoint? endpoint;
+    final preferredUrl = preferredProxyEndpoint?.url;
+    if (preferredUrl != null &&
+        !excludedProxyEndpoints.contains(preferredUrl)) {
+      for (final candidate in configuration.activeEndpoints) {
+        if (candidate.url == preferredUrl) {
+          endpoint = candidate;
+          break;
+        }
+      }
+    }
+    endpoint ??= controller.resolveProxyEndpoint(
       targetHost: remoteHost,
       excludedUrls: excludedProxyEndpoints,
     );
@@ -1118,24 +1245,12 @@ class AiModelProxyDispatcher {
     }
     final raw = HttpClient()
       ..connectionTimeout = _kAiModelProxyConnectionTimeout;
-    raw.findProxy = (_) => 'PROXY ${aiExposureProxyAuthority(uri)}';
     raw.userAgent = _kAiModelProxyUserAgent;
-    if (uri.userInfo.isNotEmpty) {
-      try {
-        final credentials = aiExposureProxyCredentials(uri.userInfo);
-        raw.addProxyCredentials(
-          uri.host,
-          uri.port,
-          'Basic',
-          HttpClientBasicCredentials(
-            credentials.username,
-            credentials.password,
-          ),
-        );
-      } on Object {
-        raw.close(force: true);
-        throw const AiModelProxyException(502, '中转代理凭据无效。');
-      }
+    try {
+      configureAiExposureProxyHttpClient(raw, uri);
+    } on Object {
+      raw.close(force: true);
+      throw const AiModelProxyException(502, '中转代理配置无效。');
     }
     final transport = IOClient(raw);
     return _RoutedChatClient(
@@ -1146,8 +1261,36 @@ class AiModelProxyDispatcher {
 
   void dispose() {
     if (_usesDefaultChatClient) _chatClient.dispose();
+    _proxyFailureCooldowns.clear();
+  }
+
+  Set<String> _coolingProxyEndpoints() {
+    final now = DateTime.now();
+    _proxyFailureCooldowns.removeWhere(
+      (_, expiresAt) => !expiresAt.isAfter(now),
+    );
+    return _proxyFailureCooldowns.keys.toSet();
+  }
+
+  void _rememberProxyFailure(String url) {
+    final normalized = url.trim();
+    if (normalized.isEmpty) return;
+    _coolingProxyEndpoints();
+    _proxyFailureCooldowns.remove(normalized);
+    if (_proxyFailureCooldowns.length >= _kAiModelProxyFailureCooldownLimit) {
+      _proxyFailureCooldowns.remove(_proxyFailureCooldowns.keys.first);
+    }
+    _proxyFailureCooldowns[normalized] = DateTime.now().add(
+      _kAiModelProxyFailureCooldown,
+    );
+  }
+
+  void _forgetProxyFailure(String? url) {
+    if (url != null) _proxyFailureCooldowns.remove(url);
   }
 }
+
+enum _BackendFailureKind { terminal, backend, transport }
 
 /// 为单次入口请求维护后备模型重试策略，避免同步与流式链路各自解释策略。
 class _ProxyBackendAttemptPlan {
@@ -1204,15 +1347,14 @@ class _ProxyBackendAttemptPlan {
     return backend;
   }
 
-  void recordRetryableFailure(
-    AiModelProxyBackend backend, {
-    required bool viaProxyPool,
-  }) {
+  void recordBackendFailure(AiModelProxyBackend backend) {
     if (policy == AiModelProxyRetryPolicy.retryAndFailover) {
       exclude(backend);
     }
-    if (viaProxyPool) _directFallbackBackend = backend;
   }
+
+  void prepareDirectFallback(AiModelProxyBackend backend) =>
+      _directFallbackBackend = backend;
 
   void exclude(AiModelProxyBackend backend) {
     _failedBackends.add(backend);
