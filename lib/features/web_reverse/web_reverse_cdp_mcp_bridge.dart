@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../../app/support/silent_log.dart';
 import '../../shared/net/tcp_port_utils.dart';
+import '../../shared/util/argument_guards.dart';
 import '../mcp/index.dart';
 import 'web_reverse_cdp_http.dart';
 import 'web_reverse_session_controller.dart';
@@ -103,7 +104,23 @@ class WebReverseCdpMcpBridge {
     this.catalogCacheTtl = defaultCatalogCacheTtl,
     this.failedCatalogRetryTtl = defaultFailedCatalogRetryTtl,
   }) : _discoveryService = discoveryService ?? DefaultMcpToolDiscoveryService(),
-       _ownsDiscoveryService = discoveryService == null;
+       _ownsDiscoveryService = discoveryService == null {
+    requirePositiveDurationAtMost(
+      catalogTimeout,
+      _maxCatalogTimeout,
+      'catalogTimeout',
+    );
+    requirePositiveDurationAtMost(
+      catalogCacheTtl,
+      _maxCatalogCacheTtl,
+      'catalogCacheTtl',
+    );
+    requirePositiveDurationAtMost(
+      failedCatalogRetryTtl,
+      catalogCacheTtl,
+      'failedCatalogRetryTtl',
+    );
+  }
 
   static const String templateId = 'web_reverse_expert';
   static const String cdpMcpPackage = 'chrome-devtools-mcp@latest';
@@ -112,6 +129,8 @@ class WebReverseCdpMcpBridge {
   static const Duration defaultCatalogTimeout = Duration(minutes: 7);
   static const Duration defaultCatalogCacheTtl = Duration(minutes: 5);
   static const Duration defaultFailedCatalogRetryTtl = Duration(seconds: 30);
+  static const Duration _maxCatalogTimeout = Duration(minutes: 10);
+  static const Duration _maxCatalogCacheTtl = Duration(hours: 24);
   static const int _maxCatalogCacheEntries = 32;
   static const int _maxConcurrentCatalogDiscoveries = 4;
   static const String _preparingCatalogWarning =

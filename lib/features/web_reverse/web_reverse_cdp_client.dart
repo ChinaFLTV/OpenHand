@@ -109,6 +109,8 @@ class WebReverseCdpClient {
   static const Duration _maxConnectionCleanupTimeout = Duration(seconds: 30);
   static const Duration _maxReconnectDelay = Duration(minutes: 1);
   static const int _maxPendingCommands = 256;
+  static const int _maxRequestCharacters = 8 * kBytesPerMiB;
+  static const Duration _maxCommandTimeout = Duration(minutes: 10);
   static const int _defaultMaxResponseCharacters = 8 * kBytesPerMiB;
   static const int _maxResponseCharacters = 65 * kBytesPerMiB;
 
@@ -258,7 +260,7 @@ class WebReverseCdpClient {
     Duration timeout = const Duration(seconds: 8),
     int maxResponseCharacters = _defaultMaxResponseCharacters,
   }) async {
-    requireNonNegativeDuration(timeout, 'timeout');
+    requireNonNegativeDurationAtMost(timeout, _maxCommandTimeout, 'timeout');
     if (maxResponseCharacters < 1 ||
         maxResponseCharacters > _maxResponseCharacters) {
       throw RangeError.range(
@@ -279,19 +281,23 @@ class WebReverseCdpClient {
     }
 
     final id = _nextId++;
-    final completer = Completer<Map<String, Object?>>();
-    _pending[id] = _PendingCdpCommand(
-      completer,
-      maxResponseCharacters: maxResponseCharacters,
-    );
     final payload = <String, Object?>{
       'id': id,
       'method': method,
       if (params != null) 'params': params,
       if (sessionId != null) 'sessionId': sessionId,
     };
+    final encodedPayload = jsonEncode(payload);
+    if (encodedPayload.length > _maxRequestCharacters) {
+      throw StateError('CDP 请求超过安全上限。');
+    }
+    final completer = Completer<Map<String, Object?>>();
+    _pending[id] = _PendingCdpCommand(
+      completer,
+      maxResponseCharacters: maxResponseCharacters,
+    );
     try {
-      transport.sink.add(jsonEncode(payload));
+      transport.sink.add(encodedPayload);
     } catch (error, stack) {
       _pending.remove(id);
       if (!completer.isCompleted) completer.completeError(error, stack);

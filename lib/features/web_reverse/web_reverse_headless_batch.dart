@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
+import '../../shared/util/argument_guards.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_base64.dart';
 import '../../shared/util/bounded_directory_io.dart';
@@ -22,8 +24,12 @@ const int kWebReverseHeadlessBatchMaxUrls = 50;
 const int kWebReverseHeadlessBatchMaxNetworkEventsPerUrl = 1500;
 const int kWebReverseHeadlessBatchMaxConsoleEventsPerUrl = 1000;
 const int kWebReverseHeadlessBatchMaxConsoleTextChars = 4 * kBytesPerKiB;
+const int _kHeadlessMaxUrlCharacters = 8 * kBytesPerKiB;
+const int _kHeadlessMaxNetworkPayloadCharacters = 16 * kBytesPerMiB;
 const int _kHeadlessMaxScreenshotDecodedBytes = 48 * kBytesPerMiB;
 const int _kHeadlessMaxScreenshotResponseCharacters = 65 * kBytesPerMiB;
+const Duration _kHeadlessMaxPerUrlTimeout = Duration(minutes: 10);
+const Duration _kHeadlessMaxSettleAfterLoad = Duration(minutes: 1);
 
 /// Headless 批量采集：复用现有 [WebReverseCdpClient]，按 URL 列表逐个建一个
 /// 后台 Page target，做最小可用的事件采集（network response 列表 / console /
@@ -43,7 +49,21 @@ class WebReverseHeadlessBatch {
     this.captureNetwork = true,
     this.captureConsole = true,
     this.onProgress,
-  });
+  }) {
+    if (outputDir.trim().isEmpty) {
+      throw ArgumentError.value(outputDir, 'outputDir', '不能为空。');
+    }
+    requirePositiveDurationAtMost(
+      perUrlTimeout,
+      _kHeadlessMaxPerUrlTimeout,
+      'perUrlTimeout',
+    );
+    requireNonNegativeDurationAtMost(
+      settleAfterLoad,
+      _kHeadlessMaxSettleAfterLoad,
+      'settleAfterLoad',
+    );
+  }
 
   final WebReverseCdpClient cdp;
   final List<String> urls;
@@ -75,11 +95,7 @@ class WebReverseHeadlessBatch {
     for (var i = 0; i < cappedUrls.length; i++) {
       if (_cancelled) {
         results.add(
-          HeadlessBatchUrlResult(
-            url: cappedUrls[i],
-            ok: false,
-            error: 'cancelled',
-          ),
+          HeadlessBatchUrlResult(url: cappedUrls[i], ok: false, error: '已取消'),
         );
         _emit(
           i,
@@ -152,11 +168,28 @@ class WebReverseHeadlessBatch {
     final consoleEntries = <Map<String, Object?>>[];
     var networkDropped = 0;
     var consoleDropped = 0;
+    var networkPayloadCharacters = 0;
     final loadCompleter = Completer<void>();
+    void retainNetworkResponse(Map<String, Object?> entry) {
+      if (networkResponses.length >=
+          kWebReverseHeadlessBatchMaxNetworkEventsPerUrl) {
+        networkDropped++;
+        return;
+      }
+      final encodedLength = jsonEncode(entry).length;
+      if (encodedLength >
+          _kHeadlessMaxNetworkPayloadCharacters - networkPayloadCharacters) {
+        networkDropped++;
+        return;
+      }
+      networkPayloadCharacters += encodedLength;
+      networkResponses.add(entry);
+    }
+
     HeadlessBatchUrlResult cancelledResult() => HeadlessBatchUrlResult(
       url: url,
       ok: false,
-      error: 'cancelled',
+      error: '已取消',
       networkCount: networkResponses.length,
       consoleCount: consoleEntries.length,
       networkDropped: networkDropped,
@@ -173,7 +206,7 @@ class WebReverseHeadlessBatch {
         return HeadlessBatchUrlResult(
           url: url,
           ok: false,
-          error: 'Target.createTarget did not return targetId',
+          error: '创建页面目标时未返回 targetId。',
         );
       }
       final attached = await cdp.send(
@@ -186,7 +219,7 @@ class WebReverseHeadlessBatch {
         return HeadlessBatchUrlResult(
           url: url,
           ok: false,
-          error: 'attachToTarget did not return sessionId',
+          error: '附加页面目标时未返回 sessionId。',
         );
       }
 
@@ -198,13 +231,8 @@ class WebReverseHeadlessBatch {
           case 'Network.responseReceived':
             final resp = ev.params['response'];
             if (resp is Map) {
-              if (networkResponses.length >=
-                  kWebReverseHeadlessBatchMaxNetworkEventsPerUrl) {
-                networkDropped++;
-                break;
-              }
               final r = resp.cast<String, Object?>();
-              networkResponses.add(<String, Object?>{
+              retainNetworkResponse(<String, Object?>{
                 'request_id': ev.params['requestId'],
                 'loader_id': ev.params['loaderId'],
                 'type': ev.params['type'],
@@ -221,12 +249,7 @@ class WebReverseHeadlessBatch {
               });
             }
           case 'Network.loadingFailed':
-            if (networkResponses.length >=
-                kWebReverseHeadlessBatchMaxNetworkEventsPerUrl) {
-              networkDropped++;
-              break;
-            }
-            networkResponses.add(<String, Object?>{
+            retainNetworkResponse(<String, Object?>{
               'request_id': ev.params['requestId'],
               'failed': true,
               'error_text': ev.params['errorText'],
@@ -334,10 +357,9 @@ class WebReverseHeadlessBatch {
             'url': url,
             'captured': networkResponses.length,
             'dropped': networkDropped,
-            'truncated':
-                networkDropped > 0 ||
-                networkResponses.length >=
-                    kWebReverseHeadlessBatchMaxNetworkEventsPerUrl,
+            'truncated': networkDropped > 0,
+            'payload_characters': networkPayloadCharacters,
+            'payload_characters_cap': _kHeadlessMaxNetworkPayloadCharacters,
             'responses': networkResponses,
           }),
         );
@@ -349,10 +371,7 @@ class WebReverseHeadlessBatch {
             'url': url,
             'captured': consoleEntries.length,
             'dropped': consoleDropped,
-            'truncated':
-                consoleDropped > 0 ||
-                consoleEntries.length >=
-                    kWebReverseHeadlessBatchMaxConsoleEventsPerUrl,
+            'truncated': consoleDropped > 0,
             'entries': consoleEntries,
           }),
         );
@@ -428,8 +447,13 @@ class WebReverseHeadlessBatch {
     return '${idx}_$clipped';
   }
 
-  static bool _isHttpUrl(String url) =>
-      url.startsWith('http://') || url.startsWith('https://');
+  static bool _isHttpUrl(String url) {
+    if (url.length > _kHeadlessMaxUrlCharacters) return false;
+    final uri = Uri.tryParse(url);
+    return uri != null &&
+        (uri.scheme == 'http' || uri.scheme == 'https') &&
+        uri.host.isNotEmpty;
+  }
 }
 
 enum HeadlessBatchPhase {
