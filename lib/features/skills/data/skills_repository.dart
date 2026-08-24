@@ -34,6 +34,7 @@ class SkillsRepository {
   static const String _generatedEmojiIconFileName = 'skill-icon.svg';
   static const String _generatedImageIconFileName = 'skill-icon.png';
   static const int _maxArchiveEntries = 2000;
+  static const int _maxArchivePathCharacters = 4096;
   static const int _maxExtractedArchiveBytes = 160 * kBytesPerMiB;
   static const int _maxInstalledSkillScanEntries = 20000;
   static const int _maxSkillScanDepth = 32;
@@ -1004,6 +1005,11 @@ class SkillsRepository {
     }
 
     final commonRoot = _singleArchiveRootDirectory(entries);
+    final extractionEntries = <_ArchiveEntryPlan>[];
+    final occupiedPaths = <String>{};
+    final filePaths = <String>{};
+    final requiredDirectoryPaths = <String>{};
+    final caseInsensitivePaths = Platform.isMacOS || Platform.isWindows;
     for (final entry in entries) {
       final relativeParts = commonRoot == null
           ? entry.pathParts
@@ -1011,9 +1017,50 @@ class SkillsRepository {
       if (relativeParts.isEmpty) {
         continue;
       }
+      if (relativeParts.length > _maxSkillScanDepth) {
+        throw const FileSystemException('技能归档路径层级过深。');
+      }
 
+      final relativePath = p.posix.joinAll(relativeParts);
+      if (relativePath.length > _maxArchivePathCharacters) {
+        throw const FileSystemException('技能归档路径过长。');
+      }
+      final pathKey = caseInsensitivePaths
+          ? relativePath.toLowerCase()
+          : relativePath;
+      if (!occupiedPaths.add(pathKey)) {
+        throw const FileSystemException('技能归档包含重复路径。');
+      }
+
+      var ancestorPath = '';
+      for (var index = 0; index < relativeParts.length - 1; index++) {
+        ancestorPath = ancestorPath.isEmpty
+            ? relativeParts[index]
+            : '$ancestorPath/${relativeParts[index]}';
+        final ancestorKey = caseInsensitivePaths
+            ? ancestorPath.toLowerCase()
+            : ancestorPath;
+        if (filePaths.contains(ancestorKey)) {
+          throw const FileSystemException('技能归档包含文件与目录路径冲突。');
+        }
+        requiredDirectoryPaths.add(ancestorKey);
+      }
+      if (entry.file.isFile) {
+        if (requiredDirectoryPaths.contains(pathKey)) {
+          throw const FileSystemException('技能归档包含文件与目录路径冲突。');
+        }
+        filePaths.add(pathKey);
+      } else {
+        requiredDirectoryPaths.add(pathKey);
+      }
+      extractionEntries.add(
+        _ArchiveEntryPlan(file: entry.file, pathParts: relativeParts),
+      );
+    }
+
+    for (final entry in extractionEntries) {
       final destinationPath = p.normalize(
-        p.joinAll(<String>[targetDirectory.path, ...relativeParts]),
+        p.joinAll(<String>[targetDirectory.path, ...entry.pathParts]),
       );
       if (!isPathWithinOrEqual(targetDirectory.path, destinationPath)) {
         throw const FileSystemException('技能归档路径不安全。');
@@ -1034,6 +1081,9 @@ class SkillsRepository {
   }
 
   List<String> _sanitizeArchiveEntryPath(String rawPath) {
+    if (rawPath.length > _maxArchivePathCharacters) {
+      throw const FileSystemException('技能归档路径过长。');
+    }
     if (rawPath.contains('\u0000')) {
       throw const FileSystemException('技能归档路径不安全。');
     }
