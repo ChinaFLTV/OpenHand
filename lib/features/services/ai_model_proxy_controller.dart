@@ -477,10 +477,11 @@ class AiModelProxyController extends ChangeNotifier {
       _resetRateLimitWindows();
       _resetRuntimeMetrics();
       await server.start();
+      if (!server.isRunning) throw StateError('中转站监听未能保持运行。');
       _startedAt = DateTime.now();
       _settings = _settings.copyWith(enabled: true);
-      await _writes.enqueue(() => _store.save(_settings));
       _lifecycle = AiModelProxyLifecycle.running;
+      await _writes.enqueue(() => _store.save(_settings));
     } catch (error) {
       await _httpServer?.stop();
       _startedAt = null;
@@ -727,6 +728,37 @@ class AiModelProxyController extends ChangeNotifier {
     _notify();
   }
 
+  void runtimeServerStoppedUnexpectedly(Object? error) {
+    if (_disposed ||
+        (_lifecycle != AiModelProxyLifecycle.starting &&
+            _lifecycle != AiModelProxyLifecycle.running)) {
+      return;
+    }
+    _startedAt = null;
+    _resetRuntimeOccupancy();
+    _resetRateLimitWindows();
+    final stoppedSettings = _settings.copyWith(enabled: false);
+    _settings = stoppedSettings;
+    _lifecycle = AiModelProxyLifecycle.error;
+    _errorMessage = error == null ? '中转站监听已意外终止。' : '中转站监听异常：$error';
+    _notify();
+    unawaited(
+      _writes
+          .enqueue(() => _store.save(stoppedSettings))
+          .then<void>(
+            (_) {},
+            onError: (Object persistError, StackTrace stack) {
+              silentLog(
+                'ai_model_proxy_controller',
+                '保存中转站意外停止状态',
+                persistError,
+                stack,
+              );
+            },
+          ),
+    );
+  }
+
   void clearError() {
     if (_errorMessage == null) return;
     _errorMessage = null;
@@ -834,9 +866,11 @@ class AiModelProxyController extends ChangeNotifier {
     final future = _drainServerRebindRequests();
     _rebindFuture = future;
     unawaited(
-      future.whenComplete(() {
-        if (identical(_rebindFuture, future)) _rebindFuture = null;
-      }),
+      future
+          .then<void>((_) {}, onError: (Object _, StackTrace _) {})
+          .whenComplete(() {
+            if (identical(_rebindFuture, future)) _rebindFuture = null;
+          }),
     );
     return future;
   }
@@ -867,6 +901,7 @@ class AiModelProxyController extends ChangeNotifier {
       _resetRuntimeOccupancy();
       _resetRateLimitWindows();
       await server.start();
+      if (!server.isRunning) throw StateError('中转站监听未能保持运行。');
       _lifecycle = AiModelProxyLifecycle.running;
     } catch (error) {
       _lifecycle = AiModelProxyLifecycle.error;

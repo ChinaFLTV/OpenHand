@@ -87,6 +87,7 @@ class AiModelProxyHttpServer {
   }
 
   Future<void> _serve(HttpServer server) async {
+    Object? failure;
     try {
       await for (final request in server) {
         if (_server != server || _closing) {
@@ -124,8 +125,20 @@ class AiModelProxyHttpServer {
           }),
         );
       }
-    } on Object {
-      // 服务器关闭会结束迭代；其他监听异常由控制器的下一次启动兜底。
+    } on Object catch (error, stack) {
+      failure = error;
+      silentLog('ai_model_proxy_http_server', '监听中转站请求', error, stack);
+    } finally {
+      if (identical(_server, server) && !_closing) {
+        _server = null;
+        _activeRequestTokens.clear();
+        _controller.runtimeServerStoppedUnexpectedly(failure);
+        try {
+          await server.close(force: true).timeout(_bindTimeout);
+        } on Object {
+          // 监听已失效，关闭失败不能阻塞状态收敛。
+        }
+      }
     }
   }
 
