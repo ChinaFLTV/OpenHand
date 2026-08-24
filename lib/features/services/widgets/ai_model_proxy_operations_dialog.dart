@@ -1295,6 +1295,7 @@ class _ProxyOpsMetric extends StatelessWidget {
                 Expanded(
                   child: _ProxyOpsCopyText(
                     metric.label,
+                    selectable: false,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelMedium?.copyWith(
@@ -2033,6 +2034,7 @@ class _ProxyOpsCopyText extends StatelessWidget {
     this.maxLines,
     this.overflow,
     this.textAlign,
+    this.selectable = true,
   });
 
   final String text;
@@ -2040,18 +2042,18 @@ class _ProxyOpsCopyText extends StatelessWidget {
   final int? maxLines;
   final TextOverflow? overflow;
   final TextAlign? textAlign;
+  final bool selectable;
 
   @override
   Widget build(BuildContext context) {
-    return SelectionArea(
-      child: Text(
-        text,
-        maxLines: maxLines,
-        overflow: overflow,
-        textAlign: textAlign,
-        style: style,
-      ),
+    final child = Text(
+      text,
+      maxLines: maxLines,
+      overflow: overflow,
+      textAlign: textAlign,
+      style: style,
     );
+    return selectable ? SelectionArea(child: child) : child;
   }
 }
 
