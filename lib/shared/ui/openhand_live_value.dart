@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../util/timer_safety.dart';
 import 'bounded_animation.dart';
 import 'collision_safe_animated_switcher.dart';
 import 'motion_durations.dart';
@@ -14,6 +17,7 @@ const double kOpenHandLiveStatusDotPulseScale = 1.28;
 const double kOpenHandLiveStatusDotMinOpacity = 0.42;
 const String kOpenHandLiveConsoleMarker = '➜';
 const String kOpenHandLiveConsoleArrowMarker = '→';
+const Duration kOpenHandLiveClockInterval = Duration(seconds: 1);
 
 /// 短指标串走字符滚轮；URL / 长文案走整段交叉淡入，避免 IP 与路径被拆成滚轮。
 bool openHandLiveValuePrefersRoller(String text) {
@@ -79,16 +83,14 @@ class OpenHandLiveValue extends StatelessWidget {
       );
       child = overflow == null
           ? roller
-          : FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: alignment,
-              child: roller,
+          : ClipRect(
+              child: Align(alignment: alignment, child: roller),
             );
     } else {
       child = AnimatedSwitcher(
         duration: motionDuration,
-        switchInCurve: kOpenHandDigitRollInCurve,
-        switchOutCurve: kOpenHandDigitRollOutCurve,
+        switchInCurve: kOpenHandSwitchInCurve,
+        switchOutCurve: kOpenHandSwitchOutCurve,
         layoutBuilder: (currentChild, previousChildren) {
           return buildCollisionSafeAnimatedSwitcherLayout(
             currentChild,
@@ -97,26 +99,13 @@ class OpenHandLiveValue extends StatelessWidget {
           );
         },
         transitionBuilder: (child, animation) {
-          final outgoing = animation.status == AnimationStatus.reverse;
-          final opacity = openHandBoundedCurveAnimation(
-            parent: animation,
-            curve: kOpenHandSwitchInCurve,
-            reverseCurve: kOpenHandSwitchOutCurve,
-          );
-          final motion = openHandCurveAnimation(
-            parent: animation,
-            curve: kOpenHandDigitRollInCurve,
-            reverseCurve: kOpenHandDigitRollOutCurve,
-          );
           return FadeTransition(
-            opacity: opacity,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: Offset(0, outgoing ? -0.12 : 0.12),
-                end: Offset.zero,
-              ).animate(motion),
-              child: child,
+            opacity: openHandBoundedCurveAnimation(
+              parent: animation,
+              curve: kOpenHandSwitchInCurve,
+              reverseCurve: kOpenHandSwitchOutCurve,
             ),
+            child: child,
           );
         },
         child: KeyedSubtree(
@@ -143,6 +132,81 @@ class OpenHandLiveValue extends StatelessWidget {
       textAlign: textAlign,
       softWrap: softWrap,
       style: style,
+    );
+  }
+}
+
+/// 仅刷新时长文案，避免整页运维弹窗每秒重建。
+class OpenHandLiveDuration extends StatefulWidget {
+  const OpenHandLiveDuration({
+    super.key,
+    required this.startedAt,
+    required this.running,
+    required this.format,
+    this.style,
+    this.maxLines = 1,
+    this.overflow = TextOverflow.ellipsis,
+  });
+
+  final DateTime? startedAt;
+  final bool running;
+  final String Function(Duration elapsed) format;
+  final TextStyle? style;
+  final int? maxLines;
+  final TextOverflow? overflow;
+
+  @override
+  State<OpenHandLiveDuration> createState() => _OpenHandLiveDurationState();
+}
+
+class _OpenHandLiveDurationState extends State<OpenHandLiveDuration> {
+  Timer? _clock;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncClock();
+  }
+
+  @override
+  void didUpdateWidget(covariant OpenHandLiveDuration oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.running != widget.running ||
+        oldWidget.startedAt != widget.startedAt) {
+      _syncClock();
+    }
+  }
+
+  @override
+  void dispose() {
+    _clock?.cancel();
+    super.dispose();
+  }
+
+  void _syncClock() {
+    final shouldTick = widget.running && widget.startedAt != null;
+    if (!shouldTick) {
+      _clock?.cancel();
+      _clock = null;
+      return;
+    }
+    if (_clock != null) return;
+    _clock = startNonOverlappingPeriodicTimer(kOpenHandLiveClockInterval, (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final start = widget.startedAt;
+    final elapsed = !widget.running || start == null
+        ? Duration.zero
+        : DateTime.now().difference(start);
+    return OpenHandLiveValue(
+      widget.format(elapsed.isNegative ? Duration.zero : elapsed),
+      style: widget.style,
+      maxLines: widget.maxLines,
+      overflow: widget.overflow,
     );
   }
 }
@@ -306,22 +370,31 @@ class _OpenHandLiveStatusDotState extends State<OpenHandLiveStatusDot>
         !openHandTickerMotionEnabled(context)) {
       return SizedBox(width: size, height: size, child: dot);
     }
-    return AnimatedBuilder(
-      animation: ctrl,
-      builder: (context, child) {
-        final t = Curves.easeInOut.transform(ctrl.value);
-        final scale = 1.0 + (kOpenHandLiveStatusDotPulseScale - 1.0) * t;
-        final opacity = 1.0 - (1.0 - kOpenHandLiveStatusDotMinOpacity) * t;
-        return SizedBox(
-          width: size,
-          height: size,
-          child: Transform.scale(
-            scale: scale,
-            child: Opacity(opacity: opacity, child: child),
-          ),
-        );
-      },
-      child: dot,
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: ctrl,
+        builder: (context, child) {
+          final t = Curves.easeInOut.transform(ctrl.value);
+          final scale = 1.0 + (kOpenHandLiveStatusDotPulseScale - 1.0) * t;
+          final opacity = 1.0 - (1.0 - kOpenHandLiveStatusDotMinOpacity) * t;
+          return SizedBox(
+            width: size,
+            height: size,
+            child: Transform.scale(
+              scale: scale,
+              filterQuality: FilterQuality.low,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: widget.color.withValues(
+                    alpha: opacity.clamp(0.0, 1.0),
+                  ),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

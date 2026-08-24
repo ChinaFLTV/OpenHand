@@ -157,10 +157,11 @@ class _DependencyServiceCard extends StatelessWidget {
         ],
       );
       final compact = constraints.maxWidth < 560;
-      return _TappableOpsCard(
+      return OpenHandOpsPressScale(
         onTap: onTap,
-        color: color,
+        tone: color,
         borderRadius: kOpenHandBorderRadius12,
+        showFocusRing: true,
         child: Container(
           constraints: const BoxConstraints(minHeight: 104),
           padding: const EdgeInsets.all(16),
@@ -277,9 +278,10 @@ class _MetricTile extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final color = metric.color ?? cs.primary;
-    return _TappableOpsCard(
+    return OpenHandOpsPressScale(
       onTap: onTap,
-      color: color,
+      tone: color,
+      showFocusRing: true,
       child: Container(
         constraints: const BoxConstraints(minHeight: 112),
         padding: const EdgeInsets.all(14),
@@ -649,8 +651,9 @@ class _TrendPanelState extends State<_TrendPanel> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return _TappableOpsCard(
-      color: colors.primary,
+    return OpenHandOpsPressScale(
+      tone: colors.primary,
+      showFocusRing: true,
       onTap: () => _showTrendInsight(
         context,
         id: widget.id,
@@ -819,8 +822,9 @@ class _DistributionPanelState extends State<_DistributionPanel> {
       1,
       (max, item) => item.value > max ? item.value : max,
     );
-    return _TappableOpsCard(
-      color: colors.primary,
+    return OpenHandOpsPressScale(
+      tone: colors.primary,
+      showFocusRing: true,
       onTap: () => _showDistributionInsight(
         context,
         id: widget.id,
@@ -956,107 +960,6 @@ class _DistributionPanelState extends State<_DistributionPanel> {
                 },
               ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TappableOpsCard extends StatefulWidget {
-  const _TappableOpsCard({
-    required this.child,
-    required this.color,
-    this.onTap,
-    this.borderRadius = kOpenHandBorderRadius8,
-  });
-
-  final Widget child;
-  final Color color;
-  final VoidCallback? onTap;
-  final BorderRadiusGeometry borderRadius;
-
-  @override
-  State<_TappableOpsCard> createState() => _TappableOpsCardState();
-}
-
-class _TappableOpsCardState extends State<_TappableOpsCard> {
-  bool _hovered = false;
-  bool _pressed = false;
-  bool _focused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.onTap == null) return widget.child;
-    final duration = openHandMotionDuration(
-      context,
-      _kOperationsCardMotionDuration,
-    );
-    return Semantics(
-      button: true,
-      child: FocusableActionDetector(
-        mouseCursor: SystemMouseCursors.click,
-        onShowFocusHighlight: (value) => setState(() => _focused = value),
-        actions: <Type, Action<Intent>>{
-          ActivateIntent: CallbackAction<ActivateIntent>(
-            onInvoke: (_) {
-              widget.onTap?.call();
-              return null;
-            },
-          ),
-        },
-        child: MouseRegion(
-          onEnter: (_) => setState(() => _hovered = true),
-          onExit: (_) => setState(() {
-            _hovered = false;
-            _pressed = false;
-          }),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapDown: (_) => setState(() => _pressed = true),
-            onTapCancel: () => setState(() => _pressed = false),
-            onTapUp: (_) => setState(() => _pressed = false),
-            onTap: widget.onTap,
-            child: AnimatedScale(
-              scale: _pressed
-                  ? 0.975
-                  : _hovered
-                  ? 1.016
-                  : 1,
-              duration: duration,
-              curve: kOpenHandSwitchInCurve,
-              child: Stack(
-                children: [
-                  widget.child,
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: AnimatedContainer(
-                        duration: duration,
-                        curve: kOpenHandSwitchInCurve,
-                        decoration: BoxDecoration(
-                          color: widget.color.withValues(
-                            alpha: _pressed
-                                ? 0.09
-                                : _hovered
-                                ? 0.045
-                                : 0,
-                          ),
-                          borderRadius: widget.borderRadius,
-                          border: Border.all(
-                            color: _hovered || _pressed || _focused
-                                ? widget.color.withValues(
-                                    alpha: _focused ? 0.68 : 0.38,
-                                  )
-                                : Colors.transparent,
-                            width: _focused ? 2 : 1,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
         ),
       ),
     );

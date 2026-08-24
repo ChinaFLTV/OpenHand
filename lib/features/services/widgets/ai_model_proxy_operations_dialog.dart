@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -12,13 +11,13 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_live_value.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
+import '../../../shared/ui/openhand_ops_press_scale.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_table_metric_cells.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
-import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_model_proxy_models.dart';
@@ -79,21 +78,7 @@ class _AiModelProxyOperationsDialog extends StatefulWidget {
 
 class _AiModelProxyOperationsDialogState
     extends State<_AiModelProxyOperationsDialog> {
-  Timer? _clock;
-
-  @override
-  void initState() {
-    super.initState();
-    _clock = startNonOverlappingPeriodicTimer(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _clock?.cancel();
-    super.dispose();
-  }
+  final _ProxyOpsSnapshotHold _hold = _ProxyOpsSnapshotHold();
 
   @override
   Widget build(BuildContext context) {
@@ -101,7 +86,7 @@ class _AiModelProxyOperationsDialogState
     final providers = context.select<SettingsController, List<AiModelConfig>>(
       (settings) => settings.aiModels,
     );
-    final data = _ProxyOpsSnapshot.from(controller, providers: providers);
+    final data = _hold.resolve(controller, providers);
     final text = openHandTextResolver(context);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
@@ -220,6 +205,32 @@ void _showProxyOpsInsight(BuildContext context, _ProxyOpsInsightKind kind) {
       ),
     ),
   );
+}
+
+class _ProxyOpsSnapshotHold {
+  List<AiModelProxyRequestRecord>? _records;
+  List<AiModelProxyTelemetryBucket>? _telemetry;
+  List<AiModelConfig>? _providers;
+  _ProxyOpsSnapshot? _cache;
+
+  _ProxyOpsSnapshot resolve(
+    AiModelProxyController controller,
+    List<AiModelConfig> providers,
+  ) {
+    final records = controller.settings.recentRequests;
+    final telemetry = controller.telemetryBuckets;
+    if (_cache != null &&
+        identical(records, _records) &&
+        identical(telemetry, _telemetry) &&
+        identical(providers, _providers)) {
+      return _cache!;
+    }
+    _records = records;
+    _telemetry = telemetry;
+    _providers = providers;
+    _cache = _ProxyOpsSnapshot.from(controller, providers: providers);
+    return _cache!;
+  }
 }
 
 class _ProxyOpsSnapshot {
@@ -871,11 +882,19 @@ class _ProxyOpsHero extends StatelessWidget {
               ),
               _ProxyOpsChip(
                 icon: Icons.schedule_rounded,
-                label: text(
-                  zh: '运行 ${formatCompactDuration(data.controller.uptime)}',
-                  en: 'Uptime ${formatCompactDuration(data.controller.uptime)}',
-                ),
                 color: cs.tertiary,
+                labelChild: OpenHandLiveDuration(
+                  startedAt: data.controller.startedAt,
+                  running: running,
+                  format: (elapsed) => text(
+                    zh: '运行 ${formatCompactDuration(elapsed)}',
+                    en: 'Uptime ${formatCompactDuration(elapsed)}',
+                  ),
+                  style: TextStyle(
+                    color: cs.tertiary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
               _ProxyOpsChip(
                 icon: data.settings.requireAuthentication
@@ -1144,11 +1163,10 @@ class _ProxyOpsMetric extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    return _ProxyOpsTappableCard(
+    return OpenHandOpsPressScale(
       onTap: metric.insight == null
           ? null
           : () => _showProxyOpsInsight(context, metric.insight!),
-      radius: _kProxyOpsPanelRadius,
       tone: metric.color,
       child: AnimatedContainer(
         duration: openHandMotionDuration(context, kOpenHandMotion180),
@@ -1231,95 +1249,6 @@ class _ProxyOpsMetric extends StatelessWidget {
                     ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ProxyOpsTappableCard extends StatefulWidget {
-  const _ProxyOpsTappableCard({
-    required this.child,
-    required this.radius,
-    required this.tone,
-    this.onTap,
-  });
-
-  final Widget child;
-  final double radius;
-  final Color tone;
-  final VoidCallback? onTap;
-
-  @override
-  State<_ProxyOpsTappableCard> createState() => _ProxyOpsTappableCardState();
-}
-
-class _ProxyOpsTappableCardState extends State<_ProxyOpsTappableCard> {
-  bool _pressed = false;
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.onTap == null) return widget.child;
-    final duration = openHandMotionDuration(context, kOpenHandMotion120);
-    final overlayColor = _pressed
-        ? widget.tone.withValues(alpha: 0.10)
-        : _hovered
-        ? widget.tone.withValues(alpha: 0.05)
-        : Colors.transparent;
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) {
-        if (!_hovered) setState(() => _hovered = true);
-      },
-      onExit: (_) {
-        if (_hovered || _pressed) {
-          setState(() {
-            _hovered = false;
-            _pressed = false;
-          });
-        }
-      },
-      child: Semantics(
-        button: true,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTapDown: (_) {
-            if (!_pressed) setState(() => _pressed = true);
-          },
-          onTapCancel: () {
-            if (_pressed) setState(() => _pressed = false);
-          },
-          onTapUp: (_) {
-            if (_pressed) setState(() => _pressed = false);
-          },
-          onTap: widget.onTap,
-          child: AnimatedScale(
-            scale: _pressed
-                ? 0.97
-                : _hovered
-                ? 1.018
-                : 1,
-            duration: duration,
-            curve: kOpenHandSwitchInCurve,
-            child: Stack(
-              children: [
-                widget.child,
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: AnimatedContainer(
-                      duration: duration,
-                      curve: kOpenHandSwitchInCurve,
-                      decoration: BoxDecoration(
-                        color: overlayColor,
-                        borderRadius: BorderRadius.circular(widget.radius),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );
@@ -1896,9 +1825,8 @@ class _ProxyOpsPanel extends StatelessWidget {
     );
     final sized = SizedBox(width: double.infinity, child: panel);
     if (onTap == null) return sized;
-    return _ProxyOpsTappableCard(
+    return OpenHandOpsPressScale(
       onTap: onTap,
-      radius: _kProxyOpsPanelRadius,
       tone: cs.primary,
       child: sized,
     );
@@ -1908,13 +1836,15 @@ class _ProxyOpsPanel extends StatelessWidget {
 class _ProxyOpsChip extends StatelessWidget {
   const _ProxyOpsChip({
     required this.icon,
-    required this.label,
     required this.color,
+    this.label = '',
+    this.labelChild,
     this.monospace = false,
     this.pulse = false,
   });
   final IconData icon;
   final String label;
+  final Widget? labelChild;
   final Color color;
   final bool monospace;
   final bool pulse;
@@ -1937,16 +1867,17 @@ class _ProxyOpsChip extends StatelessWidget {
               ? OpenHandLiveStatusDot(color: color, pulse: true, size: 10)
               : Icon(icon, size: 16, color: color),
           kOpenHandHGap6,
-          OpenHandLiveValue(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w800,
-              fontFamily: monospace ? kOpenHandMonospaceFontFamily : null,
-            ),
-          ),
+          labelChild ??
+              OpenHandLiveValue(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w800,
+                  fontFamily: monospace ? kOpenHandMonospaceFontFamily : null,
+                ),
+              ),
         ],
       ),
     );
@@ -2012,7 +1943,7 @@ class _ProxyOpsCopyText extends StatelessWidget {
   }
 }
 
-class _ProxyOpsInsightDialog extends StatelessWidget {
+class _ProxyOpsInsightDialog extends StatefulWidget {
   const _ProxyOpsInsightDialog({
     required this.icon,
     required this.title,
@@ -2028,15 +1959,22 @@ class _ProxyOpsInsightDialog extends StatelessWidget {
   final _ProxyOpsInsightSections sections;
 
   @override
+  State<_ProxyOpsInsightDialog> createState() => _ProxyOpsInsightDialogState();
+}
+
+class _ProxyOpsInsightDialogState extends State<_ProxyOpsInsightDialog> {
+  final _ProxyOpsSnapshotHold _hold = _ProxyOpsSnapshotHold();
+
+  @override
   Widget build(BuildContext context) {
     final controller = context.watch<AiModelProxyController>();
     final providers = context.select<SettingsController, List<AiModelConfig>>(
       (settings) => settings.aiModels,
     );
-    final data = _ProxyOpsSnapshot.from(controller, providers: providers);
+    final data = _hold.resolve(controller, providers);
     final cs = Theme.of(context).colorScheme;
-    final accent = tone ?? cs.primary;
-    final children = sections(context, data);
+    final accent = widget.tone ?? cs.primary;
+    final children = widget.sections(context, data);
     return OpenHandEscapeDismissScope(
       child: _buildProxyOpsSubDialog(
         context: context,
@@ -2054,7 +1992,7 @@ class _ProxyOpsInsightDialog extends StatelessWidget {
                   borderRadius: BorderRadius.circular(kOpenHandRadius13),
                   border: Border.all(color: accent.withValues(alpha: 0.26)),
                 ),
-                child: Icon(icon, color: accent),
+                child: Icon(widget.icon, color: accent),
               ),
               kOpenHandHGap10,
               Expanded(
@@ -2062,17 +2000,17 @@ class _ProxyOpsInsightDialog extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _ProxyOpsCopyText(
-                      title,
+                      widget.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    if (subtitle.trim().isNotEmpty) ...[
+                    if (widget.subtitle.trim().isNotEmpty) ...[
                       kOpenHandGap3,
                       OpenHandLiveValue(
-                        subtitle,
+                        widget.subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -3243,6 +3181,24 @@ Widget _proxyOpsServiceHealthPanel(
   final inferenceRequests = data.records
       .where((record) => !isAiModelProxyStatusRecord(record))
       .length;
+  final healthyPct = aiModelProxyHealthPercentLabel(
+    aiModelProxyHealthHealthyRate,
+  );
+  final warningPct = aiModelProxyHealthPercentLabel(
+    aiModelProxyHealthWarningRate,
+  );
+  final degradedPct = aiModelProxyHealthPercentLabel(
+    aiModelProxyHealthDegradedRate,
+  );
+  final outageFailPct = aiModelProxyHealthPercentLabel(
+    1 - aiModelProxyHealthDegradedRate,
+  );
+  final slowPct = aiModelProxyHealthPercentLabel(aiModelProxyHealthSlowRate);
+  final severeSlowPct = aiModelProxyHealthPercentLabel(
+    aiModelProxyHealthSevereSlowRate,
+  );
+  final slowSec = aiModelProxyLatencySeconds(aiModelProxySlowLatencyMs);
+  final severeSec = aiModelProxyLatencySeconds(aiModelProxySevereLatencyMs);
   var warningHours = 0;
   var degradedHours = 0;
   var outageHours = 0;
@@ -3292,20 +3248,20 @@ Widget _proxyOpsServiceHealthPanel(
       en: 'No samples in the recent window. The 24 cells stay idle-gray until traffic arrives.',
     ),
     _ProxyOpsServiceHealth.healthy => text(
-      zh: '有流量的 $activeHours 个整点均未跌破健康阈值：成功率 ≥ 99%，且 P95 < 3s。',
-      en: 'All $activeHours hours with traffic stayed healthy: success ≥ 99% and P95 < 3s.',
+      zh: '有流量的 $activeHours 个整点均未跌破健康阈值：成功率 ≥ $healthyPct，且 P95 < ${slowSec}s。',
+      en: 'All $activeHours hours with traffic stayed healthy: success ≥ $healthyPct and P95 < ${slowSec}s.',
     ),
     _ProxyOpsServiceHealth.warning => text(
-      zh: '有 $warningHours 个整点进入黄色波动区：成功率 ≥ 97% 且 < 99%，或 P95 / 慢请求刚越过健康线，服务仍稳定可用。',
-      en: '$warningHours hours entered the yellow band: success was ≥ 97% and < 99%, or P95 / slow calls just crossed the healthy line.',
+      zh: '有 $warningHours 个整点进入黄色波动区：成功率 ≥ $warningPct 且 < $healthyPct，或 P95 / 慢请求刚越过健康线，服务仍稳定可用。',
+      en: '$warningHours hours entered the yellow band: success was ≥ $warningPct and < $healthyPct, or P95 / slow calls just crossed the healthy line.',
     ),
     _ProxyOpsServiceHealth.degraded => text(
       zh: '有 $degradedHours 个整点进入橙色降级区，另有 $warningHours 个黄色波动时段。部分请求可能失败或明显变慢。',
       en: '$degradedHours hours entered the orange degraded band, with $warningHours more in yellow. Some calls may fail or slow noticeably.',
     ),
     _ProxyOpsServiceHealth.outage => text(
-      zh: '近窗包含 $outageHours 个红色中断时段、$degradedHours 个橙色降级时段和 $warningHours 个黄色波动时段。中断时段的失败率已达到 10% 以上。',
-      en: 'The window contains $outageHours red outage, $degradedHours orange degraded, and $warningHours yellow disruption hours. Outage hours reached at least 10% failures.',
+      zh: '近窗包含 $outageHours 个红色中断时段、$degradedHours 个橙色降级时段和 $warningHours 个黄色波动时段。中断时段的失败率已达到 $outageFailPct 以上。',
+      en: 'The window contains $outageHours red outage, $degradedHours orange degraded, and $warningHours yellow disruption hours. Outage hours reached at least $outageFailPct failures.',
     ),
   };
   Widget legendDot(Color color, String label) {
@@ -3461,20 +3417,20 @@ Widget _proxyOpsServiceHealthPanel(
                     en: 'No samples this hour, so it is idle rather than an incident.',
                   ),
                   _ProxyOpsServiceHealth.healthy => text(
-                    zh: '成功率 ≥ 99% 且 P95 < 3s，判定为正常运行。',
-                    en: 'Success ≥ 99% and P95 < 3s, so this hour is operational.',
+                    zh: '成功率 ≥ $healthyPct 且 P95 < ${slowSec}s，判定为正常运行。',
+                    en: 'Success ≥ $healthyPct and P95 < ${slowSec}s, so this hour is operational.',
                   ),
                   _ProxyOpsServiceHealth.warning => text(
-                    zh: '成功率 ≥ 97% 且 < 99%，或 P95 ≥ 3s、慢请求占比 ≥ 20%，判定为轻微波动。',
-                    en: 'Success is ≥ 97% and < 99%, or P95 ≥ 3s / slow calls ≥ 20%, so this hour has minor disruption.',
+                    zh: '成功率 ≥ $warningPct 且 < $healthyPct，或 P95 ≥ ${slowSec}s、慢请求占比 ≥ $slowPct，判定为轻微波动。',
+                    en: 'Success is ≥ $warningPct and < $healthyPct, or P95 ≥ ${slowSec}s / slow calls ≥ $slowPct, so this hour has minor disruption.',
                   ),
                   _ProxyOpsServiceHealth.degraded => text(
-                    zh: '成功率 ≥ 90% 且 < 97%，或 P95 ≥ 6s、慢请求占比 ≥ 40%，判定为服务降级。',
-                    en: 'Success is ≥ 90% and < 97%, or P95 ≥ 6s / slow calls ≥ 40%, so this hour is degraded.',
+                    zh: '成功率 ≥ $degradedPct 且 < $warningPct，或 P95 ≥ ${severeSec}s、慢请求占比 ≥ $severeSlowPct，判定为服务降级。',
+                    en: 'Success is ≥ $degradedPct and < $warningPct, or P95 ≥ ${severeSec}s / slow calls ≥ $severeSlowPct, so this hour is degraded.',
                   ),
                   _ProxyOpsServiceHealth.outage => text(
-                    zh: '成功率低于 90%，判定为中断：该小时失败过于集中。',
-                    en: 'Success below 90%, so this hour is treated as an outage.',
+                    zh: '成功率低于 $degradedPct，判定为中断：该小时失败过于集中。',
+                    en: 'Success below $degradedPct, so this hour is treated as an outage.',
                   ),
                 };
                 final topError = _proxyOpsTopCountLabel(hour.errors);
@@ -3570,8 +3526,8 @@ Widget _proxyOpsServiceHealthPanel(
         kOpenHandGap10,
         Text(
           text(
-            zh: '健康判定：绿色 ≥ 99%；黄色 ≥ 97% 且 < 99%；橙色 ≥ 90% 且 < 97%；红色 < 90%。P95 达到 3 / 6 秒或慢请求占比达到 20% / 40% 时，也会分别下调至黄色 / 橙色。灰格表示空闲。',
-            en: 'Health bands: green ≥ 99%, yellow ≥ 97% and < 99%, orange ≥ 90% and < 97%, red < 90%. P95 at 3s / 6s or slow calls at 20% / 40% also lowers the grade to yellow / orange. Gray means idle.',
+            zh: '健康判定：绿色 ≥ $healthyPct；黄色 ≥ $warningPct 且 < $healthyPct；橙色 ≥ $degradedPct 且 < $warningPct；红色 < $degradedPct。P95 达到 $slowSec / $severeSec 秒或慢请求占比达到 $slowPct / $severeSlowPct 时，也会分别下调至黄色 / 橙色。灰格表示空闲。',
+            en: 'Health bands: green ≥ $healthyPct, yellow ≥ $warningPct and < $healthyPct, orange ≥ $degradedPct and < $warningPct, red < $degradedPct. P95 at ${slowSec}s / ${severeSec}s or slow calls at $slowPct / $severeSlowPct also lowers the grade to yellow / orange. Gray means idle.',
           ),
           style: theme.textTheme.labelSmall?.copyWith(
             color: cs.onSurfaceVariant,

@@ -2,7 +2,7 @@
 // 只翻连续数字位；槽位右对齐；变大向上、变小向下；个位先动。
 // 进场：滑入 → 过冲 → 回落；退场走 emphasized。过冲窗口不被裁切。
 
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { JSX } from 'preact';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 
@@ -20,6 +20,7 @@ interface Segment {
 const DIGIT_ROLL_DURATION_MS = 360;
 const DIGIT_ROLL_STAGGER_MS = 28;
 const DIGIT_ROLL_STAGGER_MAX_SLOTS = 5;
+const DIGIT_ROLL_MAX_SLOTS = 18;
 
 const _segmentCache = new Map<string, Segment[]>();
 
@@ -104,28 +105,67 @@ function RollingDigitGroup({ value }: { value: string }) {
   const [previous, setPrevious] = useState(value);
   const [tick, setTick] = useState(0);
   const [direction, setDirection] = useState<1 | -1>(1);
+  const rollingRef = useRef(false);
+  const pendingRef = useRef<string | null>(null);
+  const currentRef = useRef(current);
+  currentRef.current = current;
   const reducedMotion = useReducedMotion();
 
   useEffect(() => {
-    if (value === current) return;
     if (reducedMotion) {
+      pendingRef.current = null;
+      rollingRef.current = false;
       setPrevious(value);
       setCurrent(value);
       return;
     }
-    setPrevious(current);
+    if (value === currentRef.current && pendingRef.current == null) return;
+    if (rollingRef.current) {
+      pendingRef.current = value;
+      return;
+    }
+    if (Math.max(currentRef.current.length, value.length) > DIGIT_ROLL_MAX_SLOTS) {
+      pendingRef.current = null;
+      rollingRef.current = false;
+      setPrevious(value);
+      setCurrent(value);
+      return;
+    }
+    rollingRef.current = true;
+    pendingRef.current = null;
+    const from = currentRef.current;
+    setPrevious(from);
     setCurrent(value);
-    setDirection(digitRollDirection(current, value));
+    setDirection(digitRollDirection(from, value));
     setTick((t) => t + 1);
-  }, [value, current, reducedMotion]);
+  }, [value, reducedMotion]);
 
   useEffect(() => {
-    if (reducedMotion || previous === current) return;
+    if (reducedMotion || previous === current) {
+      rollingRef.current = false;
+      return;
+    }
     const extra = Math.min(
       changingMaxFromRight(previous, current),
       DIGIT_ROLL_STAGGER_MAX_SLOTS,
     );
     const id = window.setTimeout(() => {
+      const pending = pendingRef.current;
+      pendingRef.current = null;
+      if (pending != null && pending !== current) {
+        if (Math.max(current.length, pending.length) > DIGIT_ROLL_MAX_SLOTS) {
+          rollingRef.current = false;
+          setPrevious(pending);
+          setCurrent(pending);
+          return;
+        }
+        setPrevious(current);
+        setCurrent(pending);
+        setDirection(digitRollDirection(current, pending));
+        setTick((t) => t + 1);
+        return;
+      }
+      rollingRef.current = false;
       setPrevious(current);
     }, DIGIT_ROLL_DURATION_MS + DIGIT_ROLL_STAGGER_MS * extra);
     return () => window.clearTimeout(id);

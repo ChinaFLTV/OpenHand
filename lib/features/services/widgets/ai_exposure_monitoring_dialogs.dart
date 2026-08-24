@@ -21,6 +21,7 @@ import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_live_value.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
+import '../../../shared/ui/openhand_ops_press_scale.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
@@ -52,7 +53,6 @@ part 'ai_exposure_monitoring_log.dart';
 
 const Duration _kOperationsRefreshInterval = Duration(seconds: 8);
 const Duration _kOperationsMetadataTimeout = Duration(seconds: 2);
-const Duration _kOperationsCardMotionDuration = kOpenHandMotion160;
 
 // AI 暴露监控分类语义色板（图表/标签/卡片统一引用）。
 const Color _kAiExposureColorHighValue = Color(0xffa855f7);

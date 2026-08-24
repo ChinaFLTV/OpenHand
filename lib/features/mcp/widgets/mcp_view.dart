@@ -39,6 +39,7 @@ import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_live_value.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
+import '../../../shared/ui/openhand_ops_press_scale.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -5499,16 +5500,24 @@ class _McpOpsHeroPanel extends StatelessWidget {
                 ),
               _McpOpsStatusChip(
                 icon: Icons.schedule_rounded,
-                label: _localizedText(
-                  context,
-                  zh: '运行 ${formatCompactDuration(snapshot.uptime)}',
-                  en: 'Uptime ${formatCompactDuration(snapshot.uptime)}',
-                  zhHant: '運行 ${formatCompactDuration(snapshot.uptime)}',
-                  fr: 'Disponibilité ${formatCompactDuration(snapshot.uptime)}',
-                  de: 'Laufzeit ${formatCompactDuration(snapshot.uptime)}',
-                  ja: '稼働 ${formatCompactDuration(snapshot.uptime)}',
-                ),
                 color: cs.tertiary,
+                labelChild: OpenHandLiveDuration(
+                  startedAt: snapshot.startedAt,
+                  running: running,
+                  format: (elapsed) => _localizedText(
+                    context,
+                    zh: '运行 ${formatCompactDuration(elapsed)}',
+                    en: 'Uptime ${formatCompactDuration(elapsed)}',
+                    zhHant: '運行 ${formatCompactDuration(elapsed)}',
+                    fr: 'Disponibilité ${formatCompactDuration(elapsed)}',
+                    de: 'Laufzeit ${formatCompactDuration(elapsed)}',
+                    ja: '稼働 ${formatCompactDuration(elapsed)}',
+                  ),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: cs.tertiary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
               ),
               _McpOpsStatusChip(
                 icon: config.writeMode == McpOpsWriteMode.fullAccess
@@ -5774,7 +5783,7 @@ class _McpOpsMetricTile extends StatelessWidget {
     final cs = theme.colorScheme;
     final tone = color ?? cs.primary;
     final duration = openHandMotionDurationMs(context, 180);
-    return _McpOpsTappableCard(
+    return OpenHandOpsPressScale(
       onTap: onTap,
       radius: _mcpOpsPanelRadius,
       tone: tone,
@@ -5853,92 +5862,6 @@ class _McpOpsMetricTile extends StatelessWidget {
               ),
             ],
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Shared tap affordance for ops cards: a hover-highlighted, press-scaled
-/// wrapper that stays inert (and shows no pointer cursor) when [onTap] is null.
-class _McpOpsTappableCard extends StatefulWidget {
-  const _McpOpsTappableCard({
-    required this.child,
-    required this.radius,
-    required this.tone,
-    this.onTap,
-  });
-
-  final Widget child;
-  final double radius;
-  final Color tone;
-  final VoidCallback? onTap;
-
-  @override
-  State<_McpOpsTappableCard> createState() => _McpOpsTappableCardState();
-}
-
-class _McpOpsTappableCardState extends State<_McpOpsTappableCard> {
-  bool _pressed = false;
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.onTap == null) return widget.child;
-    final duration = openHandMotionDuration(context, kOpenHandMotion120);
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) {
-        if (!_hovered) setState(() => _hovered = true);
-      },
-      onExit: (_) {
-        if (_hovered || _pressed) {
-          setState(() {
-            _hovered = false;
-            _pressed = false;
-          });
-        }
-      },
-      child: GestureDetector(
-        onTapDown: (_) {
-          if (!_pressed) setState(() => _pressed = true);
-        },
-        onTapCancel: () {
-          if (_pressed) setState(() => _pressed = false);
-        },
-        onTapUp: (_) {
-          if (_pressed) setState(() => _pressed = false);
-        },
-        onTap: widget.onTap,
-        child: AnimatedScale(
-          scale: _pressed
-              ? 0.97
-              : _hovered
-              ? 1.018
-              : 1,
-          duration: duration,
-          curve: kOpenHandSwitchInCurve,
-          child: Stack(
-            children: [
-              widget.child,
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: AnimatedContainer(
-                    duration: duration,
-                    curve: kOpenHandSwitchInCurve,
-                    decoration: BoxDecoration(
-                      color: _pressed
-                          ? widget.tone.withValues(alpha: 0.10)
-                          : _hovered
-                          ? widget.tone.withValues(alpha: 0.05)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(widget.radius),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -6154,7 +6077,7 @@ class _McpOpsPanel extends StatelessWidget {
       ),
     );
     if (onTap == null) return panel;
-    return _McpOpsTappableCard(
+    return OpenHandOpsPressScale(
       onTap: onTap,
       radius: _mcpOpsPanelRadius,
       tone: cs.primary,
@@ -9348,14 +9271,16 @@ class _McpOpsApprovalPanel extends StatelessWidget {
 class _McpOpsStatusChip extends StatelessWidget {
   const _McpOpsStatusChip({
     required this.icon,
-    required this.label,
     required this.color,
+    this.label = '',
+    this.labelChild,
     this.monospace = false,
     this.pulse = false,
   });
 
   final IconData icon;
   final String label;
+  final Widget? labelChild;
   final Color color;
   final bool monospace;
   final bool pulse;
@@ -9386,16 +9311,18 @@ class _McpOpsStatusChip extends StatelessWidget {
           kOpenHandHGap6,
           ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxLabelWidth),
-            child: OpenHandLiveValue(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w800,
-                fontFamily: monospace ? kOpenHandMonospaceFontFamily : null,
-              ),
-            ),
+            child:
+                labelChild ??
+                OpenHandLiveValue(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                    fontFamily: monospace ? kOpenHandMonospaceFontFamily : null,
+                  ),
+                ),
           ),
         ],
       ),
