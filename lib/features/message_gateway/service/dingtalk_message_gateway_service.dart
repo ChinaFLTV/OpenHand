@@ -203,6 +203,9 @@ class DingTalkMessageGatewayService {
   static const Duration _eventProcessStartTimeout = Duration(seconds: 10);
   static const Duration _eventReadyTimeout = Duration(seconds: 30);
   static const Duration _eventCleanupTimeout = Duration(seconds: 5);
+  static const int _eventProcessStartConcurrency = 4;
+  static const int _maxEventTargetSubscriptions = 32;
+  static const int _maxEventOutputLineCharacters = 512 * kBytesPerKiB;
   static const Duration _mediaDownloadTimeout = Duration(minutes: 3);
   static const Duration _mediaDownloadQueueTimeout = Duration(seconds: 30);
   static const Duration _sentMessageLookupWindow = Duration(minutes: 2);
@@ -505,8 +508,13 @@ class DingTalkMessageGatewayService {
         spec: specs.first,
         generation: generation,
       );
-      await Future.wait<void>(
-        specs.skip(1).map((spec) async {
+      final optionalSpecs = specs.skip(1).toList(growable: false);
+      await forEachIndexWithConcurrencyLimit(
+        itemCount: optionalSpecs.length,
+        maxConcurrency: _eventProcessStartConcurrency,
+        shouldContinue: () => generation == _eventGeneration,
+        task: (index) async {
+          final spec = optionalSpecs[index];
           try {
             await _startEventProcess(
               executable: executable,
@@ -522,7 +530,7 @@ class DingTalkMessageGatewayService {
               stack,
             );
           }
-        }),
+        },
       );
       if (generation != _eventGeneration) {
         throw StateError('钉钉实时事件监听已取消。');
@@ -556,6 +564,7 @@ class DingTalkMessageGatewayService {
       ),
     ];
     final seen = <String>{};
+    var truncated = false;
     for (final target in targets) {
       final id = target.id.trim();
       if (id.isEmpty) continue;
@@ -576,6 +585,10 @@ class DingTalkMessageGatewayService {
       if (targetValue.isEmpty) continue;
       final key = '${target.type.name}:$targetFlag:$targetValue';
       if (!seen.add(key)) continue;
+      if (seen.length > _maxEventTargetSubscriptions) {
+        truncated = true;
+        break;
+      }
       final eventKeys = isGroup
           ? _groupStatusEventKeys
           : _directStatusEventKeys;
@@ -599,6 +612,12 @@ class DingTalkMessageGatewayService {
     }
     if (specs.length > 1) {
       _logRuntime('INFO', '已为 ${specs.length - 1} 个会话目标订阅状态事件。');
+    }
+    if (truncated) {
+      _logRuntime(
+        'WARN',
+        '实时状态事件仅订阅前 $_maxEventTargetSubscriptions 个目标，其余目标由会话对账补偿。',
+      );
     }
     return specs;
   }
@@ -681,39 +700,47 @@ class DingTalkMessageGatewayService {
       );
       _eventProcesses.add(handle);
       _logRuntime('INFO', '实时事件${spec.label}进程已启动（PID ${process.pid}）。');
+      final stdoutDecoder = BoundedProcessLineDecoder(
+        maxCharacters: _maxEventOutputLineCharacters,
+        onLine: (line) => _consumeEventLine(line, generation),
+      );
       handle.stdoutSubscription = process.stdout
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
+          .transform(const Utf8Decoder(allowMalformed: true))
           .listen(
-            (line) => _consumeEventLine(line, generation),
+            stdoutDecoder.add,
             onError: (Object error, StackTrace stack) {
+              stdoutDecoder.close();
               if (!ready.isCompleted) ready.completeError(error, stack);
             },
+            onDone: stdoutDecoder.close,
           );
+      final stderrDecoder = BoundedProcessLineDecoder(
+        maxCharacters: _maxEventOutputLineCharacters,
+        onLine: (line) {
+          final normalized = line.trim();
+          if (normalized.isNotEmpty && !normalized.contains('[event] ready')) {
+            _logRuntime(
+              'WARN',
+              '实时事件${spec.label}标准错误：${_safeProcessLogLine(normalized)}',
+            );
+          }
+          if (normalized.contains('[event] ready')) {
+            if (!ready.isCompleted) ready.complete();
+            _logRuntime('SUCCESS', '实时事件${spec.label}监听已就绪。');
+          } else if (normalized.startsWith('Error:') && !ready.isCompleted) {
+            ready.completeError(StateError(normalized));
+          }
+        },
+      );
       handle.stderrSubscription = process.stderr
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
+          .transform(const Utf8Decoder(allowMalformed: true))
           .listen(
-            (line) {
-              final normalized = line.trim();
-              if (normalized.isNotEmpty &&
-                  !normalized.contains('[event] ready')) {
-                _logRuntime(
-                  'WARN',
-                  '实时事件${spec.label}标准错误：${_safeProcessLogLine(normalized)}',
-                );
-              }
-              if (normalized.contains('[event] ready')) {
-                if (!ready.isCompleted) ready.complete();
-                _logRuntime('SUCCESS', '实时事件${spec.label}监听已就绪。');
-              } else if (normalized.startsWith('Error:') &&
-                  !ready.isCompleted) {
-                ready.completeError(StateError(normalized));
-              }
-            },
+            stderrDecoder.add,
             onError: (Object error, StackTrace stack) {
+              stderrDecoder.close();
               if (!ready.isCompleted) ready.completeError(error, stack);
             },
+            onDone: stderrDecoder.close,
           );
       unawaited(_watchEventProcess(handle, ready, generation));
       await ready.future.timeout(_eventReadyTimeout);
@@ -1273,32 +1300,48 @@ class DingTalkMessageGatewayService {
       }
       if (pendingUrl != null &&
           (authorizationCode != null || pendingUrl!.contains('user_code='))) {
-        unawaited(openPendingUrl());
+        unawaited(
+          openPendingUrl().then<void>(
+            (_) {},
+            onError: (Object error, StackTrace stack) =>
+                silentLog('dingtalk_gateway', '打开钉钉设备授权地址', error, stack),
+          ),
+        );
       }
     }
 
+    final stdoutDecoder = BoundedProcessLineDecoder(
+      maxCharacters: _maxAuthOutputCharacters,
+      onLine: consume,
+    );
     stdoutSub = process.stdout
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
+        .transform(const Utf8Decoder(allowMalformed: true))
         .listen(
-          consume,
+          stdoutDecoder.add,
           onError: (Object error, StackTrace stack) {
+            stdoutDecoder.close();
             _logRuntime('ERROR', '读取授权标准输出失败：$error');
             silentLog('dingtalk_gateway', '读取授权输出', error, stack);
           },
+          onDone: stdoutDecoder.close,
         );
+    final stderrDecoder = BoundedProcessLineDecoder(
+      maxCharacters: _maxAuthOutputCharacters,
+      onLine: (line) {
+        _logRuntime('WARN', '授权标准错误：${_safeProcessLogLine(line)}');
+        consume(line);
+      },
+    );
     stderrSub = process.stderr
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
+        .transform(const Utf8Decoder(allowMalformed: true))
         .listen(
-          (line) {
-            _logRuntime('WARN', '授权标准错误：${_safeProcessLogLine(line)}');
-            consume(line);
-          },
+          stderrDecoder.add,
           onError: (Object error, StackTrace stack) {
+            stderrDecoder.close();
             _logRuntime('ERROR', '读取授权标准错误失败：$error');
             silentLog('dingtalk_gateway', '读取授权错误输出', error, stack);
           },
+          onDone: stderrDecoder.close,
         );
     try {
       final exitCode = await process.exitCode.timeout(

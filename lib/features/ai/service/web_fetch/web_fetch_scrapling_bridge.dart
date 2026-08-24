@@ -89,6 +89,8 @@ class WebFetchScraplingBridge {
   static const int _maxStderrTailLength = 800;
   static const int _maxRuntimeEvents = 400;
   static const int _maxRuntimeLineCharacters = 4000;
+  static const int _maxBridgeResponseLineCharacters =
+      AiWebFetchEngineConfig.maxTruncationChars * 2;
   static const int _maxCapturedRuntimeLinesPerStream = 400;
   static const int _maxPendingOperations = 32;
 
@@ -467,39 +469,48 @@ class WebFetchScraplingBridge {
   }
 
   void _listenToRuntime(_ScraplingProcessRuntime runtime) {
+    final stdoutDecoder = BoundedProcessLineDecoder(
+      maxCharacters: _maxBridgeResponseLineCharacters,
+      onLine: (line) => _handleRuntimeStdoutLine(runtime, line),
+    );
     runtime.stdoutSubscription = runtime.process.stdout
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
+        .transform(const Utf8Decoder(allowMalformed: true))
         .listen(
-          (line) => _handleRuntimeStdoutLine(runtime, line),
+          stdoutDecoder.add,
           onError: (Object error, StackTrace stack) {
+            stdoutDecoder.close();
             if (!identical(_runtime, runtime)) return;
             silentLog('web_fetch_scrapling_bridge', '读取标准输出', error, stack);
             _handleRuntimeFailure(runtime, error, stack);
           },
           onDone: () {
+            stdoutDecoder.close();
             if (!identical(_runtime, runtime)) return;
             _scheduleRuntimeStopped(runtime);
           },
         );
+    final stderrDecoder = BoundedProcessLineDecoder(
+      maxCharacters: _maxRuntimeLineCharacters,
+      onLine: (line) {
+        if (!identical(_runtime, runtime)) return;
+        final trimmed = nullIfBlank(line);
+        if (trimmed == null) return;
+        runtime.stderrTail = trimmed.length > _maxStderrTailLength
+            ? trimmed.substring(
+                safeUtf16SuffixStart(
+                  trimmed,
+                  trimmed.length - _maxStderrTailLength,
+                ),
+              )
+            : trimmed;
+      },
+    );
     runtime.stderrSubscription = runtime.process.stderr
-        .transform(utf8.decoder)
-        .transform(const LineSplitter())
+        .transform(const Utf8Decoder(allowMalformed: true))
         .listen(
-          (line) {
-            if (!identical(_runtime, runtime)) return;
-            final trimmed = nullIfBlank(line);
-            if (trimmed == null) return;
-            runtime.stderrTail = trimmed.length > _maxStderrTailLength
-                ? trimmed.substring(
-                    safeUtf16SuffixStart(
-                      trimmed,
-                      trimmed.length - _maxStderrTailLength,
-                    ),
-                  )
-                : trimmed;
-          },
+          stderrDecoder.add,
           onError: (Object error, StackTrace stack) {
+            stderrDecoder.close();
             if (!runtime.stderrDone.isCompleted) {
               runtime.stderrDone.complete();
             }
@@ -508,6 +519,7 @@ class WebFetchScraplingBridge {
             _handleRuntimeFailure(runtime, error, stack);
           },
           onDone: () {
+            stderrDecoder.close();
             if (!runtime.stderrDone.isCompleted) {
               runtime.stderrDone.complete();
             }
