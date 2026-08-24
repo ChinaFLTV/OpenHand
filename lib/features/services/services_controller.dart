@@ -1321,11 +1321,11 @@ class ServicesController extends ChangeNotifier {
     }
   }
 
-  void cancelProxyInspection() {
+  void cancelProxyInspection({bool notify = true}) {
     if (!_proxyInspectionRunning) return;
     _proxyInspectionCancelRequested = true;
     _proxyInspectionCancellation?.cancel();
-    _notify();
+    if (notify) _notify();
   }
 
   void _scheduleProxyInspection({Duration? firstDelay}) {

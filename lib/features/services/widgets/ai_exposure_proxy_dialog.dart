@@ -153,7 +153,9 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   @override
   void dispose() {
     _inspectionGeneration++;
-    if (_inspectionRunning) _servicesController.cancelProxyInspection();
+    if (_inspectionRunning) {
+      _servicesController.cancelProxyInspection(notify: false);
+    }
     for (final cancellation in _testingCancellations.values) {
       cancellation.cancel();
     }
