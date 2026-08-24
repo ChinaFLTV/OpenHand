@@ -63,7 +63,10 @@ const Duration _processGroupProbeTimeout = Duration(milliseconds: 500);
 const Duration _trackedChildrenCleanupPreparationTimeout = Duration(
   milliseconds: 250,
 );
-const Duration _maxTrackedChildrenGracefulTimeout = Duration(seconds: 5);
+const Duration _maxSubprocessGracefulTimeout = Duration(seconds: 5);
+const Duration _maxSubprocessExecutionTimeout = Duration(hours: 24);
+const Duration _maxSubprocessStartTimeout = Duration(minutes: 5);
+const Duration _maxSubprocessStreamDrainTimeout = Duration(seconds: 30);
 const int _processGroupProbeConcurrency = 4;
 const int _maxDescendantProcesses = 256;
 const int _maxCapturedProcessBytesPerStream = 16 * kBytesPerMiB;
@@ -291,7 +294,7 @@ Future<Process> startTrackedProcessBounded(
   bool includeParentEnvironment = true,
   bool startInNewProcessGroup = false,
 }) async {
-  requirePositiveDuration(timeout, 'timeout');
+  requirePositiveDurationAtMost(timeout, _maxSubprocessStartTimeout, 'timeout');
   final launchFuture = startInNewProcessGroup
       ? _startTrackedProcessInNewGroup(
           executable,
@@ -343,7 +346,7 @@ Future<Process> startDetachedProcessBounded(
   bool runInShell = false,
   bool includeParentEnvironment = true,
 }) async {
-  requirePositiveDuration(timeout, 'timeout');
+  requirePositiveDurationAtMost(timeout, _maxSubprocessStartTimeout, 'timeout');
   final launchFuture = Process.start(
     executable,
     List<String>.of(arguments, growable: false),
@@ -515,8 +518,8 @@ const Duration kTrackedProcessSlotGracePeriod = Duration(milliseconds: 500);
 class TrackedProcessSlot {
   TrackedProcessSlot({
     required this.logTag,
-    this.gracefulTimeout = kTrackedProcessSlotGracePeriod,
-  });
+    Duration gracefulTimeout = kTrackedProcessSlotGracePeriod,
+  }) : gracefulTimeout = _boundedSubprocessGracefulTimeout(gracefulTimeout);
 
   /// 终止失败时 [silentLog] 使用的组件标签。
   final String logTag;
@@ -582,7 +585,7 @@ Future<void> _terminateTrackedProcessTree(
     } catch (error, stack) {
       silentLog('safe_subprocess', '终止 Windows 子进程', error, stack);
     }
-    final boundedGracefulTimeout = nonNegativeDuration(
+    final boundedGracefulTimeout = _boundedSubprocessGracefulTimeout(
       gracefulTimeout ??
           Duration(milliseconds: safeSubprocessDefaultGracefulShutdownMs),
     );
@@ -608,7 +611,7 @@ Future<void> _terminateTrackedProcessTree(
   final descendants = isGroupLeader
       ? const <int>[]
       : await _collectDescendantPids(pid);
-  final boundedGracefulTimeout = nonNegativeDuration(
+  final boundedGracefulTimeout = _boundedSubprocessGracefulTimeout(
     gracefulTimeout ??
         Duration(milliseconds: safeSubprocessDefaultGracefulShutdownMs),
   );
@@ -805,7 +808,7 @@ Future<void> _killAllTrackedChildren({
     if (initialTargets.isEmpty) return;
 
     final initialSnapshot = initialTargets.toList(growable: false);
-    final boundedGracefulTimeout = _boundedTrackedChildrenGracefulTimeout(
+    final boundedGracefulTimeout = _boundedSubprocessGracefulTimeout(
       gracefulTimeout,
     );
     final descendantPidsByProcess = HashMap<Process, List<int>>.identity();
@@ -926,11 +929,18 @@ Future<void> _killAllTrackedChildren({
   }
 }
 
-Duration _boundedTrackedChildrenGracefulTimeout(Duration timeout) {
+Duration _boundedSubprocessGracefulTimeout(Duration timeout) {
   if (timeout.isNegative) return Duration.zero;
-  return timeout > _maxTrackedChildrenGracefulTimeout
-      ? _maxTrackedChildrenGracefulTimeout
+  return timeout > _maxSubprocessGracefulTimeout
+      ? _maxSubprocessGracefulTimeout
       : timeout;
+}
+
+Duration _boundedSubprocessExecutionTimeout(Duration timeout) {
+  return shorterDuration(
+    nonNegativeDuration(timeout),
+    _maxSubprocessExecutionTimeout,
+  );
 }
 
 /// 当前仍由应用跟踪的子进程 PID 快照。
@@ -1206,10 +1216,14 @@ Future<ProcessResult?> runProcessWithTimeout(
 }) async {
   final configuredGracefulMs =
       gracefulShutdownMs ?? safeSubprocessDefaultGracefulShutdownMs;
-  final effectiveGracefulMs = configuredGracefulMs < 0
-      ? 0
-      : configuredGracefulMs;
-  final effectiveTimeout = nonNegativeDuration(timeout);
+  final effectiveGracefulMs = configuredGracefulMs
+      .clamp(0, _maxSubprocessGracefulTimeout.inMilliseconds)
+      .toInt();
+  final effectiveTimeout = _boundedSubprocessExecutionTimeout(timeout);
+  final processStartTimeout = shorterDuration(
+    effectiveTimeout,
+    _maxSubprocessStartTimeout,
+  );
   final argumentSnapshot = List<String>.of(arguments, growable: false);
   final environmentSnapshot = environment == null
       ? null
@@ -1293,7 +1307,7 @@ Future<ProcessResult?> runProcessWithTimeout(
           );
     late final _TrackedProcessLaunch launch;
     try {
-      launch = await launchFuture.timeout(effectiveTimeout);
+      launch = await launchFuture.timeout(processStartTimeout);
     } on TimeoutException {
       timedOut = true;
       unawaited(
@@ -1641,15 +1655,22 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
   final effectiveMaxLineCharacters = maxLineCharacters
       .clamp(1, _maxProcessLineCharacters)
       .toInt();
-  final effectiveTimeout = nonNegativeDuration(timeout);
+  final effectiveTimeout = _boundedSubprocessExecutionTimeout(timeout);
   final configuredStartTimeout = processStartTimeout;
-  final effectiveStartTimeout = configuredStartTimeout == null
-      ? effectiveTimeout
+  final boundedStartTimeout = configuredStartTimeout == null
+      ? _maxSubprocessStartTimeout
       : shorterDuration(
           nonNegativeDuration(configuredStartTimeout),
-          effectiveTimeout,
+          _maxSubprocessStartTimeout,
         );
-  final effectiveDrainTimeout = nonNegativeDuration(streamDrainTimeout);
+  final effectiveStartTimeout = shorterDuration(
+    boundedStartTimeout,
+    effectiveTimeout,
+  );
+  final effectiveDrainTimeout = shorterDuration(
+    nonNegativeDuration(streamDrainTimeout),
+    _maxSubprocessStreamDrainTimeout,
+  );
   final executionStopwatch = Stopwatch()..start();
   var timedOut = false;
   var cancelled = false;
@@ -1753,7 +1774,12 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
       ]).timeout(effectiveDrainTimeout);
       return true;
     } on TimeoutException catch (e, stack) {
-      silentLog(tag, '输出流排空超时', '$executable ${arguments.take(1).join(' ')}', stack);
+      silentLog(
+        tag,
+        '输出流排空超时',
+        '$executable ${arguments.take(1).join(' ')}',
+        stack,
+      );
       return false;
     } catch (error, stack) {
       silentLog(tag, '等待 $executable 输出流', error, stack);
@@ -1906,7 +1932,11 @@ Future<ProcessResult?> runBinaryProcessWithTimeout(
   bool startInNewProcessGroup = false,
   bool terminateProcessTreeOnFailure = true,
 }) async {
-  final effectiveTimeout = nonNegativeDuration(timeout);
+  final effectiveTimeout = _boundedSubprocessExecutionTimeout(timeout);
+  final processStartTimeout = shorterDuration(
+    effectiveTimeout,
+    _maxSubprocessStartTimeout,
+  );
   final stopwatch = Stopwatch()..start();
   Process? process;
   var isProcessGroupLeader = false;
@@ -1997,7 +2027,9 @@ Future<ProcessResult?> runBinaryProcessWithTimeout(
             ),
           );
     try {
-      final launch = await launchFuture.timeout(remainingTimeout());
+      final launch = await launchFuture.timeout(
+        shorterDuration(remainingTimeout(), processStartTimeout),
+      );
       process = launch.process;
       isProcessGroupLeader = launch.isProcessGroupLeader;
     } on TimeoutException {
@@ -2176,8 +2208,6 @@ void _terminateLateBinaryProcess(
 ///   1) 使用普通子进程启动，spawn 完立即返回，宿主事件循环不被挂；
 ///   2) 异步观察 `exitCode` 并在看门狗超时后通过 [Process] 句柄终止；
 ///      禁止延迟按裸 PID 发送信号，避免启动器退出后的 PID 复用误杀；
-///   3) 当 [trackUntilExit] 为 true 时不启用看门狗，把 `open -W`、
-///      `cmd /c start /WAIT` 这类「等待 GUI 关闭」的场景纳入退出兜底。
 ///
 /// 返回 true 表示 spawn 成功，false 表示 launcher 二进制不可用（不抛）。
 Future<bool> runDetachedSystemOpen(
@@ -2185,7 +2215,6 @@ Future<bool> runDetachedSystemOpen(
   List<String> arguments, {
   String tag = 'safe_subprocess.open',
   Duration watchdog = const Duration(seconds: 1),
-  bool trackUntilExit = false,
   bool runInShell = false,
 }) async {
   try {
@@ -2196,9 +2225,6 @@ Future<bool> runDetachedSystemOpen(
       tag: tag,
       runInShell: runInShell,
     );
-    if (trackUntilExit) {
-      return true;
-    }
     _watchSystemOpenLauncher(process, watchdog: watchdog, tag: tag);
     return true;
   } catch (error, stack) {
