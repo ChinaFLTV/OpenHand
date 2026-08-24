@@ -668,7 +668,7 @@ body {
 .card {
   background: var(--card); border: 1px solid var(--outline); border-radius: var(--radius);
   box-shadow: 0 16px 40px var(--shadow); overflow: hidden;
-  animation: rise var(--oh-dialog-enter-duration) var(--oh-dialog-curve) both;
+  animation: rise var(--oh-dialog-enter-duration) var(--oh-dialog-curve) backwards;
   animation-delay: 60ms;
 }
 .card-h {
@@ -677,9 +677,13 @@ body {
 }
 .card-h h2 { margin: 0; font-size: clamp(16px, 3.6vw, 18px); min-width: 0; }
 .range { color: var(--muted); font-weight: 700; font-size: 13px; white-space: nowrap; }
-.row { border-top: 1px solid color-mix(in srgb, var(--outline) 80%, transparent); padding: 16px var(--pad) 14px; }
+.row {
+  border-top: 1px solid color-mix(in srgb, var(--outline) 80%, transparent);
+  padding: 16px var(--pad) 14px;
+  overflow: visible;
+}
 #rows > .row {
-  animation: rise var(--oh-dialog-enter-duration) var(--oh-dialog-curve) both;
+  animation: rise var(--oh-dialog-enter-duration) var(--oh-dialog-curve) backwards;
 }
 #rows > .row:nth-child(1) { animation-delay: 90ms; }
 #rows > .row:nth-child(2) { animation-delay: 140ms; }
@@ -721,39 +725,41 @@ body {
 }
 .bars {
   display: flex; gap: var(--bar-gap); margin-top: 10px;
-  height: calc(var(--bar-h) * var(--bar-pop));
-  align-items: flex-end; width: 100%; touch-action: manipulation;
+  height: var(--bar-h);
+  align-items: stretch; width: 100%; touch-action: manipulation;
   overflow: visible;
 }
 .bar {
-  flex: 1 1 0; min-width: 0; height: var(--bar-h);
+  flex: 1 1 0; min-width: 0; height: 100%;
   position: relative;
   transform-origin: bottom center;
   cursor: pointer;
-  transition: transform var(--oh-hover-duration) var(--oh-spring), filter var(--oh-hover-duration) ease;
+  transition: transform var(--oh-hover-duration) var(--oh-spring);
 }
 .bar-fill {
   display: block; width: 100%; height: 100%; border-radius: 3px;
   background: var(--fill); transform-origin: bottom center;
   animation: bar-in var(--oh-dialog-enter-duration) var(--oh-spring) backwards;
   animation-delay: calc(var(--i, 0) * 3ms);
-  transition: box-shadow var(--oh-hover-duration) var(--oh-spring);
+  transition:
+    box-shadow var(--oh-hover-duration) var(--oh-spring),
+    filter var(--oh-hover-duration) ease;
 }
 .bar.on {
   transform: scaleY(var(--bar-pop));
-  filter: brightness(1.1);
   z-index: 1;
 }
 .bar.on .bar-fill {
+  filter: brightness(1.12);
   box-shadow: 0 10px 18px color-mix(in srgb, var(--fill) 36%, transparent);
 }
 @media (hover: hover) and (pointer: fine) {
   .bar:hover {
     transform: scaleY(var(--bar-pop));
-    filter: brightness(1.1);
     z-index: 1;
   }
   .bar:hover .bar-fill {
+    filter: brightness(1.12);
     box-shadow: 0 10px 18px color-mix(in srgb, var(--fill) 36%, transparent);
   }
 }
@@ -781,7 +787,7 @@ body {
     padding var(--oh-dialog-enter-duration) var(--oh-dialog-curve);
 }
 .children > .reveal-inner { overflow: hidden; min-height: 0; }
-.child { padding: 12px 0 8px; }
+.child { padding: 18px 0 8px; }
 .foot { display: flex; justify-content: center; margin-top: 22px; }
 .foot .ghost-btn { max-width: 100%; }
 .reveal {
@@ -889,7 +895,6 @@ $kOpenHandDialogMotionStandaloneCss
   *, *::before, *::after {
     animation: none !important; transition: none !important;
   }
-  .bar.on, .bar:hover { transform: none; }
   .bar.on .bar-fill, .bar:hover .bar-fill { box-shadow: none; }
 }
 html[data-motion='reduced'] *,
@@ -897,8 +902,6 @@ html[data-motion='reduced'] *::before,
 html[data-motion='reduced'] *::after {
   animation: none !important; transition: none !important;
 }
-html[data-motion='reduced'] .bar.on,
-html[data-motion='reduced'] .bar:hover { transform: none; }
 html[data-motion='reduced'] .bar.on .bar-fill,
 html[data-motion='reduced'] .bar:hover .bar-fill { box-shadow: none; }
 </style>
