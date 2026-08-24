@@ -1102,7 +1102,7 @@ class SkillsRepository {
         .split(normalizedPath)
         .where((part) => part.isNotEmpty && part != '.')
         .toList(growable: false);
-    if (parts.any((part) => part == '..')) {
+    if (parts.any((part) => part == '..' || !isPortableFileNamePart(part))) {
       throw const FileSystemException('技能归档路径不安全。');
     }
     return parts;
