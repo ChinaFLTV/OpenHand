@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
+import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -12,6 +14,7 @@ import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_live_value.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_ops_press_scale.dart';
+import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_table_metric_cells.dart';
 import '../../../shared/ui/openhand_typography.dart';
@@ -21,6 +24,7 @@ import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_model_proxy_models.dart';
+import '../service/ai_model_proxy_network.dart';
 import 'service_dialog_controls.dart';
 
 const double _kProxyOpsGap = 16;
@@ -78,6 +82,18 @@ class _AiModelProxyOperationsDialog extends StatefulWidget {
 class _AiModelProxyOperationsDialogState
     extends State<_AiModelProxyOperationsDialog> {
   final _ProxyOpsSnapshotHold _hold = _ProxyOpsSnapshotHold();
+  String? _lanHostKey;
+  Future<List<String>>? _lanHostsFuture;
+
+  Future<List<String>> _resolveLanHostsFuture(String listenHost) {
+    final key = listenHost.trim().toLowerCase();
+    if (_lanHostKey == key && _lanHostsFuture != null) {
+      return _lanHostsFuture!;
+    }
+    _lanHostKey = key;
+    _lanHostsFuture = discoverAiModelProxyLanHosts(listenHost);
+    return _lanHostsFuture!;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,6 +102,7 @@ class _AiModelProxyOperationsDialogState
       (settings) => settings.aiModels,
     );
     final data = _hold.resolve(controller, providers);
+    final lanHostsFuture = _resolveLanHostsFuture(data.settings.listenHost);
     final text = openHandTextResolver(context);
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
@@ -149,7 +166,15 @@ class _AiModelProxyOperationsDialogState
               physics: openHandDialogAwareScrollPhysics(context),
               padding: EdgeInsets.zero,
               children: [
-                _ProxyOpsHero(data: data),
+                FutureBuilder<List<String>>(
+                  future: lanHostsFuture,
+                  builder: (context, snapshot) => _ProxyOpsHero(
+                    data: data,
+                    lanHosts: snapshot.data ?? const <String>[],
+                    lanHostsReady:
+                        snapshot.connectionState == ConnectionState.done,
+                  ),
+                ),
                 const SizedBox(height: _kProxyOpsGap),
                 _ProxyOpsMetricGrid(data: data),
                 const SizedBox(height: _kProxyOpsGap),
@@ -844,9 +869,50 @@ String _proxyOpsClientMixLabel(
 }
 
 class _ProxyOpsHero extends StatelessWidget {
-  const _ProxyOpsHero({required this.data});
+  const _ProxyOpsHero({
+    required this.data,
+    required this.lanHosts,
+    required this.lanHostsReady,
+  });
 
   final _ProxyOpsSnapshot data;
+  final List<String> lanHosts;
+  final bool lanHostsReady;
+
+  Future<void> _openStatusPage(BuildContext context, String url) async {
+    try {
+      final opened = await openHttpUrlWithSystemBrowser(
+        url,
+        tag: 'ai_model_proxy_operations.open_status',
+      );
+      if (!context.mounted) return;
+      final text = openHandTextResolver(context);
+      if (opened) {
+        showOpenHandInfoSnack(
+          context,
+          text(zh: '正在打开状态页：$url', en: 'Opening status page: $url'),
+        );
+      } else {
+        showOpenHandErrorSnack(
+          context,
+          text(
+            zh: '无法打开状态页，请检查系统默认浏览器设置。',
+            en: 'Could not open the status page. Check the system default browser.',
+          ),
+        );
+      }
+    } catch (error, stack) {
+      silentLog('ai_model_proxy_operations', '打开状态页', error, stack);
+      if (!context.mounted) return;
+      showOpenHandErrorSnack(
+        context,
+        openHandTextResolver(context)(
+          zh: '打开状态页失败，请稍后重试。',
+          en: 'Failed to open the status page. Try again later.',
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -855,6 +921,17 @@ class _ProxyOpsHero extends StatelessWidget {
     final text = openHandTextResolver(context);
     final running = data.controller.lifecycle == AiModelProxyLifecycle.running;
     final tone = running ? OpenHandStatusColors.success : cs.outline;
+    final wildcardListen = isAiModelProxyWildcardListenHost(
+      data.settings.listenHost,
+    );
+    final statusUrl = data.controller.publicStatusUrl;
+    final boundPort = data.controller.boundPort ?? data.settings.listenPort;
+    final lanStatusUrl = lanHosts.isEmpty
+        ? ''
+        : aiModelProxyStatusUrl(
+            listenHost: lanHosts.first,
+            listenPort: boundPort,
+          );
     return _ProxyOpsPanel(
       title: text(zh: '服务控制台', en: 'Service console'),
       icon: running ? Icons.cloud_done_rounded : Icons.cloud_queue_rounded,
@@ -911,9 +988,27 @@ class _ProxyOpsHero extends StatelessWidget {
               if (running)
                 _ProxyOpsChip(
                   icon: Icons.public_rounded,
-                  label: data.controller.publicStatusUrl,
+                  label: statusUrl,
                   color: cs.secondary,
                   monospace: true,
+                  onTap: () => _openStatusPage(context, statusUrl),
+                ),
+              if (running && wildcardListen && lanHosts.isNotEmpty)
+                _ProxyOpsChip(
+                  icon: Icons.wifi_rounded,
+                  label: text(zh: '局域网 $lanStatusUrl', en: 'LAN $lanStatusUrl'),
+                  color: cs.tertiary,
+                  monospace: true,
+                  onTap: () => _openStatusPage(context, lanStatusUrl),
+                ),
+              if (running &&
+                  wildcardListen &&
+                  lanHostsReady &&
+                  lanHosts.isEmpty)
+                _ProxyOpsChip(
+                  icon: Icons.warning_amber_rounded,
+                  label: text(zh: '未发现局域网地址', en: 'No LAN address detected'),
+                  color: Colors.amber.shade700,
                 ),
             ],
           ),
@@ -1830,6 +1925,7 @@ class _ProxyOpsChip extends StatelessWidget {
     this.labelChild,
     this.monospace = false,
     this.pulse = false,
+    this.onTap,
   });
   final IconData icon;
   final String label;
@@ -1837,6 +1933,7 @@ class _ProxyOpsChip extends StatelessWidget {
   final Color color;
   final bool monospace;
   final bool pulse;
+  final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) {
     final duration = openHandMotionDuration(context, kOpenHandMotion180);
@@ -1845,7 +1942,7 @@ class _ProxyOpsChip extends StatelessWidget {
       color: color,
       monospace: monospace,
     );
-    return AnimatedContainer(
+    final chip = AnimatedContainer(
       duration: duration,
       curve: kOpenHandSwitchInCurve,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1888,6 +1985,13 @@ class _ProxyOpsChip extends StatelessWidget {
           ),
         ],
       ),
+    );
+    if (onTap == null) return chip;
+    return OpenHandOpsPressScale(
+      onTap: onTap,
+      tone: color,
+      radius: 999,
+      child: chip,
     );
   }
 }
