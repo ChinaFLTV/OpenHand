@@ -55,7 +55,9 @@ class _WebGatewayRotatingLogger {
       );
 
   final String directoryPath;
-  final SerialTaskQueue _operations = SerialTaskQueue();
+  final SerialTaskQueue _operations = SerialTaskQueue(
+    maxPendingTasks: _maxPendingWrites + 1,
+  );
   int _currentSizeBytes = 0;
   int _pendingWriteCount = 0;
   int _pendingWriteBytes = 0;
@@ -310,10 +312,7 @@ class _WebGatewayRotatingLogger {
               !deleted.contains(item.file.path),
         )
         .toList(growable: false);
-    final archiveLimit = math.max(
-      0,
-      config.maxFiles - (hasCurrentLog ? 1 : 0),
-    );
+    final archiveLimit = math.max(0, config.maxFiles - (hasCurrentLog ? 1 : 0));
     for (final old in remainingArchives.skip(archiveLimit)) {
       await deleteFile(old);
     }

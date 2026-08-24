@@ -6006,7 +6006,13 @@ ${_markdownStructuredFields(response)}''';
 
   @override
   void dispose() {
-    unawaited(shutdown());
+    unawaited(
+      shutdown().then<void>(
+        (_) {},
+        onError: (Object error, StackTrace stack) =>
+            silentLog('dingtalk_gateway', '释放钉钉网关控制器', error, stack),
+      ),
+    );
     super.dispose();
   }
 }

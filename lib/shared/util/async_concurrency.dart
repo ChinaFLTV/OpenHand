@@ -200,14 +200,11 @@ final class OpenHandKeyedSingleFlight<K, T> {
   OpenHandKeyedSingleFlight({
     this.maxConcurrentKeys = kOpenHandMaxAsyncConcurrency,
   }) {
-    requirePositiveInt(maxConcurrentKeys, 'maxConcurrentKeys');
-    if (maxConcurrentKeys > kOpenHandMaxAsyncWaiters) {
-      throw ArgumentError.value(
-        maxConcurrentKeys,
-        'maxConcurrentKeys',
-        '不能超过 $kOpenHandMaxAsyncWaiters。',
-      );
-    }
+    requirePositiveIntAtMost(
+      maxConcurrentKeys,
+      kOpenHandMaxAsyncWaiters,
+      'maxConcurrentKeys',
+    );
   }
 
   final int maxConcurrentKeys;

@@ -6,10 +6,15 @@ import 'argument_guards.dart';
 /// 对应任务的结果或异常。
 final class SerialTaskQueue {
   SerialTaskQueue({this.maxPendingTasks = defaultMaxPendingTasks}) {
-    requirePositiveInt(maxPendingTasks, 'maxPendingTasks');
+    requirePositiveIntAtMost(
+      maxPendingTasks,
+      maxAllowedPendingTasks,
+      'maxPendingTasks',
+    );
   }
 
-  static const int defaultMaxPendingTasks = 4096;
+  static const int defaultMaxPendingTasks = 256;
+  static const int maxAllowedPendingTasks = 4096;
 
   final int maxPendingTasks;
   Future<void> _tail = Future<void>.value();
@@ -110,7 +115,11 @@ final class KeyedSerialTaskQueue<K> {
   KeyedSerialTaskQueue({
     this.maxPendingTasks = SerialTaskQueue.defaultMaxPendingTasks,
   }) {
-    requirePositiveInt(maxPendingTasks, 'maxPendingTasks');
+    requirePositiveIntAtMost(
+      maxPendingTasks,
+      SerialTaskQueue.maxAllowedPendingTasks,
+      'maxPendingTasks',
+    );
   }
 
   final int maxPendingTasks;

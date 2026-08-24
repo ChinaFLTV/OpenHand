@@ -882,7 +882,10 @@ class McpController extends ChangeNotifier {
     );
   }
 
-  Future<bool> _handleOpsApprovalRequest(McpOpsApprovalRequest request) async {
+  Future<bool> _handleOpsApprovalRequest(
+    McpOpsApprovalRequest request,
+    Future<void> cancelSignal,
+  ) async {
     final completer = Completer<bool>();
     _opsApprovalCompleters[request.id] = completer;
     _opsApprovalRequests.insert(0, request);
@@ -892,10 +895,14 @@ class McpController extends ChangeNotifier {
     notifyListeners();
     final timeout = request.expiresAt.difference(DateTime.now().toUtc());
     try {
-      return await completer.future.timeout(
-        nonNegativeDuration(timeout),
-        onTimeout: () => false,
-      );
+      return await awaitWithCancelSignal<bool>(
+            completer.future.timeout(
+              nonNegativeDuration(timeout),
+              onTimeout: () => false,
+            ),
+            cancelSignal: cancelSignal,
+          ) ??
+          false;
     } finally {
       _opsApprovalCompleters.remove(request.id);
       _opsApprovalRequests.removeWhere((item) => item.id == request.id);

@@ -172,17 +172,15 @@ abstract class WebEngineSampleBase {
 /// 同时维护各自的 typed `CallLog/PerEngineLog/EngineStat/EngineSample` 包装；
 /// 写日志统一走 [recordCallRaw]，读日志拿到 raw map 后再做 fromJson。
 abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
-  static const Duration runtimeCleanupTimeout = kOpenHandServiceRuntimeCleanupTimeout;
+  static const Duration runtimeCleanupTimeout =
+      kOpenHandServiceRuntimeCleanupTimeout;
 
   String get subdir;
   String get logTag;
   TKind? parseKind(String name);
 
-  final SerialTaskQueue _operations = SerialTaskQueue(
-    maxPendingTasks: _maxPendingOperations,
-  );
+  final SerialTaskQueue _operations = SerialTaskQueue();
   final OpenHandAsyncOnce _shutdownOnce = OpenHandAsyncOnce();
-  static const int _maxPendingOperations = 256;
   static const int _maxPersistedCalls = 2000;
   static const int _maxPersistedHistorySamples = 2000;
   static const String _telemetryDirectoryName = 'telemetry';

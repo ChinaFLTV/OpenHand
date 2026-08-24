@@ -14,6 +14,18 @@ void requirePositiveDuration(Duration value, String name) {
   }
 }
 
+/// 时长必须为正且不能超过 [maximum]。
+void requirePositiveDurationAtMost(
+  Duration value,
+  Duration maximum,
+  String name,
+) {
+  requirePositiveDuration(value, name);
+  if (value > maximum) {
+    throw ArgumentError.value(value, name, '不能超过 $maximum。');
+  }
+}
+
 /// 时长允许为零（表示「不等待」），但不允许为负。
 void requireNonNegativeDuration(Duration value, String name) {
   if (value.isNegative) {
@@ -25,6 +37,14 @@ void requireNonNegativeDuration(Duration value, String name) {
 void requirePositiveInt(int value, String name) {
   if (value <= 0) {
     throw ArgumentError.value(value, name, _positiveMessage);
+  }
+}
+
+/// 数值必须为正且不能超过 [maximum]。
+void requirePositiveIntAtMost(int value, int maximum, String name) {
+  requirePositiveInt(value, name);
+  if (value > maximum) {
+    throw ArgumentError.value(value, name, '不能超过 $maximum。');
   }
 }
 

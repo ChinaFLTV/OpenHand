@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 
 import '../../../app/support/silent_log.dart';
 import '../../../shared/net/bounded_server_bind.dart';
 import '../../../shared/net/http_redirect_utils.dart';
+import '../../../shared/net/http_response_utils.dart';
 import '../../ai/index.dart';
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_model_proxy_models.dart';
@@ -37,7 +37,8 @@ class AiModelProxyHttpServer {
 
   static const int _maxRequestBodyBytes = 8 * 1024 * 1024;
   static const Duration _bindTimeout = Duration(seconds: 10);
-  static const Duration _requestReadTimeout = Duration(seconds: 30);
+  static const Duration _requestReadIdleTimeout = Duration(seconds: 30);
+  static const Duration _requestReadTotalTimeout = Duration(minutes: 2);
   static const Duration _requestKeepAliveTimeout = Duration(seconds: 30);
   static const String _logoCacheControl = 'public, max-age=86400';
 
@@ -65,14 +66,19 @@ class AiModelProxyHttpServer {
       ..idleTimeout = _requestKeepAliveTimeout
       ..autoCompress = false;
     _server = server;
-    unawaited(_serve(server));
+    unawaited(
+      _serve(server).then<void>(
+        (_) {},
+        onError: (Object error, StackTrace stack) =>
+            silentLog('ai_model_proxy_http_server', '收敛中转站监听任务', error, stack),
+      ),
+    );
   }
 
   Future<void> stop() async {
     final server = _server;
     _server = null;
     _closing = true;
-    _activeRequestTokens.clear();
     if (server == null) return;
     try {
       await server.close(force: true).timeout(_bindTimeout);
@@ -119,10 +125,20 @@ class AiModelProxyHttpServer {
               )
             : null;
         unawaited(
-          _handleRequest(request).whenComplete(() {
-            _activeRequestTokens.remove(requestToken);
-            _controller.runtimeRequestFinished(runtimeRequestId);
-          }),
+          _handleRequest(request)
+              .whenComplete(() {
+                _activeRequestTokens.remove(requestToken);
+                _controller.runtimeRequestFinished(runtimeRequestId);
+              })
+              .then<void>(
+                (_) {},
+                onError: (Object error, StackTrace stack) => silentLog(
+                  'ai_model_proxy_http_server',
+                  '收敛中转站请求任务',
+                  error,
+                  stack,
+                ),
+              ),
         );
       }
     } on Object catch (error, stack) {
@@ -131,7 +147,6 @@ class AiModelProxyHttpServer {
     } finally {
       if (identical(_server, server) && !_closing) {
         _server = null;
-        _activeRequestTokens.clear();
         _controller.runtimeServerStoppedUnexpectedly(failure);
         try {
           await server.close(force: true).timeout(_bindTimeout);
@@ -390,20 +405,20 @@ class AiModelProxyHttpServer {
     if (contentLength > _maxRequestBodyBytes) {
       throw const AiModelProxyException(413, '请求体过大。');
     }
-    final builder = BytesBuilder(copy: false);
-    var total = 0;
+    late final String text;
     try {
-      await for (final chunk in request.timeout(_requestReadTimeout)) {
-        total += chunk.length;
-        if (total > _maxRequestBodyBytes) {
-          throw const AiModelProxyException(413, '请求体过大。');
-        }
-        builder.add(chunk);
-      }
+      text = (await readBoundedByteStreamText(
+        request,
+        maxBytes: _maxRequestBodyBytes,
+        idleTimeout: _requestReadIdleTimeout,
+        totalTimeout: _requestReadTotalTimeout,
+        cancelOnFailure: false,
+      )).trim();
+    } on ByteStreamSizeLimitException {
+      throw const AiModelProxyException(413, '请求体过大。');
     } on TimeoutException {
       throw TimeoutException('请求体读取超时。');
     }
-    final text = utf8.decode(builder.takeBytes(), allowMalformed: false).trim();
     if (text.isEmpty) throw const FormatException('请求体不能为空。');
     final decoded = jsonDecode(text);
     if (decoded is! Map) throw const FormatException('请求体必须是 JSON 对象。');
@@ -2014,6 +2029,13 @@ class AiModelProxyHttpServer {
   }) async {
     try {
       final style = apiStyle ?? _controller.settings.apiStyle;
+      if (status == HttpStatus.requestTimeout ||
+          status == HttpStatus.requestEntityTooLarge) {
+        request.response.headers.set(
+          HttpHeaders.connectionHeader,
+          kConnectionClose,
+        );
+      }
       final body = switch (style) {
         AiModelProxyApiStyle.claude => <String, Object?>{
           'type': 'error',

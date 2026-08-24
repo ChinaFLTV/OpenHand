@@ -39,7 +39,10 @@ typedef McpOpsToolInvoker =
       McpOpsToolInvocationContext context,
     );
 typedef McpOpsApprovalGate =
-    Future<bool> Function(McpOpsApprovalRequest request);
+    Future<bool> Function(
+      McpOpsApprovalRequest request,
+      Future<void> cancelSignal,
+    );
 typedef McpOpsAuditSink = void Function(McpOpsAuditEntry entry);
 typedef McpOpsSnapshotSink = void Function(McpOpsRuntimeSnapshot snapshot);
 
@@ -200,11 +203,31 @@ class McpServerOpsRuntime {
        _requestBodyTotalTimeout = requestBodyTotalTimeout,
        _maxConcurrentRequests = maxConcurrentRequests,
        _maxBatchItems = maxBatchItems {
-    requirePositiveInt(maxRequestBodyBytes, 'maxRequestBodyBytes');
-    requirePositiveDuration(requestBodyIdleTimeout, 'requestBodyIdleTimeout');
-    requirePositiveDuration(requestBodyTotalTimeout, 'requestBodyTotalTimeout');
-    requirePositiveInt(maxConcurrentRequests, 'maxConcurrentRequests');
-    requirePositiveInt(maxBatchItems, 'maxBatchItems');
+    requirePositiveIntAtMost(
+      maxRequestBodyBytes,
+      _mcpOpsRequestBodyMaxBytes,
+      'maxRequestBodyBytes',
+    );
+    requirePositiveDurationAtMost(
+      requestBodyIdleTimeout,
+      _mcpOpsRequestBodyIdleTimeout,
+      'requestBodyIdleTimeout',
+    );
+    requirePositiveDurationAtMost(
+      requestBodyTotalTimeout,
+      _mcpOpsRequestBodyTotalTimeout,
+      'requestBodyTotalTimeout',
+    );
+    requirePositiveIntAtMost(
+      maxConcurrentRequests,
+      _mcpOpsMaxConcurrentRequests,
+      'maxConcurrentRequests',
+    );
+    requirePositiveIntAtMost(
+      maxBatchItems,
+      _mcpOpsMaxBatchItems,
+      'maxBatchItems',
+    );
   }
 
   static const String _protocolVersion = kMcpProtocolVersion;
@@ -225,6 +248,8 @@ class McpServerOpsRuntime {
   static const int _latencyWindow = 512;
   static const int _rateWindowSeconds = 60;
   static const String _connectionInfoContextKey = 'shelf.io.connection_info';
+  static const String _requestCancellationContextKey =
+      'openhand.mcp_ops.request_cancellation';
   static const Map<String, String> _responseHeaders = <String, String>{
     'cache-control': kCacheControlNoStore,
     'x-content-type-options': 'nosniff',
@@ -254,7 +279,8 @@ class McpServerOpsRuntime {
   final Stopwatch _runtimeStopwatch = Stopwatch()..start();
   final List<Duration> _requestTimes = <Duration>[];
   final List<int> _latencies = <int>[];
-  final Set<Object> _activeRequestTokens = <Object>{};
+  final Set<_McpOpsActiveRequest> _activeRequestTokens =
+      <_McpOpsActiveRequest>{};
   final Set<Object> _activeSseTokens = <Object>{};
 
   /// 已占用 SSE 槽位但生成器尚未开始执行的 token → 占位时刻。
@@ -461,6 +487,8 @@ class McpServerOpsRuntime {
 
   Future<void> _stopUnlocked() async {
     final server = _server;
+    _server = null;
+    _cancelActiveRequests();
     if (server == null) {
       _setSnapshot(
         _snapshot.copyWith(
@@ -472,11 +500,9 @@ class McpServerOpsRuntime {
       return;
     }
     _setSnapshot(_snapshot.copyWith(lifecycle: McpOpsLifecycleState.stopping));
-    _server = null;
     try {
       await server.close(force: true).timeout(_shutdownTimeout);
     } finally {
-      _activeRequestTokens.clear();
       _activeSseTokens.clear();
       _reservedSseTokens.clear();
       _setSnapshot(
@@ -529,6 +555,12 @@ class McpServerOpsRuntime {
 
   Future<void> _runLifecycleLocked(Future<void> Function() action) {
     return _lifecycleQueue.enqueue(action);
+  }
+
+  void _cancelActiveRequests() {
+    for (final request in _activeRequestTokens) {
+      request.cancel();
+    }
   }
 
   Future<void> _closeLateServer(Future<HttpServer> serverFuture) async {
@@ -667,7 +699,7 @@ class McpServerOpsRuntime {
             },
           );
         }
-        final requestToken = Object();
+        final requestToken = _McpOpsActiveRequest();
         final requestStopwatch = Stopwatch()..start();
         _activeRequestTokens.add(requestToken);
         _setSnapshot(
@@ -678,8 +710,16 @@ class McpServerOpsRuntime {
           ),
         );
         try {
-          return await innerHandler(request);
+          return await innerHandler(
+            request.change(
+              context: <String, Object>{
+                ...request.context,
+                _requestCancellationContextKey: requestToken.cancelSignal,
+              },
+            ),
+          );
         } finally {
+          requestToken.cancel();
           final durationMs = requestStopwatch.elapsedMilliseconds;
           _latencies.add(durationMs);
           if (_latencies.length > _latencyWindow) {
@@ -687,10 +727,11 @@ class McpServerOpsRuntime {
           }
           _recordTrafficLatency(durationMs);
           _activeRequestTokens.remove(requestToken);
+          final running = _server != null;
           _setSnapshot(
             _snapshot.copyWith(
-              activeRequests: _activeRequests,
-              currentConnections: _currentConnections,
+              activeRequests: running ? _activeRequests : 0,
+              currentConnections: running ? _currentConnections : 0,
               avgLatencyMs: _averageLatency(),
               p95LatencyMs: _p95Latency(),
               memoryRssBytes: _currentRss(),
@@ -1289,17 +1330,33 @@ class McpServerOpsRuntime {
         );
         return _jsonRpcError(id, -32008, 'MCP request processing timed out');
       }
-      final approved = await _approvalGate(
-        McpOpsApprovalRequest(
-          id: _auditId(started),
+      final requestCancellation = _requestCancellationSignal(request);
+      final approved = await awaitWithCancelSignal<bool>(
+        _approvalGate(
+          McpOpsApprovalRequest(
+            id: _auditId(started),
+            toolName: name,
+            clientName: _clientName(request),
+            ipAddress: _peerAddress(request).label,
+            requestedAt: started,
+            expiresAt: DateTime.now().toUtc().add(approvalTimeout),
+            argumentsPreview: mcpOpsClipAuditText(arguments),
+          ),
+          requestCancellation,
+        ).timeout(approvalTimeout, onTimeout: () => false),
+        cancelSignal: requestCancellation,
+      );
+      if (approved == null) {
+        _recordBlocked(
+          request,
+          inboundBytes: inboundBytes,
+          reason: 'Request cancelled while waiting for approval.',
+          method: 'tools/call',
           toolName: name,
-          clientName: _clientName(request),
-          ipAddress: _peerAddress(request).label,
-          requestedAt: started,
-          expiresAt: DateTime.now().toUtc().add(approvalTimeout),
-          argumentsPreview: mcpOpsClipAuditText(arguments),
-        ),
-      ).timeout(approvalTimeout, onTimeout: () => false);
+          arguments: arguments,
+        );
+        return _jsonRpcError(id, -32008, 'MCP request was cancelled');
+      }
       if (!approved) {
         _recordBlocked(
           request,
@@ -1343,9 +1400,24 @@ class McpServerOpsRuntime {
     }
     _markRequest(request, 'tools/call', toolName: name);
     final invocationCancel = Completer<void>();
+    final requestCancellation = _requestCancellationSignal(request);
+    if (await isCancelSignalCompleted(requestCancellation)) {
+      _recordBlocked(
+        request,
+        inboundBytes: inboundBytes,
+        reason: 'Request cancelled before invocation.',
+        method: 'tools/call',
+        toolName: name,
+        arguments: arguments,
+      );
+      return _jsonRpcError(id, -32008, 'MCP request was cancelled');
+    }
     final invocationContext = McpOpsToolInvocationContext(
       invocationId: 'mcp-ops-${_auditId(started)}',
-      cancelSignal: invocationCancel.future,
+      cancelSignal: combineCancelSignals(<Future<void>>[
+        invocationCancel.future,
+        requestCancellation,
+      ])!,
       deadline: DateTime.now().toUtc().add(invocationTimeout),
       workspaceRoot: _normalizedWorkspaceRoot ?? '',
     );
@@ -1440,6 +1512,11 @@ class McpServerOpsRuntime {
     }
     _requestTimes.add(now);
     return true;
+  }
+
+  Future<void> _requestCancellationSignal(shelf.Request request) {
+    final signal = request.context[_requestCancellationContextKey];
+    return signal is Future<void> ? signal : Future<void>.value();
   }
 
   bool _requestTransportAllowed(
@@ -2099,6 +2176,16 @@ class McpServerOpsRuntime {
       samples.add(bucket?.toSample() ?? McpOpsTrafficSample(minute: minute));
     }
     return List<McpOpsTrafficSample>.unmodifiable(samples);
+  }
+}
+
+final class _McpOpsActiveRequest {
+  final Completer<void> _cancellation = Completer<void>();
+
+  Future<void> get cancelSignal => _cancellation.future;
+
+  void cancel() {
+    if (!_cancellation.isCompleted) _cancellation.complete();
   }
 }
 

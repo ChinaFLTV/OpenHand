@@ -6,7 +6,6 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/util/serial_task_queue.dart';
 
 const int kMcpStdioMaxPendingRequests = 256;
-const int kMcpStdioMaxPendingWrites = 256;
 const Duration _mcpStdioWriteTimeout = Duration(seconds: 2);
 final RegExp _mcpShellWhitespacePattern = RegExp(r'\s');
 
@@ -95,9 +94,7 @@ int firstMcpNpxPackageArgIndex(List<String> args) {
 /// `IOSink.flush` 会暂时把输出绑定到内部流；关闭前应在限定时间内排空队列，
 /// 避免刷新期间关闭导致输出流状态冲突。
 class McpStdioWriteQueue {
-  final SerialTaskQueue _queue = SerialTaskQueue(
-    maxPendingTasks: kMcpStdioMaxPendingWrites,
-  );
+  final SerialTaskQueue _queue = SerialTaskQueue();
   Object? _closedError;
 
   bool get isClosed => _closedError != null;

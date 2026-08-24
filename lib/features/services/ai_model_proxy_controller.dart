@@ -854,7 +854,13 @@ class AiModelProxyController extends ChangeNotifier {
     _startedAt = null;
     _resetRuntimeOccupancy();
     _resetRateLimitWindows();
-    unawaited(_httpServer?.dispose());
+    unawaited(
+      _httpServer?.dispose().then<void>(
+        (_) {},
+        onError: (Object error, StackTrace stack) =>
+            silentLog('ai_model_proxy_controller', '释放模型中转站服务', error, stack),
+      ),
+    );
     _httpServer = null;
     super.dispose();
   }

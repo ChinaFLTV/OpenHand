@@ -102,12 +102,36 @@ class _SandboxProxyLimits {
     required this.maxConcurrentConnections,
     required this.maxHttpRequestBodyBytes,
   }) {
-    requirePositiveDuration(handshakeTimeout, 'handshakeTimeout');
-    requirePositiveDuration(connectionTimeout, 'connectionTimeout');
-    requirePositiveDuration(idleTimeout, 'idleTimeout');
-    requirePositiveDuration(maxConnectionDuration, 'maxConnectionDuration');
-    requirePositiveInt(maxConcurrentConnections, 'maxConcurrentConnections');
-    requirePositiveInt(maxHttpRequestBodyBytes, 'maxHttpRequestBodyBytes');
+    requirePositiveDurationAtMost(
+      handshakeTimeout,
+      const Duration(minutes: 1),
+      'handshakeTimeout',
+    );
+    requirePositiveDurationAtMost(
+      connectionTimeout,
+      const Duration(minutes: 2),
+      'connectionTimeout',
+    );
+    requirePositiveDurationAtMost(
+      idleTimeout,
+      const Duration(hours: 1),
+      'idleTimeout',
+    );
+    requirePositiveDurationAtMost(
+      maxConnectionDuration,
+      const Duration(hours: 24),
+      'maxConnectionDuration',
+    );
+    requirePositiveIntAtMost(
+      maxConcurrentConnections,
+      1024,
+      'maxConcurrentConnections',
+    );
+    requirePositiveIntAtMost(
+      maxHttpRequestBodyBytes,
+      kBytesPerGiB,
+      'maxHttpRequestBodyBytes',
+    );
   }
 
   final Duration handshakeTimeout;
@@ -1101,7 +1125,9 @@ class _HttpProxyRequest {
       final rawName = line.substring(0, separator);
       if (!_headerNamePattern.hasMatch(rawName)) return null;
       final name = lowercaseStringFromValue(rawName);
-      if (name == HttpHeaders.hostHeader && headers.containsKey(name)) return null;
+      if (name == HttpHeaders.hostHeader && headers.containsKey(name)) {
+        return null;
+      }
       if ((name == HttpHeaders.connectionHeader ||
               name == HttpHeaders.contentLengthHeader ||
               name == HttpHeaders.transferEncodingHeader) &&
