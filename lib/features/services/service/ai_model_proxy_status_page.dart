@@ -16,6 +16,10 @@ const int _kStatusPagePhoneMaxPx = 640;
 const int _kStatusPageCompactMaxPx = 720;
 const int _kStatusPageTapMinPx = 44;
 const int _kStatusHistoryMaxPx = 360;
+const int _kStatusBarHeightPx = 34;
+const int _kStatusBarPhoneHeightPx = 28;
+const int _kStatusBarCoarseHeightPx = 40;
+const double _kStatusBarHoverScale = 1.48;
 
 String _statusPageLang(Locale locale) {
   final ui = openHandSupportedUiLocale(locale);
@@ -580,7 +584,8 @@ String buildAiModelProxyStatusPage({
   --radius: 18px;
   --pad: 18px;
   --bar-gap: 3px;
-  --bar-h: 34px;
+  --bar-h: ${_kStatusBarHeightPx}px;
+  --bar-pop: $_kStatusBarHoverScale;
   --nest: 32px;
   --history-max: ${_kStatusHistoryMaxPx}px;
   --tip-shift-y: calc(-100% - 10px);
@@ -715,18 +720,42 @@ body {
   white-space: nowrap;
 }
 .bars {
-  display: flex; gap: var(--bar-gap); margin-top: 10px; height: var(--bar-h);
-  align-items: stretch; width: 100%; touch-action: manipulation;
+  display: flex; gap: var(--bar-gap); margin-top: 10px;
+  height: calc(var(--bar-h) * var(--bar-pop));
+  align-items: flex-end; width: 100%; touch-action: manipulation;
+  overflow: visible;
 }
 .bar {
-  flex: 1 1 0; min-width: 0; border-radius: 3px; background: var(--fill);
-  transform-origin: bottom;
-  animation: bar-in var(--oh-dialog-enter-duration) var(--oh-dialog-curve) both;
+  flex: 1 1 0; min-width: 0; height: var(--bar-h);
+  position: relative;
+  transform-origin: bottom center;
+  cursor: pointer;
   transition: transform var(--oh-hover-duration) var(--oh-spring), filter var(--oh-hover-duration) ease;
 }
-.bar.on { transform: scaleY(1.18); filter: brightness(1.12); }
+.bar-fill {
+  display: block; width: 100%; height: 100%; border-radius: 3px;
+  background: var(--fill); transform-origin: bottom center;
+  animation: bar-in var(--oh-dialog-enter-duration) var(--oh-spring) backwards;
+  animation-delay: calc(var(--i, 0) * 3ms);
+  transition: box-shadow var(--oh-hover-duration) var(--oh-spring);
+}
+.bar.on {
+  transform: scaleY(var(--bar-pop));
+  filter: brightness(1.1);
+  z-index: 1;
+}
+.bar.on .bar-fill {
+  box-shadow: 0 10px 18px color-mix(in srgb, var(--fill) 36%, transparent);
+}
 @media (hover: hover) and (pointer: fine) {
-  .bar:hover { transform: scaleY(1.18); filter: brightness(1.08); }
+  .bar:hover {
+    transform: scaleY(var(--bar-pop));
+    filter: brightness(1.1);
+    z-index: 1;
+  }
+  .bar:hover .bar-fill {
+    box-shadow: 0 10px 18px color-mix(in srgb, var(--fill) 36%, transparent);
+  }
 }
 .children {
   display: grid;
@@ -848,12 +877,12 @@ $kOpenHandDialogMotionStandaloneCss
   .range { white-space: normal; }
 }
 @media (max-width: ${_kStatusPagePhoneMaxPx}px) {
-  :root { --radius: 16px; --bar-h: 28px; --bar-gap: 1px; --nest: 14px; }
+  :root { --radius: 16px; --bar-h: ${_kStatusBarPhoneHeightPx}px; --bar-gap: 1px; --nest: 14px; }
   .incident { grid-template-columns: 1fr; }
   .uptime { margin-left: 32px; }
 }
 @media (pointer: coarse) {
-  :root { --bar-h: 40px; }
+  :root { --bar-h: ${_kStatusBarCoarseHeightPx}px; }
   .bars { cursor: pointer; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -861,12 +890,17 @@ $kOpenHandDialogMotionStandaloneCss
     animation: none !important; transition: none !important;
   }
   .bar.on, .bar:hover { transform: none; }
+  .bar.on .bar-fill, .bar:hover .bar-fill { box-shadow: none; }
 }
 html[data-motion='reduced'] *,
 html[data-motion='reduced'] *::before,
 html[data-motion='reduced'] *::after {
   animation: none !important; transition: none !important;
 }
+html[data-motion='reduced'] .bar.on,
+html[data-motion='reduced'] .bar:hover { transform: none; }
+html[data-motion='reduced'] .bar.on .bar-fill,
+html[data-motion='reduced'] .bar:hover .bar-fill { box-shadow: none; }
 </style>
 </head>
 <body>
@@ -946,7 +980,7 @@ function bars(days){
   return '<div class="bars">' + days.map((d,i) => {
     const fill = tone[d.h] || data.idle;
     const alpha = d.h === 'idle' ? '.28' : '1';
-    return '<div class="bar" data-i="'+i+'" style="--fill:'+fill+';opacity:'+alpha+'"></div>';
+    return '<div class="bar" data-i="'+i+'" style="--fill:'+fill+';--i:'+i+'"><span class="bar-fill" style="opacity:'+alpha+'"></span></div>';
   }).join('') + '</div>';
 }
 function row(c, nested){
