@@ -11,6 +11,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -136,14 +137,14 @@ class DingTalkGatewayCommandException implements Exception {
   bool get isTransientNetworkFailure {
     final normalized = message.trim().toLowerCase();
     return const <String>[
-      'connection reset',
-      'connection closed',
-      'connection refused',
-      'broken pipe',
-      'network is unreachable',
-      'no route to host',
-      'tls handshake timeout',
-    ].any(normalized.contains) ||
+          'connection reset',
+          'connection closed',
+          'connection refused',
+          'broken pipe',
+          'network is unreachable',
+          'no route to host',
+          'tls handshake timeout',
+        ].any(normalized.contains) ||
         normalized.contains('sending request') &&
             RegExp(r'\beof\b').hasMatch(normalized);
   }
@@ -225,8 +226,10 @@ class DingTalkMessageGatewayService {
   static const int _batchSize = 30;
   static const int _detailConcurrency = 4;
   static const int _maxMediaCacheFiles = 512;
+  static const int _maxMediaCacheScanEntries = _maxMediaCacheFiles + 128;
   static const int _maxMediaCacheBytes = kBytesPerGiB;
   static const int _maxMediaFileBytes = 512 * kBytesPerMiB;
+  static const Duration _mediaCacheFileOperationTimeout = Duration(seconds: 3);
   static const int _maxAuthOutputLines = 256;
   static const int _maxAuthOutputCharacters = 32 * kBytesPerKiB;
   static const Duration _transientMediaFailureCooldown = Duration(minutes: 10);
@@ -273,6 +276,7 @@ class DingTalkMessageGatewayService {
       StreamController<String>.broadcast(sync: true);
   final Map<String, Future<String?>> _mediaDownloadTasks =
       <String, Future<String?>>{};
+  final Set<String> _activeMediaCacheBasenames = <String>{};
   final OpenHandAsyncSemaphore _mediaDownloadSemaphore = OpenHandAsyncSemaphore(
     3,
     maxWaiters: 1024,
@@ -825,6 +829,7 @@ class DingTalkMessageGatewayService {
     final filename = '$basename$extension';
     final directory = Directory(mediaCacheDirectoryPath);
     final output = File(p.join(directory.path, filename));
+    _activeMediaCacheBasenames.add(basename);
     try {
       await directory.create(recursive: true);
       if (await output.exists()) {
@@ -921,6 +926,8 @@ class DingTalkMessageGatewayService {
       _logRuntime('WARN', '缓存钉钉媒体失败：${media.displayName}。');
       silentLog('dingtalk_gateway', '缓存钉钉媒体', error, stack);
       return null;
+    } finally {
+      _activeMediaCacheBasenames.remove(basename);
     }
   }
 
@@ -929,15 +936,21 @@ class DingTalkMessageGatewayService {
     String basename,
   ) async {
     try {
-      await for (final entity in directory.list(followLinks: false)) {
+      final listing = await listDirectoryBounded(
+        directory,
+        maxEntries: _maxMediaCacheScanEntries,
+      );
+      for (final entity in listing.entries) {
         if (entity is! File ||
             p.basenameWithoutExtension(entity.path) != basename) {
           continue;
         }
-        final size = await entity.length();
+        final size = await entity.length().timeout(
+          _mediaCacheFileOperationTimeout,
+        );
         if (size > 0 && size <= _maxMediaFileBytes) return entity;
         try {
-          await entity.delete();
+          await entity.delete().timeout(_mediaCacheFileOperationTimeout);
         } catch (_) {}
       }
     } catch (error, stack) {
@@ -1022,28 +1035,38 @@ class DingTalkMessageGatewayService {
 
   Future<void> _pruneMediaCache(Directory directory) async {
     try {
-      final files = await directory
-          .list(followLinks: false)
-          .where((entity) => entity is File)
-          .cast<File>()
-          .take(_maxMediaCacheFiles + 128)
-          .toList();
+      final listing = await listDirectoryBounded(
+        directory,
+        maxEntries: _maxMediaCacheScanEntries,
+      );
+      final files = listing.entries.whereType<File>();
       final entries = <(File, int, DateTime)>[];
       var totalBytes = 0;
       for (final file in files) {
         try {
-          final stat = await file.stat();
+          final stat = await file.stat().timeout(
+            _mediaCacheFileOperationTimeout,
+          );
+          if (stat.type != FileSystemEntityType.file) continue;
           totalBytes += stat.size;
           entries.add((file, stat.size, stat.modified));
         } catch (_) {}
       }
       entries.sort((a, b) => a.$3.compareTo(b.$3));
-      while (entries.length > _maxMediaCacheFiles ||
-          totalBytes > _maxMediaCacheBytes) {
+      var retainedFiles = entries.length;
+      while (entries.isNotEmpty &&
+          (retainedFiles > _maxMediaCacheFiles ||
+              totalBytes > _maxMediaCacheBytes)) {
         final entry = entries.removeAt(0);
-        totalBytes -= entry.$2;
+        if (_activeMediaCacheBasenames.contains(
+          p.basenameWithoutExtension(entry.$1.path),
+        )) {
+          continue;
+        }
         try {
-          await entry.$1.delete();
+          await entry.$1.delete().timeout(_mediaCacheFileOperationTimeout);
+          retainedFiles -= 1;
+          totalBytes -= entry.$2;
         } catch (error, stack) {
           silentLog('dingtalk_gateway', '清理钉钉媒体缓存', error, stack);
         }

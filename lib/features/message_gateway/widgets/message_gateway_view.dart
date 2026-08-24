@@ -58,6 +58,7 @@ import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/ui/runtime_log_dialog.dart';
 import '../../../shared/ui/streaming_text_reveal.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -12104,6 +12105,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   static const Duration _clipboardImageReadTimeout = Duration(seconds: 3);
   static const Duration _clipboardImageWriteTimeout = Duration(seconds: 10);
   static const int _maxPastedAttachmentCacheFiles = 32;
+  static const Duration _pastedAttachmentCacheOperationTimeout = Duration(
+    seconds: 3,
+  );
   static const int _maxAutoMediaLoadAttempts = 512;
   final TextEditingController _input = TextEditingController();
   final FocusNode _inputFocusNode = FocusNode();
@@ -14460,7 +14464,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   Future<void> _deletePastedAttachmentFile(String path) async {
     try {
       final file = File(path);
-      if (await file.exists()) await file.delete();
+      if (await file.exists().timeout(_pastedAttachmentCacheOperationTimeout)) {
+        await file.delete().timeout(_pastedAttachmentCacheOperationTimeout);
+      }
     } catch (error, stack) {
       silentLog('dingtalk_gateway', '删除钉钉剪贴板图片附件', error, stack);
     }
@@ -14478,9 +14484,11 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         .toSet();
     final files = <File>[];
     try {
-      var scanned = 0;
-      await for (final entity in directory.list(followLinks: false)) {
-        if (++scanned > _maxPastedAttachmentCacheFiles * 4) break;
+      final listing = await listDirectoryBounded(
+        directory,
+        maxEntries: _maxPastedAttachmentCacheFiles * 4,
+      );
+      for (final entity in listing.entries) {
         if (entity is! File || !p.basename(entity.path).startsWith('pasted-')) {
           continue;
         }
@@ -14492,7 +14500,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       final removeCount = files.length - _maxPastedAttachmentCacheFiles;
       for (var index = 0; index < removeCount; index++) {
         try {
-          await files[index].delete();
+          await files[index].delete().timeout(
+            _pastedAttachmentCacheOperationTimeout,
+          );
         } catch (error, stack) {
           silentLog('dingtalk_gateway', '清理钉钉剪贴板图片缓存', error, stack);
         }
