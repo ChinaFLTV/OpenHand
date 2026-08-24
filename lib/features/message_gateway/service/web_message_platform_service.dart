@@ -285,7 +285,9 @@ class WebMessagePlatformService {
 
   HttpServer? _server;
   final SerialTaskQueue _lifecycleQueue = SerialTaskQueue();
-  final SerialTaskQueue _artifactCleanupQueue = SerialTaskQueue();
+  final OpenHandAsyncSemaphore _artifactCleanupSemaphore =
+      OpenHandAsyncSemaphore(1, maxWaiters: 8);
+  Future<void>? _activeArtifactCleanupFuture;
   Future<void>? _disposeFuture;
   Future<void>? _startupCleanupFuture;
   bool _disposed = false;
@@ -360,6 +362,11 @@ class WebMessagePlatformService {
   static const int _maxLocalAddresses = 64;
   static const Duration _requestBodyIdleTimeout = Duration(seconds: 30);
   static const Duration _requestBodyTotalTimeout = Duration(minutes: 2);
+  static const Duration _sessionAssetReadIdleTimeout = Duration(seconds: 30);
+  static const Duration _sessionAssetReadTotalTimeout = Duration(minutes: 30);
+  static const Duration _artifactCleanupQueueTimeout = Duration(
+    milliseconds: 500,
+  );
   static const int _connectivityProbeMinTimeoutMs = 500;
   static const int _connectivityProbeMaxTimeoutMs = 10000;
   static const Duration _queuedGoalYieldLeaseDuration = Duration(minutes: 15);
@@ -469,7 +476,7 @@ class WebMessagePlatformService {
       _server != null && _state == WebGatewayRuntimeState.running;
   String get boundUrl => _server == null
       ? ''
-      : 'http://${_displayHost(_config.listenHost)}:${_server!.port}';
+      : webGatewayHttpUrl(_displayHost(_config.listenHost), _server!.port);
 
   /// 当前可访问该 Web 服务的全部 URL：
   /// - 监听具体 IP（如 `192.168.1.5`）→ 仅返回 `[boundUrl]`
@@ -1297,6 +1304,7 @@ class WebMessagePlatformService {
     final active = _disposeFuture;
     if (active != null) return active;
     _disposed = true;
+    _artifactCleanupSemaphore.cancelWaiters();
     final disposal = _lifecycleQueue.idle.then((_) => _disposeLocked());
     _disposeFuture = disposal;
     return disposal;
@@ -1317,6 +1325,14 @@ class WebMessagePlatformService {
     }
 
     await cleanup('停止消息网关服务', _stop, timeout: const Duration(seconds: 10));
+    final artifactCleanup = _activeArtifactCleanupFuture;
+    if (artifactCleanup != null) {
+      await cleanup(
+        '等待资源清理任务结束',
+        () => artifactCleanup,
+        timeout: const Duration(seconds: 5),
+      );
+    }
     final startupCleanup = _startupCleanupFuture;
     if (startupCleanup != null) {
       await cleanup('等待启动清理任务结束', () => startupCleanup);
@@ -2109,15 +2125,46 @@ class WebMessagePlatformService {
     required bool logs,
     required bool uploads,
     bool expiredOnly = false,
-  }) {
+  }) async {
     _throwIfDisposed();
-    return _artifactCleanupQueue.enqueue(
-      () => _cleanupArtifactsLocked(
-        logs: logs,
-        uploads: uploads,
-        expiredOnly: expiredOnly,
-      ),
+    bool acquired;
+    try {
+      acquired = await _artifactCleanupSemaphore.acquireWithin(
+        _artifactCleanupQueueTimeout,
+      );
+    } on StateError {
+      acquired = false;
+    }
+    if (!acquired) {
+      throw const _WebGatewayRequestException(
+        HttpStatus.tooManyRequests,
+        'cleanup_busy',
+      );
+    }
+    try {
+      _throwIfDisposed();
+    } catch (_) {
+      _artifactCleanupSemaphore.release();
+      rethrow;
+    }
+    final operation = _cleanupArtifactsLocked(
+      logs: logs,
+      uploads: uploads,
+      expiredOnly: expiredOnly,
     );
+    final completion = operation.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    _activeArtifactCleanupFuture = completion;
+    try {
+      return await operation;
+    } finally {
+      if (identical(_activeArtifactCleanupFuture, completion)) {
+        _activeArtifactCleanupFuture = null;
+      }
+      _artifactCleanupSemaphore.release();
+    }
   }
 
   Future<WebGatewayCleanupResult> _cleanupArtifactsLocked({
@@ -6298,9 +6345,15 @@ class WebMessagePlatformService {
         );
       }
       final length = range.endInclusive - range.start + 1;
+      final body = limitByteStream(
+        file.openRead(range.start, range.endInclusive + 1),
+        maxBytes: length,
+        idleTimeout: _sessionAssetReadIdleTimeout,
+        totalTimeout: _sessionAssetReadTotalTimeout,
+      );
       return shelf.Response(
         HttpStatus.partialContent,
-        body: file.openRead(range.start, range.endInclusive + 1),
+        body: body,
         headers: <String, String>{
           HttpHeaders.contentTypeHeader: contentType,
           HttpHeaders.cacheControlHeader: 'private, max-age=300',
@@ -6311,8 +6364,16 @@ class WebMessagePlatformService {
         },
       );
     }
+    final body = totalBytes == 0
+        ? const Stream<List<int>>.empty()
+        : limitByteStream(
+            file.openRead(0, totalBytes),
+            maxBytes: totalBytes,
+            idleTimeout: _sessionAssetReadIdleTimeout,
+            totalTimeout: _sessionAssetReadTotalTimeout,
+          );
     return shelf.Response.ok(
-      file.openRead(),
+      body,
       headers: <String, String>{
         HttpHeaders.contentTypeHeader: contentType,
         HttpHeaders.cacheControlHeader: 'private, max-age=300',
@@ -8826,7 +8887,8 @@ class WebMessagePlatformService {
           in root
               .list(recursive: true, followLinks: false)
               .timeout(_uploadCacheScanIdleTimeout)) {
-        if (scannedEntries >= _maxUploadCacheScanEntries ||
+        if (_disposed ||
+            scannedEntries >= _maxUploadCacheScanEntries ||
             stopwatch.elapsed >= _uploadCacheScanTotalTimeout) {
           complete = false;
           break;
@@ -9210,7 +9272,7 @@ class WebMessagePlatformService {
   }
 
   bool _isWildcardListenHost(String host) {
-    final normalized = host.trim();
+    final normalized = webGatewayNormalizeListenHost(host);
     return normalized.isEmpty ||
         normalized == '0.0.0.0' ||
         normalized == '::' ||
@@ -9218,7 +9280,7 @@ class WebMessagePlatformService {
   }
 
   InternetAddress _bindAddress(String host) {
-    final normalized = host.trim();
+    final normalized = webGatewayNormalizeListenHost(host);
     if (normalized.isEmpty || normalized == '0.0.0.0') {
       return InternetAddress.anyIPv4;
     }
@@ -9229,8 +9291,11 @@ class WebMessagePlatformService {
   }
 
   String _displayHost(String host) {
-    final normalized = host.trim();
-    if (normalized.isEmpty || normalized == '0.0.0.0' || normalized == '::') {
+    final normalized = webGatewayNormalizeListenHost(host);
+    if (normalized.isEmpty ||
+        normalized == '0.0.0.0' ||
+        normalized == '::' ||
+        normalized == '::0') {
       return '127.0.0.1';
     }
     return normalized;

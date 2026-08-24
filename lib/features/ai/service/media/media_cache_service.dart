@@ -438,7 +438,8 @@ class MediaCacheService {
     final normalizedSourcePath = nullIfBlank(sourcePath);
     if (uri == null || normalizedSourcePath == null) return null;
     final sourceFile = File(normalizedSourcePath);
-    if (!await _looksUsableFile(sourceFile)) return null;
+    final sourceStat = await _usableFileStat(sourceFile);
+    if (sourceStat == null) return null;
     final normalizedUrl = uri.toString();
     final cacheKind = kind ?? _kindFromUrl(normalizedUrl);
     final cached = await _validatedCachedPath(
@@ -449,7 +450,7 @@ class MediaCacheService {
     if (_disposed || _clearing || generation != _generation) return null;
     if (cached != null) return cached;
     final maxBytes = _maxBytesForKind(cacheKind);
-    final bytes = await sourceFile.length().timeout(_fileOperationTimeout);
+    final bytes = sourceStat.size;
     if (bytes <= 0 || bytes > maxBytes) return null;
 
     final dir = await _ensureCacheDir();
@@ -464,7 +465,10 @@ class MediaCacheService {
         totalTimeout: _deadlineForKind(cacheKind),
         generation: generation,
       );
-      if (written != bytes) {
+      final finalSourceStat = await _usableFileStat(sourceFile);
+      if (written != bytes ||
+          finalSourceStat == null ||
+          !_sameFileVersion(sourceStat, finalSourceStat)) {
         throw FileSystemException('导入源文件在复制期间发生变化。', normalizedSourcePath);
       }
       return await _commitTempFile(
@@ -1034,16 +1038,30 @@ class MediaCacheService {
   }
 
   static Future<bool> _looksUsableFile(File file) async {
+    return await _usableFileStat(file) != null;
+  }
+
+  static Future<FileStat?> _usableFileStat(File file) async {
     try {
       final type = await FileSystemEntity.type(
         file.path,
         followLinks: false,
       ).timeout(_fileOperationTimeout);
-      if (type != FileSystemEntityType.file) return false;
-      return (await file.stat().timeout(_fileOperationTimeout)).size > 0;
+      if (type != FileSystemEntityType.file) return null;
+      final stat = await file.stat().timeout(_fileOperationTimeout);
+      return stat.type == FileSystemEntityType.file && stat.size > 0
+          ? stat
+          : null;
     } catch (_) {
-      return false;
+      return null;
     }
+  }
+
+  static bool _sameFileVersion(FileStat before, FileStat after) {
+    return before.type == after.type &&
+        before.size == after.size &&
+        before.modified == after.modified &&
+        before.changed == after.changed;
   }
 
   static Future<FileStat?> _statFileIfPresent(File file) async {

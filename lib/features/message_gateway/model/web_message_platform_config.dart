@@ -63,6 +63,22 @@ const Set<String> kWebGatewaySupportedFileLogLevels = <String>{
   'debug',
   'telemetry',
 };
+
+String webGatewayNormalizeListenHost(String rawHost) {
+  final host = rawHost.trim();
+  return host.length > 2 && host.startsWith('[') && host.endsWith(']')
+      ? host.substring(1, host.length - 1)
+      : host;
+}
+
+String webGatewayHttpUrl(String host, int port) {
+  return Uri(
+    scheme: 'http',
+    host: webGatewayNormalizeListenHost(host),
+    port: port,
+  ).toString();
+}
+
 const IntValueRange _listenPortRange = IntValueRange(
   fallback: kWebGatewayDefaultListenPort,
   min: kWebGatewayMinListenPort,
@@ -598,7 +614,7 @@ class WebMessagePlatformConfig {
   final WebGatewayHealthCheckConfig healthCheck;
   final WebGatewayLogConfig logConfig;
 
-  String get endpointUrl => 'http://$listenHost:$listenPort';
+  String get endpointUrl => webGatewayHttpUrl(listenHost, listenPort);
 
   WebMessagePlatformConfig copyWith({
     bool? enabled,
@@ -707,7 +723,10 @@ class WebMessagePlatformConfig {
       autoStartOnLaunch: autoStartOnLaunch,
       autoReloadOnChange: autoReloadOnChange,
       description: _nonEmptyString(description, defaultDescription),
-      listenHost: _nonEmptyString(listenHost, '0.0.0.0'),
+      listenHost: _nonEmptyString(
+        webGatewayNormalizeListenHost(listenHost),
+        '0.0.0.0',
+      ),
       listenPort: clampIntToRange(
         listenPort,
         min: kWebGatewayMinListenPort,

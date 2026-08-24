@@ -1,3 +1,5 @@
+import '../model/web_message_platform_config.dart';
+
 /// Web 通用消息平台「当前可访问 URL 列表」的纯函数推导逻辑。
 ///
 /// 与 `WebMessagePlatformService.accessibleUrls` 共用以下推导规则：
@@ -15,20 +17,25 @@ List<String> computeWebGatewayAccessibleUrls({
 }) {
   if (boundPort == null) return const <String>[];
   final port = boundPort;
-  final normalized = listenHost.trim();
+  final normalized = webGatewayNormalizeListenHost(listenHost);
   final isWildcard =
       normalized.isEmpty ||
       normalized == '0.0.0.0' ||
       normalized == '::' ||
       normalized == '::0';
   if (!isWildcard) {
-    return List<String>.unmodifiable(<String>['http://$normalized:$port']);
+    return List<String>.unmodifiable(<String>[
+      webGatewayHttpUrl(normalized, port),
+    ]);
   }
-  final urls = <String>{'http://localhost:$port', 'http://127.0.0.1:$port'};
+  final urls = <String>{
+    webGatewayHttpUrl('localhost', port),
+    webGatewayHttpUrl('127.0.0.1', port),
+  };
   for (final addr in localIPv4Addresses) {
     final normalizedAddress = addr.trim();
     if (normalizedAddress.isEmpty) continue;
-    urls.add('http://$normalizedAddress:$port');
+    urls.add(webGatewayHttpUrl(normalizedAddress, port));
   }
   return List<String>.unmodifiable(urls);
 }
