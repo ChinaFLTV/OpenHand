@@ -46,6 +46,7 @@ import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
+import '../../../shared/ui/openhand_live_value.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
@@ -6210,16 +6211,19 @@ class _WebOpsConsoleHeader extends StatelessWidget {
             ),
             _WebOpsStatusChip(
               icon: Icons.schedule_rounded,
-              label: openHandLocalizedText(
-                context,
-                zh: '运行 ${formatCompactDurationMs(snapshot.uptimeMs)}',
-                zhHant: '運行 ${formatCompactDurationMs(snapshot.uptimeMs)}',
-                en: 'Uptime ${formatCompactDurationMs(snapshot.uptimeMs)}',
-                fr: 'Disponibilité ${formatCompactDurationMs(snapshot.uptimeMs)}',
-                de: 'Laufzeit ${formatCompactDurationMs(snapshot.uptimeMs)}',
-                ja: '稼働 ${formatCompactDurationMs(snapshot.uptimeMs)}',
-              ),
               color: cs.tertiary,
+              labelChild: OpenHandCompactDurationLabel(
+                elapsed: Duration(milliseconds: math.max(0, snapshot.uptimeMs)),
+                prefix: openHandLocalizedText(
+                  context,
+                  zh: '运行',
+                  zhHant: '運行',
+                  en: 'Uptime',
+                  fr: 'Disponibilité',
+                  de: 'Laufzeit',
+                  ja: '稼働',
+                ),
+              ),
             ),
             _WebOpsStatusChip(
               icon: config.authEnabled
@@ -6523,19 +6527,25 @@ class _WebOpsIconButton extends StatelessWidget {
 class _WebOpsStatusChip extends StatelessWidget {
   const _WebOpsStatusChip({
     required this.icon,
-    required this.label,
     required this.color,
+    this.label = '',
+    this.labelChild,
     this.monospace = false,
   });
 
   final IconData icon;
   final String label;
+  final Widget? labelChild;
   final Color color;
   final bool monospace;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final labelStyle = openHandOpsChipLabelStyle(
+      context,
+      color: Theme.of(context).colorScheme.onSurface,
+      monospace: monospace,
+    );
     return AnimatedContainer(
       duration: openHandMotionDurationMs(context, 180),
       curve: kOpenHandSwitchInCurve,
@@ -6552,17 +6562,16 @@ class _WebOpsStatusChip extends StatelessWidget {
           Icon(icon, size: 15, color: color),
           kOpenHandHGap7,
           Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.onSurface,
-                fontWeight: FontWeight.w800,
-                fontFeatures: monospace
-                    ? const [FontFeature.tabularFigures()]
-                    : null,
-              ),
+            child: DefaultTextStyle(
+              style: labelStyle,
+              child:
+                  labelChild ??
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: labelStyle,
+                  ),
             ),
           ),
         ],

@@ -5,8 +5,6 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 
-import 'bounded_animation.dart';
-import 'collision_safe_animated_switcher.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
 
@@ -37,9 +35,12 @@ class RollingText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedStyle = style.copyWith(
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
+    final resolvedStyle = DefaultTextStyle.of(context).style
+        .merge(style)
+        .copyWith(
+          leadingDistribution: TextLeadingDistribution.even,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        );
     final resolvedDuration = openHandMotionDuration(context, duration);
     final segments = _segmentRollingText(text);
     final metrics = _measureRollingGlyphs(
@@ -65,7 +66,6 @@ class RollingText extends StatelessWidget {
                     key: ValueKey<int>(i),
                     value: segments[i].value,
                     style: resolvedStyle,
-                    duration: resolvedDuration,
                   ),
         ],
       ),
@@ -254,40 +254,14 @@ class _RollingStaticRun extends StatelessWidget {
     super.key,
     required this.value,
     required this.style,
-    required this.duration,
   });
 
   final String value;
   final TextStyle style;
-  final Duration duration;
 
   @override
   Widget build(BuildContext context) {
-    final child = Text(
-      value,
-      key: ValueKey<String>(value),
-      style: style,
-      maxLines: 1,
-      softWrap: false,
-    );
-    if (duration <= Duration.zero) return child;
-    return AnimatedSwitcher(
-      duration: duration,
-      switchInCurve: kOpenHandSwitchInCurve,
-      switchOutCurve: kOpenHandSwitchOutCurve,
-      layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
-      transitionBuilder: (child, animation) {
-        return FadeTransition(
-          opacity: openHandBoundedCurveAnimation(
-            parent: animation,
-            curve: kOpenHandSwitchInCurve,
-            reverseCurve: kOpenHandSwitchOutCurve,
-          ),
-          child: child,
-        );
-      },
-      child: child,
-    );
+    return Text(value, style: style, maxLines: 1, softWrap: false);
   }
 }
 

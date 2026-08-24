@@ -128,15 +128,64 @@ bool isDateTimeInUtcRange(
   return true;
 }
 
-String formatCompactDuration(Duration value) {
+const String kCompactDurationHourSuffix = 'h';
+const String kCompactDurationMinuteSuffix = 'm';
+const String kCompactDurationSecondSuffix = 's';
+
+/// 紧凑时长的一段：数值与单位拆开，供日志拼串和运维胶囊共用。
+class CompactDurationPart {
+  const CompactDurationPart({required this.value, required this.suffix});
+
+  final int value;
+  final String suffix;
+
+  String get label => '$value$suffix';
+
+  /// 次级单位补到两位，避免 9s → 10s 时胶囊宽度跳动。
+  String displayValue({required bool pad}) {
+    if (!pad) return value < 0 ? '0' : '$value';
+    if (value < 0) return '00';
+    if (value > 99) return '$value';
+    return value.toString().padLeft(2, '0');
+  }
+}
+
+List<CompactDurationPart> compactDurationParts(Duration value) {
   final duration = nonNegativeDuration(value);
   if (duration.inHours > 0) {
-    return '${duration.inHours}h ${duration.inMinutes.remainder(60)}m';
+    return [
+      CompactDurationPart(
+        value: duration.inHours,
+        suffix: kCompactDurationHourSuffix,
+      ),
+      CompactDurationPart(
+        value: duration.inMinutes.remainder(60),
+        suffix: kCompactDurationMinuteSuffix,
+      ),
+    ];
   }
   if (duration.inMinutes > 0) {
-    return '${duration.inMinutes}m ${duration.inSeconds.remainder(60)}s';
+    return [
+      CompactDurationPart(
+        value: duration.inMinutes,
+        suffix: kCompactDurationMinuteSuffix,
+      ),
+      CompactDurationPart(
+        value: duration.inSeconds.remainder(60),
+        suffix: kCompactDurationSecondSuffix,
+      ),
+    ];
   }
-  return '${duration.inSeconds}s';
+  return [
+    CompactDurationPart(
+      value: duration.inSeconds,
+      suffix: kCompactDurationSecondSuffix,
+    ),
+  ];
+}
+
+String formatCompactDuration(Duration value) {
+  return compactDurationParts(value).map((part) => part.label).join(' ');
 }
 
 String formatCompactDurationMs(int milliseconds) {

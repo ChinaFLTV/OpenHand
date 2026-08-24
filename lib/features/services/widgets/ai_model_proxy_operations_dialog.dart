@@ -29,7 +29,6 @@ const double _kProxyOpsMaxWidth = 1180;
 const double _kProxyOpsMaxHeight = 860;
 const double _kProxyOpsOuterRadius = 28;
 const double _kProxyOpsShellRadius = 20;
-const double _kProxyOpsControlRadius = 12;
 const int _kProxyOpsTrendBuckets = 12;
 const Duration _kProxyOpsTrendWindow = Duration(
   minutes: _kProxyOpsTrendBuckets,
@@ -865,6 +864,7 @@ class _ProxyOpsHero extends StatelessWidget {
           Wrap(
             spacing: 10,
             runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _ProxyOpsChip(
                 icon: running
@@ -886,14 +886,7 @@ class _ProxyOpsHero extends StatelessWidget {
                 labelChild: OpenHandLiveDuration(
                   startedAt: data.controller.startedAt,
                   running: running,
-                  format: (elapsed) => text(
-                    zh: '运行 ${formatCompactDuration(elapsed)}',
-                    en: 'Uptime ${formatCompactDuration(elapsed)}',
-                  ),
-                  style: TextStyle(
-                    color: cs.tertiary,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  prefix: text(zh: '运行', en: 'Uptime'),
                 ),
               ),
               _ProxyOpsChip(
@@ -929,7 +922,7 @@ class _ProxyOpsHero extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
             decoration: BoxDecoration(
               color: const Color(0xff0b0d10),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(kOpenHandRadius12),
               border: Border.all(color: cs.primary.withValues(alpha: 0.22)),
             ),
             child: DefaultTextStyle(
@@ -1825,11 +1818,7 @@ class _ProxyOpsPanel extends StatelessWidget {
     );
     final sized = SizedBox(width: double.infinity, child: panel);
     if (onTap == null) return sized;
-    return OpenHandOpsPressScale(
-      onTap: onTap,
-      tone: cs.primary,
-      child: sized,
-    );
+    return OpenHandOpsPressScale(onTap: onTap, tone: cs.primary, child: sized);
   }
 }
 
@@ -1851,14 +1840,33 @@ class _ProxyOpsChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final duration = openHandMotionDuration(context, kOpenHandMotion180);
+    final labelStyle = openHandOpsChipLabelStyle(
+      context,
+      color: color,
+      monospace: monospace,
+    );
     return AnimatedContainer(
       duration: duration,
       curve: kOpenHandSwitchInCurve,
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(_kProxyOpsControlRadius),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            color.withValues(alpha: 0.16),
+            color.withValues(alpha: 0.07),
+          ],
+        ),
+        borderRadius: kOpenHandPillBorderRadius,
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1867,17 +1875,17 @@ class _ProxyOpsChip extends StatelessWidget {
               ? OpenHandLiveStatusDot(color: color, pulse: true, size: 10)
               : Icon(icon, size: 16, color: color),
           kOpenHandHGap6,
-          labelChild ??
-              OpenHandLiveValue(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.w800,
-                  fontFamily: monospace ? kOpenHandMonospaceFontFamily : null,
+          DefaultTextStyle(
+            style: labelStyle,
+            child:
+                labelChild ??
+                OpenHandLiveValue(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: labelStyle,
                 ),
-              ),
+          ),
         ],
       ),
     );

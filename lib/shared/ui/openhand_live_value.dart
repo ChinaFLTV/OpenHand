@@ -2,11 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../util/date_time_format.dart';
 import '../util/timer_safety.dart';
 import 'bounded_animation.dart';
 import 'collision_safe_animated_switcher.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
+import 'openhand_spacing.dart';
+import 'openhand_typography.dart';
 import 'rolling_text.dart';
 
 const Duration kOpenHandLiveValueDuration = kOpenHandMotion360;
@@ -18,17 +21,59 @@ const double kOpenHandLiveStatusDotMinOpacity = 0.42;
 const String kOpenHandLiveConsoleMarker = '➜';
 const String kOpenHandLiveConsoleArrowMarker = '→';
 const Duration kOpenHandLiveClockInterval = Duration(seconds: 1);
+const double kOpenHandLiveDurationLineHeight = 1.15;
 
-/// 短指标串走字符滚轮；URL / 长文案走整段交叉淡入，避免 IP 与路径被拆成滚轮。
+/// 短指标串走字符滚轮；URL / 中西混排 / 长文案走整段交叉淡入。
+/// 中日韩与数字拆成独立槽会把基线和字距撑乱，例如「运行 49m 11s」。
 bool openHandLiveValuePrefersRoller(String text) {
   if (text.isEmpty || text.length > kOpenHandLiveValueRollerMaxChars) {
     return false;
   }
   if (text.contains('://')) return false;
+  var hasDigit = false;
   for (final code in text.codeUnits) {
-    if (code >= 0x30 && code <= 0x39) return true;
+    if (code >= 0x30 && code <= 0x39) {
+      hasDigit = true;
+      continue;
+    }
+    if (_isLiveValueWideScript(code)) return false;
   }
-  return false;
+  return hasDigit;
+}
+
+bool _isLiveValueWideScript(int code) {
+  return (code >= 0x2E80 && code <= 0x9FFF) ||
+      (code >= 0xAC00 && code <= 0xD7AF) ||
+      (code >= 0xF900 && code <= 0xFAFF) ||
+      (code >= 0xFF00 && code <= 0xFFEF);
+}
+
+TextStyle openHandLiveResolvedTextStyle(
+  BuildContext context,
+  TextStyle? style,
+) {
+  return DefaultTextStyle.of(context).style
+      .merge(style)
+      .copyWith(
+        leadingDistribution: TextLeadingDistribution.even,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      );
+}
+
+TextStyle openHandOpsChipLabelStyle(
+  BuildContext context, {
+  required Color color,
+  bool monospace = false,
+}) {
+  return (Theme.of(context).textTheme.labelMedium ?? const TextStyle())
+      .copyWith(
+        color: color,
+        fontWeight: FontWeight.w800,
+        height: kOpenHandLiveDurationLineHeight,
+        leadingDistribution: TextLeadingDistribution.even,
+        fontFamily: monospace ? kOpenHandMonospaceFontFamily : null,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      );
 }
 
 Alignment _liveValueAlignment(TextAlign? textAlign) {
@@ -67,8 +112,7 @@ class OpenHandLiveValue extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final display = text.trim().isEmpty ? placeholder : text;
-    final resolvedStyle = (style ?? DefaultTextStyle.of(context).style)
-        .copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
+    final resolvedStyle = openHandLiveResolvedTextStyle(context, style);
     final motionDuration = openHandMotionDuration(context, duration);
     final alignment = _liveValueAlignment(textAlign);
     final prefersRoller = openHandLiveValuePrefersRoller(display);
@@ -142,18 +186,14 @@ class OpenHandLiveDuration extends StatefulWidget {
     super.key,
     required this.startedAt,
     required this.running,
-    required this.format,
+    this.prefix = '',
     this.style,
-    this.maxLines = 1,
-    this.overflow = TextOverflow.ellipsis,
   });
 
   final DateTime? startedAt;
   final bool running;
-  final String Function(Duration elapsed) format;
+  final String prefix;
   final TextStyle? style;
-  final int? maxLines;
-  final TextOverflow? overflow;
 
   @override
   State<OpenHandLiveDuration> createState() => _OpenHandLiveDurationState();
@@ -202,11 +242,67 @@ class _OpenHandLiveDurationState extends State<OpenHandLiveDuration> {
     final elapsed = !widget.running || start == null
         ? Duration.zero
         : DateTime.now().difference(start);
-    return OpenHandLiveValue(
-      widget.format(elapsed.isNegative ? Duration.zero : elapsed),
+    return OpenHandCompactDurationLabel(
+      elapsed: elapsed.isNegative ? Duration.zero : elapsed,
+      prefix: widget.prefix,
       style: widget.style,
-      maxLines: widget.maxLines,
-      overflow: widget.overflow,
+    );
+  }
+}
+
+/// 前缀 + 数值滚轮 + 单位贴排，避免「运行 49m 11s」整段拆槽后数字悬空。
+class OpenHandCompactDurationLabel extends StatelessWidget {
+  const OpenHandCompactDurationLabel({
+    super.key,
+    required this.elapsed,
+    this.prefix = '',
+    this.style,
+  });
+
+  final Duration elapsed;
+  final String prefix;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = compactDurationParts(elapsed);
+    final resolved = openHandLiveResolvedTextStyle(
+      context,
+      style,
+    ).copyWith(height: kOpenHandLiveDurationLineHeight);
+    final prefixText = prefix.trim();
+    return Semantics(
+      label: [
+        if (prefixText.isNotEmpty) prefixText,
+        formatCompactDuration(elapsed),
+      ].join(' '),
+      excludeSemantics: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (prefixText.isNotEmpty) ...[
+            Text(prefixText, maxLines: 1, softWrap: false, style: resolved),
+            kOpenHandHGap5,
+          ],
+          for (var i = 0; i < parts.length; i++) ...[
+            if (i > 0) kOpenHandHGap6,
+            OpenHandLiveValue(
+              parts[i].displayValue(
+                pad: parts.length > 1 && i == parts.length - 1,
+              ),
+              style: resolved,
+              maxLines: 1,
+              softWrap: false,
+            ),
+            Text(
+              parts[i].suffix,
+              maxLines: 1,
+              softWrap: false,
+              style: resolved,
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

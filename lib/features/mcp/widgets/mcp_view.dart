@@ -5504,18 +5504,14 @@ class _McpOpsHeroPanel extends StatelessWidget {
                 labelChild: OpenHandLiveDuration(
                   startedAt: snapshot.startedAt,
                   running: running,
-                  format: (elapsed) => _localizedText(
+                  prefix: _localizedText(
                     context,
-                    zh: '运行 ${formatCompactDuration(elapsed)}',
-                    en: 'Uptime ${formatCompactDuration(elapsed)}',
-                    zhHant: '運行 ${formatCompactDuration(elapsed)}',
-                    fr: 'Disponibilité ${formatCompactDuration(elapsed)}',
-                    de: 'Laufzeit ${formatCompactDuration(elapsed)}',
-                    ja: '稼働 ${formatCompactDuration(elapsed)}',
-                  ),
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: cs.tertiary,
-                    fontWeight: FontWeight.w800,
+                    zh: '运行',
+                    en: 'Uptime',
+                    zhHant: '運行',
+                    fr: 'Disponibilité',
+                    de: 'Laufzeit',
+                    ja: '稼働',
                   ),
                 ),
               ),
@@ -9287,11 +9283,15 @@ class _McpOpsStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final duration = openHandMotionDuration(context, kOpenHandMotion180);
     final maxLabelWidth = math.min(
       460.0,
       math.max(120.0, MediaQuery.sizeOf(context).width * 0.58),
+    );
+    final labelStyle = openHandOpsChipLabelStyle(
+      context,
+      color: color,
+      monospace: monospace,
     );
     return AnimatedContainer(
       duration: duration,
@@ -9311,18 +9311,17 @@ class _McpOpsStatusChip extends StatelessWidget {
           kOpenHandHGap6,
           ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxLabelWidth),
-            child:
-                labelChild ??
-                OpenHandLiveValue(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w800,
-                    fontFamily: monospace ? kOpenHandMonospaceFontFamily : null,
+            child: DefaultTextStyle(
+              style: labelStyle,
+              child:
+                  labelChild ??
+                  OpenHandLiveValue(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: labelStyle,
                   ),
-                ),
+            ),
           ),
         ],
       ),
