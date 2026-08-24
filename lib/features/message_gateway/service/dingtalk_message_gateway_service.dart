@@ -277,6 +277,7 @@ class DingTalkMessageGatewayService {
   final Map<String, Future<String?>> _mediaDownloadTasks =
       <String, Future<String?>>{};
   final Set<String> _activeMediaCacheBasenames = <String>{};
+  Completer<void> _mediaDownloadCancelSignal = Completer<void>();
   final OpenHandAsyncSemaphore _mediaDownloadSemaphore = OpenHandAsyncSemaphore(
     3,
     maxWaiters: 1024,
@@ -807,9 +808,22 @@ class DingTalkMessageGatewayService {
     }
     final active = _mediaDownloadTasks[taskKey];
     if (active != null) return active;
-    final task = _mediaDownloadSemaphore.withPermit(
-      () => _ensureMediaCached(normalizedMedia, taskKey: taskKey),
-    );
+    final cancelSignal = _mediaDownloadCancelSignal.future;
+    final task = () async {
+      final acquired = await _mediaDownloadSemaphore.acquireUnlessCancelled(
+        cancelSignal,
+      );
+      if (!acquired) return null;
+      try {
+        return await _ensureMediaCached(
+          normalizedMedia,
+          taskKey: taskKey,
+          cancelSignal: cancelSignal,
+        );
+      } finally {
+        _mediaDownloadSemaphore.release();
+      }
+    }();
     _mediaDownloadTasks[taskKey] = task;
     try {
       return await task;
@@ -823,6 +837,7 @@ class DingTalkMessageGatewayService {
   Future<String?> _ensureMediaCached(
     DingTalkGatewayMedia media, {
     required String taskKey,
+    required Future<void> cancelSignal,
   }) async {
     final extension = _mediaCacheExtension(media);
     final basename = _stableMediaCacheName(media);
@@ -870,6 +885,7 @@ class DingTalkMessageGatewayService {
         args,
         workingDirectory: directory.path,
         timeout: _mediaDownloadTimeout,
+        cancelSignal: cancelSignal,
       );
       if (!await output.exists()) {
         throw StateError('钉钉媒体下载完成但未找到本地文件。');
@@ -898,6 +914,7 @@ class DingTalkMessageGatewayService {
         );
       }
       final commandError = _normalizeCommandException(error);
+      if (commandError?.isCancelled ?? false) return null;
       if (commandError?.isInvalidInput ?? false) {
         _markMediaUnavailable(taskKey);
         _logRuntime('WARN', '钉钉媒体资源参数无效，已跳过缓存：${media.displayName}。');
@@ -929,6 +946,14 @@ class DingTalkMessageGatewayService {
     } finally {
       _activeMediaCacheBasenames.remove(basename);
     }
+  }
+
+  Future<void> cancelMediaDownloads() async {
+    final cancelSignal = _mediaDownloadCancelSignal;
+    _mediaDownloadCancelSignal = Completer<void>();
+    if (!cancelSignal.isCompleted) cancelSignal.complete();
+    final tasks = _mediaDownloadTasks.values.toList(growable: false);
+    if (tasks.isNotEmpty) await Future.wait<String?>(tasks);
   }
 
   Future<File?> _findCachedMediaFile(

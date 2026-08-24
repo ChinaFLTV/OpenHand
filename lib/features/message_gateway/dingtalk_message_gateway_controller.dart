@@ -1621,6 +1621,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     // 立即停止轮询，即使底层注销命令失败也不留下后台定时任务。
     final profile = _authStatus.identity.profile;
     await stopPolling();
+    await _cancelMediaDownloads();
     _authStatus = const DingTalkAuthStatus(authenticated: false);
     _notify();
     try {
@@ -5892,6 +5893,7 @@ ${_markdownStructuredFields(response)}''';
     _pendingInitialContextHydration.clear();
     _mediaHydrationFailures.clear();
     _targetSearchCache.clear();
+    await _cancelMediaDownloads();
     await _stopEventListening();
     final eventRestart = _eventRestartFuture;
     if (eventRestart != null) {
@@ -5957,6 +5959,15 @@ ${_markdownStructuredFields(response)}''';
           silentLog('dingtalk_gateway', '清理钉钉授权进程', error, stack),
     );
     _runtimeLogRevision.dispose();
+  }
+
+  Future<void> _cancelMediaDownloads() async {
+    await runAsyncCleanupBounded(
+      _service.cancelMediaDownloads,
+      timeout: _shutdownCleanupTimeout,
+      onError: (error, stack) =>
+          silentLog('dingtalk_gateway', '取消钉钉媒体下载', error, stack),
+    );
   }
 
   @override
