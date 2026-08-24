@@ -20,11 +20,20 @@ const String aiModelProxyFaviconPath = '/favicon.ico';
 const int aiModelProxyStatusHistoryDays = 90;
 const int aiModelProxySlowLatencyMs = 3000;
 const int aiModelProxySevereLatencyMs = 6000;
-const double aiModelProxyHealthHealthyRate = 0.99;
-const double aiModelProxyHealthWarningRate = 0.97;
-const double aiModelProxyHealthDegradedRate = 0.90;
+const double aiModelProxyHealthHealthyRate = 0.95;
+const double aiModelProxyHealthWarningRate = 0.80;
+const double aiModelProxyHealthDegradedRate = 0.60;
 const double aiModelProxyHealthSlowRate = 0.20;
 const double aiModelProxyHealthSevereSlowRate = 0.40;
+
+String aiModelProxyHealthPercentLabel(double rate) {
+  return '${(rate * 100).round()}%';
+}
+
+int aiModelProxyLatencySeconds(int milliseconds) {
+  return (milliseconds / 1000).round();
+}
+
 const int aiModelProxyDailyModelCap = 64;
 const int aiModelProxyMaxConcurrentRequests = 16;
 const int aiModelProxyTelemetryBucketMs = 60000;
