@@ -1017,8 +1017,9 @@ class AiModelProxySettings {
     int statusCode = 0,
     int attempt = 1,
     bool stream = false,
+    DateTime? at,
   }) {
-    final now = DateTime.now();
+    final now = at ?? DateTime.now();
     final record = AiModelProxyRequestRecord(
       id: 'proxy-${now.microsecondsSinceEpoch}',
       startedAt: now,

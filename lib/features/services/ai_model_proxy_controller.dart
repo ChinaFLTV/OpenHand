@@ -640,6 +640,7 @@ class AiModelProxyController extends ChangeNotifier {
     try {
       // 统计请求可能并发完成。先在内存中基于最新快照累加，再让最新任务落盘，
       // 避免 LatestTaskQueue 丢弃等待任务时覆盖前一个请求的统计。
+      final at = DateTime.now();
       _settings = _settings.record(
         success: success,
         tokens: tokens,
@@ -664,12 +665,14 @@ class AiModelProxyController extends ChangeNotifier {
         statusCode: statusCode,
         attempt: attempt,
         stream: stream,
+        at: at,
       );
       _recordTelemetry(
         successCount: success ? 1 : 0,
         failureCount: success ? 0 : 1,
         durationTotalMs: durationMs,
         tokenCount: tokens,
+        at: at,
       );
       _notify();
       await _writes.enqueue(() => _store.save(_settings));
@@ -842,9 +845,10 @@ class AiModelProxyController extends ChangeNotifier {
     int durationTotalMs = 0,
     int tokenCount = 0,
     bool sampleConnections = false,
+    DateTime? at,
   }) {
     if (_disposed) return;
-    final key = aiModelProxyTelemetryBucketKey(DateTime.now());
+    final key = aiModelProxyTelemetryBucketKey(at ?? DateTime.now());
     final connections = currentConnections;
     final includeContext = !_pendingTelemetry.containsKey(key);
     final delta = AiModelProxyTelemetryBucket(

@@ -989,6 +989,13 @@ class OpenHandSmoothLineChartPainter extends CustomPainter {
         textDirection: textDirection,
         centered: true,
       );
+      _paintTrendAxisLabels(
+        canvas,
+        chart,
+        xLabels,
+        color: labelColor,
+        textDirection: textDirection,
+      );
       return;
     }
 

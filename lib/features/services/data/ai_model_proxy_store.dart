@@ -46,42 +46,28 @@ class AiModelProxyStore {
   }) async {
     try {
       await _pruneTelemetryIfNeeded(force: true);
-      final exists = await _database.query(
-        _telemetryTable,
-        columns: const <String>['bucket_at_ms'],
-        limit: 1,
-      );
-      if (exists.isEmpty && legacyRecords.isNotEmpty) {
-        final buckets = <int, AiModelProxyTelemetryBucket>{};
-        final cutoff = DateTime.now().subtract(
-          const Duration(days: aiModelProxyTelemetryRetentionDays),
-        );
-        for (final record in legacyRecords) {
-          if (record.startedAt.isBefore(cutoff)) continue;
-          final key = aiModelProxyTelemetryBucketKey(record.startedAt);
-          final delta = AiModelProxyTelemetryBucket(
-            bucketAtMs: key,
-            ingressCount: 1,
-            successCount: record.success ? 1 : 0,
-            failureCount: record.success ? 0 : 1,
-            inboundBytes: record.inboundBytes,
-            outboundBytes: record.outboundBytes,
-            durationTotalMs: record.durationMs,
-            tokenCount: record.tokens,
-          );
-          buckets[key] = buckets[key]?.merge(delta) ?? delta;
-        }
-        await mergeTelemetry(buckets.values);
-      }
       final safeLimit = limit.clamp(12, 10000);
-      final rows = await _database.query(
-        _telemetryTable,
-        orderBy: 'bucket_at_ms DESC',
-        limit: safeLimit,
-      );
-      return <AiModelProxyTelemetryBucket>[
-        for (final row in rows.reversed) _telemetryFromRow(row),
-      ];
+      Future<List<AiModelProxyTelemetryBucket>> read() async {
+        final rows = await _database.query(
+          _telemetryTable,
+          orderBy: 'bucket_at_ms DESC',
+          limit: safeLimit,
+        );
+        return <AiModelProxyTelemetryBucket>[
+          for (final row in rows.reversed) _telemetryFromRow(row),
+        ];
+      }
+
+      var buckets = await read();
+      if (legacyRecords.isNotEmpty &&
+          buckets.every((bucket) => bucket.recordedRequestCount <= 0)) {
+        final extras = _requestTelemetryFromRecords(legacyRecords);
+        if (extras.isNotEmpty) {
+          await mergeTelemetry(extras);
+          buckets = await read();
+        }
+      }
+      return buckets;
     } catch (error, stack) {
       silentLog('ai_model_proxy_store', '读取中转站遥测', error, stack);
       return const <AiModelProxyTelemetryBucket>[];
@@ -170,6 +156,31 @@ class AiModelProxyStore {
         );
       }
     });
+  }
+
+  List<AiModelProxyTelemetryBucket> _requestTelemetryFromRecords(
+    Iterable<AiModelProxyRequestRecord> records,
+  ) {
+    final buckets = <int, AiModelProxyTelemetryBucket>{};
+    final cutoff = DateTime.now().subtract(
+      const Duration(days: aiModelProxyTelemetryRetentionDays),
+    );
+    for (final record in records) {
+      if (record.startedAt.isBefore(cutoff)) continue;
+      final key = aiModelProxyTelemetryBucketKey(record.startedAt);
+      final delta = AiModelProxyTelemetryBucket(
+        bucketAtMs: key,
+        ingressCount: 1,
+        successCount: record.success ? 1 : 0,
+        failureCount: record.success ? 0 : 1,
+        inboundBytes: record.inboundBytes,
+        outboundBytes: record.outboundBytes,
+        durationTotalMs: record.durationMs,
+        tokenCount: record.tokens,
+      );
+      buckets[key] = buckets[key]?.merge(delta) ?? delta;
+    }
+    return buckets.values.toList(growable: false);
   }
 
   Future<void> _pruneTelemetryIfNeeded({bool force = false}) async {

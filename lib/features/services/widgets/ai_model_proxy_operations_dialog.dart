@@ -32,6 +32,10 @@ const double _kProxyOpsOuterRadius = 28;
 const double _kProxyOpsShellRadius = 20;
 const double _kProxyOpsControlRadius = 12;
 const int _kProxyOpsTrendBuckets = 12;
+const Duration _kProxyOpsTrendWindow = Duration(
+  minutes: _kProxyOpsTrendBuckets,
+);
+const double _kProxyOpsTrendChartHeight = 204;
 const double _kProxyOpsSubDialogWidthFraction = 0.94;
 const double _kProxyOpsSubDialogHeightFraction = 0.92;
 const double _kProxyOpsInsightMaxWidth = 940;
@@ -261,38 +265,33 @@ class _ProxyOpsSnapshot {
           provider.id.trim().toLowerCase(): _providerDisplayName(provider),
     };
     final now = DateTime.now();
-    final latestRecord = records.isEmpty
-        ? null
-        : records.reduce(
-            (latest, item) =>
-                item.startedAt.isAfter(latest.startedAt) ? item : latest,
-          );
-    final latestTelemetry = telemetry.isEmpty ? null : telemetry.last.bucketAt;
-    final latestSignal = latestRecord == null
-        ? latestTelemetry
-        : latestTelemetry == null ||
-              latestRecord.startedAt.isAfter(latestTelemetry)
-        ? latestRecord.startedAt
-        : latestTelemetry;
-    final usesHistoricalTrendWindow =
-        latestSignal != null &&
-        (now.difference(latestSignal) >=
-                const Duration(minutes: _kProxyOpsTrendBuckets) ||
-            latestSignal.isAfter(now));
-    final trendEndAt = usesHistoricalTrendWindow ? latestSignal : now;
+    final activity = _proxyOpsRequestActivitySpan(
+      records: records,
+      telemetry: telemetry,
+      lastRequestAt: settings.lastRequestAt,
+    );
+    var latestRequestAt = activity.latest;
+    if (latestRequestAt != null && latestRequestAt.isAfter(now)) {
+      latestRequestAt = now;
+    }
+    var usesHistoricalTrendWindow = false;
+    var trendEndAt = now;
+    if (latestRequestAt != null &&
+        now.difference(latestRequestAt) >= _kProxyOpsTrendWindow) {
+      usesHistoricalTrendWindow = true;
+      trendEndAt = latestRequestAt;
+    }
     final trendEndKey = aiModelProxyTelemetryBucketKey(trendEndAt);
-    final hasPersistedTrend = telemetry.isNotEmpty;
-    final earliestSignal = telemetry.isNotEmpty
-        ? telemetry.first.bucketAt
-        : records.isEmpty
-        ? trendEndAt
-        : records
-              .reduce(
-                (earliest, item) => item.startedAt.isBefore(earliest.startedAt)
-                    ? item
-                    : earliest,
-              )
-              .startedAt;
+    var earliestSignal = trendEndAt;
+    final earliestRequestAt = activity.earliest;
+    if (earliestRequestAt != null &&
+        earliestRequestAt.isBefore(earliestSignal)) {
+      earliestSignal = earliestRequestAt;
+    }
+    if (telemetry.isNotEmpty &&
+        telemetry.first.bucketAt.isBefore(earliestSignal)) {
+      earliestSignal = telemetry.first.bucketAt;
+    }
     final earliestKey = aiModelProxyTelemetryBucketKey(earliestSignal);
     final trendBucketCount = math
         .max(
@@ -333,10 +332,8 @@ class _ProxyOpsSnapshot {
       final age = (trendEndKey - recordKey) ~/ aiModelProxyTelemetryBucketMs;
       if (age < 0 || age >= trendBucketCount) continue;
       final index = trendBucketCount - age - 1;
-      if (!hasPersistedTrend) {
-        (record.success ? success : failure)[index] += 1;
-        tokens[index] += record.tokens;
-      }
+      (record.success ? success : failure)[index] += 1;
+      tokens[index] += record.tokens;
       latencyBuckets[index].add(record.durationMs);
     }
     final averageLatency = List<double>.filled(trendBucketCount, 0);
@@ -352,22 +349,24 @@ class _ProxyOpsSnapshot {
           (trendEndKey - bucket.bucketAtMs) ~/ aiModelProxyTelemetryBucketMs;
       if (age < 0 || age >= trendBucketCount) continue;
       final index = trendBucketCount - age - 1;
-      success[index] = bucket.successCount.toDouble();
-      failure[index] = bucket.failureCount.toDouble();
-      tokens[index] = bucket.tokenCount.toDouble();
       connections[index] = bucket.peakConnections.toDouble();
       ingressErrors[index] = bucket.ingressErrorCount.toDouble();
       inboundBytes[index] = bucket.inboundBytes.toDouble();
       outboundBytes[index] = bucket.outboundBytes.toDouble();
-      if (bucket.recordedRequestCount > 0) {
-        averageLatency[index] = bucket.averageDurationMs;
+      if (bucket.recordedRequestCount <= 0) continue;
+      final existingRequests = (success[index] + failure[index]).round();
+      if (bucket.recordedRequestCount >= existingRequests) {
+        success[index] = bucket.successCount.toDouble();
+        failure[index] = bucket.failureCount.toDouble();
+        tokens[index] = bucket.tokenCount.toDouble();
       }
+      averageLatency[index] = bucket.averageDurationMs;
     }
-    if (!hasPersistedTrend && connections.isNotEmpty) {
-      connections.last = controller.currentConnections.toDouble();
-      ingressErrors.last = controller.runtimeErrorCount.toDouble();
-      inboundBytes.last = controller.runtimeInboundBytes.toDouble();
-      outboundBytes.last = controller.runtimeOutboundBytes.toDouble();
+    if (!usesHistoricalTrendWindow && connections.isNotEmpty) {
+      connections.last = math.max(
+        connections.last,
+        controller.currentConnections.toDouble(),
+      );
     }
     final sortedDurations = [...durations]..sort();
     return _ProxyOpsSnapshot(
@@ -484,10 +483,17 @@ class _ProxyOpsSnapshot {
   List<double> get recentP95LatencyBuckets =>
       p95LatencyBuckets.skip(_recentTrendStart).toList(growable: false);
 
-  List<DateTime> get bucketMinutes => [
-    for (var i = 0; i < trendSuccess.length; i++)
-      trendEndAt.subtract(Duration(minutes: trendSuccess.length - i - 1)),
-  ];
+  List<DateTime> get bucketMinutes {
+    final endKey = aiModelProxyTelemetryBucketKey(trendEndAt);
+    return [
+      for (var i = 0; i < trendSuccess.length; i++)
+        DateTime.fromMillisecondsSinceEpoch(
+          endKey -
+              (trendSuccess.length - i - 1) * aiModelProxyTelemetryBucketMs,
+          isUtc: true,
+        ).toLocal(),
+    ];
+  }
 
   List<DateTime> get recentBucketMinutes =>
       bucketMinutes.skip(_recentTrendStart).toList(growable: false);
@@ -496,15 +502,15 @@ class _ProxyOpsSnapshot {
       records.reversed.toList(growable: false);
 
   List<AiModelProxyRequestRecord> get windowRecords {
-    final start = trendEndAt.subtract(
-      const Duration(minutes: _kProxyOpsTrendBuckets),
-    );
-    final end = trendEndAt.add(const Duration(seconds: 59));
-    return [
-      for (final record in records)
-        if (!record.startedAt.isBefore(start) && !record.startedAt.isAfter(end))
-          record,
-    ];
+    final endKey = aiModelProxyTelemetryBucketKey(trendEndAt);
+    final startKey =
+        endKey - (_kProxyOpsTrendBuckets - 1) * aiModelProxyTelemetryBucketMs;
+    final matches = <AiModelProxyRequestRecord>[];
+    for (final record in records) {
+      final key = aiModelProxyTelemetryBucketKey(record.startedAt);
+      if (key >= startKey && key <= endKey) matches.add(record);
+    }
+    return matches;
   }
 
   Map<String, int> countBy(
@@ -590,6 +596,30 @@ String _providerDisplayName(AiModelConfig provider) {
   if (modelName.isNotEmpty) return modelName;
   final host = Uri.tryParse(provider.baseUrl)?.host.trim();
   return host?.isNotEmpty == true ? host! : provider.id.trim();
+}
+
+({DateTime? earliest, DateTime? latest}) _proxyOpsRequestActivitySpan({
+  required List<AiModelProxyRequestRecord> records,
+  required List<AiModelProxyTelemetryBucket> telemetry,
+  DateTime? lastRequestAt,
+}) {
+  DateTime? earliest;
+  DateTime? latest;
+  void consider(DateTime? value) {
+    if (value == null) return;
+    if (earliest == null || value.isBefore(earliest!)) earliest = value;
+    if (latest == null || value.isAfter(latest!)) latest = value;
+  }
+
+  consider(lastRequestAt);
+  for (final record in records) {
+    consider(record.startedAt);
+  }
+  for (final bucket in telemetry) {
+    if (bucket.recordedRequestCount <= 0) continue;
+    consider(bucket.bucketAt);
+  }
+  return (earliest: earliest, latest: latest);
 }
 
 int _proxyOpsPercentile(List<int> values, double percentile) {
@@ -1416,7 +1446,7 @@ class _ProxyOpsTrendPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
-            height: 204,
+            height: _kProxyOpsTrendChartHeight,
             child: OpenHandTrendZoomRegion(
               itemCount: series.fold<int>(
                 minutes.length,
@@ -1442,10 +1472,13 @@ class _ProxyOpsTrendPanel extends StatelessWidget {
                         formatHourMinuteLocal(minute),
                     ],
                   ),
+                  size: Size.infinite,
+                  child: const SizedBox.expand(),
                 ),
               ),
             ),
           ),
+          kOpenHandGap10,
           Wrap(
             spacing: 12,
             runSpacing: 8,
