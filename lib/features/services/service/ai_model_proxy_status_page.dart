@@ -23,6 +23,14 @@ const double _kStatusBarHoverScale = 1.22;
 const int _kStatusDotSizePx = 22;
 const int _kStatusBannerDotSizePx = 26;
 const int _kStatusMarkStrokePx = 2;
+const int _kStatusLiveEcgWidthPx = 56;
+const int _kStatusLiveEcgHeightPx = 18;
+const int _kStatusLiveEcgDurationMs = 1600;
+const int _kStatusLiveEcgIdleDurationMs = 2600;
+const int _kStatusLiveEcgErrorDurationMs = 2800;
+const String _kStatusLiveEcgWavePath =
+    'M0 10 H12 L14 8 L16 10 H22 L24 10 L26 3.2 L28.6 17.2 L32 6.8 L34 10 H42 L45.6 6.8 L49 10 H72';
+const String _kStatusLiveEcgFlatPath = 'M0 10 H72';
 
 String _statusPageLang(Locale locale) {
   final ui = openHandSupportedUiLocale(locale);
@@ -594,21 +602,40 @@ body {
 .live {
   --live-tone: var(--ok);
   display: inline-flex; align-items: center; justify-content: center;
-  width: 14px; height: 14px; flex: none; position: relative;
+  width: ${_kStatusLiveEcgWidthPx}px; height: ${_kStatusLiveEcgHeightPx}px;
+  flex: none; position: relative; overflow: visible;
 }
 .live[data-state="idle"] { --live-tone: var(--caution); }
 .live[data-state="err"] { --live-tone: var(--bad); }
-.live-dot {
-  width: 9px; height: 9px; border-radius: 50%;
-  background: var(--live-tone);
-  box-shadow: 0 0 0 0 color-mix(in srgb, var(--live-tone) 55%, transparent);
-  animation: live-pulse 1.8s var(--oh-spring) infinite;
+.live-ecg {
+  width: 100%; height: 100%; display: block; overflow: visible;
 }
-.live[data-state="err"] .live-dot {
-  animation: none;
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--live-tone) 28%, transparent);
+.live-ecg-base,
+.live-ecg-beam {
+  fill: none;
+  stroke: var(--live-tone);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
-.live.pulse { animation: dot-pulse var(--oh-dialog-enter-duration) var(--oh-spring); }
+.live-ecg-base { opacity: .22; }
+.live-ecg-beam {
+  stroke-dasharray: 16 84;
+  animation: live-ecg ${_kStatusLiveEcgDurationMs}ms linear infinite;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--live-tone) 72%, transparent));
+}
+.live[data-state="idle"] .live-ecg-beam {
+  animation-duration: ${_kStatusLiveEcgIdleDurationMs}ms;
+}
+.live-ecg-down { display: none; }
+.live[data-state="err"] .live-ecg-ok { display: none; }
+.live[data-state="err"] .live-ecg-down { display: unset; }
+.live[data-state="err"] .live-ecg-beam {
+  stroke-dasharray: 10 90;
+  animation-duration: ${_kStatusLiveEcgErrorDurationMs}ms;
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--live-tone) 55%, transparent));
+}
+.live.pulse { animation: tick-pop var(--oh-dialog-enter-duration) var(--oh-spring); }
 .ghost-btn {
   border: 1px solid var(--outline); background: var(--card); color: var(--text);
   border-radius: 999px; padding: 10px 16px; font: inherit; font-weight: 700;
@@ -943,10 +970,9 @@ body {
   40% { transform: scale(1.06); }
   100% { transform: scale(1); }
 }
-@keyframes live-pulse {
-  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--live-tone) 50%, transparent); }
-  70% { box-shadow: 0 0 0 8px transparent; }
-  100% { box-shadow: 0 0 0 0 transparent; }
+@keyframes live-ecg {
+  from { stroke-dashoffset: 100; }
+  to { stroke-dashoffset: 0; }
 }
 $kOpenHandDialogMotionStandaloneCss
 @media (max-width: ${_kStatusPageCompactMaxPx}px) {
@@ -968,6 +994,7 @@ $kOpenHandDialogMotionStandaloneCss
     animation: none !important; transition: none !important;
   }
   .bar.on .bar-fill, .bar:hover .bar-fill { box-shadow: none; }
+  .live-ecg-beam { stroke-dasharray: none; filter: none; }
 }
 html[data-motion='reduced'] *,
 html[data-motion='reduced'] *::before,
@@ -976,6 +1003,7 @@ html[data-motion='reduced'] *::after {
 }
 html[data-motion='reduced'] .bar.on .bar-fill,
 html[data-motion='reduced'] .bar:hover .bar-fill { box-shadow: none; }
+html[data-motion='reduced'] .live-ecg-beam { stroke-dasharray: none; filter: none; }
 </style>
 </head>
 <body>
@@ -995,7 +1023,16 @@ html[data-motion='reduced'] .bar:hover .bar-fill { box-shadow: none; }
       <div class="card-title">
         <h2>${_htmlEscape(copy.systemStatus)}</h2>
         <span class="live" id="live" data-state="ok" role="status" aria-label="${_htmlEscape(copy.live)}">
-          <span class="live-dot" aria-hidden="true"></span>
+          <svg class="live-ecg" viewBox="0 0 72 20" aria-hidden="true" focusable="false">
+            <g class="live-ecg-ok">
+              <path class="live-ecg-base" pathLength="100" d="$_kStatusLiveEcgWavePath"/>
+              <path class="live-ecg-beam" pathLength="100" d="$_kStatusLiveEcgWavePath"/>
+            </g>
+            <g class="live-ecg-down">
+              <path class="live-ecg-base" pathLength="100" d="$_kStatusLiveEcgFlatPath"/>
+              <path class="live-ecg-beam" pathLength="100" d="$_kStatusLiveEcgFlatPath"/>
+            </g>
+          </svg>
         </span>
       </div>
       <div class="range" id="range">$rangeLabel</div>
