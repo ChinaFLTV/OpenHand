@@ -161,6 +161,11 @@ double _finite(num value, {double fallback = 0}) {
   return result.isFinite ? result : fallback;
 }
 
+Color _heatmapForeground(Color tone, ColorScheme colors) {
+  final blend = colors.brightness == Brightness.light ? 0.32 : 0.14;
+  return Color.lerp(tone, colors.onSurface, blend) ?? tone;
+}
+
 /// 热力条着色策略：强度用透明度表达，状态用分段原色表达。
 enum OpenHandHeatmapTone { intensity, categorical }
 
@@ -3182,12 +3187,25 @@ class _OpenHandOperationalHeatmapState extends State<OpenHandOperationalHeatmap>
   @override
   void didUpdateWidget(covariant OpenHandOperationalHeatmap oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.segments, widget.segments) &&
-        _hoveredIndex != null &&
-        _hoveredIndex! >= widget.segments.length) {
+    final index = _hoveredIndex;
+    if (index == null ||
+        (identical(oldWidget.segments, widget.segments) &&
+            oldWidget.tone == widget.tone &&
+            oldWidget.color == widget.color)) {
+      return;
+    }
+    if (index >= widget.segments.length) {
       _pinned = false;
       _scheduleHide();
+      return;
     }
+    final segment = widget.segments[index];
+    final maximum = widget.segments.fold<double>(
+      0,
+      (value, item) => math.max(value, item.safeValue),
+    );
+    _activeTooltip = _tooltipFor(segment);
+    _activeAccent = _fillFor(segment, maximum);
   }
 
   @override
@@ -3415,72 +3433,92 @@ class _OpenHandOperationalHeatmapState extends State<OpenHandOperationalHeatmap>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Builder(
-                        builder: (cellContext) => MouseRegion(
-                          cursor: SystemMouseCursors.precise,
-                          onEnter: (_) => _showAt(index, cellContext),
-                          onHover: (_) => _captureAnchor(cellContext),
-                          onExit: (_) => _scheduleHide(),
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTapDown: (_) {
-                              setState(() => _pressedIndex = index);
-                            },
-                            onTapUp: (_) {
-                              if (_pressedIndex == index) {
-                                setState(() => _pressedIndex = null);
-                              }
-                            },
-                            onTapCancel: () {
-                              if (_pressedIndex == index) {
-                                setState(() => _pressedIndex = null);
-                              }
-                            },
-                            onTap: () => _togglePin(index, cellContext),
-                            child: Semantics(
-                              label: tooltip.semanticsLabel,
-                              button: true,
-                              child: Center(
-                                child: AnimatedScale(
-                                  scale: pressed
-                                      ? 0.92
-                                      : hovered
-                                      ? 1.08
-                                      : 1.0,
-                                  duration: openHandMotionDuration(
-                                    context,
-                                    kOpenHandMotion180,
-                                  ),
-                                  curve: hovered
-                                      ? kOpenHandEntranceCurve
-                                      : kOpenHandSwitchOutCurve,
-                                  child: AnimatedContainer(
+                        builder: (cellContext) => Focus(
+                          onFocusChange: (focused) {
+                            if (focused) {
+                              _showAt(index, cellContext);
+                            } else if (_hoveredIndex == index) {
+                              _pinned = false;
+                              _scheduleHide();
+                            }
+                          },
+                          onKeyEvent: (_, event) {
+                            if (event is! KeyDownEvent ||
+                                (event.logicalKey != LogicalKeyboardKey.enter &&
+                                    event.logicalKey !=
+                                        LogicalKeyboardKey.space)) {
+                              return KeyEventResult.ignored;
+                            }
+                            _togglePin(index, cellContext);
+                            return KeyEventResult.handled;
+                          },
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.click,
+                            onEnter: (_) => _showAt(index, cellContext),
+                            onHover: (_) => _captureAnchor(cellContext),
+                            onExit: (_) => _scheduleHide(),
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTapDown: (_) {
+                                setState(() => _pressedIndex = index);
+                              },
+                              onTapUp: (_) {
+                                if (_pressedIndex == index) {
+                                  setState(() => _pressedIndex = null);
+                                }
+                              },
+                              onTapCancel: () {
+                                if (_pressedIndex == index) {
+                                  setState(() => _pressedIndex = null);
+                                }
+                              },
+                              onTap: () => _togglePin(index, cellContext),
+                              child: Semantics(
+                                label: tooltip.semanticsLabel,
+                                button: true,
+                                child: Center(
+                                  child: AnimatedScale(
+                                    scale: pressed
+                                        ? 0.92
+                                        : hovered
+                                        ? 1.08
+                                        : 1.0,
                                     duration: openHandMotionDuration(
                                       context,
                                       kOpenHandMotion180,
                                     ),
-                                    curve: kOpenHandSwitchInCurve,
-                                    width: glyphWidth,
-                                    height: _kStatusStripHeight,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(
-                                        _kStatusStripRadius,
+                                    curve: hovered
+                                        ? kOpenHandEntranceCurve
+                                        : kOpenHandSwitchOutCurve,
+                                    child: AnimatedContainer(
+                                      duration: openHandMotionDuration(
+                                        context,
+                                        kOpenHandMotion180,
                                       ),
-                                      color: fill,
-                                      border: Border.all(
-                                        color: fill.withValues(
-                                          alpha: hovered ? 0.98 : 0.42,
+                                      curve: kOpenHandSwitchInCurve,
+                                      width: glyphWidth,
+                                      height: _kStatusStripHeight,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(
+                                          _kStatusStripRadius,
                                         ),
-                                        width: hovered ? 1.5 : 1,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
+                                        color: fill,
+                                        border: Border.all(
                                           color: fill.withValues(
-                                            alpha: hovered ? 0.42 : 0.16,
+                                            alpha: hovered ? 0.98 : 0.42,
                                           ),
-                                          blurRadius: hovered ? 14 : 5,
-                                          offset: Offset(0, hovered ? 5 : 1),
+                                          width: hovered ? 1.5 : 1,
                                         ),
-                                      ],
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: fill.withValues(
+                                              alpha: hovered ? 0.42 : 0.16,
+                                            ),
+                                            blurRadius: hovered ? 14 : 5,
+                                            offset: Offset(0, hovered ? 5 : 1),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -3685,6 +3723,8 @@ class _HeatmapHoverCard extends StatelessWidget {
     final subtitle = tooltip.subtitle?.trim();
     final summary = tooltip.summary?.trim();
     final badgeColor = tooltip.badgeColor ?? accent;
+    final accentForeground = _heatmapForeground(accent, colors);
+    final badgeForeground = _heatmapForeground(badgeColor, colors);
     return Material(
       color: Colors.transparent,
       child: ConstrainedBox(
@@ -3778,7 +3818,7 @@ class _HeatmapHoverCard extends StatelessWidget {
                               child: Text(
                                 badge,
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  color: badgeColor,
+                                  color: badgeForeground,
                                   fontWeight: FontWeight.w900,
                                 ),
                               ),
@@ -3836,7 +3876,7 @@ class _HeatmapHoverCard extends StatelessWidget {
                                 child: Icon(
                                   Icons.info_outline_rounded,
                                   size: 13,
-                                  color: accent.withValues(alpha: 0.9),
+                                  color: accentForeground,
                                 ),
                               ),
                               kOpenHandHGap6,
@@ -3877,6 +3917,7 @@ class _HeatmapHoverMetricTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final tone = metric.color ?? fallback;
+    final foreground = _heatmapForeground(tone, colors);
     final hint = metric.hint?.trim();
     return ConstrainedBox(
       constraints: const BoxConstraints(minWidth: 132, maxWidth: 164),
@@ -3896,7 +3937,7 @@ class _HeatmapHoverMetricTile extends StatelessWidget {
                   Icon(
                     metric.icon ?? Icons.analytics_outlined,
                     size: 14,
-                    color: tone,
+                    color: foreground,
                   ),
                   kOpenHandHGap5,
                   Expanded(
@@ -3919,7 +3960,7 @@ class _HeatmapHoverMetricTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w900,
-                  color: tone,
+                  color: foreground,
                   height: 1.15,
                 ),
               ),

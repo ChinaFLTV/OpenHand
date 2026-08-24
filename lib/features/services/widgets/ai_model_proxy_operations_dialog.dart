@@ -2872,6 +2872,9 @@ Widget _proxyOpsServiceHealthPanel(
   final cs = theme.colorScheme;
   final overall = _proxyOpsOverallHealth(data.hourStats);
   final tone = _proxyOpsServiceHealthColor(cs, overall);
+  final toneForeground = overall == _ProxyOpsServiceHealth.warning
+      ? (Color.lerp(tone, cs.onSurface, 0.36) ?? tone)
+      : tone;
   final inferenceRequests = data.records
       .where((record) => !isAiModelProxyStatusRecord(record))
       .length;
@@ -2936,8 +2939,8 @@ Widget _proxyOpsServiceHealthPanel(
       en: '$degradedHours hours entered the orange degraded band, with $warningHours more in yellow. Some calls may fail or slow noticeably.',
     ),
     _ProxyOpsServiceHealth.outage => text(
-      zh: '有 $outageHours 个整点失败率达到 10% 以上，这些时段的对外中转可能已经中断或大量失败。',
-      en: '$outageHours hours had a failure rate of 10% or more. Clients may have seen interruptions then.',
+      zh: '近窗包含 $outageHours 个红色中断时段、$degradedHours 个橙色降级时段和 $warningHours 个黄色波动时段。中断时段的失败率已达到 10% 以上。',
+      en: 'The window contains $outageHours red outage, $degradedHours orange degraded, and $warningHours yellow disruption hours. Outage hours reached at least 10% failures.',
     ),
   };
   Widget legendDot(Color color, String label) {
@@ -3014,7 +3017,7 @@ Widget _proxyOpsServiceHealthPanel(
                       title,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w900,
-                        color: tone,
+                        color: toneForeground,
                       ),
                     ),
                     kOpenHandGap4,
@@ -3043,7 +3046,7 @@ Widget _proxyOpsServiceHealthPanel(
                 child: Text(
                   _proxyOpsServiceHealthLabel(text, overall),
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: tone,
+                    color: toneForeground,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
