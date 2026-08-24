@@ -9,6 +9,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_table_metric_cells.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -741,6 +742,19 @@ class _DependencyMetricDetailDialogState
                       '${session['state'] ?? '--'}',
                       '${session['waitEvent'] ?? '无等待'} / ${_durationText(_integer(session['durationSeconds']))}',
                     ],
+                    cellWidgets: [
+                      null,
+                      null,
+                      OpenHandTableStatusBadge(
+                        label:
+                            '${session['state'] ?? kOpenHandTableMetricEmpty}',
+                        color: _sessionStateColor(
+                          context,
+                          '${session['state'] ?? ''}',
+                        ),
+                      ),
+                      null,
+                    ],
                     value: _integer(session['durationSeconds']).toDouble(),
                   ),
                 )
@@ -1167,10 +1181,7 @@ class _DependencyMetricDetailDialogState
           title: '大 Key 排行',
           subtitle: '当前已加载 Key 样本，按序列化大小倒序',
           icon: Icons.vertical_align_top_rounded,
-          trailing: _StatusTag(
-            label: '${records.length} 个样本',
-            color: tone,
-          ),
+          trailing: _StatusTag(label: '${records.length} 个样本', color: tone),
           child: _RankTable(
             headers: const ['Key', '类型', '占用', 'TTL'],
             emptyLabel: '当前命名空间暂无 Key',
@@ -1558,8 +1569,18 @@ class _DependencyMetricDetailDialogState
                     cells: [
                       _dateTimeText(command['occurredAt']),
                       '${command['command'] ?? '--'}',
-                      '${_number(command['durationMs']).toStringAsFixed(2)} ms',
+                      openHandTableMetricDuration(
+                        _number(command['durationMs']),
+                      ),
                       '${command['client'] ?? '--'}',
+                    ],
+                    cellWidgets: [
+                      null,
+                      null,
+                      OpenHandDurationMetricCell(
+                        durationMs: _number(command['durationMs']),
+                      ),
+                      null,
                     ],
                     value: _number(command['durationMs']),
                   ),
@@ -3314,10 +3335,11 @@ class _HorizontalBars extends StatelessWidget {
 }
 
 class _RankRow {
-  const _RankRow({required this.cells, required this.value});
+  const _RankRow({required this.cells, required this.value, this.cellWidgets});
 
   final List<String> cells;
   final double value;
+  final List<Widget?>? cellWidgets;
 }
 
 class _RankTable extends StatelessWidget {
@@ -3338,8 +3360,11 @@ class _RankTable extends StatelessWidget {
       emptyLabel: emptyLabel,
       rows: rows
           .map(
-            (row) =>
-                OpenHandOperationalRankRow(cells: row.cells, value: row.value),
+            (row) => OpenHandOperationalRankRow(
+              cells: row.cells,
+              value: row.value,
+              cellWidgets: row.cellWidgets,
+            ),
           )
           .toList(growable: false),
       onRowTap: (row) => showServiceDetailsDialog(
@@ -4176,6 +4201,19 @@ String _percent(double value) {
 }
 
 String _compactCount(int value) => formatCompactCount(value);
+
+Color _sessionStateColor(BuildContext context, String raw) {
+  final colors = Theme.of(context).colorScheme;
+  final value = raw.trim().toLowerCase();
+  if (value.contains('active')) return OpenHandStatusColors.success;
+  if (value.contains('idle in transaction')) {
+    return OpenHandStatusColors.warning;
+  }
+  if (value.contains('abort') || value.contains('disabled')) {
+    return OpenHandStatusColors.error;
+  }
+  return colors.onSurfaceVariant;
+}
 
 String _durationText(int seconds) {
   if (seconds < 0) return '永久';

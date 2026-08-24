@@ -69,6 +69,7 @@ import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_table_metric_cells.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/ui/openhand_tap_region.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';

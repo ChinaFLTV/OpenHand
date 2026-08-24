@@ -19,6 +19,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_table_metric_cells.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/ui/reorder_proxy_decorator.dart';
 import '../../../shared/util/byte_size_format.dart';
@@ -174,7 +175,6 @@ class _ThreadSessionManagementDialogState
       silentLog('thread_session_management_dialog', '刷新会话标记', error, stack);
     }
   }
-
 
   /// 根据内存中的会话统计估算磁盘占用，避免大量会话时同步访问文件系统。
   /// 中英文混合内容按每字符约 2 字节估算。
@@ -741,7 +741,9 @@ class _ThreadSessionManagementDialogState
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
                             color: theme.colorScheme.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(kOpenHandRadius8),
+                            borderRadius: BorderRadius.circular(
+                              kOpenHandRadius8,
+                            ),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1360,11 +1362,7 @@ class _SessionRow extends StatelessWidget {
     final stats = session.statistics;
     final total = stats.totalMessageCount;
     String pct(int n) => total == 0 ? '0%' : '${(100 * n / total).round()}%';
-    final tokenSummary = stats.totalTokens != null
-        ? '${stats.totalTokens} '
-              '(in ${stats.totalPromptTokens ?? 0} / out '
-              '${stats.totalCompletionTokens ?? 0})'
-        : l10n.tsmRowUnknown;
+    final hasTokens = stats.totalTokens != null;
     final bytes = diskBytes ?? estimateBytes(session);
     final isApproxBytes = diskBytes == null;
 
@@ -1476,11 +1474,38 @@ class _SessionRow extends StatelessWidget {
                             label: l10n.tsmRowMessages,
                             value: '$total',
                           ),
-                          _MetaChip(
-                            icon: Icons.bolt_outlined,
-                            label: l10n.tsmRowToken,
-                            value: tokenSummary,
-                          ),
+                          if (!hasTokens)
+                            _MetaChip(
+                              icon: Icons.bolt_outlined,
+                              label: l10n.tsmRowToken,
+                              value: l10n.tsmRowUnknown,
+                            )
+                          else
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.bolt_outlined,
+                                  size: 14,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                                kOpenHandHGap4,
+                                Text(
+                                  '${l10n.tsmRowToken}: ',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                OpenHandTokenMetricCell(
+                                  total: stats.totalTokens ?? 0,
+                                  promptTokens: stats.totalPromptTokens ?? 0,
+                                  completionTokens:
+                                      stats.totalCompletionTokens ?? 0,
+                                  showBreakdown: !denseMode,
+                                  alignEnd: false,
+                                ),
+                              ],
+                            ),
                         ],
                       ),
                       if (total > 0 && !denseMode) ...[

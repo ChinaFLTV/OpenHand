@@ -7,11 +7,13 @@ import 'package:provider/provider.dart';
 
 import '../../../app/model/dialog_animation_settings.dart';
 import '../../../app/state/settings_controller.dart';
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/feature_state_card.dart';
+import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -19,9 +21,11 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_table_metric_cells.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/reorder_proxy_decorator.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
 import '../../settings/index.dart'
@@ -2873,28 +2877,75 @@ class _ProxyRecordTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final text = openHandTextResolver(context);
     final mode = record.proxyMode.trim();
-    return Card(
-      child: ListTile(
-        leading: Icon(
-          record.success
-              ? Icons.check_circle_outline_rounded
-              : Icons.error_outline_rounded,
-          color: record.success ? colors.primary : colors.error,
+    final statusLabel = record.success
+        ? text(zh: '成功', en: 'OK')
+        : text(zh: '失败', en: 'Fail');
+    return HoverLift(
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(kOpenHandRadius16),
+          border: Border.all(color: colors.outlineVariant),
         ),
-        title: Text('${record.providerId} / ${record.modelId}'),
-        subtitle: Text(
-          '${aiModelProxyApiStyleLabel(record.apiStyle, text)} · ${record.tokens} tokens · ${record.durationMs} ms'
-          '${mode.isEmpty ? '' : ' · ${aiModelProxyDispatchModeLabel(mode, text)}'}'
-          '${record.proxyEndpoint.isEmpty ? '' : ' · ${record.proxyEndpoint}'}'
-          '${record.clientEndpoint.isEmpty ? '' : ' · ${record.clientEndpoint}'}'
-          '${record.error == null ? '' : ' · ${record.error}'}',
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+        child: Row(
+          children: [
+            Expanded(
+              child: OpenHandTableStackedCell(
+                primary: '${record.providerId} / ${record.modelId}',
+                secondary: [
+                  aiModelProxyApiStyleLabel(record.apiStyle, text),
+                  if (mode.isNotEmpty)
+                    aiModelProxyDispatchModeLabel(mode, text),
+                  if (record.clientEndpoint.isNotEmpty) record.clientEndpoint,
+                  if (record.error != null && record.error!.trim().isNotEmpty)
+                    record.error!.trim(),
+                ].join(' · '),
+              ),
+            ),
+            kOpenHandHGap12,
+            Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                OpenHandTokenMetricCell(
+                  total: record.tokens,
+                  promptTokens: record.promptTokens,
+                  completionTokens: record.completionTokens,
+                ),
+                OpenHandDurationMetricCell(
+                  durationMs: record.durationMs <= 0 ? null : record.durationMs,
+                ),
+                OpenHandTableStatusBadge(
+                  label: statusLabel,
+                  color: record.success
+                      ? OpenHandStatusColors.success
+                      : OpenHandStatusColors.error,
+                  tooltip: [
+                    statusLabel,
+                    if (record.statusCode > 0) '${record.statusCode}',
+                  ].join(' · '),
+                ),
+                Text(
+                  formatListDateTime(record.startedAt),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
-        trailing: Text(record.startedAt.toLocal().toString().substring(0, 16)),
       ),
     );
   }

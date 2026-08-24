@@ -23,6 +23,7 @@ import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_table_metric_cells.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
@@ -3151,10 +3152,10 @@ class _ProxyRequestTelemetryDialogState
                         page: _page,
                         pageSize: _pageSize,
                         enabled: !_loading,
-                        onPageChanged: (page) => unawaited(_loadPage(page: page)),
-                        onPageSizeChanged: (size) => unawaited(
-                          _loadPage(page: 1, pageSize: size),
-                        ),
+                        onPageChanged: (page) =>
+                            unawaited(_loadPage(page: page)),
+                        onPageSizeChanged: (size) =>
+                            unawaited(_loadPage(page: 1, pageSize: size)),
                       ),
                     ],
                   ),
@@ -3516,15 +3517,15 @@ class _ProxyRequestRecordsTable extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       physics: openHandDialogAwareScrollPhysics(context),
       child: SizedBox(
-        width: 1120,
+        width: 1200,
         child: Table(
           columnWidths: const <int, TableColumnWidth>{
             0: FixedColumnWidth(112),
             1: FixedColumnWidth(220),
             2: FixedColumnWidth(180),
             3: FixedColumnWidth(176),
-            4: FixedColumnWidth(88),
-            5: FixedColumnWidth(100),
+            4: FixedColumnWidth(128),
+            5: FixedColumnWidth(132),
             6: FlexColumnWidth(),
           },
           border: TableBorder(
@@ -3575,10 +3576,24 @@ class _ProxyRequestRecordsTable extends StatelessWidget {
                   _ProxyRequestCell(record.proxyNode),
                   _ProxyRequestCell(record.remoteIp),
                   _ProxyRequestCell(_dateTimeLabel(record.sample.at)),
-                  _ProxyRequestCell('${record.sample.responseTimeMs} ms'),
+                  _ProxyRequestCell(
+                    record.sample.responseTimeMs <= 0
+                        ? kOpenHandTableMetricEmpty
+                        : openHandTableMetricDuration(
+                            record.sample.responseTimeMs,
+                          ),
+                    child: OpenHandDurationMetricCell(
+                      durationMs: record.sample.responseTimeMs <= 0
+                          ? null
+                          : record.sample.responseTimeMs,
+                    ),
+                  ),
                   _ProxyRequestCell(
                     _proxyRequestResultLabel(record.sample, text),
-                    color: _proxyRequestResultColor(record.sample),
+                    child: OpenHandTableStatusBadge(
+                      label: _proxyRequestResultLabel(record.sample, text),
+                      color: _proxyRequestResultColor(record.sample),
+                    ),
                   ),
                   _ProxyRequestCell(record.note),
                 ],
@@ -3591,28 +3606,25 @@ class _ProxyRequestRecordsTable extends StatelessWidget {
 }
 
 class _ProxyRequestCell extends StatelessWidget {
-  const _ProxyRequestCell(this.value, {this.style, this.color});
+  const _ProxyRequestCell(this.value, {this.style, this.child});
 
   final String value;
   final TextStyle? style;
-  final Color? color;
+  final Widget? child;
 
   @override
   Widget build(BuildContext context) => Tooltip(
     message: value,
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
-      child: Text(
-        value,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style:
-            style ??
-            Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: color,
-              fontWeight: color == null ? null : FontWeight.w800,
-            ),
-      ),
+      child:
+          child ??
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: style ?? Theme.of(context).textTheme.bodySmall,
+          ),
     ),
   );
 }
@@ -5104,9 +5116,7 @@ class _ProxyEndpointDetailsDialogState
     AiExposureProxyUsageStatistics statistics,
   ) {
     final text = openHandTextResolver(context);
-    final requests = statistics.recentRequests.reversed.toList(
-      growable: false,
-    );
+    final requests = statistics.recentRequests.reversed.toList(growable: false);
     return _ProxyDetailSection(
       icon: Icons.history_rounded,
       title: text(zh: '最近请求记录', en: 'Recent requests'),
@@ -5126,65 +5136,65 @@ class _ProxyEndpointDetailsDialogState
               builder: (context, pageItems) => Column(
                 children: pageItems
                     .map((item) {
-                    final color = item.succeeded
-                        ? OpenHandStatusColors.success
-                        : item.timedOut
-                        ? OpenHandStatusColors.warning
-                        : OpenHandStatusColors.error;
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 5),
-                      child: Row(
-                        children: [
-                          Icon(
-                            item.succeeded
-                                ? Icons.check_circle_outline_rounded
-                                : item.timedOut
-                                ? Icons.timer_off_outlined
-                                : Icons.error_outline_rounded,
-                            size: 18,
-                            color: color,
-                          ),
-                          kOpenHandHGap9,
-                          Expanded(
-                            child: Text(
+                      final color = item.succeeded
+                          ? OpenHandStatusColors.success
+                          : item.timedOut
+                          ? OpenHandStatusColors.warning
+                          : OpenHandStatusColors.error;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 5),
+                        child: Row(
+                          children: [
+                            Icon(
                               item.succeeded
-                                  ? text(zh: '请求成功', en: 'Succeeded')
+                                  ? Icons.check_circle_outline_rounded
                                   : item.timedOut
-                                  ? text(zh: '请求超时', en: 'Timed out')
-                                  : text(zh: '请求失败', en: 'Failed'),
-                              style: Theme.of(context).textTheme.bodyMedium,
+                                  ? Icons.timer_off_outlined
+                                  : Icons.error_outline_rounded,
+                              size: 18,
+                              color: color,
                             ),
-                          ),
-                          if (item.statusCode != null)
-                            SizedBox(
-                              width: 56,
+                            kOpenHandHGap9,
+                            Expanded(
                               child: Text(
-                                'HTTP ${item.statusCode}',
+                                item.succeeded
+                                    ? text(zh: '请求成功', en: 'Succeeded')
+                                    : item.timedOut
+                                    ? text(zh: '请求超时', en: 'Timed out')
+                                    : text(zh: '请求失败', en: 'Failed'),
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ),
+                            if (item.statusCode != null)
+                              SizedBox(
+                                width: 56,
+                                child: Text(
+                                  'HTTP ${item.statusCode}',
+                                  style: Theme.of(context).textTheme.labelSmall,
+                                ),
+                              ),
+                            SizedBox(
+                              width: 72,
+                              child: Text(
+                                '${item.responseTimeMs} ms',
+                                textAlign: TextAlign.end,
+                                style: Theme.of(context).textTheme.labelMedium,
+                              ),
+                            ),
+                            kOpenHandHGap12,
+                            SizedBox(
+                              width: 58,
+                              child: Text(
+                                _timeLabel(item.at),
+                                textAlign: TextAlign.end,
                                 style: Theme.of(context).textTheme.labelSmall,
                               ),
                             ),
-                          SizedBox(
-                            width: 72,
-                            child: Text(
-                              '${item.responseTimeMs} ms',
-                              textAlign: TextAlign.end,
-                              style: Theme.of(context).textTheme.labelMedium,
-                            ),
-                          ),
-                          kOpenHandHGap12,
-                          SizedBox(
-                            width: 58,
-                            child: Text(
-                              _timeLabel(item.at),
-                              textAlign: TextAlign.end,
-                              style: Theme.of(context).textTheme.labelSmall,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  })
-                  .toList(growable: false),
+                          ],
+                        ),
+                      );
+                    })
+                    .toList(growable: false),
               ),
             ),
     );

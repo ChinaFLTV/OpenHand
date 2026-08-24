@@ -6,8 +6,8 @@ const double _kAiUsageMetricHeight = 150;
 const double _kAiUsageHeatmapMinWidth = 820;
 const double _kAiUsageBreakdownTableMinWidth = 860;
 const double _kAiUsageBreakdownHeaderHeight = 46;
-const double _kAiUsageBreakdownRowHeight = 58;
-const double _kAiUsageBreakdownBodyMaxHeight = 348;
+const double _kAiUsageBreakdownRowHeight = 74;
+const double _kAiUsageBreakdownBodyMaxHeight = 444;
 const double _kAiUsageToolbarControlHeight = 40;
 const double _kAiUsageFilterChipMinWidth = 96;
 const double _kAiUsageFilterChipIconSlotWidth = 26;
@@ -422,10 +422,7 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
         kOpenHandGap14,
         _AiUsageBreakdownPanel(snapshot: snapshot),
         kOpenHandGap14,
-        _AiUsageRecentPanel(
-          filter: _filter,
-          revision: snapshot.generatedAt,
-        ),
+        _AiUsageRecentPanel(filter: _filter, revision: snapshot.generatedAt),
       ],
     );
   }
@@ -2981,9 +2978,12 @@ class _AiUsageBreakdownTableState extends State<_AiUsageBreakdownTable> {
           ),
           cell(
             flex: 16,
-            child: value(
-              header ? 'Token' : _usageInteger(item?.totalTokens ?? 0),
-            ),
+            child: header
+                ? value('Token')
+                : OpenHandTokenMetricCell(
+                    total: item!.totalTokens,
+                    showBreakdown: false,
+                  ),
           ),
           cell(
             flex: 11,
@@ -3003,27 +3003,28 @@ class _AiUsageBreakdownTableState extends State<_AiUsageBreakdownTable> {
           ),
           cell(
             flex: 16,
-            child: value(
-              header
-                  ? _settingsAiUsagCostLabel(context)
-                  : item!.pricedRequestCount == 0
-                  ? '—'
-                  : item.pricedRequestCount < item.requestCount
-                  ? '≥${_usageMoney(item.totalCostUsd)}'
-                  : _usageMoney(item.totalCostUsd),
-            ),
+            child: header
+                ? value(_settingsAiUsagCostLabel(context))
+                : OpenHandCostMetricCell(
+                    usd: item!.pricedRequestCount == 0
+                        ? null
+                        : item.totalCostUsd,
+                    uncertain: item.pricedRequestCount < item.requestCount,
+                  ),
           ),
           cell(
             flex: 16,
-            child: value(
-              header
-                  ? openHandLocalizedText(
+            child: header
+                ? value(
+                    openHandLocalizedText(
                       context,
                       zh: '平均耗时',
                       en: 'Avg. Latency',
-                    )
-                  : _usageDuration(item?.averageDurationMs ?? 0),
-            ),
+                    ),
+                  )
+                : OpenHandDurationMetricCell(
+                    durationMs: item?.averageDurationMs,
+                  ),
           ),
         ],
       ),
@@ -3253,10 +3254,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                                       color: index.isEven
                                           ? colorScheme.surfaceContainerLowest
                                           : colorScheme.surfaceContainerLow,
-                                      child: _buildRow(
-                                        context,
-                                        record: record,
-                                      ),
+                                      child: _buildRow(context, record: record),
                                     ),
                                   );
                                 },
@@ -3292,10 +3290,6 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
       fontWeight: FontWeight.w700,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
-    final secondaryStyle = theme.textTheme.labelSmall?.copyWith(
-      color: colorScheme.onSurfaceVariant,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
     final traceLabel = openHandLocalizedText(
       context,
       zh: '追踪 ID',
@@ -3328,50 +3322,12 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
     }
 
     Widget details(String primary, String secondary, {bool alignEnd = false}) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: alignEnd
-            ? CrossAxisAlignment.end
-            : CrossAxisAlignment.start,
-        children: [
-          value(primary, align: alignEnd ? TextAlign.right : TextAlign.left),
-          kOpenHandGap3,
-          Text(
-            secondary,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: alignEnd ? TextAlign.right : TextAlign.left,
-            style: secondaryStyle,
-          ),
-        ],
+      return OpenHandTableStackedCell(
+        primary: primary,
+        secondary: secondary,
+        alignEnd: alignEnd,
       );
     }
-
-    Widget tokenPart(String marker, int amount, Color color) {
-      return Text.rich(
-        TextSpan(
-          children: [
-            TextSpan(
-              text: '$marker ',
-              style: secondaryStyle?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            TextSpan(text: _usageCompactNumber(amount), style: secondaryStyle),
-          ],
-        ),
-        maxLines: 1,
-      );
-    }
-
-    final promptTokens = record?.usage.promptTokens ?? 0;
-    final completionTokens = record?.usage.completionTokens ?? 0;
-    final cacheReadTokens = record?.usage.cacheReadTokens ?? 0;
-    final statusColor = _usageRequestStatusColor(
-      colorScheme,
-      record?.status ?? '',
-    );
 
     return Material(
       color: Colors.transparent,
@@ -3425,48 +3381,23 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                 alignment: Alignment.centerRight,
                 child: header
                     ? value('Token', align: TextAlign.right)
-                    : Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          value(
-                            '${_usageInteger(record!.usage.totalTokens ?? 0)}${record.usageEstimated ? ' ≈' : ''}',
-                            align: TextAlign.right,
-                          ),
-                          kOpenHandGap3,
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 2,
-                            alignment: WrapAlignment.end,
-                            children: [
-                              tokenPart('↑', promptTokens, colorScheme.primary),
-                              tokenPart(
-                                '↓',
-                                completionTokens,
-                                colorScheme.tertiary,
-                              ),
-                              if (cacheReadTokens > 0)
-                                tokenPart(
-                                  '↻',
-                                  cacheReadTokens,
-                                  OpenHandStatusColors.success,
-                                ),
-                            ],
-                          ),
-                        ],
+                    : OpenHandTokenMetricCell(
+                        total: record!.usage.totalTokens ?? 0,
+                        promptTokens: record.usage.promptTokens ?? 0,
+                        completionTokens: record.usage.completionTokens ?? 0,
+                        cacheReadTokens: record.usage.cacheReadTokens ?? 0,
+                        estimated: record.usageEstimated,
                       ),
               ),
               cell(
                 flex: 12,
                 alignment: Alignment.centerRight,
-                child: value(
-                  header
-                      ? _settingsAiUsagCostLabel(context)
-                      : record!.totalCostUsd == null
-                      ? '—'
-                      : _usageMoney(record.totalCostUsd!),
-                  align: TextAlign.right,
-                ),
+                child: header
+                    ? value(
+                        _settingsAiUsagCostLabel(context),
+                        align: TextAlign.right,
+                      )
+                    : OpenHandCostMetricCell(usd: record!.totalCostUsd),
               ),
               cell(
                 flex: 12,
@@ -3476,11 +3407,14 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                         openHandLocalizedText(context, zh: '耗时', en: 'Latency'),
                         align: TextAlign.right,
                       )
-                    : details(
-                        _usageDuration(record!.durationMs.toDouble()),
-                        '${openHandLocalizedText(context, zh: '首字', en: 'First')} '
-                        '${record.firstTokenMs == null ? '—' : _usageDuration(record.firstTokenMs!.toDouble())}',
-                        alignEnd: true,
+                    : OpenHandDurationMetricCell(
+                        durationMs: record!.durationMs,
+                        firstTokenMs: record.firstTokenMs,
+                        firstTokenLabel: openHandLocalizedText(
+                          context,
+                          zh: '首字',
+                          en: 'First',
+                        ),
                       ),
               ),
               cell(
@@ -3491,49 +3425,19 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                         openHandStatusLabel(context),
                         align: TextAlign.center,
                       )
-                    : Tooltip(
-                        message:
-                            '${openHandStatusLabel(context)}: ${_usageRequestStatusLabel(context, record!.status)}'
+                    : OpenHandTableStatusBadge(
+                        label: _usageRequestStatusLabel(
+                          context,
+                          record!.status,
+                        ),
+                        color: _usageRequestStatusColor(
+                          colorScheme,
+                          record.status,
+                        ),
+                        tooltip:
+                            '${openHandStatusLabel(context)}: ${_usageRequestStatusLabel(context, record.status)}'
                             '${record.errorType == null ? '' : '\n${openHandErrorLabel(context)}: ${record.errorType}'}'
                             '\n$traceLabel: ${record.traceId}',
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: statusColor.withValues(alpha: 0.12),
-                            borderRadius: kOpenHandPillBorderRadius,
-                            border: Border.all(
-                              color: statusColor.withValues(alpha: 0.28),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 7,
-                                height: 7,
-                                decoration: BoxDecoration(
-                                  color: statusColor,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              kOpenHandHGap6,
-                              Text(
-                                _usageRequestStatusLabel(
-                                  context,
-                                  record.status,
-                                ),
-                                maxLines: 1,
-                                style: theme.textTheme.labelMedium?.copyWith(
-                                  color: statusColor,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       ),
               ),
             ],
@@ -4671,16 +4575,8 @@ String _usageRequestStatusLabel(BuildContext context, String status) {
   };
 }
 
-Color _usageRequestStatusColor(ColorScheme colors, String status) {
-  return switch (status) {
-    AiUsageRequestStatus.success => OpenHandStatusColors.success,
-    AiUsageRequestStatus.timeout => OpenHandStatusColors.warning,
-    AiUsageRequestStatus.cancelled => colors.onSurfaceVariant,
-    AiUsageRequestStatus.failed ||
-    AiUsageRequestStatus.error => OpenHandStatusColors.error,
-    _ => colors.onSurfaceVariant,
-  };
-}
+Color _usageRequestStatusColor(ColorScheme colors, String status) =>
+    openHandTableMetricRequestStatusColor(colors, status);
 
 IconData _usageRequestStatusIcon(String status) {
   return switch (status) {
@@ -4725,45 +4621,17 @@ Color _usageHeatColor(ColorScheme colors, double intensity) {
   return Color.lerp(colors.primaryContainer, colors.primary, 0.2 + safe * 0.8)!;
 }
 
-String _usageCompactNumber(int value, {int decimals = 1}) {
-  final abs = value.abs();
-  if (abs >= 100000000) {
-    return '${(value / 100000000).toStringAsFixed(decimals)}亿';
-  }
-  if (abs >= 10000) {
-    return '${(value / 10000).toStringAsFixed(decimals)}万';
-  }
-  if (abs >= 1000) {
-    return '${(value / 1000).toStringAsFixed(decimals)}k';
-  }
-  return '$value';
-}
+String _usageCompactNumber(int value, {int decimals = 1}) =>
+    openHandTableMetricCompactNumber(value, decimals: decimals);
 
-String _usageInteger(int value) {
-  final text = value.abs().toString();
-  final buffer = StringBuffer(value < 0 ? '-' : '');
-  for (var index = 0; index < text.length; index++) {
-    if (index > 0 && (text.length - index) % 3 == 0) buffer.write(',');
-    buffer.write(text[index]);
-  }
-  return buffer.toString();
-}
+String _usageInteger(int value) => openHandTableMetricInteger(value);
 
-String _usageMoney(double value) {
-  if (value == 0) return r'$0.0000';
-  if (value.abs() < 0.0001) return r'<$0.0001';
-  return '\$${value.toStringAsFixed(value.abs() < 1 ? 4 : 2)}';
-}
+String _usageMoney(double value) => openHandTableMetricMoney(value);
 
 String _usagePercent(double value) => '${(value * 100).toStringAsFixed(1)}%';
 
-String _usageDuration(double milliseconds) {
-  if (milliseconds < 1000) return '${milliseconds.round()}ms';
-  if (milliseconds < 60000) {
-    return '${(milliseconds / 1000).toStringAsFixed(1)}s';
-  }
-  return '${(milliseconds / 60000).toStringAsFixed(1)}m';
-}
+String _usageDuration(double milliseconds) =>
+    openHandTableMetricDuration(milliseconds);
 
 String _usageBucketLabel(String key) {
   if (key.length >= 13 && key[10] == 'T') {

@@ -16,6 +16,7 @@ import 'animated_dialog.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'openhand_safe_scrollbar.dart';
+import 'openhand_table_metric_cells.dart';
 import 'openhand_table_pagination.dart';
 
 /// 图表四周留白与底部标签区高度。
@@ -62,6 +63,8 @@ const double _kRankBodyMaxHeight = 348;
 const int _kRankWidthSampleCap = 400;
 const double _kRankCellPadding = 12;
 const double _kRankValueMinWidth = 64;
+const double _kRankMetricMinWidth = 128;
+const double _kRankMetricMaxWidth = 196;
 const double _kRankLeadingMinWidth = 148;
 const double _kRankLeadingMaxWidth = 280;
 const double _kRankCompactMaxWidth = 120;
@@ -80,7 +83,7 @@ final RegExp _kRankCompactCellPattern = RegExp(
   caseSensitive: false,
 );
 
-enum _RankColumnKind { datetime, compact, leading, text }
+enum _RankColumnKind { datetime, compact, metric, leading, text }
 
 bool _isRankDateTimeCell(String text) => _kRankDateTimePattern.hasMatch(text);
 
@@ -115,21 +118,36 @@ _RankColumnKind _rankColumnKind({
   }
   if (datetime) return _RankColumnKind.datetime;
   if (_rankHeaderPrefersText(header)) return _RankColumnKind.text;
+  if (openHandIsTableMetricHeader(header)) return _RankColumnKind.metric;
   if (seen && allCompact) return _RankColumnKind.compact;
   if (index == 0) return _RankColumnKind.leading;
   return _RankColumnKind.text;
+}
+
+Alignment _rankCellAlignment(int index, String header) {
+  if (index == 0) return Alignment.centerLeft;
+  if (openHandTableMetricHeaderCenters(header)) return Alignment.center;
+  return Alignment.centerRight;
+}
+
+TextAlign _rankCellTextAlign(int index, String header) {
+  if (index == 0) return TextAlign.left;
+  if (openHandTableMetricHeaderCenters(header)) return TextAlign.center;
+  return TextAlign.right;
 }
 
 double _rankFitColumnWidth(_RankColumnKind kind, double padded) {
   final minWidth = switch (kind) {
     _RankColumnKind.datetime => _kRankDateTimeMinWidth,
     _RankColumnKind.compact => _kRankValueMinWidth,
+    _RankColumnKind.metric => _kRankMetricMinWidth,
     _RankColumnKind.leading => _kRankLeadingMinWidth,
     _RankColumnKind.text => _kRankTextMinWidth,
   };
   final maxWidth = switch (kind) {
     _RankColumnKind.datetime => double.infinity,
     _RankColumnKind.compact => _kRankCompactMaxWidth,
+    _RankColumnKind.metric => _kRankMetricMaxWidth,
     _RankColumnKind.leading => _kRankLeadingMaxWidth,
     _RankColumnKind.text => _kRankTextMaxWidth,
   };
@@ -3158,11 +3176,13 @@ class OpenHandOperationalRankRow {
     required this.cells,
     required this.value,
     this.subtitle = '',
+    this.cellWidgets,
   });
 
   final List<String> cells;
   final num value;
   final String subtitle;
+  final List<Widget?>? cellWidgets;
 }
 
 /// 可用于任意运维实体的排名表。视觉对齐用量分析表：圆角边框、表头灰底、奇偶行。
@@ -3407,6 +3427,23 @@ class _OpenHandOperationalRankTableState
       total: sortedRows.length,
     );
     final pageRows = window.slice(sortedRows);
+    var usesMetricRows = false;
+    for (final row in widget.rows) {
+      final widgets = row.cellWidgets;
+      if (widgets == null) continue;
+      for (final cell in widgets) {
+        if (cell == null) continue;
+        usesMetricRows = true;
+        break;
+      }
+      if (usesMetricRows) break;
+    }
+    final rowHeight = usesMetricRows
+        ? kOpenHandTableMetricRowHeight
+        : _kRankRowHeight;
+    final defaultBodyMax = usesMetricRows
+        ? kOpenHandTableMetricBodyMaxHeight
+        : _kRankBodyMaxHeight;
     final widthRows = sortedRows.length <= _kRankWidthSampleCap
         ? sortedRows
         : pageRows;
@@ -3430,8 +3467,7 @@ class _OpenHandOperationalRankTableState
         textScaler: scaler,
       );
       final samples = <String>[
-        for (final row in widthRows)
-          i < row.cells.length ? row.cells[i] : '--',
+        for (final row in widthRows) i < row.cells.length ? row.cells[i] : '--',
       ];
       for (final cell in samples) {
         content = math.max(
@@ -3459,12 +3495,12 @@ class _OpenHandOperationalRankTableState
               );
               final bodyCap =
                   widget.maxBodyHeight.isFinite &&
-                      widget.maxBodyHeight > _kRankRowHeight
+                      widget.maxBodyHeight > rowHeight
                   ? widget.maxBodyHeight
-                  : _kRankBodyMaxHeight;
+                  : defaultBodyMax;
               final bodyHeight = math.min(
                 bodyCap,
-                math.max(pageRows.length, 1) * _kRankRowHeight,
+                math.max(pageRows.length, 1) * rowHeight,
               );
               Widget paintedCell({
                 required int index,
@@ -3507,6 +3543,79 @@ class _OpenHandOperationalRankTableState
                 );
               }
 
+              Widget cellBody({
+                required bool header,
+                required int index,
+                required OpenHandOperationalRankRow? row,
+              }) {
+                final headerText = widget.headers[index];
+                final alignment = _rankCellAlignment(index, headerText);
+                final textAlign = _rankCellTextAlign(index, headerText);
+                if (header) {
+                  return Align(
+                    alignment: alignment,
+                    child: paintedCell(
+                      index: index,
+                      text: headerText,
+                      style: headerStyle,
+                      align: textAlign,
+                    ),
+                  );
+                }
+                final widgets = row?.cellWidgets;
+                final metric = widgets != null && index < widgets.length
+                    ? widgets[index]
+                    : null;
+                if (metric != null) {
+                  return Align(
+                    alignment: alignment,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: alignment,
+                      child: metric,
+                    ),
+                  );
+                }
+                if (index == 0) {
+                  final subtitle = row?.subtitle.trim() ?? '';
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      paintedCell(
+                        index: index,
+                        text: row == null || row.cells.isEmpty
+                            ? '--'
+                            : row.cells.first,
+                        style: valueStyle,
+                        align: TextAlign.left,
+                        note: subtitle,
+                      ),
+                      if (subtitle.isNotEmpty) ...[
+                        kOpenHandGap3,
+                        paintedCell(
+                          index: index,
+                          text: subtitle,
+                          style: subtitleStyle,
+                          align: TextAlign.left,
+                        ),
+                      ],
+                    ],
+                  );
+                }
+                return Align(
+                  alignment: alignment,
+                  child: paintedCell(
+                    index: index,
+                    text: row != null && index < row.cells.length
+                        ? row.cells[index]
+                        : '--',
+                    style: valueStyle,
+                    align: textAlign,
+                  ),
+                );
+              }
+
               Widget rowFor(
                 OpenHandOperationalRankRow? row, {
                 required bool header,
@@ -3525,7 +3634,7 @@ class _OpenHandOperationalRankTableState
                       for (var i = 0; i < columnCount; i++)
                         SizedBox(
                           width: widths[i],
-                          height: header ? _kRankHeaderHeight : _kRankRowHeight,
+                          height: header ? _kRankHeaderHeight : rowHeight,
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
@@ -3533,55 +3642,11 @@ class _OpenHandOperationalRankTableState
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: _kRankCellPadding,
                                 ),
-                                child: header || i != 0
-                                    ? Align(
-                                        alignment: i == 0
-                                            ? Alignment.centerLeft
-                                            : Alignment.centerRight,
-                                        child: paintedCell(
-                                          index: i,
-                                          text: header
-                                              ? widget.headers[i]
-                                              : (row != null &&
-                                                        i < row.cells.length
-                                                    ? row.cells[i]
-                                                    : '--'),
-                                          style: header
-                                              ? headerStyle
-                                              : valueStyle,
-                                          align: i == 0
-                                              ? TextAlign.left
-                                              : TextAlign.right,
-                                        ),
-                                      )
-                                    : Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          paintedCell(
-                                            index: i,
-                                            text: row!.cells.isEmpty
-                                                ? '--'
-                                                : row.cells.first,
-                                            style: valueStyle,
-                                            align: TextAlign.left,
-                                            note: row.subtitle.trim(),
-                                          ),
-                                          if (row.subtitle
-                                              .trim()
-                                              .isNotEmpty) ...[
-                                            kOpenHandGap3,
-                                            paintedCell(
-                                              index: i,
-                                              text: row.subtitle.trim(),
-                                              style: subtitleStyle,
-                                              align: TextAlign.left,
-                                            ),
-                                          ],
-                                        ],
-                                      ),
+                                child: cellBody(
+                                  header: header,
+                                  index: i,
+                                  row: row,
+                                ),
                               ),
                               if (header)
                                 Align(
@@ -3680,68 +3745,69 @@ class _OpenHandOperationalRankTableState
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       OpenHandSafeScrollbar(
-                    controller: _horizontal,
-                    scrollbarOrientation: ScrollbarOrientation.bottom,
-                    thumbVisibility: true,
-                    child: SingleChildScrollView(
-                      controller: _horizontal,
-                      scrollDirection: Axis.horizontal,
-                      physics: _dragColumn == null
-                          ? const ClampingScrollPhysics()
-                          : const NeverScrollableScrollPhysics(),
-                      child: SizedBox(
-                        width: tableWidth,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ColoredBox(
-                              color: colors.surfaceContainerHighest,
-                              child: rowFor(null, header: true),
-                            ),
-                            SizedBox(
-                              height: bodyHeight,
-                              width: tableWidth,
-                              child: OpenHandSafeScrollbar(
-                                controller: _vertical,
-                                thumbVisibility:
-                                    pageRows.length * _kRankRowHeight >
-                                    bodyCap,
-                                child: ListView.builder(
-                                  controller: _vertical,
-                                  primary: false,
-                                  padding: EdgeInsets.zero,
-                                  itemCount: pageRows.length,
-                                  itemExtent: _kRankRowHeight,
-                                  physics: openHandDialogAwareScrollPhysics(
-                                    context,
-                                    fallback: const ClampingScrollPhysics(),
-                                  ),
-                                  itemBuilder: (context, index) {
-                                    final row = pageRows[index];
-                                    final painted = ColoredBox(
-                                      color: index.isEven
-                                          ? colors.surfaceContainerLowest
-                                          : colors.surfaceContainerLow,
-                                      child: rowFor(row, header: false),
-                                    );
-                                    if (widget.onRowTap == null) return painted;
-                                    return MouseRegion(
-                                      cursor: SystemMouseCursors.click,
-                                      child: GestureDetector(
-                                        behavior: HitTestBehavior.opaque,
-                                        onTap: () => widget.onRowTap!(row),
-                                        child: painted,
-                                      ),
-                                    );
-                                  },
+                        controller: _horizontal,
+                        scrollbarOrientation: ScrollbarOrientation.bottom,
+                        thumbVisibility: true,
+                        child: SingleChildScrollView(
+                          controller: _horizontal,
+                          scrollDirection: Axis.horizontal,
+                          physics: _dragColumn == null
+                              ? const ClampingScrollPhysics()
+                              : const NeverScrollableScrollPhysics(),
+                          child: SizedBox(
+                            width: tableWidth,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ColoredBox(
+                                  color: colors.surfaceContainerHighest,
+                                  child: rowFor(null, header: true),
                                 ),
-                              ),
+                                SizedBox(
+                                  height: bodyHeight,
+                                  width: tableWidth,
+                                  child: OpenHandSafeScrollbar(
+                                    controller: _vertical,
+                                    thumbVisibility:
+                                        pageRows.length * rowHeight > bodyCap,
+                                    child: ListView.builder(
+                                      controller: _vertical,
+                                      primary: false,
+                                      padding: EdgeInsets.zero,
+                                      itemCount: pageRows.length,
+                                      itemExtent: rowHeight,
+                                      physics: openHandDialogAwareScrollPhysics(
+                                        context,
+                                        fallback: const ClampingScrollPhysics(),
+                                      ),
+                                      itemBuilder: (context, index) {
+                                        final row = pageRows[index];
+                                        final painted = ColoredBox(
+                                          color: index.isEven
+                                              ? colors.surfaceContainerLowest
+                                              : colors.surfaceContainerLow,
+                                          child: rowFor(row, header: false),
+                                        );
+                                        if (widget.onRowTap == null) {
+                                          return painted;
+                                        }
+                                        return MouseRegion(
+                                          cursor: SystemMouseCursors.click,
+                                          child: GestureDetector(
+                                            behavior: HitTestBehavior.opaque,
+                                            onTap: () => widget.onRowTap!(row),
+                                            child: painted,
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  ),
                       OpenHandTablePaginationBar(
                         total: window.total,
                         page: window.page,

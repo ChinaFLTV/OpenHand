@@ -12,6 +12,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_table_metric_cells.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -39,7 +40,7 @@ const double _kProxyOpsPanelPairBreakpoint = 480;
 const double _kProxyOpsDonutHeight = 220;
 const double _kProxyOpsGaugeSize = 108;
 const double _kProxyOpsMetricHelperHeight = 16;
-const double _kProxyOpsRankBodyMaxHeight = 348;
+const double _kProxyOpsRankBodyMaxHeight = 444;
 const double _kProxyOpsConnectionListMaxHeight = 290;
 const int _kProxyOpsHourBuckets = 24;
 const int _kProxyOpsFastLatencyMs = 1000;
@@ -2573,9 +2574,153 @@ String _proxyOpsPercentLabel(double rate) =>
     '${(rate * 100).toStringAsFixed(1)}%';
 
 String _proxyOpsDurationLabel(int ms) {
-  if (ms <= 0) return '—';
-  if (ms >= 10000) return '${(ms / 1000).toStringAsFixed(1)}s';
-  return '${ms}ms';
+  if (ms <= 0) return kOpenHandTableMetricEmpty;
+  return openHandTableMetricDuration(ms);
+}
+
+OpenHandTokenMetricCell _proxyOpsTokenMetric({
+  required int total,
+  int promptTokens = 0,
+  int completionTokens = 0,
+}) {
+  return OpenHandTokenMetricCell(
+    total: total,
+    promptTokens: promptTokens,
+    completionTokens: completionTokens,
+  );
+}
+
+OpenHandDurationMetricCell _proxyOpsDurationMetric(int ms) {
+  return OpenHandDurationMetricCell(durationMs: ms <= 0 ? null : ms);
+}
+
+OpenHandTableStatusBadge _proxyOpsRequestStatusBadge(
+  BuildContext context,
+  AiModelProxyRequestRecord record,
+) {
+  final text = openHandTextResolver(context);
+  final label = record.success
+      ? text(zh: '成功', en: 'OK')
+      : text(zh: '失败', en: 'Fail');
+  return OpenHandTableStatusBadge(
+    label: label,
+    color: record.success
+        ? OpenHandStatusColors.success
+        : OpenHandStatusColors.error,
+    tooltip: [
+      label,
+      if (record.statusCode > 0) '${record.statusCode}',
+      if (record.error != null && record.error!.trim().isNotEmpty)
+        record.error!.trim(),
+    ].join(' · '),
+  );
+}
+
+OpenHandTableStatusBadge _proxyOpsEnablementBadge(
+  BuildContext context, {
+  required bool enabled,
+}) {
+  final colors = Theme.of(context).colorScheme;
+  final text = openHandTextResolver(context);
+  return OpenHandTableStatusBadge(
+    label: enabled ? text(zh: '启用', en: 'On') : text(zh: '停用', en: 'Off'),
+    color: enabled ? OpenHandStatusColors.success : colors.onSurfaceVariant,
+  );
+}
+
+OpenHandOperationalRankRow _proxyOpsExposedModelRankRow({
+  required BuildContext context,
+  required AiModelProxyRoute route,
+  required Map<String, _ProxyOpsGroupStat> usageByExposed,
+}) {
+  final text = openHandTextResolver(context);
+  final usage = usageByExposed[route.exposedModel];
+  final lastAt = usage?.lastAt;
+  return OpenHandOperationalRankRow(
+    subtitle: text(
+      zh: '${route.backends.where((backend) => backend.enabled).length} 个启用后备',
+      en: '${route.backends.where((backend) => backend.enabled).length} enabled backends',
+    ),
+    cells: [
+      route.exposedModel,
+      route.enabled ? text(zh: '启用', en: 'On') : text(zh: '停用', en: 'Off'),
+      '${route.backends.length}',
+      '${usage?.requests ?? 0}',
+      usage == null
+          ? kOpenHandTableMetricEmpty
+          : _proxyOpsPercentLabel(usage.successRate),
+      openHandTableMetricInteger(usage?.tokens ?? 0),
+      usage == null
+          ? kOpenHandTableMetricEmpty
+          : _proxyOpsDurationLabel(usage.avgMs),
+      lastAt == null ? kOpenHandTableMetricEmpty : formatListDateTime(lastAt),
+    ],
+    cellWidgets: [
+      null,
+      _proxyOpsEnablementBadge(context, enabled: route.enabled),
+      null,
+      null,
+      null,
+      _proxyOpsTokenMetric(
+        total: usage?.tokens ?? 0,
+        promptTokens: usage?.promptTokens ?? 0,
+        completionTokens: usage?.completionTokens ?? 0,
+      ),
+      _proxyOpsDurationMetric(usage?.avgMs ?? 0),
+      null,
+    ],
+    value: usage?.requests ?? 0,
+  );
+}
+
+OpenHandOperationalRankRow _proxyOpsBackendRankRow({
+  required BuildContext context,
+  required _ProxyOpsSnapshot data,
+  required AiModelProxyRoute route,
+  required AiModelProxyBackend backend,
+  required Map<String, _ProxyOpsGroupStat> usageByBackend,
+}) {
+  final text = openHandTextResolver(context);
+  final usage =
+      usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}'];
+  final lastAt = usage?.lastAt;
+  return OpenHandOperationalRankRow(
+    subtitle: data.providerLabelForId(backend.providerId) ?? backend.providerId,
+    cells: [
+      backend.modelId,
+      route.exposedModel,
+      route.enabled && backend.enabled
+          ? text(zh: '启用', en: 'On')
+          : text(zh: '停用', en: 'Off'),
+      '${usage?.requests ?? 0}',
+      usage == null
+          ? kOpenHandTableMetricEmpty
+          : _proxyOpsPercentLabel(usage.successRate),
+      openHandTableMetricInteger(usage?.tokens ?? 0),
+      usage == null
+          ? kOpenHandTableMetricEmpty
+          : _proxyOpsDurationLabel(usage.avgMs),
+      lastAt == null ? kOpenHandTableMetricEmpty : formatListDateTime(lastAt),
+    ],
+    cellWidgets: [
+      null,
+      null,
+      _proxyOpsEnablementBadge(
+        context,
+        enabled: route.enabled && backend.enabled,
+      ),
+      null,
+      null,
+      _proxyOpsTokenMetric(
+        total: usage?.tokens ?? 0,
+        promptTokens: usage?.promptTokens ?? 0,
+        completionTokens: usage?.completionTokens ?? 0,
+      ),
+      _proxyOpsDurationMetric(usage?.avgMs ?? 0),
+      null,
+    ],
+    value: usage?.requests ?? 0,
+  );
 }
 
 OpenHandOperationalRankTable _proxyOpsGroupTable({
@@ -2613,8 +2758,6 @@ OpenHandOperationalRankTable _proxyOpsGroupTable({
             if (group.userAgentFamily.isNotEmpty &&
                 group.userAgentFamily != group.label)
               group.userAgentFamily,
-            if (group.promptTokens > 0 || group.completionTokens > 0)
-              '↑${group.promptTokens}  ↓${group.completionTokens}',
             if (group.avgTokens > 0) '单均 ${group.avgTokens}',
             if (group.streams > 0) '流式 ${group.streams}',
             if (group.inboundBytes + group.outboundBytes > 0)
@@ -2626,11 +2769,29 @@ OpenHandOperationalRankTable _proxyOpsGroupTable({
             '${group.successes}',
             '${group.failures}',
             _proxyOpsPercentLabel(group.successRate),
-            '${group.tokens}',
+            openHandTableMetricInteger(group.tokens),
             _proxyOpsDurationLabel(group.avgMs),
             _proxyOpsDurationLabel(group.p95Ms),
             '${group.peers.length}',
-            group.lastAt == null ? '—' : formatListDateTime(group.lastAt!),
+            group.lastAt == null
+                ? kOpenHandTableMetricEmpty
+                : formatListDateTime(group.lastAt!),
+          ],
+          cellWidgets: [
+            null,
+            null,
+            null,
+            null,
+            null,
+            _proxyOpsTokenMetric(
+              total: group.tokens,
+              promptTokens: group.promptTokens,
+              completionTokens: group.completionTokens,
+            ),
+            _proxyOpsDurationMetric(group.avgMs),
+            _proxyOpsDurationMetric(group.p95Ms),
+            null,
+            null,
           ],
           value: valueOf?.call(group) ?? group.requests,
         ),
@@ -2708,11 +2869,7 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
               if (record.exposedModel.trim().isNotEmpty)
                 record.exposedModel.trim(),
             ].join(' · '),
-            record.tokens <= 0
-                ? '—'
-                : record.promptTokens + record.completionTokens > 0
-                ? '${record.tokens}  ↑${record.promptTokens} ↓${record.completionTokens}'
-                : '${record.tokens}',
+            openHandTableMetricInteger(record.tokens),
             _proxyOpsDurationLabel(record.durationMs),
             [
               _proxyOpsUserAgentFamily(
@@ -2736,8 +2893,53 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
             ].join(' '),
             if (showError)
               (record.error?.trim().isEmpty ?? true)
-                  ? '—'
+                  ? kOpenHandTableMetricEmpty
                   : record.error!.trim(),
+          ],
+          cellWidgets: [
+            null,
+            OpenHandTableStackedCell(
+              primary: isAiModelProxyStatusRecord(record)
+                  ? openHandAmbientText(zh: '状态页', en: 'Status page')
+                  : (record.modelId.trim().isEmpty
+                        ? unknown
+                        : record.modelId.trim()),
+              secondary: isAiModelProxyStatusRecord(record)
+                  ? ''
+                  : data.providerLabelFor(record, unknown: unknown),
+            ),
+            OpenHandTableStackedCell(
+              primary: record.apiStyle.trim().isEmpty
+                  ? kOpenHandTableMetricEmpty
+                  : aiModelProxyApiStyleLabel(record.apiStyle, text),
+              secondary: record.exposedModel.trim(),
+            ),
+            _proxyOpsTokenMetric(
+              total: record.tokens,
+              promptTokens: record.promptTokens,
+              completionTokens: record.completionTokens,
+            ),
+            _proxyOpsDurationMetric(record.durationMs),
+            OpenHandTableStackedCell(
+              primary: _proxyOpsUserAgentFamily(
+                record.clientUserAgent.trim().isEmpty
+                    ? unknown
+                    : record.clientUserAgent,
+              ),
+              secondary: record.clientEndpoint,
+              alignEnd: true,
+            ),
+            OpenHandTableStackedCell(
+              primary: record.proxyMode.trim().isEmpty
+                  ? kOpenHandTableMetricEmpty
+                  : aiModelProxyDispatchModeLabel(record.proxyMode, text),
+              secondary: record.remoteHost.trim().isEmpty
+                  ? ''
+                  : _proxyOpsUpstreamEndpoint(record, unknown),
+              alignEnd: true,
+            ),
+            _proxyOpsRequestStatusBadge(context, record),
+            if (showError) null,
           ],
           value: record.durationMs,
         ),
@@ -4837,36 +5039,10 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               ],
               rows: [
                 for (final route in data.settings.routes)
-                  OpenHandOperationalRankRow(
-                    subtitle: text(
-                      zh: '${route.backends.where((backend) => backend.enabled).length} 个启用后备',
-                      en: '${route.backends.where((backend) => backend.enabled).length} enabled backends',
-                    ),
-                    cells: [
-                      route.exposedModel,
-                      route.enabled
-                          ? text(zh: '启用', en: 'On')
-                          : text(zh: '停用', en: 'Off'),
-                      '${route.backends.length}',
-                      '${usageByExposed[route.exposedModel]?.requests ?? 0}',
-                      usageByExposed[route.exposedModel] == null
-                          ? '—'
-                          : _proxyOpsPercentLabel(
-                              usageByExposed[route.exposedModel]!.successRate,
-                            ),
-                      '${usageByExposed[route.exposedModel]?.tokens ?? 0}',
-                      usageByExposed[route.exposedModel] == null
-                          ? '—'
-                          : _proxyOpsDurationLabel(
-                              usageByExposed[route.exposedModel]!.avgMs,
-                            ),
-                      usageByExposed[route.exposedModel]?.lastAt == null
-                          ? '—'
-                          : formatListDateTime(
-                              usageByExposed[route.exposedModel]!.lastAt!,
-                            ),
-                    ],
-                    value: usageByExposed[route.exposedModel]?.requests ?? 0,
+                  _proxyOpsExposedModelRankRow(
+                    context: context,
+                    route: route,
+                    usageByExposed: usageByExposed,
                   ),
               ],
             ),
@@ -4953,45 +5129,12 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               rows: [
                 for (final route in data.settings.routes)
                   for (final backend in route.backends)
-                    OpenHandOperationalRankRow(
-                      subtitle:
-                          data.providerLabelForId(backend.providerId) ??
-                          backend.providerId,
-                      cells: [
-                        backend.modelId,
-                        route.exposedModel,
-                        route.enabled && backend.enabled
-                            ? text(zh: '启用', en: 'On')
-                            : text(zh: '停用', en: 'Off'),
-                        '${usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']?.requests ?? 0}',
-                        usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}'] ==
-                                null
-                            ? '—'
-                            : _proxyOpsPercentLabel(
-                                usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']!
-                                    .successRate,
-                              ),
-                        '${usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']?.tokens ?? 0}',
-                        usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}'] ==
-                                null
-                            ? '—'
-                            : _proxyOpsDurationLabel(
-                                usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']!
-                                    .avgMs,
-                              ),
-                        usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']
-                                    ?.lastAt ==
-                                null
-                            ? '—'
-                            : formatListDateTime(
-                                usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']!
-                                    .lastAt!,
-                              ),
-                      ],
-                      value:
-                          usageByBackend['${backend.providerId.trim()}\u0000${backend.modelId.trim()}']
-                              ?.requests ??
-                          0,
+                    _proxyOpsBackendRankRow(
+                      context: context,
+                      data: data,
+                      route: route,
+                      backend: backend,
+                      usageByBackend: usageByBackend,
                     ),
               ],
             ),

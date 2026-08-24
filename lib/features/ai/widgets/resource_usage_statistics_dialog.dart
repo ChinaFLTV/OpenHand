@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_table_metric_cells.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -118,9 +119,9 @@ class _ResourceUsageStatisticsDialogState
     return buildOpenHandDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       backgroundColor: colorScheme.surface,
-     shape: RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: kOpenHandBorderRadius30,
-       side: BorderSide(color: colorScheme.outlineVariant),
+        side: BorderSide(color: colorScheme.outlineVariant),
       ),
       maxWidth: kOpenHandDialogWidthPanel,
       maxHeight: maxHeight,
@@ -325,9 +326,7 @@ class _ResourceUsageStatisticsDialogState
               ),
             );
             if (!wide) {
-              return Column(
-                children: [trend, kOpenHandGap16, distribution],
-              );
+              return Column(children: [trend, kOpenHandGap16, distribution]);
             }
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -608,7 +607,7 @@ class _SummaryCard extends StatelessWidget {
             ),
             child: Icon(icon, color: colorScheme.onPrimaryContainer, size: 22),
           ),
-           kOpenHandWidth13,
+          kOpenHandWidth13,
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1083,9 +1082,8 @@ class _ResourceRanking extends StatelessWidget {
                           labels[pageItems[index].key] ?? pageItems[index].key,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         if ((labels[pageItems[index].key] ?? '').isNotEmpty)
                           Text(
@@ -1283,7 +1281,7 @@ class _ResourceDetailCard extends StatelessWidget {
             ],
           ),
           if (children.isNotEmpty) ...[
-             kOpenHandGap13,
+            kOpenHandGap13,
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
@@ -1434,8 +1432,10 @@ class _UsageEventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final succeeded = event.succeeded;
-    final statusColor = succeeded ? colors.primary : colors.error;
+    final statusColor = openHandTableMetricRequestStatusColor(
+      colors,
+      event.status,
+    );
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -1448,15 +1448,6 @@ class _UsageEventCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 9,
-                height: 9,
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              kOpenHandHGap9,
               Expanded(
                 child: Text(
                   event.subResourceId.isEmpty
@@ -1469,12 +1460,10 @@ class _UsageEventCard extends StatelessWidget {
                   ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
-              Text(
-                _statusLabel(context, event.status),
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: statusColor,
-                  fontWeight: FontWeight.w800,
-                ),
+              kOpenHandHGap9,
+              OpenHandTableStatusBadge(
+                label: _statusLabel(context, event.status),
+                color: statusColor,
               ),
             ],
           ),
@@ -1489,7 +1478,7 @@ class _UsageEventCard extends StatelessWidget {
               ),
               _EventMeta(
                 icon: Icons.timer_outlined,
-                text: _formatDuration(event.durationMs),
+                text: openHandTableMetricDuration(event.durationMs),
               ),
               _EventMeta(
                 icon: Icons.forum_outlined,
@@ -1727,13 +1716,8 @@ String _shortIdentifier(String value) {
   return '…${trimmed.substring(start)}';
 }
 
-String _formatDuration(int milliseconds) {
-  if (milliseconds < 1000) return '$milliseconds ms';
-  if (milliseconds < 60000) {
-    return '${(milliseconds / 1000).toStringAsFixed(1)} s';
-  }
-  return '${(milliseconds / 60000).toStringAsFixed(1)} min';
-}
+String _formatDuration(int milliseconds) =>
+    openHandTableMetricDuration(milliseconds);
 
 String _statusLabel(BuildContext context, String status) {
   if (status == 'success') {
