@@ -17,6 +17,7 @@ import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/model/dingtalk_multimodal_capability.dart';
 import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -430,20 +431,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     for (final rawPath in referenceImagePaths.take(8)) {
       final path = _resolveDingTalkMediaInputPath(root, rawPath);
       if (path == null) continue;
-      if (await FileSystemEntity.type(path, followLinks: false) !=
-          FileSystemEntityType.file) {
+      if (await _validatedDingTalkMediaFileSize(
+            path,
+            allowedRoot: root,
+            maxBytes: 32 * kBytesPerMiB,
+          ) ==
+          null) {
         continue;
       }
-      try {
-        final resolved = await File(path).resolveSymbolicLinks();
-        if (!p.equals(root, resolved) && !p.isWithin(root, resolved)) {
-          continue;
-        }
-      } on FileSystemException {
-        continue;
-      }
-      final stat = await File(path).stat();
-      if (stat.size > 32 * kBytesPerMiB) continue;
       referenceParts.add(
         AiChatContentPart.imageFile(
           filePath: path,
@@ -491,6 +486,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     String? firstRemoteId;
     String? firstPath;
     String? firstName;
+    var sentCount = 0;
     final generatedRoot = p.normalize(
       p.join(Directory.systemTemp.path, 'openhand_media'),
     );
@@ -498,23 +494,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       if (await isCancelSignalCompleted(cancelSignal)) {
         throw const AiMediaGenerationCancelledException();
       }
-      final file = File(path);
-      if (await FileSystemEntity.type(path, followLinks: false) !=
-          FileSystemEntityType.file) {
-        continue;
-      }
-      try {
-        final resolved = await file.resolveSymbolicLinks();
-        if (!p.equals(generatedRoot, resolved) &&
-            !p.isWithin(generatedRoot, resolved)) {
-          continue;
-        }
-      } on FileSystemException {
-        continue;
-      }
-      if (!await file.exists()) continue;
-      final stat = await file.stat();
-      if (stat.size <= 0 || stat.size > 2 * kBytesPerGiB) continue;
+      final sizeBytes = await _validatedDingTalkMediaFileSize(
+        path,
+        allowedRoot: generatedRoot,
+        maxBytes: 2 * kBytesPerGiB,
+      );
+      if (sizeBytes == null) continue;
       final name = p.basename(path).trim().isEmpty ? '生成媒体' : p.basename(path);
       final remoteId = await _service
           .sendFile(
@@ -556,7 +541,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
                     kAudioMpegMimeType,
                 },
               ),
-              sizeBytes: stat.size,
+              sizeBytes: sizeBytes,
               localPath: path,
             ),
           ],
@@ -565,6 +550,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       firstRemoteId ??= remoteId?.trim();
       firstPath ??= path;
       firstName ??= name;
+      sentCount++;
     }
     if (firstPath == null) throw StateError('生成媒体文件不存在或无法发送。');
     _notify();
@@ -575,7 +561,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       'remote_message_id': firstRemoteId,
       'media_kind': mediaKind.name,
       'duration_ms': generated.durationMs,
-      'sent_count': paths.length,
+      'sent_count': sentCount,
     };
   }
 
@@ -657,6 +643,39 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     );
     if (!p.equals(root, candidate) && !p.isWithin(root, candidate)) return null;
     return candidate;
+  }
+
+  Future<int?> _validatedDingTalkMediaFileSize(
+    String path, {
+    required String allowedRoot,
+    required int maxBytes,
+  }) async {
+    try {
+      if (await FileSystemEntity.type(
+            path,
+            followLinks: false,
+          ).timeout(defaultBoundedFileReadIdleTimeout) !=
+          FileSystemEntityType.file) {
+        return null;
+      }
+      final file = File(path);
+      final resolved = await file.resolveSymbolicLinks().timeout(
+        defaultBoundedFileReadIdleTimeout,
+      );
+      if (!p.equals(allowedRoot, resolved) &&
+          !p.isWithin(allowedRoot, resolved)) {
+        return null;
+      }
+      final stat = await file.stat().timeout(defaultBoundedFileReadIdleTimeout);
+      if (stat.type != FileSystemEntityType.file ||
+          stat.size <= 0 ||
+          stat.size > maxBytes) {
+        return null;
+      }
+      return stat.size;
+    } on Object {
+      return null;
+    }
   }
 
   List<String> _generatedMediaPaths(String markdown) {
@@ -1092,7 +1111,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
 
     var sourcePath = sourceMedia.localPath.trim();
-    if (sourcePath.isEmpty || !await File(sourcePath).exists()) {
+    final hasCachedSource =
+        sourcePath.isNotEmpty &&
+        await File(
+          sourcePath,
+        ).exists().timeout(defaultBoundedFileReadIdleTimeout);
+    if (!hasCachedSource) {
       sourcePath =
           await _service.ensureMediaCached(sourceMedia, forceRetry: true) ?? '';
     }
@@ -1101,7 +1125,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
 
     final source = File(sourcePath);
-    final sourceStat = await source.stat();
+    final sourceStat = await source.stat().timeout(
+      defaultBoundedFileReadIdleTimeout,
+    );
     if (sourceStat.type != FileSystemEntityType.file || sourceStat.size <= 0) {
       throw FileSystemException('钉钉文件不存在或内容为空。', sourcePath);
     }
@@ -1190,8 +1216,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       if (currentPath.isNotEmpty) {
         try {
           final file = File(currentPath);
-          if (await file.exists()) {
-            final sizeBytes = await file.length();
+          if (await file.exists().timeout(defaultBoundedFileReadIdleTimeout)) {
+            final sizeBytes = await file.length().timeout(
+              defaultBoundedFileReadIdleTimeout,
+            );
             if (sizeBytes > 0) {
               final next = item.sizeBytes > 0
                   ? item
@@ -1216,7 +1244,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       var sizeBytes = item.sizeBytes;
       if (sizeBytes <= 0 && path != null && path.trim().isNotEmpty) {
         try {
-          sizeBytes = await File(path).length();
+          sizeBytes = await File(
+            path,
+          ).length().timeout(defaultBoundedFileReadIdleTimeout);
         } catch (_) {}
       }
       final next = path == null || path.trim().isEmpty
@@ -1812,7 +1842,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     try {
       for (final path in paths) {
         final file = File(path);
-        final stat = await file.stat();
+        final stat = await file.stat().timeout(
+          defaultBoundedFileReadIdleTimeout,
+        );
         if (stat.type != FileSystemEntityType.file ||
             stat.size <= 0 ||
             stat.size > kDingTalkMessageAttachmentMaxBytes) {
@@ -1930,13 +1962,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       return false;
     }
     final file = File(normalizedPath);
-    if (!await file.exists()) return false;
+    if (!await file.exists().timeout(defaultBoundedFileReadIdleTimeout)) {
+      return false;
+    }
     final rawName = p.basename(normalizedPath).trim();
     final name = rawName.isEmpty ? (audio ? '语音.m4a' : '文件') : rawName;
     final kind = audio
         ? DingTalkMediaKind.audio
         : DingTalkMediaKindX.fromFileName(name);
-    final stat = await file.stat();
+    final stat = await file.stat().timeout(defaultBoundedFileReadIdleTimeout);
     if (stat.type != FileSystemEntityType.file ||
         stat.size <= 0 ||
         stat.size > kDingTalkMessageAttachmentMaxBytes) {
