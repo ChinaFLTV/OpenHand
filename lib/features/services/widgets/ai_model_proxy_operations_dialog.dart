@@ -2945,10 +2945,12 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
     headers: [
       text(zh: '时间', en: 'Time'),
       text(zh: '模型', en: 'Model'),
+      text(zh: '源地址', en: 'Source'),
       text(zh: '协议', en: 'Protocol'),
       'Token',
       text(zh: '耗时', en: 'Latency'),
-      text(zh: '客户端', en: 'Client'),
+      text(zh: '客户端 UA', en: 'Client UA'),
+      text(zh: '客户端环境', en: 'Client env'),
       text(zh: '调度', en: 'Route'),
       text(zh: '状态', en: 'Status'),
       if (showError) text(zh: '原因', en: 'Reason'),
@@ -2964,6 +2966,7 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
           cells: [
             formatListDateTime(record.startedAt),
             _proxyOpsRequestTitle(data, record, unknown),
+            record.clientEndpoint.isEmpty ? unknown : record.clientEndpoint,
             [
               if (record.apiStyle.trim().isNotEmpty)
                 aiModelProxyApiStyleLabel(record.apiStyle, text),
@@ -2972,13 +2975,20 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
             ].join(' · '),
             openHandTableMetricInteger(record.tokens),
             _proxyOpsDurationLabel(record.durationMs),
+            _proxyOpsUserAgentFamily(
+              record.clientUserAgent.trim().isEmpty
+                  ? unknown
+                  : record.clientUserAgent,
+            ),
             [
-              _proxyOpsUserAgentFamily(
-                record.clientUserAgent.trim().isEmpty
-                    ? unknown
-                    : record.clientUserAgent,
-              ),
-              if (record.clientEndpoint.isNotEmpty) record.clientEndpoint,
+              if (record.clientProcessName.trim().isNotEmpty)
+                record.clientProcessName.trim(),
+              if (record.clientProcessId.trim().isNotEmpty)
+                'PID ${record.clientProcessId.trim()}',
+              if (record.clientServiceName.trim().isNotEmpty)
+                record.clientServiceName.trim(),
+              if (record.clientMacAddress.trim().isNotEmpty)
+                record.clientMacAddress.trim(),
             ].join(' · '),
             [
               if (record.proxyMode.trim().isNotEmpty)
@@ -3010,6 +3020,17 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
                   : data.providerLabelFor(record, unknown: unknown),
             ),
             OpenHandTableStackedCell(
+              primary: record.clientEndpoint.isEmpty
+                  ? unknown
+                  : record.clientEndpoint,
+              secondary: _proxyOpsUserAgentFamily(
+                record.clientUserAgent.trim().isEmpty
+                    ? unknown
+                    : record.clientUserAgent,
+              ),
+              alignEnd: true,
+            ),
+            OpenHandTableStackedCell(
               primary: record.apiStyle.trim().isEmpty
                   ? kOpenHandTableMetricEmpty
                   : aiModelProxyApiStyleLabel(record.apiStyle, text),
@@ -3027,7 +3048,21 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
                     ? unknown
                     : record.clientUserAgent,
               ),
-              secondary: record.clientEndpoint,
+              secondary: record.clientUserAgent.trim(),
+              alignEnd: true,
+            ),
+            OpenHandTableStackedCell(
+              primary: record.clientProcessName.trim().isEmpty
+                  ? unknown
+                  : record.clientProcessName.trim(),
+              secondary: [
+                if (record.clientProcessId.trim().isNotEmpty)
+                  'PID ${record.clientProcessId.trim()}',
+                if (record.clientServiceName.trim().isNotEmpty)
+                  record.clientServiceName.trim(),
+                if (record.clientMacAddress.trim().isNotEmpty)
+                  record.clientMacAddress.trim(),
+              ].join(' · '),
               alignEnd: true,
             ),
             OpenHandTableStackedCell(

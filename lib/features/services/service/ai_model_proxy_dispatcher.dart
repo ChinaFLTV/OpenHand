@@ -199,15 +199,14 @@ class AiModelProxyDispatcher {
           surface: 'service',
           source: AiUsageSource.modelProxy,
           operation: 'proxy_request',
-          metadata: <String, Object?>{
-            'exposed_model': exposedModel,
-            'proxy_mode': network.mode,
-            'proxy_endpoint': network.endpoint,
-            'remote_host': network.remoteHost,
-            'remote_port': network.remotePort,
-            'client_ip': _clientIp(headers),
-            'client_port': _clientPort(headers),
-          },
+          metadata: _usageTraceMetadata(
+            exposedModel: exposedModel,
+            proxyMode: network.mode,
+            proxyEndpoint: network.endpoint,
+            remoteHost: network.remoteHost,
+            remotePort: network.remotePort,
+            headers: headers,
+          ),
           body: () => chatClient.sendMessage(
             model: model,
             messages: messages,
@@ -428,11 +427,24 @@ class AiModelProxyDispatcher {
             ? await _createRoutedChatClient(network)
             : null;
         final chatClient = routedClient?.service ?? _chatClient;
-        final response = await chatClient.sendMessageStream(
-          model: model,
-          messages: messages,
-          tools: tools,
-          creationRequest: AiCreationRequest.none,
+        final response = await AiUsageTraceContext.runDerived(
+          surface: 'service',
+          source: AiUsageSource.modelProxy,
+          operation: 'proxy_request',
+          metadata: _usageTraceMetadata(
+            exposedModel: exposedModel,
+            proxyMode: network.mode,
+            proxyEndpoint: network.endpoint,
+            remoteHost: network.remoteHost,
+            remotePort: network.remotePort,
+            headers: headers,
+          ),
+          body: () => chatClient.sendMessageStream(
+            model: model,
+            messages: messages,
+            tools: tools,
+            creationRequest: AiCreationRequest.none,
+          ),
         );
         unawaited(
           response.result
@@ -597,6 +609,10 @@ class AiModelProxyDispatcher {
       clientIp: _clientIp(headers),
       clientPort: _clientPort(headers),
       clientUserAgent: _clientUserAgent(headers),
+      clientProcessId: _headerValue(headers, 'x-openhand-client-pid'),
+      clientProcessName: _headerValue(headers, 'x-openhand-client-name'),
+      clientServiceName: _headerValue(headers, 'x-openhand-client-service'),
+      clientMacAddress: _headerValue(headers, 'x-openhand-client-mac'),
       proxyMode: proxyMode,
       proxyEndpoint: proxyEndpoint,
       remoteHost: remoteHost,
@@ -611,6 +627,43 @@ class AiModelProxyDispatcher {
       attempt: attempt,
       stream: stream,
     );
+  }
+
+  static String _headerValue(Map<String, String> headers, String key) {
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() != key) continue;
+      final value = entry.value.trim();
+      return value.length > 256 ? value.substring(0, 256) : value;
+    }
+    return '';
+  }
+
+  static Map<String, Object?> _usageTraceMetadata({
+    required String exposedModel,
+    required String proxyMode,
+    required String proxyEndpoint,
+    required String remoteHost,
+    required String remotePort,
+    required Map<String, String> headers,
+  }) {
+    return <String, Object?>{
+      'exposed_model': exposedModel,
+      'proxy_mode': proxyMode,
+      'proxy_endpoint': proxyEndpoint,
+      'remote_host': remoteHost,
+      'remote_port': remotePort,
+      'client_ip': _clientIp(headers),
+      'client_port': _clientPort(headers),
+      'client_user_agent': _clientUserAgent(headers),
+      'source_ip': _clientIp(headers),
+      'source_port': _clientPort(headers),
+      'source_kind': 'proxy_client',
+      'client_metadata_source': 'client_declared',
+      'client_process_pid': _headerValue(headers, 'x-openhand-client-pid'),
+      'client_process_name': _headerValue(headers, 'x-openhand-client-name'),
+      'client_service_name': _headerValue(headers, 'x-openhand-client-service'),
+      'client_mac_address': _headerValue(headers, 'x-openhand-client-mac'),
+    };
   }
 
   void _validateRequest(

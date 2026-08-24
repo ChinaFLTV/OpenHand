@@ -779,6 +779,11 @@ class AiChatService implements AiChatClient {
         metadata: <String, Object?>{
           'streaming': false,
           'request_fallback_count': completion.requestFallbacks.length,
+          ..._usageRequestMetadata(
+            completion.requestUrl,
+            completion.requestMethod,
+            completion.requestHeaders,
+          ),
         },
       );
       return completion;
@@ -800,7 +805,10 @@ class AiChatService implements AiChatClient {
         cancelled:
             error is AiChatCancelledException ||
             error is http.RequestAbortedException,
-        metadata: const <String, Object?>{'streaming': false},
+        metadata: <String, Object?>{
+          'streaming': false,
+          ..._usageErrorMetadata(error),
+        },
       );
       rethrow;
     } finally {
@@ -1213,7 +1221,10 @@ class AiChatService implements AiChatClient {
         cancelled:
             error is AiChatCancelledException ||
             error is http.RequestAbortedException,
-        metadata: const <String, Object?>{'streaming': true},
+        metadata: <String, Object?>{
+          'streaming': true,
+          ..._usageErrorMetadata(error),
+        },
       );
       _finishRequest(requestAbort);
       rethrow;
@@ -1274,7 +1285,14 @@ class AiChatService implements AiChatClient {
             endedAt: endedAt,
             error: StateError('流式请求已取消'),
             cancelled: true,
-            metadata: const <String, Object?>{'streaming': true},
+            metadata: <String, Object?>{
+              'streaming': true,
+              ..._usageRequestMetadata(
+                observedValue.requestUrl,
+                observedValue.requestMethod,
+                observedValue.requestHeaders,
+              ),
+            },
           );
         } else {
           AiUsageTracker.instance.recordSuccess(
@@ -1307,6 +1325,11 @@ class AiChatService implements AiChatClient {
               'finish_reason': observedValue.finishReason,
               'request_fallback_count': observedValue.requestFallbacks.length,
               'stream_event_count': observedValue.streamEventCount,
+              ..._usageRequestMetadata(
+                observedValue.requestUrl,
+                observedValue.requestMethod,
+                observedValue.requestHeaders,
+              ),
             },
           );
         }
@@ -1330,7 +1353,10 @@ class AiChatService implements AiChatClient {
           cancelled:
               error is AiChatCancelledException ||
               error is http.RequestAbortedException,
-          metadata: const <String, Object?>{'streaming': true},
+          metadata: <String, Object?>{
+            'streaming': true,
+            ..._usageErrorMetadata(error),
+          },
         );
         Error.throwWithStackTrace(error, stack);
       },
@@ -3678,6 +3704,53 @@ extension on AiChatService {
       sources: sources.isEmpty ? null : sources,
     );
   }
+}
+
+Map<String, Object?> _usageRequestMetadata(
+  String? requestUrl,
+  String? requestMethod,
+  Map<String, String>? requestHeaders,
+) {
+  final uri = Uri.tryParse(requestUrl?.trim() ?? '');
+  final result = <String, Object?>{};
+  if (uri != null) {
+    result['request_url'] = uri.replace(query: '').toString();
+    result['request_host'] = uri.host;
+    result['request_port'] = uri.hasPort
+        ? uri.port
+        : uri.scheme.toLowerCase() == 'https'
+        ? 443
+        : 80;
+  }
+  final method = requestMethod?.trim();
+  if (method != null && method.isNotEmpty) result['request_method'] = method;
+  final userAgent = _requestHeaderValue(requestHeaders, 'user-agent');
+  if (userAgent != null && userAgent.isNotEmpty) {
+    result['user_agent'] = userAgent.length > 512
+        ? userAgent.substring(0, 512)
+        : userAgent;
+  }
+  return result;
+}
+
+String? _requestHeaderValue(Map<String, String>? headers, String name) {
+  if (headers == null) return null;
+  for (final entry in headers.entries) {
+    if (entry.key.toLowerCase() != name) continue;
+    final value = entry.value.trim();
+    return value.isEmpty ? null : value;
+  }
+  return null;
+}
+
+Map<String, Object?> _usageErrorMetadata(Object error) {
+  final telemetry = error is AiChatException ? error.telemetry : null;
+  if (telemetry == null) return const <String, Object?>{};
+  return _usageRequestMetadata(
+    telemetry.requestUrl,
+    telemetry.requestMethod,
+    telemetry.requestHeaders,
+  );
 }
 
 String _buildProviderProbeDetail(

@@ -613,6 +613,10 @@ class AiModelProxyRequestRecord {
     this.clientIp = '',
     this.clientPort = '',
     this.clientUserAgent = '',
+    this.clientProcessId = '',
+    this.clientProcessName = '',
+    this.clientServiceName = '',
+    this.clientMacAddress = '',
     this.proxyMode = '',
     this.proxyEndpoint = '',
     this.remoteHost = '',
@@ -645,6 +649,10 @@ class AiModelProxyRequestRecord {
       clientIp: '${json['client_ip'] ?? ''}',
       clientPort: '${json['client_port'] ?? ''}',
       clientUserAgent: '${json['client_user_agent'] ?? ''}',
+      clientProcessId: '${json['client_process_id'] ?? ''}',
+      clientProcessName: '${json['client_process_name'] ?? ''}',
+      clientServiceName: '${json['client_service_name'] ?? ''}',
+      clientMacAddress: '${json['client_mac_address'] ?? ''}',
       proxyMode: '${json['proxy_mode'] ?? ''}',
       proxyEndpoint: '${json['proxy_endpoint'] ?? ''}',
       remoteHost: '${json['remote_host'] ?? ''}',
@@ -678,6 +686,10 @@ class AiModelProxyRequestRecord {
   final String clientIp;
   final String clientPort;
   final String clientUserAgent;
+  final String clientProcessId;
+  final String clientProcessName;
+  final String clientServiceName;
+  final String clientMacAddress;
   final String proxyMode;
   final String proxyEndpoint;
   final String remoteHost;
@@ -709,6 +721,14 @@ class AiModelProxyRequestRecord {
     if (clientPort.trim().isNotEmpty) 'client_port': clientPort.trim(),
     if (clientUserAgent.trim().isNotEmpty)
       'client_user_agent': clientUserAgent.trim(),
+    if (clientProcessId.trim().isNotEmpty)
+      'client_process_id': clientProcessId.trim(),
+    if (clientProcessName.trim().isNotEmpty)
+      'client_process_name': clientProcessName.trim(),
+    if (clientServiceName.trim().isNotEmpty)
+      'client_service_name': clientServiceName.trim(),
+    if (clientMacAddress.trim().isNotEmpty)
+      'client_mac_address': clientMacAddress.trim(),
     if (proxyMode.trim().isNotEmpty) 'proxy_mode': proxyMode.trim(),
     if (proxyEndpoint.trim().isNotEmpty) 'proxy_endpoint': proxyEndpoint.trim(),
     if (remoteHost.trim().isNotEmpty) 'remote_host': remoteHost.trim(),
@@ -1045,6 +1065,10 @@ class AiModelProxySettings {
     String clientIp = '',
     String clientPort = '',
     String clientUserAgent = '',
+    String clientProcessId = '',
+    String clientProcessName = '',
+    String clientServiceName = '',
+    String clientMacAddress = '',
     String proxyMode = '',
     String proxyEndpoint = '',
     String remoteHost = '',
@@ -1074,6 +1098,10 @@ class AiModelProxySettings {
       clientIp: clientIp,
       clientPort: clientPort,
       clientUserAgent: clientUserAgent,
+      clientProcessId: clientProcessId,
+      clientProcessName: clientProcessName,
+      clientServiceName: clientServiceName,
+      clientMacAddress: clientMacAddress,
       proxyMode: proxyMode,
       proxyEndpoint: proxyEndpoint,
       remoteHost: remoteHost,
@@ -1130,9 +1158,9 @@ class AiModelProxySettings {
     'total_duration_ms': totalDurationMs,
     if (lastRequestAt != null)
       'last_request_at': lastRequestAt!.toUtc().toIso8601String(),
-    'recent_requests': _trimRecentProxyRecords(recentRequests)
-        .map((item) => item.toJson())
-        .toList(growable: false),
+    'recent_requests': _trimRecentProxyRecords(
+      recentRequests,
+    ).map((item) => item.toJson()).toList(growable: false),
     if (dailyHealth.isNotEmpty)
       'daily_health': dailyHealth
           .map((item) => item.toJson())

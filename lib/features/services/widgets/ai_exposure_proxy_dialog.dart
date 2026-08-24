@@ -3600,7 +3600,7 @@ class _ProxyRequestRecordsTable extends StatelessWidget {
               ),
               children: [
                 _ProxyRequestCell(
-                  text(zh: '客户端 IP', en: 'Client IP'),
+                  text(zh: '源地址', en: 'Source'),
                   style: headerStyle,
                 ),
                 _ProxyRequestCell(
@@ -3632,7 +3632,7 @@ class _ProxyRequestRecordsTable extends StatelessWidget {
             for (final record in records)
               TableRow(
                 children: [
-                  _ProxyRequestCell(record.clientIp),
+                  _ProxyRequestCell(record.clientEndpoint),
                   _ProxyRequestCell(record.proxyNode),
                   _ProxyRequestCell(record.remoteIp),
                   _ProxyRequestCell(_dateTimeLabel(record.sample.at)),

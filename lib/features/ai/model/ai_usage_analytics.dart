@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../../shared/util/input_value_parsing.dart';
 import 'ai_token_usage.dart';
 
@@ -229,7 +231,7 @@ class AiUsageBreakdown {
 }
 
 class AiUsageRequestRecord {
-  const AiUsageRequestRecord({
+  AiUsageRequestRecord({
     required this.id,
     required this.traceId,
     required this.startedAt,
@@ -252,6 +254,7 @@ class AiUsageRequestRecord {
     this.httpStatusCode,
     this.timeoutMs,
     this.timeoutPhase,
+    this.metadataJson = '{}',
   });
 
   final String id;
@@ -276,6 +279,80 @@ class AiUsageRequestRecord {
   final int? httpStatusCode;
   final int? timeoutMs;
   final String? timeoutPhase;
+  final String metadataJson;
+
+  late final Map<String, Object?> _decodedMetadata = _decodeMetadata(
+    metadataJson,
+  );
+
+  Map<String, Object?> get metadata => _decodedMetadata;
+
+  String metadataText(String key, {String fallback = ''}) {
+    final value = metadata[key];
+    final text = value is String ? value.trim() : '${value ?? ''}'.trim();
+    return text.isEmpty ? fallback : text;
+  }
+
+  String get sourceIp =>
+      metadataText('source_ip', fallback: metadataText('client_ip'));
+  String get sourcePort =>
+      metadataText('source_port', fallback: metadataText('client_port'));
+  String get sourceEndpoint {
+    final ip = sourceIp;
+    final port = sourcePort;
+    if (ip.isEmpty) return '';
+    final host = ip.contains(':') && !ip.startsWith('[') ? '[$ip]' : ip;
+    return port.isEmpty ? host : '$host:$port';
+  }
+
+  String get userAgent =>
+      metadataText('user_agent', fallback: metadataText('client_user_agent'));
+  String get processId => metadataText(
+    'client_process_pid',
+    fallback: metadataText('process_pid', fallback: metadataText('pid')),
+  );
+  String get processName => metadataText(
+    'client_process_name',
+    fallback: metadataText('process_name'),
+  );
+  String get serviceName => metadataText(
+    'client_service_name',
+    fallback: metadataText('service_name'),
+  );
+  String get processServiceName {
+    final values = <String>{processName, serviceName}
+      ..removeWhere((value) => value.isEmpty);
+    return values.join(' · ');
+  }
+
+  String get macAddress =>
+      metadataText('client_mac_address', fallback: metadataText('mac_address'));
+  String get clientMetadataSource => metadataText('client_metadata_source');
+  String get targetHost =>
+      metadataText('target_host', fallback: metadataText('remote_host'));
+  String get targetPort =>
+      metadataText('target_port', fallback: metadataText('remote_port'));
+  String get networkMode =>
+      metadataText('network_mode', fallback: metadataText('proxy_mode'));
+  String get networkEndpoint => metadataText(
+    'network_endpoint',
+    fallback: metadataText('proxy_endpoint'),
+  );
+}
+
+Map<String, Object?> _decodeMetadata(String value) {
+  try {
+    final decoded = jsonDecode(value);
+    if (decoded is Map) {
+      return Map<String, Object?>.unmodifiable(<String, Object?>{
+        for (final entry in decoded.entries)
+          if (entry.key is String) entry.key as String: entry.value,
+      });
+    }
+  } on Object {
+    // 历史记录可能没有结构化元数据，按空映射降级。
+  }
+  return const <String, Object?>{};
 }
 
 class AiUsageSnapshot {

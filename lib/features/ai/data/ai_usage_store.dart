@@ -260,19 +260,19 @@ class AiUsageStore {
         'SELECT COUNT(*) AS total FROM $tableName ${where.sql}',
         where.arguments,
       ),
-      _db.rawQuery('''
+      _db.rawQuery(
+        '''
         SELECT * FROM $tableName ${where.sql}
         ORDER BY started_at DESC
         LIMIT ? OFFSET ?
-        ''', <Object?>[...where.arguments, safeLimit, safeOffset]),
+        ''',
+        <Object?>[...where.arguments, safeLimit, safeOffset],
+      ),
     ]);
     final countRows = results[0] as List<Map<String, Object?>>;
     final rows = results[1] as List<Map<String, Object?>>;
     final total = countRows.isEmpty ? 0 : _int(countRows.first['total']);
-    return (
-      total,
-      rows.map(_requestFromRow).toList(growable: false),
-    );
+    return (total, rows.map(_requestFromRow).toList(growable: false));
   }
 
   Future<void> clear() => _db.delete(tableName);
@@ -578,6 +578,7 @@ class AiUsageStore {
       httpStatusCode: _nullableInt(row['http_status_code']),
       timeoutMs: _nullableInt(row['timeout_ms']),
       timeoutPhase: _nullableString(row['timeout_phase']),
+      metadataJson: '${row['metadata_json'] ?? '{}'}',
       surface: '${row['surface'] ?? ''}',
       source: '${row['source'] ?? ''}',
       operation: '${row['operation'] ?? ''}',

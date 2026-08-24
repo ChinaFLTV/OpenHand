@@ -1807,6 +1807,10 @@ _InsightRecord _proxyRequestRecord(
       : request.timedOut
       ? OpenHandStatusColors.warning
       : OpenHandStatusColors.error;
+  final clientEndpoint = aiExposureProxyClientEndpoint(
+    request.clientIp,
+    request.clientPort,
+  );
   return _InsightRecord(
     icon: request.succeeded
         ? Icons.check_circle_outline_rounded
@@ -1820,6 +1824,7 @@ _InsightRecord _proxyRequestRecord(
         : '请求失败',
     subtitle: endpoint.maskedUrl,
     tags: [
+      if (clientEndpoint != '--') clientEndpoint,
       '${request.responseTimeMs} ms',
       if (request.statusCode != null) 'HTTP ${request.statusCode}',
       _reportedShortDateTime(request.at, request.atReported),

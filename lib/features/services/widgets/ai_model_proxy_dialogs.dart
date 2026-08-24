@@ -2907,6 +2907,12 @@ class _ProxyRecordTile extends StatelessWidget {
                   if (mode.isNotEmpty)
                     aiModelProxyDispatchModeLabel(mode, text),
                   if (record.clientEndpoint.isNotEmpty) record.clientEndpoint,
+                  if (record.clientProcessId.trim().isNotEmpty)
+                    'PID ${record.clientProcessId.trim()}',
+                  if (record.clientServiceName.trim().isNotEmpty)
+                    record.clientServiceName.trim(),
+                  if (record.clientMacAddress.trim().isNotEmpty)
+                    record.clientMacAddress.trim(),
                   if (record.error != null && record.error!.trim().isNotEmpty)
                     record.error!.trim(),
                 ].join(' · '),
@@ -2922,6 +2928,15 @@ class _ProxyRecordTile extends StatelessWidget {
                   total: record.tokens,
                   promptTokens: record.promptTokens,
                   completionTokens: record.completionTokens,
+                ),
+                OpenHandTableStackedCell(
+                  primary: record.clientEndpoint.isEmpty
+                      ? text(zh: '未知来源', en: 'Unknown source')
+                      : record.clientEndpoint,
+                  secondary: record.clientUserAgent.trim().isEmpty
+                      ? text(zh: 'UA 未知', en: 'UA unknown')
+                      : record.clientUserAgent.trim(),
+                  alignEnd: true,
                 ),
                 OpenHandDurationMetricCell(
                   durationMs: record.durationMs <= 0 ? null : record.durationMs,

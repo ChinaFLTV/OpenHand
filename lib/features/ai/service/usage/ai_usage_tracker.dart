@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/date_time_format.dart';
 import '../../../../shared/util/serial_task_queue.dart';
@@ -254,6 +256,11 @@ class AiUsageTracker {
             claudeStyle: claudeStyle,
           )
         : null;
+    final metadataSnapshot = _requestMetadata(
+      model: model,
+      trace: trace,
+      metadata: metadata,
+    );
     final record = AiUsageStorageRecord(
       id: _nextUsageId('usage'),
       traceId: trace.traceId,
@@ -297,10 +304,7 @@ class AiUsageTracker {
       cacheReadCostUsd: cost?.cacheReadUsd,
       cacheWriteCostUsd: cost?.cacheWriteUsd,
       totalCostUsd: cost?.totalUsd,
-      metadataJson: _encodeMetadata(<String, Object?>{
-        ...trace.metadata,
-        ...metadata,
-      }),
+      metadataJson: _encodeMetadata(metadataSnapshot),
     );
     unawaited(
       _writes
@@ -535,6 +539,57 @@ class AiUsageTracker {
     } catch (_) {
       return '{}';
     }
+  }
+
+  Map<String, Object?> _requestMetadata({
+    required AiModelConfig model,
+    required AiUsageTraceContext trace,
+    required Map<String, Object?> metadata,
+  }) {
+    final result = <String, Object?>{
+      'source_ip_status': 'unavailable_without_socket_metadata',
+      'source_port_status': 'unavailable_without_socket_metadata',
+      'mac_address': '',
+      'mac_address_status': 'unavailable_in_dart_io',
+      ...trace.metadata,
+      ...metadata,
+    };
+    // 进程与主机字段由当前运行时生成，不能被业务元数据覆盖。
+    result['process_pid'] = pid;
+    result['process_name'] = Platform.resolvedExecutable
+        .split(RegExp(r'[\\/]'))
+        .last;
+    result['service_name'] = 'OpenHand';
+    result['host_os'] = Platform.operatingSystem;
+    result['host_hostname'] = Platform.localHostname;
+    final uri = Uri.tryParse(model.baseUrl);
+    if (uri != null) {
+      result.putIfAbsent('target_scheme', () => uri.scheme);
+      result.putIfAbsent('target_host', () => uri.host);
+      result.putIfAbsent('target_port', () {
+        if (uri.hasPort) return uri.port;
+        return uri.scheme.toLowerCase() == 'https' ? 443 : 80;
+      });
+      final route = SystemProxyResolver.instance.findProxyFor(uri);
+      result.putIfAbsent('network_route', () => route);
+      final declaredMode =
+          '${result['network_mode'] ?? result['proxy_mode'] ?? ''}'.trim();
+      final normalized = route.trim().toUpperCase();
+      result.putIfAbsent(
+        'network_mode',
+        () => declaredMode.isNotEmpty
+            ? declaredMode
+            : normalized.startsWith('PROXY') || normalized.startsWith('SOCKS')
+            ? 'system_proxy'
+            : 'direct',
+      );
+      if (declaredMode.isEmpty &&
+          route.trim().isNotEmpty &&
+          normalized != 'DIRECT') {
+        result.putIfAbsent('network_endpoint', () => route.trim());
+      }
+    }
+    return result;
   }
 }
 

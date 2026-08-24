@@ -866,6 +866,7 @@ class AiExposureProxyRequestSample {
     this.id,
     this.endpointId,
     this.clientIp,
+    this.clientPort,
     this.remoteIp,
     this.targetHost,
     this.method,
@@ -904,6 +905,7 @@ class AiExposureProxyRequestSample {
       id: _optionalString(json['id']),
       endpointId: _optionalString(json['endpointId']),
       clientIp: _optionalString(json['clientIp']),
+      clientPort: _optionalString(json['clientPort']),
       remoteIp: _optionalString(json['remoteIp']),
       targetHost: _optionalString(json['targetHost']),
       method: _optionalString(json['method']),
@@ -927,6 +929,7 @@ class AiExposureProxyRequestSample {
   final String? id;
   final String? endpointId;
   final String? clientIp;
+  final String? clientPort;
   final String? remoteIp;
   final String? targetHost;
   final String? method;
@@ -948,6 +951,7 @@ class AiExposureProxyRequestSample {
     if (id != null) 'id': id,
     if (endpointId != null) 'endpointId': endpointId,
     if (clientIp != null) 'clientIp': clientIp,
+    if (clientPort != null) 'clientPort': clientPort,
     if (remoteIp != null) 'remoteIp': remoteIp,
     if (targetHost != null) 'targetHost': targetHost,
     if (method != null) 'method': method,
@@ -981,6 +985,9 @@ class AiExposureProxyRequestRecord {
       ? sample.clientIp!.trim()
       : '--';
 
+  String get clientEndpoint =>
+      aiExposureProxyClientEndpoint(sample.clientIp, sample.clientPort);
+
   String get proxyNode {
     final value = endpointUrl.trim();
     if (value.isEmpty) return '--';
@@ -1003,6 +1010,14 @@ class AiExposureProxyRequestRecord {
     final context = sample.context?.trim();
     return context?.isNotEmpty == true ? context! : '--';
   }
+}
+
+String aiExposureProxyClientEndpoint(String? ipValue, String? portValue) {
+  final ip = ipValue?.trim() ?? '';
+  if (ip.isEmpty) return '--';
+  final port = portValue?.trim() ?? '';
+  final host = ip.contains(':') && !ip.startsWith('[') ? '[$ip]' : ip;
+  return port.isEmpty ? host : '$host:$port';
 }
 
 class AiExposureProxyRequestTrendBucket {
@@ -1139,6 +1154,7 @@ class AiExposureProxyUsageStatistics {
           current.id != next.id ||
           current.endpointId != next.endpointId ||
           current.clientIp != next.clientIp ||
+          current.clientPort != next.clientPort ||
           current.remoteIp != next.remoteIp ||
           current.targetHost != next.targetHost ||
           current.method != next.method ||

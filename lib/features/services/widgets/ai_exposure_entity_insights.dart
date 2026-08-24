@@ -2280,6 +2280,10 @@ class _ProxyRequestEntityInsightBody extends StatelessWidget {
             '目标主机',
             _entitySafeText(sample.targetHost, unavailable: '旧版请求样本未记录'),
           ),
+          (
+            '源地址',
+            aiExposureProxyClientEndpoint(sample.clientIp, sample.clientPort),
+          ),
           ('请求方法', _entitySafeText(sample.method, unavailable: '旧版请求样本未记录')),
           (
             '超时阈值',

@@ -11,7 +11,7 @@ const double _kAiUsageBreakdownBodyMaxHeight = 444;
 const double _kAiUsageToolbarControlHeight = 40;
 const double _kAiUsageFilterChipMinWidth = 96;
 const double _kAiUsageFilterChipIconSlotWidth = 26;
-const double _kAiUsageRequestTableMinWidth = 1360;
+const double _kAiUsageRequestTableMinWidth = 1960;
 const double _kAiUsageRequestHeaderHeight = 48;
 const double _kAiUsageRequestRowHeight = 74;
 const double _kAiUsageRequestBodyMaxHeight = 444;
@@ -3296,6 +3296,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
       en: 'Trace ID',
     );
     final protocolLabel = record?.apiFamily.replaceAll('_', ' ') ?? '';
+    final unknown = openHandLocalizedText(context, zh: '未知', en: 'Unknown');
 
     Widget cell({
       required int flex,
@@ -3342,7 +3343,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
           child: Row(
             children: [
               cell(
-                flex: 20,
+                flex: 18,
                 child: header
                     ? value(
                         openHandLocalizedText(context, zh: '请求时间', en: 'Time'),
@@ -3353,13 +3354,13 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                       ),
               ),
               cell(
-                flex: 20,
+                flex: 18,
                 child: header
                     ? value(openHandModelLabel(context))
                     : details(record!.modelId, record.providerName),
               ),
               cell(
-                flex: 20,
+                flex: 22,
                 child: header
                     ? value(openHandSourceLabel(context))
                     : details(
@@ -3368,7 +3369,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                       ),
               ),
               cell(
-                flex: 18,
+                flex: 15,
                 child: header
                     ? value(openHandProtocolLabel(context))
                     : Tooltip(
@@ -3377,7 +3378,89 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                       ),
               ),
               cell(
-                flex: 23,
+                flex: 22,
+                child: header
+                    ? value(
+                        openHandLocalizedText(
+                          context,
+                          zh: '来源地址',
+                          en: 'Source',
+                        ),
+                      )
+                    : details(
+                        record!.sourceEndpoint.isEmpty
+                            ? unknown
+                            : record.sourceEndpoint,
+                        record.userAgent.isEmpty ? unknown : record.userAgent,
+                      ),
+              ),
+              cell(
+                flex: 20,
+                child: header
+                    ? value(
+                        openHandLocalizedText(
+                          context,
+                          zh: '网络路径',
+                          en: 'Network',
+                        ),
+                      )
+                    : details(
+                        record!.networkMode.isEmpty
+                            ? unknown
+                            : _usageNetworkModeLabel(
+                                context,
+                                record.networkMode,
+                              ),
+                        [
+                          if (record.targetHost.isNotEmpty) record.targetHost,
+                          if (record.targetPort.isNotEmpty)
+                            ':${record.targetPort}',
+                          if (record.networkEndpoint.isNotEmpty)
+                            ' · ${record.networkEndpoint}',
+                        ].join(),
+                      ),
+              ),
+              cell(
+                flex: 16,
+                child: header
+                    ? value(
+                        openHandLocalizedText(
+                          context,
+                          zh: '进程/服务',
+                          en: 'Process',
+                        ),
+                      )
+                    : details(
+                        record!.processServiceName.isEmpty
+                            ? unknown
+                            : record.processServiceName,
+                        record.processId.isEmpty
+                            ? unknown
+                            : 'PID ${record.processId}',
+                      ),
+              ),
+              cell(
+                flex: 14,
+                child: header
+                    ? value(
+                        openHandLocalizedText(
+                          context,
+                          zh: '设备/MAC',
+                          en: 'Device/MAC',
+                        ),
+                      )
+                    : details(
+                        record!.macAddress.isEmpty
+                            ? unknown
+                            : record.macAddress,
+                        [
+                          record.metadataText('host_os'),
+                          record.metadataText('host_hostname'),
+                        ].where((value) => value.isNotEmpty).join(' · '),
+                      ),
+              ),
+              cell(
+                flex: 20,
                 alignment: Alignment.centerRight,
                 child: header
                     ? value('Token', align: TextAlign.right)
@@ -3390,7 +3473,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                       ),
               ),
               cell(
-                flex: 12,
+                flex: 11,
                 alignment: Alignment.centerRight,
                 child: header
                     ? value(
@@ -3400,7 +3483,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                     : OpenHandCostMetricCell(usd: record!.totalCostUsd),
               ),
               cell(
-                flex: 12,
+                flex: 11,
                 alignment: Alignment.centerRight,
                 child: header
                     ? value(
@@ -3418,7 +3501,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                       ),
               ),
               cell(
-                flex: 12,
+                flex: 11,
                 alignment: Alignment.center,
                 child: header
                     ? value(
@@ -3485,6 +3568,64 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
         label: openHandProtocolLabel(context),
         value: record.apiFamily.replaceAll('_', ' '),
       ),
+      (
+        label: openHandLocalizedText(context, zh: '来源地址', en: 'Source'),
+        value: record.sourceEndpoint.isEmpty ? '—' : record.sourceEndpoint,
+      ),
+      (
+        label: openHandLocalizedText(context, zh: '客户端 UA', en: 'User-Agent'),
+        value: record.userAgent.isEmpty ? '—' : record.userAgent,
+      ),
+      (
+        label: openHandLocalizedText(context, zh: '网络路径', en: 'Network'),
+        value:
+            [
+              if (record.networkMode.isNotEmpty)
+                _usageNetworkModeLabel(context, record.networkMode),
+              if (record.targetHost.isNotEmpty) record.targetHost,
+              if (record.targetPort.isNotEmpty) ':${record.targetPort}',
+            ].join(' · ').trim().isEmpty
+            ? '—'
+            : [
+                if (record.networkMode.isNotEmpty)
+                  _usageNetworkModeLabel(context, record.networkMode),
+                if (record.targetHost.isNotEmpty) record.targetHost,
+                if (record.targetPort.isNotEmpty) ':${record.targetPort}',
+              ].join(' · '),
+      ),
+      (
+        label: openHandLocalizedText(context, zh: '进程/服务', en: 'Process'),
+        value:
+            [
+              if (record.processServiceName.isNotEmpty)
+                record.processServiceName,
+              if (record.processId.isNotEmpty) 'PID ${record.processId}',
+            ].join(' · ').trim().isEmpty
+            ? '—'
+            : [
+                if (record.serviceName.isNotEmpty) record.serviceName,
+                if (record.processId.isNotEmpty) 'PID ${record.processId}',
+              ].join(' · '),
+      ),
+      (
+        label: openHandLocalizedText(context, zh: '设备/MAC', en: 'Device/MAC'),
+        value: record.macAddress.isEmpty ? '—' : record.macAddress,
+      ),
+      if (record.clientMetadataSource.isNotEmpty)
+        (
+          label: openHandLocalizedText(
+            context,
+            zh: '客户端元数据来源',
+            en: 'Client metadata source',
+          ),
+          value: record.clientMetadataSource == 'client_declared'
+              ? openHandLocalizedText(
+                  context,
+                  zh: '客户端声明',
+                  en: 'Client declared',
+                )
+              : record.clientMetadataSource,
+        ),
     ];
     final diagnosticRows = <({String label, String value})>[
       if (record.errorType case final value?)
@@ -3755,6 +3896,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
       'model': record.modelId,
       'api_family': record.apiFamily,
       'session_id': record.sessionId,
+      'metadata': record.metadata,
     });
   }
 }
@@ -4689,4 +4831,15 @@ String _settingsAiUsagSuccessLabel(BuildContext context) {
 
 String _settingsAiUsagSurfaceLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '端侧', en: 'Surface');
+}
+
+String _usageNetworkModeLabel(BuildContext context, String mode) {
+  return switch (mode.trim().toLowerCase()) {
+    'direct' => openHandLocalizedText(context, zh: '直连', en: 'Direct'),
+    'system_proxy' ||
+    'system' => openHandLocalizedText(context, zh: '系统代理', en: 'System proxy'),
+    'pool' ||
+    'proxy_pool' => openHandLocalizedText(context, zh: '代理池', en: 'Proxy pool'),
+    _ => mode,
+  };
 }

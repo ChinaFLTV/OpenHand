@@ -32,7 +32,9 @@ class AiModelProxyHttpServer {
   static const String _corsAllowedHeaders =
       'authorization, content-type, x-api-key, x-goog-api-key, api-key, '
       'anthropic-version, anthropic-beta, openai-beta, openai-organization, '
-      'openai-project, x-goog-user-project, x-goog-api-client';
+      'openai-project, x-goog-user-project, x-goog-api-client, '
+      'x-openhand-client-pid, x-openhand-client-name, x-openhand-client-service, '
+      'x-openhand-client-mac';
   static const String _corsApiMethods = 'GET, POST, OPTIONS';
   static const String _corsReadMethods = 'GET, HEAD, OPTIONS';
 
@@ -2076,6 +2078,22 @@ class AiModelProxyHttpServer {
         clientIp: headers['x-client-ip'] ?? '',
         clientPort: headers['x-client-port'] ?? '',
         clientUserAgent: headers['user-agent'] ?? '',
+        clientProcessId: _optionalClientHeader(
+          headers,
+          'x-openhand-client-pid',
+        ),
+        clientProcessName: _optionalClientHeader(
+          headers,
+          'x-openhand-client-name',
+        ),
+        clientServiceName: _optionalClientHeader(
+          headers,
+          'x-openhand-client-service',
+        ),
+        clientMacAddress: _optionalClientHeader(
+          headers,
+          'x-openhand-client-mac',
+        ),
         proxyMode: aiModelProxyStatusMode,
         proxyEndpoint: _controller.publicStatusUrl,
         exposedModel: aiModelProxyStatusModelId,
@@ -2258,6 +2276,11 @@ class AiModelProxyHttpServer {
     final remotePort = connectionInfo?.remotePort ?? 0;
     result['x-client-port'] = remotePort > 0 ? '$remotePort' : '';
     return result;
+  }
+
+  static String _optionalClientHeader(Map<String, String> headers, String key) {
+    final value = headers[key]?.trim() ?? '';
+    return value.length > 256 ? value.substring(0, 256) : value;
   }
 
   _ProxyRoute? _routeFor(String path, AiModelProxyApiStyle style) {
