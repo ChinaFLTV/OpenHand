@@ -23182,8 +23182,12 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
       _workerCountController.text,
     );
     if (workerCount == null ||
-        workerCount < DingTalkGatewaySettings.minResponseWorkerCount) {
-      showOpenHandErrorSnack(context, '工作线程数必须为不小于 1 的整数。');
+        workerCount < DingTalkGatewaySettings.minResponseWorkerCount ||
+        workerCount > DingTalkGatewaySettings.maxResponseWorkerCount) {
+      showOpenHandErrorSnack(
+        context,
+        '工作线程数必须为 ${DingTalkGatewaySettings.minResponseWorkerCount}–${DingTalkGatewaySettings.maxResponseWorkerCount} 的整数。',
+      );
       return;
     }
     final rawDirectory = _workingDirectoryController.text.trim();

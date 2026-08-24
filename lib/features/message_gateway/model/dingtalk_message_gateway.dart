@@ -885,6 +885,7 @@ class DingTalkGatewaySettings {
   static const int maxPollIntervalSeconds = 300;
   static const int defaultResponseWorkerCount = 1;
   static const int minResponseWorkerCount = 1;
+  static const int maxResponseWorkerCount = 8;
 
   final int pollIntervalSeconds;
   final int responseWorkerCount;
@@ -918,7 +919,7 @@ class DingTalkGatewaySettings {
   static int normalizeResponseWorkerCount(Object? value) {
     final parsed = optionalIntegralIntFromValue(value);
     if (parsed == null) return defaultResponseWorkerCount;
-    return parsed < minResponseWorkerCount ? minResponseWorkerCount : parsed;
+    return parsed.clamp(minResponseWorkerCount, maxResponseWorkerCount).toInt();
   }
 
   Duration get pollInterval =>
