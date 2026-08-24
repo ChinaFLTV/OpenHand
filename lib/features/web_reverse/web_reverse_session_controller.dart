@@ -173,6 +173,7 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int _maxFindTextNodes = 5000;
   static const int _maxFindTextChars = 2 * kBytesPerMiB;
   static const int _maxFindMatches = 2000;
+  static const int _maxDomPathChars = 16 * kBytesPerKiB;
   static const int _aliveWatchdogFailureThreshold = 3;
   static const int _maxNetworkHeaderEntries = 256;
   static const int _maxNetworkHeadersChars = 2 * kBytesPerMiB;
@@ -2313,34 +2314,64 @@ class WebReverseSessionController extends ChangeNotifier {
   overlay.appendChild(label);
   // 关键帧动画注入到 documentElement 以躲开 page CSP（多数 CSP 不挡 inline style）。
   const style = document.createElement('style');
+  style.id = '__oh_recorder_style';
   style.textContent = '@keyframes __oh_rec_pulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.65)}70%{box-shadow:0 0 0 12px rgba(255,255,255,0)}100%{box-shadow:0 0 0 0 rgba(255,255,255,0)}}';
-  document.documentElement.appendChild(style);
+  const staleOverlay = document.getElementById('__oh_recorder_overlay');
+  if (staleOverlay) staleOverlay.remove();
+  const staleStyle = document.getElementById('__oh_recorder_style');
+  if (staleStyle) staleStyle.remove();
   // 早期 Page.addScriptToEvaluateOnNewDocument 注入时 body 还没存在；用 MutationObserver 等。
+  let attachObserver = null;
   const attach = () => {
+    if (document.documentElement && !document.getElementById('__oh_recorder_style')) {
+      document.documentElement.appendChild(style);
+    }
     if (document.body && !document.getElementById('__oh_recorder_overlay')) {
       document.body.appendChild(overlay);
     }
+    if (document.documentElement && document.body && attachObserver) {
+      attachObserver.disconnect();
+      attachObserver = null;
+    }
   };
   attach();
-  if (!document.body) {
-    new MutationObserver(attach).observe(document.documentElement, {childList:true, subtree:true});
+  if (!document.documentElement || !document.body) {
+    attachObserver = new MutationObserver(attach);
+    attachObserver.observe(document, {childList:true, subtree:true});
   }
+  const listenerAbort = new AbortController();
+  const listenerOptions = { capture: true, signal: listenerAbort.signal };
+  const MAX_SELECTOR_DEPTH = 6;
+  const MAX_SELECTOR_SIBLINGS = 4096;
+  const MAX_SELECTOR_ID_CHARS = 4096;
+  const MAX_PENDING_INPUTS = 256;
   let _stepCount = 0;
   window.__oh_rec_inc = () => {
     _stepCount++;
     label.textContent = 'REC · ' + _stepCount;
   };
-  // 计算稳定 CSS 选择器：优先 #id，其次按 tag + nth-child 链向上回溯到 body。
+  // 计算稳定 CSS 选择器：优先 #id，其次按 tag + nth-of-type 链向上回溯到 body。
   const buildSelector = (el) => {
     if (!el || el.nodeType !== 1) return null;
-    if (el.id) return '#' + CSS.escape(el.id);
+    if (el.id && String(el.id).length <= MAX_SELECTOR_ID_CHARS) {
+      return '#' + CSS.escape(el.id);
+    }
     const parts = [];
     let node = el;
-    while (node && node.nodeType === 1 && node !== document.body && parts.length < 6) {
+    while (node && node.nodeType === 1 && node !== document.body && parts.length < MAX_SELECTOR_DEPTH) {
       const parent = node.parentNode;
       if (!parent) break;
-      const sibs = Array.from(parent.children).filter(c => c.tagName === node.tagName);
-      const nth = sibs.length === 1 ? '' : ':nth-of-type(' + (sibs.indexOf(node) + 1) + ')';
+      let count = 0;
+      let index = 0;
+      let scanned = 0;
+      for (const sibling of parent.children) {
+        if (++scanned > MAX_SELECTOR_SIBLINGS) return null;
+        if (sibling.tagName !== node.tagName) continue;
+        count++;
+        if (sibling === node) index = count;
+      }
+      if (index === 0) return null;
+      const nth = count === 1 ? '' : ':nth-of-type(' + index + ')';
       parts.unshift(node.tagName.toLowerCase() + nth);
       node = parent;
     }
@@ -2379,7 +2410,8 @@ class WebReverseSessionController extends ChangeNotifier {
       text: t && t.innerText ? String(t.innerText).slice(0, 60) : '',
       ts: now,
     });
-  }, true);
+  }, listenerOptions);
+  const pendingInputs = new Map();
   document.addEventListener('input', (ev) => {
     const t = ev.target;
     if (!t || !('value' in t)) return;
@@ -2387,10 +2419,17 @@ class WebReverseSessionController extends ChangeNotifier {
     // 防止每个键击都打一条 step，让 replay 既快又稳。
     const sel = buildSelector(t);
     if (!sel) return;
-    const key = '__oh_input_buf::' + sel;
-    if (window[key]) clearTimeout(window[key]);
+    const previous = pendingInputs.get(t);
+    if (previous) clearTimeout(previous.timer);
+    if (!previous && pendingInputs.size >= MAX_PENDING_INPUTS) {
+      const oldest = pendingInputs.values().next().value;
+      if (oldest) oldest.flush();
+    }
     const flush = () => {
-      window[key] = null;
+      const pending = pendingInputs.get(t);
+      if (!pending) return;
+      clearTimeout(pending.timer);
+      pendingInputs.delete(t);
       log({
         type: 'input',
         selector: sel,
@@ -2398,18 +2437,18 @@ class WebReverseSessionController extends ChangeNotifier {
         ts: Date.now(),
       });
     };
-    window[key] = setTimeout(flush, 250);
-    // 一次性挂 blur / Enter，强制立刻 flush。
-    if (!t.__oh_flushers) {
-      t.__oh_flushers = true;
-      t.addEventListener('blur', () => {
-        if (window[key]) { clearTimeout(window[key]); flush(); }
-      }, { once: true });
-      t.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && window[key]) { clearTimeout(window[key]); flush(); }
-      });
-    }
-  }, true);
+    const timer = setTimeout(flush, 250);
+    pendingInputs.set(t, { timer, flush });
+  }, listenerOptions);
+  document.addEventListener('blur', (ev) => {
+    const pending = pendingInputs.get(ev.target);
+    if (pending) pending.flush();
+  }, listenerOptions);
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Enter') return;
+    const pending = pendingInputs.get(ev.target);
+    if (pending) pending.flush();
+  }, listenerOptions);
   document.addEventListener('change', (ev) => {
     const t = ev.target;
     if (t && (t.tagName === 'SELECT' || (t.type && /checkbox|radio/.test(t.type)))) {
@@ -2422,9 +2461,9 @@ class WebReverseSessionController extends ChangeNotifier {
         ts: Date.now(),
       });
     }
-  }, true);
-  window.addEventListener('hashchange', () => log({ type: 'navigate', url: location.href, ts: Date.now() }));
-  window.addEventListener('popstate', () => log({ type: 'navigate', url: location.href, ts: Date.now() }));
+  }, listenerOptions);
+  window.addEventListener('hashchange', () => log({ type: 'navigate', url: location.href, ts: Date.now() }), { signal: listenerAbort.signal });
+  window.addEventListener('popstate', () => log({ type: 'navigate', url: location.href, ts: Date.now() }), { signal: listenerAbort.signal });
   log({ type: 'navigate', url: location.href, ts: Date.now() });
   // 暴露断言录制 API：用户可在 console 里手动调用插入断言步骤。
   window.__oh_assert_text = (selector, expected) => {
@@ -2433,26 +2472,50 @@ class WebReverseSessionController extends ChangeNotifier {
   window.__oh_assert_visible = (selector) => {
     log({ type: 'assertVisible', selector, ts: Date.now() });
   };
+  window.__oh_rec_cleanup = () => {
+    listenerAbort.abort();
+    if (attachObserver) attachObserver.disconnect();
+    attachObserver = null;
+    for (const pending of pendingInputs.values()) clearTimeout(pending.timer);
+    pendingInputs.clear();
+    overlay.remove();
+    style.remove();
+    window.__oh_recorder_installed = false;
+    window.__oh_rec_inc = null;
+    window.__oh_assert_text = null;
+    window.__oh_assert_visible = null;
+    window.__oh_rec_cleanup = null;
+  };
 })();
 ''';
+    String? scriptIdentifier;
     try {
       final r = await cdp.send(
         'Page.addScriptToEvaluateOnNewDocument',
         params: <String, Object?>{'source': recorderJs},
         sessionId: sessionId,
       );
-      final scriptIdentifier = r['identifier'] as String?;
+      final rawScriptIdentifier = r['identifier'];
+      if (rawScriptIdentifier is! String ||
+          rawScriptIdentifier.isEmpty ||
+          rawScriptIdentifier.length > kWebReverseMaxRemoteObjectIdChars) {
+        throw StateError('浏览器未返回有效的录制脚本标识。');
+      }
+      scriptIdentifier = rawScriptIdentifier;
       if (!_isRecorderStartCurrent(cdp, sessionId, generation)) {
         await _cleanupRecorderRuntime(cdp, sessionId, scriptIdentifier);
         return;
       }
       _recorderScriptIdentifier = scriptIdentifier;
       // 当前页面也立即注入一次。
-      await cdp.send(
+      final injection = await cdp.send(
         'Runtime.evaluate',
         params: const <String, Object?>{'expression': recorderJs},
         sessionId: sessionId,
       );
+      if (injection['exceptionDetails'] is Map) {
+        throw StateError('页面录制器注入失败。');
+      }
       if (!_isRecorderStartCurrent(cdp, sessionId, generation)) {
         if (_recorderScriptIdentifier == scriptIdentifier) {
           _recorderScriptIdentifier = null;
@@ -2465,6 +2528,12 @@ class WebReverseSessionController extends ChangeNotifier {
       _recording = true;
       _safeNotify();
     } catch (error, stack) {
+      if (_recorderScriptIdentifier == scriptIdentifier) {
+        _recorderScriptIdentifier = null;
+      }
+      if (scriptIdentifier != null) {
+        await _cleanupRecorderRuntime(cdp, sessionId, scriptIdentifier);
+      }
       if (_isRecorderStartCurrent(cdp, sessionId, generation)) {
         silentLog('web_reverse_session_controller', '开始录制', error, stack);
       }
@@ -2534,7 +2603,7 @@ class WebReverseSessionController extends ChangeNotifier {
         'Runtime.evaluate',
         params: const <String, Object?>{
           'expression':
-              '(()=>{const el=document.getElementById("__oh_recorder_overlay");if(el)el.remove();window.__oh_recorder_installed=false;window.__oh_rec_inc=null;})()',
+              '(()=>{if(window.__oh_rec_cleanup){window.__oh_rec_cleanup();return;}const el=document.getElementById("__oh_recorder_overlay");if(el)el.remove();const style=document.getElementById("__oh_recorder_style");if(style)style.remove();window.__oh_recorder_installed=false;window.__oh_rec_inc=null;})()',
         },
         sessionId: sessionId,
       );
@@ -4144,7 +4213,7 @@ class WebReverseSessionController extends ChangeNotifier {
       final rawObjectId = obj['objectId'];
       if (rawObjectId is! String ||
           rawObjectId.isEmpty ||
-          rawObjectId.length > 1024) {
+          rawObjectId.length > kWebReverseMaxRemoteObjectIdChars) {
         return const [];
       }
       objectId = rawObjectId;
@@ -4160,23 +4229,7 @@ class WebReverseSessionController extends ChangeNotifier {
       silentLog('web_reverse_session_controller', '读取页面节点事件监听器', e, st);
       return const [];
     } finally {
-      if (objectId != null && _pageSessionId == sessionId) {
-        try {
-          await cdp.send(
-            'Runtime.releaseObject',
-            params: <String, Object?>{'objectId': objectId},
-            sessionId: sessionId,
-            timeout: _cdpControlTimeout,
-          );
-        } catch (error, stack) {
-          silentLog(
-            'web_reverse_session_controller',
-            '释放页面节点监听器对象',
-            error,
-            stack,
-          );
-        }
-      }
+      await _releaseRuntimeObject(cdp, sessionId, objectId, '释放页面节点监听器对象');
     }
   }
 
@@ -4193,18 +4246,25 @@ class WebReverseSessionController extends ChangeNotifier {
 
   Future<String?> _domEvaluatePathFn(int nodeId, String fnBody) async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return null;
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null || nodeId <= 0) return null;
+    String? objectId;
     try {
       final resolved = await cdp.send(
         'DOM.resolveNode',
         params: <String, Object?>{'nodeId': nodeId},
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
         timeout: _cdpScriptTimeout,
       );
       final obj = resolved['object'];
       if (obj is! Map) return null;
-      final objectId = obj['objectId'];
-      if (objectId is! String) return null;
+      final rawObjectId = obj['objectId'];
+      if (rawObjectId is! String ||
+          rawObjectId.isEmpty ||
+          rawObjectId.length > kWebReverseMaxRemoteObjectIdChars) {
+        return null;
+      }
+      objectId = rawObjectId;
       final r = await cdp.send(
         'Runtime.callFunctionOn',
         params: <String, Object?>{
@@ -4212,17 +4272,40 @@ class WebReverseSessionController extends ChangeNotifier {
           'functionDeclaration': fnBody,
           'returnByValue': true,
         },
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
         timeout: _cdpInspectTimeout,
       );
       final result = r['result'];
       if (result is Map && result['value'] is String) {
-        return result['value'] as String;
+        final path = result['value'] as String;
+        if (path.isEmpty) return null;
+        return clipTextByCodeUnits(path, _maxDomPathChars, suffix: '');
       }
       return null;
     } catch (e, st) {
       silentLog('web_reverse_session_controller', '计算页面节点路径', e, st);
       return null;
+    } finally {
+      await _releaseRuntimeObject(cdp, sessionId, objectId, '释放页面节点路径对象');
+    }
+  }
+
+  Future<void> _releaseRuntimeObject(
+    WebReverseCdpClient cdp,
+    String sessionId,
+    String? objectId,
+    String logAction,
+  ) async {
+    if (objectId == null) return;
+    try {
+      await cdp.send(
+        'Runtime.releaseObject',
+        params: <String, Object?>{'objectId': objectId},
+        sessionId: sessionId,
+        timeout: _cdpControlTimeout,
+      );
+    } catch (error, stack) {
+      silentLog('web_reverse_session_controller', logAction, error, stack);
     }
   }
 
@@ -10630,53 +10713,71 @@ String _webReverseRawTextFromValue(Object? value) {
 
 const String _kCssSelectorFn = r'''
 function() {
+  const MAX_DEPTH = 256;
+  const MAX_SIBLINGS = 4096;
+  const MAX_ID_CHARS = 4096;
   function seg(el) {
     if (!el || el.nodeType !== 1) return '';
-    if (el.id) return '#' + CSS.escape(el.id);
+    if (el.id && String(el.id).length <= MAX_ID_CHARS) return '#' + CSS.escape(el.id);
     let name = el.localName;
     const parent = el.parentNode;
     if (!parent || parent.nodeType !== 1) return name;
-    const siblings = Array.from(parent.children).filter(c => c.localName === name);
-    if (siblings.length === 1) return name;
-    const idx = siblings.indexOf(el) + 1;
-    return name + ':nth-of-type(' + idx + ')';
+    let count = 0;
+    let index = 0;
+    let scanned = 0;
+    for (const child of parent.children) {
+      if (++scanned > MAX_SIBLINGS) return '';
+      if (child.localName !== name) continue;
+      count++;
+      if (child === el) index = count;
+    }
+    if (count <= 1 || index <= 0) return name;
+    return name + ':nth-of-type(' + index + ')';
   }
   const parts = [];
   let cur = this;
-  while (cur && cur.nodeType === 1 && cur !== document.documentElement) {
+  while (cur && cur.nodeType === 1 && cur !== document.documentElement && parts.length < MAX_DEPTH) {
     const s = seg(cur);
     if (!s) break;
     parts.unshift(s);
     if (s.startsWith('#')) return parts.join(' > ');
     cur = cur.parentNode;
   }
-  parts.unshift('html');
+  if (cur === document.documentElement) parts.unshift('html');
   return parts.join(' > ');
 }
 ''';
 
 const String _kXPathFn = r'''
 function() {
+  const MAX_DEPTH = 256;
+  const MAX_SIBLINGS = 4096;
+  const MAX_ID_CHARS = 4096;
   function ix(el) {
     let i = 1;
     let sib = el.previousElementSibling;
-    while (sib) {
+    let scanned = 0;
+    while (sib && scanned++ < MAX_SIBLINGS) {
       if (sib.localName === el.localName) i++;
       sib = sib.previousElementSibling;
     }
-    return i;
+    return sib ? 0 : i;
   }
   const parts = [];
   let cur = this;
-  while (cur && cur.nodeType === 1) {
-    if (cur.id) {
+  while (cur && cur.nodeType === 1 && parts.length < MAX_DEPTH) {
+    if (cur.id && String(cur.id).length <= MAX_ID_CHARS && !/["']/.test(cur.id)) {
       parts.unshift('//*[@id="' + cur.id + '"]');
       break;
     }
-    parts.unshift(cur.localName + '[' + ix(cur) + ']');
+    const index = ix(cur);
+    if (index <= 0) return '';
+    parts.unshift(cur.localName + '[' + index + ']');
     cur = cur.parentElement;
   }
-  return '/' + parts.join('/');
+  if (parts.length === 0) return '';
+  if (parts[0].startsWith('//*[@id=')) return parts.join('/');
+  return (cur && cur.nodeType === 1 ? '//' : '/') + parts.join('/');
 }
 ''';
 
