@@ -82,6 +82,14 @@ import '../service/web_message_platform_service.dart';
 
 const int _dingtalkTranslationCacheMaxEntries = 64;
 
+Future<bool> _pathExistsBounded(FileSystemEntity entity) async {
+  try {
+    return await entity.exists().timeout(defaultBoundedFileReadIdleTimeout);
+  } on Object {
+    return false;
+  }
+}
+
 String _reportMessageGatewayUiFailure(
   String action,
   Object error,
@@ -13087,7 +13095,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     _DingTalkPendingAttachment attachment,
   ) async {
     final path = attachment.path.trim();
-    if (path.isEmpty || !await File(path).exists()) {
+    if (path.isEmpty || !await _pathExistsBounded(File(path))) {
       if (mounted) showOpenHandErrorSnack(context, '附件文件已不存在。');
       return;
     }
@@ -14253,7 +14261,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       }
       try {
         final file = File(resolvedPath);
-        final stat = await file.stat();
+        final stat = await file.stat().timeout(
+          defaultBoundedFileReadIdleTimeout,
+        );
         if (stat.type != FileSystemEntityType.file || stat.size <= 0) {
           invalid += 1;
           if (resolvedPath != path) {
@@ -14710,7 +14720,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       }
       if (conversationId == null || recordedPath == null) return;
       final file = File(recordedPath);
-      if (!await file.exists() || await file.length() <= 0) {
+      if (!await _pathExistsBounded(file) ||
+          await file.length().timeout(defaultBoundedFileReadIdleTimeout) <= 0) {
         if (mounted) showOpenHandErrorSnack(context, '没有录到有效语音内容。');
         return;
       }
@@ -16709,7 +16720,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
       final paths = <String>[];
       for (final item in media) {
         final path = item.localPath.trim();
-        if (path.isEmpty || !await File(path).exists()) continue;
+        if (path.isEmpty || !await _pathExistsBounded(File(path))) continue;
         paths.add(path);
       }
       if (paths.isEmpty) {
@@ -16720,7 +16731,9 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           media.length == 1 &&
           media.single.kind == DingTalkMediaKind.image) {
         final file = File(paths.single);
-        final size = await file.length();
+        final size = await file.length().timeout(
+          defaultBoundedFileReadIdleTimeout,
+        );
         if (size <= _maxClipboardImageBytes) {
           await writeOpenHandClipboardImage(
             await readBoundedFileBytes(
@@ -18568,7 +18581,9 @@ class _DingTalkForwardedChatDialogState
       final paths = <String>[];
       for (final item in media) {
         final path = item.localPath.trim();
-        if (path.isNotEmpty && await File(path).exists()) paths.add(path);
+        if (path.isNotEmpty && await _pathExistsBounded(File(path))) {
+          paths.add(path);
+        }
       }
       if (paths.isEmpty) {
         unawaited(
@@ -18584,7 +18599,8 @@ class _DingTalkForwardedChatDialogState
           media.length == 1 &&
           media.single.kind == DingTalkMediaKind.image) {
         final file = File(paths.single);
-        if (await file.length() <= _maxClipboardImageBytes) {
+        if (await file.length().timeout(defaultBoundedFileReadIdleTimeout) <=
+            _maxClipboardImageBytes) {
           await writeOpenHandClipboardImage(
             await readBoundedFileBytes(
               file,
@@ -18890,7 +18906,7 @@ class _DingTalkMediaTile extends StatelessWidget {
   Future<void> _open(BuildContext context) async {
     onInteractiveTap?.call();
     final path = media.localPath.trim();
-    if (path.isEmpty || !await File(path).exists()) {
+    if (path.isEmpty || !await _pathExistsBounded(File(path))) {
       onRetry?.call();
       return;
     }
@@ -19115,7 +19131,7 @@ class _DingTalkFileMediaTileState extends State<_DingTalkFileMediaTile> {
   Future<void> _open() async {
     widget.onInteractiveTap?.call();
     final path = _path;
-    if (path.isEmpty || !await File(path).exists()) {
+    if (path.isEmpty || !await _pathExistsBounded(File(path))) {
       if (mounted) showOpenHandErrorSnack(context, '文件已不存在，请重新下载保存。');
       return;
     }
@@ -19131,7 +19147,7 @@ class _DingTalkFileMediaTileState extends State<_DingTalkFileMediaTile> {
   Future<void> _openDirectory() async {
     widget.onInteractiveTap?.call();
     final path = _path;
-    if (path.isEmpty || !await File(path).exists()) {
+    if (path.isEmpty || !await _pathExistsBounded(File(path))) {
       if (mounted) showOpenHandErrorSnack(context, '文件已不存在，无法打开所在目录。');
       return;
     }
@@ -23170,7 +23186,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
         defaultPath: OpenHandPaths.applicationDirectoryPath(),
       ),
     ).absolute.path;
-    if (!await Directory(workingDirectory).exists()) {
+    if (!await _pathExistsBounded(Directory(workingDirectory))) {
       if (mounted) showOpenHandErrorSnack(context, '工作目录不存在，请选择有效目录。');
       return;
     }
