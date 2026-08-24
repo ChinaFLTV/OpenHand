@@ -254,7 +254,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
     final skills = result?.skills ?? const <SkillMarketSummary>[];
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SearchBar(
           controller: _searchController,

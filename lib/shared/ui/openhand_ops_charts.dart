@@ -3677,6 +3677,7 @@ class _OpenHandOperationalRankTableState
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       OpenHandSafeScrollbar(
                     controller: _horizontal,

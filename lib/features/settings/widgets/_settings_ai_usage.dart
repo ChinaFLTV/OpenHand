@@ -2811,6 +2811,7 @@ class _AiUsageBreakdownTableState extends State<_AiUsageBreakdownTable> {
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 OpenHandSafeScrollbar(
                   controller: _horizontalController,
@@ -3217,6 +3218,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 OpenHandSafeScrollbar(
                   controller: _horizontalController,

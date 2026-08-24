@@ -1266,6 +1266,7 @@ class _ThreadSessionManagementDialogState
           );
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(child: list),
         Padding(

@@ -879,7 +879,6 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
                 ),
               kOpenHandGap10,
               _TaskLedgerFooter(
-                compact: compact,
                 descending: _descending,
                 onToggleDirection: () => setState(() {
                   _descending = !_descending;
@@ -1283,14 +1282,12 @@ class _TaskLedgerDropdown<T> extends StatelessWidget {
 
 class _TaskLedgerFooter extends StatelessWidget {
   const _TaskLedgerFooter({
-    required this.compact,
     required this.descending,
     required this.onToggleDirection,
     required this.onReset,
     required this.pagination,
   });
 
-  final bool compact;
   final bool descending;
   final VoidCallback onToggleDirection;
   final VoidCallback onReset;
@@ -1307,39 +1304,35 @@ class _TaskLedgerFooter extends StatelessWidget {
         borderRadius: BorderRadius.circular(kOpenHandRadius8),
       ),
     );
-    final actions = Row(
-      mainAxisSize: MainAxisSize.min,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        IconButton(
-          tooltip: descending ? '当前降序，点击切换升序' : '当前升序，点击切换降序',
-          onPressed: onToggleDirection,
-          style: buttonStyle,
-          icon: Icon(descending ? Icons.south_rounded : Icons.north_rounded),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: descending ? '当前降序，点击切换升序' : '当前升序，点击切换降序',
+                onPressed: onToggleDirection,
+                style: buttonStyle,
+                icon: Icon(
+                  descending ? Icons.south_rounded : Icons.north_rounded,
+                ),
+              ),
+              kOpenHandHGap8,
+              IconButton(
+                tooltip: '重置筛选',
+                onPressed: onReset,
+                style: buttonStyle,
+                icon: const Icon(Icons.restart_alt_rounded),
+              ),
+            ],
+          ),
         ),
-        kOpenHandHGap8,
-        IconButton(
-          tooltip: '重置筛选',
-          onPressed: onReset,
-          style: buttonStyle,
-          icon: const Icon(Icons.restart_alt_rounded),
-        ),
+        kOpenHandGap10,
+        pagination,
       ],
-    );
-    if (compact) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Align(alignment: Alignment.centerLeft, child: actions),
-          kOpenHandGap10,
-          pagination,
-        ],
-      );
-    }
-    return Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [actions, pagination],
     );
   }
 }

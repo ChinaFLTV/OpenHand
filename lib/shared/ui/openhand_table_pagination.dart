@@ -15,6 +15,9 @@ const int kOpenHandTableMaxPageSize = 200;
 const int kOpenHandTablePagerCount = 7;
 const double kOpenHandTablePagerButtonSize = 32;
 const double kOpenHandTableJumperWidth = 48;
+const double kOpenHandTablePagerGap = 6;
+const double kOpenHandTablePagerClusterGap = 12;
+const double kOpenHandTablePagerStackBreakpoint = 560;
 const List<int> kOpenHandTablePageSizes = <int>[10, 20, 50, 100];
 const int _kOpenHandPagerEllipsis = -1;
 
@@ -288,30 +291,33 @@ class OpenHandTablePaginationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLow.withValues(alpha: 0.72),
-        border: Border(top: BorderSide(color: colors.outlineVariant)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        child: OpenHandTablePagination(
-          total: total,
-          page: page,
-          pageSize: pageSize,
-          onPageChanged: onPageChanged,
-          onPageSizeChanged: onPageSizeChanged,
-          pageSizes: pageSizes,
-          enabled: enabled,
-          showPageNumbers: showPageNumbers,
-          showJumper: showJumper,
-          showPageSize: showPageSize,
-          showTotal: showTotal,
-          canPrevious: canPrevious,
-          canNext: canNext,
-          onPrevious: onPrevious,
-          onNext: onNext,
-          leading: leading,
+    return SizedBox(
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerLow.withValues(alpha: 0.72),
+          border: Border(top: BorderSide(color: colors.outlineVariant)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          child: OpenHandTablePagination(
+            total: total,
+            page: page,
+            pageSize: pageSize,
+            onPageChanged: onPageChanged,
+            onPageSizeChanged: onPageSizeChanged,
+            pageSizes: pageSizes,
+            enabled: enabled,
+            showPageNumbers: showPageNumbers,
+            showJumper: showJumper,
+            showPageSize: showPageSize,
+            showTotal: showTotal,
+            canPrevious: canPrevious,
+            canNext: canNext,
+            onPrevious: onPrevious,
+            onNext: onNext,
+            leading: leading,
+          ),
         ),
       ),
     );
@@ -376,7 +382,7 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
   void initState() {
     super.initState();
     _jumper.text = '${_window.page}';
-    _jumperFocus.addListener(_syncJumperOnBlur);
+    _jumperFocus.addListener(_handleJumperFocus);
   }
 
   @override
@@ -390,10 +396,15 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
 
   @override
   void dispose() {
-    _jumperFocus.removeListener(_syncJumperOnBlur);
+    _jumperFocus.removeListener(_handleJumperFocus);
     _jumperFocus.dispose();
     _jumper.dispose();
     super.dispose();
+  }
+
+  void _handleJumperFocus() {
+    if (mounted) setState(() {});
+    _syncJumperOnBlur();
   }
 
   void _syncJumperOnBlur() {
@@ -445,12 +456,18 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
       window.pageSize,
     }.toList()..sort();
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
+    final labelStyle = theme.textTheme.labelLarge?.copyWith(
+      color: colors.onSurfaceVariant,
+      fontWeight: FontWeight.w700,
+      height: 1,
+    );
+    final left = Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        if (widget.leading != null) widget.leading!,
+        if (widget.leading != null) ...[
+          widget.leading!,
+          const SizedBox(width: kOpenHandTablePagerClusterGap),
+        ],
         _PagerIconButton(
           tooltip: text(zh: '上一页', en: 'Previous'),
           icon: Icons.chevron_left_rounded,
@@ -463,20 +480,24 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
             _go(window.page - 1);
           },
         ),
-        if (widget.showPageNumbers)
+        if (widget.showPageNumbers) ...[
           for (final item in OpenHandPageWindow.pagerItems(
             currentPage: window.page,
             pageCount: pageCount,
-          ))
+          )) ...[
+            const SizedBox(width: kOpenHandTablePagerGap),
             if (item == _kOpenHandPagerEllipsis)
               SizedBox(
                 width: 22,
-                child: Text(
-                  '…',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: colors.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
+                height: kOpenHandTablePagerButtonSize,
+                child: Center(
+                  child: Text(
+                    '…',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w800,
+                      height: 1,
+                    ),
                   ),
                 ),
               )
@@ -488,6 +509,9 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
                 duration: duration,
                 onPressed: () => _go(item),
               ),
+          ],
+        ],
+        const SizedBox(width: kOpenHandTablePagerGap),
         _PagerIconButton(
           tooltip: text(zh: '下一页', en: 'Next'),
           icon: Icons.chevron_right_rounded,
@@ -500,91 +524,144 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
             _go(window.page + 1);
           },
         ),
-        if (widget.showPageSize && widget.onPageSizeChanged != null) ...[
-          kOpenHandHGap8,
-          _PageSizeSelect(
-            value: window.pageSize,
-            sizes: sizes,
+      ],
+    );
+    final rightChildren = <Widget>[
+      if (widget.showPageSize && widget.onPageSizeChanged != null)
+        _PageSizeSelect(
+          value: window.pageSize,
+          sizes: sizes,
+          enabled: widget.enabled,
+          labelBuilder: (size) => text(zh: '$size 条/页', en: '$size / page'),
+          onChanged: (size) {
+            if (size == window.pageSize) return;
+            widget.onPageSizeChanged!(size);
+          },
+        ),
+      if (widget.showJumper) ...[
+        Text(text(zh: '前往', en: 'Go to'), style: labelStyle),
+        AnimatedContainer(
+          duration: duration,
+          curve: kOpenHandSwitchInCurve,
+          width: kOpenHandTableJumperWidth,
+          height: kOpenHandTablePagerButtonSize,
+          alignment: Alignment.center,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: colors.surfaceContainerHighest,
+            borderRadius: kOpenHandBorderRadius8,
+            border: Border.all(
+              color: _jumperFocus.hasFocus
+                  ? colors.primary
+                  : colors.outlineVariant,
+              width: _jumperFocus.hasFocus ? 1.4 : 1,
+            ),
+          ),
+          child: TextField(
+            controller: _jumper,
+            focusNode: _jumperFocus,
             enabled: widget.enabled,
-            labelBuilder: (size) => text(zh: '$size 条/页', en: '$size / page'),
-            onChanged: (size) {
-              if (size == window.pageSize) return;
-              widget.onPageSizeChanged!(size);
-            },
-          ),
-        ],
-        if (widget.showJumper) ...[
-          kOpenHandHGap8,
-          Text(
-            text(zh: '前往', en: 'Go to'),
+            textAlign: TextAlign.center,
+            textAlignVertical: TextAlignVertical.center,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            textInputAction: TextInputAction.go,
+            onSubmitted: (_) => _submitJumper(),
             style: theme.textTheme.labelLarge?.copyWith(
-              color: colors.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          kOpenHandHGap6,
-          SizedBox(
-            width: kOpenHandTableJumperWidth,
-            height: kOpenHandTablePagerButtonSize,
-            child: TextField(
-              controller: _jumper,
-              focusNode: _jumperFocus,
-              enabled: widget.enabled,
-              textAlign: TextAlign.center,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              textInputAction: TextInputAction.go,
-              onSubmitted: (_) => _submitJumper(),
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-              decoration: InputDecoration(
-                isDense: true,
-                filled: true,
-                fillColor: colors.surfaceContainerHighest,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                border: OutlineInputBorder(
-                  borderRadius: kOpenHandBorderRadius8,
-                  borderSide: BorderSide(color: colors.outlineVariant),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: kOpenHandBorderRadius8,
-                  borderSide: BorderSide(color: colors.outlineVariant),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: kOpenHandBorderRadius8,
-                  borderSide: BorderSide(color: colors.primary, width: 1.4),
-                ),
-              ),
-            ),
-          ),
-          kOpenHandHGap6,
-          Text(
-            text(zh: '页', en: 'page'),
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: colors.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-        if (widget.showTotal) ...[
-          kOpenHandHGap8,
-          Text(
-            text(zh: '共 ${window.total} 条', en: '${window.total} total'),
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: colors.onSurfaceVariant,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
+              height: 1,
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
+            decoration: const InputDecoration(
+              isDense: true,
+              isCollapsed: true,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(horizontal: 4),
+            ),
           ),
-        ],
+        ),
+        Text(text(zh: '页', en: 'page'), style: labelStyle),
       ],
+      if (widget.showTotal)
+        Text(
+          text(zh: '共 ${window.total} 条', en: '${window.total} total'),
+          style: labelStyle?.copyWith(
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+    ];
+    final right = rightChildren.isEmpty
+        ? const SizedBox.shrink()
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < rightChildren.length; i++) ...[
+                if (i > 0) const SizedBox(width: kOpenHandTablePagerGap),
+                rightChildren[i],
+              ],
+            ],
+          );
+    return _PagerSplitBar(left: left, right: right);
+  }
+}
+
+class _PagerSplitBar extends StatelessWidget {
+  const _PagerSplitBar({required this.left, required this.right});
+
+  final Widget left;
+  final Widget right;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (!constraints.maxWidth.isFinite) {
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              left,
+              const SizedBox(width: kOpenHandTablePagerClusterGap),
+              right,
+            ],
+          );
+        }
+        if (constraints.maxWidth < kOpenHandTablePagerStackBreakpoint) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(alignment: Alignment.centerLeft, child: left),
+              const SizedBox(height: kOpenHandTablePagerGap),
+              Align(alignment: Alignment.centerRight, child: right),
+            ],
+          );
+        }
+        return SizedBox(
+          width: constraints.maxWidth,
+          child: Row(
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: left,
+                  ),
+                ),
+              ),
+              const SizedBox(width: kOpenHandTablePagerClusterGap),
+              right,
+            ],
+          ),
+        );
+      },
     );
   }
 }
 
-class _PageSizeSelect extends StatelessWidget {
+class _PageSizeSelect extends StatefulWidget {
   const _PageSizeSelect({
     required this.value,
     required this.sizes,
@@ -600,40 +677,91 @@ class _PageSizeSelect extends StatelessWidget {
   final ValueChanged<int> onChanged;
 
   @override
+  State<_PageSizeSelect> createState() => _PageSizeSelectState();
+}
+
+class _PageSizeSelectState extends State<_PageSizeSelect> {
+  bool _open = false;
+
+  Future<void> _pick() async {
+    if (!widget.enabled || _open) return;
+    _open = true;
+    try {
+      final next = await showAnimatedAnchoredPopupMenu<int>(
+        context: context,
+        items: [
+          for (final size in widget.sizes)
+            PopupMenuItem<int>(
+              value: size,
+              height: kOpenHandTablePagerButtonSize + 12,
+              child: Text(widget.labelBuilder(size)),
+            ),
+        ],
+        initialValue: widget.value,
+        position: PopupMenuPosition.under,
+        offset: const Offset(0, 6),
+      );
+      if (!mounted || next == null || next == widget.value) return;
+      widget.onChanged(next);
+    } finally {
+      _open = false;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest,
-        borderRadius: kOpenHandBorderRadius8,
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: AnimatedDropdownButton<int>(
-          value: value,
-          isDense: true,
-          underline: const SizedBox.shrink(),
-          iconSize: 18,
-          borderRadius: kOpenHandBorderRadius8,
-          style: theme.textTheme.labelLarge?.copyWith(
-            color: colors.onSurface,
-            fontWeight: FontWeight.w700,
-          ),
-          items: [
-            for (final size in sizes)
-              DropdownMenuItem<int>(
-                value: size,
-                child: Text(labelBuilder(size)),
+    final label = widget.labelBuilder(widget.value);
+    return Tooltip(
+      message: label,
+      child: HoverLift(
+        liftDistance: 1.5,
+        child: MicroPressFeedback(
+          enabled: widget.enabled,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: widget.enabled ? _pick : null,
+              borderRadius: kOpenHandBorderRadius8,
+              child: AnimatedContainer(
+                duration: openHandMotionDuration(context, kOpenHandMotion180),
+                curve: kOpenHandSwitchInCurve,
+                height: kOpenHandTablePagerButtonSize,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                alignment: Alignment.center,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: colors.surfaceContainerHighest,
+                  borderRadius: kOpenHandBorderRadius8,
+                  border: Border.all(color: colors.outlineVariant),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: widget.enabled
+                            ? colors.onSurface
+                            : colors.outline,
+                        fontWeight: FontWeight.w700,
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    Icon(
+                      Icons.expand_more_rounded,
+                      size: 18,
+                      color: widget.enabled
+                          ? colors.onSurfaceVariant
+                          : colors.outline,
+                    ),
+                  ],
+                ),
               ),
-          ],
-          onChanged: enabled
-              ? (next) {
-                  if (next == null) return;
-                  onChanged(next);
-                }
-              : null,
+            ),
+          ),
         ),
       ),
     );
