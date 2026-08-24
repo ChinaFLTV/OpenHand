@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 
 import 'bounded_animation.dart';
 import 'collision_safe_animated_switcher.dart';
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 
 class RollingText extends StatelessWidget {
@@ -21,7 +22,7 @@ class RollingText extends StatelessWidget {
     super.key,
     required this.text,
     required this.style,
-    this.duration = const Duration(milliseconds: 360),
+    this.duration = kOpenHandMotion360,
   });
 
   final String text;
@@ -30,14 +31,20 @@ class RollingText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final motionEnabled = openHandTickerMotionEnabled(context);
+    final resolvedDuration = openHandMotionDuration(context, duration);
+    final motionEnabled = resolvedDuration > Duration.zero;
     final children = <Widget>[];
     final graphemes = text.characters.toList(growable: false);
     for (var i = 0; i < graphemes.length; i += 1) {
       final ch = graphemes[i];
       children.add(
         motionEnabled
-            ? _RollingChar(char: ch, slot: i, style: style, duration: duration)
+            ? _RollingChar(
+                char: ch,
+                slot: i,
+                style: style,
+                duration: resolvedDuration,
+              )
             : _RollingStaticChar(char: ch, slot: i, style: style),
       );
     }

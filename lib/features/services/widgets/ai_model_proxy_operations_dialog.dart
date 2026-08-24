@@ -10,6 +10,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_live_value.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_table_metric_cells.dart';
@@ -830,6 +831,7 @@ class _ProxyOpsHero extends StatelessWidget {
                     : Icons.pause_circle_outline_rounded,
                 label: _lifecycleLabel(context, data.controller.lifecycle),
                 color: tone,
+                pulse: running,
               ),
               _ProxyOpsChip(
                 icon: Icons.link_rounded,
@@ -881,58 +883,55 @@ class _ProxyOpsHero extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: cs.primary.withValues(alpha: 0.22)),
             ),
-            child: SelectableText.rich(
-              TextSpan(
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            child: DefaultTextStyle(
+              style: const TextStyle(
+                fontFamily: kOpenHandMonospaceFontFamily,
+                fontSize: 12,
+                height: 1.45,
+                fontWeight: FontWeight.w700,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const TextSpan(
-                    text: '➜ OpenHand ',
-                    style: TextStyle(color: OpenHandStatusColors.success),
+                  OpenHandLiveConsoleLine(
+                    prompt: 'OpenHand',
+                    command: 'ai-model-proxy',
+                    detail: 'endpoint=${data.endpoint}',
+                    promptColor: OpenHandStatusColors.success,
+                    commandColor: cs.tertiary,
                   ),
-                  TextSpan(
-                    text: 'ai-model-proxy ',
-                    style: TextStyle(
-                      color: cs.tertiary,
-                      fontWeight: FontWeight.w900,
+                  kOpenHandGap4,
+                  OpenHandLiveConsoleLine(
+                    prompt: 'state',
+                    command: _lifecycleLabel(
+                      context,
+                      data.controller.lifecycle,
                     ),
+                    detail:
+                        'active=${data.controller.activeRequests} connections=${data.controller.currentConnections}',
+                    promptColor: OpenHandStatusColors.success,
+                    commandColor: cs.tertiary,
                   ),
-                  TextSpan(
-                    text: 'endpoint=${data.endpoint}\n',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.72),
-                    ),
-                  ),
-                  const TextSpan(
-                    text: '  state ',
-                    style: TextStyle(color: OpenHandStatusColors.success),
-                  ),
-                  TextSpan(
-                    text:
-                        '${_lifecycleLabel(context, data.controller.lifecycle)}  active=${data.controller.activeRequests}  connections=${data.controller.currentConnections}\n',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.72),
-                    ),
-                  ),
-                  const TextSpan(
-                    text: '  traffic ',
-                    style: TextStyle(color: OpenHandStatusColors.success),
-                  ),
-                  TextSpan(
-                    text:
-                        'in=${formatByteSize(data.controller.runtimeInboundBytes)}  out=${formatByteSize(data.controller.runtimeOutboundBytes)}  avg=${data.settings.averageDurationMs.toStringAsFixed(0)}ms  p95=${data.p95LatencyMs}ms',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.72),
-                    ),
+                  kOpenHandGap4,
+                  OpenHandLiveConsoleLine(
+                    prompt: 'traffic',
+                    command:
+                        'in=${formatByteSize(data.controller.runtimeInboundBytes)}',
+                    detail:
+                        'out=${formatByteSize(data.controller.runtimeOutboundBytes)} avg=${data.settings.averageDurationMs.toStringAsFixed(0)}ms p95=${data.p95LatencyMs}ms',
+                    promptColor: OpenHandStatusColors.success,
+                    commandColor: cs.tertiary,
                   ),
                 ],
               ),
-              maxLines: 4,
             ),
           ),
           if (data.controller.errorMessage?.trim().isNotEmpty ?? false) ...[
             kOpenHandGap10,
-            Text(
+            OpenHandLiveValue(
               data.controller.errorMessage!,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(color: cs.error),
             ),
           ],
@@ -1177,7 +1176,7 @@ class _ProxyOpsMetric extends StatelessWidget {
               ],
             ),
             kOpenHandGap8,
-            _ProxyOpsCopyText(
+            OpenHandLiveValue(
               metric.value.trim().isEmpty ? '-' : metric.value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -1191,7 +1190,7 @@ class _ProxyOpsMetric extends StatelessWidget {
               height: _kProxyOpsMetricHelperHeight,
               child: metric.helper.trim().isEmpty
                   ? null
-                  : _ProxyOpsCopyText(
+                  : OpenHandLiveValue(
                       metric.helper.trim(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1266,7 +1265,11 @@ class _ProxyOpsTappableCardState extends State<_ProxyOpsTappableCard> {
           },
           onTap: widget.onTap,
           child: AnimatedScale(
-            scale: _pressed ? 0.97 : 1,
+            scale: _pressed
+                ? 0.97
+                : _hovered
+                ? 1.018
+                : 1,
             duration: duration,
             curve: kOpenHandSwitchInCurve,
             child: Stack(
@@ -1634,7 +1637,7 @@ class _ProxyOpsDistribution extends StatelessWidget {
                         trackColor: cs.surfaceContainerHighest,
                       ),
                       child: Center(
-                        child: Text(
+                        child: OpenHandLiveValue(
                           '$total',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w900,
@@ -1695,7 +1698,7 @@ class _ProxyOpsDistributionRow extends StatelessWidget {
                   style: theme.textTheme.labelMedium,
                 ),
               ),
-              _ProxyOpsCopyText(
+              OpenHandLiveValue(
                 '$value',
                 style: theme.textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.w800,
@@ -1829,7 +1832,7 @@ class _ProxyOpsPanel extends StatelessWidget {
                       ),
                       if (subtitleText != null && subtitleText.isNotEmpty) ...[
                         kOpenHandGap3,
-                        _ProxyOpsCopyText(
+                        OpenHandLiveValue(
                           subtitleText,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -1875,37 +1878,46 @@ class _ProxyOpsChip extends StatelessWidget {
     required this.label,
     required this.color,
     this.monospace = false,
+    this.pulse = false,
   });
   final IconData icon;
   final String label;
   final Color color;
   final bool monospace;
+  final bool pulse;
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.1),
-      borderRadius: BorderRadius.circular(_kProxyOpsControlRadius),
-      border: Border.all(color: color.withValues(alpha: 0.25)),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: color),
-        kOpenHandHGap6,
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: color,
-            fontWeight: FontWeight.w800,
-            fontFamily: monospace ? kOpenHandMonospaceFontFamily : null,
+  Widget build(BuildContext context) {
+    final duration = openHandMotionDuration(context, kOpenHandMotion180);
+    return AnimatedContainer(
+      duration: duration,
+      curve: kOpenHandSwitchInCurve,
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(_kProxyOpsControlRadius),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          pulse
+              ? OpenHandLiveStatusDot(color: color, pulse: true, size: 10)
+              : Icon(icon, size: 16, color: color),
+          kOpenHandHGap6,
+          OpenHandLiveValue(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w800,
+              fontFamily: monospace ? kOpenHandMonospaceFontFamily : null,
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 String _lifecycleLabel(BuildContext context, AiModelProxyLifecycle lifecycle) {
@@ -2026,7 +2038,7 @@ class _ProxyOpsInsightDialog extends StatelessWidget {
                     ),
                     if (subtitle.trim().isNotEmpty) ...[
                       kOpenHandGap3,
-                      _ProxyOpsCopyText(
+                      OpenHandLiveValue(
                         subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -2427,8 +2439,11 @@ class _ProxyOpsDetailSection extends StatelessWidget {
                         ),
                         kOpenHandHGap12,
                         Expanded(
-                          child: SelectableText(
+                          child: OpenHandLiveValue(
                             row.$2.value,
+                            selectable: true,
+                            maxLines: 6,
+                            overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodyMedium,
                           ),
                         ),

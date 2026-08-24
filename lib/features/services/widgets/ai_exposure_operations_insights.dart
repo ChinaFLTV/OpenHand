@@ -298,8 +298,8 @@ class _InsightContextBar extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-               kOpenHandGap1,
-              Text(
+              kOpenHandGap1,
+              OpenHandLiveValue(
                 value,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -307,8 +307,8 @@ class _InsightContextBar extends StatelessWidget {
                   fontWeight: FontWeight.w900,
                 ),
               ),
-               kOpenHandGap1,
-              Text(
+              kOpenHandGap1,
+              OpenHandLiveValue(
                 helper,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -392,10 +392,6 @@ class _InsightContextMetric extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final motion = openHandMotionSettingsOf(
-      context,
-      OpenHandMotionSettingsScope.dialog,
-    );
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -418,28 +414,12 @@ class _InsightContextMetric extends StatelessWidget {
                 ),
               ),
               kOpenHandGap2,
-              AnimatedSwitcher(
-                duration: motion.entranceDuration,
-                switchInCurve: motion.curve.curve,
-                switchOutCurve: motion.curve.curve,
-                transitionBuilder: (child, animation) => FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0, 0.15),
-                      end: Offset.zero,
-                    ).animate(animation),
-                    child: child,
-                  ),
-                ),
-                child: Text(
-                  item.value,
-                  key: ValueKey<(String, String)>((item.label, item.value)),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              OpenHandLiveValue(
+                item.value,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],
@@ -491,7 +471,11 @@ class _TaskTelemetryInsightState extends State<_TaskTelemetryInsight> {
       'cancelled': 0,
     };
     for (final task in history) {
-      counts.update(_taskStatusId(task), (value) => value + 1, ifAbsent: () => 1);
+      counts.update(
+        _taskStatusId(task),
+        (value) => value + 1,
+        ifAbsent: () => 1,
+      );
     }
     final trend = _taskTrendBuckets(history);
     final labels = trend

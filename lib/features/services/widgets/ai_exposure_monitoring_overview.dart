@@ -73,7 +73,9 @@ class _OverviewPanel extends StatelessWidget {
         .map(_sourceCredentialKey)
         .toSet()
         .length;
-    final enabledRuleCount = controller.rules.where((rule) => rule.enabled).length;
+    final enabledRuleCount = controller.rules
+        .where((rule) => rule.enabled)
+        .length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -217,21 +219,13 @@ class _OverviewPanel extends StatelessWidget {
               centerValue: '${results.length}',
               items: [
                 _DistributionItem('有效', valid, OpenHandStatusColors.success),
-                _DistributionItem(
-                  '高价值',
-                  highValue,
-                  _kAiExposureColorHighValue,
-                ),
+                _DistributionItem('高价值', highValue, _kAiExposureColorHighValue),
                 _DistributionItem(
                   '可疑',
                   suspicious,
                   OpenHandStatusColors.warning,
                 ),
-                _DistributionItem(
-                  '蜜罐',
-                  honeypot,
-                  OpenHandStatusColors.error,
-                ),
+                _DistributionItem('蜜罐', honeypot, OpenHandStatusColors.error),
               ],
             ),
             _DistributionPanel(
@@ -368,24 +362,16 @@ class _Console extends StatelessWidget {
     );
   }
 
-  Widget _consoleLine(String name, String value, bool healthy) => Text.rich(
-    TextSpan(
-      children: [
-        const TextSpan(
-          text: '→ ',
-          style: TextStyle(color: _kAiExposureConsoleSuccess),
-        ),
-        TextSpan(
-          text: '$name ',
-          style: const TextStyle(color: _kAiExposureDarkJobId),
-        ),
-        TextSpan(
-          text: value,
-          style: TextStyle(
-            color: healthy ? _kAiExposureDarkOnSurface : _kAiExposureConsoleWarning,
-          ),
-        ),
-      ],
-    ),
-  );
+  Widget _consoleLine(String name, String value, bool healthy) {
+    return OpenHandLiveConsoleLine(
+      marker: kOpenHandLiveConsoleArrowMarker,
+      prompt: name,
+      command: value,
+      markerColor: _kAiExposureConsoleSuccess,
+      promptColor: _kAiExposureDarkJobId,
+      commandColor: healthy
+          ? _kAiExposureDarkOnSurface
+          : _kAiExposureConsoleWarning,
+    );
+  }
 }

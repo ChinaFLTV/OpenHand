@@ -119,7 +119,7 @@ class _DependencyServiceCard extends StatelessWidget {
                     ),
                     kOpenHandHGap7,
                     Expanded(
-                      child: Text(
+                      child: OpenHandLiveValue(
                         detail,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -311,7 +311,7 @@ class _MetricTile extends StatelessWidget {
                       color: cs.onSurfaceVariant,
                     ),
                   ),
-                  Text(
+                  OpenHandLiveValue(
                     metric.value,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -319,7 +319,7 @@ class _MetricTile extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  Text(
+                  OpenHandLiveValue(
                     metric.detail,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -437,26 +437,17 @@ class _OpsKeyValue extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Flexible(
-                child: selectable
-                    ? SelectableText(
-                        value,
-                        maxLines: maxLines,
-                        textAlign: TextAlign.end,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: color,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      )
-                    : Text(
-                        value,
-                        maxLines: maxLines,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.end,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          color: color,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                child: OpenHandLiveValue(
+                  value,
+                  selectable: selectable,
+                  maxLines: maxLines,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
               if (copyable) ...[
                 kOpenHandHGap4,
@@ -695,7 +686,7 @@ class _TrendPanelState extends State<_TrendPanel> {
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      Text(
+                      OpenHandLiveValue(
                         widget.subtitle,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: colors.onSurfaceVariant,
@@ -890,7 +881,7 @@ class _DistributionPanelState extends State<_DistributionPanel> {
                       colors: visible.map((item) => item.color).toList(),
                       trackColor: colors.surfaceContainerHighest,
                       child: Center(
-                        child: Text(
+                        child: OpenHandLiveValue(
                           widget.centerValue,
                           style: theme.textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w900,
@@ -940,7 +931,7 @@ class _DistributionPanelState extends State<_DistributionPanel> {
                                 kOpenHandHGap8,
                                 SizedBox(
                                   width: 42,
-                                  child: Text(
+                                  child: OpenHandLiveValue(
                                     '${item.value}',
                                     textAlign: TextAlign.end,
                                     style: theme.textTheme.labelLarge,
@@ -953,9 +944,7 @@ class _DistributionPanelState extends State<_DistributionPanel> {
                         .toList(growable: false),
                   );
                   if (constraints.maxWidth < 430) {
-                    return Column(
-                      children: [donut, kOpenHandGap12, rows],
-                    );
+                    return Column(children: [donut, kOpenHandGap12, rows]);
                   }
                   return Row(
                     children: [
@@ -1028,7 +1017,11 @@ class _TappableOpsCardState extends State<_TappableOpsCard> {
             onTapUp: (_) => setState(() => _pressed = false),
             onTap: widget.onTap,
             child: AnimatedScale(
-              scale: _pressed ? 0.975 : 1,
+              scale: _pressed
+                  ? 0.975
+                  : _hovered
+                  ? 1.016
+                  : 1,
               duration: duration,
               curve: kOpenHandSwitchInCurve,
               child: Stack(
@@ -1183,34 +1176,43 @@ class _StatusPill extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.color,
+    this.pulse = false,
   });
   final IconData icon;
   final String label;
   final Color color;
+  final bool pulse;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.11),
-      borderRadius: kOpenHandPillBorderRadius,
-      border: Border.all(color: color.withValues(alpha: 0.35)),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 15, color: color),
-        kOpenHandHGap6,
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w700,
+  Widget build(BuildContext context) {
+    final duration = openHandMotionDuration(context, kOpenHandMotion180);
+    return AnimatedContainer(
+      duration: duration,
+      curve: kOpenHandSwitchInCurve,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.11),
+        borderRadius: kOpenHandPillBorderRadius,
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          pulse
+              ? OpenHandLiveStatusDot(color: color, pulse: true, size: 9)
+              : Icon(icon, size: 15, color: color),
+          kOpenHandHGap6,
+          OpenHandLiveValue(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class _StageRow extends StatelessWidget {
@@ -1249,17 +1251,14 @@ class _StageRow extends StatelessWidget {
       title: Text(_stageName(stage)),
       subtitle: t == null
           ? null
-          : Text(
+          : OpenHandLiveValue(
               [
-                if (t.startedAt != null)
-                  '开始 ${_shortDateTime(t.startedAt!)}',
-                if (t.finishedAt != null)
-                  '结束 ${_shortDateTime(t.finishedAt!)}',
+                if (t.startedAt != null) '开始 ${_shortDateTime(t.startedAt!)}',
+                if (t.finishedAt != null) '结束 ${_shortDateTime(t.finishedAt!)}',
                 if (t.durationMs != null) '${t.durationMs} ms',
                 if (t.inputCount != null) '输入 ${t.inputCount}',
                 if (t.outputCount != null) '输出 ${t.outputCount}',
-                if (t.message?.trim().isNotEmpty == true)
-                  t.message!.trim(),
+                if (t.message?.trim().isNotEmpty == true) t.message!.trim(),
               ].join(' · '),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -1301,14 +1300,20 @@ class _DependencyLine extends StatelessWidget {
     ),
     leading: Icon(
       ready ? Icons.check_circle_outline_rounded : Icons.circle_outlined,
-      color: ready ? OpenHandStatusColors.success : Theme.of(context).colorScheme.outline,
+      color: ready
+          ? OpenHandStatusColors.success
+          : Theme.of(context).colorScheme.outline,
     ),
     title: Text(name),
-    subtitle: Text(detail, maxLines: 2, overflow: TextOverflow.ellipsis),
+    subtitle: OpenHandLiveValue(
+      detail,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    ),
     trailing: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(ready ? '正常' : '未启用'),
+        OpenHandLiveValue(ready ? '正常' : '未启用'),
         kOpenHandHGap4,
         const Icon(Icons.chevron_right_rounded, size: 19),
       ],

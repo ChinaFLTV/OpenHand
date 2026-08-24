@@ -255,7 +255,7 @@ class _OperationsDialogState extends State<_OperationsDialog> {
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleLarge,
                       ),
-                      Text(
+                      OpenHandLiveValue(
                         'ai_jungler ${controller.health?.version ?? '--'} · ${snapshot.ownsProcess ? text(zh: '内嵌进程', en: 'Bundled') : text(zh: '外部服务', en: 'External')}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -326,6 +326,7 @@ class _OperationsDialogState extends State<_OperationsDialog> {
                     ? text(zh: '运行中', en: 'Running')
                     : text(zh: '已停止', en: 'Stopped'),
                 color: running ? OpenHandStatusColors.success : cs.outline,
+                pulse: running,
               ),
               _StatusPill(
                 icon: Icons.schedule_rounded,

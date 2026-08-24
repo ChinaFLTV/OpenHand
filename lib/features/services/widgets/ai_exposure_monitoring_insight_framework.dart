@@ -146,7 +146,7 @@ class _OperationsInsightDialog extends StatelessWidget {
                             ),
                           ),
                           kOpenHandGap2,
-                          Text(
+                          OpenHandLiveValue(
                             subtitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

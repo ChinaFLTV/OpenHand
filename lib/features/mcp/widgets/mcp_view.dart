@@ -37,6 +37,7 @@ import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
+import '../../../shared/ui/openhand_live_value.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
@@ -4553,6 +4554,7 @@ class _McpOpsConsoleHeader extends StatelessWidget {
               icon: Icons.circle_rounded,
               label: _lifecycleLabel(context, snapshot.lifecycle),
               color: statusColor,
+              pulse: running,
             ),
             _McpOpsStatusChip(
               icon: Icons.link_rounded,
@@ -4674,7 +4676,9 @@ class _McpOpsHeaderIdentity extends StatelessWidget {
     final cs = theme.colorScheme;
     return Row(
       children: [
-        Container(
+        AnimatedContainer(
+          duration: openHandMotionDuration(context, kOpenHandMotion180),
+          curve: kOpenHandSwitchInCurve,
           width: 48,
           height: 48,
           alignment: Alignment.center,
@@ -4703,7 +4707,7 @@ class _McpOpsHeaderIdentity extends StatelessWidget {
                 ),
               ),
               kOpenHandGap3,
-              Text(
+              OpenHandLiveValue(
                 _localizedText(
                   context,
                   zh: 'OpenHand MCP Server · $endpointUri',
@@ -5447,6 +5451,7 @@ class _McpOpsHeroPanel extends StatelessWidget {
                     : Icons.pause_circle_outline_rounded,
                 label: _lifecycleLabel(context, snapshot.lifecycle),
                 color: tone,
+                pulse: running,
               ),
               _McpOpsStatusChip(
                 icon: Icons.link_rounded,
@@ -5524,14 +5529,16 @@ class _McpOpsHeroPanel extends StatelessWidget {
           ),
           if (snapshot.errorMessage?.trim().isNotEmpty ?? false) ...[
             kOpenHandGap12,
-            _McpOpsCopyText(
+            OpenHandLiveValue(
               snapshot.errorMessage!,
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
             ),
           ],
           if (snapshot.lastConnectivityAt != null) ...[
             kOpenHandGap10,
-            _McpOpsCopyText(
+            OpenHandLiveValue(
               '${formatMonthDayHmsLocal(snapshot.lastConnectivityAt!)} · ${snapshot.lastConnectivityMessage}',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -5641,24 +5648,12 @@ class _McpOpsConsoleLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SelectableText.rich(
-      TextSpan(
-        children: [
-          TextSpan(
-            text: '➜ $prompt ',
-            style: TextStyle(color: promptColor),
-          ),
-          TextSpan(
-            text: command,
-            style: TextStyle(color: commandColor, fontWeight: FontWeight.w900),
-          ),
-          TextSpan(
-            text: detail.trim().isEmpty ? '' : '  $detail',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.72)),
-          ),
-        ],
-      ),
-      maxLines: 1,
+    return OpenHandLiveConsoleLine(
+      prompt: prompt,
+      command: command,
+      detail: detail,
+      promptColor: promptColor,
+      commandColor: commandColor,
     );
   }
 }
@@ -5836,7 +5831,7 @@ class _McpOpsMetricTile extends StatelessWidget {
               ],
             ),
             kOpenHandGap8,
-            _McpOpsCopyText(
+            OpenHandLiveValue(
               value.trim().isEmpty ? '-' : value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -5847,7 +5842,7 @@ class _McpOpsMetricTile extends StatelessWidget {
             ),
             if (helper?.trim().isNotEmpty ?? false) ...[
               kOpenHandGap4,
-              _McpOpsCopyText(
+              OpenHandLiveValue(
                 helper!.trim(),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -5885,6 +5880,7 @@ class _McpOpsTappableCard extends StatefulWidget {
 
 class _McpOpsTappableCardState extends State<_McpOpsTappableCard> {
   bool _pressed = false;
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
@@ -5892,13 +5888,34 @@ class _McpOpsTappableCardState extends State<_McpOpsTappableCard> {
     final duration = openHandMotionDuration(context, kOpenHandMotion120);
     return MouseRegion(
       cursor: SystemMouseCursors.click,
+      onEnter: (_) {
+        if (!_hovered) setState(() => _hovered = true);
+      },
+      onExit: (_) {
+        if (_hovered || _pressed) {
+          setState(() {
+            _hovered = false;
+            _pressed = false;
+          });
+        }
+      },
       child: GestureDetector(
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapCancel: () => setState(() => _pressed = false),
-        onTapUp: (_) => setState(() => _pressed = false),
+        onTapDown: (_) {
+          if (!_pressed) setState(() => _pressed = true);
+        },
+        onTapCancel: () {
+          if (_pressed) setState(() => _pressed = false);
+        },
+        onTapUp: (_) {
+          if (_pressed) setState(() => _pressed = false);
+        },
         onTap: widget.onTap,
         child: AnimatedScale(
-          scale: _pressed ? 0.97 : 1,
+          scale: _pressed
+              ? 0.97
+              : _hovered
+              ? 1.018
+              : 1,
           duration: duration,
           curve: kOpenHandSwitchInCurve,
           child: Stack(
@@ -5911,7 +5928,9 @@ class _McpOpsTappableCardState extends State<_McpOpsTappableCard> {
                     curve: kOpenHandSwitchInCurve,
                     decoration: BoxDecoration(
                       color: _pressed
-                          ? widget.tone.withValues(alpha: 0.08)
+                          ? widget.tone.withValues(alpha: 0.10)
+                          : _hovered
+                          ? widget.tone.withValues(alpha: 0.05)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(widget.radius),
                     ),
@@ -5959,7 +5978,7 @@ class _McpOpsTrendPanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (subtitle.trim().isNotEmpty) ...[
-            _McpOpsCopyText(
+            OpenHandLiveValue(
               subtitle,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: cs.onSurfaceVariant,
@@ -6104,7 +6123,7 @@ class _McpOpsPanel extends StatelessWidget {
                       ),
                       if (subtitleText != null && subtitleText.isNotEmpty) ...[
                         kOpenHandGap3,
-                        _McpOpsCopyText(
+                        OpenHandLiveValue(
                           subtitleText,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -6223,14 +6242,16 @@ class _McpOpsCountBadge extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final tone = active ? cs.primary : cs.onSurfaceVariant;
-    return Container(
+    return AnimatedContainer(
+      duration: openHandMotionDuration(context, kOpenHandMotion180),
+      curve: kOpenHandSwitchInCurve,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: tone.withValues(alpha: active ? 0.14 : 0.08),
         borderRadius: kOpenHandPillBorderRadius,
         border: Border.all(color: tone.withValues(alpha: 0.28)),
       ),
-      child: _McpOpsCopyText(
+      child: OpenHandLiveValue(
         text,
         style: theme.textTheme.labelSmall?.copyWith(
           color: tone,
@@ -6406,7 +6427,7 @@ class _McpOpsDistributionPanel extends StatelessWidget {
                         trackColor: cs.surfaceContainerHighest,
                       ),
                       child: Center(
-                        child: _McpOpsCopyText(
+                        child: OpenHandLiveValue(
                           '$total',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -6474,7 +6495,7 @@ class _McpOpsDistributionRow extends StatelessWidget {
                 ),
               ),
               if (showPercent) ...[
-                _McpOpsCopyText(
+                OpenHandLiveValue(
                   '${(ratio * 100).toStringAsFixed(1)}%',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
@@ -6483,7 +6504,7 @@ class _McpOpsDistributionRow extends StatelessWidget {
                 ),
                 kOpenHandHGap8,
               ],
-              _McpOpsCopyText(
+              OpenHandLiveValue(
                 '$value',
                 style: theme.textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.w800,
@@ -8595,8 +8616,11 @@ class _McpOpsDetailSection extends StatelessWidget {
                   ),
                   kOpenHandHGap12,
                   Expanded(
-                    child: SelectableText(
+                    child: OpenHandLiveValue(
                       row.$2.value,
+                      selectable: true,
+                      maxLines: 6,
+                      overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodyMedium,
                     ),
                   ),
@@ -9327,21 +9351,26 @@ class _McpOpsStatusChip extends StatelessWidget {
     required this.label,
     required this.color,
     this.monospace = false,
+    this.pulse = false,
   });
 
   final IconData icon;
   final String label;
   final Color color;
   final bool monospace;
+  final bool pulse;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final duration = openHandMotionDuration(context, kOpenHandMotion180);
     final maxLabelWidth = math.min(
       460.0,
       math.max(120.0, MediaQuery.sizeOf(context).width * 0.58),
     );
-    return Container(
+    return AnimatedContainer(
+      duration: duration,
+      curve: kOpenHandSwitchInCurve,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
@@ -9351,11 +9380,13 @@ class _McpOpsStatusChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: color),
+          pulse
+              ? OpenHandLiveStatusDot(color: color, pulse: true, size: 9)
+              : Icon(icon, size: 16, color: color),
           kOpenHandHGap6,
           ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxLabelWidth),
-            child: _McpOpsCopyText(
+            child: OpenHandLiveValue(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -17382,7 +17413,7 @@ class _McpOpsInsightDialog extends StatelessWidget {
                     ),
                     if (subtitle.trim().isNotEmpty) ...[
                       kOpenHandGap3,
-                      _McpOpsCopyText(
+                      OpenHandLiveValue(
                         subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
