@@ -6,6 +6,7 @@ import {
   type SessionMessage,
 } from '../api/sessions';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import { useTransientFlag } from '../hooks/useTransientFlag';
 import { t, tFmt } from '../i18n';
 import { ignoreError } from '../shared/util/errors';
 import { copyTextToClipboard } from '../utils/clipboard';
@@ -1080,8 +1081,11 @@ function JsonNode({
 function StructuredDetail({ text, empty, error = false }: { text: string; empty: string; error?: boolean }) {
   const document = useMemo(() => jsonDocument(text), [text]);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set(['$']));
-  const [copied, setCopied] = useState(false);
-  const copyResetRef = useRef<number | null>(null);
+  const {
+    active: copied,
+    trigger: showCopied,
+    reset: resetCopied,
+  } = useTransientFlag(COPY_FEEDBACK_MS);
 
   useEffect(() => {
     const initial = new Set<string>(['$']);
@@ -1089,12 +1093,8 @@ function StructuredDetail({ text, empty, error = false }: { text: string; empty:
       if (path !== '$' && path.split('/').length === 2) initial.add(path);
     }
     setExpandedPaths(initial);
-    if (copyResetRef.current != null) window.clearTimeout(copyResetRef.current);
-    setCopied(false);
-  }, [document]);
-  useEffect(() => () => {
-    if (copyResetRef.current != null) window.clearTimeout(copyResetRef.current);
-  }, []);
+    resetCopied();
+  }, [document, resetCopied]);
 
   if (!text.trim()) return <EmptyDetail>{empty}</EmptyDetail>;
   const value = document?.value;
@@ -1109,9 +1109,7 @@ function StructuredDetail({ text, empty, error = false }: { text: string; empty:
   const rootEntries = document == null ? [] : jsonEntries(document.value);
   const copy = async () => {
     if (!await copyTextToClipboard(text)) return;
-    if (copyResetRef.current != null) window.clearTimeout(copyResetRef.current);
-    setCopied(true);
-    copyResetRef.current = window.setTimeout(() => setCopied(false), COPY_FEEDBACK_MS);
+    showCopied();
   };
   const toggle = (path: string) => setExpandedPaths((current) => {
     const next = new Set(current);

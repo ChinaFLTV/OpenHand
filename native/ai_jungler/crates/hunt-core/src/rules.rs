@@ -390,22 +390,55 @@ mod tests {
     fn extracts_unique_prefix_providers() {
         let rules = CompiledRuleSet::compile(default_rules()).unwrap();
         let cases: &[(&str, &str, &str)] = &[
-            (r#"openai api_key = "sk-proj-abcdefghij1234567890ABCDEFGHIJ""#, "OpenAI", "openai_official"),
-            (r#"nvidia api_key = "nvapi-abcdefghij1234567890A""#, "NVIDIA", "nvidia"),
-            (r#"groq api_key = "gsk_abcdefghij1234567890A""#, "Groq", "groq"),
-            (r#"openrouter api_key = "sk-or-abcdefghij1234567890""#, "OpenRouter", "openrouter"),
-            (r#"replicate api_key = "r8_abcdefghij1234567890A""#, "Replicate", "replicate"),
-            (r#"qoder api_key = "pt-abcdefghij1234567890A""#, "Qoder", "qoder"),
-            (r#"kiro api_key = "ksk_abcdefghij1234567890A""#, "Kiro", "kiro"),
-            (r#"bedrock aws_key = "ABSKabcdefghij12345678""#, "AWS Bedrock", "aws_bedrock"),
-            (r#"cursor token = "crsr_abcdefghij1234567890A""#, "Cursor", "cursor"),
+            (
+                r#"openai api_key = "sk-proj-abcdefghij1234567890ABCDEFGHIJ""#,
+                "OpenAI",
+                "openai_official",
+            ),
+            (
+                r#"nvidia api_key = "nvapi-abcdefghij1234567890A""#,
+                "NVIDIA",
+                "nvidia",
+            ),
+            (
+                r#"groq api_key = "gsk_abcdefghij1234567890A""#,
+                "Groq",
+                "groq",
+            ),
+            (
+                r#"openrouter api_key = "sk-or-abcdefghij1234567890""#,
+                "OpenRouter",
+                "openrouter",
+            ),
+            (
+                r#"replicate api_key = "r8_abcdefghij1234567890A""#,
+                "Replicate",
+                "replicate",
+            ),
+            (
+                r#"qoder api_key = "pt-abcdefghij1234567890A""#,
+                "Qoder",
+                "qoder",
+            ),
+            (
+                r#"kiro api_key = "ksk_abcdefghij1234567890A""#,
+                "Kiro",
+                "kiro",
+            ),
+            (
+                r#"bedrock aws_key = "ABSKabcdefghij12345678""#,
+                "AWS Bedrock",
+                "aws_bedrock",
+            ),
+            (
+                r#"cursor token = "crsr_abcdefghij1234567890A""#,
+                "Cursor",
+                "cursor",
+            ),
         ];
         for (input, expected_vendor, label) in cases {
             let findings = rules.extract(input);
-            assert!(
-                !findings.is_empty(),
-                "{label}: 未提取到凭证"
-            );
+            assert!(!findings.is_empty(), "{label}: 未提取到凭证");
             assert_eq!(
                 findings[0].vendor, *expected_vendor,
                 "{label}: vendor 不匹配"
@@ -416,8 +449,8 @@ mod tests {
     #[test]
     fn openai_official_precedes_generic() {
         let rules = CompiledRuleSet::compile(default_rules()).unwrap();
-        let findings = rules
-            .extract(r#"openai api_key = "sk-proj-abcdefghij1234567890ABCDEFGHIJ""#);
+        let findings =
+            rules.extract(r#"openai api_key = "sk-proj-abcdefghij1234567890ABCDEFGHIJ""#);
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].vendor, "OpenAI");
     }

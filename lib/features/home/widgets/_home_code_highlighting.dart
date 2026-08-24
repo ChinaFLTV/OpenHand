@@ -1234,7 +1234,8 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         );
     // 大代码块（> 8KB）使用 RichText 而非 SelectableText，避免
     // EditableText 层在大 TextSpan 上的 O(n) layout 开销。
-    final useSelectable = widget.selectable && widget.content.length <= 8 * kBytesPerKiB;
+    final useSelectable =
+        widget.selectable && widget.content.length <= 8 * kBytesPerKiB;
     if (widget.wrapLines) {
       return useSelectable ? SelectableText.rich(span) : RichText(text: span);
     }
@@ -1429,10 +1430,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
           ),
           child: Center(
             child: AnimatedSwitcher(
-              duration: openHandMotionDuration(
-                context,
-                kOpenHandMotion160,
-              ),
+              duration: openHandMotionDuration(context, kOpenHandMotion160),
               switchInCurve: kOpenHandEntranceCurve,
               switchOutCurve: kOpenHandSwitchOutCurve,
               transitionBuilder: (child, animation) => FadeTransition(
@@ -3873,7 +3871,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     window.mermaid.initialize({
       startOnLoad: false,
       theme: 'base',
-      securityLevel: 'loose',
+      securityLevel: 'strict',
       flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis' },
       sequence: { useMaxWidth: false, showSequenceNumbers: true },
       gantt: { useMaxWidth: false },
@@ -3976,7 +3974,11 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     }).catch(function (err) {
       var inner = document.getElementById('inner');
       if (inner) {
-        inner.innerHTML = '<div class="mermaid-error">' + String(err) + '</div>';
+        inner.textContent = '';
+        var errorNode = document.createElement('div');
+        errorNode.className = 'mermaid-error';
+        errorNode.textContent = String(err);
+        inner.appendChild(errorNode);
       }
       post('error:render_failed:' + String(err));
     }).then(function () {

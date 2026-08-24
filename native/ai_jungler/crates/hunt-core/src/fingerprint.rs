@@ -33,7 +33,10 @@ pub fn identify_product(evidence: FingerprintEvidence<'_>) -> (String, Vec<Strin
         ("Mistral", &["mistral"]),
         ("OpenRouter", &["openrouter", "openrouter.ai"]),
         ("Cohere", &["cohere.ai", "cohere.com"]),
-        ("Together", &["together.ai", "together.xyz", "togethercomputer"]),
+        (
+            "Together",
+            &["together.ai", "together.xyz", "togethercomputer"],
+        ),
         ("Replicate", &["replicate.com", "api.replicate"]),
         ("Fireworks", &["fireworks.ai"]),
         ("Groq", &["groq.com", "api.groq"]),

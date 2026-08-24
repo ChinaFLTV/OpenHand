@@ -365,7 +365,7 @@ export function MermaidView({ source }: MermaidViewProps) {
         mermaid.initialize({
           startOnLoad: false,
           theme: isDarkTheme() ? 'dark' : 'default',
-          securityLevel: 'loose',
+          securityLevel: 'strict',
           flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis' },
           sequence: { useMaxWidth: false, showSequenceNumbers: true },
           gantt: { useMaxWidth: false },
