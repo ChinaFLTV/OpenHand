@@ -383,18 +383,21 @@ Future<int> writeBoundedByteStream(
   return writtenBytes;
 }
 
-/// 丢弃响应流并保持连接池可复用，同时防止异常对端无限占用调用方。
+/// 丢弃响应流并保持连接池可复用，同时限制容量、空闲时间和总时长。
 Future<void> drainByteStreamWithTimeout(
   Stream<List<int>> stream, {
+  int? maxBytes,
   required Duration idleTimeout,
   required Duration totalTimeout,
 }) async {
   _validateByteStreamLimits(
+    maxBytes: maxBytes,
     idleTimeout: idleTimeout,
     totalTimeout: totalTimeout,
   );
   await _consumeByteStream(
     stream,
+    maxBytes: maxBytes,
     idleTimeout: idleTimeout,
     totalTimeout: totalTimeout,
     retainBytes: false,

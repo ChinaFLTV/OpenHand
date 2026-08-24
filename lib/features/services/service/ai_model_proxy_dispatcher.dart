@@ -11,8 +11,8 @@ import '../ai_model_proxy_controller.dart';
 import '../model/ai_exposure_models.dart';
 import '../model/ai_model_proxy_models.dart';
 
-const String _kAiModelProxyUserAgent =
-    'OpenHand/0.1.0 (macOS; Flutter; AI-Model-Proxy)';
+const String _kAiModelProxyUserAgent = 'OpenHand-AI-Model-Proxy/1';
+const Duration _kAiModelProxyConnectionTimeout = Duration(seconds: 15);
 
 class AiModelProxyDispatchResult {
   const AiModelProxyDispatchResult({
@@ -1101,7 +1101,8 @@ class AiModelProxyDispatcher {
       );
     }
     if (route.mode != 'pool') {
-      final raw = HttpClient();
+      final raw = HttpClient()
+        ..connectionTimeout = _kAiModelProxyConnectionTimeout;
       raw.findProxy = (_) => 'DIRECT';
       raw.userAgent = _kAiModelProxyUserAgent;
       final transport = IOClient(raw);
@@ -1115,7 +1116,8 @@ class AiModelProxyDispatcher {
     if (uri == null || uri.host.isEmpty || uri.port <= 0) {
       throw const AiModelProxyException(502, '中转代理地址无效，无法建立后备模型连接。');
     }
-    final raw = HttpClient()..connectionTimeout = const Duration(seconds: 15);
+    final raw = HttpClient()
+      ..connectionTimeout = _kAiModelProxyConnectionTimeout;
     raw.findProxy = (_) => 'PROXY ${uri.host}:${uri.port}';
     raw.userAgent = _kAiModelProxyUserAgent;
     if (uri.userInfo.isNotEmpty) {

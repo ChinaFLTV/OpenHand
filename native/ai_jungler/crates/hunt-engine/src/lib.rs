@@ -419,6 +419,17 @@ struct ProxyRuntime {
     cursor: AtomicU64,
 }
 
+struct ProxyRuntimeConfig {
+    enabled: bool,
+    mode: ProxyMode,
+    strategy: ProxyRotationStrategy,
+    rotation_every: u64,
+    bypass_local: bool,
+    endpoints: Vec<reqwest::Url>,
+    statistics: Vec<Arc<ProxyEndpointTelemetry>>,
+    system_proxy: SystemProxyRuntime,
+}
+
 #[derive(Default)]
 struct SystemProxyRuntime {
     http: Option<reqwest::Url>,
@@ -673,7 +684,7 @@ impl DynamicProxySelector {
             .lock()
             .unwrap_or_else(|error| error.into_inner())
             .retain(&unique);
-        let runtime = ProxyRuntime::configured(
+        let runtime = ProxyRuntime::configured(ProxyRuntimeConfig {
             enabled,
             mode,
             strategy,
@@ -682,7 +693,7 @@ impl DynamicProxySelector {
             endpoints,
             statistics,
             system_proxy,
-        );
+        });
         let mut active = self
             .runtime
             .write()
@@ -920,16 +931,17 @@ impl ProxyRuntime {
         }
     }
 
-    fn configured(
-        enabled: bool,
-        mode: ProxyMode,
-        strategy: ProxyRotationStrategy,
-        rotation_every: u64,
-        bypass_local: bool,
-        endpoints: Vec<reqwest::Url>,
-        statistics: Vec<Arc<ProxyEndpointTelemetry>>,
-        system_proxy: SystemProxyRuntime,
-    ) -> Self {
+    fn configured(config: ProxyRuntimeConfig) -> Self {
+        let ProxyRuntimeConfig {
+            enabled,
+            mode,
+            strategy,
+            rotation_every,
+            bypass_local,
+            endpoints,
+            statistics,
+            system_proxy,
+        } = config;
         let endpoint_ids = endpoints
             .iter()
             .map(|url| format!("{:x}", Sha256::digest(url.as_str().as_bytes()))[..12].to_owned())

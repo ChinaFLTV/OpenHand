@@ -8,6 +8,8 @@ import 'package:http/io_client.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../app/support/system_proxy.dart';
+import '../../shared/net/http_response_utils.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
 import 'data/ai_model_health_store.dart';
@@ -16,6 +18,10 @@ import 'model/ai_model_health.dart';
 
 typedef AiModelHealthProxyResolver =
     AiExposureProxyEndpoint? Function({required String targetHost});
+
+const Duration _kModelHealthRequestTimeout = Duration(seconds: 20);
+const Duration _kModelHealthConnectionTimeout = Duration(seconds: 15);
+const int _kModelHealthMaxResponseBytes = kBytesPerMiB;
 
 class AiModelHealthController extends ChangeNotifier {
   AiModelHealthController({AiModelHealthStore? store})
@@ -26,6 +32,7 @@ class AiModelHealthController extends ChangeNotifier {
   AiModelHealthSettings _settings = const AiModelHealthSettings();
   List<AiModelConfig> Function()? _modelsProvider;
   AiModelHealthProxyResolver? _proxyResolver;
+  final Set<http.Client> _activeClients = <http.Client>{};
   Timer? _timer;
   bool _checking = false;
   final Set<String> _checkingProviderIds = <String>{};
@@ -204,7 +211,7 @@ class AiModelHealthController extends ChangeNotifier {
           requestDurationMs = error.telemetry?.durationMs;
         } finally {
           service.dispose();
-          client.close();
+          _closeClient(client);
         }
       } else {
         final client = _createClient(mode, uri?.host ?? '');
@@ -216,9 +223,9 @@ class AiModelHealthController extends ChangeNotifier {
           var request = http.Request('GET', target)..headers.addAll(headers);
           var response = await client
               .send(request)
-              .timeout(const Duration(seconds: 20));
+              .timeout(_kModelHealthRequestTimeout);
           responseCode = response.statusCode;
-          await response.stream.drain();
+          await _drainProbeResponse(response);
           success = response.statusCode >= 200 && response.statusCode < 300;
           if (!success &&
               (response.statusCode == 404 || response.statusCode == 405)) {
@@ -243,9 +250,9 @@ class AiModelHealthController extends ChangeNotifier {
               requestMethod = 'OPTIONS';
               response = await client
                   .send(request)
-                  .timeout(const Duration(seconds: 20));
+                  .timeout(_kModelHealthRequestTimeout);
               responseCode = response.statusCode;
-              await response.stream.drain();
+              await _drainProbeResponse(response);
               success = response.statusCode >= 200 && response.statusCode < 300;
               status = success ? 'healthy' : 'unhealthy';
               if (!success) errorMessage = 'HTTP $responseCode';
@@ -288,16 +295,16 @@ class AiModelHealthController extends ChangeNotifier {
               requestMethod = 'POST';
               response = await client
                   .send(request)
-                  .timeout(const Duration(seconds: 20));
+                  .timeout(_kModelHealthRequestTimeout);
               responseCode = response.statusCode;
-              await response.stream.drain();
+              await _drainProbeResponse(response);
               success = response.statusCode >= 200 && response.statusCode < 300;
             }
           }
           status = success ? 'healthy' : 'unhealthy';
           if (!success) errorMessage = 'HTTP $responseCode';
         } finally {
-          client.close();
+          _closeClient(client);
         }
       }
     } catch (error) {
@@ -305,6 +312,7 @@ class AiModelHealthController extends ChangeNotifier {
       status = 'error';
     }
     stopwatch.stop();
+    if (_disposed) return null;
     requestDurationMs ??= stopwatch.elapsedMilliseconds;
     final checkedAt = DateTime.now().toUtc();
     final record = AiModelHealthRecord(
@@ -469,37 +477,64 @@ class AiModelHealthController extends ChangeNotifier {
   }
 
   http.Client _createClient(AiModelHealthRequestMode mode, String host) {
+    if (_disposed) throw StateError('模型健康巡检控制器已释放。');
+    final http.Client client;
     if (mode == AiModelHealthRequestMode.systemProxy) {
-      return SystemProxyResolver.instance.createHttpClient();
-    }
-    final raw = HttpClient()..connectionTimeout = const Duration(seconds: 15);
-    if (mode == AiModelHealthRequestMode.direct) {
-      raw.findProxy = (_) => 'DIRECT';
+      client = SystemProxyResolver.instance.createHttpClient();
     } else {
-      final endpoint = _proxyResolver?.call(targetHost: host);
-      final proxyUri = endpoint == null ? null : Uri.tryParse(endpoint.url);
-      if (proxyUri != null && proxyUri.userInfo.isNotEmpty) {
-        final separator = proxyUri.userInfo.indexOf(':');
-        final username = Uri.decodeComponent(
-          separator < 0
-              ? proxyUri.userInfo
-              : proxyUri.userInfo.substring(0, separator),
-        );
-        final password = separator < 0
-            ? ''
-            : Uri.decodeComponent(proxyUri.userInfo.substring(separator + 1));
-        raw.addProxyCredentials(
-          proxyUri.host,
-          proxyUri.port,
-          '',
-          HttpClientBasicCredentials(username, password),
-        );
+      final raw = HttpClient()
+        ..connectionTimeout = _kModelHealthConnectionTimeout;
+      try {
+        if (mode == AiModelHealthRequestMode.direct) {
+          raw.findProxy = (_) => 'DIRECT';
+        } else {
+          final endpoint = _proxyResolver?.call(targetHost: host);
+          final proxyUri = endpoint == null ? null : Uri.tryParse(endpoint.url);
+          if (proxyUri != null && proxyUri.userInfo.isNotEmpty) {
+            final separator = proxyUri.userInfo.indexOf(':');
+            final username = Uri.decodeComponent(
+              separator < 0
+                  ? proxyUri.userInfo
+                  : proxyUri.userInfo.substring(0, separator),
+            );
+            final password = separator < 0
+                ? ''
+                : Uri.decodeComponent(
+                    proxyUri.userInfo.substring(separator + 1),
+                  );
+            raw.addProxyCredentials(
+              proxyUri.host,
+              proxyUri.port,
+              '',
+              HttpClientBasicCredentials(username, password),
+            );
+          }
+          raw.findProxy = (_) => proxyUri == null
+              ? 'DIRECT'
+              : 'PROXY ${proxyUri.host}:${proxyUri.port}';
+        }
+        client = IOClient(raw);
+      } on Object {
+        raw.close(force: true);
+        rethrow;
       }
-      raw.findProxy = (_) => proxyUri == null
-          ? 'DIRECT'
-          : 'PROXY ${proxyUri.host}:${proxyUri.port}';
     }
-    return IOClient(raw);
+    _activeClients.add(client);
+    return client;
+  }
+
+  void _closeClient(http.Client client) {
+    _activeClients.remove(client);
+    client.close();
+  }
+
+  Future<void> _drainProbeResponse(http.StreamedResponse response) {
+    return drainByteStreamWithTimeout(
+      response.stream,
+      maxBytes: _kModelHealthMaxResponseBytes,
+      idleTimeout: _kModelHealthRequestTimeout,
+      totalTimeout: _kModelHealthRequestTimeout,
+    );
   }
 
   String _proxyEndpointFor(AiModelHealthRequestMode mode, String host) {
@@ -563,6 +598,10 @@ class AiModelHealthController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _timer?.cancel();
+    for (final client in _activeClients.toList(growable: false)) {
+      client.close();
+    }
+    _activeClients.clear();
     _checkingProviderIds.clear();
     super.dispose();
   }
