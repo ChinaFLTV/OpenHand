@@ -82,6 +82,13 @@ import '../model/web_message_platform_config.dart';
 import '../service/web_message_platform_service.dart';
 
 const int _dingtalkTranslationCacheMaxEntries = 64;
+int _dingtalkTemporaryFileSerial = 0;
+
+String _nextDingTalkTemporaryFileName(String prefix, String extension) {
+  final stamp = DateTime.now().microsecondsSinceEpoch;
+  final serial = _dingtalkTemporaryFileSerial++;
+  return '$prefix-$stamp-$pid-$serial.$extension';
+}
 
 Future<bool> _pathExistsBounded(FileSystemEntity entity) async {
   try {
@@ -14186,7 +14193,10 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     await createDirectoryBounded(directory);
     final path = p.join(
       directory.path,
-      'pasted-${DateTime.now().microsecondsSinceEpoch}.${_normalizeDingTalkImageExtension(extension)}',
+      _nextDingTalkTemporaryFileName(
+        'pasted',
+        _normalizeDingTalkImageExtension(extension),
+      ),
     );
     await writeTemporaryFileBytesBounded(
       File(path),
@@ -14559,7 +14569,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       }
       final path = p.join(
         directory.path,
-        'voice-${DateTime.now().microsecondsSinceEpoch}.m4a',
+        _nextDingTalkTemporaryFileName('voice', 'm4a'),
       );
       await _runVoiceOperation(
         recorder.start(
