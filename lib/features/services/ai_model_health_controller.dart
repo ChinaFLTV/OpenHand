@@ -200,12 +200,7 @@ class AiModelHealthController extends ChangeNotifier {
         for (final modelId in _healthModelIds(provider)) {
           if (_disposed || cancellation.cancelled) return;
           pending.add(
-            checkModel(
-              provider,
-              modelId: modelId,
-              notify: false,
-              cancellation: cancellation,
-            ),
+            checkModel(provider, modelId: modelId, cancellation: cancellation),
           );
           if (pending.length >= _settings.concurrency) {
             await Future.wait(pending);

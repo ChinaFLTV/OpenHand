@@ -1785,7 +1785,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       final sample = await _probe.inspect(endpoint, cancellation: cancellation);
       if (!mounted) return;
       _pendingSamples[url] = sample;
-      _flushProbeResults();
+      await _flushProbeResults();
     } on AiExposureProxyProbeCancelledException {
       // 用户主动停止单节点巡检，不生成失败样本。
     } finally {
@@ -1827,13 +1827,13 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       if (!started || !mounted || generation != _inspectionGeneration) return;
       _resultFlushTimer?.cancel();
       _resultFlushTimer = null;
-      _flushProbeResults();
+      await _flushProbeResults();
     } finally {
       _inspectionRunning = false;
       _resultFlushTimer?.cancel();
       _resultFlushTimer = null;
       if (mounted) {
-        _flushProbeResults();
+        await _flushProbeResults();
         _pendingSamplesHandledByController = false;
         setState(() {
           _inspectionBusy = false;
@@ -1847,7 +1847,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     if (_resultFlushTimer?.isActive == true) return;
     _resultFlushTimer = startSafeTimer(_kProbeResultFlushDelay, () {
       _resultFlushTimer = null;
-      _flushProbeResults();
+      unawaited(_flushProbeResults());
     });
   }
 
@@ -1857,7 +1857,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     _servicesController.cancelProxyInspection();
     _resultFlushTimer?.cancel();
     _resultFlushTimer = null;
-    _flushProbeResults();
+    unawaited(_flushProbeResults());
     if (!mounted) return;
     setState(() {
       _inspectionCancelling = true;
@@ -1865,7 +1865,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     });
   }
 
-  void _flushProbeResults() {
+  Future<void> _flushProbeResults() async {
     if (!mounted || _pendingSamples.isEmpty) return;
     final samples = Map<String, AiExposureProxyProbeSample>.of(_pendingSamples);
     _pendingSamples.clear();
@@ -1876,6 +1876,10 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     if (_sort != _ProxySort.nameAscending) {
       dismissOpenHandTooltipsSafely(debugLabel: '重排代理节点前收起工具提示');
     }
+    if (!_pendingSamplesHandledByController) {
+      await context.read<ServicesController>().saveProxyProbeSamples(samples);
+    }
+    if (!mounted) return;
     setState(() {
       _invalidateEndpointSortCache();
       for (final entry in samples.entries) {
@@ -1885,11 +1889,6 @@ class _ProxyDialogState extends State<_ProxyDialog> {
         }
       }
     });
-    if (!_pendingSamplesHandledByController) {
-      unawaited(
-        context.read<ServicesController>().saveProxyProbeSamples(samples),
-      );
-    }
   }
 
   Future<void> _import() async {

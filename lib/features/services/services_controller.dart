@@ -1202,6 +1202,10 @@ class ServicesController extends ChangeNotifier {
     var cursor = 0;
     var completed = 0;
     var healthy = 0;
+    // 显式巡检需要逐条落库并驱动界面；定时巡检保留批量检查点降低 I/O。
+    final checkpointSize = onResult == null
+        ? _kProxyInspectionCheckpointSize
+        : 1;
     final workerCount = concurrency.clamp(
       1,
       kAiExposureMaxProxyInspectionConcurrency,
@@ -1218,8 +1222,7 @@ class ServicesController extends ChangeNotifier {
         if (!await persistence!) return false;
       }
       if (persistenceFailed) return false;
-      if ((!force && pending.length < _kProxyInspectionCheckpointSize) ||
-          pending.isEmpty) {
+      if ((!force && pending.length < checkpointSize) || pending.isEmpty) {
         return !persistenceFailed;
       }
       if (_disposed || generation != _proxyInspectionGeneration) return false;
@@ -1274,11 +1277,11 @@ class ServicesController extends ChangeNotifier {
         pending.add((endpointIndex, endpoint.url, sample));
         completed++;
         if (sample.reachable) healthy++;
-        onResult?.call(endpoint.url, sample, completed, targets.length);
-        if (pending.length >= _kProxyInspectionCheckpointSize &&
+        if (pending.length >= checkpointSize &&
             !await persistCheckpoint(force: false)) {
           return;
         }
+        onResult?.call(endpoint.url, sample, completed, targets.length);
       }
     }
 
