@@ -2142,13 +2142,12 @@ class _ProxyAverageResponseDialogState
   }
 
   Future<void> _loadTrend() async {
+    if (!mounted) return;
     final generation = ++_loadGeneration;
-    if (mounted) {
-      setState(() {
-        _loading = true;
-        _error = null;
-      });
-    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final trend = await _controller.loadProxyRequestTrend(
         startAt: DateTime.now().subtract(_range),
@@ -2750,6 +2749,7 @@ class _ProxyRequestTelemetryDialogState
   }
 
   Future<void> _reload() async {
+    if (!mounted) return;
     final generation = ++_loadGeneration;
     setState(() {
       _loading = true;
@@ -4198,7 +4198,7 @@ class _ProxyEndpointDetailsDialogState
   }
 
   Future<void> _refreshProbe({bool refreshIdentityOnSuccess = false}) async {
-    if (_testingProbe || _loadingIdentity) return;
+    if (!mounted || _testingProbe || _loadingIdentity) return;
     setState(() => _testingProbe = true);
     final sample = await _probe.inspect(_endpoint);
     if (!mounted) return;
@@ -4214,7 +4214,7 @@ class _ProxyEndpointDetailsDialogState
   }
 
   Future<void> _refreshIdentity() async {
-    if (_loadingIdentity) return;
+    if (!mounted || _loadingIdentity) return;
     setState(() {
       _loadingIdentity = true;
       _identityError = null;
