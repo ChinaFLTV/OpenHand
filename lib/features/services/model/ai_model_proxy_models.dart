@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart';
 
@@ -25,6 +27,9 @@ const double aiModelProxyHealthSlowRate = 0.20;
 const double aiModelProxyHealthSevereSlowRate = 0.40;
 const int aiModelProxyDailyModelCap = 64;
 const int aiModelProxyMaxConcurrentRequests = 16;
+const int aiModelProxyTelemetryBucketMs = 60000;
+const int aiModelProxyTelemetryRetentionDays = 90;
+const int aiModelProxyTelemetryLoadLimit = 2880;
 
 bool isAiModelProxyStatusPath(String path) {
   final value = path.trim();
@@ -675,6 +680,92 @@ class AiModelProxyRequestRecord {
     if (attempt > 1) 'attempt': attempt,
     if (stream) 'stream': true,
   };
+}
+
+/// 分钟级中转站遥测桶。计数与字节采用增量合并，连接数据采用采样峰值。
+class AiModelProxyTelemetryBucket {
+  const AiModelProxyTelemetryBucket({
+    required this.bucketAtMs,
+    this.ingressCount = 0,
+    this.successCount = 0,
+    this.failureCount = 0,
+    this.ingressErrorCount = 0,
+    this.inboundBytes = 0,
+    this.outboundBytes = 0,
+    this.connectionSampleCount = 0,
+    this.connectionTotal = 0,
+    this.lastConnections = 0,
+    this.peakConnections = 0,
+    this.peakActiveRequests = 0,
+    this.durationTotalMs = 0,
+    this.tokenCount = 0,
+    this.metadata = const <String, Object?>{},
+    this.environment = const <String, Object?>{},
+  });
+
+  final int bucketAtMs;
+  final int ingressCount;
+  final int successCount;
+  final int failureCount;
+  final int ingressErrorCount;
+  final int inboundBytes;
+  final int outboundBytes;
+  final int connectionSampleCount;
+  final int connectionTotal;
+  final int lastConnections;
+  final int peakConnections;
+  final int peakActiveRequests;
+  final int durationTotalMs;
+  final int tokenCount;
+  final Map<String, Object?> metadata;
+  final Map<String, Object?> environment;
+
+  DateTime get bucketAt =>
+      DateTime.fromMillisecondsSinceEpoch(bucketAtMs, isUtc: true).toLocal();
+
+  int get recordedRequestCount => successCount + failureCount;
+  double get averageConnections =>
+      connectionSampleCount <= 0 ? 0 : connectionTotal / connectionSampleCount;
+  double get averageDurationMs =>
+      recordedRequestCount <= 0 ? 0 : durationTotalMs / recordedRequestCount;
+
+  AiModelProxyTelemetryBucket merge(AiModelProxyTelemetryBucket other) {
+    assert(bucketAtMs == other.bucketAtMs);
+    final hasConnectionSample = other.connectionSampleCount > 0;
+    return AiModelProxyTelemetryBucket(
+      bucketAtMs: bucketAtMs,
+      ingressCount: ingressCount + other.ingressCount,
+      successCount: successCount + other.successCount,
+      failureCount: failureCount + other.failureCount,
+      ingressErrorCount: ingressErrorCount + other.ingressErrorCount,
+      inboundBytes: inboundBytes + other.inboundBytes,
+      outboundBytes: outboundBytes + other.outboundBytes,
+      connectionSampleCount:
+          connectionSampleCount + other.connectionSampleCount,
+      connectionTotal: connectionTotal + other.connectionTotal,
+      lastConnections: hasConnectionSample
+          ? other.lastConnections
+          : lastConnections,
+      peakConnections: math.max(peakConnections, other.peakConnections),
+      peakActiveRequests: math.max(
+        peakActiveRequests,
+        other.peakActiveRequests,
+      ),
+      durationTotalMs: durationTotalMs + other.durationTotalMs,
+      tokenCount: tokenCount + other.tokenCount,
+      metadata: other.metadata.isEmpty
+          ? metadata
+          : <String, Object?>{...metadata, ...other.metadata},
+      environment: other.environment.isEmpty
+          ? environment
+          : <String, Object?>{...environment, ...other.environment},
+    );
+  }
+}
+
+int aiModelProxyTelemetryBucketKey(DateTime value) {
+  final milliseconds = value.toUtc().millisecondsSinceEpoch;
+  return milliseconds - milliseconds.remainder(aiModelProxyTelemetryBucketMs);
 }
 
 /// 当前仍占用中转入口的客户端连接，按对端地址去重。

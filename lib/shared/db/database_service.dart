@@ -19,7 +19,7 @@ class DatabaseService {
   Database? _database;
   BoundedRandomAccessFileLease? _instanceLock;
 
-  static const int schemaVersion = 18;
+  static const int schemaVersion = 19;
   static const String _databaseFileName = 'openhand.db';
   static const String _harnessSessionsTable = 'harness_sessions';
   static const String _harnessEngineeringTemplateId = 'harness_engineering';
@@ -106,6 +106,27 @@ class DatabaseService {
   static const String _createAiModelHealthRecordsIndexSql =
       'CREATE INDEX IF NOT EXISTS idx_ai_model_health_provider_model_time '
       'ON ai_model_health_records(provider_config_id, model_id, checked_at_ms DESC)';
+  static const String _createAiModelProxyTelemetryTableSql = '''
+    CREATE TABLE IF NOT EXISTS ai_model_proxy_telemetry (
+      bucket_at_ms INTEGER PRIMARY KEY,
+      ingress_count INTEGER NOT NULL DEFAULT 0,
+      success_count INTEGER NOT NULL DEFAULT 0,
+      failure_count INTEGER NOT NULL DEFAULT 0,
+      ingress_error_count INTEGER NOT NULL DEFAULT 0,
+      inbound_bytes INTEGER NOT NULL DEFAULT 0,
+      outbound_bytes INTEGER NOT NULL DEFAULT 0,
+      connection_sample_count INTEGER NOT NULL DEFAULT 0,
+      connection_total INTEGER NOT NULL DEFAULT 0,
+      last_connections INTEGER NOT NULL DEFAULT 0,
+      peak_connections INTEGER NOT NULL DEFAULT 0,
+      peak_active_requests INTEGER NOT NULL DEFAULT 0,
+      duration_total_ms INTEGER NOT NULL DEFAULT 0,
+      token_count INTEGER NOT NULL DEFAULT 0,
+      metadata_json TEXT NOT NULL DEFAULT '{}',
+      environment_json TEXT NOT NULL DEFAULT '{}',
+      updated_at TEXT NOT NULL
+    )
+  ''';
   static const List<int> _legacyHarnessPrefixCodeUnits = <int>[
     104,
     97,
@@ -441,6 +462,7 @@ class DatabaseService {
     ''');
     batch.execute(_createAiModelHealthRecordsTableSql);
     batch.execute(_createAiModelHealthRecordsIndexSql);
+    batch.execute(_createAiModelProxyTelemetryTableSql);
 
     // Harness Engineering 会话。
     batch.execute('''
@@ -810,6 +832,9 @@ class DatabaseService {
     if (oldVersion < 18) {
       await db.execute(_createAiModelHealthRecordsTableSql);
       await db.execute(_createAiModelHealthRecordsIndexSql);
+    }
+    if (oldVersion < 19) {
+      await db.execute(_createAiModelProxyTelemetryTableSql);
     }
   }
 

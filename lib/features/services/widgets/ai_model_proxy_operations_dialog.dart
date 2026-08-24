@@ -238,6 +238,10 @@ class _ProxyOpsSnapshot {
     required this.averageLatencyBuckets,
     required this.p95LatencyBuckets,
     required this.tokenBuckets,
+    required this.connectionBuckets,
+    required this.ingressErrorBuckets,
+    required this.inboundByteBuckets,
+    required this.outboundByteBuckets,
     required this.hourRequestCounts,
     required this.hourPeerCounts,
     required this.hourFailureCounts,
@@ -252,6 +256,7 @@ class _ProxyOpsSnapshot {
   }) {
     final settings = controller.settings;
     final records = settings.recentRequests;
+    final telemetry = controller.telemetryBuckets;
     final providerNames = <String, String>{
       for (final provider in providers)
         if (provider.id.trim().isNotEmpty)
@@ -264,15 +269,28 @@ class _ProxyOpsSnapshot {
             (latest, item) =>
                 item.startedAt.isAfter(latest.startedAt) ? item : latest,
           );
+    final latestTelemetry = telemetry.isEmpty ? null : telemetry.last.bucketAt;
+    final latestSignal = latestRecord == null
+        ? latestTelemetry
+        : latestTelemetry == null ||
+              latestRecord.startedAt.isAfter(latestTelemetry)
+        ? latestRecord.startedAt
+        : latestTelemetry;
     final usesHistoricalTrendWindow =
-        latestRecord != null &&
-        (now.difference(latestRecord.startedAt) >=
+        latestSignal != null &&
+        (now.difference(latestSignal) >=
                 const Duration(minutes: _kProxyOpsTrendBuckets) ||
-            latestRecord.startedAt.isAfter(now));
-    final trendEndAt = usesHistoricalTrendWindow ? latestRecord.startedAt : now;
+            latestSignal.isAfter(now));
+    final trendEndAt = usesHistoricalTrendWindow ? latestSignal : now;
+    final trendEndKey = aiModelProxyTelemetryBucketKey(trendEndAt);
+    final hasPersistedTrend = telemetry.isNotEmpty;
     final success = List<double>.filled(_kProxyOpsTrendBuckets, 0);
     final failure = List<double>.filled(_kProxyOpsTrendBuckets, 0);
     final tokens = List<double>.filled(_kProxyOpsTrendBuckets, 0);
+    final connections = List<double>.filled(_kProxyOpsTrendBuckets, 0);
+    final ingressErrors = List<double>.filled(_kProxyOpsTrendBuckets, 0);
+    final inboundBytes = List<double>.filled(_kProxyOpsTrendBuckets, 0);
+    final outboundBytes = List<double>.filled(_kProxyOpsTrendBuckets, 0);
     final latencyBuckets = List<List<int>>.generate(
       _kProxyOpsTrendBuckets,
       (_) => <int>[],
@@ -294,11 +312,14 @@ class _ProxyOpsSnapshot {
       if (peer.isNotEmpty) peers.add(peer);
       final port = record.clientPort.trim();
       if (port.isNotEmpty) ports.add(port);
-      final age = trendEndAt.difference(record.startedAt).inMinutes;
+      final recordKey = aiModelProxyTelemetryBucketKey(record.startedAt);
+      final age = (trendEndKey - recordKey) ~/ aiModelProxyTelemetryBucketMs;
       if (age < 0 || age >= _kProxyOpsTrendBuckets) continue;
       final index = _kProxyOpsTrendBuckets - age - 1;
-      (record.success ? success : failure)[index] += 1;
-      tokens[index] += record.tokens;
+      if (!hasPersistedTrend) {
+        (record.success ? success : failure)[index] += 1;
+        tokens[index] += record.tokens;
+      }
       latencyBuckets[index].add(record.durationMs);
     }
     final averageLatency = List<double>.filled(_kProxyOpsTrendBuckets, 0);
@@ -308,6 +329,28 @@ class _ProxyOpsSnapshot {
       if (bucket.isEmpty) continue;
       averageLatency[i] = bucket.reduce((a, b) => a + b) / bucket.length;
       p95Latency[i] = _proxyOpsPercentile(bucket, 0.95).toDouble();
+    }
+    for (final bucket in telemetry) {
+      final age =
+          (trendEndKey - bucket.bucketAtMs) ~/ aiModelProxyTelemetryBucketMs;
+      if (age < 0 || age >= _kProxyOpsTrendBuckets) continue;
+      final index = _kProxyOpsTrendBuckets - age - 1;
+      success[index] = bucket.successCount.toDouble();
+      failure[index] = bucket.failureCount.toDouble();
+      tokens[index] = bucket.tokenCount.toDouble();
+      connections[index] = bucket.peakConnections.toDouble();
+      ingressErrors[index] = bucket.ingressErrorCount.toDouble();
+      inboundBytes[index] = bucket.inboundBytes.toDouble();
+      outboundBytes[index] = bucket.outboundBytes.toDouble();
+      if (bucket.recordedRequestCount > 0) {
+        averageLatency[index] = bucket.averageDurationMs;
+      }
+    }
+    if (!hasPersistedTrend && connections.isNotEmpty) {
+      connections.last = controller.currentConnections.toDouble();
+      ingressErrors.last = controller.runtimeErrorCount.toDouble();
+      inboundBytes.last = controller.runtimeInboundBytes.toDouble();
+      outboundBytes.last = controller.runtimeOutboundBytes.toDouble();
     }
     final sortedDurations = [...durations]..sort();
     return _ProxyOpsSnapshot(
@@ -327,6 +370,10 @@ class _ProxyOpsSnapshot {
       averageLatencyBuckets: averageLatency,
       p95LatencyBuckets: p95Latency,
       tokenBuckets: tokens,
+      connectionBuckets: connections,
+      ingressErrorBuckets: ingressErrors,
+      inboundByteBuckets: inboundBytes,
+      outboundByteBuckets: outboundBytes,
       hourRequestCounts: [for (final hour in hourStats) hour.requests],
       hourPeerCounts: [for (final hour in hourStats) hour.peers.length],
       hourFailureCounts: [for (final hour in hourStats) hour.failures],
@@ -352,6 +399,10 @@ class _ProxyOpsSnapshot {
   final List<double> averageLatencyBuckets;
   final List<double> p95LatencyBuckets;
   final List<double> tokenBuckets;
+  final List<double> connectionBuckets;
+  final List<double> ingressErrorBuckets;
+  final List<double> inboundByteBuckets;
+  final List<double> outboundByteBuckets;
   final List<int> hourRequestCounts;
   final List<int> hourPeerCounts;
   final List<int> hourFailureCounts;
@@ -3305,6 +3356,23 @@ Widget _proxyOpsLatencyOverlayPanel(
   );
 }
 
+({List<double> values, String suffix}) _proxyOpsScaledByteTrend(
+  List<double> bytes,
+) {
+  final maximum = bytes.fold<double>(0, math.max);
+  final divisor = maximum >= 1024 * 1024 * 1024
+      ? 1024 * 1024
+      : maximum >= 1024
+      ? 1024
+      : 1;
+  final suffix = divisor == 1024 * 1024
+      ? ' MB'
+      : divisor == 1024
+      ? ' KB'
+      : ' B';
+  return (values: [for (final value in bytes) value / divisor], suffix: suffix);
+}
+
 _ProxyOpsInsightSpec _proxyOpsInsightSpec(
   BuildContext context,
   _ProxyOpsInsightKind kind,
@@ -3328,8 +3396,8 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
         icon: Icons.link_rounded,
         title: text(zh: '连接明细', en: 'Connections'),
         subtitle: text(
-          zh: '实时占用、对端与时段热力',
-          en: 'Occupancy, peers and hourly heat',
+          zh: '连接趋势、实时占用、对端与时段热力',
+          en: 'Connection trend, occupancy, peers and hourly heat',
         ),
         sections: (context, data) {
           final current = data.controller.currentConnections;
@@ -3393,6 +3461,23 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                   ),
                 ],
               ),
+            ),
+            _ProxyOpsTrendDetailPanel(
+              icon: Icons.show_chart_rounded,
+              title: text(zh: '连接趋势', en: 'Connection Trend'),
+              subtitle: text(
+                zh: '每分钟连接峰值 · 遥测持久化留存',
+                en: 'Peak connections per minute · persisted telemetry',
+              ),
+              series: [
+                OpenHandChartSeries(
+                  label: text(zh: '连接峰值', en: 'Peak connections'),
+                  values: data.connectionBuckets,
+                  color: cs.primary,
+                ),
+              ],
+              minutes: data.bucketMinutes,
+              emptyLabel: text(zh: '等待连接样本', en: 'Waiting for connections'),
             ),
             _proxyOpsGroupTablePanel(
               context: context,
@@ -3780,8 +3865,8 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
         title: text(zh: '成功请求', en: 'Succeeded'),
         tone: success,
         subtitle: text(
-          zh: '成功率、成功耗时带与模型质量',
-          en: 'Rate, latency bands and model quality',
+          zh: '成功趋势、成功率、耗时带与模型质量',
+          en: 'Success trend, rate, latency bands and model quality',
         ),
         sections: (context, data) {
           final fast = text(zh: '快速 < 1s', en: 'Fast < 1s');
@@ -3832,6 +3917,23 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ),
               ),
             ]),
+            _ProxyOpsTrendDetailPanel(
+              icon: Icons.trending_up_rounded,
+              title: text(zh: '成功趋势', en: 'Success Trend'),
+              subtitle: text(
+                zh: '每分钟成功请求 · 遥测持久化留存',
+                en: 'Successful requests per minute · persisted telemetry',
+              ),
+              series: [
+                OpenHandChartSeries(
+                  label: text(zh: '成功', en: 'Succeeded'),
+                  values: data.trendSuccess,
+                  color: success,
+                ),
+              ],
+              minutes: data.bucketMinutes,
+              emptyLabel: text(zh: '暂无成功样本', en: 'No successful samples'),
+            ),
             _proxyOpsGroupTablePanel(
               context: context,
               icon: Icons.leaderboard_rounded,
@@ -3850,8 +3952,8 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
         title: text(zh: '失败明细', en: 'Failures'),
         tone: cs.error,
         subtitle: text(
-          zh: '失败率、原因条与失败模型',
-          en: 'Rate, reasons and failed models',
+          zh: '失败趋势、失败率、原因条与失败模型',
+          en: 'Failure trend, rate, reasons and failed models',
         ),
         sections: (context, data) {
           final logs = data.recentFirst
@@ -3899,6 +4001,23 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ),
               ),
             ]),
+            _ProxyOpsTrendDetailPanel(
+              icon: Icons.trending_down_rounded,
+              title: text(zh: '失败趋势', en: 'Failure Trend'),
+              subtitle: text(
+                zh: '每分钟失败请求 · 遥测持久化留存',
+                en: 'Failed requests per minute · persisted telemetry',
+              ),
+              series: [
+                OpenHandChartSeries(
+                  label: text(zh: '失败', en: 'Failed'),
+                  values: data.trendFailure,
+                  color: cs.error,
+                ),
+              ],
+              minutes: data.bucketMinutes,
+              emptyLabel: text(zh: '暂无失败样本', en: 'No failure samples'),
+            ),
             _proxyOpsGroupTablePanel(
               context: context,
               icon: Icons.leaderboard_rounded,
@@ -3929,8 +4048,8 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
         icon: Icons.report_problem_outlined,
         title: text(zh: '入口错误', en: 'Ingress Errors'),
         subtitle: text(
-          zh: '网关错误对照模型失败与时段热力',
-          en: 'Gateway vs upstream and hourly heat',
+          zh: '网关错误趋势、模型失败对照与时段热力',
+          en: 'Gateway error trend, upstream contrast and hourly heat',
         ),
         tone: cs.error,
         sections: (context, data) {
@@ -3978,6 +4097,23 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 ),
               ),
             ]),
+            _ProxyOpsTrendDetailPanel(
+              icon: Icons.monitor_heart_outlined,
+              title: text(zh: '入口错误趋势', en: 'Ingress Error Trend'),
+              subtitle: text(
+                zh: '每分钟网关错误 · 遥测持久化留存',
+                en: 'Gateway errors per minute · persisted telemetry',
+              ),
+              series: [
+                OpenHandChartSeries(
+                  label: text(zh: '入口错误', en: 'Ingress errors'),
+                  values: data.ingressErrorBuckets,
+                  color: OpenHandStatusColors.warning,
+                ),
+              ],
+              minutes: data.bucketMinutes,
+              emptyLabel: text(zh: '暂无入口错误', en: 'No ingress errors'),
+            ),
             _proxyOpsChartPanel(
               icon: Icons.view_week_rounded,
               title: text(zh: '失败时段热力', en: 'Failure Hours'),
@@ -4298,8 +4434,8 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
         icon: Icons.south_west_rounded,
         title: text(zh: '入口流量', en: 'Inbound Traffic'),
         subtitle: text(
-          zh: '请求体占比与进出口对照',
-          en: 'Request-body share and in/out contrast',
+          zh: '请求体趋势、占比与进出口对照',
+          en: 'Request-body trend, share and in/out contrast',
         ),
         sections: (context, data) {
           final inbound = data.controller.runtimeInboundBytes;
@@ -4307,6 +4443,9 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
           final total = inbound + outbound;
           final count = data.controller.runtimeRequestCount;
           final avg = count <= 0 ? 0 : inbound ~/ count;
+          final inboundTrend = _proxyOpsScaledByteTrend(
+            data.inboundByteBuckets,
+          );
           return [
             _ProxyOpsStatPanel(
               icon: Icons.swap_vert_rounded,
@@ -4325,6 +4464,24 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                   formatByteSize(avg),
                 ),
               ],
+            ),
+            _ProxyOpsTrendDetailPanel(
+              icon: Icons.show_chart_rounded,
+              title: text(zh: '入口流量趋势', en: 'Inbound Traffic Trend'),
+              subtitle: text(
+                zh: '每分钟请求字节 · 遥测持久化留存',
+                en: 'Request bytes per minute · persisted telemetry',
+              ),
+              series: [
+                OpenHandChartSeries(
+                  label: text(zh: '入口', en: 'Inbound'),
+                  values: inboundTrend.values,
+                  color: cs.secondary,
+                ),
+              ],
+              minutes: data.bucketMinutes,
+              valueSuffix: inboundTrend.suffix,
+              emptyLabel: text(zh: '暂无入口流量', en: 'No inbound traffic'),
             ),
             _proxyOpsPanelRow([
               _ProxyOpsPanel(
@@ -4376,13 +4533,16 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
         icon: Icons.north_east_rounded,
         title: text(zh: '出口流量', en: 'Outbound Traffic'),
         subtitle: text(
-          zh: '响应体与上游端点排行',
-          en: 'Response body and upstream endpoints',
+          zh: '响应体趋势与上游端点排行',
+          en: 'Response-body trend and upstream endpoints',
         ),
         sections: (context, data) {
           final outbound = data.controller.runtimeOutboundBytes;
           final count = data.controller.runtimeRequestCount;
           final avg = count <= 0 ? 0 : outbound ~/ count;
+          final outboundTrend = _proxyOpsScaledByteTrend(
+            data.outboundByteBuckets,
+          );
           final upstream = data.groupBy(
             (record) => _proxyOpsUpstreamEndpoint(record, unknownUpstream),
             unknown: unknownUpstream,
@@ -4407,6 +4567,24 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                   color: cs.tertiary,
                 ),
               ],
+            ),
+            _ProxyOpsTrendDetailPanel(
+              icon: Icons.show_chart_rounded,
+              title: text(zh: '出口流量趋势', en: 'Outbound Traffic Trend'),
+              subtitle: text(
+                zh: '每分钟响应字节 · 遥测持久化留存',
+                en: 'Response bytes per minute · persisted telemetry',
+              ),
+              series: [
+                OpenHandChartSeries(
+                  label: text(zh: '出口', en: 'Outbound'),
+                  values: outboundTrend.values,
+                  color: cs.tertiary,
+                ),
+              ],
+              minutes: data.bucketMinutes,
+              valueSuffix: outboundTrend.suffix,
+              emptyLabel: text(zh: '暂无出口流量', en: 'No outbound traffic'),
             ),
             _proxyOpsGroupTablePanel(
               context: context,

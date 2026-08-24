@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -26,9 +27,17 @@ class AiModelProxyController extends ChangeNotifier {
   static const Duration _runtimeResponseNotifyDelay = Duration(
     milliseconds: 40,
   );
+  static const Duration _telemetryFlushDelay = Duration(milliseconds: 500);
   // 设置变更只需保证最终快照落盘，丢弃尚未开始的旧快照即可避免快速操作堆积。
   final LatestTaskQueue _writes = LatestTaskQueue();
+  final SerialTaskQueue _telemetryWrites = SerialTaskQueue(maxPendingTasks: 8);
   AiModelProxySettings _settings = const AiModelProxySettings();
+  final List<AiModelProxyTelemetryBucket> _telemetryBuckets =
+      <AiModelProxyTelemetryBucket>[];
+  late final List<AiModelProxyTelemetryBucket> _telemetryView =
+      UnmodifiableListView<AiModelProxyTelemetryBucket>(_telemetryBuckets);
+  final Map<int, AiModelProxyTelemetryBucket> _pendingTelemetry =
+      <int, AiModelProxyTelemetryBucket>{};
   AiModelProxyLifecycle _lifecycle = AiModelProxyLifecycle.stopped;
   bool _busy = false;
   Completer<void>? _busyCompleter;
@@ -57,8 +66,11 @@ class AiModelProxyController extends ChangeNotifier {
   Future<void>? _rebindFuture;
   bool _rebindRequested = false;
   Timer? _runtimeResponseNotifyTimer;
+  Timer? _telemetryFlushTimer;
+  Timer? _telemetrySampleTimer;
 
   AiModelProxySettings get settings => _settings;
+  List<AiModelProxyTelemetryBucket> get telemetryBuckets => _telemetryView;
   AiModelProxyLifecycle get lifecycle => _lifecycle;
   bool get busy => _busy;
   String? get errorMessage => _errorMessage;
@@ -438,6 +450,11 @@ class AiModelProxyController extends ChangeNotifier {
   Future<void> load() async {
     final previous = _settings;
     _settings = await _store.load();
+    _telemetryBuckets
+      ..clear()
+      ..addAll(
+        await _store.loadTelemetry(legacyRecords: _settings.recentRequests),
+      );
     if (previous.limitScope != _settings.limitScope ||
         previous.limitMode != _settings.limitMode ||
         previous.limitThreshold != _settings.limitThreshold) {
@@ -481,8 +498,10 @@ class AiModelProxyController extends ChangeNotifier {
       _startedAt = DateTime.now();
       _settings = _settings.copyWith(enabled: true);
       _lifecycle = AiModelProxyLifecycle.running;
+      _startTelemetrySampling();
       await _writes.enqueue(() => _store.save(_settings));
     } catch (error) {
+      _stopTelemetrySampling();
       await _httpServer?.stop();
       _startedAt = null;
       _resetRuntimeOccupancy();
@@ -505,6 +524,7 @@ class AiModelProxyController extends ChangeNotifier {
     if (_busy || _lifecycle == AiModelProxyLifecycle.stopped) return;
     _beginBusy();
     _lifecycle = AiModelProxyLifecycle.stopping;
+    _stopTelemetrySampling();
     _notify();
     try {
       await _httpServer?.stop();
@@ -527,6 +547,7 @@ class AiModelProxyController extends ChangeNotifier {
   Future<void> shutdown() async {
     if (_disposed) return;
     _rebindRequested = false;
+    _stopTelemetrySampling();
     final busy = _busyCompleter?.future;
     if (busy != null) {
       try {
@@ -535,12 +556,15 @@ class AiModelProxyController extends ChangeNotifier {
         // 启停操作已超过退出预算时继续强制关闭句柄。
       }
     }
+    _stopTelemetrySampling();
     await _httpServer?.dispose();
     _httpServer = null;
     _lifecycle = AiModelProxyLifecycle.stopped;
     _startedAt = null;
     _resetRuntimeOccupancy();
     _resetRateLimitWindows();
+    await _flushTelemetry();
+    await _telemetryWrites.idle;
     await _writes.idle;
   }
 
@@ -641,6 +665,12 @@ class AiModelProxyController extends ChangeNotifier {
         attempt: attempt,
         stream: stream,
       );
+      _recordTelemetry(
+        successCount: success ? 1 : 0,
+        failureCount: success ? 0 : 1,
+        durationTotalMs: durationMs,
+        tokenCount: tokens,
+      );
       _notify();
       await _writes.enqueue(() => _store.save(_settings));
     } catch (error, stack) {
@@ -656,6 +686,18 @@ class AiModelProxyController extends ChangeNotifier {
             .clamp(0, 1 << 62)
             .toInt();
     _runtimeRequestCount = (_runtimeRequestCount + 1).clamp(0, 1 << 62).toInt();
+    _recordTelemetry(ingressCount: 1, inboundBytes: inboundBytes);
+    _notify();
+  }
+
+  /// 补记分块传输请求在完整读取后才能确定的入口字节数。
+  void runtimeInboundBytesReceived(int inboundBytes) {
+    if (_disposed || inboundBytes <= 0) return;
+    final safeBytes = inboundBytes.clamp(0, 1 << 31);
+    _runtimeInboundBytes = (_runtimeInboundBytes + safeBytes)
+        .clamp(0, 1 << 62)
+        .toInt();
+    _recordTelemetry(inboundBytes: safeBytes);
     _notify();
   }
 
@@ -686,6 +728,7 @@ class AiModelProxyController extends ChangeNotifier {
         if (agent.isNotEmpty) existing.userAgent = agent;
       }
     }
+    _recordTelemetry(sampleConnections: true);
     _notify();
     return requestId;
   }
@@ -700,6 +743,10 @@ class AiModelProxyController extends ChangeNotifier {
     if (statusCode >= 400) {
       _runtimeErrorCount = (_runtimeErrorCount + 1).clamp(0, 1 << 62).toInt();
     }
+    _recordTelemetry(
+      ingressErrorCount: statusCode >= 400 ? 1 : 0,
+      outboundBytes: outboundBytes,
+    );
     _runtimeResponseNotifyTimer ??= startSafeTimer(
       _runtimeResponseNotifyDelay,
       () {
@@ -725,6 +772,7 @@ class AiModelProxyController extends ChangeNotifier {
         existing.inflight -= 1;
       }
     }
+    _recordTelemetry(sampleConnections: true);
     _notify();
   }
 
@@ -735,6 +783,7 @@ class AiModelProxyController extends ChangeNotifier {
       return;
     }
     _startedAt = null;
+    _stopTelemetrySampling();
     _resetRuntimeOccupancy();
     _resetRateLimitWindows();
     final stoppedSettings = _settings.copyWith(enabled: false);
@@ -763,6 +812,133 @@ class AiModelProxyController extends ChangeNotifier {
     if (_errorMessage == null) return;
     _errorMessage = null;
     _notify();
+  }
+
+  void _startTelemetrySampling() {
+    _telemetrySampleTimer?.cancel();
+    _telemetrySampleTimer = startSafePeriodicTimer(const Duration(minutes: 1), (
+      _,
+    ) {
+      if (_lifecycle != AiModelProxyLifecycle.running ||
+          (currentConnections <= 0 && activeRequests <= 0)) {
+        return;
+      }
+      _recordTelemetry(sampleConnections: true);
+    });
+  }
+
+  void _stopTelemetrySampling() {
+    _telemetrySampleTimer?.cancel();
+    _telemetrySampleTimer = null;
+  }
+
+  void _recordTelemetry({
+    int ingressCount = 0,
+    int successCount = 0,
+    int failureCount = 0,
+    int ingressErrorCount = 0,
+    int inboundBytes = 0,
+    int outboundBytes = 0,
+    int durationTotalMs = 0,
+    int tokenCount = 0,
+    bool sampleConnections = false,
+  }) {
+    if (_disposed) return;
+    final key = aiModelProxyTelemetryBucketKey(DateTime.now());
+    final connections = currentConnections;
+    final includeContext = !_pendingTelemetry.containsKey(key);
+    final delta = AiModelProxyTelemetryBucket(
+      bucketAtMs: key,
+      ingressCount: ingressCount.clamp(0, 1 << 31),
+      successCount: successCount.clamp(0, 1 << 31),
+      failureCount: failureCount.clamp(0, 1 << 31),
+      ingressErrorCount: ingressErrorCount.clamp(0, 1 << 31),
+      inboundBytes: inboundBytes.clamp(0, 1 << 31),
+      outboundBytes: outboundBytes.clamp(0, 1 << 31),
+      connectionSampleCount: sampleConnections ? 1 : 0,
+      connectionTotal: sampleConnections ? connections : 0,
+      lastConnections: sampleConnections ? connections : 0,
+      peakConnections: sampleConnections ? connections : 0,
+      peakActiveRequests: sampleConnections ? activeRequests : 0,
+      durationTotalMs: durationTotalMs.clamp(0, 1 << 31),
+      tokenCount: tokenCount.clamp(0, 1 << 31),
+      metadata: includeContext
+          ? <String, Object?>{
+              'api_style': _settings.apiStyle.id,
+              'limit_scope': _settings.limitScope.id,
+              'limit_mode': _settings.limitMode.id,
+              'retry_policy': _settings.retryPolicy.id,
+              'scheduling': _settings.scheduling.id,
+              'enabled_routes': _settings.routes
+                  .where((route) => route.enabled)
+                  .length,
+            }
+          : const <String, Object?>{},
+      environment: includeContext
+          ? <String, Object?>{
+              'listen_host': normalizeAiModelProxyListenHost(
+                _settings.listenHost,
+              ),
+              'listen_port': boundPort ?? _settings.listenPort,
+              'authentication_required': _settings.requireAuthentication,
+              'lifecycle': _lifecycle.name,
+            }
+          : const <String, Object?>{},
+    );
+    _pendingTelemetry[key] = _pendingTelemetry[key]?.merge(delta) ?? delta;
+    _mergeTelemetryHistory(delta);
+    _telemetryFlushTimer ??= startSafeTimer(
+      _telemetryFlushDelay,
+      () => unawaited(_flushTelemetry()),
+    );
+  }
+
+  void _mergeTelemetryHistory(AiModelProxyTelemetryBucket delta) {
+    var low = 0;
+    var high = _telemetryBuckets.length;
+    while (low < high) {
+      final middle = (low + high) >> 1;
+      if (_telemetryBuckets[middle].bucketAtMs < delta.bucketAtMs) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    if (low < _telemetryBuckets.length &&
+        _telemetryBuckets[low].bucketAtMs == delta.bucketAtMs) {
+      _telemetryBuckets[low] = _telemetryBuckets[low].merge(delta);
+    } else {
+      _telemetryBuckets.insert(low, delta);
+    }
+    if (_telemetryBuckets.length > aiModelProxyTelemetryLoadLimit) {
+      _telemetryBuckets.removeRange(
+        0,
+        _telemetryBuckets.length - aiModelProxyTelemetryLoadLimit,
+      );
+    }
+  }
+
+  Future<void> _flushTelemetry() async {
+    _telemetryFlushTimer?.cancel();
+    _telemetryFlushTimer = null;
+    if (_pendingTelemetry.isEmpty) return;
+    final pending = Map<int, AiModelProxyTelemetryBucket>.from(
+      _pendingTelemetry,
+    );
+    _pendingTelemetry.clear();
+    try {
+      await _telemetryWrites.enqueue(
+        () => _store.mergeTelemetry(pending.values),
+      );
+    } catch (error, stack) {
+      for (final entry in pending.entries) {
+        final newer = _pendingTelemetry[entry.key];
+        _pendingTelemetry[entry.key] = newer == null
+            ? entry.value
+            : entry.value.merge(newer);
+      }
+      silentLog('ai_model_proxy_controller', '保存中转站遥测', error, stack);
+    }
   }
 
   void _notify() {
@@ -849,8 +1025,12 @@ class AiModelProxyController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _stopTelemetrySampling();
     _runtimeResponseNotifyTimer?.cancel();
     _runtimeResponseNotifyTimer = null;
+    _telemetryFlushTimer?.cancel();
+    _telemetryFlushTimer = null;
+    unawaited(_flushTelemetry());
     _startedAt = null;
     _resetRuntimeOccupancy();
     _resetRateLimitWindows();
@@ -910,6 +1090,7 @@ class AiModelProxyController extends ChangeNotifier {
       if (!server.isRunning) throw StateError('中转站监听未能保持运行。');
       _lifecycle = AiModelProxyLifecycle.running;
     } catch (error) {
+      _stopTelemetrySampling();
       _lifecycle = AiModelProxyLifecycle.error;
       _errorMessage = '重新绑定中转站端口失败：$error';
       _settings = _settings.copyWith(enabled: false);

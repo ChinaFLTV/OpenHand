@@ -276,7 +276,8 @@ class AiModelProxyHttpServer {
         );
         return;
       }
-      final payload = await _readJsonBody(request);
+      final body = await _readJsonBody(request);
+      final payload = body.payload;
       final messages = _parseMessages(payload, route);
       final hasResponsesContinuation =
           route == _ProxyRoute.responses &&
@@ -317,7 +318,7 @@ class AiModelProxyHttpServer {
           request: payload,
           headers: _headers(request),
           requestPath: path,
-          inboundBytes: request.contentLength < 0 ? 0 : request.contentLength,
+          inboundBytes: body.byteLength,
         );
         await _writeNativeStreamingResponse(
           request,
@@ -335,7 +336,7 @@ class AiModelProxyHttpServer {
         request: payload,
         headers: _headers(request),
         requestPath: path,
-        inboundBytes: request.contentLength < 0 ? 0 : request.contentLength,
+        inboundBytes: body.byteLength,
       );
       final response = route == _ProxyRoute.responses
           ? _decorateResponsesResponse(
@@ -400,29 +401,38 @@ class AiModelProxyHttpServer {
     return aiModelProxyClientEndpoint(address, '$port');
   }
 
-  Future<Map<String, Object?>> _readJsonBody(HttpRequest request) async {
+  Future<({Map<String, Object?> payload, int byteLength})> _readJsonBody(
+    HttpRequest request,
+  ) async {
     final contentLength = request.contentLength;
     if (contentLength > _maxRequestBodyBytes) {
       throw const AiModelProxyException(413, '请求体过大。');
     }
-    late final String text;
+    late final Uint8List bytes;
     try {
-      text = (await readBoundedByteStreamText(
+      bytes = await readBoundedByteStream(
         request,
         maxBytes: _maxRequestBodyBytes,
         idleTimeout: _requestReadIdleTimeout,
         totalTimeout: _requestReadTotalTimeout,
         cancelOnFailure: false,
-      )).trim();
+      );
     } on ByteStreamSizeLimitException {
       throw const AiModelProxyException(413, '请求体过大。');
     } on TimeoutException {
       throw TimeoutException('请求体读取超时。');
     }
+    if (contentLength < 0) {
+      _controller.runtimeInboundBytesReceived(bytes.length);
+    }
+    final text = utf8.decode(bytes).trim();
     if (text.isEmpty) throw const FormatException('请求体不能为空。');
     final decoded = jsonDecode(text);
     if (decoded is! Map) throw const FormatException('请求体必须是 JSON 对象。');
-    return Map<String, Object?>.from(decoded);
+    return (
+      payload: Map<String, Object?>.from(decoded),
+      byteLength: bytes.length,
+    );
   }
 
   List<AiChatTurn> _parseMessages(Object? raw, _ProxyRoute route) {
