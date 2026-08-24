@@ -996,7 +996,7 @@ class _ProxyOpsHero extends StatelessWidget {
               if (running && wildcardListen && lanHosts.isNotEmpty)
                 _ProxyOpsChip(
                   icon: Icons.wifi_rounded,
-                  label: text(zh: '局域网 $lanStatusUrl', en: 'LAN $lanStatusUrl'),
+                  label: lanStatusUrl,
                   color: cs.tertiary,
                   monospace: true,
                   onTap: () => _openStatusPage(context, lanStatusUrl),
