@@ -64,23 +64,31 @@ class WebReverseCdpClient {
         _endpointUri.host.isEmpty) {
       throw ArgumentError.value(endpoint, 'endpoint', '必须是绝对 ws 或 wss 端点。');
     }
-    requireNonNegativeInt(reconnectMaxAttempts, 'reconnectMaxAttempts');
-    requirePositiveDuration(handshakeTimeout, 'handshakeTimeout');
-    requireNonNegativeDuration(
+    requireNonNegativeIntAtMost(
+      reconnectMaxAttempts,
+      _maxReconnectAttempts,
+      'reconnectMaxAttempts',
+    );
+    requirePositiveDurationAtMost(
+      handshakeTimeout,
+      _maxHandshakeTimeout,
+      'handshakeTimeout',
+    );
+    requireNonNegativeDurationAtMost(
       connectionCleanupTimeout,
+      _maxConnectionCleanupTimeout,
       'connectionCleanupTimeout',
     );
-    if (reconnectInitialDelay.isNegative || reconnectMaxDelay.isNegative) {
-      throw ArgumentError.value(
-        reconnectInitialDelay.isNegative
-            ? reconnectInitialDelay
-            : reconnectMaxDelay,
-        reconnectInitialDelay.isNegative
-            ? 'reconnectInitialDelay'
-            : 'reconnectMaxDelay',
-        '不得为负数。',
-      );
-    }
+    requireNonNegativeDurationAtMost(
+      reconnectInitialDelay,
+      _maxReconnectDelay,
+      'reconnectInitialDelay',
+    );
+    requireNonNegativeDurationAtMost(
+      reconnectMaxDelay,
+      _maxReconnectDelay,
+      'reconnectMaxDelay',
+    );
     if (reconnectMaxDelay < reconnectInitialDelay) {
       throw ArgumentError.value(
         reconnectMaxDelay,
@@ -96,6 +104,10 @@ class WebReverseCdpClient {
     milliseconds: 200,
   );
   static const Duration _defaultReconnectMaxDelay = Duration(seconds: 5);
+  static const int _maxReconnectAttempts = 32;
+  static const Duration _maxHandshakeTimeout = Duration(minutes: 1);
+  static const Duration _maxConnectionCleanupTimeout = Duration(seconds: 30);
+  static const Duration _maxReconnectDelay = Duration(minutes: 1);
   static const int _maxPendingCommands = 256;
   static const int _defaultMaxResponseCharacters = 8 * kBytesPerMiB;
   static const int _maxResponseCharacters = 65 * kBytesPerMiB;

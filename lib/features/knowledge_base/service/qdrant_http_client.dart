@@ -14,6 +14,8 @@ import '../../../shared/util/text_clip.dart';
 const int _qdrantErrorPreviewCharacters = 4 * kBytesPerKiB;
 const int _qdrantMaxRetryCount = 20;
 const int _qdrantMaxRetryBackoffMs = 10000;
+const int _qdrantMaxResponseBytes = 128 * kBytesPerMiB;
+const Duration _qdrantMaxRequestTimeout = Duration(hours: 24);
 const int _httpTooEarlyStatusCode = 425;
 const Set<int> _qdrantRetryableStatusCodes = <int>{
   HttpStatus.requestTimeout,
@@ -71,11 +73,31 @@ Future<QdrantHttpResponse> sendQdrantJsonRequest({
   int retryCount = 0,
   Duration retryBackoff = const Duration(milliseconds: 800),
 }) async {
-  requirePositiveDuration(connectionTimeout, 'connectionTimeout');
-  requirePositiveDuration(openTimeout, 'openTimeout');
-  requirePositiveDuration(responseTimeout, 'responseTimeout');
-  requirePositiveDuration(responseIdleTimeout, 'responseIdleTimeout');
-  requirePositiveInt(maxResponseBytes, 'maxResponseBytes');
+  requirePositiveDurationAtMost(
+    connectionTimeout,
+    _qdrantMaxRequestTimeout,
+    'connectionTimeout',
+  );
+  requirePositiveDurationAtMost(
+    openTimeout,
+    _qdrantMaxRequestTimeout,
+    'openTimeout',
+  );
+  requirePositiveDurationAtMost(
+    responseTimeout,
+    _qdrantMaxRequestTimeout,
+    'responseTimeout',
+  );
+  requirePositiveDurationAtMost(
+    responseIdleTimeout,
+    _qdrantMaxRequestTimeout,
+    'responseIdleTimeout',
+  );
+  requirePositiveIntAtMost(
+    maxResponseBytes,
+    _qdrantMaxResponseBytes,
+    'maxResponseBytes',
+  );
   if (retryCount < 0 || retryCount > _qdrantMaxRetryCount) {
     throw RangeError.range(
       retryCount,

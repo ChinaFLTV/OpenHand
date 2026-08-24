@@ -33,6 +33,18 @@ void requireNonNegativeDuration(Duration value, String name) {
   }
 }
 
+/// 时长允许为零，但不能超过 [maximum]。
+void requireNonNegativeDurationAtMost(
+  Duration value,
+  Duration maximum,
+  String name,
+) {
+  requireNonNegativeDuration(value, name);
+  if (value > maximum) {
+    throw ArgumentError.value(value, name, '不能超过 $maximum。');
+  }
+}
+
 /// 数值必须为正；用于容量、并发度、字节上限一类不允许为零的配置。
 void requirePositiveInt(int value, String name) {
   if (value <= 0) {
@@ -52,6 +64,14 @@ void requirePositiveIntAtMost(int value, int maximum, String name) {
 void requireNonNegativeInt(int value, String name) {
   if (value < 0) {
     throw ArgumentError.value(value, name, _nonNegativeMessage);
+  }
+}
+
+/// 数值允许为零，但不能超过 [maximum]。
+void requireNonNegativeIntAtMost(int value, int maximum, String name) {
+  requireNonNegativeInt(value, name);
+  if (value > maximum) {
+    throw ArgumentError.value(value, name, '不能超过 $maximum。');
   }
 }
 

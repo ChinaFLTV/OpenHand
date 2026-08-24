@@ -48,11 +48,16 @@ class McpToolCatalogCacheService {
   }) : _storageDir =
            storageDir ?? Directory(OpenHandPaths.defaultMcpDirectoryPath()),
        _maxPersistedBytes = maxPersistedBytes {
-    requirePositiveInt(maxPersistedBytes, 'maxPersistedBytes');
+    requirePositiveIntAtMost(
+      maxPersistedBytes,
+      _maxAllowedPersistedBytes,
+      'maxPersistedBytes',
+    );
   }
 
   static const String _fileName = 'tool_catalog_cache.json';
   static const int _defaultMaxPersistedBytes = 32 * kBytesPerMiB;
+  static const int _maxAllowedPersistedBytes = 256 * kBytesPerMiB;
 
   final Directory _storageDir;
   final int _maxPersistedBytes;

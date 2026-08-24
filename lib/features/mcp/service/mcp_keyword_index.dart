@@ -276,7 +276,11 @@ class McpKeywordIndexService {
   }) : _storageDir =
            storageDir ?? Directory(OpenHandPaths.defaultMcpDirectoryPath()),
        _maxPersistedBytes = maxPersistedBytes {
-    requirePositiveInt(maxPersistedBytes, 'maxPersistedBytes');
+    requirePositiveIntAtMost(
+      maxPersistedBytes,
+      _maxAllowedPersistedBytes,
+      'maxPersistedBytes',
+    );
   }
 
   final Directory _storageDir;
@@ -294,6 +298,7 @@ class McpKeywordIndexService {
 
   static const String _fileName = 'keyword_index.json';
   static const int _defaultMaxPersistedBytes = 32 * kBytesPerMiB;
+  static const int _maxAllowedPersistedBytes = 256 * kBytesPerMiB;
 
   File get _file => File(p.join(_storageDir.path, _fileName));
 

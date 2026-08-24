@@ -30,6 +30,12 @@ const int defaultAiTransportFileDownloadMaxBytes = 512 * kBytesPerMiB;
 const int defaultAiMultipartFileMaxBytes = 256 * kBytesPerMiB;
 const int defaultAiMultipartTotalMaxBytes = 512 * kBytesPerMiB;
 const int defaultAiMultipartMaxFiles = 128;
+const int maxAiTransportInMemoryResponseBytes = 256 * kBytesPerMiB;
+const int maxAiTransportFileDownloadBytes = 4 * kBytesPerGiB;
+const int maxAiMultipartFileBytes = kBytesPerGiB;
+const int maxAiMultipartTotalBytes = 2 * kBytesPerGiB;
+const int maxAiMultipartFiles = 256;
+const Duration maxAiTransportRequestTimeout = Duration(hours: 24);
 const int _maxConcurrentAiTransportRequests = 16;
 const int _maxQueuedAiTransportRequests = 128;
 const Duration _aiTransportQueueTimeout = Duration(seconds: 30);
@@ -126,7 +132,11 @@ class AiTransportClient {
     int maxResponseBytes = defaultAiTransportResponseMaxBytes,
     Future<void>? cancelSignal,
   }) async {
-    requirePositiveInt(maxResponseBytes, 'maxResponseBytes');
+    requirePositiveIntAtMost(
+      maxResponseBytes,
+      maxAiTransportInMemoryResponseBytes,
+      'maxResponseBytes',
+    );
     final encodedBody = jsonEncode(body);
     return _runAbortable((abort) {
       final request =
@@ -155,7 +165,11 @@ class AiTransportClient {
     int maxResponseBytes = defaultAiTransportResponseMaxBytes,
     Future<void>? cancelSignal,
   }) async {
-    requirePositiveInt(maxResponseBytes, 'maxResponseBytes');
+    requirePositiveIntAtMost(
+      maxResponseBytes,
+      maxAiTransportInMemoryResponseBytes,
+      'maxResponseBytes',
+    );
     return _runAbortable((abort) {
       final request =
           http.AbortableRequest(
@@ -184,7 +198,11 @@ class AiTransportClient {
     int maxResponseBytes = defaultAiTransportResponseMaxBytes,
     Future<void>? cancelSignal,
   }) async {
-    requirePositiveInt(maxResponseBytes, 'maxResponseBytes');
+    requirePositiveIntAtMost(
+      maxResponseBytes,
+      maxAiTransportInMemoryResponseBytes,
+      'maxResponseBytes',
+    );
     return _runAbortable((abort) {
       final request = http.AbortableRequest(
         method.toUpperCase(),
@@ -221,7 +239,11 @@ class AiTransportClient {
     consume,
     Future<void>? cancelSignal,
   }) async {
-    requirePositiveInt(maxResponseBytes, 'maxResponseBytes');
+    requirePositiveIntAtMost(
+      maxResponseBytes,
+      maxAiTransportInMemoryResponseBytes,
+      'maxResponseBytes',
+    );
     final encodedBody = jsonEncode(body);
     return _runAbortable((abort) {
       final request =
@@ -289,10 +311,22 @@ class AiTransportClient {
     int maxFiles = defaultAiMultipartMaxFiles,
     Future<void>? cancelSignal,
   }) async {
-    requirePositiveInt(maxResponseBytes, 'maxResponseBytes');
-    requirePositiveInt(maxFileBytes, 'maxFileBytes');
-    requirePositiveInt(maxTotalBytes, 'maxTotalBytes');
-    requirePositiveInt(maxFiles, 'maxFiles');
+    requirePositiveIntAtMost(
+      maxResponseBytes,
+      maxAiTransportInMemoryResponseBytes,
+      'maxResponseBytes',
+    );
+    requirePositiveIntAtMost(
+      maxFileBytes,
+      maxAiMultipartFileBytes,
+      'maxFileBytes',
+    );
+    requirePositiveIntAtMost(
+      maxTotalBytes,
+      maxAiMultipartTotalBytes,
+      'maxTotalBytes',
+    );
+    requirePositiveIntAtMost(maxFiles, maxAiMultipartFiles, 'maxFiles');
     final effectiveTimeout = _effectiveRequestTimeout(timeout);
     return _runAbortable((abort) async {
       final preparation = Stopwatch()..start();
@@ -636,8 +670,16 @@ class AiTransportClient {
     int maxJsonBytes = defaultAiTransportResponseMaxBytes,
     Future<void>? cancelSignal,
   }) {
-    requirePositiveInt(maxBytes, 'maxBytes');
-    requirePositiveInt(maxJsonBytes, 'maxJsonBytes');
+    requirePositiveIntAtMost(
+      maxBytes,
+      maxAiTransportFileDownloadBytes,
+      'maxBytes',
+    );
+    requirePositiveIntAtMost(
+      maxJsonBytes,
+      maxAiTransportInMemoryResponseBytes,
+      'maxJsonBytes',
+    );
     return _runAbortable((abort) {
       final request = http.AbortableRequest(
         'GET',
@@ -702,7 +744,11 @@ class AiTransportClient {
     required Duration timeout,
     required int maxResponseBytes,
   }) {
-    requirePositiveInt(maxResponseBytes, 'maxResponseBytes');
+    requirePositiveIntAtMost(
+      maxResponseBytes,
+      maxAiTransportInMemoryResponseBytes,
+      'maxResponseBytes',
+    );
     return _executeRequest(
       request,
       abort: abort,
@@ -1005,7 +1051,10 @@ class AiTransportClient {
   }
 
   Duration _effectiveRequestTimeout(Duration timeout) {
-    return timeout > Duration.zero ? timeout : _fallbackRequestTimeout;
+    final configured = timeout > Duration.zero
+        ? timeout
+        : _fallbackRequestTimeout;
+    return shorterDuration(configured, maxAiTransportRequestTimeout);
   }
 
   String _multipartFieldValue(Object value) {
