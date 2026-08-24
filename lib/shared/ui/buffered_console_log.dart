@@ -38,7 +38,7 @@ mixin BufferedConsoleLogHost<T extends StatefulWidget> on State<T> {
       kOpenHandFramePeriodicTimerInterval,
       _flushPendingLines,
       onError: (error, stack) =>
-          silentLog(consoleLogTag, '刷新安装日志', error, stack),
+          silentLog(consoleLogTag, '刷新控制台日志', error, stack),
     );
   }
 

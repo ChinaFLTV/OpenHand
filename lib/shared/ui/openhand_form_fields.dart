@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
 
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 
 /// 隐藏 TextField 的 `maxLength` 计数器。
@@ -130,8 +131,6 @@ class OpenHandAnimatedSwitchTile extends StatelessWidget {
     this.disabledIcon,
   });
 
-  static const Duration _animationDuration = Duration(milliseconds: 220);
-
   final IconData icon;
   final IconData? disabledIcon;
   final String title;
@@ -144,7 +143,7 @@ class OpenHandAnimatedSwitchTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return AnimatedContainer(
-      duration: openHandMotionDuration(context, _animationDuration),
+      duration: openHandMotionDuration(context, kOpenHandMotion220),
       curve: kOpenHandSwitchInCurve,
       padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
       decoration: BoxDecoration(

@@ -11,6 +11,7 @@ import '../util/localized_text.dart';
 import '../util/timer_safety.dart';
 import 'animated_dialog.dart';
 import 'auto_follow_scroll_guard.dart';
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'openhand_clipboard.dart';
 import 'openhand_console_log_panel.dart';
@@ -139,10 +140,7 @@ class _OpenHandRuntimeLogDialogState extends State<_OpenHandRuntimeLogDialog> {
       _scrollGuard.followToStart(
         _scrollController,
         animated: animated,
-        animationDuration: openHandMotionDuration(
-          context,
-          const Duration(milliseconds: 220),
-        ),
+        animationDuration: openHandMotionDuration(context, kOpenHandMotion220),
       );
     });
   }

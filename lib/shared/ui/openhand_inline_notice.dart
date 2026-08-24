@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
 
+import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'openhand_notice_actions.dart';
 import 'openhand_reveal_switcher.dart';
@@ -68,10 +69,7 @@ class _OpenHandInlineNoticeState extends State<OpenHandInlineNotice> {
     if (!openHandTickerMotionEnabled(context)) {
       return child;
     }
-    final duration = openHandMotionDuration(
-      context,
-      const Duration(milliseconds: 220),
-    );
+    final duration = openHandMotionDuration(context, kOpenHandMotion220);
     return AnimatedSwitcher(
       duration: duration,
       switchInCurve: kOpenHandSwitchInCurve,

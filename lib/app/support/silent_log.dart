@@ -18,9 +18,6 @@ void silentLog(String tag, String action, Object error, [StackTrace? stack]) {
   if (!kDebugMode) {
     return;
   }
-  if (stack != null) {
-    debugPrint('[$tag] 已忽略异常：$action -> $error\n$stack');
-  } else {
-    debugPrint('[$tag] 已忽略异常：$action -> $error');
-  }
+  final detail = stack == null ? '$error' : '$error\n$stack';
+  debugPrint('[$tag] 已忽略异常：$action -> $detail');
 }
