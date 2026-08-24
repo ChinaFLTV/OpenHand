@@ -5987,10 +5987,10 @@ ${_markdownStructuredFields(response)}''';
     _disposed = true;
     _mediaGenerationService.dispose();
     await runAsyncCleanupBounded(
-      _service.cancelAuthorization,
+      _service.dispose,
       timeout: _shutdownCleanupTimeout,
       onError: (error, stack) =>
-          silentLog('dingtalk_gateway', '清理钉钉授权进程', error, stack),
+          silentLog('dingtalk_gateway', '释放钉钉消息服务', error, stack),
     );
     _runtimeLogRevision.dispose();
   }

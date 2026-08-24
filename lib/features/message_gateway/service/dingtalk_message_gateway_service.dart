@@ -204,6 +204,7 @@ class DingTalkMessageGatewayService {
   static const Duration _eventReadyTimeout = Duration(seconds: 30);
   static const Duration _eventCleanupTimeout = Duration(seconds: 5);
   static const Duration _mediaDownloadTimeout = Duration(minutes: 3);
+  static const Duration _mediaDownloadQueueTimeout = Duration(seconds: 30);
   static const Duration _sentMessageLookupWindow = Duration(minutes: 2);
   static const Duration _sentMessageLookupTimeout = Duration(seconds: 8);
   static const int _sentMessageLookupLimit = 50;
@@ -227,6 +228,7 @@ class DingTalkMessageGatewayService {
   static const int _detailConcurrency = 4;
   static const int _maxMediaCacheFiles = 512;
   static const int _maxMediaCacheScanEntries = _maxMediaCacheFiles + 128;
+  static const int _maxPendingMediaDownloads = 64;
   static const int _maxMediaCacheBytes = kBytesPerGiB;
   static const int _maxMediaFileBytes = 512 * kBytesPerMiB;
   static const Duration _mediaCacheFileOperationTimeout = Duration(seconds: 3);
@@ -280,8 +282,9 @@ class DingTalkMessageGatewayService {
   Completer<void> _mediaDownloadCancelSignal = Completer<void>();
   final OpenHandAsyncSemaphore _mediaDownloadSemaphore = OpenHandAsyncSemaphore(
     3,
-    maxWaiters: 1024,
+    maxWaiters: _maxPendingMediaDownloads,
   );
+  final OpenHandAsyncOnce _disposeOnce = OpenHandAsyncOnce();
   final Map<String, DateTime> _unavailableMediaUntil = <String, DateTime>{};
   final Map<String, DateTime> _mediaContextWarningAt = <String, DateTime>{};
   List<AiDingTalkDwsCommand>? _dwsCommandCatalog;
@@ -810,9 +813,15 @@ class DingTalkMessageGatewayService {
     if (active != null) return active;
     final cancelSignal = _mediaDownloadCancelSignal.future;
     final task = () async {
-      final acquired = await _mediaDownloadSemaphore.acquireUnlessCancelled(
-        cancelSignal,
-      );
+      bool acquired;
+      try {
+        acquired = await _mediaDownloadSemaphore.acquireWithin(
+          _mediaDownloadQueueTimeout,
+          cancelSignal: cancelSignal,
+        );
+      } on StateError {
+        acquired = false;
+      }
       if (!acquired) return null;
       try {
         return await _ensureMediaCached(
@@ -960,8 +969,41 @@ class DingTalkMessageGatewayService {
     final cancelSignal = _mediaDownloadCancelSignal;
     _mediaDownloadCancelSignal = Completer<void>();
     if (!cancelSignal.isCompleted) cancelSignal.complete();
+    _mediaDownloadSemaphore.cancelWaiters();
     final tasks = _mediaDownloadTasks.values.toList(growable: false);
     if (tasks.isNotEmpty) await Future.wait<String?>(tasks);
+  }
+
+  Future<void> dispose() {
+    return _disposeOnce.run(() async {
+      _mediaDownloadSemaphore.cancelWaiters();
+      await Future.wait<bool>(<Future<bool>>[
+        runAsyncCleanupBounded(
+          stopEventSubscription,
+          timeout: _eventCleanupTimeout,
+          onError: (error, stack) =>
+              silentLog('dingtalk_gateway', '停止钉钉实时事件监听', error, stack),
+        ),
+        runAsyncCleanupBounded(
+          cancelMediaDownloads,
+          timeout: _eventCleanupTimeout,
+          onError: (error, stack) =>
+              silentLog('dingtalk_gateway', '取消钉钉媒体下载', error, stack),
+        ),
+        runAsyncCleanupBounded(
+          cancelAuthorization,
+          timeout: _eventCleanupTimeout,
+          onError: (error, stack) =>
+              silentLog('dingtalk_gateway', '取消钉钉设备流授权', error, stack),
+        ),
+      ]);
+      await runAsyncCleanupBounded(
+        _runtimeLogController.close,
+        timeout: _eventCleanupTimeout,
+        onError: (error, stack) =>
+            silentLog('dingtalk_gateway', '关闭钉钉运行日志流', error, stack),
+      );
+    });
   }
 
   Future<File?> _findCachedMediaFile(
