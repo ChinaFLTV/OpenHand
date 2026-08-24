@@ -23,7 +23,6 @@ const double _kAiUsageOverviewMetricHeight = 150;
 const double _kAiUsageDistributionRowHeight = 52;
 const double _kAiUsageDistributionBodyMaxHeight = 312;
 const double _kAiUsageDistributionEmptyBodyHeight = 72;
-const double _kAiUsageDistributionChromeHeight = 74;
 const Duration _kAiUsageRefreshDebounce = Duration(milliseconds: 600);
 const OpenHandAnimationTransitionProfile _kAiUsagePanelTransitionProfile =
     OpenHandAnimationTransitionProfile(
@@ -423,7 +422,10 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
         kOpenHandGap14,
         _AiUsageBreakdownPanel(snapshot: snapshot),
         kOpenHandGap14,
-        _AiUsageRecentPanel(records: snapshot.recentRequests),
+        _AiUsageRecentPanel(
+          filter: _filter,
+          revision: snapshot.generatedAt,
+        ),
       ],
     );
   }
@@ -1576,101 +1578,103 @@ class _AiUsageDistributionCardState extends State<_AiUsageDistributionCard> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final contentHeight = widget.items.isEmpty
-        ? _kAiUsageDistributionEmptyBodyHeight
-        : widget.items.length * _kAiUsageDistributionRowHeight;
-    final bodyHeight = math.min(
-      contentHeight,
-      _kAiUsageDistributionBodyMaxHeight,
-    );
-    final scrollable = contentHeight > _kAiUsageDistributionBodyMaxHeight;
     return AnimatedSize(
       alignment: Alignment.topCenter,
       duration: openHandMotionDuration(context, kOpenHandMotion280),
       curve: kOpenHandSwitchInCurve,
-      child: SizedBox(
-        height: _kAiUsageDistributionChromeHeight + bodyHeight,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerLowest,
-            borderRadius: kOpenHandBorderRadius18,
-            border: Border.all(color: theme.colorScheme.outlineVariant),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLowest,
+          borderRadius: kOpenHandBorderRadius18,
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  if (widget.items.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: widget.color.withValues(alpha: 0.09),
+                        borderRadius: kOpenHandPillBorderRadius,
+                        border: Border.all(
+                          color: widget.color.withValues(alpha: 0.18),
+                        ),
+                      ),
                       child: Text(
-                        widget.title,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
+                        openHandLocalizedText(
+                          context,
+                          zh: '${widget.items.length} 项',
+                          en: '${widget.items.length} ${widget.items.length == 1 ? 'item' : 'items'}',
+                        ),
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: Color.alphaBlend(
+                            widget.color.withValues(alpha: 0.34),
+                            theme.colorScheme.onSurface,
+                          ),
+                          fontWeight: FontWeight.w700,
+                          height: 1,
+                          fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
                     ),
-                    if (widget.items.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: widget.color.withValues(alpha: 0.09),
-                          borderRadius: kOpenHandPillBorderRadius,
-                          border: Border.all(
-                            color: widget.color.withValues(alpha: 0.18),
-                          ),
-                        ),
-                        child: Text(
-                          openHandLocalizedText(
-                            context,
-                            zh: '${widget.items.length} 项',
-                            en: '${widget.items.length} ${widget.items.length == 1 ? 'item' : 'items'}',
-                          ),
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: Color.alphaBlend(
-                              widget.color.withValues(alpha: 0.34),
-                              theme.colorScheme.onSurface,
-                            ),
-                            fontWeight: FontWeight.w700,
-                            height: 1,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
+                ],
+              ),
+              kOpenHandGap14,
+              if (widget.items.isEmpty)
+                SizedBox(
+                  height: _kAiUsageDistributionEmptyBodyHeight,
+                  child: OpenHandInlineEmptyState(message: widget.emptyMessage),
+                )
+              else
+                OpenHandClientPager<AiUsageBreakdown>(
+                  items: widget.items,
+                  builder: (context, pageItems) {
+                    final bodyHeight = math.min(
+                      math.max(pageItems.length, 1) *
+                          _kAiUsageDistributionRowHeight,
+                      _kAiUsageDistributionBodyMaxHeight,
+                    );
+                    return SizedBox(
+                      height: bodyHeight,
+                      child: OpenHandSafeScrollbar(
+                        controller: _scrollController,
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          padding: EdgeInsets.zero,
+                          itemCount: pageItems.length,
+                          itemExtent: _kAiUsageDistributionRowHeight,
+                          itemBuilder: (context, index) {
+                            final item = pageItems[index];
+                            return SettingsAwareAppearOnce(
+                              key: ValueKey<String>(
+                                'usage-distribution-${item.key}',
+                              ),
+                              child: _buildItem(context, item),
+                            );
+                          },
                         ),
                       ),
-                  ],
+                    );
+                  },
                 ),
-                kOpenHandGap14,
-                SizedBox(
-                  height: bodyHeight,
-                  child: widget.items.isEmpty
-                      ? OpenHandInlineEmptyState(message: widget.emptyMessage)
-                      : OpenHandSafeScrollbar(
-                          controller: _scrollController,
-                          child: ListView.builder(
-                            controller: _scrollController,
-                            padding: EdgeInsets.only(
-                              right: scrollable ? 10 : 0,
-                            ),
-                            itemCount: widget.items.length,
-                            itemExtent: _kAiUsageDistributionRowHeight,
-                            itemBuilder: (context, index) {
-                              final item = widget.items[index];
-                              return SettingsAwareAppearOnce(
-                                key: ValueKey<String>(
-                                  'usage-distribution-${item.key}',
-                                ),
-                                child: _buildItem(context, item),
-                              );
-                            },
-                          ),
-                        ),
-                ),
-              ],
-            ),
+            ],
           ),
         ),
       ),
@@ -2757,6 +2761,22 @@ class _AiUsageBreakdownTable extends StatefulWidget {
 class _AiUsageBreakdownTableState extends State<_AiUsageBreakdownTable> {
   final ScrollController _horizontalController = ScrollController();
   final ScrollController _verticalController = ScrollController();
+  int _page = 1;
+  int _pageSize = kOpenHandTableDefaultPageSize;
+
+  OpenHandPageWindow get _window => OpenHandPageWindow.normalize(
+    page: _page,
+    pageSize: _pageSize,
+    total: widget.items.length,
+  );
+
+  @override
+  void didUpdateWidget(covariant _AiUsageBreakdownTable oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final window = _window;
+    _page = window.page;
+    _pageSize = window.pageSize;
+  }
 
   @override
   void dispose() {
@@ -2769,9 +2789,11 @@ class _AiUsageBreakdownTableState extends State<_AiUsageBreakdownTable> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final window = _window;
+    final pageItems = window.slice(widget.items);
     final bodyHeight = math.min(
       _kAiUsageBreakdownBodyMaxHeight,
-      widget.items.length * _kAiUsageBreakdownRowHeight,
+      math.max(pageItems.length, 1) * _kAiUsageBreakdownRowHeight,
     );
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -2787,52 +2809,72 @@ class _AiUsageBreakdownTableState extends State<_AiUsageBreakdownTable> {
               border: Border.all(color: colorScheme.outlineVariant),
               borderRadius: kOpenHandBorderRadius16,
             ),
-            child: OpenHandSafeScrollbar(
-              controller: _horizontalController,
-              scrollbarOrientation: ScrollbarOrientation.bottom,
-              child: SingleChildScrollView(
-                controller: _horizontalController,
-                scrollDirection: Axis.horizontal,
-                child: SizedBox(
-                  width: tableWidth,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        height: _kAiUsageBreakdownHeaderHeight,
-                        color: colorScheme.surfaceContainerHighest,
-                        child: _buildRow(context, header: true),
-                      ),
-                      SizedBox(
-                        height: bodyHeight,
-                        child: OpenHandSafeScrollbar(
-                          controller: _verticalController,
-                          child: ListView.builder(
-                            controller: _verticalController,
-                            padding: EdgeInsets.zero,
-                            itemCount: widget.items.length,
-                            itemExtent: _kAiUsageBreakdownRowHeight,
-                            itemBuilder: (context, index) {
-                              final item = widget.items[index];
-                              return SettingsAwareAppearOnce(
-                                key: ValueKey<String>(
-                                  '${widget.dimension}-${item.key}',
-                                ),
-                                child: Container(
-                                  color: index.isEven
-                                      ? colorScheme.surfaceContainerLowest
-                                      : colorScheme.surfaceContainerLow,
-                                  child: _buildRow(context, item: item),
-                                ),
-                              );
-                            },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OpenHandSafeScrollbar(
+                  controller: _horizontalController,
+                  scrollbarOrientation: ScrollbarOrientation.bottom,
+                  child: SingleChildScrollView(
+                    controller: _horizontalController,
+                    scrollDirection: Axis.horizontal,
+                    child: SizedBox(
+                      width: tableWidth,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            height: _kAiUsageBreakdownHeaderHeight,
+                            color: colorScheme.surfaceContainerHighest,
+                            child: _buildRow(context, header: true),
                           ),
-                        ),
+                          SizedBox(
+                            height: bodyHeight,
+                            child: OpenHandSafeScrollbar(
+                              controller: _verticalController,
+                              child: ListView.builder(
+                                controller: _verticalController,
+                                padding: EdgeInsets.zero,
+                                itemCount: pageItems.length,
+                                itemExtent: _kAiUsageBreakdownRowHeight,
+                                itemBuilder: (context, index) {
+                                  final item = pageItems[index];
+                                  return SettingsAwareAppearOnce(
+                                    key: ValueKey<String>(
+                                      '${widget.dimension}-${item.key}',
+                                    ),
+                                    child: Container(
+                                      color: index.isEven
+                                          ? colorScheme.surfaceContainerLowest
+                                          : colorScheme.surfaceContainerLow,
+                                      child: _buildRow(context, item: item),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
+                OpenHandTablePaginationBar(
+                  total: window.total,
+                  page: window.page,
+                  pageSize: window.pageSize,
+                  onPageChanged: (page) {
+                    setState(() => _page = page);
+                    if (_verticalController.hasClients) {
+                      _verticalController.jumpTo(0);
+                    }
+                  },
+                  onPageSizeChanged: (size) => setState(() {
+                    _pageSize = size;
+                    _page = 1;
+                  }),
+                ),
+              ],
             ),
           ),
         );
@@ -2988,13 +3030,83 @@ class _AiUsageBreakdownTableState extends State<_AiUsageBreakdownTable> {
   }
 }
 
-class _AiUsageRecentPanel extends StatelessWidget {
-  const _AiUsageRecentPanel({required this.records});
+class _AiUsageRecentPanel extends StatefulWidget {
+  const _AiUsageRecentPanel({required this.filter, required this.revision});
 
-  final List<AiUsageRequestRecord> records;
+  final AiUsageFilter filter;
+  final DateTime revision;
+
+  @override
+  State<_AiUsageRecentPanel> createState() => _AiUsageRecentPanelState();
+}
+
+class _AiUsageRecentPanelState extends State<_AiUsageRecentPanel> {
+  int _page = 1;
+  int _pageSize = kOpenHandTableDefaultPageSize;
+  int _total = 0;
+  int _generation = 0;
+  List<AiUsageRequestRecord> _records = const <AiUsageRequestRecord>[];
+  bool _loading = true;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  @override
+  void didUpdateWidget(covariant _AiUsageRecentPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.filter, widget.filter)) {
+      _page = 1;
+      unawaited(_load());
+      return;
+    }
+    if (oldWidget.revision != widget.revision) {
+      unawaited(_load());
+    }
+  }
+
+  Future<void> _load() async {
+    final generation = ++_generation;
+    final page = _page;
+    final pageSize = _pageSize;
+    if (mounted) setState(() => _loading = true);
+    try {
+      final fetched = await openHandFetchPage<AiUsageRequestRecord>(
+        page: page,
+        pageSize: pageSize,
+        fetch: ({required offset, required limit}) {
+          return AiUsageTracker.instance.loadRequestPage(
+            widget.filter,
+            offset: offset,
+            limit: limit,
+          );
+        },
+      );
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _total = fetched.$2.total;
+        _records = fetched.$1;
+        _page = fetched.$2.page;
+        _pageSize = fetched.$2.pageSize;
+        _loading = false;
+        _error = null;
+      });
+    } catch (error, stack) {
+      silentLog('settings_ai_usage', '分页加载请求追踪', error, stack);
+      if (!mounted || generation != _generation) return;
+      setState(() {
+        _loading = false;
+        _error = error;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final empty = !_loading && _total == 0 && _error == null;
     return _AiUsagePanel(
       title: openHandLocalizedText(context, zh: '请求追踪', en: 'Request Traces'),
       subtitle: openHandLocalizedText(
@@ -3002,7 +3114,7 @@ class _AiUsageRecentPanel extends StatelessWidget {
         zh: '最近请求的模型、来源、Token、成本、耗时与状态，不保存 Prompt 正文',
         en: 'Recent model, source, token, cost, latency, and status data; prompt bodies are never stored',
       ),
-      child: records.isEmpty
+      child: empty
           ? SizedBox(
               height: 110,
               child: OpenHandInlineEmptyState(
@@ -3013,15 +3125,58 @@ class _AiUsageRecentPanel extends StatelessWidget {
                 ),
               ),
             )
-          : _AiUsageRequestTable(records: records),
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      openHandLocalizedText(
+                        context,
+                        zh: '请求记录加载失败，可稍后重试。',
+                        en: 'Failed to load request records. Try again later.',
+                      ),
+                    ),
+                  ),
+                if (_loading && _records.isEmpty)
+                  const SizedBox(
+                    height: 120,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else
+                  _AiUsageRequestTable(
+                    key: ValueKey<String>('usage-req-$_page-$_pageSize'),
+                    records: _records,
+                    footer: OpenHandTablePaginationBar(
+                      total: _total,
+                      page: _page,
+                      pageSize: _pageSize,
+                      enabled: !_loading,
+                      onPageChanged: (page) {
+                        setState(() => _page = page);
+                        unawaited(_load());
+                      },
+                      onPageSizeChanged: (size) {
+                        setState(() {
+                          _pageSize = size;
+                          _page = 1;
+                        });
+                        unawaited(_load());
+                      },
+                    ),
+                  ),
+              ],
+            ),
     );
   }
 }
 
 class _AiUsageRequestTable extends StatefulWidget {
-  const _AiUsageRequestTable({required this.records});
+  const _AiUsageRequestTable({required this.records, this.footer});
 
   final List<AiUsageRequestRecord> records;
+  final Widget? footer;
 
   @override
   State<_AiUsageRequestTable> createState() => _AiUsageRequestTableState();
@@ -3044,7 +3199,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
     final colorScheme = theme.colorScheme;
     final bodyHeight = math.min(
       _kAiUsageRequestBodyMaxHeight,
-      widget.records.length * _kAiUsageRequestRowHeight,
+      math.max(widget.records.length, 1) * _kAiUsageRequestRowHeight,
     );
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -3060,50 +3215,59 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
               border: Border.all(color: colorScheme.outlineVariant),
               borderRadius: kOpenHandBorderRadius16,
             ),
-            child: OpenHandSafeScrollbar(
-              controller: _horizontalController,
-              scrollbarOrientation: ScrollbarOrientation.bottom,
-              child: SingleChildScrollView(
-                controller: _horizontalController,
-                scrollDirection: Axis.horizontal,
-                child: SizedBox(
-                  width: tableWidth,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        height: _kAiUsageRequestHeaderHeight,
-                        color: colorScheme.surfaceContainerHighest,
-                        child: _buildRow(context, header: true),
-                      ),
-                      SizedBox(
-                        height: bodyHeight,
-                        child: OpenHandSafeScrollbar(
-                          controller: _verticalController,
-                          child: ListView.builder(
-                            controller: _verticalController,
-                            padding: EdgeInsets.zero,
-                            itemCount: widget.records.length,
-                            itemExtent: _kAiUsageRequestRowHeight,
-                            itemBuilder: (context, index) {
-                              final record = widget.records[index];
-                              return SettingsAwareAppearOnce(
-                                key: ValueKey<String>(record.id),
-                                child: ColoredBox(
-                                  color: index.isEven
-                                      ? colorScheme.surfaceContainerLowest
-                                      : colorScheme.surfaceContainerLow,
-                                  child: _buildRow(context, record: record),
-                                ),
-                              );
-                            },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OpenHandSafeScrollbar(
+                  controller: _horizontalController,
+                  scrollbarOrientation: ScrollbarOrientation.bottom,
+                  child: SingleChildScrollView(
+                    controller: _horizontalController,
+                    scrollDirection: Axis.horizontal,
+                    child: SizedBox(
+                      width: tableWidth,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            height: _kAiUsageRequestHeaderHeight,
+                            color: colorScheme.surfaceContainerHighest,
+                            child: _buildRow(context, header: true),
                           ),
-                        ),
+                          SizedBox(
+                            height: bodyHeight,
+                            child: OpenHandSafeScrollbar(
+                              controller: _verticalController,
+                              child: ListView.builder(
+                                controller: _verticalController,
+                                padding: EdgeInsets.zero,
+                                itemCount: widget.records.length,
+                                itemExtent: _kAiUsageRequestRowHeight,
+                                itemBuilder: (context, index) {
+                                  final record = widget.records[index];
+                                  return SettingsAwareAppearOnce(
+                                    key: ValueKey<String>(record.id),
+                                    child: ColoredBox(
+                                      color: index.isEven
+                                          ? colorScheme.surfaceContainerLowest
+                                          : colorScheme.surfaceContainerLow,
+                                      child: _buildRow(
+                                        context,
+                                        record: record,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
+                if (widget.footer != null) widget.footer!,
+              ],
             ),
           ),
         );

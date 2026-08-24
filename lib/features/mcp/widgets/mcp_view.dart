@@ -42,6 +42,7 @@ import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/ui/openhand_tap_region.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
@@ -2336,8 +2337,6 @@ const int _mcpOpsPayloadMaxItemsPerLevel = 80;
 const int _mcpOpsPayloadMaxScalarChars = 12000;
 const double _mcpOpsMetricWideBreakpoint = 860;
 const double _mcpOpsMetricMediumBreakpoint = 560;
-const int _mcpOpsExposureInitialLimit = 14;
-const int _mcpOpsExposurePageSize = 18;
 const Duration _mcpOpsEndpointDiscoveryDebounce = Duration(milliseconds: 320);
 const Color _mcpOpsTerminalBackground = Color(0xFF0B0D10);
 const Color _mcpOpsTerminalSurface = OpenHandConsolePalette.terminalSurface;
@@ -2383,8 +2382,6 @@ class _McpOpsDialog extends StatefulWidget {
 }
 
 class _McpOpsDialogState extends State<_McpOpsDialog> {
-  final Map<McpOpsExposureSurface, int> _exposureLimits =
-      <McpOpsExposureSurface, int>{};
   late final TextEditingController _hostController;
   late final TextEditingController _portController;
   late final TextEditingController _rpmController;
@@ -3694,9 +3691,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                 children: [
                   TextField(
                     controller: _exposureSearchController,
-                    onChanged: (_) => setState(() {
-                      _exposureLimits.clear();
-                    }),
+                    onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(
                       prefixIcon: const Icon(Icons.search_rounded),
                       labelText: _localizedText(
@@ -3909,106 +3904,57 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
         ),
       );
     }
-    final limit = math.min(
-      _exposureLimits[surface] ?? _mcpOpsExposureInitialLimit,
-      filteredRows.length,
-    );
-    final visibleRows = filteredRows.take(limit).toList(growable: false);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _localizedText(
-                      context,
-                      zh: '显示 $limit / ${filteredRows.length}',
-                      en: 'Showing $limit / ${filteredRows.length}',
-                      zhHant: '顯示 $limit / ${filteredRows.length}',
-                      fr: '$limit / ${filteredRows.length} affichés',
-                      de: '$limit / ${filteredRows.length} angezeigt',
-                      ja: '$limit / ${filteredRows.length} 件を表示',
+      child: OpenHandClientPager<_McpOpsExposureRow>(
+        items: filteredRows,
+        builder: (context, visibleRows) => Column(
+          children: [
+            _mcpOpsBoundedList(
+              context,
+              Column(
+                children: [
+                  for (final entry in visibleRows.indexed) ...[
+                    _McpOpsExposureTile(
+                      surface: surface,
+                      row: entry.$2,
+                      itemVisible: !_hiddenItems.contains(
+                        mcpOpsItemKey(surface, entry.$2.id),
+                      ),
+                      endpointVisible: (endpoint) => !_hiddenEndpoints.contains(
+                        mcpOpsEndpointKey(surface, '${entry.$2.id}:$endpoint'),
+                      ),
+                      onItemChanged: (value) {
+                        setState(() {
+                          final key = mcpOpsItemKey(surface, entry.$2.id);
+                          if (value) {
+                            _hiddenItems.remove(key);
+                          } else {
+                            _hiddenItems.add(key);
+                          }
+                        });
+                      },
+                      onEndpointChanged: (endpoint, value) {
+                        setState(() {
+                          final key = mcpOpsEndpointKey(
+                            surface,
+                            '${entry.$2.id}:$endpoint',
+                          );
+                          if (value) {
+                            _hiddenEndpoints.remove(key);
+                          } else {
+                            _hiddenEndpoints.add(key);
+                          }
+                        });
+                      },
                     ),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                if (limit < filteredRows.length)
-                  TextButton.icon(
-                    onPressed: () => setState(() {
-                      _exposureLimits[surface] = math.min(
-                        filteredRows.length,
-                        limit + _mcpOpsExposurePageSize,
-                      );
-                    }),
-                    icon: const Icon(Icons.expand_more_rounded, size: 18),
-                    label: Text(
-                      _localizedText(context, zh: '加载更多', en: 'Show more'),
-                    ),
-                  ),
-                if (limit > _mcpOpsExposureInitialLimit)
-                  TextButton.icon(
-                    onPressed: () => setState(() {
-                      _exposureLimits[surface] = _mcpOpsExposureInitialLimit;
-                    }),
-                    icon: const Icon(Icons.unfold_less_rounded, size: 18),
-                    label: Text(
-                      _localizedText(context, zh: '收起', en: 'Collapse'),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          _mcpOpsBoundedList(
-            context,
-            Column(
-              children: [
-                for (final entry in visibleRows.indexed) ...[
-                  _McpOpsExposureTile(
-                    surface: surface,
-                    row: entry.$2,
-                    itemVisible: !_hiddenItems.contains(
-                      mcpOpsItemKey(surface, entry.$2.id),
-                    ),
-                    endpointVisible: (endpoint) => !_hiddenEndpoints.contains(
-                      mcpOpsEndpointKey(surface, '${entry.$2.id}:$endpoint'),
-                    ),
-                    onItemChanged: (value) {
-                      setState(() {
-                        final key = mcpOpsItemKey(surface, entry.$2.id);
-                        if (value) {
-                          _hiddenItems.remove(key);
-                        } else {
-                          _hiddenItems.add(key);
-                        }
-                      });
-                    },
-                    onEndpointChanged: (endpoint, value) {
-                      setState(() {
-                        final key = mcpOpsEndpointKey(
-                          surface,
-                          '${entry.$2.id}:$endpoint',
-                        );
-                        if (value) {
-                          _hiddenEndpoints.remove(key);
-                        } else {
-                          _hiddenEndpoints.add(key);
-                        }
-                      });
-                    },
-                  ),
-                  if (entry.$1 != visibleRows.length - 1) kOpenHandGap8,
+                    if (entry.$1 != visibleRows.length - 1) kOpenHandGap8,
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -4290,7 +4236,6 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     _surfaces = Set<McpOpsExposureSurface>.from(config.exposedSurfaces);
     _hiddenItems = Set<String>.from(config.hiddenItemIds);
     _hiddenEndpoints = Set<String>.from(config.hiddenEndpointIds);
-    _exposureLimits.clear();
     _lastAppliedConfig = config;
   }
 
@@ -17537,19 +17482,22 @@ class _McpOpsBarPanel extends StatelessWidget {
                 en: 'No samples yet',
               ),
             )
-          : _mcpOpsBoundedList(
-              context,
-              Column(
-                children: [
-                  for (var i = 0; i < sorted.length; i++)
-                    _McpOpsDistributionRow(
-                      label: sorted[i].key,
-                      value: sorted[i].value,
-                      total: total,
-                      color: palette[i % palette.length],
-                      showPercent: true,
-                    ),
-                ],
+          : OpenHandClientPager<MapEntry<String, int>>(
+              items: sorted,
+              builder: (context, pageItems) => _mcpOpsBoundedList(
+                context,
+                Column(
+                  children: [
+                    for (var i = 0; i < pageItems.length; i++)
+                      _McpOpsDistributionRow(
+                        label: pageItems[i].key,
+                        value: pageItems[i].value,
+                        total: total,
+                        color: palette[i % palette.length],
+                        showPercent: true,
+                      ),
+                  ],
+                ),
               ),
             ),
     );
@@ -17661,7 +17609,6 @@ class _McpOpsLogListPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final shown = entries.take(maxEntries).toList(growable: false);
     return _McpOpsPanel(
       icon: icon,
       title: title,
@@ -17672,21 +17619,28 @@ class _McpOpsLogListPanel extends StatelessWidget {
               label: '${entries.length}',
               color: cs.primary,
             ),
-      child: shown.isEmpty
+      child: entries.isEmpty
           ? _McpOpsInsightEmpty(label: emptyLabel)
-          : _mcpOpsBoundedList(
-              context,
-              Column(
-                children: [
-                  for (var i = 0; i < shown.length; i++) ...[
-                    if (i != 0)
-                      Divider(
-                        height: 16,
-                        color: cs.outlineVariant.withValues(alpha: 0.4),
-                      ),
-                    _McpOpsLogRow(entry: shown[i], showReason: showReason),
+          : OpenHandClientPager<McpOpsAuditEntry>(
+              items: entries,
+              initialPageSize: maxEntries.clamp(
+                kOpenHandTableMinPageSize,
+                kOpenHandTableMaxPageSize,
+              ),
+              builder: (context, shown) => _mcpOpsBoundedList(
+                context,
+                Column(
+                  children: [
+                    for (var i = 0; i < shown.length; i++) ...[
+                      if (i != 0)
+                        Divider(
+                          height: 16,
+                          color: cs.outlineVariant.withValues(alpha: 0.4),
+                        ),
+                      _McpOpsLogRow(entry: shown[i], showReason: showReason),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
     );
@@ -18316,19 +18270,22 @@ _McpOpsInsightSpec _mcpOpsInsightSpec(
                       en: 'No servers registered',
                     ),
                   )
-                : _mcpOpsBoundedList(
-                    context,
-                    Column(
-                      children: [
-                        for (var i = 0; i < data.servers.length; i++) ...[
-                          if (i != 0)
-                            Divider(
-                              height: 16,
-                              color: cs.outlineVariant.withValues(alpha: 0.4),
-                            ),
-                          _mcpOpsServerRow(context, data.servers[i]),
+                : OpenHandClientPager<McpServer>(
+                    items: data.servers,
+                    builder: (context, shown) => _mcpOpsBoundedList(
+                      context,
+                      Column(
+                        children: [
+                          for (var i = 0; i < shown.length; i++) ...[
+                            if (i != 0)
+                              Divider(
+                                height: 16,
+                                color: cs.outlineVariant.withValues(alpha: 0.4),
+                              ),
+                            _mcpOpsServerRow(context, shown[i]),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
           ),

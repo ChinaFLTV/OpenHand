@@ -19,6 +19,7 @@ import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_clip.dart';
@@ -59,6 +60,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
   late final SkillMarketClient _marketClient;
 
   int _page = 1;
+  int _pageSize = kOpenHandTableDefaultPageSize;
   int _searchToken = 0;
   String _keyword = '';
   String _searchInput = '';
@@ -245,8 +247,6 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
   }
 
   Widget _buildSearchPane(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final installedSkillKeys = _installedSkillKeys(
       context.watch<SkillsController>(),
     );
@@ -383,110 +383,20 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
           ),
         ),
         kOpenHandGap12,
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(kOpenHandRadius18),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  result == null
-                      ? openHandLocalizedText(
-                          context,
-                          zh: '准备加载',
-                          zhHant: '準備載入',
-                          en: 'Ready',
-                          fr: 'Prêt',
-                          de: 'Bereit',
-                          ja: '準備完了',
-                        )
-                      : openHandLocalizedText(
-                          context,
-                          zh: '共 ${_formatCount(result.total)} 个，第 ${result.page}/${result.totalPages} 页',
-                          zhHant:
-                              '共 ${_formatCount(result.total)} 個，第 ${result.page}/${result.totalPages} 頁',
-                          en: '${_formatCount(result.total)} total, page ${result.page}/${result.totalPages}',
-                          fr: '${_formatCount(result.total)} au total, page ${result.page}/${result.totalPages}',
-                          de: '${_formatCount(result.total)} gesamt, Seite ${result.page}/${result.totalPages}',
-                          ja: '合計 ${_formatCount(result.total)} 件、${result.page}/${result.totalPages} ページ',
-                        ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              IconButton.filledTonal(
-                tooltip: openHandLocalizedText(
-                  context,
-                  zh: '第一页',
-                  zhHant: '第一頁',
-                  en: 'First page',
-                  fr: 'Première page',
-                  de: 'Erste Seite',
-                  ja: '最初のページ',
-                ),
-                onPressed: result == null || _isSearching || _page <= 1
-                    ? null
-                    : () => _goToPage(1),
-                icon: const Icon(Icons.first_page_rounded),
-              ),
-              kOpenHandHGap8,
-              IconButton.filledTonal(
-                tooltip: openHandLocalizedText(
-                  context,
-                  zh: '上一页',
-                  zhHant: '上一頁',
-                  en: 'Previous page',
-                  fr: 'Page précédente',
-                  de: 'Vorherige Seite',
-                  ja: '前のページ',
-                ),
-                onPressed: result == null || _isSearching || _page <= 1
-                    ? null
-                    : () => _goToPage(_page - 1),
-                icon: const Icon(Icons.chevron_left_rounded),
-              ),
-              kOpenHandHGap8,
-              IconButton.filledTonal(
-                tooltip: openHandLocalizedText(
-                  context,
-                  zh: '下一页',
-                  zhHant: '下一頁',
-                  en: 'Next page',
-                  fr: 'Page suivante',
-                  de: 'Nächste Seite',
-                  ja: '次のページ',
-                ),
-                onPressed:
-                    result == null || _isSearching || _page >= result.totalPages
-                    ? null
-                    : () => _goToPage(_page + 1),
-                icon: const Icon(Icons.chevron_right_rounded),
-              ),
-              kOpenHandHGap8,
-              IconButton.filledTonal(
-                tooltip: openHandLocalizedText(
-                  context,
-                  zh: '最后一页',
-                  zhHant: '最後一頁',
-                  en: 'Last page',
-                  fr: 'Dernière page',
-                  de: 'Letzte Seite',
-                  ja: '最後のページ',
-                ),
-                onPressed:
-                    result == null || _isSearching || _page >= result.totalPages
-                    ? null
-                    : () => _goToPage(result.totalPages),
-                icon: const Icon(Icons.last_page_rounded),
-              ),
-            ],
-          ),
+        OpenHandTablePagination(
+          total: result?.total ?? 0,
+          page: result?.page ?? _page,
+          pageSize: result?.pageSize ?? _pageSize,
+          enabled: !_isSearching && result != null,
+          onPageChanged: _goToPage,
+          onPageSizeChanged: (size) {
+            if (_isSearching || size == _pageSize) return;
+            setState(() {
+              _pageSize = size;
+              _page = 1;
+            });
+            unawaited(_runSearch(keepSelection: false));
+          },
         ),
       ],
     );
@@ -693,6 +603,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
       final result = await _marketClient.searchSkills(
         keyword: _keyword,
         page: _page,
+        pageSize: _pageSize,
       );
       if (!mounted || token != _searchToken) {
         return;

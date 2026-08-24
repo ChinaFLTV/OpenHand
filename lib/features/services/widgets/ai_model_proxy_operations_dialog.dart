@@ -39,10 +39,6 @@ const double _kProxyOpsPanelPairBreakpoint = 480;
 const double _kProxyOpsDonutHeight = 220;
 const double _kProxyOpsGaugeSize = 108;
 const double _kProxyOpsMetricHelperHeight = 16;
-const int _kProxyOpsLogMaxEntries = 30;
-const int _kProxyOpsTopLogEntries = 12;
-const int _kProxyOpsRankMaxRows = 12;
-const int _kProxyOpsConnectionListMaxRows = 200;
 const double _kProxyOpsRankBodyMaxHeight = 348;
 const double _kProxyOpsConnectionListMaxHeight = 290;
 const int _kProxyOpsHourBuckets = 24;
@@ -1755,7 +1751,6 @@ class _ProxyOpsRecentRequests extends StatelessWidget {
               records: recent,
               emptyLabel: text(zh: '暂无中转请求记录。', en: 'No proxy requests yet.'),
               showError: true,
-              maxEntries: 200,
             ),
     );
   }
@@ -2589,12 +2584,10 @@ OpenHandOperationalRankTable _proxyOpsGroupTable({
   required String leadingHeader,
   required String emptyLabel,
   num Function(_ProxyOpsGroupStat group)? valueOf,
-  int maxRows = _kProxyOpsRankMaxRows,
   double? maxBodyHeight,
   bool sortByValue = true,
 }) {
   final text = openHandTextResolver(context);
-  final shown = groups.take(maxRows).toList(growable: false);
   return OpenHandOperationalRankTable(
     sortByValue: sortByValue,
     emptyLabel: emptyLabel,
@@ -2612,7 +2605,7 @@ OpenHandOperationalRankTable _proxyOpsGroupTable({
       text(zh: '最近', en: 'Latest'),
     ],
     rows: [
-      for (final group in shown)
+      for (final group in groups)
         OpenHandOperationalRankRow(
           subtitle: [
             if (group.inflight > 0)
@@ -2654,7 +2647,6 @@ Widget _proxyOpsGroupTablePanel({
   required String emptyLabel,
   String? subtitle,
   num Function(_ProxyOpsGroupStat group)? valueOf,
-  int maxRows = _kProxyOpsRankMaxRows,
   double? maxBodyHeight,
   bool sortByValue = true,
 }) {
@@ -2670,7 +2662,6 @@ Widget _proxyOpsGroupTablePanel({
       leadingHeader: leadingHeader,
       emptyLabel: emptyLabel,
       valueOf: valueOf,
-      maxRows: maxRows,
       maxBodyHeight: maxBodyHeight,
       sortByValue: sortByValue,
     ),
@@ -2683,11 +2674,9 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
   required List<AiModelProxyRequestRecord> records,
   required String emptyLabel,
   bool showError = false,
-  int maxEntries = _kProxyOpsLogMaxEntries,
 }) {
   final text = openHandTextResolver(context);
   final unknown = text(zh: '未知', en: 'Unknown');
-  final shown = records.take(maxEntries).toList(growable: false);
   return OpenHandOperationalRankTable(
     sortByValue: false,
     emptyLabel: emptyLabel,
@@ -2703,7 +2692,7 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
       if (showError) text(zh: '原因', en: 'Reason'),
     ],
     rows: [
-      for (final record in shown)
+      for (final record in records)
         OpenHandOperationalRankRow(
           subtitle: [
             if (record.requestPath.trim().isNotEmpty) record.requestPath.trim(),
@@ -3573,7 +3562,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               groups: clients,
               leadingHeader: text(zh: '客户端', en: 'Client'),
               emptyLabel: text(zh: '等待客户端连入', en: 'Waiting for clients'),
-              maxRows: _kProxyOpsConnectionListMaxRows,
               maxBodyHeight: _kProxyOpsConnectionListMaxHeight,
               sortByValue: false,
             ),
@@ -3590,7 +3578,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               groups: peers,
               leadingHeader: text(zh: '对端', en: 'Peer'),
               emptyLabel: text(zh: '等待对端连入', en: 'Waiting for peers'),
-              maxRows: _kProxyOpsConnectionListMaxRows,
               maxBodyHeight: _kProxyOpsConnectionListMaxHeight,
               sortByValue: false,
             ),
@@ -4449,7 +4436,6 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                     .toList(growable: false),
                 emptyLabel: text(zh: '暂无耗时样本', en: 'No latency samples'),
                 showError: true,
-                maxEntries: _kProxyOpsTopLogEntries,
               ),
             ),
           ];

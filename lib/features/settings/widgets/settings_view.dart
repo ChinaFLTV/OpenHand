@@ -69,6 +69,7 @@ import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/ui/openhand_tap_region.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/openhand_typography.dart';
@@ -270,8 +271,6 @@ String _csvRow(Iterable<Object?> values) {
   return values.map(_csvCell).join(',');
 }
 
-const int _maxToolTelemetryCallRows = 20;
-
 List<Widget> _buildToolTelemetryHeader({
   required BuildContext context,
   required String description,
@@ -361,12 +360,11 @@ List<Widget> _buildToolTelemetryBody({
   required bool loading,
   required String emptyMessage,
   required List<Widget> engineRows,
-  required List<Widget> callRows,
-  required int totalCallCount,
+  required Widget? callList,
 }) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
-  if (engineRows.isEmpty && callRows.isEmpty && !loading) {
+  if (engineRows.isEmpty && callList == null && !loading) {
     return <Widget>[
       Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -391,7 +389,7 @@ List<Widget> _buildToolTelemetryBody({
       ...engineRows,
       kOpenHandGap12,
     ],
-    if (callRows.isNotEmpty) ...[
+    if (callList != null) ...[
       Text(
         openHandLocalizedText(context, zh: '最近调用', en: 'Recent Calls'),
         style: theme.textTheme.bodyMedium?.copyWith(
@@ -399,21 +397,7 @@ List<Widget> _buildToolTelemetryBody({
         ),
       ),
       kOpenHandGap6,
-      ...callRows,
-      if (totalCallCount > callRows.length)
-        Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            openHandLocalizedText(
-              context,
-              zh: '… 还有 ${totalCallCount - callRows.length} 条更早记录',
-              en: '… ${totalCallCount - callRows.length} older entries',
-            ),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
+      callList,
     ],
   ];
 }

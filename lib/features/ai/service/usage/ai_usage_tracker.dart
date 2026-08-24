@@ -114,6 +114,14 @@ class AiUsageTracker {
     return _store.loadSnapshot(filter);
   }
 
+  Future<(int total, List<AiUsageRequestRecord> records)> loadRequestPage(
+    AiUsageFilter filter, {
+    int offset = 0,
+    int limit = 20,
+  }) {
+    return _store.loadRequestPage(filter, offset: offset, limit: limit);
+  }
+
   Future<AiUsageSummary> loadSessionSummary({
     required String sessionId,
     required String source,

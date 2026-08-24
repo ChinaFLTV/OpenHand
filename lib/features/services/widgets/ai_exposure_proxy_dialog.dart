@@ -23,6 +23,7 @@ import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/util/bounded_file_io.dart';
@@ -2719,7 +2720,6 @@ class _ProxyRequestTelemetryDialog extends StatefulWidget {
 
 class _ProxyRequestTelemetryDialogState
     extends State<_ProxyRequestTelemetryDialog> {
-  static const int _pageSize = 10;
   static const Duration _defaultRange = Duration(hours: 6);
   static const Duration _defaultInterval = Duration(minutes: 5);
   static const int _minRangeMs = 30 * 60 * 1000;
@@ -2732,9 +2732,11 @@ class _ProxyRequestTelemetryDialogState
   Duration _range = _defaultRange;
   Duration _interval = _defaultInterval;
   Duration _scaleStartRange = _defaultRange;
-  int _page = 0;
+  int _page = 1;
+  int _pageSize = kOpenHandTableDefaultPageSize;
   int _total = 0;
   int _loadGeneration = 0;
+  int _pageGeneration = 0;
   bool _loading = true;
   bool _trendLoading = false;
   String? _error;
@@ -2750,6 +2752,7 @@ class _ProxyRequestTelemetryDialogState
   Future<void> _reload() async {
     if (!mounted) return;
     final generation = ++_loadGeneration;
+    _pageGeneration += 1;
     setState(() {
       _loading = true;
       _error = null;
@@ -2758,7 +2761,7 @@ class _ProxyRequestTelemetryDialogState
       final results = await Future.wait<Object>(<Future<Object>>[
         _controller.proxyRequestHistoryCount(),
         _controller.loadProxyRequestHistory(
-          offset: _page * _pageSize,
+          offset: (_page - 1) * _pageSize,
           limit: _pageSize,
         ),
         _controller.loadProxyRequestTrend(
@@ -2767,9 +2770,25 @@ class _ProxyRequestTelemetryDialogState
         ),
       ]);
       if (!mounted || generation != _loadGeneration) return;
+      final total = results[0] as int;
+      final window = OpenHandPageWindow.normalize(
+        page: _page,
+        pageSize: _pageSize,
+        total: total,
+      );
+      var records = results[1] as List<AiExposureProxyRequestRecord>;
+      if (window.page != _page && total > 0) {
+        records = await _controller.loadProxyRequestHistory(
+          offset: window.offset,
+          limit: window.pageSize,
+        );
+        if (!mounted || generation != _loadGeneration) return;
+      }
       setState(() {
-        _total = results[0] as int;
-        _records = results[1] as List<AiExposureProxyRequestRecord>;
+        _total = total;
+        _records = records;
+        _page = window.page;
+        _pageSize = window.pageSize;
         _trend = results[2] as List<AiExposureProxyRequestTrendBucket>;
         _loading = false;
       });
@@ -2787,26 +2806,41 @@ class _ProxyRequestTelemetryDialogState
     }
   }
 
-  Future<void> _loadPage(int page) async {
-    if (_loading || page < 0 || page >= _pageCount) return;
+  Future<void> _loadPage({int? page, int? pageSize}) async {
+    final nextPage = page ?? _page;
+    final nextSize = pageSize ?? _pageSize;
+    if (_loading) return;
     setState(() {
-      _page = page;
+      _page = nextPage;
+      _pageSize = nextSize;
       _loading = true;
       _error = null;
     });
+    final generation = ++_pageGeneration;
     try {
-      final records = await _controller.loadProxyRequestHistory(
-        offset: page * _pageSize,
-        limit: _pageSize,
+      final fetched = await openHandFetchPage<AiExposureProxyRequestRecord>(
+        page: nextPage,
+        pageSize: nextSize,
+        fetch: ({required offset, required limit}) async {
+          final total = await _controller.proxyRequestHistoryCount();
+          final records = await _controller.loadProxyRequestHistory(
+            offset: offset,
+            limit: limit,
+          );
+          return (total, records);
+        },
       );
-      if (!mounted || page != _page) return;
+      if (!mounted || generation != _pageGeneration) return;
       setState(() {
-        _records = records;
+        _total = fetched.$2.total;
+        _records = fetched.$1;
+        _page = fetched.$2.page;
+        _pageSize = fetched.$2.pageSize;
         _loading = false;
       });
     } catch (error, stack) {
       silentLog('ai_exposure_proxy_dialog', '分页加载代理请求明细', error, stack);
-      if (!mounted || page != _page) return;
+      if (!mounted || generation != _pageGeneration) return;
       setState(() {
         _loading = false;
         _error = openHandLocalizedText(
@@ -2838,8 +2872,6 @@ class _ProxyRequestTelemetryDialogState
       }
     }
   }
-
-  int get _pageCount => _total == 0 ? 1 : (_total + _pageSize - 1) ~/ _pageSize;
 
   void _handleScaleStart(ScaleStartDetails details) {
     _scaleStartRange = _range;
@@ -3106,15 +3138,6 @@ class _ProxyRequestTelemetryDialogState
                 _ProxyTelemetrySection(
                   icon: Icons.receipt_long_outlined,
                   title: text(zh: '最近请求明细', en: 'Recent request details'),
-                  trailing: Text(
-                    text(
-                      zh: '共 $_total 条 · 第 ${_page + 1}/$_pageCount 页',
-                      en: '$_total records · Page ${_page + 1}/$_pageCount',
-                    ),
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -3123,26 +3146,15 @@ class _ProxyRequestTelemetryDialogState
                         loading: _loading,
                       ),
                       kOpenHandGap10,
-                      Wrap(
-                        alignment: WrapAlignment.end,
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          OpenHandDialogActionButton.secondary(
-                            onPressed: _loading || _page <= 0
-                                ? null
-                                : () => _loadPage(_page - 1),
-                            icon: Icons.chevron_left_rounded,
-                            label: text(zh: '上一页', en: 'Previous'),
-                          ),
-                          OpenHandDialogActionButton.secondary(
-                            onPressed: _loading || _page + 1 >= _pageCount
-                                ? null
-                                : () => _loadPage(_page + 1),
-                            icon: Icons.chevron_right_rounded,
-                            label: text(zh: '下一页', en: 'Next'),
-                          ),
-                        ],
+                      OpenHandTablePagination(
+                        total: _total,
+                        page: _page,
+                        pageSize: _pageSize,
+                        enabled: !_loading,
+                        onPageChanged: (page) => unawaited(_loadPage(page: page)),
+                        onPageSizeChanged: (size) => unawaited(
+                          _loadPage(page: 1, pageSize: size),
+                        ),
                       ),
                     ],
                   ),
@@ -5092,14 +5104,14 @@ class _ProxyEndpointDetailsDialogState
     AiExposureProxyUsageStatistics statistics,
   ) {
     final text = openHandTextResolver(context);
-    final requests = statistics.recentRequests.reversed
-        .take(12)
-        .toList(growable: false);
+    final requests = statistics.recentRequests.reversed.toList(
+      growable: false,
+    );
     return _ProxyDetailSection(
       icon: Icons.history_rounded,
       title: text(zh: '最近请求记录', en: 'Recent requests'),
       trailing: Text(
-        '${requests.length}/$kAiExposureProxyRequestSampleLimit',
+        '${requests.length}',
         style: Theme.of(context).textTheme.labelMedium,
       ),
       child: requests.isEmpty
@@ -5109,9 +5121,11 @@ class _ProxyEndpointDetailsDialogState
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             )
-          : Column(
-              children: requests
-                  .map((item) {
+          : OpenHandClientPager<AiExposureProxyRequestSample>(
+              items: requests,
+              builder: (context, pageItems) => Column(
+                children: pageItems
+                    .map((item) {
                     final color = item.succeeded
                         ? OpenHandStatusColors.success
                         : item.timedOut
@@ -5171,6 +5185,7 @@ class _ProxyEndpointDetailsDialogState
                     );
                   })
                   .toList(growable: false),
+              ),
             ),
     );
   }

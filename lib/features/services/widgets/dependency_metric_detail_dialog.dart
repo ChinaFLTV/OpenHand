@@ -9,6 +9,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -535,7 +536,7 @@ class _DependencyMetricDetailDialogState
           trailing: _StatusTag(label: '${objectRows.length} 个对象', color: tone),
           child: _RankTable(
             headers: const ['对象名称', '类型', '对象大小', '总占用'],
-            rows: objectRows.take(12).toList(growable: false),
+            rows: objectRows,
           ),
         ),
         const SizedBox(height: _kSectionGap),
@@ -1167,16 +1168,13 @@ class _DependencyMetricDetailDialogState
           subtitle: '当前已加载 Key 样本，按序列化大小倒序',
           icon: Icons.vertical_align_top_rounded,
           trailing: _StatusTag(
-            label: sortedRecords.length > 12
-                ? '${records.length} 个样本 · 显示前 12 条'
-                : '${records.length} 个样本',
+            label: '${records.length} 个样本',
             color: tone,
           ),
           child: _RankTable(
             headers: const ['Key', '类型', '占用', 'TTL'],
             emptyLabel: '当前命名空间暂无 Key',
             rows: sortedRecords
-                .take(12)
                 .map(
                   (record) => _RankRow(
                     cells: [
@@ -1406,8 +1404,7 @@ class _DependencyMetricDetailDialogState
             subtitle: '当前样本按占用倒序',
             icon: Icons.vertical_align_top_rounded,
             child: _CompactRecordList(
-              records: sortedBySize.take(8).toList(growable: false),
-              totalCount: sortedBySize.length,
+              records: sortedBySize,
               trailing: (record) =>
                   formatByteSize(_integer(record['sizeBytes'])),
               emptyLabel: '暂无 Key 样本',
@@ -1418,8 +1415,7 @@ class _DependencyMetricDetailDialogState
             subtitle: '未来 1 小时内到期',
             icon: Icons.hourglass_bottom_rounded,
             child: _CompactRecordList(
-              records: expiringSoon.take(8).toList(growable: false),
-              totalCount: expiringSoon.length,
+              records: expiringSoon,
               trailing: (record) => _ttlText(_integer(record['ttlSeconds'])),
               emptyLabel: '当前样本无即将过期 Key',
             ),
@@ -1534,7 +1530,6 @@ class _DependencyMetricDetailDialogState
             headers: const ['命令', '调用量', '平均耗时', '总耗时'],
             emptyLabel: '当前接口暂未提供 commandstats',
             rows: commandStats
-                .take(15)
                 .map(
                   (command) => _RankRow(
                     cells: [
@@ -3571,93 +3566,98 @@ class _AnomalyTimeline extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (rows.isEmpty) return _InlineUnavailable(label: emptyLabel);
-    final colors = Theme.of(context).colorScheme;
-    return Column(
-      children: [
-        for (var index = 0; index < rows.length; index++)
-          ServiceInteractiveSurface(
-            padding: EdgeInsets.zero,
-            tooltip: '查看异常详情',
-            onTap: () => showServiceDetailsDialog(
-              context,
-              title: rows[index].title,
-              subtitle: '异常时间线',
-              icon: Icons.warning_amber_rounded,
-              accentColor: OpenHandStatusColors.warning,
-              presentation: ServiceDetailPresentation.timeline,
-              data: rows
-                  .map(
-                    (row) => ServiceDetailDatum(
-                      label: row.title,
-                      value: 1,
-                      valueLabel: row.time,
-                      helper: row.detail,
-                      color: OpenHandStatusColors.warning,
-                      highlighted: identical(row, rows[index]),
-                    ),
-                  )
-                  .toList(growable: false),
-              fields: [
-                ServiceDetailField(label: '时间', value: rows[index].time),
-                ServiceDetailField(label: '标题', value: rows[index].title),
-                ServiceDetailField(label: '说明', value: rows[index].detail),
-              ],
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 56,
-                  child: Text(
-                    rows[index].time,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                Column(
-                  children: [
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: rows[index].color,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    if (index != rows.length - 1)
-                      Container(
-                        width: 1,
-                        height: 42,
-                        color: colors.outlineVariant,
-                      ),
+    return OpenHandClientPager<_AnomalyRow>(
+      items: rows,
+      builder: (context, shown) {
+        final colors = Theme.of(context).colorScheme;
+        return Column(
+          children: [
+            for (var index = 0; index < shown.length; index++)
+              ServiceInteractiveSurface(
+                padding: EdgeInsets.zero,
+                tooltip: '查看异常详情',
+                onTap: () => showServiceDetailsDialog(
+                  context,
+                  title: shown[index].title,
+                  subtitle: '异常时间线',
+                  icon: Icons.warning_amber_rounded,
+                  accentColor: OpenHandStatusColors.warning,
+                  presentation: ServiceDetailPresentation.timeline,
+                  data: shown
+                      .map(
+                        (row) => ServiceDetailDatum(
+                          label: row.title,
+                          value: 1,
+                          valueLabel: row.time,
+                          helper: row.detail,
+                          color: OpenHandStatusColors.warning,
+                          highlighted: identical(row, shown[index]),
+                        ),
+                      )
+                      .toList(growable: false),
+                  fields: [
+                    ServiceDetailField(label: '时间', value: shown[index].time),
+                    ServiceDetailField(label: '标题', value: shown[index].title),
+                    ServiceDetailField(label: '说明', value: shown[index].detail),
                   ],
                 ),
-                kOpenHandHGap10,
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 56,
+                      child: Text(
+                        shown[index].time,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    Column(
                       children: [
-                        Text(
-                          rows[index].title,
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: shown[index].color,
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                        Text(
-                          rows[index].detail,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: colors.onSurfaceVariant),
-                        ),
+                        if (index != shown.length - 1)
+                          Container(
+                            width: 1,
+                            height: 42,
+                            color: colors.outlineVariant,
+                          ),
                       ],
                     ),
-                  ),
+                    kOpenHandHGap10,
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              shown[index].title,
+                              style: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            Text(
+                              shown[index].detail,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: colors.onSurfaceVariant),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-      ],
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -3686,75 +3686,66 @@ class _CompactRecordList extends StatelessWidget {
     required this.records,
     required this.trailing,
     required this.emptyLabel,
-    this.totalCount,
   });
 
   final List<Map<String, Object?>> records;
   final String Function(Map<String, Object?> record) trailing;
   final String emptyLabel;
-  final int? totalCount;
 
   @override
   Widget build(BuildContext context) {
     if (records.isEmpty) return _InlineUnavailable(label: emptyLabel);
-    final colors = Theme.of(context).colorScheme;
-    return Column(
-      children: [
-        if ((totalCount ?? records.length) > records.length) ...[
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              '共 ${totalCount ?? records.length} 条，当前显示前 ${records.length} 条（已截断）',
-              style: Theme.of(
-                context,
-              ).textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant),
-            ),
-          ),
-          kOpenHandGap6,
-        ],
-        for (var index = 0; index < records.length; index++) ...[
-          if (index > 0)
-            Divider(
-              height: 1,
-              color: colors.outlineVariant.withValues(alpha: 0.5),
-            ),
-          ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            onTap: () => showServiceDetailsDialog(
-              context,
-              title: '${records[index]['key'] ?? '--'}',
-              subtitle: 'Redis Key 详情',
-              icon: Icons.key_rounded,
-              presentation: ServiceDetailPresentation.record,
-              fields: serviceDetailFieldsFromMap(
-                _redisRecordMetadata(records[index]),
-              ),
-            ),
-            title: Text(
-              '${records[index]['key'] ?? '--'}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: Text(
-              '${records[index]['type'] ?? '--'}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  trailing(records[index]),
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+    return OpenHandClientPager<Map<String, Object?>>(
+      items: records,
+      builder: (context, shown) {
+        final colors = Theme.of(context).colorScheme;
+        return Column(
+          children: [
+            for (var index = 0; index < shown.length; index++) ...[
+              if (index > 0)
+                Divider(
+                  height: 1,
+                  color: colors.outlineVariant.withValues(alpha: 0.5),
                 ),
-                kOpenHandHGap4,
-                const Icon(Icons.chevron_right_rounded, size: 19),
-              ],
-            ),
-          ),
-        ],
-      ],
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                onTap: () => showServiceDetailsDialog(
+                  context,
+                  title: '${shown[index]['key'] ?? '--'}',
+                  subtitle: 'Redis Key 详情',
+                  icon: Icons.key_rounded,
+                  presentation: ServiceDetailPresentation.record,
+                  fields: serviceDetailFieldsFromMap(
+                    _redisRecordMetadata(shown[index]),
+                  ),
+                ),
+                title: Text(
+                  '${shown[index]['key'] ?? '--'}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  '${shown[index]['type'] ?? '--'}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      trailing(shown[index]),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    kOpenHandHGap4,
+                    const Icon(Icons.chevron_right_rounded, size: 19),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }
@@ -4265,7 +4256,7 @@ List<_AnomalyRow> _postgresqlTransactionAnomalies(
       );
     }
   }
-  return rows.reversed.take(12).toList(growable: false);
+  return rows.reversed.toList(growable: false);
 }
 
 int _counterDelta(int previous, int current) =>
@@ -4308,7 +4299,7 @@ List<_AnomalyRow> _networkAnomalies(
       ),
     );
   }
-  return rows.reversed.take(12).toList(growable: false);
+  return rows.reversed.toList(growable: false);
 }
 
 List<_BreakdownItem> _breakdownFromMap(

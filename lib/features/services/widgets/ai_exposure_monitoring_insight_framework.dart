@@ -514,11 +514,6 @@ class _InsightRecord {
   final _InsightTarget? target;
 }
 
-String? aiExposureListTruncationNotice({
-  required int total,
-  required int visible,
-}) => visible < total ? '共 $total 条，当前显示前 $visible 条（已截断）' : null;
-
 const double _kInsightListMaxHeight = 420;
 const double _kInsightListScrollbarGutter = 10;
 
@@ -581,43 +576,34 @@ class _InsightRecordPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final shown = records.take(maxEntries).toList(growable: false);
-    final truncationNotice = aiExposureListTruncationNotice(
-      total: records.length,
-      visible: shown.length,
-    );
     return _Section(
       title: records.isEmpty ? title : '$title · ${records.length}',
       icon: icon,
-      child: shown.isEmpty
+      child: records.isEmpty
           ? _InsightEmpty(label: emptyLabel)
-          : _InsightListViewport(
-              child: Column(
-                children: [
-                  if (truncationNotice != null)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        truncationNotice,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                        ),
+          : OpenHandClientPager<_InsightRecord>(
+              items: records,
+              initialPageSize: maxEntries.clamp(
+                kOpenHandTableMinPageSize,
+                kOpenHandTableMaxPageSize,
+              ),
+              builder: (context, shown) => _InsightListViewport(
+                child: Column(
+                  children: [
+                    ...shown.indexed.map(
+                      (entry) => Column(
+                        children: [
+                          if (entry.$1 > 0)
+                            Divider(
+                              height: 18,
+                              color: colors.outlineVariant.withValues(alpha: 0.5),
+                            ),
+                          _InsightRecordRow(record: entry.$2),
+                        ],
                       ),
                     ),
-                  if (truncationNotice != null) kOpenHandGap8,
-                  ...shown.indexed.map(
-                    (entry) => Column(
-                      children: [
-                        if (entry.$1 > 0)
-                          Divider(
-                            height: 18,
-                            color: colors.outlineVariant.withValues(alpha: 0.5),
-                          ),
-                        _InsightRecordRow(record: entry.$2),
-                      ],
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
     );
@@ -782,31 +768,13 @@ class _TrendSampleTable extends StatelessWidget {
       (count, item) => item.values.length > count ? item.values.length : count,
     );
     if (maxSamples == 0) return const _InsightEmpty(label: '暂无趋势样本。');
-    // 仅生成最近30个索引，避免为大量样本分配完整列表后再截断。
-    final visibleCount = maxSamples < 30 ? maxSamples : 30;
-    final indexes = List<int>.generate(
-      visibleCount,
-      (index) => maxSamples - 1 - index,
-      growable: false,
-    );
-    final truncationNotice = aiExposureListTruncationNotice(
-      total: maxSamples,
-      visible: indexes.length,
-    );
-    return Column(
+    final newestFirst = <int>[
+      for (var i = maxSamples - 1; i >= 0; i--) i,
+    ];
+    return OpenHandClientPager<int>(
+      items: newestFirst,
+      builder: (context, indexes) => Column(
       children: [
-        if (truncationNotice != null) ...[
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              '共 $maxSamples 条，当前显示最新 ${indexes.length} 条（已截断） · 按时间倒序展示',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-          kOpenHandGap8,
-        ],
         ...indexes.map((index) {
           final target = index < targets.length ? targets[index] : null;
           return ServiceInteractiveSurface(
@@ -851,6 +819,7 @@ class _TrendSampleTable extends StatelessWidget {
           );
         }),
       ],
+      ),
     );
   }
 }
@@ -1239,10 +1208,12 @@ class _InsightRankingSectionState extends State<_InsightRankingSection> {
       icon: widget.icon,
       child: sorted.isEmpty
           ? _InsightEmpty(label: widget.emptyLabel)
-          : _InsightListViewport(
-              child: Column(
-                children: sorted.indexed
-                    .map((entry) {
+          : OpenHandClientPager<_InsightRankItem>(
+              items: sorted,
+              builder: (context, shown) => _InsightListViewport(
+                child: Column(
+                  children: shown.indexed
+                      .map((entry) {
                       final item = entry.$2;
                       final actionable =
                           item.value > 0 &&
@@ -1347,6 +1318,7 @@ class _InsightRankingSectionState extends State<_InsightRankingSection> {
                     .toList(growable: false),
               ),
             ),
+            ),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1402,31 +1374,16 @@ class _InsightMatrixSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final shown = rows.take(30).toList(growable: false);
-    final truncationNotice = aiExposureListTruncationNotice(
-      total: rows.length,
-      visible: shown.length,
-    );
     return _Section(
       title: rows.isEmpty ? title : '$title · ${rows.length}',
       icon: icon,
-      child: shown.isEmpty
+      child: rows.isEmpty
           ? _InsightEmpty(label: emptyLabel)
-          : _InsightListViewport(
+          : OpenHandClientPager<_InsightMatrixRow>(
+              items: rows,
+              builder: (context, shown) => _InsightListViewport(
               child: Column(
                 children: [
-                  if (truncationNotice != null) ...[
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        truncationNotice,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                    kOpenHandGap8,
-                  ],
                   ...shown.indexed.map(
                     (entry) => Column(
                       children: [
@@ -1515,6 +1472,7 @@ class _InsightMatrixSection extends StatelessWidget {
                 ],
               ),
             ),
+            ),
     );
   }
 }
@@ -1552,31 +1510,17 @@ class _InsightTimelineSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shown = entries.take(24).toList(growable: false);
-    final truncationNotice = aiExposureListTruncationNotice(
-      total: entries.length,
-      visible: shown.length,
-    );
     final colors = Theme.of(context).colorScheme;
     return _Section(
       title: entries.isEmpty ? title : '$title · ${entries.length}',
       icon: icon,
-      child: shown.isEmpty
+      child: entries.isEmpty
           ? _InsightEmpty(label: emptyLabel)
-          : _InsightListViewport(
+          : OpenHandClientPager<_InsightTimelineEntry>(
+              items: entries,
+              builder: (context, shown) => _InsightListViewport(
               child: Column(
                 children: [
-                  if (truncationNotice != null)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        truncationNotice,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  if (truncationNotice != null) kOpenHandGap8,
                   ...shown.indexed.map((entry) {
                     final item = entry.$2;
                     return ServiceInteractiveSurface(
@@ -1674,6 +1618,7 @@ class _InsightTimelineSection extends StatelessWidget {
                   }),
                 ],
               ),
+            ),
             ),
     );
   }

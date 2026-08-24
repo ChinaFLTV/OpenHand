@@ -19,6 +19,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/reorder_proxy_decorator.dart';
 import '../../../shared/util/localized_text.dart';
@@ -2694,7 +2695,7 @@ class _ProxyServiceTraceExtension extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final text = openHandTextResolver(context);
-    final recent = records.reversed.take(12).toList(growable: false);
+    final recent = records.reversed.toList(growable: false);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -2732,8 +2733,8 @@ class _ProxyServiceTraceExtension extends StatelessWidget {
               ),
               _ProxyTraceBadge(
                 label: text(
-                  zh: '最近 ${recent.length} 条',
-                  en: '${recent.length} recent',
+                  zh: '共 ${recent.length} 条',
+                  en: '${recent.length} total',
                 ),
               ),
             ],
@@ -2770,10 +2771,14 @@ class _ProxyServiceTraceExtension extends StatelessWidget {
               ),
             )
           else
-            Column(
-              children: [
-                for (final record in recent) _ProxyRecordTile(record: record),
-              ],
+            OpenHandClientPager<AiModelProxyRequestRecord>(
+              items: recent,
+              builder: (context, pageItems) => Column(
+                children: [
+                  for (final record in pageItems)
+                    _ProxyRecordTile(record: record),
+                ],
+              ),
             ),
         ],
       ),

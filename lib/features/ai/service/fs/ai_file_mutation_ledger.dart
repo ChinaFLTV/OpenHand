@@ -412,7 +412,7 @@ class AiFileMutationLedger {
   static const int _maxCachedLineDeltas = 2048;
   static const int _maxRecordsPerLedger = 100000;
   static const int _maxMalformedLedgerLines = 256;
-  static const int _maxSearchResults = 2000;
+  static const int maxSearchResults = 2000;
   static const int _maxExportSessions = 1000;
   static const int _maxExportRecords = 10000;
   static const int _maxExportBlobBytes = 64 * kBytesPerMiB;
@@ -2276,7 +2276,7 @@ class AiFileMutationLedger {
     int limit = 200,
   }) async {
     if (limit <= 0) return const <FileMutationView>[];
-    final safeLimit = min(limit, _maxSearchResults);
+    final safeLimit = min(limit, maxSearchResults);
     final ids = sessionIds == null
         ? await listSessionIds()
         : sessionIds.take(_maxSessionScanEntries).toList(growable: false);

@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -1051,100 +1052,85 @@ class _ResourceRanking extends StatelessWidget {
         ),
       );
     }
-    final visible = entries.take(20).toList(growable: false);
-    final maxValue = math.max(1, visible.first.value);
+    final visible = entries;
+    final maxValue = math.max(1, visible.isEmpty ? 1 : visible.first.value);
     final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      children: [
-        for (var index = 0; index < visible.length; index++) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 7),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 30,
-                  child: Text(
-                    '${index + 1}'.padLeft(2, '0'),
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontFeatures: const [FontFeature.tabularFigures()],
+    return OpenHandClientPager<MapEntry<String, int>>(
+      items: visible,
+      builder: (context, pageItems) => Column(
+        children: [
+          for (var index = 0; index < pageItems.length; index++) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 30,
+                    child: Text(
+                      '${index + 1}'.padLeft(2, '0'),
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
                   ),
-                ),
-                Expanded(
-                  flex: 4,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        labels[visible[index].key] ?? visible[index].key,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if ((labels[visible[index].key] ?? '').isNotEmpty)
+                  Expanded(
+                    flex: 4,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          visible[index].key,
+                          labels[pageItems[index].key] ?? pageItems[index].key,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(color: colorScheme.onSurfaceVariant),
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                    ],
-                  ),
-                ),
-                kOpenHandHGap14,
-                Expanded(
-                  flex: 5,
-                  child: ClipRRect(
-                    borderRadius: kOpenHandPillBorderRadius,
-                    child: LinearProgressIndicator(
-                      value: unitRatio(visible[index].value, maxValue),
-                      minHeight: 9,
-                      color: colorScheme.primary,
-                      backgroundColor: colorScheme.surfaceContainerHigh,
+                        if ((labels[pageItems[index].key] ?? '').isNotEmpty)
+                          Text(
+                            pageItems[index].key,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(color: colorScheme.onSurfaceVariant),
+                          ),
+                      ],
                     ),
                   ),
-                ),
-                kOpenHandHGap14,
-                SizedBox(
-                  width: 48,
-                  child: Text(
-                    '${visible[index].value}',
-                    textAlign: TextAlign.end,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                  kOpenHandHGap14,
+                  Expanded(
+                    flex: 5,
+                    child: ClipRRect(
+                      borderRadius: kOpenHandPillBorderRadius,
+                      child: LinearProgressIndicator(
+                        value: unitRatio(pageItems[index].value, maxValue),
+                        minHeight: 9,
+                        color: colorScheme.primary,
+                        backgroundColor: colorScheme.surfaceContainerHigh,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                  kOpenHandHGap14,
+                  SizedBox(
+                    width: 48,
+                    child: Text(
+                      '${pageItems[index].value}',
+                      textAlign: TextAlign.end,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          if (index != visible.length - 1)
-            Divider(height: 1, color: colorScheme.outlineVariant),
+            if (index != pageItems.length - 1)
+              Divider(height: 1, color: colorScheme.outlineVariant),
+          ],
         ],
-        if (entries.length > visible.length)
-          Padding(
-            padding: const EdgeInsets.only(top: 14),
-            child: Text(
-              openHandLocalizedText(
-                context,
-                zh: '另有 ${entries.length - visible.length} 项低频资源',
-                zhHant: '另有 ${entries.length - visible.length} 項低頻資源',
-                en: '${entries.length - visible.length} more low-frequency resources',
-                fr: '${entries.length - visible.length} autres ressources peu fréquentes',
-                de: '${entries.length - visible.length} weitere seltene Ressourcen',
-                ja: '低頻度リソースが他に ${entries.length - visible.length} 件あります',
-              ),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-      ],
+      ),
     );
   }
 }
@@ -1171,17 +1157,19 @@ class _ResourceDetails extends StatelessWidget {
         ),
       );
     }
-    final visible = resources.take(30).toList(growable: false);
-    return Column(
-      children: [
-        for (var index = 0; index < visible.length; index++) ...[
-          _ResourceDetailCard(
-            resource: visible[index],
-            label: labels[visible[index].resourceId],
-          ),
-          if (index != visible.length - 1) kOpenHandGap10,
+    return OpenHandClientPager<AiResourceUsageResourceSnapshot>(
+      items: resources,
+      builder: (context, visible) => Column(
+        children: [
+          for (var index = 0; index < visible.length; index++) ...[
+            _ResourceDetailCard(
+              resource: visible[index],
+              label: labels[visible[index].resourceId],
+            ),
+            if (index != visible.length - 1) kOpenHandGap10,
+          ],
         ],
-      ],
+      ),
     );
   }
 }

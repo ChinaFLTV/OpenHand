@@ -1441,6 +1441,8 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
   bool _exportBusy = false;
   bool _searchFailed = false;
   List<FileMutationView> _results = const <FileMutationView>[];
+  int _page = 1;
+  int _pageSize = kOpenHandTableDefaultPageSize;
   int _runToken = 0;
 
   @override
@@ -1476,10 +1478,13 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
         toolNames: tools.isEmpty ? null : tools,
         kinds: _selectedKinds.isEmpty ? null : _selectedKinds,
         since: _timeRange.computeSince(),
-        limit: 300,
+        limit: AiFileMutationLedger.maxSearchResults,
       );
       if (!mounted || token != _runToken) return;
-      setState(() => _results = results);
+      setState(() {
+        _results = results;
+        _page = 1;
+      });
     } catch (error, stack) {
       silentLog('ledger_search_dialog', '搜索账本记录', error, stack);
       if (mounted && token == _runToken) {
@@ -1553,6 +1558,12 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
     final viewport = MediaQuery.sizeOf(context);
     final maxWidth = (viewport.width * 0.72).clamp(420, 920).toDouble();
     final maxHeight = (viewport.height * 0.72).clamp(420, 720).toDouble();
+    final resultWindow = OpenHandPageWindow.normalize(
+      page: _page,
+      pageSize: _pageSize,
+      total: _results.length,
+    );
+    final pageResults = resultWindow.slice(_results);
     return buildOpenHandDialog(
       maxWidth: maxWidth,
       maxHeight: maxHeight,
@@ -1725,11 +1736,11 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                             dense: true,
                           )
                         : ListView.separated(
-                            itemCount: _results.length,
+                            itemCount: pageResults.length,
                             separatorBuilder: (_, _) =>
                                 Divider(height: 1, color: cs.outlineVariant),
                             itemBuilder: (ctx, i) {
-                              final v = _results[i];
+                              final v = pageResults[i];
                               final r = v.record;
                               final greyed = v.isEffectivelyUndone;
                               return Padding(
@@ -1810,6 +1821,19 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                           ),
                   ),
                 ),
+                if (!_searchBusy && !_searchFailed && _results.isNotEmpty) ...[
+                  kOpenHandGap8,
+                  OpenHandTablePagination(
+                    total: resultWindow.total,
+                    page: resultWindow.page,
+                    pageSize: resultWindow.pageSize,
+                    onPageChanged: (page) => setState(() => _page = page),
+                    onPageSizeChanged: (size) => setState(() {
+                      _pageSize = size;
+                      _page = 1;
+                    }),
+                  ),
+                ],
                 kOpenHandGap8,
                 Row(
                   children: [

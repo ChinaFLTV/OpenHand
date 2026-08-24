@@ -33,6 +33,7 @@ class SkillMarketClient {
 
   static const String _host = 'api.skillhub.cn';
   static const int defaultPageSize = 24;
+  static const int maxPageSize = 200;
   static const int _maxDownloadBytes = 48 * kBytesPerMiB;
   static const int _maxJsonResponseBytes = 4 * kBytesPerMiB;
   static const int _maxTextResponseBytes = 4 * kBytesPerMiB;
@@ -112,7 +113,11 @@ class SkillMarketClient {
   }) {
     final normalizedKeyword = nullIfBlank(keyword) ?? '';
     final normalizedPage = page < 1 ? 1 : page;
-    final normalizedPageSize = pageSize < 1 ? defaultPageSize : pageSize;
+    final normalizedPageSize = pageSize < 1
+        ? defaultPageSize
+        : pageSize > maxPageSize
+        ? maxPageSize
+        : pageSize;
     final cacheKey = '$normalizedPage|$normalizedPageSize|$normalizedKeyword';
     return _cached(
       _searchCache,

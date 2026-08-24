@@ -19,6 +19,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/ui/reorder_proxy_decorator.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -74,6 +75,8 @@ class _ThreadSessionManagementDialogState
   final Set<String> _templateFilter = <String>{};
   bool _denseMode = false;
   bool _showArchived = false;
+  int _page = 1;
+  int _pageSize = kOpenHandTableDefaultPageSize;
 
   // 正在执行删除退场动画的会话编号。
   final Set<String> _animatingOutIds = <String>{};
@@ -943,7 +946,10 @@ class _ThreadSessionManagementDialogState
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8),
                     ),
-                    onChanged: (value) => setState(() => _searchQuery = value),
+                    onChanged: (value) => setState(() {
+                      _searchQuery = value;
+                      _page = 1;
+                    }),
                   ),
                 ),
               ),
@@ -960,7 +966,10 @@ class _ThreadSessionManagementDialogState
                 ],
                 onChanged: (value) {
                   if (value == null) return;
-                  setState(() => _sortMode = value);
+                  setState(() {
+                    _sortMode = value;
+                    _page = 1;
+                  });
                 },
               ),
               kOpenHandHGap8,
@@ -986,7 +995,10 @@ class _ThreadSessionManagementDialogState
                 FilterChip(
                   label: Text(AppLocalizations.of(context)!.tsmAllTemplates),
                   selected: _templateFilter.isEmpty,
-                  onSelected: (_) => setState(() => _templateFilter.clear()),
+                  onSelected: (_) => setState(() {
+                    _templateFilter.clear();
+                    _page = 1;
+                  }),
                 ),
                 for (final t in templates)
                   FilterChip(
@@ -999,6 +1011,7 @@ class _ThreadSessionManagementDialogState
                         } else {
                           _templateFilter.remove(t);
                         }
+                        _page = 1;
                       });
                     },
                   ),
@@ -1073,6 +1086,7 @@ class _ThreadSessionManagementDialogState
               final showArchived = !_showArchived;
               setState(() {
                 _showArchived = showArchived;
+                _page = 1;
                 if (!showArchived) {
                   final archivedIds = _flags.entries
                       .where((entry) => entry.value.archived)
@@ -1172,14 +1186,21 @@ class _ThreadSessionManagementDialogState
         _sortMode == _SortMode.manual &&
         _searchQuery.trim().isEmpty &&
         _templateFilter.isEmpty;
+    final window = OpenHandPageWindow.normalize(
+      page: _page,
+      pageSize: _pageSize,
+      total: sessions.length,
+    );
+    final pageItems = window.slice(sessions);
+    final pageOffset = window.offset;
 
-    Widget rowFor(int index) {
-      final session = sessions[index];
+    Widget rowFor(int pageIndex) {
+      final session = pageItems[pageIndex];
       final flag = _flags[session.id];
       final isAnimatingOut = _animatingOutIds.contains(session.id);
       final row = _SessionRow(
         key: ValueKey<String>(session.id),
-        index: index,
+        index: pageIndex,
         session: session,
         isSelectionMode: _isSelectionMode,
         isSelected: _selectedIds.contains(session.id),
@@ -1215,31 +1236,52 @@ class _ThreadSessionManagementDialogState
       );
     }
 
-    if (!canReorder) {
-      return ListView.builder(
-        itemCount: sessions.length,
-        cacheExtent: 600,
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-        itemBuilder: (context, index) => rowFor(index),
-      );
-    }
-    return ReorderableListView.builder(
-      buildDefaultDragHandles: false,
-      itemCount: sessions.length,
-      cacheExtent: 600,
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-      itemBuilder: (context, index) => rowFor(index),
-      proxyDecorator: (child, index, animation) =>
-          buildOpenHandReorderProxy(context, child, animation),
-      onReorder: (oldIndex, newIndex) {
-        setState(() {
-          final list = _localOrder!;
-          if (newIndex > oldIndex) newIndex -= 1;
-          final moved = list.removeAt(oldIndex);
-          list.insert(newIndex, moved);
-        });
-        _scheduleReorderPersist();
-      },
+    final list = !canReorder
+        ? ListView.builder(
+            itemCount: pageItems.length,
+            cacheExtent: 600,
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+            itemBuilder: (context, index) => rowFor(index),
+          )
+        : ReorderableListView.builder(
+            buildDefaultDragHandles: false,
+            itemCount: pageItems.length,
+            cacheExtent: 600,
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+            itemBuilder: (context, index) => rowFor(index),
+            proxyDecorator: (child, index, animation) =>
+                buildOpenHandReorderProxy(context, child, animation),
+            onReorder: (oldIndex, newIndex) {
+              setState(() {
+                final list = _localOrder!;
+                final from = pageOffset + oldIndex;
+                var to = pageOffset + newIndex;
+                if (to > from) to -= 1;
+                if (from < 0 || from >= list.length) return;
+                final moved = list.removeAt(from);
+                list.insert(to.clamp(0, list.length), moved);
+              });
+              _scheduleReorderPersist();
+            },
+          );
+
+    return Column(
+      children: [
+        Expanded(child: list),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+          child: OpenHandTablePagination(
+            total: window.total,
+            page: window.page,
+            pageSize: window.pageSize,
+            onPageChanged: (page) => setState(() => _page = page),
+            onPageSizeChanged: (size) => setState(() {
+              _pageSize = size;
+              _page = 1;
+            }),
+          ),
+        ),
+      ],
     );
   }
 

@@ -10,7 +10,6 @@ const InputDecoration _kTaskLedgerFilterDecoration = InputDecoration(
 );
 const double _kTaskLedgerDesktopRowHorizontalPadding = 6;
 const double _kTaskLedgerPipelineMinHeight = 520;
-const Duration _kTaskLedgerPageMotionDuration = kOpenHandMotion180;
 const double _kTaskLedgerStatusWidth = 84;
 const double _kTaskLedgerCreatedWidth = 150;
 const double _kTaskLedgerStartedWidth = 150;
@@ -781,7 +780,8 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
   DateTimeRange? _customTimeRange;
   AiExposureTaskLedgerSort _sort = AiExposureTaskLedgerSort.createdAt;
   bool _descending = true;
-  int _page = 0;
+  int _page = 1;
+  int _pageSize = kOpenHandTableDefaultPageSize;
 
   @override
   void initState() {
@@ -817,14 +817,14 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 760;
-          final pageSize = compact ? 20 : 50;
-          final pageCount = tasks.isEmpty
-              ? 1
-              : (tasks.length / pageSize).ceil();
-          final page = _page.clamp(0, pageCount - 1);
-          final start = tasks.isEmpty ? 0 : page * pageSize;
-          final end = (start + pageSize).clamp(0, tasks.length);
-          final shown = tasks.sublist(start, end);
+          final window = OpenHandPageWindow.normalize(
+            page: _page,
+            pageSize: _pageSize,
+            total: tasks.length,
+          );
+          final shown = window.slice(tasks);
+          final start = tasks.isEmpty ? 0 : window.offset;
+          final end = start + shown.length;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -880,23 +880,22 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
               kOpenHandGap10,
               _TaskLedgerFooter(
                 compact: compact,
-                countLabel: tasks.isEmpty
-                    ? '共 0 条'
-                    : '共 ${tasks.length} 条，当前显示 ${start + 1}-$end',
-                page: page,
-                pageCount: pageCount,
                 descending: _descending,
                 onToggleDirection: () => setState(() {
                   _descending = !_descending;
-                  _page = 0;
+                  _page = 1;
                 }),
                 onReset: _reset,
-                onPrevious: page <= 0
-                    ? null
-                    : () => setState(() => _page = page - 1),
-                onNext: page >= pageCount - 1
-                    ? null
-                    : () => setState(() => _page = page + 1),
+                pagination: OpenHandTablePagination(
+                  total: window.total,
+                  page: window.page,
+                  pageSize: window.pageSize,
+                  onPageChanged: (page) => setState(() => _page = page),
+                  onPageSizeChanged: (size) => setState(() {
+                    _pageSize = size;
+                    _page = 1;
+                  }),
+                ),
               ),
             ],
           );
@@ -911,7 +910,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
       height: _kTaskLedgerFilterHeight,
       child: TextField(
         controller: _search,
-        onChanged: (_) => setState(() => _page = 0),
+        onChanged: (_) => setState(() => _page = 1),
         decoration: const InputDecoration(
           isDense: true,
           prefixIcon: Icon(Icons.search_rounded),
@@ -936,7 +935,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
         ],
         onChanged: (value) => setState(() {
           _status = value;
-          _page = 0;
+          _page = 1;
         }),
       ),
       _TaskLedgerSourceFilter(
@@ -946,7 +945,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
           _sources.contains(source)
               ? _sources.remove(source)
               : _sources.add(source);
-          _page = 0;
+          _page = 1;
         }),
       ),
       _TaskLedgerDropdown<_TaskLedgerTimeRange>(
@@ -969,7 +968,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
         items: const [('all', '全部'), ('full', '全量'), ('incremental', '增量')],
         onChanged: (value) => setState(() {
           _mode = value;
-          _page = 0;
+          _page = 1;
         }),
       ),
       _TaskLedgerDropdown<AiExposureTaskLedgerSort>(
@@ -986,7 +985,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
         ],
         onChanged: (value) => setState(() {
           _sort = value;
-          _page = 0;
+          _page = 1;
         }),
       ),
     ];
@@ -1067,7 +1066,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
     if (value != _TaskLedgerTimeRange.custom) {
       setState(() {
         _timeRange = value;
-        _page = 0;
+        _page = 1;
       });
       return;
     }
@@ -1097,7 +1096,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
           selected.end.day + 1,
         ).subtract(const Duration(microseconds: 1)),
       );
-      _page = 0;
+      _page = 1;
     });
   }
 
@@ -1111,7 +1110,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
       _customTimeRange = null;
       _sort = AiExposureTaskLedgerSort.createdAt;
       _descending = true;
-      _page = 0;
+      _page = 1;
     });
   }
 }
@@ -1285,25 +1284,17 @@ class _TaskLedgerDropdown<T> extends StatelessWidget {
 class _TaskLedgerFooter extends StatelessWidget {
   const _TaskLedgerFooter({
     required this.compact,
-    required this.countLabel,
-    required this.page,
-    required this.pageCount,
     required this.descending,
     required this.onToggleDirection,
     required this.onReset,
-    required this.onPrevious,
-    required this.onNext,
+    required this.pagination,
   });
 
   final bool compact;
-  final String countLabel;
-  final int page;
-  final int pageCount;
   final bool descending;
   final VoidCallback onToggleDirection;
   final VoidCallback onReset;
-  final VoidCallback? onPrevious;
-  final VoidCallback? onNext;
+  final Widget pagination;
 
   @override
   Widget build(BuildContext context) {
@@ -1312,15 +1303,11 @@ class _TaskLedgerFooter extends StatelessWidget {
       fixedSize: const Size.square(40),
       padding: EdgeInsets.zero,
       backgroundColor: colors.surfaceContainerHighest,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius8)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kOpenHandRadius8),
+      ),
     );
-    final count = Text(
-      countLabel,
-      style: Theme.of(
-        context,
-      ).textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant),
-    );
-    final controls = Row(
+    final actions = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
@@ -1336,69 +1323,23 @@ class _TaskLedgerFooter extends StatelessWidget {
           style: buttonStyle,
           icon: const Icon(Icons.restart_alt_rounded),
         ),
-        kOpenHandHGap16,
-        SizedBox(
-          height: 24,
-          child: VerticalDivider(color: colors.outlineVariant),
-        ),
-        kOpenHandHGap16,
-        IconButton(
-          tooltip: '上一页',
-          onPressed: onPrevious,
-          style: buttonStyle,
-          icon: const Icon(Icons.chevron_left_rounded),
-        ),
-        kOpenHandHGap12,
-        SizedBox(
-          width: 52,
-          child: AnimatedSwitcher(
-            duration: openHandMotionDuration(
-              context,
-              _kTaskLedgerPageMotionDuration,
-            ),
-            switchInCurve: kOpenHandSwitchInCurve,
-            switchOutCurve: kOpenHandSwitchOutCurve,
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: ScaleTransition(
-                scale: Tween<double>(begin: 0.94, end: 1).animate(animation),
-                child: child,
-              ),
-            ),
-            child: Text(
-              '${page + 1}/$pageCount',
-              key: ValueKey<(int, int)>((page, pageCount)),
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ),
-        ),
-        kOpenHandHGap12,
-        IconButton(
-          tooltip: '下一页',
-          onPressed: onNext,
-          style: buttonStyle,
-          icon: const Icon(Icons.chevron_right_rounded),
-        ),
       ],
     );
     if (compact) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          count,
+          Align(alignment: Alignment.centerLeft, child: actions),
           kOpenHandGap10,
-          Align(alignment: Alignment.centerRight, child: controls),
+          pagination,
         ],
       );
     }
-    return Row(
-      children: [
-        Expanded(child: count),
-        controls,
-      ],
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [actions, pagination],
     );
   }
 }

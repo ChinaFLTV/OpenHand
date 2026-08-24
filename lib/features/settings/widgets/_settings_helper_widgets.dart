@@ -6261,10 +6261,6 @@ mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
     final engineRows = _engineStats.entries
         .map((entry) => buildEngineRow(entry.key, entry.value))
         .toList(growable: false);
-    final callRows = _recentCalls
-        .take(_maxToolTelemetryCallRows)
-        .map(buildCallRow)
-        .toList(growable: false);
     return <Widget>[
       ..._buildToolTelemetryHeader(
         context: context,
@@ -6285,8 +6281,17 @@ mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
         loading: _telemetryLoading,
         emptyMessage: emptyMessage,
         engineRows: engineRows,
-        callRows: callRows,
-        totalCallCount: _recentCalls.length,
+        callList: _recentCalls.isEmpty
+            ? null
+            : OpenHandClientPager<L>(
+                items: _recentCalls,
+                builder: (context, pageItems) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final call in pageItems) buildCallRow(call),
+                  ],
+                ),
+              ),
       ),
     ];
   }

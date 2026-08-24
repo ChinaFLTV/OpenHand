@@ -138,6 +138,7 @@ class AiUsageStore {
 
   static const String tableName = 'ai_usage_records';
   static const int maxRetainedRecords = 500000;
+  static const int maxRequestPageSize = 200;
   static const Duration maxRetention = Duration(days: 3650);
 
   Database get _db => DatabaseService.instance.database;
@@ -243,6 +244,34 @@ class AiUsageStore {
     }
     return _loadSummary(
       _UsageWhere(sql: 'WHERE ${clauses.join(' AND ')}', arguments: arguments),
+    );
+  }
+
+  Future<(int total, List<AiUsageRequestRecord> records)> loadRequestPage(
+    AiUsageFilter filter, {
+    int offset = 0,
+    int limit = 20,
+  }) async {
+    final where = _buildWhere(filter, now: DateTime.now());
+    final safeLimit = limit.clamp(1, maxRequestPageSize);
+    final safeOffset = offset < 0 ? 0 : offset;
+    final results = await Future.wait<Object>(<Future<Object>>[
+      _db.rawQuery(
+        'SELECT COUNT(*) AS total FROM $tableName ${where.sql}',
+        where.arguments,
+      ),
+      _db.rawQuery('''
+        SELECT * FROM $tableName ${where.sql}
+        ORDER BY started_at DESC
+        LIMIT ? OFFSET ?
+        ''', <Object?>[...where.arguments, safeLimit, safeOffset]),
+    ]);
+    final countRows = results[0] as List<Map<String, Object?>>;
+    final rows = results[1] as List<Map<String, Object?>>;
+    final total = countRows.isEmpty ? 0 : _int(countRows.first['total']);
+    return (
+      total,
+      rows.map(_requestFromRow).toList(growable: false),
     );
   }
 

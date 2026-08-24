@@ -16,6 +16,7 @@ import 'animated_dialog.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'openhand_safe_scrollbar.dart';
+import 'openhand_table_pagination.dart';
 
 /// 图表四周留白与底部标签区高度。
 const double _kChartInset = 8;
@@ -58,6 +59,7 @@ const Duration _kHeatmapHoverExitGrace = Duration(milliseconds: 80);
 const double _kRankHeaderHeight = 46;
 const double _kRankRowHeight = 58;
 const double _kRankBodyMaxHeight = 348;
+const int _kRankWidthSampleCap = 400;
 const double _kRankCellPadding = 12;
 const double _kRankValueMinWidth = 64;
 const double _kRankLeadingMinWidth = 148;
@@ -3209,6 +3211,8 @@ class _OpenHandOperationalRankTableState
   Rect? _anchorGlobal;
   OpenHandChartTooltip? _activeTooltip;
   Color? _activeAccent;
+  int _page = 1;
+  int _pageSize = kOpenHandTableDefaultPageSize;
 
   @override
   void initState() {
@@ -3236,6 +3240,13 @@ class _OpenHandOperationalRankTableState
       _userWidths = null;
       _userResized = false;
     }
+    final window = OpenHandPageWindow.normalize(
+      page: _page,
+      pageSize: _pageSize,
+      total: widget.rows.length,
+    );
+    _page = window.page;
+    _pageSize = window.pageSize;
   }
 
   @override
@@ -3390,6 +3401,15 @@ class _OpenHandOperationalRankTableState
             _nonNegative(right.value).compareTo(_nonNegative(left.value)),
       );
     }
+    final window = OpenHandPageWindow.normalize(
+      page: _page,
+      pageSize: _pageSize,
+      total: sortedRows.length,
+    );
+    final pageRows = window.slice(sortedRows);
+    final widthRows = sortedRows.length <= _kRankWidthSampleCap
+        ? sortedRows
+        : pageRows;
     final headerStyle = theme.textTheme.labelMedium?.copyWith(
       color: colors.onSurfaceVariant,
       fontWeight: FontWeight.w800,
@@ -3410,7 +3430,7 @@ class _OpenHandOperationalRankTableState
         textScaler: scaler,
       );
       final samples = <String>[
-        for (final row in sortedRows)
+        for (final row in widthRows)
           i < row.cells.length ? row.cells[i] : '--',
       ];
       for (final cell in samples) {
@@ -3444,7 +3464,7 @@ class _OpenHandOperationalRankTableState
                   : _kRankBodyMaxHeight;
               final bodyHeight = math.min(
                 bodyCap,
-                sortedRows.length * _kRankRowHeight,
+                math.max(pageRows.length, 1) * _kRankRowHeight,
               );
               Widget paintedCell({
                 required int index,
@@ -3655,7 +3675,10 @@ class _OpenHandOperationalRankTableState
                     border: Border.all(color: colors.outlineVariant),
                     borderRadius: kOpenHandBorderRadius16,
                   ),
-                  child: OpenHandSafeScrollbar(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      OpenHandSafeScrollbar(
                     controller: _horizontal,
                     scrollbarOrientation: ScrollbarOrientation.bottom,
                     thumbVisibility: true,
@@ -3680,20 +3703,20 @@ class _OpenHandOperationalRankTableState
                               child: OpenHandSafeScrollbar(
                                 controller: _vertical,
                                 thumbVisibility:
-                                    sortedRows.length * _kRankRowHeight >
+                                    pageRows.length * _kRankRowHeight >
                                     bodyCap,
                                 child: ListView.builder(
                                   controller: _vertical,
                                   primary: false,
                                   padding: EdgeInsets.zero,
-                                  itemCount: sortedRows.length,
+                                  itemCount: pageRows.length,
                                   itemExtent: _kRankRowHeight,
                                   physics: openHandDialogAwareScrollPhysics(
                                     context,
                                     fallback: const ClampingScrollPhysics(),
                                   ),
                                   itemBuilder: (context, index) {
-                                    final row = sortedRows[index];
+                                    final row = pageRows[index];
                                     final painted = ColoredBox(
                                       color: index.isEven
                                           ? colors.surfaceContainerLowest
@@ -3717,6 +3740,28 @@ class _OpenHandOperationalRankTableState
                         ),
                       ),
                     ),
+                  ),
+                      OpenHandTablePaginationBar(
+                        total: window.total,
+                        page: window.page,
+                        pageSize: window.pageSize,
+                        onPageChanged: (page) {
+                          setState(() => _page = page);
+                          if (_vertical.hasClients) {
+                            _vertical.jumpTo(0);
+                          }
+                        },
+                        onPageSizeChanged: (size) {
+                          setState(() {
+                            _pageSize = size;
+                            _page = 1;
+                          });
+                          if (_vertical.hasClients) {
+                            _vertical.jumpTo(0);
+                          }
+                        },
+                      ),
+                    ],
                   ),
                 ),
               );

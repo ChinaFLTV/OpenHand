@@ -3091,38 +3091,31 @@ Widget _entityTextList({
   required List<String> values,
   required String emptyLabel,
   bool monospace = false,
-  int maxEntries = 50,
 }) {
-  final shown = values.take(maxEntries).toList(growable: false);
-  final truncationNotice = aiExposureListTruncationNotice(
-    total: values.length,
-    visible: shown.length,
-  );
   return _Section(
     title: values.isEmpty ? title : '$title · ${values.length}',
     icon: icon,
     child: values.isEmpty
         ? _InsightEmpty(label: emptyLabel)
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (truncationNotice != null) ...[
-                Text(truncationNotice),
-                kOpenHandGap8,
-              ],
-              ...shown.indexed.map(
-                (entry) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: SelectableText(
-                    '${entry.$1 + 1}. ${entry.$2}',
-                    style: TextStyle(
-                      fontFamily: monospace ? 'monospace' : null,
-                      height: 1.45,
+        : OpenHandClientPager<String>(
+            items: values,
+            builder: (context, pageItems) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ...pageItems.indexed.map(
+                  (entry) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: SelectableText(
+                      '${entry.$1 + 1}. ${entry.$2}',
+                      style: TextStyle(
+                        fontFamily: monospace ? 'monospace' : null,
+                        height: 1.45,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
   );
 }

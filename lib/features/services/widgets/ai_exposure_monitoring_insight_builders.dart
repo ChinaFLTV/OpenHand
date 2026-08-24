@@ -2943,7 +2943,6 @@ Widget _taskDurationTrendInsight(
       title: '慢任务排名',
       icon: Icons.trending_down_rounded,
       items: slowest
-          .take(20)
           .map(
             (task) => _InsightRankItem(
               label: task.name.trim().isEmpty ? task.id : task.name.trim(),

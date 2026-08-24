@@ -332,7 +332,7 @@ class AiExposurePreferencesStore {
       columns: const <String>['endpoint_url', 'sample_json'],
       orderBy: 'at_ms DESC, record_id DESC',
       offset: offset.clamp(0, kAiExposureProxyRequestHistoryLimit),
-      limit: limit.clamp(1, 100),
+      limit: limit.clamp(1, kAiExposureProxyRequestHistoryPageMax),
     );
     final records = <AiExposureProxyRequestRecord>[];
     for (final row in rows) {

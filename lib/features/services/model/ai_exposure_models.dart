@@ -715,6 +715,7 @@ const int kAiExposureMaxScanConcurrency = 128;
 
 /// 代理请求明细的持久化上限，避免长期运行导致数据库无限增长。
 const int kAiExposureProxyRequestHistoryLimit = 50000;
+const int kAiExposureProxyRequestHistoryPageMax = 200;
 
 enum AiExposureProxyProbeFailure {
   gateway('gateway'),

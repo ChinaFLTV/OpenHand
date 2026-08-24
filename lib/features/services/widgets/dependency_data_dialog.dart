@@ -14,6 +14,7 @@ import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -95,11 +96,12 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
   );
   Timer? _telemetryTimer;
   String _table = _kPostgresqlTables.first;
-  Map<String, Object?> _postgresPage = const <String, Object?>{};
+  Map<String, Object?> _postgresRows = const <String, Object?>{};
   Map<String, Object?> _redisPage = const <String, Object?>{};
   List<Object?> _queryRows = const <Object?>[];
   final List<int> _redisCursorHistory = <int>[0];
-  int _postgresOffset = 0;
+  int _postgresPageIndex = 1;
+  int _postgresPageSize = kOpenHandTableDefaultPageSize;
   bool _loading = false;
   bool _operating = false;
   bool _queryVisible = false;
@@ -150,10 +152,25 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
       if (includeData) {
         if (_view == DependencyDataView.postgresql &&
             controller.dependencyStatus?.postgresql.connected == true) {
-          _postgresPage = await controller.loadPostgresqlRows(
+          _postgresRows = await controller.loadPostgresqlRows(
             _table,
-            offset: _postgresOffset,
+            offset: (_postgresPageIndex - 1) * _postgresPageSize,
+            limit: _postgresPageSize,
           );
+          final total = _integer(_postgresRows['total']);
+          final window = OpenHandPageWindow.normalize(
+            page: _postgresPageIndex,
+            pageSize: _postgresPageSize,
+            total: total,
+          );
+          if (window.page != _postgresPageIndex && total > 0) {
+            _postgresPageIndex = window.page;
+            _postgresRows = await controller.loadPostgresqlRows(
+              _table,
+              offset: window.offset,
+              limit: window.pageSize,
+            );
+          }
         } else if (_view == DependencyDataView.redis &&
             controller.dependencyStatus?.redis.connected == true) {
           _redisPage = await controller.loadRedisRecords(
@@ -332,10 +349,10 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
     final overview = _map(dependencyDataOverview['postgresql']);
     final telemetry = _map(overview['telemetry']);
     final tables = _maps(overview['tables']);
-    final rows = _maps(_postgresPage['rows']);
-    final columns = _maps(_postgresPage['columns']);
-    final primaryKeys = _strings(_postgresPage['primaryKeys']);
-    final total = _integer(_postgresPage['total']);
+    final rows = _maps(_postgresRows['rows']);
+    final columns = _maps(_postgresRows['columns']);
+    final primaryKeys = _strings(_postgresRows['primaryKeys']);
+    final total = _integer(_postgresRows['total']);
     final hitBlocks = _integer(telemetry['blocksHit']);
     final readBlocks = _integer(telemetry['blocksRead']);
     final hitRate = hitBlocks + readBlocks == 0
@@ -425,7 +442,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                         if (value == null) return;
                         setState(() {
                           _table = value;
-                          _postgresOffset = 0;
+                          _postgresPageIndex = 1;
                         });
                         await _refresh(includeData: true);
                       },
@@ -540,24 +557,26 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                         .toList(growable: false),
                   ),
                 kOpenHandGap8,
-                _PaginationBar(
-                  summary: '共 $total 条',
-                  page: '${_postgresOffset ~/ 50 + 1}',
-                  onPrevious: _postgresOffset <= 0 || _busy
-                      ? null
-                      : () {
-                          setState(() => _postgresOffset -= 50);
-                          _refresh(includeData: true);
-                        },
-                  onNext:
-                      _postgresOffset + rows.length >= total ||
-                          rows.isEmpty ||
-                          _busy
-                      ? null
-                      : () {
-                          setState(() => _postgresOffset += 50);
-                          _refresh(includeData: true);
-                        },
+                OpenHandTablePagination(
+                  total: total,
+                  page: OpenHandPageWindow.normalize(
+                    page: _postgresPageIndex,
+                    pageSize: _postgresPageSize,
+                    total: total,
+                  ).page,
+                  pageSize: _postgresPageSize,
+                  enabled: !_busy,
+                  onPageChanged: (page) {
+                    setState(() => _postgresPageIndex = page);
+                    _refresh(includeData: true);
+                  },
+                  onPageSizeChanged: (size) {
+                    setState(() {
+                      _postgresPageSize = size;
+                      _postgresPageIndex = 1;
+                    });
+                    _refresh(includeData: true);
+                  },
                 ),
               ],
             ),
@@ -720,20 +739,32 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                         .toList(growable: false),
                   ),
                 kOpenHandGap8,
-                _PaginationBar(
-                  summary: '游标 ${_redisCursorHistory.last}',
-                  onPrevious: _redisCursorHistory.length <= 1 || _busy
-                      ? null
-                      : () {
-                          setState(() => _redisCursorHistory.removeLast());
-                          _refresh(includeData: true);
-                        },
-                  onNext: nextCursor == 0 || _busy
-                      ? null
-                      : () {
-                          setState(() => _redisCursorHistory.add(nextCursor));
-                          _refresh(includeData: true);
-                        },
+                OpenHandTablePagination(
+                  total: _integer(overview['keyCount']),
+                  page: _redisCursorHistory.length,
+                  pageSize: records.isEmpty ? 1 : records.length,
+                  enabled: !_busy,
+                  showPageNumbers: false,
+                  showJumper: false,
+                  showPageSize: false,
+                  canPrevious: _redisCursorHistory.length > 1 && !_busy,
+                  canNext: nextCursor != 0 && !_busy,
+                  onPrevious: () {
+                    setState(() => _redisCursorHistory.removeLast());
+                    _refresh(includeData: true);
+                  },
+                  onNext: () {
+                    setState(() => _redisCursorHistory.add(nextCursor));
+                    _refresh(includeData: true);
+                  },
+                  onPageChanged: (_) {},
+                  leading: Text(
+                    'SCAN ${_redisCursorHistory.last}',
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -1465,49 +1496,6 @@ class _DataRecordTile extends StatelessWidget {
       ),
     );
   }
-}
-
-class _PaginationBar extends StatelessWidget {
-  const _PaginationBar({
-    required this.summary,
-    required this.onPrevious,
-    required this.onNext,
-    this.page,
-  });
-
-  final String summary;
-  final String? page;
-  final VoidCallback? onPrevious;
-  final VoidCallback? onNext;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(
-        child: Text(summary, maxLines: 1, overflow: TextOverflow.ellipsis),
-      ),
-      ServiceDialogIconActions(
-        spacing: 2,
-        children: [
-          ServiceDialogCompactIconButton(
-            tooltip: '上一页',
-            onPressed: onPrevious,
-            icon: const Icon(Icons.chevron_left_rounded, size: 22),
-          ),
-          if (page != null)
-            ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 24),
-              child: Text(page!, textAlign: TextAlign.center),
-            ),
-          ServiceDialogCompactIconButton(
-            tooltip: '下一页',
-            onPressed: onNext,
-            icon: const Icon(Icons.chevron_right_rounded, size: 22),
-          ),
-        ],
-      ),
-    ],
-  );
 }
 
 class _QueryConsole extends StatelessWidget {
