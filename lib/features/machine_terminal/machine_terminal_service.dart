@@ -2240,7 +2240,9 @@ class MachineTerminalSession {
       throw StateError(_terminalNotRunningError);
     }
     final source = File(sourcePath);
-    final sourceStat = await source.stat();
+    final sourceStat = await source.stat().timeout(
+      _terminalFilesystemProbeTimeout,
+    );
     if (sourceStat.type != FileSystemEntityType.file) {
       throw FileSystemException('上传源不是普通文件。', sourcePath);
     }
@@ -2262,7 +2264,7 @@ class MachineTerminalSession {
       targetName: targetName,
       token: transferToken,
     );
-    RandomAccessFile? reader;
+    BoundedRandomAccessFileLease? reader;
     var transferred = 0;
     var protocolDispatched = false;
     var protocolFinished = false;
@@ -2294,13 +2296,18 @@ class MachineTerminalSession {
         startGeneration: startGeneration,
         timeout: _terminalUploadReadyTimeout,
       );
-      reader = await source.open();
+      reader = await openBoundedRandomAccessFileLease(
+        source,
+        mode: FileMode.read,
+        timeout: _terminalFilesystemProbeTimeout,
+      );
       while (transferred < sourceStat.size) {
         await waitWhilePaused();
         if (isCancelled()) throw const MachineTerminalUploadCancelled();
         final remaining = sourceStat.size - transferred;
-        final chunk = await reader.read(
-          math.min(_terminalUploadChunkBytes, remaining),
+        final chunk = await reader.run(
+          (input) => input.read(math.min(_terminalUploadChunkBytes, remaining)),
+          timeout: _terminalFilesystemProbeTimeout,
         );
         if (chunk.isEmpty) {
           throw FileSystemException('上传源在传输期间被截断。', sourcePath);
@@ -2311,9 +2318,12 @@ class MachineTerminalSession {
         await Future<void>.delayed(Duration.zero);
       }
       if (isCancelled()) throw const MachineTerminalUploadCancelled();
-      final beforeFinalizeStat = await source.stat();
+      final beforeFinalizeStat = await source.stat().timeout(
+        _terminalFilesystemProbeTimeout,
+      );
       if (beforeFinalizeStat.size != sourceStat.size ||
-          beforeFinalizeStat.modified != sourceStat.modified) {
+          beforeFinalizeStat.modified != sourceStat.modified ||
+          beforeFinalizeStat.changed != sourceStat.changed) {
         throw FileSystemException('上传源在传输期间发生变化。', sourcePath);
       }
       _writePty('$doneMarker\n');
@@ -2331,9 +2341,12 @@ class MachineTerminalSession {
           targetName,
         );
       }
-      final finalStat = await source.stat();
+      final finalStat = await source.stat().timeout(
+        _terminalFilesystemProbeTimeout,
+      );
       if (finalStat.size != sourceStat.size ||
-          finalStat.modified != sourceStat.modified) {
+          finalStat.modified != sourceStat.modified ||
+          finalStat.changed != sourceStat.changed) {
         throw FileSystemException('上传源在传输期间发生变化。', sourcePath);
       }
     } on MachineTerminalUploadCancelled {
@@ -2343,7 +2356,7 @@ class MachineTerminalSession {
       await cancelProtocol();
       rethrow;
     } finally {
-      await reader?.close();
+      await reader?.cleanup();
       if (!Platform.isWindows) {
         _writePty('stty echo icanon 2>/dev/null\n');
       }

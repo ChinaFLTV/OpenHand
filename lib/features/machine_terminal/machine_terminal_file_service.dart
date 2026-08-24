@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 
 import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
+import '../../shared/util/bounded_delete.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -47,6 +48,13 @@ const Duration _machineTerminalProgressNotifyInterval = Duration(
 const Duration _machineTerminalTransferPersistInterval = Duration(
   milliseconds: 500,
 );
+const BoundedDeletePolicy _machineTerminalEditCleanupPolicy =
+    BoundedDeletePolicy(
+      maxEntries: 4,
+      maxDepth: 2,
+      operationTimeout: Duration(seconds: 3),
+      totalTimeout: Duration(seconds: 10),
+    );
 
 enum MachineTerminalFileKind { file, directory, link, other }
 
@@ -437,12 +445,14 @@ class MachineTerminalFileService extends ChangeNotifier {
       if (bytes.length >= kMachineTerminalMaxEditableFileBytes) {
         throw StateError('编辑后的文件必须小于 5 MB。');
       }
-      final temporaryDirectory = await Directory.systemTemp.createTemp(
-        'openhand-terminal-edit-',
+      final localFile = await writeNewTemporaryFileBytesBounded(
+        directoryPrefix: 'openhand-terminal-edit-',
+        fileName: 'content.tmp',
+        bytes: bytes,
+        timeout: defaultBoundedFileReadTotalTimeout,
       );
-      final localFile = File(p.join(temporaryDirectory.path, 'content.tmp'));
+      final temporaryDirectory = localFile.parent;
       try {
-        await localFile.writeAsBytes(bytes, flush: true);
         await _terminalService.uploadFile(
           sessionId: sessionId,
           terminalId: terminalId,
@@ -456,7 +466,11 @@ class MachineTerminalFileService extends ChangeNotifier {
         );
       } finally {
         try {
-          await temporaryDirectory.delete(recursive: true);
+          await deletePathBounded(
+            temporaryDirectory.absolute.path,
+            policy: _machineTerminalEditCleanupPolicy,
+            allowedRoot: Directory.systemTemp.absolute.path,
+          );
         } catch (error, stack) {
           silentLog('machine_terminal_file', '清理编辑临时文件', error, stack);
         }
