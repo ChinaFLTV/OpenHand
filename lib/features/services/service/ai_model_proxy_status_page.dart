@@ -774,6 +774,7 @@ body {
 .bar-fill {
   display: block; width: 100%; height: 100%; border-radius: 3px;
   background: var(--fill); transform-origin: bottom center;
+  pointer-events: none;
   animation: bar-in var(--oh-dialog-enter-duration) var(--oh-spring) backwards;
   animation-delay: calc(var(--i, 0) * 3ms);
   transition:
@@ -890,7 +891,7 @@ body {
   animation-delay: 180ms;
 }
 .tip {
-  position: fixed; z-index: 20; width: max-content;
+  position: fixed; z-index: 40; width: max-content;
   min-width: min(240px, calc(100vw - 24px));
   max-width: min(320px, calc(100vw - 24px));
   pointer-events: none; visibility: hidden;
@@ -1040,6 +1041,7 @@ function toggleRow(el){
   el.setAttribute('aria-expanded', open ? 'true' : 'false');
   const kids = row.querySelector(':scope > .children');
   if (kids) kids.toggleAttribute('inert', !open);
+  if (!open && activeStrip && row.contains(activeStrip)) releaseStrip();
 }
 document.querySelectorAll('[data-toggle]').forEach(el => {
   el.addEventListener('click', () => toggleRow(el));
@@ -1051,13 +1053,26 @@ document.querySelectorAll('[data-toggle]').forEach(el => {
 });
 const coarse = window.matchMedia('(pointer: coarse)').matches;
 let pinnedStrip = null;
+let activeStrip = null;
 function dayIndex(strip, ev, n){
+  const hit = ev.target && ev.target.closest ? ev.target.closest('.bar') : null;
+  if (hit && strip.contains(hit)) {
+    const i = parseInt(hit.getAttribute('data-i'), 10);
+    if (Number.isFinite(i)) return Math.max(0, Math.min(n - 1, i));
+  }
   const r = strip.getBoundingClientRect();
   if (n <= 0 || r.width <= 0) return 0;
   return Math.max(0, Math.min(n - 1, Math.floor(((ev.clientX - r.left) / r.width) * n)));
 }
 function clearOn(strip){
+  if (!strip) return;
   strip.querySelectorAll('.bar.on').forEach(el => el.classList.remove('on'));
+}
+function releaseStrip(){
+  clearOn(activeStrip);
+  activeStrip = null;
+  pinnedStrip = null;
+  hideTip();
 }
 function bindTips(root, days){
   const strip = root.querySelector(':scope > .bars');
@@ -1067,8 +1082,10 @@ function bindTips(root, days){
     const d = days[i];
     const bar = strip.children[i];
     if (!d) return;
+    if (activeStrip && activeStrip !== strip) clearOn(activeStrip);
     clearOn(strip);
     if (bar) bar.classList.add('on');
+    activeStrip = strip;
     showTip(ev, d, bar || strip);
   };
   if (coarse) {
@@ -1079,9 +1096,10 @@ function bindTips(root, days){
   } else {
     strip.addEventListener('pointerenter', reveal);
     strip.addEventListener('pointermove', reveal);
-    strip.addEventListener('pointerleave', () => {
-      clearOn(strip);
-      hideTip();
+    strip.addEventListener('pointerleave', (ev) => {
+      if (strip.contains(ev.relatedTarget)) return;
+      if (activeStrip !== strip) return;
+      releaseStrip();
     });
   }
 }
@@ -1097,12 +1115,11 @@ if (coarse) {
   document.addEventListener('pointerdown', (ev) => {
     if (!pinnedStrip) return;
     if (pinnedStrip.contains(ev.target)) return;
-    clearOn(pinnedStrip);
-    hideTip();
-    pinnedStrip = null;
+    releaseStrip();
   });
 }
 function showTip(ev, d, anchor){
+  const leaving = tipCard.classList.contains('oh-dialog-pop-out');
   const wasHidden = !tip.classList.contains('show');
   tipExitToken += 1;
   tip.style.setProperty('--tone', tone[d.h] || data.idle);
@@ -1114,7 +1131,7 @@ function showTip(ev, d, anchor){
     '<p>'+(d.note||'')+'</p>';
   tip.classList.add('show');
   tip.setAttribute('aria-hidden', 'false');
-  if (wasHidden) playDialog(tipCard, 'enter');
+  if (wasHidden || leaving) playDialog(tipCard, 'enter');
   moveTip(ev, anchor);
 }
 function hideTip(){
@@ -1153,11 +1170,7 @@ function moveTip(ev, anchor){
   tip.style.top = y + 'px';
 }
 window.addEventListener('resize', () => {
-  hideTip();
-  if (pinnedStrip) {
-    clearOn(pinnedStrip);
-    pinnedStrip = null;
-  }
+  releaseStrip();
 });
 const histReveal = document.getElementById('history-reveal');
 const histBtn = document.getElementById('toggle-history');
