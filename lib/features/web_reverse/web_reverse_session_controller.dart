@@ -169,6 +169,10 @@ class WebReverseSessionController extends ChangeNotifier {
   static const int _maxReplHistoryExpressionChars = 64 * kBytesPerKiB;
   static const int _maxReplPreviewChars = 2 * kBytesPerKiB;
   static const int _maxConsoleTextChars = 64 * kBytesPerKiB;
+  static const int _maxFindQueryChars = 512;
+  static const int _maxFindTextNodes = 5000;
+  static const int _maxFindTextChars = 2 * kBytesPerMiB;
+  static const int _maxFindMatches = 2000;
   static const int _aliveWatchdogFailureThreshold = 3;
   static const int _maxNetworkHeaderEntries = 256;
   static const int _maxNetworkHeadersChars = 2 * kBytesPerMiB;
@@ -852,7 +856,9 @@ class WebReverseSessionController extends ChangeNotifier {
       _pageSessionId = null;
     }
     // 新 page 上 finder 还没注入；切完 target 第一次 findInPage 会按需注入。
+    _findRequestGeneration += 1;
     _finderInstalled = false;
+    _finderInstallTask = null;
     _performanceEnabled = false;
     _cssEnabled = false;
     _fpsCounterInstalled = false;
@@ -5661,25 +5667,43 @@ class WebReverseSessionController extends ChangeNotifier {
   // performSearch 好，对模型来说也更可控。
 
   bool _finderInstalled = false;
+  Future<void>? _finderInstallTask;
+  int _findRequestGeneration = 0;
 
   Future<int> findInPage(String query) async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return 0;
-    if (query.trim().isEmpty) {
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null) return 0;
+    final boundedQuery = clipTextByCodeUnits(
+      query,
+      _maxFindQueryChars,
+      suffix: '',
+    );
+    if (boundedQuery.trim().isEmpty) {
       await clearFindHighlights();
       return 0;
     }
+    final requestGeneration = ++_findRequestGeneration;
     if (!_finderInstalled) {
-      await _installFinder();
+      final installTask = _finderInstallTask ??= _installFinder();
+      await installTask;
+      if (identical(_finderInstallTask, installTask)) {
+        _finderInstallTask = null;
+      }
+    }
+    if (requestGeneration != _findRequestGeneration ||
+        !identical(cdp, _browserCdp) ||
+        sessionId != _pageSessionId) {
+      return 0;
     }
     try {
       final r = await cdp.send(
         'Runtime.evaluate',
         params: <String, Object?>{
-          'expression': '__oh_find_set(${jsonEncode(query)})',
+          'expression': '__oh_find_set(${jsonEncode(boundedQuery)})',
           'returnByValue': true,
         },
-        sessionId: _pageSessionId,
+        sessionId: sessionId,
         timeout: _cdpScriptTimeout,
       );
       final v = cdpResultValue(r);
@@ -5707,6 +5731,7 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   Future<void> clearFindHighlights() async {
+    _findRequestGeneration += 1;
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return;
     try {
@@ -5724,13 +5749,18 @@ class WebReverseSessionController extends ChangeNotifier {
 
   Future<void> _installFinder() async {
     final cdp = _browserCdp;
-    if (cdp == null || _pageSessionId == null) return;
-    const js = r'''
+    final sessionId = _pageSessionId;
+    if (cdp == null || sessionId == null) return;
+    final js =
+        r'''
 (() => {
   if (window.__oh_find_installed) return;
   window.__oh_find_installed = true;
   let marks = [];
   let curIndex = -1;
+  const MAX_TEXT_NODES = __OPENHAND_MAX_FIND_TEXT_NODES__;
+  const MAX_TEXT_CHARS = __OPENHAND_MAX_FIND_TEXT_CHARS__;
+  const MAX_MATCHES = __OPENHAND_MAX_FIND_MATCHES__;
   const STYLE_ID = '__oh_find_style';
   const ensureStyle = () => {
     if (document.getElementById(STYLE_ID)) return;
@@ -5765,13 +5795,23 @@ class WebReverseSessionController extends ChangeNotifier {
       }
     });
     const nodes = []; let cur;
-    while ((cur = walker.nextNode())) nodes.push(cur);
+    while (nodes.length < MAX_TEXT_NODES && (cur = walker.nextNode())) {
+      nodes.push(cur);
+    }
+    let scannedTextChars = 0;
     for (const n of nodes) {
-      const text = n.nodeValue;
+      if (scannedTextChars >= MAX_TEXT_CHARS) break;
+      const sourceText = n.nodeValue || '';
+      const remainingTextChars = MAX_TEXT_CHARS - scannedTextChars;
+      const text = sourceText.length > remainingTextChars
+        ? sourceText.slice(0, remainingTextChars)
+        : sourceText;
+      scannedTextChars += text.length;
       let m; const frag = document.createDocumentFragment();
       let last = 0;
       re.lastIndex = 0;
       while ((m = re.exec(text)) != null) {
+        if (marks.length >= MAX_MATCHES) break;
         if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
         const span = document.createElement('mark');
         span.className = '__oh_find_mark';
@@ -5782,9 +5822,10 @@ class WebReverseSessionController extends ChangeNotifier {
         if (m[0].length === 0) re.lastIndex++;
       }
       if (last > 0) {
-        if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+        if (last < sourceText.length) frag.appendChild(document.createTextNode(sourceText.slice(last)));
         n.parentNode && n.parentNode.replaceChild(frag, n);
       }
+      if (marks.length >= MAX_MATCHES) break;
     }
     if (marks.length > 0) {
       curIndex = 0;
@@ -5803,9 +5844,19 @@ class WebReverseSessionController extends ChangeNotifier {
     return curIndex + 1;
   };
 })();
-''';
+'''
+            .replaceAll(
+              '__OPENHAND_MAX_FIND_TEXT_NODES__',
+              '$_maxFindTextNodes',
+            )
+            .replaceAll(
+              '__OPENHAND_MAX_FIND_TEXT_CHARS__',
+              '$_maxFindTextChars',
+            )
+            .replaceAll('__OPENHAND_MAX_FIND_MATCHES__', '$_maxFindMatches');
     try {
-      await _installDocumentInitScript(cdp, js, sessionId: _pageSessionId);
+      await _installDocumentInitScript(cdp, js, sessionId: sessionId);
+      if (!identical(cdp, _browserCdp) || sessionId != _pageSessionId) return;
       _finderInstalled = true;
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', '安装页面查找器', error, stack);

@@ -86,6 +86,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   final TextEditingController _findCtrl = TextEditingController();
   bool _findBarOpen = false;
   int _findMatchCount = 0;
+  int _findGeneration = 0;
   Timer? _findDebouncer;
   Timer? _resizeDebouncer;
   Timer? _urlPoller;
@@ -169,8 +170,12 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
             _surfaceFocus.unfocus();
             _addressBarFocus.unfocus();
             _findFocus.unfocus();
+            _findGeneration += 1;
+            _findDebouncer?.cancel();
             _findBarOpen = false;
+            _findMatchCount = 0;
             _findCtrl.clear();
+            unawaited(widget.controller.clearFindHighlights());
             _scrollInertiaTimer?.cancel();
             _scrollInertiaTimer = null;
             return const InputRepairParticipantResult.success();
@@ -252,6 +257,8 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     _urlPoller?.cancel();
     _placeholderTicker?.cancel();
     _findDebouncer?.cancel();
+    _findGeneration += 1;
+    unawaited(widget.controller.clearFindHighlights());
     _scrollInertiaTimer?.cancel();
     _metaPersistDebouncer?.cancel();
     widget.controller.releaseScreencast();
@@ -971,6 +978,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   // ── 页面查找 ──────────────────────────────────────────────────────────
 
   void _closeFindBar() {
+    _findGeneration += 1;
     _findDebouncer?.cancel();
     setState(() {
       _findBarOpen = false;
@@ -982,15 +990,23 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   }
 
   void _onFindChanged(String s) {
+    final generation = ++_findGeneration;
     _findDebouncer?.cancel();
-    _findDebouncer = startSafeTimer(
-      kOpenHandMotion200,
-      () async {
-        final n = await widget.controller.findInPage(s);
-        if (!mounted) return;
-        setState(() => _findMatchCount = n);
-      },
-    );
+    _findDebouncer = startSafeTimer(kOpenHandMotion200, () async {
+      final controller = widget.controller;
+      final n = await controller.findInPage(s);
+      if (!mounted) {
+        unawaited(controller.clearFindHighlights());
+        return;
+      }
+      if (generation != _findGeneration) {
+        if (!_findBarOpen) {
+          unawaited(controller.clearFindHighlights());
+        }
+        return;
+      }
+      setState(() => _findMatchCount = n);
+    });
   }
 
   Future<void> _findNext() async {

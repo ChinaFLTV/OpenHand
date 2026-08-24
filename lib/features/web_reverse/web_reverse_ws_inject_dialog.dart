@@ -34,11 +34,19 @@ import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_pure_helpers.dart';
 import 'web_reverse_session_controller.dart';
 
-const String _kBootstrap = r'''
+const int _kWsInjectMaxRows = 200;
+const int _kWsInjectMaxPayloadChars = 512 * kBytesPerKiB;
+const int _kWsInjectMaxLogPayloadChars = 64 * kBytesPerKiB;
+const int _kWsInjectMaxUrlChars = 2 * kBytesPerKiB;
+const int _kWsInjectMaxLogEntries = 60;
+
+final String _kBootstrap =
+    r'''
 (() => {
   if (window.__OH_WS_PATCHED__) return 'already';
   window.__OH_WS_PATCHED__ = true;
   window.__OH_WS_REGISTRY__ = window.__OH_WS_REGISTRY__ || {};
+  const maxRows = __MAX_ROWS__;
   let nextId = 1;
   const NativeWS = window.WebSocket;
   function PatchedWS(url, protocols) {
@@ -48,6 +56,8 @@ const String _kBootstrap = r'''
     const id = nextId++;
     inst.__oh_id = id;
     window.__OH_WS_REGISTRY__[id] = inst;
+    const ids = Object.keys(window.__OH_WS_REGISTRY__);
+    if (ids.length > maxRows) delete window.__OH_WS_REGISTRY__[ids[0]];
     inst.addEventListener('close', () => {
       try { delete window.__OH_WS_REGISTRY__[id]; } catch (_) {}
     });
@@ -61,32 +71,31 @@ const String _kBootstrap = r'''
   window.WebSocket = PatchedWS;
   return 'installed';
 })();
-''';
+'''
+        .replaceAll('__MAX_ROWS__', '$_kWsInjectMaxRows');
 
-const String _kList = r'''
+final String _kList =
+    r'''
 (() => {
   const reg = window.__OH_WS_REGISTRY__ || {};
   const out = [];
-  for (const k of Object.keys(reg)) {
+  const keys = Object.keys(reg).slice(0, __MAX_ROWS__);
+  for (const k of keys) {
     const ws = reg[k];
     if (!ws) continue;
     out.push({
       id: Number(k),
-      url: ws.url,
+      url: String(ws.url || '').slice(0, __MAX_URL_CHARS__),
       readyState: ws.readyState,
-      protocol: ws.protocol || '',
+      protocol: String(ws.protocol || '').slice(0, 128),
       bufferedAmount: ws.bufferedAmount,
     });
   }
   return JSON.stringify(out);
 })();
-''';
-
-const int _kWsInjectMaxRows = 200;
-const int _kWsInjectMaxPayloadChars = 512 * kBytesPerKiB;
-const int _kWsInjectMaxLogPayloadChars = 64 * kBytesPerKiB;
-const int _kWsInjectMaxUrlChars = 2 * kBytesPerKiB;
-const int _kWsInjectMaxLogEntries = 60;
+'''
+        .replaceAll('__MAX_ROWS__', '$_kWsInjectMaxRows')
+        .replaceAll('__MAX_URL_CHARS__', '$_kWsInjectMaxUrlChars');
 
 Future<void> showWebReverseWsInjectDialog(
   BuildContext context, {
