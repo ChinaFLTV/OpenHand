@@ -263,6 +263,8 @@ Future<void> _bootstrap() async {
       themeMode: settingsController.themeMode,
       preset: settingsController.themePreset,
       locale: settingsController.locale,
+      dialogAnimation: settingsController.dialogAnimationSettings,
+      reduceMotion: settingsController.reduceMotion,
     ),
   );
   settingsController.attachAiModelProviderEndpointGuard(

@@ -3,9 +3,11 @@ import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
 
+import '../../../app/model/dialog_animation_settings.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../app/theme/openhand_theme.dart';
 import '../../../app/theme/openhand_theme_preset.dart';
+import '../../../shared/ui/dialog_motion_css.dart';
 import '../../../shared/util/localized_text.dart';
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_model_proxy_models.dart';
@@ -94,16 +96,6 @@ class _StatusPageCopy {
     fr: 'La disponibilité couvre les 90 derniers jours de trafic réellement traité par ce relais. Le gris signifie inactif, pas une panne. Les visites de la page d’état relèvent de la télémétrie de la passerelle, pas du taux de succès des modèles exposés.',
     de: 'Die Verfügbarkeit umfasst die letzten 90 Kalendertage des tatsächlich von diesem Proxy verarbeiteten Traffics. Grau bedeutet Leerlauf, keinen Ausfall. Aufrufe der Statusseite zählen zur Gateway-Telemetrie, nicht zur Erfolgsrate bereitgestellter Modelle.',
     ja: '可用性は直近 90 日、この中継が実際に処理したリクエストで集計します。灰色はアイドルであり障害ではありません。ステータスページへのアクセスはゲートウェイ計測に含まれ、公開モデルの成功率には含めません。',
-  );
-
-  String get healthScale => _t(
-    zh: '状态分级：绿色 ≥ 99%；黄色 ≥ 97% 且 < 99%；橙色 ≥ 90% 且 < 97%；红色 < 90%。慢请求占比达到 20% / 40% 时，也会分别下调至黄色 / 橙色。',
-    zhHant:
-        '狀態分級：綠色 ≥ 99%；黃色 ≥ 97% 且 < 99%；橙色 ≥ 90% 且 < 97%；紅色 < 90%。慢請求占比達到 20% / 40% 時，也會分別下調至黃色 / 橙色。',
-    en: 'Health bands: green ≥ 99%, yellow ≥ 97% and < 99%, orange ≥ 90% and < 97%, red < 90%. Slow calls at 20% / 40% also lower the grade to yellow / orange.',
-    fr: 'Niveaux : vert ≥ 99 %, jaune ≥ 97 % et < 99 %, orange ≥ 90 % et < 97 %, rouge < 90 %. Une part d’appels lents de 20 % / 40 % abaisse aussi le niveau au jaune / orange.',
-    de: 'Stufen: Grün ≥ 99 %, Gelb ≥ 97 % und < 99 %, Orange ≥ 90 % und < 97 %, Rot < 90 %. 20 % / 40 % langsame Aufrufe senken die Stufe ebenfalls auf Gelb / Orange.',
-    ja: '状態区分：緑 ≥ 99%、黄 ≥ 97% かつ < 99%、オレンジ ≥ 90% かつ < 97%、赤 < 90%。低速リクエスト率が 20% / 40% に達した場合も、黄 / オレンジに下がります。',
   );
 
   String get healthy => _t(
@@ -449,6 +441,8 @@ String buildAiModelProxyStatusPage({
   required ThemeMode themeMode,
   required OpenHandThemePreset themePreset,
   Locale? locale,
+  DialogAnimationSettings? dialogAnimation,
+  bool reduceMotion = false,
 }) {
   final copy = _StatusPageCopy.forLocale(locale ?? openHandAmbientLocale);
   final lang = _statusPageLang(locale ?? openHandAmbientLocale);
@@ -544,8 +538,17 @@ String buildAiModelProxyStatusPage({
     'incidents': incidents,
     'i18n': copy.scriptLabels,
   };
+  final dialogMotion = dialogAnimation ?? OpenHandMotionDefaults.dialog;
+  final motionRootAttrs = openHandDialogMotionHtmlRootAttributes(
+    dialogMotion,
+    reduceMotion: reduceMotion,
+  );
+  final motionCssVars = openHandDialogMotionCssCustomProperties(
+    dialogMotion,
+    reduceMotion: reduceMotion,
+  );
   return '''<!DOCTYPE html>
-<html lang="$lang">
+<html lang="$lang" $motionRootAttrs>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -581,6 +584,7 @@ String buildAiModelProxyStatusPage({
   --nest: 32px;
   --history-max: ${_kStatusHistoryMaxPx}px;
   --tip-shift-y: calc(-100% - 10px);
+$motionCssVars
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }
@@ -591,7 +595,11 @@ html {
 }
 body {
   font-family: "SF Pro Text", "Segoe UI", "PingFang SC", "PingFang TC", "Hiragino Sans GB", "Hiragino Kaku Gothic ProN", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif;
-  background: var(--bg);
+  background:
+    radial-gradient(1100px 520px at 0% -10%, color-mix(in srgb, var(--ok) 14%, transparent), transparent 58%),
+    radial-gradient(900px 460px at 100% 0%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 52%),
+    radial-gradient(720px 380px at 88% 100%, color-mix(in srgb, var(--caution) 10%, transparent), transparent 62%),
+    var(--bg);
   color: var(--text);
   line-height: 1.45;
   overflow-x: hidden;
@@ -624,18 +632,24 @@ body {
   border-radius: 999px; padding: 10px 16px; font: inherit; font-weight: 700;
   cursor: pointer; appearance: none; -webkit-appearance: none;
   touch-action: manipulation; min-height: ${_kStatusPageTapMinPx}px;
-  transition: transform 180ms cubic-bezier(.22,1.2,.36,1), box-shadow 180ms ease;
+  transition: transform var(--oh-hover-duration) var(--oh-spring), box-shadow var(--oh-hover-duration) var(--oh-dialog-curve), border-color var(--oh-hover-duration) ease;
 }
 .ghost-btn:focus-visible {
   outline: 2px solid var(--primary); outline-offset: 3px;
 }
+.ghost-btn:active { transform: scale(.96); }
 @media (hover: hover) and (pointer: fine) {
-  .ghost-btn:hover { transform: translateY(-1px) scale(1.02); box-shadow: 0 10px 24px var(--shadow); }
+  .ghost-btn:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 12px 28px var(--shadow); }
 }
 .banner {
   border: 1px solid var(--banner-edge); border-radius: var(--radius); overflow: hidden;
-  background: var(--card); margin-bottom: 18px;
-  animation: rise 420ms cubic-bezier(.22,1.2,.36,1);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--banner-edge) 18%, var(--card)), var(--card) 62%);
+  margin-bottom: 18px;
+  animation: rise var(--oh-dialog-enter-duration) var(--oh-dialog-curve) both;
+}
+.banner[data-health="outage"] {
+  box-shadow: 0 16px 36px color-mix(in srgb, var(--bad) 22%, transparent);
 }
 .banner-head {
   display: flex; align-items: flex-start; gap: 10px;
@@ -649,35 +663,46 @@ body {
 .card {
   background: var(--card); border: 1px solid var(--outline); border-radius: var(--radius);
   box-shadow: 0 16px 40px var(--shadow); overflow: hidden;
-  animation: rise 520ms cubic-bezier(.22,1.2,.36,1);
+  animation: rise var(--oh-dialog-enter-duration) var(--oh-dialog-curve) both;
+  animation-delay: 60ms;
 }
 .card-h {
   display: flex; align-items: baseline; justify-content: space-between;
-  gap: 8px 12px; padding: 18px var(--pad) 8px; flex-wrap: wrap;
+  gap: 8px 12px; padding: 18px var(--pad) 14px; flex-wrap: wrap;
 }
 .card-h h2 { margin: 0; font-size: clamp(16px, 3.6vw, 18px); min-width: 0; }
 .range { color: var(--muted); font-weight: 700; font-size: 13px; white-space: nowrap; }
-.legend {
-  display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap;
-  padding: 8px var(--pad) 14px; color: var(--muted); font-size: 12px; font-weight: 700;
-}
-.legend-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.legend-dot {
-  width: 9px; height: 9px; border-radius: 999px; background: var(--legend-tone);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--legend-tone) 14%, transparent);
-}
-.scale-note { flex: 1 0 100%; line-height: 1.5; font-weight: 600; }
 .row { border-top: 1px solid color-mix(in srgb, var(--outline) 80%, transparent); padding: 16px var(--pad) 14px; }
+#rows > .row {
+  animation: rise var(--oh-dialog-enter-duration) var(--oh-dialog-curve) both;
+}
+#rows > .row:nth-child(1) { animation-delay: 90ms; }
+#rows > .row:nth-child(2) { animation-delay: 140ms; }
+#rows > .row:nth-child(n+3) { animation-delay: 180ms; }
 .row-h {
   display: flex; align-items: center; gap: 8px 10px;
   user-select: none; flex-wrap: wrap;
+  transition: transform var(--oh-hover-duration) var(--oh-spring);
 }
 .row-h[data-toggle] { cursor: pointer; }
+.row-h[data-toggle]::after {
+  content: '';
+  width: 8px; height: 8px; margin-left: 2px; flex: none;
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+  opacity: .5;
+  transition: transform var(--oh-dialog-enter-duration) var(--oh-spring), opacity var(--oh-hover-duration) ease;
+}
+.row.open > .row-h[data-toggle]::after {
+  transform: rotate(225deg);
+  opacity: .9;
+}
 .row-h[data-toggle]:focus-visible {
   outline: 2px solid var(--primary); outline-offset: 4px; border-radius: 10px;
 }
 @media (hover: hover) and (pointer: fine) {
   .row-h:hover .name { color: var(--primary); }
+  .row-h[data-toggle]:hover { transform: translateX(2px); }
 }
 .dot {
   width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
@@ -696,19 +721,65 @@ body {
 .bar {
   flex: 1 1 0; min-width: 0; border-radius: 3px; background: var(--fill);
   transform-origin: bottom;
-  transition: transform 160ms cubic-bezier(.22,1.2,.36,1), filter 160ms ease;
+  animation: bar-in var(--oh-dialog-enter-duration) var(--oh-dialog-curve) both;
+  transition: transform var(--oh-hover-duration) var(--oh-spring), filter var(--oh-hover-duration) ease;
 }
 .bar.on { transform: scaleY(1.18); filter: brightness(1.12); }
 @media (hover: hover) and (pointer: fine) {
   .bar:hover { transform: scaleY(1.18); filter: brightness(1.08); }
 }
-.children { display: none; padding: 4px 0 0 var(--nest); }
-.row.open .children { display: block; animation: rise 240ms ease; }
+.children {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transform: translate3d(0, -8px, 0) scale(.985);
+  padding: 0 0 0 var(--nest);
+  transition:
+    grid-template-rows var(--oh-dialog-exit-duration) var(--oh-dialog-exit-curve),
+    opacity var(--oh-dialog-exit-duration) var(--oh-dialog-exit-curve),
+    transform var(--oh-dialog-exit-duration) var(--oh-dialog-exit-curve),
+    padding var(--oh-dialog-exit-duration) var(--oh-dialog-exit-curve);
+}
+.row.open > .children {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transform: none;
+  padding: 4px 0 0 var(--nest);
+  transition:
+    grid-template-rows var(--oh-dialog-enter-duration) var(--oh-spring),
+    opacity var(--oh-dialog-enter-duration) var(--oh-dialog-curve),
+    transform var(--oh-dialog-enter-duration) var(--oh-spring),
+    padding var(--oh-dialog-enter-duration) var(--oh-dialog-curve);
+}
+.children > .reveal-inner { overflow: hidden; min-height: 0; }
 .child { padding: 12px 0 8px; }
 .foot { display: flex; justify-content: center; margin-top: 22px; }
 .foot .ghost-btn { max-width: 100%; }
-.history { display: none; margin-top: 18px; }
-.history.open { display: block; animation: rise 280ms cubic-bezier(.22,1.2,.36,1); }
+.reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transform: translate3d(0, -10px, 0) scale(.98);
+  margin-top: 0;
+  transition:
+    grid-template-rows var(--oh-dialog-exit-duration) var(--oh-dialog-exit-curve),
+    opacity var(--oh-dialog-exit-duration) var(--oh-dialog-exit-curve),
+    transform var(--oh-dialog-exit-duration) var(--oh-dialog-exit-curve),
+    margin-top var(--oh-dialog-exit-duration) var(--oh-dialog-exit-curve);
+}
+.reveal.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transform: none;
+  margin-top: 18px;
+  transition:
+    grid-template-rows var(--oh-dialog-enter-duration) var(--oh-spring),
+    opacity var(--oh-dialog-enter-duration) var(--oh-dialog-curve),
+    transform var(--oh-dialog-enter-duration) var(--oh-spring),
+    margin-top var(--oh-dialog-enter-duration) var(--oh-dialog-curve);
+}
+.reveal-inner { overflow: hidden; min-height: 0; }
+.history { margin-top: 0; }
 .incidents {
   padding: 0 var(--pad) 12px;
   max-height: min(var(--history-max), 52vh);
@@ -728,27 +799,39 @@ body {
 .incidents::-webkit-scrollbar-track { background: transparent; }
 .incident {
   display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 8px 12px;
-  padding: 12px 0; border-bottom: 1px solid color-mix(in srgb, var(--outline) 70%, transparent);
+  padding: 12px 10px; border-bottom: 1px solid color-mix(in srgb, var(--outline) 70%, transparent);
+  border-left: 3px solid var(--tone, var(--outline));
+  border-radius: 0 12px 12px 0;
   font-size: 13px; overflow-wrap: anywhere;
+  transition: transform var(--oh-hover-duration) var(--oh-spring), background-color var(--oh-hover-duration) ease;
 }
 .incident:last-child { border-bottom: none; }
+@media (hover: hover) and (pointer: fine) {
+  .incident:hover {
+    transform: translateX(4px);
+    background: color-mix(in srgb, var(--tone, var(--primary)) 8%, transparent);
+  }
+}
 .note {
   margin-top: 28px; text-align: center; color: var(--muted); font-size: 12px;
   max-width: 640px; margin-left: auto; margin-right: auto; overflow-wrap: anywhere;
   padding: 0 4px;
+  animation: rise var(--oh-dialog-enter-duration) var(--oh-dialog-curve) both;
+  animation-delay: 180ms;
 }
 .tip {
   position: fixed; z-index: 20; width: max-content;
   min-width: min(240px, calc(100vw - 24px));
   max-width: min(320px, calc(100vw - 24px));
-  pointer-events: none;
+  pointer-events: none; visibility: hidden;
+  transform: translate(-50%, var(--tip-shift-y));
+}
+.tip.show { visibility: visible; }
+.tip.below { --tip-shift-y: 10px; }
+.tip-card {
   background: var(--card); color: var(--text); border: 1px solid var(--outline);
   border-radius: 16px; box-shadow: 0 18px 40px var(--shadow); padding: 12px 14px;
-  transform: translate(-50%, var(--tip-shift-y)) scale(.96); opacity: 0;
-  transition: opacity 140ms ease, transform 180ms cubic-bezier(.22,1.2,.36,1);
 }
-.tip.show { opacity: 1; transform: translate(-50%, var(--tip-shift-y)) scale(1); }
-.tip.below { --tip-shift-y: 10px; }
 .tip b { display: block; font-size: 13px; margin-bottom: 4px; }
 .tip .badge { font-size: 11px; font-weight: 800; color: var(--tone); }
 .tip p { margin: 8px 0 0; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
@@ -757,6 +840,8 @@ body {
 .tile span { display: block; font-size: 10px; color: var(--muted); font-weight: 700; }
 .tile strong { font-size: 13px; overflow-wrap: anywhere; }
 @keyframes rise { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes bar-in { from { transform: scaleY(.12); opacity: .4; } to { transform: none; opacity: 1; } }
+$kOpenHandDialogMotionStandaloneCss
 @media (max-width: ${_kStatusPageCompactMaxPx}px) {
   :root { --pad: 14px; --nest: 20px; --bar-gap: 2px; }
   .foot .ghost-btn { width: 100%; }
@@ -777,6 +862,11 @@ body {
   }
   .bar.on, .bar:hover { transform: none; }
 }
+html[data-motion='reduced'] *,
+html[data-motion='reduced'] *::before,
+html[data-motion='reduced'] *::after {
+  animation: none !important; transition: none !important;
+}
 </style>
 </head>
 <body>
@@ -787,7 +877,7 @@ body {
       <div>OpenHand<small>${_htmlEscape(copy.brandSubtitle)}</small></div>
     </div>
   </div>
-  <section class="banner">
+  <section class="banner" data-health="${overall.name}">
     <div class="banner-head">${_bannerIcon(overall)} ${_htmlEscape(banner.$1)}</div>
     <div class="banner-body">${_htmlEscape(banner.$2)}</div>
   </section>
@@ -796,26 +886,22 @@ body {
       <h2>${_htmlEscape(copy.systemStatus)}</h2>
       <div class="range">$rangeLabel</div>
     </div>
-    <div class="legend">
-      <span class="legend-item"><i class="legend-dot" style="--legend-tone:var(--ok)"></i>${_htmlEscape(copy.healthy)}</span>
-      <span class="legend-item"><i class="legend-dot" style="--legend-tone:var(--caution)"></i>${_htmlEscape(copy.warning)}</span>
-      <span class="legend-item"><i class="legend-dot" style="--legend-tone:var(--warn)"></i>${_htmlEscape(copy.degraded)}</span>
-      <span class="legend-item"><i class="legend-dot" style="--legend-tone:var(--bad)"></i>${_htmlEscape(copy.outage)}</span>
-      <span class="legend-item"><i class="legend-dot" style="--legend-tone:var(--idle);opacity:.45"></i>${_htmlEscape(copy.idle)}</span>
-      <span class="scale-note">${_htmlEscape(copy.healthScale)}</span>
-    </div>
     <div id="rows"></div>
   </section>
   <div class="foot">
-    <button class="ghost-btn" id="toggle-history" type="button" aria-controls="history" aria-expanded="false">${_htmlEscape(copy.viewHistory)}</button>
+    <button class="ghost-btn" id="toggle-history" type="button" aria-controls="history-reveal" aria-expanded="false">${_htmlEscape(copy.viewHistory)}</button>
   </div>
-  <section class="history card" id="history">
-    <div class="card-h"><h2>${_htmlEscape(copy.incidentHistory)}</h2></div>
-    <div class="incidents" id="incidents"></div>
-  </section>
+  <div class="reveal" id="history-reveal" inert>
+    <div class="reveal-inner">
+      <section class="history card" id="history">
+        <div class="card-h"><h2>${_htmlEscape(copy.incidentHistory)}</h2></div>
+        <div class="incidents" id="incidents"></div>
+      </section>
+    </div>
+  </div>
   <p class="note">${_htmlEscape(copy.footnote)}</p>
 </div>
-<div class="tip" id="tip"></div>
+<div class="tip" id="tip" aria-hidden="true"><div class="tip-card" id="tip-card"></div></div>
 <script type="application/json" id="data">${_jsonForScript(payload)}</script>
 <script>
 const data = JSON.parse(document.getElementById('data').textContent);
@@ -824,6 +910,38 @@ const tone = {healthy:data.ok, warning:data.caution, degraded:data.warn, outage:
 const label = {healthy:i18n.healthy, warning:i18n.warning, degraded:i18n.degraded, outage:i18n.outage, idle:i18n.idle};
 const glyph = {healthy:'✓', warning:'!', degraded:'!', outage:'×', idle:'·'};
 const tip = document.getElementById('tip');
+const tipCard = document.getElementById('tip-card');
+let tipExitToken = 0;
+function motionMs(kind){
+  const root = document.documentElement;
+  if (root.getAttribute('data-motion') === 'reduced') return 0;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return 0;
+  const attr = kind === 'enter' ? 'data-dialog-enter' : 'data-dialog-exit';
+  if (root.getAttribute(attr) === 'none') return 0;
+  const prop = kind === 'enter' ? '--oh-dialog-enter-duration' : '--oh-dialog-exit-duration';
+  return parseFloat(getComputedStyle(root).getPropertyValue(prop)) || 0;
+}
+function afterMotion(el, kind, done){
+  const ms = motionMs(kind);
+  if (ms <= 0) { done(); return; }
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    el.removeEventListener('animationend', onEnd);
+    clearTimeout(timer);
+    done();
+  };
+  const onEnd = (ev) => { if (ev.target === el) finish(); };
+  el.addEventListener('animationend', onEnd);
+  const timer = setTimeout(finish, ms + 80);
+}
+function playDialog(el, kind){
+  el.classList.remove('oh-dialog-pop-in', 'oh-dialog-pop-out');
+  if (motionMs(kind) <= 0) return;
+  void el.offsetWidth;
+  el.classList.add(kind === 'enter' ? 'oh-dialog-pop-in' : 'oh-dialog-pop-out');
+}
 function bars(days){
   return '<div class="bars">' + days.map((d,i) => {
     const fill = tone[d.h] || data.idle;
@@ -840,7 +958,7 @@ function row(c, nested){
       (count ? '<span class="meta">'+count+'</span>' : '') +
       '<span class="uptime">'+(c.uptime || '—')+'</span></div>' +
     bars(c.days) +
-    (openable ? '<div class="children">'+c.children.map(ch => row(ch,true)).join('')+'</div>' : '') +
+    (openable ? '<div class="children" inert><div class="reveal-inner">'+c.children.map(ch => row(ch,true)).join('')+'</div></div>' : '') +
   '</article>';
 }
 document.getElementById('rows').innerHTML = data.components.map(c => row(c,false)).join('');
@@ -849,6 +967,8 @@ function toggleRow(el){
   const open = !row.classList.contains('open');
   row.classList.toggle('open', open);
   el.setAttribute('aria-expanded', open ? 'true' : 'false');
+  const kids = row.querySelector(':scope > .children');
+  if (kids) kids.toggleAttribute('inert', !open);
 }
 document.querySelectorAll('[data-toggle]').forEach(el => {
   el.addEventListener('click', () => toggleRow(el));
@@ -890,14 +1010,14 @@ function bindTips(root, days){
     strip.addEventListener('pointermove', reveal);
     strip.addEventListener('pointerleave', () => {
       clearOn(strip);
-      tip.classList.remove('show');
+      hideTip();
     });
   }
 }
 function walk(el, component){
   bindTips(el, component.days);
   (component.children || []).forEach((child, i) => {
-    const node = el.querySelectorAll(':scope > .children > .row')[i];
+    const node = el.querySelectorAll(':scope > .children > .reveal-inner > .row')[i];
     if (node) walk(node, child);
   });
 }
@@ -907,20 +1027,35 @@ if (coarse) {
     if (!pinnedStrip) return;
     if (pinnedStrip.contains(ev.target)) return;
     clearOn(pinnedStrip);
-    tip.classList.remove('show');
+    hideTip();
     pinnedStrip = null;
   });
 }
 function showTip(ev, d, anchor){
+  const wasHidden = !tip.classList.contains('show');
+  tipExitToken += 1;
   tip.style.setProperty('--tone', tone[d.h] || data.idle);
-  tip.innerHTML = '<b>'+d.d+'</b><span class="badge">'+(label[d.h]||d.h)+'</span>' +
+  tipCard.innerHTML = '<b>'+d.d+'</b><span class="badge">'+(label[d.h]||d.h)+'</span>' +
     '<div class="grid"><div class="tile"><span>'+i18n.requests+'</span><strong>'+d.req+'</strong></div>' +
     '<div class="tile"><span>'+i18n.success+'</span><strong>'+d.rate+'</strong></div>' +
     '<div class="tile"><span>'+i18n.failures+'</span><strong>'+d.fail+'</strong></div>' +
     '<div class="tile"><span>'+i18n.slow+'</span><strong>'+d.slow+'</strong></div></div>' +
     '<p>'+(d.note||'')+'</p>';
   tip.classList.add('show');
+  tip.setAttribute('aria-hidden', 'false');
+  if (wasHidden) playDialog(tipCard, 'enter');
   moveTip(ev, anchor);
+}
+function hideTip(){
+  if (!tip.classList.contains('show')) return;
+  const token = ++tipExitToken;
+  playDialog(tipCard, 'exit');
+  afterMotion(tipCard, 'exit', () => {
+    if (token !== tipExitToken) return;
+    tip.classList.remove('show');
+    tip.setAttribute('aria-hidden', 'true');
+    tipCard.classList.remove('oh-dialog-pop-out');
+  });
 }
 function moveTip(ev, anchor){
   const pad = 12;
@@ -947,17 +1082,18 @@ function moveTip(ev, anchor){
   tip.style.top = y + 'px';
 }
 window.addEventListener('resize', () => {
-  tip.classList.remove('show');
+  hideTip();
   if (pinnedStrip) {
     clearOn(pinnedStrip);
     pinnedStrip = null;
   }
 });
-const hist = document.getElementById('history');
+const histReveal = document.getElementById('history-reveal');
 const histBtn = document.getElementById('toggle-history');
 histBtn.addEventListener('click', () => {
-  hist.classList.toggle('open');
-  const open = hist.classList.contains('open');
+  const open = !histReveal.classList.contains('open');
+  histReveal.classList.toggle('open', open);
+  histReveal.toggleAttribute('inert', !open);
   histBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
   histBtn.textContent = open
     ? (i18n.historyClose || histBtn.textContent)
@@ -967,7 +1103,7 @@ const inc = document.getElementById('incidents');
 if (!data.incidents.length) {
   inc.innerHTML = '<p class="note" style="margin:8px 0 16px">'+(i18n.noIncidents||'')+'</p>';
 } else {
-  inc.innerHTML = data.incidents.map(item => '<div class="incident"><strong>'+item.day+'</strong><span>'+item.name+' · '+(label[item.level]||item.level)+'</span><span>'+item.detail+'</span></div>').join('');
+  inc.innerHTML = data.incidents.map(item => '<div class="incident" style="--tone:'+(tone[item.level]||data.idle)+'"><strong>'+item.day+'</strong><span>'+item.name+' · '+(label[item.level]||item.level)+'</span><span>'+item.detail+'</span></div>').join('');
 }
 </script>
 </body>

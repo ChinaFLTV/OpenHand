@@ -1947,6 +1947,8 @@ class AiModelProxyHttpServer {
         themeMode: look.themeMode,
         themePreset: look.preset,
         locale: look.locale,
+        dialogAnimation: look.dialogAnimation,
+        reduceMotion: look.reduceMotion,
       );
     } on Object {
       status = 500;

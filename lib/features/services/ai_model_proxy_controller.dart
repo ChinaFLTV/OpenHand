@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../app/model/dialog_animation_settings.dart';
 import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
 import '../../app/theme/openhand_theme_preset.dart';
@@ -18,6 +19,14 @@ import 'model/ai_model_proxy_models.dart';
 import 'service/ai_model_proxy_http_server.dart';
 
 enum AiModelProxyLifecycle { stopped, starting, running, stopping, error }
+
+typedef AiModelProxyPublicLook = ({
+  ThemeMode themeMode,
+  OpenHandThemePreset preset,
+  Locale locale,
+  DialogAnimationSettings dialogAnimation,
+  bool reduceMotion,
+});
 
 class AiModelProxyController extends ChangeNotifier {
   AiModelProxyController({AiModelProxyStore? store})
@@ -60,8 +69,7 @@ class AiModelProxyController extends ChangeNotifier {
       <String, _RateLimitWindowState>{};
   AiExposureProxyConfiguration Function()? _networkProxyProvider;
   List<AiModelConfig> Function()? _modelsProvider;
-  ({ThemeMode themeMode, OpenHandThemePreset preset, Locale locale}) Function()?
-  _themeProvider;
+  AiModelProxyPublicLook Function()? _themeProvider;
   AiModelProxyHttpServer? _httpServer;
   Future<void>? _rebindFuture;
   bool _rebindRequested = false;
@@ -219,23 +227,20 @@ class AiModelProxyController extends ChangeNotifier {
     );
   }
 
-  /// 状态页跟随应用当前主题、明暗与界面语言，而不是写死一套外观。
-  void attachThemeProvider(
-    ({ThemeMode themeMode, OpenHandThemePreset preset, Locale locale})
-    Function()
-    provider,
-  ) {
+  /// 状态页跟随应用当前主题、明暗、界面语言与弹窗动效，而不是写死一套外观。
+  void attachThemeProvider(AiModelProxyPublicLook Function() provider) {
     if (_disposed) return;
     _themeProvider = provider;
   }
 
-  ({ThemeMode themeMode, OpenHandThemePreset preset, Locale locale})
-  resolveThemeLook() {
+  AiModelProxyPublicLook resolveThemeLook() {
     return _themeProvider?.call() ??
         (
           themeMode: ThemeMode.system,
           preset: OpenHandThemePreset.deepSeaBlue,
           locale: openHandAmbientLocale,
+          dialogAnimation: OpenHandMotionDefaults.dialog,
+          reduceMotion: false,
         );
   }
 
