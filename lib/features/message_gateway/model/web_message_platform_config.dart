@@ -72,11 +72,12 @@ String webGatewayNormalizeListenHost(String rawHost) {
 }
 
 String webGatewayHttpUrl(String host, int port) {
-  return Uri(
-    scheme: 'http',
-    host: webGatewayNormalizeListenHost(host),
-    port: port,
-  ).toString();
+  final normalizedHost = webGatewayNormalizeListenHost(host);
+  try {
+    return Uri(scheme: 'http', host: normalizedHost, port: port).toString();
+  } on FormatException {
+    return 'http://${Uri.encodeComponent(normalizedHost)}:$port';
+  }
 }
 
 const IntValueRange _listenPortRange = IntValueRange(

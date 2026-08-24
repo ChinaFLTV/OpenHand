@@ -2194,9 +2194,9 @@ class AiModelProxyHttpServer {
   }
 
   static Object _resolveListenAddress(String host) {
-    final value = host.trim().toLowerCase();
+    final value = normalizeAiModelProxyListenHost(host).toLowerCase();
     if (value == '*' || value == '0.0.0.0') return InternetAddress.anyIPv4;
-    if (value == '::' || value == '[::]') return InternetAddress.anyIPv6;
+    if (value == '::' || value == '::0') return InternetAddress.anyIPv6;
     if (value == 'localhost') return InternetAddress.loopbackIPv4;
     return InternetAddress.tryParse(value) ?? value;
   }

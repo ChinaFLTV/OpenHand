@@ -94,18 +94,33 @@ String aiModelProxyStatusUrl({
   required String listenHost,
   required int listenPort,
 }) {
-  var host = listenHost.trim();
+  var host = normalizeAiModelProxyListenHost(listenHost);
   if (host.isEmpty ||
       host == '0.0.0.0' ||
       host == '*' ||
       host == '::' ||
-      host == '[::]') {
+      host == '::0') {
     host = '127.0.0.1';
   }
-  if (host.contains(':') && !host.startsWith('[')) {
-    host = '[$host]';
+  try {
+    return Uri(
+      scheme: 'http',
+      host: host,
+      port: listenPort,
+      path: aiModelProxyStatusPath,
+    ).toString();
+  } on FormatException {
+    return 'http://${Uri.encodeComponent(host)}:$listenPort'
+        '$aiModelProxyStatusPath';
   }
-  return 'http://$host:$listenPort$aiModelProxyStatusPath';
+}
+
+String normalizeAiModelProxyListenHost(Object? value) {
+  final host = '$value'.trim();
+  if (host.isEmpty || host == 'null') return aiModelProxyDefaultListenHost;
+  return host.length > 2 && host.startsWith('[') && host.endsWith(']')
+      ? host.substring(1, host.length - 1)
+      : host;
 }
 
 enum AiModelProxyHealth { idle, healthy, degraded, outage }
@@ -769,7 +784,7 @@ class AiModelProxySettings {
             .toList(growable: false);
     return AiModelProxySettings(
       enabled: boolFromValue(json['enabled']),
-      listenHost: _normalizeListenHost(json['listen_host']),
+      listenHost: normalizeAiModelProxyListenHost(json['listen_host']),
       listenPort: _boundedInt(
         json['listen_port'],
         aiModelProxyDefaultListenPort,
@@ -853,7 +868,7 @@ class AiModelProxySettings {
     List<AiModelProxyDailyHealth>? dailyHealth,
   }) => AiModelProxySettings(
     enabled: enabled ?? this.enabled,
-    listenHost: _normalizeListenHost(listenHost ?? this.listenHost),
+    listenHost: normalizeAiModelProxyListenHost(listenHost ?? this.listenHost),
     listenPort: (listenPort ?? this.listenPort).clamp(
       aiModelProxyMinListenPort,
       aiModelProxyMaxListenPort,
@@ -949,7 +964,7 @@ class AiModelProxySettings {
 
   Map<String, Object?> toJson() => <String, Object?>{
     'enabled': enabled,
-    'listen_host': _normalizeListenHost(listenHost),
+    'listen_host': normalizeAiModelProxyListenHost(listenHost),
     'listen_port': listenPort.clamp(
       aiModelProxyMinListenPort,
       aiModelProxyMaxListenPort,
@@ -986,12 +1001,5 @@ class AiModelProxySettings {
   static int _boundedInt(Object? value, int fallback, int min, int max) {
     final parsed = value is num ? value.toInt() : int.tryParse('$value');
     return (parsed ?? fallback).clamp(min, max).toInt();
-  }
-
-  static String _normalizeListenHost(Object? value) {
-    final host = '$value'.trim();
-    return host.isEmpty || host == 'null'
-        ? aiModelProxyDefaultListenHost
-        : host;
   }
 }
