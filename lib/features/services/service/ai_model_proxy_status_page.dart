@@ -19,6 +19,7 @@ const int _kStatusHistoryMaxPx = 360;
 const int _kStatusBarHeightPx = 34;
 const int _kStatusBarPhoneHeightPx = 28;
 const int _kStatusBarCoarseHeightPx = 40;
+const int _kStatusBarMinWidthPx = 2;
 const double _kStatusBarHoverScale = 1.22;
 const int _kStatusDotSizePx = 22;
 const int _kStatusBannerDotSizePx = 26;
@@ -679,7 +680,7 @@ body {
 }
 .card {
   background: var(--card); border: 1px solid var(--outline); border-radius: var(--radius);
-  box-shadow: 0 16px 40px var(--shadow); overflow: hidden;
+  box-shadow: 0 16px 40px var(--shadow); overflow: visible;
   animation: rise var(--oh-dialog-enter-duration) var(--oh-dialog-curve) backwards;
   animation-delay: 60ms;
 }
@@ -780,9 +781,11 @@ body {
   height: var(--bar-h);
   align-items: stretch; width: 100%; touch-action: manipulation;
   overflow: visible;
+  position: relative;
+  z-index: 1;
 }
 .bar {
-  flex: 1 1 0; min-width: 0; height: 100%;
+  flex: 1 1 0; min-width: ${_kStatusBarMinWidthPx}px; height: 100%;
   position: relative;
   transform-origin: bottom center;
   cursor: pointer;
@@ -825,6 +828,7 @@ body {
   display: grid;
   grid-template-rows: 0fr;
   opacity: 0;
+  pointer-events: none;
   transform: translate3d(0, -8px, 0) scale(.985);
   padding: 0 0 0 var(--nest);
   transition:
@@ -836,6 +840,7 @@ body {
 .row.open > .children {
   grid-template-rows: 1fr;
   opacity: 1;
+  pointer-events: auto;
   transform: none;
   padding: 4px 0 0 var(--nest);
   transition:
@@ -913,7 +918,7 @@ body {
   animation-delay: 180ms;
 }
 .tip {
-  position: fixed; z-index: 40; width: max-content;
+  position: fixed; z-index: 80; width: max-content;
   min-width: min(240px, calc(100vw - 24px));
   max-width: min(320px, calc(100vw - 24px));
   pointer-events: none; visibility: hidden;
@@ -922,14 +927,38 @@ body {
 .tip.show { visibility: visible; }
 .tip.below { --tip-shift-y: 10px; }
 .tip-card {
-  background: var(--card); color: var(--text); border: 1px solid var(--outline);
-  border-radius: 16px; box-shadow: 0 18px 40px var(--shadow); padding: 12px 14px;
+  --tip-pad: 12px 14px;
+  background:
+    linear-gradient(165deg, color-mix(in srgb, var(--tone) 18%, var(--card)), var(--card) 46%);
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--tone) 42%, var(--outline));
+  border-radius: 18px;
+  box-shadow:
+    0 18px 40px var(--shadow),
+    0 12px 28px color-mix(in srgb, var(--tone) 20%, transparent);
+  padding: var(--tip-pad);
 }
-.tip b { display: block; font-size: 13px; margin-bottom: 4px; }
-.tip .badge { font-size: 11px; font-weight: 800; color: var(--tone); }
-.tip p { margin: 8px 0 0; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
-.tile { background: color-mix(in srgb, var(--tone) 10%, var(--bg-accent)); border-radius: 10px; padding: 7px 8px; min-width: 0; }
+.tip-card::before {
+  content: '';
+  display: block;
+  height: 3px;
+  margin: -12px -14px 10px;
+  background: linear-gradient(90deg, var(--tone), color-mix(in srgb, var(--primary) 72%, var(--tone)));
+}
+.tip b { display: block; font-size: 13px; letter-spacing: -.02em; }
+.tip .badge {
+  display: inline-flex; align-items: center; margin-top: 6px;
+  padding: 2px 8px; border-radius: 999px;
+  background: color-mix(in srgb, var(--tone) 16%, transparent);
+  font-size: 11px; font-weight: 800; color: var(--tone);
+}
+.tip p { margin: 10px 0 0; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.tile {
+  background: color-mix(in srgb, var(--tone) 12%, var(--bg-accent));
+  border: 1px solid color-mix(in srgb, var(--tone) 16%, transparent);
+  border-radius: 12px; padding: 7px 8px; min-width: 0;
+}
 .tile span { display: block; font-size: 10px; color: var(--muted); font-weight: 700; }
 .tile strong { font-size: 13px; overflow-wrap: anywhere; }
 .sync-toast {
@@ -1068,7 +1097,6 @@ const tipCard = document.getElementById('tip-card');
 const inc = document.getElementById('incidents');
 const histReveal = document.getElementById('history-reveal');
 const histBtn = document.getElementById('toggle-history');
-const coarse = window.matchMedia('(pointer: coarse)').matches;
 let tipExitToken = 0;
 let pinnedStrip = null;
 let activeStrip = null;
@@ -1134,15 +1162,33 @@ function bump(el, cls){
   afterMotion(el, 'enter', () => el.classList.remove(cls));
 }
 function findComponent(id, list){
-  const items = list || data.components || [];
+  const items = list == null ? (data.components || []) : list;
+  const key = String(id == null ? '' : id);
   for (let i = 0; i < items.length; i++) {
     const c = items[i];
     if (!c) continue;
-    if (c.id === id) return c;
-    const hit = findComponent(id, c.children);
+    if (String(c.id) === key) return c;
+    const kids = c.children;
+    if (!kids || !kids.length) continue;
+    const hit = findComponent(id, kids);
     if (hit) return hit;
   }
   return null;
+}
+function attachStripDays(el, c){
+  if (!el || !c) return;
+  const strip = el.querySelector(':scope > .bars');
+  if (strip) strip._days = c.days || [];
+  const kids = c.children || [];
+  const childRows = el.querySelectorAll(':scope > .children > .reveal-inner > .row');
+  for (let i = 0; i < childRows.length; i++) attachStripDays(childRows[i], kids[i]);
+}
+function daysOf(strip, rowEl){
+  if (strip && Array.isArray(strip._days)) return strip._days;
+  const c = rowEl && findComponent(rowEl.getAttribute('data-id'));
+  const days = (c && c.days) || [];
+  if (strip) strip._days = days;
+  return days;
 }
 function bars(days){
   return '<div class="bars">' + (days || []).map((d,i) => {
@@ -1170,12 +1216,15 @@ function liveRows(container){
 function mountRow(c, nested){
   const wrap = document.createElement('div');
   wrap.innerHTML = row(c, nested);
-  return wrap.firstElementChild;
+  const el = wrap.firstElementChild;
+  attachStripDays(el, c);
+  return el;
 }
 function patchBars(el, days){
   let strip = el.querySelector(':scope > .bars');
   const list = days || [];
   if (!list.length) {
+    if (strip && activeStrip === strip) releaseStrip();
     if (strip) strip.remove();
     return;
   }
@@ -1183,12 +1232,19 @@ function patchBars(el, days){
     const head = el.querySelector(':scope > .row-h');
     if (head) head.insertAdjacentHTML('afterend', bars(list));
     else el.insertAdjacentHTML('beforeend', bars(list));
+    strip = el.querySelector(':scope > .bars');
+    if (strip) strip._days = list;
     return;
   }
   if (strip.children.length !== list.length) {
+    const keep = activeStrip === strip;
     strip.outerHTML = bars(list);
+    strip = el.querySelector(':scope > .bars');
+    if (strip) strip._days = list;
+    if (keep) activeStrip = strip;
     return;
   }
+  strip._days = list;
   for (let i = 0; i < list.length; i++) {
     const d = list[i];
     const bar = strip.children[i];
@@ -1360,19 +1416,46 @@ function toggleRow(el){
   if (!open && activeStrip && rowEl.contains(activeStrip)) releaseStrip();
 }
 rowsEl.addEventListener('click', (ev) => {
-  const toggle = ev.target.closest('[data-toggle]');
+  const node = eventNode(ev);
+  const toggle = node && node.closest ? node.closest('[data-toggle]') : null;
   if (!toggle || !rowsEl.contains(toggle)) return;
   toggleRow(toggle);
 });
 rowsEl.addEventListener('keydown', (ev) => {
   if (ev.key !== 'Enter' && ev.key !== ' ') return;
-  const toggle = ev.target.closest('[data-toggle]');
+  const node = eventNode(ev);
+  const toggle = node && node.closest ? node.closest('[data-toggle]') : null;
   if (!toggle || !rowsEl.contains(toggle)) return;
   ev.preventDefault();
   toggleRow(toggle);
 });
+function eventNode(ev){
+  const node = ev.target;
+  if (!node) return null;
+  return node.nodeType === 1 ? node : node.parentElement;
+}
+function eventStrip(ev){
+  const fromNode = (node) => {
+    if (!node || !node.closest) return null;
+    const strip = node.closest('.bars');
+    return strip && rowsEl.contains(strip) ? strip : null;
+  };
+  const direct = fromNode(eventNode(ev));
+  if (direct) return direct;
+  const x = ev.clientX, y = ev.clientY;
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !document.elementsFromPoint) return null;
+  const stack = document.elementsFromPoint(x, y);
+  for (let i = 0; i < stack.length; i++) {
+    const node = stack[i];
+    if (!node || node.id === 'tip' || (node.classList && node.classList.contains('tip-card'))) continue;
+    const strip = fromNode(node);
+    if (strip) return strip;
+  }
+  return null;
+}
 function dayIndex(strip, ev, n){
-  const hit = ev.target && ev.target.closest ? ev.target.closest('.bar') : null;
+  const node = eventNode(ev);
+  const hit = node && node.closest ? node.closest('.bar') : null;
   if (hit && strip.contains(hit)) {
     const i = parseInt(hit.getAttribute('data-i'), 10);
     if (Number.isFinite(i)) return Math.max(0, Math.min(n - 1, i));
@@ -1401,12 +1484,11 @@ function fillTip(d){
     '<div class="tile"><span>'+labels.slow+'</span><strong>'+d.slow+'</strong></div></div>' +
     '<p>'+(d.note||'')+'</p>';
 }
-function revealFromEvent(ev){
-  const strip = ev.target.closest && ev.target.closest('.bars');
-  if (!strip || !rowsEl.contains(strip)) return;
+function revealFromEvent(ev, strip){
+  strip = strip || eventStrip(ev);
+  if (!strip) return;
   const rowEl = strip.closest('.row');
-  const component = rowEl && findComponent(rowEl.getAttribute('data-id'));
-  const days = (component && component.days) || [];
+  const days = daysOf(strip, rowEl);
   const i = dayIndex(strip, ev, days.length);
   const d = days[i];
   const bar = strip.children[i];
@@ -1417,27 +1499,33 @@ function revealFromEvent(ev){
   activeStrip = strip;
   showTip(ev, d, bar || strip);
 }
-if (coarse) {
-  rowsEl.addEventListener('pointerdown', (ev) => {
-    const strip = ev.target.closest && ev.target.closest('.bars');
-    if (!strip || !rowsEl.contains(strip)) return;
-    pinnedStrip = strip;
-    revealFromEvent(ev);
-  });
-  document.addEventListener('pointerdown', (ev) => {
-    if (!pinnedStrip) return;
-    if (pinnedStrip.contains(ev.target)) return;
-    releaseStrip();
-  });
-} else {
-  rowsEl.addEventListener('pointermove', revealFromEvent);
-  rowsEl.addEventListener('pointerout', (ev) => {
-    const strip = ev.target.closest && ev.target.closest('.bars');
-    if (!strip || activeStrip !== strip) return;
-    if (ev.relatedTarget && strip.contains(ev.relatedTarget)) return;
-    releaseStrip();
-  });
+function onPointerHover(ev){
+  if (ev.pointerType === 'touch') return;
+  const strip = eventStrip(ev);
+  if (!strip) {
+    if (activeStrip) releaseStrip();
+    return;
+  }
+  revealFromEvent(ev, strip);
 }
+rowsEl.addEventListener('pointerover', onPointerHover);
+rowsEl.addEventListener('pointermove', onPointerHover);
+rowsEl.addEventListener('pointerdown', (ev) => {
+  const strip = eventStrip(ev);
+  if (!strip) return;
+  if (ev.pointerType === 'touch') pinnedStrip = strip;
+  revealFromEvent(ev, strip);
+});
+rowsEl.addEventListener('pointerleave', (ev) => {
+  if (ev.pointerType === 'touch') return;
+  releaseStrip();
+});
+document.addEventListener('pointerdown', (ev) => {
+  if (!pinnedStrip) return;
+  const node = eventNode(ev);
+  if (node && pinnedStrip.contains(node)) return;
+  releaseStrip();
+});
 function showTip(ev, d, anchor){
   const leaving = tipCard.classList.contains('oh-dialog-pop-out');
   const wasHidden = !tip.classList.contains('show');
@@ -1446,6 +1534,7 @@ function showTip(ev, d, anchor){
   tip.classList.add('show');
   tip.setAttribute('aria-hidden', 'false');
   if (wasHidden || leaving) playDialog(tipCard, 'enter');
+  else tipCard.classList.remove('oh-dialog-pop-out');
   moveTip(ev, anchor);
 }
 function hideTip(){
@@ -1460,11 +1549,11 @@ function hideTip(){
   });
 }
 function refreshOpenTip(){
-  if (!tip.classList.contains('show') || !activeStrip) return;
+  if (!tip.classList.contains('show') || !activeStrip || !activeStrip.isConnected) return;
   const rowEl = activeStrip.closest('.row');
-  const c = rowEl && findComponent(rowEl.getAttribute('data-id'));
+  const days = daysOf(activeStrip, rowEl);
   const i = [...activeStrip.children].findIndex((el) => el.classList.contains('on'));
-  const d = c && c.days && c.days[i];
+  const d = days[i < 0 ? 0 : i];
   if (!d) { hideTip(); return; }
   fillTip(d);
 }
