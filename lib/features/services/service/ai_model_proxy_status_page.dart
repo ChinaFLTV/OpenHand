@@ -20,6 +20,9 @@ const int _kStatusBarHeightPx = 34;
 const int _kStatusBarPhoneHeightPx = 28;
 const int _kStatusBarCoarseHeightPx = 40;
 const double _kStatusBarHoverScale = 1.48;
+const int _kStatusDotSizePx = 22;
+const int _kStatusBannerDotSizePx = 26;
+const int _kStatusMarkStrokePx = 2;
 
 String _statusPageLang(Locale locale) {
   final ui = openHandSupportedUiLocale(locale);
@@ -647,6 +650,7 @@ body {
   .ghost-btn:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 12px 28px var(--shadow); }
 }
 .banner {
+  --tone: var(--banner-edge);
   border: 1px solid var(--banner-edge); border-radius: var(--radius); overflow: hidden;
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--banner-edge) 18%, var(--card)), var(--card) 62%);
@@ -657,7 +661,7 @@ body {
   box-shadow: 0 16px 36px color-mix(in srgb, var(--bad) 22%, transparent);
 }
 .banner-head {
-  display: flex; align-items: flex-start; gap: 10px;
+  display: flex; align-items: center; gap: 10px;
   padding: 16px var(--pad); background: var(--banner); font-weight: 800;
   font-size: clamp(16px, 3.6vw, 18px); overflow-wrap: anywhere;
 }
@@ -714,8 +718,40 @@ body {
   .row-h[data-toggle]:hover { transform: translateX(2px); }
 }
 .dot {
-  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
-  background: color-mix(in srgb, var(--tone) 18%, transparent); color: var(--tone); flex: none;
+  --dot-size: ${_kStatusDotSizePx}px;
+  --mark-stroke: ${_kStatusMarkStrokePx}px;
+  width: var(--dot-size); height: var(--dot-size); border-radius: 50%;
+  position: relative; flex: none; line-height: 0;
+  background: color-mix(in srgb, var(--tone) 18%, transparent); color: var(--tone);
+}
+.banner-head .dot { --dot-size: ${_kStatusBannerDotSizePx}px; }
+.dot::before, .dot::after {
+  content: none; position: absolute; left: 50%; top: 50%;
+  background: currentColor; pointer-events: none;
+}
+.dot[data-h="outage"]::before, .dot[data-h="outage"]::after {
+  content: ''; width: 52%; height: var(--mark-stroke); border-radius: 999px;
+}
+.dot[data-h="outage"]::before { transform: translate(-50%, -50%) rotate(45deg); }
+.dot[data-h="outage"]::after { transform: translate(-50%, -50%) rotate(-45deg); }
+.dot[data-h="healthy"]::before {
+  content: ''; width: 34%; height: 54%; background: none;
+  border-right: var(--mark-stroke) solid currentColor;
+  border-bottom: var(--mark-stroke) solid currentColor;
+  border-radius: 0.5px;
+  transform: translate(-50%, -58%) rotate(45deg);
+}
+.dot[data-h="warning"]::before, .dot[data-h="degraded"]::before {
+  content: ''; width: var(--mark-stroke); height: 36%; border-radius: 999px;
+  transform: translate(-50%, calc(-50% - 12%));
+}
+.dot[data-h="warning"]::after, .dot[data-h="degraded"]::after {
+  content: ''; width: var(--mark-stroke); height: var(--mark-stroke); border-radius: 50%;
+  transform: translate(-50%, calc(-50% + 26%));
+}
+.dot[data-h="idle"]::before {
+  content: ''; width: 24%; height: 24%; border-radius: 50%;
+  transform: translate(-50%, -50%);
 }
 .name { font-weight: 800; min-width: 0; overflow-wrap: anywhere; flex: 1 1 140px; }
 .meta { color: var(--muted); font-size: 13px; font-weight: 650; }
@@ -915,7 +951,7 @@ html[data-motion='reduced'] .bar:hover .bar-fill { box-shadow: none; }
     </div>
   </div>
   <section class="banner" data-health="${overall.name}">
-    <div class="banner-head">${_bannerIcon(overall)} ${_htmlEscape(banner.$1)}</div>
+    <div class="banner-head">${_statusDotMarkup(overall)} ${_htmlEscape(banner.$1)}</div>
     <div class="banner-body">${_htmlEscape(banner.$2)}</div>
   </section>
   <section class="card">
@@ -945,7 +981,6 @@ const data = JSON.parse(document.getElementById('data').textContent);
 const i18n = data.i18n || {};
 const tone = {healthy:data.ok, warning:data.caution, degraded:data.warn, outage:data.bad, idle:data.idle};
 const label = {healthy:i18n.healthy, warning:i18n.warning, degraded:i18n.degraded, outage:i18n.outage, idle:i18n.idle};
-const glyph = {healthy:'✓', warning:'!', degraded:'!', outage:'×', idle:'·'};
 const tip = document.getElementById('tip');
 const tipCard = document.getElementById('tip-card');
 let tipExitToken = 0;
@@ -991,7 +1026,7 @@ function row(c, nested){
   const openable = c.children && c.children.length;
   return '<article class="row'+(nested?' child':'')+'" style="--tone:'+(tone[c.health]||data.idle)+'">' +
     '<div class="row-h"'+(openable?' data-toggle="1" role="button" tabindex="0" aria-expanded="false"':'')+'>' +
-      '<span class="dot" aria-hidden="true">'+(glyph[c.health]||'·')+'</span><span class="name">'+c.name+'</span>' +
+      '<span class="dot" data-h="'+(c.health||'idle')+'" aria-hidden="true"></span><span class="name">'+c.name+'</span>' +
       (count ? '<span class="meta">'+count+'</span>' : '') +
       '<span class="uptime">'+(c.uptime || '—')+'</span></div>' +
     bars(c.days) +
@@ -1308,13 +1343,8 @@ AiModelProxyHealth _worstHealth(Iterable<AiModelProxyHealth> values) {
   return AiModelProxyHealth.idle;
 }
 
-String _bannerIcon(AiModelProxyHealth health) => switch (health) {
-  AiModelProxyHealth.healthy => '✓',
-  AiModelProxyHealth.warning => '!',
-  AiModelProxyHealth.degraded => '!',
-  AiModelProxyHealth.outage => '×',
-  AiModelProxyHealth.idle => '·',
-};
+String _statusDotMarkup(AiModelProxyHealth health) =>
+    '<span class="dot" data-h="${health.name}" aria-hidden="true"></span>';
 
 Color _healthColor(AiModelProxyHealth health) => switch (health) {
   AiModelProxyHealth.healthy => OpenHandStatusColors.success,
