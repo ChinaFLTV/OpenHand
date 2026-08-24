@@ -1078,9 +1078,7 @@ class AiModelProxyDispatcher {
 
   static bool _isLocalTarget(String host) {
     final normalized = host.trim().toLowerCase();
-    if (normalized.isEmpty || isLoopbackHost(normalized)) return true;
-    final parsed = InternetAddress.tryParse(normalized);
-    return parsed?.isLoopback ?? false;
+    return normalized.isEmpty || isLoopbackHost(normalized);
   }
 
   Future<_RoutedChatClient?> _createRoutedChatClient(
@@ -1146,7 +1144,9 @@ class AiModelProxyDispatcher {
     );
   }
 
-  void dispose() => _chatClient.dispose();
+  void dispose() {
+    if (_usesDefaultChatClient) _chatClient.dispose();
+  }
 }
 
 /// 为单次入口请求维护后备模型重试策略，避免同步与流式链路各自解释策略。

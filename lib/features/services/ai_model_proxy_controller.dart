@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../app/support/system_proxy.dart';
 import '../../app/theme/openhand_theme_preset.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/sensitive_data.dart';
@@ -131,18 +131,7 @@ class AiModelProxyController extends ChangeNotifier {
   }
 
   static bool isLoopbackListenHost(String host) {
-    final normalized = _normalizeEndpointHost(host);
-    if (normalized == 'localhost' || normalized == 'localhost.localdomain') {
-      return true;
-    }
-    const mappedIpv4Prefix = '::ffff:';
-    if (normalized.startsWith(mappedIpv4Prefix)) {
-      return InternetAddress.tryParse(
-            normalized.substring(mappedIpv4Prefix.length),
-          )?.isLoopback ??
-          false;
-    }
-    return InternetAddress.tryParse(normalized)?.isLoopback ?? false;
+    return isLoopbackHost(_normalizeEndpointHost(host));
   }
 
   /// 复用暴露面扫描服务的代理池配置，保证两个服务选择同一条网络策略。
@@ -359,8 +348,9 @@ class AiModelProxyController extends ChangeNotifier {
       window.add(now, 0);
       return true;
     }
-    final safeTokens = tokens.clamp(0, 1 << 30);
-    if (safeTokens == 0) return true;
+    // TPM 模式下 continuation 等无显式正文的请求仍会占用上游资源，至少按
+    // 一个令牌计入窗口，避免零令牌请求绕过限流。
+    final safeTokens = tokens.clamp(1, 1 << 30);
     if (window.tokenTotal + safeTokens > _settings.limitThreshold) return false;
     window.add(now, safeTokens);
     return true;

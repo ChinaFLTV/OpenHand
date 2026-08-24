@@ -44,7 +44,8 @@ class AiModelProxyHttpServer {
   final AiModelProxyController _controller;
   final AiModelProxyDispatcher _dispatcher;
   HttpServer? _server;
-  int _activeRequests = 0;
+  final Set<int> _activeRequestTokens = <int>{};
+  int _requestSequence = 0;
   bool _closing = false;
   Uint8List? _logoPng;
 
@@ -71,6 +72,7 @@ class AiModelProxyHttpServer {
     final server = _server;
     _server = null;
     _closing = true;
+    _activeRequestTokens.clear();
     if (server == null) return;
     try {
       await server.close(force: true).timeout(_bindTimeout);
@@ -99,7 +101,7 @@ class AiModelProxyHttpServer {
         _controller.runtimeRequestObserved(
           inboundBytes: request.contentLength < 0 ? 0 : request.contentLength,
         );
-        if (_activeRequests >= aiModelProxyMaxConcurrentRequests) {
+        if (_activeRequestTokens.length >= aiModelProxyMaxConcurrentRequests) {
           await _writeError(
             request,
             429,
@@ -108,7 +110,8 @@ class AiModelProxyHttpServer {
           );
           continue;
         }
-        _activeRequests += 1;
+        final requestToken = ++_requestSequence;
+        _activeRequestTokens.add(requestToken);
         final connectionKey = _connectionKey(request);
         final runtimeRequestId = _controller.runtimeRequestStarted(
           connectionKey: connectionKey,
@@ -116,7 +119,7 @@ class AiModelProxyHttpServer {
         );
         unawaited(
           _handleRequest(request).whenComplete(() {
-            _activeRequests = (_activeRequests - 1).clamp(0, 1 << 30).toInt();
+            _activeRequestTokens.remove(requestToken);
             _controller.runtimeRequestFinished(runtimeRequestId);
           }),
         );
@@ -1449,8 +1452,7 @@ class AiModelProxyHttpServer {
               'usage': _openAiUsage(responsePayload['usage']),
             });
           }
-          request.response.write('data: [DONE]\n\n');
-          await request.response.flush();
+          await _writeSsePayload(request, 'data: [DONE]\n\n');
         case _ProxyRoute.responses:
           if (responseTextStarted) {
             final outputIndex = responseTextOutputIndex!;
@@ -1601,10 +1603,13 @@ class AiModelProxyHttpServer {
     final payload = StringBuffer();
     if (event.isNotEmpty) payload.write('event: $event\n');
     payload.write('data: ${jsonEncode(data)}\n\n');
-    final encoded = payload.toString();
-    request.response.write(encoded);
+    await _writeSsePayload(request, payload.toString());
+  }
+
+  Future<void> _writeSsePayload(HttpRequest request, String payload) async {
+    request.response.write(payload);
     _controller.runtimeResponseWritten(
-      outboundBytes: utf8.encode(encoded).length,
+      outboundBytes: utf8.encode(payload).length,
     );
     await request.response.flush();
   }
