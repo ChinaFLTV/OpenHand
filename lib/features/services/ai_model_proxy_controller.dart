@@ -9,6 +9,7 @@ import '../../app/theme/openhand_theme_preset.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/sensitive_data.dart';
 import '../../shared/util/serial_task_queue.dart';
+import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
 import 'data/ai_model_proxy_store.dart';
 import 'model/ai_exposure_models.dart';
@@ -22,6 +23,9 @@ class AiModelProxyController extends ChangeNotifier {
     : _store = store ?? AiModelProxyStore();
 
   final AiModelProxyStore _store;
+  static const Duration _runtimeResponseNotifyDelay = Duration(
+    milliseconds: 40,
+  );
   // 设置变更只需保证最终快照落盘，丢弃尚未开始的旧快照即可避免快速操作堆积。
   final LatestTaskQueue _writes = LatestTaskQueue();
   AiModelProxySettings _settings = const AiModelProxySettings();
@@ -52,6 +56,7 @@ class AiModelProxyController extends ChangeNotifier {
   AiModelProxyHttpServer? _httpServer;
   Future<void>? _rebindFuture;
   bool _rebindRequested = false;
+  Timer? _runtimeResponseNotifyTimer;
 
   AiModelProxySettings get settings => _settings;
   AiModelProxyLifecycle get lifecycle => _lifecycle;
@@ -470,10 +475,7 @@ class AiModelProxyController extends ChangeNotifier {
       );
       _resetRuntimeOccupancy();
       _resetRateLimitWindows();
-      _runtimeInboundBytes = 0;
-      _runtimeOutboundBytes = 0;
-      _runtimeRequestCount = 0;
-      _runtimeErrorCount = 0;
+      _resetRuntimeMetrics();
       await server.start();
       _startedAt = DateTime.now();
       _settings = _settings.copyWith(enabled: true);
@@ -697,7 +699,13 @@ class AiModelProxyController extends ChangeNotifier {
     if (statusCode >= 400) {
       _runtimeErrorCount = (_runtimeErrorCount + 1).clamp(0, 1 << 62).toInt();
     }
-    _notify();
+    _runtimeResponseNotifyTimer ??= startSafeTimer(
+      _runtimeResponseNotifyDelay,
+      () {
+        _runtimeResponseNotifyTimer = null;
+        _notify();
+      },
+    );
   }
 
   void runtimeRequestFinished(int? requestId) {
@@ -726,6 +734,8 @@ class AiModelProxyController extends ChangeNotifier {
   }
 
   void _notify() {
+    _runtimeResponseNotifyTimer?.cancel();
+    _runtimeResponseNotifyTimer = null;
     if (!_disposed) notifyListeners();
   }
 
@@ -807,6 +817,8 @@ class AiModelProxyController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _runtimeResponseNotifyTimer?.cancel();
+    _runtimeResponseNotifyTimer = null;
     _startedAt = null;
     _resetRuntimeOccupancy();
     _resetRateLimitWindows();
@@ -887,6 +899,15 @@ class AiModelProxyController extends ChangeNotifier {
     _runtimeRequests.clear();
     _unknownConnectionRequests = 0;
     _liveConnections.clear();
+  }
+
+  void _resetRuntimeMetrics() {
+    _runtimeResponseNotifyTimer?.cancel();
+    _runtimeResponseNotifyTimer = null;
+    _runtimeInboundBytes = 0;
+    _runtimeOutboundBytes = 0;
+    _runtimeRequestCount = 0;
+    _runtimeErrorCount = 0;
   }
 
   static void _validateSecuritySettings(AiModelProxySettings settings) {

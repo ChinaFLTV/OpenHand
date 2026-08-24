@@ -1607,11 +1607,7 @@ class AiModelProxyHttpServer {
   }
 
   Future<void> _writeSsePayload(HttpRequest request, String payload) async {
-    request.response.write(payload);
-    _controller.runtimeResponseWritten(
-      outboundBytes: utf8.encode(payload).length,
-    );
-    await request.response.flush();
+    await _writeUtf8Payload(request, payload, flush: true);
   }
 
   static bool _isStreaming(Map<String, Object?> payload, String path) =>
@@ -1976,14 +1972,24 @@ class AiModelProxyHttpServer {
       ..headers.contentType = ContentType.json;
     _applyCorsHeaders(request, methods: _corsApiMethods);
     if (status != 204) {
-      final payload = jsonEncode(body);
-      request.response.write(payload);
-      _controller.runtimeResponseWritten(
-        outboundBytes: utf8.encode(payload).length,
-        statusCode: status,
-      );
+      await _writeUtf8Payload(request, jsonEncode(body), statusCode: status);
     }
     await request.response.close();
+  }
+
+  Future<void> _writeUtf8Payload(
+    HttpRequest request,
+    String payload, {
+    int statusCode = 200,
+    bool flush = false,
+  }) async {
+    final bytes = utf8.encode(payload);
+    request.response.add(bytes);
+    _controller.runtimeResponseWritten(
+      outboundBytes: bytes.length,
+      statusCode: statusCode,
+    );
+    if (flush) await request.response.flush();
   }
 
   Future<void> _writeError(
