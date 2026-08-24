@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
 import '../../shared/net/http_response_utils.dart';
 import '../../shared/util/byte_size_format.dart';
@@ -103,9 +104,17 @@ class AiModelHealthController extends ChangeNotifier {
       _settings = next;
       _restartTimer();
       notifyListeners();
-      unawaited(_store.prune(next.retentionDays));
+      unawaited(
+        _store.prune(next.retentionDays).catchError((
+          Object error,
+          StackTrace stack,
+        ) {
+          silentLog('ai_model_health_controller', '清理过期模型巡检记录', error, stack);
+        }),
+      );
       return true;
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('ai_model_health_controller', '保存模型巡检设置', error, stack);
       return false;
     }
   }
@@ -357,8 +366,9 @@ class AiModelHealthController extends ChangeNotifier {
     if (_records.length > 4000) _records.removeRange(4000, _records.length);
     try {
       await _store.insert(record);
-    } catch (_) {
+    } catch (error, stack) {
       // 网络结果仍保留在当前会话，数据库异常不阻断巡检队列。
+      silentLog('ai_model_health_controller', '保存模型巡检记录', error, stack);
     }
     if (notify && !_disposed) notifyListeners();
     return record;
@@ -582,7 +592,7 @@ class AiModelHealthController extends ChangeNotifier {
     if (_settings.enabled && _modelsProvider != null) {
       _timer = startSafePeriodicTimer(
         Duration(minutes: _settings.intervalMinutes),
-        (_) => unawaited(checkAll()),
+        (_) => checkAll(),
       );
     }
   }
