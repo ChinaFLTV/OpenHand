@@ -2326,8 +2326,7 @@ class _ProxyAverageResponseDialogState
                         child: Stack(
                           children: [
                             Positioned.fill(
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.opaque,
+                              child: OpenHandTwoFingerScaleGestureDetector(
                                 onScaleStart: _handleScaleStart,
                                 onScaleUpdate: _handleScaleUpdate,
                                 onScaleEnd: _handleScaleEnd,
@@ -3081,8 +3080,7 @@ class _ProxyRequestTelemetryDialogState
                         child: Stack(
                           children: [
                             Positioned.fill(
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.opaque,
+                              child: OpenHandTwoFingerScaleGestureDetector(
                                 onScaleStart: _handleScaleStart,
                                 onScaleUpdate: _handleScaleUpdate,
                                 onScaleEnd: _handleScaleEnd,
@@ -3741,18 +3739,18 @@ class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
   int _lastHoveredIndex = 0;
   bool _focused = false;
 
-  void _selectPointAt(double dx, double width) {
-    if (widget.points.isEmpty || width <= _chartInset * 2) return;
+  void _selectPointAt(double dx, double width, int pointCount) {
+    if (pointCount == 0 || width <= _chartInset * 2) return;
     final ratio = ((dx - _chartInset) / (width - _chartInset * 2)).clamp(
       0.0,
       1.0,
     );
-    _selectIndex((ratio * (widget.points.length - 1)).round());
+    _selectIndex((ratio * (pointCount - 1)).round(), pointCount);
   }
 
-  void _selectIndex(int index) {
-    if (widget.points.isEmpty) return;
-    final resolved = index.clamp(0, widget.points.length - 1);
+  void _selectIndex(int index, int pointCount) {
+    if (pointCount == 0) return;
+    final resolved = index.clamp(0, pointCount - 1);
     if (resolved == _hoveredIndex) return;
     setState(() {
       _hoveredIndex = resolved;
@@ -3760,19 +3758,35 @@ class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
     });
   }
 
-  void _moveSelection(int direction) {
-    if (widget.points.isEmpty) return;
-    _selectIndex((_hoveredIndex ?? _lastHoveredIndex) + direction);
+  void _moveSelection(int direction, int pointCount) {
+    if (pointCount == 0) return;
+    _selectIndex((_hoveredIndex ?? _lastHoveredIndex) + direction, pointCount);
   }
 
-  void _updateHoveredPoint(PointerHoverEvent event, double width) {
-    _selectPointAt(event.localPosition.dx, width);
+  void _updateHoveredPoint(
+    PointerHoverEvent event,
+    double width,
+    int pointCount,
+  ) {
+    _selectPointAt(event.localPosition.dx, width, pointCount);
   }
 
   @override
   Widget build(BuildContext context) {
+    return OpenHandTrendZoomRegion(
+      itemCount: widget.points.length,
+      sampleTimes: [for (final point in widget.points) point.at],
+      semanticLabel: '${widget.semanticLabel}，支持双指缩放',
+      builder: (context, viewport) =>
+          _buildVisibleChart(context, viewport.slice(widget.points)),
+    );
+  }
+
+  Widget _buildVisibleChart(
+    BuildContext context,
+    List<_ProxyDetailTrendPoint> points,
+  ) {
     final colors = Theme.of(context).colorScheme;
-    final points = widget.points;
     final values = points
         .map((point) => point.value.toDouble())
         .toList(growable: false);
@@ -3835,8 +3849,12 @@ class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
                   zh: '使用左右方向键切换样本',
                   en: 'Use left and right arrow keys to browse samples',
                 ),
-          onIncrease: points.isEmpty ? null : () => _moveSelection(1),
-          onDecrease: points.isEmpty ? null : () => _moveSelection(-1),
+          onIncrease: points.isEmpty
+              ? null
+              : () => _moveSelection(1, points.length),
+          onDecrease: points.isEmpty
+              ? null
+              : () => _moveSelection(-1, points.length),
           child: Focus(
             onFocusChange: (value) {
               if (_focused == value) return;
@@ -3853,12 +3871,12 @@ class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
               if (event is! KeyDownEvent) return KeyEventResult.ignored;
               if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
                   event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                _moveSelection(1);
+                _moveSelection(1, points.length);
                 return KeyEventResult.handled;
               }
               if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
                   event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                _moveSelection(-1);
+                _moveSelection(-1, points.length);
                 return KeyEventResult.handled;
               }
               return KeyEventResult.ignored;
@@ -3867,8 +3885,11 @@ class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
               cursor: points.isEmpty
                   ? MouseCursor.defer
                   : SystemMouseCursors.precise,
-              onHover: (event) =>
-                  _updateHoveredPoint(event, constraints.maxWidth),
+              onHover: (event) => _updateHoveredPoint(
+                event,
+                constraints.maxWidth,
+                points.length,
+              ),
               onExit: (_) {
                 if (_hoveredIndex != null && !_focused) {
                   setState(() => _hoveredIndex = null);
@@ -3881,6 +3902,7 @@ class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
                     : (details) => _selectPointAt(
                         details.localPosition.dx,
                         constraints.maxWidth,
+                        points.length,
                       ),
                 child: Stack(
                   clipBehavior: Clip.none,
@@ -6068,11 +6090,29 @@ class _ProxyLatencyChartState extends State<_ProxyLatencyChart> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
     final samples = widget.endpoint.samples
         .where((sample) => sample.reachable && sample.latencyMs != null)
         .toList(growable: false);
+    return OpenHandTrendZoomRegion(
+      itemCount: samples.length,
+      sampleTimes: [for (final sample in samples) sample.checkedAt],
+      showToolbar: false,
+      semanticLabel: openHandLocalizedText(
+        context,
+        zh: '${widget.endpoint.displayName} 巡检延迟趋势，支持双指缩放',
+        en: '${widget.endpoint.displayName} probe latency trend with pinch zoom',
+      ),
+      builder: (context, viewport) =>
+          _buildVisibleChart(context, viewport.slice(samples)),
+    );
+  }
+
+  Widget _buildVisibleChart(
+    BuildContext context,
+    List<AiExposureProxyProbeSample> samples,
+  ) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final values = samples
         .map((sample) => sample.latencyMs!.toDouble())
         .toList(growable: false);

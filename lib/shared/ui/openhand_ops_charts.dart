@@ -4,6 +4,7 @@ library;
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -418,16 +419,487 @@ class OpenHandChartSegment {
 }
 
 /// 折线趋势图的一条数据序列。
+enum OpenHandTrendAggregation { average, sum, maximum, latest }
+
 class OpenHandChartSeries {
   const OpenHandChartSeries({
     required this.label,
     required this.values,
     required this.color,
+    this.aggregation = OpenHandTrendAggregation.average,
   });
 
   final String label;
   final List<double> values;
   final Color color;
+  final OpenHandTrendAggregation aggregation;
+}
+
+/// 趋势图当前可见的数据窗口。
+class OpenHandTrendViewport {
+  const OpenHandTrendViewport({
+    required this.startIndex,
+    required this.endIndex,
+    required this.itemCount,
+    this.sampleStride = 1,
+  });
+
+  final int startIndex;
+  final int endIndex;
+  final int itemCount;
+  final int sampleStride;
+
+  int get visibleItemCount => math.max(0, endIndex - startIndex);
+  int get displayedItemCount => visibleItemCount == 0
+      ? 0
+      : (visibleItemCount / math.max(1, sampleStride)).ceil();
+  bool get isZoomed => startIndex > 0 || endIndex < itemCount;
+
+  List<T> slice<T>(List<T> values) {
+    if (values.isEmpty || visibleItemCount == 0) {
+      return List<T>.empty();
+    }
+    final start = startIndex.clamp(0, values.length);
+    final end = endIndex.clamp(start, values.length);
+    if (sampleStride <= 1) return values.sublist(start, end);
+    return [
+      for (var index = start; index < end; index += sampleStride)
+        values[math.min(end, index + sampleStride) - 1],
+    ];
+  }
+
+  int sourceIndexForDisplayedIndex(int displayedIndex) {
+    final index = startIndex + (displayedIndex + 1) * sampleStride - 1;
+    return index.clamp(startIndex, math.max(startIndex, endIndex - 1));
+  }
+
+  List<OpenHandChartSeries> sliceSeries(List<OpenHandChartSeries> series) {
+    return [
+      for (final item in series)
+        OpenHandChartSeries(
+          label: item.label,
+          values: _aggregateTrendValues(item),
+          color: item.color,
+          aggregation: item.aggregation,
+        ),
+    ];
+  }
+
+  List<double> _aggregateTrendValues(OpenHandChartSeries series) {
+    final values = series.values;
+    if (values.isEmpty || visibleItemCount == 0) return const <double>[];
+    final start = startIndex.clamp(0, values.length);
+    final end = endIndex.clamp(start, values.length);
+    if (sampleStride <= 1) return values.sublist(start, end);
+    final aggregated = <double>[];
+    for (var index = start; index < end; index += sampleStride) {
+      final bucketEnd = math.min(end, index + sampleStride);
+      var count = 0;
+      var sum = 0.0;
+      var maximum = 0.0;
+      var latest = 0.0;
+      for (var valueIndex = index; valueIndex < bucketEnd; valueIndex++) {
+        final value = values[valueIndex];
+        if (!value.isFinite) continue;
+        count += 1;
+        sum += value;
+        maximum = count == 1 ? value : math.max(maximum, value);
+        latest = value;
+      }
+      if (count == 0) {
+        aggregated.add(0);
+        continue;
+      }
+      aggregated.add(switch (series.aggregation) {
+        OpenHandTrendAggregation.average => sum / count,
+        OpenHandTrendAggregation.sum => sum,
+        OpenHandTrendAggregation.maximum => maximum,
+        OpenHandTrendAggregation.latest => latest,
+      });
+    }
+    return aggregated;
+  }
+}
+
+typedef OpenHandTrendZoomBuilder =
+    Widget Function(BuildContext context, OpenHandTrendViewport viewport);
+
+/// 仅在双指或触控板手势下参与缩放竞争，避免单指拖动阻断弹窗滚动。
+class OpenHandTwoFingerScaleGestureDetector extends StatelessWidget {
+  const OpenHandTwoFingerScaleGestureDetector({
+    super.key,
+    required this.child,
+    this.onScaleStart,
+    this.onScaleUpdate,
+    this.onScaleEnd,
+    this.onDoubleTap,
+    this.behavior = HitTestBehavior.opaque,
+  });
+
+  final Widget child;
+  final GestureScaleStartCallback? onScaleStart;
+  final GestureScaleUpdateCallback? onScaleUpdate;
+  final GestureScaleEndCallback? onScaleEnd;
+  final GestureTapCallback? onDoubleTap;
+  final HitTestBehavior behavior;
+
+  @override
+  Widget build(BuildContext context) {
+    final scale = RawGestureDetector(
+      behavior: behavior,
+      gestures: <Type, GestureRecognizerFactory>{
+        _OpenHandTwoFingerScaleGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<
+              _OpenHandTwoFingerScaleGestureRecognizer
+            >(_OpenHandTwoFingerScaleGestureRecognizer.new, (recognizer) {
+              recognizer
+                ..onStart = onScaleStart
+                ..onUpdate = onScaleUpdate
+                ..onEnd = onScaleEnd
+                ..trackpadScrollCausesScale = true;
+            }),
+      },
+      child: child,
+    );
+    if (onDoubleTap == null) return scale;
+    return GestureDetector(
+      behavior: behavior,
+      onDoubleTap: onDoubleTap,
+      child: scale,
+    );
+  }
+}
+
+class _OpenHandTwoFingerScaleGestureRecognizer extends ScaleGestureRecognizer {
+  @override
+  void resolve(GestureDisposition disposition) {
+    if (disposition == GestureDisposition.accepted && pointerCount < 2) return;
+    super.resolve(disposition);
+  }
+}
+
+/// 统一趋势图双指缩放区域。
+///
+/// 缩放以双指焦点为锚点，并允许缩放过程中横向移动焦点来平移时间窗口。
+/// 单指滚动仍交给外层弹窗；触控板滚动手势按缩放处理。
+class OpenHandTrendZoomRegion extends StatefulWidget {
+  const OpenHandTrendZoomRegion({
+    super.key,
+    required this.itemCount,
+    required this.builder,
+    this.sampleTimes = const <DateTime>[],
+    this.sampleLabels = const <String>[],
+    this.initialVisibleItemCount,
+    this.minVisibleItemCount = 3,
+    this.maxDisplayedItemCount = 120,
+    this.showToolbar = true,
+    this.semanticLabel = '趋势图时间窗口',
+  });
+
+  final int itemCount;
+  final OpenHandTrendZoomBuilder builder;
+  final List<DateTime> sampleTimes;
+  final List<String> sampleLabels;
+  final int? initialVisibleItemCount;
+  final int minVisibleItemCount;
+  final int maxDisplayedItemCount;
+  final bool showToolbar;
+  final String semanticLabel;
+
+  @override
+  State<OpenHandTrendZoomRegion> createState() =>
+      _OpenHandTrendZoomRegionState();
+}
+
+class _OpenHandTrendZoomRegionState extends State<OpenHandTrendZoomRegion> {
+  late int _startIndex;
+  late int _visibleItemCount;
+  int _scaleStartIndex = 0;
+  int _scaleStartItemCount = 0;
+  double _scaleAnchorIndex = 0;
+
+  int get _safeItemCount => math.max(0, widget.itemCount);
+
+  int get _minimumVisibleItemCount {
+    if (_safeItemCount <= 1) return _safeItemCount;
+    return widget.minVisibleItemCount.clamp(2, _safeItemCount);
+  }
+
+  int get _initialVisibleItemCount {
+    if (_safeItemCount == 0) return 0;
+    return (widget.initialVisibleItemCount ?? _safeItemCount).clamp(
+      _minimumVisibleItemCount,
+      _safeItemCount,
+    );
+  }
+
+  OpenHandTrendViewport get _viewport => OpenHandTrendViewport(
+    startIndex: _startIndex,
+    endIndex: math.min(_safeItemCount, _startIndex + _visibleItemCount),
+    itemCount: _safeItemCount,
+    sampleStride: math.max(
+      1,
+      (_visibleItemCount / math.max(12, widget.maxDisplayedItemCount)).ceil(),
+    ),
+  );
+
+  bool get _isAtInitialWindow {
+    final initialCount = _initialVisibleItemCount;
+    return _visibleItemCount == initialCount &&
+        _startIndex == math.max(0, _safeItemCount - initialCount);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _visibleItemCount = _initialVisibleItemCount;
+    _startIndex = math.max(0, _safeItemCount - _visibleItemCount);
+  }
+
+  @override
+  void didUpdateWidget(covariant OpenHandTrendZoomRegion oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldCount = math.max(0, oldWidget.itemCount);
+    final oldMinimum = oldCount <= 1
+        ? oldCount
+        : oldWidget.minVisibleItemCount.clamp(2, oldCount);
+    final oldInitial = oldCount == 0
+        ? 0
+        : (oldWidget.initialVisibleItemCount ?? oldCount).clamp(
+            oldMinimum,
+            oldCount,
+          );
+    final wasAtInitialWindow =
+        _visibleItemCount == oldInitial &&
+        _startIndex == math.max(0, oldCount - oldInitial);
+    if (wasAtInitialWindow) {
+      _visibleItemCount = _initialVisibleItemCount;
+      _startIndex = math.max(0, _safeItemCount - _visibleItemCount);
+      return;
+    }
+    final wasPinnedToEnd = _startIndex + _visibleItemCount >= oldCount;
+    final minimum = _minimumVisibleItemCount;
+    _visibleItemCount = _visibleItemCount.clamp(minimum, _safeItemCount);
+    if (wasPinnedToEnd) {
+      _startIndex = math.max(0, _safeItemCount - _visibleItemCount);
+    } else {
+      _startIndex = _startIndex.clamp(
+        0,
+        math.max(0, _safeItemCount - _visibleItemCount),
+      );
+    }
+  }
+
+  void _handleScaleStart(ScaleStartDetails details, double width) {
+    if (_safeItemCount <= _minimumVisibleItemCount || width <= 0) return;
+    _scaleStartIndex = _startIndex;
+    _scaleStartItemCount = _visibleItemCount;
+    final ratio = (details.localFocalPoint.dx / width).clamp(0.0, 1.0);
+    _scaleAnchorIndex =
+        _scaleStartIndex + ratio * math.max(0, _scaleStartItemCount - 1);
+  }
+
+  void _handleScaleUpdate(ScaleUpdateDetails details, double width) {
+    if (_safeItemCount <= _minimumVisibleItemCount ||
+        width <= 0 ||
+        details.scale <= 0 ||
+        (details.scale - 1).abs() < 0.008) {
+      return;
+    }
+    final visible = (_scaleStartItemCount / details.scale).round().clamp(
+      _minimumVisibleItemCount,
+      _safeItemCount,
+    );
+    final ratio = (details.localFocalPoint.dx / width).clamp(0.0, 1.0);
+    final start = (_scaleAnchorIndex - ratio * math.max(0, visible - 1))
+        .round()
+        .clamp(0, math.max(0, _safeItemCount - visible))
+        .toInt();
+    if (visible == _visibleItemCount && start == _startIndex) return;
+    setState(() {
+      _visibleItemCount = visible;
+      _startIndex = start;
+    });
+  }
+
+  void _reset() {
+    if (_isAtInitialWindow) return;
+    setState(() {
+      _visibleItemCount = _initialVisibleItemCount;
+      _startIndex = math.max(0, _safeItemCount - _visibleItemCount);
+    });
+  }
+
+  String _windowLabel(BuildContext context, OpenHandTrendViewport viewport) {
+    if (viewport.visibleItemCount == 0) {
+      return openHandLocalizedText(context, zh: '暂无样本', en: 'No samples');
+    }
+    final times = widget.sampleTimes;
+    if (times.length >= viewport.endIndex) {
+      final start = times[viewport.startIndex].toLocal();
+      final end = times[viewport.endIndex - 1].toLocal();
+      final localizations = MaterialLocalizations.of(context);
+      final sameDay =
+          start.year == end.year &&
+          start.month == end.month &&
+          start.day == end.day;
+      final startTime = localizations.formatTimeOfDay(
+        TimeOfDay.fromDateTime(start),
+        alwaysUse24HourFormat: true,
+      );
+      final endTime = localizations.formatTimeOfDay(
+        TimeOfDay.fromDateTime(end),
+        alwaysUse24HourFormat: true,
+      );
+      final range = sameDay
+          ? '$startTime–$endTime'
+          : '${localizations.formatShortDate(start)} $startTime – '
+                '${localizations.formatShortDate(end)} $endTime';
+      final intervalMs = viewport.displayedItemCount <= 1
+          ? 0
+          : end.difference(start).inMilliseconds.abs() ~/
+                (viewport.displayedItemCount - 1);
+      return openHandLocalizedText(
+        context,
+        zh: '$range · ${_trendGranularityLabel(intervalMs, true)}',
+        en: '$range · ${_trendGranularityLabel(intervalMs, false)}',
+      );
+    }
+    final labels = widget.sampleLabels;
+    if (labels.length >= viewport.endIndex) {
+      final visible = viewport.slice(labels);
+      return openHandLocalizedText(
+        context,
+        zh: '${visible.first}–${visible.last} · 每点 ${viewport.sampleStride} 个样本',
+        en: '${visible.first}–${visible.last} · ${viewport.sampleStride} samples/point',
+      );
+    }
+    return openHandLocalizedText(
+      context,
+      zh: '显示 ${viewport.visibleItemCount}/${viewport.itemCount} 个样本 · 每点 ${viewport.sampleStride} 个样本',
+      en: '${viewport.visibleItemCount}/${viewport.itemCount} samples · ${viewport.sampleStride} samples/point',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final viewport = _viewport;
+    final colors = Theme.of(context).colorScheme;
+    final toolbar = widget.showToolbar
+        ? Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.zoom_in_map_rounded,
+                  size: 15,
+                  color: colors.primary,
+                ),
+                kOpenHandHGap6,
+                Expanded(
+                  child: Text(
+                    _windowLabel(context, viewport),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Text(
+                  openHandLocalizedText(
+                    context,
+                    zh: '双指缩放',
+                    en: 'Pinch to zoom',
+                  ),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+                kOpenHandHGap4,
+                Tooltip(
+                  message: openHandLocalizedText(
+                    context,
+                    zh: '恢复默认时间窗口',
+                    en: 'Reset time window',
+                  ),
+                  child: IconButton(
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 30,
+                      height: 30,
+                    ),
+                    padding: EdgeInsets.zero,
+                    onPressed: _isAtInitialWindow ? null : _reset,
+                    icon: const Icon(
+                      Icons.center_focus_strong_rounded,
+                      size: 17,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        : null;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final content = Semantics(
+          container: true,
+          label: widget.semanticLabel,
+          hint: _safeItemCount > _minimumVisibleItemCount
+              ? openHandLocalizedText(
+                  context,
+                  zh: '双指缩放调整日期时间范围与粒度，双击恢复默认',
+                  en: 'Pinch to adjust the date range and granularity; double tap to reset',
+                )
+              : null,
+          child: OpenHandTwoFingerScaleGestureDetector(
+            onDoubleTap: _isAtInitialWindow ? null : _reset,
+            onScaleStart: (details) =>
+                _handleScaleStart(details, constraints.maxWidth),
+            onScaleUpdate: (details) =>
+                _handleScaleUpdate(details, constraints.maxWidth),
+            child: widget.builder(context, viewport),
+          ),
+        );
+        if (toolbar == null) return content;
+        if (constraints.hasBoundedHeight) {
+          return Column(
+            children: [
+              toolbar,
+              Expanded(child: content),
+            ],
+          );
+        }
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [toolbar, content],
+        );
+      },
+    );
+  }
+}
+
+String _trendGranularityLabel(int milliseconds, bool chinese) {
+  if (milliseconds <= 0) return chinese ? '单点' : 'single point';
+  final duration = Duration(milliseconds: milliseconds);
+  if (duration.inDays >= 1) {
+    return chinese ? '每点 ${duration.inDays} 天' : '${duration.inDays} d/point';
+  }
+  if (duration.inHours >= 1) {
+    return chinese
+        ? '每点 ${duration.inHours} 小时'
+        : '${duration.inHours} h/point';
+  }
+  if (duration.inMinutes >= 1) {
+    return chinese
+        ? '每点 ${duration.inMinutes} 分钟'
+        : '${duration.inMinutes} min/point';
+  }
+  return chinese
+      ? '每点 ${math.max(1, duration.inSeconds)} 秒'
+      : '${math.max(1, duration.inSeconds)} s/point';
 }
 
 enum OpenHandChartInterpolation { linear, smooth, step }
@@ -1216,6 +1688,137 @@ class _OpenHandOperationalTrendChartState
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 具备统一双指缩放、时间窗口与粒度提示的运维趋势图。
+class OpenHandZoomableOperationalTrendChart extends StatelessWidget {
+  const OpenHandZoomableOperationalTrendChart({
+    super.key,
+    required this.series,
+    required this.valueSuffix,
+    required this.onSelectionChanged,
+    this.onSelectionActivated,
+    this.xLabels = const <String>[],
+    this.sampleTimes = const <DateTime>[],
+    this.height = 250,
+    this.emptyLabel = '暂无可用趋势数据',
+    this.interpolation = OpenHandChartInterpolation.smooth,
+    this.area = false,
+    this.showLegend = true,
+    this.externalLegendProvided = false,
+    this.fixedMaximum,
+    this.formatValue,
+    this.semanticLabel = '运维趋势图',
+    this.initialVisibleItemCount,
+    this.minVisibleItemCount = 3,
+    this.showZoomToolbar = true,
+  });
+
+  final List<OpenHandChartSeries> series;
+  final String valueSuffix;
+  final ValueChanged<OpenHandOperationalTrendSelection?>? onSelectionChanged;
+  final ValueChanged<OpenHandOperationalTrendSelection>? onSelectionActivated;
+  final List<String> xLabels;
+  final List<DateTime> sampleTimes;
+  final double height;
+  final String emptyLabel;
+  final OpenHandChartInterpolation interpolation;
+  final bool area;
+  final bool showLegend;
+  final bool externalLegendProvided;
+  final double? fixedMaximum;
+  final String Function(double value)? formatValue;
+  final String semanticLabel;
+  final int? initialVisibleItemCount;
+  final int minVisibleItemCount;
+  final bool showZoomToolbar;
+
+  int get _itemCount {
+    var count = math.max(xLabels.length, sampleTimes.length);
+    for (final item in series) {
+      count = math.max(count, item.values.length);
+    }
+    return count;
+  }
+
+  OpenHandOperationalTrendSelection? _sourceSelection(
+    OpenHandOperationalTrendSelection? selection,
+    OpenHandTrendViewport viewport,
+  ) {
+    if (selection == null ||
+        selection.seriesIndex < 0 ||
+        selection.seriesIndex >= series.length) {
+      return null;
+    }
+    final sourceIndex = viewport.sourceIndexForDisplayedIndex(
+      selection.pointIndex,
+    );
+    final sourceSeries = series[selection.seriesIndex];
+    if (sourceIndex < 0 || sourceIndex >= sourceSeries.values.length) {
+      return null;
+    }
+    return OpenHandOperationalTrendSelection(
+      seriesIndex: selection.seriesIndex,
+      pointIndex: sourceIndex,
+      series: sourceSeries,
+      value: sourceSeries.values[sourceIndex],
+      xLabel: sourceIndex < xLabels.length ? xLabels[sourceIndex] : null,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedHeight = height.isFinite && height > 0 ? height : 250.0;
+    return SizedBox(
+      height: resolvedHeight,
+      child: OpenHandTrendZoomRegion(
+        itemCount: _itemCount,
+        sampleTimes: sampleTimes,
+        sampleLabels: xLabels,
+        initialVisibleItemCount: initialVisibleItemCount,
+        minVisibleItemCount: minVisibleItemCount,
+        showToolbar: showZoomToolbar,
+        semanticLabel: semanticLabel,
+        builder: (context, viewport) {
+          final visibleSeries = viewport.sliceSeries(series);
+          final visibleLabels = viewport.slice(xLabels);
+          return LayoutBuilder(
+            builder: (context, constraints) => OpenHandOperationalTrendChart(
+              key: ValueKey<(int, int)>((
+                viewport.startIndex,
+                viewport.endIndex,
+              )),
+              series: visibleSeries,
+              valueSuffix: valueSuffix,
+              xLabels: visibleLabels,
+              height: constraints.hasBoundedHeight
+                  ? constraints.maxHeight
+                  : resolvedHeight,
+              emptyLabel: emptyLabel,
+              interpolation: interpolation,
+              area: area,
+              showLegend: showLegend,
+              externalLegendProvided: externalLegendProvided,
+              fixedMaximum: fixedMaximum,
+              formatValue: formatValue,
+              semanticLabel: semanticLabel,
+              onSelectionChanged: onSelectionChanged == null
+                  ? null
+                  : (selection) => onSelectionChanged!(
+                      _sourceSelection(selection, viewport),
+                    ),
+              onSelectionActivated: onSelectionActivated == null
+                  ? null
+                  : (selection) {
+                      final source = _sourceSelection(selection, viewport);
+                      if (source != null) onSelectionActivated!(source);
+                    },
+            ),
+          );
+        },
       ),
     );
   }

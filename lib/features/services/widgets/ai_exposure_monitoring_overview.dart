@@ -153,6 +153,9 @@ class _OverviewPanel extends StatelessWidget {
               icon: Icons.show_chart_rounded,
               title: '任务处理趋势',
               subtitle: '最近 ${historyTrend.length} 个任务',
+              sampleTimes: historyTrend
+                  .map((item) => item.createdAt)
+                  .toList(growable: false),
               sampleLabels: historyTrend
                   .map(
                     (item) => _reportedShortDateTime(
@@ -185,6 +188,9 @@ class _OverviewPanel extends StatelessWidget {
               icon: Icons.timelapse_rounded,
               title: '任务耗时趋势',
               subtitle: '最近 ${durationTrend.length} 个已结束任务',
+              sampleTimes: durationTrend
+                  .map((item) => item.createdAt)
+                  .toList(growable: false),
               sampleLabels: durationTrend
                   .map(
                     (item) => _reportedShortDateTime(

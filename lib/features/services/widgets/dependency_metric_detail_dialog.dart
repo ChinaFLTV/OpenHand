@@ -4023,7 +4023,7 @@ class _InteractiveTrendChart extends StatelessWidget {
       );
     }
     final visibleTimes = times.take(count).toList(growable: false);
-    return OpenHandOperationalTrendChart(
+    return OpenHandZoomableOperationalTrendChart(
       series: series
           .map(
             (item) => OpenHandChartSeries(
@@ -4034,13 +4034,14 @@ class _InteractiveTrendChart extends StatelessWidget {
           )
           .toList(growable: false),
       xLabels: visibleTimes.map(_clockText).toList(growable: false),
+      sampleTimes: visibleTimes,
       valueSuffix: unit,
       formatValue: formatValue,
       area: area,
       fixedMaximum: fixedMaximum,
       emptyLabel: '等待更多趋势采样点',
       semanticLabel:
-          '$unit 趋势，从 ${_clockText(visibleTimes.first)} 到 ${_clockText(visibleTimes.last)}',
+          '$unit 趋势，从 ${_clockText(visibleTimes.first)} 到 ${_clockText(visibleTimes.last)}，支持双指缩放',
       onSelectionChanged: null,
     );
   }

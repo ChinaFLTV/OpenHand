@@ -98,6 +98,9 @@ class _StoragePanel extends StatelessWidget {
               icon: Icons.stacked_line_chart_rounded,
               title: '归档增长趋势',
               subtitle: '最近 ${chronological.length} 个任务的累计结果',
+              sampleTimes: chronological
+                  .map((entry) => entry.createdAt)
+                  .toList(growable: false),
               sampleLabels: chronologicalLabels,
               series: [
                 OpenHandChartSeries(
@@ -114,6 +117,9 @@ class _StoragePanel extends StatelessWidget {
               icon: Icons.data_saver_on_rounded,
               title: '任务写入负载',
               subtitle: '已处理与发现记录',
+              sampleTimes: chronological
+                  .map((entry) => entry.createdAt)
+                  .toList(growable: false),
               sampleLabels: chronologicalLabels,
               series: [
                 OpenHandChartSeries(

@@ -3043,6 +3043,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                   en: 'Last 12 minutes · success/failure/blocked',
                 ),
                 series: stats.requestTrendSeries(context),
+                minutes: stats.bucketMinutes,
                 emptyLabel: _localizedText(
                   context,
                   zh: '等待请求样本',
@@ -3060,6 +3061,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                   en: 'Average and tail latency',
                 ),
                 series: stats.latencyTrendSeries(context),
+                minutes: stats.bucketMinutes,
                 valueSuffix: 'ms',
                 emptyLabel: _localizedText(
                   context,
@@ -5404,16 +5406,19 @@ class _McpOpsDashboardStats {
       OpenHandChartSeries(
         label: _localizedText(context, zh: '成功', en: 'Success'),
         values: successBuckets,
+        aggregation: OpenHandTrendAggregation.sum,
         color: OpenHandStatusColors.success,
       ),
       OpenHandChartSeries(
         label: _localizedText(context, zh: '拦截', en: 'Blocked'),
         values: blockedBuckets,
+        aggregation: OpenHandTrendAggregation.sum,
         color: OpenHandStatusColors.warning,
       ),
       OpenHandChartSeries(
         label: _localizedText(context, zh: '失败', en: 'Failed'),
         values: failedBuckets,
+        aggregation: OpenHandTrendAggregation.sum,
         color: cs.error,
       ),
     ];
@@ -5430,6 +5435,7 @@ class _McpOpsDashboardStats {
       OpenHandChartSeries(
         label: 'p95',
         values: p95LatencyBuckets,
+        aggregation: OpenHandTrendAggregation.maximum,
         color: cs.tertiary,
       ),
     ];
@@ -5954,14 +5960,16 @@ class _McpOpsTappableCardState extends State<_McpOpsTappableCard> {
             children: [
               widget.child,
               Positioned.fill(
-                child: AnimatedContainer(
-                  duration: duration,
-                  curve: kOpenHandSwitchInCurve,
-                  decoration: BoxDecoration(
-                    color: _pressed
-                        ? widget.tone.withValues(alpha: 0.08)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(widget.radius),
+                child: IgnorePointer(
+                  child: AnimatedContainer(
+                    duration: duration,
+                    curve: kOpenHandSwitchInCurve,
+                    decoration: BoxDecoration(
+                      color: _pressed
+                          ? widget.tone.withValues(alpha: 0.08)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(widget.radius),
+                    ),
                   ),
                 ),
               ),
@@ -5978,6 +5986,7 @@ class _McpOpsTrendPanel extends StatelessWidget {
     required this.title,
     required this.icon,
     required this.series,
+    required this.minutes,
     required this.emptyLabel,
     this.subtitle = '',
     this.valueSuffix = '',
@@ -5987,6 +5996,7 @@ class _McpOpsTrendPanel extends StatelessWidget {
   final String title;
   final IconData icon;
   final List<OpenHandChartSeries> series;
+  final List<DateTime> minutes;
   final String emptyLabel;
   final String subtitle;
   final String valueSuffix;
@@ -5996,9 +6006,6 @@ class _McpOpsTrendPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final maxValue = series
-        .expand((item) => item.values)
-        .fold<double>(0, (max, value) => math.max(max, value));
     return _McpOpsPanel(
       icon: icon,
       title: title,
@@ -6017,15 +6024,27 @@ class _McpOpsTrendPanel extends StatelessWidget {
           ],
           SizedBox(
             height: 156,
-            child: RepaintBoundary(
-              child: CustomPaint(
-                painter: OpenHandSmoothLineChartPainter(
-                  series: series,
-                  gridColor: cs.outlineVariant.withValues(alpha: 0.46),
-                  labelColor: cs.onSurfaceVariant,
-                  emptyLabel: maxValue <= 0 ? emptyLabel : '',
-                  valueSuffix: valueSuffix,
-                  textDirection: Directionality.of(context),
+            child: OpenHandTrendZoomRegion(
+              itemCount: series.fold<int>(
+                minutes.length,
+                (count, item) => math.max(count, item.values.length),
+              ),
+              sampleTimes: minutes,
+              semanticLabel: '$title，支持双指缩放',
+              builder: (context, viewport) => RepaintBoundary(
+                child: CustomPaint(
+                  painter: OpenHandSmoothLineChartPainter(
+                    series: viewport.sliceSeries(series),
+                    gridColor: cs.outlineVariant.withValues(alpha: 0.46),
+                    labelColor: cs.onSurfaceVariant,
+                    emptyLabel: emptyLabel,
+                    valueSuffix: valueSuffix,
+                    textDirection: Directionality.of(context),
+                    xLabels: [
+                      for (final minute in viewport.slice(minutes))
+                        formatHourMinuteLocal(minute),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -11202,18 +11221,27 @@ class _ProbeTrendSection extends StatelessWidget {
             ],
           ),
           kOpenHandGap10,
-          SizedBox(
-            height: 72,
-            child: CustomPaint(
-              painter: _ProbeTrendPainter(
-                ordered: ordered,
-                lineColor: colorScheme.primary,
-                fillColor: colorScheme.primary.withValues(alpha: 0.16),
-                gridColor: colorScheme.outlineVariant,
-                healthyColor: colorScheme.primary,
-                failedColor: colorScheme.error,
+          OpenHandTrendZoomRegion(
+            itemCount: ordered.length,
+            sampleTimes: [for (final probe in ordered) probe.timestamp],
+            semanticLabel: _localizedText(
+              context,
+              zh: 'MCP 探测趋势，支持双指缩放',
+              en: 'MCP probe trend with pinch zoom',
+            ),
+            builder: (context, viewport) => SizedBox(
+              height: 72,
+              child: CustomPaint(
+                painter: _ProbeTrendPainter(
+                  ordered: viewport.slice(ordered),
+                  lineColor: colorScheme.primary,
+                  fillColor: colorScheme.primary.withValues(alpha: 0.16),
+                  gridColor: colorScheme.outlineVariant,
+                  healthyColor: colorScheme.primary,
+                  failedColor: colorScheme.error,
+                ),
+                child: const SizedBox.expand(),
               ),
-              child: const SizedBox.expand(),
             ),
           ),
           kOpenHandGap8,
@@ -17550,32 +17578,44 @@ class _McpOpsTrendDetailPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labels = [
-      for (final minute in minutes) formatHourMinuteLocal(minute),
-    ];
     return _McpOpsPanel(
       icon: icon,
       title: title,
       subtitle: subtitle,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          OpenHandOperationalTrendChart(
-            series: series,
-            valueSuffix: valueSuffix,
-            xLabels: labels,
-            emptyLabel: emptyLabel,
-            area: true,
-            showLegend: false,
-            externalLegendProvided: true,
-            onSelectionChanged: null,
-          ),
-          OpenHandOperationalTrendLanes(
-            series: series,
-            xLabels: labels,
-            valueSuffix: valueSuffix,
-          ),
-        ],
+      child: OpenHandTrendZoomRegion(
+        itemCount: series.fold<int>(
+          minutes.length,
+          (count, item) => math.max(count, item.values.length),
+        ),
+        sampleTimes: minutes,
+        semanticLabel: '$title，支持双指缩放',
+        builder: (context, viewport) {
+          final visibleSeries = viewport.sliceSeries(series);
+          final labels = [
+            for (final minute in viewport.slice(minutes))
+              formatHourMinuteLocal(minute),
+          ];
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              OpenHandOperationalTrendChart(
+                series: visibleSeries,
+                valueSuffix: valueSuffix,
+                xLabels: labels,
+                emptyLabel: emptyLabel,
+                area: true,
+                showLegend: false,
+                externalLegendProvided: true,
+                onSelectionChanged: null,
+              ),
+              OpenHandOperationalTrendLanes(
+                series: visibleSeries,
+                xLabels: labels,
+                valueSuffix: valueSuffix,
+              ),
+            ],
+          );
+        },
       ),
     );
   }

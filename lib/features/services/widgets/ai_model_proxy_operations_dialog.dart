@@ -284,15 +284,34 @@ class _ProxyOpsSnapshot {
     final trendEndAt = usesHistoricalTrendWindow ? latestSignal : now;
     final trendEndKey = aiModelProxyTelemetryBucketKey(trendEndAt);
     final hasPersistedTrend = telemetry.isNotEmpty;
-    final success = List<double>.filled(_kProxyOpsTrendBuckets, 0);
-    final failure = List<double>.filled(_kProxyOpsTrendBuckets, 0);
-    final tokens = List<double>.filled(_kProxyOpsTrendBuckets, 0);
-    final connections = List<double>.filled(_kProxyOpsTrendBuckets, 0);
-    final ingressErrors = List<double>.filled(_kProxyOpsTrendBuckets, 0);
-    final inboundBytes = List<double>.filled(_kProxyOpsTrendBuckets, 0);
-    final outboundBytes = List<double>.filled(_kProxyOpsTrendBuckets, 0);
+    final earliestSignal = telemetry.isNotEmpty
+        ? telemetry.first.bucketAt
+        : records.isEmpty
+        ? trendEndAt
+        : records
+              .reduce(
+                (earliest, item) => item.startedAt.isBefore(earliest.startedAt)
+                    ? item
+                    : earliest,
+              )
+              .startedAt;
+    final earliestKey = aiModelProxyTelemetryBucketKey(earliestSignal);
+    final trendBucketCount = math
+        .max(
+          _kProxyOpsTrendBuckets,
+          ((trendEndKey - earliestKey) ~/ aiModelProxyTelemetryBucketMs + 1)
+              .clamp(1, aiModelProxyTelemetryLoadLimit),
+        )
+        .toInt();
+    final success = List<double>.filled(trendBucketCount, 0);
+    final failure = List<double>.filled(trendBucketCount, 0);
+    final tokens = List<double>.filled(trendBucketCount, 0);
+    final connections = List<double>.filled(trendBucketCount, 0);
+    final ingressErrors = List<double>.filled(trendBucketCount, 0);
+    final inboundBytes = List<double>.filled(trendBucketCount, 0);
+    final outboundBytes = List<double>.filled(trendBucketCount, 0);
     final latencyBuckets = List<List<int>>.generate(
-      _kProxyOpsTrendBuckets,
+      trendBucketCount,
       (_) => <int>[],
     );
     final hourStats = List<_ProxyOpsGroupStat>.generate(
@@ -314,17 +333,17 @@ class _ProxyOpsSnapshot {
       if (port.isNotEmpty) ports.add(port);
       final recordKey = aiModelProxyTelemetryBucketKey(record.startedAt);
       final age = (trendEndKey - recordKey) ~/ aiModelProxyTelemetryBucketMs;
-      if (age < 0 || age >= _kProxyOpsTrendBuckets) continue;
-      final index = _kProxyOpsTrendBuckets - age - 1;
+      if (age < 0 || age >= trendBucketCount) continue;
+      final index = trendBucketCount - age - 1;
       if (!hasPersistedTrend) {
         (record.success ? success : failure)[index] += 1;
         tokens[index] += record.tokens;
       }
       latencyBuckets[index].add(record.durationMs);
     }
-    final averageLatency = List<double>.filled(_kProxyOpsTrendBuckets, 0);
-    final p95Latency = List<double>.filled(_kProxyOpsTrendBuckets, 0);
-    for (var i = 0; i < _kProxyOpsTrendBuckets; i++) {
+    final averageLatency = List<double>.filled(trendBucketCount, 0);
+    final p95Latency = List<double>.filled(trendBucketCount, 0);
+    for (var i = 0; i < trendBucketCount; i++) {
       final bucket = latencyBuckets[i];
       if (bucket.isEmpty) continue;
       averageLatency[i] = bucket.reduce((a, b) => a + b) / bucket.length;
@@ -333,8 +352,8 @@ class _ProxyOpsSnapshot {
     for (final bucket in telemetry) {
       final age =
           (trendEndKey - bucket.bucketAtMs) ~/ aiModelProxyTelemetryBucketMs;
-      if (age < 0 || age >= _kProxyOpsTrendBuckets) continue;
-      final index = _kProxyOpsTrendBuckets - age - 1;
+      if (age < 0 || age >= trendBucketCount) continue;
+      final index = trendBucketCount - age - 1;
       success[index] = bucket.successCount.toDouble();
       failure[index] = bucket.failureCount.toDouble();
       tokens[index] = bucket.tokenCount.toDouble();
@@ -427,7 +446,7 @@ class _ProxyOpsSnapshot {
       : (trendSuccess.last + trendFailure.last).round();
   int get windowRequestCount {
     var total = 0;
-    for (var i = 0; i < trendSuccess.length; i++) {
+    for (var i = _recentTrendStart; i < trendSuccess.length; i++) {
       total += trendSuccess[i].round();
       if (i < trendFailure.length) total += trendFailure[i].round();
     }
@@ -449,10 +468,31 @@ class _ProxyOpsSnapshot {
       trendSuccess[i] + (i < trendFailure.length ? trendFailure[i] : 0),
   ];
 
+  int get _recentTrendStart =>
+      math.max(0, trendSuccess.length - _kProxyOpsTrendBuckets);
+
+  List<double> get recentThroughputBuckets =>
+      throughputBuckets.skip(_recentTrendStart).toList(growable: false);
+
+  List<double> get recentTrendSuccess =>
+      trendSuccess.skip(_recentTrendStart).toList(growable: false);
+
+  List<double> get recentTrendFailure =>
+      trendFailure.skip(_recentTrendStart).toList(growable: false);
+
+  List<double> get recentAverageLatencyBuckets =>
+      averageLatencyBuckets.skip(_recentTrendStart).toList(growable: false);
+
+  List<double> get recentP95LatencyBuckets =>
+      p95LatencyBuckets.skip(_recentTrendStart).toList(growable: false);
+
   List<DateTime> get bucketMinutes => [
-    for (var i = 0; i < _kProxyOpsTrendBuckets; i++)
-      trendEndAt.subtract(Duration(minutes: _kProxyOpsTrendBuckets - i - 1)),
+    for (var i = 0; i < trendSuccess.length; i++)
+      trendEndAt.subtract(Duration(minutes: trendSuccess.length - i - 1)),
   ];
+
+  List<DateTime> get recentBucketMinutes =>
+      bucketMinutes.skip(_recentTrendStart).toList(growable: false);
 
   List<AiModelProxyRequestRecord> get recentFirst =>
       records.reversed.toList(growable: false);
@@ -1234,14 +1274,16 @@ class _ProxyOpsTappableCardState extends State<_ProxyOpsTappableCard> {
             curve: kOpenHandSwitchInCurve,
             child: Stack(
               children: [
-                IgnorePointer(child: widget.child),
+                widget.child,
                 Positioned.fill(
-                  child: AnimatedContainer(
-                    duration: duration,
-                    curve: kOpenHandSwitchInCurve,
-                    decoration: BoxDecoration(
-                      color: overlayColor,
-                      borderRadius: BorderRadius.circular(widget.radius),
+                  child: IgnorePointer(
+                    child: AnimatedContainer(
+                      duration: duration,
+                      curve: kOpenHandSwitchInCurve,
+                      decoration: BoxDecoration(
+                        color: overlayColor,
+                        borderRadius: BorderRadius.circular(widget.radius),
+                      ),
                     ),
                   ),
                 ),
@@ -1268,24 +1310,27 @@ class _ProxyOpsTrendRow extends StatelessWidget {
             title: text(zh: '请求趋势', en: 'Request trend'),
             subtitle: text(
               zh: data.usesHistoricalTrendWindow
-                  ? '最近 12 个采样桶 · 模型调用成功与失败'
-                  : '最近 12 分钟 · 模型调用成功与失败',
+                  ? '默认最近 12 个采样桶 · 双指缩放回看'
+                  : '默认最近 12 分钟 · 双指缩放回看',
               en: data.usesHistoricalTrendWindow
-                  ? 'Last 12 samples · model-call success and failure'
-                  : 'Last 12 minutes · model-call success and failure',
+                  ? 'Latest 12 samples by default · pinch to review'
+                  : 'Latest 12 minutes by default · pinch to review',
             ),
             series: [
               OpenHandChartSeries(
                 label: text(zh: '成功', en: 'Success'),
                 values: data.trendSuccess,
+                aggregation: OpenHandTrendAggregation.sum,
                 color: OpenHandStatusColors.success,
               ),
               OpenHandChartSeries(
                 label: text(zh: '失败', en: 'Failure'),
                 values: data.trendFailure,
+                aggregation: OpenHandTrendAggregation.sum,
                 color: Theme.of(context).colorScheme.error,
               ),
             ],
+            minutes: data.bucketMinutes,
             valueSuffix: '',
             insight: _ProxyOpsInsightKind.requestTrend,
           ),
@@ -1293,11 +1338,11 @@ class _ProxyOpsTrendRow extends StatelessWidget {
             title: text(zh: '耗时曲线', en: 'Latency curve'),
             subtitle: text(
               zh: data.usesHistoricalTrendWindow
-                  ? '最近 12 个采样桶 · 平均耗时与 P95 尾延迟'
-                  : '平均耗时与 P95 尾延迟',
+                  ? '默认最近 12 个采样桶 · 双指缩放回看'
+                  : '平均耗时与 P95 尾延迟 · 双指缩放回看',
               en: data.usesHistoricalTrendWindow
-                  ? 'Last 12 samples · average and P95 latency'
-                  : 'Average and P95 tail latency',
+                  ? 'Latest 12 samples by default · pinch to review'
+                  : 'Average and P95 tail latency · pinch to review',
             ),
             series: [
               OpenHandChartSeries(
@@ -1308,9 +1353,11 @@ class _ProxyOpsTrendRow extends StatelessWidget {
               OpenHandChartSeries(
                 label: 'P95',
                 values: data.p95LatencyBuckets,
+                aggregation: OpenHandTrendAggregation.maximum,
                 color: Theme.of(context).colorScheme.tertiary,
               ),
             ],
+            minutes: data.bucketMinutes,
             valueSuffix: ' ms',
             insight: _ProxyOpsInsightKind.latencyTrend,
           ),
@@ -1343,12 +1390,14 @@ class _ProxyOpsTrendPanel extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.series,
+    required this.minutes,
     required this.valueSuffix,
     this.insight,
   });
   final String title;
   final String subtitle;
   final List<OpenHandChartSeries> series;
+  final List<DateTime> minutes;
   final String valueSuffix;
   final _ProxyOpsInsightKind? insight;
 
@@ -1368,18 +1417,31 @@ class _ProxyOpsTrendPanel extends StatelessWidget {
         children: [
           SizedBox(
             height: 204,
-            child: RepaintBoundary(
-              child: CustomPaint(
-                painter: OpenHandSmoothLineChartPainter(
-                  series: series,
-                  gridColor: cs.outlineVariant.withValues(alpha: 0.5),
-                  labelColor: cs.onSurfaceVariant,
-                  emptyLabel: openHandTextResolver(context)(
-                    zh: '等待请求样本',
-                    en: 'Waiting for traffic',
+            child: OpenHandTrendZoomRegion(
+              itemCount: series.fold<int>(
+                minutes.length,
+                (count, item) => math.max(count, item.values.length),
+              ),
+              sampleTimes: minutes,
+              initialVisibleItemCount: _kProxyOpsTrendBuckets,
+              semanticLabel: '$title，支持双指缩放',
+              builder: (context, viewport) => RepaintBoundary(
+                child: CustomPaint(
+                  painter: OpenHandSmoothLineChartPainter(
+                    series: viewport.sliceSeries(series),
+                    gridColor: cs.outlineVariant.withValues(alpha: 0.5),
+                    labelColor: cs.onSurfaceVariant,
+                    emptyLabel: openHandTextResolver(context)(
+                      zh: '等待请求样本',
+                      en: 'Waiting for traffic',
+                    ),
+                    valueSuffix: valueSuffix,
+                    textDirection: Directionality.of(context),
+                    xLabels: [
+                      for (final minute in viewport.slice(minutes))
+                        formatHourMinuteLocal(minute),
+                    ],
                   ),
-                  valueSuffix: valueSuffix,
-                  textDirection: Directionality.of(context),
                 ),
               ),
             ),
@@ -2274,32 +2336,45 @@ class _ProxyOpsTrendDetailPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labels = [
-      for (final minute in minutes) formatHourMinuteLocal(minute),
-    ];
     return _ProxyOpsPanel(
       icon: icon,
       title: title,
       subtitle: subtitle,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          OpenHandOperationalTrendChart(
-            series: series,
-            valueSuffix: valueSuffix,
-            xLabels: labels,
-            emptyLabel: emptyLabel,
-            area: true,
-            showLegend: false,
-            externalLegendProvided: true,
-            onSelectionChanged: null,
-          ),
-          OpenHandOperationalTrendLanes(
-            series: series,
-            xLabels: labels,
-            valueSuffix: valueSuffix,
-          ),
-        ],
+      child: OpenHandTrendZoomRegion(
+        itemCount: series.fold<int>(
+          minutes.length,
+          (count, item) => math.max(count, item.values.length),
+        ),
+        sampleTimes: minutes,
+        initialVisibleItemCount: _kProxyOpsTrendBuckets,
+        semanticLabel: '$title，支持双指缩放',
+        builder: (context, viewport) {
+          final visibleSeries = viewport.sliceSeries(series);
+          final labels = [
+            for (final minute in viewport.slice(minutes))
+              formatHourMinuteLocal(minute),
+          ];
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              OpenHandOperationalTrendChart(
+                series: visibleSeries,
+                valueSuffix: valueSuffix,
+                xLabels: labels,
+                emptyLabel: emptyLabel,
+                area: true,
+                showLegend: false,
+                externalLegendProvided: true,
+                onSelectionChanged: null,
+              ),
+              OpenHandOperationalTrendLanes(
+                series: visibleSeries,
+                xLabels: labels,
+                valueSuffix: valueSuffix,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -3309,17 +3384,19 @@ Widget _proxyOpsRequestTrendPanel(
     icon: Icons.show_chart_rounded,
     title: text(zh: '成功 / 失败曲线', en: 'Success / Failure Curve'),
     subtitle: data.usesHistoricalTrendWindow
-        ? text(zh: '最近 12 个采样桶', en: 'Last 12 samples')
-        : text(zh: '最近 12 分钟', en: 'Last 12 minutes'),
+        ? text(zh: '默认最近 12 个采样桶', en: 'Latest 12 samples by default')
+        : text(zh: '默认最近 12 分钟', en: 'Latest 12 minutes by default'),
     series: [
       OpenHandChartSeries(
         label: text(zh: '成功', en: 'Success'),
         values: data.trendSuccess,
+        aggregation: OpenHandTrendAggregation.sum,
         color: OpenHandStatusColors.success,
       ),
       OpenHandChartSeries(
         label: text(zh: '失败', en: 'Failed'),
         values: data.trendFailure,
+        aggregation: OpenHandTrendAggregation.sum,
         color: cs.error,
       ),
     ],
@@ -3347,6 +3424,7 @@ Widget _proxyOpsLatencyOverlayPanel(
       OpenHandChartSeries(
         label: 'p95',
         values: data.p95LatencyBuckets,
+        aggregation: OpenHandTrendAggregation.maximum,
         color: cs.tertiary,
       ),
     ],
@@ -3473,6 +3551,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 OpenHandChartSeries(
                   label: text(zh: '连接峰值', en: 'Peak connections'),
                   values: data.connectionBuckets,
+                  aggregation: OpenHandTrendAggregation.maximum,
                   color: cs.primary,
                 ),
               ],
@@ -3729,6 +3808,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               OpenHandChartSeries(
                 label: text(zh: '吞吐', en: 'Throughput'),
                 values: data.throughputBuckets,
+                aggregation: OpenHandTrendAggregation.sum,
                 color: cs.primary,
               ),
             ],
@@ -3928,6 +4008,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 OpenHandChartSeries(
                   label: text(zh: '成功', en: 'Succeeded'),
                   values: data.trendSuccess,
+                  aggregation: OpenHandTrendAggregation.sum,
                   color: success,
                 ),
               ],
@@ -4012,6 +4093,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 OpenHandChartSeries(
                   label: text(zh: '失败', en: 'Failed'),
                   values: data.trendFailure,
+                  aggregation: OpenHandTrendAggregation.sum,
                   color: cs.error,
                 ),
               ],
@@ -4108,6 +4190,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 OpenHandChartSeries(
                   label: text(zh: '入口错误', en: 'Ingress errors'),
                   values: data.ingressErrorBuckets,
+                  aggregation: OpenHandTrendAggregation.sum,
                   color: OpenHandStatusColors.warning,
                 ),
               ],
@@ -4345,6 +4428,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 OpenHandChartSeries(
                   label: 'p95',
                   values: data.p95LatencyBuckets,
+                  aggregation: OpenHandTrendAggregation.maximum,
                   color: cs.tertiary,
                 ),
               ],
@@ -4410,6 +4494,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 OpenHandChartSeries(
                   label: 'Token',
                   values: data.tokenBuckets,
+                  aggregation: OpenHandTrendAggregation.sum,
                   color: cs.tertiary,
                 ),
               ],
@@ -4476,6 +4561,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 OpenHandChartSeries(
                   label: text(zh: '入口', en: 'Inbound'),
                   values: inboundTrend.values,
+                  aggregation: OpenHandTrendAggregation.sum,
                   color: cs.secondary,
                 ),
               ],
@@ -4579,6 +4665,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                 OpenHandChartSeries(
                   label: text(zh: '出口', en: 'Outbound'),
                   values: outboundTrend.values,
+                  aggregation: OpenHandTrendAggregation.sum,
                   color: cs.tertiary,
                 ),
               ],
@@ -4937,28 +5024,26 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
         sections: (context, data) {
           final window = data.windowRecords;
           final windowOk = window.where((record) => record.success).length;
-          final peak = data.throughputBuckets.fold<double>(
+          final throughput = data.recentThroughputBuckets;
+          final peak = throughput.fold<double>(
             0,
             (max, value) => math.max(max, value),
           );
           var quiet = 0;
           var peakIndex = 0;
-          for (var i = 0; i < data.throughputBuckets.length; i++) {
-            if (data.throughputBuckets[i] <= 0) quiet += 1;
-            if (data.throughputBuckets[i] >=
-                data.throughputBuckets[peakIndex]) {
+          for (var i = 0; i < throughput.length; i++) {
+            if (throughput[i] <= 0) quiet += 1;
+            if (throughput[i] >= throughput[peakIndex]) {
               peakIndex = i;
             }
           }
-          final minutes = data.bucketMinutes;
+          final minutes = data.recentBucketMinutes;
+          final successBuckets = data.recentTrendSuccess;
+          final failureBuckets = data.recentTrendFailure;
           final burstSegments = <OpenHandChartSegment>[];
           for (var i = 0; i < minutes.length; i++) {
-            final ok = i < data.trendSuccess.length
-                ? data.trendSuccess[i]
-                : 0.0;
-            final fail = i < data.trendFailure.length
-                ? data.trendFailure[i]
-                : 0.0;
+            final ok = i < successBuckets.length ? successBuckets[i] : 0.0;
+            final fail = i < failureBuckets.length ? failureBuckets[i] : 0.0;
             final total = ok + fail;
             if (total <= 0) continue;
             burstSegments.add(
@@ -5079,7 +5164,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
                     .round();
           final windowP95 = _proxyOpsPercentile(windowDurations, 0.95);
           final activeAvg = [
-            for (final value in data.averageLatencyBuckets)
+            for (final value in data.recentAverageLatencyBuckets)
               if (value > 0) value,
           ];
           final jitter = activeAvg.length < 2
@@ -5104,22 +5189,20 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
             ),
             [success, cs.primary, OpenHandStatusColors.warning],
           );
-          final minutes = data.bucketMinutes;
+          final minutes = data.recentBucketMinutes;
+          final recentAverage = data.recentAverageLatencyBuckets;
+          final recentP95 = data.recentP95LatencyBuckets;
           final degradedLabels = <String>[];
           final degradedAvg = <double>[];
           final degradedP95 = <double>[];
           for (var i = 0; i < minutes.length; i++) {
-            if (i >= data.p95LatencyBuckets.length ||
-                data.p95LatencyBuckets[i] < _kProxyOpsSlowLatencyMs) {
+            if (i >= recentP95.length ||
+                recentP95[i] < _kProxyOpsSlowLatencyMs) {
               continue;
             }
             degradedLabels.add(formatHourMinuteLocal(minutes[i]));
-            degradedAvg.add(
-              i < data.averageLatencyBuckets.length
-                  ? data.averageLatencyBuckets[i]
-                  : 0,
-            );
-            degradedP95.add(data.p95LatencyBuckets[i]);
+            degradedAvg.add(i < recentAverage.length ? recentAverage[i] : 0);
+            degradedP95.add(recentP95[i]);
           }
           final hourP95 = _proxyOpsHourSegments(
             data.hourStats,

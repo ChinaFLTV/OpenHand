@@ -610,6 +610,7 @@ class _TrendPanel extends StatefulWidget {
     required this.icon,
     required this.title,
     required this.subtitle,
+    required this.sampleTimes,
     required this.sampleLabels,
     required this.series,
     required this.suffix,
@@ -620,6 +621,7 @@ class _TrendPanel extends StatefulWidget {
   final IconData icon;
   final String title;
   final String subtitle;
+  final List<DateTime> sampleTimes;
   final List<String> sampleLabels;
   final List<OpenHandChartSeries> series;
   final String suffix;
@@ -711,22 +713,37 @@ class _TrendPanelState extends State<_TrendPanel> {
             ),
             kOpenHandGap12,
             Expanded(
-              child: RepaintBoundary(
-                child: ServiceAnimatedChart(
-                  series: widget.series,
-                  builder: (context, series) => CustomPaint(
-                    painter: OpenHandSmoothLineChartPainter(
-                      series: series,
-                      gridColor: colors.outlineVariant.withValues(alpha: 0.58),
-                      labelColor: colors.onSurfaceVariant,
-                      emptyLabel: '暂无趋势数据',
-                      valueSuffix: widget.suffix,
-                      textDirection: Directionality.of(context),
-                      interpolation: widget.interpolation,
-                    ),
-                    size: Size.infinite,
-                  ),
+              child: OpenHandTrendZoomRegion(
+                itemCount: widget.series.fold<int>(
+                  widget.sampleLabels.length,
+                  (count, item) => math.max(count, item.values.length),
                 ),
+                sampleTimes: widget.sampleTimes,
+                sampleLabels: widget.sampleLabels,
+                semanticLabel: '${widget.title}，支持双指缩放',
+                builder: (context, viewport) {
+                  final visibleSeries = viewport.sliceSeries(widget.series);
+                  return RepaintBoundary(
+                    child: ServiceAnimatedChart(
+                      series: visibleSeries,
+                      builder: (context, series) => CustomPaint(
+                        painter: OpenHandSmoothLineChartPainter(
+                          series: series,
+                          gridColor: colors.outlineVariant.withValues(
+                            alpha: 0.58,
+                          ),
+                          labelColor: colors.onSurfaceVariant,
+                          emptyLabel: '暂无趋势数据',
+                          valueSuffix: widget.suffix,
+                          textDirection: Directionality.of(context),
+                          interpolation: widget.interpolation,
+                          xLabels: viewport.slice(widget.sampleLabels),
+                        ),
+                        size: Size.infinite,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
             kOpenHandGap6,

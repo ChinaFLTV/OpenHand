@@ -221,6 +221,7 @@ class _ServiceAnimatedChartState extends State<ServiceAnimatedChart> {
               .map((value) => value.isFinite && value > 0 ? value : 0.0)
               .toList(growable: false),
           color: item.color,
+          aggregation: item.aggregation,
         ),
       )
       .toList(growable: false);
@@ -246,6 +247,7 @@ class _ServiceAnimatedChartState extends State<ServiceAnimatedChart> {
                   .toDouble();
             }, growable: false),
             color: item.color,
+            aggregation: item.aggregation,
           );
         })
         .toList(growable: false);
@@ -269,7 +271,11 @@ class _ServiceAnimatedChartState extends State<ServiceAnimatedChart> {
     for (var seriesIndex = 0; seriesIndex < left.length; seriesIndex++) {
       final a = left[seriesIndex];
       final b = right[seriesIndex];
-      if (a.label != b.label || a.color != b.color) return false;
+      if (a.label != b.label ||
+          a.color != b.color ||
+          a.aggregation != b.aggregation) {
+        return false;
+      }
       if (a.values.length != b.values.length) return false;
       for (var valueIndex = 0; valueIndex < a.values.length; valueIndex++) {
         if (a.values[valueIndex] != b.values[valueIndex]) return false;

@@ -2786,6 +2786,7 @@ Widget _taskThroughputTrendInsight(
       icon: Icons.show_chart_rounded,
       series: series,
       sampleLabels: sampleLabels,
+      sampleTimes: jobs.map((task) => task.createdAt).toList(growable: false),
       suffix: suffix,
       emptyLabel: '暂无任务吞吐样本。',
       targets: jobs
@@ -2904,6 +2905,9 @@ Widget _taskDurationTrendInsight(
       icon: Icons.query_stats_rounded,
       series: series,
       sampleLabels: sampleLabels,
+      sampleTimes: chartTasks
+          .map((task) => task.createdAt)
+          .toList(growable: false),
       suffix: suffix,
       emptyLabel: '暂无已结束任务耗时。',
       targets: chartTasks
@@ -3291,6 +3295,9 @@ Widget _archiveGrowthTrendInsight(
       icon: Icons.stacked_line_chart_rounded,
       series: series,
       sampleLabels: sampleLabels,
+      sampleTimes: chartTasks
+          .map((task) => task.createdAt)
+          .toList(growable: false),
       suffix: suffix,
       emptyLabel: '暂无归档增长样本。',
       interpolation: OpenHandChartInterpolation.step,
@@ -3455,6 +3462,7 @@ Widget _writeLoadTrendInsight(
       icon: Icons.multiline_chart_rounded,
       series: series,
       sampleLabels: sampleLabels,
+      sampleTimes: jobs.map((task) => task.createdAt).toList(growable: false),
       suffix: suffix,
       emptyLabel: '暂无任务写入负载样本。',
       targets: jobs

@@ -861,6 +861,7 @@ class _InsightTrendSection extends StatelessWidget {
     required this.icon,
     required this.series,
     required this.sampleLabels,
+    this.sampleTimes = const <DateTime>[],
     required this.suffix,
     required this.emptyLabel,
     this.interpolation = OpenHandChartInterpolation.linear,
@@ -871,6 +872,7 @@ class _InsightTrendSection extends StatelessWidget {
   final IconData icon;
   final List<OpenHandChartSeries> series;
   final List<String> sampleLabels;
+  final List<DateTime> sampleTimes;
   final String suffix;
   final String emptyLabel;
   final OpenHandChartInterpolation interpolation;
@@ -905,25 +907,28 @@ class _InsightTrendSection extends StatelessWidget {
     );
   }
 
-  Widget _buildChart(BuildContext context) => OpenHandOperationalTrendChart(
-    series: series,
-    xLabels: sampleLabels,
-    valueSuffix: suffix,
-    emptyLabel: emptyLabel,
-    interpolation: interpolation,
-    height: 250,
-    showLegend: false,
-    externalLegendProvided: true,
-    semanticLabel: '$title，${series.length} 个序列，${sampleLabels.length} 个样本',
-    onSelectionChanged: (_) {},
-    onSelectionActivated: (selection) {
-      if (selection.pointIndex < 0 || selection.pointIndex >= targets.length) {
-        return;
-      }
-      final target = targets[selection.pointIndex];
-      if (target != null) _openInsightTarget(context, target);
-    },
-  );
+  Widget _buildChart(BuildContext context) =>
+      OpenHandZoomableOperationalTrendChart(
+        series: series,
+        xLabels: sampleLabels,
+        sampleTimes: sampleTimes,
+        valueSuffix: suffix,
+        emptyLabel: emptyLabel,
+        interpolation: interpolation,
+        showLegend: false,
+        externalLegendProvided: true,
+        semanticLabel:
+            '$title，${series.length} 个序列，${sampleLabels.length} 个样本，支持双指缩放',
+        onSelectionChanged: (_) {},
+        onSelectionActivated: (selection) {
+          if (selection.pointIndex < 0 ||
+              selection.pointIndex >= targets.length) {
+            return;
+          }
+          final target = targets[selection.pointIndex];
+          if (target != null) _openInsightTarget(context, target);
+        },
+      );
 }
 
 class _InsightDonutSection extends StatefulWidget {

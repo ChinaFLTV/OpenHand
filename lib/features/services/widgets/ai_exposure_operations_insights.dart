@@ -710,8 +710,7 @@ class _TaskStatusTrendSection extends StatelessWidget {
           kOpenHandGap8,
           SizedBox(
             height: 250,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
+            child: OpenHandTwoFingerScaleGestureDetector(
               onScaleStart: onScaleStart,
               onScaleUpdate: onScaleUpdate,
               child: OpenHandOperationalTrendChart(
