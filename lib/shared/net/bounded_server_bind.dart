@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import '../util/argument_guards.dart';
+import 'network_limits.dart';
 
 Future<ServerSocket> bindServerSocketBounded(
   Object address,
@@ -50,7 +51,11 @@ Future<T> _bindBounded<T>(
   required Duration timeout,
   required Future<void> Function(T server) closeLateServer,
 }) async {
-  requirePositiveDuration(timeout, 'timeout');
+  requirePositiveDurationAtMost(
+    timeout,
+    kOpenHandMaxNetworkOperationTimeout,
+    'timeout',
+  );
   final bindFuture = bind();
   try {
     return await bindFuture.timeout(timeout);

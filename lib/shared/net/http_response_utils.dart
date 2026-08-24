@@ -9,6 +9,7 @@ import '../util/timer_safety.dart';
 import 'bounded_http_request.dart';
 import 'http_redirect_utils.dart';
 import 'http_status_utils.dart';
+import 'network_limits.dart';
 
 const Duration _byteStreamCancelTimeout = Duration(milliseconds: 500);
 
@@ -56,7 +57,11 @@ Future<Uint8List> fetchBoundedHttpBytes({
   if ((scheme != 'http' && scheme != 'https') || uri.host.isEmpty) {
     throw FormatException('仅支持有效的 HTTP(S) 地址：$uri');
   }
-  requirePositiveDuration(openTimeout, 'openTimeout');
+  requirePositiveDurationAtMost(
+    openTimeout,
+    kOpenHandMaxNetworkOperationTimeout,
+    'openTimeout',
+  );
   _validateByteStreamLimits(
     maxBytes: maxBytes,
     idleTimeout: idleTimeout,
@@ -542,10 +547,18 @@ void _validateByteStreamLimits({
 }) {
   if (maxBytes != null) requirePositiveInt(maxBytes, 'maxBytes');
   if (idleTimeout != null) {
-    requirePositiveDuration(idleTimeout, 'idleTimeout');
+    requirePositiveDurationAtMost(
+      idleTimeout,
+      kOpenHandMaxNetworkOperationTimeout,
+      'idleTimeout',
+    );
   }
   if (totalTimeout != null) {
-    requirePositiveDuration(totalTimeout, 'totalTimeout');
+    requirePositiveDurationAtMost(
+      totalTimeout,
+      kOpenHandMaxNetworkOperationTimeout,
+      'totalTimeout',
+    );
   }
 }
 

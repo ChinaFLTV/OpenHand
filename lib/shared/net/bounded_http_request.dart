@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import '../util/argument_guards.dart';
+import 'network_limits.dart';
 
 /// 在限定时限内打开 HTTP 请求；打开超时后会接管迟到的请求并主动中止。
 Future<HttpClientRequest> openHttpClientRequestBounded(
@@ -9,7 +10,11 @@ Future<HttpClientRequest> openHttpClientRequestBounded(
   required Duration timeout,
   String timeoutMessage = 'HTTP 请求打开超时。',
 }) async {
-  requirePositiveDuration(timeout, 'timeout');
+  requirePositiveDurationAtMost(
+    timeout,
+    kOpenHandMaxNetworkOperationTimeout,
+    'timeout',
+  );
   final openFuture = Future<HttpClientRequest>.sync(open);
   try {
     return await openFuture.timeout(
@@ -33,7 +38,11 @@ Future<HttpClientResponse> closeHttpClientRequestBounded(
   required Duration timeout,
   String timeoutMessage = 'HTTP 响应头获取超时。',
 }) async {
-  requirePositiveDuration(timeout, 'timeout');
+  requirePositiveDurationAtMost(
+    timeout,
+    kOpenHandMaxNetworkOperationTimeout,
+    'timeout',
+  );
   final closeFuture = Future<HttpClientResponse>.sync(request.close);
   try {
     return await closeFuture.timeout(
