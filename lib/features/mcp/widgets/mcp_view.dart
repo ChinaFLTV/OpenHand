@@ -5783,6 +5783,7 @@ class _McpOpsMetricTile extends StatelessWidget {
       onTap: onTap,
       radius: _mcpOpsPanelRadius,
       tone: tone,
+      motionClearance: const EdgeInsets.all(kOpenHandOpsMotionClearance),
       child: AnimatedContainer(
         duration: duration,
         curve: kOpenHandSwitchInCurve,

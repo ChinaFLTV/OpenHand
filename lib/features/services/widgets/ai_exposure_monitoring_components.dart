@@ -282,6 +282,7 @@ class _MetricTile extends StatelessWidget {
       onTap: onTap,
       tone: color,
       showFocusRing: true,
+      motionClearance: const EdgeInsets.all(kOpenHandOpsMotionClearance),
       child: Container(
         constraints: const BoxConstraints(minHeight: 112),
         padding: const EdgeInsets.all(14),

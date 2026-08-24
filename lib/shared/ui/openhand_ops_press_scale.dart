@@ -7,6 +7,7 @@ const double kOpenHandOpsHoverScale = 1.016;
 const double kOpenHandOpsPressScale = 0.97;
 const double kOpenHandOpsHoverOverlay = 0.05;
 const double kOpenHandOpsPressOverlay = 0.1;
+const double kOpenHandOpsMotionClearance = 6;
 const Duration kOpenHandOpsPressDuration = kOpenHandMotion120;
 
 /// 运维卡片按压/悬停缩放。子树先打进独立图层，避免带动内部滚轮和图表一起重绘。
@@ -21,6 +22,7 @@ class OpenHandOpsPressScale extends StatefulWidget {
     this.hoverScale = kOpenHandOpsHoverScale,
     this.pressScale = kOpenHandOpsPressScale,
     this.showFocusRing = false,
+    this.motionClearance = EdgeInsets.zero,
   });
 
   final Widget child;
@@ -31,6 +33,7 @@ class OpenHandOpsPressScale extends StatefulWidget {
   final double hoverScale;
   final double pressScale;
   final bool showFocusRing;
+  final EdgeInsetsGeometry motionClearance;
 
   @override
   State<OpenHandOpsPressScale> createState() => _OpenHandOpsPressScaleState();
@@ -142,6 +145,9 @@ class _OpenHandOpsPressScaleState extends State<OpenHandOpsPressScale> {
         child: body,
       );
     }
-    return Semantics(button: true, child: body);
+    return Semantics(
+      button: true,
+      child: Padding(padding: widget.motionClearance, child: body),
+    );
   }
 }

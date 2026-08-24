@@ -1256,6 +1256,7 @@ class _ProxyOpsMetric extends StatelessWidget {
           ? null
           : () => _showProxyOpsInsight(context, metric.insight!),
       tone: metric.color,
+      motionClearance: const EdgeInsets.all(kOpenHandOpsMotionClearance),
       child: AnimatedContainer(
         duration: openHandMotionDuration(context, kOpenHandMotion180),
         curve: kOpenHandSwitchInCurve,
