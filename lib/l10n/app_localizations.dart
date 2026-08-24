@@ -15043,7 +15043,7 @@ abstract class AppLocalizations {
   /// No description provided for @webReversePmHookStopped.
   ///
   /// In zh, this message translates to:
-  /// **'已停止采集（页面 reload 后彻底解除 hook）'**
+  /// **'已停止采集'**
   String get webReversePmHookStopped;
 
   /// No description provided for @webReversePmStop.

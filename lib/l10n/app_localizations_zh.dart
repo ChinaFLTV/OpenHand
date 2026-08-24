@@ -8232,7 +8232,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get webReversePmHookInjected => '已注入 postMessage hook';
 
   @override
-  String get webReversePmHookStopped => '已停止采集（页面 reload 后彻底解除 hook）';
+  String get webReversePmHookStopped => '已停止采集';
 
   @override
   String get webReversePmStop => '停止';
@@ -19023,7 +19023,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get webReversePmHookInjected => '已注入 postMessage hook';
 
   @override
-  String get webReversePmHookStopped => '已停止采集（页面 reload 后彻底解除 hook）';
+  String get webReversePmHookStopped => '已停止採集';
 
   @override
   String get webReversePmStop => '停止';

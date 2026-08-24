@@ -35,6 +35,11 @@ const String _kHookSource = r"""
   window.__OH_PM_HOOKED__ = true;
   window.__OH_PM__ = [];
   var MAX = 500;
+  var MAX_TEXT = 4096;
+  var MAX_KEYS = 16;
+  var MAX_DEPTH = 3;
+  var MAX_NODES = 128;
+  function cap(v, max){ return String(v == null ? '' : v).slice(0, max); }
   function push(rec){
     try{
       var q = window.__OH_PM__;
@@ -45,41 +50,93 @@ const String _kHookSource = r"""
   function safe(v){
     try{
       if (v === null || v === undefined) return v;
-      if (typeof v === 'string') return v.length > 4096 ? v.slice(0,4096)+'…' : v;
+      if (typeof v === 'string') return cap(v, MAX_TEXT);
       if (typeof v === 'number' || typeof v === 'boolean') return v;
-      var s = JSON.stringify(v);
-      if (s && s.length > 4096) s = s.slice(0,4096)+'…';
-      return s;
+      var seen = new WeakSet();
+      var remaining = MAX_NODES;
+      function normalize(value, depth){
+        if (--remaining < 0) return '[Truncated]';
+        if (value === null || value === undefined) return value;
+        var type = typeof value;
+        if (type === 'string') return cap(value, 512);
+        if (type === 'number' || type === 'boolean') return value;
+        if (type !== 'object') return cap(value, 512);
+        if (depth >= MAX_DEPTH) return '[Max depth]';
+        if (seen.has(value)) return '[Circular]';
+        seen.add(value);
+        try {
+          if (Array.isArray(value)) {
+            var array = [];
+            for (var i = 0; i < value.length && i < MAX_KEYS; i++) {
+              array.push(normalize(value[i], depth + 1));
+            }
+            return array;
+          }
+          var out = {};
+          var count = 0;
+          for (var key in value) {
+            if (count >= MAX_KEYS) break;
+            if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
+            var boundedKey = cap(key, 256);
+            try { out[boundedKey] = normalize(value[key], depth + 1); }
+            catch (_) { out[boundedKey] = '[Unreadable]'; }
+            count++;
+          }
+          return out;
+        } finally {
+          seen.delete(value);
+        }
+      }
+      var serialized = JSON.stringify(normalize(v, 0));
+      return cap(serialized, MAX_TEXT);
     }catch(e){ return '[unserializable]'; }
   }
-  var rawPost = window.postMessage.bind(window);
-  window.postMessage = function(message, targetOrigin, transfer){
+  var rawPost = window.postMessage;
+  var wrappedPost = function(message, targetOrigin, transfer){
     push({
       dir: 'send',
       t: Date.now(),
-      origin: location.origin,
-      target: typeof targetOrigin === 'string' ? targetOrigin : '*',
+      origin: cap(location.origin, MAX_TEXT),
+      target: typeof targetOrigin === 'string' ? cap(targetOrigin, MAX_TEXT) : '*',
       data: safe(message)
     });
-    return rawPost(message, targetOrigin, transfer);
+    return rawPost.call(window, message, targetOrigin, transfer);
   };
-  window.addEventListener('message', function(ev){
+  window.postMessage = wrappedPost;
+  var onMessage = function(ev){
     try{
+      var source = '';
+      try {
+        source = ev.source && ev.source.location
+          ? cap(ev.source.location.href, MAX_TEXT)
+          : '';
+      } catch (_) {}
       push({
         dir: 'recv',
         t: Date.now(),
-        origin: ev.origin || '',
-        source: (ev.source && ev.source.location && ev.source.location.href) ? ev.source.location.href : '',
+        origin: cap(ev.origin || '', MAX_TEXT),
+        source: source,
         data: safe(ev.data)
       });
     }catch(e){}
-  }, true);
+  };
+  window.addEventListener('message', onMessage, true);
   window.__OH_PM_drain__ = function(){
     var q = window.__OH_PM__ || [];
     window.__OH_PM__ = [];
     return JSON.stringify(q);
   };
   window.__OH_PM_clear__ = function(){ window.__OH_PM__ = []; return true; };
+  window.__OH_PM_STOP__ = function(){
+    window.removeEventListener('message', onMessage, true);
+    if (window.postMessage === wrappedPost) window.postMessage = rawPost;
+    window.__OH_PM__ = [];
+    delete window.__OH_PM_drain__;
+    delete window.__OH_PM_clear__;
+    delete window.__OH_PM_HOOKED__;
+    delete window.__OH_PM_STOP__;
+    return true;
+  };
 })();
 """;
 
@@ -105,7 +162,7 @@ class _PmRecord {
     required this.data,
   });
 
-  final String dir; // 'send' / 'recv'
+  final String dir; // 发送/接收
   final DateTime at;
   final String origin;
   final String target;
@@ -154,22 +211,9 @@ class _PmDialogState extends State<_PmDialog> {
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
-    _removeNewDocumentHook();
+    unawaited(_cleanupHook());
     _filterCtrl.dispose();
     super.dispose();
-  }
-
-  void _removeNewDocumentHook() {
-    final scriptId = _hookScriptId;
-    if (scriptId == null) return;
-    _hookScriptId = null;
-    unawaited(
-      removeWebReverseNewDocumentScriptBestEffort(
-        controller: widget.controller,
-        identifier: scriptId,
-      ),
-    );
   }
 
   Future<void> _toggleHook() async {
@@ -182,20 +226,36 @@ class _PmDialogState extends State<_PmDialog> {
           method: 'Page.addScriptToEvaluateOnNewDocument',
           paramsJson: jsonEncode({'source': _kHookSource}),
         );
-        final hookScriptId = addRes?['identifier']?.toString();
+        final rawHookScriptId = addRes?['identifier'];
+        if (rawHookScriptId is! String ||
+            rawHookScriptId.isEmpty ||
+            rawHookScriptId.length > kWebReverseMaxRemoteObjectIdChars) {
+          throw StateError(
+            '${addRes?['error'] ?? '浏览器未返回有效的 postMessage 脚本标识。'}',
+          );
+        }
+        final hookScriptId = rawHookScriptId;
         if (!mounted) {
-          if (hookScriptId != null) {
-            await removeWebReverseNewDocumentScriptBestEffort(
-              controller: widget.controller,
-              identifier: hookScriptId,
-            );
-          }
+          await removeWebReverseNewDocumentScriptBestEffort(
+            controller: widget.controller,
+            identifier: hookScriptId,
+          );
           return;
         }
         _hookScriptId = hookScriptId;
         // 2. 当前 document 也直接 eval 一次
-        await widget.controller.evaluateJavaScript(_kHookSource);
-        if (!mounted) return;
+        final evaluation = await widget.controller.evaluateJavaScript(
+          _kHookSource,
+        );
+        if (evaluation == null ||
+            evaluation['error'] != null ||
+            evaluation['exceptionDetails'] is Map) {
+          throw StateError('页面 postMessage 监听脚本注入失败。');
+        }
+        if (!mounted) {
+          await _cleanupHook();
+          return;
+        }
         _pollTimer?.cancel();
         _pollTimer = startNonOverlappingPeriodicTimer(
           const Duration(milliseconds: 800),
@@ -208,31 +268,45 @@ class _PmDialogState extends State<_PmDialog> {
               'Hook injected';
         });
       } else {
-        _pollTimer?.cancel();
-        _pollTimer = null;
-        // 清理：撤销 on-new-document + 还原（页面侧 hook 一旦注入只能等 reload）
-        final hookScriptId = _hookScriptId;
-        _hookScriptId = null;
-        if (hookScriptId != null) {
-          await widget.controller.sendRawCdp(
-            method: 'Page.removeScriptToEvaluateOnNewDocument',
-            paramsJson: jsonEncode({'identifier': hookScriptId}),
-          );
-        }
+        await _cleanupHook();
         if (mounted) {
           setState(() {
             _hooked = false;
             _status =
                 AppLocalizations.of(context)?.webReversePmHookStopped ??
-                'Stopped (full unhook after reload)';
+                'Stopped';
           });
         }
       }
     } catch (e, st) {
       silentLog('web_reverse_pm', '切换 postMessage 监听', e, st);
+      await _cleanupHook();
       if (mounted) setState(() => _status = '$e');
     }
     if (mounted) setState(() => _busy = false);
+  }
+
+  Future<void> _cleanupHook() async {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    final hookScriptId = _hookScriptId;
+    _hookScriptId = null;
+    if (hookScriptId != null) {
+      await removeWebReverseNewDocumentScriptBestEffort(
+        controller: widget.controller,
+        identifier: hookScriptId,
+      );
+    }
+    try {
+      await widget.controller.evaluateJavaScript(
+        'window.__OH_PM_STOP__ && window.__OH_PM_STOP__()',
+        returnByValue: false,
+        timeout: const Duration(seconds: 3),
+      );
+    } catch (error, stack) {
+      silentLog('web_reverse_pm', '清理 postMessage 监听', error, stack);
+    }
+    _hooked = false;
   }
 
   Future<void> _drain(Timer timer) async {

@@ -40,6 +40,7 @@ const int _kMaxMutationDrainJsonChars = 2 * kBytesPerMiB;
 const int _kMaxMutationTargetChars = 512;
 const int _kMaxMutationValueChars = kBytesPerKiB;
 const int _kMaxMutationChildNodes = 8;
+const int _kMaxMutationCallbackRecords = 1000;
 
 final String _kInstallScript =
     r'''
@@ -52,6 +53,7 @@ final String _kInstallScript =
   var maxTargetChars = __MAX_TARGET_CHARS__;
   var maxValueChars = __MAX_VALUE_CHARS__;
   var maxChildNodes = __MAX_CHILD_NODES__;
+  var maxCallbackRecords = __MAX_CALLBACK_RECORDS__;
   function cap(v, max){
     if (v === null || v === undefined) return null;
     return String(v).slice(0, max);
@@ -60,9 +62,9 @@ final String _kInstallScript =
     if (!node) return '';
     if (node.nodeType === 1) {
       var n = node.nodeName.toLowerCase();
-      var id = node.id ? ('#' + node.id) : '';
+      var id = node.id ? ('#' + cap(node.id, maxTargetChars)) : '';
       var cls = (node.className && typeof node.className === 'string')
-        ? ('.' + node.className.trim().split(/\s+/).slice(0,3).join('.'))
+        ? ('.' + node.className.slice(0, maxTargetChars).trim().split(/\s+/).slice(0,3).join('.'))
         : '';
       return (n + id + cls).slice(0, maxTargetChars);
     }
@@ -80,7 +82,8 @@ final String _kInstallScript =
   }
   var obs = new MutationObserver(function(list){
     var t = Date.now();
-    for (var i = 0; i < list.length; i++) {
+    var startIndex = Math.max(0, list.length - maxCallbackRecords);
+    for (var i = startIndex; i < list.length; i++) {
       var m = list[i];
       var rec = {
         seq: ++window.__OH_DOM_MUT_SEQ__,
@@ -108,6 +111,7 @@ final String _kInstallScript =
     }
   });
   function start(){
+    if (!window.__OH_DOM_MUT_INSTALLED__) return;
     try {
       obs.observe(document.documentElement || document, {
         attributes: true,
@@ -117,7 +121,7 @@ final String _kInstallScript =
         childList: true,
         subtree: true,
       });
-    } catch(e) { /* document not ready yet */ }
+    } catch(e) { /* 文档尚未就绪 */ }
   }
   if (document.documentElement) {
     start();
@@ -125,11 +129,18 @@ final String _kInstallScript =
     document.addEventListener('DOMContentLoaded', start, { once: true });
   }
   window.__OH_DOM_MUT_STOP__ = function(){
+    document.removeEventListener('DOMContentLoaded', start);
     try { obs.disconnect(); } catch(e) {}
-    window.__OH_DOM_MUT_INSTALLED__ = false;
+    delete window.__OH_DOM_MUT_BUF__;
+    delete window.__OH_DOM_MUT_SEQ__;
+    delete window.__OH_DOM_MUT_DRAIN__;
+    delete window.__OH_DOM_MUT_INSTALLED__;
+    delete window.__OH_DOM_MUT_STOP__;
+    return true;
   };
   window.__OH_DOM_MUT_DRAIN__ = function(max){
     var b = window.__OH_DOM_MUT_BUF__;
+    if (!Array.isArray(b)) return [];
     var count = Math.max(1, Math.min(Number(max) || 1, b.length));
     return b.splice(0, count);
   };
@@ -138,7 +149,11 @@ final String _kInstallScript =
         .replaceAll('__MAX_BUFFER__', '$_kMaxMutationRecords')
         .replaceAll('__MAX_TARGET_CHARS__', '$_kMaxMutationTargetChars')
         .replaceAll('__MAX_VALUE_CHARS__', '$_kMaxMutationValueChars')
-        .replaceAll('__MAX_CHILD_NODES__', '$_kMaxMutationChildNodes');
+        .replaceAll('__MAX_CHILD_NODES__', '$_kMaxMutationChildNodes')
+        .replaceAll(
+          '__MAX_CALLBACK_RECORDS__',
+          '$_kMaxMutationCallbackRecords',
+        );
 
 Map<String, Object?>? _normalizeMutationRecord(Map<String, Object?> raw) {
   final kind = '${raw['kind'] ?? ''}';
@@ -253,16 +268,27 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
         method: 'Page.addScriptToEvaluateOnNewDocument',
         paramsJson: jsonEncode({'source': _kInstallScript}),
       );
-      _scriptIdentifier = reg?['identifier']?.toString();
+      final rawScriptIdentifier = reg?['identifier'];
+      if (rawScriptIdentifier is! String ||
+          rawScriptIdentifier.isEmpty ||
+          rawScriptIdentifier.length > kWebReverseMaxRemoteObjectIdChars) {
+        throw StateError('${reg?['error'] ?? '浏览器未返回有效的 DOM 变更脚本标识。'}');
+      }
+      _scriptIdentifier = rawScriptIdentifier;
       if (!mounted) {
         await _cleanupInstalledScript(notify: false);
         return;
       }
       // 当前页面立即装一次。
-      await widget.controller.evaluateJavaScript(
+      final evaluation = await widget.controller.evaluateJavaScript(
         _kInstallScript,
         returnByValue: false,
       );
+      if (evaluation == null ||
+          evaluation['error'] != null ||
+          evaluation['exceptionDetails'] is Map) {
+        throw StateError('页面 DOM 变更脚本注入失败。');
+      }
       if (!mounted) {
         await _cleanupInstalledScript(notify: false);
         return;
@@ -282,6 +308,7 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
       );
     } catch (e, st) {
       silentLog('web_reverse_dom_mutation', '安装 DOM 变更监听', e, st);
+      await _cleanupInstalledScript(notify: false);
       if (mounted) {
         setState(() {
           _installing = false;
@@ -331,14 +358,13 @@ class _DomMutationDialogState extends State<_DomMutationDialog> {
     _drainTimer = null;
     final scriptIdentifier = _scriptIdentifier;
     _scriptIdentifier = null;
+    if (scriptIdentifier != null) {
+      await removeWebReverseNewDocumentScriptBestEffort(
+        controller: widget.controller,
+        identifier: scriptIdentifier,
+      );
+    }
     try {
-      if (scriptIdentifier != null) {
-        await widget.controller.sendRawCdp(
-          method: 'Page.removeScriptToEvaluateOnNewDocument',
-          paramsJson: jsonEncode({'identifier': scriptIdentifier}),
-          timeout: const Duration(seconds: 3),
-        );
-      }
       await widget.controller.evaluateJavaScript(
         'window.__OH_DOM_MUT_STOP__ && window.__OH_DOM_MUT_STOP__()',
         returnByValue: false,

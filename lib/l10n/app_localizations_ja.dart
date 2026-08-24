@@ -8345,7 +8345,7 @@ class AppLocalizationsJa extends AppLocalizations {
   String get webReversePmHookInjected => 'postMessage hook を注入';
 
   @override
-  String get webReversePmHookStopped => '停止しました（リロード後に hook 完全解除）';
+  String get webReversePmHookStopped => '停止しました';
 
   @override
   String get webReversePmStop => '停止';

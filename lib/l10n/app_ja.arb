@@ -5756,7 +5756,7 @@
   "@webReversePmSubtitle": {},
   "webReversePmHookInjected": "postMessage hook を注入",
   "@webReversePmHookInjected": {},
-  "webReversePmHookStopped": "停止しました（リロード後に hook 完全解除）",
+  "webReversePmHookStopped": "停止しました",
   "@webReversePmHookStopped": {},
   "webReversePmStop": "停止",
   "@webReversePmStop": {},

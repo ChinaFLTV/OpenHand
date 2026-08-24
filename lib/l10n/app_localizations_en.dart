@@ -8529,7 +8529,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webReversePmHookInjected => 'Hook injected';
 
   @override
-  String get webReversePmHookStopped => 'Stopped (full unhook after reload)';
+  String get webReversePmHookStopped => 'Stopped';
 
   @override
   String get webReversePmStop => 'Stop';

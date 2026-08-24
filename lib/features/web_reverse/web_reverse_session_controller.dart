@@ -4574,26 +4574,58 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 注入初始化脚本：登记到后续 document，并立刻在当前 document 执行一次，
   /// 使刷新 / SPA 导航后仍然生效，同时接管已经加载完的页面。
   ///
-  /// 返回 CDP 分配的 script identifier（供后续卸载），未返回时为 null。
-  Future<String?> _installDocumentInitScript(
+  /// 返回 CDP 分配的 script identifier（供后续卸载），失败时抛出异常。
+  Future<String> _installDocumentInitScript(
     WebReverseCdpClient cdp,
     String source, {
     required String? sessionId,
     Duration timeout = _kInitScriptInstallTimeout,
   }) async {
-    final registered = await cdp.send(
-      kCdpPageAddScriptToEvaluateOnNewDocument,
-      params: <String, Object?>{'source': source},
-      sessionId: sessionId,
-      timeout: timeout,
-    );
-    await cdp.send(
-      kCdpRuntimeEvaluate,
-      params: <String, Object?>{'expression': source},
-      sessionId: sessionId,
-      timeout: timeout,
-    );
-    return registered['identifier'] as String?;
+    String? identifier;
+    try {
+      final registered = await cdp.send(
+        kCdpPageAddScriptToEvaluateOnNewDocument,
+        params: <String, Object?>{'source': source},
+        sessionId: sessionId,
+        timeout: timeout,
+      );
+      final rawIdentifier = registered['identifier'];
+      if (rawIdentifier is! String ||
+          rawIdentifier.isEmpty ||
+          rawIdentifier.length > kWebReverseMaxRemoteObjectIdChars) {
+        throw StateError('浏览器未返回有效的页面初始化脚本标识。');
+      }
+      identifier = rawIdentifier;
+      final evaluated = await cdp.send(
+        kCdpRuntimeEvaluate,
+        params: <String, Object?>{'expression': source},
+        sessionId: sessionId,
+        timeout: timeout,
+      );
+      if (evaluated['exceptionDetails'] is Map) {
+        throw StateError('页面初始化脚本执行失败。');
+      }
+      return rawIdentifier;
+    } catch (error, stack) {
+      if (identifier != null) {
+        try {
+          await cdp.send(
+            'Page.removeScriptToEvaluateOnNewDocument',
+            params: <String, Object?>{'identifier': identifier},
+            sessionId: sessionId,
+            timeout: timeout,
+          );
+        } catch (cleanupError, cleanupStack) {
+          silentLog(
+            'web_reverse_session_controller',
+            '回滚页面初始化脚本',
+            cleanupError,
+            cleanupStack,
+          );
+        }
+      }
+      Error.throwWithStackTrace(error, stack);
+    }
   }
 
   void _syncRawCdpDomainState(String method) {

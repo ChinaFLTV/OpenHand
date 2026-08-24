@@ -5756,7 +5756,7 @@
   "@webReversePmSubtitle": {},
   "webReversePmHookInjected": "已注入 postMessage hook",
   "@webReversePmHookInjected": {},
-  "webReversePmHookStopped": "已停止采集（页面 reload 后彻底解除 hook）",
+  "webReversePmHookStopped": "已停止採集",
   "@webReversePmHookStopped": {},
   "webReversePmStop": "停止",
   "@webReversePmStop": {},

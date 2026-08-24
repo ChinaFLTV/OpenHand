@@ -5756,7 +5756,7 @@
   "@webReversePmSubtitle": {},
   "webReversePmHookInjected": "Hook postMessage injecté",
   "@webReversePmHookInjected": {},
-  "webReversePmHookStopped": "Arrêté (déhookage complet après rechargement)",
+  "webReversePmHookStopped": "Arrêté",
   "@webReversePmHookStopped": {},
   "webReversePmStop": "Arrêter",
   "@webReversePmStop": {},

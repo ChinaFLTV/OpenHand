@@ -5756,7 +5756,7 @@
   "@webReversePmSubtitle": {},
   "webReversePmHookInjected": "postMessage-Hook injiziert",
   "@webReversePmHookInjected": {},
-  "webReversePmHookStopped": "Gestoppt (vollständig erst nach Reload)",
+  "webReversePmHookStopped": "Gestoppt",
   "@webReversePmHookStopped": {},
   "webReversePmStop": "Stopp",
   "@webReversePmStop": {},

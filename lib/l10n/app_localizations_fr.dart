@@ -8628,8 +8628,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get webReversePmHookInjected => 'Hook postMessage injecté';
 
   @override
-  String get webReversePmHookStopped =>
-      'Arrêté (déhookage complet après rechargement)';
+  String get webReversePmHookStopped => 'Arrêté';
 
   @override
   String get webReversePmStop => 'Arrêter';

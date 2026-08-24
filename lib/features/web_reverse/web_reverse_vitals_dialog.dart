@@ -60,6 +60,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
   Timer? _pullTimer;
   bool _bootstrapped = false;
   bool _busy = false;
+  int _bootstrapGeneration = 0;
   String _status = '';
 
   final List<_MetricBucket> _metrics = [
@@ -82,11 +83,14 @@ class _VitalsDialogState extends State<_VitalsDialog> {
   @override
   void dispose() {
     _pullTimer?.cancel();
+    _bootstrapGeneration += 1;
+    unawaited(_cleanupInjectedObservers());
     super.dispose();
   }
 
   Future<void> _bootstrap() async {
     if (!mounted) return;
+    final generation = ++_bootstrapGeneration;
     setState(() {
       _busy = true;
       _status =
@@ -109,10 +113,17 @@ class _VitalsDialogState extends State<_VitalsDialog> {
       bag.load = nav.loadEventEnd ? (nav.loadEventEnd - nav.startTime) : null;
     }
   } catch (_) {}
+  var observers = [];
+  var maxEntriesPerBatch = 256;
   function obs(type, cb){
     try {
-      var po = new PerformanceObserver(function(list){ list.getEntries().forEach(cb); });
+      var po = new PerformanceObserver(function(list){
+        var entries = list.getEntries();
+        var start = Math.max(0, entries.length - maxEntriesPerBatch);
+        for (var i = start; i < entries.length; i++) cb(entries[i]);
+      });
       po.observe({ type: type, buffered: true });
+      observers.push(po);
     } catch (_) {}
   }
   obs('largest-contentful-paint', function(e){ bag.lcp = e.startTime; });
@@ -126,26 +137,49 @@ class _VitalsDialogState extends State<_VitalsDialog> {
       bag.inp = s[Math.floor(s.length * 0.95)] || 0;
     }
   });
+  window.__oh_vitals_cleanup = function(){
+    for (var i = 0; i < observers.length; i++) {
+      try { observers[i].disconnect(); } catch (_) {}
+    }
+    observers.length = 0;
+    if (window.__oh_vitals === bag) delete window.__oh_vitals;
+    delete window.__oh_vitals_installed;
+    delete window.__oh_vitals_cleanup;
+    return true;
+  };
   return 'OK';
 })()
 ''';
     try {
       final res = await widget.controller.evaluateJavaScript(installer);
-      if (res?['error'] != null) {
-        if (mounted) {
-          setState(() => _status = 'Runtime.evaluate · ${res!['error']}');
-        }
+      if (!mounted || generation != _bootstrapGeneration) {
+        await _cleanupInjectedObservers();
+        return;
+      }
+      if (res == null ||
+          res['error'] != null ||
+          res['exceptionDetails'] is Map) {
+        final error = res?['error'] ?? res?['exceptionDetails'];
+        setState(
+          () => _status = error == null
+              ? 'Runtime.evaluate'
+              : 'Runtime.evaluate · $error',
+        );
       } else {
         _bootstrapped = true;
-        if (mounted) setState(() => _status = '');
+        setState(() => _status = '');
       }
     } catch (e, st) {
       silentLog('web_reverse_vitals_dialog', '初始化指标面板', e, st);
-      if (mounted) setState(() => _status = '$e');
+      if (mounted && generation == _bootstrapGeneration) {
+        setState(() => _status = '$e');
+      }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted && generation == _bootstrapGeneration) {
+        setState(() => _busy = false);
+      }
     }
-    if (!mounted) return;
+    if (!mounted || generation != _bootstrapGeneration) return;
     _pullTimer?.cancel();
     _pullTimer = startNonOverlappingPeriodicTimer(
       const Duration(seconds: 1),
@@ -177,6 +211,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
   }
 
   Future<void> _reset() async {
+    if (_busy) return;
     setState(() {
       _busy = true;
       _status =
@@ -184,19 +219,32 @@ class _VitalsDialogState extends State<_VitalsDialog> {
           'Resetting…';
     });
     try {
-      await widget.controller.evaluateJavaScript(
-        'delete window.__oh_vitals; delete window.__oh_vitals_installed;',
-        returnByValue: false,
-      );
+      _pullTimer?.cancel();
+      _pullTimer = null;
+      _bootstrapGeneration += 1;
+      await _cleanupInjectedObservers();
       for (final m in _metrics) {
         m.value = null;
       }
       _bootstrapped = false;
+      if (!mounted) return;
       await _bootstrap();
     } catch (e, st) {
       silentLog('web_reverse_vitals_dialog', '重置指标', e, st);
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _cleanupInjectedObservers() async {
+    _bootstrapped = false;
+    try {
+      await widget.controller.evaluateJavaScript(
+        'window.__oh_vitals_cleanup ? window.__oh_vitals_cleanup() : (delete window.__oh_vitals, delete window.__oh_vitals_installed, true)',
+        timeout: const Duration(seconds: 3),
+      );
+    } catch (error, stack) {
+      silentLog('web_reverse_vitals_dialog', '清理指标观察器', error, stack);
     }
   }
 
