@@ -428,15 +428,6 @@ class _StatusPageCopy {
     ja: 'ライブ',
   );
 
-  String get liveHidden => _t(
-    zh: '后台同步',
-    zhHant: '背景同步',
-    en: 'Syncing in background',
-    fr: 'Sync. en arrière-plan',
-    de: 'Hintergrundsync',
-    ja: 'バックグラウンド同期',
-  );
-
   String get liveError => _t(
     zh: '实时同步暂时中断，将自动重试。',
     zhHant: '即時同步暫時中斷，將自動重試。',
@@ -444,33 +435,6 @@ class _StatusPageCopy {
     fr: 'Sync. en pause. Nouvelle tentative automatique.',
     de: 'Live-Sync unterbrochen. Wiederholung folgt.',
     ja: 'ライブ同期が一時停止しました。自動で再試行します。',
-  );
-
-  String get justNow => _t(
-    zh: '刚刚',
-    zhHant: '剛剛',
-    en: 'Just now',
-    fr: 'À l’instant',
-    de: 'Gerade eben',
-    ja: 'たった今',
-  );
-
-  String get updatedAgo => _t(
-    zh: '{n} 秒前',
-    zhHant: '{n} 秒前',
-    en: '{n}s ago',
-    fr: 'il y a {n} s',
-    de: 'vor {n} s',
-    ja: '{n} 秒前',
-  );
-
-  String get updatedMinutesAgo => _t(
-    zh: '{n} 分钟前',
-    zhHant: '{n} 分鐘前',
-    en: '{n}m ago',
-    fr: 'il y a {n} min',
-    de: 'vor {n} Min.',
-    ja: '{n} 分前',
   );
 
   Map<String, String> get scriptLabels => <String, String>{
@@ -488,11 +452,7 @@ class _StatusPageCopy {
     'historyOpen': viewHistory,
     'historyClose': hideHistory,
     'live': live,
-    'liveHidden': liveHidden,
     'liveError': liveError,
-    'justNow': justNow,
-    'updatedAgo': updatedAgo,
-    'updatedMinutesAgo': updatedMinutesAgo,
   };
 }
 
@@ -611,8 +571,8 @@ body {
   padding: max(28px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(56px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
 }
 .top {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; margin-bottom: 22px; flex-wrap: wrap;
+  display: flex; align-items: center;
+  gap: 12px; margin-bottom: 22px;
 }
 .brand {
   display: flex; align-items: center; gap: 10px; font-weight: 800;
@@ -628,43 +588,27 @@ body {
   width: 36px; height: 36px; border-radius: 12px; object-fit: contain;
   display: block; background: var(--card); flex: none;
 }
-.live {
-  display: flex; align-items: center; gap: 8px;
-  padding: 7px 12px 7px 10px; border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--ok) 42%, var(--outline));
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--ok) 22%, var(--card)), color-mix(in srgb, var(--primary) 10%, var(--card)));
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--ok) 16%, transparent);
-  min-height: ${_kStatusPageTapMinPx}px;
-  flex: none;
+.card-title {
+  display: inline-flex; align-items: center; gap: 8px; min-width: 0;
 }
-.live-copy { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
-.live-label { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.live-time { font-size: 11px; font-weight: 700; color: var(--muted); }
+.live {
+  --live-tone: var(--ok);
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; flex: none; position: relative;
+}
+.live[data-state="idle"] { --live-tone: var(--caution); }
+.live[data-state="err"] { --live-tone: var(--bad); }
 .live-dot {
-  width: 9px; height: 9px; border-radius: 50%; flex: none;
-  background: var(--ok);
-  box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 55%, transparent);
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--live-tone);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--live-tone) 55%, transparent);
   animation: live-pulse 1.8s var(--oh-spring) infinite;
 }
-.live[data-state="err"] {
-  border-color: color-mix(in srgb, var(--bad) 48%, var(--outline));
-  background: linear-gradient(135deg, color-mix(in srgb, var(--bad) 18%, var(--card)), var(--card));
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--bad) 16%, transparent);
-}
 .live[data-state="err"] .live-dot {
-  background: var(--bad);
   animation: none;
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--bad) 22%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--live-tone) 28%, transparent);
 }
-.live[data-state="idle"] {
-  border-color: color-mix(in srgb, var(--caution) 40%, var(--outline));
-  background: linear-gradient(135deg, color-mix(in srgb, var(--caution) 16%, var(--card)), var(--card));
-}
-.live[data-state="idle"] .live-dot {
-  background: var(--caution);
-  animation: live-pulse 2.4s var(--oh-spring) infinite;
-}
+.live.pulse { animation: dot-pulse var(--oh-dialog-enter-duration) var(--oh-spring); }
 .ghost-btn {
   border: 1px solid var(--outline); background: var(--card); color: var(--text);
   border-radius: 999px; padding: 10px 16px; font: inherit; font-weight: 700;
@@ -713,7 +657,7 @@ body {
   animation-delay: 60ms;
 }
 .card-h {
-  display: flex; align-items: baseline; justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between;
   gap: 8px 12px; padding: 18px var(--pad) 14px; flex-wrap: wrap;
 }
 .card-h h2 { margin: 0; font-size: clamp(16px, 3.6vw, 18px); min-width: 0; }
@@ -1000,7 +944,7 @@ body {
   100% { transform: scale(1); }
 }
 @keyframes live-pulse {
-  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 50%, transparent); }
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--live-tone) 50%, transparent); }
   70% { box-shadow: 0 0 0 8px transparent; }
   100% { box-shadow: 0 0 0 0 transparent; }
 }
@@ -1014,7 +958,6 @@ $kOpenHandDialogMotionStandaloneCss
   :root { --radius: 16px; --bar-h: ${_kStatusBarPhoneHeightPx}px; --bar-gap: 1px; --nest: 14px; }
   .incident { grid-template-columns: 1fr; }
   .uptime { margin-left: 32px; }
-  .live { width: 100%; justify-content: flex-start; }
 }
 @media (pointer: coarse) {
   :root { --bar-h: ${_kStatusBarCoarseHeightPx}px; }
@@ -1042,13 +985,6 @@ html[data-motion='reduced'] .bar:hover .bar-fill { box-shadow: none; }
       <img class="logo" src="$aiModelProxyLogoPath" width="36" height="36" alt="OpenHand">
       <div>OpenHand<small>${_htmlEscape(copy.brandSubtitle)}</small></div>
     </div>
-    <div class="live" id="live" data-state="ok">
-      <span class="live-dot" aria-hidden="true"></span>
-      <span class="live-copy">
-        <span class="live-label" id="live-label">${_htmlEscape(copy.live)}</span>
-        <span class="live-time" id="live-time">${_htmlEscape(copy.justNow)}</span>
-      </span>
-    </div>
   </div>
   <section class="banner" id="banner" data-health="${overall.name}">
     <div class="banner-head">${_statusDotMarkup(overall)}<span id="banner-title">${_htmlEscape(banner.$1)}</span></div>
@@ -1056,7 +992,12 @@ html[data-motion='reduced'] .bar:hover .bar-fill { box-shadow: none; }
   </section>
   <section class="card">
     <div class="card-h">
-      <h2>${_htmlEscape(copy.systemStatus)}</h2>
+      <div class="card-title">
+        <h2>${_htmlEscape(copy.systemStatus)}</h2>
+        <span class="live" id="live" data-state="ok" role="status" aria-label="${_htmlEscape(copy.live)}">
+          <span class="live-dot" aria-hidden="true"></span>
+        </span>
+      </div>
       <div class="range" id="range">$rangeLabel</div>
     </div>
     <div id="rows"></div>
@@ -1095,9 +1036,7 @@ let tipExitToken = 0;
 let pinnedStrip = null;
 let activeStrip = null;
 let incidentSig = '';
-let generatedAt = Date.parse(data.generatedAt) || Date.now();
 let pollTimer = 0;
-let clockTimer = 0;
 let pollAbort = null;
 let inflight = false;
 let stopped = false;
@@ -1360,7 +1299,6 @@ function renderIncidents(items){
 }
 function applySnapshot(next){
   data = next;
-  generatedAt = Date.parse(next.generatedAt) || Date.now();
   patchBanner(next);
   const range = document.getElementById('range');
   if (range && next.range && range.textContent !== next.range) {
@@ -1374,7 +1312,6 @@ function applySnapshot(next){
     ? (labels.historyClose || histBtn.textContent)
     : (labels.historyOpen || histBtn.textContent);
   refreshOpenTip();
-  renderLiveTime();
 }
 function toggleRow(el){
   const rowEl = el.closest('.row');
@@ -1527,18 +1464,6 @@ histBtn.addEventListener('click', () => {
   const labels = i18n();
   histBtn.textContent = open ? (labels.historyClose || histBtn.textContent) : (labels.historyOpen || histBtn.textContent);
 });
-function formatAgo(from){
-  const labels = i18n();
-  const sec = Math.max(0, Math.round((Date.now() - from) / 1000));
-  if (sec < 5) return labels.justNow || '';
-  if (sec < 60) return String(labels.updatedAgo || '{n}').replace('{n}', String(sec));
-  const min = Math.max(1, Math.round(sec / 60));
-  return String(labels.updatedMinutesAgo || '{n}').replace('{n}', String(min));
-}
-function renderLiveTime(){
-  const timeEl = document.getElementById('live-time');
-  if (timeEl) timeEl.textContent = formatAgo(generatedAt);
-}
 function setSyncError(on){
   const toast = document.getElementById('sync-toast');
   const card = document.getElementById('sync-card');
@@ -1564,16 +1489,16 @@ function setSyncError(on){
 }
 function markLive(ok){
   const live = document.getElementById('live');
-  const labelEl = document.getElementById('live-label');
-  const labels = i18n();
-  if (live) live.setAttribute('data-state', ok ? (document.hidden ? 'idle' : 'ok') : 'err');
-  if (labelEl) {
-    labelEl.textContent = ok
-      ? (document.hidden ? (labels.liveHidden || labels.live || '') : (labels.live || ''))
-      : (labels.live || '');
+  if (!live) {
+    setSyncError(!ok);
+    return;
   }
+  const next = ok ? (document.hidden ? 'idle' : 'ok') : 'err';
+  const prev = live.getAttribute('data-state');
+  live.setAttribute('data-state', next);
+  live.setAttribute('aria-label', ok ? (i18n().live || '') : (i18n().liveError || ''));
+  if (prev && prev !== next) bump(live, 'pulse');
   setSyncError(!ok);
-  renderLiveTime();
 }
 function nextDelay(ok){
   if (document.hidden) return Math.max(POLL_HIDDEN_MS, ok ? POLL_MS : backoff);
@@ -1587,9 +1512,7 @@ function schedule(delay){
 function stopPoll(){
   stopped = true;
   clearTimeout(pollTimer);
-  clearTimeout(clockTimer);
   pollTimer = 0;
-  clockTimer = 0;
   if (pollAbort) pollAbort.abort();
 }
 async function tick(){
@@ -1630,13 +1553,6 @@ async function tick(){
     if (!stopped) schedule(nextDelay(ok));
   }
 }
-function startClock(){
-  if (stopped) return;
-  clockTimer = setTimeout(() => {
-    renderLiveTime();
-    startClock();
-  }, 1000);
-}
 document.addEventListener('visibilitychange', () => {
   if (stopped) return;
   if (document.hidden) {
@@ -1656,7 +1572,6 @@ window.addEventListener('beforeunload', stopPoll);
 patchList(rowsEl, data.components || [], false);
 renderIncidents(data.incidents || []);
 markLive(true);
-startClock();
 schedule(POLL_MS);
 </script>
 
