@@ -281,6 +281,7 @@ class _MetricTile extends StatelessWidget {
     return OpenHandOpsPressScale(
       onTap: onTap,
       tone: color,
+      borderRadius: kOpenHandBorderRadius8,
       showFocusRing: true,
       motionClearance: const EdgeInsets.all(kOpenHandOpsMotionClearance),
       child: Container(

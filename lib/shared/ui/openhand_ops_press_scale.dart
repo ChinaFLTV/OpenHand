@@ -108,14 +108,12 @@ class _OpenHandOpsPressScaleState extends State<OpenHandOpsPressScale> {
                     decoration: BoxDecoration(
                       color: overlay,
                       borderRadius: _radius,
-                      border: widget.showFocusRing
+                      // 外层卡片通常已经有自己的边框，悬停/按压时不再叠加
+                      // 第二层边框；仅在键盘焦点态显示可访问性提示。
+                      border: widget.showFocusRing && _focused
                           ? Border.all(
-                              color: _hovered || _pressed || _focused
-                                  ? widget.tone.withValues(
-                                      alpha: _focused ? 0.68 : 0.38,
-                                    )
-                                  : Colors.transparent,
-                              width: _focused ? 2 : 1,
+                              color: widget.tone.withValues(alpha: 0.68),
+                              width: 2,
                             )
                           : null,
                     ),
