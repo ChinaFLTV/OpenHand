@@ -535,7 +535,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       headers: ${jsonEncode(headers)},
       credentials: 'include',
       redirect: 'manual',
-      cache: kCacheControlNoStore,
+      cache: ${jsonEncode(kCacheControlNoStore)},
       signal: controller.signal,
     };
     const body = ${jsonEncode(body)};

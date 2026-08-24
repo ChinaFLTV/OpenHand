@@ -770,7 +770,7 @@ Future<List<String>> collectHarnessCliFailureDiagnostics(
   try {
     final quotedExecutable = _q(executable);
     final result = await runHarnessCliShellCommand('''
-printf '%s\\n' _kDiagBeginMarker
+printf '%s\\n' ${_q(_kDiagBeginMarker)}
 printf 'shell=%s\\n' "\${SHELL:-}"
 if command -v $quotedExecutable >/dev/null 2>&1; then
   printf 'executable=%s\\n' "\$(command -v $quotedExecutable)"
@@ -784,7 +784,7 @@ else
   printf 'node=\\n'
   printf 'node_version=\\n'
 fi
-printf '%s\\n' _kDiagEndMarker
+printf '%s\\n' ${_q(_kDiagEndMarker)}
 ''', timeout: _kHarnessCliLookupTimeout);
 
     final diagnostics = _extractHarnessCliDiagnostics('${result.stdout}');
