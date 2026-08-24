@@ -5,6 +5,7 @@ import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -135,16 +136,77 @@ class _AiModelHealthSettingsPanelState
             ),
             kOpenHandHGap12,
             SizedBox(
+              width: 156,
               height: _aiHealthControlHeight,
-              child: FilledButton.tonalIcon(
-                onPressed: controller.checking ? null : controller.checkAll,
-                icon: controller.checking
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.wifi_tethering_rounded),
-                label: Text(text(zh: '立即巡检', en: 'Run now')),
+              child: AnimatedContainer(
+                duration: openHandMotionDuration(context, kOpenHandMotion220),
+                curve: kOpenHandEmphasizedTransitionCurve,
+                child: FilledButton.tonalIcon(
+                  onPressed: controller.cancelling
+                      ? null
+                      : controller.manualChecking
+                      ? controller.cancelCheck
+                      : controller.checking
+                      ? null
+                      : controller.checkAll,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: controller.manualChecking
+                        ? OpenHandStatusColors.error.withValues(alpha: 0.14)
+                        : null,
+                    foregroundColor: controller.manualChecking
+                        ? OpenHandStatusColors.error
+                        : null,
+                  ),
+                  icon: AnimatedSwitcher(
+                    duration: openHandMotionDuration(
+                      context,
+                      kOpenHandMotion200,
+                    ),
+                    child: controller.cancelling
+                        ? const SizedBox.square(
+                            key: ValueKey<String>('cancelling'),
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : controller.manualChecking
+                        ? const Icon(
+                            Icons.stop_rounded,
+                            key: ValueKey<String>('stop'),
+                          )
+                        : controller.checking
+                        ? const OpenHandBusyStatusIcon(
+                            busy: true,
+                            icon: null,
+                            key: ValueKey<String>('busy'),
+                          )
+                        : const Icon(
+                            Icons.wifi_tethering_rounded,
+                            key: ValueKey<String>('idle'),
+                          ),
+                  ),
+                  label: AnimatedSwitcher(
+                    duration: openHandMotionDuration(
+                      context,
+                      kOpenHandMotion200,
+                    ),
+                    child: Text(
+                      controller.cancelling
+                          ? text(zh: '正在停止巡检', en: 'Stopping inspection')
+                          : controller.manualChecking
+                          ? text(zh: '停止巡检', en: 'Stop inspection')
+                          : controller.checking
+                          ? text(zh: '正在巡检', en: 'Checking')
+                          : text(zh: '立即巡检', en: 'Run now'),
+                      key: ValueKey<String>(
+                        controller.cancelling
+                            ? 'cancelling'
+                            : controller.checking
+                            ? 'checking'
+                            : 'idle',
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
           ],

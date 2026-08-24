@@ -5363,6 +5363,7 @@ class _AiModelTile extends StatefulWidget {
     required this.onSelect,
     required this.onTest,
     required this.onHealthCheck,
+    required this.onHealthCheckCancel,
     required this.onEdit,
     required this.onMoveUp,
     required this.onMoveDown,
@@ -5380,6 +5381,7 @@ class _AiModelTile extends StatefulWidget {
   final VoidCallback onSelect;
   final VoidCallback onTest;
   final VoidCallback onHealthCheck;
+  final VoidCallback onHealthCheckCancel;
   final VoidCallback onEdit;
   final VoidCallback onMoveUp;
   final VoidCallback onMoveDown;
@@ -5551,6 +5553,9 @@ class _AiModelTileState extends State<_AiModelTile> {
     final colorScheme = theme.colorScheme;
     final healthChecking = context.select<AiModelHealthController, bool>(
       (controller) => controller.isProviderChecking(widget.model.id),
+    );
+    final manualHealthChecking = context.select<AiModelHealthController, bool>(
+      (controller) => controller.isProviderManuallyChecking(widget.model.id),
     );
     final anyHealthChecking = context.select<AiModelHealthController, bool>(
       (controller) => controller.checking,
@@ -5725,22 +5730,54 @@ class _AiModelTileState extends State<_AiModelTile> {
                           icon: const Icon(Icons.delete_outline_rounded),
                         ),
                         IconButton(
-                          onPressed:
-                              widget.actionsEnabled &&
-                              !anyHealthChecking
-                              ? widget.onHealthCheck
+                          onPressed: !widget.actionsEnabled
+                              ? null
+                              : manualHealthChecking
+                              ? widget.onHealthCheckCancel
+                              : anyHealthChecking
+                              ? null
+                              : widget.onHealthCheck,
+                          style: manualHealthChecking
+                              ? IconButton.styleFrom(
+                                  backgroundColor: OpenHandStatusColors.error
+                                      .withValues(alpha: 0.14),
+                                  foregroundColor: OpenHandStatusColors.error,
+                                )
                               : null,
                           tooltip: openHandLocalizedText(
                             context,
-                            zh: healthChecking ? '正在检查提供商健康状态' : '检查提供商健康状态',
-                            en: healthChecking
+                            zh: manualHealthChecking
+                                ? '停止提供商健康检查'
+                                : healthChecking
+                                ? '正在检查提供商健康状态'
+                                : '检查提供商健康状态',
+                            en: manualHealthChecking
+                                ? 'Stop provider health check'
+                                : healthChecking
                                 ? 'Checking provider health'
                                 : 'Check provider health',
                           ),
-                          icon: OpenHandBusyStatusIcon(
-                            busy: healthChecking,
-                            icon: Icons.wifi_tethering_rounded,
-                            size: 24,
+                          icon: AnimatedSwitcher(
+                            duration: openHandMotionDuration(
+                              context,
+                              kOpenHandMotion200,
+                            ),
+                            child: manualHealthChecking
+                                ? const Icon(
+                                    Icons.stop_rounded,
+                                    key: ValueKey<String>('stop-health'),
+                                  )
+                                : healthChecking
+                                ? const OpenHandBusyStatusIcon(
+                                    busy: true,
+                                    icon: null,
+                                    key: ValueKey<String>('busy-health'),
+                                    size: 24,
+                                  )
+                                : const Icon(
+                                    Icons.wifi_tethering_rounded,
+                                    key: ValueKey<String>('start-health'),
+                                  ),
                           ),
                         ),
                         IconButton(
@@ -6287,9 +6324,7 @@ mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
                 items: _recentCalls,
                 builder: (context, pageItems) => Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final call in pageItems) buildCallRow(call),
-                  ],
+                  children: [for (final call in pageItems) buildCallRow(call)],
                 ),
               ),
       ),

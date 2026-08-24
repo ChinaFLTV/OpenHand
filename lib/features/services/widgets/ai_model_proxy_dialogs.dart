@@ -387,6 +387,9 @@ class _ProxyProvidersDialogState extends State<_ProxyProvidersDialog> {
                           onHealthCheck: () => context
                               .read<AiModelHealthController>()
                               .checkProvider(model),
+                          onHealthCheckCancel: context
+                              .read<AiModelHealthController>()
+                              .cancelCheck,
                           onEdit: () => showAiModelEditorDialog(
                             context,
                             initialModel: model,

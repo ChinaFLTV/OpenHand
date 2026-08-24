@@ -25,6 +25,24 @@ const Duration _kModelHealthRequestTimeout = Duration(seconds: 20);
 const Duration _kModelHealthConnectionTimeout = Duration(seconds: 15);
 const int _kModelHealthMaxResponseBytes = kBytesPerMiB;
 
+/// 一次显式模型巡检的取消状态；取消时主动关闭本轮创建的客户端。
+class AiModelHealthCancellation {
+  bool cancelled = false;
+  final Set<http.Client> clients = <http.Client>{};
+  final Completer<void> _signal = Completer<void>();
+
+  Future<void> get whenCancelled => _signal.future;
+
+  void cancel() {
+    if (cancelled) return;
+    cancelled = true;
+    _signal.complete();
+    for (final client in clients.toList(growable: false)) {
+      client.close();
+    }
+  }
+}
+
 class AiModelHealthController extends ChangeNotifier {
   AiModelHealthController({AiModelHealthStore? store})
     : _store = store ?? AiModelHealthStore();
@@ -37,6 +55,9 @@ class AiModelHealthController extends ChangeNotifier {
   final Set<http.Client> _activeClients = <http.Client>{};
   Timer? _timer;
   bool _checking = false;
+  bool _cancelling = false;
+  bool _manualChecking = false;
+  AiModelHealthCancellation? _activeCancellation;
   final Set<String> _checkingProviderIds = <String>{};
   bool _disposed = false;
 
@@ -44,9 +65,15 @@ class AiModelHealthController extends ChangeNotifier {
   List<AiModelHealthRecord> get records =>
       List<AiModelHealthRecord>.unmodifiable(_records);
   bool get checking => _checking;
+  bool get cancelling => _cancelling;
+  bool get manualChecking => _checking && _manualChecking;
 
   bool isProviderChecking(String providerId) {
     return _checkingProviderIds.contains(providerId.trim());
+  }
+
+  bool isProviderManuallyChecking(String providerId) {
+    return manualChecking && isProviderChecking(providerId);
   }
 
   Future<void> load() async {
@@ -140,22 +167,29 @@ class AiModelHealthController extends ChangeNotifier {
     return values.isEmpty ? null : values.first;
   }
 
-  Future<void> checkAll() async {
+  Future<void> checkAll({bool manual = true}) async {
     if (_checking || _disposed) return;
     final models = _modelsProvider?.call() ?? const <AiModelConfig>[];
     if (models.isEmpty) return;
-    await _checkProviders(models);
+    await _checkProviders(models, manual: manual);
   }
 
   Future<void> checkProvider(AiModelConfig provider) async {
     if (_checking || _disposed) return;
-    await _checkProviders(<AiModelConfig>[provider]);
+    await _checkProviders(<AiModelConfig>[provider], manual: true);
   }
 
-  Future<void> _checkProviders(Iterable<AiModelConfig> providers) async {
+  Future<void> _checkProviders(
+    Iterable<AiModelConfig> providers, {
+    required bool manual,
+  }) async {
     if (_checking || _disposed) return;
     final providerList = providers.toList(growable: false);
+    final cancellation = AiModelHealthCancellation();
+    _activeCancellation = cancellation;
     _checking = true;
+    _cancelling = false;
+    _manualChecking = manual;
     _checkingProviderIds
       ..clear()
       ..addAll(providerList.map((provider) => provider.id.trim()));
@@ -164,8 +198,15 @@ class AiModelHealthController extends ChangeNotifier {
       final pending = <Future<AiModelHealthRecord?>>[];
       for (final provider in providerList) {
         for (final modelId in _healthModelIds(provider)) {
-          if (_disposed) return;
-          pending.add(checkModel(provider, modelId: modelId, notify: false));
+          if (_disposed || cancellation.cancelled) return;
+          pending.add(
+            checkModel(
+              provider,
+              modelId: modelId,
+              notify: false,
+              cancellation: cancellation,
+            ),
+          );
           if (pending.length >= _settings.concurrency) {
             await Future.wait(pending);
             pending.clear();
@@ -175,17 +216,32 @@ class AiModelHealthController extends ChangeNotifier {
       if (pending.isNotEmpty) await Future.wait(pending);
     } finally {
       _checking = false;
+      _cancelling = false;
+      _manualChecking = false;
+      cancellation.clients.clear();
+      if (identical(_activeCancellation, cancellation)) {
+        _activeCancellation = null;
+      }
       _checkingProviderIds.clear();
       if (!_disposed) notifyListeners();
     }
+  }
+
+  /// 停止当前显式触发的批量或提供商巡检。
+  void cancelCheck() {
+    if (!_checking || _cancelling || _disposed) return;
+    _cancelling = true;
+    _activeCancellation?.cancel();
+    notifyListeners();
   }
 
   Future<AiModelHealthRecord?> checkModel(
     AiModelConfig provider, {
     String? modelId,
     bool notify = true,
+    AiModelHealthCancellation? cancellation,
   }) async {
-    if (_disposed) return null;
+    if (_disposed || cancellation?.cancelled == true) return null;
     final selectedModelId = (modelId ?? provider.modelId).trim();
     if (selectedModelId.isEmpty) return null;
     final model = provider.copyWith(modelId: selectedModelId);
@@ -202,10 +258,17 @@ class AiModelHealthController extends ChangeNotifier {
     int? requestDurationMs;
     try {
       if (_isTextModel(model, selectedModelId)) {
-        final client = _createClient(mode, uri?.host ?? '');
+        final client = _createClient(
+          mode,
+          uri?.host ?? '',
+          cancellation: cancellation,
+        );
         final service = AiChatService(client: client);
         try {
-          final result = await service.testModel(model);
+          final result = await _awaitCancellation(
+            service.testModel(model),
+            cancellation,
+          );
           success = true;
           status = 'healthy';
           responseCode = 200;
@@ -224,18 +287,23 @@ class AiModelHealthController extends ChangeNotifier {
           _closeClient(client);
         }
       } else {
-        final client = _createClient(mode, uri?.host ?? '');
+        final client = _createClient(
+          mode,
+          uri?.host ?? '',
+          cancellation: cancellation,
+        );
         try {
           final target = _modelProbeUri(model, selectedModelId);
           requestUrl = target.toString();
           requestMethod = 'GET';
           final headers = _headers(model);
           var request = http.Request('GET', target)..headers.addAll(headers);
-          var response = await client
-              .send(request)
-              .timeout(_kModelHealthRequestTimeout);
+          var response = await _awaitCancellation(
+            client.send(request).timeout(_kModelHealthRequestTimeout),
+            cancellation,
+          );
           responseCode = response.statusCode;
-          await _drainProbeResponse(response);
+          await _awaitCancellation(_drainProbeResponse(response), cancellation);
           success = response.statusCode >= 200 && response.statusCode < 300;
           if (!success &&
               (response.statusCode == 404 || response.statusCode == 405)) {
@@ -258,11 +326,15 @@ class AiModelHealthController extends ChangeNotifier {
               )..headers.addAll(headers);
               requestUrl = request.url.toString();
               requestMethod = 'OPTIONS';
-              response = await client
-                  .send(request)
-                  .timeout(_kModelHealthRequestTimeout);
+              response = await _awaitCancellation(
+                client.send(request).timeout(_kModelHealthRequestTimeout),
+                cancellation,
+              );
               responseCode = response.statusCode;
-              await _drainProbeResponse(response);
+              await _awaitCancellation(
+                _drainProbeResponse(response),
+                cancellation,
+              );
               success = response.statusCode >= 200 && response.statusCode < 300;
               status = success ? 'healthy' : 'unhealthy';
               if (!success) errorMessage = 'HTTP $responseCode';
@@ -303,11 +375,15 @@ class AiModelHealthController extends ChangeNotifier {
                     ..body = jsonEncode(body);
               requestUrl = request.url.toString();
               requestMethod = 'POST';
-              response = await client
-                  .send(request)
-                  .timeout(_kModelHealthRequestTimeout);
+              response = await _awaitCancellation(
+                client.send(request).timeout(_kModelHealthRequestTimeout),
+                cancellation,
+              );
               responseCode = response.statusCode;
-              await _drainProbeResponse(response);
+              await _awaitCancellation(
+                _drainProbeResponse(response),
+                cancellation,
+              );
               success = response.statusCode >= 200 && response.statusCode < 300;
             }
           }
@@ -318,11 +394,12 @@ class AiModelHealthController extends ChangeNotifier {
         }
       }
     } catch (error) {
+      if (cancellation?.cancelled == true) return null;
       errorMessage = '$error';
       status = 'error';
     }
     stopwatch.stop();
-    if (_disposed) return null;
+    if (_disposed || cancellation?.cancelled == true) return null;
     requestDurationMs ??= stopwatch.elapsedMilliseconds;
     final checkedAt = DateTime.now().toUtc();
     final record = AiModelHealthRecord(
@@ -487,7 +564,11 @@ class AiModelHealthController extends ChangeNotifier {
     return headers;
   }
 
-  http.Client _createClient(AiModelHealthRequestMode mode, String host) {
+  http.Client _createClient(
+    AiModelHealthRequestMode mode,
+    String host, {
+    AiModelHealthCancellation? cancellation,
+  }) {
     if (_disposed) throw StateError('模型健康巡检控制器已释放。');
     final http.Client client;
     if (mode == AiModelHealthRequestMode.systemProxy) {
@@ -514,11 +595,13 @@ class AiModelHealthController extends ChangeNotifier {
       }
     }
     _activeClients.add(client);
+    cancellation?.clients.add(client);
     return client;
   }
 
   void _closeClient(http.Client client) {
     _activeClients.remove(client);
+    _activeCancellation?.clients.remove(client);
     client.close();
   }
 
@@ -529,6 +612,20 @@ class AiModelHealthController extends ChangeNotifier {
       idleTimeout: _kModelHealthRequestTimeout,
       totalTimeout: _kModelHealthRequestTimeout,
     );
+  }
+
+  Future<T> _awaitCancellation<T>(
+    Future<T> operation,
+    AiModelHealthCancellation? cancellation,
+  ) {
+    final activeCancellation = cancellation;
+    if (activeCancellation == null) return operation;
+    return Future.any<T>([
+      operation,
+      activeCancellation.whenCancelled.then<T>(
+        (_) => throw const _AiModelHealthCancelledException(),
+      ),
+    ]);
   }
 
   String _proxyEndpointFor(AiModelHealthRequestMode mode, String host) {
@@ -583,7 +680,7 @@ class AiModelHealthController extends ChangeNotifier {
     if (_settings.enabled && _modelsProvider != null) {
       _timer = startSafePeriodicTimer(
         Duration(minutes: _settings.intervalMinutes),
-        (_) => checkAll(),
+        (_) => checkAll(manual: false),
       );
     }
   }
@@ -596,7 +693,13 @@ class AiModelHealthController extends ChangeNotifier {
       client.close();
     }
     _activeClients.clear();
+    _activeCancellation?.cancel();
+    _activeCancellation = null;
     _checkingProviderIds.clear();
     super.dispose();
   }
+}
+
+class _AiModelHealthCancelledException implements Exception {
+  const _AiModelHealthCancelledException();
 }

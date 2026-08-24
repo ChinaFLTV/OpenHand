@@ -99,6 +99,8 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   final AiExposureProxyProbe _probe = const AiExposureProxyProbe();
   final ScrollController _endpointScrollController = ScrollController();
   final Set<String> _testingUrls = <String>{};
+  final Map<String, AiExposureProxyProbeCancellation> _testingCancellations =
+      <String, AiExposureProxyProbeCancellation>{};
   final Set<String> _selectedUrls = <String>{};
   final Set<String> _removingUrls = <String>{};
   final Map<String, AiExposureProxyProbeSample> _pendingSamples =
@@ -152,6 +154,10 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   void dispose() {
     _inspectionGeneration++;
     if (_inspectionRunning) _servicesController.cancelProxyInspection();
+    for (final cancellation in _testingCancellations.values) {
+      cancellation.cancel();
+    }
+    _testingCancellations.clear();
     _resultFlushTimer?.cancel();
     _endpointScrollController.dispose();
     super.dispose();
@@ -1051,31 +1057,73 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                   },
                 ),
               );
-              final inspect = FilledButton.tonalIcon(
-                onPressed: _inspectionBusy
-                    ? _inspectionCancelling
-                          ? null
-                          : _cancelInspection
-                    : controllerInspectionBusy
-                    ? null
-                    : !_endpoints.any((item) => item.enabled)
-                    ? null
-                    : _inspectAll,
-                icon: _inspectionCancelling || controllerInspectionCancelling
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : _inspectionBusy
-                    ? const Icon(Icons.stop_rounded)
-                    : const Icon(Icons.network_check_rounded),
-                label: Text(
-                  _inspectionCancelling || controllerInspectionCancelling
-                      ? text(zh: '正在停止巡检', en: 'Stopping inspection')
-                      : _inspectionBusy
-                      ? text(zh: '停止巡检', en: 'Stop inspection')
-                      : text(zh: '一键巡检', en: 'Inspect all'),
+              final explicitInspectionBusy = _inspectionBusy;
+              final inspectionCancelling =
+                  _inspectionCancelling || controllerInspectionCancelling;
+              final inspect = SizedBox(
+                width: 178,
+                height: 56,
+                child: AnimatedContainer(
+                  duration: openHandMotionDuration(context, kOpenHandMotion220),
+                  curve: kOpenHandEmphasizedTransitionCurve,
+                  child: FilledButton.tonalIcon(
+                    onPressed: explicitInspectionBusy
+                        ? _inspectionCancelling
+                              ? null
+                              : _cancelInspection
+                        : controllerInspectionBusy
+                        ? null
+                        : !_endpoints.any((item) => item.enabled)
+                        ? null
+                        : _inspectAll,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: explicitInspectionBusy
+                          ? colors.error
+                          : null,
+                      foregroundColor: explicitInspectionBusy
+                          ? colors.onError
+                          : null,
+                    ),
+                    icon: AnimatedSwitcher(
+                      duration: openHandMotionDuration(
+                        context,
+                        kOpenHandMotion200,
+                      ),
+                      child: inspectionCancelling
+                          ? const SizedBox(
+                              key: ValueKey<String>('cancelling'),
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              explicitInspectionBusy
+                                  ? Icons.stop_rounded
+                                  : Icons.network_check_rounded,
+                              key: ValueKey<bool>(explicitInspectionBusy),
+                            ),
+                    ),
+                    label: AnimatedSwitcher(
+                      duration: openHandMotionDuration(
+                        context,
+                        kOpenHandMotion200,
+                      ),
+                      child: Text(
+                        inspectionCancelling
+                            ? text(zh: '正在停止巡检', en: 'Stopping inspection')
+                            : explicitInspectionBusy
+                            ? text(zh: '停止巡检', en: 'Stop inspection')
+                            : text(zh: '一键巡检', en: 'Inspect all'),
+                        key: ValueKey<String>(
+                          inspectionCancelling
+                              ? 'cancelling'
+                              : explicitInspectionBusy
+                              ? 'busy'
+                              : 'idle',
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               );
               if (constraints.maxWidth < 760) {
@@ -1720,19 +1768,30 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   );
 
   Future<void> _testEndpoint(String url) async {
-    if (_inspectionRunning ||
-        _servicesController.proxyInspectionBusy ||
-        _testingUrls.contains(url)) {
+    if (_inspectionRunning || _servicesController.proxyInspectionBusy) {
+      return;
+    }
+    final runningCancellation = _testingCancellations[url];
+    if (runningCancellation != null) {
+      runningCancellation.cancel();
       return;
     }
     final endpoint = _endpoints.where((item) => item.url == url).firstOrNull;
     if (endpoint == null) return;
-    setState(() => _testingUrls.add(url));
-    final sample = await _probe.inspect(endpoint);
-    if (!mounted) return;
-    _pendingSamples[url] = sample;
-    _testingUrls.remove(url);
-    _flushProbeResults();
+    final cancellation = AiExposureProxyProbeCancellation();
+    _testingCancellations[url] = cancellation;
+    if (mounted) setState(() => _testingUrls.add(url));
+    try {
+      final sample = await _probe.inspect(endpoint, cancellation: cancellation);
+      if (!mounted) return;
+      _pendingSamples[url] = sample;
+      _flushProbeResults();
+    } on AiExposureProxyProbeCancelledException {
+      // 用户主动停止单节点巡检，不生成失败样本。
+    } finally {
+      _testingCancellations.remove(url);
+      if (mounted) setState(() => _testingUrls.remove(url));
+    }
   }
 
   Future<void> _inspectAll() async {
@@ -5974,14 +6033,22 @@ class _ProxyEndpointCard extends StatelessWidget {
         ),
       ),
       IconButton(
-        tooltip: text(zh: '测试连通性与延迟', en: 'Test connectivity'),
-        onPressed: busy || testing || selectionMode ? null : onTest,
-        icon: testing
-            ? const SizedBox.square(
-                dimension: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
+        tooltip: testing
+            ? text(zh: '停止健康检查', en: 'Stop health check')
+            : text(zh: '测试连通性与延迟', en: 'Test connectivity'),
+        onPressed: busy || selectionMode ? null : onTest,
+        style: testing
+            ? IconButton.styleFrom(
+                backgroundColor: colors.error.withValues(alpha: 0.14),
+                foregroundColor: colors.error,
               )
-            : const Icon(Icons.speed_rounded),
+            : null,
+        icon: AnimatedSwitcher(
+          duration: openHandMotionDuration(context, kOpenHandMotion200),
+          child: testing
+              ? const Icon(Icons.stop_rounded, key: ValueKey<String>('stop'))
+              : const Icon(Icons.speed_rounded, key: ValueKey<String>('test')),
+        ),
       ),
       IconButton(
         tooltip: text(zh: '查看代理详情', en: 'View proxy details'),

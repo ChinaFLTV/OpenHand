@@ -1367,6 +1367,7 @@ Widget buildAiModelProviderCard({
   required VoidCallback onSelect,
   required VoidCallback onTest,
   required VoidCallback onHealthCheck,
+  required VoidCallback onHealthCheckCancel,
   required VoidCallback onEdit,
   required VoidCallback onMoveUp,
   required VoidCallback onMoveDown,
@@ -1384,6 +1385,7 @@ Widget buildAiModelProviderCard({
     onSelect: onSelect,
     onTest: onTest,
     onHealthCheck: onHealthCheck,
+    onHealthCheckCancel: onHealthCheckCancel,
     onEdit: onEdit,
     onMoveUp: onMoveUp,
     onMoveDown: onMoveDown,
@@ -1577,6 +1579,9 @@ class _SettingsViewState extends State<SettingsView> {
               ? () =>
                     context.read<AiModelHealthController>().checkProvider(model)
               : () {},
+          onHealthCheckCancel: context
+              .read<AiModelHealthController>()
+              .cancelCheck,
           onEdit: isPresent
               ? () => _showAiModelDialog(context, initialModel: model)
               : () {},
