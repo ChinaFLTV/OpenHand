@@ -53,20 +53,35 @@ export async function throwIfApiResponseFailed(
 ): Promise<void> {
   if (response.status === 401) {
     clearAuthStorage();
-    cancelResponseBodyQuietly(response);
-    throw new UnauthorizedError(null);
+    throw new UnauthorizedError(await readApiErrorBody(response, signal));
   }
   if (!response.ok) {
-    let text = '';
+    throw new ApiError(
+      response.status,
+      await readApiErrorBody(response, signal),
+    );
+  }
+}
+
+async function readApiErrorBody(
+  response: Response,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  try {
+    const text = await readResponseTextBounded(response, {
+      maxBytes: MAX_API_ERROR_RESPONSE_BYTES,
+      signal,
+    });
+    if (!text) return null;
     try {
-      text = await readResponseTextBounded(response, {
-        maxBytes: MAX_API_ERROR_RESPONSE_BYTES,
-        signal,
-      });
-    } catch (error) {
-      if (signal?.aborted || isAbortError(error)) throw error;
+      return JSON.parse(text);
+    } catch {
+      return text;
     }
-    throw new ApiError(response.status, text || null);
+  } catch (error) {
+    if (signal?.aborted || isAbortError(error)) throw error;
+    cancelResponseBodyQuietly(response, error);
+    return null;
   }
 }
 
@@ -136,27 +151,28 @@ export async function apiRequest<T = unknown>(
       signal: abortSignal.signal,
     });
 
-    let parsed: unknown = null;
+    if (res.status === 401) {
+      clearAuthStorage();
+      throw new UnauthorizedError(
+        await readApiErrorBody(res, abortSignal.signal),
+      );
+    }
+    if (!res.ok) {
+      throw new ApiError(
+        res.status,
+        await readApiErrorBody(res, abortSignal.signal),
+      );
+    }
     const text = await readResponseTextBounded(res, {
       maxBytes: MAX_API_RESPONSE_BYTES,
       signal: abortSignal.signal,
     });
-    if (text) {
-      try {
-        parsed = JSON.parse(text);
-      } catch {
-        parsed = text;
-      }
+    if (!text) return null as T;
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      return text as T;
     }
-
-    if (res.status === 401) {
-      clearAuthStorage();
-      throw new UnauthorizedError(parsed);
-    }
-    if (!res.ok) {
-      throw new ApiError(res.status, parsed);
-    }
-    return parsed as T;
   } catch (error) {
     throw timeoutErrorFromAbortSignal(abortSignal, error) ?? error;
   } finally {
