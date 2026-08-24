@@ -8724,12 +8724,7 @@ class WebMessagePlatformService {
               .create(recursive: true)
               .timeout(_uploadCacheOperationTimeout);
         }
-        final file = File(
-          p.join(
-            dir.path,
-            '${DateTime.now().microsecondsSinceEpoch}-$index-$name',
-          ),
-        );
+        final file = File(p.join(dir.path, '${_makeToken()}-$index-$name'));
         await writeBytesFileAtomically(file, bytes);
         output.add(file.path);
       }

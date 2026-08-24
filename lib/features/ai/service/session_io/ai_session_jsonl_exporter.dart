@@ -33,6 +33,7 @@ const int _exportTitleMaxUtf8Bytes = 100;
 const int _exportSessionIdPrefixMaxCharacters = 115;
 const int _exportSessionIdPrefixMaxUtf8Bytes = 115;
 const int _exportSessionIdHashLength = 12;
+int _exportTempFileSerial = 0;
 
 typedef _JsonlExportSource = ({
   Map<String, Object?> header,
@@ -80,7 +81,8 @@ const Duration _exportFileIoTimeout = Duration(seconds: 10);
 
 File _temporaryExportFile(File targetFile) {
   final stamp = DateTime.now().microsecondsSinceEpoch;
-  return File('${targetFile.path}.openhand-$stamp.tmp');
+  final serial = _exportTempFileSerial++;
+  return File('${targetFile.path}.openhand-$pid-$stamp-$serial.tmp');
 }
 
 Future<void> _prepareExportTempFile(File targetFile, File tempFile) async {
