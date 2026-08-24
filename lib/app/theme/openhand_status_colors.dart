@@ -14,6 +14,9 @@ class OpenHandStatusColors {
   /// 等待、部分完成或需要注意。
   static const Color warning = Color(0xFFF59E0B);
 
+  /// 轻微波动或接近风险阈值。
+  static const Color caution = Color(0xFFEAB308);
+
   /// 信息或中性提示。
   static const Color info = Color(0xFF3B82F6);
 

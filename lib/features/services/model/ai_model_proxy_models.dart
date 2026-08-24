@@ -17,8 +17,12 @@ const String aiModelProxyLogoPath = '/openhand_logo.png';
 const String aiModelProxyFaviconPath = '/favicon.ico';
 const int aiModelProxyStatusHistoryDays = 90;
 const int aiModelProxySlowLatencyMs = 3000;
+const int aiModelProxySevereLatencyMs = 6000;
 const double aiModelProxyHealthHealthyRate = 0.99;
+const double aiModelProxyHealthWarningRate = 0.97;
 const double aiModelProxyHealthDegradedRate = 0.90;
+const double aiModelProxyHealthSlowRate = 0.20;
+const double aiModelProxyHealthSevereSlowRate = 0.40;
 const int aiModelProxyDailyModelCap = 64;
 const int aiModelProxyMaxConcurrentRequests = 16;
 
@@ -123,7 +127,7 @@ String normalizeAiModelProxyListenHost(Object? value) {
       : host;
 }
 
-enum AiModelProxyHealth { idle, healthy, degraded, outage }
+enum AiModelProxyHealth { idle, healthy, warning, degraded, outage }
 
 AiModelProxyHealth classifyAiModelProxyHealth({
   required int requests,
@@ -132,14 +136,20 @@ AiModelProxyHealth classifyAiModelProxyHealth({
   int p95Ms = 0,
 }) {
   if (requests <= 0) return AiModelProxyHealth.idle;
-  final rate = successes / requests;
+  final rate = successes.clamp(0, requests) / requests;
+  final slowRate = slowCount.clamp(0, requests) / requests;
   if (rate < aiModelProxyHealthDegradedRate) {
     return AiModelProxyHealth.outage;
   }
+  if (rate < aiModelProxyHealthWarningRate ||
+      p95Ms >= aiModelProxySevereLatencyMs ||
+      slowRate >= aiModelProxyHealthSevereSlowRate) {
+    return AiModelProxyHealth.degraded;
+  }
   if (rate < aiModelProxyHealthHealthyRate ||
       p95Ms >= aiModelProxySlowLatencyMs ||
-      slowCount / requests >= 0.2) {
-    return AiModelProxyHealth.degraded;
+      slowRate >= aiModelProxyHealthSlowRate) {
+    return AiModelProxyHealth.warning;
   }
   return AiModelProxyHealth.healthy;
 }
@@ -175,7 +185,6 @@ class AiModelProxyDailyComponent {
     requests: requests,
     successes: successes,
     slowCount: slowCount,
-    p95Ms: avgMs >= aiModelProxySlowLatencyMs ? avgMs : 0,
   );
 
   AiModelProxyDailyComponent add({

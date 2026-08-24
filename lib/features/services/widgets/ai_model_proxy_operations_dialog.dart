@@ -519,6 +519,7 @@ void _proxyOpsAccumulateRecord(
   _ProxyOpsGroupStat group,
   AiModelProxyRequestRecord record,
 ) {
+  final statusRecord = isAiModelProxyStatusRecord(record);
   group.requests += 1;
   if (record.success) group.successes += 1;
   group.tokens += record.tokens;
@@ -530,6 +531,13 @@ void _proxyOpsAccumulateRecord(
   if (record.stream) group.streams += 1;
   if (record.attempt > 1) group.retries += 1;
   if (record.durationMs >= aiModelProxySlowLatencyMs) group.slowCount += 1;
+  if (!statusRecord) {
+    group.inferenceDurationMs += record.durationMs;
+    group.inferenceDurations.add(record.durationMs);
+    if (record.durationMs >= aiModelProxySlowLatencyMs) {
+      group.inferenceSlowCount += 1;
+    }
+  }
   if (record.durationMs > group.maxMs) group.maxMs = record.durationMs;
   group.durations.add(record.durationMs);
   final peer = _proxyOpsRecordPeer(record);
@@ -545,7 +553,7 @@ void _proxyOpsAccumulateRecord(
   if (model.isNotEmpty) {
     group.modelCounts[model] = (group.modelCounts[model] ?? 0) + 1;
   }
-  if (isAiModelProxyStatusRecord(record)) {
+  if (statusRecord) {
     group.statusRequests += 1;
     if (record.success) group.statusSuccesses += 1;
   }
@@ -566,6 +574,8 @@ class _ProxyOpsGroupStat {
   int outboundBytes = 0;
   int streams = 0;
   int slowCount = 0;
+  int inferenceDurationMs = 0;
+  int inferenceSlowCount = 0;
   int retries = 0;
   int statusRequests = 0;
   int statusSuccesses = 0;
@@ -574,15 +584,27 @@ class _ProxyOpsGroupStat {
   String userAgentFamily = '';
   final Set<String> peers = <String>{};
   final List<int> durations = <int>[];
+  final List<int> inferenceDurations = <int>[];
   final Map<String, int> errors = <String, int>{};
   final Map<String, int> modelCounts = <String, int>{};
 
   int get failures => math.max(0, requests - successes);
+  int get inferenceRequests => math.max(0, requests - statusRequests);
+  int get inferenceSuccesses => math.max(0, successes - statusSuccesses);
+  int get inferenceFailures =>
+      math.max(0, inferenceRequests - inferenceSuccesses);
   int get avgMs => requests <= 0 ? 0 : (durationMs / requests).round();
+  int get inferenceAvgMs => inferenceRequests <= 0
+      ? 0
+      : (inferenceDurationMs / inferenceRequests).round();
   int get avgTokens => requests <= 0 ? 0 : (tokens / requests).round();
   int get p95Ms => _proxyOpsPercentile(durations, 0.95);
+  int get inferenceP95Ms => _proxyOpsPercentile(inferenceDurations, 0.95);
   double get successRate =>
       requests <= 0 ? 0 : (successes / requests).clamp(0.0, 1.0).toDouble();
+  double get inferenceSuccessRate => inferenceRequests <= 0
+      ? 0
+      : (inferenceSuccesses / inferenceRequests).clamp(0.0, 1.0).toDouble();
 }
 
 String _proxyOpsRecordPeer(AiModelProxyRequestRecord record) {
@@ -2608,7 +2630,7 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
   );
 }
 
-enum _ProxyOpsServiceHealth { idle, healthy, degraded, outage }
+enum _ProxyOpsServiceHealth { idle, healthy, warning, degraded, outage }
 
 String _proxyOpsHourRangeLabel(int hour) {
   final safe = hour.clamp(0, _kProxyOpsHourBuckets - 1);
@@ -2625,21 +2647,18 @@ String? _proxyOpsTopCountLabel(Map<String, int> counts) {
 }
 
 _ProxyOpsServiceHealth _proxyOpsHourHealth(_ProxyOpsGroupStat hour) {
-  final inference = math.max(0, hour.requests - hour.statusRequests);
-  if (inference <= 0) {
-    return hour.statusRequests > 0
-        ? _ProxyOpsServiceHealth.healthy
-        : _ProxyOpsServiceHealth.idle;
+  if (hour.inferenceRequests <= 0) {
+    return _ProxyOpsServiceHealth.idle;
   }
-  final successes = math.max(0, hour.successes - hour.statusSuccesses);
   return switch (classifyAiModelProxyHealth(
-    requests: inference,
-    successes: successes,
-    slowCount: hour.slowCount,
-    p95Ms: hour.p95Ms,
+    requests: hour.inferenceRequests,
+    successes: hour.inferenceSuccesses,
+    slowCount: hour.inferenceSlowCount,
+    p95Ms: hour.inferenceP95Ms,
   )) {
     AiModelProxyHealth.idle => _ProxyOpsServiceHealth.idle,
     AiModelProxyHealth.healthy => _ProxyOpsServiceHealth.healthy,
+    AiModelProxyHealth.warning => _ProxyOpsServiceHealth.warning,
     AiModelProxyHealth.degraded => _ProxyOpsServiceHealth.degraded,
     AiModelProxyHealth.outage => _ProxyOpsServiceHealth.outage,
   };
@@ -2647,6 +2666,7 @@ _ProxyOpsServiceHealth _proxyOpsHourHealth(_ProxyOpsGroupStat hour) {
 
 _ProxyOpsServiceHealth _proxyOpsOverallHealth(List<_ProxyOpsGroupStat> hours) {
   var seenTraffic = false;
+  var seenWarning = false;
   var seenDegraded = false;
   for (final hour in hours) {
     switch (_proxyOpsHourHealth(hour)) {
@@ -2655,6 +2675,9 @@ _ProxyOpsServiceHealth _proxyOpsOverallHealth(List<_ProxyOpsGroupStat> hours) {
       case _ProxyOpsServiceHealth.degraded:
         seenDegraded = true;
         seenTraffic = true;
+      case _ProxyOpsServiceHealth.warning:
+        seenWarning = true;
+        seenTraffic = true;
       case _ProxyOpsServiceHealth.healthy:
         seenTraffic = true;
       case _ProxyOpsServiceHealth.idle:
@@ -2662,6 +2685,7 @@ _ProxyOpsServiceHealth _proxyOpsOverallHealth(List<_ProxyOpsGroupStat> hours) {
     }
   }
   if (seenDegraded) return _ProxyOpsServiceHealth.degraded;
+  if (seenWarning) return _ProxyOpsServiceHealth.warning;
   if (seenTraffic) return _ProxyOpsServiceHealth.healthy;
   return _ProxyOpsServiceHealth.idle;
 }
@@ -2673,6 +2697,7 @@ Color _proxyOpsServiceHealthColor(
   return switch (health) {
     _ProxyOpsServiceHealth.idle => cs.onSurfaceVariant,
     _ProxyOpsServiceHealth.healthy => OpenHandStatusColors.success,
+    _ProxyOpsServiceHealth.warning => OpenHandStatusColors.caution,
     _ProxyOpsServiceHealth.degraded => OpenHandStatusColors.warning,
     _ProxyOpsServiceHealth.outage => OpenHandStatusColors.error,
   };
@@ -2685,6 +2710,7 @@ String _proxyOpsServiceHealthLabel(
   return switch (health) {
     _ProxyOpsServiceHealth.idle => text(zh: '空闲待命', en: 'Idle'),
     _ProxyOpsServiceHealth.healthy => text(zh: '正常运行', en: 'Operational'),
+    _ProxyOpsServiceHealth.warning => text(zh: '轻微波动', en: 'Minor disruption'),
     _ProxyOpsServiceHealth.degraded => text(zh: '服务降级', en: 'Degraded'),
     _ProxyOpsServiceHealth.outage => text(zh: '服务中断', en: 'Outage'),
   };
@@ -2695,61 +2721,71 @@ List<OpenHandChartTooltipMetric> _proxyOpsHourTooltipMetrics({
   required _ProxyOpsGroupStat hour,
   required Color tone,
   int dayRequests = 0,
+  bool inferenceOnly = false,
 }) {
-  final share = dayRequests <= 0 || hour.requests <= 0
+  final requests = inferenceOnly ? hour.inferenceRequests : hour.requests;
+  final successes = inferenceOnly ? hour.inferenceSuccesses : hour.successes;
+  final failures = inferenceOnly ? hour.inferenceFailures : hour.failures;
+  final successRate = inferenceOnly
+      ? hour.inferenceSuccessRate
+      : hour.successRate;
+  final averageMs = inferenceOnly ? hour.inferenceAvgMs : hour.avgMs;
+  final p95Ms = inferenceOnly ? hour.inferenceP95Ms : hour.p95Ms;
+  final slowCount = inferenceOnly ? hour.inferenceSlowCount : hour.slowCount;
+  final share = dayRequests <= 0 || requests <= 0
       ? null
       : text(
-          zh: '占近窗样本 ${_proxyOpsPercentLabel(hour.requests / dayRequests)}',
-          en: '${_proxyOpsPercentLabel(hour.requests / dayRequests)} of samples',
+          zh: '占近窗样本 ${_proxyOpsPercentLabel(requests / dayRequests)}',
+          en: '${_proxyOpsPercentLabel(requests / dayRequests)} of samples',
         );
   final topModel = _proxyOpsTopCountLabel(hour.modelCounts);
   return [
     OpenHandChartTooltipMetric(
       label: text(zh: '请求次数', en: 'Requests'),
-      value: '${hour.requests}',
+      value: '$requests',
       hint: share,
       icon: Icons.call_made_rounded,
       color: tone,
     ),
     OpenHandChartTooltipMetric(
       label: text(zh: '成功率', en: 'Success'),
-      value: hour.requests <= 0 ? '—' : _proxyOpsPercentLabel(hour.successRate),
-      hint: '${hour.successes} / ${hour.requests}',
+      value: requests <= 0 ? '—' : _proxyOpsPercentLabel(successRate),
+      hint: '$successes / $requests',
       icon: Icons.verified_rounded,
       color: OpenHandStatusColors.success,
     ),
     OpenHandChartTooltipMetric(
       label: text(zh: '失败次数', en: 'Failures'),
-      value: '${hour.failures}',
-      hint: hour.failures <= 0
+      value: '$failures',
+      hint: failures <= 0
           ? text(zh: '该时段无失败', en: 'No failures')
           : _proxyOpsTopCountLabel(hour.errors),
       icon: Icons.error_outline_rounded,
-      color: hour.failures > 0
+      color: failures > 0
           ? OpenHandStatusColors.error
           : OpenHandStatusColors.success,
     ),
     OpenHandChartTooltipMetric(
       label: text(zh: '平均耗时', en: 'Avg latency'),
-      value: _proxyOpsDurationLabel(hour.avgMs),
+      value: _proxyOpsDurationLabel(averageMs),
       icon: Icons.timer_outlined,
       color: tone,
     ),
     OpenHandChartTooltipMetric(
       label: 'P95',
-      value: _proxyOpsDurationLabel(hour.p95Ms),
+      value: _proxyOpsDurationLabel(p95Ms),
       hint: text(zh: '尾延迟', en: 'Tail latency'),
       icon: Icons.speed_rounded,
-      color: hour.p95Ms >= _kProxyOpsSlowLatencyMs
+      color: p95Ms >= _kProxyOpsSlowLatencyMs
           ? OpenHandStatusColors.warning
           : tone,
     ),
     OpenHandChartTooltipMetric(
       label: text(zh: '慢请求', en: 'Slow calls'),
-      value: '${hour.slowCount}',
+      value: '$slowCount',
       hint: text(zh: '耗时 ≥ 3s', en: 'Latency ≥ 3s'),
       icon: Icons.hourglass_bottom_rounded,
-      color: hour.slowCount > 0 ? OpenHandStatusColors.warning : tone,
+      color: slowCount > 0 ? OpenHandStatusColors.warning : tone,
     ),
     OpenHandChartTooltipMetric(
       label: 'Token',
@@ -2836,6 +2872,10 @@ Widget _proxyOpsServiceHealthPanel(
   final cs = theme.colorScheme;
   final overall = _proxyOpsOverallHealth(data.hourStats);
   final tone = _proxyOpsServiceHealthColor(cs, overall);
+  final inferenceRequests = data.records
+      .where((record) => !isAiModelProxyStatusRecord(record))
+      .length;
+  var warningHours = 0;
   var degradedHours = 0;
   var outageHours = 0;
   var activeHours = 0;
@@ -2846,6 +2886,9 @@ Widget _proxyOpsServiceHealthPanel(
         activeHours += 1;
       case _ProxyOpsServiceHealth.degraded:
         degradedHours += 1;
+        activeHours += 1;
+      case _ProxyOpsServiceHealth.warning:
+        warningHours += 1;
         activeHours += 1;
       case _ProxyOpsServiceHealth.healthy:
         activeHours += 1;
@@ -2861,6 +2904,10 @@ Widget _proxyOpsServiceHealthPanel(
     _ProxyOpsServiceHealth.healthy => text(
       zh: '对外中转服务整体运行正常',
       en: 'Public proxy is fully operational',
+    ),
+    _ProxyOpsServiceHealth.warning => text(
+      zh: '部分时段出现轻微波动',
+      en: 'Some hours had minor disruption',
     ),
     _ProxyOpsServiceHealth.degraded => text(
       zh: '部分时段出现服务降级',
@@ -2880,9 +2927,13 @@ Widget _proxyOpsServiceHealthPanel(
       zh: '有流量的 $activeHours 个整点均未跌破健康阈值：成功率 ≥ 99%，且 P95 < 3s。',
       en: 'All $activeHours hours with traffic stayed healthy: success ≥ 99% and P95 < 3s.',
     ),
+    _ProxyOpsServiceHealth.warning => text(
+      zh: '有 $warningHours 个整点进入黄色波动区：成功率 ≥ 97% 且 < 99%，或 P95 / 慢请求刚越过健康线，服务仍稳定可用。',
+      en: '$warningHours hours entered the yellow band: success was ≥ 97% and < 99%, or P95 / slow calls just crossed the healthy line.',
+    ),
     _ProxyOpsServiceHealth.degraded => text(
-      zh: '有 $degradedHours 个整点成功率低于 99% 或 P95 达到 3 秒。服务仍可响应，但客户端可能感到变慢。',
-      en: '$degradedHours hours fell below 99% success or hit a 3s P95. The proxy still answers, but clients may feel slowness.',
+      zh: '有 $degradedHours 个整点进入橙色降级区，另有 $warningHours 个黄色波动时段。部分请求可能失败或明显变慢。',
+      en: '$degradedHours hours entered the orange degraded band, with $warningHours more in yellow. Some calls may fail or slow noticeably.',
     ),
     _ProxyOpsServiceHealth.outage => text(
       zh: '有 $outageHours 个整点失败率达到 10% 以上，这些时段的对外中转可能已经中断或大量失败。',
@@ -2948,6 +2999,7 @@ Widget _proxyOpsServiceHealthPanel(
                 child: Icon(switch (overall) {
                   _ProxyOpsServiceHealth.idle => Icons.hourglass_empty_rounded,
                   _ProxyOpsServiceHealth.healthy => Icons.verified_rounded,
+                  _ProxyOpsServiceHealth.warning => Icons.info_outline_rounded,
                   _ProxyOpsServiceHealth.degraded =>
                     Icons.warning_amber_rounded,
                   _ProxyOpsServiceHealth.outage => Icons.report_rounded,
@@ -3009,6 +3061,10 @@ Widget _proxyOpsServiceHealthPanel(
               text(zh: '正常', en: 'Operational'),
             ),
             legendDot(
+              OpenHandStatusColors.caution,
+              text(zh: '波动', en: 'Minor disruption'),
+            ),
+            legendDot(
               OpenHandStatusColors.warning,
               text(zh: '降级', en: 'Degraded'),
             ),
@@ -3040,9 +3096,13 @@ Widget _proxyOpsServiceHealthPanel(
                     zh: '成功率 ≥ 99% 且 P95 < 3s，判定为正常运行。',
                     en: 'Success ≥ 99% and P95 < 3s, so this hour is operational.',
                   ),
+                  _ProxyOpsServiceHealth.warning => text(
+                    zh: '成功率 ≥ 97% 且 < 99%，或 P95 ≥ 3s、慢请求占比 ≥ 20%，判定为轻微波动。',
+                    en: 'Success is ≥ 97% and < 99%, or P95 ≥ 3s / slow calls ≥ 20%, so this hour has minor disruption.',
+                  ),
                   _ProxyOpsServiceHealth.degraded => text(
-                    zh: '成功率低于 99% 或 P95 ≥ 3s，判定为降级：仍可响应，但体验变差。',
-                    en: 'Success below 99% or P95 ≥ 3s, so this hour is degraded.',
+                    zh: '成功率 ≥ 90% 且 < 97%，或 P95 ≥ 6s、慢请求占比 ≥ 40%，判定为服务降级。',
+                    en: 'Success is ≥ 90% and < 97%, or P95 ≥ 6s / slow calls ≥ 40%, so this hour is degraded.',
                   ),
                   _ProxyOpsServiceHealth.outage => text(
                     zh: '成功率低于 90%，判定为中断：该小时失败过于集中。',
@@ -3069,16 +3129,20 @@ Widget _proxyOpsServiceHealthPanel(
                         en: 'No public requests this hour. Gray only means idle, not a client-facing fault.',
                       ),
                       _ProxyOpsServiceHealth.healthy => text(
-                        zh: '这一小时请求 ${hour.requests} 次，成功 ${_proxyOpsPercentLabel(hour.successRate)}，P95 ${_proxyOpsDurationLabel(hour.p95Ms)}，处于健康阈值内。',
-                        en: '${hour.requests} requests this hour, ${_proxyOpsPercentLabel(hour.successRate)} succeeded, P95 ${_proxyOpsDurationLabel(hour.p95Ms)} — within the healthy band.',
+                        zh: '这一小时中转请求 ${hour.inferenceRequests} 次，成功 ${_proxyOpsPercentLabel(hour.inferenceSuccessRate)}，P95 ${_proxyOpsDurationLabel(hour.inferenceP95Ms)}，处于健康阈值内。',
+                        en: '${hour.inferenceRequests} proxy requests this hour, ${_proxyOpsPercentLabel(hour.inferenceSuccessRate)} succeeded, P95 ${_proxyOpsDurationLabel(hour.inferenceP95Ms)} — within the healthy band.',
+                      ),
+                      _ProxyOpsServiceHealth.warning => text(
+                        zh: '这一小时服务仍稳定可用，但成功率 ${_proxyOpsPercentLabel(hour.inferenceSuccessRate)} 或尾延迟 ${_proxyOpsDurationLabel(hour.inferenceP95Ms)} 已进入黄色波动区。',
+                        en: 'Service remained available, but success ${_proxyOpsPercentLabel(hour.inferenceSuccessRate)} or P95 ${_proxyOpsDurationLabel(hour.inferenceP95Ms)} entered the yellow band.',
                       ),
                       _ProxyOpsServiceHealth.degraded => text(
-                        zh: '这一小时仍能完成大部分请求，但成功率 ${_proxyOpsPercentLabel(hour.successRate)} 或尾延迟 ${_proxyOpsDurationLabel(hour.p95Ms)} 已越过健康线。',
-                        en: 'Most calls still completed, but success ${_proxyOpsPercentLabel(hour.successRate)} or P95 ${_proxyOpsDurationLabel(hour.p95Ms)} crossed the healthy line.',
+                        zh: '这一小时成功率 ${_proxyOpsPercentLabel(hour.inferenceSuccessRate)} 或尾延迟 ${_proxyOpsDurationLabel(hour.inferenceP95Ms)} 已进入橙色降级区，用户体验可能明显受损。',
+                        en: 'Success ${_proxyOpsPercentLabel(hour.inferenceSuccessRate)} or P95 ${_proxyOpsDurationLabel(hour.inferenceP95Ms)} entered the orange degraded band and may noticeably affect callers.',
                       ),
                       _ProxyOpsServiceHealth.outage => text(
-                        zh: '这一小时失败 ${hour.failures} / ${hour.requests}，失败率偏高，对外中转在该时段很可能已经中断。',
-                        en: '${hour.failures} / ${hour.requests} failed this hour. The public proxy likely interrupted callers.',
+                        zh: '这一小时失败 ${hour.inferenceFailures} / ${hour.inferenceRequests}，失败率偏高，对外中转在该时段很可能已经中断。',
+                        en: '${hour.inferenceFailures} / ${hour.inferenceRequests} proxy requests failed this hour. The public proxy likely interrupted callers.',
                       ),
                     },
                     metrics: [
@@ -3093,7 +3157,8 @@ Widget _proxyOpsServiceHealthPanel(
                         text: text,
                         hour: hour,
                         tone: color,
-                        dayRequests: data.records.length,
+                        dayRequests: inferenceRequests,
+                        inferenceOnly: true,
                       ),
                       OpenHandChartTooltipMetric(
                         label: text(zh: '流式请求', en: 'Streams'),
@@ -3120,8 +3185,8 @@ Widget _proxyOpsServiceHealthPanel(
                     notes: [
                       rule,
                       text(
-                        zh: '绿 / 黄 / 红表示健康，灰表示空闲。请求量深浅请看「入口请求」里的到达热力。',
-                        en: 'Green / yellow / red is health; gray is idle. Volume depth lives on the Ingress arrival heat.',
+                        zh: '绿 / 黄 / 橙 / 红依次表示正常、波动、降级、中断，灰表示空闲。请求量深浅请看「入口请求」里的到达热力。',
+                        en: 'Green / yellow / orange / red means operational, minor disruption, degraded, and outage; gray is idle. Volume depth lives on the Ingress arrival heat.',
                       ),
                       if (topError != null)
                         text(
@@ -3137,8 +3202,8 @@ Widget _proxyOpsServiceHealthPanel(
         kOpenHandGap10,
         Text(
           text(
-            zh: '健康判定：成功率 ≥ 99% 且 P95 < 3s 为正常；成功率 ≥ 90% 或尾延迟偏高为降级；成功率 < 90% 为中断。空闲时段会保留灰格，避免把“没流量”误当成事故。',
-            en: 'Healthy: success ≥ 99% and P95 < 3s. Degraded: success ≥ 90% or a slow tail. Outage: success < 90%. Idle hours stay gray so “no traffic” is not mistaken for a fault.',
+            zh: '健康判定：绿色 ≥ 99%；黄色 ≥ 97% 且 < 99%；橙色 ≥ 90% 且 < 97%；红色 < 90%。P95 达到 3 / 6 秒或慢请求占比达到 20% / 40% 时，也会分别下调至黄色 / 橙色。灰格表示空闲。',
+            en: 'Health bands: green ≥ 99%, yellow ≥ 97% and < 99%, orange ≥ 90% and < 97%, red < 90%. P95 at 3s / 6s or slow calls at 20% / 40% also lowers the grade to yellow / orange. Gray means idle.',
           ),
           style: theme.textTheme.labelSmall?.copyWith(
             color: cs.onSurfaceVariant,

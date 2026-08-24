@@ -96,6 +96,16 @@ class _StatusPageCopy {
     ja: '可用性は直近 90 日、この中継が実際に処理したリクエストで集計します。灰色はアイドルであり障害ではありません。ステータスページへのアクセスはゲートウェイ計測に含まれ、公開モデルの成功率には含めません。',
   );
 
+  String get healthScale => _t(
+    zh: '状态分级：绿色 ≥ 99%；黄色 ≥ 97% 且 < 99%；橙色 ≥ 90% 且 < 97%；红色 < 90%。慢请求占比达到 20% / 40% 时，也会分别下调至黄色 / 橙色。',
+    zhHant:
+        '狀態分級：綠色 ≥ 99%；黃色 ≥ 97% 且 < 99%；橙色 ≥ 90% 且 < 97%；紅色 < 90%。慢請求占比達到 20% / 40% 時，也會分別下調至黃色 / 橙色。',
+    en: 'Health bands: green ≥ 99%, yellow ≥ 97% and < 99%, orange ≥ 90% and < 97%, red < 90%. Slow calls at 20% / 40% also lower the grade to yellow / orange.',
+    fr: 'Niveaux : vert ≥ 99 %, jaune ≥ 97 % et < 99 %, orange ≥ 90 % et < 97 %, rouge < 90 %. Une part d’appels lents de 20 % / 40 % abaisse aussi le niveau au jaune / orange.',
+    de: 'Stufen: Grün ≥ 99 %, Gelb ≥ 97 % und < 99 %, Orange ≥ 90 % und < 97 %, Rot < 90 %. 20 % / 40 % langsame Aufrufe senken die Stufe ebenfalls auf Gelb / Orange.',
+    ja: '状態区分：緑 ≥ 99%、黄 ≥ 97% かつ < 99%、オレンジ ≥ 90% かつ < 97%、赤 < 90%。低速リクエスト率が 20% / 40% に達した場合も、黄 / オレンジに下がります。',
+  );
+
   String get healthy => _t(
     zh: '正常运行',
     zhHant: '正常運作',
@@ -103,6 +113,15 @@ class _StatusPageCopy {
     fr: 'Opérationnel',
     de: 'Betriebsbereit',
     ja: '正常',
+  );
+
+  String get warning => _t(
+    zh: '轻微波动',
+    zhHant: '輕微波動',
+    en: 'Minor disruption',
+    fr: 'Perturbation légère',
+    de: 'Leichte Beeinträchtigung',
+    ja: '軽微な変動',
   );
 
   String get degraded => _t(
@@ -178,12 +197,12 @@ class _StatusPageCopy {
   );
 
   String get noIncidents => _t(
-    zh: '近窗没有降级或中断事件。',
-    zhHant: '近窗沒有降級或中斷事件。',
-    en: 'No degraded or outage days in this window.',
-    fr: 'Aucun jour dégradé ou en panne dans cette fenêtre.',
-    de: 'Keine Beeinträchtigung oder Ausfälle in diesem Fenster.',
-    ja: 'この期間に劣化・障害の日はありません。',
+    zh: '近窗没有波动、降级或中断事件。',
+    zhHant: '近窗沒有波動、降級或中斷事件。',
+    en: 'No warning, degraded, or outage days in this window.',
+    fr: 'Aucun jour perturbé, dégradé ou en panne dans cette fenêtre.',
+    de: 'Keine Warnungen, Beeinträchtigungen oder Ausfälle in diesem Zeitraum.',
+    ja: 'この期間に警告・劣化・障害の日はありません。',
   );
 
   String get uptimeSuffix => _t(
@@ -260,6 +279,24 @@ class _StatusPageCopy {
           ja: '既知の障害はありません。トラフィックのあるコンポーネントは健全な閾値内です。',
         ),
       ),
+      AiModelProxyHealth.warning => (
+        _t(
+          zh: '部分组件出现轻微波动',
+          zhHant: '部分元件出現輕微波動',
+          en: 'Minor service disruption',
+          fr: 'Légère perturbation du service',
+          de: 'Leichte Dienstbeeinträchtigung',
+          ja: '一部のコンポーネントに軽微な変動があります',
+        ),
+        _t(
+          zh: '部分组件成功率略低于健康线，或尾延迟开始升高，服务仍稳定可用。',
+          zhHant: '部分元件成功率略低於健康線，或尾延遲開始升高，服務仍穩定可用。',
+          en: 'Some components dipped slightly below the healthy band or showed rising tail latency, while service remains available.',
+          fr: 'Certains composants passent légèrement sous la plage saine ou montrent une hausse de latence, mais le service reste disponible.',
+          de: 'Einige Komponenten liegen knapp unter dem gesunden Bereich oder zeigen höhere Endlatenzen; der Dienst bleibt verfügbar.',
+          ja: '一部のコンポーネントで成功率が健全域をわずかに下回るか、テールレイテンシが上昇していますが、サービスは利用可能です。',
+        ),
+      ),
       AiModelProxyHealth.degraded => (
         _t(
           zh: '部分组件出现服务降级',
@@ -270,12 +307,12 @@ class _StatusPageCopy {
           ja: '一部のコンポーネントが劣化しています',
         ),
         _t(
-          zh: '部分模型或网关时段成功率偏低或尾延迟偏高，请求仍可完成。',
-          zhHant: '部分模型或閘道時段成功率偏低或尾延遲偏高，請求仍可完成。',
-          en: 'Some models or gateway hours are slower or less successful, but requests still complete.',
-          fr: 'Certains modèles ou créneaux de passerelle sont plus lents ou moins fiables, mais les requêtes aboutissent encore.',
-          de: 'Einige Modelle oder Gateway-Stunden sind langsamer oder weniger erfolgreich, Anfragen werden aber noch abgeschlossen.',
-          ja: '一部のモデルやゲートウェイ時間帯で成功率低下や尾遅延がありますが、リクエストは完了します。',
+          zh: '部分模型或网关成功率明显下降，或延迟持续偏高，部分请求可能失败或明显变慢。',
+          zhHant: '部分模型或閘道成功率明顯下降，或延遲持續偏高，部分請求可能失敗或明顯變慢。',
+          en: 'Some models or gateway periods have materially lower success or sustained latency. Requests may fail or slow down noticeably.',
+          fr: 'Certains modèles ou créneaux de passerelle ont nettement moins de succès ou une latence durable. Des requêtes peuvent échouer ou ralentir sensiblement.',
+          de: 'Einige Modelle oder Gateway-Zeiträume zeigen deutlich weniger Erfolg oder anhaltend hohe Latenz. Anfragen können fehlschlagen oder merklich langsamer werden.',
+          ja: '一部のモデルやゲートウェイで成功率が大きく低下するか、高遅延が続いており、一部のリクエストが失敗または著しく遅くなる可能性があります。',
         ),
       ),
       AiModelProxyHealth.outage => (
@@ -357,13 +394,21 @@ class _StatusPageCopy {
         de: 'Erfolgsrate und Latenz blieben im gesunden Bereich.',
         ja: '成功率とレイテンシは健全な閾値内でした。',
       ),
+      AiModelProxyHealth.warning => _t(
+        zh: '整体仍可用，但成功率略有回落或出现一定慢请求。',
+        zhHant: '整體仍可用，但成功率略有回落或出現一定慢請求。',
+        en: 'Service remained available, with a small success dip or some slow calls.',
+        fr: 'Le service est resté disponible, avec une légère baisse du succès ou quelques appels lents.',
+        de: 'Der Dienst blieb verfügbar, mit leicht gesunkener Erfolgsrate oder einigen langsamen Aufrufen.',
+        ja: 'サービスは利用可能ですが、成功率がわずかに低下したか、低速リクエストが見られました。',
+      ),
       AiModelProxyHealth.degraded => _t(
-        zh: '仍可响应，但成功率偏低或慢请求偏多。',
-        zhHant: '仍可回應，但成功率偏低或慢請求偏多。',
-        en: 'Still serving, but success dipped or slow calls increased.',
-        fr: 'Toujours en service, mais le succès a baissé ou les appels lents ont augmenté.',
-        de: 'Weiterhin erreichbar, aber die Erfolgsrate sank oder langsame Aufrufe nahmen zu.',
-        ja: '応答は継続していますが、成功率が低い、または低速呼び出しが増えています。',
+        zh: '成功率明显偏低或慢请求集中，用户体验已经受到影响。',
+        zhHant: '成功率明顯偏低或慢請求集中，使用者體驗已經受到影響。',
+        en: 'Success was materially lower or slow calls concentrated enough to affect users.',
+        fr: 'Le succès a nettement baissé ou les appels lents se sont concentrés au point d’affecter les utilisateurs.',
+        de: 'Die Erfolgsrate war deutlich niedriger oder langsame Aufrufe häuften sich spürbar.',
+        ja: '成功率が大きく低下するか低速リクエストが集中し、利用体験に影響しています。',
       ),
       AiModelProxyHealth.outage => _t(
         zh: '失败过于集中，这一天应视为中断。',
@@ -378,6 +423,7 @@ class _StatusPageCopy {
 
   Map<String, String> get scriptLabels => <String, String>{
     'healthy': healthy,
+    'warning': warning,
     'degraded': degraded,
     'outage': outage,
     'idle': idle,
@@ -476,7 +522,8 @@ String buildAiModelProxyStatusPage({
   final incidents = <Map<String, String>>[
     for (final component in [...components, ...modelRows])
       for (var i = 0; i < component.days.length; i++)
-        if (component.days[i].health == AiModelProxyHealth.degraded ||
+        if (component.days[i].health == AiModelProxyHealth.warning ||
+            component.days[i].health == AiModelProxyHealth.degraded ||
             component.days[i].health == AiModelProxyHealth.outage)
           <String, String>{
             'day': days[i].day,
@@ -487,6 +534,7 @@ String buildAiModelProxyStatusPage({
   ];
   final payload = <String, Object?>{
     'ok': _healthCss(OpenHandStatusColors.success),
+    'caution': _healthCss(OpenHandStatusColors.caution),
     'warn': _healthCss(OpenHandStatusColors.warning),
     'bad': _healthCss(OpenHandStatusColors.error),
     'idle': _cssHex(cs.onSurfaceVariant),
@@ -519,6 +567,7 @@ String buildAiModelProxyStatusPage({
   --on-primary: ${_cssHex(cs.onPrimary)};
   --outline: ${_cssHex(cs.outlineVariant)};
   --ok: ${_healthCss(OpenHandStatusColors.success)};
+  --caution: ${_healthCss(OpenHandStatusColors.caution)};
   --warn: ${_healthCss(OpenHandStatusColors.warning)};
   --bad: ${_healthCss(OpenHandStatusColors.error)};
   --idle: ${_cssHex(cs.onSurfaceVariant)};
@@ -608,10 +657,24 @@ body {
 }
 .card-h h2 { margin: 0; font-size: clamp(16px, 3.6vw, 18px); min-width: 0; }
 .range { color: var(--muted); font-weight: 700; font-size: 13px; white-space: nowrap; }
+.legend {
+  display: flex; align-items: center; gap: 8px 14px; flex-wrap: wrap;
+  padding: 8px var(--pad) 14px; color: var(--muted); font-size: 12px; font-weight: 700;
+}
+.legend-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.legend-dot {
+  width: 9px; height: 9px; border-radius: 999px; background: var(--legend-tone);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--legend-tone) 14%, transparent);
+}
+.scale-note { flex: 1 0 100%; line-height: 1.5; font-weight: 600; }
 .row { border-top: 1px solid color-mix(in srgb, var(--outline) 80%, transparent); padding: 16px var(--pad) 14px; }
 .row-h {
-  display: flex; align-items: center; gap: 8px 10px; cursor: pointer;
+  display: flex; align-items: center; gap: 8px 10px;
   user-select: none; flex-wrap: wrap;
+}
+.row-h[data-toggle] { cursor: pointer; }
+.row-h[data-toggle]:focus-visible {
+  outline: 2px solid var(--primary); outline-offset: 4px; border-radius: 10px;
 }
 @media (hover: hover) and (pointer: fine) {
   .row-h:hover .name { color: var(--primary); }
@@ -733,10 +796,18 @@ body {
       <h2>${_htmlEscape(copy.systemStatus)}</h2>
       <div class="range">$rangeLabel</div>
     </div>
+    <div class="legend">
+      <span class="legend-item"><i class="legend-dot" style="--legend-tone:var(--ok)"></i>${_htmlEscape(copy.healthy)}</span>
+      <span class="legend-item"><i class="legend-dot" style="--legend-tone:var(--caution)"></i>${_htmlEscape(copy.warning)}</span>
+      <span class="legend-item"><i class="legend-dot" style="--legend-tone:var(--warn)"></i>${_htmlEscape(copy.degraded)}</span>
+      <span class="legend-item"><i class="legend-dot" style="--legend-tone:var(--bad)"></i>${_htmlEscape(copy.outage)}</span>
+      <span class="legend-item"><i class="legend-dot" style="--legend-tone:var(--idle);opacity:.45"></i>${_htmlEscape(copy.idle)}</span>
+      <span class="scale-note">${_htmlEscape(copy.healthScale)}</span>
+    </div>
     <div id="rows"></div>
   </section>
   <div class="foot">
-    <button class="ghost-btn" id="toggle-history" type="button">${_htmlEscape(copy.viewHistory)}</button>
+    <button class="ghost-btn" id="toggle-history" type="button" aria-controls="history" aria-expanded="false">${_htmlEscape(copy.viewHistory)}</button>
   </div>
   <section class="history card" id="history">
     <div class="card-h"><h2>${_htmlEscape(copy.incidentHistory)}</h2></div>
@@ -749,8 +820,9 @@ body {
 <script>
 const data = JSON.parse(document.getElementById('data').textContent);
 const i18n = data.i18n || {};
-const tone = {healthy:data.ok, degraded:data.warn, outage:data.bad, idle:data.idle};
-const label = {healthy:i18n.healthy, degraded:i18n.degraded, outage:i18n.outage, idle:i18n.idle};
+const tone = {healthy:data.ok, warning:data.caution, degraded:data.warn, outage:data.bad, idle:data.idle};
+const label = {healthy:i18n.healthy, warning:i18n.warning, degraded:i18n.degraded, outage:i18n.outage, idle:i18n.idle};
+const glyph = {healthy:'✓', warning:'!', degraded:'!', outage:'×', idle:'·'};
 const tip = document.getElementById('tip');
 function bars(days){
   return '<div class="bars">' + days.map((d,i) => {
@@ -763,8 +835,8 @@ function row(c, nested){
   const count = c.children && c.children.length ? (c.children.length + (i18n.components || '')) : '';
   const openable = c.children && c.children.length;
   return '<article class="row'+(nested?' child':'')+'" style="--tone:'+(tone[c.health]||data.idle)+'">' +
-    '<div class="row-h"'+(openable?' data-toggle="1"':'')+'>' +
-      '<span class="dot">✓</span><span class="name">'+c.name+'</span>' +
+    '<div class="row-h"'+(openable?' data-toggle="1" role="button" tabindex="0" aria-expanded="false"':'')+'>' +
+      '<span class="dot" aria-hidden="true">'+(glyph[c.health]||'·')+'</span><span class="name">'+c.name+'</span>' +
       (count ? '<span class="meta">'+count+'</span>' : '') +
       '<span class="uptime">'+(c.uptime || '—')+'</span></div>' +
     bars(c.days) +
@@ -772,8 +844,19 @@ function row(c, nested){
   '</article>';
 }
 document.getElementById('rows').innerHTML = data.components.map(c => row(c,false)).join('');
+function toggleRow(el){
+  const row = el.closest('.row');
+  const open = !row.classList.contains('open');
+  row.classList.toggle('open', open);
+  el.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
 document.querySelectorAll('[data-toggle]').forEach(el => {
-  el.addEventListener('click', () => el.closest('.row').classList.toggle('open'));
+  el.addEventListener('click', () => toggleRow(el));
+  el.addEventListener('keydown', ev => {
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    ev.preventDefault();
+    toggleRow(el);
+  });
 });
 const coarse = window.matchMedia('(pointer: coarse)').matches;
 let pinnedStrip = null;
@@ -874,7 +957,9 @@ const hist = document.getElementById('history');
 const histBtn = document.getElementById('toggle-history');
 histBtn.addEventListener('click', () => {
   hist.classList.toggle('open');
-  histBtn.textContent = hist.classList.contains('open')
+  const open = hist.classList.contains('open');
+  histBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  histBtn.textContent = open
     ? (i18n.historyClose || histBtn.textContent)
     : (i18n.historyOpen || histBtn.textContent);
 });
@@ -925,8 +1010,12 @@ class _StatusComponent {
 
   int get requests => days.fold<int>(0, (sum, day) => sum + day.requests);
   int get successes => days.fold<int>(0, (sum, day) => sum + day.successes);
-  AiModelProxyHealth get health =>
-      _worstHealth([for (final day in days) day.health]);
+  int get slowCount => days.fold<int>(0, (sum, day) => sum + day.slowCount);
+  AiModelProxyHealth get health => classifyAiModelProxyHealth(
+    requests: requests,
+    successes: successes,
+    slowCount: slowCount,
+  );
 
   double get successRate =>
       requests <= 0 ? 0 : (successes / requests).clamp(0.0, 1.0).toDouble();
@@ -1022,6 +1111,7 @@ AiModelProxyDailyComponent _sumComponents(
 
 AiModelProxyHealth _worstHealth(Iterable<AiModelProxyHealth> values) {
   var seen = false;
+  var warning = false;
   var degraded = false;
   for (final value in values) {
     switch (value) {
@@ -1030,6 +1120,9 @@ AiModelProxyHealth _worstHealth(Iterable<AiModelProxyHealth> values) {
       case AiModelProxyHealth.degraded:
         degraded = true;
         seen = true;
+      case AiModelProxyHealth.warning:
+        warning = true;
+        seen = true;
       case AiModelProxyHealth.healthy:
         seen = true;
       case AiModelProxyHealth.idle:
@@ -1037,18 +1130,22 @@ AiModelProxyHealth _worstHealth(Iterable<AiModelProxyHealth> values) {
     }
   }
   if (degraded) return AiModelProxyHealth.degraded;
+  if (warning) return AiModelProxyHealth.warning;
   if (seen) return AiModelProxyHealth.healthy;
   return AiModelProxyHealth.idle;
 }
 
 String _bannerIcon(AiModelProxyHealth health) => switch (health) {
-  AiModelProxyHealth.outage => '●',
-  AiModelProxyHealth.degraded => '●',
-  _ => '●',
+  AiModelProxyHealth.healthy => '✓',
+  AiModelProxyHealth.warning => '!',
+  AiModelProxyHealth.degraded => '!',
+  AiModelProxyHealth.outage => '×',
+  AiModelProxyHealth.idle => '·',
 };
 
 Color _healthColor(AiModelProxyHealth health) => switch (health) {
   AiModelProxyHealth.healthy => OpenHandStatusColors.success,
+  AiModelProxyHealth.warning => OpenHandStatusColors.caution,
   AiModelProxyHealth.degraded => OpenHandStatusColors.warning,
   AiModelProxyHealth.outage => OpenHandStatusColors.error,
   AiModelProxyHealth.idle => OpenHandStatusColors.info,
