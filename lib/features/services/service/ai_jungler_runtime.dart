@@ -168,15 +168,19 @@ class AiJunglerRuntime {
         accessToken: token,
         httpClient: SystemProxyResolver.instance.createRawHttpClient(),
       );
-      await client.health();
-      if (_disposed ||
-          generation != _generation ||
-          !identical(_process, process)) {
+      try {
+        await client.health();
+        if (_disposed ||
+            generation != _generation ||
+            !identical(_process, process)) {
+          throw StateError('扫描引擎启动已取消。');
+        }
+        _client = client;
+        return client;
+      } catch (_) {
         client.close();
-        throw StateError('扫描引擎启动已取消。');
+        rethrow;
       }
-      _client = client;
-      return client;
     } catch (_) {
       final process = startedProcess;
       if (process != null) {
