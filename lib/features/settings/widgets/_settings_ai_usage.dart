@@ -3173,7 +3173,7 @@ class _AiUsageRecentPanelState extends State<_AiUsageRecentPanel> {
 }
 
 class _AiUsageRequestTable extends StatefulWidget {
-  const _AiUsageRequestTable({required this.records, this.footer});
+  const _AiUsageRequestTable({super.key, required this.records, this.footer});
 
   final List<AiUsageRequestRecord> records;
   final Widget? footer;
