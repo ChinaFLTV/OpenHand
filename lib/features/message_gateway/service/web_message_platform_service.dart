@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart';
@@ -286,6 +285,7 @@ class WebMessagePlatformService {
 
   HttpServer? _server;
   final SerialTaskQueue _lifecycleQueue = SerialTaskQueue();
+  final SerialTaskQueue _artifactCleanupQueue = SerialTaskQueue();
   Future<void>? _disposeFuture;
   Future<void>? _startupCleanupFuture;
   bool _disposed = false;
@@ -2109,8 +2109,24 @@ class WebMessagePlatformService {
     required bool logs,
     required bool uploads,
     bool expiredOnly = false,
+  }) {
+    _throwIfDisposed();
+    return _artifactCleanupQueue.enqueue(
+      () => _cleanupArtifactsLocked(
+        logs: logs,
+        uploads: uploads,
+        expiredOnly: expiredOnly,
+      ),
+    );
+  }
+
+  Future<WebGatewayCleanupResult> _cleanupArtifactsLocked({
+    required bool logs,
+    required bool uploads,
+    required bool expiredOnly,
   }) async {
     await ensurePersistedOpsDataLoaded();
+    _throwIfDisposed();
     var stats = const _CleanupStats();
     var memoryLogEntriesCleared = 0;
     if (logs) {
@@ -2696,6 +2712,15 @@ class WebMessagePlatformService {
   shelf.Middleware _telemetryAndLimitMiddleware() {
     return (innerHandler) {
       return (shelf.Request request) async {
+        if (_disposed || _state != WebGatewayRuntimeState.running) {
+          return _json(
+            HttpStatus.serviceUnavailable,
+            const <String, Object?>{'error': 'service_unavailable'},
+            headers: const <String, String>{
+              HttpHeaders.connectionHeader: kConnectionClose,
+            },
+          );
+        }
         final connectionInfo =
             request.context['shelf.io.connection_info'] as HttpConnectionInfo?;
         final remoteAddress =
@@ -2728,6 +2753,9 @@ class WebMessagePlatformService {
           final limited = _json(
             HttpStatus.tooManyRequests,
             const <String, Object?>{'error': 'too_many_requests'},
+            headers: const <String, String>{
+              HttpHeaders.connectionHeader: kConnectionClose,
+            },
           );
           final responseBytes = limited.contentLength ?? 0;
           if (!collectMetrics) {
@@ -2780,9 +2808,15 @@ class WebMessagePlatformService {
         } on _WebGatewayRequestException catch (error) {
           statusCode = error.statusCode;
           errorText = error.errorCode;
-          final rejected = _json(statusCode, <String, Object?>{
-            'error': error.errorCode,
-          });
+          final rejected = _json(
+            statusCode,
+            <String, Object?>{'error': error.errorCode},
+            headers: <String, String>{
+              if (error.errorCode == 'request_body_timeout' ||
+                  error.errorCode == 'request_body_too_large')
+                HttpHeaders.connectionHeader: kConnectionClose,
+            },
+          );
           responseBytes = rejected.contentLength ?? 0;
           return rejected;
         } catch (error, stack) {
@@ -8881,39 +8915,29 @@ class WebMessagePlatformService {
         'request_body_too_large',
       );
     }
-    final chunks = BytesBuilder(copy: false);
-    var receivedBytes = 0;
-    final deadline = MonotonicDeadline(_requestBodyTotalTimeout);
+    late final Uint8List bytes;
     try {
-      await for (final chunk in request.read().timeout(
-        _requestBodyIdleTimeout,
-      )) {
-        if (deadline.isExpired) {
-          throw const _WebGatewayRequestException(
-            HttpStatus.requestTimeout,
-            'request_body_timeout',
-          );
-        }
-        receivedBytes += chunk.length;
-        if (receivedBytes > maxBytes) {
-          throw const _WebGatewayRequestException(
-            HttpStatus.requestEntityTooLarge,
-            'request_body_too_large',
-          );
-        }
-        chunks.add(chunk);
-      }
+      bytes = await readBoundedByteStream(
+        request.read(),
+        maxBytes: maxBytes,
+        idleTimeout: _requestBodyIdleTimeout,
+        totalTimeout: _requestBodyTotalTimeout,
+        cancelOnFailure: false,
+      );
+    } on ByteStreamSizeLimitException {
+      throw const _WebGatewayRequestException(
+        HttpStatus.requestEntityTooLarge,
+        'request_body_too_large',
+      );
     } on TimeoutException {
       throw const _WebGatewayRequestException(
         HttpStatus.requestTimeout,
         'request_body_timeout',
       );
-    } finally {
-      deadline.stop();
     }
-    if (receivedBytes == 0) return <String, Object?>{};
+    if (bytes.isEmpty) return <String, Object?>{};
     try {
-      final decoded = jsonDecode(utf8.decode(chunks.takeBytes()));
+      final decoded = jsonDecode(utf8.decode(bytes));
       if (decoded is Map) return stringKeyedMapFromValue(decoded);
     } on FormatException {
       // 统一映射为下方的客户端错误。

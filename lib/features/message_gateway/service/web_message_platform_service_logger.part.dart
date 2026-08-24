@@ -41,7 +41,7 @@ typedef _LogFileSnapshot = ({File file, FileStat stat});
 /// - `write` 在 append 前先调用 `_rotateIfNeeded` 检查文件大小/年龄；超过阈值
 ///   的当前日志会被改名为带时间戳的归档文件，再创建新空文件继续写。
 /// - `clear` 删除目录下所有 `web-platform*` 文件；`prune` 仅删除超期或超出
-///   `maxFiles` 上限的归档文件，当前正在写入的 `web-platform.log` 不动。
+///   `maxFiles` 总数上限的归档文件，当前正在写入的 `web-platform.log` 不动。
 /// - `readBundle` 把所有日志文件按修改时间倒序读出，供离线导出/Web 端 ops 拉取。
 /// - 文件写入有条数与字节双上限；慢盘时拒绝新增写入并在下一条落盘日志中
 ///   汇总丢弃数量，避免异步任务链无限增长。
@@ -61,6 +61,7 @@ class _WebGatewayRotatingLogger {
   int _pendingWriteBytes = 0;
   int _droppedWriteCount = 0;
   int _unreportedDroppedWrites = 0;
+  int _rotationSequence = 0;
   bool _ioTimedOut = false;
   bool _closing = false;
   Future<void>? _closeFuture;
@@ -148,7 +149,7 @@ class _WebGatewayRotatingLogger {
     try {
       final dir = Directory(directoryPath);
       await dir.create(recursive: true).timeout(_writeIoTimeout);
-      await _rotateIfNeeded(config);
+      await _rotateIfNeeded(config, incomingBytes: bytes.length);
       final output = await openBoundedRandomAccessFileLease(
         File(filePath),
         mode: FileMode.append,
@@ -299,11 +300,21 @@ class _WebGatewayRotatingLogger {
         }
       }
     }
-    final remaining = files
-        .where((item) => !deleted.contains(item.file.path))
+    final hasCurrentLog = files.any(
+      (item) => p.equals(item.file.path, filePath),
+    );
+    final remainingArchives = files
+        .where(
+          (item) =>
+              !p.equals(item.file.path, filePath) &&
+              !deleted.contains(item.file.path),
+        )
         .toList(growable: false);
-    for (final old in remaining.skip(config.maxFiles)) {
-      if (p.equals(old.file.path, filePath)) continue;
+    final archiveLimit = math.max(
+      0,
+      config.maxFiles - (hasCurrentLog ? 1 : 0),
+    );
+    for (final old in remainingArchives.skip(archiveLimit)) {
       await deleteFile(old);
     }
     return stats;
@@ -401,7 +412,10 @@ class _WebGatewayRotatingLogger {
     );
   }
 
-  Future<void> _rotateIfNeeded(WebGatewayLogConfig config) async {
+  Future<void> _rotateIfNeeded(
+    WebGatewayLogConfig config, {
+    required int incomingBytes,
+  }) async {
     final file = File(filePath);
     if (!await file.exists().timeout(_writeIoTimeout)) {
       _currentSizeBytes = 0;
@@ -409,7 +423,8 @@ class _WebGatewayRotatingLogger {
     }
     final stat = await file.stat().timeout(_writeIoTimeout);
     _currentSizeBytes = stat.size;
-    final tooLarge = stat.size >= config.fileMaxBytes;
+    final tooLarge =
+        stat.size > 0 && incomingBytes > config.fileMaxBytes - stat.size;
     final tooOld =
         DateTime.now().difference(stat.modified).inDays >= config.rotationDays;
     if (!tooLarge && !tooOld) return;
@@ -418,12 +433,16 @@ class _WebGatewayRotatingLogger {
         .toIso8601String()
         .replaceAll(':', '-')
         .replaceAll('.', '-');
-    await file
-        .rename(p.join(directoryPath, 'web-platform-$stamp.log'))
-        .timeout(_writeIoTimeout);
+    final archivePath = p.join(
+      directoryPath,
+      'web-platform-$stamp-${_rotationSequence++}.log',
+    );
+    await file.rename(archivePath).timeout(_writeIoTimeout);
     _currentSizeBytes = 0;
     final logs = await _logFilesNewestFirst(Directory(directoryPath));
-    for (final old in logs.skip(config.maxFiles)) {
+    final archives = logs.where((item) => !p.equals(item.file.path, filePath));
+    final archiveLimit = math.max(0, config.maxFiles - 1);
+    for (final old in archives.skip(archiveLimit)) {
       try {
         await old.file.delete().timeout(_writeIoTimeout);
       } on TimeoutException {

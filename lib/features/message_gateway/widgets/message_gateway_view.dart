@@ -65,6 +65,7 @@ import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/rolling_hash.dart';
+import '../../../shared/util/serial_task_queue.dart';
 import '../../../shared/util/stable_hash.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_fingerprint.dart';
@@ -12125,6 +12126,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   final Stopwatch _messagesScrollActivityStopwatch = Stopwatch()..start();
   final AiTtsPlaybackService _ttsPlaybackService = AiTtsPlaybackService();
   final AiTranslationService _translationService = AiTranslationService();
+  final LatestTaskQueue _pastedAttachmentPruneQueue = LatestTaskQueue();
   final Map<String, _DingTalkMessageTranslation> _translations =
       <String, _DingTalkMessageTranslation>{};
   final Set<String> _visibleTranslationMessageIds = <String>{};
@@ -12185,6 +12187,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     _input.removeListener(_handleInputChanged);
     _ttsPlaybackService.state.removeListener(_handleTtsStateChanged);
     _voiceVisualTimer?.cancel();
+    _pastedAttachmentPruneQueue.discardPending();
     unawaited(_cancelVoiceAmplitudeSubscription());
     final recorder = _voiceRecorder;
     _voiceRecorder = null;
@@ -14148,7 +14151,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
             ...selection.attachments,
           ];
         });
-        unawaited(_prunePastedAttachmentCache());
+        _schedulePastedAttachmentCachePrune();
         return;
       }
       final success = await widget.controller.sendMessageWithAttachments(
@@ -14180,7 +14183,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         'dingtalk_pasted',
       ),
     );
-    await directory.create(recursive: true);
+    await createDirectoryBounded(directory);
     final path = p.join(
       directory.path,
       'pasted-${DateTime.now().microsecondsSinceEpoch}.${_normalizeDingTalkImageExtension(extension)}',
@@ -14372,7 +14375,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
               ...selection.attachments,
             ];
           });
-          unawaited(_prunePastedAttachmentCache());
+          _schedulePastedAttachmentCachePrune();
         }
         return;
       }
@@ -14463,7 +14466,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
           ...selection.attachments,
         ];
       });
-      unawaited(_prunePastedAttachmentCache());
+      _schedulePastedAttachmentCachePrune();
     } catch (error, stack) {
       silentLog('dingtalk_gateway', '读取钉钉剪贴板附件', error, stack);
     } finally {
@@ -14480,6 +14483,10 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     } catch (error, stack) {
       silentLog('dingtalk_gateway', '删除钉钉剪贴板图片附件', error, stack);
     }
+  }
+
+  void _schedulePastedAttachmentCachePrune() {
+    unawaited(_pastedAttachmentPruneQueue.enqueue(_prunePastedAttachmentCache));
   }
 
   Future<void> _prunePastedAttachmentCache() async {
@@ -14545,7 +14552,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       final directory = Directory(
         p.join(OpenHandPaths.defaultCacheDirectoryPath(), 'dingtalk_voice'),
       );
-      await directory.create(recursive: true);
+      await createDirectoryBounded(directory);
       if (!mounted || !identical(_voiceRecorder, recorder)) {
         await _cancelAndDisposeRecorder(recorder);
         return;
