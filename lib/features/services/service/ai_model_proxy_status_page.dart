@@ -26,6 +26,9 @@ const int _kStatusBannerDotSizePx = 26;
 const int _kStatusMarkStrokePx = 2;
 const int _kStatusLiveEcgWidthPx = 56;
 const int _kStatusLiveEcgHeightPx = 18;
+const int _kStatusLiveTipMinWidthPx = 280;
+const int _kStatusLiveTipMaxWidthPx = 380;
+const int _kStatusLiveTipClockMs = 1000;
 const int _kStatusLiveEcgDurationMs = 1600;
 const int _kStatusLiveEcgIdleDurationMs = 2600;
 const int _kStatusLiveEcgErrorDurationMs = 2800;
@@ -446,6 +449,258 @@ class _StatusPageCopy {
     ja: 'ライブ同期が一時停止しました。自動で再試行します。',
   );
 
+  String get liveSync => _t(
+    zh: '实时同步',
+    zhHant: '即時同步',
+    en: 'Live sync',
+    fr: 'Sync. en direct',
+    de: 'Live-Sync',
+    ja: 'ライブ同期',
+  );
+
+  String get liveOk => _t(
+    zh: '同步正常',
+    zhHant: '同步正常',
+    en: 'In sync',
+    fr: 'Synchronisé',
+    de: 'Synchron',
+    ja: '同期中',
+  );
+
+  String get liveIdle => _t(
+    zh: '后台节流',
+    zhHant: '背景節流',
+    en: 'Background throttle',
+    fr: 'Rythme ralenti',
+    de: 'Hintergrunddrossel',
+    ja: 'バックグラウンド抑制',
+  );
+
+  String get liveErr => _t(
+    zh: '同步中断',
+    zhHant: '同步中斷',
+    en: 'Sync interrupted',
+    fr: 'Sync. interrompue',
+    de: 'Sync unterbrochen',
+    ja: '同期中断',
+  );
+
+  String get liveAgo => _t(
+    zh: '距上次成功',
+    zhHant: '距上次成功',
+    en: 'Last success',
+    fr: 'Dernier succès',
+    de: 'Letzter Erfolg',
+    ja: '前回成功',
+  );
+
+  String get liveNext => _t(
+    zh: '下次探测',
+    zhHant: '下次探測',
+    en: 'Next probe',
+    fr: 'Prochaine sonde',
+    de: 'Nächste Prüfung',
+    ja: '次回プローブ',
+  );
+
+  String get liveBeat => _t(
+    zh: '探测节奏',
+    zhHant: '探測節奏',
+    en: 'Probe cadence',
+    fr: 'Cadence',
+    de: 'Prüfrhythmus',
+    ja: 'プローブ間隔',
+  );
+
+  String get liveBeatValue => _t(
+    zh: '前台 {a}s · 后台 {b}s',
+    zhHant: '前景 {a}s · 背景 {b}s',
+    en: 'Visible {a}s · Hidden {b}s',
+    fr: 'Visible {a}s · Masqué {b}s',
+    de: 'Sichtbar {a}s · Hintergrund {b}s',
+    ja: '表示中 {a}s · 非表示 {b}s',
+  );
+
+  String get liveProbe => _t(
+    zh: '最近结果',
+    zhHant: '最近結果',
+    en: 'Last result',
+    fr: 'Dernier résultat',
+    de: 'Letztes Ergebnis',
+    ja: '直近の結果',
+  );
+
+  String get liveSnapshot => _t(
+    zh: '快照时间',
+    zhHant: '快照時間',
+    en: 'Snapshot time',
+    fr: 'Heure de l’instantané',
+    de: 'Snapshot-Zeit',
+    ja: 'スナップショット時刻',
+  );
+
+  String get liveHealth => _t(
+    zh: '总体健康',
+    zhHant: '總體健康',
+    en: 'Overall health',
+    fr: 'Santé globale',
+    de: 'Gesamtzustand',
+    ja: '全体ヘルス',
+  );
+
+  String get liveWindow => _t(
+    zh: '统计窗口',
+    zhHant: '統計視窗',
+    en: 'Window',
+    fr: 'Fenêtre',
+    de: 'Zeitfenster',
+    ja: '集計期間',
+  );
+
+  String get liveProcess => _t(
+    zh: '中转进程',
+    zhHant: '中轉行程',
+    en: 'Proxy process',
+    fr: 'Processus relais',
+    de: 'Proxy-Prozess',
+    ja: '中継プロセス',
+  );
+
+  String get liveRunning => _t(
+    zh: '运行中',
+    zhHant: '執行中',
+    en: 'Running',
+    fr: 'En cours',
+    de: 'Läuft',
+    ja: '実行中',
+  );
+
+  String get liveStopped => _t(
+    zh: '未运行',
+    zhHant: '未執行',
+    en: 'Stopped',
+    fr: 'Arrêté',
+    de: 'Gestoppt',
+    ja: '停止中',
+  );
+
+  String get liveProbing => _t(
+    zh: '探测中',
+    zhHant: '探測中',
+    en: 'Probing',
+    fr: 'Sondage…',
+    de: 'Prüfung…',
+    ja: 'プローブ中',
+  );
+
+  String get liveBoot => _t(
+    zh: '首屏快照',
+    zhHant: '首屏快照',
+    en: 'Initial snapshot',
+    fr: 'Instantané initial',
+    de: 'Start-Snapshot',
+    ja: '初期スナップショット',
+  );
+
+  String get liveFresh => _t(
+    zh: '已更新快照',
+    zhHant: '已更新快照',
+    en: 'Snapshot updated',
+    fr: 'Instantané à jour',
+    de: 'Snapshot aktualisiert',
+    ja: 'スナップショット更新',
+  );
+
+  String get liveNotModified => _t(
+    zh: '内容未变',
+    zhHant: '內容未變',
+    en: 'Unchanged',
+    fr: 'Inchangé',
+    de: 'Unverändert',
+    ja: '変更なし',
+  );
+
+  String get liveFailed => _t(
+    zh: '探测失败',
+    zhHant: '探測失敗',
+    en: 'Probe failed',
+    fr: 'Sonde en échec',
+    de: 'Prüfung fehlgeschlagen',
+    ja: 'プローブ失敗',
+  );
+
+  String get justNow => _t(
+    zh: '刚刚',
+    zhHant: '剛剛',
+    en: 'Just now',
+    fr: 'À l’instant',
+    de: 'Gerade eben',
+    ja: 'たった今',
+  );
+
+  String get secondsAgo => _t(
+    zh: '{n} 秒前',
+    zhHant: '{n} 秒前',
+    en: '{n}s ago',
+    fr: 'il y a {n} s',
+    de: 'vor {n} s',
+    ja: '{n} 秒前',
+  );
+
+  String get minutesAgo => _t(
+    zh: '{n} 分钟前',
+    zhHant: '{n} 分鐘前',
+    en: '{n}m ago',
+    fr: 'il y a {n} min',
+    de: 'vor {n} Min.',
+    ja: '{n} 分前',
+  );
+
+  String get hoursAgo => _t(
+    zh: '{n} 小时前',
+    zhHant: '{n} 小時前',
+    en: '{n}h ago',
+    fr: 'il y a {n} h',
+    de: 'vor {n} Std.',
+    ja: '{n} 時間前',
+  );
+
+  String get inSeconds => _t(
+    zh: '{n} 秒后',
+    zhHant: '{n} 秒後',
+    en: 'in {n}s',
+    fr: 'dans {n} s',
+    de: 'in {n} s',
+    ja: '{n} 秒後',
+  );
+
+  String get liveNoteOk => _t(
+    zh: '心电图按设定节奏拉取最新快照。探测会计入状态页流量，但不计入网关可用率。',
+    zhHant: '心電圖按設定節奏拉取最新快照。探測會計入狀態頁流量，但不計入閘道可用率。',
+    en: 'The trace pulls the latest snapshot on a fixed cadence. Probes count as status-page traffic, not gateway uptime.',
+    fr: 'La trace tire l’instantané au rythme défini. Les sondes comptent pour la page d’état, pas pour la passerelle.',
+    de: 'Die Spur holt Snapshots im festen Takt. Prüfungen zählen zur Statusseite, nicht zur Gateway-Verfügbarkeit.',
+    ja: '波形は設定間隔で最新スナップショットを取得します。プローブはステータスページ通信量に含まれ、ゲートウェイ稼働率には入りません。',
+  );
+
+  String get liveNoteIdle => _t(
+    zh: '页面在后台，探测间隔已拉长，节省资源。',
+    zhHant: '頁面在背景，探測間隔已拉長，節省資源。',
+    en: 'The page is in the background, so probes run less often.',
+    fr: 'La page est en arrière-plan : les sondes sont plus espacées.',
+    de: 'Die Seite ist im Hintergrund; Prüfungen sind seltener.',
+    ja: 'ページは非表示のため、プローブ間隔を延ばしています。',
+  );
+
+  String get liveNoteErr => _t(
+    zh: '探测失败，将按退避间隔自动重试，当前画面保留上一帧。',
+    zhHant: '探測失敗，將按退避間隔自動重試，目前畫面保留上一幀。',
+    en: 'Probe failed. Retrying with backoff while keeping the last frame.',
+    fr: 'Sonde en échec. Nouvelle tentative avec backoff, dernier écran conservé.',
+    de: 'Prüfung fehlgeschlagen. Wiederholung mit Backoff; letzte Ansicht bleibt.',
+    ja: 'プローブに失敗しました。バックオフ後に再試行し、直前の画面を維持します。',
+  );
+
   Map<String, String> get scriptLabels => <String, String>{
     'healthy': healthy,
     'warning': warning,
@@ -462,6 +717,34 @@ class _StatusPageCopy {
     'historyClose': hideHistory,
     'live': live,
     'liveError': liveError,
+    'liveSync': liveSync,
+    'liveOk': liveOk,
+    'liveIdle': liveIdle,
+    'liveErr': liveErr,
+    'liveAgo': liveAgo,
+    'liveNext': liveNext,
+    'liveBeat': liveBeat,
+    'liveBeatValue': liveBeatValue,
+    'liveProbe': liveProbe,
+    'liveSnapshot': liveSnapshot,
+    'liveHealth': liveHealth,
+    'liveWindow': liveWindow,
+    'liveProcess': liveProcess,
+    'liveRunning': liveRunning,
+    'liveStopped': liveStopped,
+    'liveProbing': liveProbing,
+    'liveBoot': liveBoot,
+    'liveFresh': liveFresh,
+    'liveNotModified': liveNotModified,
+    'liveFailed': liveFailed,
+    'justNow': justNow,
+    'secondsAgo': secondsAgo,
+    'minutesAgo': minutesAgo,
+    'hoursAgo': hoursAgo,
+    'inSeconds': inSeconds,
+    'liveNoteOk': liveNoteOk,
+    'liveNoteIdle': liveNoteIdle,
+    'liveNoteErr': liveNoteErr,
   };
 }
 
@@ -603,13 +886,31 @@ body {
 .live {
   --live-tone: var(--ok);
   display: inline-flex; align-items: center; justify-content: center;
-  width: ${_kStatusLiveEcgWidthPx}px; height: ${_kStatusLiveEcgHeightPx}px;
+  min-width: ${_kStatusLiveEcgWidthPx}px;
+  min-height: ${_kStatusPageTapMinPx}px;
+  padding: 6px 8px; margin: -6px -4px;
+  border-radius: 12px;
   flex: none; position: relative; overflow: visible;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    transform var(--oh-hover-duration) var(--oh-spring),
+    background-color var(--oh-hover-duration) ease;
+}
+.live:focus-visible {
+  outline: 2px solid var(--primary); outline-offset: 2px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .live:hover {
+    background: color-mix(in srgb, var(--live-tone) 14%, transparent);
+    transform: scale(1.08);
+  }
 }
 .live[data-state="idle"] { --live-tone: var(--caution); }
 .live[data-state="err"] { --live-tone: var(--bad); }
 .live-ecg {
-  width: 100%; height: 100%; display: block; overflow: visible;
+  width: ${_kStatusLiveEcgWidthPx}px; height: ${_kStatusLiveEcgHeightPx}px;
+  display: block; overflow: visible;
 }
 .live-ecg-base,
 .live-ecg-beam {
@@ -924,6 +1225,10 @@ body {
   pointer-events: none; visibility: hidden;
   transform: translate(-50%, var(--tip-shift-y));
 }
+.tip.live-tip {
+  min-width: min(${_kStatusLiveTipMinWidthPx}px, calc(100vw - 24px));
+  max-width: min(${_kStatusLiveTipMaxWidthPx}px, calc(100vw - 24px));
+}
 .tip.show { visibility: visible; }
 .tip.below { --tip-shift-y: 10px; }
 .tip-card {
@@ -961,6 +1266,20 @@ body {
 }
 .tile span { display: block; font-size: 10px; color: var(--muted); font-weight: 700; }
 .tile strong { font-size: 13px; overflow-wrap: anywhere; }
+.tip-kvs {
+  display: grid; gap: 7px; margin-top: 10px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--tone) 9%, var(--bg-accent));
+  border: 1px solid color-mix(in srgb, var(--tone) 16%, transparent);
+}
+.tip-kv {
+  display: grid;
+  grid-template-columns: minmax(5.5em, 0.85fr) minmax(0, 1.15fr);
+  gap: 8px; align-items: baseline; font-size: 12px;
+}
+.tip-kv span { color: var(--muted); font-weight: 700; }
+.tip-kv strong { font-weight: 800; text-align: right; overflow-wrap: anywhere; }
 .sync-toast {
   position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom, 0px));
   z-index: 50; width: max-content; max-width: min(420px, calc(100vw - 24px));
@@ -1051,7 +1370,7 @@ html[data-motion='reduced'] .live-ecg-beam { stroke-dasharray: none; filter: non
     <div class="card-h">
       <div class="card-title">
         <h2>${_htmlEscape(copy.systemStatus)}</h2>
-        <span class="live" id="live" data-state="ok" role="status" aria-label="${_htmlEscape(copy.live)}">
+        <span class="live" id="live" data-state="ok" role="button" tabindex="0" aria-haspopup="true" aria-label="${_htmlEscape(copy.liveSync)}">
           <svg class="live-ecg" viewBox="0 0 72 20" aria-hidden="true" focusable="false">
             <g class="live-ecg-ok">
               <path class="live-ecg-base" pathLength="100" d="$_kStatusLiveEcgWavePath"/>
@@ -1090,8 +1409,10 @@ const POLL_MS = $aiModelProxyStatusLivePollMs;
 const POLL_HIDDEN_MS = $aiModelProxyStatusLivePollHiddenMs;
 const POLL_TIMEOUT_MS = $aiModelProxyStatusLivePollTimeoutMs;
 const POLL_BACKOFF_MAX_MS = $aiModelProxyStatusLivePollBackoffMaxMs;
+const LIVE_TIP_CLOCK_MS = $_kStatusLiveTipClockMs;
 const STATUS_JSON = '$aiModelProxyStatusJsonPath';
 const rowsEl = document.getElementById('rows');
+const liveEl = document.getElementById('live');
 const tip = document.getElementById('tip');
 const tipCard = document.getElementById('tip-card');
 const inc = document.getElementById('incidents');
@@ -1099,7 +1420,9 @@ const histReveal = document.getElementById('history-reveal');
 const histBtn = document.getElementById('toggle-history');
 let tipExitToken = 0;
 let pinnedStrip = null;
+let pinnedLive = false;
 let activeStrip = null;
+let tipSource = null;
 let incidentSig = '';
 let pollTimer = 0;
 let pollAbort = null;
@@ -1108,6 +1431,11 @@ let stopped = false;
 let backoff = POLL_MS;
 let etag = '';
 let syncShown = false;
+let lastSuccessAt = Date.now();
+let lastSyncKind = 'boot';
+let lastHttpStatus = 200;
+let nextPollAt = 0;
+let liveTipTimer = 0;
 
 function i18n(){ return data.i18n || {}; }
 function fillOf(h){
@@ -1122,6 +1450,38 @@ function textOf(h){
 function attr(value){
   return String(value == null ? '' : value)
     .replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/'/g,'&#39;');
+}
+function formatLocal(iso){
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return '—';
+  const d = new Date(t);
+  const p = (n) => String(n).padStart(2, '0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());
+}
+function formatAgo(from, now){
+  const labels = i18n();
+  if (!Number.isFinite(from) || from <= 0) return '—';
+  const s = Math.max(0, Math.floor((now - from) / 1000));
+  if (s < 5) return labels.justNow || '—';
+  if (s < 60) return (labels.secondsAgo || '{n}').replace('{n}', String(s));
+  const m = Math.floor(s / 60);
+  if (m < 60) return (labels.minutesAgo || '{n}').replace('{n}', String(m));
+  return (labels.hoursAgo || '{n}').replace('{n}', String(Math.floor(m / 60)));
+}
+function formatIn(at, now){
+  const labels = i18n();
+  if (inflight) return labels.liveProbing || '—';
+  if (!Number.isFinite(at) || at <= 0) return '—';
+  const s = Math.max(0, Math.ceil((at - now) / 1000));
+  if (s <= 0) return labels.liveProbing || '—';
+  return (labels.inSeconds || '{n}').replace('{n}', String(s));
+}
+function tipTiles(rows){
+  return '<div class="grid">'+rows.map((row) => '<div class="tile"><span>'+row[0]+'</span><strong>'+row[1]+'</strong></div>').join('')+'</div>';
+}
+function tipKvs(rows){
+  if (!rows.length) return '';
+  return '<div class="tip-kvs">'+rows.map((row) => '<div class="tip-kv"><span>'+row[0]+'</span><strong>'+row[1]+'</strong></div>').join('')+'</div>';
 }
 function motionMs(kind){
   const root = document.documentElement;
@@ -1472,17 +1832,100 @@ function releaseStrip(){
   clearOn(activeStrip);
   activeStrip = null;
   pinnedStrip = null;
-  hideTip();
+  if (tipSource === 'bar') hideTip();
 }
 function fillTip(d){
   const labels = i18n();
-  tip.style.setProperty('--tone', fillOf(d.h));
-  tipCard.innerHTML = '<b>'+d.d+'</b><span class="badge">'+(textOf(d.h))+'</span>' +
-    '<div class="grid"><div class="tile"><span>'+labels.requests+'</span><strong>'+d.req+'</strong></div>' +
-    '<div class="tile"><span>'+labels.success+'</span><strong>'+d.rate+'</strong></div>' +
-    '<div class="tile"><span>'+labels.failures+'</span><strong>'+d.fail+'</strong></div>' +
-    '<div class="tile"><span>'+labels.slow+'</span><strong>'+d.slow+'</strong></div></div>' +
-    '<p>'+(d.note||'')+'</p>';
+  tipCard.innerHTML = '<b>'+attr(d.d)+'</b><span class="badge">'+(textOf(d.h))+'</span>' +
+    tipTiles([
+      [labels.requests, attr(d.req)],
+      [labels.success, attr(d.rate)],
+      [labels.failures, attr(d.fail)],
+      [labels.slow, attr(d.slow)]
+    ]) +
+    '<p>'+attr(d.note||'')+'</p>';
+}
+function liveTone(){
+  const state = liveEl && liveEl.getAttribute('data-state');
+  if (state === 'err') return data.bad;
+  if (state === 'idle') return data.caution;
+  return data.ok;
+}
+function liveProbeLabel(){
+  const labels = i18n();
+  if (inflight) return labels.liveProbing || '';
+  if (lastSyncKind === 'fresh') return labels.liveFresh || '';
+  if (lastSyncKind === 'not-modified') return labels.liveNotModified || '';
+  if (lastSyncKind === 'error') return labels.liveFailed || '';
+  return labels.liveBoot || '';
+}
+function fillLiveTip(){
+  const labels = i18n();
+  const now = Date.now();
+  const state = (liveEl && liveEl.getAttribute('data-state')) || 'ok';
+  const badge = state === 'err' ? labels.liveErr : (state === 'idle' ? labels.liveIdle : labels.liveOk);
+  const note = state === 'err' ? labels.liveNoteErr : (state === 'idle' ? labels.liveNoteIdle : labels.liveNoteOk);
+  const beat = (labels.liveBeatValue || '').replace('{a}', String(Math.round(POLL_MS / 1000))).replace('{b}', String(Math.round(POLL_HIDDEN_MS / 1000)));
+  const gateway = findComponent('gateway');
+  const models = findComponent('models');
+  const kvs = [
+    [labels.liveSnapshot, formatLocal(data.generatedAt)],
+    [labels.liveHealth, textOf(data.health)],
+    [labels.liveWindow, data.range || '—'],
+    [labels.liveProcess, data.running ? labels.liveRunning : labels.liveStopped]
+  ];
+  if (gateway) kvs.push([gateway.name, gateway.uptime || '—']);
+  if (models) kvs.push([models.name, models.uptime || '—']);
+  const probe = liveProbeLabel();
+  const probeValue = (lastSyncKind === 'boot' || !lastHttpStatus) ? probe : probe + ' · ' + lastHttpStatus;
+  tip.style.setProperty('--tone', liveTone());
+  tipCard.innerHTML = '<b>'+attr(labels.liveSync)+'</b><span class="badge">'+attr(badge)+'</span>' +
+    tipTiles([
+      [labels.liveAgo, formatAgo(lastSuccessAt, now)],
+      [labels.liveNext, formatIn(nextPollAt, now)],
+      [labels.liveBeat, beat],
+      [labels.liveProbe, probeValue]
+    ]) +
+    tipKvs(kvs) +
+    '<p>'+attr(note||'')+'</p>';
+}
+function openTip(ev, anchor, tone, fill){
+  const leaving = tipCard.classList.contains('oh-dialog-pop-out');
+  const wasHidden = !tip.classList.contains('show');
+  tipExitToken += 1;
+  if (tone) tip.style.setProperty('--tone', tone);
+  fill();
+  tip.classList.add('show');
+  tip.setAttribute('aria-hidden', 'false');
+  if (wasHidden || leaving) playDialog(tipCard, 'enter');
+  else tipCard.classList.remove('oh-dialog-pop-out');
+  moveTip(ev, anchor);
+}
+function showLiveTip(ev){
+  if (!liveEl) return;
+  if (activeStrip) {
+    clearOn(activeStrip);
+    activeStrip = null;
+    pinnedStrip = null;
+  }
+  tip.classList.add('live-tip');
+  tipSource = 'live';
+  if (tip.classList.contains('show') && !tipCard.classList.contains('oh-dialog-pop-out')) {
+    fillLiveTip();
+    moveTip(ev || {clientX: 0, clientY: 0}, liveEl);
+  } else {
+    openTip(ev || {clientX: 0, clientY: 0}, liveEl, liveTone(), fillLiveTip);
+  }
+  if (!liveTipTimer) {
+    liveTipTimer = setInterval(() => {
+      if (tipSource !== 'live' || !tip.classList.contains('show')) {
+        clearInterval(liveTipTimer);
+        liveTipTimer = 0;
+        return;
+      }
+      fillLiveTip();
+    }, LIVE_TIP_CLOCK_MS);
+  }
 }
 function revealFromEvent(ev, strip){
   strip = strip || eventStrip(ev);
@@ -1518,38 +1961,95 @@ rowsEl.addEventListener('pointerdown', (ev) => {
 });
 rowsEl.addEventListener('pointerleave', (ev) => {
   if (ev.pointerType === 'touch') return;
+  const rel = ev.relatedTarget;
+  if (liveEl && rel && liveEl.contains(rel)) return;
   releaseStrip();
 });
 document.addEventListener('pointerdown', (ev) => {
-  if (!pinnedStrip) return;
   const node = eventNode(ev);
+  if (pinnedLive) {
+    if (liveEl && node && liveEl.contains(node)) return;
+    pinnedLive = false;
+    if (tipSource === 'live') hideTip();
+  }
+  if (!pinnedStrip) return;
   if (node && pinnedStrip.contains(node)) return;
   releaseStrip();
 });
+if (liveEl) {
+  const onLiveHover = (ev) => {
+    if (ev.pointerType === 'touch') return;
+    showLiveTip(ev);
+  };
+  liveEl.addEventListener('pointerover', onLiveHover);
+  liveEl.addEventListener('pointermove', onLiveHover);
+  liveEl.addEventListener('pointerleave', (ev) => {
+    if (ev.pointerType === 'touch' && pinnedLive) return;
+    const rel = ev.relatedTarget;
+    if (rel && rowsEl.contains(rel) && rel.closest && rel.closest('.bars')) return;
+    if (tipSource === 'live') hideTip();
+  });
+  liveEl.addEventListener('pointerdown', (ev) => {
+    if (ev.pointerType === 'touch') pinnedLive = true;
+    showLiveTip(ev);
+  });
+  liveEl.addEventListener('focus', (ev) => showLiveTip(ev));
+  liveEl.addEventListener('blur', () => {
+    if (pinnedLive) return;
+    if (tipSource === 'live') hideTip();
+  });
+  liveEl.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    ev.preventDefault();
+    pinnedLive = true;
+    showLiveTip(ev);
+  });
+}
+document.addEventListener('keydown', (ev) => {
+  if (ev.key !== 'Escape') return;
+  pinnedLive = false;
+  clearOn(activeStrip);
+  activeStrip = null;
+  pinnedStrip = null;
+  hideTip();
+});
 function showTip(ev, d, anchor){
-  const leaving = tipCard.classList.contains('oh-dialog-pop-out');
-  const wasHidden = !tip.classList.contains('show');
-  tipExitToken += 1;
-  fillTip(d);
-  tip.classList.add('show');
-  tip.setAttribute('aria-hidden', 'false');
-  if (wasHidden || leaving) playDialog(tipCard, 'enter');
-  else tipCard.classList.remove('oh-dialog-pop-out');
-  moveTip(ev, anchor);
+  tip.classList.remove('live-tip');
+  tipSource = 'bar';
+  pinnedLive = false;
+  if (liveTipTimer) {
+    clearInterval(liveTipTimer);
+    liveTipTimer = 0;
+  }
+  openTip(ev, anchor, fillOf(d.h), () => fillTip(d));
 }
 function hideTip(){
-  if (!tip.classList.contains('show')) return;
+  if (liveTipTimer) {
+    clearInterval(liveTipTimer);
+    liveTipTimer = 0;
+  }
+  pinnedLive = false;
+  if (!tip.classList.contains('show')) {
+    tipSource = null;
+    return;
+  }
   const token = ++tipExitToken;
   playDialog(tipCard, 'exit');
   afterMotion(tipCard, 'exit', () => {
     if (token !== tipExitToken) return;
-    tip.classList.remove('show');
+    tip.classList.remove('show', 'live-tip');
     tip.setAttribute('aria-hidden', 'true');
     tipCard.classList.remove('oh-dialog-pop-out');
+    tipSource = null;
   });
 }
 function refreshOpenTip(){
-  if (!tip.classList.contains('show') || !activeStrip || !activeStrip.isConnected) return;
+  if (!tip.classList.contains('show')) return;
+  if (tipSource === 'live') {
+    fillLiveTip();
+    return;
+  }
+  if (!activeStrip || !activeStrip.isConnected) return;
   const rowEl = activeStrip.closest('.row');
   const days = daysOf(activeStrip, rowEl);
   const i = [...activeStrip.children].findIndex((el) => el.classList.contains('on'));
@@ -1581,7 +2081,12 @@ function moveTip(ev, anchor){
   tip.style.left = x + 'px';
   tip.style.top = y + 'px';
 }
-window.addEventListener('resize', () => { releaseStrip(); });
+window.addEventListener('resize', () => {
+  clearOn(activeStrip);
+  activeStrip = null;
+  pinnedStrip = null;
+  hideTip();
+});
 histBtn.addEventListener('click', () => {
   const open = !histReveal.classList.contains('open');
   histReveal.classList.toggle('open', open);
@@ -1614,7 +2119,7 @@ function setSyncError(on){
   syncShown = false;
 }
 function markLive(ok){
-  const live = document.getElementById('live');
+  const live = liveEl;
   if (!live) {
     setSyncError(!ok);
     return;
@@ -1622,9 +2127,10 @@ function markLive(ok){
   const next = ok ? (document.hidden ? 'idle' : 'ok') : 'err';
   const prev = live.getAttribute('data-state');
   live.setAttribute('data-state', next);
-  live.setAttribute('aria-label', ok ? (i18n().live || '') : (i18n().liveError || ''));
+  live.setAttribute('aria-label', ok ? (i18n().liveSync || i18n().live || '') : (i18n().liveError || ''));
   if (prev && prev !== next) bump(live, 'pulse');
   setSyncError(!ok);
+  if (tipSource === 'live') fillLiveTip();
 }
 function nextDelay(ok){
   if (document.hidden) return Math.max(POLL_HIDDEN_MS, ok ? POLL_MS : backoff);
@@ -1633,12 +2139,18 @@ function nextDelay(ok){
 function schedule(delay){
   if (stopped) return;
   clearTimeout(pollTimer);
-  pollTimer = setTimeout(tick, Math.max(250, delay || POLL_MS));
+  const wait = Math.max(250, delay || POLL_MS);
+  nextPollAt = Date.now() + wait;
+  pollTimer = setTimeout(tick, wait);
 }
 function stopPoll(){
   stopped = true;
   clearTimeout(pollTimer);
   pollTimer = 0;
+  if (liveTipTimer) {
+    clearInterval(liveTipTimer);
+    liveTipTimer = 0;
+  }
   if (pollAbort) pollAbort.abort();
 }
 async function tick(){
@@ -1648,13 +2160,18 @@ async function tick(){
   pollAbort = ac;
   const timeoutId = setTimeout(() => ac.abort(), POLL_TIMEOUT_MS);
   let ok = false;
+  let status = 0;
   try {
     const headers = {};
     if (etag) headers['If-None-Match'] = etag;
     const res = await fetch(STATUS_JSON, {cache:'no-store', credentials:'same-origin', signal: ac.signal, headers: headers});
+    status = res.status;
     if (res.status === 304) {
       ok = true;
       backoff = POLL_MS;
+      lastSyncKind = 'not-modified';
+      lastHttpStatus = 304;
+      lastSuccessAt = Date.now();
       markLive(true);
     } else {
       if (!res.ok) throw new Error('bad-status');
@@ -1665,11 +2182,16 @@ async function tick(){
       applySnapshot(next);
       ok = true;
       backoff = POLL_MS;
+      lastSyncKind = 'fresh';
+      lastHttpStatus = status;
+      lastSuccessAt = Date.now();
       markLive(true);
     }
   } catch (err) {
     if (!stopped) {
       backoff = Math.min(Math.max(backoff * 2, POLL_MS), POLL_BACKOFF_MAX_MS);
+      lastSyncKind = 'error';
+      lastHttpStatus = status;
       markLive(false);
     }
   } finally {
@@ -1682,8 +2204,7 @@ async function tick(){
 document.addEventListener('visibilitychange', () => {
   if (stopped) return;
   if (document.hidden) {
-    const live = document.getElementById('live');
-    if (live && live.getAttribute('data-state') !== 'err') markLive(true);
+    if (liveEl && liveEl.getAttribute('data-state') !== 'err') markLive(true);
     return;
   }
   backoff = POLL_MS;
