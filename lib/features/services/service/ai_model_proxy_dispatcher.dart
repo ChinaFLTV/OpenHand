@@ -1118,20 +1118,18 @@ class AiModelProxyDispatcher {
     }
     final raw = HttpClient()
       ..connectionTimeout = _kAiModelProxyConnectionTimeout;
-    raw.findProxy = (_) => 'PROXY ${uri.host}:${uri.port}';
+    raw.findProxy = (_) => 'PROXY ${aiExposureProxyAuthority(uri)}';
     raw.userAgent = _kAiModelProxyUserAgent;
     if (uri.userInfo.isNotEmpty) {
-      final parts = uri.userInfo.split(':');
       try {
+        final credentials = aiExposureProxyCredentials(uri.userInfo);
         raw.addProxyCredentials(
           uri.host,
           uri.port,
           'Basic',
           HttpClientBasicCredentials(
-            Uri.decodeComponent(parts.first),
-            parts.length > 1
-                ? Uri.decodeComponent(parts.sublist(1).join(':'))
-                : '',
+            credentials.username,
+            credentials.password,
           ),
         );
       } on Object {

@@ -2125,6 +2125,12 @@ class AiExposurePreferences {
 
 Map<String, Object?> aiExposureJsonMap(Object? value) => _jsonMap(value);
 
+/// 生成不含凭据的代理 authority；IPv6 主机自动加方括号。
+String aiExposureProxyAuthority(Uri proxy) {
+  final host = proxy.host.contains(':') ? '[${proxy.host}]' : proxy.host;
+  return '$host:${proxy.port}';
+}
+
 /// 从 URI 的 userInfo 解析代理凭据；无分隔符时整体作为用户名、密码留空。
 ({String username, String password}) aiExposureProxyCredentials(
   String userInfo,

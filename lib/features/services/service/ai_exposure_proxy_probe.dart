@@ -400,7 +400,7 @@ Future<Uint8List> _loadIdentityThroughHttpProxy(Uri proxy) async {
     ..connectionTimeout = _kProxyIdentityTimeout
     ..idleTimeout = _kProxyIdentityTimeout
     ..userAgent = _kProxyUserAgent
-    ..findProxy = (_) => 'PROXY ${_proxyAuthority(proxy)}';
+    ..findProxy = (_) => 'PROXY ${aiExposureProxyAuthority(proxy)}';
   final credentials = _proxyCredentials(proxy);
   if (credentials != null) {
     client.addProxyCredentials(
@@ -754,11 +754,6 @@ int _indexOfBytes(Uint8List source, List<int> pattern, [int start = 0]) {
     if (matched) return index;
   }
   return -1;
-}
-
-String _proxyAuthority(Uri proxy) {
-  final host = proxy.host.contains(':') ? '[${proxy.host}]' : proxy.host;
-  return '$host:${proxy.port}';
 }
 
 (String, String)? _proxyCredentials(Uri proxy) {

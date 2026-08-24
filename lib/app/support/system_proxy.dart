@@ -309,16 +309,17 @@ class SystemProxyResolver {
       case AppProxyMode.disabled:
         return const <String, String>{};
       case AppProxyMode.manual:
-        final endpoint = _manualEndpoint;
-        if (endpoint == null) {
+        final proxy = _manualProxyUrl('http');
+        final socks = _manualProxyUrl('socks5');
+        if (proxy == null || socks == null) {
           return const <String, String>{};
         }
         final wantsHttp = _settings.protocols.contains(AppProxyProtocol.http);
         final wantsHttps = _settings.protocols.contains(AppProxyProtocol.https);
         final wantsSocks = _settings.protocols.contains(AppProxyProtocol.socks);
-        if (wantsHttp) httpEndpoint = endpoint;
-        if (wantsHttps) httpsEndpoint = endpoint;
-        if (wantsSocks) socksEndpoint = endpoint;
+        if (wantsHttp) httpEndpoint = proxy;
+        if (wantsHttps) httpsEndpoint = proxy;
+        if (wantsSocks) socksEndpoint = socks;
         for (final pattern in _settings.exceptions) {
           final trimmed = nullIfBlank(pattern);
           if (trimmed != null) exceptions.add(trimmed);
@@ -365,7 +366,7 @@ class SystemProxyResolver {
       result['all_proxy'] = result['HTTP_PROXY']!;
     }
 
-    if (includeNoProxy && exceptions.isNotEmpty) {
+    if (includeNoProxy && result.isNotEmpty) {
       // 例外清单中的正则 / CIDR 形式 CLI 无法识别，仅保留普通主机/域名/glob。
       final compatibleHosts = <String>[];
       for (final pattern in exceptions) {
@@ -417,15 +418,17 @@ class SystemProxyResolver {
   }
 
   ({String host, int port})? get _manualHostPort {
-    final host = nullIfBlank(_settings.host);
+    final rawHost = nullIfBlank(_settings.host);
     final port = validTcpPort(_settings.port);
-    if (host == null || port == null) return null;
-    return (host: host, port: port);
+    if (rawHost == null || port == null) return null;
+    return (host: _withoutIpv6Brackets(rawHost), port: port);
   }
 
   String? get _manualEndpoint {
     final hostPort = _manualHostPort;
-    return hostPort == null ? null : '${hostPort.host}:${hostPort.port}';
+    return hostPort == null
+        ? null
+        : _proxyAuthority(hostPort.host, hostPort.port);
   }
 
   String? _manualProxyUrl(String scheme) {
@@ -511,7 +514,19 @@ String _stripScheme(String raw) {
   final host = nullIfBlank(raw.substring(0, idx));
   final port = tcpPortFromValue(raw.substring(idx + 1));
   if (host == null || port == null) return null;
-  return (host: host, port: port);
+  return (host: _withoutIpv6Brackets(host), port: port);
+}
+
+String _withoutIpv6Brackets(String host) {
+  final value = host.trim();
+  return value.length >= 2 && value.startsWith('[') && value.endsWith(']')
+      ? value.substring(1, value.length - 1)
+      : value;
+}
+
+String _proxyAuthority(String host, int port) {
+  final normalized = _withoutIpv6Brackets(host);
+  return '${normalized.contains(':') ? '[$normalized]' : normalized}:$port';
 }
 
 /// 通用例外匹配。支持：
@@ -638,7 +653,7 @@ _ScutilProxyConfig _parseScutilProxyDictionary(String stdout) {
     final port = validTcpPort(
       optionalIntFromValue(readKey(RegExp('${prefix}Port\\s*:\\s*(\\d+)'))),
     );
-    return port == null ? host : '$host:$port';
+    return port == null ? host : _proxyAuthority(host, port);
   }
 
   final exceptions = <String>[];

@@ -491,27 +491,20 @@ class AiModelHealthController extends ChangeNotifier {
           final endpoint = _proxyResolver?.call(targetHost: host);
           final proxyUri = endpoint == null ? null : Uri.tryParse(endpoint.url);
           if (proxyUri != null && proxyUri.userInfo.isNotEmpty) {
-            final separator = proxyUri.userInfo.indexOf(':');
-            final username = Uri.decodeComponent(
-              separator < 0
-                  ? proxyUri.userInfo
-                  : proxyUri.userInfo.substring(0, separator),
-            );
-            final password = separator < 0
-                ? ''
-                : Uri.decodeComponent(
-                    proxyUri.userInfo.substring(separator + 1),
-                  );
+            final credentials = aiExposureProxyCredentials(proxyUri.userInfo);
             raw.addProxyCredentials(
               proxyUri.host,
               proxyUri.port,
               '',
-              HttpClientBasicCredentials(username, password),
+              HttpClientBasicCredentials(
+                credentials.username,
+                credentials.password,
+              ),
             );
           }
           raw.findProxy = (_) => proxyUri == null
               ? 'DIRECT'
-              : 'PROXY ${proxyUri.host}:${proxyUri.port}';
+              : 'PROXY ${aiExposureProxyAuthority(proxyUri)}';
         }
         client = IOClient(raw);
       } on Object {
