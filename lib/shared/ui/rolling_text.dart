@@ -1,21 +1,26 @@
-// Q 弹字符滚轮，按字符位置切换。每个槽位用
-// AnimatedSwitcher 在字符变化时做"上滚出 / 下滚入" + easeOutBack 动效，
-// 给 byte 数 / 计数等动态数字一个柔软的轮盘感。支持任意字符（小数点、空格、
-// 字母），适合 "12.3 MB" / "5 项" 这种单位混排的文本。
-// Props 仅有两个：
-// - [text]: 要展示的完整字符串；
-// - [style]: 字符样式（推荐启用 tabular 数字以避免抖动）。
-// 使用约束：
-// - 内部以 Row 横向铺开；调用方应保证它能拿到 horizontal intrinsic 宽度，
-//   否则 Stack 子元素会以最小宽度收缩。
-// - 字符长度变化（如 "9 KB" → "10 KB"）会让后续槽位"键值"变更，所有
-//   后续字符都会触发滚动；这正是预期行为：长度跳变也保留视觉连续性。
+// 数字滚轮：只翻连续数字位，单位/符号保持静止。
+// 个位先动、高位错开；数值变大向上翻、变小向下翻。
+// 槽位按右对齐编号，"9" → "10" 只在左侧增位、个位 9→0。
+// 进场：滑入 → 过冲 → 回落；退场走 emphasized，过冲窗口不被裁切。
+import 'dart:math' as math;
+import 'dart:ui' show lerpDouble;
+
 import 'package:flutter/material.dart';
 
 import 'bounded_animation.dart';
 import 'collision_safe_animated_switcher.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
+
+const Curve kOpenHandDigitRollInCurve = Cubic(0.34, 1.56, 0.64, 1);
+const Curve kOpenHandDigitRollOutCurve = Cubic(0.2, 0, 0, 1);
+const int kOpenHandDigitRollStaggerMs = 28;
+const int kOpenHandDigitRollStaggerMaxSlots = 5;
+const double kOpenHandDigitRollWindow = 0.2;
+const double kOpenHandDigitRollOvershoot = 0.08;
+const double kOpenHandDigitRollPeakT = 0.56;
+const double kOpenHandDigitRollPunch = 0.04;
+const double kOpenHandDigitRollFromScale = 0.96;
 
 class RollingText extends StatelessWidget {
   const RollingText({
@@ -31,109 +36,516 @@ class RollingText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final resolvedStyle = style.copyWith(
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
     final resolvedDuration = openHandMotionDuration(context, duration);
-    final motionEnabled = resolvedDuration > Duration.zero;
-    final children = <Widget>[];
-    final graphemes = text.characters.toList(growable: false);
-    for (var i = 0; i < graphemes.length; i += 1) {
-      final ch = graphemes[i];
-      children.add(
-        motionEnabled
-            ? _RollingChar(
-                char: ch,
-                slot: i,
-                style: style,
-                duration: resolvedDuration,
-              )
-            : _RollingStaticChar(char: ch, slot: i, style: style),
-      );
-    }
-    return Row(mainAxisSize: MainAxisSize.min, children: children);
-  }
-}
-
-class _RollingStaticChar extends StatelessWidget {
-  const _RollingStaticChar({
-    required this.char,
-    required this.slot,
-    required this.style,
-  });
-
-  final String char;
-  final int slot;
-  final TextStyle style;
-
-  @override
-  Widget build(BuildContext context) {
-    return _RollingCharText(char: char, slot: slot, style: style);
-  }
-}
-
-class _RollingCharText extends StatelessWidget {
-  const _RollingCharText({
-    required this.char,
-    required this.slot,
-    required this.style,
-  });
-
-  final String char;
-  final int slot;
-  final TextStyle style;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      char,
-      key: ValueKey<String>('s$slot:$char'),
-      style: style.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+    final segments = _segmentRollingText(text);
+    final metrics = _measureRollingGlyphs(
+      resolvedStyle,
+      MediaQuery.textScalerOf(context),
+    );
+    return Semantics(
+      label: text,
+      excludeSemantics: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < segments.length; i++)
+            segments[i].digits
+                ? _RollingDigitGroup(
+                    key: ValueKey<int>(i),
+                    value: segments[i].value,
+                    style: resolvedStyle,
+                    duration: resolvedDuration,
+                    metrics: metrics,
+                  )
+                : _RollingStaticRun(
+                    key: ValueKey<int>(i),
+                    value: segments[i].value,
+                    style: resolvedStyle,
+                    duration: resolvedDuration,
+                  ),
+        ],
+      ),
     );
   }
 }
 
-class _RollingChar extends StatelessWidget {
-  const _RollingChar({
-    required this.char,
-    required this.slot,
+class _RollingSegment {
+  const _RollingSegment({required this.digits, required this.value});
+
+  final bool digits;
+  final String value;
+}
+
+bool _isRollingDigitChar(String ch) {
+  if (ch.isEmpty) return false;
+  final code = ch.codeUnitAt(0);
+  return (code >= 0x30 && code <= 0x39) || code == 0x2c || code == 0x2e;
+}
+
+bool _isRollingSeparator(String ch) => ch == '.' || ch == ',';
+
+List<_RollingSegment> _segmentRollingText(String text) {
+  final graphemes = text.characters.toList(growable: false);
+  if (graphemes.isEmpty) return const [];
+  final segments = <_RollingSegment>[];
+  final buffer = StringBuffer(graphemes.first);
+  var digits = _isRollingDigitChar(graphemes.first);
+  for (var i = 1; i < graphemes.length; i += 1) {
+    final ch = graphemes[i];
+    final isDigit = _isRollingDigitChar(ch);
+    if (isDigit == digits) {
+      buffer.write(ch);
+      continue;
+    }
+    segments.add(_RollingSegment(digits: digits, value: buffer.toString()));
+    buffer
+      ..clear()
+      ..write(ch);
+    digits = isDigit;
+  }
+  segments.add(_RollingSegment(digits: digits, value: buffer.toString()));
+  return segments;
+}
+
+int _digitRollDirection(String from, String to) {
+  final a = num.tryParse(from.replaceAll(',', ''));
+  final b = num.tryParse(to.replaceAll(',', ''));
+  if (a == null || b == null || b == a) return 1;
+  return b > a ? 1 : -1;
+}
+
+String _charFromRight(String value, int fromRight) {
+  final units = value.characters.toList(growable: false);
+  final index = units.length - 1 - fromRight;
+  if (index < 0 || index >= units.length) return '';
+  return units[index];
+}
+
+class _GlyphMetrics {
+  const _GlyphMetrics({
+    required this.digitWidth,
+    required this.dotWidth,
+    required this.commaWidth,
+    required this.height,
+  });
+
+  final double digitWidth;
+  final double dotWidth;
+  final double commaWidth;
+  final double height;
+
+  double widthOf(String ch) {
+    if (ch == '.') return dotWidth;
+    if (ch == ',') return commaWidth;
+    if (ch.isEmpty) return 0;
+    return digitWidth;
+  }
+}
+
+_GlyphMetrics _measureRollingGlyphs(TextStyle style, TextScaler scaler) {
+  final fallback = style.fontSize ?? 14;
+  ({double width, double height}) paint(String ch) {
+    final painter = TextPainter(
+      text: TextSpan(text: ch, style: style),
+      textDirection: TextDirection.ltr,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    final size = (width: painter.width, height: painter.height);
+    painter.dispose();
+    return size;
+  }
+
+  final zero = paint('0');
+  final dot = paint('.');
+  final comma = paint(',');
+  if (zero.width <= 0 || zero.height <= 0) {
+    return _GlyphMetrics(
+      digitWidth: fallback * 0.62,
+      dotWidth: fallback * 0.32,
+      commaWidth: fallback * 0.32,
+      height: fallback * (style.height ?? 1.2),
+    );
+  }
+  return _GlyphMetrics(
+    digitWidth: zero.width,
+    dotWidth: dot.width <= 0 ? zero.width * 0.45 : dot.width,
+    commaWidth: comma.width <= 0 ? zero.width * 0.45 : comma.width,
+    height: zero.height,
+  );
+}
+
+double _staggerLocalT(double parentT, double start, double end) {
+  final t = parentT.isFinite ? parentT : 1.0;
+  if (end <= start) return t >= end ? 1.0 : 0.0;
+  if (t <= start) return 0.0;
+  if (t >= end) return 1.0;
+  return ((t - start) / (end - start)).clamp(0.0, 1.0);
+}
+
+({
+  double inY,
+  double outY,
+  double inScale,
+  double outScale,
+  double inOpacity,
+  double outOpacity,
+})
+_digitRollFrame(double rawT, double height, int direction) {
+  final t = rawT.isFinite ? rawT.clamp(0.0, 1.0) : 1.0;
+  final peak = kOpenHandDigitRollPeakT.clamp(0.2, 0.85);
+  final h = height.isFinite && height > 0 ? height : 0.0;
+  final dir = direction >= 0 ? 1.0 : -1.0;
+
+  late final double inShift;
+  late final double inScale;
+  if (t <= peak) {
+    final u = kOpenHandSwitchInCurve.transform((t / peak).clamp(0.0, 1.0));
+    inShift = lerpDouble(1.0, -kOpenHandDigitRollOvershoot, u) ?? 0;
+    inScale =
+        lerpDouble(
+          kOpenHandDigitRollFromScale,
+          1.0 + kOpenHandDigitRollPunch,
+          u,
+        ) ??
+        1;
+  } else {
+    final u = Curves.easeInOutCubic.transform(
+      ((t - peak) / (1.0 - peak)).clamp(0.0, 1.0),
+    );
+    inShift = lerpDouble(-kOpenHandDigitRollOvershoot, 0.0, u) ?? 0;
+    inScale = lerpDouble(1.0 + kOpenHandDigitRollPunch, 1.0, u) ?? 1;
+  }
+
+  final outU = kOpenHandDigitRollOutCurve.transform(t);
+  final outShift =
+      lerpDouble(0.0, -(1.0 + kOpenHandDigitRollOvershoot), outU) ?? 0;
+  final outScale = lerpDouble(1.0, kOpenHandDigitRollFromScale, outU) ?? 1;
+  return (
+    inY: h * inShift * dir,
+    outY: h * outShift * dir,
+    inScale: inScale.isFinite && inScale > 0 ? inScale : 1.0,
+    outScale: outScale.isFinite && outScale > 0 ? outScale : 1.0,
+    inOpacity: const Interval(0.0, 0.36, curve: Curves.easeOut).transform(t),
+    outOpacity:
+        1.0 - const Interval(0.1, 0.78, curve: Curves.easeIn).transform(t),
+  );
+}
+
+class _RollingStaticRun extends StatelessWidget {
+  const _RollingStaticRun({
+    super.key,
+    required this.value,
     required this.style,
     required this.duration,
   });
 
-  final String char;
-  final int slot;
+  final String value;
   final TextStyle style;
   final Duration duration;
 
   @override
   Widget build(BuildContext context) {
+    final child = Text(value, key: ValueKey<String>(value), style: style);
+    if (duration <= Duration.zero) return child;
     return AnimatedSwitcher(
       duration: duration,
+      switchInCurve: kOpenHandDigitRollInCurve,
+      switchOutCurve: kOpenHandDigitRollOutCurve,
+      layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
       transitionBuilder: (child, animation) {
-        final outgoing = animation.status == AnimationStatus.reverse;
         final opacity = openHandBoundedCurveAnimation(
           parent: animation,
           curve: kOpenHandSwitchInCurve,
           reverseCurve: kOpenHandSwitchOutCurve,
         );
-        final motion = openHandCurveAnimation(
-          parent: animation,
-          curve: kOpenHandEntranceCurve,
-          reverseCurve: kOpenHandSwitchOutCurve,
-        );
-        final slide = Tween<Offset>(
-          begin: Offset(0, outgoing ? -0.6 : 0.6),
-          end: Offset.zero,
-        ).animate(motion);
-        return ClipRect(
-          child: SlideTransition(
-            position: slide,
-            child: FadeTransition(opacity: opacity, child: child),
-          ),
-        );
+        return FadeTransition(opacity: opacity, child: child);
       },
-      layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
-      // Slot index 让相同字符在不同位置时也有独立 key，避免
-      // "12 KB" → "21 KB" 这种重排被误判为无变化。
-      child: _RollingCharText(char: char, slot: slot, style: style),
+      child: child,
+    );
+  }
+}
+
+class _RollingDigitGroup extends StatefulWidget {
+  const _RollingDigitGroup({
+    super.key,
+    required this.value,
+    required this.style,
+    required this.duration,
+    required this.metrics,
+  });
+
+  final String value;
+  final TextStyle style;
+  final Duration duration;
+  final _GlyphMetrics metrics;
+
+  @override
+  State<_RollingDigitGroup> createState() => _RollingDigitGroupState();
+}
+
+class _RollingDigitGroupState extends State<_RollingDigitGroup>
+    with SingleTickerProviderStateMixin {
+  late String _current = widget.value;
+  late String _previous = widget.value;
+  int _direction = 1;
+  bool _rolling = false;
+  AnimationController? _ctrl;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!openHandTickerMotionEnabled(context)) {
+      _stop(reset: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _RollingDigitGroup oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value == _current) return;
+    _previous = _current;
+    _current = widget.value;
+    _direction = _digitRollDirection(_previous, _current);
+    if (widget.duration <= Duration.zero ||
+        !openHandTickerMotionEnabled(context)) {
+      _stop(reset: true);
+      return;
+    }
+    _play();
+  }
+
+  @override
+  void dispose() {
+    _ctrl?.removeStatusListener(_onStatus);
+    _ctrl?.dispose();
+    _ctrl = null;
+    super.dispose();
+  }
+
+  void _play() {
+    final extraSlots = math.min(
+      _changingMaxFromRight(),
+      kOpenHandDigitRollStaggerMaxSlots,
+    );
+    final duration =
+        widget.duration +
+        Duration(milliseconds: kOpenHandDigitRollStaggerMs * extraSlots);
+    if (duration <= Duration.zero) {
+      _stop(reset: true);
+      return;
+    }
+    _rolling = true;
+    final ctrl = _ctrl ??= AnimationController(vsync: this, duration: duration);
+    ctrl.duration = duration;
+    ctrl.removeStatusListener(_onStatus);
+    ctrl.addStatusListener(_onStatus);
+    ctrl.forward(from: 0);
+  }
+
+  int _changingMaxFromRight() {
+    final slotCount = math.max(
+      _previous.characters.length,
+      _current.characters.length,
+    );
+    var maxFromRight = 0;
+    for (var fromRight = 0; fromRight < slotCount; fromRight += 1) {
+      if (_charFromRight(_previous, fromRight) ==
+          _charFromRight(_current, fromRight)) {
+        continue;
+      }
+      maxFromRight = fromRight;
+    }
+    return maxFromRight;
+  }
+
+  void _onStatus(AnimationStatus status) {
+    if (status != AnimationStatus.completed || !mounted) return;
+    _stop(reset: true, notify: true);
+  }
+
+  void _stop({required bool reset, bool notify = false}) {
+    _rolling = false;
+    final ctrl = _ctrl;
+    if (ctrl != null) {
+      ctrl.removeStatusListener(_onStatus);
+      if (ctrl.isAnimating) ctrl.stop();
+    }
+    if (reset) _previous = _current;
+    if (notify && mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ctrl = _ctrl;
+    final motion =
+        _rolling && ctrl != null && openHandTickerMotionEnabled(context);
+    final slotCount = math.max(
+      _previous.characters.length,
+      _current.characters.length,
+    );
+    final totalMs = ctrl?.duration?.inMilliseconds ?? 0;
+    final rollMs = widget.duration.inMilliseconds;
+    return RepaintBoundary(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var fromRight = slotCount - 1; fromRight >= 0; fromRight--)
+            _RollingSlot(
+              previous: _charFromRight(_previous, fromRight),
+              current: _charFromRight(_current, fromRight),
+              style: widget.style,
+              metrics: widget.metrics,
+              direction: _direction,
+              animation: motion ? ctrl : null,
+              staggerStart: _staggerStart(fromRight, totalMs, rollMs),
+              staggerEnd: _staggerEnd(fromRight, totalMs, rollMs),
+            ),
+        ],
+      ),
+    );
+  }
+
+  double _staggerStart(int fromRight, int totalMs, int rollMs) {
+    if (totalMs <= 0 || rollMs <= 0) return 0;
+    final delayMs =
+        math.min(fromRight, kOpenHandDigitRollStaggerMaxSlots) *
+        kOpenHandDigitRollStaggerMs;
+    return (delayMs / totalMs).clamp(0.0, 0.99);
+  }
+
+  double _staggerEnd(int fromRight, int totalMs, int rollMs) {
+    if (totalMs <= 0 || rollMs <= 0) return 1;
+    final delayMs =
+        math.min(fromRight, kOpenHandDigitRollStaggerMaxSlots) *
+        kOpenHandDigitRollStaggerMs;
+    final start = (delayMs / totalMs).clamp(0.0, 0.99);
+    return ((delayMs + rollMs) / totalMs).clamp(start + 0.01, 1.0);
+  }
+}
+
+class _RollingSlot extends StatelessWidget {
+  const _RollingSlot({
+    required this.previous,
+    required this.current,
+    required this.style,
+    required this.metrics,
+    required this.direction,
+    required this.animation,
+    required this.staggerStart,
+    required this.staggerEnd,
+  });
+
+  final String previous;
+  final String current;
+  final TextStyle style;
+  final _GlyphMetrics metrics;
+  final int direction;
+  final Animation<double>? animation;
+  final double staggerStart;
+  final double staggerEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    final display = current.isEmpty ? previous : current;
+    final width = metrics.widthOf(display);
+    if (width <= 0) return const SizedBox.shrink();
+    final same = previous == current;
+    if (animation == null || same) {
+      return SizedBox(
+        width: width,
+        height: metrics.height,
+        child: Center(
+          child: Text(display, style: style, maxLines: 1, softWrap: false),
+        ),
+      );
+    }
+    final extra = metrics.height * kOpenHandDigitRollWindow;
+    final windowHeight = metrics.height + extra * 2;
+    return SizedBox(
+      width: width,
+      height: metrics.height,
+      child: OverflowBox(
+        minWidth: width,
+        maxWidth: width,
+        minHeight: windowHeight,
+        maxHeight: windowHeight,
+        child: ClipRect(
+          child: SizedBox(
+            width: width,
+            height: windowHeight,
+            child: IgnorePointer(
+              child: AnimatedBuilder(
+                animation: animation!,
+                builder: (context, _) {
+                  final t = _staggerLocalT(
+                    animation!.value,
+                    staggerStart,
+                    staggerEnd,
+                  );
+                  final fadeOnly =
+                      _isRollingSeparator(previous) ||
+                      _isRollingSeparator(current);
+                  final frame = fadeOnly
+                      ? (
+                          inY: 0.0,
+                          outY: 0.0,
+                          inScale: 1.0,
+                          outScale: 1.0,
+                          inOpacity: t,
+                          outOpacity: 1.0 - t,
+                        )
+                      : _digitRollFrame(t, metrics.height, direction);
+                  return Stack(
+                    alignment: Alignment.center,
+                    clipBehavior: Clip.none,
+                    children: [
+                      if (previous.isNotEmpty)
+                        _rollLayer(
+                          text: previous,
+                          y: frame.outY,
+                          scale: frame.outScale,
+                          opacity: frame.outOpacity,
+                        ),
+                      if (current.isNotEmpty)
+                        _rollLayer(
+                          text: current,
+                          y: frame.inY,
+                          scale: frame.inScale,
+                          opacity: frame.inOpacity,
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _rollLayer({
+    required String text,
+    required double y,
+    required double scale,
+    required double opacity,
+  }) {
+    final dy = y.isFinite ? y : 0.0;
+    final s = scale.isFinite && scale > 0 ? scale : 1.0;
+    final a = opacity.isFinite ? opacity.clamp(0.0, 1.0) : 1.0;
+    return Transform.translate(
+      offset: Offset(0, dy),
+      child: Transform.scale(
+        scale: s,
+        child: Opacity(
+          opacity: a,
+          child: Text(text, style: style, maxLines: 1, softWrap: false),
+        ),
+      ),
     );
   }
 }

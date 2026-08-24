@@ -120,6 +120,7 @@ html, body, #root {
   --oh-dialog-exit-duration: 360ms;
   --oh-dialog-curve: cubic-bezier(0.215, 0.61, 0.355, 1);
   --oh-dialog-exit-curve: cubic-bezier(0.55, 0.055, 0.675, 0.19);
+  --oh-digit-roll-duration: 360ms;
 
   /* 主工作台：水平铺满视口，仅保留自适应安全边距。 */
   --oh-page-pad-x: clamp(12px, 1.8vw, 32px);
@@ -236,16 +237,34 @@ html, body, #root {
   0%   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
   100% { opacity: 0; transform: translate3d(0, -7px, 0) scale(0.985); }
 }
-/* 数字翻牌：旧字符向上滑出（easeInCubic），新字符从下方滑入
-   (easeOutBack, 带轻微 overshoot)。与 App 端 _RollingDigit 1:1 对齐。 */
-@keyframes oh-rolling-digit-out {
-  0%   { transform: translate3d(0, 0, 0); opacity: 1; }
-  100% { transform: translate3d(0, -100%, 0); opacity: 0; }
+/* 数字翻牌：与 App 端 RollingText 1:1。
+   进场滑入→过冲 8%→回落并带 4% 缩放；退场反向滑出。
+   变大走 *-up，变小走 *-down；padding/margin 留出过冲窗口。 */
+@keyframes oh-rolling-digit-out-up {
+  0%   { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
+  100% { transform: translate3d(0, -108%, 0) scale(0.96); opacity: 0; }
 }
-@keyframes oh-rolling-digit-in {
-  0%   { transform: translate3d(0, 100%, 0); opacity: 0; }
-  60%  { transform: translate3d(0, -8%, 0); opacity: 1; }
-  100% { transform: translate3d(0, 0, 0); opacity: 1; }
+@keyframes oh-rolling-digit-out-down {
+  0%   { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
+  100% { transform: translate3d(0, 108%, 0) scale(0.96); opacity: 0; }
+}
+@keyframes oh-rolling-digit-in-up {
+  0%   { transform: translate3d(0, 100%, 0) scale(0.96); opacity: 0; }
+  56%  { transform: translate3d(0, -8%, 0) scale(1.04); opacity: 1; }
+  100% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
+}
+@keyframes oh-rolling-digit-in-down {
+  0%   { transform: translate3d(0, -100%, 0) scale(0.96); opacity: 0; }
+  56%  { transform: translate3d(0, 8%, 0) scale(1.04); opacity: 1; }
+  100% { transform: translate3d(0, 0, 0) scale(1); opacity: 1; }
+}
+@keyframes oh-rolling-digit-fade-out {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes oh-rolling-digit-fade-in {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
 }
 .oh-pulse-soft {
   animation: oh-pulse-soft 1.1s ease-in-out infinite;
@@ -255,18 +274,30 @@ html, body, #root {
 .oh-rolling-digit {
   position: relative;
   display: inline-block;
+  min-width: 1ch;
+  text-align: center;
   line-height: inherit;
   vertical-align: baseline;
+  font-variant-numeric: tabular-nums;
+  padding-block: 0.2em;
+  margin-block: -0.2em;
+  overflow: hidden;
 }
 .oh-rolling-digit-group {
   display: inline-flex;
   align-items: baseline;
   vertical-align: baseline;
   line-height: inherit;
+  font-variant-numeric: tabular-nums;
 }
 .oh-rolling-digit-sep {
   display: inline-block;
   vertical-align: baseline;
+  font-variant-numeric: tabular-nums;
+}
+.oh-rolling-digit-spacer {
+  visibility: hidden;
+  pointer-events: none;
 }
 .oh-rolling-digit-old {
   position: absolute;
@@ -274,13 +305,29 @@ html, body, #root {
   top: 0;
   width: 100%;
   display: inline-block;
-  animation: oh-rolling-digit-out 360ms var(--oh-motion-emphasized) forwards;
   will-change: transform, opacity;
 }
 .oh-rolling-digit-in {
   display: inline-block;
-  animation: oh-rolling-digit-in 360ms var(--oh-motion-spring) both;
   will-change: transform, opacity;
+}
+.oh-rolling-digit-out-up {
+  animation: oh-rolling-digit-out-up var(--oh-digit-roll-duration) var(--oh-motion-emphasized) both;
+}
+.oh-rolling-digit-out-down {
+  animation: oh-rolling-digit-out-down var(--oh-digit-roll-duration) var(--oh-motion-emphasized) both;
+}
+.oh-rolling-digit-in-up {
+  animation: oh-rolling-digit-in-up var(--oh-digit-roll-duration) var(--oh-motion-spring) both;
+}
+.oh-rolling-digit-in-down {
+  animation: oh-rolling-digit-in-down var(--oh-digit-roll-duration) var(--oh-motion-spring) both;
+}
+.oh-rolling-digit-fade-out {
+  animation: oh-rolling-digit-fade-out var(--oh-digit-roll-duration) var(--oh-motion-emphasized) both;
+}
+.oh-rolling-digit-fade-in {
+  animation: oh-rolling-digit-fade-in var(--oh-digit-roll-duration) var(--oh-motion-emphasized) both;
 }
 .oh-animated-title-text {
   position: relative;

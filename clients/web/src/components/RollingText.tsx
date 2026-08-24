@@ -1,21 +1,6 @@
-// WEB 端老虎机式字符翻牌：识别字符串中"连续数字 + 千位分隔符"片段，
-// 对每个数字位独立做"上滚出 / 下滚入"Q 弹动画；其他字符（"tokens"、
-// "字符"、" 项运行时 Notice" 等）保持静态。
-//
-// 设计动机：与 App 端 `RollingText`（lib/shared/ui/rolling_text.dart）
-// 1:1 对齐，让 Web 与桌面端在 Token 胶囊、消息卡字符数等动态数字位
-// 的视觉反馈完全一致。
-//
-// 实现要点：
-// - 每个数字位 (`<RollingDigit>`) 维护 `current + previous` 两个 state，
-//   char 变化时 setPrevious(current) + setCurrent(new)，通过 CSS
-//   keyframes 让旧数字向上滑出 (easeInCubic) + 新数字从下方滑入
-//   (easeOutBack, 带轻微 overshoot)，曲线与 App 端一致。
-// - 槽位用 `inline-block + position: relative` 固定宽度，避免数字翻
-//   牌时整段文本左右抖动。
-// - `useReducedMotion()` 命中时直接渲染静态字符，跳过动画。
-// - 字符串切分用 LRU 缓存（_segmentText 内部 Map），避免每次 render
-//   都重新跑一遍正则。
+// WEB 端数字滚轮：与 App 端 RollingText 1:1。
+// 只翻连续数字位；槽位右对齐；变大向上、变小向下；个位先动。
+// 进场：滑入 → 过冲 → 回落；退场走 emphasized。过冲窗口不被裁切。
 
 import { useEffect, useState } from 'preact/hooks';
 import type { JSX } from 'preact';
@@ -32,12 +17,12 @@ interface Segment {
   value: string;
 }
 
+const DIGIT_ROLL_DURATION_MS = 360;
+const DIGIT_ROLL_STAGGER_MS = 28;
+const DIGIT_ROLL_STAGGER_MAX_SLOTS = 5;
+
 const _segmentCache = new Map<string, Segment[]>();
 
-/// 把字符串切成静态段 + 数字段：
-/// "17,075 tokens" → [digits "17,075", static " tokens"]
-/// "0%"           → [digits "0",   static "%"]
-/// "12.3 MB"      → [digits "12.3", static " MB"]   (小数字也认)
 function _segmentText(text: string): Segment[] {
   const cached = _segmentCache.get(text);
   if (cached) return cached;
@@ -57,23 +42,46 @@ function _segmentText(text: string): Segment[] {
       i = j;
     }
   }
-  if (_segmentCache.size > 256) {
-    // LRU: 简单起见直接清空——长会话 token 数字变化频繁，但缓存只
-    // 用来跳过同字符串的重复切分，命中率才是关键，容量不是瓶颈。
-    _segmentCache.clear();
-  }
+  if (_segmentCache.size > 256) _segmentCache.clear();
   _segmentCache.set(text, out);
   return out;
 }
 
 function isDigitChar(ch: string): boolean {
   const code = ch.charCodeAt(0);
-  // 0-9, ',', '.'
   return (
     (code >= 0x30 && code <= 0x39) ||
-    code === 0x2c /* , */ ||
-    code === 0x2e /* . */
+    code === 0x2c ||
+    code === 0x2e
   );
+}
+
+function isSeparator(ch: string): boolean {
+  return ch === ',' || ch === '.';
+}
+
+function charFromRight(value: string, fromRight: number): string {
+  const index = value.length - 1 - fromRight;
+  if (index < 0 || index >= value.length) return '';
+  return value[index]!;
+}
+
+function digitRollDirection(from: string, to: string): 1 | -1 {
+  const a = Number(from.replace(/,/g, ''));
+  const b = Number(to.replace(/,/g, ''));
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b === a) return 1;
+  return b > a ? 1 : -1;
+}
+
+function changingMaxFromRight(from: string, to: string): number {
+  const slotCount = Math.max(from.length, to.length);
+  let maxFromRight = 0;
+  for (let fromRight = 0; fromRight < slotCount; fromRight += 1) {
+    if (charFromRight(from, fromRight) !== charFromRight(to, fromRight)) {
+      maxFromRight = fromRight;
+    }
+  }
+  return maxFromRight;
 }
 
 export function RollingText({ text, className, style }: RollingTextProps) {
@@ -92,57 +100,127 @@ export function RollingText({ text, className, style }: RollingTextProps) {
 }
 
 function RollingDigitGroup({ value }: { value: string }) {
+  const [current, setCurrent] = useState(value);
+  const [previous, setPrevious] = useState(value);
+  const [tick, setTick] = useState(0);
+  const [direction, setDirection] = useState<1 | -1>(1);
+  const reducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (value === current) return;
+    if (reducedMotion) {
+      setPrevious(value);
+      setCurrent(value);
+      return;
+    }
+    setPrevious(current);
+    setCurrent(value);
+    setDirection(digitRollDirection(current, value));
+    setTick((t) => t + 1);
+  }, [value, current, reducedMotion]);
+
+  useEffect(() => {
+    if (reducedMotion || previous === current) return;
+    const extra = Math.min(
+      changingMaxFromRight(previous, current),
+      DIGIT_ROLL_STAGGER_MAX_SLOTS,
+    );
+    const id = window.setTimeout(() => {
+      setPrevious(current);
+    }, DIGIT_ROLL_DURATION_MS + DIGIT_ROLL_STAGGER_MS * extra);
+    return () => window.clearTimeout(id);
+  }, [previous, current, tick, reducedMotion]);
+
+  const slotCount = Math.max(previous.length, current.length);
+  const slots: JSX.Element[] = [];
+  for (let fromRight = slotCount - 1; fromRight >= 0; fromRight -= 1) {
+    slots.push(
+      <RollingDigit
+        key={`r${fromRight}`}
+        previous={charFromRight(previous, fromRight)}
+        current={charFromRight(current, fromRight)}
+        direction={direction}
+        tick={tick}
+        delayMs={
+          Math.min(fromRight, DIGIT_ROLL_STAGGER_MAX_SLOTS) *
+          DIGIT_ROLL_STAGGER_MS
+        }
+        reducedMotion={reducedMotion}
+      />,
+    );
+  }
+
   return (
-    <span class="oh-rolling-digit-group" aria-label={value}>
-      {value.split('').map((ch, idx) =>
-        ch === ',' || ch === '.' ? (
-          <span key={idx} class="oh-rolling-digit-sep">
-            {ch}
-          </span>
-        ) : (
-          <RollingDigit key={idx} char={ch} />
-        ),
-      )}
+    <span class="oh-rolling-digit-group" aria-label={current}>
+      {slots}
     </span>
   );
 }
 
-function RollingDigit({ char }: { char: string }) {
-  const [current, setCurrent] = useState(char);
-  const [previous, setPrevious] = useState(char);
-  const [tick, setTick] = useState(0);
-  const reducedMotion = useReducedMotion();
+function RollingDigit({
+  previous,
+  current,
+  direction,
+  tick,
+  delayMs,
+  reducedMotion,
+}: {
+  previous: string;
+  current: string;
+  direction: 1 | -1;
+  tick: number;
+  delayMs: number;
+  reducedMotion: boolean;
+}) {
+  const display = current || previous;
+  if (!display) return null;
 
-  useEffect(() => {
-    if (char === current) return;
-    setPrevious(current);
-    setCurrent(char);
-    setTick((t) => t + 1);
-  }, [char, current]);
-
-  // reduced-motion：直接静态显示当前值，不跑动画。
-  if (reducedMotion) {
-    return <span class="oh-rolling-digit">{current}</span>;
+  const same = previous === current;
+  const sep = isSeparator(previous) || isSeparator(current);
+  if (reducedMotion || same) {
+    return (
+      <span class={sep ? 'oh-rolling-digit-sep' : 'oh-rolling-digit'}>
+        {display}
+      </span>
+    );
   }
 
-  const showOld = previous !== current;
+  const dir = direction > 0 ? 'up' : 'down';
+  const delay = { animationDelay: `${delayMs}ms` };
+  const fadeOnly = sep;
   return (
     <span class="oh-rolling-digit">
-      {showOld && (
+      {previous ? (
         <span
           key={`old-${tick}`}
-          class="oh-rolling-digit-old"
+          class={
+            fadeOnly
+              ? 'oh-rolling-digit-old oh-rolling-digit-fade-out'
+              : `oh-rolling-digit-old oh-rolling-digit-out-${dir}`
+          }
+          style={delay}
           aria-hidden
         >
           {previous}
         </span>
+      ) : null}
+      {current ? (
+        <span
+          key={`cur-${tick}`}
+          class={
+            fadeOnly
+              ? 'oh-rolling-digit-in oh-rolling-digit-fade-in'
+              : `oh-rolling-digit-in oh-rolling-digit-in-${dir}`
+          }
+          style={delay}
+        >
+          {current}
+        </span>
+      ) : (
+        <span class="oh-rolling-digit-spacer" aria-hidden>
+          0
+        </span>
       )}
-      <span
-        key={`cur-${tick}`}
-        class={showOld ? 'oh-rolling-digit-in' : undefined}
-      >
-        {current}
-      </span>
     </span>
   );
 }

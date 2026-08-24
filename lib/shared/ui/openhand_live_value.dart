@@ -67,10 +67,11 @@ class OpenHandLiveValue extends StatelessWidget {
         .copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
     final motionDuration = openHandMotionDuration(context, duration);
     final alignment = _liveValueAlignment(textAlign);
+    final prefersRoller = openHandLiveValuePrefersRoller(display);
     Widget child;
     if (motionDuration <= Duration.zero) {
       child = _staticText(display, resolvedStyle);
-    } else if (openHandLiveValuePrefersRoller(display)) {
+    } else if (prefersRoller) {
       final roller = RollingText(
         text: display,
         style: resolvedStyle,
@@ -86,8 +87,8 @@ class OpenHandLiveValue extends StatelessWidget {
     } else {
       child = AnimatedSwitcher(
         duration: motionDuration,
-        switchInCurve: kOpenHandEntranceCurve,
-        switchOutCurve: kOpenHandSwitchOutCurve,
+        switchInCurve: kOpenHandDigitRollInCurve,
+        switchOutCurve: kOpenHandDigitRollOutCurve,
         layoutBuilder: (currentChild, previousChildren) {
           return buildCollisionSafeAnimatedSwitcherLayout(
             currentChild,
@@ -104,14 +105,14 @@ class OpenHandLiveValue extends StatelessWidget {
           );
           final motion = openHandCurveAnimation(
             parent: animation,
-            curve: kOpenHandEntranceCurve,
-            reverseCurve: kOpenHandSwitchOutCurve,
+            curve: kOpenHandDigitRollInCurve,
+            reverseCurve: kOpenHandDigitRollOutCurve,
           );
           return FadeTransition(
             opacity: opacity,
             child: SlideTransition(
               position: Tween<Offset>(
-                begin: Offset(0, outgoing ? -0.18 : 0.18),
+                begin: Offset(0, outgoing ? -0.12 : 0.12),
                 end: Offset.zero,
               ).animate(motion),
               child: child,
@@ -124,7 +125,7 @@ class OpenHandLiveValue extends StatelessWidget {
         ),
       );
     }
-    if (openHandLiveValuePrefersRoller(display) &&
+    if (prefersRoller &&
         overflow == null &&
         textAlign != null &&
         textAlign != TextAlign.left) {
