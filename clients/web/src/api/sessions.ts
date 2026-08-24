@@ -10,15 +10,17 @@
 //
 // 任何接口的 401 都会被 apiRequest 自动转成 UnauthorizedError + 清理本地 token。
 
-import { apiRequest, throwIfApiResponseFailed, type ApiRequestSignalOptions } from './client';
+import {
+  apiRequest,
+  fetchAuthenticatedBlob,
+  type ApiRequestSignalOptions,
+} from './client';
 import { ensureDeviceId, readToken } from '../state/storage';
 import type { PendingWriteApproval } from './session_events';
 import { clientEnvironmentHeaders } from '../utils/client_env';
 import { jsonlExportPickerSuggestedName, normalizeJsonlExportFilename } from '../shared/util/export_filename';
 import { filenameFromContentDisposition, saveBlobWithPicker } from '../utils/save_blob';
 import { ignoreError, isAbortError } from '../shared/util/errors';
-import { createTimedAbortController } from '../utils/timed_abort';
-import { readResponseBlobBounded } from '../utils/bounded_response';
 
 export interface SessionTodoItem {
   id: string;
@@ -988,39 +990,32 @@ export async function exportSessionDownload(
   sessionId: string,
   fallbackName: string,
 ): Promise<ExportDownloadResult> {
-  const headers: Record<string, string> = {
-    Accept: 'application/x-ndjson',
-    'x-openhand-device-id': ensureDeviceId(),
-    ...clientEnvironmentHeaders(),
-  };
-  const token = readToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const timed = createTimedAbortController(EXPORT_SESSION_TIMEOUT_MS);
   let filename = normalizeJsonlExportFilename(`${fallbackName}.jsonl`);
   let blob: Blob;
   try {
-    const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/export`, {
-      method: 'GET',
-      headers,
-      credentials: 'same-origin',
-      signal: timed.controller.signal,
-    });
-    await throwIfApiResponseFailed(res, timed.controller.signal);
-    const parsedFilename = filenameFromContentDisposition(res.headers.get('Content-Disposition'));
+    const result = await fetchAuthenticatedBlob(
+      `/api/sessions/${encodeURIComponent(sessionId)}/export`,
+      {
+        accept: 'application/x-ndjson',
+        maxBytes: EXPORT_SESSION_MAX_BYTES,
+        timeoutMs: EXPORT_SESSION_TIMEOUT_MS,
+      },
+    );
+    const parsedFilename = filenameFromContentDisposition(
+      result.response.headers.get('Content-Disposition'),
+    );
     if (parsedFilename) {
       filename = normalizeJsonlExportFilename(parsedFilename);
     }
-    blob = await readResponseBlobBounded(res, {
-      maxBytes: EXPORT_SESSION_MAX_BYTES,
-      signal: timed.controller.signal,
-    });
+    blob = result.blob;
   } catch (error) {
-    if (timed.timedOut || isAbortError(error)) {
+    if (
+      (error instanceof Error && error.name === 'OperationTimeoutError') ||
+      isAbortError(error)
+    ) {
       throw new Error(EXPORT_SESSION_TIMEOUT_ERROR);
     }
     throw error;
-  } finally {
-    timed.dispose();
   }
   await saveBlobWithPicker(
     blob,

@@ -8,6 +8,7 @@ import { normalizeDurationMs } from '../shared/util/number';
 import { clientEnvironmentHeaders } from '../utils/client_env';
 import {
   cancelResponseBodyQuietly,
+  readResponseBlobBounded,
   readResponseTextBounded,
 } from '../utils/bounded_response';
 import {
@@ -46,6 +47,11 @@ interface ApiOptions {
 }
 
 export type ApiRequestSignalOptions = Pick<ApiOptions, 'signal' | 'timeoutMs'>;
+
+export interface AuthenticatedBlobResult {
+  blob: Blob;
+  response: Response;
+}
 
 export async function throwIfApiResponseFailed(
   response: Response,
@@ -173,6 +179,50 @@ export async function apiRequest<T = unknown>(
     } catch {
       return text as T;
     }
+  } catch (error) {
+    throw timeoutErrorFromAbortSignal(abortSignal, error) ?? error;
+  } finally {
+    abortSignal.cleanup();
+  }
+}
+
+/** 使用统一鉴权头下载受大小和总时限约束的二进制响应。 */
+export async function fetchAuthenticatedBlob(
+  path: string,
+  {
+    accept,
+    maxBytes,
+    signal,
+    timeoutMs,
+  }: {
+    accept?: string;
+    maxBytes: number;
+    signal?: AbortSignal;
+    timeoutMs?: number;
+  },
+): Promise<AuthenticatedBlobResult> {
+  const headers: Record<string, string> = {
+    'x-openhand-device-id': ensureDeviceId(),
+    ...clientEnvironmentHeaders(),
+  };
+  if (accept) headers.accept = accept;
+  const token = readToken();
+  if (token) headers.authorization = `Bearer ${token}`;
+
+  const abortSignal = createApiAbortSignal({ signal, timeoutMs });
+  try {
+    const response = await fetch(path, {
+      method: 'GET',
+      headers,
+      credentials: 'same-origin',
+      signal: abortSignal.signal,
+    });
+    await throwIfApiResponseFailed(response, abortSignal.signal);
+    const blob = await readResponseBlobBounded(response, {
+      maxBytes,
+      signal: abortSignal.signal,
+    });
+    return { blob, response };
   } catch (error) {
     throw timeoutErrorFromAbortSignal(abortSignal, error) ?? error;
   } finally {
