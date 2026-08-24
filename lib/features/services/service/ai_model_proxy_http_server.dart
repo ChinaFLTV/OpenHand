@@ -8,6 +8,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/net/bounded_server_bind.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
+import '../../../shared/util/stable_hash.dart';
 import '../../ai/index.dart';
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_model_proxy_models.dart';
@@ -168,6 +169,11 @@ class AiModelProxyHttpServer {
       if ((method == 'GET' || method == 'HEAD') &&
           isAiModelProxyBrandingPath(path)) {
         await _writeBrandingAsset(request, headOnly: method == 'HEAD');
+        return;
+      }
+      if ((method == 'GET' || method == 'HEAD') &&
+          isAiModelProxyStatusJsonPath(path)) {
+        await _writeStatusSnapshot(request, headOnly: method == 'HEAD');
         return;
       }
       if ((method == 'GET' || method == 'HEAD') &&
@@ -1937,7 +1943,6 @@ class AiModelProxyHttpServer {
     required bool headOnly,
   }) async {
     final started = DateTime.now();
-    final headers = _headers(request);
     var status = 200;
     var html = '';
     final look = _controller.resolveThemeLook();
@@ -1979,15 +1984,95 @@ class AiModelProxyHttpServer {
       outboundBytes: outbound,
       statusCode: status,
     );
+    _recordStatusSurface(
+      request,
+      started: started,
+      statusCode: status,
+      outboundBytes: outbound,
+      error: status < 400 ? null : 'status_page_unavailable',
+    );
+  }
+
+  Future<void> _writeStatusSnapshot(
+    HttpRequest request, {
+    required bool headOnly,
+  }) async {
+    final started = DateTime.now();
+    var status = 200;
+    var body = '{}';
+    var etag = '';
+    final look = _controller.resolveThemeLook();
+    try {
+      final snapshot = buildAiModelProxyStatusSnapshot(
+        controller: _controller,
+        themeMode: look.themeMode,
+        themePreset: look.preset,
+        locale: look.locale,
+      );
+      final fingerprint = Map<String, Object?>.from(snapshot)
+        ..remove('generatedAt');
+      etag = '"${stableJsonSha256(fingerprint)}"';
+      body = jsonEncode(snapshot);
+    } on Object {
+      status = 500;
+      body = '{"error":"status_unavailable"}';
+      etag = '"${stableSha256Hex(body)}"';
+    }
+    final bytes = utf8.encode(body);
+    final notModified =
+        status == 200 && _statusSnapshotEtagMatches(request, etag);
+    final responseStatus = notModified ? HttpStatus.notModified : status;
+    final outbound = headOnly || notModified ? 0 : bytes.length;
+    try {
+      request.response
+        ..statusCode = responseStatus
+        ..headers.contentType = ContentType.json
+        ..headers.set(HttpHeaders.cacheControlHeader, kCacheControlNoStore)
+        ..headers.set(HttpHeaders.etagHeader, etag)
+        ..headers.set('x-content-type-options', 'nosniff')
+        ..contentLength = outbound;
+      _applyCorsHeaders(
+        request,
+        methods: _corsReadMethods,
+        publiclyReadable: true,
+      );
+      if (!headOnly && !notModified) {
+        request.response.add(bytes);
+      }
+      await request.response.close();
+    } on Object {
+      await _closeRequest(request);
+    }
+    _controller.runtimeResponseWritten(
+      outboundBytes: outbound,
+      statusCode: responseStatus,
+    );
+    _recordStatusSurface(
+      request,
+      started: started,
+      statusCode: responseStatus,
+      outboundBytes: outbound,
+      error: status < 400 ? null : 'status_snapshot_unavailable',
+    );
+  }
+
+  void _recordStatusSurface(
+    HttpRequest request, {
+    required DateTime started,
+    required int statusCode,
+    required int outboundBytes,
+    String? error,
+  }) {
+    final headers = _headers(request);
     final durationMs = DateTime.now().difference(started).inMilliseconds;
     unawaited(
       _controller.recordRequest(
-        success: status < 400,
+        success: statusCode < 400,
         tokens: 0,
         durationMs: durationMs < 0 ? 0 : durationMs,
         modelId: aiModelProxyStatusModelId,
         apiStyle: aiModelProxyStatusMode,
-        error: status < 400 ? null : 'status_page_unavailable',
+        error: error,
         clientIp: headers['x-client-ip'] ?? '',
         clientPort: headers['x-client-port'] ?? '',
         clientUserAgent: headers['user-agent'] ?? '',
@@ -1996,10 +2081,24 @@ class AiModelProxyHttpServer {
         exposedModel: aiModelProxyStatusModelId,
         requestPath: _normalizePath(request.uri.path),
         inboundBytes: request.contentLength < 0 ? 0 : request.contentLength,
-        outboundBytes: outbound,
-        statusCode: status,
+        outboundBytes: outboundBytes,
+        statusCode: statusCode,
       ),
     );
+  }
+
+  static bool _statusSnapshotEtagMatches(HttpRequest request, String etag) {
+    final raw = request.headers.value(HttpHeaders.ifNoneMatchHeader)?.trim();
+    if (raw == null || raw.isEmpty) return false;
+    if (raw == '*') return true;
+    for (final part in raw.split(',')) {
+      var token = part.trim();
+      if (token.startsWith('W/')) {
+        token = token.substring(2).trim();
+      }
+      if (token == etag) return true;
+    }
+    return false;
   }
 
   Future<void> _writeJson(

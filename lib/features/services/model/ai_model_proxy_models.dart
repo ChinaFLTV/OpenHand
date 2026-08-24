@@ -9,6 +9,7 @@ const int aiModelProxyMinListenPort = 1;
 const int aiModelProxyMaxListenPort = 65535;
 const String aiModelProxyStatusPath = '/status.html';
 const String aiModelProxyStatusAliasPath = '/status';
+const String aiModelProxyStatusJsonPath = '/status.json';
 const String aiModelProxyStatusMode = 'status';
 const String aiModelProxyPoolMode = 'pool';
 const String aiModelProxySystemMode = 'system';
@@ -18,6 +19,12 @@ const String aiModelProxyLogoAsset = 'assets/branding/openhand_logo.png';
 const String aiModelProxyLogoPath = '/openhand_logo.png';
 const String aiModelProxyFaviconPath = '/favicon.ico';
 const int aiModelProxyStatusHistoryDays = 90;
+const int aiModelProxyRecentRequestLimit = 200;
+const int aiModelProxyRecentStatusRequestLimit = 24;
+const int aiModelProxyStatusLivePollMs = 8000;
+const int aiModelProxyStatusLivePollHiddenMs = 30000;
+const int aiModelProxyStatusLivePollTimeoutMs = 8000;
+const int aiModelProxyStatusLivePollBackoffMaxMs = 60000;
 const int aiModelProxySlowLatencyMs = 3000;
 const int aiModelProxySevereLatencyMs = 6000;
 const double aiModelProxyHealthHealthyRate = 0.95;
@@ -46,6 +53,14 @@ bool isAiModelProxyStatusPath(String path) {
       value == aiModelProxyStatusAliasPath;
 }
 
+bool isAiModelProxyStatusJsonPath(String path) {
+  return path.trim() == aiModelProxyStatusJsonPath;
+}
+
+bool isAiModelProxyStatusSurfacePath(String path) {
+  return isAiModelProxyStatusPath(path) || isAiModelProxyStatusJsonPath(path);
+}
+
 bool isAiModelProxyBrandingPath(String path) {
   final value = path.trim();
   return value == aiModelProxyLogoPath || value == aiModelProxyFaviconPath;
@@ -58,7 +73,7 @@ bool isAiModelProxyStatusRecord(AiModelProxyRequestRecord record) {
   if (record.modelId.trim().toLowerCase() == aiModelProxyStatusModelId) {
     return true;
   }
-  return isAiModelProxyStatusPath(record.requestPath);
+  return isAiModelProxyStatusSurfacePath(record.requestPath);
 }
 
 /// 统一客户端对端展示：IPv6 加方括号，避免与端口号粘连。
@@ -338,6 +353,25 @@ List<AiModelProxyDailyHealth> _advanceDailyHealth(
   );
   if (next.length > aiModelProxyStatusHistoryDays) {
     next.removeRange(0, next.length - aiModelProxyStatusHistoryDays);
+  }
+  return next;
+}
+
+List<AiModelProxyRequestRecord> _trimRecentProxyRecords(
+  List<AiModelProxyRequestRecord> records,
+) {
+  if (records.isEmpty) return const <AiModelProxyRequestRecord>[];
+  final next = List<AiModelProxyRequestRecord>.from(records);
+  var statusKept = 0;
+  for (var i = next.length - 1; i >= 0; i--) {
+    if (!isAiModelProxyStatusRecord(next[i])) continue;
+    statusKept += 1;
+    if (statusKept > aiModelProxyRecentStatusRequestLimit) {
+      next.removeAt(i);
+    }
+  }
+  if (next.length > aiModelProxyRecentRequestLimit) {
+    next.removeRange(0, next.length - aiModelProxyRecentRequestLimit);
   }
   return next;
 }
@@ -918,9 +952,7 @@ class AiModelProxySettings {
       lastRequestAt: DateTime.tryParse(
         '${json['last_request_at'] ?? ''}',
       )?.toLocal(),
-      recentRequests: records.length <= 200
-          ? records
-          : records.sublist(records.length - 200),
+      recentRequests: _trimRecentProxyRecords(records),
       dailyHealth: daily.length <= aiModelProxyStatusHistoryDays
           ? daily
           : daily.sublist(daily.length - aiModelProxyStatusHistoryDays),
@@ -1056,10 +1088,10 @@ class AiModelProxySettings {
       attempt: attempt.clamp(1, 32),
       stream: stream,
     );
-    final nextRecords = <AiModelProxyRequestRecord>[...recentRequests, record];
-    if (nextRecords.length > 200) {
-      nextRecords.removeRange(0, nextRecords.length - 200);
-    }
+    final nextRecords = _trimRecentProxyRecords(<AiModelProxyRequestRecord>[
+      ...recentRequests,
+      record,
+    ]);
     return copyWith(
       requestCount: requestCount + 1,
       successCount: successCount + (success ? 1 : 0),
@@ -1098,8 +1130,7 @@ class AiModelProxySettings {
     'total_duration_ms': totalDurationMs,
     if (lastRequestAt != null)
       'last_request_at': lastRequestAt!.toUtc().toIso8601String(),
-    'recent_requests': recentRequests
-        .take(200)
+    'recent_requests': _trimRecentProxyRecords(recentRequests)
         .map((item) => item.toJson())
         .toList(growable: false),
     if (dailyHealth.isNotEmpty)
