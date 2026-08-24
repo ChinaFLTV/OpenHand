@@ -846,11 +846,15 @@ class DingTalkMessageGatewayService {
     final output = File(p.join(directory.path, filename));
     _activeMediaCacheBasenames.add(basename);
     try {
-      await directory.create(recursive: true);
-      if (await output.exists()) {
-        final size = await output.length();
+      await directory
+          .create(recursive: true)
+          .timeout(_mediaCacheFileOperationTimeout);
+      if (await output.exists().timeout(_mediaCacheFileOperationTimeout)) {
+        final size = await output.length().timeout(
+          _mediaCacheFileOperationTimeout,
+        );
         if (size > 0 && size <= _maxMediaFileBytes) return output.path;
-        await output.delete();
+        await output.delete().timeout(_mediaCacheFileOperationTimeout);
       }
       final cached = await _findCachedMediaFile(directory, basename);
       if (cached != null) return cached.path;
@@ -887,15 +891,17 @@ class DingTalkMessageGatewayService {
         timeout: _mediaDownloadTimeout,
         cancelSignal: cancelSignal,
       );
-      if (!await output.exists()) {
+      if (!await output.exists().timeout(_mediaCacheFileOperationTimeout)) {
         throw StateError('钉钉媒体下载完成但未找到本地文件。');
       }
-      final outputBytes = await output.length();
+      final outputBytes = await output.length().timeout(
+        _mediaCacheFileOperationTimeout,
+      );
       if (outputBytes <= 0) {
         throw StateError('钉钉媒体下载完成但文件为空。');
       }
       if (outputBytes > _maxMediaFileBytes) {
-        await output.delete();
+        await output.delete().timeout(_mediaCacheFileOperationTimeout);
         throw StateError('钉钉媒体超过 512MB 本地缓存上限。');
       }
       _logRuntime('SUCCESS', '钉钉媒体已缓存：${media.displayName}。');
@@ -904,7 +910,9 @@ class DingTalkMessageGatewayService {
     } catch (error, stack) {
       // dws 超时或中断时可能留下半截文件，不能让下一次请求误认为缓存有效。
       try {
-        if (await output.exists()) await output.delete();
+        if (await output.exists().timeout(_mediaCacheFileOperationTimeout)) {
+          await output.delete().timeout(_mediaCacheFileOperationTimeout);
+        }
       } catch (cleanupError, cleanupStack) {
         silentLog(
           'dingtalk_gateway',
