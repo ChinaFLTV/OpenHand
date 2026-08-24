@@ -94,13 +94,12 @@ class AiModelProxyHttpServer {
           continue;
         }
         final path = _normalizePath(request.uri.path);
-        if (isAiModelProxyBrandingPath(path)) {
-          unawaited(_handleRequest(request));
-          continue;
+        final trackRuntime = !isAiModelProxyBrandingPath(path);
+        if (trackRuntime) {
+          _controller.runtimeRequestObserved(
+            inboundBytes: request.contentLength < 0 ? 0 : request.contentLength,
+          );
         }
-        _controller.runtimeRequestObserved(
-          inboundBytes: request.contentLength < 0 ? 0 : request.contentLength,
-        );
         if (_activeRequestTokens.length >= aiModelProxyMaxConcurrentRequests) {
           await _writeError(
             request,
@@ -112,11 +111,12 @@ class AiModelProxyHttpServer {
         }
         final requestToken = ++_requestSequence;
         _activeRequestTokens.add(requestToken);
-        final connectionKey = _connectionKey(request);
-        final runtimeRequestId = _controller.runtimeRequestStarted(
-          connectionKey: connectionKey,
-          userAgent: request.headers.value(HttpHeaders.userAgentHeader),
-        );
+        final runtimeRequestId = trackRuntime
+            ? _controller.runtimeRequestStarted(
+                connectionKey: _connectionKey(request),
+                userAgent: request.headers.value(HttpHeaders.userAgentHeader),
+              )
+            : null;
         unawaited(
           _handleRequest(request).whenComplete(() {
             _activeRequestTokens.remove(requestToken);
