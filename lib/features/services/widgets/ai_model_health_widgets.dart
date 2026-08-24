@@ -416,6 +416,7 @@ class _HealthBar extends StatelessWidget {
     };
     final metadata = record.metadata;
     final probeType = '${metadata['probe_type'] ?? ''}'.trim();
+    final localizedProbeType = _localizedProbeType(context, probeType);
     final requestMethod = '${metadata['request_method'] ?? ''}'.trim();
     final requestUrl = _safeHealthUrl('${metadata['request_url'] ?? ''}');
     final endpoint = record.host.isEmpty
@@ -444,7 +445,6 @@ class _HealthBar extends StatelessWidget {
           value: record.success
               ? text(zh: '正常', en: 'Healthy')
               : text(zh: '异常', en: 'Unhealthy'),
-          hint: record.status,
           icon: Icons.monitor_heart_rounded,
           color: statusColor,
         ),
@@ -478,7 +478,7 @@ class _HealthBar extends StatelessWidget {
         ),
         OpenHandChartTooltipMetric(
           label: text(zh: '模型类型', en: 'Model kind'),
-          value: record.modelKind,
+          value: _localizedModelKind(context, record.modelKind),
           icon: Icons.category_outlined,
           color: statusColor,
         ),
@@ -499,7 +499,10 @@ class _HealthBar extends StatelessWidget {
       notes: [
         if (record.errorMessage.trim().isNotEmpty) record.errorMessage.trim(),
         if (probeType.isNotEmpty)
-          text(zh: '探测类型：$probeType', en: 'Probe: $probeType'),
+          text(
+            zh: '探测类型：$localizedProbeType',
+            en: 'Probe: $localizedProbeType',
+          ),
         if (requestUrl.isNotEmpty)
           text(zh: '请求地址：$requestUrl', en: 'Request URL: $requestUrl'),
         text(zh: '代理：$modeLabel', en: 'Proxy: $modeLabel'),
@@ -511,5 +514,72 @@ class _HealthBar extends StatelessWidget {
     final uri = Uri.tryParse(raw.trim());
     if (uri == null || uri.host.isEmpty) return '';
     return uri.replace(userInfo: '', query: '', fragment: '').toString();
+  }
+
+  String _localizedModelKind(BuildContext context, String raw) {
+    final text = openHandTextResolver(context);
+    return switch (raw.trim().toLowerCase()) {
+      'text' => text(zh: '文本模型', en: 'Text model'),
+      'embedding' => text(zh: '嵌入模型', en: 'Embedding model'),
+      'moderation' => text(zh: '内容审核', en: 'Content moderation'),
+      'rerank' => text(zh: '重排序模型', en: 'Reranking model'),
+      'image' => text(zh: '图像生成', en: 'Image generation'),
+      'image_edit' => text(zh: '图像编辑', en: 'Image editing'),
+      'video' => text(zh: '视频生成', en: 'Video generation'),
+      'audio' => text(zh: '语音生成', en: 'Speech generation'),
+      'transcription' => text(zh: '语音转写', en: 'Speech transcription'),
+      'translation' => text(zh: '语音翻译', en: 'Speech translation'),
+      'document' => text(zh: '文档处理', en: 'Document processing'),
+      'realtime' => text(zh: '实时模型', en: 'Realtime model'),
+      _ => text(zh: '未知模型类型', en: 'Unknown model kind'),
+    };
+  }
+
+  String _localizedProbeType(BuildContext context, String raw) {
+    final text = openHandTextResolver(context);
+    return switch (raw.trim().toLowerCase()) {
+      'model_metadata' => text(zh: '模型元数据探测', en: 'Model metadata probe'),
+      'embedding_minimal_input' => text(
+        zh: '嵌入最小输入探测',
+        en: 'Minimal embedding input probe',
+      ),
+      'moderation_minimal_input' => text(
+        zh: '审核最小输入探测',
+        en: 'Minimal moderation input probe',
+      ),
+      'rerank_minimal_input' => text(
+        zh: '重排序最小输入探测',
+        en: 'Minimal reranking input probe',
+      ),
+      'generation_minimal_prompt' => text(
+        zh: '生成最小提示词探测',
+        en: 'Minimal generation prompt probe',
+      ),
+      'speech_minimal_input' => text(
+        zh: '语音最小输入探测',
+        en: 'Minimal speech input probe',
+      ),
+      'transcription_capability' => text(
+        zh: '转写能力探测',
+        en: 'Transcription capability probe',
+      ),
+      'translation_capability' => text(
+        zh: '翻译能力探测',
+        en: 'Translation capability probe',
+      ),
+      'document_capability' => text(
+        zh: '文档能力探测',
+        en: 'Document capability probe',
+      ),
+      'realtime_model_metadata' => text(
+        zh: '实时模型元数据探测',
+        en: 'Realtime model metadata probe',
+      ),
+      'text_availability_probe' => text(
+        zh: '文本可用性探测',
+        en: 'Text availability probe',
+      ),
+      _ => text(zh: '未知探测类型', en: 'Unknown probe type'),
+    };
   }
 }
