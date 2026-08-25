@@ -118,16 +118,9 @@ String aiModelProxyApiStyleLabel(String raw, AiModelProxyLabelText text) {
   return text(zh: '未知协议', en: 'Unknown protocol');
 }
 
-/// 按请求语义展示模型或本地状态资源，兼容旧版状态记录。
-String aiModelProxyRequestModelLabel(
-  AiModelProxyRequestRecord record,
-  AiModelProxyLabelText text,
-) {
-  if (isAiModelProxyStatusRecord(record)) {
-    return isAiModelProxyStatusJsonPath(record.requestPath)
-        ? text(zh: '状态快照', en: 'Status snapshot')
-        : text(zh: '状态页面', en: 'Status page');
-  }
+/// 返回请求使用的模型；状态资源不经过模型，统一返回空值。
+String aiModelProxyRequestModelLabel(AiModelProxyRequestRecord record) {
+  if (isAiModelProxyStatusRecord(record)) return '';
   return record.modelId.trim();
 }
 

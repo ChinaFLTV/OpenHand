@@ -2883,7 +2883,7 @@ class _ProxyRecordTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final text = openHandTextResolver(context);
-    final model = aiModelProxyRequestModelLabel(record, text);
+    final model = aiModelProxyRequestModelLabel(record);
     final provider = record.providerId.trim();
     final statusLabel = record.success
         ? text(zh: '成功', en: 'OK')

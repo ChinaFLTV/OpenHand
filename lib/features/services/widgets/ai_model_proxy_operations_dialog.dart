@@ -705,7 +705,7 @@ void _proxyOpsAccumulateRecord(
     group.errors[error] = (group.errors[error] ?? 0) + 1;
   }
   final model = record.modelId.trim();
-  if (model.isNotEmpty) {
+  if (!statusRecord && model.isNotEmpty) {
     group.modelCounts[model] = (group.modelCounts[model] ?? 0) + 1;
   }
   if (statusRecord) {
@@ -2542,7 +2542,7 @@ String _proxyOpsRequestTitle(
   AiModelProxyRequestRecord record,
   String unknown,
 ) {
-  final model = aiModelProxyRequestModelLabel(record, openHandAmbientText);
+  final model = aiModelProxyRequestModelLabel(record);
   if (isAiModelProxyStatusRecord(record)) return model;
   final title = [
     data.providerLabelFor(record, unknown: unknown),
@@ -2555,7 +2555,7 @@ String _proxyOpsModelGroupLabel(
   AiModelProxyRequestRecord record,
   String unknown,
 ) {
-  final id = aiModelProxyRequestModelLabel(record, openHandAmbientText);
+  final id = aiModelProxyRequestModelLabel(record);
   return id.isEmpty ? unknown : id;
 }
 
@@ -3001,7 +3001,7 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
           cellWidgets: [
             null,
             OpenHandTableStackedCell(
-              primary: aiModelProxyRequestModelLabel(record, text),
+              primary: aiModelProxyRequestModelLabel(record),
               secondary: isAiModelProxyStatusRecord(record)
                   ? ''
                   : data.providerLabelFor(record, unknown: unknown),
@@ -4287,7 +4287,8 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
           final models = data.groupBy(
             (record) => _proxyOpsModelGroupLabel(record, unknownModel),
             unknown: unknownModel,
-            where: (record) => record.success,
+            where: (record) =>
+                record.success && !isAiModelProxyStatusRecord(record),
           );
           return [
             _proxyOpsPanelRow([
@@ -4372,7 +4373,8 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
           final models = data.groupBy(
             (record) => _proxyOpsModelGroupLabel(record, unknownModel),
             unknown: unknownModel,
-            where: (record) => !record.success,
+            where: (record) =>
+                !record.success && !isAiModelProxyStatusRecord(record),
           );
           return [
             _proxyOpsPanelRow([
@@ -4593,6 +4595,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
           final models = data.groupBy(
             (record) => _proxyOpsModelGroupLabel(record, unknownModel),
             unknown: unknownModel,
+            where: (record) => !isAiModelProxyStatusRecord(record),
           );
           return [
             _proxyOpsPanelRow([
@@ -5012,16 +5015,14 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
           final enabled = data.enabledRouteCount;
           final disabled = math.max(0, data.settings.routes.length - enabled);
           final usageByExposed = <String, _ProxyOpsGroupStat>{
-            for (final group in data.groupBy((record) {
-              if (isAiModelProxyStatusRecord(record)) {
-                return aiModelProxyRequestModelLabel(
-                  record,
-                  openHandAmbientText,
-                );
-              }
-              final exposed = record.exposedModel.trim();
-              return exposed.isEmpty ? record.modelId : exposed;
-            }, unknown: unknownModel))
+            for (final group in data.groupBy(
+              (record) {
+                final exposed = record.exposedModel.trim();
+                return exposed.isEmpty ? record.modelId : exposed;
+              },
+              unknown: unknownModel,
+              where: (record) => !isAiModelProxyStatusRecord(record),
+            ))
               group.label: group,
           };
           final heat = [
@@ -5204,6 +5205,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
               (record) =>
                   '${record.providerId.trim()}\u0000${record.modelId.trim()}',
               unknown: unknownModel,
+              where: (record) => !isAiModelProxyStatusRecord(record),
             ))
               group.label: group,
           };
@@ -5853,18 +5855,20 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
           final groups = data.groupBy(
             (record) => _proxyOpsModelGroupLabel(record, unknownModel),
             unknown: unknownModel,
+            where: (record) => !isAiModelProxyStatusRecord(record),
           );
-          final routed = data.groupBy((record) {
-            if (isAiModelProxyStatusRecord(record)) {
-              return aiModelProxyRequestModelLabel(record, openHandAmbientText);
-            }
-            final exposed = record.exposedModel.trim();
-            final model = record.modelId.trim().isEmpty
-                ? unknownModel
-                : record.modelId.trim();
-            if (exposed.isEmpty || exposed == model) return model;
-            return '$exposed → $model';
-          }, unknown: unknownModel);
+          final routed = data.groupBy(
+            (record) {
+              final exposed = record.exposedModel.trim();
+              final model = record.modelId.trim().isEmpty
+                  ? unknownModel
+                  : record.modelId.trim();
+              if (exposed.isEmpty || exposed == model) return model;
+              return '$exposed → $model';
+            },
+            unknown: unknownModel,
+            where: (record) => !isAiModelProxyStatusRecord(record),
+          );
           final tokenBars = [
             for (var i = 0; i < groups.length && i < 8; i++)
               OpenHandChartSegment(
