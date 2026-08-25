@@ -129,7 +129,7 @@ Future<void> _bootstrap() async {
   try {
     await DatabaseService.initialize();
   } catch (error, stackTrace) {
-    debugPrint('致命错误：数据库初始化失败：$error\n$stackTrace');
+    silentLog('main', '数据库初始化失败', error, stackTrace);
     final reason = userFailureMessage(
       error,
       fallback: StructuredErrorText.pick(
