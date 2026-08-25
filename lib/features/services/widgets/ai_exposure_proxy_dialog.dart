@@ -30,6 +30,7 @@ import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
+import '../../../shared/util/duration_bounds.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/ai_exposure_models.dart';
@@ -46,6 +47,10 @@ const double _kProxyEndpointListMaxHeight = 420;
 const double _kProxyEndpointScrollbarGutter = 28;
 const Duration _kProbeResultFlushDelay = Duration(milliseconds: 80);
 const Duration _kProxyTrendRefreshInterval = Duration(seconds: 8);
+const Duration _kProxyTrendDefaultRange = Duration(hours: 6);
+const Duration _kProxyTrendDefaultInterval = Duration(minutes: 5);
+const Duration _kProxyTrendMinRange = Duration(minutes: 30);
+const Duration _kProxyTrendMaxRange = Duration(days: 30);
 const List<int> _kInspectionIntervals = <int>[5, 15, 30, 60, 180, 360];
 const List<int> _kInspectionConcurrencyOptions = <int>[
   1,
@@ -2166,16 +2171,11 @@ class _ProxyAverageResponseDialog extends StatefulWidget {
 
 class _ProxyAverageResponseDialogState
     extends State<_ProxyAverageResponseDialog> {
-  static const Duration _defaultRange = Duration(hours: 6);
-  static const Duration _defaultInterval = Duration(minutes: 5);
-  static const int _minRangeMs = 30 * 60 * 1000;
-  static const int _maxRangeMs = 30 * 24 * 60 * 60 * 1000;
-
   List<AiExposureProxyRequestTrendBucket> _trend =
       const <AiExposureProxyRequestTrendBucket>[];
-  Duration _range = _defaultRange;
-  Duration _interval = _defaultInterval;
-  Duration _scaleStartRange = _defaultRange;
+  Duration _range = _kProxyTrendDefaultRange;
+  Duration _interval = _kProxyTrendDefaultInterval;
+  Duration _scaleStartRange = _kProxyTrendDefaultRange;
   int _loadGeneration = 0;
   Timer? _refreshTimer;
   bool _loading = true;
@@ -2239,11 +2239,14 @@ class _ProxyAverageResponseDialogState
   }
 
   void _handleScaleUpdate(ScaleUpdateDetails details) {
-    if (details.scale <= 0 || (details.scale - 1).abs() < 0.015) return;
-    final rangeMs = (_scaleStartRange.inMilliseconds / details.scale)
-        .round()
-        .clamp(_minRangeMs, _maxRangeMs);
-    final range = Duration(milliseconds: rangeMs);
+    if ((details.scale - 1).abs() < 0.015) return;
+    final range = scaledDurationWithinRange(
+      _scaleStartRange,
+      details.scale,
+      min: _kProxyTrendMinRange,
+      max: _kProxyTrendMaxRange,
+    );
+    if (range == null) return;
     final interval = _trendIntervalFor(range);
     if (range == _range && interval == _interval) return;
     setState(() {
@@ -2257,10 +2260,13 @@ class _ProxyAverageResponseDialogState
   }
 
   void _resetTrendRange() {
-    if (_range == _defaultRange && _interval == _defaultInterval) return;
+    if (_range == _kProxyTrendDefaultRange &&
+        _interval == _kProxyTrendDefaultInterval) {
+      return;
+    }
     setState(() {
-      _range = _defaultRange;
-      _interval = _defaultInterval;
+      _range = _kProxyTrendDefaultRange;
+      _interval = _kProxyTrendDefaultInterval;
     });
     _loadTrend();
   }
@@ -2371,8 +2377,8 @@ class _ProxyAverageResponseDialogState
                           en: 'Reset to 6 hr / 5 min',
                         ),
                         onPressed:
-                            _range == _defaultRange &&
-                                _interval == _defaultInterval
+                            _range == _kProxyTrendDefaultRange &&
+                                _interval == _kProxyTrendDefaultInterval
                             ? null
                             : _resetTrendRange,
                         icon: const Icon(Icons.center_focus_strong_rounded),
@@ -2781,18 +2787,13 @@ class _ProxyRequestTelemetryDialog extends StatefulWidget {
 
 class _ProxyRequestTelemetryDialogState
     extends State<_ProxyRequestTelemetryDialog> {
-  static const Duration _defaultRange = Duration(hours: 6);
-  static const Duration _defaultInterval = Duration(minutes: 5);
-  static const int _minRangeMs = 30 * 60 * 1000;
-  static const int _maxRangeMs = 30 * 24 * 60 * 60 * 1000;
-
   List<AiExposureProxyRequestRecord> _records =
       const <AiExposureProxyRequestRecord>[];
   List<AiExposureProxyRequestTrendBucket> _trend =
       const <AiExposureProxyRequestTrendBucket>[];
-  Duration _range = _defaultRange;
-  Duration _interval = _defaultInterval;
-  Duration _scaleStartRange = _defaultRange;
+  Duration _range = _kProxyTrendDefaultRange;
+  Duration _interval = _kProxyTrendDefaultInterval;
+  Duration _scaleStartRange = _kProxyTrendDefaultRange;
   int _page = 1;
   int _pageSize = kOpenHandTableDefaultPageSize;
   int _total = 0;
@@ -2940,10 +2941,13 @@ class _ProxyRequestTelemetryDialogState
 
   void _handleScaleUpdate(ScaleUpdateDetails details) {
     if ((details.scale - 1).abs() < 0.015) return;
-    final rangeMs = (_scaleStartRange.inMilliseconds / details.scale)
-        .round()
-        .clamp(_minRangeMs, _maxRangeMs);
-    final range = Duration(milliseconds: rangeMs);
+    final range = scaledDurationWithinRange(
+      _scaleStartRange,
+      details.scale,
+      min: _kProxyTrendMinRange,
+      max: _kProxyTrendMaxRange,
+    );
+    if (range == null) return;
     final interval = _trendIntervalFor(range);
     if (range == _range && interval == _interval) return;
     setState(() {
@@ -2957,10 +2961,13 @@ class _ProxyRequestTelemetryDialogState
   }
 
   void _resetTrendRange() {
-    if (_range == _defaultRange && _interval == _defaultInterval) return;
+    if (_range == _kProxyTrendDefaultRange &&
+        _interval == _kProxyTrendDefaultInterval) {
+      return;
+    }
     setState(() {
-      _range = _defaultRange;
-      _interval = _defaultInterval;
+      _range = _kProxyTrendDefaultRange;
+      _interval = _kProxyTrendDefaultInterval;
     });
     _loadTrend();
   }
@@ -3124,8 +3131,8 @@ class _ProxyRequestTelemetryDialogState
                           en: 'Reset to 6 hr / 5 min',
                         ),
                         onPressed:
-                            _range == _defaultRange &&
-                                _interval == _defaultInterval
+                            _range == _kProxyTrendDefaultRange &&
+                                _interval == _kProxyTrendDefaultInterval
                             ? null
                             : _resetTrendRange,
                         icon: const Icon(Icons.center_focus_strong_rounded),
