@@ -57,8 +57,8 @@ const double _kTaskLedgerDesktopTableWidth =
     _kTaskLedgerDesktopRowHorizontalPadding * 2;
 const Duration _kTaskTrendDefaultRange = Duration(hours: 6);
 const Duration _kTaskTrendDefaultInterval = Duration(minutes: 5);
-const int _kTaskTrendMinRangeMs = 30 * 60 * 1000;
-const int _kTaskTrendMaxRangeMs = 30 * 24 * 60 * 60 * 1000;
+const Duration _kTaskTrendMinRange = Duration(minutes: 30);
+const Duration _kTaskTrendMaxRange = Duration(days: 30);
 
 enum AiExposureTaskLedgerSort {
   createdAt,
@@ -597,12 +597,14 @@ class _TaskTelemetryInsightState extends State<_TaskTelemetryInsight> {
   ];
 
   void _handleScaleUpdate(ScaleUpdateDetails details) {
-    if (details.scale <= 0 || (details.scale - 1).abs() < 0.015) return;
-    final range = Duration(
-      milliseconds: (_scaleStartRange.inMilliseconds / details.scale)
-          .round()
-          .clamp(_kTaskTrendMinRangeMs, _kTaskTrendMaxRangeMs),
+    if ((details.scale - 1).abs() < 0.015) return;
+    final range = scaledDurationWithinRange(
+      _scaleStartRange,
+      details.scale,
+      min: _kTaskTrendMinRange,
+      max: _kTaskTrendMaxRange,
     );
+    if (range == null) return;
     final interval = _taskTrendIntervalFor(range);
     if (range == _range && interval == _interval) return;
     setState(() {
