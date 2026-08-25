@@ -81,7 +81,6 @@ part 'harness_session_dashboard.streaming_smart.part.dart';
 part 'harness_session_dashboard.file_hover.part.dart';
 part 'harness_session_dashboard.steering.part.dart';
 
-
 // 预编译日志级别前缀正则，避免重复创建。
 final RegExp _logLevelPattern = RegExp(
   r'\b(ERROR|ERR|WARN|WARNING|INFO|DEBUG|TRACE)\b',
@@ -2365,12 +2364,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 本库内共用的文案
-//
-// 下列标签原先在同一个库的多个 part 里各写了一份多语言字面量，改一处措辞就
-// 得同步改两到三处。
-// ─────────────────────────────────────────────────────────────────────────────
+// 本库内复用的文案。
 
 String _heCancelLabel(BuildContext context) {
   return openHandLocalizedText(

@@ -705,7 +705,6 @@ class AiExposureScanRule {
 }
 
 const int kAiExposureProxyLatencySampleLimit = 24;
-const int kAiExposureProxyRequestSampleLimit = 24;
 const int kAiExposureProxyRuntimeRequestSampleLimit = 512;
 const int kAiExposureMaxProxyEndpoints = 10000;
 const int kAiExposureMaxProxyRotationEvery = 10000;

@@ -488,10 +488,6 @@ class _ProxyOpsSnapshot {
 
   int get enabledRouteCount =>
       settings.routes.where((route) => route.enabled).length;
-  int get enabledBackendCount => settings.routes
-      .expand((route) => route.backends)
-      .where((backend) => backend.enabled)
-      .length;
   int get avgTokensPerRequest => requestTotal <= 0
       ? 0
       : (settings.totalTokens / requestTotal).round().clamp(0, 1 << 31);
@@ -561,23 +557,6 @@ class _ProxyOpsSnapshot {
       counts[normalized] = (counts[normalized] ?? 0) + 1;
     }
     return counts;
-  }
-
-  Map<String, int> sumBy(
-    String Function(AiModelProxyRequestRecord record) keyOf,
-    int Function(AiModelProxyRequestRecord record) amountOf, {
-    required String unknown,
-    Iterable<AiModelProxyRequestRecord>? source,
-  }) {
-    final totals = <String, int>{};
-    for (final record in source ?? records) {
-      final key = keyOf(record).trim();
-      final normalized = key.isEmpty ? unknown : key;
-      final amount = amountOf(record);
-      if (amount <= 0) continue;
-      totals[normalized] = (totals[normalized] ?? 0) + amount;
-    }
-    return totals;
   }
 
   List<_ProxyOpsGroupStat> groupBy(

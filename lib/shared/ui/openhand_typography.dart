@@ -8,9 +8,6 @@
 /// 逗号列表，也不会在族名缺失时回退到等宽族——具体族名在缺少该字体的平台上会
 /// 静默退回默认比例字体，直接破坏列对齐。`'monospace'` 是各平台字体管理器都
 /// 认识的通用族名，由系统解析到本机最合适的等宽字体。
-///
-/// 确需按序指定候选族时使用 [kOpenHandMonospaceFontFamilyFallback]，它是
-/// `TextStyle.fontFamilyFallback` 期望的列表形式。
 library;
 
 import 'package:flutter/material.dart';
@@ -38,12 +35,3 @@ TextStyle openHandCodeBodyTextStyle(ThemeData theme, {required Color color}) {
         fontFeatures: features,
       ).copyWith(color: color);
 }
-
-/// 等宽字体回退链：仅在通用族名解析失败时按序生效。
-const List<String> kOpenHandMonospaceFontFamilyFallback = <String>[
-  'SF Mono',
-  'JetBrains Mono',
-  'Menlo',
-  'Consolas',
-  'DejaVu Sans Mono',
-];

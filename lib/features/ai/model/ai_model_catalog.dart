@@ -26,11 +26,6 @@ class AiModelCatalog {
     });
   }
 
-  static AiModelProfile? externalProfileFor(String modelId) {
-    final key = optionalLowercaseStringFromValue(modelId);
-    return key == null ? null : _externalProfiles[key];
-  }
-
   // 对外接口
 
   /// 返回匹配 [modelId] 与 [protocolType] 的预设档案，未匹配时返回 `null`。

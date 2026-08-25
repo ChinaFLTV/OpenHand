@@ -817,8 +817,6 @@ class AiModelProxyTelemetryBucket {
       DateTime.fromMillisecondsSinceEpoch(bucketAtMs, isUtc: true).toLocal();
 
   int get recordedRequestCount => successCount + failureCount;
-  double get averageConnections =>
-      connectionSampleCount <= 0 ? 0 : connectionTotal / connectionSampleCount;
   double get averageDurationMs =>
       recordedRequestCount <= 0 ? 0 : durationTotalMs / recordedRequestCount;
 

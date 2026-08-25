@@ -33,13 +33,6 @@ class SkillMarketSearchResult {
   final int total;
   final int page;
   final int pageSize;
-
-  int get totalPages {
-    if (pageSize <= 0 || total <= 0) {
-      return 1;
-    }
-    return (total / pageSize).ceil();
-  }
 }
 
 class SkillMarketSummary {

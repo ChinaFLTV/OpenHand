@@ -153,8 +153,6 @@ class AiJunglerClient {
     body: configuration.toRuntimeJson(systemProxy: systemProxy),
   );
 
-  Future<void> clearProxy() => _emptyRequest('DELETE', _kApiProxy);
-
   Future<AiExposureAiExtractorStatus> aiExtractorStatus() async =>
       AiExposureAiExtractorStatus.fromJson(
         await _jsonRequest('GET', _kApiAiExtractor),
@@ -196,9 +194,6 @@ class AiJunglerClient {
       if (googleChrome != null) 'googleChrome': googleChrome,
     },
   );
-
-  Future<void> clearDependencies() =>
-      _emptyRequest('DELETE', _kApiDependencies);
 
   Future<Map<String, Object?>> dependencyDataOverview() =>
       _jsonRequest('GET', _kApiDependenciesData);

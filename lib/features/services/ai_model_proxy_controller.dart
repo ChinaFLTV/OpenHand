@@ -322,32 +322,6 @@ class AiModelProxyController extends ChangeNotifier {
     };
   }
 
-  List<String> get endpointPaths => switch (_settings.apiStyle) {
-    AiModelProxyApiStyle.openAiChatCompletions => const <String>[
-      '/v1/models',
-      '/v1/models/{model}',
-      '/v1/chat/completions',
-    ],
-    AiModelProxyApiStyle.openAiResponses => const <String>[
-      '/v1/models',
-      '/v1/models/{model}',
-      '/v1/responses',
-    ],
-    AiModelProxyApiStyle.claude => const <String>[
-      '/v1/models',
-      '/v1/models/{model}',
-      '/v1/messages',
-      '/messages',
-    ],
-    AiModelProxyApiStyle.gemini => const <String>[
-      '/v1beta/models',
-      '/v1beta/models/{model}',
-      '/v1beta/models:generateContent',
-      '/v1beta/models:streamGenerateContent?alt=sse',
-      '/v1beta/models/{model}:streamGenerateContent?alt=sse',
-    ],
-  };
-
   bool consumeRateLimit({
     required int tokens,
     String clientIp = '',

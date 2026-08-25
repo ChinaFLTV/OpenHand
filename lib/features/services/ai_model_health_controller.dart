@@ -162,11 +162,6 @@ class AiModelHealthController extends ChangeNotifier {
     return values.take(36).toList(growable: false);
   }
 
-  AiModelHealthRecord? latestFor(String providerId, String modelId) {
-    final values = recordsFor(providerId, modelId);
-    return values.isEmpty ? null : values.first;
-  }
-
   Future<void> checkAll({bool manual = true}) async {
     if (_checking || _disposed) return;
     final models = _modelsProvider?.call() ?? const <AiModelConfig>[];

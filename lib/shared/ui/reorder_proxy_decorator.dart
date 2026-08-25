@@ -8,19 +8,6 @@ const double _kReorderProxyShadowAlpha = 0.12;
 const double _kReorderProxyShadowBlur = 18;
 const double _kReorderProxyShadowOffsetY = 8;
 
-/// 标记当前子树正在渲染拖拽副本。
-class OpenHandReorderProxyContext extends InheritedWidget {
-  const OpenHandReorderProxyContext({super.key, required super.child});
-
-  static bool isProxy(BuildContext context) =>
-      context
-          .dependOnInheritedWidgetOfExactType<OpenHandReorderProxyContext>() !=
-      null;
-
-  @override
-  bool updateShouldNotify(OpenHandReorderProxyContext oldWidget) => false;
-}
-
 /// ReorderableListView 的拖拽副本装饰。
 ///
 /// 默认副本会把行套进一个方形 Material，边界越过卡片自身的圆角，拖动时留下
@@ -42,12 +29,9 @@ Widget buildOpenHandReorderProxy(
       color: Colors.transparent,
       shadowColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
-      child: OpenHandReorderProxyContext(
-        // ReorderableListView 会把副本移入 Overlay；Tooltip 的
-        // OverlayPortal 若在此时重新挂载，会在布局阶段触发 RenderObject 变更。
-        // 拖拽副本无需提示气泡，直接禁用其 Tooltip，保留语义信息。
-        child: TooltipVisibility(visible: false, child: child),
-      ),
+      // ReorderableListView 会把副本移入 Overlay；Tooltip 的 OverlayPortal 若在
+      // 此时重新挂载，会在布局阶段触发 RenderObject 变更。副本无需提示气泡。
+      child: TooltipVisibility(visible: false, child: child),
     ),
     builder: (context, proxyChild) {
       final raw = animation.value.clamp(0.0, 1.0);

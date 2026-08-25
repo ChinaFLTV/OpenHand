@@ -34,7 +34,7 @@
   --oh-full-access-container: #FFE8B7;
   --oh-on-full-access-container: #2F2100;
 
-  /* M3 Expressive 标志性圆角 + elevation + motion easing */
+  /* M3 Expressive 标志性圆角与 elevation */
   --m3-radius-sm: 8px;
   --m3-radius-md: 14px;
   --m3-radius-lg: 22px;
@@ -42,9 +42,6 @@
   --m3-elev-1: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
   --m3-elev-2: 0 2px 6px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
   --m3-elev-3: 0 6px 18px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.06);
-  --m3-easing-emphasized: cubic-bezier(0.2, 0, 0, 1);
-  --m3-easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
-
   font-family: 'PingFang SC', 'Helvetica Neue', system-ui, -apple-system,
     'Segoe UI', Roboto, 'Noto Sans CJK SC', sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -2322,9 +2319,7 @@ button.oh-message-context-capsule {
   border-radius: 13px;
   background: color-mix(in srgb, var(--m3-surface-container-lowest) 72%, transparent);
 }
-/* 前景色 token：这四种取值此前以内联 style 出现共 222 次。内联写法每次渲染都
-   要新建样式对象并做一次 style diff，取值也散在几十个文件里；收成 class 后既
-   省掉这些分配，也让每个取值只有一处。 */
+/* 常用前景色令牌，统一多处文本配色。 */
 .oh-text-muted {
   color: var(--m3-on-surface-variant);
 }

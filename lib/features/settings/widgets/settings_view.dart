@@ -8420,12 +8420,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 本库内共用的文案
-//
-// 下列标签原先在同一个库的多个 part 里各写了一份多语言字面量，改一处措辞就
-// 得同步改两到三处。
-// ─────────────────────────────────────────────────────────────────────────────
+// 本库内复用的文案。
 
 String _settingsClearLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '确认清空', en: 'Clear');
@@ -8434,9 +8429,6 @@ String _settingsClearLabel(BuildContext context) {
 String _settingsLocalCacheLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '本地缓存', en: 'Local Cache');
 }
-
-// ── 本文件内复用的文案 ──
-// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
 
 String _settingsViewMaxRenderCardsSecLabel(BuildContext context) {
   return openHandLocalizedText(

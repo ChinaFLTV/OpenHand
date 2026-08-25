@@ -19,7 +19,6 @@ class AiRuntimeToolPreview {
     required this.notices,
     required this.gateReason,
     this.supportsToolCalls = true,
-    this.isAuthoritative = true,
   });
 
   final AiSessionMode sessionMode;
@@ -31,7 +30,6 @@ class AiRuntimeToolPreview {
   final List<String> notices;
   final String gateReason;
   final bool supportsToolCalls;
-  final bool isAuthoritative;
 
   int get toolCount => toolNames.length;
 }

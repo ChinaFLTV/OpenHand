@@ -10238,12 +10238,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 本库内共用的文案
-//
-// 下列标签原先在同一个库的多个 part 里各写了一份多语言字面量，改一处措辞就
-// 得同步改两到三处。
-// ─────────────────────────────────────────────────────────────────────────────
+// 本库内复用的文案。
 
 String _homeAgentsLabel(BuildContext context) {
   return openHandAgentsLabel(context);

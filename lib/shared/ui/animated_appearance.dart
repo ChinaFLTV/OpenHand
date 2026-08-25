@@ -26,8 +26,6 @@ import 'motion_preference.dart';
 ///
 /// 动态列表默认使用 [kOpenHandLayoutSafeTransitionProfile]，尺寸变化期间不会
 /// 创建依赖布局状态的 `RenderFractionalTranslation`。
-enum AnimatedAppearancePhase { enter, exit }
-
 class AnimatedAppearance extends StatefulWidget {
   const AnimatedAppearance({
     super.key,
@@ -262,70 +260,6 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
   }
 }
 
-/// Convenience: a chip-style removable wrapper. Owns its `present`
-/// flag so the parent only has to provide a stable `key` and an
-/// `onRemove` callback that mutates the data list. The `child`
-/// builder receives a `requestRemove` callback to wire to the chip's
-/// X button — calling it triggers the exit animation, then
-/// `onRemove` once the animation completes.
-class AnimatedListAppearance extends StatelessWidget {
-  const AnimatedListAppearance({
-    super.key,
-    required this.animation,
-    required this.settings,
-    required this.phase,
-    required this.child,
-    this.collapseSize = true,
-    this.collapseAxis = Axis.vertical,
-    this.collapseAxisAlignment = -1.0,
-    this.transitionProfile = kOpenHandLayoutSafeTransitionProfile,
-  });
-
-  final Animation<double> animation;
-  final DialogAnimationSettings settings;
-  final AnimatedAppearancePhase phase;
-  final Widget child;
-  final bool collapseSize;
-  final Axis collapseAxis;
-  final double collapseAxisAlignment;
-  final OpenHandAnimationTransitionProfile transitionProfile;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_animatedAppearanceMotionAvailable(context, settings)) {
-      return child;
-    }
-    final style = switch (phase) {
-      AnimatedAppearancePhase.enter => settings.entranceStyle,
-      AnimatedAppearancePhase.exit => settings.exitStyle,
-    };
-    if (style == DialogAnimationStyle.none) return child;
-    final transitionSettings = settings.copyWith(
-      entranceStyle: style,
-      exitStyle: style,
-    );
-    Widget content = buildAnimationStyleTransition(
-      animation: animation,
-      settings: transitionSettings,
-      profile: transitionProfile,
-      child: child,
-    );
-    if (collapseSize) {
-      content = SizeTransition(
-        sizeFactor: openHandBoundedCurveAnimation(
-          parent: animation,
-          curve: transitionSettings.curve.curve,
-          reverseCurve: transitionSettings.curve.reverseCurve,
-        ),
-        axis: collapseAxis,
-        axisAlignment: collapseAxisAlignment,
-        child: content,
-      );
-    }
-    return content;
-  }
-}
-
 bool _animatedAppearanceMotionAvailable(
   BuildContext context,
   DialogAnimationSettings settings,
@@ -335,6 +269,7 @@ bool _animatedAppearanceMotionAvailable(
       settings.duration > Duration.zero;
 }
 
+/// 可移除胶囊动效封装：先播放退场动画，再调用 [onRemove] 更新数据源。
 class AnimatedRemovableChip extends StatefulWidget {
   const AnimatedRemovableChip({
     super.key,

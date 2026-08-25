@@ -276,8 +276,6 @@ class MachineTerminalFileService extends ChangeNotifier {
   bool _disposed = false;
   bool _notifierDisposed = false;
 
-  Future<void> get transferHistoryReady => _restoreFuture;
-
   List<MachineTerminalTransferTask> transfers({
     String? sessionId,
     String? terminalId,

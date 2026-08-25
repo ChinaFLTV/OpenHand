@@ -473,7 +473,6 @@ class OpenHandTrendViewport {
   int get displayedItemCount => visibleItemCount == 0
       ? 0
       : (visibleItemCount / math.max(1, sampleStride)).ceil();
-  bool get isZoomed => startIndex > 0 || endIndex < itemCount;
 
   List<T> slice<T>(List<T> values) {
     if (values.isEmpty || visibleItemCount == 0) {

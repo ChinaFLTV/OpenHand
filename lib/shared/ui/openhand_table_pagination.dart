@@ -66,11 +66,7 @@ final class OpenHandPageWindow {
     var nextPage = page;
     if (nextPage < 1) nextPage = 1;
     if (nextPage > count) nextPage = count;
-    return OpenHandPageWindow(
-      page: nextPage,
-      pageSize: size,
-      total: safeTotal,
-    );
+    return OpenHandPageWindow(page: nextPage, pageSize: size, total: safeTotal);
   }
 
   /// Element Plus 风格页码：首页、尾页、当前页邻域、省略号。
@@ -128,10 +124,7 @@ Future<(List<T> items, OpenHandPageWindow window)> openHandFetchPage<T>({
 }) async {
   final size = OpenHandPageWindow.clampPageSize(pageSize);
   final requestedPage = page < 1 ? 1 : page;
-  var result = await fetch(
-    offset: (requestedPage - 1) * size,
-    limit: size,
-  );
+  var result = await fetch(offset: (requestedPage - 1) * size, limit: size);
   var window = OpenHandPageWindow.normalize(
     page: requestedPage,
     pageSize: size,
@@ -443,9 +436,9 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
     final window = _window;
     final pageCount = window.pageCount;
     final canPrevious =
-        widget.canPrevious ?? (widget.enabled && window.page > 1);
+        widget.enabled && (widget.canPrevious ?? window.page > 1);
     final canNext =
-        widget.canNext ?? (widget.enabled && window.page < pageCount);
+        widget.enabled && (widget.canNext ?? window.page < pageCount);
     final duration = openHandMotionDuration(context, kOpenHandMotion180);
     final sizes = <int>{
       ...widget.pageSizes.where(
@@ -539,7 +532,10 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
           },
         ),
       if (widget.showJumper) ...[
-        Text(text(zh: '前往', en: 'Go to'), style: labelStyle),
+        Text(
+          text(zh: '前往', en: 'Go to'),
+          style: labelStyle,
+        ),
         AnimatedContainer(
           duration: duration,
           curve: kOpenHandSwitchInCurve,
@@ -583,7 +579,10 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
             ),
           ),
         ),
-        Text(text(zh: '页', en: 'page'), style: labelStyle),
+        Text(
+          text(zh: '页', en: 'page'),
+          style: labelStyle,
+        ),
       ],
       if (widget.showTotal)
         Text(

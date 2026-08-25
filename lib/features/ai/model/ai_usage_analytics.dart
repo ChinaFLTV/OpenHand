@@ -222,12 +222,6 @@ class AiUsageBreakdown {
   final int cancelledCount;
 
   double get successRate => requestCount == 0 ? 0 : successCount / requestCount;
-
-  double get healthScore {
-    if (requestCount == 0) return 0;
-    final penalty = failureCount + timeoutCount * 1.25;
-    return (1 - penalty / requestCount).clamp(0, 1).toDouble();
-  }
 }
 
 class AiUsageRequestRecord {
