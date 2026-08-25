@@ -9,6 +9,15 @@ final RegExp kHtmlTagPattern = RegExp(r'<[^>]*>');
 
 /// 连续三个及以上换行，供折叠多空行复用。
 final RegExp kExcessiveNewlinesPattern = RegExp(r'\n{3,}');
+final RegExp _imageSummaryBlockPattern = RegExp(
+  r'<image_summary\b[^>]*>[\s\S]*?</image_summary\s*>',
+  caseSensitive: false,
+);
+final RegExp _imageSummaryOpeningTagPattern = RegExp(
+  r'<image_summary\b',
+  caseSensitive: false,
+);
+const String _imageSummaryOpeningTagPrefix = '<image_summary';
 
 final RegExp _repeatedUnderscoresPattern = RegExp(r'_+');
 
@@ -19,6 +28,29 @@ String collapseInlineWhitespace(String value) {
 /// 移除 HTML/XML 标签；默认以空格替换，传入空串可直接删除。
 String stripHtmlTags(String value, {String replacement = ' '}) {
   return value.replaceAll(kHtmlTagPattern, replacement);
+}
+
+/// 移除内部图片摘要标签；流式未闭合标签从起点隐藏。
+String stripImageSummaryMarkup(String value) {
+  if (value.isEmpty) return '';
+  var changed = _imageSummaryBlockPattern.hasMatch(value);
+  var stripped = value.replaceAll(_imageSummaryBlockPattern, '');
+  final opening = _imageSummaryOpeningTagPattern.firstMatch(stripped);
+  if (opening != null) {
+    stripped = stripped.substring(0, opening.start);
+    changed = true;
+  } else {
+    final lastLessThan = stripped.lastIndexOf('<');
+    if (lastLessThan >= 0 &&
+        _imageSummaryOpeningTagPrefix.startsWith(
+          stripped.substring(lastLessThan).toLowerCase(),
+        )) {
+      stripped = stripped.substring(0, lastLessThan);
+      changed = true;
+    }
+  }
+  if (!changed) return value;
+  return stripped.replaceAll(kExcessiveNewlinesPattern, '\n\n').trimRight();
 }
 
 String removeInlineWhitespace(String value) {

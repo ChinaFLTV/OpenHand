@@ -21,6 +21,7 @@ import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
+import '../../shared/util/text_normalization.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
 import '../instructions/index.dart';
@@ -35,6 +36,9 @@ import 'model/dingtalk_message_gateway.dart';
 import 'service/dingtalk_message_gateway_service.dart';
 
 const String _dingTalkResponseRoundIdMetadataKey = 'dingtalk_response_round_id';
+
+String _sanitizeDingTalkVisibleText(String value) =>
+    stripImageSummaryMarkup(value);
 
 enum DingTalkConversationResponseState {
   idle,
@@ -4306,7 +4310,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   String _messageAiContextContent(DingTalkGatewayMessage message) {
     if (!message.isForwardedChatRecord) {
       return clipTextByCodeUnits(
-        message.content.trim(),
+        _sanitizeDingTalkVisibleText(message.content).trim(),
         _maxAiContextMessageCharacters,
         suffix: '…',
       );
@@ -4319,8 +4323,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final sender = item.senderName.trim().isEmpty
           ? '用户'
           : item.senderName.trim();
-      final text = item.content.trim().isNotEmpty
-          ? item.content.trim()
+      final sanitizedContent = _sanitizeDingTalkVisibleText(item.content);
+      final text = sanitizedContent.trim().isNotEmpty
+          ? sanitizedContent.trim()
           : item.media.map((media) => '[${media.displayName}]').join(' ');
       if (text.isEmpty) continue;
       buffer.writeln('$sender：$text');
@@ -4496,7 +4501,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         !identical(_conversations[conversation.id], conversation)) {
       return null;
     }
-    final completeText = text.trim();
+    final completeText = _sanitizeDingTalkVisibleText(text).trim();
     if (completeText.isEmpty) return null;
     final remoteText = _dingTalkRemoteEchoText(completeText);
     final sentAt = DateTime.now();
@@ -4681,7 +4686,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         !identical(_conversations[conversation.id], conversation)) {
       return;
     }
-    final completeText = text.trim();
+    final completeText = _sanitizeDingTalkVisibleText(text).trim();
     if (completeText.isEmpty) return;
     final local = _echoMessageBySourceId(conversation, sourceMessageId);
     if (local == null || local.content == completeText) return;
@@ -4693,7 +4698,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   String _dingTalkRemoteEchoText(String text) {
-    final normalized = convertDingTalkMarkdownTables(text).trim();
+    final normalized = convertDingTalkMarkdownTables(
+      _sanitizeDingTalkVisibleText(text),
+    ).trim();
     if (normalized.length <= _maxDingTalkEchoCharacters) return normalized;
     const notice = '\n\n…完整内容已保留在 OpenHand';
     final closingEmphasis =
@@ -4768,7 +4775,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         message.kind == AiSessionMessageKind.hook) {
       return _formatDingTalkToolEcho(message, sessionMessages);
     }
-    final content = message.content.trim();
+    final content = _sanitizeDingTalkVisibleText(message.content).trim();
     return message.kind == AiSessionMessageKind.reasoning
         ? wrapDingTalkThinkingMarkdown(content)
         : content;

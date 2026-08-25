@@ -8704,15 +8704,17 @@ class AiSessionController extends ChangeNotifier {
       final effectiveReply = didCancelStream
           ? (visibleAssistantReplyWhenCancelled ?? '')
           : result.reply;
+      final extraction = AiImageSummaryExtractor.extractAndStrip(
+        effectiveReply,
+      );
       final sanitizedReply = _sanitizeVisibleModelContent(effectiveReply);
       final hasMeaningfulNarration = sanitizedReply.trim().isNotEmpty;
       final shouldPersistIntermediateAssistantNarration =
-          hasMeaningfulNarration || didCancelStream;
+          hasMeaningfulNarration ||
+          didCancelStream ||
+          extraction.summariesByAttachmentId.isNotEmpty;
       if (shouldPersistIntermediateAssistantNarration) {
         // 提取图片摘要并回写对应附件，再保存清理后的助手正文。
-        final extraction = AiImageSummaryExtractor.extractAndStrip(
-          sanitizedReply,
-        );
         if (extraction.summariesByAttachmentId.isNotEmpty) {
           streamedSession = _applyImageSummariesToSession(
             streamedSession,
@@ -8721,9 +8723,7 @@ class AiSessionController extends ChangeNotifier {
         }
         streamedSession = syncFinalAssistantMessage(
           streamedSession,
-          extraction.summariesByAttachmentId.isEmpty
-              ? sanitizedReply
-              : extraction.strippedContent,
+          sanitizedReply,
         );
       } else {
         // 仅删除清理后确实为空的中间消息。

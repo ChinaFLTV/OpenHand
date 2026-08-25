@@ -1,6 +1,7 @@
 import 'package:characters/characters.dart';
 
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_normalization.dart';
 import 'ai_attachment.dart';
 import 'ai_session_goal.dart';
 import 'ai_token_usage.dart';
@@ -283,7 +284,7 @@ class AiSessionMessage {
     final json = stringKeyedMapFromValueOrJsonText(raw);
     final createdAt =
         utcDateTimeFromValue(json['created_at']) ?? DateTime.now().toUtc();
-    final content = '${json['content'] ?? ''}';
+    final content = stripImageSummaryMarkup('${json['content'] ?? ''}');
     return AiSessionMessage(
       id: '${json['id'] ?? ''}',
       kind: AiSessionMessageKind.fromStorage('${json['kind'] ?? ''}'),
@@ -1614,7 +1615,7 @@ class AiSessionMessageResponseVariant {
     final json = stringKeyedMapFromValueOrJsonText(raw);
     return AiSessionMessageResponseVariant(
       id: AiSessionMessage._readNullableString(json['id']),
-      content: '${json['content'] ?? ''}',
+      content: stripImageSummaryMarkup('${json['content'] ?? ''}'),
       createdAt:
           utcDateTimeFromValue(json['created_at']) ?? DateTime.now().toUtc(),
       modelId: AiSessionMessage._readNullableString(json['model_id']),

@@ -7,6 +7,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../shared/model/dingtalk_multimodal_capability.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_normalization.dart';
 
 String _normalizedDingTalkString(Object? value) {
   if (value == null) return '';
@@ -1250,7 +1251,7 @@ class DingTalkForwardedMessage {
       throw const FormatException('钉钉转发聊天记录时间不完整。');
     }
     final id = normalizeDingTalkMessageId(json['id']);
-    final rawContent = '${json['content'] ?? ''}';
+    final rawContent = stripImageSummaryMarkup('${json['content'] ?? ''}');
     final projection = parseDingTalkDwsFileProjection(rawContent);
     final storedMedia = _dingTalkGatewayMediaList(json['media']);
     final media = storedMedia.isNotEmpty || projection == null
@@ -1380,7 +1381,7 @@ class DingTalkGatewayMessage {
   factory DingTalkGatewayMessage.fromJson(Map<String, Object?> json) {
     final id = normalizeDingTalkMessageId(json['id']);
     final conversationId = '${json['conversation_id'] ?? ''}'.trim();
-    final rawContent = '${json['content'] ?? ''}';
+    final rawContent = stripImageSummaryMarkup('${json['content'] ?? ''}');
     final createdAt = DateTime.tryParse('${json['created_at'] ?? ''}');
     if (id.isEmpty || conversationId.isEmpty || createdAt == null) {
       throw const FormatException('钉钉消息数据不完整。');

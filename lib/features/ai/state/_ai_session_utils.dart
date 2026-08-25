@@ -264,6 +264,10 @@ String _normalizeAutoTitleForComparison(String value) {
 }
 
 String _sanitizeVisibleModelContent(String value) {
+  String finalize(String content) => stripImageSummaryMarkup(
+    _stripRawToolCallMarkup(sanitizeVisibleDsmlContent(content)),
+  );
+
   final normalized = value.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
   final lines = normalized.split('\n');
   var cursor = 0;
@@ -274,7 +278,7 @@ String _sanitizeVisibleModelContent(String value) {
       !AiSessionController._internalPromptLeakHeaders.contains(
         lines[cursor].trim(),
       )) {
-    return _stripRawToolCallMarkup(sanitizeVisibleDsmlContent(normalized));
+    return finalize(normalized);
   }
   while (cursor < lines.length) {
     final trimmed = lines[cursor].trim();
@@ -287,9 +291,9 @@ String _sanitizeVisibleModelContent(String value) {
   }
   final sanitized = lines.skip(cursor).join('\n').trimLeft();
   if (sanitized.length == normalized.length) {
-    return _stripRawToolCallMarkup(sanitizeVisibleDsmlContent(normalized));
+    return finalize(normalized);
   }
-  return _stripRawToolCallMarkup(sanitizeVisibleDsmlContent(sanitized));
+  return finalize(sanitized);
 }
 
 /// Strip raw `<tool_call>…</tool_call>` and `<tool_result>…</tool_result>`

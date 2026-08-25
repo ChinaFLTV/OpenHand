@@ -12786,9 +12786,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                       !message
                                                           .isForwardedChatRecord &&
                                                       message.media.isEmpty &&
-                                                      message.content
-                                                          .trim()
-                                                          .isNotEmpty;
+                                                      stripImageSummaryMarkup(
+                                                        message.content,
+                                                      ).trim().isNotEmpty;
                                                   final translation =
                                                       _translations[message.id];
                                                   final translationVisible =
@@ -13215,12 +13215,13 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     DingTalkGatewayMessage message,
   ) {
     if (!_canEditMessage(message)) return;
+    final content = stripImageSummaryMarkup(message.content);
     setState(() {
       _editingConversationId = conversation.id;
       _editingMessageId = message.id;
       _input.value = TextEditingValue(
-        text: message.content,
-        selection: TextSelection.collapsed(offset: message.content.length),
+        text: content,
+        selection: TextSelection.collapsed(offset: content.length),
       );
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -15674,9 +15675,10 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   }
 
   String _effectiveTextContent(_DingTalkMessageBubble bubble) {
-    return bubble.translationVisible
+    final content = bubble.translationVisible
         ? bubble.translatedContent ?? bubble.message.content
         : bubble.message.content;
+    return stripImageSummaryMarkup(content);
   }
 
   bool _shouldCollapseLongContent(String content) {
@@ -15767,9 +15769,11 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     final messageMedia = widget.message.media;
     final showText =
         widget.message.isForwardedChatRecord || messageMedia.isEmpty;
-    final effectiveContent = widget.translationVisible
-        ? widget.translatedContent ?? widget.message.content
-        : widget.message.content;
+    final effectiveContent = stripImageSummaryMarkup(
+      widget.translationVisible
+          ? widget.translatedContent ?? widget.message.content
+          : widget.message.content,
+    );
     final contentExpanded =
         !widget.message.isExcludedFromAiContext || _showExcludedContent;
     return SizedBox(
@@ -16138,9 +16142,9 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   }
 
   String _forwardedPreviewText(DingTalkForwardedMessage message) {
-    final content = message.content
-        .replaceAll(_forwardedPreviewWhitespacePattern, ' ')
-        .trim();
+    final content = stripImageSummaryMarkup(
+      message.content,
+    ).replaceAll(_forwardedPreviewWhitespacePattern, ' ').trim();
     if (content.isNotEmpty) return content;
     return message.media.map((item) => '[${item.displayName}]').join(' ');
   }
@@ -16578,7 +16582,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                 : unawaited(
                     copyOpenHandTextToClipboard(
                       context: context,
-                      text: widget.message.content,
+                      text: stripImageSummaryMarkup(widget.message.content),
                       logTag: 'dingtalk_gateway',
                     ),
                   ),
@@ -17954,8 +17958,9 @@ class _DingTalkForwardedChatDialogState
                 final item = forwarded[index];
                 final itemKey = _messageKey(item, index);
                 final resolvedMedia = _resolvedMedia(currentMessage, item);
+                final itemContent = stripImageSummaryMarkup(item.content);
                 final textActionEnabled =
-                    item.content.trim().isNotEmpty && resolvedMedia.isEmpty;
+                    itemContent.trim().isNotEmpty && resolvedMedia.isEmpty;
                 final translation = _translations[itemKey];
                 final translationFingerprint = aiTranslationRequestFingerprint(
                   translationSettings,
@@ -17965,7 +17970,7 @@ class _DingTalkForwardedChatDialogState
                     textActionEnabled &&
                     translation != null &&
                     _visibleTranslationMessageIds.contains(itemKey) &&
-                    translation.sourceText == item.content &&
+                    translation.sourceText == itemContent &&
                     translation.settingsFingerprint == translationFingerprint;
                 final contentExpanded =
                     !item.ignoredForAiContext ||
@@ -18034,7 +18039,7 @@ class _DingTalkForwardedChatDialogState
     final senderName = item.senderName.trim().isEmpty
         ? '未知成员'
         : item.senderName.trim();
-    final content = item.content.trim();
+    final content = stripImageSummaryMarkup(item.content).trim();
     final mediaSummary = media
         .map((value) => '[${value.displayName}]')
         .join(' ');
@@ -18301,7 +18306,9 @@ class _DingTalkForwardedChatDialogState
                                 ? unawaited(
                                     copyOpenHandTextToClipboard(
                                       context: context,
-                                      text: item.content,
+                                      text: stripImageSummaryMarkup(
+                                        item.content,
+                                      ),
                                       logTag: 'dingtalk_gateway',
                                     ),
                                   )
@@ -18331,7 +18338,7 @@ class _DingTalkForwardedChatDialogState
                         onPressed: () => unawaited(
                           _toggleSpeech(
                             itemKey,
-                            item.content,
+                            stripImageSummaryMarkup(item.content),
                             ttsSettings,
                             fallbackModel,
                           ),
@@ -18354,7 +18361,7 @@ class _DingTalkForwardedChatDialogState
                             : () => unawaited(
                                 _toggleTranslation(
                                   itemKey,
-                                  item.content,
+                                  stripImageSummaryMarkup(item.content),
                                   translationSettings,
                                   fallbackModel,
                                 ),
