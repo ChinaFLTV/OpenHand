@@ -1511,6 +1511,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   Future<bool> _restorePersistedAiEchoContent() async {
+    var changed = false;
     final candidates =
         <
           ({
@@ -1536,7 +1537,21 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           }
         }
         if (source?.kind == AiSessionMessageKind.toolCall ||
-            source?.kind == AiSessionMessageKind.hook) {
+            source?.kind == AiSessionMessageKind.hook ||
+            source?.kind.isToolResultKind == true ||
+            source != null && _isToolEchoArtifact(source)) {
+          if (message.responseEchoType ==
+              DingTalkResponseEchoType.finalResponse) {
+            conversation.messages.removeAt(index);
+            index--;
+            changed = true;
+          }
+          continue;
+        }
+        if (source == null && _isMalformedPersistedToolEcho(message)) {
+          conversation.messages.removeAt(index);
+          index--;
+          changed = true;
           continue;
         }
         candidates.add((
@@ -1565,7 +1580,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         }
         if (source == null ||
             source.kind == AiSessionMessageKind.toolCall ||
-            source.kind == AiSessionMessageKind.hook) {
+            source.kind == AiSessionMessageKind.hook ||
+            source.kind.isToolResultKind ||
+            _isToolEchoArtifact(source)) {
           return false;
         }
         final sourceContent = _echoTextForMessage(
@@ -1589,7 +1606,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         return true;
       },
     );
-    return results.any((changed) => changed);
+    return changed || results.any((itemChanged) => itemChanged);
+  }
+
+  bool _isMalformedPersistedToolEcho(DingTalkGatewayMessage message) {
+    return message.isAssistant &&
+        message.sourceAiMessageId.trim().isNotEmpty &&
+        message.responseEchoType == DingTalkResponseEchoType.finalResponse &&
+        _toolEchoArtifactPattern.hasMatch(message.content.trimLeft());
   }
 
   Future<void> refreshAuthStatus({Future<void>? cancelSignal}) async {
@@ -4062,7 +4086,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final echoCoordinator = _DingTalkEchoCoordinator(
         responseRoundId: responseRoundId,
         deliveredSourceMessageIds: deliveredSourceMessageIds,
-        selectedTypes: _settings.responseEchoTypes.toSet(),
+        isTypeEnabled: (type) => _settings.responseEchoTypes.contains(type),
         typeOf: _echoTypeOf,
         textFor: _echoTextForMessage,
         isTerminal: _isEchoTerminal,
@@ -4443,12 +4467,17 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static final RegExp _markdownInlineEscapePattern = RegExp(
     r'[\\`*_{}\[\]()<>#+.!|~-]',
   );
+  static final RegExp _toolEchoArtifactPattern = RegExp(
+    r'^(?:tool|tool\s+(?:call|use))(?:\s*[:\n]|$)',
+    caseSensitive: false,
+  );
 
   DingTalkResponseEchoType? _echoTypeOf(
     AiSessionMessage message,
     List<AiSessionMessage> sessionMessages,
   ) {
     if (message.isDeleted) return null;
+    if (_isToolEchoArtifact(message)) return null;
     final isToolMessage =
         message.kind == AiSessionMessageKind.toolCall ||
         message.kind == AiSessionMessageKind.hook;
@@ -4467,6 +4496,20 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       AiSessionMessageKind.hook => DingTalkResponseEchoType.toolCall,
       _ => null,
     };
+  }
+
+  bool _isToolEchoArtifact(AiSessionMessage message) {
+    if (message.kind != AiSessionMessageKind.assistant) return false;
+    const toolMetadataKeys = <String>{
+      aiSessionMessageToolCallIdMetadataKey,
+      'tool_name',
+      'tool_arguments',
+      'tool_calls',
+      'tool_execution_status',
+      'tool_status',
+    };
+    if (toolMetadataKeys.any(message.metadata.containsKey)) return true;
+    return _toolEchoArtifactPattern.hasMatch(message.content.trimLeft());
   }
 
   bool _isEchoTerminal(AiSessionMessage message) {
@@ -4509,6 +4552,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         !identical(_conversations[conversation.id], conversation)) {
       return null;
     }
+    final isToolSource =
+        source.kind == AiSessionMessageKind.toolCall ||
+        source.kind == AiSessionMessageKind.hook ||
+        source.kind.isToolResultKind ||
+        _isToolEchoArtifact(source);
+    if (!_settings.responseEchoTypes.contains(type) ||
+        isToolSource && type != DingTalkResponseEchoType.toolCall) {
+      return null;
+    }
     final completeText = _sanitizeDingTalkVisibleText(text).trim();
     if (completeText.isEmpty) return null;
     final remoteText = _dingTalkRemoteEchoText(completeText);
@@ -4538,6 +4590,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _notify();
     DingTalkSentMessage? sent;
     try {
+      if (!_settings.responseEchoTypes.contains(type)) {
+        conversation.messages.removeWhere(
+          (message) => message.id == localMessage.id,
+        );
+        _unresolvedOutgoingMessageIds.remove(localMessage.id);
+        _notify();
+        return null;
+      }
       sent = await _sendDingTalkTextWithResolvedId(
         conversation: conversation,
         text: remoteText,
@@ -6088,7 +6148,7 @@ class _DingTalkEchoCoordinator {
   _DingTalkEchoCoordinator({
     required String responseRoundId,
     required Set<String> deliveredSourceMessageIds,
-    required Set<DingTalkResponseEchoType> selectedTypes,
+    required bool Function(DingTalkResponseEchoType type) isTypeEnabled,
     required _DingTalkEchoTypeResolver typeOf,
     required _DingTalkEchoTextBuilder textFor,
     required _DingTalkEchoTerminalResolver isTerminal,
@@ -6102,7 +6162,7 @@ class _DingTalkEchoCoordinator {
     required _DingTalkEchoErrorHandler onError,
   }) : _responseRoundId = responseRoundId,
        _deliveredSourceMessageIds = deliveredSourceMessageIds,
-       _selectedTypes = selectedTypes,
+       _isTypeEnabled = isTypeEnabled,
        _typeOf = typeOf,
        _textFor = textFor,
        _isTerminal = isTerminal,
@@ -6130,7 +6190,7 @@ class _DingTalkEchoCoordinator {
 
   final String _responseRoundId;
   final Set<String> _deliveredSourceMessageIds;
-  final Set<DingTalkResponseEchoType> _selectedTypes;
+  final bool Function(DingTalkResponseEchoType type) _isTypeEnabled;
   final _DingTalkEchoTypeResolver _typeOf;
   final _DingTalkEchoTextBuilder _textFor;
   final _DingTalkEchoTerminalResolver _isTerminal;
@@ -6152,7 +6212,7 @@ class _DingTalkEchoCoordinator {
   bool _disposed = false;
 
   void ingest(AiSession session, {bool finalizing = false}) {
-    if (_disposed || _isCancelled() || _selectedTypes.isEmpty) return;
+    if (_disposed || _isCancelled()) return;
     final roundStartIndex = session.messages.lastIndexWhere(
       (message) =>
           message.kind == AiSessionMessageKind.user &&
@@ -6173,11 +6233,13 @@ class _DingTalkEchoCoordinator {
       final resolvedType = _typeOf(message, session.messages);
       // 未发送前允许消息类型随会话状态变化，避免助手消息由正式响应变为过程响应时
       // 仍沿用首次解析结果；已发送消息保持原卡片生命周期不变。
-      final type = state?.type ?? resolvedType ?? queued?.type;
-      if (type == null ||
-          (state == null && queued == null && !_selectedTypes.contains(type))) {
+      if (state == null &&
+          (resolvedType == null || !_isTypeEnabled(resolvedType))) {
+        _pending.remove(message.id);
         continue;
       }
+      final type = state?.type ?? resolvedType ?? queued?.type;
+      if (type == null) continue;
       final text = _textFor(message, session.messages).trim();
       if (text.isEmpty) continue;
       if (state?.finished == true && state?.lastText == text) continue;
@@ -6315,6 +6377,7 @@ class _DingTalkEchoCoordinator {
 
   Future<void> _deliver(String sourceId, _PendingDingTalkEcho pending) async {
     if (_disposed || _isCancelled()) return;
+    if (!_isTypeEnabled(pending.type)) return;
     final state = _states.putIfAbsent(
       sourceId,
       () => _DingTalkEchoDeliveryState(type: pending.type, uuid: _newUuid()),
