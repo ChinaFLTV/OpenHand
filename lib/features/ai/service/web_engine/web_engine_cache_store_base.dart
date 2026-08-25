@@ -15,9 +15,6 @@ import 'web_engine_persistence_io.dart';
 import 'web_engine_value_parsing.dart';
 
 /// WebSearch / WebFetch 共用的「prewarm/cleanup 报告」数据。
-///
-/// 两个领域字段完全一致，统一成同一个类，以 typedef 暴露给各自包内使用，
-/// 公开 API 兼容旧名称。
 class WebEngineCachePrewarmReport {
   const WebEngineCachePrewarmReport({
     required this.removedExpired,
@@ -68,7 +65,8 @@ class WebEngineCacheRawLookup {
 ///   * 取出 `cacheEnabled / cacheTtlSeconds / cacheMaxBytes` 的 `TSettings` 适配
 ///   * `logTag`（用于 silentLog 上下文）
 abstract class WebEngineCacheStoreBase<TSettings> {
-  static const Duration runtimeCleanupTimeout = kOpenHandServiceRuntimeCleanupTimeout;
+  static const Duration runtimeCleanupTimeout =
+      kOpenHandServiceRuntimeCleanupTimeout;
 
   /// 子目录名（`web_search` / `web_fetch`）。
   String get subdir;

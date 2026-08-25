@@ -127,7 +127,8 @@ class AiSessionStore {
     }
   }
 
-  static const Duration runtimeCleanupTimeout = kOpenHandServiceRuntimeCleanupTimeout;
+  static const Duration runtimeCleanupTimeout =
+      kOpenHandServiceRuntimeCleanupTimeout;
   static const int _compactMemoryMarkdownMaxBytes = 16 * kBytesPerMiB;
   static const int _compactMemoryMetadataMaxBytes = 2 * kBytesPerMiB;
   static const String _compactMemoryGenerationPrefix = '- generation: ';
@@ -381,7 +382,7 @@ class AiSessionStore {
   }
 
   Database get _db => DatabaseService.instance.database;
-  // 核心增删改查。
+
   Future<bool> exists(String sessionId) async {
     final normalizedSessionId = sessionId.trim();
     if (!isSafeStorageIdentifier(normalizedSessionId)) {
@@ -461,6 +462,7 @@ class AiSessionStore {
         'model_label',
         'usage_json',
       ];
+
   /// 全量正文 + 遥测裁剪投影用的基础列（不含 metadata_json，由
   /// [_queryMessageRows] 按需拼接投影）。
   static const List<String> _kFullMessageRowColumnsWithoutMetadata = <String>[
@@ -1511,7 +1513,8 @@ class AiSessionStore {
   ) {
     final deferredIds = <String>[
       for (final index in indices)
-        if (session.messages[index]
+        if (session
+                .messages[index]
                 .metadata[aiSessionMessageDeferredTelemetryMetadataKey] ==
             true)
           session.messages[index].id,

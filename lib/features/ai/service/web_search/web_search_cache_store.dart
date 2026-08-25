@@ -8,7 +8,7 @@ import '../web_engine/web_engine_cache_store_base.dart';
 
 /// 关键词 → summary 元数据的本地持久化缓存。
 ///
-/// 共享骨架（`chain` / clearAll / totalBytesOnDisk / prewarm / LRU 淘汰 /
+/// 共享骨架（串行写入 / clearAll / totalBytesOnDisk / prewarm / LRU 淘汰 /
 /// 过期回收 / 孤儿清理）由 [WebEngineCacheStoreBase] 接管；本类只负责：
 /// * 计算 key（覆盖 query + 引擎 / locale / summary 风格等会污染结果的设置）
 /// * 把基础 [WebEngineCacheRawLookup] 封装成包含 `summary` 的领域结构

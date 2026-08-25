@@ -22,7 +22,7 @@ class AiBashTool extends AiTool {
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.bash;
 
-  /// 'bash' 是 Bash 工具的 legacy 别名，向后兼容旧会话记录。
+  /// `bash` 是兼容历史会话记录的工具别名。
   @override
   List<String> get aliases => const <String>['bash'];
 
@@ -30,7 +30,6 @@ class AiBashTool extends AiTool {
   @override
   bool get isDestructive => true;
 
-  /// 用户发送新消息时取消正在运行的 Bash 命令（避免并发写冲突）。
   @override
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final args = context.decodedArguments;

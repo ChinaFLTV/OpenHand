@@ -3881,10 +3881,11 @@ class _OpenHandOperationalRankTableState
                       if (widget.footer != null)
                         widget.footer!
                       else if (widget.paginate)
-                        OpenHandTablePaginationBar(
+                        OpenHandTablePagination(
                           total: window.total,
                           page: window.page,
                           pageSize: window.pageSize,
+                          bar: true,
                           onPageChanged: (page) {
                             setState(() => _page = page);
                             if (_vertical.hasClients) {

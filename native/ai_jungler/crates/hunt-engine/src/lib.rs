@@ -2875,11 +2875,7 @@ impl HuntEngine {
                         evidence.push(format!("GPT 辅助提取额外命中 {merged} 条凭证线索。"));
                     }
                 }
-                Err(error) => {
-                    eprintln!(
-                        "[hunt-engine] GPT 辅助提取失败 target={} error={error:#}",
-                        target.canonical_url
-                    );
+                Err(_) => {
                     evidence.push("GPT 辅助提取失败，已回退到正则提取。".to_owned());
                 }
                 _ => {}

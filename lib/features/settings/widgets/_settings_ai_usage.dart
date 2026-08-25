@@ -2854,10 +2854,11 @@ class _AiUsageBreakdownTableState extends State<_AiUsageBreakdownTable> {
                     ),
                   ),
                 ),
-                OpenHandTablePaginationBar(
+                OpenHandTablePagination(
                   total: window.total,
                   page: window.page,
                   pageSize: window.pageSize,
+                  bar: true,
                   onPageChanged: (page) {
                     setState(() => _page = page);
                     if (_verticalController.hasClients) {
@@ -3147,10 +3148,11 @@ class _AiUsageRecentPanelState extends State<_AiUsageRecentPanel> {
                   _AiUsageRequestTable(
                     records: _records,
                     scrollResetKey: (_page, _pageSize),
-                    footer: OpenHandTablePaginationBar(
+                    footer: OpenHandTablePagination(
                       total: _total,
                       page: _page,
                       pageSize: _pageSize,
+                      bar: true,
                       enabled: !_loading,
                       onPageChanged: (page) {
                         setState(() => _page = page);

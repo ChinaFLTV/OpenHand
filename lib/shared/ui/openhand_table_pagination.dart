@@ -209,110 +209,29 @@ class _OpenHandClientPagerState<T> extends State<OpenHandClientPager<T>> {
     if (widget.expand) {
       list = Expanded(child: list);
     }
+    Widget? pager;
+    if (showPager) {
+      pager = OpenHandTablePagination(
+        total: window.total,
+        page: window.page,
+        pageSize: window.pageSize,
+        pageSizes: widget.pageSizes,
+        enabled: widget.enabled,
+        onPageChanged: goToPage,
+        onPageSizeChanged: changePageSize,
+        bar: widget.bar,
+      );
+      if (!widget.bar) {
+        pager = Padding(
+          padding: widget.padding ?? const EdgeInsets.only(top: 10),
+          child: pager,
+        );
+      }
+    }
     return Column(
       mainAxisSize: widget.expand ? MainAxisSize.max : MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        list,
-        if (showPager)
-          widget.bar
-              ? OpenHandTablePaginationBar(
-                  total: window.total,
-                  page: window.page,
-                  pageSize: window.pageSize,
-                  pageSizes: widget.pageSizes,
-                  enabled: widget.enabled,
-                  onPageChanged: goToPage,
-                  onPageSizeChanged: changePageSize,
-                )
-              : Padding(
-                  padding: widget.padding ?? const EdgeInsets.only(top: 10),
-                  child: OpenHandTablePagination(
-                    total: window.total,
-                    page: window.page,
-                    pageSize: window.pageSize,
-                    pageSizes: widget.pageSizes,
-                    enabled: widget.enabled,
-                    onPageChanged: goToPage,
-                    onPageSizeChanged: changePageSize,
-                  ),
-                ),
-      ],
-    );
-  }
-}
-
-/// 贴在表格圆角容器底部的分页条。
-class OpenHandTablePaginationBar extends StatelessWidget {
-  const OpenHandTablePaginationBar({
-    super.key,
-    required this.total,
-    required this.page,
-    required this.pageSize,
-    required this.onPageChanged,
-    this.onPageSizeChanged,
-    this.pageSizes = kOpenHandTablePageSizes,
-    this.enabled = true,
-    this.showPageNumbers = true,
-    this.showJumper = true,
-    this.showPageSize = true,
-    this.showTotal = true,
-    this.canPrevious,
-    this.canNext,
-    this.onPrevious,
-    this.onNext,
-    this.leading,
-  });
-
-  final int total;
-  final int page;
-  final int pageSize;
-  final ValueChanged<int> onPageChanged;
-  final ValueChanged<int>? onPageSizeChanged;
-  final List<int> pageSizes;
-  final bool enabled;
-  final bool showPageNumbers;
-  final bool showJumper;
-  final bool showPageSize;
-  final bool showTotal;
-  final bool? canPrevious;
-  final bool? canNext;
-  final VoidCallback? onPrevious;
-  final VoidCallback? onNext;
-  final Widget? leading;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return SizedBox(
-      width: double.infinity,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colors.surfaceContainerLow.withValues(alpha: 0.72),
-          border: Border(top: BorderSide(color: colors.outlineVariant)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-          child: OpenHandTablePagination(
-            total: total,
-            page: page,
-            pageSize: pageSize,
-            onPageChanged: onPageChanged,
-            onPageSizeChanged: onPageSizeChanged,
-            pageSizes: pageSizes,
-            enabled: enabled,
-            showPageNumbers: showPageNumbers,
-            showJumper: showJumper,
-            showPageSize: showPageSize,
-            showTotal: showTotal,
-            canPrevious: canPrevious,
-            canNext: canNext,
-            onPrevious: onPrevious,
-            onNext: onNext,
-            leading: leading,
-          ),
-        ),
-      ),
+      children: [list, if (pager != null) pager],
     );
   }
 }
@@ -337,6 +256,7 @@ class OpenHandTablePagination extends StatefulWidget {
     this.onPrevious,
     this.onNext,
     this.leading,
+    this.bar = false,
   });
 
   final int total;
@@ -355,6 +275,7 @@ class OpenHandTablePagination extends StatefulWidget {
   final VoidCallback? onPrevious;
   final VoidCallback? onNext;
   final Widget? leading;
+  final bool bar;
 
   @override
   State<OpenHandTablePagination> createState() =>
@@ -603,7 +524,21 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
               ],
             ],
           );
-    return _PagerSplitBar(left: left, right: right);
+    final content = _PagerSplitBar(left: left, right: right);
+    if (!widget.bar) return content;
+    return SizedBox(
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerLow.withValues(alpha: 0.72),
+          border: Border(top: BorderSide(color: colors.outlineVariant)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          child: content,
+        ),
+      ),
+    );
   }
 }
 

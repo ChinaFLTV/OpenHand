@@ -2,7 +2,7 @@ import '../service/runtime/ai_tool_runtime_service.dart';
 import 'ai_tool_execution_context.dart';
 
 abstract class AiTool {
-  /// The builtin kind identifier this tool handles.
+  /// 工具对应的内置类型。
   AiBuiltinToolKind get kind;
 
   /// 工具的别名列表，用于向后兼容旧名称。
@@ -10,13 +10,12 @@ abstract class AiTool {
   List<String> get aliases => const <String>[];
 
   /// 工具是否执行破坏性操作（删除、覆盖、发送等不可逆操作）。
-  /// 默认 false（fail-closed）。破坏性工具应覆盖返回 true。
+  /// 破坏性工具必须覆盖并返回 true。
   bool get isDestructive => false;
 
-  /// Executes the tool logic given the execution context.
+  /// 执行工具逻辑。
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context);
 
-  /// Releases resources owned by this tool. Implementations must be
-  /// idempotent because runtime shutdown can be requested more than once.
+  /// 释放工具资源；实现必须支持重复调用。
   Future<void> dispose() => Future<void>.value();
 }
