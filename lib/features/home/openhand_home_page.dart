@@ -1713,7 +1713,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     required String actionLabel,
     required VoidCallback onViewDetails,
   }) {
-    showOpenHandSnackBarOn(
+    OpenHandSnackBar.show(
       context,
       ScaffoldMessenger.maybeOf(context),
       SnackBar(
@@ -1872,7 +1872,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       final l10nNow = AppLocalizations.of(context);
       final messengerNow = ScaffoldMessenger.maybeOf(context);
       if (l10nNow != null && messengerNow != null) {
-        showOpenHandSnackBarOn(
+        OpenHandSnackBar.show(
           context,
           messengerNow,
           OpenHandSnackBar.success(
@@ -1885,7 +1885,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
 
     if (l10n != null && messenger != null) {
-      showOpenHandSnackBarOn(
+      OpenHandSnackBar.show(
         context,
         messenger,
         SnackBar(
