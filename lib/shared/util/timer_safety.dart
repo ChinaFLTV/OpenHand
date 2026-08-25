@@ -264,10 +264,27 @@ class _NonOverlappingPeriodicTimerGate {
     final pending = Future<void>.sync(() => callback(timer));
     final timeout = callbackTimeout;
     final timeoutMarker = Object();
-    final winner = await Future.any<Object?>([
-      pending.then<Object?>((_) => null),
-      Future<void>.delayed(timeout).then<Object?>((_) => timeoutMarker),
-    ]);
+    final result = Completer<Object?>();
+    Timer? timeoutTimer;
+    void complete(Object? value) {
+      if (!result.isCompleted) result.complete(value);
+    }
+
+    unawaited(
+      pending.then<void>(
+        (_) => complete(null),
+        onError: (Object error, StackTrace stack) {
+          if (!result.isCompleted) result.completeError(error, stack);
+        },
+      ),
+    );
+    timeoutTimer = Timer(timeout, () => complete(timeoutMarker));
+    late final Object? winner;
+    try {
+      winner = await result.future;
+    } finally {
+      timeoutTimer.cancel();
+    }
     if (!identical(winner, timeoutMarker)) return;
 
     _handleTimerCallbackTimeout(
