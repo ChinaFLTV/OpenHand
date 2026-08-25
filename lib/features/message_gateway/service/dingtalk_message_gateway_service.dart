@@ -151,14 +151,30 @@ class DingTalkGatewayCommandException implements Exception {
 
   bool get isMessageEditLimitReached {
     final normalized = message.toLowerCase();
-    final normalizedOperation = operation?.trim().toLowerCase() ?? '';
-    final editOperation =
-        normalizedOperation == 'im/edit_message' ||
-        normalized.contains('im/edit_message');
-    return editOperation &&
+    return isMessageEditOperation &&
         (message.contains('编辑次数已达上限') ||
             normalized.contains('message edit limit reached') ||
             normalized.contains('maximum number of edits'));
+  }
+
+  /// 钉钉编辑接口对消息类型有明确限制，命中后应停止远端编辑并保留本地同步。
+  /// 仅匹配稳定的接口标识和错误文案，避免把其他编辑失败误判为能力降级。
+  bool get isUnsupportedMessageEditType {
+    if (!isMessageEditOperation) return false;
+    final normalized = message.trim().toLowerCase();
+    return message.contains('仅支持编辑文本、富文本、回复消息') ||
+        normalized.contains(
+          'only supports editing text, rich text, reply messages',
+        ) ||
+        normalized.contains(
+          'only supports editing text, rich text, and reply messages',
+        );
+  }
+
+  bool get isMessageEditOperation {
+    final normalizedOperation = operation?.trim().toLowerCase() ?? '';
+    return normalizedOperation == 'im/edit_message' ||
+        message.toLowerCase().contains('im/edit_message');
   }
 
   bool get isRetryable =>

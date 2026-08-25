@@ -6467,7 +6467,8 @@ class _DingTalkEchoCoordinator {
         state.lastText = pending.text;
         _syncLocal(sourceId, pending.text);
         _settle(sourceId, state, pending);
-        if (!commandError.isMessageEditLimitReached) {
+        if (!commandError.isMessageEditLimitReached &&
+            !commandError.isUnsupportedMessageEditType) {
           _onError('编辑钉钉 AI 回显消息', error, stack, notifyUser: false);
         }
         return;
