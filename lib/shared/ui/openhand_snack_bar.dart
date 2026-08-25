@@ -21,11 +21,7 @@ const EdgeInsets _kDefaultSnackBarContentPadding = EdgeInsets.symmetric(
   vertical: 14,
 );
 
-/// 提示条停留时长按「这条文案读完要多久」分四档，调用方只在这四档里选。
-///
-/// 此前上百处调用各自内联 `Duration(seconds: N)`，N 取遍 1..8，且同一类提示
-/// 的取值互相矛盾——光是错误提示就出现过 2/3/4/5/6 五种。分档后取值集中在
-/// 这里，想整体调快调慢只改一处。
+/// 提示条停留时长按文案阅读量分四档，调用方只在这四档里选。
 const Duration kOpenHandSnackBarBriefDuration = Duration(seconds: 2);
 const Duration kOpenHandSnackBarNormalDuration = Duration(seconds: 3);
 const Duration kOpenHandSnackBarDetailedDuration = Duration(seconds: 4);

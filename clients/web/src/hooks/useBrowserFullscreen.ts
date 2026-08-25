@@ -1,8 +1,4 @@
 // 浏览器全屏状态与切换。
-//
-// 会话列表页与会话详情页此前各写了一份：同一个 fullscreenchange 订阅、同一套
-// 切换逻辑、连解释「为什么挂 <html>」的注释都近乎相同。两处一旦分叉，全屏行为
-// 就会因页面而异。
 
 import { useCallback, useEffect, useState } from 'preact/hooks';
 import { showSnackbar } from '../components/Snackbar';

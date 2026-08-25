@@ -1,7 +1,4 @@
 // 媒体类别图标（图片 / 视频 / 音频 / 文件）。
-//
-// 消息卡与媒体块此前各画了一遍同样的路径。图标是视觉 token，两处分别改一笔
-// 就会出现「同一种附件在两个位置长得不一样」。
 
 import type { JSX } from 'preact';
 import { svgIconProps } from '../shared/ui/svg_icon';
