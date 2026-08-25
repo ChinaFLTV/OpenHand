@@ -11961,32 +11961,7 @@ class _DingTalkActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final disabled = onPressed == null;
     final resolvedTooltip = disabled ? '$tooltip（当前不可用）' : tooltip;
-    final colors = Theme.of(context).colorScheme;
-    final disabledForeground = colors.onSurface.withValues(alpha: 0.42);
-    final child = disabled
-        ? Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Icon(icon),
-              Positioned(
-                right: -5,
-                bottom: -4,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colors.surfaceContainerHighest,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: colors.outlineVariant),
-                  ),
-                  child: Icon(
-                    Icons.lock_rounded,
-                    size: 10,
-                    color: disabledForeground,
-                  ),
-                ),
-              ),
-            ],
-          )
-        : Icon(icon);
+    final child = Icon(icon);
     final style = _dingtalkDisabledActionStyle(
       context,
       base: filled ? OpenHandStatusColors.runningStopButtonStyle() : null,
@@ -12018,19 +11993,15 @@ ButtonStyle _dingtalkDisabledActionStyle(
   return (base ?? const ButtonStyle()).copyWith(
     backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
       if (states.contains(WidgetState.disabled)) {
-        return colors.surfaceContainerHighest.withValues(alpha: 0.34);
+        return colors.surfaceContainerHighest.withValues(alpha: 0.2);
       }
       return base?.backgroundColor?.resolve(states);
     }),
     foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
       if (states.contains(WidgetState.disabled)) {
-        return colors.onSurface.withValues(alpha: 0.42);
+        return colors.onSurface.withValues(alpha: 0.3);
       }
       return base?.foregroundColor?.resolve(states);
-    }),
-    side: WidgetStateProperty.resolveWith<BorderSide?>((states) {
-      if (!states.contains(WidgetState.disabled)) return null;
-      return BorderSide(color: colors.outlineVariant.withValues(alpha: 0.82));
     }),
   );
 }
