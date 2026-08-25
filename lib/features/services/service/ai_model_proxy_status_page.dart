@@ -29,6 +29,9 @@ const int _kStatusLiveEcgHeightPx = 18;
 const int _kStatusLiveTipMinWidthPx = 280;
 const int _kStatusLiveTipMaxWidthPx = 380;
 const int _kStatusLiveTipClockMs = 1000;
+const int _kStatusTipGapPx = 10;
+const int _kStatusTipBridgePx = 14;
+const int _kStatusTipHoverGraceMs = 180;
 const int _kStatusLiveEcgDurationMs = 1600;
 const int _kStatusLiveEcgIdleDurationMs = 2600;
 const int _kStatusLiveEcgErrorDurationMs = 2800;
@@ -836,7 +839,7 @@ String buildAiModelProxyStatusPage({
   --bar-pop: $_kStatusBarHoverScale;
   --nest: 32px;
   --history-max: ${_kStatusHistoryMaxPx}px;
-  --tip-shift-y: calc(-100% - 10px);
+  --tip-shift-y: calc(-100% - ${_kStatusTipGapPx}px);
 $motionCssVars
 }
 * { box-sizing: border-box; }
@@ -1229,8 +1232,19 @@ body {
   min-width: min(${_kStatusLiveTipMinWidthPx}px, calc(100vw - 24px));
   max-width: min(${_kStatusLiveTipMaxWidthPx}px, calc(100vw - 24px));
 }
-.tip.show { visibility: visible; }
-.tip.below { --tip-shift-y: 10px; }
+.tip.show {
+  visibility: visible;
+  pointer-events: auto;
+}
+.tip.below { --tip-shift-y: ${_kStatusTipGapPx}px; }
+.tip.show::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  height: ${_kStatusTipBridgePx}px;
+}
+.tip.show:not(.below)::after { top: 100%; }
+.tip.below.show::after { bottom: 100%; }
 .tip-card {
   --tip-pad: 12px 14px;
   background:
@@ -1242,13 +1256,6 @@ body {
     0 18px 40px var(--shadow),
     0 12px 28px color-mix(in srgb, var(--tone) 20%, transparent);
   padding: var(--tip-pad);
-}
-.tip-card::before {
-  content: '';
-  display: block;
-  height: 3px;
-  margin: -12px -14px 10px;
-  background: linear-gradient(90deg, var(--tone), color-mix(in srgb, var(--primary) 72%, var(--tone)));
 }
 .tip b { display: block; font-size: 13px; letter-spacing: -.02em; }
 .tip .badge {
@@ -1410,6 +1417,7 @@ const POLL_HIDDEN_MS = $aiModelProxyStatusLivePollHiddenMs;
 const POLL_TIMEOUT_MS = $aiModelProxyStatusLivePollTimeoutMs;
 const POLL_BACKOFF_MAX_MS = $aiModelProxyStatusLivePollBackoffMaxMs;
 const LIVE_TIP_CLOCK_MS = $_kStatusLiveTipClockMs;
+const TIP_HOVER_GRACE_MS = $_kStatusTipHoverGraceMs;
 const STATUS_JSON = '$aiModelProxyStatusJsonPath';
 const rowsEl = document.getElementById('rows');
 const liveEl = document.getElementById('live');
@@ -1436,6 +1444,7 @@ let lastSyncKind = 'boot';
 let lastHttpStatus = 200;
 let nextPollAt = 0;
 let liveTipTimer = 0;
+let tipHideTimer = 0;
 
 function i18n(){ return data.i18n || {}; }
 function fillOf(h){
@@ -1789,10 +1798,21 @@ rowsEl.addEventListener('keydown', (ev) => {
   ev.preventDefault();
   toggleRow(toggle);
 });
-function eventNode(ev){
-  const node = ev.target;
+function asEl(node){
   if (!node) return null;
-  return node.nodeType === 1 ? node : node.parentElement;
+  return node.nodeType === 1 ? node : (node.parentElement || null);
+}
+function eventNode(ev){
+  return asEl(ev && ev.target);
+}
+function hoveringTipZone(node){
+  node = asEl(node);
+  if (!node) return false;
+  if (node === tip || tip.contains(node)) return true;
+  if (liveEl && (node === liveEl || liveEl.contains(node))) return true;
+  if (activeStrip && (node === activeStrip || activeStrip.contains(node))) return true;
+  const strip = node.closest && node.closest('.bars');
+  return !!(strip && rowsEl.contains(strip));
 }
 function eventStrip(ev){
   const fromNode = (node) => {
@@ -1890,6 +1910,7 @@ function fillLiveTip(){
     '<p>'+attr(note||'')+'</p>';
 }
 function openTip(ev, anchor, tone, fill){
+  cancelHideTip();
   const leaving = tipCard.classList.contains('oh-dialog-pop-out');
   const wasHidden = !tip.classList.contains('show');
   tipExitToken += 1;
@@ -1903,6 +1924,7 @@ function openTip(ev, anchor, tone, fill){
 }
 function showLiveTip(ev){
   if (!liveEl) return;
+  cancelHideTip();
   if (activeStrip) {
     clearOn(activeStrip);
     activeStrip = null;
@@ -1946,7 +1968,7 @@ function onPointerHover(ev){
   if (ev.pointerType === 'touch') return;
   const strip = eventStrip(ev);
   if (!strip) {
-    if (activeStrip) releaseStrip();
+    if (tipSource === 'bar') scheduleHideTip();
     return;
   }
   revealFromEvent(ev, strip);
@@ -1961,20 +1983,20 @@ rowsEl.addEventListener('pointerdown', (ev) => {
 });
 rowsEl.addEventListener('pointerleave', (ev) => {
   if (ev.pointerType === 'touch') return;
-  const rel = ev.relatedTarget;
-  if (liveEl && rel && liveEl.contains(rel)) return;
-  releaseStrip();
+  if (hoveringTipZone(ev.relatedTarget)) return;
+  if (tipSource === 'bar') scheduleHideTip();
 });
 document.addEventListener('pointerdown', (ev) => {
   const node = eventNode(ev);
-  if (pinnedLive) {
-    if (liveEl && node && liveEl.contains(node)) return;
-    pinnedLive = false;
-    if (tipSource === 'live') hideTip();
+  if (hoveringTipZone(node)) return;
+  pinnedLive = false;
+  pinnedStrip = null;
+  if (!tip.classList.contains('show') && !tipCard.classList.contains('oh-dialog-pop-out')) return;
+  if (tipSource === 'bar') {
+    clearOn(activeStrip);
+    activeStrip = null;
   }
-  if (!pinnedStrip) return;
-  if (node && pinnedStrip.contains(node)) return;
-  releaseStrip();
+  hideTip();
 });
 if (liveEl) {
   const onLiveHover = (ev) => {
@@ -1985,18 +2007,18 @@ if (liveEl) {
   liveEl.addEventListener('pointermove', onLiveHover);
   liveEl.addEventListener('pointerleave', (ev) => {
     if (ev.pointerType === 'touch' && pinnedLive) return;
-    const rel = ev.relatedTarget;
-    if (rel && rowsEl.contains(rel) && rel.closest && rel.closest('.bars')) return;
-    if (tipSource === 'live') hideTip();
+    if (hoveringTipZone(ev.relatedTarget)) return;
+    if (tipSource === 'live') scheduleHideTip();
   });
   liveEl.addEventListener('pointerdown', (ev) => {
     if (ev.pointerType === 'touch') pinnedLive = true;
     showLiveTip(ev);
   });
   liveEl.addEventListener('focus', (ev) => showLiveTip(ev));
-  liveEl.addEventListener('blur', () => {
+  liveEl.addEventListener('blur', (ev) => {
     if (pinnedLive) return;
-    if (tipSource === 'live') hideTip();
+    if (hoveringTipZone(ev.relatedTarget)) return;
+    if (tipSource === 'live') scheduleHideTip();
   });
   liveEl.addEventListener('keydown', (ev) => {
     if (ev.key !== 'Enter' && ev.key !== ' ') return;
@@ -2005,6 +2027,18 @@ if (liveEl) {
     showLiveTip(ev);
   });
 }
+tip.addEventListener('pointerenter', (ev) => {
+  cancelHideTip();
+  if (tipCard.classList.contains('oh-dialog-pop-out')) {
+    tipExitToken += 1;
+    playDialog(tipCard, 'enter');
+  }
+});
+tip.addEventListener('pointerleave', (ev) => {
+  if (ev.pointerType === 'touch' && (pinnedLive || pinnedStrip)) return;
+  if (hoveringTipZone(ev.relatedTarget)) return;
+  scheduleHideTip();
+});
 document.addEventListener('keydown', (ev) => {
   if (ev.key !== 'Escape') return;
   pinnedLive = false;
@@ -2014,6 +2048,7 @@ document.addEventListener('keydown', (ev) => {
   hideTip();
 });
 function showTip(ev, d, anchor){
+  cancelHideTip();
   tip.classList.remove('live-tip');
   tipSource = 'bar';
   pinnedLive = false;
@@ -2023,7 +2058,27 @@ function showTip(ev, d, anchor){
   }
   openTip(ev, anchor, fillOf(d.h), () => fillTip(d));
 }
+function cancelHideTip(){
+  if (!tipHideTimer) return;
+  clearTimeout(tipHideTimer);
+  tipHideTimer = 0;
+}
+function scheduleHideTip(){
+  if (pinnedLive || pinnedStrip) return;
+  if (!tip.classList.contains('show') && !tipCard.classList.contains('oh-dialog-pop-out')) return;
+  if (tipHideTimer) return;
+  tipHideTimer = setTimeout(() => {
+    tipHideTimer = 0;
+    if (pinnedLive || pinnedStrip) return;
+    if (tipSource === 'bar') {
+      clearOn(activeStrip);
+      activeStrip = null;
+    }
+    hideTip();
+  }, TIP_HOVER_GRACE_MS);
+}
 function hideTip(){
+  cancelHideTip();
   if (liveTipTimer) {
     clearInterval(liveTipTimer);
     liveTipTimer = 0;
@@ -2147,6 +2202,7 @@ function stopPoll(){
   stopped = true;
   clearTimeout(pollTimer);
   pollTimer = 0;
+  cancelHideTip();
   if (liveTipTimer) {
     clearInterval(liveTipTimer);
     liveTipTimer = 0;
