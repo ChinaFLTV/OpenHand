@@ -11,10 +11,7 @@ const double _kAiUsageBreakdownBodyMaxHeight = 444;
 const double _kAiUsageToolbarControlHeight = 40;
 const double _kAiUsageFilterChipMinWidth = 96;
 const double _kAiUsageFilterChipIconSlotWidth = 26;
-const double _kAiUsageRequestTableMinWidth = 1960;
-const double _kAiUsageRequestHeaderHeight = 48;
-const double _kAiUsageRequestRowHeight = 74;
-const double _kAiUsageRequestBodyMaxHeight = 444;
+const double _kAiUsageRequestTimeColumnMinWidth = 220;
 const double _kAiUsageHeroInlineMinWidth = 840;
 const double _kAiUsageOverviewFourColumnMinWidth = 1040;
 const double _kAiUsageOverviewTwoColumnMinWidth = 560;
@@ -3148,8 +3145,8 @@ class _AiUsageRecentPanelState extends State<_AiUsageRecentPanel> {
                   )
                 else
                   _AiUsageRequestTable(
-                    key: ValueKey<String>('usage-req-$_page-$_pageSize'),
                     records: _records,
+                    scrollResetKey: (_page, _pageSize),
                     footer: OpenHandTablePaginationBar(
                       total: _total,
                       page: _page,
@@ -3174,363 +3171,169 @@ class _AiUsageRecentPanelState extends State<_AiUsageRecentPanel> {
   }
 }
 
-class _AiUsageRequestTable extends StatefulWidget {
-  const _AiUsageRequestTable({super.key, required this.records, this.footer});
+class _AiUsageRequestTable extends StatelessWidget {
+  const _AiUsageRequestTable({
+    required this.records,
+    required this.scrollResetKey,
+    this.footer,
+  });
 
   final List<AiUsageRequestRecord> records;
+  final Object scrollResetKey;
   final Widget? footer;
 
   @override
-  State<_AiUsageRequestTable> createState() => _AiUsageRequestTableState();
-}
-
-class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
-  final ScrollController _horizontalController = ScrollController();
-  final ScrollController _verticalController = ScrollController();
-
-  @override
-  void dispose() {
-    _horizontalController.dispose();
-    _verticalController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final bodyHeight = math.min(
-      _kAiUsageRequestBodyMaxHeight,
-      math.max(widget.records.length, 1) * _kAiUsageRequestRowHeight,
-    );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final tableWidth = math.max(
-          constraints.maxWidth,
-          _kAiUsageRequestTableMinWidth,
-        );
-        return ClipRRect(
-          borderRadius: kOpenHandBorderRadius16,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerLowest,
-              border: Border.all(color: colorScheme.outlineVariant),
-              borderRadius: kOpenHandBorderRadius16,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                OpenHandSafeScrollbar(
-                  controller: _horizontalController,
-                  scrollbarOrientation: ScrollbarOrientation.bottom,
-                  child: SingleChildScrollView(
-                    controller: _horizontalController,
-                    scrollDirection: Axis.horizontal,
-                    child: SizedBox(
-                      width: tableWidth,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            height: _kAiUsageRequestHeaderHeight,
-                            color: colorScheme.surfaceContainerHighest,
-                            child: _buildRow(context, header: true),
-                          ),
-                          SizedBox(
-                            height: bodyHeight,
-                            child: OpenHandSafeScrollbar(
-                              controller: _verticalController,
-                              child: ListView.builder(
-                                controller: _verticalController,
-                                padding: EdgeInsets.zero,
-                                itemCount: widget.records.length,
-                                itemExtent: _kAiUsageRequestRowHeight,
-                                itemBuilder: (context, index) {
-                                  final record = widget.records[index];
-                                  return SettingsAwareAppearOnce(
-                                    key: ValueKey<String>(record.id),
-                                    child: ColoredBox(
-                                      color: index.isEven
-                                          ? colorScheme.surfaceContainerLowest
-                                          : colorScheme.surfaceContainerLow,
-                                      child: _buildRow(context, record: record),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                if (widget.footer != null) widget.footer!,
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildRow(
-    BuildContext context, {
-    bool header = false,
-    AiUsageRequestRecord? record,
-  }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final headerStyle = theme.textTheme.labelMedium?.copyWith(
-      color: colorScheme.onSurfaceVariant,
-      fontWeight: FontWeight.w800,
-    );
-    final valueStyle = theme.textTheme.bodyMedium?.copyWith(
-      fontWeight: FontWeight.w700,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
+    final colorScheme = Theme.of(context).colorScheme;
     final traceLabel = openHandLocalizedText(
       context,
       zh: '追踪 ID',
       en: 'Trace ID',
     );
-    final protocolLabel = record?.apiFamily.replaceAll('_', ' ') ?? '';
     final unknown = openHandLocalizedText(context, zh: '未知', en: 'Unknown');
+    final firstTokenLabel = openHandLocalizedText(
+      context,
+      zh: '首字',
+      en: 'First',
+    );
 
-    Widget cell({
-      required int flex,
-      required Widget child,
-      Alignment alignment = Alignment.centerLeft,
-    }) {
-      return Expanded(
-        flex: flex,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Align(alignment: alignment, child: child),
-        ),
-      );
-    }
-
-    Text value(String text, {TextAlign align = TextAlign.left}) {
-      return Text(
-        text,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: align,
-        style: header ? headerStyle : valueStyle,
-      );
-    }
-
-    Widget details(String primary, String secondary, {bool alignEnd = false}) {
-      return OpenHandTableStackedCell(
-        primary: primary,
-        secondary: secondary,
-        alignEnd: alignEnd,
-      );
-    }
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: header || record == null ? null : () => _showDetails(record),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(color: colorScheme.outlineVariant, width: 0.7),
-            ),
-          ),
-          child: Row(
-            children: [
-              cell(
-                flex: 18,
-                child: header
-                    ? value(
-                        openHandLocalizedText(context, zh: '请求时间', en: 'Time'),
-                      )
-                    : Tooltip(
-                        message: '$traceLabel: ${record!.traceId}',
-                        child: value(formatYearMonthDayHms(record.startedAt)),
-                      ),
+    return OpenHandOperationalRankTable(
+      sortByValue: false,
+      paginate: false,
+      footer: footer,
+      scrollResetKey: scrollResetKey,
+      animateRows: true,
+      semanticsLabel: openHandLocalizedText(
+        context,
+        zh: '请求追踪表',
+        en: 'Request trace table',
+      ),
+      maxBodyHeight: kOpenHandTableMetricBodyMaxHeight,
+      minimumColumnWidths: const <int, double>{
+        0: _kAiUsageRequestTimeColumnMinWidth,
+      },
+      columnAlignments: const <int, Alignment>{
+        0: Alignment.centerLeft,
+        1: Alignment.centerLeft,
+        2: Alignment.centerLeft,
+        3: Alignment.centerLeft,
+        4: Alignment.centerLeft,
+        5: Alignment.centerLeft,
+        6: Alignment.centerLeft,
+        7: Alignment.centerLeft,
+      },
+      headers: [
+        openHandLocalizedText(context, zh: '请求时间', en: 'Time'),
+        openHandModelLabel(context),
+        openHandSourceLabel(context),
+        openHandProtocolLabel(context),
+        openHandLocalizedText(context, zh: '来源地址', en: 'Source'),
+        openHandLocalizedText(context, zh: '网络路径', en: 'Network'),
+        openHandLocalizedText(context, zh: '进程/服务', en: 'Process'),
+        openHandLocalizedText(context, zh: '设备/MAC', en: 'Device/MAC'),
+        'Token',
+        _settingsAiUsagCostLabel(context),
+        openHandLocalizedText(context, zh: '耗时', en: 'Latency'),
+        openHandStatusLabel(context),
+      ],
+      rows: [
+        for (final record in records)
+          OpenHandOperationalRankRow(
+            value: record.startedAt.microsecondsSinceEpoch,
+            data: record,
+            rowKey: record.id,
+            cells: [
+              formatYearMonthDayHms(record.startedAt),
+              record.modelId,
+              _usageSourceLabel(context, record.source),
+              record.apiFamily.replaceAll('_', ' '),
+              record.sourceEndpoint.isEmpty ? unknown : record.sourceEndpoint,
+              record.networkMode.isEmpty
+                  ? unknown
+                  : _usageNetworkModeLabel(context, record.networkMode),
+              record.processServiceName.isEmpty
+                  ? unknown
+                  : record.processServiceName,
+              record.macAddress.isEmpty ? unknown : record.macAddress,
+              '${openHandTableMetricInteger(record.usage.totalTokens ?? 0)}${record.usageEstimated ? ' ≈' : ''}',
+              record.totalCostUsd == null
+                  ? kOpenHandTableMetricEmpty
+                  : _usageMoney(record.totalCostUsd!),
+              openHandTableMetricDuration(record.durationMs),
+              _usageRequestStatusLabel(context, record.status),
+            ],
+            cellSubtitles: [
+              '',
+              record.providerName,
+              '${_usageOperationLabel(context, record.operation)} · ${record.surface.toUpperCase()}',
+              '',
+              record.userAgent.isEmpty ? unknown : record.userAgent,
+              [
+                if (record.targetHost.isNotEmpty) record.targetHost,
+                if (record.targetPort.isNotEmpty) ':${record.targetPort}',
+                if (record.networkEndpoint.isNotEmpty)
+                  ' · ${record.networkEndpoint}',
+              ].join(),
+              record.processId.isEmpty ? unknown : 'PID ${record.processId}',
+              [
+                record.metadataText('host_os'),
+                record.metadataText('host_hostname'),
+              ].where((value) => value.isNotEmpty).join(' · '),
+              [
+                '$kOpenHandTableMetricTokenInputMarker ${openHandTableMetricCompactNumber(record.usage.promptTokens ?? 0)}',
+                '$kOpenHandTableMetricTokenOutputMarker ${openHandTableMetricCompactNumber(record.usage.completionTokens ?? 0)}',
+                if ((record.usage.cacheReadTokens ?? 0) > 0)
+                  '$kOpenHandTableMetricTokenCacheMarker ${openHandTableMetricCompactNumber(record.usage.cacheReadTokens!)}',
+              ].join('  '),
+              '',
+              record.firstTokenMs == null
+                  ? ''
+                  : '$firstTokenLabel ${openHandTableMetricDuration(record.firstTokenMs!)}',
+              '',
+            ],
+            cellWidgets: [
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              OpenHandTokenMetricCell(
+                total: record.usage.totalTokens ?? 0,
+                promptTokens: record.usage.promptTokens ?? 0,
+                completionTokens: record.usage.completionTokens ?? 0,
+                cacheReadTokens: record.usage.cacheReadTokens ?? 0,
+                estimated: record.usageEstimated,
               ),
-              cell(
-                flex: 18,
-                child: header
-                    ? value(openHandModelLabel(context))
-                    : details(record!.modelId, record.providerName),
+              OpenHandCostMetricCell(usd: record.totalCostUsd),
+              OpenHandDurationMetricCell(
+                durationMs: record.durationMs,
+                firstTokenMs: record.firstTokenMs,
+                firstTokenLabel: firstTokenLabel,
               ),
-              cell(
-                flex: 22,
-                child: header
-                    ? value(openHandSourceLabel(context))
-                    : details(
-                        _usageSourceLabel(context, record!.source),
-                        '${_usageOperationLabel(context, record.operation)} · ${record.surface.toUpperCase()}',
-                      ),
-              ),
-              cell(
-                flex: 15,
-                child: header
-                    ? value(openHandProtocolLabel(context))
-                    : Tooltip(
-                        message: protocolLabel,
-                        child: value(protocolLabel),
-                      ),
-              ),
-              cell(
-                flex: 22,
-                child: header
-                    ? value(
-                        openHandLocalizedText(
-                          context,
-                          zh: '来源地址',
-                          en: 'Source',
-                        ),
-                      )
-                    : details(
-                        record!.sourceEndpoint.isEmpty
-                            ? unknown
-                            : record.sourceEndpoint,
-                        record.userAgent.isEmpty ? unknown : record.userAgent,
-                      ),
-              ),
-              cell(
-                flex: 20,
-                child: header
-                    ? value(
-                        openHandLocalizedText(
-                          context,
-                          zh: '网络路径',
-                          en: 'Network',
-                        ),
-                      )
-                    : details(
-                        record!.networkMode.isEmpty
-                            ? unknown
-                            : _usageNetworkModeLabel(
-                                context,
-                                record.networkMode,
-                              ),
-                        [
-                          if (record.targetHost.isNotEmpty) record.targetHost,
-                          if (record.targetPort.isNotEmpty)
-                            ':${record.targetPort}',
-                          if (record.networkEndpoint.isNotEmpty)
-                            ' · ${record.networkEndpoint}',
-                        ].join(),
-                      ),
-              ),
-              cell(
-                flex: 16,
-                child: header
-                    ? value(
-                        openHandLocalizedText(
-                          context,
-                          zh: '进程/服务',
-                          en: 'Process',
-                        ),
-                      )
-                    : details(
-                        record!.processServiceName.isEmpty
-                            ? unknown
-                            : record.processServiceName,
-                        record.processId.isEmpty
-                            ? unknown
-                            : 'PID ${record.processId}',
-                      ),
-              ),
-              cell(
-                flex: 14,
-                child: header
-                    ? value(
-                        openHandLocalizedText(
-                          context,
-                          zh: '设备/MAC',
-                          en: 'Device/MAC',
-                        ),
-                      )
-                    : details(
-                        record!.macAddress.isEmpty
-                            ? unknown
-                            : record.macAddress,
-                        [
-                          record.metadataText('host_os'),
-                          record.metadataText('host_hostname'),
-                        ].where((value) => value.isNotEmpty).join(' · '),
-                      ),
-              ),
-              cell(
-                flex: 20,
-                alignment: Alignment.centerRight,
-                child: header
-                    ? value('Token', align: TextAlign.right)
-                    : OpenHandTokenMetricCell(
-                        total: record!.usage.totalTokens ?? 0,
-                        promptTokens: record.usage.promptTokens ?? 0,
-                        completionTokens: record.usage.completionTokens ?? 0,
-                        cacheReadTokens: record.usage.cacheReadTokens ?? 0,
-                        estimated: record.usageEstimated,
-                      ),
-              ),
-              cell(
-                flex: 11,
-                alignment: Alignment.centerRight,
-                child: header
-                    ? value(
-                        _settingsAiUsagCostLabel(context),
-                        align: TextAlign.right,
-                      )
-                    : OpenHandCostMetricCell(usd: record!.totalCostUsd),
-              ),
-              cell(
-                flex: 11,
-                alignment: Alignment.centerRight,
-                child: header
-                    ? value(
-                        openHandLocalizedText(context, zh: '耗时', en: 'Latency'),
-                        align: TextAlign.right,
-                      )
-                    : OpenHandDurationMetricCell(
-                        durationMs: record!.durationMs,
-                        firstTokenMs: record.firstTokenMs,
-                        firstTokenLabel: openHandLocalizedText(
-                          context,
-                          zh: '首字',
-                          en: 'First',
-                        ),
-                      ),
-              ),
-              cell(
-                flex: 11,
-                alignment: Alignment.center,
-                child: header
-                    ? value(
-                        openHandStatusLabel(context),
-                        align: TextAlign.center,
-                      )
-                    : OpenHandTableStatusBadge(
-                        label: _usageRequestStatusLabel(
-                          context,
-                          record!.status,
-                        ),
-                        color: _usageRequestStatusColor(
-                          colorScheme,
-                          record.status,
-                        ),
-                        tooltip:
-                            '${openHandStatusLabel(context)}: ${_usageRequestStatusLabel(context, record.status)}'
-                            '${record.errorType == null ? '' : '\n${openHandErrorLabel(context)}: ${record.errorType}'}'
-                            '\n$traceLabel: ${record.traceId}',
-                      ),
+              OpenHandTableStatusBadge(
+                label: _usageRequestStatusLabel(context, record.status),
+                color: _usageRequestStatusColor(colorScheme, record.status),
+                tooltip:
+                    '${openHandStatusLabel(context)}: ${_usageRequestStatusLabel(context, record.status)}'
+                    '${record.errorType == null ? '' : '\n${openHandErrorLabel(context)}: ${record.errorType}'}'
+                    '\n$traceLabel: ${record.traceId}',
               ),
             ],
           ),
-        ),
-      ),
+      ],
+      onRowTap: (row) {
+        final record = row.data;
+        if (record is AiUsageRequestRecord) {
+          unawaited(_showDetails(context, record));
+        }
+      },
     );
   }
 
-  Future<void> _showDetails(AiUsageRequestRecord record) {
+  Future<void> _showDetails(BuildContext context, AiUsageRequestRecord record) {
     return showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) => _AiUsageRequestDetailsDialog(record: record),

@@ -13,6 +13,7 @@ import '../../shared/ui/openhand_spacing.dart';
 import '../util/localized_text.dart';
 import '../util/timer_safety.dart';
 import 'animated_dialog.dart';
+import 'appear_once.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
 import 'openhand_safe_scrollbar.dart';
@@ -136,12 +137,6 @@ Alignment _rankCellAlignment(int index, String header) {
   if (index == 0) return Alignment.centerLeft;
   if (openHandTableMetricHeaderCenters(header)) return Alignment.center;
   return Alignment.centerRight;
-}
-
-TextAlign _rankCellTextAlign(int index, String header) {
-  if (index == 0) return TextAlign.left;
-  if (openHandTableMetricHeaderCenters(header)) return TextAlign.center;
-  return TextAlign.right;
 }
 
 double _rankFitColumnWidth(_RankColumnKind kind, double padded) {
@@ -3190,13 +3185,19 @@ class OpenHandOperationalRankRow {
     required this.cells,
     required this.value,
     this.subtitle = '',
+    this.cellSubtitles,
     this.cellWidgets,
+    this.data,
+    this.rowKey,
   });
 
   final List<String> cells;
   final num value;
   final String subtitle;
+  final List<String>? cellSubtitles;
   final List<Widget?>? cellWidgets;
+  final Object? data;
+  final Object? rowKey;
 }
 
 /// 可用于任意运维实体的排名表。视觉对齐用量分析表：圆角边框、表头灰底、奇偶行。
@@ -3211,6 +3212,12 @@ class OpenHandOperationalRankTable extends StatefulWidget {
     this.sortByValue = true,
     this.maxBodyHeight = _kRankBodyMaxHeight,
     this.minimumColumnWidths = const <int, double>{},
+    this.columnAlignments = const <int, Alignment>{},
+    this.paginate = true,
+    this.footer,
+    this.animateRows = false,
+    this.semanticsLabel = '排行表',
+    this.scrollResetKey,
   });
 
   final List<String> headers;
@@ -3220,6 +3227,12 @@ class OpenHandOperationalRankTable extends StatefulWidget {
   final bool sortByValue;
   final double maxBodyHeight;
   final Map<int, double> minimumColumnWidths;
+  final Map<int, Alignment> columnAlignments;
+  final bool paginate;
+  final Widget? footer;
+  final bool animateRows;
+  final String semanticsLabel;
+  final Object? scrollResetKey;
 
   @override
   State<OpenHandOperationalRankTable> createState() =>
@@ -3275,6 +3288,12 @@ class _OpenHandOperationalRankTableState
     if (oldWidget.headers.length != widget.headers.length) {
       _userWidths = null;
       _userResized = false;
+    }
+    if (oldWidget.scrollResetKey != widget.scrollResetKey) {
+      _scheduleHideTip();
+      if (_vertical.hasClients && _vertical.offset > 0) {
+        _vertical.jumpTo(0);
+      }
     }
     final window = OpenHandPageWindow.normalize(
       page: _page,
@@ -3442,7 +3461,7 @@ class _OpenHandOperationalRankTableState
       pageSize: _pageSize,
       total: sortedRows.length,
     );
-    final pageRows = window.slice(sortedRows);
+    final pageRows = widget.paginate ? window.slice(sortedRows) : sortedRows;
     var usesMetricRows = false;
     for (final row in widget.rows) {
       final widgets = row.cellWidgets;
@@ -3475,6 +3494,14 @@ class _OpenHandOperationalRankTableState
     );
     final scaler = MediaQuery.textScalerOf(context);
     final columnCount = widget.headers.length;
+    String subtitleFor(OpenHandOperationalRankRow row, int index) {
+      final subtitles = row.cellSubtitles;
+      if (subtitles != null && index < subtitles.length) {
+        return subtitles[index].trim();
+      }
+      return index == 0 ? row.subtitle.trim() : '';
+    }
+
     final natural = List<double>.filled(columnCount, 0);
     for (var i = 0; i < columnCount; i++) {
       var content = _rankTextWidth(
@@ -3491,6 +3518,16 @@ class _OpenHandOperationalRankTableState
           _rankTextWidth(cell, valueStyle, textScaler: scaler),
         );
       }
+      for (final row in widthRows) {
+        content = math.max(
+          content,
+          _rankTextWidth(
+            subtitleFor(row, i),
+            subtitleStyle,
+            textScaler: scaler,
+          ),
+        );
+      }
       final fitted = _rankFitColumnWidth(
         _rankColumnKind(index: i, header: widget.headers[i], cells: samples),
         content + _kRankCellPadding * 2,
@@ -3503,7 +3540,7 @@ class _OpenHandOperationalRankTableState
       overlayChildBuilder: _buildOverlay,
       child: RepaintBoundary(
         child: Semantics(
-          label: '排行表，共 ${sortedRows.length} 行',
+          label: '${widget.semanticsLabel}，共 ${sortedRows.length} 行',
           child: LayoutBuilder(
             builder: (context, constraints) {
               final tableWidth = widths.fold<double>(
@@ -3566,8 +3603,14 @@ class _OpenHandOperationalRankTableState
                 required OpenHandOperationalRankRow? row,
               }) {
                 final headerText = widget.headers[index];
-                final alignment = _rankCellAlignment(index, headerText);
-                final textAlign = _rankCellTextAlign(index, headerText);
+                final alignment =
+                    widget.columnAlignments[index] ??
+                    _rankCellAlignment(index, headerText);
+                final textAlign = alignment.x < 0
+                    ? TextAlign.left
+                    : alignment.x > 0
+                    ? TextAlign.right
+                    : TextAlign.center;
                 if (header) {
                   return Align(
                     alignment: alignment,
@@ -3593,19 +3636,19 @@ class _OpenHandOperationalRankTableState
                     ),
                   );
                 }
-                if (index == 0) {
-                  final subtitle = row?.subtitle.trim() ?? '';
+                final subtitle = row == null ? '' : subtitleFor(row, index);
+                if (subtitle.isNotEmpty) {
                   return Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       paintedCell(
                         index: index,
-                        text: row == null || row.cells.isEmpty
+                        text: row == null || index >= row.cells.length
                             ? '--'
-                            : row.cells.first,
+                            : row.cells[index],
                         style: valueStyle,
-                        align: TextAlign.left,
+                        align: textAlign,
                         note: subtitle,
                       ),
                       if (subtitle.isNotEmpty) ...[
@@ -3614,7 +3657,7 @@ class _OpenHandOperationalRankTableState
                           index: index,
                           text: subtitle,
                           style: subtitleStyle,
-                          align: TextAlign.left,
+                          align: textAlign,
                         ),
                       ],
                     ],
@@ -3805,17 +3848,27 @@ class _OpenHandOperationalRankTableState
                                               : colors.surfaceContainerLow,
                                           child: rowFor(row, header: false),
                                         );
-                                        if (widget.onRowTap == null) {
-                                          return painted;
+                                        Widget interactive = painted;
+                                        if (widget.onRowTap != null) {
+                                          interactive = MouseRegion(
+                                            cursor: SystemMouseCursors.click,
+                                            child: GestureDetector(
+                                              behavior: HitTestBehavior.opaque,
+                                              onTap: () =>
+                                                  widget.onRowTap!(row),
+                                              child: painted,
+                                            ),
+                                          );
                                         }
-                                        return MouseRegion(
-                                          cursor: SystemMouseCursors.click,
-                                          child: GestureDetector(
-                                            behavior: HitTestBehavior.opaque,
-                                            onTap: () => widget.onRowTap!(row),
-                                            child: painted,
-                                          ),
-                                        );
+                                        if (widget.animateRows) {
+                                          interactive = SettingsAwareAppearOnce(
+                                            key: ValueKey<Object>(
+                                              row.rowKey ?? row,
+                                            ),
+                                            child: interactive,
+                                          );
+                                        }
+                                        return interactive;
                                       },
                                     ),
                                   ),
@@ -3825,26 +3878,29 @@ class _OpenHandOperationalRankTableState
                           ),
                         ),
                       ),
-                      OpenHandTablePaginationBar(
-                        total: window.total,
-                        page: window.page,
-                        pageSize: window.pageSize,
-                        onPageChanged: (page) {
-                          setState(() => _page = page);
-                          if (_vertical.hasClients) {
-                            _vertical.jumpTo(0);
-                          }
-                        },
-                        onPageSizeChanged: (size) {
-                          setState(() {
-                            _pageSize = size;
-                            _page = 1;
-                          });
-                          if (_vertical.hasClients) {
-                            _vertical.jumpTo(0);
-                          }
-                        },
-                      ),
+                      if (widget.footer != null)
+                        widget.footer!
+                      else if (widget.paginate)
+                        OpenHandTablePaginationBar(
+                          total: window.total,
+                          page: window.page,
+                          pageSize: window.pageSize,
+                          onPageChanged: (page) {
+                            setState(() => _page = page);
+                            if (_vertical.hasClients) {
+                              _vertical.jumpTo(0);
+                            }
+                          },
+                          onPageSizeChanged: (size) {
+                            setState(() {
+                              _pageSize = size;
+                              _page = 1;
+                            });
+                            if (_vertical.hasClients) {
+                              _vertical.jumpTo(0);
+                            }
+                          },
+                        ),
                     ],
                   ),
                 ),
