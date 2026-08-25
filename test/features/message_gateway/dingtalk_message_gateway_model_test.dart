@@ -2,6 +2,59 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/message_gateway/model/dingtalk_message_gateway.dart';
 
 void main() {
+  group('钉钉链接卡片投影', () {
+    const link = 'https://http.cat/';
+
+    test('清理纯链接重复的 url 和 uri 字段', () {
+      expect(normalizeDingTalkMessageContent('$link url: $link'), link);
+      expect(normalizeDingTalkMessageContent('$link\nURI： $link'), link);
+    });
+
+    test('清理带分享标题的重复链接投影', () {
+      expect(
+        normalizeDingTalkMessageContent(
+          '[分享] HTTP Cats API for HTTP Cats $link url: $link',
+        ),
+        link,
+      );
+      expect(
+        normalizeDingTalkMessageContent(
+          '【网页】 HTTP Cats API for HTTP Cats\n$link\nurl：$link',
+        ),
+        link,
+      );
+    });
+
+    test('保留普通文本和不一致的链接', () {
+      expect(
+        normalizeDingTalkMessageContent('请访问 $link url: $link'),
+        '请访问 $link url: $link',
+      );
+      expect(
+        normalizeDingTalkMessageContent('$link url: https://example.com/'),
+        '$link url: https://example.com/',
+      );
+      expect(
+        normalizeDingTalkMessageContent('[分享] 这是普通文本 $link'),
+        '[分享] 这是普通文本 $link',
+      );
+    });
+
+    test('反序列化分享链接投影后只保留原始 URL', () {
+      final message = DingTalkGatewayMessage.fromJson({
+        'id': 'link-message-1',
+        'conversation_id': 'conversation-1',
+        'conversation_type': 'group',
+        'role': 'user',
+        'content': '[分享] HTTP Cats API for HTTP Cats $link uri: $link',
+        'created_at': '2026-08-25T10:00:00.000Z',
+      });
+
+      expect(message.content, link);
+      expect(message.media, isEmpty);
+    });
+  });
+
   group('钉钉媒体复合消息', () {
     test('移除图片投影但保留同一条消息中的文本', () {
       expect(stripDingTalkMediaPlaceholder('[图片] 坏菜了，我也'), '坏菜了，我也');

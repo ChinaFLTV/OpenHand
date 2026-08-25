@@ -22,7 +22,11 @@ final RegExp _dingtalkWhitespacePattern = RegExp(
   r'[\s\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]+',
 );
 final RegExp _dingtalkDuplicatedLinkProjectionPattern = RegExp(
-  r'^(https?://\S+)\s+(?:url|uri)\s*[:：]\s*(https?://\S+)$',
+  r'(https?://\S+)\s+(?:url|uri)\s*[:：]\s*(https?://\S+)$',
+  caseSensitive: false,
+);
+final RegExp _dingtalkLinkCardProjectionPrefixPattern = RegExp(
+  r'^(?:[\[【](?:分享|链接|网页)[\]】]|分享链接(?:消息)?[:：]?)\s*',
   caseSensitive: false,
 );
 final RegExp _dingtalkMediaPlaceholderPattern = RegExp(
@@ -41,7 +45,14 @@ String _removeDingTalkDuplicatedLinkProjection(Object? value) {
   final match = _dingtalkDuplicatedLinkProjectionPattern.firstMatch(text);
   if (match == null) return text;
   final content = match.group(1)!;
-  return content == match.group(2) ? content : text;
+  if (content != match.group(2)) return text;
+
+  final prefix = text.substring(0, match.start).trim();
+  if (prefix.isNotEmpty &&
+      !_dingtalkLinkCardProjectionPrefixPattern.hasMatch(prefix)) {
+    return text;
+  }
+  return content;
 }
 
 /// 生成钉钉消息正文的比较值，消除平台回流时产生的换行和不可见字符差异。
