@@ -10,8 +10,7 @@ import 'openhand_safe_scrollbar.dart';
 /// * 绕开 Flutter 在 macOS 上的一个缺陷：触控板事件可能带非单调时间戳，
 ///   进入 IOSScrollViewFlingVelocityTracker 后触发断言失败。
 ///
-/// 编辑器与弹窗此前各自重复了这两个覆写，其中弹窗那份还漏抄了绕行说明，
-/// 后来者很容易当成可以删掉的冗余代码。
+/// 编辑器与弹窗共用这两项行为，避免滚动策略漂移。
 abstract class OpenHandScrollBehaviorBase extends MaterialScrollBehavior {
   const OpenHandScrollBehaviorBase();
 
@@ -30,8 +29,7 @@ abstract class OpenHandScrollBehaviorBase extends MaterialScrollBehavior {
   }
 }
 
-/// 桌面端为滚动域套全局隐式安全滚动条；App 根滚动配置与弹窗滚动域共用，
-/// 此前两处各自维护一份相同的 [buildScrollbar] 覆写。
+/// 桌面端为滚动域套全局隐式安全滚动条。
 class OpenHandImplicitScrollbarBehavior extends OpenHandScrollBehaviorBase {
   const OpenHandImplicitScrollbarBehavior();
 

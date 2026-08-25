@@ -1,7 +1,7 @@
 /// SSE (Server-Sent Events) 行级字段解析。
 ///
 /// AI 流式对话、MCP Streamable HTTP、扫描引擎实时事件等多处均消费 SSE，
-/// 此前各自硬编码 `data:` 前缀与 `substring(5)` 偏移；统一为单一来源。
+/// 统一处理 SSE 的 `data:` 前缀和行结束符。
 library;
 
 const String _kSseDataFieldPrefix = 'data:';

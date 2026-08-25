@@ -25,13 +25,7 @@ const double kOpenHandDialogDefaultRadius = 28;
 const double kOpenHandDialogFormRadius = 16;
 const double kOpenHandDialogActionSpacing = 8;
 
-/// 弹窗宽度档位。
-///
-/// 此前 93 个调用点各写字面量，宽度出现 26 种取值、高度 18 种：同类弹窗宽窄
-/// 不一，改一档要翻遍全库。这里按实际用量归并成六档，取值本身即现网常用值。
-///
-/// 这两组都是 `BoxConstraints` 的上限而非固定尺寸（外层还会按视口再收一次），
-/// 所以迁移时一律**向上取档**：弹窗只会更宽松，不会把内容压窄。
+/// 弹窗宽度档位，均为内容约束上限。
 const double kOpenHandDialogWidthCompact = 560;
 const double kOpenHandDialogWidthStandard = 720;
 const double kOpenHandDialogWidthWide = 880;
@@ -39,7 +33,7 @@ const double kOpenHandDialogWidthExtraWide = 1000;
 const double kOpenHandDialogWidthPanel = 1120;
 const double kOpenHandDialogWidthFull = 1280;
 
-/// 弹窗高度档位，语义与宽度档一致。
+/// 弹窗高度档位，均为内容约束上限。
 const double kOpenHandDialogHeightCompact = 560;
 const double kOpenHandDialogHeightStandard = 680;
 const double kOpenHandDialogHeightTall = 800;

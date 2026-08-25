@@ -1,9 +1,6 @@
 part of '../openhand_home_page.dart';
 
 /// 目标模式的可用性与运行控制。
-///
-/// 这五项此前在会话区与输入区两层各声明一遍再逐个转发；三个控制回调签名完全
-/// 相同，转发时传错顺序编译期发现不了。
 class _GoalControls {
   const _GoalControls({
     required this.available,
@@ -25,8 +22,6 @@ class _GoalControls {
 }
 
 /// 输入区待发送附件的状态与操作。
-///
-/// 这五项此前在会话区与输入区两层各声明一遍再逐个转发。
 class _ComposerAttachments {
   const _ComposerAttachments({
     required this.drafts,
@@ -47,9 +42,6 @@ class _ComposerAttachments {
 }
 
 /// 待发送队列的状态与操作。
-///
-/// 这六项此前在会话区与输入区两层各声明一遍再逐个转发；队列本身是一个整体，
-/// 拆成六个平行参数只会让两处签名各自漂移。
 class _QueuedMessagesPanel {
   const _QueuedMessagesPanel({
     required this.messages,
@@ -72,9 +64,6 @@ class _QueuedMessagesPanel {
 }
 
 /// 单条消息上的操作回调集合。
-///
-/// 这八个回调此前在会话区与转录列表两层各声明一遍再逐个转发：新增一个操作要
-/// 改两处签名加一处转发，而签名相同的两个删除回调一旦传反了编译期发现不了。
 class _MessageActions {
   const _MessageActions({
     required this.onEdit,
@@ -576,10 +565,10 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
           Container(
             width: 92,
             height: 92,
-           decoration: BoxDecoration(
-             color: colorScheme.primaryContainer,
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer,
               borderRadius: kOpenHandBorderRadius32,
-           ),
+            ),
             alignment: Alignment.center,
             child: Icon(
               Icons.auto_awesome_rounded,
