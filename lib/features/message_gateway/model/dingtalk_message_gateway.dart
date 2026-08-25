@@ -30,6 +30,11 @@ final RegExp _dingtalkMediaPlaceholderPattern = RegExp(
   r'(?:\(\s*(?:mediaId|fileId)\s*=\s*[^)\s]+\s*\))?',
   caseSensitive: false,
 );
+final RegExp _dwsMediaDownloadHintPattern = RegExp(
+  r'(?:^|\s)注意\s*[:：]\s*如需下载使用dws\s+chat\s+message\s+'
+  r'download-media\s*命令下载\s*$',
+  caseSensitive: false,
+);
 
 String _removeDingTalkDuplicatedLinkProjection(Object? value) {
   final text = _normalizedDingTalkString(value);
@@ -295,7 +300,11 @@ String stripDingTalkMediaPlaceholder(Object? value) {
     return '';
   }
   if (parseDingTalkDwsFileProjection(text) != null) return '';
+  final hasMediaProjection = _dingtalkMediaPlaceholderPattern.hasMatch(text);
   text = text.replaceAll(_dingtalkMediaPlaceholderPattern, ' ');
+  if (hasMediaProjection) {
+    text = text.replaceFirst(_dwsMediaDownloadHintPattern, ' ');
+  }
   return text.replaceAll(_dingtalkWhitespacePattern, ' ').trim();
 }
 

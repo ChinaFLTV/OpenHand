@@ -7,6 +7,24 @@ void main() {
       expect(stripDingTalkMediaPlaceholder('[图片] 坏菜了，我也'), '坏菜了，我也');
       expect(stripDingTalkMediaPlaceholder('[图片消息](mediaId=abc)'), isEmpty);
       expect(
+        stripDingTalkMediaPlaceholder(
+          '[图片消息](mediaId=\$iwEcAqNwbmcDAQTRA1QF0QHABrDrJOLzLL8DpgpfYzr3pIUAB9IkGT5ICAAJomltCgAL0gAA-bk) 注意：如需下载使用dws chat message download-media命令下载',
+        ),
+        isEmpty,
+      );
+      expect(
+        stripDingTalkMediaPlaceholder(
+          '[图片消息](mediaId=abc) 坏菜了，我也 注意：如需下载使用dws chat message download-media命令下载',
+        ),
+        '坏菜了，我也',
+      );
+      expect(
+        stripDingTalkMediaPlaceholder(
+          '注意：如需下载使用dws chat message download-media命令下载',
+        ),
+        '注意：如需下载使用dws chat message download-media命令下载',
+      );
+      expect(
         stripDingTalkMediaPlaceholder('图片前缀 [图片消息](mediaId=abc) 图片后缀'),
         '图片前缀 图片后缀',
       );
