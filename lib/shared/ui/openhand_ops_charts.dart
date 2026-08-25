@@ -52,6 +52,14 @@ const double _kStatusStripRadius = 4;
 const double _kHeatmapHoverMinWidth = 292;
 const double _kHeatmapHoverMaxWidth = 372;
 const double _kHeatmapHoverMaxHeight = 468;
+const double _kHeatmapHoverContentHorizontalPadding = 14;
+const double _kHeatmapHoverMetricGap = 8;
+const double _kHeatmapHoverMetricMinWidth = 132;
+const double _kHeatmapHoverMetricMaxWidth =
+    (_kHeatmapHoverMaxWidth -
+        _kHeatmapHoverContentHorizontalPadding * 2 -
+        _kHeatmapHoverMetricGap) /
+    2;
 const double _kHeatmapHoverAnchorGap = 10;
 const double _kHeatmapHoverViewportPadding = 12;
 const double _kHeatmapHoverPreferAboveMin = 168;
@@ -4478,7 +4486,12 @@ class _HeatmapHoverCard extends StatelessWidget {
               padding: EdgeInsets.zero,
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                  padding: const EdgeInsets.fromLTRB(
+                    _kHeatmapHoverContentHorizontalPadding,
+                    12,
+                    _kHeatmapHoverContentHorizontalPadding,
+                    14,
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -4577,8 +4590,8 @@ class _HeatmapHoverCard extends StatelessWidget {
                       if (tooltip.metrics.isNotEmpty) ...[
                         kOpenHandGap12,
                         Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
+                          spacing: _kHeatmapHoverMetricGap,
+                          runSpacing: _kHeatmapHoverMetricGap,
                           children: [
                             for (final metric in tooltip.metrics)
                               _HeatmapHoverMetricTile(
@@ -4644,7 +4657,10 @@ class _HeatmapHoverMetricTile extends StatelessWidget {
     final foreground = _heatmapForeground(tone, colors);
     final hint = metric.hint?.trim();
     return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 132, maxWidth: 164),
+      constraints: const BoxConstraints(
+        minWidth: _kHeatmapHoverMetricMinWidth,
+        maxWidth: _kHeatmapHoverMetricMaxWidth,
+      ),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: tone.withValues(alpha: 0.10),
