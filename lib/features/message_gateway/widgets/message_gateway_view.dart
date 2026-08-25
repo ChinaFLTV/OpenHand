@@ -86,6 +86,18 @@ import '../service/web_message_platform_service.dart';
 const int _dingtalkTranslationCacheMaxEntries = 64;
 int _dingtalkTemporaryFileSerial = 0;
 
+String _dingtalkTextContent(String content) =>
+    stripImageSummaryMarkup(content).trim();
+
+String _dingtalkMediaSummary(List<DingTalkGatewayMedia> media) =>
+    media.map((item) => '[${item.displayName}]').join(' ');
+
+bool _hasDingTalkTextContent(String content, List<DingTalkGatewayMedia> media) {
+  final text = _dingtalkTextContent(content);
+  if (text.isEmpty) return false;
+  return media.isEmpty || text != _dingtalkMediaSummary(media);
+}
+
 String _nextDingTalkTemporaryFileName(String prefix, String extension) {
   final stamp = DateTime.now().microsecondsSinceEpoch;
   final serial = _dingtalkTemporaryFileSerial++;
@@ -12781,14 +12793,18 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                     selected.id,
                                                     message,
                                                   );
+                                                  final messageTextContent =
+                                                      _dingtalkTextContent(
+                                                        message.content,
+                                                      );
                                                   final textActionEnabled =
                                                       !message.recalled &&
                                                       !message
                                                           .isForwardedChatRecord &&
-                                                      message.media.isEmpty &&
-                                                      stripImageSummaryMarkup(
+                                                      _hasDingTalkTextContent(
                                                         message.content,
-                                                      ).trim().isNotEmpty;
+                                                        message.media,
+                                                      );
                                                   final translation =
                                                       _translations[message.id];
                                                   final translationVisible =
@@ -12799,7 +12815,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                             message.id,
                                                           ) &&
                                                       translation.sourceText ==
-                                                          message.content &&
+                                                          messageTextContent &&
                                                       translation
                                                               .settingsFingerprint ==
                                                           aiTranslationRequestFingerprint(
@@ -13299,12 +13315,14 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     AiTtsSettings settings,
     AiModelConfig? fallbackModel,
   ) async {
+    final content = _dingtalkTextContent(message.content);
+    if (!_hasDingTalkTextContent(message.content, message.media)) return;
     try {
       await _ttsPlaybackService.toggleMessage(
         messageId: message.id,
         text: message.isThinkingEcho
-            ? unwrapDingTalkThinkingMarkdown(message.content)
-            : message.content,
+            ? unwrapDingTalkThinkingMarkdown(content)
+            : content,
         settings: settings,
         availableModels: widget.controller.aiModels,
         fallbackModel: fallbackModel,
@@ -13325,6 +13343,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     AiTranslationSettings settings,
     AiModelConfig? fallbackModel,
   ) async {
+    final content = _dingtalkTextContent(message.content);
+    if (!_hasDingTalkTextContent(message.content, message.media)) return;
     final messageId = message.id;
     if (_visibleTranslationMessageIds.contains(messageId)) {
       setState(() => _visibleTranslationMessageIds.remove(messageId));
@@ -13336,7 +13356,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     );
     final cached = _translations[messageId];
     if (cached != null &&
-        cached.sourceText == message.content &&
+        cached.sourceText == content &&
         cached.settingsFingerprint == fingerprint) {
       setState(() => _visibleTranslationMessageIds.add(messageId));
       return;
@@ -13345,7 +13365,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     setState(() => _loadingTranslationMessageIds.add(messageId));
     try {
       final result = await _translationService.translate(
-        text: message.content,
+        text: content,
         settings: settings,
         availableModels: widget.controller.aiModels,
         fallbackModel: fallbackModel,
@@ -13354,7 +13374,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       setState(() {
         _translations.remove(messageId);
         _translations[messageId] = _DingTalkMessageTranslation(
-          sourceText: message.content,
+          sourceText: content,
           settingsFingerprint: fingerprint,
           translatedText: result.text,
         );
@@ -15893,22 +15913,10 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     required CrossAxisAlignment crossAxis,
     required List<DingTalkGatewayMedia> media,
   }) {
-    final hasText =
-        effectiveContent.trim().isNotEmpty &&
-        effectiveContent.trim() !=
-            media.map((item) => '[${item.displayName}]').join(' ');
+    final hasText = _hasDingTalkTextContent(effectiveContent, media);
     return Column(
       crossAxisAlignment: crossAxis,
       children: [
-        if (hasText || media.isEmpty)
-          _buildTextBubble(
-            context,
-            bubbleColor: bubbleColor,
-            foreground: foreground,
-            effectiveContent: effectiveContent,
-            includeFooter: media.isEmpty,
-          ),
-        if (hasText && media.isNotEmpty) kOpenHandGap8,
         if (media.isNotEmpty)
           AnimatedOpacity(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
@@ -15927,6 +15935,15 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
               onSaveFile: widget.onSaveMedia,
               onInteractiveTap: _cancelPendingActionToggle,
             ),
+          ),
+        if (hasText && media.isNotEmpty) kOpenHandGap8,
+        if (hasText || media.isEmpty)
+          _buildTextBubble(
+            context,
+            bubbleColor: bubbleColor,
+            foreground: foreground,
+            effectiveContent: effectiveContent,
+            includeFooter: media.isEmpty,
           ),
         if (media.isNotEmpty && widget.message.reactions.isNotEmpty)
           _buildReactionRow(context, foreground, topSpacing: 2),
@@ -16192,8 +16209,9 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     BuildContext context,
     List<DingTalkGatewayMedia> media,
   ) {
+    final hasText = _hasDingTalkTextContent(widget.message.content, media);
     final actions = <Widget>[
-      _buildCopyAction(context, media),
+      _buildCopyAction(context, media, hasText: hasText),
       if (widget.onToggleAiContextIgnored != null)
         _DingTalkMessageActionButton(
           icon: widget.message.ignoredForAiContext
@@ -16583,22 +16601,23 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
 
   Widget _buildCopyAction(
     BuildContext context,
-    List<DingTalkGatewayMedia> media,
-  ) {
+    List<DingTalkGatewayMedia> media, {
+    required bool hasText,
+  }) {
     return _DingTalkMessageActionButton(
       icon: Icons.copy_rounded,
-      label: media.isNotEmpty ? '复制媒体' : '复制',
+      label: hasText || media.isEmpty ? '复制' : '复制媒体',
       onPressed: _copyingMedia
           ? null
-          : () => media.isNotEmpty
-                ? unawaited(_copyMediaFiles(context, media))
-                : unawaited(
+          : () => hasText || media.isEmpty
+                ? unawaited(
                     copyOpenHandTextToClipboard(
                       context: context,
-                      text: stripImageSummaryMarkup(widget.message.content),
+                      text: _dingtalkTextContent(widget.message.content),
                       logTag: 'dingtalk_gateway',
                     ),
-                  ),
+                  )
+                : unawaited(_copyMediaFiles(context, media)),
       busy: _copyingMedia,
     );
   }
@@ -17971,9 +17990,11 @@ class _DingTalkForwardedChatDialogState
                 final item = forwarded[index];
                 final itemKey = _messageKey(item, index);
                 final resolvedMedia = _resolvedMedia(currentMessage, item);
-                final itemContent = stripImageSummaryMarkup(item.content);
-                final textActionEnabled =
-                    itemContent.trim().isNotEmpty && resolvedMedia.isEmpty;
+                final itemContent = _dingtalkTextContent(item.content);
+                final textActionEnabled = _hasDingTalkTextContent(
+                  itemContent,
+                  resolvedMedia,
+                );
                 final translation = _translations[itemKey];
                 final translationFingerprint = aiTranslationRequestFingerprint(
                   translationSettings,
@@ -18052,12 +18073,10 @@ class _DingTalkForwardedChatDialogState
     final senderName = item.senderName.trim().isEmpty
         ? '未知成员'
         : item.senderName.trim();
-    final content = stripImageSummaryMarkup(item.content).trim();
-    final mediaSummary = media
-        .map((value) => '[${value.displayName}]')
-        .join(' ');
+    final content = _dingtalkTextContent(item.content);
+    final hasText = _hasDingTalkTextContent(content, media);
     final displayContent = translatedContent ?? content;
-    final showText = displayContent.isNotEmpty && content != mediaSummary;
+    final showText = hasText && displayContent.isNotEmpty;
     final ignoredBackground = Color.alphaBlend(
       colors.tertiaryContainer.withValues(alpha: 0.44),
       colors.surfaceContainerHighest,
@@ -18177,6 +18196,47 @@ class _DingTalkForwardedChatDialogState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                if (media.isNotEmpty)
+                                  AnimatedOpacity(
+                                    duration: openHandMotionDuration(
+                                      context,
+                                      kOpenHandMotion220,
+                                    ),
+                                    curve: kOpenHandSwitchInCurve,
+                                    opacity: item.ignoredForAiContext
+                                        ? 0.68
+                                        : 1,
+                                    child: _DingTalkMediaRail(
+                                      media: media,
+                                      mine: false,
+                                      loading: widget.controller
+                                          .isMessageMediaCaching(message.id),
+                                      failed: widget.controller
+                                          .isMessageMediaHydrationFailed(
+                                            message.id,
+                                          ),
+                                      onRetry: () => unawaited(
+                                        widget.controller
+                                            .ensureMessageMediaCached(
+                                              conversationId:
+                                                  widget.conversationId,
+                                              messageId: message.id,
+                                              forceRetry: true,
+                                            ),
+                                      ),
+                                      onSaveFile: (media, path) =>
+                                          widget.controller.saveMessageMedia(
+                                            conversationId:
+                                                widget.conversationId,
+                                            messageId: message.id,
+                                            media: media,
+                                            destinationPath: path,
+                                          ),
+                                      onInteractiveTap:
+                                          _cancelPendingActionToggle,
+                                    ),
+                                  ),
+                                if (showText && media.isNotEmpty) kOpenHandGap8,
                                 if (showText)
                                   Container(
                                     constraints: const BoxConstraints(
@@ -18256,47 +18316,6 @@ class _DingTalkForwardedChatDialogState
                                       },
                                     ),
                                   ),
-                                if (showText && media.isNotEmpty) kOpenHandGap8,
-                                if (media.isNotEmpty)
-                                  AnimatedOpacity(
-                                    duration: openHandMotionDuration(
-                                      context,
-                                      kOpenHandMotion220,
-                                    ),
-                                    curve: kOpenHandSwitchInCurve,
-                                    opacity: item.ignoredForAiContext
-                                        ? 0.68
-                                        : 1,
-                                    child: _DingTalkMediaRail(
-                                      media: media,
-                                      mine: false,
-                                      loading: widget.controller
-                                          .isMessageMediaCaching(message.id),
-                                      failed: widget.controller
-                                          .isMessageMediaHydrationFailed(
-                                            message.id,
-                                          ),
-                                      onRetry: () => unawaited(
-                                        widget.controller
-                                            .ensureMessageMediaCached(
-                                              conversationId:
-                                                  widget.conversationId,
-                                              messageId: message.id,
-                                              forceRetry: true,
-                                            ),
-                                      ),
-                                      onSaveFile: (media, path) =>
-                                          widget.controller.saveMessageMedia(
-                                            conversationId:
-                                                widget.conversationId,
-                                            messageId: message.id,
-                                            media: media,
-                                            destinationPath: path,
-                                          ),
-                                      onInteractiveTap:
-                                          _cancelPendingActionToggle,
-                                    ),
-                                  ),
                                 if (item.ignoredForAiContext)
                                   _buildIgnoredExpandedState(context, itemKey),
                               ],
@@ -18311,17 +18330,15 @@ class _DingTalkForwardedChatDialogState
                   actions: [
                     _DingTalkMessageActionButton(
                       icon: Icons.copy_rounded,
-                      label: media.isEmpty ? '复制' : '复制媒体',
+                      label: hasText || media.isEmpty ? '复制' : '复制媒体',
                       busy: _copyingMediaMessageIds.contains(itemKey),
                       onPressed: _copyingMediaMessageIds.contains(itemKey)
                           ? null
-                          : () => media.isEmpty
+                          : () => hasText || media.isEmpty
                                 ? unawaited(
                                     copyOpenHandTextToClipboard(
                                       context: context,
-                                      text: stripImageSummaryMarkup(
-                                        item.content,
-                                      ),
+                                      text: content,
                                       logTag: 'dingtalk_gateway',
                                     ),
                                   )
@@ -18351,7 +18368,7 @@ class _DingTalkForwardedChatDialogState
                         onPressed: () => unawaited(
                           _toggleSpeech(
                             itemKey,
-                            stripImageSummaryMarkup(item.content),
+                            content,
                             ttsSettings,
                             fallbackModel,
                           ),
@@ -18374,7 +18391,7 @@ class _DingTalkForwardedChatDialogState
                             : () => unawaited(
                                 _toggleTranslation(
                                   itemKey,
-                                  stripImageSummaryMarkup(item.content),
+                                  content,
                                   translationSettings,
                                   fallbackModel,
                                 ),
