@@ -11959,23 +11959,80 @@ class _DingTalkActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = Icon(icon);
+    final disabled = onPressed == null;
+    final resolvedTooltip = disabled ? '$tooltip（当前不可用）' : tooltip;
+    final colors = Theme.of(context).colorScheme;
+    final disabledForeground = colors.onSurface.withValues(alpha: 0.42);
+    final child = disabled
+        ? Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Icon(icon),
+              Positioned(
+                right: -5,
+                bottom: -4,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerHighest,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: colors.outlineVariant),
+                  ),
+                  child: Icon(
+                    Icons.lock_rounded,
+                    size: 10,
+                    color: disabledForeground,
+                  ),
+                ),
+              ),
+            ],
+          )
+        : Icon(icon);
+    final style = _dingtalkDisabledActionStyle(
+      context,
+      base: filled ? OpenHandStatusColors.runningStopButtonStyle() : null,
+    );
     return Tooltip(
-      message: tooltip,
+      message: resolvedTooltip,
       child: filled
           ? IconButton.filledTonal(
-              tooltip: tooltip,
+              tooltip: resolvedTooltip,
               onPressed: onPressed,
               icon: child,
-              style: OpenHandStatusColors.runningStopButtonStyle(),
+              style: style,
             )
           : IconButton.filledTonal(
-              tooltip: tooltip,
+              tooltip: resolvedTooltip,
               onPressed: onPressed,
               icon: child,
+              style: style,
             ),
     );
   }
+}
+
+ButtonStyle _dingtalkDisabledActionStyle(
+  BuildContext context, {
+  ButtonStyle? base,
+}) {
+  final colors = Theme.of(context).colorScheme;
+  return (base ?? const ButtonStyle()).copyWith(
+    backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return colors.surfaceContainerHighest.withValues(alpha: 0.34);
+      }
+      return base?.backgroundColor?.resolve(states);
+    }),
+    foregroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
+      if (states.contains(WidgetState.disabled)) {
+        return colors.onSurface.withValues(alpha: 0.42);
+      }
+      return base?.foregroundColor?.resolve(states);
+    }),
+    side: WidgetStateProperty.resolveWith<BorderSide?>((states) {
+      if (!states.contains(WidgetState.disabled)) return null;
+      return BorderSide(color: colors.outlineVariant.withValues(alpha: 0.82));
+    }),
+  );
 }
 
 Future<void> _toggleDingTalkAuth(
@@ -12365,6 +12422,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                     IconButton.filledTonal(
                       tooltip: _autoFollow ? '关闭自动滚动到底部' : '开启自动滚动到底部',
                       onPressed: serviceEnabled ? _toggleAutoFollow : null,
+                      style: _dingtalkDisabledActionStyle(context),
                       icon: AnimatedSwitcher(
                         duration: openHandMotionDuration(
                           context,
@@ -12393,6 +12451,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                           : () => unawaited(
                               _refreshCurrentConversation(selected),
                             ),
+                      style: _dingtalkDisabledActionStyle(context),
                       icon: AnimatedSwitcher(
                         duration: openHandMotionDuration(
                           context,
@@ -12421,6 +12480,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                     IconButton.filledTonal(
                       tooltip: '新建会话',
                       onPressed: serviceEnabled ? _addConversation : null,
+                      style: _dingtalkDisabledActionStyle(context),
                       icon: const Icon(Icons.add_rounded),
                     ),
                     kOpenHandHGap8,
