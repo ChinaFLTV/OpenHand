@@ -137,7 +137,7 @@ class _OpenHandRuntimeLogDialogState extends State<_OpenHandRuntimeLogDialog> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _clearScheduled = false;
       if (!mounted || !_follow) return;
-      _scrollGuard.followToStart(
+      _scrollGuard.followToBottom(
         _scrollController,
         animated: animated,
         animationDuration: openHandMotionDuration(context, kOpenHandMotion220),
@@ -230,7 +230,6 @@ class _OpenHandRuntimeLogDialogState extends State<_OpenHandRuntimeLogDialog> {
                   lineAt: (index) => logs[index],
                   controller: _scrollController,
                   onNotification: _scrollGuard.handleNotification,
-                  reverse: true,
                   padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
                   borderRadius: BorderRadius.zero,
                   lineSpacing: 2,
