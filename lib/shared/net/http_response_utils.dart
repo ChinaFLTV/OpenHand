@@ -36,9 +36,11 @@ bool matchesExpectedContentType(
   bool allowOctetStream = true,
 }) {
   if (contentType == null) return true;
-  if (contentType.primaryType == expectedPrimaryType) return true;
+  // MIME 类型名称不区分大小写，避免服务端返回大写主类型时被误拒绝。
+  final expected = expectedPrimaryType.trim().toLowerCase();
+  if (contentType.primaryType.toLowerCase() == expected) return true;
   return allowOctetStream &&
-      contentType.mimeType == kApplicationOctetStreamMimeType;
+      contentType.mimeType.toLowerCase() == kApplicationOctetStreamMimeType;
 }
 
 /// 获取 HTTP(S) 资源，并统一执行状态码、类型、空闲时限、总时限和容量校验。

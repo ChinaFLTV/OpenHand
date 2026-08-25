@@ -28,6 +28,7 @@ void showFriendlyErrorSnackBar(
   required String fallback,
   List<AiErrorSource>? sources,
 }) {
+  if (!context.mounted) return;
   final l10n = AppLocalizations.of(context)!;
   final raw = (message ?? '').trim();
   final effective = raw.isEmpty ? fallback : raw;
@@ -38,14 +39,16 @@ void showFriendlyErrorSnackBar(
       .where((line) => line.isNotEmpty)
       .toList(growable: false);
   final headline = lines.isEmpty ? fallback : lines.first;
-  final hasDetails = lines.length > 1 ||
-      (sources != null && sources.isNotEmpty);
+  final hasDetails =
+      lines.length > 1 || (sources != null && sources.isNotEmpty);
   // SnackBarAction 的 onPressed 触发时，调用方 context 往往已离开树
   // （例如发出 SnackBar 的临时 widget 已 dispose），此时再用它去
   // showAnimatedDialog 会触发「Looking up a deactivated widget's
   // ancestor is unsafe」断言。这里提前抓住根 Navigator 的 context，
   // 它由 MaterialApp 持有，生命周期与 App 一致，可在异步回调里安全使用。
-  final rootContext = Navigator.of(context, rootNavigator: true).context;
+  final rootNavigator = Navigator.maybeOf(context, rootNavigator: true);
+  if (rootNavigator == null || !rootNavigator.mounted) return;
+  final rootContext = rootNavigator.context;
   replaceOpenHandSnack(
     context,
     headline,

@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../util/argument_guards.dart';
 import '../util/input_value_parsing.dart';
 import 'abortable_http_request.dart';
 
@@ -55,6 +56,7 @@ Future<http.StreamedResponse> sendHttpRequestFollowingRedirects({
   Set<String> additionalSensitiveHeaderNames = const <String>{},
   Future<void>? cancelSignal,
 }) async {
+  requireNonNegativeInt(maxRedirects, 'maxRedirects');
   var currentMethod = method;
   var currentUri = uri;
   var currentBody = body;
@@ -112,7 +114,7 @@ Future<http.StreamedResponse> sendHttpRequestFollowingRedirects({
 bool _redirectUsesGet(int statusCode, String method) {
   final normalizedMethod = method.toUpperCase();
   return (statusCode == HttpStatus.movedPermanently ||
-          statusCode == HttpStatus.found) &&
+              statusCode == HttpStatus.found) &&
           normalizedMethod == 'POST' ||
       statusCode == HttpStatus.seeOther &&
           normalizedMethod != 'GET' &&
