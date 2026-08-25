@@ -2539,15 +2539,22 @@ class AiModelConfig {
   }
 
   String get maskedToken {
+    const visibleSuffixLength = 4;
+    const maxMaskLength = 12;
     final trimmedToken = nullIfBlank(token);
     if (trimmedToken == null) {
       return '';
     }
-    if (trimmedToken.length <= 8) {
+    if (trimmedToken.length <= visibleSuffixLength * 2) {
       return '*' * trimmedToken.length;
     }
-    final visibleSuffix = trimmedToken.substring(trimmedToken.length - 4);
-    return '${'*' * (trimmedToken.length - 4)}$visibleSuffix';
+    final visibleSuffix = trimmedToken.substring(
+      trimmedToken.length - visibleSuffixLength,
+    );
+    final maskLength = (trimmedToken.length - visibleSuffixLength)
+        .clamp(0, maxMaskLength)
+        .toInt();
+    return '${'*' * maskLength}$visibleSuffix';
   }
 
   /// 返回合并当前模型与可用模型后的去重有序列表。
