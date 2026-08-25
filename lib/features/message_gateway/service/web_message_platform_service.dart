@@ -24,6 +24,7 @@ import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/net/bounded_http_request.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
+import '../../../shared/net/network_interface_discovery.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_base64.dart';
 import '../../../shared/util/bounded_delete.dart';
@@ -357,9 +358,7 @@ class WebMessagePlatformService {
         directoryIdleTimeout: Duration(seconds: 5),
         totalTimeout: _uploadCacheScanTotalTimeout,
       );
-  static const Duration _networkInterfaceListTimeout = Duration(seconds: 3);
   static const Duration _localAddressesCacheTtl = Duration(seconds: 30);
-  static const int _maxLocalAddresses = 64;
   static const Duration _requestBodyIdleTimeout = Duration(seconds: 30);
   static const Duration _requestBodyTotalTimeout = Duration(minutes: 2);
   static const Duration _sessionAssetReadIdleTimeout = Duration(seconds: 30);
@@ -1864,22 +1863,9 @@ class WebMessagePlatformService {
 
   Future<bool> _refreshLocalAddresses() async {
     try {
-      final interfaces = await NetworkInterface.list(
-        type: InternetAddressType.IPv4,
-      ).timeout(_networkInterfaceListTimeout);
-      final addrs = <String>{};
-      for (final iface in interfaces) {
-        for (final addr in iface.addresses) {
-          final value = addr.address.trim();
-          if (value.isEmpty || addr.isLoopback || value == '0.0.0.0') continue;
-          addrs.add(value);
-          if (addrs.length >= _maxLocalAddresses) break;
-        }
-        if (addrs.length >= _maxLocalAddresses) break;
-      }
-      final next = addrs.toList(growable: false)..sort();
+      final next = await discoverAdvertisableIpv4Hosts();
       final changed = !listEquals(_localAddressesCache, next);
-      if (changed) _localAddressesCache = List<String>.unmodifiable(next);
+      if (changed) _localAddressesCache = next;
       _localAddressesRefreshedAtMs = _monotonicStopwatch.elapsedMilliseconds;
       return changed;
     } catch (error, stack) {

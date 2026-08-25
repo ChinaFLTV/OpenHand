@@ -4,6 +4,7 @@ import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../model/ai_model_proxy_models.dart';
 
 class AiModelProxyStore {
@@ -220,8 +221,7 @@ class AiModelProxyStore {
   }
 
   static int _readInt(Object? value) {
-    final parsed = value is num ? value.toInt() : int.tryParse('$value');
-    return (parsed ?? 0).clamp(0, 1 << 62).toInt();
+    return clampedIntFromValue(value, fallback: 0, min: 0, max: 1 << 62);
   }
 
   static Map<String, Object?> _decodeObjectMap(Object? value) {

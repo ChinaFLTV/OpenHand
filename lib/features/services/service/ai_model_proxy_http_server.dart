@@ -8,6 +8,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/net/bounded_server_bind.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/stable_hash.dart';
 import '../../ai/index.dart';
 import '../ai_model_proxy_controller.dart';
@@ -1850,12 +1851,12 @@ class AiModelProxyHttpServer {
 
   static Map<String, Object?> _toClaudeModel(Map<String, Object?> model) {
     final created = model['created'];
-    final createdAt = created is num
-        ? DateTime.fromMillisecondsSinceEpoch(
-            created.toInt() * 1000,
-            isUtc: true,
-          ).toIso8601String()
-        : DateTime.now().toUtc().toIso8601String();
+    final createdAt =
+        dateTimeFromValue(
+          created,
+          numericTimestampMode: DateTimeNumericTimestampMode.seconds,
+        )?.toIso8601String() ??
+        DateTime.now().toUtc().toIso8601String();
     return <String, Object?>{
       'type': 'model',
       'id': _readString(model['id']),
@@ -1887,7 +1888,7 @@ class AiModelProxyHttpServer {
         ? '/v1beta/models/'
         : '/v1/models/';
     final value = path.substring(prefix.length);
-    return Uri.decodeComponent(value).trim();
+    return decodeUriComponentOrOriginal(value).trim();
   }
 
   Future<Uint8List?> _loadLogoPng() async {
@@ -2314,7 +2315,7 @@ class AiModelProxyHttpServer {
     final value = path.substring(prefix.length);
     final separator = value.indexOf(':');
     final encoded = separator < 0 ? value : value.substring(0, separator);
-    return Uri.decodeComponent(encoded).trim();
+    return decodeUriComponentOrOriginal(encoded).trim();
   }
 
   String _defaultGeminiModel(_ProxyRoute route) {

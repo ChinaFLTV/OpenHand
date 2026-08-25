@@ -24,6 +24,7 @@ import '../util/async_concurrency.dart';
 import '../util/bounded_directory_io.dart';
 import '../util/bounded_file_io.dart';
 import '../util/byte_size_format.dart';
+import '../util/input_value_parsing.dart';
 import '../util/localized_text.dart';
 import '../util/user_failure_message.dart';
 import 'animated_dialog.dart';
@@ -546,11 +547,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
     if (name.isEmpty && url != null) {
       final uri = Uri.tryParse(url);
       if (uri != null && uri.path.isNotEmpty) {
-        try {
-          name = fileNameFrom(Uri.decodeComponent(uri.path));
-        } catch (_) {
-          name = fileNameFrom(uri.path);
-        }
+        name = fileNameFrom(decodeUriComponentOrOriginal(uri.path));
       }
     }
     if (name.isEmpty) name = fileNameFrom(widget.title);

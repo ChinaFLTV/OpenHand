@@ -290,6 +290,26 @@ String? optionalLowercaseStringFromValue(Object? value) {
   return optionalStringFromValue(value)?.toLowerCase();
 }
 
+String _decodeUriOrOriginal(String value, String Function(String) decode) {
+  try {
+    return decode(value);
+  } on ArgumentError {
+    return value;
+  } on FormatException {
+    return value;
+  }
+}
+
+/// 解码 URI 组件；百分号编码截断或 UTF-8 无效时保留原值。
+String decodeUriComponentOrOriginal(String value) {
+  return _decodeUriOrOriginal(value, Uri.decodeComponent);
+}
+
+/// 解码完整 URI 文本；百分号编码截断或 UTF-8 无效时保留原值。
+String decodeUriFullOrOriginal(String value) {
+  return _decodeUriOrOriginal(value, Uri.decodeFull);
+}
+
 Map<String, Object?> stringKeyedMapFromValue(Object? value) {
   if (value is Map<String, Object?>) return value;
   if (value is! Map) return const <String, Object?>{};
@@ -527,6 +547,7 @@ DateTime? dateTimeFromValue(
   DateTimeNumericTimestampMode numericTimestampMode =
       DateTimeNumericTimestampMode.milliseconds,
   bool requirePositiveTimestamp = false,
+  bool parseNumericText = false,
 }) {
   if (value is DateTime) return value;
   if (value is num) {
@@ -538,7 +559,18 @@ DateTime? dateTimeFromValue(
   }
   if (value is String) {
     final trimmed = nullIfBlank(value);
-    if (trimmed != null) return DateTime.tryParse(trimmed);
+    if (trimmed == null) return null;
+    if (parseNumericText) {
+      final numeric = num.tryParse(trimmed);
+      if (numeric != null) {
+        return _dateTimeFromNumericTimestamp(
+          numeric,
+          mode: numericTimestampMode,
+          requirePositive: requirePositiveTimestamp,
+        );
+      }
+    }
+    return DateTime.tryParse(trimmed);
   }
   return null;
 }
@@ -548,11 +580,13 @@ DateTime? utcDateTimeFromValue(
   DateTimeNumericTimestampMode numericTimestampMode =
       DateTimeNumericTimestampMode.milliseconds,
   bool requirePositiveTimestamp = false,
+  bool parseNumericText = false,
 }) {
   return dateTimeFromValue(
     value,
     numericTimestampMode: numericTimestampMode,
     requirePositiveTimestamp: requirePositiveTimestamp,
+    parseNumericText: parseNumericText,
   )?.toUtc();
 }
 

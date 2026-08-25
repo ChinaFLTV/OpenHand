@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import '../../../app/support/url_validation.dart';
+import '../../../shared/net/network_interface_discovery.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_ops.dart';
 
@@ -11,8 +12,6 @@ import '../model/mcp_server_ops.dart';
 /// 无 Flutter 依赖：可被 controller / widget / runtime 共同引用。
 const String mcpOpsWildcardIpv4Host = '0.0.0.0';
 const String mcpOpsWildcardIpv6Host = '::';
-const Duration mcpOpsInterfaceDiscoveryTimeout = Duration(seconds: 3);
-const int mcpOpsMaxDiscoveredHosts = 64;
 
 /// MCP 协议版本 HTTP 头名。
 const String kMcpProtocolVersionHeader = 'mcp-protocol-version';
@@ -100,27 +99,7 @@ Future<List<String>> mcpOpsDiscoverAdvertisedHosts(String listenHost) async {
     return const <String>[];
   }
   try {
-    final interfaces = await NetworkInterface.list(
-      type: InternetAddressType.IPv4,
-    ).timeout(mcpOpsInterfaceDiscoveryTimeout);
-    final hosts = <String>{};
-    for (final interface in interfaces) {
-      for (final address in interface.addresses) {
-        if (_isAdvertisableAddress(address)) {
-          hosts.add(address.address);
-        }
-        if (hosts.length >= mcpOpsMaxDiscoveredHosts) break;
-      }
-      if (hosts.length >= mcpOpsMaxDiscoveredHosts) break;
-    }
-    final sorted = hosts.toList(growable: false)
-      ..sort((left, right) {
-        final byPriority = _advertisedHostPriority(
-          left,
-        ).compareTo(_advertisedHostPriority(right));
-        return byPriority == 0 ? left.compareTo(right) : byPriority;
-      });
-    return List<String>.unmodifiable(sorted);
+    return await discoverAdvertisableIpv4Hosts();
   } catch (_) {
     return const <String>[];
   }
@@ -279,31 +258,6 @@ bool _hostReachesLocalOps({required String urlHost, required String opsHost}) {
 
 bool _isUnspecifiedAddress(InternetAddress address) {
   return address.rawAddress.every((byte) => byte == 0);
-}
-
-bool _isAdvertisableAddress(InternetAddress address) {
-  if (address.isLoopback || _isUnspecifiedAddress(address)) return false;
-  if (address.type != InternetAddressType.IPv4) return false;
-  final parts = address.address
-      .split('.')
-      .map((item) => int.tryParse(item) ?? -1)
-      .toList(growable: false);
-  if (parts.length != 4 || parts.any((part) => part < 0 || part > 255)) {
-    return false;
-  }
-  return !(parts[0] == 169 && parts[1] == 254);
-}
-
-int _advertisedHostPriority(String host) {
-  final parts = host
-      .split('.')
-      .map((item) => int.tryParse(item) ?? -1)
-      .toList(growable: false);
-  if (parts.length != 4) return 100;
-  if (parts[0] == 192 && parts[1] == 168) return 0;
-  if (parts[0] == 10) return 1;
-  if (parts[0] == 172 && parts[1] >= 16 && parts[1] <= 31) return 2;
-  return 10;
 }
 
 String _stripIpv6Brackets(String host) {

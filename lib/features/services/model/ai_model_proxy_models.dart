@@ -407,8 +407,7 @@ List<AiModelProxyRequestRecord> _trimRecentProxyRecords(
 }
 
 int _proxyBoundedInt(Object? value, int fallback, int min, int max) {
-  final parsed = value is num ? value.toInt() : int.tryParse('$value');
-  return (parsed ?? fallback).clamp(min, max).toInt();
+  return clampedIntFromValue(value, fallback: fallback, min: min, max: max);
 }
 
 String _proxyModelKey(String value) => value.trim().toLowerCase();
@@ -976,7 +975,7 @@ class AiModelProxySettings {
     return AiModelProxySettings(
       enabled: boolFromValue(json['enabled']),
       listenHost: normalizeAiModelProxyListenHost(json['listen_host']),
-      listenPort: _boundedInt(
+      listenPort: _proxyBoundedInt(
         json['listen_port'],
         aiModelProxyDefaultListenPort,
         aiModelProxyMinListenPort,
@@ -987,16 +986,21 @@ class AiModelProxySettings {
       apiStyle: AiModelProxyApiStyle.fromId(json['api_style']),
       limitScope: AiModelProxyLimitScope.fromId(json['limit_scope']),
       limitMode: AiModelProxyLimitMode.fromId(json['limit_mode']),
-      limitThreshold: _boundedInt(json['limit_threshold'], 30, 1, 1000000),
+      limitThreshold: _proxyBoundedInt(json['limit_threshold'], 30, 1, 1000000),
       retryPolicy: AiModelProxyRetryPolicy.fromId(json['retry_policy']),
-      retryCount: _boundedInt(json['retry_count'], 2, 1, 10),
+      retryCount: _proxyBoundedInt(json['retry_count'], 2, 1, 10),
       scheduling: AiModelProxySchedulingStrategy.fromId(json['scheduling']),
       routes: routes,
-      requestCount: _boundedInt(json['request_count'], 0, 0, 1 << 31),
-      successCount: _boundedInt(json['success_count'], 0, 0, 1 << 31),
-      failureCount: _boundedInt(json['failure_count'], 0, 0, 1 << 31),
-      totalTokens: _boundedInt(json['total_tokens'], 0, 0, 1 << 52),
-      totalDurationMs: _boundedInt(json['total_duration_ms'], 0, 0, 1 << 52),
+      requestCount: _proxyBoundedInt(json['request_count'], 0, 0, 1 << 31),
+      successCount: _proxyBoundedInt(json['success_count'], 0, 0, 1 << 31),
+      failureCount: _proxyBoundedInt(json['failure_count'], 0, 0, 1 << 31),
+      totalTokens: _proxyBoundedInt(json['total_tokens'], 0, 0, 1 << 52),
+      totalDurationMs: _proxyBoundedInt(
+        json['total_duration_ms'],
+        0,
+        0,
+        1 << 52,
+      ),
       lastRequestAt: DateTime.tryParse(
         '${json['last_request_at'] ?? ''}',
       )?.toLocal(),
@@ -1194,9 +1198,4 @@ class AiModelProxySettings {
           .map((item) => item.toJson())
           .toList(growable: false),
   };
-
-  static int _boundedInt(Object? value, int fallback, int min, int max) {
-    final parsed = value is num ? value.toInt() : int.tryParse('$value');
-    return (parsed ?? fallback).clamp(min, max).toInt();
-  }
 }

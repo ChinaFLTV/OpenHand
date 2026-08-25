@@ -3665,21 +3665,14 @@ class DingTalkMessageGatewayService {
   );
 
   DateTime _parseDateTime(Object? value, {DateTime? fallback}) {
-    if (value is num) {
-      final milliseconds = value.abs() < 100000000000
-          ? value.toInt() * 1000
-          : value.toInt();
-      return DateTime.fromMillisecondsSinceEpoch(milliseconds).toLocal();
-    }
-    final text = '$value'.trim();
-    final numeric = num.tryParse(text);
-    if (numeric != null) {
-      final milliseconds = numeric.abs() < 100000000000
-          ? numeric.toInt() * 1000
-          : numeric.toInt();
-      return DateTime.fromMillisecondsSinceEpoch(milliseconds).toLocal();
-    }
-    return DateTime.tryParse(text)?.toLocal() ?? fallback ?? DateTime.now();
+    return dateTimeFromValue(
+          value,
+          numericTimestampMode:
+              DateTimeNumericTimestampMode.secondsOrMilliseconds,
+          parseNumericText: true,
+        )?.toLocal() ??
+        fallback ??
+        DateTime.now();
   }
 
   List<DingTalkConversationTarget> _parseTargets(

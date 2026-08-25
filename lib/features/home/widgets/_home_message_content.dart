@@ -1492,9 +1492,7 @@ int _markdownAstCacheKeyForInputs({
     parseKey,
     openHandMarkdownMathSyntaxVersion,
     inlineSyntaxes.length,
-    Object.hashAll(
-      inlineSyntaxes.map((syn) => syn.runtimeType),
-    ),
+    Object.hashAll(inlineSyntaxes.map((syn) => syn.runtimeType)),
   );
 }
 
@@ -2487,11 +2485,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       }
     }
     if (uri.scheme.isEmpty && uri.path.startsWith('/')) {
-      try {
-        return Uri.decodeFull(uri.path);
-      } catch (_) {
-        return uri.path;
-      }
+      return decodeUriFullOrOriginal(uri.path);
     }
     if (uri.scheme.isEmpty) {
       final href = _decodeMarkdownImageHref(uri);
@@ -2505,12 +2499,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   }
 
   String _decodeMarkdownImageHref(Uri uri) {
-    final raw = uri.toString();
-    try {
-      return Uri.decodeFull(raw);
-    } catch (_) {
-      return raw;
-    }
+    return decodeUriFullOrOriginal(uri.toString());
   }
 
   Widget _buildMarkdownImageFrame(BuildContext context, Widget image) {

@@ -3459,13 +3459,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
 
     final sourceUri = widget.imageUri;
     if (sourceUri != null) {
-      final decodedPath = () {
-        try {
-          return Uri.decodeFull(sourceUri.path);
-        } catch (_) {
-          return sourceUri.path;
-        }
-      }();
+      final decodedPath = decodeUriFullOrOriginal(sourceUri.path);
       final basename = p.basename(decodedPath).trim();
       if (basename.isNotEmpty && basename != '/' && basename != '.') {
         return basename;
@@ -5669,13 +5663,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
 }
 
 String? _basenameFromMediaUri(Uri uri) {
-  final decodedPath = () {
-    try {
-      return Uri.decodeFull(uri.path);
-    } catch (_) {
-      return uri.path;
-    }
-  }();
+  final decodedPath = decodeUriFullOrOriginal(uri.path);
   final basename = p.basename(decodedPath).trim();
   if (basename.isNotEmpty && basename != '/' && basename != '.') {
     return basename;
@@ -5772,13 +5760,7 @@ _GeneratedMediaSource? _resolveGeneratedMediaSource(
   List<String> pathRoots, {
   _GeneratedMessageMediaKind? kindHint,
 }) {
-  final decodedHref = () {
-    try {
-      return Uri.decodeFull(href);
-    } catch (_) {
-      return href;
-    }
-  }();
+  final decodedHref = decodeUriFullOrOriginal(href);
   final parsed = Uri.tryParse(href);
   if (parsed != null && (parsed.scheme == 'http' || parsed.scheme == 'https')) {
     final kind =

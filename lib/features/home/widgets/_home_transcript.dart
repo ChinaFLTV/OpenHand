@@ -44,8 +44,10 @@ class _KnowledgeBaseMetadataCacheEntry {
   final Map<String, Object?>? value;
 }
 
-final Expando<_KnowledgeBaseMetadataCacheEntry> _knowledgeBaseDirectMetadataCache =
-    Expando<_KnowledgeBaseMetadataCacheEntry>('knowledgeBaseDirectMetadata');
+final Expando<_KnowledgeBaseMetadataCacheEntry>
+_knowledgeBaseDirectMetadataCache = Expando<_KnowledgeBaseMetadataCacheEntry>(
+  'knowledgeBaseDirectMetadata',
+);
 
 /// keepAlive 开关由参数驱动而非「换一个 widget 类型」。按类型切换会让
 /// Element 类型不匹配，选中/取消选中一条 HTML 消息就整棵子树卸载重建——
@@ -848,9 +850,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }) {
     _scheduleWarmRichRenderEntries(visibleMessages);
     if (!animate) {
-      _animatedMessageIds.addAll(
-        visibleMessages.map((message) => message.id),
-      );
+      _animatedMessageIds.addAll(visibleMessages.map((message) => message.id));
     }
     _renderEntries = <_TranscriptRenderEntry>[
       for (final message in visibleMessages)
@@ -1993,11 +1993,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         (text.startsWith("'") && text.endsWith("'"))) {
       text = text.substring(1, text.length - 1).trim();
     }
-    try {
-      return Uri.decodeFull(text);
-    } catch (_) {
-      return text;
-    }
+    return decodeUriFullOrOriginal(text);
   }
 
   String _stringValue(Object? value) {
@@ -2072,8 +2068,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return false;
     }
     // 仅当消息自身存储了格式标记时缓存才安全，否则结果依赖全局设置。
-    final hasStoredFormat = message.metadata[aiSessionMessageContentFormatKey]
-        is String;
+    final hasStoredFormat =
+        message.metadata[aiSessionMessageContentFormatKey] is String;
     if (hasStoredFormat) {
       final cached = _transcriptHtmlRendererCache[message];
       if (cached != null) return cached;
@@ -2869,12 +2865,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         onCopy: () => widget.messageActions.onCopy(message),
         onFork: () => widget.messageActions.onFork(message),
         onUserExpansionChanged: _handleMessageExpansionChanged,
-        associatedKnowledgeBaseMetadata:
-            _cachedKnowledgeBaseMetadataForMessage(
-              visibleMessages: visibleMessages,
-              currentIndex: visibleMessageIndex,
-              message: message,
-            ),
+        associatedKnowledgeBaseMetadata: _cachedKnowledgeBaseMetadataForMessage(
+          visibleMessages: visibleMessages,
+          currentIndex: visibleMessageIndex,
+          message: message,
+        ),
         onSetFeedback: (feedback) =>
             _setMessageFeedbackAnchored(message, feedback),
         onRegenerateResponse: () => widget.messageActions.onRegenerate(message),
@@ -2941,16 +2936,16 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     const entrySizeDuration = Duration.zero;
     return RepaintBoundary(
       child: maybeAnimatedSize(
-      key: ValueKey<String>('$_kTranscriptEntryKeyPrefix${message.id}'),
-      duration: entrySizeDuration,
-      curve: kCardMotionCurve,
-      alignment: isSelected ? Alignment.topLeft : Alignment.bottomLeft,
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: messageIndex == _renderEntries.length - 1 ? 0 : 14,
+        key: ValueKey<String>('$_kTranscriptEntryKeyPrefix${message.id}'),
+        duration: entrySizeDuration,
+        curve: kCardMotionCurve,
+        alignment: isSelected ? Alignment.topLeft : Alignment.bottomLeft,
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: messageIndex == _renderEntries.length - 1 ? 0 : 14,
+          ),
+          child: content,
         ),
-        child: content,
-      ),
       ),
     );
   }
@@ -3436,8 +3431,7 @@ class _TranscriptHydratingPlaceholder extends StatelessWidget {
     }
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0.0, end: 1.0),
-      duration: openHandMotionDuration(context, kOpenHandMotion220,
-      ),
+      duration: openHandMotionDuration(context, kOpenHandMotion220),
       curve: kOpenHandSwitchInCurve,
       builder: (context, value, child) {
         return Opacity(
@@ -3665,8 +3659,9 @@ Map<String, Object?>? _cachedKnowledgeBaseMetadataForMessage({
     message: message,
   );
   // 仅缓存非 null 结果，避免 null 与未缓存歧义。
-  _knowledgeBaseDirectMetadataCache[message] =
-      _KnowledgeBaseMetadataCacheEntry(result);
+  _knowledgeBaseDirectMetadataCache[message] = _KnowledgeBaseMetadataCacheEntry(
+    result,
+  );
   return result;
 }
 

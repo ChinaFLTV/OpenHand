@@ -2154,11 +2154,11 @@ String aiExposureProxyAuthority(Uri proxy) {
   if (userInfo.isEmpty) return (username: '', password: '');
   final separator = userInfo.indexOf(':');
   if (separator < 0) {
-    return (username: _decodeProxyUriComponent(userInfo), password: '');
+    return (username: decodeUriComponentOrOriginal(userInfo), password: '');
   }
   return (
-    username: _decodeProxyUriComponent(userInfo.substring(0, separator)),
-    password: _decodeProxyUriComponent(userInfo.substring(separator + 1)),
+    username: decodeUriComponentOrOriginal(userInfo.substring(0, separator)),
+    password: decodeUriComponentOrOriginal(userInfo.substring(separator + 1)),
   );
 }
 
@@ -2170,16 +2170,8 @@ String maskAiExposureProxyUrl(String value, {String fallback = '--'}) {
   final host = uri.host.contains(':') ? '[${uri.host}]' : uri.host;
   final port = uri.hasPort ? ':${uri.port}' : '';
   if (uri.userInfo.isEmpty) return '${uri.scheme}://$host$port';
-  final username = _decodeProxyUriComponent(uri.userInfo.split(':').first);
+  final username = decodeUriComponentOrOriginal(uri.userInfo.split(':').first);
   return '${uri.scheme}://$username:******@$host$port';
-}
-
-String _decodeProxyUriComponent(String value) {
-  try {
-    return Uri.decodeComponent(value);
-  } on FormatException {
-    return value;
-  }
 }
 
 Map<String, Object?> _jsonMap(Object? value) => value is Map
