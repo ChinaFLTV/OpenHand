@@ -547,7 +547,13 @@ void _validateByteStreamLimits({
   Duration? idleTimeout,
   Duration? totalTimeout,
 }) {
-  if (maxBytes != null) requirePositiveInt(maxBytes, 'maxBytes');
+  if (maxBytes != null) {
+    requirePositiveIntAtMost(
+      maxBytes,
+      kOpenHandMaxNetworkPayloadBytes,
+      'maxBytes',
+    );
+  }
   if (idleTimeout != null) {
     requirePositiveDurationAtMost(
       idleTimeout,
