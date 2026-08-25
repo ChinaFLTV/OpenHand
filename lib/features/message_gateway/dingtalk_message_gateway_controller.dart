@@ -168,9 +168,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const int _initialConversationHistoryMessageLimit = 20;
   static const Duration _conversationStartSkew = Duration(seconds: 2);
   static const Duration _queryWindow = Duration(minutes: 10);
-  static const Duration _realtimeReconcilePollInterval = Duration(seconds: 10);
-  // 编辑消息没有独立个人 IM 事件，保持有界低频对账，通常在一个轮询周期内可见。
-  static const Duration _conversationReconcileInterval = Duration(seconds: 15);
+  // 个人 IM 事件只覆盖收到的消息；当前账号自己发送的消息由短周期查询补齐。
+  static const Duration _realtimeReconcilePollInterval = Duration(seconds: 3);
+  // 编辑和本人发送消息没有独立的个人 IM 事件，保持有界快速对账。
+  static const Duration _conversationReconcileInterval = Duration(seconds: 5);
   // 查询本身已有 40 秒服务端总时限；额外留出进程回收与结果解析时间。
   static const Duration _pollQueryTimeout = Duration(seconds: 45);
   static const Duration _pollAuthStatusTimeout = Duration(seconds: 10);
@@ -2371,10 +2372,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         }
       }
       if (pollingGeneration != _pollingGeneration || !_isPolling) return;
-      if (!now.isBefore(_nextConversationReconcileAt)) {
-        _nextConversationReconcileAt = now.add(_conversationReconcileInterval);
-        _scheduleRecentConversationReconcile();
-      }
+      _scheduleRecentConversationReconcileIfDue(now);
       if (queryError == null) {
         _clearError();
       } else if (queryError is! TimeoutException &&
@@ -2435,6 +2433,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         }
       }),
     );
+  }
+
+  void _scheduleRecentConversationReconcileIfDue([DateTime? now]) {
+    final current = now ?? DateTime.now();
+    if (current.isBefore(_nextConversationReconcileAt)) return;
+    _nextConversationReconcileAt = current.add(_conversationReconcileInterval);
+    _scheduleRecentConversationReconcile();
   }
 
   Future<void> _reconcileRecentConversations() async {
@@ -2819,12 +2824,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }
       return;
     }
+    // 轮询返回的本人消息可能来自未打开的会话；只有已配置目标的会话才允许建档，
+    // 避免全量搜索把无关历史会话写入左侧列表。
     final localConversation = _conversationForIncomingMessage(incoming);
     final allowedTarget = _targetForIncomingMessage(
       incoming,
       localConversation,
     );
     if (allowedTarget == null) return;
+    final isSelf = _isSelf(incoming);
     final shouldRespond = _shouldAutomaticallyRespondToMessage(
       incoming,
       allowResponse: allowResponse,
@@ -2850,7 +2858,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       return;
     }
     _remember(messageId);
-    if (_isSelf(incoming) && !allowHistorical) return;
     final conversationId =
         localConversation?.id ??
         (incoming.conversationType == DingTalkConversationType.group
@@ -2893,7 +2900,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       _pendingInitialContextHydration.add(conversation.id);
     }
     _applyPendingStatusEvents(conversation, messageId);
-    if (allowResponse) {
+    if (allowResponse && !isSelf) {
       _unreadCount += 1;
       if (_settings.reminderMode == DingTalkReminderMode.sound) {
         unawaited(SystemSound.play(SystemSoundType.alert));
@@ -3822,7 +3829,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final effectiveInterval = interval ?? _settings.pollInterval;
     _pollTimer = startNonOverlappingPeriodicTimer(
       effectiveInterval,
-      (_) => _pollOnce(),
+      (_) {
+        // 全局消息查询可能较慢，打开会话的短周期对账独立触发，确保本人发送的消息
+        // 不必等待下一次全量查询完成；任务自身仍由单飞和并发上限保护。
+        _scheduleRecentConversationReconcileIfDue();
+        return _pollOnce();
+      },
       cancelOnCallbackTimeout: false,
       onError: (error, stack) {
         if (error is TimeoutException) _cancelActivePoll();
