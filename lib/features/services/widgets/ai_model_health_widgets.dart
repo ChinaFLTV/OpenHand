@@ -151,10 +151,10 @@ class _AiModelHealthSettingsPanelState
                       : controller.checkAll,
                   style: FilledButton.styleFrom(
                     backgroundColor: controller.manualChecking
-                        ? OpenHandStatusColors.error.withValues(alpha: 0.14)
+                        ? theme.colorScheme.error
                         : null,
                     foregroundColor: controller.manualChecking
-                        ? OpenHandStatusColors.error
+                        ? theme.colorScheme.onError
                         : null,
                   ),
                   icon: AnimatedSwitcher(

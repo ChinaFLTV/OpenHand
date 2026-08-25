@@ -5739,9 +5739,8 @@ class _AiModelTileState extends State<_AiModelTile> {
                               : widget.onHealthCheck,
                           style: manualHealthChecking
                               ? IconButton.styleFrom(
-                                  backgroundColor: OpenHandStatusColors.error
-                                      .withValues(alpha: 0.14),
-                                  foregroundColor: OpenHandStatusColors.error,
+                                  backgroundColor: colorScheme.error,
+                                  foregroundColor: colorScheme.onError,
                                 )
                               : null,
                           tooltip: openHandLocalizedText(
