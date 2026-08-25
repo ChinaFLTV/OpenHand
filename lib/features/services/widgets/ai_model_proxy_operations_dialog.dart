@@ -1816,13 +1816,6 @@ BoxDecoration _proxyOpsCardDecoration(ColorScheme cs) => BoxDecoration(
   color: cs.surfaceContainerLow.withValues(alpha: 0.84),
   borderRadius: BorderRadius.circular(_kProxyOpsPanelRadius),
   border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.62)),
-  boxShadow: <BoxShadow>[
-    BoxShadow(
-      color: cs.shadow.withValues(alpha: 0.05),
-      blurRadius: 18,
-      offset: const Offset(0, 10),
-    ),
-  ],
 );
 
 class _ProxyOpsPanel extends StatelessWidget {
