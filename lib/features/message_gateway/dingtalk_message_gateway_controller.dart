@@ -3740,12 +3740,20 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     int? pollingGeneration,
   ]) {
     final startedAt = _pollStartedAt;
+    final now = DateTime.now();
+    final messageAt = message.createdAt;
+    // 实时事件的业务时间偶尔会落后本机时钟数秒；仅拒绝明显早于启动前的历史消息，
+    // 避免合法的刚到达消息因时钟偏差被静默丢弃。
+    final isAfterPollingStart =
+        startedAt != null &&
+        !messageAt.isBefore(startedAt.subtract(const Duration(seconds: 30))) &&
+        !messageAt.isAfter(now.add(const Duration(minutes: 2)));
     return _isPolling &&
         startedAt != null &&
         !_isSelf(message) &&
         (pollingGeneration == null ||
             pollingGeneration == _pollingGeneration) &&
-        !message.createdAt.isBefore(startedAt);
+        isAfterPollingStart;
   }
 
   DingTalkConversationTarget _targetFromIncomingMessage(

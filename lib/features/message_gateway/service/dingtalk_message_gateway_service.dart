@@ -3011,7 +3011,21 @@ class DingTalkMessageGatewayService {
         map['createTime'] ??
             map['createdAt'] ??
             map['create_time'] ??
-            map['created_at'],
+            map['created_at'] ??
+            map['createAt'] ??
+            map['create_at'] ??
+            map['messageCreateTime'] ??
+            map['message_create_time'] ??
+            map['messageCreateAt'] ??
+            map['message_create_at'] ??
+            map['msgCreateTime'] ??
+            map['msg_create_time'] ??
+            map['msgCreateAt'] ??
+            map['msg_create_at'] ??
+            map['sendTime'] ??
+            map['send_time'] ??
+            map['msgTime'] ??
+            map['msg_time'],
         fallback: DateTime.fromMillisecondsSinceEpoch(0),
       );
       final forwarded = _parseForwardedMessages(
@@ -3060,14 +3074,7 @@ class DingTalkMessageGatewayService {
             'nick',
             'sender',
           ]),
-          senderId: _eventString(map, const <String>[
-            'senderId',
-            'senderUserId',
-            'senderOpenDingTalkId',
-            'sender_id',
-            'sender_open_dingtalk_id',
-            'sender',
-          ]),
+          senderId: _eventSenderId(map),
           conversationTitle: _first(map, const <String>[
             'conversationTitle',
             'groupName',
@@ -3381,12 +3388,25 @@ class DingTalkMessageGatewayService {
         _eventString(map, const <String>[
           'event_key',
           'eventKey',
+          'event_type',
+          'eventType',
           'rule_type',
           'ruleType',
           'type',
         ]).toLowerCase().contains('receive_at') ||
+        _eventString(map, const <String>[
+              'rule_type',
+              'ruleType',
+            ]).trim().toLowerCase() ==
+            'at' ||
         _asBool(map['mentionedCurrentUser']) ||
-        _asBool(map['mentioned_current_user']);
+        _asBool(map['mentioned_current_user']) ||
+        _asBool(map['isAtMe']) ||
+        _asBool(map['is_at_me']) ||
+        _asBool(map['atMe']) ||
+        _asBool(map['at_me']) ||
+        _asBool(map['isInAtList']) ||
+        _asBool(map['is_in_at_list']);
     final message = DingTalkGatewayMessage(
       id: messageId,
       conversationId: conversationId,
@@ -3407,14 +3427,7 @@ class DingTalkMessageGatewayService {
         'nick',
         'name',
       ]),
-      senderId: _eventString(map, const <String>[
-        'sender_open_dingtalk_id',
-        'senderOpenDingTalkId',
-        'sender_user_id',
-        'senderUserId',
-        'sender_id',
-        'sender',
-      ]),
+      senderId: _eventSenderId(map),
       conversationTitle: _eventString(map, const <String>[
         'conversation_title',
         'conversationTitle',
@@ -3654,14 +3667,89 @@ class DingTalkMessageGatewayService {
     return '';
   }
 
+  String _eventSenderId(Map<String, Object?> map) {
+    const identifierKeys = <String>[
+      'sender_open_dingtalk_id',
+      'senderOpenDingTalkId',
+      'senderOpenId',
+      'sender_open_id',
+      'sender_staff_id',
+      'senderStaffId',
+      'sender_user_id',
+      'senderUserId',
+      'senderId',
+      'sender_id',
+      'staffId',
+      'staff_id',
+    ];
+    const nestedIdentifierKeys = <String>[
+      ...identifierKeys,
+      'userId',
+      'user_id',
+      'openDingTalkId',
+      'open_dingtalk_id',
+      'id',
+    ];
+
+    String read(Object? value) {
+      if (value == null || value is List) return '';
+      if (value is Map) {
+        final nested = _asMap(value);
+        for (final key in nestedIdentifierKeys) {
+          final result = read(nested[key]);
+          if (result.isNotEmpty) return result;
+        }
+        for (final key in const <String>[
+          'sender',
+          'senderInfo',
+          'sender_info',
+          'user',
+          'from',
+        ]) {
+          final result = read(nested[key]);
+          if (result.isNotEmpty) return result;
+        }
+        return '';
+      }
+      final text = '$value'.trim();
+      return text.isEmpty || text == 'null' ? '' : text;
+    }
+
+    for (final key in identifierKeys) {
+      final result = read(map[key]);
+      if (result.isNotEmpty) return result;
+    }
+    return read(map['sender']);
+  }
+
   DateTime _eventDateTime(Map<String, Object?> map) => _parseDateTime(
     map['create_time'] ??
         map['createTime'] ??
         map['created_at'] ??
         map['createdAt'] ??
+        map['createAt'] ??
+        map['create_at'] ??
+        map['message_create_time'] ??
+        map['messageCreateTime'] ??
+        map['message_create_at'] ??
+        map['messageCreateAt'] ??
+        map['msg_create_time'] ??
+        map['msgCreateTime'] ??
+        map['msg_create_at'] ??
+        map['msgCreateAt'] ??
+        map['send_time'] ??
+        map['sendTime'] ??
+        map['msg_time'] ??
+        map['msgTime'] ??
         map['event_time'] ??
+        map['eventTime'] ??
+        map['event_born_time'] ??
+        map['eventBornTime'] ??
+        map['received_at_unix_ms'] ??
+        map['receivedAtUnixMs'] ??
         map['timestamp'],
-    fallback: DateTime.fromMillisecondsSinceEpoch(0),
+    // 实时事件缺少业务时间时按接收时刻处理，避免被启动时间过滤误丢。
+    fallback: DateTime.now(),
   );
 
   DateTime _parseDateTime(Object? value, {DateTime? fallback}) {
