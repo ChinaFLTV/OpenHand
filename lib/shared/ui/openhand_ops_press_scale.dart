@@ -22,7 +22,7 @@ class OpenHandOpsPressScale extends StatefulWidget {
     this.hoverScale = kOpenHandOpsHoverScale,
     this.pressScale = kOpenHandOpsPressScale,
     this.showFocusRing = false,
-    this.motionClearance = EdgeInsets.zero,
+    this.motionClearance,
   });
 
   final Widget child;
@@ -33,7 +33,7 @@ class OpenHandOpsPressScale extends StatefulWidget {
   final double hoverScale;
   final double pressScale;
   final bool showFocusRing;
-  final EdgeInsetsGeometry motionClearance;
+  final EdgeInsetsGeometry? motionClearance;
 
   @override
   State<OpenHandOpsPressScale> createState() => _OpenHandOpsPressScaleState();
@@ -145,7 +145,12 @@ class _OpenHandOpsPressScaleState extends State<OpenHandOpsPressScale> {
     }
     return Semantics(
       button: true,
-      child: Padding(padding: widget.motionClearance, child: body),
+      child: Padding(
+        padding:
+            widget.motionClearance ??
+            const EdgeInsets.all(kOpenHandOpsMotionClearance),
+        child: body,
+      ),
     );
   }
 }

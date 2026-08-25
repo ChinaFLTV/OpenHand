@@ -25,7 +25,7 @@ mixin OpenHandHoverState<W extends StatefulWidget> on State<W> {
 }
 
 /// 为子组件提供轻微上浮的指针悬浮反馈，并遵循全局动效偏好。
-/// 动效不可用或仅支持触控时直接保持原位。
+/// 内部预留上浮空间，避免滚动容器裁掉卡片边框。
 class HoverLift extends StatefulWidget {
   const HoverLift({
     super.key,
@@ -65,21 +65,28 @@ class _HoverLiftState extends State<HoverLift>
 
   @override
   Widget build(BuildContext context) {
+    final liftDistance = _safeLiftDistance;
     if (!openHandTickerMotionEnabled(context)) {
-      return widget.child;
-    }
-    final lift = openHandHovered ? -_safeLiftDistance : 0.0;
-    return MouseRegion(
-      onEnter: (_) => setOpenHandHovered(true),
-      onExit: (_) => setOpenHandHovered(false),
-      child: TweenAnimationBuilder<double>(
-        tween: Tween<double>(begin: 0, end: lift),
-        duration: openHandMotionDuration(context, widget.duration),
-        curve: widget.curve,
-        builder: (context, value, child) {
-          return Transform.translate(offset: Offset(0, value), child: child);
-        },
+      return Padding(
+        padding: EdgeInsets.only(top: liftDistance),
         child: widget.child,
+      );
+    }
+    final lift = openHandHovered ? -liftDistance : 0.0;
+    return Padding(
+      padding: EdgeInsets.only(top: liftDistance),
+      child: MouseRegion(
+        onEnter: (_) => setOpenHandHovered(true),
+        onExit: (_) => setOpenHandHovered(false),
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: lift),
+          duration: openHandMotionDuration(context, widget.duration),
+          curve: widget.curve,
+          builder: (context, value, child) {
+            return Transform.translate(offset: Offset(0, value), child: child);
+          },
+          child: widget.child,
+        ),
       ),
     );
   }

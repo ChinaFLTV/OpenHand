@@ -48,6 +48,7 @@ import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_live_value.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
+import '../../../shared/ui/openhand_ops_press_scale.dart';
 import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -5958,6 +5959,7 @@ const double _webOpsOuterRadius = 24;
 const double _webOpsShellRadius = 18;
 const double _webOpsControlRadius = 12;
 const double _webOpsGridGap = 14;
+const double _webOpsHoverScale = 1.012;
 
 /// 运维头部由并排切换为上下两行的宽度阈值。
 const double _webOpsHeaderCompactBreakpoint = 980;
@@ -6869,48 +6871,30 @@ class _WebOpsMetricTile extends StatelessWidget {
     );
     return onTap == null
         ? card
-        : _WebOpsTappableCard(onTap: onTap!, child: card);
+        : _WebOpsTappableCard(onTap: onTap!, tone: tone, child: card);
   }
 }
 
-class _WebOpsTappableCard extends StatefulWidget {
-  const _WebOpsTappableCard({required this.onTap, required this.child});
+class _WebOpsTappableCard extends StatelessWidget {
+  const _WebOpsTappableCard({
+    required this.onTap,
+    required this.tone,
+    required this.child,
+  });
 
   final VoidCallback onTap;
+  final Color tone;
   final Widget child;
 
   @override
-  State<_WebOpsTappableCard> createState() => _WebOpsTappableCardState();
-}
-
-class _WebOpsTappableCardState extends State<_WebOpsTappableCard> {
-  bool _highlighted = false;
-
-  void _setHighlighted(bool value) {
-    if (_highlighted == value) return;
-    setState(() => _highlighted = value);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => _setHighlighted(true),
-      onExit: (_) => _setHighlighted(false),
-      child: AnimatedScale(
-        scale: _highlighted ? 1.012 : 1,
-        duration: openHandMotionDurationMs(context, 160),
-        curve: kOpenHandEntranceCurve,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: kOpenHandBorderRadius8,
-            onTap: widget.onTap,
-            onFocusChange: _setHighlighted,
-            child: widget.child,
-          ),
-        ),
-      ),
+    return OpenHandOpsPressScale(
+      onTap: onTap,
+      tone: tone,
+      borderRadius: kOpenHandBorderRadius8,
+      hoverScale: _webOpsHoverScale,
+      showFocusRing: true,
+      child: child,
     );
   }
 }
@@ -7334,7 +7318,7 @@ class _WebOpsPanel extends StatelessWidget {
     );
     return onTap == null
         ? panel
-        : _WebOpsTappableCard(onTap: onTap!, child: panel);
+        : _WebOpsTappableCard(onTap: onTap!, tone: cs.primary, child: panel);
   }
 }
 

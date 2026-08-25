@@ -655,6 +655,7 @@ class _TrendPanelState extends State<_TrendPanel> {
     final colors = theme.colorScheme;
     return OpenHandOpsPressScale(
       tone: colors.primary,
+      borderRadius: kOpenHandBorderRadius8,
       showFocusRing: true,
       onTap: () => _showTrendInsight(
         context,
@@ -826,6 +827,7 @@ class _DistributionPanelState extends State<_DistributionPanel> {
     );
     return OpenHandOpsPressScale(
       tone: colors.primary,
+      borderRadius: kOpenHandBorderRadius8,
       showFocusRing: true,
       onTap: () => _showDistributionInsight(
         context,
