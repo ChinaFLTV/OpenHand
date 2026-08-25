@@ -757,7 +757,6 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                     setState(() => _redisCursorHistory.add(nextCursor));
                     _refresh(includeData: true);
                   },
-                  onPageChanged: (_) {},
                   leading: Text(
                     'SCAN ${_redisCursorHistory.last}',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(

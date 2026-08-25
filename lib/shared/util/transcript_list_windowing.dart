@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'text_clip.dart';
+
 /// 长会话列表窗口算法，限制首帧和滚动路径的物化规模。
 abstract final class TranscriptListWindowing {
   static const int defaultInitialWindowSize = 8;
@@ -153,15 +155,9 @@ abstract final class TranscriptListWindowing {
     String value, {
     required int maxCharacters,
   }) {
-    var end = math.min(value.length, math.max(0, maxCharacters));
+    final requestedEnd = math.min(value.length, math.max(0, maxCharacters));
+    final end = safeUtf16PrefixCodeUnits(value, requestedEnd);
     if (end == value.length) return value;
-    if (end > 0 &&
-        value.codeUnitAt(end - 1) >= 0xD800 &&
-        value.codeUnitAt(end - 1) <= 0xDBFF &&
-        value.codeUnitAt(end) >= 0xDC00 &&
-        value.codeUnitAt(end) <= 0xDFFF) {
-      end -= 1;
-    }
     return value.substring(0, end);
   }
 }

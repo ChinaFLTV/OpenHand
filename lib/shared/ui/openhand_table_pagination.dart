@@ -243,7 +243,7 @@ class OpenHandTablePagination extends StatefulWidget {
     required this.total,
     required this.page,
     required this.pageSize,
-    required this.onPageChanged,
+    this.onPageChanged,
     this.onPageSizeChanged,
     this.pageSizes = kOpenHandTablePageSizes,
     this.enabled = true,
@@ -262,7 +262,7 @@ class OpenHandTablePagination extends StatefulWidget {
   final int total;
   final int page;
   final int pageSize;
-  final ValueChanged<int> onPageChanged;
+  final ValueChanged<int>? onPageChanged;
   final ValueChanged<int>? onPageSizeChanged;
   final List<int> pageSizes;
   final bool enabled;
@@ -337,7 +337,7 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
       total: widget.total,
     );
     if (window.page == _window.page) return;
-    widget.onPageChanged(window.page);
+    widget.onPageChanged?.call(window.page);
   }
 
   void _submitJumper() {

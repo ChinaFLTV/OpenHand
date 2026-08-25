@@ -9,8 +9,8 @@ int safeUtf16PrefixCodeUnits(String value, int requestedLength) {
   var length = requestedLength.clamp(0, value.length);
   if (length > 0 &&
       length < value.length &&
-      _isHighSurrogate(value.codeUnitAt(length - 1)) &&
-      _isLowSurrogate(value.codeUnitAt(length))) {
+      isUtf16HighSurrogateCodeUnit(value.codeUnitAt(length - 1)) &&
+      isUtf16LowSurrogateCodeUnit(value.codeUnitAt(length))) {
     length -= 1;
   }
   return length;
@@ -21,8 +21,8 @@ int safeUtf16SuffixStart(String value, int requestedStart) {
   var start = requestedStart.clamp(0, value.length);
   if (start > 0 &&
       start < value.length &&
-      _isHighSurrogate(value.codeUnitAt(start - 1)) &&
-      _isLowSurrogate(value.codeUnitAt(start))) {
+      isUtf16HighSurrogateCodeUnit(value.codeUnitAt(start - 1)) &&
+      isUtf16LowSurrogateCodeUnit(value.codeUnitAt(start))) {
     start += 1;
   }
   return start;
@@ -59,9 +59,16 @@ int utf8ByteLength(String value) {
   return length;
 }
 
-bool _isHighSurrogate(int codeUnit) => codeUnit >= 0xD800 && codeUnit <= 0xDBFF;
+const int _highSurrogateMin = 0xD800;
+const int _highSurrogateMax = 0xDBFF;
+const int _lowSurrogateMin = 0xDC00;
+const int _lowSurrogateMax = 0xDFFF;
 
-bool _isLowSurrogate(int codeUnit) => codeUnit >= 0xDC00 && codeUnit <= 0xDFFF;
+bool isUtf16HighSurrogateCodeUnit(int codeUnit) =>
+    codeUnit >= _highSurrogateMin && codeUnit <= _highSurrogateMax;
+
+bool isUtf16LowSurrogateCodeUnit(int codeUnit) =>
+    codeUnit >= _lowSurrogateMin && codeUnit <= _lowSurrogateMax;
 
 String clipText(String value, int maxChars, {String suffix = '...'}) {
   final safeMaxChars = maxChars < 0 ? 0 : maxChars;

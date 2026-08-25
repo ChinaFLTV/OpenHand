@@ -74,7 +74,7 @@ final class BoundedTextBuffer {
         _chunks.removeFirst();
         _retainedCharacters -= first.length;
         overflow -= first.length;
-        if (_endsWithHighSurrogate(first)) {
+        if (isUtf16HighSurrogateCodeUnit(first.codeUnitAt(first.length - 1))) {
           _removeLeadingLowSurrogate();
           overflow = _retainedCharacters - maxCharacters;
         }
@@ -93,7 +93,7 @@ final class BoundedTextBuffer {
   void _removeLeadingLowSurrogate() {
     if (_chunks.isEmpty) return;
     final first = _chunks.first;
-    if (!_isLowSurrogate(first.codeUnitAt(0))) return;
+    if (!isUtf16LowSurrogateCodeUnit(first.codeUnitAt(0))) return;
     _chunks.removeFirst();
     _retainedCharacters -= 1;
     if (first.length > 1) {
@@ -101,11 +101,3 @@ final class BoundedTextBuffer {
     }
   }
 }
-
-bool _endsWithHighSurrogate(String value) {
-  if (value.isEmpty) return false;
-  final codeUnit = value.codeUnitAt(value.length - 1);
-  return codeUnit >= 0xD800 && codeUnit <= 0xDBFF;
-}
-
-bool _isLowSurrogate(int codeUnit) => codeUnit >= 0xDC00 && codeUnit <= 0xDFFF;
