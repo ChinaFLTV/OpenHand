@@ -49,6 +49,7 @@ const double _kProxyOpsGaugeSize = 108;
 const double _kProxyOpsMetricHelperHeight = 16;
 const double _kProxyOpsRankBodyMaxHeight = 444;
 const double _kProxyOpsConnectionListMaxHeight = 290;
+const double _kProxyOpsClientUserAgentColumnWidth = 288;
 const int _kProxyOpsHourBuckets = 24;
 const int _kProxyOpsFastLatencyMs = 1000;
 const int _kProxyOpsSlowLatencyMs = 3000;
@@ -858,9 +859,10 @@ String _proxyOpsClientMixLabel(
   AiModelProxyRequestRecord record,
   String unknownProtocol,
 ) {
-  final protocol = isAiModelProxyStatusRecord(record)
-      ? openHandAmbientText(zh: '状态页', en: 'Status page')
-      : aiModelProxyApiStyleLabel(record.apiStyle, openHandAmbientText);
+  final protocol = aiModelProxyRequestProtocolLabel(
+    record,
+    openHandAmbientText,
+  );
   final userAgent = record.clientUserAgent.trim();
   if (protocol.isEmpty && userAgent.isEmpty) return unknownProtocol;
   if (userAgent.isEmpty) return protocol;
@@ -2540,12 +2542,11 @@ String _proxyOpsRequestTitle(
   AiModelProxyRequestRecord record,
   String unknown,
 ) {
-  if (isAiModelProxyStatusRecord(record)) {
-    return openHandAmbientText(zh: '状态页', en: 'Status page');
-  }
+  final model = aiModelProxyRequestModelLabel(record, openHandAmbientText);
+  if (isAiModelProxyStatusRecord(record)) return model;
   final title = [
     data.providerLabelFor(record, unknown: unknown),
-    record.modelId,
+    model,
   ].where((value) => value.trim().isNotEmpty).join(' / ');
   return title.isEmpty ? unknown : title;
 }
@@ -2554,10 +2555,7 @@ String _proxyOpsModelGroupLabel(
   AiModelProxyRequestRecord record,
   String unknown,
 ) {
-  if (isAiModelProxyStatusRecord(record)) {
-    return openHandAmbientText(zh: '状态页', en: 'Status page');
-  }
-  final id = record.modelId.trim();
+  final id = aiModelProxyRequestModelLabel(record, openHandAmbientText);
   return id.isEmpty ? unknown : id;
 }
 
@@ -2935,6 +2933,9 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
   return OpenHandOperationalRankTable(
     sortByValue: false,
     emptyLabel: emptyLabel,
+    minimumColumnWidths: const <int, double>{
+      6: _kProxyOpsClientUserAgentColumnWidth,
+    },
     headers: [
       text(zh: '时间', en: 'Time'),
       text(zh: '模型', en: 'Model'),
@@ -2961,18 +2962,16 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
             _proxyOpsRequestTitle(data, record, unknown),
             record.clientEndpoint.isEmpty ? unknown : record.clientEndpoint,
             [
-              if (record.apiStyle.trim().isNotEmpty)
-                aiModelProxyApiStyleLabel(record.apiStyle, text),
-              if (record.exposedModel.trim().isNotEmpty)
+              aiModelProxyRequestProtocolLabel(record, text),
+              if (!isAiModelProxyStatusRecord(record) &&
+                  record.exposedModel.trim().isNotEmpty)
                 record.exposedModel.trim(),
             ].join(' · '),
             openHandTableMetricInteger(record.tokens),
             _proxyOpsDurationLabel(record.durationMs),
-            _proxyOpsUserAgentFamily(
-              record.clientUserAgent.trim().isEmpty
-                  ? unknown
-                  : record.clientUserAgent,
-            ),
+            record.clientUserAgent.trim().isEmpty
+                ? unknown
+                : record.clientUserAgent.trim(),
             [
               if (record.clientProcessName.trim().isNotEmpty)
                 record.clientProcessName.trim(),
@@ -2984,8 +2983,7 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
                 record.clientMacAddress.trim(),
             ].join(' · '),
             [
-              if (record.proxyMode.trim().isNotEmpty)
-                aiModelProxyDispatchModeLabel(record.proxyMode, text),
+              aiModelProxyRequestDispatchLabel(record, text),
               if (record.remoteHost.trim().isNotEmpty)
                 _proxyOpsUpstreamEndpoint(record, unknown),
             ].join(' · '),
@@ -3003,11 +3001,7 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
           cellWidgets: [
             null,
             OpenHandTableStackedCell(
-              primary: isAiModelProxyStatusRecord(record)
-                  ? openHandAmbientText(zh: '状态页', en: 'Status page')
-                  : (record.modelId.trim().isEmpty
-                        ? unknown
-                        : record.modelId.trim()),
+              primary: aiModelProxyRequestModelLabel(record, text),
               secondary: isAiModelProxyStatusRecord(record)
                   ? ''
                   : data.providerLabelFor(record, unknown: unknown),
@@ -3024,10 +3018,10 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
               alignEnd: true,
             ),
             OpenHandTableStackedCell(
-              primary: record.apiStyle.trim().isEmpty
-                  ? kOpenHandTableMetricEmpty
-                  : aiModelProxyApiStyleLabel(record.apiStyle, text),
-              secondary: record.exposedModel.trim(),
+              primary: aiModelProxyRequestProtocolLabel(record, text),
+              secondary: isAiModelProxyStatusRecord(record)
+                  ? ''
+                  : record.exposedModel.trim(),
             ),
             _proxyOpsTokenMetric(
               total: record.tokens,
@@ -3035,15 +3029,7 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
               completionTokens: record.completionTokens,
             ),
             _proxyOpsDurationMetric(record.durationMs),
-            OpenHandTableStackedCell(
-              primary: _proxyOpsUserAgentFamily(
-                record.clientUserAgent.trim().isEmpty
-                    ? unknown
-                    : record.clientUserAgent,
-              ),
-              secondary: record.clientUserAgent.trim(),
-              alignEnd: true,
-            ),
+            null,
             OpenHandTableStackedCell(
               primary: record.clientProcessName.trim().isEmpty
                   ? unknown
@@ -3059,9 +3045,7 @@ OpenHandOperationalRankTable _proxyOpsTraceTable({
               alignEnd: true,
             ),
             OpenHandTableStackedCell(
-              primary: record.proxyMode.trim().isEmpty
-                  ? kOpenHandTableMetricEmpty
-                  : aiModelProxyDispatchModeLabel(record.proxyMode, text),
+              primary: aiModelProxyRequestDispatchLabel(record, text),
               secondary: record.remoteHost.trim().isEmpty
                   ? ''
                   : _proxyOpsUpstreamEndpoint(record, unknown),
@@ -5030,7 +5014,10 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
           final usageByExposed = <String, _ProxyOpsGroupStat>{
             for (final group in data.groupBy((record) {
               if (isAiModelProxyStatusRecord(record)) {
-                return openHandAmbientText(zh: '状态页', en: 'Status page');
+                return aiModelProxyRequestModelLabel(
+                  record,
+                  openHandAmbientText,
+                );
               }
               final exposed = record.exposedModel.trim();
               return exposed.isEmpty ? record.modelId : exposed;
@@ -5869,7 +5856,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
           );
           final routed = data.groupBy((record) {
             if (isAiModelProxyStatusRecord(record)) {
-              return openHandAmbientText(zh: '状态页', en: 'Status page');
+              return aiModelProxyRequestModelLabel(record, openHandAmbientText);
             }
             final exposed = record.exposedModel.trim();
             final model = record.modelId.trim().isEmpty
@@ -6055,9 +6042,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
           );
           final protocols = _proxyOpsSegments(
             data.countBy(
-              (record) => isAiModelProxyStatusRecord(record)
-                  ? text(zh: '状态页', en: 'Status page')
-                  : aiModelProxyApiStyleLabel(record.apiStyle, text),
+              (record) => aiModelProxyRequestProtocolLabel(record, text),
               unknown: unknownProtocol,
             ),
             palette,
@@ -6078,9 +6063,7 @@ _ProxyOpsInsightSpec _proxyOpsInsightSpec(
             palette,
           );
           final protocolQuality = data.groupBy(
-            (record) => isAiModelProxyStatusRecord(record)
-                ? text(zh: '状态页', en: 'Status page')
-                : aiModelProxyApiStyleLabel(record.apiStyle, text),
+            (record) => aiModelProxyRequestProtocolLabel(record, text),
             unknown: unknownProtocol,
           );
           return [

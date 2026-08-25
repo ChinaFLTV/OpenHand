@@ -3203,6 +3203,7 @@ class OpenHandOperationalRankTable extends StatefulWidget {
     this.onRowTap,
     this.sortByValue = true,
     this.maxBodyHeight = _kRankBodyMaxHeight,
+    this.minimumColumnWidths = const <int, double>{},
   });
 
   final List<String> headers;
@@ -3211,6 +3212,7 @@ class OpenHandOperationalRankTable extends StatefulWidget {
   final ValueChanged<OpenHandOperationalRankRow>? onRowTap;
   final bool sortByValue;
   final double maxBodyHeight;
+  final Map<int, double> minimumColumnWidths;
 
   @override
   State<OpenHandOperationalRankTable> createState() =>
@@ -3482,10 +3484,11 @@ class _OpenHandOperationalRankTableState
           _rankTextWidth(cell, valueStyle, textScaler: scaler),
         );
       }
-      natural[i] = _rankFitColumnWidth(
+      final fitted = _rankFitColumnWidth(
         _rankColumnKind(index: i, header: widget.headers[i], cells: samples),
         content + _kRankCellPadding * 2,
       );
+      natural[i] = math.max(fitted, widget.minimumColumnWidths[i] ?? 0);
     }
     final widths = _syncWidths(natural);
     return OverlayPortal(

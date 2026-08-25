@@ -14,6 +14,7 @@ const String aiModelProxyStatusMode = 'status';
 const String aiModelProxyPoolMode = 'pool';
 const String aiModelProxySystemMode = 'system';
 const String aiModelProxyDirectMode = 'direct';
+const String aiModelProxyLocalMode = 'local';
 const String aiModelProxyStatusModelId = 'status.html';
 const String aiModelProxyLogoAsset = 'assets/branding/openhand_logo.png';
 const String aiModelProxyLogoPath = '/openhand_logo.png';
@@ -97,23 +98,59 @@ String aiModelProxyDispatchModeLabel(String mode, AiModelProxyLabelText text) {
     aiModelProxyPoolMode => text(zh: '代理池', en: 'Proxy pool'),
     aiModelProxySystemMode => text(zh: '系统代理', en: 'System proxy'),
     aiModelProxyDirectMode => text(zh: '直连', en: 'Direct'),
-    aiModelProxyStatusMode => text(zh: '状态页', en: 'Status page'),
+    aiModelProxyLocalMode ||
+    aiModelProxyStatusMode => text(zh: '本地响应', en: 'Local response'),
     _ => text(zh: '未知模式', en: 'Unknown mode'),
   };
 }
 
-/// 将持久化的接口风格标识转换为界面文案；状态页探测不属于协议。
+/// 将持久化的接口风格标识转换为界面文案。
 String aiModelProxyApiStyleLabel(String raw, AiModelProxyLabelText text) {
   final id = raw.trim();
   if (id.isEmpty) return '';
   final normalized = id.toLowerCase();
   if (normalized == aiModelProxyStatusMode) {
-    return text(zh: '状态页', en: 'Status page');
+    return text(zh: 'HTTP 状态接口', en: 'HTTP status API');
   }
   for (final style in AiModelProxyApiStyle.values) {
     if (style.id.toLowerCase() == normalized) return style.label;
   }
   return text(zh: '未知协议', en: 'Unknown protocol');
+}
+
+/// 按请求语义展示模型或本地状态资源，兼容旧版状态记录。
+String aiModelProxyRequestModelLabel(
+  AiModelProxyRequestRecord record,
+  AiModelProxyLabelText text,
+) {
+  if (isAiModelProxyStatusRecord(record)) {
+    return isAiModelProxyStatusJsonPath(record.requestPath)
+        ? text(zh: '状态快照', en: 'Status snapshot')
+        : text(zh: '状态页面', en: 'Status page');
+  }
+  return record.modelId.trim();
+}
+
+/// 按请求语义展示接口协议，状态资源统一标记为 HTTP 状态接口。
+String aiModelProxyRequestProtocolLabel(
+  AiModelProxyRequestRecord record,
+  AiModelProxyLabelText text,
+) {
+  if (isAiModelProxyStatusRecord(record)) {
+    return text(zh: 'HTTP 状态接口', en: 'HTTP status API');
+  }
+  return aiModelProxyApiStyleLabel(record.apiStyle, text);
+}
+
+/// 按请求语义展示调度路径，状态资源由本地直接响应。
+String aiModelProxyRequestDispatchLabel(
+  AiModelProxyRequestRecord record,
+  AiModelProxyLabelText text,
+) {
+  if (isAiModelProxyStatusRecord(record)) {
+    return text(zh: '本地响应', en: 'Local response');
+  }
+  return aiModelProxyDispatchModeLabel(record.proxyMode, text);
 }
 
 String aiModelProxyDayKey(DateTime value) {

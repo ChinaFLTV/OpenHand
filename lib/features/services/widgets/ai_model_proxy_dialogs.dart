@@ -2883,7 +2883,8 @@ class _ProxyRecordTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final text = openHandTextResolver(context);
-    final mode = record.proxyMode.trim();
+    final model = aiModelProxyRequestModelLabel(record, text);
+    final provider = record.providerId.trim();
     final statusLabel = record.success
         ? text(zh: '成功', en: 'OK')
         : text(zh: '失败', en: 'Fail');
@@ -2901,11 +2902,15 @@ class _ProxyRecordTile extends StatelessWidget {
           children: [
             Expanded(
               child: OpenHandTableStackedCell(
-                primary: '${record.providerId} / ${record.modelId}',
+                primary: [
+                  if (!isAiModelProxyStatusRecord(record) &&
+                      provider.isNotEmpty)
+                    provider,
+                  model,
+                ].where((value) => value.isNotEmpty).join(' / '),
                 secondary: [
-                  aiModelProxyApiStyleLabel(record.apiStyle, text),
-                  if (mode.isNotEmpty)
-                    aiModelProxyDispatchModeLabel(mode, text),
+                  aiModelProxyRequestProtocolLabel(record, text),
+                  aiModelProxyRequestDispatchLabel(record, text),
                   if (record.clientEndpoint.isNotEmpty) record.clientEndpoint,
                   if (record.clientProcessId.trim().isNotEmpty)
                     'PID ${record.clientProcessId.trim()}',
