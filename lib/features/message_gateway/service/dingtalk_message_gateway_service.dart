@@ -3033,9 +3033,9 @@ class DingTalkMessageGatewayService {
         fallbackConversationId: mediaConversationId,
         fallbackCreatedAt: createdAt,
       );
-      final displayContent = media.isNotEmpty && _isMediaPlaceholder(content)
-          ? _mediaSummary(media)
-          : content;
+      final displayContent = media.isEmpty
+          ? content
+          : _mediaDisplayContent(content, media);
       if (id.isEmpty ||
           (content.isEmpty &&
               media.isEmpty &&
@@ -3157,9 +3157,9 @@ class DingTalkMessageGatewayService {
           )
           .toList(growable: false);
       final content = _content(child);
-      final displayContent = media.isNotEmpty && _isMediaPlaceholder(content)
-          ? _mediaSummary(media)
-          : content;
+      final displayContent = media.isEmpty
+          ? content
+          : _mediaDisplayContent(content, media);
       if (displayContent.isEmpty && media.isEmpty) continue;
       messages.add(
         DingTalkForwardedMessage(
@@ -3373,9 +3373,9 @@ class DingTalkMessageGatewayService {
       fallbackConversationId: conversationId,
       fallbackCreatedAt: createdAt,
     );
-    final displayContent = media.isNotEmpty && _isMediaPlaceholder(content)
-        ? _mediaSummary(media)
-        : content;
+    final displayContent = media.isEmpty
+        ? content
+        : _mediaDisplayContent(content, media);
     if (content.isEmpty && media.isEmpty && forwarded.messages.isEmpty) {
       return DingTalkGatewayEvent(
         type: DingTalkGatewayEventType.message,
@@ -3835,60 +3835,76 @@ class DingTalkMessageGatewayService {
   }
 
   String _content(Map<String, Object?> map, {int depth = 0}) {
-    final value =
-        map['content'] ??
-        map['text'] ??
-        map['msgContent'] ??
-        map['msg_content'] ??
-        map['richText'] ??
-        map['rich_text'] ??
-        map['markdown'];
-    if (value is String) {
-      final raw = value.trim();
-      final normalizedContent = normalizeDingTalkMessageContent(raw);
-      if (raw.startsWith('{') || raw.startsWith('[')) {
+    const primaryContentKeys = <String>[
+      'content',
+      'text',
+      'msgContent',
+      'msg_content',
+      'messageContent',
+      'richText',
+      'rich_text',
+      'markdown',
+    ];
+    const structuredContentKeys = <String>[
+      ...primaryContentKeys,
+      'title',
+      'summary',
+      'description',
+    ];
+
+    String merge(Iterable<String> values) {
+      final result = <String>[];
+      final seen = <String>{};
+      for (final value in values) {
+        final normalized = value.trim();
+        if (normalized.isEmpty) {
+          continue;
+        }
+        final comparison = normalizeDingTalkMessageContentForComparison(
+          normalized,
+        );
+        if (comparison.isEmpty || !seen.add(comparison)) continue;
+        result.add(normalized);
+      }
+      return result.join('\n');
+    }
+
+    String read(Object? value, int currentDepth) {
+      if (value == null || currentDepth > 5) return '';
+      if (value is String) {
+        final raw = value.trim();
+        if (raw.isEmpty) return '';
+        final normalized = normalizeDingTalkMessageContent(raw);
+        if (!(raw.startsWith('{') || raw.startsWith('['))) {
+          return normalized;
+        }
         try {
           final decoded = jsonDecode(raw);
-          if (decoded is Map) {
-            return _content(_asMap(decoded), depth: depth + 1);
-          }
-          if (decoded is List && depth < 4) {
-            var hasStructuredItem = false;
-            for (final item in decoded) {
-              if (item is Map) {
-                hasStructuredItem = true;
-                final nested = _content(_asMap(item), depth: depth + 1);
-                if (nested.isNotEmpty) return nested;
-              }
-            }
-            if (hasStructuredItem || decoded.isEmpty) return '';
+          if (decoded is Map || decoded is List) {
+            return read(decoded, currentDepth + 1);
           }
         } on FormatException {
           // 非 JSON 的方括号文本继续按普通消息处理。
         }
+        return normalized;
       }
-      return normalizedContent;
-    }
-    if (value is Map) {
-      final nested = _asMap(value);
-      for (final key in const <String>[
-        'text',
-        'content',
-        'richText',
-        'rich_text',
-        'markdown',
-        'title',
-        'summary',
-        'description',
-      ]) {
-        final candidate = nested[key];
-        if (candidate is String && candidate.trim().isNotEmpty) {
-          return normalizeDingTalkMessageContent(candidate);
-        }
+      if (value is List) {
+        return merge(value.map((item) => read(item, currentDepth + 1)));
       }
-      if (depth < 4) return _content(nested, depth: depth + 1);
+      if (value is Map) {
+        final nested = _asMap(value);
+        return merge(
+          structuredContentKeys.map(
+            (key) => read(nested[key], currentDepth + 1),
+          ),
+        );
+      }
+      return '';
     }
-    return '';
+
+    // 顶层 title/summary/description 通常属于会话或卡片元数据，不能混入消息正文；
+    // 只有进入 content/text 对应的结构化对象后，才读取这些正文属性。
+    return merge(primaryContentKeys.map((key) => read(map[key], depth + 1)));
   }
 
   List<DingTalkGatewayMedia> _extractMedia(Map<String, Object?> map) {
@@ -4188,15 +4204,12 @@ class DingTalkMessageGatewayService {
     return media.map((item) => '[${item.displayName}]').join(' ');
   }
 
-  bool _isMediaPlaceholder(String value) {
-    final normalized = value.trim().toLowerCase();
-    if (normalized.isEmpty) return false;
-    return parseDingTalkDwsFileProjection(value) != null ||
-        normalized == 'null' ||
-        normalized == '[null]' ||
-        (normalized.startsWith('[') && normalized.contains('消息')) ||
-        normalized.contains('(mediaid=') ||
-        normalized.contains('(fileid=');
+  String _mediaDisplayContent(
+    String content,
+    List<DingTalkGatewayMedia> media,
+  ) {
+    final text = stripDingTalkMediaPlaceholder(content);
+    return text.isEmpty ? _mediaSummary(media) : text;
   }
 
   String _first(Map<String, Object?> map, List<String> keys) {

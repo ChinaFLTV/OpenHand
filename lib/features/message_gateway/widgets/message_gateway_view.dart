@@ -15767,8 +15767,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         widget.message.conversationType == DingTalkConversationType.group &&
         senderName.isNotEmpty;
     final messageMedia = widget.message.media;
-    final showText =
-        widget.message.isForwardedChatRecord || messageMedia.isEmpty;
     final effectiveContent = stripImageSummaryMarkup(
       widget.translationVisible
           ? widget.translatedContent ?? widget.message.content
@@ -15835,54 +15833,18 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                         bubbleColor: bubbleColor,
                         foreground: foreground,
                       )
-                    : showText
-                    ? IntrinsicWidth(
+                    : IntrinsicWidth(
                         key: const ValueKey<String>(
-                          'dingtalk-message-content-expanded-text',
+                          'dingtalk-message-content-expanded',
                         ),
-                        child: _buildTextBubble(
+                        child: _buildMessageContent(
                           context,
                           bubbleColor: bubbleColor,
                           foreground: foreground,
                           effectiveContent: effectiveContent,
+                          crossAxis: crossAxis,
+                          media: messageMedia,
                         ),
-                      )
-                    : Column(
-                        key: const ValueKey<String>(
-                          'dingtalk-message-content-expanded-media',
-                        ),
-                        textDirection: TextDirection.ltr,
-                        crossAxisAlignment: crossAxis,
-                        children: [
-                          AnimatedOpacity(
-                            duration: openHandMotionDuration(
-                              context,
-                              kOpenHandMotion220,
-                            ),
-                            curve: kOpenHandSwitchInCurve,
-                            opacity: widget.message.recalled
-                                ? 0.62
-                                : widget.message.ignoredForAiContext
-                                ? 0.68
-                                : 1,
-                            child: _DingTalkMediaRail(
-                              media: messageMedia,
-                              mine: widget.mine,
-                              loading: widget.mediaLoading,
-                              failed: widget.mediaFailed,
-                              onRetry: widget.onRetryMedia,
-                              onSaveFile: widget.onSaveMedia,
-                              onInteractiveTap: _cancelPendingActionToggle,
-                            ),
-                          ),
-                          if (widget.message.reactions.isNotEmpty)
-                            _buildReactionRow(
-                              context,
-                              colors.onSurface,
-                              topSpacing: 2,
-                            ),
-                          _buildMessageStateLabel(context),
-                        ],
                       ),
               );
               final bubbleContent = resizeDuration == Duration.zero
@@ -15923,11 +15885,62 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     );
   }
 
+  Widget _buildMessageContent(
+    BuildContext context, {
+    required Color bubbleColor,
+    required Color foreground,
+    required String effectiveContent,
+    required CrossAxisAlignment crossAxis,
+    required List<DingTalkGatewayMedia> media,
+  }) {
+    final hasText =
+        effectiveContent.trim().isNotEmpty &&
+        effectiveContent.trim() !=
+            media.map((item) => '[${item.displayName}]').join(' ');
+    return Column(
+      crossAxisAlignment: crossAxis,
+      children: [
+        if (hasText || media.isEmpty)
+          _buildTextBubble(
+            context,
+            bubbleColor: bubbleColor,
+            foreground: foreground,
+            effectiveContent: effectiveContent,
+            includeFooter: media.isEmpty,
+          ),
+        if (hasText && media.isNotEmpty) kOpenHandGap8,
+        if (media.isNotEmpty)
+          AnimatedOpacity(
+            duration: openHandMotionDuration(context, kOpenHandMotion220),
+            curve: kOpenHandSwitchInCurve,
+            opacity: widget.message.recalled
+                ? 0.62
+                : widget.message.ignoredForAiContext
+                ? 0.68
+                : 1,
+            child: _DingTalkMediaRail(
+              media: media,
+              mine: widget.mine,
+              loading: widget.mediaLoading,
+              failed: widget.mediaFailed,
+              onRetry: widget.onRetryMedia,
+              onSaveFile: widget.onSaveMedia,
+              onInteractiveTap: _cancelPendingActionToggle,
+            ),
+          ),
+        if (media.isNotEmpty && widget.message.reactions.isNotEmpty)
+          _buildReactionRow(context, foreground, topSpacing: 2),
+        if (media.isNotEmpty) _buildMessageStateLabel(context),
+      ],
+    );
+  }
+
   Widget _buildTextBubble(
     BuildContext context, {
     required Color bubbleColor,
     required Color foreground,
     required String effectiveContent,
+    bool includeFooter = true,
   }) {
     final colors = Theme.of(context).colorScheme;
     if (widget.message.isForwardedChatRecord && !_showRawContent) {
@@ -15962,9 +15975,9 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
             content: effectiveContent,
             foreground: foreground,
           ),
-          if (widget.message.reactions.isNotEmpty)
+          if (includeFooter && widget.message.reactions.isNotEmpty)
             _buildReactionRow(context, foreground),
-          _buildMessageStateLabel(context),
+          if (includeFooter) _buildMessageStateLabel(context),
         ],
       ),
     );

@@ -25,6 +25,11 @@ final RegExp _dingtalkDuplicatedLinkProjectionPattern = RegExp(
   r'^(https?://\S+)\s+(?:url|uri)\s*[:：]\s*(https?://\S+)$',
   caseSensitive: false,
 );
+final RegExp _dingtalkMediaPlaceholderPattern = RegExp(
+  r'\[(?:图片|图片消息|照片|图像|视频|视频消息|语音|语音消息|音频|音频消息|文件|文件消息|附件|媒体消息)\]'
+  r'(?:\(\s*(?:mediaId|fileId)\s*=\s*[^)\s]+\s*\))?',
+  caseSensitive: false,
+);
 
 String _removeDingTalkDuplicatedLinkProjection(Object? value) {
   final text = _normalizedDingTalkString(value);
@@ -279,6 +284,20 @@ String normalizeDingTalkMessageContent(Object? value) =>
     normalizeDingTalkMessageEmotions(
       _removeDingTalkDuplicatedLinkProjection(value),
     );
+
+/// 移除钉钉媒体投影标记，但保留同一条消息中的真实文本正文。
+///
+/// 例如 `[图片] 坏菜了，我也` 只保留 `坏菜了，我也`；纯图片投影会返回空串，
+/// 由消息卡片根据媒体列表渲染附件，不再把投影标记当作正文历史。
+String stripDingTalkMediaPlaceholder(Object? value) {
+  var text = normalizeDingTalkMessageContent(value);
+  if (text.isEmpty || text.toLowerCase() == 'null' || text == '[null]') {
+    return '';
+  }
+  if (parseDingTalkDwsFileProjection(text) != null) return '';
+  text = text.replaceAll(_dingtalkMediaPlaceholderPattern, ' ');
+  return text.replaceAll(_dingtalkWhitespacePattern, ' ').trim();
+}
 
 /// 将钉钉表情名称转换为标准 Emoji，未知名称保留为短文本兜底。
 String normalizeDingTalkReaction(Object? value) {
@@ -1265,11 +1284,14 @@ class DingTalkForwardedMessage {
               name: projection.name,
             ),
           ];
+    final textContent = media.isEmpty
+        ? normalizeDingTalkMessageContent(rawContent)
+        : stripDingTalkMediaPlaceholder(rawContent);
     return DingTalkForwardedMessage(
       id: id,
-      content: projection == null
-          ? normalizeDingTalkMessageContent(rawContent)
-          : media.map((item) => '[${item.displayName}]').join(' '),
+      content: textContent.isEmpty
+          ? media.map((item) => '[${item.displayName}]').join(' ')
+          : textContent,
       createdAt: createdAt,
       senderName: _normalizedDingTalkString(json['sender_name']),
       senderId: _normalizedDingTalkString(json['sender_id']),
@@ -1454,11 +1476,12 @@ class DingTalkGatewayMessage {
     final storedForwardedCount = int.tryParse(
       '${json['forwarded_message_count'] ?? ''}',
     );
-    final content =
-        (rawContent.trim().toLowerCase() == '[null]' || projection != null) &&
-            media.isNotEmpty
+    final textContent = media.isEmpty
+        ? normalizeDingTalkMessageContent(rawContent)
+        : stripDingTalkMediaPlaceholder(rawContent);
+    final content = textContent.isEmpty && media.isNotEmpty
         ? media.map((item) => '[${item.displayName}]').join(' ')
-        : normalizeDingTalkMessageContent(rawContent);
+        : textContent;
     return DingTalkGatewayMessage(
       id: id,
       conversationId: conversationId,
