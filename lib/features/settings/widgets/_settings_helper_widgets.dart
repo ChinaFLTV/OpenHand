@@ -5798,10 +5798,10 @@ class _AiModelTileState extends State<_AiModelTile> {
                     ),
                   ],
                 ),
-                kOpenHandGap14,
+                kOpenHandGap4,
                 Wrap(
                   spacing: 10,
-                  runSpacing: 10,
+                  runSpacing: 4,
                   children: [
                     _AiProviderInfoChip(
                       icon: Icons.link_rounded,
