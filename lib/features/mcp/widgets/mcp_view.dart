@@ -2330,6 +2330,8 @@ const double _mcpOpsSubDialogHeightFraction = 0.92;
 const double _mcpOpsPanelRadius = 14;
 const double _mcpOpsControlRadius = 12;
 const double _mcpOpsGridGap = 16;
+const double _mcpOpsDistributionDonutSize = 112;
+const double _mcpOpsDistributionDonutCenterInset = 28;
 const double _mcpOpsListMaxHeight = 340;
 const double _mcpOpsTerminalRadius = 12;
 const double _mcpOpsPayloadFieldRadius = 13;
@@ -6335,8 +6337,8 @@ class _McpOpsDistributionPanel extends StatelessWidget {
           : Row(
               children: [
                 SizedBox(
-                  width: 112,
-                  height: 112,
+                  width: _mcpOpsDistributionDonutSize,
+                  height: _mcpOpsDistributionDonutSize,
                   child: RepaintBoundary(
                     child: CustomPaint(
                       painter: OpenHandDonutChartPainter(
@@ -6347,12 +6349,21 @@ class _McpOpsDistributionPanel extends StatelessWidget {
                         trackColor: cs.surfaceContainerHighest,
                       ),
                       child: Center(
-                        child: OpenHandLiveValue(
-                          '$total',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w900,
+                        child: Padding(
+                          padding: const EdgeInsets.all(
+                            _mcpOpsDistributionDonutCenterInset,
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: OpenHandLiveValue(
+                              '$total',
+                              maxLines: 1,
+                              textAlign: TextAlign.center,
+                              softWrap: false,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
                           ),
                         ),
                       ),
