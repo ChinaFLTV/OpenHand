@@ -57,6 +57,7 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/stable_hash.dart';
 import '../../../shared/util/structured_text_format.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_normalization.dart';
@@ -3573,7 +3574,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                         final isDefault =
                             schema == null ||
                             (defaultSchema != null &&
-                                _mcpJsonEquals(schema, defaultSchema));
+                                stableJsonEquals(schema, defaultSchema));
                         return settings.updateBuiltinToolConfig(
                           config.copyWith(
                             schemaOverride: isDefault ? null : schema,
@@ -4285,7 +4286,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
   }
 
   bool _sameMcpOpsConfig(McpOpsConfig left, McpOpsConfig right) {
-    return jsonEncode(left.toJson()) == jsonEncode(right.toJson());
+    return stableJsonEquals(left.toJson(), right.toJson());
   }
 
   bool _mcpOpsListenerChanged(McpOpsConfig left, McpOpsConfig right) {
@@ -6932,7 +6933,7 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
   bool get _canRestoreDefault {
     final defaultSchema = widget.defaultSchema;
     if (defaultSchema == null) return false;
-    return !_mcpJsonEquals(_currentSchema, defaultSchema);
+    return !stableJsonEquals(_currentSchema, defaultSchema);
   }
 
   void _syncSourceFromDraft() {
@@ -14775,7 +14776,7 @@ _SchemaField? _descriptorField(Object? value, {String prefix = ''}) {
     return null;
   }
   final fieldName =
-      _firstNonEmptyText(descriptor, const <String>[
+      firstNonBlankTextForKeys(descriptor, const <String>[
         'name',
         'key',
         'id',
@@ -14792,7 +14793,7 @@ _SchemaField? _descriptorField(Object? value, {String prefix = ''}) {
     name: prefix.isEmpty ? fieldName : '$prefix.$fieldName',
     type: _schemaType(schema),
     description:
-        _firstNonEmptyText(descriptor, const <String>[
+        firstNonBlankTextForKeys(descriptor, const <String>[
           'description',
           'summary',
           'title',
@@ -14860,7 +14861,7 @@ String _schemaDescription(Object? schema) {
   if (schemaMap == null) {
     return '';
   }
-  return _firstNonEmptyText(schemaMap, const <String>[
+  return firstNonBlankTextForKeys(schemaMap, const <String>[
         'description',
         'summary',
       ]) ??
@@ -15085,7 +15086,10 @@ Object? _schemaExampleValue(Object? schema) {
 }
 
 String _executionSummary(BuildContext context, McpTool tool) {
-  final taskSupport = _readText(tool.execution['taskSupport']);
+  final taskSupport = stringFromValue(
+    tool.execution['taskSupport'],
+    ignoreLiteralNull: true,
+  );
   if (taskSupport.isEmpty) {
     return _localizedText(context, zh: '默认', en: 'Default');
   }
@@ -15169,18 +15173,6 @@ String _healthStatusDotTooltip(
   return '$statusLabel · ${_formatStatusTime(context, checkedAt)}';
 }
 
-/// Deep equality for two JSON-shaped maps via canonical encoding. Used to tell
-/// an edited builtin-tool schema apart from its factory default.
-bool _mcpJsonEquals(Map<String, Object?> a, Map<String, Object?> b) {
-  if (identical(a, b)) return true;
-  try {
-    return jsonEncode(_jsonFriendlyValue(a)) ==
-        jsonEncode(_jsonFriendlyValue(b));
-  } catch (_) {
-    return false;
-  }
-}
-
 Object? _jsonFriendlyValue(Object? value) {
   if (value == null || value is String || value is num || value is bool) {
     return value;
@@ -15214,24 +15206,6 @@ Object? _displayedSchemaMetadata({
 
 bool _readBoolFlag(Object? value) {
   return boolFromValue(value);
-}
-
-String? _firstNonEmptyText(Map<String, Object?> source, List<String> keys) {
-  for (final key in keys) {
-    final value = _readText(source[key]);
-    if (value.isNotEmpty) {
-      return value;
-    }
-  }
-  return null;
-}
-
-String _readText(Object? value) {
-  final text = '$value'.trim();
-  if (text == 'null') {
-    return '';
-  }
-  return text;
 }
 
 String _localizedText(

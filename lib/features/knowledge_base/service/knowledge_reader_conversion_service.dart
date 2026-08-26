@@ -1,5 +1,6 @@
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/reader_file_type.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
 
 const int _kReaderDefaultMaxCharsPerSegment = 60000;
@@ -164,6 +165,7 @@ class KnowledgeReaderConversionService {
           end = boundary;
         }
       }
+      end = safeUtf16PrefixCodeUnits(text, end);
       segments.add(text.substring(start, end).trim());
       start = end;
       while (start < text.length && text.codeUnitAt(start) <= 32) {

@@ -323,8 +323,7 @@ class AiFileReadRenderer {
   }
 
   String _readText(Object? value) {
-    final text = '$value'.trim();
-    return text == 'null' ? '' : text;
+    return stringFromValue(value, ignoreLiteralNull: true);
   }
 }
 

@@ -131,6 +131,7 @@ import '../../shared/util/localized_text.dart';
 import '../../shared/util/path_safety.dart';
 import '../../shared/util/physical_path_safety.dart';
 import '../../shared/util/platform_shell.dart';
+import '../../shared/util/stable_hash.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/text_fingerprint.dart';
 import '../../shared/util/text_normalization.dart';
@@ -2338,8 +2339,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         left.subtitleEnable == right.subtitleEnable &&
         left.subtitleType == right.subtitleType &&
         listEquals(left.pronunciationTone, right.pronunciationTone) &&
-        jsonEncode(left.timbreWeights) == jsonEncode(right.timbreWeights) &&
-        jsonEncode(left.voiceModify) == jsonEncode(right.voiceModify);
+        stableJsonEquals(left.timbreWeights, right.timbreWeights) &&
+        stableJsonEquals(left.voiceModify, right.voiceModify);
   }
 
   void _syncComposerDraftForSession(String? nextSessionId) {

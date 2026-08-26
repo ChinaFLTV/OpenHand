@@ -1131,10 +1131,13 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     }
 
     final displayName =
-        _firstNonEmptyText(rawMap, const <String>['title', 'displayName']) ??
+        firstNonBlankTextForKeys(rawMap, const <String>[
+          'title',
+          'displayName',
+        ]) ??
         id;
     final description =
-        _firstNonEmptyText(rawMap, const <String>[
+        firstNonBlankTextForKeys(rawMap, const <String>[
           'description',
           'summary',
           'details',
@@ -1443,11 +1446,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 
   String _readText(Object? value) {
-    final text = '$value'.trim();
-    if (text == 'null') {
-      return '';
-    }
-    return text;
+    return stringFromValue(value, ignoreLiteralNull: true);
   }
 
   String _renderToolCallResult(Map<String, Object?> result) {
@@ -1493,16 +1492,6 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     for (final key in keys) {
       if (source.containsKey(key)) {
         return source[key];
-      }
-    }
-    return null;
-  }
-
-  String? _firstNonEmptyText(Map<String, Object?> source, List<String> keys) {
-    for (final key in keys) {
-      final value = _readText(source[key]);
-      if (value.isNotEmpty) {
-        return value;
       }
     }
     return null;
@@ -1567,7 +1556,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     }
 
     for (final container in containers) {
-      description ??= _firstNonEmptyText(container, descriptionKeys);
+      description ??= firstNonBlankTextForKeys(container, descriptionKeys);
     }
     description ??= _schemaDescription(rawSchema);
     if (description == null) {
@@ -1625,7 +1614,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         nestedSchema ??
         (_looksLikeSchemaMap(descriptorMap) ? descriptorMap : null);
     final description =
-        _firstNonEmptyText(descriptorMap, const <String>[
+        firstNonBlankTextForKeys(descriptorMap, const <String>[
           'description',
           'summary',
           'details',
@@ -1663,7 +1652,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     if (schemaMap == null) {
       return null;
     }
-    return _firstNonEmptyText(schemaMap, const <String>[
+    return firstNonBlankTextForKeys(schemaMap, const <String>[
       'description',
       'summary',
       'details',

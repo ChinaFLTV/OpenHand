@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/stable_hash.dart';
 import '../service/runtime/ai_tool_runtime_service.dart';
 import 'ai_web_fetch_settings.dart';
 import 'ai_web_search_settings.dart';
@@ -1005,7 +1006,7 @@ class AiBuiltinToolConfig {
 
   static bool _jsonEquivalent(Object? left, Object? right) {
     if (left == null || right == null) return left == right;
-    return jsonEncode(left) == jsonEncode(right);
+    return stableJsonEquals(left, right);
   }
 
   /// 为所有内建工具类型生成默认配置列表。

@@ -21,6 +21,7 @@ import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/physical_path_safety.dart';
+import '../../shared/util/stable_hash.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/text_normalization.dart';
 import '../../shared/util/timer_safety.dart';
@@ -2162,7 +2163,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       maxWait: const Duration(seconds: 6),
     );
     final normalized = _normalizeSettings(_settings);
-    if (jsonEncode(normalized.toJson()) != jsonEncode(_settings.toJson())) {
+    if (!stableJsonEquals(normalized.toJson(), _settings.toJson())) {
       _settings = normalized;
       _queuePersist();
       final task = _persistInFlight;

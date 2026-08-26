@@ -2347,7 +2347,7 @@ class AiSessionController extends ChangeNotifier {
     AiSessionStatistics left,
     AiSessionStatistics right,
   ) {
-    return jsonEncode(left.toJson()) != jsonEncode(right.toJson());
+    return !stableJsonEquals(left.toJson(), right.toJson());
   }
 
   Future<AiSession?> _loadOlderSessionMessages(String sessionId) async {

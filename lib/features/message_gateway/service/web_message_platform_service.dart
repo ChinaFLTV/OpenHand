@@ -9709,7 +9709,7 @@ List<WebGatewayLogEntry> _mergeLogs(
       merged[item.id] = item;
       continue;
     }
-    if (jsonEncode(existing.toJson()) == jsonEncode(item.toJson())) {
+    if (stableJsonEquals(existing.toJson(), item.toJson())) {
       continue;
     }
     while (merged.containsKey(nextId)) {

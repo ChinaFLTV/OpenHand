@@ -1,4 +1,5 @@
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_normalization.dart';
 
 String dingtalkDwsToolName(
@@ -168,6 +169,6 @@ class AiDingTalkDwsCommand {
 
   static String _clip(String value, int maxLength) {
     final text = value.trim();
-    return text.length <= maxLength ? text : '${text.substring(0, maxLength)}…';
+    return clipTextByCodeUnits(text, maxLength, suffix: '…');
   }
 }

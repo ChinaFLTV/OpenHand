@@ -20,6 +20,8 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/stable_hash.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/ai_exposure_models.dart';
 import '../services_controller.dart';
@@ -1585,28 +1587,22 @@ class _EmptyState extends StatelessWidget {
   );
 }
 
-Map<String, Object?> _map(Object? value) => value is Map
-    ? <String, Object?>{
-        for (final entry in value.entries) '${entry.key}': entry.value,
-      }
-    : const <String, Object?>{};
+Map<String, Object?> _map(Object? value) => stringKeyedMapFromValue(value);
 
 List<Object?> _list(Object? value) => value is List ? value : const <Object?>[];
 
 List<Map<String, Object?>> _maps(Object? value) =>
-    _list(value).map(_map).toList(growable: false);
+    stringKeyedMapListFromValue(value);
 
 List<String> _strings(Object? value) =>
-    _list(value).map((item) => '$item').toList(growable: false);
+    trimmedNonEmptyStrings(_list(value), ignoreLiteralNull: true);
 
 int _integer(Object? value) => optionalIntFromValue(value) ?? 0;
 
 double _number(Object? value) => optionalDoubleFromValue(value) ?? 0;
 
 String _capturedAt(Map<String, Object?> overview) {
-  final parsed = DateTime.tryParse(
-    '${overview['capturedAt'] ?? ''}',
-  )?.toLocal();
+  final parsed = dateTimeFromValue(overview['capturedAt'])?.toLocal();
   if (parsed == null) return '等待遥测';
   return formatHourMinuteSecond(parsed);
 }
@@ -1627,9 +1623,9 @@ String _postgresRowSubtitle(
 
 String _compactValue(Object? value, {int maxChars = 80}) {
   final text = value is Map || value is List
-      ? jsonEncode(value)
+      ? stableJsonEncode(value)
       : '${value ?? 'null'}';
-  return text.length <= maxChars ? text : '${text.substring(0, maxChars)}...';
+  return clipText(text, maxChars);
 }
 
 String _ttlText(int seconds) => seconds < 0 ? '永久' : '${seconds}s';

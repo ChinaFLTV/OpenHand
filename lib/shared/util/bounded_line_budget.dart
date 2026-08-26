@@ -5,6 +5,7 @@
 /// 预算，所以必须一边回退已渲染的行、一边重算省略数，直到标记也放得下。
 library;
 
+import 'argument_guards.dart';
 import 'text_clip.dart';
 
 /// [renderLinesWithinBudget] 的结果。
@@ -27,6 +28,8 @@ BoundedLineRender renderLinesWithinBudget<T>({
   required String Function(T item) lineBuilder,
   required String Function(int omitted) omissionMarkerBuilder,
 }) {
+  requireNonNegativeInt(maxItems, 'maxItems');
+  requireNonNegativeInt(maxCharacters, 'maxCharacters');
   final lines = <String>[];
   var renderedCharacters = 0;
   final candidateCount = items.length < maxItems ? items.length : maxItems;

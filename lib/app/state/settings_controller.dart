@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -28,6 +27,7 @@ import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/serial_task_queue.dart';
+import '../../shared/util/stable_hash.dart';
 import '../model/app_language.dart';
 import '../model/app_proxy_settings.dart';
 import '../model/app_settings_snapshot.dart';
@@ -1281,8 +1281,10 @@ class SettingsController extends ChangeNotifier {
   Future<bool> updateAiTranslationSettings(AiTranslationSettings value) async {
     final normalized = value.normalized();
     return _commitMutation(() {
-      if (jsonEncode(_aiTranslationSettings.toJson()) ==
-          jsonEncode(normalized.toJson())) {
+      if (stableJsonEquals(
+        _aiTranslationSettings.toJson(),
+        normalized.toJson(),
+      )) {
         return _MutationDisposition.successNoChange;
       }
       _aiTranslationSettings = normalized;
@@ -1299,8 +1301,7 @@ class SettingsController extends ChangeNotifier {
   Future<bool> updateAiTtsSettings(AiTtsSettings value) async {
     final normalized = value.normalized();
     return _commitMutation(() {
-      if (jsonEncode(_aiTtsSettings.toJson()) ==
-          jsonEncode(normalized.toJson())) {
+      if (stableJsonEquals(_aiTtsSettings.toJson(), normalized.toJson())) {
         return _MutationDisposition.successNoChange;
       }
       _aiTtsSettings = normalized;

@@ -25,6 +25,22 @@ String? firstNonBlankStringForKeys(
   return null;
 }
 
+/// 依次尝试 [keys]，返回首个可展示的非空文本；非字符串标量会安全转为文本。
+String? firstNonBlankTextForKeys(
+  Map<String, Object?> map,
+  List<String> keys, {
+  bool ignoreLiteralNull = true,
+}) {
+  for (final key in keys) {
+    final value = optionalStringFromValue(
+      map[key],
+      ignoreLiteralNull: ignoreLiteralNull,
+    );
+    if (value != null) return value;
+  }
+  return null;
+}
+
 void putIfNotBlank(Map<String, Object?> target, String key, String? value) {
   final normalized = nullIfBlank(value);
   if (normalized != null) target[key] = normalized;
@@ -272,18 +288,27 @@ List<String>? optionalStringListFromValueOrJsonText(
   return null;
 }
 
-String stringFromValue(Object? value, {String fallback = ''}) {
-  return optionalStringFromValue(value) ?? fallback;
+String stringFromValue(
+  Object? value, {
+  String fallback = '',
+  bool ignoreLiteralNull = false,
+}) {
+  return optionalStringFromValue(value, ignoreLiteralNull: ignoreLiteralNull) ??
+      fallback;
 }
 
 String lowercaseStringFromValue(Object? value, {String fallback = ''}) {
   return optionalLowercaseStringFromValue(value) ?? fallback.toLowerCase();
 }
 
-String? optionalStringFromValue(Object? value) {
+String? optionalStringFromValue(
+  Object? value, {
+  bool ignoreLiteralNull = false,
+}) {
   if (value == null) return null;
   final text = '$value'.trim();
-  return text.isEmpty ? null : text;
+  if (text.isEmpty || (ignoreLiteralNull && text == 'null')) return null;
+  return text;
 }
 
 String? optionalLowercaseStringFromValue(Object? value) {

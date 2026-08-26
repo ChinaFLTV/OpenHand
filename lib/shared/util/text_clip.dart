@@ -158,11 +158,7 @@ String clipMiddleText(
       if (compactMarker.length <= maxCodeUnits) {
         return (text: compactMarker, truncated: true);
       }
-      throw ArgumentError.value(
-        maxCodeUnits,
-        'maxCodeUnits',
-        'must fit the omission marker',
-      );
+      throw ArgumentError.value(maxCodeUnits, 'maxCodeUnits', '必须能够容纳省略标记。');
     }
     final headLength = _safePrefixLength(
       normalized,

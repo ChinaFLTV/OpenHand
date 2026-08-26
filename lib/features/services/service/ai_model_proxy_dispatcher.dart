@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
 import '../ai_model_proxy_controller.dart';
 import '../model/ai_exposure_models.dart';
@@ -1061,9 +1062,11 @@ class AiModelProxyDispatcher {
   static String _boundedToolDescription(Object? value) {
     if (value is! String) return '';
     final description = value.trim();
-    return description.length <= _maxProxyToolDescriptionLength
-        ? description
-        : description.substring(0, _maxProxyToolDescriptionLength);
+    return clipTextByCodeUnits(
+      description,
+      _maxProxyToolDescriptionLength,
+      suffix: '',
+    );
   }
 
   /// 入站协议和上游协议可能不同，原样工具只能按后备模型方言透传。

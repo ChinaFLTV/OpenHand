@@ -3925,7 +3925,7 @@ AiModelConfig? _selectedAiTtsModel({
 }
 
 bool _settingsJsonEquals(Object? left, Object? right) {
-  return jsonEncode(left) == jsonEncode(right);
+  return stableJsonEquals(left, right);
 }
 
 List<T>? _settingsReorderedProviderPriorityAt<T>(

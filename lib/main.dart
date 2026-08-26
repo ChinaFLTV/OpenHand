@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -40,6 +39,7 @@ import 'features/skills/index.dart';
 import 'features/thread_template_runtime/index.dart';
 import 'shared/db/database_service.dart';
 import 'shared/fps/openhand_fps_monitor.dart';
+import 'shared/ui/startup_failure_view.dart';
 import 'shared/ui/structured_error_text.dart';
 import 'shared/util/user_failure_message.dart';
 
@@ -138,43 +138,34 @@ Future<void> _bootstrap() async {
       ),
     );
     runApp(
-      Directionality(
-        textDirection: TextDirection.ltr,
-        child: ColoredBox(
-          color: const Color(0xFF1B1B1B),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Text(
-                StructuredErrorText.format(
-                  title: StructuredErrorText.pick(
-                    zh: '数据库初始化失败',
-                    en: 'Database initialization failed',
-                  ),
-                  reason: reason,
-                  try_: StructuredErrorText.pick(
-                    zh:
-                        '· 检查 Application Support 目录是否可写，以及是否被其他实例占用\n'
-                        '· 检查磁盘剩余空间是否充足\n'
-                        '· 退出其他 OpenHand 进程后再启动（sqlite 不允许同库多写）\n'
-                        '· 必要时备份并删除 openhand.db，让程序重新建库',
-                    en:
-                        '· Check whether the Application Support directory is writable and whether another instance is using it\n'
-                        '· Confirm that enough disk space is available\n'
-                        '· Exit other OpenHand processes before starting again (sqlite does not allow concurrent writers to the same database)\n'
-                        '· If needed, back up and remove openhand.db so the app can rebuild it',
-                  ),
-                ),
-                style: const TextStyle(
-                  color: Color(0xFFE0E0E0),
-                  fontSize: 13,
-                  height: 1.5,
-                ),
-                textAlign: TextAlign.left,
-              ),
-            ),
-          ),
+      OpenHandStartupFailureApp(
+        title: StructuredErrorText.pick(
+          zh: '数据库初始化失败',
+          en: 'Database initialization failed',
         ),
+        reason: reason,
+        suggestionsTitle: StructuredErrorText.pick(
+          zh: '建议处理',
+          en: 'Recommended actions',
+        ),
+        suggestions: [
+          StructuredErrorText.pick(
+            zh: '检查 Application Support 目录是否可写，以及是否被其他实例占用。',
+            en: 'Check whether the Application Support directory is writable or used by another instance.',
+          ),
+          StructuredErrorText.pick(
+            zh: '确认磁盘剩余空间充足。',
+            en: 'Confirm that enough disk space is available.',
+          ),
+          StructuredErrorText.pick(
+            zh: '退出其他 OpenHand 进程后重新启动。',
+            en: 'Exit other OpenHand processes and start again.',
+          ),
+          StructuredErrorText.pick(
+            zh: '必要时备份并删除 openhand.db，让应用重新建库。',
+            en: 'If needed, back up and remove openhand.db so the app can rebuild it.',
+          ),
+        ],
       ),
     );
     return;
