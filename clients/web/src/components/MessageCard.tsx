@@ -1528,6 +1528,7 @@ function creationOptionDetail(options: Record<string, unknown> | null): string {
   const resolution = strictStringFromUnknown(options['resolution']);
   const mode = strictStringFromUnknown(options['mode']);
   const voice = strictStringFromUnknown(options['voice']);
+  const omitVoice = options['omit_voice'] === true;
   const duration = strictPositiveIntegerFromUnknown(options['duration_seconds']);
   const count = strictPositiveIntegerFromUnknown(options['count']);
   const frameRate = strictPositiveIntegerFromUnknown(options['frame_rate']);
@@ -1548,6 +1549,7 @@ function creationOptionDetail(options: Record<string, unknown> | null): string {
   if (background) parts.push(background);
   if (mode) parts.push(mode);
   if (voice) parts.push(voice);
+  if (omitVoice) parts.push(t('creation.options.voiceUnspecified', '不指定音色'));
   if (speed != null) parts.push(`${speed}x`);
   if (sampleRate != null) parts.push(`${sampleRate}Hz`);
   if (bitrate != null) parts.push(`${Math.round(bitrate / 1000)}kbps`);

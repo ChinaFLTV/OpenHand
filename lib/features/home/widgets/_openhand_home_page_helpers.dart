@@ -753,9 +753,10 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
   late String? _mode = widget.initial.mode;
   late double? _speed = widget.initial.speed;
   late int? _sampleRate = widget.initial.sampleRate;
-  late int? _bitrate = widget.initial.bitrate;
+  late int? _bitrate = _initialAudioBitrate();
   late double? _volume = widget.initial.volume;
   late double? _pitch = widget.initial.pitch;
+  late bool _omitVoice = widget.initial.omitVoice;
   late bool _customVoiceInputVisible = _initialUsesCustomVoice();
   late final TextEditingController _negativePromptController =
       TextEditingController(text: widget.initial.negativePrompt ?? '');
@@ -897,6 +898,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
   }
 
   String _initialAudioVoice() {
+    if (widget.initial.omitVoice) return '';
     final raw = widget.initial.voice?.trim() ?? '';
     final model = widget.selectedModel;
     final modelId = _audioModelId;
@@ -925,6 +927,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
   }
 
   bool _initialUsesCustomVoice() {
+    if (widget.initial.omitVoice) return false;
     final voice = _initialAudioVoice();
     final options = _audioVoiceOptions;
     return voice.isNotEmpty &&
@@ -936,6 +939,20 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
     final normalized = voice.trim();
     if (normalized.isEmpty) return false;
     return options.any((option) => option.value == normalized);
+  }
+
+  List<int> get _audioBitrateValues {
+    final modelId = _audioModelId;
+    if (modelId != null && AiTtsProviderCatalogs.isMiniMaxMusicModel(modelId)) {
+      return const <int>[32000, 64000, 128000, 256000];
+    }
+    return _audioBitrates;
+  }
+
+  int? _initialAudioBitrate() {
+    final bitrate = widget.initial.bitrate;
+    if (widget.mode != _CreationMode.audio || bitrate == null) return bitrate;
+    return _audioBitrateValues.contains(bitrate) ? bitrate : null;
   }
 
   @override
@@ -1017,20 +1034,20 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                         children: [
                           if (isImage)
                             for (final preset in _imageRatios)
-                              ChoiceChip(
+                              _optionChip(
                                 label: Text(preset.ratio),
                                 selected: _aspectRatio == preset.ratio,
-                                onSelected: (_) => setState(() {
+                                onSelected: () => setState(() {
                                   _aspectRatio = preset.ratio;
                                   _size = preset.size;
                                 }),
                               ),
                           if (isVideo)
                             for (final ratio in _videoRatios)
-                              ChoiceChip(
+                              _optionChip(
                                 label: Text(ratio),
                                 selected: _aspectRatio == ratio,
-                                onSelected: (_) =>
+                                onSelected: () =>
                                     setState(() => _aspectRatio = ratio),
                               ),
                         ],
@@ -1054,10 +1071,10 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                         children: [
                           for (final d
                               in (isVideo ? _videoDurations : _audioDurations))
-                            ChoiceChip(
+                            _optionChip(
                               label: Text('${d}s'),
                               selected: _duration == d,
-                              onSelected: (_) => setState(() => _duration = d),
+                              onSelected: () => setState(() => _duration = d),
                             ),
                         ],
                       ),
@@ -1262,7 +1279,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                           zh: '码率',
                           en: 'Bitrate',
                         ),
-                        values: _audioBitrates,
+                        values: _audioBitrateValues,
                         selected: _bitrate,
                         labelFor: (value) => '${value ~/ 1000} kbps',
                         onSelected: (value) => setState(() => _bitrate = value),
@@ -1312,6 +1329,27 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
     return Text(label, style: sectionStyle);
   }
 
+  Widget _optionChip({
+    required Widget label,
+    required bool selected,
+    required VoidCallback onSelected,
+  }) {
+    final height = math.max(
+      40.0,
+      MediaQuery.textScalerOf(context).scale(20) + 16,
+    );
+    return SizedBox(
+      height: height,
+      child: ChoiceChip(
+        label: label,
+        selected: selected,
+        onSelected: (_) => onSelected(),
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    );
+  }
+
   Widget _choiceSection<T>({
     required BuildContext context,
     required String title,
@@ -1332,16 +1370,16 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              ChoiceChip(
+              _optionChip(
                 label: Text(_openhandHomePaAutoLabel(context)),
                 selected: selected == null,
-                onSelected: (_) => onSelected(null),
+                onSelected: () => onSelected(null),
               ),
               for (final value in values)
-                ChoiceChip(
+                _optionChip(
                   label: Text(labelFor(value)),
                   selected: selected == value,
-                  onSelected: (_) => onSelected(value),
+                  onSelected: () => onSelected(value),
                 ),
             ],
           ),
@@ -1368,20 +1406,20 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              ChoiceChip(
+              _optionChip(
                 label: Text(_openhandHomePaAutoLabel(context)),
                 selected: value == null,
-                onSelected: (_) => onChanged(null),
+                onSelected: () => onChanged(null),
               ),
-              ChoiceChip(
+              _optionChip(
                 label: Text(openHandLocalizedText(context, zh: '开', en: 'On')),
                 selected: value == true,
-                onSelected: (_) => onChanged(true),
+                onSelected: () => onChanged(true),
               ),
-              ChoiceChip(
+              _optionChip(
                 label: Text(openHandLocalizedText(context, zh: '关', en: 'Off')),
                 selected: value == false,
-                onSelected: (_) => onChanged(false),
+                onSelected: () => onChanged(false),
               ),
             ],
           ),
@@ -1392,20 +1430,10 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
 
   Widget _audioVoiceSection(BuildContext context, TextStyle? sectionStyle) {
     final options = _audioVoiceOptions;
-    if (options.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: _textInput(
-          context,
-          label: openHandLocalizedText(context, zh: '音色 ID', en: 'Voice ID'),
-          controller: _voiceController,
-        ),
-      );
-    }
-
     final currentVoice = _voiceController.text.trim();
     final selectedKnown = _voiceInCatalog(currentVoice, options);
-    final customSelected = _customVoiceInputVisible && !selectedKnown;
+    final customSelected =
+        !_omitVoice && _customVoiceInputVisible && !selectedKnown;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -1417,8 +1445,15 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
             spacing: 8,
             runSpacing: 8,
             children: [
+              _optionChip(
+                label: Text(
+                  openHandLocalizedText(context, zh: '不指定', en: 'Unspecified'),
+                ),
+                selected: _omitVoice,
+                onSelected: _selectNoAudioVoice,
+              ),
               for (final option in options)
-                ChoiceChip(
+                _optionChip(
                   label: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 220),
                     child: Text(
@@ -1426,30 +1461,36 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  selected: currentVoice == option.value,
-                  onSelected: (_) => _selectAudioVoice(option.value),
+                  selected: !_omitVoice && currentVoice == option.value,
+                  onSelected: () => _selectAudioVoice(option.value),
                 ),
-              ChoiceChip(
+              _optionChip(
                 label: Text(
                   openHandLocalizedText(context, zh: '自定义 ID', en: 'Custom ID'),
                 ),
                 selected: customSelected,
-                onSelected: (_) => _showCustomVoiceInput(selectedKnown),
+                onSelected: () => _showCustomVoiceInput(selectedKnown),
               ),
             ],
           ),
-          if (_customVoiceInputVisible) ...[
-            kOpenHandGap12,
-            _textInput(
-              context,
-              label: openHandLocalizedText(
-                context,
-                zh: '自定义音色 ID',
-                en: 'Custom voice ID',
-              ),
-              controller: _voiceController,
-            ),
-          ],
+          OpenHandVerticalRevealSwitcher(
+            duration: kOpenHandDialogValidationRevealDuration,
+            child: _customVoiceInputVisible
+                ? Padding(
+                    key: const ValueKey<String>('custom-audio-voice'),
+                    padding: const EdgeInsets.only(top: 12),
+                    child: _textInput(
+                      context,
+                      label: openHandLocalizedText(
+                        context,
+                        zh: '自定义音色 ID',
+                        en: 'Custom voice ID',
+                      ),
+                      controller: _voiceController,
+                    ),
+                  )
+                : const SizedBox(key: ValueKey<String>('preset-audio-voice')),
+          ),
         ],
       ),
     );
@@ -1457,13 +1498,23 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
 
   void _selectAudioVoice(String voice) {
     setState(() {
+      _omitVoice = false;
       _customVoiceInputVisible = false;
       _voiceController.text = voice;
     });
   }
 
+  void _selectNoAudioVoice() {
+    setState(() {
+      _omitVoice = true;
+      _customVoiceInputVisible = false;
+      _voiceController.clear();
+    });
+  }
+
   void _showCustomVoiceInput(bool clearKnownVoice) {
     setState(() {
+      _omitVoice = false;
       _customVoiceInputVisible = true;
       if (clearKnownVoice) _voiceController.clear();
     });
@@ -1594,6 +1645,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
       numFrames: isVideo ? _numFrames : null,
       mode: isVideo ? _mode : null,
       voice: isAudio ? voice : null,
+      omitVoice: isAudio && _omitVoice,
       speed: isAudio ? _speed : null,
       sampleRate: isAudio ? _sampleRate : null,
       bitrate: isAudio ? _bitrate : null,
@@ -1604,6 +1656,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
 
   String? _selectedAudioVoiceOrNull() {
     if (widget.mode != _CreationMode.audio) return null;
+    if (_omitVoice) return null;
     final raw = _trimmedOrNull(_voiceController.text);
     if (raw == null) return null;
     final model = widget.selectedModel;

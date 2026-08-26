@@ -76,6 +76,7 @@ class AiTtsProviderCatalogs {
     required AiProtocolType protocol,
     required String modelId,
   }) {
+    if (isMiniMaxMusicModel(modelId)) return _minimaxMusicFormats;
     if (usesStepFunSpeech(protocol: protocol, modelId: modelId)) {
       return _stepFunFormats;
     }
@@ -229,6 +230,10 @@ class AiTtsProviderCatalogs {
     return normalized.startsWith(_mimoPresetModelId);
   }
 
+  static bool isMiniMaxMusicModel(String modelId) {
+    return _normalizedLookupValue(modelId).contains('minimax-music');
+  }
+
   static bool _isStepTtsMiniModel(String modelId) {
     return _normalizedLookupValue(modelId).startsWith(_stepTtsMiniModelPrefix);
   }
@@ -250,6 +255,13 @@ class AiTtsProviderCatalogs {
     'opus',
     'pcm',
   };
+
+  static const List<AiTtsCatalogOption> _minimaxMusicFormats =
+      <AiTtsCatalogOption>[
+        AiTtsCatalogOption('mp3', 'MP3'),
+        AiTtsCatalogOption('wav', 'WAV'),
+        AiTtsCatalogOption('pcm', 'PCM'),
+      ];
 
   static const Set<int> stepFunSupportedSampleRates = <int>{
     8000,

@@ -76,6 +76,13 @@ const int _miniMaxFileRetrieveAttempts = 2;
 const int _miniMaxFileRetrieveRetryBaseMs = 750;
 const int _xaiVideoMinDurationSeconds = 1;
 const int _xaiVideoMaxDurationSeconds = 15;
+const int _gmiMusicPromptMaxCharacters = 2000;
+const String _gmiMusicRequestUrl =
+    'https://console.gmicloud.ai/api/v1/ie/requestqueue/apikey/requests';
+const String _gmiMusicInstrumentalLyrics = '[Inst]';
+const Set<String> _gmiMusicFormats = <String>{'mp3', 'wav', 'pcm'};
+const Set<int> _gmiMusicSampleRates = <int>{16000, 24000, 32000, 44100};
+const Set<int> _gmiMusicBitrates = <int>{32000, 64000, 128000, 256000};
 
 /// Outcome of a generative multimedia request (image/video/audio).
 ///
@@ -548,6 +555,13 @@ class AiImageGenerationService {
       _GeneratedMediaKind.video => resolveVideoModelId(model),
       _GeneratedMediaKind.audio => resolveAudioModelId(model),
     };
+    final useGmiMusicApi = kind.isAudio && _usesGmiMusicApi(model, modelId);
+    if (useGmiMusicApi &&
+        trimmedPrompt.runes.length > _gmiMusicPromptMaxCharacters) {
+      throw const AiMediaGenerationException(
+        'GMI MiniMax Music 风格描述不能超过 2000 个字符。',
+      );
+    }
     final useGrok2Api = _usesGrok2Api(model);
     final inputError = kind.isAudio
         ? AiStepFunAudioPolicy.inputValidationError(
@@ -606,6 +620,7 @@ class AiImageGenerationService {
         options: options,
         protocol: model.protocolType,
         useGrok2Api: useGrok2Api,
+        useGmiMusicApi: useGmiMusicApi,
         referenceImageDataUrls: referenceImageDataUrls,
       ),
     );
@@ -709,6 +724,13 @@ class AiImageGenerationService {
       protocol: model.protocolType,
       rawResponseBody: response.body,
     );
+    final initialStatus = _operationStatus(decoded);
+    if (_isTerminalFailureStatus(initialStatus)) {
+      throw AiMediaGenerationException(
+        '${kind.displayName} generation failed: ${_extractError(response.body)}',
+        rawResponseBody: response.body,
+      );
+    }
     final initialMarkdown = await _buildMarkdownFromMediaResponse(
       decoded: decoded,
       kind: kind,
@@ -789,6 +811,13 @@ class AiImageGenerationService {
   }) {
     if (nullIfBlank(model.normalizedBaseUrl) == null) {
       throw const AiMediaGenerationException('Missing base URL.');
+    }
+    if (kind.isAudio && _usesGmiMusicApi(model, modelId)) {
+      return const AiResolvedEndpoint(
+        url: _gmiMusicRequestUrl,
+        method: 'POST',
+        transport: 'json',
+      );
     }
     final family = _familyForKind(kind);
     return _router.resolve(
@@ -906,6 +935,7 @@ class AiImageGenerationService {
     required AiCreationOptions options,
     required AiProtocolType protocol,
     required bool useGrok2Api,
+    required bool useGmiMusicApi,
     required List<String> referenceImageDataUrls,
   }) {
     return switch (kind) {
@@ -930,6 +960,7 @@ class AiImageGenerationService {
         prompt: prompt,
         options: options,
         protocol: protocol,
+        useGmiMusicApi: useGmiMusicApi,
       ),
     };
   }
@@ -1615,14 +1646,41 @@ class AiImageGenerationService {
     return lowercaseStringFromValue(modelId).contains('music');
   }
 
+  static bool _usesGmiMusicApi(AiModelConfig model, String modelId) {
+    if (!_isMiniMaxMusicModel(modelId)) return false;
+    final host =
+        Uri.tryParse(model.normalizedBaseUrl)?.host.toLowerCase() ?? '';
+    return host == 'api.gmi-serving.com' ||
+        host.endsWith('.gmi-serving.com') ||
+        host == 'gmicloud.ai' ||
+        host.endsWith('.gmicloud.ai');
+  }
+
   Map<String, Object?> _buildAudioBody({
     required String modelId,
     required String prompt,
     required AiCreationOptions options,
     required AiProtocolType protocol,
+    required bool useGmiMusicApi,
   }) {
-    final voice = nullIfBlank(options.voice) ?? nullIfBlank(options.style);
+    final voice = options.omitVoice
+        ? null
+        : nullIfBlank(options.voice) ?? nullIfBlank(options.style);
     final format = nullIfBlank(options.outputFormat) ?? 'mp3';
+    if (useGmiMusicApi) {
+      final payload = <String, Object?>{
+        'lyrics': _gmiMusicInstrumentalLyrics,
+        'prompt': prompt,
+      };
+      if (_gmiMusicSampleRates.contains(options.sampleRate)) {
+        payload['sample_rate'] = options.sampleRate;
+      }
+      if (_gmiMusicBitrates.contains(options.bitrate)) {
+        payload['bitrate'] = options.bitrate;
+      }
+      payload['format'] = _gmiMusicFormats.contains(format) ? format : 'mp3';
+      return <String, Object?>{'model': modelId, 'payload': payload};
+    }
     switch (protocol) {
       case AiProtocolType.openai:
       case AiProtocolType.glm:
@@ -1632,12 +1690,13 @@ class AiImageGenerationService {
         final body = <String, Object?>{
           'model': modelId,
           'input': prompt,
-          'voice':
-              voice ??
-              _defaultVoiceForAudioProtocol(
-                protocol: protocol,
-                modelId: modelId,
-              ),
+          if (!options.omitVoice)
+            'voice':
+                voice ??
+                _defaultVoiceForAudioProtocol(
+                  protocol: protocol,
+                  modelId: modelId,
+                ),
           'response_format': format,
         };
         _putPositiveDouble(body, 'speed', options.speed);
@@ -1647,11 +1706,13 @@ class AiImageGenerationService {
         )) {
           _putPositiveDouble(body, 'volume', options.volume);
           _putPositiveInt(body, 'sample_rate', options.sampleRate);
-          return AiStepFunAudioPolicy.normalizeSpeechBody(
+          final normalized = AiStepFunAudioPolicy.normalizeSpeechBody(
             body: body,
             protocol: protocol,
             modelId: modelId,
           );
+          if (options.omitVoice) normalized.remove('voice');
+          return normalized;
         }
         return body;
       case AiProtocolType.qwen:
@@ -1691,9 +1752,10 @@ class AiImageGenerationService {
           'model': modelId,
           'text': prompt,
           'voice_setting': <String, Object?>{
-            'voice_id': options.timbreWeights.isEmpty
-                ? voice ?? 'female-shaonv'
-                : '',
+            if (!options.omitVoice)
+              'voice_id': options.timbreWeights.isEmpty
+                  ? voice ?? 'female-shaonv'
+                  : '',
             'speed': options.speed ?? 1.0,
             'vol': options.volume ?? 1.0,
             'pitch': (options.pitch ?? 0).round(),
@@ -1753,12 +1815,13 @@ class AiImageGenerationService {
         final body = <String, Object?>{
           'model': modelId,
           'input': prompt,
-          'voice':
-              voice ??
-              _defaultVoiceForAudioProtocol(
-                protocol: protocol,
-                modelId: modelId,
-              ),
+          if (!options.omitVoice)
+            'voice':
+                voice ??
+                _defaultVoiceForAudioProtocol(
+                  protocol: protocol,
+                  modelId: modelId,
+                ),
           'response_format': format,
           if (options.speed != null) 'speed': options.speed,
           if (options.sampleRate != null) 'sample_rate': options.sampleRate,
@@ -1766,11 +1829,13 @@ class AiImageGenerationService {
           if (options.volume != null) 'volume': options.volume,
           if (options.pitch != null) 'pitch': options.pitch,
         };
-        return AiStepFunAudioPolicy.normalizeSpeechBody(
+        final normalized = AiStepFunAudioPolicy.normalizeSpeechBody(
           body: body,
           protocol: protocol,
           modelId: modelId,
         );
+        if (options.omitVoice) normalized.remove('voice');
+        return normalized;
     }
   }
 
@@ -1999,8 +2064,9 @@ class AiImageGenerationService {
     if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
       return '';
     }
+    final inferredMimeType = _mediaMimeFromUrl(url, kind);
     final destination = await createInlineMediaOutputFile(
-      mimeType: _defaultMimeFor(kind),
+      mimeType: inferredMimeType,
     );
     try {
       final response = await _transport.downloadToFile(
@@ -2034,7 +2100,7 @@ class AiImageGenerationService {
                 : kVideoMp4MimeType
           : isAudioMimeType(contentType)
           ? contentType
-          : kAudioMpegMimeType;
+          : inferredMimeType;
       return inlineMediaFileMarkdown(
         filePath: response.filePath!,
         mimeType: mimeType,
@@ -2143,8 +2209,11 @@ class AiImageGenerationService {
         'output',
         'result',
         'results',
+        'outcome',
         'content',
         'media',
+        'medias',
+        'media_urls',
         'file',
         'files',
         // GLM CogVideoX returns the playable URL inside a `video_result` array.
@@ -2975,6 +3044,21 @@ class AiImageGenerationService {
       return kImageJpegMimeType;
     }
     return kImagePngMimeType;
+  }
+
+  String _mediaMimeFromUrl(String url, _GeneratedMediaKind kind) {
+    final path = lowercaseStringFromValue(Uri.tryParse(url)?.path ?? url);
+    if (kind.isAudio) {
+      if (path.endsWith('.wav')) return kAudioWavMimeType;
+      if (path.endsWith('.aac')) return kAudioAacMimeType;
+      if (path.endsWith('.ogg') || path.endsWith('.opus')) {
+        return kAudioOggMimeType;
+      }
+      if (path.endsWith('.flac')) return kAudioFlacMimeType;
+    } else if (kind.isVideo && path.endsWith('.webm')) {
+      return kVideoWebmMimeType;
+    }
+    return _defaultMimeFor(kind);
   }
 
   String _extractError(String body) {

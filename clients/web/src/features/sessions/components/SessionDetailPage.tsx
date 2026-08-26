@@ -7056,6 +7056,7 @@ export function SessionDetailPage() {
                 num_frames: creationOptions.numFrames,
                 mode: creationOptions.mode,
                 voice: creationOptions.voice,
+                omit_voice: creationOptions.omitVoice,
                 speed: creationOptions.speed,
                 sample_rate: creationOptions.sampleRate,
                 bitrate: creationOptions.bitrate,

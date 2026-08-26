@@ -27,6 +27,7 @@ export interface CreationOptions {
   numFrames?: number;
   mode?: string;
   voice?: string;
+  omitVoice?: boolean;
   speed?: number;
   sampleRate?: number;
   bitrate?: number;
@@ -236,6 +237,7 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
   const [numFrames, setNumFrames] = useState(initial?.numFrames);
   const [videoMode, setVideoMode] = useState(initial?.mode);
   const [voice, setVoice] = useState(initial?.voice ?? '');
+  const [omitVoice, setOmitVoice] = useState(initial?.omitVoice ?? false);
   const [speed, setSpeed] = useState(initial?.speed);
   const [sampleRate, setSampleRate] = useState(initial?.sampleRate);
   const [bitrate, setBitrate] = useState(initial?.bitrate);
@@ -261,7 +263,8 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
     frameRate: mode === 'video' ? frameRate : undefined,
     numFrames: mode === 'video' ? numFrames : undefined,
     mode: mode === 'video' ? videoMode : undefined,
-    voice: mode === 'audio' ? trimToUndefined(voice) : undefined,
+    voice: mode === 'audio' && !omitVoice ? trimToUndefined(voice) : undefined,
+    omitVoice: mode === 'audio' ? omitVoice : undefined,
     speed: mode === 'audio' ? speed : undefined,
     sampleRate: mode === 'audio' ? sampleRate : undefined,
     bitrate: mode === 'audio' ? bitrate : undefined,
@@ -357,7 +360,34 @@ export function CreationOptionsDialog({ mode, initial, onConfirm, onCancel }: Cr
         ) : null}
         {mode === 'audio' ? (
           <>
-            <TextOption label={t('creation.options.voice', '语音')} value={voice} onInput={setVoice} />
+            <div class="mb-4">
+              <p class="text-xs font-medium mb-2 oh-text-muted">
+                {t('creation.options.voice', '音色/发音人')}
+              </p>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOmitVoice(true)}
+                  class={`oh-tap-press px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                    omitVoice ? 'oh-creation-chip-active' : 'oh-creation-chip'
+                  }`}
+                >
+                  {omitVoice ? `✓ ${t('creation.options.voiceUnspecified', '不指定')}` : t('creation.options.voiceUnspecified', '不指定')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOmitVoice(false)}
+                  class={`oh-tap-press px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                    !omitVoice ? 'oh-creation-chip-active' : 'oh-creation-chip'
+                  }`}
+                >
+                  {!omitVoice ? `✓ ${t('creation.options.customVoice', '自定义 ID')}` : t('creation.options.customVoice', '自定义 ID')}
+                </button>
+              </div>
+            </div>
+            {!omitVoice ? (
+              <TextOption label={t('creation.options.customVoiceId', '自定义音色 ID')} value={voice} onInput={setVoice} />
+            ) : null}
             <ChipGroup title={t('creation.options.audioFormat', '音频格式')} values={AUDIO_FORMATS} selected={outputFormat} onSelect={setOutputFormat} />
             <ChipGroup title={t('creation.options.speed', '语速')} values={AUDIO_SPEEDS} selected={speed} labelFor={(value) => `${value}x`} onSelect={setSpeed} />
             <ChipGroup title={t('creation.options.sampleRate', '采样率')} values={AUDIO_SAMPLE_RATES} selected={sampleRate} onSelect={setSampleRate} />

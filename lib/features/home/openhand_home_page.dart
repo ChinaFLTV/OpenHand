@@ -2322,6 +2322,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         left.numFrames == right.numFrames &&
         left.mode == right.mode &&
         left.voice == right.voice &&
+        left.omitVoice == right.omitVoice &&
         left.speed == right.speed &&
         left.sampleRate == right.sampleRate &&
         left.bitrate == right.bitrate &&

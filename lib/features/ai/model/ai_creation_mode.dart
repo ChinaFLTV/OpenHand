@@ -55,6 +55,7 @@ class AiCreationOptions {
     this.numFrames,
     this.mode,
     this.voice,
+    this.omitVoice = false,
     this.speed,
     this.sampleRate,
     this.bitrate,
@@ -124,6 +125,9 @@ class AiCreationOptions {
   /// TTS voice identifier.
   final String? voice;
 
+  /// 用户明确要求请求中不携带音色参数。
+  final bool omitVoice;
+
   /// TTS speed multiplier.
   final double? speed;
 
@@ -175,6 +179,7 @@ class AiCreationOptions {
     int? numFrames,
     String? mode,
     String? voice,
+    bool? omitVoice,
     double? speed,
     int? sampleRate,
     int? bitrate,
@@ -192,6 +197,7 @@ class AiCreationOptions {
     List<Map<String, Object?>>? timbreWeights,
     Map<String, Object?>? voiceModify,
   }) {
+    final resolvedOmitVoice = omitVoice ?? this.omitVoice;
     return AiCreationOptions(
       size: size ?? this.size,
       aspectRatio: aspectRatio ?? this.aspectRatio,
@@ -211,7 +217,8 @@ class AiCreationOptions {
       frameRate: normalizeFrameRate(frameRate ?? this.frameRate),
       numFrames: normalizeNumFrames(numFrames ?? this.numFrames),
       mode: mode ?? this.mode,
-      voice: voice ?? this.voice,
+      voice: resolvedOmitVoice ? null : voice ?? this.voice,
+      omitVoice: resolvedOmitVoice,
       speed: normalizeSpeed(speed ?? this.speed),
       sampleRate: normalizeSampleRate(sampleRate ?? this.sampleRate),
       bitrate: normalizeBitrate(bitrate ?? this.bitrate),
@@ -261,7 +268,8 @@ class AiCreationOptions {
       if (normalizedFrameRate != null) 'frame_rate': normalizedFrameRate,
       if (normalizedNumFrames != null) 'num_frames': normalizedNumFrames,
       if (mode != null) 'mode': mode,
-      if (voice != null) 'voice': voice,
+      if (!omitVoice && voice != null) 'voice': voice,
+      if (omitVoice) 'omit_voice': true,
       if (normalizedSpeed != null) 'speed': normalizedSpeed,
       if (normalizedSampleRate != null) 'sample_rate': normalizedSampleRate,
       if (normalizedBitrate != null) 'bitrate': normalizedBitrate,
@@ -284,6 +292,7 @@ class AiCreationOptions {
   static AiCreationOptions fromMetadata(Object? raw) {
     final map = optionalStringKeyedMapFromValueOrJsonText(raw);
     if (map == null) return AiCreationOptions.empty;
+    final omitVoice = optionalBoolFromValue(map['omit_voice']) ?? false;
     return AiCreationOptions(
       size: optionalStringFromValue(map['size']),
       aspectRatio: optionalStringFromValue(map['aspect_ratio']),
@@ -308,7 +317,8 @@ class AiCreationOptions {
           frameRateFromValue(map['fps']),
       numFrames: numFramesFromValue(map['num_frames']),
       mode: optionalStringFromValue(map['mode']),
-      voice: optionalStringFromValue(map['voice']),
+      voice: omitVoice ? null : optionalStringFromValue(map['voice']),
+      omitVoice: omitVoice,
       speed: speedFromValue(map['speed']),
       sampleRate: sampleRateFromValue(map['sample_rate']),
       bitrate: bitrateFromValue(map['bitrate']),

@@ -8048,6 +8048,8 @@ class _CreationModeChip extends StatelessWidget {
       if (options.background != null) options.background!,
       if (options.mode != null) options.mode!,
       if (options.voice != null) options.voice!,
+      if (options.omitVoice)
+        openHandLocalizedText(context, zh: '不指定音色', en: 'No voice'),
       if (options.speed != null) '${options.speed}x',
       if (options.sampleRate != null) '${options.sampleRate}Hz',
       if (options.bitrate != null) '${options.bitrate! ~/ 1000}kbps',

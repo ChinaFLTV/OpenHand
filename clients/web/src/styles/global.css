@@ -850,11 +850,17 @@ html, body, #root {
 
 /* 生成选项弹窗 chip 样式 */
 .oh-creation-chip {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
   background: var(--m3-surface-container-highest, #e8e8e8);
   color: var(--m3-on-surface, #1a1a1a);
   border: 1px solid var(--m3-outline-variant, rgba(0,0,0,0.12));
 }
 .oh-creation-chip-active {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
   background: var(--m3-primary, #4a6741);
   color: var(--m3-on-primary, #fff);
   border: 1px solid transparent;
