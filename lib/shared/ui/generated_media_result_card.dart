@@ -17,6 +17,9 @@ import 'openhand_video_thumbnail.dart';
 
 enum GeneratedMediaResultKind { video, audio }
 
+const double _generatedVideoCardMinWidth = 240;
+const double _generatedVideoCardDefaultMaxWidth = 420;
+
 NativeAudioVisualMeta generatedMediaAudioVisualMeta({
   required String title,
   required String detail,
@@ -78,8 +81,9 @@ class GeneratedMediaResultCard extends StatefulWidget {
     required this.onTap,
     this.videoPath,
     this.videoMimeType,
+    this.videoMaxWidth = _generatedVideoCardDefaultMaxWidth,
     this.audioMeta,
-  });
+  }) : assert(videoMaxWidth > 0);
 
   final GeneratedMediaResultKind kind;
   final String title;
@@ -90,6 +94,7 @@ class GeneratedMediaResultCard extends StatefulWidget {
   final VoidCallback onTap;
   final String? videoPath;
   final String? videoMimeType;
+  final double videoMaxWidth;
   final NativeAudioVisualMeta? audioMeta;
 
   @override
@@ -222,6 +227,7 @@ class _GeneratedMediaResultCardState extends State<GeneratedMediaResultCard>
                     _handleThumbnailResult(widget.videoPath!.trim(), path),
               )
             : null,
+        maxWidth: widget.videoMaxWidth,
         onTap: widget.onTap,
       ),
       GeneratedMediaResultKind.audio => _GeneratedAudioResultCard(
@@ -272,6 +278,7 @@ class _GeneratedVideoResultCard extends StatelessWidget {
     required this.onTap,
     this.thumbnailPath,
     this.thumbnailCapture,
+    required this.maxWidth,
   });
 
   final String title;
@@ -281,6 +288,7 @@ class _GeneratedVideoResultCard extends StatelessWidget {
   final VoidCallback onTap;
   final String? thumbnailPath;
   final Widget? thumbnailCapture;
+  final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -304,7 +312,12 @@ class _GeneratedVideoResultCard extends StatelessWidget {
             borderRadius: kOpenHandBorderRadius14,
             onTap: onTap,
             child: Container(
-              constraints: const BoxConstraints(maxWidth: 420, minWidth: 240),
+              constraints: BoxConstraints(
+                maxWidth: maxWidth,
+                minWidth: maxWidth < _generatedVideoCardMinWidth
+                    ? maxWidth
+                    : _generatedVideoCardMinWidth,
+              ),
               decoration: BoxDecoration(
                 color: cardColor,
                 borderRadius: kOpenHandBorderRadius14,

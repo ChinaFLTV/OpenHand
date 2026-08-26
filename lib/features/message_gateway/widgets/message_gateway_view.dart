@@ -12038,6 +12038,13 @@ Future<void> _toggleDingTalkAuth(
   });
 }
 
+const double _kDingTalkMessagesDialogMaxWidth = 1600;
+const double _kDingTalkMessagesDialogMaxHeight = 1040;
+const double _kDingTalkMessagesDialogWidthFraction = 0.86;
+const double _kDingTalkMessagesDialogHeightFraction = 0.88;
+const double _kDingTalkMessagesDialogHorizontalMargin = 40;
+const double _kDingTalkMessagesDialogVerticalMargin = 56;
+
 Future<void> _showDingTalkMessages(
   BuildContext context,
   DingTalkMessageGatewayController controller,
@@ -12045,9 +12052,15 @@ Future<void> _showDingTalkMessages(
   if (!controller.isServiceEnabled) return;
   await showAnimatedDialog<void>(
     context: context,
-    builder: (_) => buildOpenHandDialog(
-      maxWidth: kOpenHandDialogWidthPanel,
-      maxHeight: kOpenHandDialogHeightFull,
+    builder: (dialogContext) => buildOpenHandResponsiveDialogShell(
+      context: dialogContext,
+      maxWidth: _kDingTalkMessagesDialogMaxWidth,
+      maxHeight: _kDingTalkMessagesDialogMaxHeight,
+      maxWidthFraction: _kDingTalkMessagesDialogWidthFraction,
+      maxHeightFraction: _kDingTalkMessagesDialogHeightFraction,
+      horizontalMargin: _kDingTalkMessagesDialogHorizontalMargin,
+      verticalMargin: _kDingTalkMessagesDialogVerticalMargin,
+      expandToMax: true,
       child: _DingTalkMessagesDialog(controller: controller),
     ),
   );
@@ -12339,9 +12352,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         final selectedRefreshing =
             selected != null &&
             widget.controller.isRefreshingConversationMessages(selected.id);
-        return SizedBox(
-          width: double.infinity,
-          height: 680,
+        return SizedBox.expand(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -16010,7 +16021,11 @@ class _DingTalkMessageBubble extends StatefulWidget {
 }
 
 class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
-  static const double _maxBubbleWidthFactor = 4 / 5;
+  static const double _baseBubbleMaxWidth = 560;
+  static const double _mineBubbleWidthFactor = 0.76;
+  static const double _mineBubbleMaxWidth = 920;
+  static const double _peerBubbleWidthFactor = 0.90;
+  static const double _peerBubbleMaxWidth = 1160;
   static const int _maxRenderedTextCharacters = 10000;
   static const int _maxRenderedTextLines = 160;
   static const int _maxRenderedToolTextCharacters = 1600;
@@ -16206,8 +16221,22 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
             ),
           LayoutBuilder(
             builder: (context, constraints) {
-              final maxBubbleWidth =
-                  constraints.maxWidth * _maxBubbleWidthFactor;
+              final widthFactor = widget.mine
+                  ? _mineBubbleWidthFactor
+                  : _peerBubbleWidthFactor;
+              final absoluteMaxWidth = widget.mine
+                  ? _mineBubbleMaxWidth
+                  : _peerBubbleMaxWidth;
+              final maxBubbleWidth = math.min(
+                constraints.maxWidth,
+                math.min(
+                  absoluteMaxWidth,
+                  math.max(
+                    _baseBubbleMaxWidth,
+                    constraints.maxWidth * widthFactor,
+                  ),
+                ),
+              );
               final bubbleAlignment = widget.mine
                   ? Alignment.topRight
                   : Alignment.topLeft;
@@ -19479,12 +19508,14 @@ class _DingTalkMediaRail extends StatelessWidget {
   final _DingTalkMediaSaveCallback? onSaveFile;
   final VoidCallback? onInteractiveTap;
 
+  static const double _maxWidth = 760;
+
   @override
   Widget build(BuildContext context) {
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560),
+        constraints: const BoxConstraints(maxWidth: _maxWidth),
         child: Padding(
           padding: const EdgeInsets.only(bottom: 4),
           child: Wrap(
@@ -19501,6 +19532,7 @@ class _DingTalkMediaRail extends StatelessWidget {
                   mine: mine,
                   loading: loading,
                   failed: failed,
+                  maxWidth: _maxWidth,
                   onRetry: onRetry,
                   onSaveFile: onSaveFile,
                   onInteractiveTap: onInteractiveTap,
@@ -19520,6 +19552,7 @@ class _DingTalkMediaTile extends StatelessWidget {
     required this.mine,
     required this.loading,
     required this.failed,
+    required this.maxWidth,
     this.onRetry,
     this.onSaveFile,
     this.onInteractiveTap,
@@ -19529,6 +19562,7 @@ class _DingTalkMediaTile extends StatelessWidget {
   final bool mine;
   final bool loading;
   final bool failed;
+  final double maxWidth;
   final VoidCallback? onRetry;
   final _DingTalkMediaSaveCallback? onSaveFile;
   final VoidCallback? onInteractiveTap;
@@ -19604,6 +19638,7 @@ class _DingTalkMediaTile extends StatelessWidget {
         videoMimeType: media.kind == DingTalkMediaKind.video
             ? media.mimeType
             : null,
+        videoMaxWidth: maxWidth,
         onTap: () => unawaited(_open(context)),
       );
     }
