@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'preact/hooks';
 import { useControlledDelayedVisibility } from '../hooks/useDelayedVisibility';
+import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import {
   DIALOG_OVERLAY_PRIORITY_Z_INDEX,
   DialogFrame,
@@ -21,11 +23,21 @@ export function BusyWaitDialog({
   const { visible, closing } = useControlledDelayedVisibility(open, {
     enterDelayMs: delayMs,
   });
+  const [dismissed, setDismissed] = useState(false);
+  const { closing: exitClosing, requestClose } = useDialogExitMotion(
+    () => setDismissed(true),
+    { active: open && !dismissed },
+  );
 
-  if (!visible) return null;
+  useEffect(() => {
+    if (!open) setDismissed(false);
+  }, [open]);
+
+  if (!visible || dismissed) return null;
   return (
     <DialogFrame
-      closing={closing}
+      closing={closing || exitClosing}
+      onRequestClose={requestClose}
       closeOnBackdrop={false}
       {...createStandardDialogFrameAppearance({
         overlayZIndex: DIALOG_OVERLAY_PRIORITY_Z_INDEX,

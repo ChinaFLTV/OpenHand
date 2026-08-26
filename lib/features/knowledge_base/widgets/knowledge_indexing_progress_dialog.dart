@@ -90,7 +90,6 @@ OpenHandDialogSession<void> showKnowledgeIndexingProgressDialog({
   final session = showTrackedAnimatedDialog<void>(
     context: context,
     barrierDismissible: false,
-    dismissOnEscape: false,
     builder: (_) => _KnowledgeIndexingProgressDialog(
       controller: controller,
       title: title,

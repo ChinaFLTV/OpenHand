@@ -238,19 +238,21 @@ class _AnimatedAnchoredMenuRoute<T> extends PopupRoute<T> {
       animationSettings,
       capturedThemes.wrap(Builder(builder: builder)),
     );
-    return MediaQuery.removePadding(
-      context: context,
-      removeTop: true,
-      removeBottom: true,
-      removeLeft: true,
-      removeRight: true,
-      child: CustomSingleChildLayout(
-        delegate: _AnchoredMenuRouteLayout(
-          position,
-          textDirection,
-          mediaPadding,
+    return OpenHandEscapeDismissScope(
+      child: MediaQuery.removePadding(
+        context: context,
+        removeTop: true,
+        removeBottom: true,
+        removeLeft: true,
+        removeRight: true,
+        child: CustomSingleChildLayout(
+          delegate: _AnchoredMenuRouteLayout(
+            position,
+            textDirection,
+            mediaPadding,
+          ),
+          child: menu,
         ),
-        child: menu,
       ),
     );
   }
@@ -355,23 +357,25 @@ class _AnimatedPopupMenuRoute<T> extends PopupRoute<T> {
 
     // 仅监听安全边距，避免其他 MediaQuery 属性变化时重建浮层。
     final mediaPadding = MediaQuery.paddingOf(context);
-    return MediaQuery.removePadding(
-      context: context,
-      removeTop: true,
-      removeBottom: true,
-      removeLeft: true,
-      removeRight: true,
-      child: Builder(
-        builder: (context) {
-          return CustomSingleChildLayout(
-            delegate: _PopupMenuRouteLayout(
-              position,
-              Directionality.of(context),
-              mediaPadding,
-            ),
-            child: menuContent,
-          );
-        },
+    return OpenHandEscapeDismissScope(
+      child: MediaQuery.removePadding(
+        context: context,
+        removeTop: true,
+        removeBottom: true,
+        removeLeft: true,
+        removeRight: true,
+        child: Builder(
+          builder: (context) {
+            return CustomSingleChildLayout(
+              delegate: _PopupMenuRouteLayout(
+                position,
+                Directionality.of(context),
+                mediaPadding,
+              ),
+              child: menuContent,
+            );
+          },
+        ),
       ),
     );
   }

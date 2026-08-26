@@ -583,9 +583,7 @@ export function FilesPage() {
           confirmBeforeClose
           confirmLabel={deleteBusy ? t('files.delete.deleting', '正在删除…') : t('common.delete', '删除')}
           cancelLabel={t('common.cancel', '取消')}
-          onCancel={() => {
-            if (!deleteBusy) setDeleteTarget(null);
-          }}
+          onCancel={() => setDeleteTarget(null)}
           onConfirm={confirmDeleteTarget}
           onConfirmSuccess={() => setDeleteTarget(null)}
         />

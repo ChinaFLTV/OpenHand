@@ -40,21 +40,29 @@ function DialogShell({
 }: DialogShellProps) {
   const closeActionRef = useRef<(() => void) | null>(null);
   const closeRequestedRef = useRef(false);
+  const closedRef = useRef(false);
   const { closing, requestClose } = useDialogExitMotion(
     () => {
+      closedRef.current = true;
       const closeAction = closeActionRef.current;
       closeActionRef.current = null;
       (closeAction ?? onClose)();
     },
     {
-      closeOnEscape: !closeDisabled,
       onBeforeClose: () => {
         closeRequestedRef.current = true;
       },
     },
   );
   const requestShellClose = (afterClose?: () => void) => {
-    if (closeDisabled || closeRequestedRef.current) return;
+    if (closeRequestedRef.current) {
+      if (afterClose) {
+        if (closedRef.current) afterClose();
+        else closeActionRef.current = afterClose;
+      }
+      return;
+    }
+    if (closeDisabled) return;
     closeRequestedRef.current = true;
     closeActionRef.current = afterClose ?? null;
     requestClose();

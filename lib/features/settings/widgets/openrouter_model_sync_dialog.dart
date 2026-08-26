@@ -14,7 +14,6 @@ Future<OpenRouterSyncResult?> showOpenRouterModelSyncDialog(
   return showAnimatedDialog<OpenRouterSyncResult>(
     context: context,
     barrierDismissible: false,
-    dismissOnEscape: false,
     builder: (_) => const _OpenRouterModelSyncDialog(),
   );
 }

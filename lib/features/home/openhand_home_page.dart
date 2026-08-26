@@ -8678,7 +8678,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     progressSession = showTrackedAnimatedDialog<bool>(
       context: context,
       barrierDismissible: false,
-      dismissOnEscape: false,
       builder: (_) => _TitleGenerationProgressDialog(
         onCancel: () {
           cancelTitleGeneration();

@@ -151,7 +151,6 @@ OpenHandDialogSession<void> showExportProgressDialog({
   final session = showTrackedAnimatedDialog<void>(
     context: context,
     barrierDismissible: false,
-    dismissOnEscape: false,
     builder: (dialogContext) => ExportProgressDialog(
       controller: controller,
       title: title,

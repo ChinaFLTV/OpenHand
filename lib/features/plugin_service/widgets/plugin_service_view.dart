@@ -839,7 +839,6 @@ class _PluginCard extends StatelessWidget {
     return showTrackedAnimatedDialog<void>(
       context: context,
       barrierDismissible: false,
-      dismissOnEscape: false,
       builder: (ctx) => _PluginOperationProgressDialog(
         action: action,
         pluginName: pluginName,

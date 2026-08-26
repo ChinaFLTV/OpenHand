@@ -1357,7 +1357,6 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
     final session = showTrackedAnimatedDialog<void>(
       context: context,
       barrierDismissible: false,
-      dismissOnEscape: false,
       builder: (_) => _ProcessingDialog(message: processingMessage),
     );
     _processingDialogSession = session;

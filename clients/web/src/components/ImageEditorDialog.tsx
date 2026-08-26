@@ -156,6 +156,7 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const dragRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  const mountedRef = useRef(true);
   const [settings, setSettings] = useState<EditorSettings>(DEFAULT_SETTINGS);
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
   const [busy, setBusy] = useState(false);
@@ -172,14 +173,15 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
       }
       onCancel();
     },
-    {
-      closeOnEscape: !busy,
-    },
   );
   const [showOriginal, setShowOriginal] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<EditorSettings[]>([]);
+
+  useEffect(() => () => {
+    mountedRef.current = false;
+  }, []);
 
   const ratio = useMemo(() => aspectRatio(settings.aspect, naturalSize), [settings.aspect, naturalSize]);
   const previewSize = useMemo(() => fitSize(ratio, 720, 420), [ratio]);
@@ -254,12 +256,13 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
     setError(null);
     try {
       pendingSaveResultRef.current = await makeResult(false);
+      if (!mountedRef.current) return;
       requestCloseWithReason('save');
     } catch (err: unknown) {
       pendingSaveResultRef.current = null;
-      setError(err instanceof Error ? err.message : String(err));
+      if (mountedRef.current) setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setBusy(false);
+      if (mountedRef.current) setBusy(false);
     }
   }
 
@@ -269,11 +272,11 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
     setError(null);
     try {
       await makeResult(true);
-      setStatus(t('imageEditor.savedLocal', '已另存到本地'));
+      if (mountedRef.current) setStatus(t('imageEditor.savedLocal', '已另存到本地'));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (mountedRef.current) setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setBusy(false);
+      if (mountedRef.current) setBusy(false);
     }
   }
 
@@ -284,17 +287,20 @@ export function ImageEditorDialog({ input, onCancel, onSave }: ImageEditorDialog
     try {
       const result = await makeResult(false);
       const blob = await (await fetch(result.dataUrl)).blob();
+      if (!mountedRef.current) return;
       if (await copyBlobToClipboard(blob)) {
+        if (!mountedRef.current) return;
         setStatus(t('imageEditor.copiedBitmap', '已复制图片到剪贴板'));
       } else if (await copyTextToClipboard(result.dataUrl)) {
+        if (!mountedRef.current) return;
         setStatus(t('imageEditor.copiedDataUrl', '无法写入位图，已复制图片 data URL'));
       } else {
         setError(t('imageEditor.copyFailed', '复制图片失败，请检查浏览器剪贴板权限'));
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (mountedRef.current) setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setBusy(false);
+      if (mountedRef.current) setBusy(false);
     }
   }
 

@@ -1,5 +1,5 @@
 import type { ComponentChildren } from 'preact';
-import { useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { classNames } from '../shared/util/class_names';
 import {
@@ -45,6 +45,8 @@ interface ConfirmDialogProps {
   closeOnConfirm?: boolean;
   /** 先执行异步确认，成功后再播放退场动画。返回 false 时保持弹窗。 */
   confirmBeforeClose?: boolean;
+  /** 是否允许使用 Esc 关闭弹窗；写命令确认等审批弹窗应显式设为 false。 */
+  closeOnEscape?: boolean;
   /** 异步确认成功且退场完成后的收尾回调。 */
   onConfirmSuccess?: () => void;
   onCancel: () => void;
@@ -67,15 +69,25 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
     onDismiss,
     closeOnConfirm = !hasExternalBusy,
     confirmBeforeClose = false,
+    closeOnEscape = true,
     onConfirmSuccess,
     onCancel,
     onConfirm,
   } = props;
   const confirmPendingRef = useRef(false);
+  const closeRequestedRef = useRef(false);
+  const closeFinishedRef = useRef(false);
+  const confirmedWhileClosingRef = useRef(false);
+  const mountedRef = useRef(true);
   const [confirmPending, setConfirmPending] = useState(false);
   const effectiveBusy = busy || confirmPending;
   const { closing, requestCloseWithReason } = useDialogExitMotion<ConfirmCloseReason>(
     (reason) => {
+      closeFinishedRef.current = true;
+      if (confirmedWhileClosingRef.current) {
+        onConfirmSuccess?.();
+        return;
+      }
       if (reason === 'confirmed') {
         onConfirmSuccess?.();
         return;
@@ -91,9 +103,16 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
       onCancel();
     },
     {
-      closeOnEscape: !effectiveBusy,
+      closeOnEscape,
+      onBeforeClose: () => {
+        closeRequestedRef.current = true;
+      },
     },
   );
+
+  useEffect(() => () => {
+    mountedRef.current = false;
+  }, []);
   const requestCancel = () => requestCloseWithReason('cancel');
   const requestConfirm = () => {
     if (confirmBeforeClose) {
@@ -103,11 +122,17 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
       void Promise.resolve()
         .then(onConfirm)
         .then((success) => {
-          if (success !== false) requestCloseWithReason('confirmed');
+          if (success === false) return;
+          if (closeRequestedRef.current) {
+            confirmedWhileClosingRef.current = true;
+            if (closeFinishedRef.current) onConfirmSuccess?.();
+          } else {
+            requestCloseWithReason('confirmed');
+          }
         })
         .finally(() => {
           confirmPendingRef.current = false;
-          setConfirmPending(false);
+          if (mountedRef.current) setConfirmPending(false);
         });
       return;
     }

@@ -805,9 +805,7 @@ export function OpsPage() {
             confirmBeforeClose
             confirmLabel={cleaning ? t('ops.cleanup.running', '清理中…') : t('ops.cleanup.execute', '立即清理')}
             cancelLabel={t('common.cancel', '取消')}
-            onCancel={() => {
-              if (!cleaning) setCleanupConfirmOpen(false);
-            }}
+            onCancel={() => setCleanupConfirmOpen(false)}
             onConfirm={handleCleanup}
             onConfirmSuccess={() => setCleanupConfirmOpen(false)}
           />

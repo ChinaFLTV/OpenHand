@@ -2133,9 +2133,7 @@ function MachineTerminalHistoryDialog({
           confirmBeforeClose
           confirmLabel={deletingId === pendingDeleteTerminal.terminal_id ? t('sessions.delete.deleting', '正在删除…') : t('common.delete', '删除')}
           cancelLabel={t('common.cancel', '取消')}
-          onCancel={() => {
-            if (!deletingId) setPendingDeleteTerminal(null);
-          }}
+          onCancel={() => setPendingDeleteTerminal(null)}
           onConfirm={confirmDeleteTerminal}
           onConfirmSuccess={() => setPendingDeleteTerminal(null)}
         />
@@ -8430,9 +8428,7 @@ export function SessionDetailPage() {
           busy={deleteBusy}
           confirmBeforeClose
           confirmLabel={deleteBusy ? t('sessions.delete.deleting', '正在删除…') : t('common.delete', '删除')}
-          onCancel={() => {
-            if (!deleteBusy) setPendingDeleteAction(null);
-          }}
+          onCancel={() => setPendingDeleteAction(null)}
           onConfirm={confirmDeleteMessage}
           onConfirmSuccess={() => setPendingDeleteAction(null)}
         />
@@ -8445,9 +8441,7 @@ export function SessionDetailPage() {
           confirmBeforeClose
           confirmLabel={forkBusy ? t('detail.fork.creating', '派生中…') : t('common.fork', '派生')}
           cancelLabel={t('common.cancel', '取消')}
-          onCancel={() => {
-            if (!forkBusy) setPendingForkMessage(null);
-          }}
+          onCancel={() => setPendingForkMessage(null)}
           onConfirm={confirmForkMessage}
           onConfirmSuccess={() => {
             const nextId = forkedSessionIdRef.current;
@@ -8466,9 +8460,7 @@ export function SessionDetailPage() {
           confirmBeforeClose
           confirmLabel={sessionDeleteBusy ? t('sessions.delete.deleting', '正在删除…') : t('common.delete', '删除')}
           cancelLabel={t('common.cancel', '取消')}
-          onCancel={() => {
-            if (!sessionDeleteBusy) setPendingSessionDelete(false);
-          }}
+          onCancel={() => setPendingSessionDelete(false)}
           onConfirm={confirmDeleteSession}
           onConfirmSuccess={() => {
             setPendingSessionDelete(false);
@@ -8485,9 +8477,7 @@ export function SessionDetailPage() {
           confirmBeforeClose
           confirmLabel={permissionSaving ? t('common.saving', '保存中…') : t('topbar.perm.enableFullAccess', '启用完全访问权限')}
           cancelLabel={t('common.cancel', '取消')}
-          onCancel={() => {
-            if (!permissionSaving) setPendingFullAccess(null);
-          }}
+          onCancel={() => setPendingFullAccess(null)}
           onConfirm={() => applyFullAccessPermission(true)}
           onConfirmSuccess={() => setPendingFullAccess(null)}
         />
@@ -8514,6 +8504,7 @@ export function SessionDetailPage() {
           danger
           busy={writeApprovalBusy}
           confirmBeforeClose
+          closeOnEscape={false}
           wide
           scrollBody
           disableBackdropClose
@@ -11022,9 +11013,7 @@ function SessionThrottleDialog({
   // 覆盖。Switch 切换会立即 PUT，让流式响应在下一帧就感受到差异。
   const [enabledOverride, setEnabledOverride] = useState<boolean>(current?.enabled !== false);
   const [busy, setBusy] = useState(false);
-  const { closing, requestClose } = useDialogExitMotion(onClose, {
-    closeOnEscape: !busy,
-  });
+  const { closing, requestClose } = useDialogExitMotion(onClose);
 
   const parse = (raw: string): number | null | undefined => {
     const trimmed = raw.trim();

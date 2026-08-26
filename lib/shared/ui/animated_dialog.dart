@@ -870,7 +870,7 @@ OpenHandDialogSession<T> _trackAnimatedDialogPresentation<T extends Object?>({
 /// 使用默认配置。
 ///
 /// [dismissOnEscape] 与 [barrierDismissible] 独立：默认即使禁止点击外部，ESC
-/// 仍可关闭弹窗；长任务弹窗可通过 `dismissOnEscape: false` 禁用。
+/// 仍可关闭弹窗；仅显式审批类弹窗应通过 `dismissOnEscape: false` 禁用。
 Future<T?> showAnimatedDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -1210,7 +1210,7 @@ OpenHandDialogSession<void> showOpenHandTrackedLoadingDialog({
   String? message,
   Widget? content,
   bool barrierDismissible = false,
-  bool dismissOnEscape = false,
+  bool dismissOnEscape = true,
 }) {
   return showTrackedAnimatedDialog<void>(
     context: context,
@@ -1933,7 +1933,7 @@ class _ModalSheetDragHandle extends StatelessWidget {
 ///
 /// 直接监听硬件按键而不是只挂 Shortcuts：弹窗里的输入框、WebView 会先吃掉
 /// 按键，只靠焦点树上的快捷键在这些场景下按 Esc 是没反应的。同时用
-/// `_dismissRequested` 挡住连按——maybePop 是异步的，重复触发会一次弹掉两层。
+/// `_dismissRequested` 挡住连按，避免退场动画期间重复触发导致一次弹掉两层。
 ///
 /// MCP 运维弹窗此前另写了一份完全相同的实现，只多一个 [enabled] 开关；
 /// 那个开关现在并入这里。
@@ -2003,40 +2003,20 @@ class _OpenHandEscapeDismissScopeState
         _dismissRequested = false;
         return;
       }
-      unawaited(_popAfterFrame(navigator, route));
+      _popAfterFrame(navigator, route);
     });
     return true;
   }
 
-  Future<void> _popAfterFrame(
-    NavigatorState navigator,
-    ModalRoute<Object?> route,
-  ) async {
+  void _popAfterFrame(NavigatorState navigator, ModalRoute<Object?> route) {
     try {
-      final handled = await navigator.maybePop();
-      if (!mounted) return;
-      if (!handled) {
+      if (!route.isActive || !route.isCurrent || route.navigator != navigator) {
         _dismissRequested = false;
         return;
       }
-      if (!route.isActive || !route.isCurrent) {
-        _dismissRequested = false;
-        return;
-      }
-      final animation = route.animation;
-      if (animation == null ||
-          (animation.status != AnimationStatus.reverse &&
-              animation.status != AnimationStatus.dismissed)) {
-        _dismissRequested = false;
-        return;
-      }
-      void onStatus(AnimationStatus status) {
-        if (status != AnimationStatus.dismissed && route.isActive) return;
-        animation.removeStatusListener(onStatus);
-        if (mounted) _dismissRequested = false;
-      }
-
-      animation.addStatusListener(onStatus);
+      // 直接弹出当前路由，绕过弹窗内部的 PopScope.canPop 限制；ESC 关闭仍
+      // 只作用于当前弹窗，不影响审批弹窗（审批弹窗不会挂载本作用域）。
+      navigator.pop();
     } catch (error, stackTrace) {
       _dismissRequested = false;
       silentLog('dialog', '关闭弹窗时导航器状态异常', error, stackTrace);

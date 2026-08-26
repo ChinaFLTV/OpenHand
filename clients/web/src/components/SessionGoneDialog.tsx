@@ -33,7 +33,13 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
   const { visible, closing: hiding } = useControlledDelayedVisibility(open);
   const { closing, requestClose, resetClosing } = useDialogExitMotion(
     () => location.route('/threads'),
-    { active: open, closeOnEscape: false },
+    {
+      active: open,
+      onBeforeClose: () => {
+        setNavigating(true);
+        void runBeforeNavigate(onBeforeNavigate);
+      },
+    },
   );
   const frameClosing = closing || hiding;
 
@@ -53,10 +59,8 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
 
   if (!visible) return null;
 
-  const handleBack = async () => {
+  const handleBack = () => {
     if (navigating || frameClosing) return;
-    setNavigating(true);
-    await runBeforeNavigate(onBeforeNavigate);
     requestClose();
   };
 
