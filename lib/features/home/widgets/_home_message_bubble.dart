@@ -91,9 +91,8 @@ List<AiMessageAttachment> _cachedMessageAttachments(AiSessionMessage message) {
 enum _MessageBubbleWidthKind { user, assistant }
 
 const double _kMessageBubbleBaseMaxWidth = 760;
-const double _kUserMessageBubbleWidthFactor = 0.72;
+const double _kMessageBubbleWidthFactor = 0.60;
 const double _kUserMessageBubbleMaxWidth = 1040;
-const double _kAssistantMessageBubbleWidthFactor = 0.94;
 const double _kAssistantMessageBubbleMaxWidth = 1360;
 
 class _ResponsiveMessageWidth extends StatelessWidget {
@@ -112,9 +111,6 @@ class _ResponsiveMessageWidth extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isUser = kind == _MessageBubbleWidthKind.user;
-        final widthFactor = isUser
-            ? _kUserMessageBubbleWidthFactor
-            : _kAssistantMessageBubbleWidthFactor;
         final absoluteMaxWidth = isUser
             ? _kUserMessageBubbleMaxWidth
             : _kAssistantMessageBubbleMaxWidth;
@@ -124,7 +120,7 @@ class _ResponsiveMessageWidth extends StatelessWidget {
             absoluteMaxWidth,
             math.max(
               _kMessageBubbleBaseMaxWidth,
-              constraints.maxWidth * widthFactor,
+              constraints.maxWidth * _kMessageBubbleWidthFactor,
             ),
           ),
         );
