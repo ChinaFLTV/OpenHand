@@ -215,6 +215,7 @@ class _DingTalkEventProcessHandle {
 
 class DingTalkMessageGatewayService {
   static const Duration _commandTimeout = Duration(seconds: 25);
+  static const Duration _fileSendTimeout = Duration(minutes: 5);
   static const Duration _authTimeout = Duration(minutes: 15);
   static const Duration _eventProcessStartTimeout = Duration(seconds: 10);
   static const Duration _eventReadyTimeout = Duration(seconds: 30);
@@ -1892,11 +1893,13 @@ class DingTalkMessageGatewayService {
     required String filePath,
     required String uuid,
     bool audio = false,
+    Future<void>? cancelSignal,
   }) async => (await sendFileWithDetails(
     conversation: conversation,
     filePath: filePath,
     uuid: uuid,
     audio: audio,
+    cancelSignal: cancelSignal,
   ))?.messageId;
 
   Future<DingTalkSentMessage?> sendFileWithDetails({
@@ -1904,23 +1907,28 @@ class DingTalkMessageGatewayService {
     required String filePath,
     required String uuid,
     bool audio = false,
+    Future<void>? cancelSignal,
   }) async {
     final normalizedPath = filePath.trim();
     if (normalizedPath.isEmpty) throw const FormatException('文件路径为空。');
-    final result = await _runJson(<String>[
-      'chat',
-      'message',
-      'send',
-      ..._targetArguments(conversation),
-      '--msg-type',
-      audio ? 'audio' : 'file',
-      '--file-path',
-      normalizedPath,
-      '--uuid',
-      uuid,
-      '--format',
-      'json',
-    ]);
+    final result = await _runJson(
+      <String>[
+        'chat',
+        'message',
+        'send',
+        ..._targetArguments(conversation),
+        '--msg-type',
+        audio ? 'audio' : 'file',
+        '--file-path',
+        normalizedPath,
+        '--uuid',
+        uuid,
+        '--format',
+        'json',
+      ],
+      timeout: _fileSendTimeout,
+      cancelSignal: cancelSignal,
+    );
     return _sentMessageDetails(result);
   }
 

@@ -20,6 +20,7 @@ import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/physical_path_safety.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/text_normalization.dart';
 import '../../shared/util/timer_safety.dart';
@@ -515,18 +516,17 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final sizeBytes = await _validatedDingTalkMediaFileSize(
         path,
         allowedRoot: generatedRoot,
-        maxBytes: 2 * kBytesPerGiB,
+        maxBytes: kDingTalkMessageAttachmentMaxBytes,
       );
       if (sizeBytes == null) continue;
       final name = p.basename(path).trim().isEmpty ? '生成媒体' : p.basename(path);
-      final remoteId = await _service
-          .sendFile(
-            conversation: conversation,
-            filePath: path,
-            audio: mediaKind == DingTalkMediaKind.audio,
-            uuid: _uuid.v4(),
-          )
-          .timeout(const Duration(seconds: 60));
+      final remoteId = await _service.sendFile(
+        conversation: conversation,
+        filePath: path,
+        audio: mediaKind == DingTalkMediaKind.audio,
+        uuid: _uuid.v4(),
+        cancelSignal: cancelSignal,
+      );
       if (!isServiceEnabled) {
         throw const AiMediaGenerationCancelledException();
       }
@@ -683,11 +683,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         return null;
       }
       final file = File(path);
-      final resolved = await file.resolveSymbolicLinks().timeout(
-        defaultBoundedFileReadIdleTimeout,
-      );
-      if (!p.equals(allowedRoot, resolved) &&
-          !p.isWithin(allowedRoot, resolved)) {
+      if (!await isPhysicalPathWithinOrEqual(allowedRoot, path)) {
         return null;
       }
       final stat = await file.stat().timeout(defaultBoundedFileReadIdleTimeout);
