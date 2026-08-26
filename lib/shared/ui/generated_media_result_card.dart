@@ -464,7 +464,6 @@ const double _generatedAudioCardRadius = 18;
 const double _generatedAudioBannerAspectRatio = 16 / 9;
 const double _generatedAudioCoverSize = 74;
 const double _generatedAudioPlayButtonSize = 38;
-const double _generatedAudioHoverScaleDelta = 0.010;
 const double _generatedAudioHoverLift = 2;
 const double _generatedAudioCardBorderWidth = 1.2;
 
@@ -629,11 +628,13 @@ class _GeneratedAudioResultCardState extends State<_GeneratedAudioResultCard>
             builder: (context, _) {
               final progress = disableAnimations ? 0.0 : _hoverController.value;
               final radius = BorderRadius.circular(_generatedAudioCardRadius);
-              return Transform.translate(
-                offset: Offset(0, -_generatedAudioHoverLift * progress),
-                child: Transform.scale(
-                  alignment: Alignment.centerLeft,
-                  scale: 1 + progress * _generatedAudioHoverScaleDelta,
+              final hoverInset = disableAnimations
+                  ? 0.0
+                  : _generatedAudioHoverLift;
+              return Padding(
+                padding: EdgeInsets.only(top: hoverInset),
+                child: Transform.translate(
+                  offset: Offset(0, -hoverInset * progress),
                   child: MicroPressFeedback(
                     scale: 0.985,
                     child: GestureDetector(

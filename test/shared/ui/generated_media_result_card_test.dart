@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/shared/ui/generated_media_result_card.dart';
@@ -28,6 +29,49 @@ void main() {
     await tester.tap(find.text('夏夜电台'));
     await tester.pump();
     expect(tapCount, 1);
+  });
+
+  testWidgets('音频结果卡悬停抬升始终保留完整边框空间', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GeneratedMediaResultCard(
+            kind: GeneratedMediaResultKind.audio,
+            title: '夏夜电台',
+            detail: 'audio_20260826.mp3',
+            identity: 'audio-hover-boundary-test',
+            textColor: Colors.black87,
+            backgroundColor: Colors.white,
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final card = find.byType(GeneratedMediaResultCard);
+    final boundary = find.descendant(
+      of: card,
+      matching: find.byType(RepaintBoundary),
+    );
+    final surface = find.descendant(
+      of: card,
+      matching: find.byType(GestureDetector),
+    );
+    final boundaryTop = tester.getTopLeft(boundary.first).dy;
+    expect(tester.getTopLeft(surface).dy - boundaryTop, closeTo(2, 0.01));
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(surface));
+    await tester.pumpAndSettle();
+
+    expect(tester.getTopLeft(surface).dy, greaterThanOrEqualTo(boundaryTop));
+    expect(
+      tester.getSize(boundary.first).height - tester.getSize(surface).height,
+      closeTo(2, 0.01),
+    );
+    await mouse.removePointer();
   });
 
   testWidgets('视频结果卡展示统一封面结构并响应点击', (tester) async {
