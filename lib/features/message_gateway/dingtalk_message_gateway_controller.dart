@@ -2102,31 +2102,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _notify();
   }
 
-  bool isAutomaticResponseEnabledForConversation(String conversationId) {
-    final conversation = _conversations[conversationId.trim()];
-    return conversation != null &&
-        _settings.allowsAutomaticResponseFor(
-          _targetFromConversation(conversation),
-        );
-  }
-
-  Future<void> setAutomaticResponseEnabledForConversation(
-    String conversationId, {
-    required bool enabled,
-  }) async {
-    final conversation = _conversations[conversationId.trim()];
-    if (conversation == null ||
-        _settings.responseMode == DingTalkResponseMode.all) {
-      return;
-    }
-    await updateSettings(
-      _settings.withAutomaticResponseFor(
-        _targetFromConversation(conversation),
-        enabled: enabled,
-      ),
-    );
-  }
-
   /// 刷新设置弹窗使用的资源目录。资源控制器各自负责并发与持久化，
   /// 这里仅预热 MCP 工具目录并清理已删除资源的历史选择。
   Future<void> refreshResourceCatalogs() async {

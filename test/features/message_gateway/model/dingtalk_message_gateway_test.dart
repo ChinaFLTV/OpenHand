@@ -37,17 +37,14 @@ void main() {
       openDingTalkId: 'open-contact-1',
     );
 
-    test('白名单支持别名匹配并可就地开关', () {
+    test('白名单按会话类型匹配标识与别名', () {
       const settings = DingTalkGatewaySettings(
+        allowedGroupTargets: <DingTalkConversationTarget>[groupTarget],
         allowedContactTargets: <DingTalkConversationTarget>[contactTarget],
       );
 
-      final enabled = settings.withAutomaticResponseFor(
-        groupTarget,
-        enabled: true,
-      );
       expect(
-        enabled.allowsAutomaticResponseFor(
+        settings.allowsAutomaticResponseFor(
           const DingTalkConversationTarget(
             id: 'group-alias',
             title: '测试群',
@@ -56,14 +53,17 @@ void main() {
         ),
         isTrue,
       );
-      expect(enabled.allowsAutomaticResponseFor(contactTarget), isTrue);
-
-      final disabled = enabled.withAutomaticResponseFor(
-        groupTarget,
-        enabled: false,
+      expect(settings.allowsAutomaticResponseFor(contactTarget), isTrue);
+      expect(
+        settings.allowsAutomaticResponseFor(
+          const DingTalkConversationTarget(
+            id: 'other-group',
+            title: '其他群',
+            type: DingTalkConversationType.group,
+          ),
+        ),
+        isFalse,
       );
-      expect(disabled.allowsAutomaticResponseFor(groupTarget), isFalse);
-      expect(disabled.allowsAutomaticResponseFor(contactTarget), isTrue);
     });
 
     test('全部响应模式允许任意有效会话', () {
