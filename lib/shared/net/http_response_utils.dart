@@ -219,12 +219,14 @@ Future<BoundedByteStreamPrefix> readBoundedByteStreamPrefix(
     idleTimeout: idleTimeout,
     totalTimeout: totalTimeout,
   );
-  final probed = await readBoundedByteStream(
+  final probed = await _consumeByteStream(
     stream,
     maxBytes: maxBytes + 1,
     idleTimeout: idleTimeout,
     totalTimeout: totalTimeout,
+    retainBytes: true,
     truncateOnOverflow: true,
+    cancelOnFailure: true,
   );
   final truncated = probed.length > maxBytes;
   return BoundedByteStreamPrefix(
@@ -261,6 +263,7 @@ Stream<List<int>> limitByteStream(
 }) {
   _validateByteStreamLimits(
     maxBytes: maxBytes,
+    maximumBytes: kOpenHandMaxNetworkStreamBytes,
     idleTimeout: idleTimeout,
     totalTimeout: totalTimeout,
   );
@@ -362,7 +365,7 @@ Stream<List<int>> limitByteStream(
   return controller.stream;
 }
 
-/// 保持背压地将字节写入异步接收端，并执行与内存读取一致的限制。
+/// 保持背压地将字节写入异步接收端，并执行流式传输限制。
 Future<int> writeBoundedByteStream(
   Stream<List<int>> stream, {
   required Future<void> Function(List<int> chunk) writeChunk,
@@ -372,6 +375,7 @@ Future<int> writeBoundedByteStream(
 }) async {
   _validateByteStreamLimits(
     maxBytes: maxBytes,
+    maximumBytes: kOpenHandMaxNetworkStreamBytes,
     idleTimeout: idleTimeout,
     totalTimeout: totalTimeout,
   );
@@ -399,6 +403,7 @@ Future<void> drainByteStreamWithTimeout(
 }) async {
   _validateByteStreamLimits(
     maxBytes: maxBytes,
+    maximumBytes: kOpenHandMaxNetworkStreamBytes,
     idleTimeout: idleTimeout,
     totalTimeout: totalTimeout,
   );
@@ -544,15 +549,12 @@ Future<Uint8List> _consumeByteStream(
 
 void _validateByteStreamLimits({
   int? maxBytes,
+  int maximumBytes = kOpenHandMaxNetworkPayloadBytes,
   Duration? idleTimeout,
   Duration? totalTimeout,
 }) {
   if (maxBytes != null) {
-    requirePositiveIntAtMost(
-      maxBytes,
-      kOpenHandMaxNetworkPayloadBytes,
-      'maxBytes',
-    );
+    requirePositiveIntAtMost(maxBytes, maximumBytes, 'maxBytes');
   }
   if (idleTimeout != null) {
     requirePositiveDurationAtMost(
