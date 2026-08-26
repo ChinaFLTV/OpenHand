@@ -149,6 +149,96 @@ void main() {
   });
 
   group('Agnes 视频生成服务', () {
+    test('异步完成后下载成品视频到本地文件', () async {
+      var statusRequestCount = 0;
+      var mediaRequestCount = 0;
+      final client = MockClient((request) async {
+        if (request.method == 'POST') {
+          return http.Response(
+            jsonEncode(<String, Object?>{
+              'id': 'video-task-1',
+              'status': 'queued',
+            }),
+            200,
+            headers: const <String, String>{'content-type': 'application/json'},
+          );
+        }
+        if (request.url.path == '/agnesapi') {
+          statusRequestCount += 1;
+          expect(request.url.queryParameters, <String, String>{
+            'video_id': 'video-task-1',
+            'model_name': 'agnes-video-v2.0',
+          });
+          return http.Response(
+            jsonEncode(<String, Object?>{
+              'id': 'video-task-1',
+              'status': 'completed',
+              'progress': 100,
+              'remixed_from_video_id': 'https://media.example/generated.mp4',
+            }),
+            200,
+            headers: const <String, String>{'content-type': 'application/json'},
+          );
+        }
+        if (request.url.host == 'media.example') {
+          mediaRequestCount += 1;
+          expect(request.headers, isNot(contains('authorization')));
+          return http.Response.bytes(
+            const <int>[
+              0x00,
+              0x00,
+              0x00,
+              0x18,
+              0x66,
+              0x74,
+              0x79,
+              0x70,
+              0x69,
+              0x73,
+              0x6f,
+              0x6d,
+              0x00,
+              0x00,
+              0x02,
+              0x00,
+              0x69,
+              0x73,
+              0x6f,
+              0x6d,
+              0x69,
+              0x73,
+              0x6f,
+              0x32,
+            ],
+            200,
+            headers: const <String, String>{'content-type': 'video/mp4'},
+          );
+        }
+        fail('收到未预期的请求：${request.method} ${request.url}');
+      });
+      final service = AiImageGenerationService(client: client);
+      addTearDown(service.dispose);
+
+      final result = await service.generateVideo(
+        model: _agnesVideoModel,
+        prompt: '黑洞漫步的科幻电影视频',
+        timeout: const Duration(seconds: 10),
+      );
+      final path = Uri.parse(
+        RegExp(r'\(([^)]+)\)').firstMatch(result.markdown)!.group(1)!,
+      ).toFilePath();
+      final file = File(path);
+      addTearDown(() async {
+        if (await file.exists()) await file.delete();
+      });
+
+      expect(statusRequestCount, 1);
+      expect(mediaRequestCount, 1);
+      expect(await file.length(), 24);
+      expect(path, contains('openhand_media'));
+      expect(result.rawResponseBody, contains('remixed_from_video_id'));
+    });
+
     test('文生视频忽略模型臆造的模式与样式参数', () async {
       Map<String, Object?>? submittedBody;
       final client = MockClient((request) async {

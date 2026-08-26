@@ -485,8 +485,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (!isServiceEnabled) {
       throw const AiMediaGenerationCancelledException();
     }
-    final paths = _generatedMediaPaths(generated.markdown).take(4).toList();
-    if (paths.isEmpty) {
+    final references = _generatedMediaReferences(
+      generated.markdown,
+    ).take(4).toList();
+    if (references.isEmpty) {
       throw StateError('生成服务未返回可发送的媒体文件。');
     }
     final mediaKind = switch (capability) {
@@ -494,24 +496,52 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       AiDingTalkMultimodalCapability.videoGeneration => DingTalkMediaKind.video,
       AiDingTalkMultimodalCapability.audioGeneration => DingTalkMediaKind.audio,
     };
+    final cacheKind = switch (capability) {
+      AiDingTalkMultimodalCapability.imageGeneration => MediaCacheKind.image,
+      AiDingTalkMultimodalCapability.videoGeneration => MediaCacheKind.video,
+      AiDingTalkMultimodalCapability.audioGeneration => MediaCacheKind.audio,
+    };
     String? firstRemoteId;
     String? firstPath;
     String? firstName;
     var sentCount = 0;
+    var remoteDownloadFailed = false;
+    var unsendableFileFound = false;
     final generatedRoot = p.normalize(
       p.join(Directory.systemTemp.path, 'openhand_media'),
     );
-    for (final path in paths) {
+    final mediaCacheRoot = p.normalize(MediaCacheService.cacheDirectoryPath);
+    for (final reference in references) {
       if (!isServiceEnabled || await isCancelSignalCompleted(cancelSignal)) {
         throw const AiMediaGenerationCancelledException();
       }
+      var path = reference.path;
+      var allowedRoot = generatedRoot;
+      if (path == null) {
+        path = await MediaCacheService.instance.ensureCached(
+          reference.remoteUrl!,
+          kind: cacheKind,
+          cancelSignal: cancelSignal,
+        );
+        if (!isServiceEnabled || await isCancelSignalCompleted(cancelSignal)) {
+          throw const AiMediaGenerationCancelledException();
+        }
+        if (path == null) {
+          remoteDownloadFailed = true;
+          continue;
+        }
+        allowedRoot = mediaCacheRoot;
+      }
       final sizeBytes = await _validatedDingTalkMediaFileSize(
         path,
-        allowedRoot: generatedRoot,
+        allowedRoot: allowedRoot,
         minBytes: _minimumGeneratedMediaFileBytes,
         maxBytes: kDingTalkMessageAttachmentMaxBytes,
       );
-      if (sizeBytes == null) continue;
+      if (sizeBytes == null) {
+        unsendableFileFound = true;
+        continue;
+      }
       final name = p.basename(path).trim().isEmpty ? '生成媒体' : p.basename(path);
       final remoteId = await _service.sendFile(
         conversation: conversation,
@@ -590,7 +620,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (!isServiceEnabled) {
       throw const AiMediaGenerationCancelledException();
     }
-    if (firstPath == null) throw StateError('生成媒体文件不存在或无法发送。');
+    if (firstPath == null) {
+      if (unsendableFileFound) {
+        throw StateError('生成媒体文件无效或超过 512MB 发送上限。');
+      }
+      if (remoteDownloadFailed) {
+        throw StateError('生成媒体文件下载失败，请稍后重试。');
+      }
+      throw StateError('生成媒体文件不存在或无法发送。');
+    }
     _notify();
     return <String, Object?>{
       'success': true,
@@ -794,8 +832,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
   }
 
-  List<String> _generatedMediaPaths(String markdown) {
-    final result = <String>[];
+  List<({String? path, String? remoteUrl})> _generatedMediaReferences(
+    String markdown,
+  ) {
+    final result = <({String? path, String? remoteUrl})>[];
+    final seen = <String>{};
     final pattern = RegExp(r'!?\[[^\]\r\n]{0,240}\]\(([^)\r\n]+)\)');
     for (final match in pattern.allMatches(markdown)) {
       var raw = match.group(1)?.trim() ?? '';
@@ -811,9 +852,17 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           continue;
         }
       }
+      final uri = Uri.tryParse(raw);
+      if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
+        final remoteUrl = uri.toString();
+        if (seen.add(remoteUrl)) {
+          result.add((path: null, remoteUrl: remoteUrl));
+        }
+        continue;
+      }
       final path = p.normalize(raw);
-      if (!result.contains(path)) {
-        result.add(path);
+      if (seen.add(path)) {
+        result.add((path: path, remoteUrl: null));
       }
     }
     return result;
