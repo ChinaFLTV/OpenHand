@@ -3,8 +3,10 @@ import 'dart:async';
 import '../../../../shared/model/dingtalk_multimodal_capability.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/byte_size_format.dart';
+import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_creation_mode.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
+import '../../service/media/ai_image_generation_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
@@ -43,6 +45,9 @@ class AiDingTalkMediaGenerationTool extends AiTool {
   };
 
   @override
+  bool get isDestructive => true;
+
+  @override
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     final command = capability.toolName;
     final prompt = _prompt(context.decodedArguments);
@@ -61,6 +66,9 @@ class AiDingTalkMediaGenerationTool extends AiTool {
     }
     final paths = _referenceImagePaths(context.decodedArguments);
     final options = _options(context.decodedArguments);
+    if (await _isCancelled(context.cancelSignal)) {
+      return _cancelled(command, 0, _workingDirectory(context));
+    }
     final startedAt = Stopwatch()..start();
     try {
       final raw = await executor(
@@ -70,13 +78,6 @@ class AiDingTalkMediaGenerationTool extends AiTool {
         referenceImagePaths: paths,
         cancelSignal: context.cancelSignal,
       );
-      if (await _isCancelled(context.cancelSignal)) {
-        return _cancelled(
-          command,
-          startedAt.elapsedMilliseconds,
-          _workingDirectory(context),
-        );
-      }
       final result = raw is Map
           ? Map<String, Object?>.from(raw)
           : <String, Object?>{'message': '$raw'};
@@ -115,6 +116,12 @@ class AiDingTalkMediaGenerationTool extends AiTool {
             'dingtalk_media_remote_message_id': result['remote_message_id'],
         },
       );
+    } on AiMediaGenerationCancelledException {
+      return _cancelled(
+        command,
+        startedAt.elapsedMilliseconds,
+        _workingDirectory(context),
+      );
     } on Object catch (error) {
       if (await _isCancelled(context.cancelSignal)) {
         return _cancelled(
@@ -149,16 +156,17 @@ class AiDingTalkMediaGenerationTool extends AiTool {
   }
 
   AiCreationOptions _options(Map<String, Object?> arguments) {
-    final raw = arguments['options'];
-    if (raw is Map) {
-      return AiCreationOptions.fromMetadata(raw);
-    }
     final flattened = Map<String, Object?>.from(arguments)
       ..remove('prompt')
       ..remove('text')
       ..remove('purpose')
-      ..remove('reference_image_paths');
-    return AiCreationOptions.fromMetadata(flattened);
+      ..remove('reference_image_paths')
+      ..remove('options');
+    final nested = stringKeyedMapFromValueOrJsonText(arguments['options']);
+    return AiCreationOptions.fromMetadata(<String, Object?>{
+      ...flattened,
+      ...nested,
+    });
   }
 
   List<String> _referenceImagePaths(Map<String, Object?> arguments) {

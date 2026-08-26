@@ -1054,16 +1054,19 @@ class AiToolRuntimeService {
       },
       'options': const <String, Object?>{
         'type': 'object',
-        'description': '可选生成参数，支持尺寸、比例、质量、时长、格式、声音等线程会话参数。',
+        'description': '可选生成参数对象；与同名顶层参数同时提供时，对象内参数优先。',
         'additionalProperties': true,
       },
-      'size': const <String, Object?>{'type': 'string'},
-      'aspect_ratio': const <String, Object?>{'type': 'string'},
-      'duration_seconds': const <String, Object?>{
-        'type': 'integer',
-        'minimum': 1,
-        'maximum': 600,
-      },
+      if (capability == AiDingTalkMultimodalCapability.imageGeneration)
+        'size': const <String, Object?>{'type': 'string'},
+      if (capability != AiDingTalkMultimodalCapability.audioGeneration)
+        'aspect_ratio': const <String, Object?>{'type': 'string'},
+      if (capability != AiDingTalkMultimodalCapability.imageGeneration)
+        'duration_seconds': const <String, Object?>{
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 600,
+        },
       'count': const <String, Object?>{
         'type': 'integer',
         'minimum': 1,
@@ -1072,68 +1075,78 @@ class AiToolRuntimeService {
       'quality': const <String, Object?>{'type': 'string'},
       'style': const <String, Object?>{'type': 'string'},
       'output_format': const <String, Object?>{'type': 'string'},
-      'background': const <String, Object?>{'type': 'string'},
+      if (capability == AiDingTalkMultimodalCapability.imageGeneration)
+        'background': const <String, Object?>{'type': 'string'},
       'negative_prompt': const <String, Object?>{'type': 'string'},
       'prompt_enhance': const <String, Object?>{'type': 'boolean'},
       'watermark': const <String, Object?>{'type': 'boolean'},
       'seed': const <String, Object?>{'type': 'integer', 'minimum': 0},
-      'resolution': const <String, Object?>{'type': 'string'},
-      'frame_rate': const <String, Object?>{
-        'type': 'integer',
-        'minimum': 1,
-        'maximum': 60,
+      if (capability == AiDingTalkMultimodalCapability.videoGeneration) ...{
+        'resolution': const <String, Object?>{'type': 'string'},
+        'frame_rate': const <String, Object?>{
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 60,
+        },
+        'num_frames': const <String, Object?>{
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 441,
+        },
+        'mode': const <String, Object?>{'type': 'string'},
       },
-      'num_frames': const <String, Object?>{
-        'type': 'integer',
-        'minimum': 1,
-        'maximum': 441,
+      if (capability == AiDingTalkMultimodalCapability.audioGeneration) ...{
+        'voice': const <String, Object?>{'type': 'string'},
+        'omit_voice': const <String, Object?>{
+          'type': 'boolean',
+          'description': '为 true 时请求中不携带音色或发音人参数。',
+        },
+        'speed': const <String, Object?>{'type': 'number'},
+        'volume': const <String, Object?>{
+          'type': 'number',
+          'minimum': 0,
+          'maximum': 10,
+        },
+        'sample_rate': const <String, Object?>{
+          'type': 'integer',
+          'minimum': 8000,
+          'maximum': 96000,
+        },
+        'bitrate': const <String, Object?>{
+          'type': 'integer',
+          'minimum': 8000,
+          'maximum': 512000,
+        },
+        'pitch': const <String, Object?>{'type': 'number'},
+        'language_boost': const <String, Object?>{'type': 'string'},
+        'emotion': const <String, Object?>{'type': 'string'},
+        'text_normalization': const <String, Object?>{'type': 'boolean'},
+        'latex_read': const <String, Object?>{'type': 'boolean'},
+        'channel': const <String, Object?>{'type': 'integer', 'minimum': 1},
+        'force_cbr': const <String, Object?>{'type': 'boolean'},
+        'subtitle_enable': const <String, Object?>{'type': 'boolean'},
+        'subtitle_type': const <String, Object?>{'type': 'string'},
+        'pronunciation_tone': const <String, Object?>{
+          'type': 'array',
+          'maxItems': 64,
+          'items': <String, Object?>{'type': 'string'},
+        },
+        'timbre_weights': const <String, Object?>{
+          'type': 'array',
+          'maxItems': 32,
+          'items': <String, Object?>{'type': 'object'},
+        },
+        'voice_modify': const <String, Object?>{
+          'type': 'object',
+          'additionalProperties': true,
+        },
       },
-      'mode': const <String, Object?>{'type': 'string'},
-      'voice': const <String, Object?>{'type': 'string'},
-      'speed': const <String, Object?>{'type': 'number'},
-      'volume': const <String, Object?>{
-        'type': 'number',
-        'minimum': 0,
-        'maximum': 10,
-      },
-      'sample_rate': const <String, Object?>{
-        'type': 'integer',
-        'minimum': 8000,
-        'maximum': 96000,
-      },
-      'bitrate': const <String, Object?>{
-        'type': 'integer',
-        'minimum': 8000,
-        'maximum': 512000,
-      },
-      'pitch': const <String, Object?>{'type': 'number'},
-      'language_boost': const <String, Object?>{'type': 'string'},
-      'emotion': const <String, Object?>{'type': 'string'},
-      'text_normalization': const <String, Object?>{'type': 'boolean'},
-      'latex_read': const <String, Object?>{'type': 'boolean'},
-      'channel': const <String, Object?>{'type': 'integer', 'minimum': 1},
-      'force_cbr': const <String, Object?>{'type': 'boolean'},
-      'subtitle_enable': const <String, Object?>{'type': 'boolean'},
-      'subtitle_type': const <String, Object?>{'type': 'string'},
-      'pronunciation_tone': const <String, Object?>{
-        'type': 'array',
-        'maxItems': 64,
-        'items': <String, Object?>{'type': 'string'},
-      },
-      'timbre_weights': const <String, Object?>{
-        'type': 'array',
-        'maxItems': 32,
-        'items': <String, Object?>{'type': 'object'},
-      },
-      'voice_modify': const <String, Object?>{
-        'type': 'object',
-        'additionalProperties': true,
-      },
-      'reference_image_paths': const <String, Object?>{
-        'type': 'array',
-        'maxItems': 8,
-        'items': <String, Object?>{'type': 'string', 'maxLength': 1024},
-      },
+      if (capability != AiDingTalkMultimodalCapability.audioGeneration)
+        'reference_image_paths': const <String, Object?>{
+          'type': 'array',
+          'maxItems': 8,
+          'items': <String, Object?>{'type': 'string', 'maxLength': 1024},
+        },
       'purpose': const <String, Object?>{
         'type': 'string',
         'description': '本次生成调用的简短目的。',
