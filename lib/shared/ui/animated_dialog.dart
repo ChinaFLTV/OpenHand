@@ -1784,8 +1784,10 @@ WidgetBuilder _wrapDialogBuilderWithTheme(
     // 只设置上限，不强行撑满，原本小弹窗（install_guide 等）不受影响。
     final clamped = _ViewportClamp(alignment: alignment, child: themed);
     final stableHitTest = _DialogInitialHitTestShield(child: clamped);
-    if (!dismissOnEscape) return stableHitTest;
-    return OpenHandEscapeDismissScope(child: stableHitTest);
+    return OpenHandEscapeDismissScope(
+      enabled: dismissOnEscape,
+      child: stableHitTest,
+    );
   };
 }
 
@@ -1946,7 +1948,7 @@ class OpenHandEscapeDismissScope extends StatefulWidget {
 
   final Widget child;
 
-  /// 为 false 时不响应 Escape（例如弹窗内已有更内层的可关闭浮层）。
+  /// 为 false 时消费 Escape 但不关闭当前路由。
   final bool enabled;
 
   @override
@@ -1997,18 +1999,18 @@ class _OpenHandEscapeDismissScopeState
     final navigator = route.navigator ?? Navigator.maybeOf(context);
     if (navigator == null) return false;
     _dismissRequested = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    scheduleMicrotask(() {
       if (!mounted || !_dismissRequested) return;
       if (!route.isActive || !route.isCurrent) {
         _dismissRequested = false;
         return;
       }
-      _popAfterFrame(navigator, route);
+      _popAfterKeyEvent(navigator, route);
     });
     return true;
   }
 
-  void _popAfterFrame(NavigatorState navigator, ModalRoute<Object?> route) {
+  void _popAfterKeyEvent(NavigatorState navigator, ModalRoute<Object?> route) {
     try {
       if (!route.isActive || !route.isCurrent || route.navigator != navigator) {
         _dismissRequested = false;

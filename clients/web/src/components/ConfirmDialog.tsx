@@ -36,11 +36,6 @@ interface ConfirmDialogProps {
   bodyClassName?: string;
   /** 当为 true 时，点击遮罩外部不关闭弹窗（仅可通过按钮 / Esc 关闭）。 */
   disableBackdropClose?: boolean;
-  /**
-   * Esc 键的独立回调。提供后，按 Esc 触发该回调（替代默认的 onCancel），
-   * 用于明确区分"用户按 Esc"vs"用户点击取消按钮"两种意图。
-   */
-  onDismiss?: () => void;
   /** 无外部 busy 状态时默认先播放退场动画，再执行确认回调。 */
   closeOnConfirm?: boolean;
   /** 先执行异步确认，成功后再播放退场动画。返回 false 时保持弹窗。 */
@@ -66,7 +61,6 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
     scrollBody = false,
     bodyClassName = '',
     disableBackdropClose = false,
-    onDismiss,
     closeOnConfirm = !hasExternalBusy,
     confirmBeforeClose = false,
     closeOnEscape = true,
@@ -94,10 +88,6 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
       }
       if (reason === 'confirm') {
         void onConfirm();
-        return;
-      }
-      if (reason === 'escape') {
-        (onDismiss ?? onCancel)();
         return;
       }
       onCancel();
