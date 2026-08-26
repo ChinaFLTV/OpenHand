@@ -1453,16 +1453,12 @@ class AiImageGenerationService {
     };
     putIfNotBlank(body, 'negative_prompt', options.negativePrompt);
     _putPositiveInt(body, 'seed', options.seed);
-    final mode = nullIfBlank(options.mode) ?? nullIfBlank(options.style);
-    if (mode != null && referenceImageDataUrls.length <= 1) {
-      body['mode'] = mode;
-    }
     if (referenceImageDataUrls.length == 1) {
       body['image'] = referenceImageDataUrls.first;
     } else if (referenceImageDataUrls.length > 1) {
       body['extra_body'] = <String, Object?>{
         'image': referenceImageDataUrls,
-        'mode': mode ?? 'keyframes',
+        'mode': 'keyframes',
       };
     }
     return body;

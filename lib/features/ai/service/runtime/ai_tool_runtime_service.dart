@@ -1044,18 +1044,7 @@ class AiToolRuntimeService {
   Map<String, Object?> _dingtalkMultimodalParameters(
     AiDingTalkMultimodalCapability capability,
   ) {
-    final properties = <String, Object?>{
-      'prompt': const <String, Object?>{
-        'type': 'string',
-        'minLength': 1,
-        'maxLength': 12000,
-        'description': '媒体生成要求，必须具体且可执行。',
-      },
-      'options': const <String, Object?>{
-        'type': 'object',
-        'description': '可选生成参数对象；与同名顶层参数同时提供时，对象内参数优先。',
-        'additionalProperties': true,
-      },
+    final optionProperties = <String, Object?>{
       if (capability == AiDingTalkMultimodalCapability.imageGeneration)
         'size': const <String, Object?>{'type': 'string'},
       if (capability != AiDingTalkMultimodalCapability.audioGeneration)
@@ -1066,20 +1055,25 @@ class AiToolRuntimeService {
           'minimum': 1,
           'maximum': 600,
         },
-      'count': const <String, Object?>{
-        'type': 'integer',
-        'minimum': 1,
-        'maximum': 4,
+      if (capability == AiDingTalkMultimodalCapability.imageGeneration) ...{
+        'count': const <String, Object?>{
+          'type': 'integer',
+          'minimum': 1,
+          'maximum': 4,
+        },
+        'quality': const <String, Object?>{'type': 'string'},
+        'style': const <String, Object?>{'type': 'string'},
       },
-      'quality': const <String, Object?>{'type': 'string'},
-      'style': const <String, Object?>{'type': 'string'},
-      'output_format': const <String, Object?>{'type': 'string'},
+      if (capability != AiDingTalkMultimodalCapability.videoGeneration)
+        'output_format': const <String, Object?>{'type': 'string'},
       if (capability == AiDingTalkMultimodalCapability.imageGeneration)
         'background': const <String, Object?>{'type': 'string'},
-      'negative_prompt': const <String, Object?>{'type': 'string'},
-      'prompt_enhance': const <String, Object?>{'type': 'boolean'},
-      'watermark': const <String, Object?>{'type': 'boolean'},
-      'seed': const <String, Object?>{'type': 'integer', 'minimum': 0},
+      if (capability != AiDingTalkMultimodalCapability.audioGeneration) ...{
+        'negative_prompt': const <String, Object?>{'type': 'string'},
+        'prompt_enhance': const <String, Object?>{'type': 'boolean'},
+        'watermark': const <String, Object?>{'type': 'boolean'},
+        'seed': const <String, Object?>{'type': 'integer', 'minimum': 0},
+      },
       if (capability == AiDingTalkMultimodalCapability.videoGeneration) ...{
         'resolution': const <String, Object?>{'type': 'string'},
         'frame_rate': const <String, Object?>{
@@ -1092,7 +1086,11 @@ class AiToolRuntimeService {
           'minimum': 1,
           'maximum': 441,
         },
-        'mode': const <String, Object?>{'type': 'string'},
+        'mode': const <String, Object?>{
+          'type': 'string',
+          'enum': <String>['keyframes'],
+          'description': '仅在提供至少两张参考图时使用关键帧模式。',
+        },
       },
       if (capability == AiDingTalkMultimodalCapability.audioGeneration) ...{
         'voice': const <String, Object?>{'type': 'string'},
@@ -1140,6 +1138,21 @@ class AiToolRuntimeService {
           'additionalProperties': true,
         },
       },
+    };
+    final properties = <String, Object?>{
+      'prompt': const <String, Object?>{
+        'type': 'string',
+        'minLength': 1,
+        'maxLength': 12000,
+        'description': '媒体生成要求，必须具体且可执行。',
+      },
+      'options': <String, Object?>{
+        'type': 'object',
+        'description': '可选生成参数；与同名顶层参数同时提供时，对象内参数优先。',
+        'properties': optionProperties,
+        'additionalProperties': false,
+      },
+      ...optionProperties,
       if (capability != AiDingTalkMultimodalCapability.audioGeneration)
         'reference_image_paths': const <String, Object?>{
           'type': 'array',

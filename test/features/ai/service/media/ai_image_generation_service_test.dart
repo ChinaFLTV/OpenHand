@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:openhand/features/ai/model/ai_creation_mode.dart';
 import 'package:openhand/features/ai/model/ai_model_config.dart';
+import 'package:openhand/features/ai/service/chat/ai_protocol_adapter.dart';
 import 'package:openhand/features/ai/service/media/ai_image_generation_service.dart';
 
 void main() {
@@ -145,4 +147,101 @@ void main() {
       expect(restored.voice, isNull);
     });
   });
+
+  group('Agnes 视频生成服务', () {
+    test('文生视频忽略模型臆造的模式与样式参数', () async {
+      Map<String, Object?>? submittedBody;
+      final client = MockClient((request) async {
+        submittedBody = (jsonDecode(request.body) as Map)
+            .cast<String, Object?>();
+        return http.Response.bytes(
+          const <int>[0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70],
+          200,
+          headers: const <String, String>{'content-type': 'video/mp4'},
+        );
+      });
+      final service = AiImageGenerationService(client: client);
+      addTearDown(service.dispose);
+
+      final result = await service.generateVideo(
+        model: _agnesVideoModel,
+        prompt: '黑洞漫步的科幻电影视频',
+        options: const AiCreationOptions(
+          aspectRatio: '16:9',
+          durationSeconds: 10,
+          quality: 'high',
+          style: 'cinematic',
+          promptEnhance: true,
+          resolution: '1920x1080',
+          numFrames: 240,
+          mode: 'text',
+        ),
+      );
+
+      expect(result.requestUrl, 'https://api.example.com/v1/videos');
+      expect(submittedBody?['model'], 'agnes-video-v2.0');
+      expect(submittedBody?['width'], 1280);
+      expect(submittedBody?['height'], 720);
+      expect(submittedBody?['num_frames'], 241);
+      expect(submittedBody?['frame_rate'], 24);
+      expect(submittedBody, isNot(contains('mode')));
+      expect(submittedBody, isNot(contains('style')));
+      expect(submittedBody, isNot(contains('quality')));
+    });
+
+    test('多参考图固定使用关键帧模式', () async {
+      Map<String, Object?>? submittedBody;
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'openhand_agnes_video_test_',
+      );
+      addTearDown(() => tempDirectory.delete(recursive: true));
+      final firstImage = File('${tempDirectory.path}/first.jpg');
+      final lastImage = File('${tempDirectory.path}/last.jpg');
+      await firstImage.writeAsBytes(const <int>[0xff, 0xd8, 0xff, 0xd9]);
+      await lastImage.writeAsBytes(const <int>[0xff, 0xd8, 0xff, 0xd9]);
+      final client = MockClient((request) async {
+        submittedBody = (jsonDecode(request.body) as Map)
+            .cast<String, Object?>();
+        return http.Response.bytes(
+          const <int>[0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70],
+          200,
+          headers: const <String, String>{'content-type': 'video/mp4'},
+        );
+      });
+      final service = AiImageGenerationService(client: client);
+      addTearDown(service.dispose);
+
+      await service.generateVideo(
+        model: _agnesVideoModel,
+        prompt: '在首尾画面间生成平滑运镜',
+        options: const AiCreationOptions(style: 'cinematic', mode: 'text'),
+        referenceImages: <AiChatContentPart>[
+          AiChatContentPart.imageFile(
+            filePath: firstImage.path,
+            mimeType: 'image/jpeg',
+          ),
+          AiChatContentPart.imageFile(
+            filePath: lastImage.path,
+            mimeType: 'image/jpeg',
+          ),
+        ],
+      );
+
+      expect(submittedBody, isNot(contains('mode')));
+      final extraBody = (submittedBody?['extra_body'] as Map)
+          .cast<String, Object?>();
+      expect(extraBody['mode'], 'keyframes');
+      expect(extraBody['image'], isA<List<Object?>>());
+      expect(extraBody['image'] as List<Object?>, hasLength(2));
+    });
+  });
 }
+
+const _agnesVideoModel = AiModelConfig(
+  id: 'agnes',
+  baseUrl: 'https://api.example.com',
+  authScheme: AiAuthScheme.bearer,
+  token: 'test-token',
+  modelId: 'agnes-video-v2.0',
+  protocolType: AiProtocolType.agnes,
+);
