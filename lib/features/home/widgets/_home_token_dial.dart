@@ -78,6 +78,7 @@ class _OpenHandSessionTokenUsageDialState
       if (!mounted) return;
       callback();
     });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   bool get _useTapSheet =>
@@ -1734,8 +1735,7 @@ class _PopupRowState extends State<_PopupRow> {
         setState(() => _hovered = false);
       },
       child: AnimatedContainer(
-        duration: openHandMotionDuration(context, kOpenHandMotion180,
-        ),
+        duration: openHandMotionDuration(context, kOpenHandMotion180),
         curve: kOpenHandEntranceCurve,
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
         margin: const EdgeInsets.symmetric(vertical: 2),
@@ -1846,17 +1846,11 @@ class _CompactCacheHitSparkline extends StatelessWidget {
               color: missColor,
               child: TweenAnimationBuilder<double>(
                 tween: Tween<double>(begin: 0, end: readFrac + writeFrac),
-                duration: openHandMotionDuration(
-                  context,
-                  kOpenHandMotion520,
-                ),
+                duration: openHandMotionDuration(context, kOpenHandMotion520),
                 curve: kOpenHandEntranceCurve,
                 builder: (context, cached, _) => TweenAnimationBuilder<double>(
                   tween: Tween<double>(begin: 0, end: readFrac),
-                  duration: openHandMotionDuration(
-                    context,
-                    kOpenHandMotion520,
-                  ),
+                  duration: openHandMotionDuration(context, kOpenHandMotion520),
                   curve: kOpenHandEntranceCurve,
                   builder: (context, read, _) => SizedBox(
                     height: 8,
