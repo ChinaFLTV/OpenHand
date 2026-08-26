@@ -781,7 +781,7 @@ class AiSessionController extends ChangeNotifier {
             timeout: _autoTitleRequestTimeout,
           ),
         );
-        final generatedTitle = _sanitizeGeneratedTitle(completion.reply);
+        final generatedTitle = sanitizeAiGeneratedTitle(completion.reply);
         if (_isMeaningfulAutoTitle(generatedTitle)) {
           return generatedTitle;
         }
@@ -859,7 +859,7 @@ class AiSessionController extends ChangeNotifier {
             cancelSignal: cancelSignal,
           ),
         );
-        final generatedTitle = _sanitizeGeneratedTitle(completion.reply);
+        final generatedTitle = sanitizeAiGeneratedTitle(completion.reply);
         if (_isMeaningfulAutoTitle(generatedTitle)) {
           title = generatedTitle;
           break;
@@ -11664,7 +11664,7 @@ $tail''';
           ),
         );
         if (_isDisposed) return;
-        final generatedTitle = _sanitizeGeneratedTitle(completion.reply);
+        final generatedTitle = sanitizeAiGeneratedTitle(completion.reply);
         final acceptedGeneratedTitle = _isMeaningfulAutoTitle(generatedTitle)
             ? generatedTitle
             : '';

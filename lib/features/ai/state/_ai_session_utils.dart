@@ -79,18 +79,20 @@ String _deriveSessionTitle(
   return derivedTitle.isEmpty ? session.title : derivedTitle;
 }
 
-String _sanitizeGeneratedTitle(String value) {
+String sanitizeAiGeneratedTitle(String value) {
   var normalized = value.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-  // Strip all HTML tags so models that disregard the plain-text-only
-  // instruction and still emit HTML wrappers produce a clean title.
-  normalized = stripHtmlTags(normalized, replacement: '');
-  final tagMatch = RegExp(
+  final titleMatches = RegExp(
     r'<title[^>]*>([\s\S]*?)<\/title>',
     caseSensitive: false,
-  ).firstMatch(normalized);
-  if (tagMatch != null) {
-    normalized = tagMatch.group(1) ?? '';
+  ).allMatches(normalized);
+  for (final match in titleMatches) {
+    final candidate = stripHtmlTags(match.group(1) ?? '', replacement: '');
+    if (candidate.trim().isNotEmpty) {
+      normalized = candidate;
+      break;
+    }
   }
+  normalized = stripHtmlTags(normalized, replacement: '');
   normalized = normalized.replaceAll(RegExp(r'[\n]+'), ' ');
   normalized = normalized.replaceAllMapped(
     RegExp(r'\[([^\]]+)\]\([^)]+\)'),
