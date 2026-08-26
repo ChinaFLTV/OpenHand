@@ -89,13 +89,8 @@ int _dingtalkTemporaryFileSerial = 0;
 String _dingtalkTextContent(String content) =>
     stripImageSummaryMarkup(content).trim();
 
-String _dingtalkMediaSummary(List<DingTalkGatewayMedia> media) =>
-    media.map((item) => '[${item.displayName}]').join(' ');
-
 bool _hasDingTalkTextContent(String content, List<DingTalkGatewayMedia> media) {
-  final text = _dingtalkTextContent(content);
-  if (text.isEmpty) return false;
-  return media.isEmpty || text != _dingtalkMediaSummary(media);
+  return normalizeDingTalkMediaText(content, media).isNotEmpty;
 }
 
 String _nextDingTalkTemporaryFileName(String prefix, String extension) {

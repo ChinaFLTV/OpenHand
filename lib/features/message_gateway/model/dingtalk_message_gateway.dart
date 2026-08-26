@@ -30,7 +30,7 @@ final RegExp _dingtalkLinkCardProjectionPrefixPattern = RegExp(
   caseSensitive: false,
 );
 final RegExp _dingtalkMediaPlaceholderPattern = RegExp(
-  r'\[(?:图片|图片消息|照片|图像|视频|视频消息|语音|语音消息|音频|音频消息|文件|文件消息|附件|媒体消息)\]'
+  r'\[(?:图片|图片消息|照片|图像|视频|视频消息|语音|语音消息|音频|音频消息|文件|文件消息|附件|媒体消息|image|image message|photo|picture|video|video message|voice|voice message|audio|audio message|file|file message|attachment|media|media message)\]'
   r'(?:\(\s*(?:mediaId|fileId)\s*=\s*[^)\s]+\s*\))?',
   caseSensitive: false,
 );
@@ -317,6 +317,26 @@ String stripDingTalkMediaPlaceholder(Object? value) {
     text = text.replaceFirst(_dwsMediaDownloadHintPattern, ' ');
   }
   return text.replaceAll(_dingtalkWhitespacePattern, ' ').trim();
+}
+
+/// 清理媒体投影文本；投影后只剩附件名时同样视为无正文。
+String normalizeDingTalkMediaText(
+  Object? value,
+  Iterable<DingTalkGatewayMedia> media,
+) {
+  final items = media.toList(growable: false);
+  if (items.isEmpty) return normalizeDingTalkMessageContent(value);
+  final raw = normalizeDingTalkMessageContentForComparison(value);
+  final summary = items.map((item) => '[${item.displayName}]').join(' ');
+  if (raw == normalizeDingTalkMessageContentForComparison(summary)) return '';
+  final text = stripDingTalkMediaPlaceholder(value);
+  final normalized = normalizeDingTalkMessageContentForComparison(text);
+  if (normalized.isEmpty) return '';
+  for (final item in items) {
+    final name = normalizeDingTalkMessageContentForComparison(item.name);
+    if (name.isNotEmpty && normalized == name) return '';
+  }
+  return text;
 }
 
 /// 将钉钉表情名称转换为标准 Emoji，未知名称保留为短文本兜底。
@@ -1354,9 +1374,7 @@ class DingTalkForwardedMessage {
               name: projection.name,
             ),
           ];
-    final textContent = media.isEmpty
-        ? normalizeDingTalkMessageContent(rawContent)
-        : stripDingTalkMediaPlaceholder(rawContent);
+    final textContent = normalizeDingTalkMediaText(rawContent, media);
     return DingTalkForwardedMessage(
       id: id,
       content: textContent.isEmpty
@@ -1547,9 +1565,7 @@ class DingTalkGatewayMessage {
     final storedForwardedCount = int.tryParse(
       '${json['forwarded_message_count'] ?? ''}',
     );
-    final textContent = media.isEmpty
-        ? normalizeDingTalkMessageContent(rawContent)
-        : stripDingTalkMediaPlaceholder(rawContent);
+    final textContent = normalizeDingTalkMediaText(rawContent, media);
     final content = textContent.isEmpty && media.isNotEmpty
         ? media.map((item) => '[${item.displayName}]').join(' ')
         : textContent;
@@ -1639,6 +1655,7 @@ class DingTalkGatewayMessage {
     List<DingTalkGatewayMedia>? media,
     List<DingTalkForwardedMessage>? forwardedMessages,
     int? forwardedMessageCount,
+    bool? fromSelf,
     bool? mentionedCurrentUser,
     bool? readByPeer,
     DingTalkMessageAiResponseState? aiResponseState,
@@ -1666,7 +1683,7 @@ class DingTalkGatewayMessage {
       forwardedMessages: forwardedMessages ?? this.forwardedMessages,
       forwardedMessageCount:
           forwardedMessageCount ?? this.forwardedMessageCount,
-      fromSelf: fromSelf,
+      fromSelf: fromSelf ?? this.fromSelf,
       failed: failed,
       mentionedCurrentUser: mentionedCurrentUser ?? this.mentionedCurrentUser,
       readByPeer: readByPeer ?? this.readByPeer,

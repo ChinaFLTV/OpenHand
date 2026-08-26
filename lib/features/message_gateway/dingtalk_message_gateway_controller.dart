@@ -523,44 +523,65 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       if (!isServiceEnabled) {
         throw const AiMediaGenerationCancelledException();
       }
-      final messageId = remoteId?.trim().isNotEmpty == true
-          ? remoteId!.trim()
+      final normalizedRemoteId = remoteId?.trim() ?? '';
+      final messageId = normalizedRemoteId.isNotEmpty
+          ? normalizedRemoteId
           : 'assistant-media-${_uuid.v4()}';
-      if (remoteId?.trim().isNotEmpty == true) _remember(remoteId!.trim());
-      _appendMessage(
-        conversation,
-        DingTalkGatewayMessage(
-          id: messageId,
-          conversationId: conversation.id,
-          conversationType: conversation.type,
-          role: DingTalkGatewayMessageRole.assistant,
-          content: '[${mediaKind.name}] $name',
-          createdAt: DateTime.now(),
-          senderName: 'OpenHand',
-          media: <DingTalkGatewayMedia>[
-            DingTalkGatewayMedia(
-              resourceId: messageId,
-              messageId: messageId,
-              conversationId: conversation.id,
-              kind: mediaKind,
-              name: name,
-              mimeType: _mediaMimeType(
-                path,
-                fallback: switch (capability) {
-                  AiDingTalkMultimodalCapability.imageGeneration =>
-                    kImagePngMimeType,
-                  AiDingTalkMultimodalCapability.videoGeneration =>
-                    kVideoMp4MimeType,
-                  AiDingTalkMultimodalCapability.audioGeneration =>
-                    kAudioMpegMimeType,
-                },
-              ),
-              sizeBytes: sizeBytes,
-              localPath: path,
-            ),
-          ],
+      final media = DingTalkGatewayMedia(
+        resourceId: messageId,
+        messageId: messageId,
+        conversationId: conversation.id,
+        kind: mediaKind,
+        name: name,
+        mimeType: _mediaMimeType(
+          path,
+          fallback: switch (capability) {
+            AiDingTalkMultimodalCapability.imageGeneration => kImagePngMimeType,
+            AiDingTalkMultimodalCapability.videoGeneration => kVideoMp4MimeType,
+            AiDingTalkMultimodalCapability.audioGeneration =>
+              kAudioMpegMimeType,
+          },
         ),
+        sizeBytes: sizeBytes,
+        localPath: path,
       );
+      final localMessage = DingTalkGatewayMessage(
+        id: messageId,
+        conversationId: conversation.id,
+        conversationType: conversation.type,
+        role: DingTalkGatewayMessageRole.assistant,
+        content: '[${media.displayName}]',
+        createdAt: DateTime.now(),
+        senderName: _authStatus.identity.label.trim().isEmpty
+            ? 'OpenHand'
+            : _authStatus.identity.label.trim(),
+        senderId: _authStatus.identity.userId,
+        media: <DingTalkGatewayMedia>[media],
+        fromSelf: true,
+      );
+      if (normalizedRemoteId.isEmpty) {
+        _rememberUnresolvedOutgoingMessage(messageId);
+      } else {
+        _remember(normalizedRemoteId);
+      }
+      final existingIndex = normalizedRemoteId.isEmpty
+          ? -1
+          : conversation.messages.indexWhere(
+              (message) => message.id == normalizedRemoteId,
+            );
+      if (existingIndex < 0) {
+        _appendMessage(conversation, localMessage);
+      } else {
+        conversation.messages[existingIndex] = _mergeOutgoingMessage(
+          localMessage,
+          conversation.messages[existingIndex],
+          normalizedRemoteId,
+        );
+        _queuePersist();
+      }
+      if (_collapseOutgoingEchoDuplicates(conversation) > 0) {
+        _queuePersist();
+      }
       firstRemoteId ??= remoteId?.trim();
       firstPath ??= path;
       firstName ??= name;
@@ -2417,6 +2438,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       media: remote.media.isEmpty
           ? null
           : _mergeMediaCache(local.media, remote.media),
+      fromSelf:
+          local.fromSelf || remote.fromSelf || _isGeneratedMediaLocalEcho(local)
+          ? true
+          : null,
       mentionedCurrentUser: remote.mentionedCurrentUser ? true : null,
       recalled: remote.recalled ? true : null,
       readByPeer: remote.readByPeer ? true : null,
@@ -2872,7 +2897,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final localIds = conversation.messages
         .where(
           (message) =>
-              message.fromSelf &&
+              (message.fromSelf || _isGeneratedMediaLocalEcho(message)) &&
               (_isTemporaryMessageId(message.id) ||
                   message.sourceAiMessageId.trim().isNotEmpty),
         )
@@ -2929,6 +2954,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       removedCount++;
     }
     return removedCount;
+  }
+
+  bool _isGeneratedMediaLocalEcho(DingTalkGatewayMessage message) {
+    return message.id.startsWith('assistant-media-') &&
+        message.isAssistant &&
+        message.media.isNotEmpty;
   }
 
   bool _outgoingMediaMatches(

@@ -4232,7 +4232,7 @@ class DingTalkMessageGatewayService {
     String content,
     List<DingTalkGatewayMedia> media,
   ) {
-    final text = stripDingTalkMediaPlaceholder(content);
+    final text = normalizeDingTalkMediaText(content, media);
     return text.isEmpty ? _mediaSummary(media) : text;
   }
 
