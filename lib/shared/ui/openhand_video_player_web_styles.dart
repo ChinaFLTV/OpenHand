@@ -1,3 +1,9 @@
+import 'package:flutter/foundation.dart';
+
+/// macOS 的 WebView 插件未实现背景不透明接口，调用会阻断播放器初始化。
+bool openHandCanSetWebViewBackgroundColor(TargetPlatform platform) =>
+    platform != TargetPlatform.macOS;
+
 /// 生成内嵌视频播放器共用的控制栏结构。
 String openHandVideoPlayerControlsHtml({
   required String trailingActionId,

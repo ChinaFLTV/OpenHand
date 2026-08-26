@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -1191,12 +1192,14 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
         await _cleanupTempFiles();
         return;
       }
-      await controller
-          .setBackgroundColor(const Color(0xFF0F0F10))
-          .timeout(deadline.remaining());
-      if (!mounted) {
-        await _cleanupTempFiles();
-        return;
+      if (openHandCanSetWebViewBackgroundColor(defaultTargetPlatform)) {
+        await controller
+            .setBackgroundColor(const Color(0xFF0F0F10))
+            .timeout(deadline.remaining());
+        if (!mounted) {
+          await _cleanupTempFiles();
+          return;
+        }
       }
       await controller
           .addJavaScriptChannel(

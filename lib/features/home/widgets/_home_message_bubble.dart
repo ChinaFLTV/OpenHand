@@ -3895,8 +3895,7 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog>
             },
           ),
         );
-      // macOS 插件未实现 WKWebView 透明背景接口，直接保留默认背景。
-      if (!Platform.isMacOS) {
+      if (openHandCanSetWebViewBackgroundColor(defaultTargetPlatform)) {
         controller.setBackgroundColor(Colors.transparent);
       }
       _controller = controller;
@@ -7339,7 +7338,7 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
           },
         ),
       );
-    if (!Platform.isMacOS) {
+    if (openHandCanSetWebViewBackgroundColor(defaultTargetPlatform)) {
       _controller.setBackgroundColor(Colors.black);
     }
     _bootstrap();
