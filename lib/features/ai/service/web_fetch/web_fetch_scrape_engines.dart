@@ -10,11 +10,9 @@ import '../web_engine/web_engine_http_utils.dart';
 import 'web_fetch_engine.dart';
 import 'web_fetch_scrapling_bridge.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 真正的「URL → 全文」抓取引擎：firecrawl、tavily-extract、exa-contents。
 // 每个引擎只重写 fetch()；运行/重试/超时/截断由基类 [WebFetchEngine.run]
 // 统一处理。
-// ─────────────────────────────────────────────────────────────────────────────
 
 /// Firecrawl /v1/scrape — https://docs.firecrawl.dev/api-reference/endpoint/scrape
 class WebFetchFirecrawlEngine extends WebFetchEngine {
@@ -156,7 +154,8 @@ class WebFetchJinaReaderEngine extends WebFetchEngine {
         url: req.url,
         title: _extractReaderTitle(content) ?? targetUri.toString(),
         content: content,
-        contentType: response.headers[kContentTypeHeaderName] ?? kTextMarkdownMimeType,
+        contentType:
+            response.headers[kContentTypeHeaderName] ?? kTextMarkdownMimeType,
         statusCode: status,
         responseHeaders: Map<String, String>.from(response.headers),
       ),

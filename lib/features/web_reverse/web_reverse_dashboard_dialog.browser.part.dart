@@ -1,6 +1,5 @@
 part of 'web_reverse_dashboard_dialog.dart';
 
-// ─────────────────────────────────────────────────────────────────────────
 // 内嵌浏览器面板：CDP screencast 帧渲染 + 输入桥（鼠标 / 滚轮 / 键盘）
 // 设计要点：
 //   1. 资源控制 —— 进入面板时调一次 `acquireScreencast`，离开 / dispose 时
@@ -17,7 +16,6 @@ part of 'web_reverse_dashboard_dialog.dart';
 //      viewport（CSS 像素），保证 retina 一致。
 //   4. 视口同步 —— widget 矩形在用户拖大 / 拖小窗口时变化，触发去抖 220ms
 //      调 `reconfigureScreencast`，让浏览器侧 maxWidth/maxHeight 跟手。
-// ─────────────────────────────────────────────────────────────────────────
 
 // LogicalKeyboardKey → (CDP key, CDP code, windowsVirtualKeyCode) 静态表。
 // 仅覆盖 character 为空的"功能键 / 控制键"；可打印字符直接走 character。

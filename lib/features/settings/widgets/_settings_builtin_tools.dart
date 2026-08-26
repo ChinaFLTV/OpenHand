@@ -439,9 +439,7 @@ class _AgentToolMetricChip extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Builtin Tool Tile (list item in the tool catalog overview)
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _BuiltinToolTile extends StatelessWidget {
   const _BuiltinToolTile({
@@ -612,7 +610,9 @@ class _BuiltinToolTile extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: colorScheme.tertiary.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(kOpenHandRadius4),
+                            borderRadius: BorderRadius.circular(
+                              kOpenHandRadius4,
+                            ),
                           ),
                           child: Text(
                             l10n.builtinToolCustomBadge,
@@ -652,7 +652,9 @@ class _BuiltinToolTile extends StatelessWidget {
                             color: colorScheme.primaryContainer.withValues(
                               alpha: 0.62,
                             ),
-                            borderRadius: BorderRadius.circular(kOpenHandRadius4),
+                            borderRadius: BorderRadius.circular(
+                              kOpenHandRadius4,
+                            ),
                           ),
                           child: Text(
                             l10n.builtinToolForceBadge,
@@ -710,7 +712,9 @@ class _BuiltinToolTile extends StatelessWidget {
                                 color: colorScheme.primaryContainer.withValues(
                                   alpha: 0.4,
                                 ),
-                                borderRadius: BorderRadius.circular(kOpenHandRadius4),
+                                borderRadius: BorderRadius.circular(
+                                  kOpenHandRadius4,
+                                ),
                               ),
                               child: Text(
                                 tag,

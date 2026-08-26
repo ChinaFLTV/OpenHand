@@ -48,12 +48,12 @@ interface ApiOptions {
 
 export type ApiRequestSignalOptions = Pick<ApiOptions, 'signal' | 'timeoutMs'>;
 
-export interface AuthenticatedBlobResult {
+interface AuthenticatedBlobResult {
   blob: Blob;
   response: Response;
 }
 
-export async function throwIfApiResponseFailed(
+async function throwIfApiResponseFailed(
   response: Response,
   signal?: AbortSignal,
 ): Promise<void> {

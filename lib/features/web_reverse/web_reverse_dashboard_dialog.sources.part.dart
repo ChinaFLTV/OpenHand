@@ -2868,12 +2868,10 @@ class _SourceHoverBubble extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────
 // Cmd+P / Ctrl+P 快速打开脚本（类 VSCode/Chrome DevTools）。
 // 输入纯文本 → 模糊匹配脚本 URL（basename 命中加权）。结尾 `:42` 跳到指定
 // 行。↑↓ 移动高亮项，Enter 选中，Esc 关闭。仅做文件/行跳转；符号检索受限
 // 于 CDP（要拉源码现取），暂不放进首屏。
-// ─────────────────────────────────────────────────────────────────────────
 class _SourcesQuickOpenDialog extends StatefulWidget {
   const _SourcesQuickOpenDialog({
     required this.controller,

@@ -1,9 +1,7 @@
 part of 'settings_view.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
 // WebSearch 工具的子代理、引擎和摘要设置。
 // 仅当 _BuiltinToolEditorDialog 编辑的是 AiBuiltinToolKind.webSearch 时挂载。
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _WebSearchSettingsEditor extends StatefulWidget {
   const _WebSearchSettingsEditor({
@@ -596,9 +594,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
     );
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
   // 遥测界面（调用日志和引擎健康度）
-  // ───────────────────────────────────────────────────────────────────────────
   List<Widget> _buildTelemetrySection(BuildContext context) {
     return _buildTelemetryPanel(
       context: context,

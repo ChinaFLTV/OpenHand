@@ -14,6 +14,7 @@ import '../services_controller.dart';
 import 'ai_exposure_proxy_dialog.dart';
 import 'ai_model_proxy_dialogs.dart';
 import 'ai_model_proxy_operations_dialog.dart';
+import 'service_card_controls.dart';
 
 class AiModelProxyServiceCard extends StatelessWidget {
   const AiModelProxyServiceCard({super.key});
@@ -67,7 +68,8 @@ class AiModelProxyServiceCard extends StatelessWidget {
             LayoutBuilder(
               builder: (context, constraints) {
                 final compact = constraints.maxWidth < 820;
-                final identity = _ProxyIdentity(
+                final identity = ServiceCardIdentity(
+                  icon: Icons.hub_rounded,
                   title: text(zh: 'AI 模型服务中转站', en: 'AI model service proxy'),
                   description: subtitle,
                   running: running,
@@ -184,82 +186,6 @@ class AiModelProxyServiceCard extends StatelessWidget {
   }
 }
 
-class _ProxyIdentity extends StatelessWidget {
-  const _ProxyIdentity({
-    required this.title,
-    required this.description,
-    required this.running,
-  });
-  final String title;
-  final String description;
-  final bool running;
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: colors.primaryContainer,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              alignment: Alignment.center,
-              child: Icon(
-                Icons.hub_rounded,
-                size: 31,
-                color: colors.onPrimaryContainer,
-              ),
-            ),
-            Positioned(
-              right: -3,
-              bottom: -3,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colors.surface,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.circle,
-                  color: running
-                      ? OpenHandStatusColors.success
-                      : colors.outline,
-                  size: 18,
-                ),
-              ),
-            ),
-          ],
-        ),
-        kOpenHandHGap16,
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: theme.textTheme.headlineSmall),
-              kOpenHandGap8,
-              Text(
-                description,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colors.onSurfaceVariant,
-                  height: 1.45,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _ProxyActions extends StatelessWidget {
   const _ProxyActions({
     required this.running,
@@ -282,63 +208,35 @@ class _ProxyActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = openHandTextResolver(context);
-    Widget action(IconData icon, String tooltip, VoidCallback onPressed) =>
-        Tooltip(
-          message: tooltip,
-          child: IconButton.filledTonal(
-            onPressed: onPressed,
-            icon: Icon(icon),
-            style: IconButton.styleFrom(shape: const CircleBorder()),
-          ),
-        );
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      alignment: WrapAlignment.end,
-      children: [
-        Tooltip(
-          message: running
-              ? text(zh: '停止服务', en: 'Stop service')
-              : text(zh: '启动服务', en: 'Start service'),
-          child: IconButton.filledTonal(
-            onPressed: busy ? null : onToggle,
-            style: running
-                ? OpenHandStatusColors.runningStopButtonStyle().copyWith(
-                    shape: const WidgetStatePropertyAll(CircleBorder()),
-                  )
-                : IconButton.styleFrom(shape: const CircleBorder()),
-            icon: busy
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(running ? Icons.stop_rounded : Icons.play_arrow_rounded),
-          ),
+    return ServiceCardActions(
+      running: running,
+      busy: busy,
+      onToggle: onToggle,
+      actions: [
+        ServiceCardIconAction(
+          icon: Icons.monitor_heart_outlined,
+          tooltip: text(zh: '服务运维', en: 'Service operations'),
+          onPressed: onOperations,
         ),
-        action(
-          Icons.monitor_heart_outlined,
-          text(zh: '服务运维', en: 'Service operations'),
-          onOperations,
+        ServiceCardIconAction(
+          icon: Icons.hub_outlined,
+          tooltip: text(zh: 'AI 模型提供商', en: 'AI model providers'),
+          onPressed: onProviders,
         ),
-        action(
-          Icons.hub_outlined,
-          text(zh: 'AI 模型提供商', en: 'AI model providers'),
-          onProviders,
+        ServiceCardIconAction(
+          icon: Icons.lan_outlined,
+          tooltip: text(zh: '网络代理', en: 'Network proxy'),
+          onPressed: onNetworkProxy,
         ),
-        action(
-          Icons.lan_outlined,
-          text(zh: '网络代理', en: 'Network proxy'),
-          onNetworkProxy,
+        ServiceCardIconAction(
+          icon: Icons.query_stats_rounded,
+          tooltip: text(zh: '使用统计', en: 'Usage analytics'),
+          onPressed: onUsage,
         ),
-        action(
-          Icons.query_stats_rounded,
-          text(zh: '使用统计', en: 'Usage analytics'),
-          onUsage,
-        ),
-        action(
-          Icons.settings_outlined,
-          text(zh: '服务设置', en: 'Service settings'),
-          onSettings,
+        ServiceCardIconAction(
+          icon: Icons.settings_outlined,
+          tooltip: text(zh: '服务设置', en: 'Service settings'),
+          onPressed: onSettings,
         ),
       ],
     );

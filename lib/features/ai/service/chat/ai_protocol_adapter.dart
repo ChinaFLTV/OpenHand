@@ -1981,7 +1981,8 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
           if (_messageRole(next) != 'tool') {
             break;
           }
-          final toolCallId = '${next[aiSessionMessageToolCallIdMetadataKey] ?? ''}'.trim();
+          final toolCallId =
+              '${next[aiSessionMessageToolCallIdMetadataKey] ?? ''}'.trim();
           if (expectedToolCallIds.contains(toolCallId) &&
               !toolMessagesById.containsKey(toolCallId)) {
             toolMessagesById[toolCallId] = next;
@@ -2148,7 +2149,10 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
   }
 
   static String _orphanToolMessageText(Map<String, Object?> toolMessage) {
-    final toolCallId = _trimmedField(toolMessage, aiSessionMessageToolCallIdMetadataKey);
+    final toolCallId = _trimmedField(
+      toolMessage,
+      aiSessionMessageToolCallIdMetadataKey,
+    );
     final content = _trimmedField(toolMessage, 'content');
     return <String>[
       _orphanToolResultTag,
@@ -3929,8 +3933,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
           buffer.writeln();
           if (isImageMimeType(mimeType)) {
             buffer.write('![$label]($fileUri)');
-          } else if (isVideoMimeType(mimeType) ||
-              isAudioMimeType(mimeType)) {
+          } else if (isVideoMimeType(mimeType) || isAudioMimeType(mimeType)) {
             buffer.write('[$label]($fileUri)');
           } else {
             buffer.write('[$label]($fileUri)');
@@ -4074,12 +4077,10 @@ class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
 }
 
 abstract final class AiProtocolRegistry {
-  // ─────────────────────────────────────────────────────────────────────────
   // Vision model detection patterns — per-provider.
   // Each list contains case-insensitive substrings that, when found in a
   // model ID, indicate the model accepts inline image content parts.
   // Patterns are derived from each provider's official API documentation.
-  // ─────────────────────────────────────────────────────────────────────────
 
   /// OpenAI: GPT-4o+, o-series, and common multimodal models served via
   /// OpenAI-compatible proxy endpoints (Claude, Gemini, open-source VLMs).
@@ -4347,9 +4348,7 @@ abstract final class AiProtocolRegistry {
   }
 }
 
-/// Extracts text and non-text content parts (images, audio) from OpenAI-compatible
-/// (images, audio) that some OpenAI-compatible APIs return in assistants.
-/// Returns empty string instead of throwing if content is empty/null.
+/// 从 OpenAI 兼容响应中提取文本、图像和音频内容；格式异常时返回空字符串。
 Future<String> _extractOpenAiContentWithMediaSafe(Object? rawContent) async {
   try {
     return await _extractOpenAiContentWithMedia(rawContent);
@@ -4358,8 +4357,7 @@ Future<String> _extractOpenAiContentWithMediaSafe(Object? rawContent) async {
   }
 }
 
-/// Extracts text and non-text content parts (images, audio) from OpenAI-compatible
-/// (images, audio) that some OpenAI-compatible APIs return in assistants.
+/// 从 OpenAI 兼容响应中提取文本、图像和音频内容。
 Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
   if (rawContent is String) {
     final text = nullIfBlank(rawContent);
@@ -4543,7 +4541,9 @@ Future<String> _markdownFromOpenAiMediaPayload(
 String _audioFormatForMimeType(String mimeType) {
   return switch (lowercaseStringFromValue(mimeType)) {
     kAudioMpegMimeType || kAudioMp3AliasMimeType => 'mp3',
-    kAudioWavMimeType || kAudioWaveAliasMimeType || kAudioXWavAliasMimeType => 'wav',
+    kAudioWavMimeType ||
+    kAudioWaveAliasMimeType ||
+    kAudioXWavAliasMimeType => 'wav',
     kAudioFlacMimeType || 'audio/x-flac' => 'flac',
     kAudioMp4MimeType || 'audio/m4a' || 'audio/x-m4a' => 'm4a',
     kAudioOggMimeType || 'audio/opus' => 'ogg',
@@ -4562,9 +4562,7 @@ bool _containsAny(String value, List<String> candidates) {
   return false;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Inline media extraction helpers
-// ─────────────────────────────────────────────────────────────────────────────
 
 /// Decoded inline media block from an AI response.
 class AiInlineMedia {

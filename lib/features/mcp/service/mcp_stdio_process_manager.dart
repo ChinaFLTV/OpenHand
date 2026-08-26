@@ -663,9 +663,7 @@ class McpStdioProcessManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
   // 工具发现服务复用已运行进程的会话借用机制
-  // ─────────────────────────────────────────────────────────────────────────
 
   final Map<String, int> _sessionBorrowCount = {};
 

@@ -110,9 +110,7 @@ class AiToolRegistry {
       ..register(AiAskUserChoiceTool());
   }
 
-  // ──────────────────────────────────────────────────────────────
   // 工厂：注册所有工具（含外部服务依赖，供 AiToolRuntimeService 使用）
-  // ──────────────────────────────────────────────────────────────
   factory AiToolRegistry.withServiceDependencies({
     required AiBashToolService bashToolService,
     required AiClaudeHookService hookService,
@@ -237,9 +235,7 @@ class AiToolRegistry {
   /// 由 [register] 在注册时自动填充来自 [AiTool.aliases] 的别名。
   final Map<String, AiBuiltinToolKind> _aliasToKind = {};
 
-  // ──────────────────────────────────────────────────────────────
   // 核心操作
-  // ──────────────────────────────────────────────────────────────
 
   /// 注册工具。
   /// 同时将 [AiTool.aliases] 中的每个别名映射到本工具的 [AiTool.kind]，

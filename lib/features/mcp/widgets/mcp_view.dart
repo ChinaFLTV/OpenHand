@@ -12087,9 +12087,7 @@ class _McpAnimatedProgressBar extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // MCP 探测详情弹窗
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _McpProbeDetailsDialog extends StatelessWidget {
   const _McpProbeDetailsDialog();

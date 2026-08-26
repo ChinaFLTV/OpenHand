@@ -1,9 +1,7 @@
 part of 'settings_view.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
 // WebFetch 工具的引擎、缓存和遥测设置。
 // 仅当 _BuiltinToolEditorDialog 编辑的是 AiBuiltinToolKind.webFetch 时挂载。
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _WebFetchSettingsEditor extends StatefulWidget {
   const _WebFetchSettingsEditor({
@@ -534,9 +532,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
     );
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
   // 遥测界面（调用日志和引擎健康度）
-  // ───────────────────────────────────────────────────────────────────────────
   List<Widget> _buildTelemetrySection(BuildContext context) {
     return _buildTelemetryPanel(
       context: context,

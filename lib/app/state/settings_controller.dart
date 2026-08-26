@@ -2369,9 +2369,7 @@ class SettingsController extends ChangeNotifier {
     return _uuid.v4();
   }
 
-  // ─────────────────────────────────────────────────────────────
   // Builtin Tool Config mutations
-  // ─────────────────────────────────────────────────────────────
 
   Future<bool> updateBuiltinToolConfigs(
     List<AiBuiltinToolConfig> configs,

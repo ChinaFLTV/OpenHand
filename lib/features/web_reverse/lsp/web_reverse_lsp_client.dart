@@ -558,9 +558,7 @@ class WebReverseLspClient {
     return result is Map ? stringKeyedMapFromValue(result) : null;
   }
 
-  // ────────────────────────────────────────────────────────────────────
   // 内部：JSON-RPC 收发
-  // ────────────────────────────────────────────────────────────────────
 
   Future<Map<String, Object?>?> _request(
     String method,

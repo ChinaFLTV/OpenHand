@@ -47,9 +47,7 @@ const BoundedDeletePolicy _kHarnessPromptDeletePolicy = BoundedDeletePolicy(
   totalTimeout: Duration(seconds: 5),
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 阶段状态与日志
-// ─────────────────────────────────────────────────────────────────────────────
 
 enum HarnessPhaseStatus {
   pending,
@@ -330,9 +328,7 @@ enum HarnessFileChangeType { added, modified, deleted }
 
 const Object _harnessPhaseLogSnapshotUnset = Object();
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 编排器整体状态
-// ─────────────────────────────────────────────────────────────────────────────
 
 enum HarnessOrchestratorStatus { idle, running, completed, failed, cancelled }
 
@@ -343,9 +339,7 @@ const Color kHarnessStatusCompletedTone = Color(0xFF5F7C53);
 const Color kHarnessStatusFailedTone = Color(0xFFC84B4B);
 const Color kHarnessStatusCancelledTone = Color(0xFFD97A33);
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Harness 工程阶段编排器
-// ─────────────────────────────────────────────────────────────────────────────
 
 class HarnessOrchestrator extends ChangeNotifier {
   HarnessOrchestrator(this._config);

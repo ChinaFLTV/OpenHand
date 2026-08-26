@@ -413,7 +413,8 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                   // 单击只杀本调用（区别于全局"停止响应"，不影响并行的兄弟工具）。
                   _ToolCancelButton(
                     sessionId: widget.sessionId,
-                    toolCallId: '${message.metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}',
+                    toolCallId:
+                        '${message.metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}',
                   ),
                 ],
               ),
@@ -1003,9 +1004,7 @@ _ToolOutputPreview _buildToolOutputPreview(String content) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // _ToolContentFullDialog — full-screen dialog showing complete tool output
-// ─────────────────────────────────────────────────────────────────────────────
 
 const double _kToolContentDialogMaxWidth = 1180;
 const double _kToolContentDialogRadius = 26;
@@ -1613,7 +1612,9 @@ class _ToolContentDialogIconButton extends StatelessWidget {
           disabledBackgroundColor: colorScheme.surfaceContainer.withValues(
             alpha: 0.58,
           ),
-          shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius14),
+          shape: const RoundedRectangleBorder(
+            borderRadius: kOpenHandBorderRadius14,
+          ),
         ),
       ),
     );

@@ -388,9 +388,7 @@ class _PluginTemplateBadge extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 插件卡片
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _PluginCard extends StatelessWidget {
   const _PluginCard({required this.plugin, required this.controller});
@@ -901,9 +899,7 @@ class _PluginCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 操作进度弹窗（终端风格）
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _PluginOperationProgressDialog extends StatefulWidget {
   const _PluginOperationProgressDialog({
@@ -1144,9 +1140,7 @@ class _PluginOperationProgressDialogState
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 插件元信息行
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _PluginMetaRow extends StatelessWidget {
   const _PluginMetaRow({required this.plugin});
@@ -1214,9 +1208,7 @@ class _PluginMetaRow extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 依赖关系行
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _DependencyRow extends StatelessWidget {
   const _DependencyRow({required this.plugin, required this.controller});
@@ -1269,9 +1261,7 @@ class _DependencyRow extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 状态指示点
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _StatusDot extends StatelessWidget {
   const _StatusDot({required this.color});
@@ -1306,13 +1296,9 @@ class _StatusDot extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 状态卡片（加载失败等全屏提示）
-// ─────────────────────────────────────────────────────────────────────────────
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 插件详情弹窗
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _PluginDetailDialog extends StatefulWidget {
   const _PluginDetailDialog({required this.plugin});
@@ -1814,9 +1800,7 @@ class _DetailRow extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 插件 MCP 服务弹窗
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _PluginMcpDialog extends StatefulWidget {
   const _PluginMcpDialog({required this.plugin, required this.controller});

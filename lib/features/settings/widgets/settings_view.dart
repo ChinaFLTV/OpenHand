@@ -4663,9 +4663,7 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
   // 内置工具设置
-  // ─────────────────────────────────────────────────────────────────────────
 
   Widget _buildBuiltinToolsSection(
     BuildContext context,
@@ -5177,9 +5175,7 @@ class _SettingsViewState extends State<SettingsView> {
             label: Text(l10n.mcpToolSearchExportLastDirResetAction),
           ),
         ),
-        // 调试入口：当 ToolSearch 重放在「3 秒反悔」窗口里被用户取消后，
-        // dispatcher 会记下那次的 onFire；此处一键重发，方便快速验证。
-        // 没有可重放项时按钮置灰；按下后 dispatcher 清空记忆。
+        // 恢复入口：重发上次在反悔窗口中取消的 ToolSearch 操作。
         Align(
           alignment: AlignmentDirectional.centerStart,
           child: ValueListenableBuilder<bool>(
@@ -6728,8 +6724,7 @@ class _SettingsViewState extends State<SettingsView> {
     }
   }
 
-  /// 调试快捷：重发上次被「3 秒反悔窗口」取消的 ToolSearch 重放。
-  /// 没有可重放记忆时 toast「已无可重放」，否则 toast「已重发」。
+  /// 重发上次在反悔窗口中取消的 ToolSearch 操作。
   Future<void> _replayLastCancelledToolSearch(BuildContext context) async {
     final l10n = AppLocalizations.of(context)!;
     final dispatcher = context.read<ToolSearchReplayDispatcher>();
@@ -7097,9 +7092,7 @@ List<Widget> _intersperse(List<Widget> items, Widget separator) {
   return output;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 弹窗动画设置
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _McpStdioMirrorModeControl extends StatelessWidget {
   const _McpStdioMirrorModeControl({

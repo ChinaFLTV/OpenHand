@@ -7,12 +7,10 @@ import '../../model/ai_web_search_settings.dart';
 import '../web_engine/web_engine_http_utils.dart';
 import 'web_search_engine.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Provider 复用型引擎：grok（xAI Live Search）、gemini（Google Grounding）。
 // 它们的 web search 能力是协议自带，没有独立的 search endpoint。
 // 这里直接打 chat 接口，开启 search_parameters / tools.googleSearch，
 // 然后从 citations / groundingChunks 抽取命中结果。
-// ─────────────────────────────────────────────────────────────────────────────
 
 class WebSearchGrokEngine extends WebSearchProviderKeyEngine {
   WebSearchGrokEngine({

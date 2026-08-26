@@ -13,12 +13,10 @@ import '../../tools/ai_tool_utils.dart';
 import '../web_engine/web_engine_http_utils.dart';
 import 'web_fetch_engine.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 无 key 直连兜底引擎：duckduckgo / bing。
 // 与 WebSearch 不同，WebFetch 场景下「无 key 兜底」其实就是
 // 直接 HTTP GET 目标 URL，再把 HTML 转纯文本。
 // 命名只为对齐 WebSearch 引擎枚举与 UI 卡片；具体实现完全独立于 DDG/Bing。
-// ─────────────────────────────────────────────────────────────────────────────
 
 class WebFetchDirectHttpEngine extends WebFetchEngine {
   WebFetchDirectHttpEngine({
@@ -94,7 +92,8 @@ class WebFetchDirectHttpEngine extends WebFetchEngine {
       final request = http.Request('GET', current);
       request.followRedirects = false;
       request.headers[kUserAgentHeaderName] = userAgent;
-      request.headers[kAcceptHeaderName] = 'text/html,application/xhtml+xml,*/*;q=0.8';
+      request.headers[kAcceptHeaderName] =
+          'text/html,application/xhtml+xml,*/*;q=0.8';
       final stream = await sendAbortableHttpRequest(
         client: httpClient,
         request: request,

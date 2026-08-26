@@ -1156,8 +1156,14 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                   fillColor: colorScheme.surfaceContainerHighest.withValues(
                     alpha: 0.5,
                   ),
-                  border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius12, borderSide: BorderSide.none),
-                  enabledBorder: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius12, borderSide: BorderSide.none),
+                  border: const OutlineInputBorder(
+                    borderRadius: kOpenHandBorderRadius12,
+                    borderSide: BorderSide.none,
+                  ),
+                  enabledBorder: const OutlineInputBorder(
+                    borderRadius: kOpenHandBorderRadius12,
+                    borderSide: BorderSide.none,
+                  ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: kOpenHandBorderRadius12,
                     borderSide: BorderSide(
@@ -1643,7 +1649,9 @@ class _FileTreeTile extends StatelessWidget {
                 if (node.isDirectory)
                   AnimatedRotation(
                     turns: node.isExpanded ? 0.25 : 0,
-                    duration: openHandMotionDuration(context, kOpenHandMotion200,
+                    duration: openHandMotionDuration(
+                      context,
+                      kOpenHandMotion200,
                     ),
                     curve: kOpenHandSwitchInCurve,
                     child: Icon(
@@ -1829,9 +1837,7 @@ class _ProjectToolchainTreeNode {
   final List<_ProjectToolchainTreeNode> children;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Code Editor View — IDEA-style editor with Material You Expressive
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _CodeEditorView extends StatefulWidget {
   const _CodeEditorView({
@@ -2145,10 +2151,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     // Schedule a commit: when the gesture settles, apply the real font size
     // change once (re-highlights only once instead of every frame).
     _zoomCommitTimer?.cancel();
-    _zoomCommitTimer = startSafeTimer(
-      kOpenHandMotion180,
-      _commitZoomScale,
-    );
+    _zoomCommitTimer = startSafeTimer(kOpenHandMotion180, _commitZoomScale);
   }
 
   /// Collapse `_zoomVisualScale` into `_fontSize` for a real layout update.
@@ -3119,8 +3122,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         )
                       : ListView.separated(
                           itemCount: preparedEdit.files.length,
-                          separatorBuilder: (_, _) =>
-                              kOpenHandGap12,
+                          separatorBuilder: (_, _) => kOpenHandGap12,
                           itemBuilder: (dialogContext, index) {
                             final file = preparedEdit.files[index];
                             return Container(
@@ -6297,8 +6299,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     colorScheme: colorScheme,
                     node: node.children[index],
                   ),
-                  if (index < node.children.length - 1)
-                    kOpenHandGap8,
+                  if (index < node.children.length - 1) kOpenHandGap8,
                 ],
               ],
             ),
@@ -11220,7 +11221,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     // ── Find / Replace bar ──
                     ClipRect(
                       child: AnimatedSize(
-                        duration: openHandMotionDuration(context, kOpenHandMotion220,
+                        duration: openHandMotionDuration(
+                          context,
+                          kOpenHandMotion220,
                         ),
                         curve: kOpenHandSwitchInCurve,
                         alignment: Alignment.bottomCenter,
@@ -11230,7 +11233,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     // ── Go-to-Line bar ──
                     ClipRect(
                       child: AnimatedSize(
-                        duration: openHandMotionDuration(context, kOpenHandMotion220,
+                        duration: openHandMotionDuration(
+                          context,
+                          kOpenHandMotion220,
                         ),
                         curve: kOpenHandSwitchInCurve,
                         alignment: Alignment.bottomCenter,
@@ -11240,7 +11245,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     // ── Symbol navigation bar ──
                     ClipRect(
                       child: AnimatedSize(
-                        duration: openHandMotionDuration(context, kOpenHandMotion220,
+                        duration: openHandMotionDuration(
+                          context,
+                          kOpenHandMotion220,
                         ),
                         curve: kOpenHandSwitchInCurve,
                         alignment: Alignment.bottomCenter,
@@ -11742,7 +11749,9 @@ class _CompletionOverlay extends StatelessWidget {
                             color: colorScheme.secondaryContainer.withValues(
                               alpha: 0.5,
                             ),
-                            borderRadius: BorderRadius.circular(kOpenHandRadius4),
+                            borderRadius: BorderRadius.circular(
+                              kOpenHandRadius4,
+                            ),
                           ),
                           child: Text(
                             kindLabel,
@@ -12806,7 +12815,7 @@ class _WorkspaceEditDiffLine extends StatelessWidget {
   final String line;
   final ColorScheme colorScheme;
 
-static const _addedBg = Color(0xFFE6F4E6);
+  static const _addedBg = Color(0xFFE6F4E6);
   static const _removedBg = Color(0xFFF7E6E6);
   static const _hunkBg = Color(0xFFE8EEF8);
   static const _addedBgDark = Color(0xFF1A3D1A);
@@ -12825,7 +12834,9 @@ static const _addedBg = Color(0xFFE6F4E6);
       fontWeight = FontWeight.w700;
     } else if (line.startsWith('+')) {
       background = isDark ? _addedBgDark.withValues(alpha: 0.55) : _addedBg;
-      foreground = isDark ? const Color(0xFF81C784) : _kFileExplorerSuccessColor;
+      foreground = isDark
+          ? const Color(0xFF81C784)
+          : _kFileExplorerSuccessColor;
     } else if (line.startsWith('-')) {
       background = isDark ? _removedBgDark.withValues(alpha: 0.55) : _removedBg;
       foreground = isDark ? const Color(0xFFE57373) : colorScheme.error;
@@ -14064,7 +14075,9 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
 
   TextStyle _resolvedEditorStyle() {
     return _editorBaseStyleForSize(widget.fontSize).copyWith(
-      color: _darkSurface ? _kFileExplorerDarkSurfaceText : _kFileExplorerLightSurfaceText,
+      color: _darkSurface
+          ? _kFileExplorerDarkSurfaceText
+          : _kFileExplorerLightSurfaceText,
     );
   }
 
@@ -14562,15 +14575,12 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     if (_hoveringDiagnosticTooltip) {
       return;
     }
-    _diagnosticTooltipHideTimer = startSafeTimer(
-      kOpenHandMotion120,
-      () {
-        if (!mounted || _hoveringDiagnosticTooltip) {
-          return;
-        }
-        _removeDiagnosticTooltip();
-      },
-    );
+    _diagnosticTooltipHideTimer = startSafeTimer(kOpenHandMotion120, () {
+      if (!mounted || _hoveringDiagnosticTooltip) {
+        return;
+      }
+      _removeDiagnosticTooltip();
+    });
   }
 
   void _scheduleDiagnosticTooltipUpdate() {
@@ -15303,7 +15313,9 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
 
   TextStyle _resolvedEditorStyle() {
     return _editorBaseStyleForSize(widget.fontSize).copyWith(
-      color: _darkSurface ? _kFileExplorerDarkSurfaceText : _kFileExplorerLightSurfaceText,
+      color: _darkSurface
+          ? _kFileExplorerDarkSurfaceText
+          : _kFileExplorerLightSurfaceText,
     );
   }
 
@@ -15475,7 +15487,6 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
                     child: ScrollConfiguration(
                       behavior: noScrollbarBehavior,
                       child: ListView.builder(
-                        // Key based on fontSize forces rebuild when zoom changes
                         key: ValueKey(
                           'preview-line-numbers-${widget.fontSize}',
                         ),
@@ -15524,7 +15535,6 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
                             child: SizedBox(
                               width: estimatedContentWidth,
                               child: ListView.builder(
-                                // Key based on fontSize forces rebuild when zoom changes
                                 key: ValueKey(
                                   'preview-content-${widget.fontSize}',
                                 ),
@@ -15628,8 +15638,7 @@ class _EditorTab extends StatelessWidget {
                 colorScheme.primary.withValues(alpha: 0.08),
               ),
               child: AnimatedContainer(
-                duration: openHandMotionDuration(context, kOpenHandMotion200,
-                ),
+                duration: openHandMotionDuration(context, kOpenHandMotion200),
                 curve: kOpenHandSwitchInCurve,
                 height: 34,
                 padding: const EdgeInsets.symmetric(horizontal: 12),

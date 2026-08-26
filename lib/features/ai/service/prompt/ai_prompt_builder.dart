@@ -140,7 +140,8 @@ class AiPromptBuilder {
   static const int _checkpointPromptMaxChars = 40000;
   static const int _checkpointPromptEdgeChars = 18000;
   static const int _compressionAttachmentDetailMaxChars = 2000;
-  static const int _compressionPromptToolResultThresholdChars = 4 * kBytesPerKiB;
+  static const int _compressionPromptToolResultThresholdChars =
+      4 * kBytesPerKiB;
   static const int _compressionPromptToolResultHeadTailChars = 384;
   static const int _knowledgeToolPromptMaxChars = 12000;
   static const int _knowledgeToolPromptMaxResults = 8;
@@ -660,7 +661,6 @@ class AiPromptBuilder {
     final runtimeTailTurns = runtimeTailReplayedFromHistory
         ? const <AiChatTurn>[]
         : runtimeTailSnapshotTurns;
-    // ─────────────────────────────────────────────────────────────
     // Cache-friendly unified assembly:
     //   stable core prefix → runtime catalog prefix → persisted history
     //   → current round anchor → persisted runtime tail.
@@ -668,7 +668,6 @@ class AiPromptBuilder {
     // from the actual leading request prefix (stable core + runtime catalog).
     // Per-turn state is snapshotted on the round anchor and replayed from that
     // exact location on later requests, including tool continuations.
-    // ─────────────────────────────────────────────────────────────
     final promptAssembly = _PromptAssemblyPlan(
       stablePrefixTurns: stablePrefixTurns,
       runtimePrefixTurns: runtimePrefixTurns,
@@ -6704,7 +6703,8 @@ $content
   }
 
   String? _readToolCallId(Map<String, Object?> metadata) {
-    final value = '${metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'.trim();
+    final value = '${metadata[aiSessionMessageToolCallIdMetadataKey] ?? ''}'
+        .trim();
     return value.isEmpty ? null : value;
   }
 

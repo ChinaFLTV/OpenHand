@@ -1,8 +1,6 @@
 part of 'web_reverse_dashboard_dialog.dart';
 
-// ─────────────────────────────────────────────────────────────────────────
 // Performance：实时 Performance.getMetrics 卡片 + Tracing 录制（导出 trace.json）
-// ─────────────────────────────────────────────────────────────────────────
 
 class _PerformancePanel extends StatefulWidget {
   const _PerformancePanel({
@@ -1282,7 +1280,9 @@ class _LongTasksPane extends StatelessWidget {
                               margin: const EdgeInsets.only(right: 8, top: 2),
                               decoration: BoxDecoration(
                                 color: color,
-                                borderRadius: BorderRadius.circular(kOpenHandRadius2),
+                                borderRadius: BorderRadius.circular(
+                                  kOpenHandRadius2,
+                                ),
                               ),
                             ),
                             Expanded(
@@ -1390,9 +1390,7 @@ class _Sparkline extends CustomPainter {
       old.upperBound != upperBound;
 }
 
-// ─────────────────────────────────────────────────────────────────────────
 // Memory：HeapProfiler.takeHeapSnapshot 拉 .heapsnapshot，导出可用于 DevTools 重放。
-// ─────────────────────────────────────────────────────────────────────────
 
 class _MemoryPanel extends StatefulWidget {
   const _MemoryPanel({
@@ -2226,12 +2224,10 @@ class _AnimatedDualSparklineState extends State<_AnimatedDualSparkline>
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────
 // Memory: 「采样开关 + 实时 sparkline」整合卡片。Switch 触发 HeapProfiler.
 // startSampling / stopSampling；采样窗口内 1.5s 拍一根柱，宽度自适应、高
 // 度按窗内峰值归一。停止后冻结柱序，便于回放分配压力曲线。reduceMotion 时
 // 仍渲染但不做柱条动画。
-// ─────────────────────────────────────────────────────────────────────────
 class _HeapSamplingSwitchCard extends StatelessWidget {
   const _HeapSamplingSwitchCard({
     required this.isSampling,
@@ -2545,7 +2541,9 @@ class _SamplingTopList extends StatelessWidget {
                                 height: 6,
                                 decoration: BoxDecoration(
                                   color: cs.surfaceContainer,
-                                  borderRadius: BorderRadius.circular(kOpenHandRadius3),
+                                  borderRadius: BorderRadius.circular(
+                                    kOpenHandRadius3,
+                                  ),
                                 ),
                               ),
                               FractionallySizedBox(
@@ -2554,7 +2552,9 @@ class _SamplingTopList extends StatelessWidget {
                                   height: 6,
                                   decoration: BoxDecoration(
                                     color: cs.primary,
-                                    borderRadius: BorderRadius.circular(kOpenHandRadius3),
+                                    borderRadius: BorderRadius.circular(
+                                      kOpenHandRadius3,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -2707,9 +2707,7 @@ class _SamplingTopList extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────
 // Application：Cookies / Local Storage / Session Storage（按 origin 切换）
-// ─────────────────────────────────────────────────────────────────────────
 
 class _ApplicationPanel extends StatefulWidget {
   const _ApplicationPanel({
@@ -3605,9 +3603,7 @@ Future<({String key, String value})?> _showStorageEditor(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────
 // Application 子组件：IndexedDB / Cache Storage / Service Workers
-// ─────────────────────────────────────────────────────────────────────────
 
 class _IndexedDbTable extends StatefulWidget {
   const _IndexedDbTable({
@@ -4569,9 +4565,7 @@ class _ServiceWorkersTable extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────
 // Security：Security.securityStateChanged 实时
-// ─────────────────────────────────────────────────────────────────────────
 
 class _SecurityPanel extends StatefulWidget {
   const _SecurityPanel({required this.controller});
@@ -4675,9 +4669,7 @@ class _SecurityPanelState extends State<_SecurityPanel> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────
 // Recorder：注入轻量 init script 录制 click / input / hashchange / popstate
-// ─────────────────────────────────────────────────────────────────────────
 
 class _RecorderPanel extends StatefulWidget {
   const _RecorderPanel({required this.controller});
@@ -6867,10 +6859,8 @@ class _RetainerSidePanel extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────
 // Performance：inline timeline lanes（Loading/Scripting/Rendering/Painting/Other）
 // _TraceLaneEvent + _parseTraceLanes + _TraceLanesInline + _TraceLanesPainter
-// ─────────────────────────────────────────────────────────────────────────
 
 /// 单个 trace 事件在 lane timeline 里的最小描述。
 class _TraceLaneEvent {
@@ -7310,7 +7300,10 @@ class _TraceLanesPainter extends CustomPainter {
       );
       if (identical(e, highlight)) {
         canvas.drawRRect(
-          RRect.fromRectAndRadius(rect, const Radius.circular(kOpenHandRadius2)),
+          RRect.fromRectAndRadius(
+            rect,
+            const Radius.circular(kOpenHandRadius2),
+          ),
           highlightStroke,
         );
       }

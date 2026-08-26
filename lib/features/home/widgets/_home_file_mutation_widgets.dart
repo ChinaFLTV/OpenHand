@@ -1,8 +1,6 @@
 part of '../openhand_home_page.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
 // _FileMutationRow — shows file-change indicator for write/edit/multiedit tools
-// ─────────────────────────────────────────────────────────────────────────────
 
 String _fileMutationKind(AiSessionMessage message) =>
     '${message.metadata['file_mutation_kind'] ?? ''}'.trim();
@@ -2331,9 +2329,7 @@ Future<void> _revealFileMutationPath(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // _FileDiffDialog — displays file content diff when file change card is tapped
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _FileDiffDialog extends StatefulWidget {
   const _FileDiffDialog({required this.filePath, required this.changeKind});
@@ -3334,7 +3330,6 @@ class _BulkUndoOverlay extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 本轮文件变动汇总卡（_RoundFileMutationSummaryCard）
 // 当 AssistantTurn 末尾 (`result.toolCalls.isEmpty`) 触发时，controller 已
 // 写入一条 metadata 含 `round_file_mutation_summary == true` 的 status
@@ -3348,7 +3343,6 @@ class _BulkUndoOverlay extends StatelessWidget {
 // - 文件条目跟随消息卡片一次性出现，不再做行级 drip-in 入场。
 // - 不支持 undo/redo（信息聚合卡，避免与每个工具调用卡的 ledger 操作
 //   重复 / 并发竞态）。
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _RoundFileMutationSummaryCard extends StatefulWidget {
   const _RoundFileMutationSummaryCard({required this.message});

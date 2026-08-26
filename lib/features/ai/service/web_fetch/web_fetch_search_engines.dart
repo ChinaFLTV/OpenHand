@@ -10,10 +10,8 @@ import '../web_engine/kimi_web_search_utils.dart';
 import '../web_engine/web_engine_http_utils.dart';
 import 'web_fetch_engine.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 把 URL 当 query 推给搜索引擎，挑最相关 hit 取其 content/snippet 作为 fetch
 // 内容。覆盖：kimi / baidu / linkup / bocha / grok / gemini。
-// ─────────────────────────────────────────────────────────────────────────────
 
 class WebFetchKimiEngine extends WebFetchProviderKeyEngine {
   WebFetchKimiEngine({

@@ -397,10 +397,8 @@ _openHandInlineTextCatalog = <String, Map<String, String>>{
   'Value': <String, String>{'fr': 'Valeur', 'de': 'Wert', 'ja': '値'},
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 跨模块通用文案
 //
-// ─────────────────────────────────────────────────────────────────────────────
 
 String openHandAddLabel(BuildContext context) {
   return openHandLocalizedText(

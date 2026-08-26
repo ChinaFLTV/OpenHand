@@ -16,10 +16,10 @@ import 'ai_exposure_dialogs.dart';
 import 'ai_exposure_monitoring_dialogs.dart';
 import 'ai_exposure_proxy_dialog.dart';
 import 'ai_model_proxy_service_card.dart';
+import 'service_card_controls.dart';
 import 'service_dialog_controls.dart';
 
 const double _kServiceCardRadius = 22;
-const double _kServiceIconExtent = 64;
 const double _kServiceHeaderBreakpoint = 820;
 
 enum _ServiceAction {
@@ -211,7 +211,8 @@ class _AiExposureServiceCard extends StatelessWidget {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final compact = constraints.maxWidth < _kServiceHeaderBreakpoint;
-            final identity = _ServiceIdentity(
+            final identity = ServiceCardIdentity(
+              icon: Icons.radar_rounded,
               title: l10n.servicesAiInfrastructureExposureScanTitle,
               description: l10n.servicesAiInfrastructureExposureScanDescription,
               running: running,
@@ -345,82 +346,6 @@ class _AiExposureServiceCard extends StatelessWidget {
   }
 }
 
-class _ServiceIdentity extends StatelessWidget {
-  const _ServiceIdentity({
-    required this.title,
-    required this.description,
-    required this.running,
-  });
-
-  final String title;
-  final String description;
-  final bool running;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: _kServiceIconExtent,
-              height: _kServiceIconExtent,
-              decoration: BoxDecoration(
-                color: cs.primaryContainer,
-                borderRadius: BorderRadius.circular(kOpenHandRadius18),
-              ),
-              alignment: Alignment.center,
-              child: Icon(
-                Icons.radar_rounded,
-                size: 31,
-                color: cs.onPrimaryContainer,
-              ),
-            ),
-            Positioned(
-              right: -3,
-              bottom: -3,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: cs.surface,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.circle,
-                  color: running ? OpenHandStatusColors.success : cs.outline,
-                  size: 18,
-                ),
-              ),
-            ),
-          ],
-        ),
-        kOpenHandHGap16,
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: theme.textTheme.headlineSmall),
-              kOpenHandGap8,
-              Text(
-                description,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: cs.onSurfaceVariant,
-                  height: 1.45,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _ServiceActions extends StatelessWidget {
   const _ServiceActions({
     required this.lifecycle,
@@ -438,96 +363,49 @@ class _ServiceActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final running = lifecycle == AiExposureServiceLifecycle.running;
     final text = openHandTextResolver(context);
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      alignment: WrapAlignment.end,
-      children: [
-        Tooltip(
-          message: running
-              ? text(zh: '停止服务', en: 'Stop service')
-              : text(zh: '启动服务', en: 'Start service'),
-          child: IconButton.filledTonal(
-            onPressed: busy ? null : onToggle,
-            style: running
-                ? OpenHandStatusColors.runningStopButtonStyle()
-                : null,
-            icon: busy
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(running ? Icons.stop_rounded : Icons.play_arrow_rounded),
-          ),
-        ),
-        _ServiceIconAction(
+    return ServiceCardActions(
+      running: running,
+      busy: busy,
+      onToggle: onToggle,
+      actions: [
+        ServiceCardIconAction(
           icon: Icons.dashboard_customize_outlined,
           tooltip: text(zh: '服务状态与运维', en: 'Service status and operations'),
-          action: _ServiceAction.operations,
-          onAction: onAction,
+          onPressed: () => onAction(_ServiceAction.operations),
         ),
-        _ServiceIconAction(
+        ServiceCardIconAction(
           icon: Icons.lan_outlined,
           tooltip: text(zh: '网络代理', en: 'Network proxy'),
-          action: _ServiceAction.proxy,
-          onAction: onAction,
+          onPressed: () => onAction(_ServiceAction.proxy),
         ),
-        _ServiceIconAction(
+        ServiceCardIconAction(
           icon: Icons.manage_search_rounded,
           tooltip: text(zh: '日志监控', en: 'Log monitor'),
-          action: _ServiceAction.logs,
-          onAction: onAction,
+          onPressed: () => onAction(_ServiceAction.logs),
         ),
-        _ServiceIconAction(
+        ServiceCardIconAction(
           icon: Icons.add_rounded,
           tooltip: text(zh: '新建狩猎', en: 'New hunt'),
-          action: _ServiceAction.newHunt,
-          onAction: onAction,
+          onPressed: () => onAction(_ServiceAction.newHunt),
         ),
-        _ServiceIconAction(
+        ServiceCardIconAction(
           icon: Icons.track_changes_rounded,
           tooltip: text(zh: '扫描工作台', en: 'Scan workspace'),
-          action: _ServiceAction.scanWorkspace,
-          onAction: onAction,
+          onPressed: () => onAction(_ServiceAction.scanWorkspace),
         ),
-        _ServiceIconAction(
+        ServiceCardIconAction(
           icon: Icons.rule_rounded,
           tooltip: text(zh: '扫描规则管理', en: 'Scan rules'),
-          action: _ServiceAction.rules,
-          onAction: onAction,
+          onPressed: () => onAction(_ServiceAction.rules),
         ),
-        _ServiceIconAction(
+        ServiceCardIconAction(
           icon: Icons.settings_outlined,
           tooltip: text(zh: '服务设置', en: 'Service settings'),
-          action: _ServiceAction.settings,
-          onAction: onAction,
+          onPressed: () => onAction(_ServiceAction.settings),
         ),
       ],
     );
   }
-}
-
-class _ServiceIconAction extends StatelessWidget {
-  const _ServiceIconAction({
-    required this.icon,
-    required this.tooltip,
-    required this.action,
-    required this.onAction,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final _ServiceAction action;
-  final ValueChanged<_ServiceAction> onAction;
-
-  @override
-  Widget build(BuildContext context) => Tooltip(
-    message: tooltip,
-    child: IconButton.filledTonal(
-      onPressed: () => onAction(action),
-      icon: Icon(icon),
-    ),
-  );
 }
 
 class _CompactProgress extends StatelessWidget {

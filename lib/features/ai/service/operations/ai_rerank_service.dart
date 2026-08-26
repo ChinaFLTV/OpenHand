@@ -309,6 +309,11 @@ class _RerankRequestContext {
     'query': query,
     'documents': _textDocuments(documents),
   };
+  Map<String, Object?> get textRequestFieldsWithTopN => <String, Object?>{
+    ...textRequestFields,
+    if (supportsParameter('top_n') && resolvedTopN != null)
+      'top_n': resolvedTopN,
+  };
   int? get resolvedTopN {
     final requested = topN != null && topN! > 0
         ? topN
@@ -335,6 +340,22 @@ class _RerankRequestContext {
       defaults,
       payload,
       deepMergeKeys: _deepMergeableRerankBodyKeys,
+    );
+  }
+
+  _RerankRequestPlan buildPlan({
+    required Map<String, Object?> payload,
+    required String contextHint,
+    String? fallbackPath,
+  }) {
+    return _RerankRequestPlan(
+      body: AiOperationHttp.mergeBodyExtras(
+        model,
+        AiApiFamily.rerank,
+        withProfileDefaults(payload),
+      ),
+      fallbackPath: fallbackPath,
+      contextHint: contextHint,
     );
   }
 
@@ -372,21 +393,13 @@ class _DashScopeCompatibleRerankStrategy extends _RerankRequestStrategy {
 
   @override
   _RerankRequestPlan build(_RerankRequestContext context) {
-    const family = AiApiFamily.rerank;
-    final body = AiOperationHttp.mergeBodyExtras(
-      context.model,
-      family,
-      context.withProfileDefaults(<String, Object?>{
-        ...context.textRequestFields,
-        if (context.supportsParameter('top_n') && context.resolvedTopN != null)
-          'top_n': context.resolvedTopN,
+    return context.buildPlan(
+      payload: <String, Object?>{
+        ...context.textRequestFieldsWithTopN,
         if (context.supportsParameter('instruct') &&
             context.resolvedInstruction != null)
           'instruct': context.resolvedInstruction,
-      }),
-    );
-    return _RerankRequestPlan(
-      body: body,
+      },
       fallbackPath: context.profileEndpointPath ?? _fallbackPath,
       contextHint: 'rerank/dashscope/compatible',
     );
@@ -410,7 +423,6 @@ class _DashScopeLegacyRerankStrategy extends _RerankRequestStrategy {
 
   @override
   _RerankRequestPlan build(_RerankRequestContext context) {
-    const family = AiApiFamily.rerank;
     final parameters = <String, Object?>{
       if (context.supportsParameter('parameters.top_n') &&
           context.resolvedTopN != null)
@@ -422,20 +434,15 @@ class _DashScopeLegacyRerankStrategy extends _RerankRequestStrategy {
           context.resolvedInstruction != null)
         'instruct': context.resolvedInstruction,
     };
-    final body = AiOperationHttp.mergeBodyExtras(
-      context.model,
-      family,
-      context.withProfileDefaults(<String, Object?>{
+    return context.buildPlan(
+      payload: <String, Object?>{
         'model': context.modelId,
         'input': <String, Object?>{
           'query': context.query,
           'documents': context.documents,
         },
         if (parameters.isNotEmpty) 'parameters': parameters,
-      }),
-    );
-    return _RerankRequestPlan(
-      body: body,
+      },
       fallbackPath: context.profileEndpointPath ?? _fallbackPath,
       contextHint: 'rerank/dashscope/text-rerank',
     );
@@ -458,16 +465,13 @@ class _VoyageRerankStrategy extends _RerankRequestStrategy {
 
   @override
   _RerankRequestPlan build(_RerankRequestContext context) {
-    const family = AiApiFamily.rerank;
     final forceVoyageDialect = _isVoyageBaseUrl(
       context.model.baseUrl.toLowerCase(),
     );
     final resolvedTruncation =
         context.resolvedTruncation ?? (forceVoyageDialect ? true : null);
-    final body = AiOperationHttp.mergeBodyExtras(
-      context.model,
-      family,
-      context.withProfileDefaults(<String, Object?>{
+    return context.buildPlan(
+      payload: <String, Object?>{
         ...context.textRequestFields,
         if ((forceVoyageDialect || context.supportsParameter('top_k')) &&
             context.resolvedTopN != null)
@@ -479,10 +483,7 @@ class _VoyageRerankStrategy extends _RerankRequestStrategy {
         if ((forceVoyageDialect || context.supportsParameter('truncation')) &&
             resolvedTruncation != null)
           'truncation': resolvedTruncation,
-      }),
-    );
-    return _RerankRequestPlan(
-      body: body,
+      },
       fallbackPath: forceVoyageDialect
           ? 'v1/rerank'
           : context.profileEndpointPath ?? 'v1/rerank',
@@ -514,24 +515,16 @@ class _CohereRerankStrategy extends _RerankRequestStrategy {
 
   @override
   _RerankRequestPlan build(_RerankRequestContext context) {
-    const family = AiApiFamily.rerank;
-    final body = AiOperationHttp.mergeBodyExtras(
-      context.model,
-      family,
-      context.withProfileDefaults(<String, Object?>{
-        ...context.textRequestFields,
-        if (context.supportsParameter('top_n') && context.resolvedTopN != null)
-          'top_n': context.resolvedTopN,
+    return context.buildPlan(
+      payload: <String, Object?>{
+        ...context.textRequestFieldsWithTopN,
         if (context.supportsParameter('max_tokens_per_doc') &&
             context.positiveMaxTokensPerDoc != null)
           'max_tokens_per_doc': context.positiveMaxTokensPerDoc,
         if (context.supportsParameter('priority') &&
             context.positivePriority != null)
           'priority': context.positivePriority,
-      }),
-    );
-    return _RerankRequestPlan(
-      body: body,
+      },
       fallbackPath: context.profileEndpointPath ?? 'v2/rerank',
       contextHint: 'rerank/cohere',
     );
@@ -546,11 +539,8 @@ class _OpenAiCompatibleRerankStrategy extends _RerankRequestStrategy {
 
   @override
   _RerankRequestPlan build(_RerankRequestContext context) {
-    const family = AiApiFamily.rerank;
-    final body = AiOperationHttp.mergeBodyExtras(
-      context.model,
-      family,
-      context.withProfileDefaults(<String, Object?>{
+    return context.buildPlan(
+      payload: <String, Object?>{
         'model': context.modelId,
         'query': context.query,
         'documents': context.documents,
@@ -572,10 +562,7 @@ class _OpenAiCompatibleRerankStrategy extends _RerankRequestStrategy {
         if (context.supportsParameter('instruct') &&
             context.resolvedInstruction != null)
           'instruct': context.resolvedInstruction,
-      }),
-    );
-    return _RerankRequestPlan(
-      body: body,
+      },
       fallbackPath:
           context.profileEndpointPath ??
           (AiOperationHttp.isSparkBaseUrl(context.model.baseUrl)

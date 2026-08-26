@@ -1518,9 +1518,7 @@ Rect _animatedPopupMenuAnchorRect({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Material 默认值（基于 Flutter 框架简化）
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _PopupMenuDefaultsM2 extends PopupMenuThemeData {
   const _PopupMenuDefaultsM2(this.context) : super(elevation: 8.0);

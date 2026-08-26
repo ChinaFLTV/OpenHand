@@ -30,9 +30,7 @@ import '../service/mcp_tool_discovery_service.dart';
 /// 包管理器的列举 / 查版本命令，可能要读本地安装树或访问 registry。
 const Duration _kPackageQueryTimeout = Duration(seconds: 10);
 
-// ─────────────────────────────────────────────────────────────────────────────
 // STDIO 弹窗公共标题栏
-// ─────────────────────────────────────────────────────────────────────────────
 
 /// STDIO 弹窗统一标题栏：图标 + 标题 + 等宽副标题 + 右侧操作区（含关闭）。
 class _StdioDialogHeader extends StatelessWidget {
@@ -148,9 +146,7 @@ class _StdioDialogHeaderAction extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // STDIO MCP 服务日志查看弹窗
-// ─────────────────────────────────────────────────────────────────────────────
 
 /// 显示 STDIO MCP 服务的实时日志弹窗。
 Future<void> showStdioLogDialog(BuildContext context, McpServer server) {
@@ -211,7 +207,9 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
         _scrollGuard.followToBottom(
           _scrollController,
           animated: true,
-          animationDuration: openHandMotionDuration(context, kOpenHandMotion220,
+          animationDuration: openHandMotionDuration(
+            context,
+            kOpenHandMotion220,
           ),
         );
       }
@@ -492,9 +490,7 @@ class _LogLineStyle {
   final double topPadding;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // STDIO MCP 服务运行时详情弹窗
-// ─────────────────────────────────────────────────────────────────────────────
 
 /// 显示 STDIO MCP 服务的运行时详情弹窗。
 Future<void> showStdioDetailsDialog(BuildContext context, McpServer server) {
@@ -764,9 +760,7 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // STDIO MCP 服务依赖管理弹窗
-// ─────────────────────────────────────────────────────────────────────────────
 
 /// 显示 STDIO MCP 服务的依赖管理弹窗（安装/更新/卸载 npm 包）。
 Future<void> showStdioDepsDialog(BuildContext context, McpServer server) {

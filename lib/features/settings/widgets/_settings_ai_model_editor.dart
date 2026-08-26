@@ -2753,9 +2753,7 @@ class _HeaderEntry {
   final TextEditingController valueController;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Per-model profile editor dialog
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _ModelProfileEditorResult {
   const _ModelProfileEditorResult({

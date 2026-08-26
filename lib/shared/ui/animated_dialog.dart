@@ -2281,9 +2281,7 @@ Offset _finiteOffset(Offset value, Offset fallback) {
   return fallback;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 各类过渡组件
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _FadeScaleTransition extends StatelessWidget {
   const _FadeScaleTransition({

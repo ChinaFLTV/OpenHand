@@ -1,9 +1,7 @@
 part of '../ai_session_controller.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Pure utility functions extracted from AiSessionController.
 // These do not reference any instance state.
-// ─────────────────────────────────────────────────────────────────────────────
 
 bool _hasIncompleteTodoItems(List<AiSessionTodoItem> todoItems) {
   return AiSessionTodoState.hasIncomplete(todoItems);
@@ -130,7 +128,10 @@ bool _isMeaningfulAutoTitle(String value) {
     return normalized.characters.length >=
         AiSessionController._minimumMeaningfulTitleCharacters;
   }
-  final words = splitTrimmedNonEmpty(trimmed, separator: kInlineWhitespacePattern).length;
+  final words = splitTrimmedNonEmpty(
+    trimmed,
+    separator: kInlineWhitespacePattern,
+  ).length;
   if (words >= AiSessionController._minimumMeaningfulLatinTitleWords) {
     return true;
   }
@@ -325,9 +326,7 @@ String _stripRawToolCallMarkup(String value) {
   stripped = stripped.replaceAll(_internalToolCallLabelLinePattern, '');
 
   // Collapse excessive blank lines left behind after stripping.
-  stripped = stripped
-      .replaceAll(kExcessiveNewlinesPattern, '\n\n')
-      .trim();
+  stripped = stripped.replaceAll(kExcessiveNewlinesPattern, '\n\n').trim();
   return stripped;
 }
 

@@ -1729,8 +1729,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           kOpenHandGap12,
         ],
         AnimatedSize(
-          duration: openHandMotionDuration(context, kOpenHandMotion180,
-          ),
+          duration: openHandMotionDuration(context, kOpenHandMotion180),
           curve: kOpenHandSwitchInCurve,
           child: SizedBox(
             height: widget.composerHeight,
@@ -1852,7 +1851,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                                 shape: const RoundedRectangleBorder(),
                               ),
                               child: AnimatedSwitcher(
-                                duration: openHandMotionDuration(context, kOpenHandMotion220,
+                                duration: openHandMotionDuration(
+                                  context,
+                                  kOpenHandMotion220,
                                 ),
                                 switchInCurve: kOpenHandEntranceCurve,
                                 switchOutCurve: kOpenHandSwitchOutCurve,
@@ -2005,8 +2006,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               ),
               child: AnimatedRotation(
                 turns: widget.isCollapsed ? 0.5 : 0,
-                duration: openHandMotionDuration(context, kOpenHandMotion220,
-                ),
+                duration: openHandMotionDuration(context, kOpenHandMotion220),
                 curve: kOpenHandSwitchInCurve,
                 child: const Icon(Icons.keyboard_arrow_down_rounded),
               ),
@@ -2069,8 +2069,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         ),
         // LayoutBuilder 内仅使用绘制层淡入淡出，避免逐帧重建触发布局断言。
         AnimatedSwitcher(
-          duration: openHandMotionDuration(context, kOpenHandMotion240,
-          ),
+          duration: openHandMotionDuration(context, kOpenHandMotion240),
           child:
               widget.creationMode != _CreationMode.none &&
                   widget.onEditOptionsRequested != null
@@ -2192,8 +2191,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     return Card(
       color: colorScheme.surfaceContainerHigh,
       child: AnimatedContainer(
-        duration: openHandMotionDuration(context, kOpenHandMotion260,
-        ),
+        duration: openHandMotionDuration(context, kOpenHandMotion260),
         curve: kOpenHandEmphasizedCurve,
         padding: EdgeInsets.fromLTRB(18, 14, 18, widget.isCollapsed ? 10 : 18),
         child: Column(
@@ -2304,7 +2302,9 @@ class _ComposerFullAccessModeButtonState
         backgroundColor: backgroundColor,
         foregroundColor: foregroundColor,
         side: BorderSide(color: borderColor),
-        shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius16),
+        shape: const RoundedRectangleBorder(
+          borderRadius: kOpenHandBorderRadius16,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2431,7 +2431,9 @@ class _ComposerModeButtonState extends State<_ComposerModeButton> {
         backgroundColor: backgroundColor,
         foregroundColor: foregroundColor,
         side: BorderSide(color: borderColor),
-        shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius16),
+        shape: const RoundedRectangleBorder(
+          borderRadius: kOpenHandBorderRadius16,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2449,8 +2451,7 @@ class _ComposerModeButtonState extends State<_ComposerModeButton> {
             // FadeTransition-only: ScaleTransition is unsafe inside
             // LayoutBuilder (see note in _ComposerPanelState.build).
             child: AnimatedSwitcher(
-              duration: openHandMotionDuration(context, kOpenHandMotion180,
-              ),
+              duration: openHandMotionDuration(context, kOpenHandMotion180),
               child: Icon(
                 modeIcon,
                 key: ValueKey<String>('${widget.mode.storageValue}-$modeIcon'),
@@ -2463,8 +2464,7 @@ class _ComposerModeButtonState extends State<_ComposerModeButton> {
           // FadeTransition-only: SlideTransition is unsafe inside
           // LayoutBuilder (see note in _ComposerPanelState.build).
           AnimatedSwitcher(
-            duration: openHandMotionDuration(context, kOpenHandMotion180,
-            ),
+            duration: openHandMotionDuration(context, kOpenHandMotion180),
             child: Text(
               modeLabel,
               key: ValueKey<String>('${widget.mode.storageValue}-$modeLabel'),
@@ -2589,8 +2589,7 @@ class _ComposerCreationModeButtonState
             // handleBeginFrame trigger scheduleLayoutCallback assertions.
             // FadeTransition (SingleChildRenderObjectWidget) is safe.
             child: AnimatedSwitcher(
-              duration: openHandMotionDuration(context, kOpenHandMotion220,
-              ),
+              duration: openHandMotionDuration(context, kOpenHandMotion220),
               child: Icon(
                 _iconForMode(widget.creationMode),
                 key: ValueKey<_CreationMode>(widget.creationMode),
@@ -3052,9 +3051,7 @@ class _ComposerImageThumbChip extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Project file/directory reference capsules (reorderable, removable chips)
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _ReorderableProjectReferenceWrap extends StatelessWidget {
   const _ReorderableProjectReferenceWrap({
@@ -3138,9 +3135,7 @@ class _ProjectReferenceChip extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // @ mention overlay (Cursor-style file reference autocomplete)
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _AtMentionItem {
   const _AtMentionItem({
@@ -3744,9 +3739,7 @@ class _AtMentionBreadcrumbChip extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Skill picker overlay (Codex-style leading '/' slash trigger)
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _SkillPickerOverlayPanel extends StatefulWidget {
   const _SkillPickerOverlayPanel({
@@ -4155,10 +4148,8 @@ IconData _iconForAttachmentKind(AiAttachmentKind kind) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // HE session tile shown in the navigation pane threads list.
 // Mirrors the visual design of _ThreadTile for consistency.
-// ─────────────────────────────────────────────────────────────────────────────
 
 /// Small chip rendered next to the creation-mode button that summarises the
 /// currently chosen options. Styled to match the send button and acts as a
@@ -4221,8 +4212,7 @@ class _ComposerCreationOptionsChip extends StatelessWidget {
             ),
             // LayoutBuilder 内仅使用默认淡入淡出，避免动画逐帧重建触发布局断言。
             child: AnimatedSwitcher(
-              duration: openHandMotionDuration(context, kOpenHandMotion200,
-              ),
+              duration: openHandMotionDuration(context, kOpenHandMotion200),
               child: Text(
                 label,
                 key: ValueKey<String>('creation-options-label-$label'),

@@ -772,9 +772,7 @@ class AiModelCatalog {
         id.contains('html-to-markdown');
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // OpenAI 模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _dots(String id) {
     if (id != 'dots3-note-prev') return null;
@@ -1261,9 +1259,7 @@ class AiModelCatalog {
     return null;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Anthropic / Claude 模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _claude(String id) {
     // ── Claude 5 / 4.8 ──────────────────────────────────────────────────
@@ -1524,9 +1520,7 @@ class AiModelCatalog {
     return null;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Google Gemini 模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _gemini(String id) {
     // ── 嵌入模型 ─────────────────────────────────────────────────────────
@@ -1859,9 +1853,7 @@ class AiModelCatalog {
     return null;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // DeepSeek 模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _deepseek(String id) {
     // ── V4 系列 ──────────────────────────────────────────────────────────
@@ -1976,9 +1968,7 @@ class AiModelCatalog {
     return null;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Qwen（阿里云 / 通义千问）模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _qwen(String id) {
     const imageParameters = <String>[
@@ -2544,9 +2534,7 @@ class AiModelCatalog {
     return null;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // GLM（智谱 AI）模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _glm(String id) {
     // ── 嵌入模型 ─────────────────────────────────────────────────────────
@@ -2805,9 +2793,7 @@ class AiModelCatalog {
     return null;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Kimi / Moonshot（月之暗面）模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _kimi(String id) {
     if (id.contains('kimi-k3') || id == 'k3') {
@@ -2940,9 +2926,7 @@ class AiModelCatalog {
     return null;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Seed / Doubao（火山引擎 / 字节跳动）模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _seed(String id) {
     const imageParameters = <String>[
@@ -3175,9 +3159,7 @@ class AiModelCatalog {
     return null;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // StepFun（阶跃星辰）模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _stepfun(String id) {
     const imageParameters = <String>[
@@ -3313,9 +3295,7 @@ class AiModelCatalog {
     return value == null || value <= 0 ? null : value * 1024;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Mistral AI 模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _mistral(String id) {
     if (id.contains('magistral') || id.contains('mistral-reasoning')) {
@@ -3380,9 +3360,7 @@ class AiModelCatalog {
     return null;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Cohere 模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile _cohereTextEmbedV3({
     required String name,
@@ -3510,9 +3488,7 @@ class AiModelCatalog {
     return null;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Voyage AI 模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _voyage(String id) {
     if (id.startsWith('voyage-rerank') ||
@@ -3614,9 +3590,7 @@ class AiModelCatalog {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Jina AI 模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _jina(String id) {
     if (id.startsWith('jina-reranker') || id.startsWith('jina-colbert')) {
@@ -3838,9 +3812,7 @@ class AiModelCatalog {
     return null;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // 开源或兼容 OpenAI 的嵌入模型 ID
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile _openSourceTextEmbeddingP({
     required String name,
@@ -4383,9 +4355,7 @@ class AiModelCatalog {
         id.contains('/embed/');
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Grok（xAI）模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _grok(String id) {
     if (id.startsWith('grok-imagine-video') || id == 'grok-video') {
@@ -4525,9 +4495,7 @@ class AiModelCatalog {
     return null;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Hunyuan（腾讯混元）模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _hunyuan(String id) {
     // ── 嵌入模型 ─────────────────────────────────────────────────────────
@@ -4634,9 +4602,7 @@ class AiModelCatalog {
     return null;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // 讯飞星火模型，通常通过兼容 OpenAI 的网关接入。
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _spark(String id) {
     final isSpark =
@@ -4704,9 +4670,7 @@ class AiModelCatalog {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Kling / 可灵模型，通常通过兼容 OpenAI 的媒体网关接入。
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _kling(String id) {
     if (!id.contains('kling') && !id.contains('kolors')) return null;
@@ -4755,9 +4719,7 @@ class AiModelCatalog {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Sakana AI 模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _sakana(String id) {
     if (!id.contains('sakana')) return null;
@@ -4769,9 +4731,7 @@ class AiModelCatalog {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // MiniMax 模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _minimax(String id) {
     if (id.startsWith('embo-01') ||
@@ -4976,9 +4936,7 @@ class AiModelCatalog {
     return null;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Agnes（Sapiens AI）模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _agnes(String id) {
     if (!id.startsWith('agnes-')) return null;
@@ -5122,9 +5080,7 @@ class AiModelCatalog {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // LongCat 模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _longcat(String id) {
     if (!id.contains('longcat')) return null;
@@ -5160,9 +5116,7 @@ class AiModelCatalog {
     return null;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // JoyCode / JoyCoder 模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _joycode(String id) {
     if (id.contains('joycoder') || id.contains('joycode')) {
@@ -5176,9 +5130,7 @@ class AiModelCatalog {
     return null;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Wenxin / ERNIE（百度文心一言）模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _wenxin(String id) {
     if (id.contains('qwen3-embedding')) {
@@ -5369,9 +5321,7 @@ class AiModelCatalog {
     return null;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // Meta AI / Llama 模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _meta(String id) {
     if (id.contains('llama-4-scout') || id.contains('llama4-scout')) {
@@ -5446,9 +5396,7 @@ class AiModelCatalog {
     return null;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // MiMo（小米）模型
-  // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _mimo(String id) {
     if (id.contains('mimo-v2.5-asr')) {

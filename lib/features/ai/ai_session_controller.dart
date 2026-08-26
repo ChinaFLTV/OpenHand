@@ -227,7 +227,8 @@ class AiSessionController extends ChangeNotifier {
     });
   }
 
-  static const Duration runtimeCleanupTimeout = kOpenHandServiceRuntimeCleanupTimeout;
+  static const Duration runtimeCleanupTimeout =
+      kOpenHandServiceRuntimeCleanupTimeout;
 
   static const int maxManualTitleCharacters =
       AiSessionDataLimits.maxSessionTitleCharacters;
@@ -642,7 +643,7 @@ class AiSessionController extends ChangeNotifier {
   /// 用户配置，缺省时回落到 [AppSettingsSnapshot] 默认值。
   AiSessionRuntimeContext? _latestRuntimeContext;
 
-  /// 缓存的可用模型列表，由 [updateAvailableModelsForWebSearch] 同步更新。
+  /// 缓存的可用模型列表，由 [updateAvailableModelsForWebTools] 同步更新。
   /// 用于标题重试时解析当前会话应使用的模型配置。
   List<AiModelConfig> _cachedAvailableModels = const <AiModelConfig>[];
 
@@ -706,29 +707,20 @@ class AiSessionController extends ChangeNotifier {
     }
   }
 
-  /// 把 settings 层维护的所有 provider 配置注入到 [AiWebSearchTool]，
-  /// 用于（1）按 modelMode=fixed 的 (configId, modelId) 解析最终 sub-agent
-  /// 模型；（2）以 providerConfigId 的 token 复用 kimi/grok/gemini 的 API key。
-  /// 由 `openhand_home_page` 在重建 runtime context 前调用以保持同步。
-  void updateAvailableModelsForWebSearch(List<AiModelConfig> models) {
+  /// 同步供会话及 Web 工具解析模型和提供商凭据的配置。
+  void updateAvailableModelsForWebTools(List<AiModelConfig> models) {
     _cachedAvailableModels = models;
-    final ws = _toolRuntimeService.toolRegistry.getTool(
+    final webSearch = _toolRuntimeService.toolRegistry.getTool(
       AiBuiltinToolKind.webSearch,
     );
-    if (ws is AiWebSearchTool) {
-      ws.availableModels = models;
+    if (webSearch is AiWebSearchTool) {
+      webSearch.availableModels = models;
     }
-  }
-
-  /// 把 settings 层维护的所有 provider 配置注入到 [AiWebFetchTool]，
-  /// 让 orchestrator 可以按 providerConfigId 复用 kimi/grok/gemini 的 API key。
-  /// 由 `openhand_home_page` 在重建 runtime context 前调用以保持同步。
-  void updateAvailableModelsForWebFetch(List<AiModelConfig> models) {
-    final wf = _toolRuntimeService.toolRegistry.getTool(
+    final webFetch = _toolRuntimeService.toolRegistry.getTool(
       AiBuiltinToolKind.webFetch,
     );
-    if (wf is AiWebFetchTool) {
-      wf.availableModels = models;
+    if (webFetch is AiWebFetchTool) {
+      webFetch.availableModels = models;
     }
   }
 
@@ -7601,7 +7593,8 @@ class AiSessionController extends ChangeNotifier {
       // 记录 DSML 调用 ID 与预览消息 ID，避免流式增量创建重复卡片。
       final partialDsmlPreviewMessageIds = <String, String>{};
       Set<String> responseTelemetryTargetIds() {
-        final targetMessageId = assistantMessageId ??
+        final targetMessageId =
+            assistantMessageId ??
             reasoningMessageId ??
             (toolCallMessageIds.isEmpty
                 ? null
@@ -8596,13 +8589,13 @@ class AiSessionController extends ChangeNotifier {
         final maxWaitMs = effectiveCharsPerSec <= 0
             ? 0
             : (((assistantSanitizedMemo.graphemeCountFor(assistantRawBuffer) +
-                              reasoningSanitizedMemo.graphemeCountFor(
-                                reasoningRawBuffer,
-                              )) *
-                          1200) /
-                      effectiveCharsPerSec)
-                  .ceil() +
-              1000;
+                                  reasoningSanitizedMemo.graphemeCountFor(
+                                    reasoningRawBuffer,
+                                  )) *
+                              1200) /
+                          effectiveCharsPerSec)
+                      .ceil() +
+                  1000;
         if (maxWaitMs > 0) {
           await waitForDrainOrStop(
             Future.wait(<Future<void>>[
@@ -10410,7 +10403,8 @@ class AiSessionController extends ChangeNotifier {
     final sourceMessageIdsByToolCallId = <String, String>{};
     for (final message in session.messages) {
       if (message.kind != AiSessionMessageKind.toolCall) continue;
-      final toolCallId = '${message.metadata[_toolCallIdMetadataKey] ?? ''}'.trim();
+      final toolCallId = '${message.metadata[_toolCallIdMetadataKey] ?? ''}'
+          .trim();
       if (toolCallId.isNotEmpty && seenToolCallIds.contains(toolCallId)) {
         sourceMessageIdsByToolCallId[toolCallId] = message.id;
       }
@@ -10656,7 +10650,10 @@ class AiSessionController extends ChangeNotifier {
             !_canRestoreInterruptedResponseRegeneration(sessionId)) {
           return;
         }
-        final loaded = await _store.loadSession(sessionId, deferTelemetry: true);
+        final loaded = await _store.loadSession(
+          sessionId,
+          deferTelemetry: true,
+        );
         if (loaded == null ||
             !_canRestoreInterruptedResponseRegeneration(sessionId) ||
             !_hasRestorableResponseRegenerationState(loaded)) {
@@ -11931,7 +11928,8 @@ $tail''';
       if (_isTerminalToolExecutionStatus(currentStatus)) {
         continue;
       }
-      final toolCallId = '${message.metadata[_toolCallIdMetadataKey] ?? ''}'.trim();
+      final toolCallId = '${message.metadata[_toolCallIdMetadataKey] ?? ''}'
+          .trim();
       final toolCallIndex = optionalNonNegativeIntFromValue(
         '${message.metadata['tool_call_index'] ?? ''}'.trim(),
       );
@@ -11964,7 +11962,8 @@ $tail''';
         (message) =>
             !message.isDeleted &&
             message.kind == AiSessionMessageKind.toolCall &&
-            '${message.metadata[_toolCallIdMetadataKey] ?? ''}'.trim() == toolCall.id,
+            '${message.metadata[_toolCallIdMetadataKey] ?? ''}'.trim() ==
+                toolCall.id,
       );
       final messageId = existingIndex == -1
           ? _idGenerator()
@@ -13586,7 +13585,8 @@ $tail''';
       (message) =>
           !message.isDeleted &&
           message.kind == AiSessionMessageKind.toolCall &&
-          '${message.metadata[_toolCallIdMetadataKey] ?? ''}'.trim() == toolCall.id,
+          '${message.metadata[_toolCallIdMetadataKey] ?? ''}'.trim() ==
+              toolCall.id,
     );
     if (existingIndex == -1) {
       return _idGenerator();

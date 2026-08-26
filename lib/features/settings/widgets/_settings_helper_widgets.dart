@@ -6245,9 +6245,7 @@ class _AnimatedSettingReveal extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // WebSearch / WebFetch 引擎卡片共用外壳
-// ─────────────────────────────────────────────────────────────────────────────
 
 /// WebSearch 与 WebFetch 共用的遥测面板状态机。
 mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>

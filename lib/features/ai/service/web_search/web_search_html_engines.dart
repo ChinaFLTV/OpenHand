@@ -39,10 +39,8 @@ List<WebSearchEngineHit> _parseHtmlSearchHits({
   return hits;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 无 / 弱认证的 HTML / JSON 引擎：DuckDuckGo HTML、Bing HTML、SearXNG JSON。
 // 使用与既有 ai_web_search_tool.dart 兼容的 DDG HTML 抓取逻辑。
-// ─────────────────────────────────────────────────────────────────────────────
 
 class WebSearchDuckDuckGoEngine extends WebSearchEngine {
   WebSearchDuckDuckGoEngine({required super.config, required super.httpClient});

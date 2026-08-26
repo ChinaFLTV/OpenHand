@@ -1,8 +1,6 @@
 part of '../ai_session_controller.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Helper data classes extracted from ai_session_controller.dart.
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _CompressionWindowSelection {
   const _CompressionWindowSelection({

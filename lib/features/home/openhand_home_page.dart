@@ -5513,14 +5513,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted) return;
     if (enabled) {
       // Show confirmation dialog before enabling full access.
-      unawaited(_showFullAccessConfirmationDialog().then((confirmed) {
-        if (confirmed && mounted) {
-          setState(() {
-            _heFullAccessPermission = true;
-            _activeHarnessOrchestrator?.fullAccessPermission = true;
-          });
-        }
-      }));
+      unawaited(
+        _showFullAccessConfirmationDialog().then((confirmed) {
+          if (confirmed && mounted) {
+            setState(() {
+              _heFullAccessPermission = true;
+              _activeHarnessOrchestrator?.fullAccessPermission = true;
+            });
+          }
+        }),
+      );
     } else {
       setState(() {
         _heFullAccessPermission = false;
@@ -5765,10 +5767,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final sessionController = context.read<AiSessionController>();
     final effectiveBrightness = _resolveEffectiveBrightness(context);
     final mcpRuntimeReadyFuture = mcpController.ensureRuntimeToolCatalogs();
-    sessionController.updateAvailableModelsForWebSearch(
-      settingsController.aiModels,
-    );
-    sessionController.updateAvailableModelsForWebFetch(
+    sessionController.updateAvailableModelsForWebTools(
       settingsController.aiModels,
     );
     final effectiveWorkingDirectory =
@@ -6649,7 +6648,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       showDragHandle: false,
       elevation: 14,
       margin: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandDialogDefaultRadius)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kOpenHandDialogDefaultRadius),
+      ),
       builder: (dialogContext) => _CreationOptionsSheet(
         mode: mode,
         initial: initial,
@@ -7092,7 +7093,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       Uint8List? bytes;
       try {
-        bytes = await getOpenHandClipboardImage(timeout: _composerClipboardReadTimeout);
+        bytes = await getOpenHandClipboardImage(
+          timeout: _composerClipboardReadTimeout,
+        );
       } catch (error, stack) {
         silentLog('openhand_home_page', '读取剪贴板图片', error, stack);
         return;
@@ -10193,11 +10196,15 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 sessionTitle: _persistedHarnessSession?.title,
                 updatedAtLabel: _persistedHarnessSession == null
                     ? null
-                    : formatYearMonthDayHmLocal(_persistedHarnessSession!.updatedAt),
+                    : formatYearMonthDayHmLocal(
+                        _persistedHarnessSession!.updatedAt,
+                      ),
                 sessionId: _persistedHarnessSession?.id,
                 createdAtLabel: _persistedHarnessSession == null
                     ? null
-                    : formatYearMonthDayHmLocal(_persistedHarnessSession!.createdAt),
+                    : formatYearMonthDayHmLocal(
+                        _persistedHarnessSession!.createdAt,
+                      ),
                 sessionCreatedAt: _persistedHarnessSession?.createdAt,
                 sessionUpdatedAt: _persistedHarnessSession?.updatedAt,
                 fullAccessPermission: _heFullAccessPermission,
