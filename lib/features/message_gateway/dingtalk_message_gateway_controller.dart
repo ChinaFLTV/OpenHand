@@ -94,6 +94,62 @@ bool matchesDingTalkOutgoingMedia(
   return true;
 }
 
+@visibleForTesting
+List<DingTalkGatewayMedia> mergeDingTalkMediaCache(
+  List<DingTalkGatewayMedia> current,
+  List<DingTalkGatewayMedia> remote,
+) {
+  return remote
+      .map((item) {
+        final normalizedId = normalizeDingTalkResourceId(item.resourceId);
+        for (final previous in current) {
+          final previousId = normalizeDingTalkResourceId(previous.resourceId);
+          final sameResource =
+              previousId == normalizedId &&
+              previous.resourceType == item.resourceType;
+          final previousMessageId = normalizeDingTalkMessageId(
+            previous.messageId,
+          );
+          final localReference =
+              previousId.startsWith('local-') ||
+              previousId.startsWith('assistant-media-') ||
+              previousMessageId.isNotEmpty && previousId == previousMessageId;
+          final previousName = previous.name.trim().toLowerCase();
+          final itemName = item.name.trim().toLowerCase();
+          final kindCompatible =
+              previous.kind == item.kind ||
+              (itemName.isEmpty &&
+                  item.resourceType == DingTalkMediaResourceType.fileId);
+          final sameLocalAttachment =
+              localReference &&
+              kindCompatible &&
+              (previousName.isNotEmpty && previousName == itemName ||
+                  itemName.isEmpty ||
+                  previous.sizeBytes > 0 &&
+                      item.sizeBytes > 0 &&
+                      previous.sizeBytes == item.sizeBytes);
+          if ((sameResource || sameLocalAttachment) &&
+              previous.localPath.trim().isNotEmpty) {
+            final kind =
+                item.kind == DingTalkMediaKind.file &&
+                    previous.kind != DingTalkMediaKind.file
+                ? previous.kind
+                : item.kind;
+            return item.copyWith(
+              resourceId: normalizedId,
+              kind: kind,
+              name: item.name.trim().isEmpty ? previous.name : null,
+              mimeType: item.mimeType.trim().isEmpty ? previous.mimeType : null,
+              sizeBytes: item.sizeBytes > 0 ? null : previous.sizeBytes,
+              localPath: previous.localPath,
+            );
+          }
+        }
+        return item.copyWith(resourceId: normalizedId);
+      })
+      .toList(growable: false);
+}
+
 enum DingTalkConversationResponseState {
   idle,
   active,
@@ -1554,13 +1610,22 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
     if (!changed) return message;
     final hydrated = message.copyWith(media: media);
+    if (!identical(_conversations[conversation.id], conversation)) {
+      return hydrated;
+    }
+    final normalizedMessageId = normalizeDingTalkMessageId(message.id);
     final index = conversation.messages.indexWhere(
-      (item) => item.id == message.id,
+      (item) => normalizeDingTalkMessageId(item.id) == normalizedMessageId,
     );
     if (index >= 0) {
-      conversation.messages[index] = hydrated;
+      final current = conversation.messages[index];
+      final updated = current.copyWith(
+        media: mergeDingTalkMediaCache(media, current.media),
+      );
+      conversation.messages[index] = updated;
       _queuePersist();
       _notify();
+      return updated;
     }
     return hydrated;
   }
@@ -2567,7 +2632,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       content: keepLocalContent ? null : remote.content,
       media: remote.media.isEmpty
           ? null
-          : _mergeMediaCache(local.media, remote.media),
+          : mergeDingTalkMediaCache(local.media, remote.media),
       fromSelf:
           local.fromSelf || remote.fromSelf || _isGeneratedMediaLocalEcho(local)
           ? true
@@ -3313,7 +3378,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       history = nextHistory.toList(growable: false);
     }
     final media = mediaChanged
-        ? _mergeMediaCache(current.media, remote.media)
+        ? mergeDingTalkMediaCache(current.media, remote.media)
         : null;
     if (mediaChanged) _mediaHydrationFailures.remove(remoteId);
     conversation.messages[index] = current.copyWith(
@@ -3411,56 +3476,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           return previous?.ignoredForAiContext == true
               ? item.copyWith(ignoredForAiContext: true)
               : item;
-        })
-        .toList(growable: false);
-  }
-
-  List<DingTalkGatewayMedia> _mergeMediaCache(
-    List<DingTalkGatewayMedia> current,
-    List<DingTalkGatewayMedia> remote,
-  ) {
-    return remote
-        .map((item) {
-          final normalizedId = normalizeDingTalkResourceId(item.resourceId);
-          for (final previous in current) {
-            final sameResource =
-                normalizeDingTalkResourceId(previous.resourceId) ==
-                    normalizedId &&
-                previous.resourceType == item.resourceType;
-            final previousName = previous.name.trim().toLowerCase();
-            final itemName = item.name.trim().toLowerCase();
-            final kindCompatible =
-                previous.kind == item.kind ||
-                (itemName.isEmpty &&
-                    item.resourceType == DingTalkMediaResourceType.fileId);
-            final sameLocalAttachment =
-                previous.resourceId.startsWith('local-') &&
-                kindCompatible &&
-                (previousName.isNotEmpty && previousName == itemName ||
-                    itemName.isEmpty ||
-                    (previous.sizeBytes > 0 &&
-                        item.sizeBytes > 0 &&
-                        previous.sizeBytes == item.sizeBytes));
-            if ((sameResource || sameLocalAttachment) &&
-                previous.localPath.trim().isNotEmpty) {
-              final kind =
-                  item.kind == DingTalkMediaKind.file &&
-                      previous.kind != DingTalkMediaKind.file
-                  ? previous.kind
-                  : item.kind;
-              return item.copyWith(
-                resourceId: normalizedId,
-                kind: kind,
-                name: item.name.trim().isEmpty ? previous.name : null,
-                mimeType: item.mimeType.trim().isEmpty
-                    ? previous.mimeType
-                    : null,
-                sizeBytes: item.sizeBytes > 0 ? null : previous.sizeBytes,
-                localPath: previous.localPath,
-              );
-            }
-          }
-          return item.copyWith(resourceId: normalizedId);
         })
         .toList(growable: false);
   }

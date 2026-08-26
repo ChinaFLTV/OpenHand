@@ -83,4 +83,87 @@ void main() {
       );
     });
   });
+
+  group('钉钉媒体缓存合并', () {
+    test('真实资源重复对账时保留用户已缓存路径', () {
+      final merged = mergeDingTalkMediaCache(
+        const <DingTalkGatewayMedia>[
+          DingTalkGatewayMedia(
+            resourceId: 'remote-file-id',
+            resourceType: DingTalkMediaResourceType.fileId,
+            kind: DingTalkMediaKind.image,
+            name: 'cached.png',
+            sizeBytes: 2048,
+            localPath: '/tmp/cached.png',
+          ),
+        ],
+        const <DingTalkGatewayMedia>[
+          DingTalkGatewayMedia(
+            resourceId: 'remote-file-id',
+            resourceType: DingTalkMediaResourceType.fileId,
+            kind: DingTalkMediaKind.image,
+            name: 'cached.png',
+          ),
+        ],
+      );
+
+      expect(merged.single.localPath, '/tmp/cached.png');
+      expect(merged.single.sizeBytes, 2048);
+    });
+
+    test('生成媒体回流为真实资源后保留本地缓存', () {
+      final merged = mergeDingTalkMediaCache(
+        const <DingTalkGatewayMedia>[
+          DingTalkGatewayMedia(
+            resourceId: 'assistant-media-1',
+            messageId: 'assistant-media-1',
+            kind: DingTalkMediaKind.image,
+            name: 'generated.png',
+            sizeBytes: 2048,
+            localPath: '/tmp/generated.png',
+          ),
+        ],
+        const <DingTalkGatewayMedia>[
+          DingTalkGatewayMedia(
+            resourceId: 'remote-file-id',
+            messageId: 'remote-message-id',
+            resourceType: DingTalkMediaResourceType.fileId,
+            kind: DingTalkMediaKind.image,
+            name: 'generated.png',
+          ),
+        ],
+      );
+
+      expect(merged.single.resourceId, 'remote-file-id');
+      expect(merged.single.localPath, '/tmp/generated.png');
+      expect(merged.single.sizeBytes, 2048);
+    });
+
+    test('无可靠匹配证据时不复用其他媒体缓存', () {
+      final merged = mergeDingTalkMediaCache(
+        const <DingTalkGatewayMedia>[
+          DingTalkGatewayMedia(
+            resourceId: 'assistant-media-1',
+            messageId: 'assistant-media-1',
+            kind: DingTalkMediaKind.image,
+            name: 'first.png',
+            sizeBytes: 2048,
+            localPath: '/tmp/first.png',
+          ),
+        ],
+        const <DingTalkGatewayMedia>[
+          DingTalkGatewayMedia(
+            resourceId: 'remote-file-id',
+            messageId: 'remote-message-id',
+            resourceType: DingTalkMediaResourceType.fileId,
+            kind: DingTalkMediaKind.image,
+            name: 'second.png',
+            sizeBytes: 4096,
+          ),
+        ],
+      );
+
+      expect(merged.single.localPath, isEmpty);
+    });
+  });
 }
