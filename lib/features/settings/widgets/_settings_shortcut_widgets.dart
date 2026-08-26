@@ -134,7 +134,12 @@ class _ShortcutBindingTile extends StatelessWidget {
               children: [
                 Expanded(child: content),
                 kOpenHandHGap16,
-                Flexible(child: controls),
+                Expanded(
+                  child: Align(
+                    alignment: AlignmentDirectional.topEnd,
+                    child: controls,
+                  ),
+                ),
               ],
             );
           },

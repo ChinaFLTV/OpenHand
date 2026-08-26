@@ -378,10 +378,13 @@ class _ResponsiveSettingRow extends StatelessWidget {
               ),
             ),
             kOpenHandHGap20,
-            Flexible(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: controlMaxWidth),
-                child: control,
+            Expanded(
+              child: Align(
+                alignment: AlignmentDirectional.topEnd,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: controlMaxWidth),
+                  child: control,
+                ),
               ),
             ),
           ],
@@ -4752,7 +4755,11 @@ class _ReadonlySettingRow extends StatelessWidget {
                 ),
               ),
               Expanded(
-                child: SelectableText(value, style: theme.textTheme.bodyLarge),
+                child: SelectableText(
+                  value,
+                  textAlign: TextAlign.end,
+                  style: theme.textTheme.bodyLarge,
+                ),
               ),
             ],
           );
