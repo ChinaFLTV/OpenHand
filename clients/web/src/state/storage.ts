@@ -26,7 +26,7 @@ export interface AuthProfile {
 /// 首次访问时生成一个 v4 UUID 作为设备 ID 持久化；不依赖 cookie，避免
 /// 跨域 / 隐私模式的兼容问题。
 export function ensureDeviceId(): string {
-  let id = readBrowserStorage(STORAGE_KEY_DEVICE_ID) ?? fallbackDeviceId;
+  let id = readBrowserStorage(STORAGE_KEY_DEVICE_ID)?.trim() || fallbackDeviceId;
   if (!id) {
     id =
       globalThis.crypto?.randomUUID?.() ??
@@ -38,7 +38,7 @@ export function ensureDeviceId(): string {
 }
 
 export function readToken(): string | null {
-  return readBrowserStorage(STORAGE_KEY_TOKEN) ?? fallbackToken;
+  return readBrowserStorage(STORAGE_KEY_TOKEN)?.trim() || fallbackToken;
 }
 
 export function writeToken(token: string, profile: AuthProfile | null): void {
@@ -56,8 +56,15 @@ export function readProfile(): AuthProfile | null {
   const raw = readBrowserStorage(STORAGE_KEY_PROFILE);
   if (!raw) return fallbackProfile;
   try {
-    return JSON.parse(raw) as AuthProfile;
+    const parsed = JSON.parse(raw);
+    if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      fallbackProfile = null;
+      return null;
+    }
+    fallbackProfile = parsed as AuthProfile;
+    return fallbackProfile;
   } catch {
+    fallbackProfile = null;
     return null;
   }
 }

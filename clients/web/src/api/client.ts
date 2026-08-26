@@ -53,6 +53,27 @@ interface AuthenticatedBlobResult {
   response: Response;
 }
 
+interface ApiHeaderOptions {
+  anonymous?: boolean;
+  accept?: string;
+}
+
+function createApiHeaders({
+  anonymous = false,
+  accept,
+}: ApiHeaderOptions = {}): Record<string, string> {
+  const headers: Record<string, string> = {
+    'x-openhand-device-id': ensureDeviceId(),
+    ...clientEnvironmentHeaders(),
+  };
+  if (accept) headers.accept = accept;
+  if (!anonymous) {
+    const token = readToken();
+    if (token) headers.authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 async function throwIfApiResponseFailed(
   response: Response,
   signal?: AbortSignal,
@@ -132,15 +153,7 @@ export async function apiRequest<T = unknown>(
   path: string,
   opts: ApiOptions = {},
 ): Promise<T> {
-  const headers: Record<string, string> = {
-    'x-openhand-device-id': ensureDeviceId(),
-    ...clientEnvironmentHeaders(),
-  };
-
-  if (!opts.anonymous) {
-    const token = readToken();
-    if (token) headers['authorization'] = `Bearer ${token}`;
-  }
+  const headers = createApiHeaders({ anonymous: opts.anonymous });
 
   let body: BodyInit | undefined;
   if (opts.body !== undefined) {
@@ -157,18 +170,7 @@ export async function apiRequest<T = unknown>(
       signal: abortSignal.signal,
     });
 
-    if (res.status === 401) {
-      clearAuthStorage();
-      throw new UnauthorizedError(
-        await readApiErrorBody(res, abortSignal.signal),
-      );
-    }
-    if (!res.ok) {
-      throw new ApiError(
-        res.status,
-        await readApiErrorBody(res, abortSignal.signal),
-      );
-    }
+    await throwIfApiResponseFailed(res, abortSignal.signal);
     const text = await readResponseTextBounded(res, {
       maxBytes: MAX_API_RESPONSE_BYTES,
       signal: abortSignal.signal,
@@ -201,13 +203,7 @@ export async function fetchAuthenticatedBlob(
     timeoutMs?: number;
   },
 ): Promise<AuthenticatedBlobResult> {
-  const headers: Record<string, string> = {
-    'x-openhand-device-id': ensureDeviceId(),
-    ...clientEnvironmentHeaders(),
-  };
-  if (accept) headers.accept = accept;
-  const token = readToken();
-  if (token) headers.authorization = `Bearer ${token}`;
+  const headers = createApiHeaders({ accept });
 
   const abortSignal = createApiAbortSignal({ signal, timeoutMs });
   try {
