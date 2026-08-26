@@ -23,6 +23,100 @@ void main() {
     });
   });
 
+  group('钉钉自动响应范围', () {
+    const groupTarget = DingTalkConversationTarget(
+      id: 'group-1',
+      title: '测试群',
+      type: DingTalkConversationType.group,
+      aliases: <String>['group-alias'],
+    );
+    const contactTarget = DingTalkConversationTarget(
+      id: 'contact-1',
+      title: '测试联系人',
+      type: DingTalkConversationType.direct,
+      openDingTalkId: 'open-contact-1',
+    );
+
+    test('白名单支持别名匹配并可就地开关', () {
+      const settings = DingTalkGatewaySettings(
+        allowedContactTargets: <DingTalkConversationTarget>[contactTarget],
+      );
+
+      final enabled = settings.withAutomaticResponseFor(
+        groupTarget,
+        enabled: true,
+      );
+      expect(
+        enabled.allowsAutomaticResponseFor(
+          const DingTalkConversationTarget(
+            id: 'group-alias',
+            title: '测试群',
+            type: DingTalkConversationType.group,
+          ),
+        ),
+        isTrue,
+      );
+      expect(enabled.allowsAutomaticResponseFor(contactTarget), isTrue);
+
+      final disabled = enabled.withAutomaticResponseFor(
+        groupTarget,
+        enabled: false,
+      );
+      expect(disabled.allowsAutomaticResponseFor(groupTarget), isFalse);
+      expect(disabled.allowsAutomaticResponseFor(contactTarget), isTrue);
+    });
+
+    test('全部响应模式允许任意有效会话', () {
+      const settings = DingTalkGatewaySettings(
+        responseMode: DingTalkResponseMode.all,
+      );
+
+      expect(settings.allowsAutomaticResponseFor(groupTarget), isTrue);
+      expect(settings.allowsAutomaticResponseFor(contactTarget), isTrue);
+      expect(
+        settings.allowsAutomaticResponseFor(
+          const DingTalkConversationTarget(
+            id: '',
+            title: '无效会话',
+            type: DingTalkConversationType.group,
+          ),
+        ),
+        isFalse,
+      );
+    });
+
+    test('已读状态不影响群聊艾特和单聊响应资格', () {
+      final mentioned = DingTalkGatewayMessage(
+        id: 'message-group',
+        conversationId: 'group-1',
+        conversationType: DingTalkConversationType.group,
+        role: DingTalkGatewayMessageRole.user,
+        content: '@当前账号 测试',
+        createdAt: DateTime.utc(2026, 8, 26, 16, 35),
+        mentionedCurrentUser: true,
+        readByPeer: true,
+      );
+      final direct = DingTalkGatewayMessage(
+        id: 'message-direct',
+        conversationId: 'contact-1',
+        conversationType: DingTalkConversationType.direct,
+        role: DingTalkGatewayMessageRole.user,
+        content: '测试',
+        createdAt: DateTime.utc(2026, 8, 26, 16, 36),
+        readByPeer: true,
+      );
+
+      expect(isDingTalkAutomaticResponseCandidate(mentioned), isTrue);
+      expect(isDingTalkAutomaticResponseCandidate(direct), isTrue);
+      expect(
+        isDingTalkAutomaticResponseCandidate(
+          mentioned.copyWith(mentionedCurrentUser: false),
+        ),
+        isFalse,
+      );
+    });
+  });
+
   test('消息 AI 响应状态可序列化并恢复', () {
     final message = DingTalkGatewayMessage(
       id: 'message-1',

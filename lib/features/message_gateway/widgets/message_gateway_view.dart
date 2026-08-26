@@ -12219,6 +12219,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   final Set<String> _loadingTranslationMessageIds = <String>{};
   final Set<String> _autoMediaLoadAttemptedMessageIds = <String>{};
   final Set<String> _autoMediaLoadPendingMessageIds = <String>{};
+  final Set<String> _automaticResponseUpdatingConversationIds = <String>{};
   bool _followScheduled = false;
   String? _followConversationId;
   bool _followJumpToBottom = false;
@@ -12339,6 +12340,16 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         final selectedRefreshing =
             selected != null &&
             widget.controller.isRefreshingConversationMessages(selected.id);
+        final selectedAutomaticResponseEnabled =
+            selected != null &&
+            widget.controller.isAutomaticResponseEnabledForConversation(
+              selected.id,
+            );
+        final selectedAutomaticResponseUpdating =
+            selected != null &&
+            _automaticResponseUpdatingConversationIds.contains(selected.id);
+        final automaticResponseLocked =
+            widget.controller.settings.responseMode == DingTalkResponseMode.all;
         return SizedBox(
           width: double.infinity,
           height: 680,
@@ -12681,6 +12692,51 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                   ?.copyWith(
                                                     fontWeight: FontWeight.w700,
                                                   ),
+                                            ),
+                                          ),
+                                          kOpenHandHGap10,
+                                          Tooltip(
+                                            message: automaticResponseLocked
+                                                ? '当前为全部响应模式，请在网关设置中调整响应范围。'
+                                                : selectedAutomaticResponseEnabled
+                                                ? '点击关闭当前会话的 AI 自动响应。'
+                                                : '当前仅实时同步消息，点击开启 AI 自动响应。',
+                                            child: FilterChip(
+                                              selected:
+                                                  selectedAutomaticResponseEnabled,
+                                              showCheckmark: false,
+                                              avatar:
+                                                  selectedAutomaticResponseUpdating
+                                                  ? const SizedBox(
+                                                      width: 16,
+                                                      height: 16,
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            strokeWidth: 2,
+                                                          ),
+                                                    )
+                                                  : Icon(
+                                                      selectedAutomaticResponseEnabled
+                                                          ? Icons
+                                                                .auto_awesome_rounded
+                                                          : Icons.sync_rounded,
+                                                      size: 17,
+                                                    ),
+                                              label: Text(
+                                                selectedAutomaticResponseEnabled
+                                                    ? 'AI 自动响应'
+                                                    : '仅同步',
+                                              ),
+                                              onSelected:
+                                                  automaticResponseLocked ||
+                                                      selectedAutomaticResponseUpdating
+                                                  ? null
+                                                  : (enabled) => unawaited(
+                                                      _setAutomaticResponseEnabled(
+                                                        selected,
+                                                        enabled: enabled,
+                                                      ),
+                                                    ),
                                             ),
                                           ),
                                           if (widget.controller
@@ -15109,6 +15165,34 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     );
     if (!accepted && mounted) {
       showOpenHandErrorSnack(context, '当前会话没有可供强制响应的历史消息，或正在处理其他请求。');
+    }
+  }
+
+  Future<void> _setAutomaticResponseEnabled(
+    DingTalkConversation conversation, {
+    required bool enabled,
+  }) async {
+    if (!_automaticResponseUpdatingConversationIds.add(conversation.id)) {
+      return;
+    }
+    setState(() {});
+    try {
+      await widget.controller.setAutomaticResponseEnabledForConversation(
+        conversation.id,
+        enabled: enabled,
+      );
+      if (!mounted) return;
+      showOpenHandInfoSnack(
+        context,
+        enabled
+            ? '已开启当前会话的 AI 自动响应，监听期间未处理的新消息将依次进入队列。'
+            : '已关闭当前会话的 AI 自动响应，消息仍会实时同步。',
+      );
+    } catch (error) {
+      if (mounted) showOpenHandErrorSnack(context, '$error');
+    } finally {
+      _automaticResponseUpdatingConversationIds.remove(conversation.id);
+      if (mounted) setState(() {});
     }
   }
 

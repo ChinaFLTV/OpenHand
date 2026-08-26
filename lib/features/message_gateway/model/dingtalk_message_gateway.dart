@@ -1015,6 +1015,43 @@ class DingTalkGatewaySettings {
   final List<DingTalkConversationTarget> allowedContactTargets;
   final List<DingTalkResponseEchoType> responseEchoTypes;
 
+  bool allowsAutomaticResponseFor(DingTalkConversationTarget target) {
+    final targetIdentifiers = target.identifiers
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet();
+    if (targetIdentifiers.isEmpty) return false;
+    if (responseMode == DingTalkResponseMode.all) return true;
+    final allowedTargets = target.type == DingTalkConversationType.group
+        ? allowedGroupTargets
+        : allowedContactTargets;
+    return allowedTargets.any(
+      (item) => item.identifiers.any(targetIdentifiers.contains),
+    );
+  }
+
+  DingTalkGatewaySettings withAutomaticResponseFor(
+    DingTalkConversationTarget target, {
+    required bool enabled,
+  }) {
+    if (responseMode == DingTalkResponseMode.all) return this;
+    final targetIdentifiers = target.identifiers
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet();
+    if (targetIdentifiers.isEmpty) return this;
+    final current = target.type == DingTalkConversationType.group
+        ? allowedGroupTargets
+        : allowedContactTargets;
+    final updated = current
+        .where((item) => !item.identifiers.any(targetIdentifiers.contains))
+        .toList(growable: true);
+    if (enabled) updated.add(target);
+    return target.type == DingTalkConversationType.group
+        ? copyWith(allowedGroupTargets: updated)
+        : copyWith(allowedContactTargets: updated);
+  }
+
   static int normalizePollIntervalSeconds(Object? value) {
     final parsed = optionalIntegralIntFromValue(value);
     return (parsed ?? defaultPollIntervalSeconds)
@@ -1297,6 +1334,12 @@ class DingTalkGatewaySettings {
     }
     return result;
   }
+}
+
+bool isDingTalkAutomaticResponseCandidate(DingTalkGatewayMessage message) {
+  if (message.isAssistant || message.isExcludedFromAiContext) return false;
+  return message.conversationType == DingTalkConversationType.direct ||
+      message.mentionedCurrentUser;
 }
 
 class DingTalkIdentity {

@@ -1954,6 +1954,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   Future<void> updateSettings(DingTalkGatewaySettings value) async {
+    final previousSettings = _settings;
     final previousTargets = _eventSubscriptionTargetKeys(_settings);
     final normalized = _normalizeSettings(value);
     if (_settings.templateId != normalized.templateId) {
@@ -1979,7 +1980,33 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       await _restartEventListening();
     }
     if (_isPolling && _usingPollingFallback) _schedulePolling();
+    _enqueueNewlyAllowedAutomaticResponses(previousSettings);
     _notify();
+  }
+
+  bool isAutomaticResponseEnabledForConversation(String conversationId) {
+    final conversation = _conversations[conversationId.trim()];
+    return conversation != null &&
+        _settings.allowsAutomaticResponseFor(
+          _targetFromConversation(conversation),
+        );
+  }
+
+  Future<void> setAutomaticResponseEnabledForConversation(
+    String conversationId, {
+    required bool enabled,
+  }) async {
+    final conversation = _conversations[conversationId.trim()];
+    if (conversation == null ||
+        _settings.responseMode == DingTalkResponseMode.all) {
+      return;
+    }
+    await updateSettings(
+      _settings.withAutomaticResponseFor(
+        _targetFromConversation(conversation),
+        enabled: enabled,
+      ),
+    );
   }
 
   /// 刷新设置弹窗使用的资源目录。资源控制器各自负责并发与持久化，
@@ -4027,13 +4054,33 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   bool _canAutomaticallyRespondToMessage(DingTalkGatewayMessage message) {
-    if (message.isAssistant ||
-        message.isExcludedFromAiContext ||
-        _configuredTargetFor(message) == null) {
-      return false;
+    if (!isDingTalkAutomaticResponseCandidate(message)) return false;
+    return _settings.allowsAutomaticResponseFor(
+      _targetFromIncomingMessage(message),
+    );
+  }
+
+  void _enqueueNewlyAllowedAutomaticResponses(
+    DingTalkGatewaySettings previousSettings,
+  ) {
+    if (!_isPolling) return;
+    final pollingGeneration = _pollingGeneration;
+    for (final conversation in _conversations.values) {
+      final target = _targetFromConversation(conversation);
+      if (previousSettings.allowsAutomaticResponseFor(target) ||
+          !_settings.allowsAutomaticResponseFor(target)) {
+        continue;
+      }
+      for (final message in conversation.messages) {
+        if (message.aiResponseState != DingTalkMessageAiResponseState.none ||
+            message.recalled ||
+            !_canAutomaticallyRespondToMessage(message) ||
+            !_isAutomaticResponseEligible(message, pollingGeneration)) {
+          continue;
+        }
+        _enqueueIncomingMessage(conversation, message);
+      }
     }
-    return message.conversationType == DingTalkConversationType.direct ||
-        message.mentionedCurrentUser;
   }
 
   bool _shouldAutomaticallyRespondToMessage(
