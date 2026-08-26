@@ -189,6 +189,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   // 媒体只影响附件上下文，不能阻塞文本消息进入 AI 响应链路。
   static const Duration _mediaPreparationTimeout = Duration(seconds: 12);
   static const Duration _stopResponseTimeout = Duration(seconds: 10);
+  static const int _minimumGeneratedMediaFileBytes = 16;
   static const String _groupResponseReminder =
       '钉钉群聊规则：围绕本轮最后一条 @我 消息回复；此前消息仅作上下文。仅输出一条适合发送的回复。';
   static const String _directResponseReminder =
@@ -230,6 +231,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   /// 每次停止响应都会递增。正在执行的响应携带启动时版本，前置异步
   /// 阶段完成后若版本已变化，立即结束本轮，避免停止后继续发起 AI 请求。
   final Map<String, int> _responseCancellationVersions = <String, int>{};
+  final Map<String, Completer<void>> _activeMediaGenerationCancellations =
+      <String, Completer<void>>{};
   final Map<String, Queue<_QueuedDingTalkResponse>> _responseQueues =
       <String, Queue<_QueuedDingTalkResponse>>{};
   final Set<String> _activeResponseConversationIds = <String>{};
@@ -516,6 +519,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final sizeBytes = await _validatedDingTalkMediaFileSize(
         path,
         allowedRoot: generatedRoot,
+        minBytes: _minimumGeneratedMediaFileBytes,
         maxBytes: kDingTalkMessageAttachmentMaxBytes,
       );
       if (sizeBytes == null) continue;
@@ -608,6 +612,87 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     );
   }
 
+  ({bool attempted, bool succeeded}) _dingTalkMediaRoundState(
+    AiSession? session,
+    int startIndex,
+    AiDingTalkMultimodalCapability capability,
+  ) {
+    final messages = session?.messages ?? const <AiSessionMessage>[];
+    final safeStart = math.min(math.max(startIndex, 0), messages.length);
+    return inspectDingTalkMultimodalRound(
+      messages.skip(safeStart).map((message) => message.metadata),
+      capability,
+    );
+  }
+
+  Future<void> _executeDingTalkMediaGenerationFallback({
+    required DingTalkConversation conversation,
+    required AiDingTalkMultimodalCapability capability,
+    required String prompt,
+    required List<String> referenceImagePaths,
+    required bool Function() responseCancelled,
+  }) async {
+    if (responseCancelled()) return;
+    final cancellation = Completer<void>();
+    final previous = _activeMediaGenerationCancellations[conversation.id];
+    if (previous != null && !previous.isCompleted) previous.complete();
+    _activeMediaGenerationCancellations[conversation.id] = cancellation;
+    try {
+      await _executeDingTalkMediaGenerationForAi(
+        conversation: conversation,
+        capability: capability,
+        prompt: prompt,
+        options: AiCreationOptions.empty,
+        referenceImagePaths: referenceImagePaths,
+        cancelSignal: cancellation.future,
+      );
+    } on AiMediaGenerationCancelledException {
+      return;
+    } catch (error, stack) {
+      if (responseCancelled()) return;
+      silentLog('dingtalk_gateway', '执行钉钉多模态生成兜底', error, stack);
+      await _sendDingTalkMediaGenerationFailure(
+        conversation: conversation,
+        capability: capability,
+        responseCancelled: responseCancelled,
+      );
+    } finally {
+      if (identical(
+        _activeMediaGenerationCancellations[conversation.id],
+        cancellation,
+      )) {
+        _activeMediaGenerationCancellations.remove(conversation.id);
+      }
+    }
+  }
+
+  Future<void> _sendDingTalkMediaGenerationFailure({
+    required DingTalkConversation conversation,
+    required AiDingTalkMultimodalCapability capability,
+    required bool Function() responseCancelled,
+  }) async {
+    final message = '${capability.displayName}失败，请检查生成模型配置后重试。';
+    _setResponseError(conversation.id, message);
+    if (responseCancelled() ||
+        !_settings.responseEchoTypes.contains(
+          DingTalkResponseEchoType.finalResponse,
+        )) {
+      return;
+    }
+    final now = DateTime.now();
+    await _sendDingTalkEcho(
+      conversation: conversation,
+      source: AiSessionMessage.assistant(
+        id: 'dingtalk-media-failure-${_uuid.v4()}',
+        content: message,
+        createdAt: now,
+      ),
+      type: DingTalkResponseEchoType.finalResponse,
+      text: message,
+      uuid: _uuid.v4(),
+    );
+  }
+
   String _multimodalModelKey(AiDingTalkMultimodalCapability capability) {
     return switch (capability) {
       AiDingTalkMultimodalCapability.imageGeneration =>
@@ -672,6 +757,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   Future<int?> _validatedDingTalkMediaFileSize(
     String path, {
     required String allowedRoot,
+    int minBytes = 1,
     required int maxBytes,
   }) async {
     try {
@@ -688,7 +774,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }
       final stat = await file.stat().timeout(defaultBoundedFileReadIdleTimeout);
       if (stat.type != FileSystemEntityType.file ||
-          stat.size <= 0 ||
+          stat.size < minBytes ||
           stat.size > maxBytes) {
         return null;
       }
@@ -701,9 +787,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   List<String> _generatedMediaPaths(String markdown) {
     final result = <String>[];
     final pattern = RegExp(r'!?\[[^\]\r\n]{0,240}\]\(([^)\r\n]+)\)');
-    final generatedRoot = p.normalize(
-      p.join(Directory.systemTemp.path, 'openhand_media'),
-    );
     for (final match in pattern.allMatches(markdown)) {
       var raw = match.group(1)?.trim() ?? '';
       if (raw.startsWith('<') && raw.endsWith('>')) {
@@ -719,8 +802,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         }
       }
       final path = p.normalize(raw);
-      if ((p.equals(generatedRoot, path) || p.isWithin(generatedRoot, path)) &&
-          !result.contains(path)) {
+      if (!result.contains(path)) {
         result.add(path);
       }
     }
@@ -908,6 +990,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   Future<void> stopConversationResponse(String conversationId) async {
     if (_disposed) return;
+    final mediaCancellation = _activeMediaGenerationCancellations.remove(
+      conversationId,
+    );
+    if (mediaCancellation != null && !mediaCancellation.isCompleted) {
+      mediaCancellation.complete();
+    }
     final nextVersion =
         (_responseCancellationVersions[conversationId] ?? 0) + 1;
     _responseCancellationVersions[conversationId] = nextVersion;
@@ -3952,6 +4040,18 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         forceResponse: forceResponse,
       );
       if (aiContent.isEmpty) return;
+      final enabledMultimodalCapabilities =
+          _validMultimodalCapabilitiesForRuntime();
+      final detectedMediaRequest = detectDingTalkMultimodalGenerationRequest(
+        source == null ? content : _messageAiContextContent(source),
+      );
+      final mediaRequest =
+          detectedMediaRequest != null &&
+              enabledMultimodalCapabilities.contains(
+                detectedMediaRequest.storageValue,
+              )
+          ? detectedMediaRequest
+          : null;
       final contextMessageIds = _pendingAiConversationMessages(
         conversation,
         sourceMessageId,
@@ -4064,8 +4164,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           'dingtalk_allowed_knowledge_source_ids': selectedKnowledgeSourceIds,
           'dingtalk_dws_executor': _executeDwsCommandForAi,
           'dingtalk_dws_selected_command_count': dwsCatalog.length,
-          'dingtalk_multimodal_capabilities':
-              _validMultimodalCapabilitiesForRuntime(),
+          'dingtalk_multimodal_capabilities': enabledMultimodalCapabilities,
           'dingtalk_media_generation_executor': _mediaExecutorForConversation(
             conversation,
           ),
@@ -4136,7 +4235,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         responseRoundId: responseRoundId,
         deliveredSourceMessageIds: deliveredSourceMessageIds,
         isTypeEnabled: (type) => _settings.responseEchoTypes.contains(type),
-        typeOf: _echoTypeOf,
+        typeOf: (message, messages) {
+          if (mediaRequest != null &&
+              message.kind == AiSessionMessageKind.assistant) {
+            return null;
+          }
+          return _echoTypeOf(message, messages);
+        },
         textFor: _echoTextForMessage,
         isTerminal: _isEchoTerminal,
         isCancelled: responseCancelled,
@@ -4203,6 +4308,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
                   _settingsController.aiWriteCommandConfirmationEnabled,
             );
         if (responseCancelled()) return;
+        final messageCountBeforeSend = currentSession()?.messages.length ?? 0;
         final sent = await _sessionController.sendMessage(
           sessionId: sessionId,
           content: aiContent,
@@ -4237,6 +4343,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
                 : conversation.type == DingTalkConversationType.direct
                 ? _directResponseReminder
                 : _groupResponseReminder,
+            if (mediaRequest != null) mediaRequest.routingReminder,
           ],
           userMessageMetadata: <String, Object?>{
             'sent_via': 'dingtalk_gateway',
@@ -4259,6 +4366,31 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           return;
         }
         if (responseCancelled()) return;
+        if (mediaRequest != null) {
+          final roundState = _dingTalkMediaRoundState(
+            currentSession(),
+            messageCountBeforeSend,
+            mediaRequest,
+          );
+          if (!roundState.attempted) {
+            await _executeDingTalkMediaGenerationFallback(
+              conversation: conversation,
+              capability: mediaRequest,
+              prompt: source == null
+                  ? content.trim()
+                  : _messageAiContextContent(source),
+              referenceImagePaths: attachmentPaths,
+              responseCancelled: responseCancelled,
+            );
+          } else if (!roundState.succeeded) {
+            await _sendDingTalkMediaGenerationFailure(
+              conversation: conversation,
+              capability: mediaRequest,
+              responseCancelled: responseCancelled,
+            );
+          }
+          if (responseCancelled()) return;
+        }
         if (sourceMessageId.trim().isNotEmpty &&
             identical(_conversations[conversation.id], conversation)) {
           conversation.aiContextCheckpointMessageId = sourceMessageId.trim();
@@ -4527,6 +4659,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   ) {
     if (message.isDeleted) return null;
     if (_isToolEchoArtifact(message)) return null;
+    if (message.kind == AiSessionMessageKind.assistant &&
+        isDingTalkMediaInvocationPreamble(message.content)) {
+      return null;
+    }
     final isToolMessage =
         message.kind == AiSessionMessageKind.toolCall ||
         message.kind == AiSessionMessageKind.hook;
@@ -5461,6 +5597,10 @@ ${_markdownStructuredFields(response)}''';
       }
     }
     _scheduleResponseWorkers();
+    for (final cancellation in _activeMediaGenerationCancellations.values) {
+      if (!cancellation.isCompleted) cancellation.complete();
+    }
+    _activeMediaGenerationCancellations.clear();
     final activeConversationIds = _conversations.keys
         .where(isConversationResponding)
         .toSet();
@@ -6083,6 +6223,10 @@ ${_markdownStructuredFields(response)}''';
     _responsePreparingCounts.clear();
     _responseErrors.clear();
     _responseCancellationVersions.clear();
+    for (final cancellation in _activeMediaGenerationCancellations.values) {
+      if (!cancellation.isCompleted) cancellation.complete();
+    }
+    _activeMediaGenerationCancellations.clear();
     _writeApprovalHandler = null;
     final runtimeLogSubscription = _runtimeLogSubscription;
     _runtimeLogSubscription = null;

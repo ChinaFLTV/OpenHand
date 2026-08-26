@@ -1020,8 +1020,7 @@ class AiToolRuntimeService {
       if (!enabled.contains(capability)) continue;
       final definition = AiToolDefinition(
         name: capability.toolName,
-        description:
-            '同步生成并发送${capability.displayName}到当前钉钉会话。生成过程会等待最终结果，成功后该工具调用即视为正式响应。',
+        description: capability.toolDescription,
         parameters: _dingtalkMultimodalParameters(capability),
       );
       builder.register(
