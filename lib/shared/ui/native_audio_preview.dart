@@ -7,9 +7,12 @@ import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart' as mk;
 import 'package:openhand/shared/ui/openhand_spacing.dart';
 import 'package:path/path.dart' as p;
+import 'package:provider/provider.dart';
 
+import '../../app/state/settings_controller.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
+import '../model/native_audio_playback_settings.dart';
 import '../net/http_redirect_utils.dart';
 import '../util/async_concurrency.dart';
 import '../util/bounded_file_io.dart';
@@ -181,27 +184,24 @@ class NativeAudioPreview extends StatefulWidget {
 
 enum _NativeAudioPlayMode { sequence, repeatOne, shuffle }
 
-enum _NativeAudioEffect {
-  standard(Icons.tune_rounded, 1.0),
-  spatial(Icons.view_in_ar_rounded, 1.0),
-  vocal(Icons.record_voice_over_rounded, 1.0),
-  warm(Icons.graphic_eq_rounded, 0.96);
-
-  const _NativeAudioEffect(this.icon, this.volumeScale);
-
-  final IconData icon;
-  final double volumeScale;
+extension _NativeAudioEffectIcon on NativeAudioEffect {
+  IconData get icon => switch (this) {
+    NativeAudioEffect.standard => Icons.tune_rounded,
+    NativeAudioEffect.spatial => Icons.view_in_ar_rounded,
+    NativeAudioEffect.vocal => Icons.record_voice_over_rounded,
+    NativeAudioEffect.warm => Icons.graphic_eq_rounded,
+  };
 }
 
 String _nativeAudioEffectLabel(
   AppLocalizations l10n,
-  _NativeAudioEffect effect,
+  NativeAudioEffect effect,
 ) {
   return switch (effect) {
-    _NativeAudioEffect.standard => l10n.nativeAudioEffectStandard,
-    _NativeAudioEffect.spatial => l10n.nativeAudioEffectSpatial,
-    _NativeAudioEffect.vocal => l10n.nativeAudioEffectVocal,
-    _NativeAudioEffect.warm => l10n.nativeAudioEffectWarm,
+    NativeAudioEffect.standard => l10n.nativeAudioEffectStandard,
+    NativeAudioEffect.spatial => l10n.nativeAudioEffectSpatial,
+    NativeAudioEffect.vocal => l10n.nativeAudioEffectVocal,
+    NativeAudioEffect.warm => l10n.nativeAudioEffectWarm,
   };
 }
 
@@ -433,11 +433,12 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       <StreamSubscription<dynamic>>[];
 
   _NativeAudioPlayMode _playMode = _NativeAudioPlayMode.sequence;
-  _NativeAudioEffect _effect = _NativeAudioEffect.standard;
+  NativeAudioEffect _effect = NativeAudioEffect.standard;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   _NativeAudioPlaybackState _playerState = _NativeAudioPlaybackState.stopped;
-  double _volume = 0.86;
+  double _volume = NativeAudioPlaybackSettings.defaultVolume;
+  late final SettingsController? _settingsController;
   bool _muted = false;
   bool _loading = true;
   bool _sourceReady = false;
@@ -451,6 +452,8 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   int _bootstrapSerial = 0;
   bool _pollInFlight = false;
   int _seekSerial = 0;
+  int _playbackSettingsRevision = 0;
+  int _persistedPlaybackSettingsRevision = 0;
   bool _handlingComplete = false;
   final LatestTaskQueue _bootstrapQueue = LatestTaskQueue();
   final LatestTaskQueue _seekCommandQueue = LatestTaskQueue();
@@ -475,6 +478,12 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   @override
   void initState() {
     super.initState();
+    _settingsController = context.read<SettingsController?>();
+    final playbackSettings =
+        _settingsController?.nativeAudioPlaybackSettings ??
+        NativeAudioPlaybackSettings.defaults();
+    _volume = playbackSettings.volume;
+    _effect = playbackSettings.effect;
     widget.controller?._state = this;
     _subscriptions
       ..add(
@@ -550,6 +559,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
 
   @override
   void dispose() {
+    unawaited(_persistPlaybackSettings());
     _disposed = true;
     _bootstrapSerial++;
     _seekSerial++;
@@ -1066,10 +1076,13 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
 
   Future<void> _setVolume(double value) async {
     final next = finiteUnitInterval(value);
+    final nextMuted = next <= 0;
+    if (_volume == next && _muted == nextMuted) return;
     setState(() {
       _volume = next;
-      _muted = next <= 0;
+      _muted = nextMuted;
     });
+    _playbackSettingsRevision++;
     try {
       await _player
           .setVolume(_effectiveVolume)
@@ -1080,10 +1093,12 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   Future<void> _toggleMuted() async {
+    final restoresDefaultVolume = _muted && _volume <= 0;
     setState(() {
       _muted = !_muted;
       if (!_muted && _volume <= 0) _volume = 0.6;
     });
+    if (restoresDefaultVolume) _playbackSettingsRevision++;
     try {
       await _player
           .setVolume(_effectiveVolume)
@@ -1091,15 +1106,33 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     } catch (error, stack) {
       silentLog('native_audio_preview', '切换静音状态失败', error, stack);
     }
+    if (restoresDefaultVolume) await _persistPlaybackSettings();
   }
 
-  Future<void> _setEffect(_NativeAudioEffect effect) async {
-    if (!_isActive) return;
+  Future<void> _setEffect(NativeAudioEffect effect) async {
+    if (!_isActive || _effect == effect) return;
     setState(() => _effect = effect);
+    _playbackSettingsRevision++;
     try {
       await _applyEffectToPlayer().timeout(kNativeAudioControlTimeout);
     } catch (error, stack) {
       silentLog('native_audio_preview', '应用音效失败', error, stack);
+    }
+    await _persistPlaybackSettings();
+  }
+
+  Future<void> _persistPlaybackSettings() async {
+    final settingsController = _settingsController;
+    final revision = _playbackSettingsRevision;
+    if (settingsController == null ||
+        revision <= _persistedPlaybackSettingsRevision) {
+      return;
+    }
+    final saved = await settingsController.updateNativeAudioPlaybackSettings(
+      NativeAudioPlaybackSettings(volume: _volume, effect: _effect),
+    );
+    if (saved && revision > _persistedPlaybackSettingsRevision) {
+      _persistedPlaybackSettingsRevision = revision;
     }
   }
 
@@ -1467,6 +1500,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
                 child: Slider(
                   value: _muted ? 0.0 : _volume,
                   onChanged: (value) => unawaited(_setVolume(value)),
+                  onChangeEnd: (_) => unawaited(_persistPlaybackSettings()),
                 ),
               ),
             ),
@@ -1677,7 +1711,9 @@ class _NativeAudioAlbumCoverState extends State<_NativeAudioAlbumCover>
       animation: _glowController,
       builder: (context, child) {
         final breath = widget.isPlaying && motionEnabled
-            ? kOpenHandEmphasizedTransitionCurve.transform(_glowController.value)
+            ? kOpenHandEmphasizedTransitionCurve.transform(
+                _glowController.value,
+              )
             : 0.0;
         final playLift = widget.isPlaying && motionEnabled ? 1.0 : 0.0;
         final scale = 1.0 + playLift * 0.012 + breath * 0.010;
@@ -1956,8 +1992,8 @@ class _NativeAudioEffectMenuButton extends StatelessWidget {
     required this.onSelect,
   });
 
-  final _NativeAudioEffect effect;
-  final ValueChanged<_NativeAudioEffect> onSelect;
+  final NativeAudioEffect effect;
+  final ValueChanged<NativeAudioEffect> onSelect;
 
   @override
   Widget build(BuildContext ctx) {
@@ -1970,19 +2006,16 @@ class _NativeAudioEffectMenuButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(kOpenHandRadius20),
         onTap: () => _showMenu(ctx, l10n, cs),
         child: AnimatedContainer(
-          duration: openHandMotionDuration(
-            ctx,
-            kOpenHandMotion160,
-          ),
+          duration: openHandMotionDuration(ctx, kOpenHandMotion160),
           curve: kNativeAudioMotionCurve,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: effect != _NativeAudioEffect.standard
+            color: effect != NativeAudioEffect.standard
                 ? cs.primary.withValues(alpha: 0.12)
                 : cs.onSurface.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(kOpenHandRadius20),
             border: Border.all(
-              color: effect != _NativeAudioEffect.standard
+              color: effect != NativeAudioEffect.standard
                   ? cs.primary.withValues(alpha: 0.36)
                   : cs.outlineVariant.withValues(alpha: 0.60),
             ),
@@ -1993,7 +2026,7 @@ class _NativeAudioEffectMenuButton extends StatelessWidget {
               Icon(
                 effect.icon,
                 size: 15,
-                color: effect != _NativeAudioEffect.standard
+                color: effect != NativeAudioEffect.standard
                     ? cs.primary
                     : cs.onSurfaceVariant,
               ),
@@ -2001,7 +2034,7 @@ class _NativeAudioEffectMenuButton extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
-                  color: effect != _NativeAudioEffect.standard
+                  color: effect != NativeAudioEffect.standard
                       ? cs.primary
                       : cs.onSurfaceVariant,
                   fontWeight: FontWeight.w700,
@@ -2013,7 +2046,7 @@ class _NativeAudioEffectMenuButton extends StatelessWidget {
               Icon(
                 Icons.expand_more_rounded,
                 size: 14,
-                color: effect != _NativeAudioEffect.standard
+                color: effect != NativeAudioEffect.standard
                     ? cs.primary
                     : cs.onSurfaceVariant,
               ),
@@ -2029,17 +2062,17 @@ class _NativeAudioEffectMenuButton extends StatelessWidget {
     if (box == null) return;
     final offset = box.localToGlobal(Offset.zero);
     final size = box.size;
-    showAnimatedMenu<_NativeAudioEffect>(
+    showAnimatedMenu<NativeAudioEffect>(
       context: ctx,
       position: RelativeRect.fromLTRB(
         offset.dx,
-        offset.dy - _NativeAudioEffect.values.length * 44.0 - 8,
+        offset.dy - NativeAudioEffect.values.length * 44.0 - 8,
         offset.dx + size.width,
         offset.dy,
       ),
-      items: _NativeAudioEffect.values.map((e) {
+      items: NativeAudioEffect.values.map((e) {
         final eLabel = _nativeAudioEffectLabel(l10n, e);
-        return PopupMenuItem<_NativeAudioEffect>(
+        return PopupMenuItem<NativeAudioEffect>(
           value: e,
           child: Row(
             children: [
@@ -2753,7 +2786,9 @@ Duration _durationDistance(Duration a, Duration b) {
 
 String _extensionForAudioMime(String? mimeType) {
   return switch (mimeType?.toLowerCase()) {
-    kAudioWavMimeType || kAudioWaveAliasMimeType || kAudioXWavAliasMimeType => 'wav',
+    kAudioWavMimeType ||
+    kAudioWaveAliasMimeType ||
+    kAudioXWavAliasMimeType => 'wav',
     'audio/mp4' || 'audio/m4a' || 'audio/x-m4a' => 'm4a',
     kAudioAacMimeType => 'aac',
     kAudioOggMimeType || 'audio/opus' => 'ogg',

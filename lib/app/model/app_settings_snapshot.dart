@@ -17,6 +17,7 @@ import '../../features/ai/model/ai_tts_settings.dart';
 import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
+import '../../shared/model/native_audio_playback_settings.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../model/app_language.dart';
@@ -132,6 +133,7 @@ class AppSettingsSnapshot {
       panelAnimationSettings: OpenHandMotionDefaults.panel,
       chipAnimationSettings: OpenHandMotionDefaults.chip,
       listItemAnimationSettings: OpenHandMotionDefaults.listItem,
+      nativeAudioPlaybackSettings: NativeAudioPlaybackSettings.defaults(),
       builtinToolConfigs: AiBuiltinToolConfig.defaults(),
       telemetryDebugEnabled: false,
       telemetryCaptureRawPayload: true,
@@ -234,6 +236,7 @@ class AppSettingsSnapshot {
     required this.panelAnimationSettings,
     required this.chipAnimationSettings,
     required this.listItemAnimationSettings,
+    NativeAudioPlaybackSettings? nativeAudioPlaybackSettings,
     required this.builtinToolConfigs,
     required this.telemetryDebugEnabled,
     required this.telemetryCaptureRawPayload,
@@ -316,6 +319,10 @@ class AppSettingsSnapshot {
              password: '',
              exceptions: <String>[],
            ),
+       nativeAudioPlaybackSettings =
+           (nativeAudioPlaybackSettings ??
+                   NativeAudioPlaybackSettings.defaults())
+               .normalized(),
        aiTtsSettings = aiTtsSettings ?? AiTtsSettings.defaults();
 
   /// Hermes Talker 自学习并发数的默认值与边界。
@@ -998,6 +1005,7 @@ class AppSettingsSnapshot {
   final DialogAnimationSettings panelAnimationSettings;
   final DialogAnimationSettings chipAnimationSettings;
   final DialogAnimationSettings listItemAnimationSettings;
+  final NativeAudioPlaybackSettings nativeAudioPlaybackSettings;
   final List<AiBuiltinToolConfig> builtinToolConfigs;
   final bool telemetryDebugEnabled;
   final bool telemetryCaptureRawPayload;
@@ -1156,6 +1164,7 @@ class AppSettingsSnapshot {
     DialogAnimationSettings? panelAnimationSettings,
     DialogAnimationSettings? chipAnimationSettings,
     DialogAnimationSettings? listItemAnimationSettings,
+    NativeAudioPlaybackSettings? nativeAudioPlaybackSettings,
     List<AiBuiltinToolConfig>? builtinToolConfigs,
     bool? telemetryDebugEnabled,
     bool? telemetryCaptureRawPayload,
@@ -1354,6 +1363,8 @@ class AppSettingsSnapshot {
           chipAnimationSettings ?? this.chipAnimationSettings,
       listItemAnimationSettings:
           listItemAnimationSettings ?? this.listItemAnimationSettings,
+      nativeAudioPlaybackSettings:
+          nativeAudioPlaybackSettings ?? this.nativeAudioPlaybackSettings,
       builtinToolConfigs: builtinToolConfigs ?? this.builtinToolConfigs,
       telemetryDebugEnabled:
           telemetryDebugEnabled ?? this.telemetryDebugEnabled,

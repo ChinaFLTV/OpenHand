@@ -18,6 +18,7 @@ import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
 import '../../shared/db/database_service.dart';
 import '../../shared/db/legacy_persistence.dart';
+import '../../shared/model/native_audio_playback_settings.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../model/app_language.dart';
 import '../model/app_proxy_settings.dart';
@@ -413,6 +414,7 @@ class SettingsStore {
       'chip_animation_settings': snapshot.chipAnimationSettings.toJson(),
       'list_item_animation_settings': snapshot.listItemAnimationSettings
           .toJson(),
+      'native_audio_playback': snapshot.nativeAudioPlaybackSettings.toJson(),
       'builtin_tool_configs': snapshot.builtinToolConfigs
           .map((item) => item.toJson())
           .toList(growable: false),
@@ -1034,6 +1036,9 @@ class SettingsStore {
       fallback: OpenHandMotionDefaults.listItem,
       schemaVersion: schemaVersion,
     );
+    final nativeAudioPlaybackSettings = NativeAudioPlaybackSettings.fromJson(
+      json['native_audio_playback'],
+    );
 
     // 内置工具配置。
     final rawBuiltinToolConfigs = json['builtin_tool_configs'];
@@ -1247,6 +1252,7 @@ class SettingsStore {
       panelAnimationSettings: panelAnimationSettings,
       chipAnimationSettings: chipAnimationSettings,
       listItemAnimationSettings: listItemAnimationSettings,
+      nativeAudioPlaybackSettings: nativeAudioPlaybackSettings,
       builtinToolConfigs: builtinToolConfigs,
       telemetryDebugEnabled: telemetryDebugEnabled,
       telemetryCaptureRawPayload: telemetryCaptureRawPayload,

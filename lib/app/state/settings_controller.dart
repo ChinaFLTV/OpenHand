@@ -22,6 +22,7 @@ import '../../features/mcp/model/mcp_keyword_index_update_mode.dart';
 import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
 import '../../shared/fps/openhand_fps_monitor.dart';
+import '../../shared/model/native_audio_playback_settings.dart';
 import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -202,6 +203,7 @@ class SettingsController extends ChangeNotifier {
        _panelAnimationSettings = snapshot.panelAnimationSettings,
        _chipAnimationSettings = snapshot.chipAnimationSettings,
        _listItemAnimationSettings = snapshot.listItemAnimationSettings,
+       _nativeAudioPlaybackSettings = snapshot.nativeAudioPlaybackSettings,
        _builtinToolConfigs = _normalizeBuiltinToolConfigs(
          snapshot.builtinToolConfigs,
        ),
@@ -343,6 +345,7 @@ class SettingsController extends ChangeNotifier {
   DialogAnimationSettings _panelAnimationSettings;
   DialogAnimationSettings _chipAnimationSettings;
   DialogAnimationSettings _listItemAnimationSettings;
+  NativeAudioPlaybackSettings _nativeAudioPlaybackSettings;
   List<AiBuiltinToolConfig> _builtinToolConfigs;
   bool _telemetryDebugEnabled;
   bool _telemetryCaptureRawPayload;
@@ -573,6 +576,8 @@ class SettingsController extends ChangeNotifier {
   DialogAnimationSettings get chipAnimationSettings => _chipAnimationSettings;
   DialogAnimationSettings get listItemAnimationSettings =>
       _listItemAnimationSettings;
+  NativeAudioPlaybackSettings get nativeAudioPlaybackSettings =>
+      _nativeAudioPlaybackSettings;
   List<AiBuiltinToolConfig> get builtinToolConfigs =>
       List<AiBuiltinToolConfig>.unmodifiable(_builtinToolConfigs);
   bool get knowledgeBuiltinToolsEnabled {
@@ -2068,6 +2073,19 @@ class SettingsController extends ChangeNotifier {
     );
   }
 
+  Future<bool> updateNativeAudioPlaybackSettings(
+    NativeAudioPlaybackSettings value,
+  ) async {
+    return _commitMutation(() {
+      final normalized = value.normalized();
+      if (_nativeAudioPlaybackSettings == normalized) {
+        return _MutationDisposition.successNoChange;
+      }
+      _nativeAudioPlaybackSettings = normalized;
+      return _MutationDisposition.apply;
+    });
+  }
+
   /// Restores every motion bucket as one persisted transaction so observers
   /// never see a partially reset animation configuration.
   Future<bool> restoreDefaultAnimationSettings() {
@@ -2529,6 +2547,7 @@ class SettingsController extends ChangeNotifier {
       panelAnimationSettings: _panelAnimationSettings,
       chipAnimationSettings: _chipAnimationSettings,
       listItemAnimationSettings: _listItemAnimationSettings,
+      nativeAudioPlaybackSettings: _nativeAudioPlaybackSettings,
       builtinToolConfigs: List<AiBuiltinToolConfig>.from(_builtinToolConfigs),
       telemetryDebugEnabled: _telemetryDebugEnabled,
       telemetryCaptureRawPayload: _telemetryCaptureRawPayload,
@@ -2671,6 +2690,7 @@ class SettingsController extends ChangeNotifier {
     _panelAnimationSettings = snapshot.panelAnimationSettings;
     _chipAnimationSettings = snapshot.chipAnimationSettings;
     _listItemAnimationSettings = snapshot.listItemAnimationSettings;
+    _nativeAudioPlaybackSettings = snapshot.nativeAudioPlaybackSettings;
     _builtinToolConfigs = _normalizeBuiltinToolConfigs(
       snapshot.builtinToolConfigs,
     );
