@@ -3057,12 +3057,18 @@ class DingTalkMessageGatewayService {
         fallbackConversationId: mediaConversationId,
         fallbackCreatedAt: createdAt,
       );
+      final quotedMessage = _parseQuotedMessage(
+        map,
+        fallbackConversationId: mediaConversationId,
+        fallbackCreatedAt: createdAt,
+      );
       final displayContent = media.isEmpty
           ? content
           : _mediaDisplayContent(content, media);
       if (id.isEmpty ||
           (content.isEmpty &&
               media.isEmpty &&
+              quotedMessage == null &&
               forwarded.messages.isEmpty &&
               !_messageRecalled(map)) ||
           conversationId.isEmpty) {
@@ -3105,6 +3111,7 @@ class DingTalkMessageGatewayService {
             'title',
           ]),
           media: media,
+          quotedMessage: quotedMessage,
           forwardedMessages: forwarded.messages,
           forwardedMessageCount: forwarded.totalCount,
           fromSelf:
@@ -3216,6 +3223,79 @@ class DingTalkMessageGatewayService {
       );
     }
     return (messages: messages.toList(growable: false), totalCount: raw.length);
+  }
+
+  DingTalkQuotedMessage? _parseQuotedMessage(
+    Map<String, Object?> map, {
+    required String fallbackConversationId,
+    required DateTime fallbackCreatedAt,
+  }) {
+    Object? raw = map['quotedMessage'] ?? map['quoted_message'];
+    if (raw is String) {
+      final decoded = _decodeJson(raw);
+      if (decoded is Map) raw = decoded;
+    }
+    if (raw is! Map) return null;
+    final quoted = _asMap(raw);
+    final id = normalizeDingTalkMessageId(
+      _first(quoted, const <String>[
+        'openMessageId',
+        'open_message_id',
+        'openMsgId',
+        'open_msg_id',
+        'messageId',
+        'message_id',
+        'msgId',
+        'msg_id',
+        'id',
+      ]),
+    );
+    final conversationId = _first(quoted, const <String>[
+      'openConversationId',
+      'open_conversation_id',
+      'conversationId',
+      'conversation_id',
+      'chatId',
+      'chat_id',
+    ]);
+    final mediaConversationId = conversationId.isEmpty
+        ? fallbackConversationId
+        : conversationId;
+    final media = _extractMedia(quoted, includeResourceRefs: true)
+        .map(
+          (item) => item.copyWith(
+            messageId: item.messageId.trim().isEmpty ? id : item.messageId,
+            conversationId: item.conversationId.trim().isEmpty
+                ? mediaConversationId
+                : item.conversationId,
+          ),
+        )
+        .toList(growable: false);
+    final content = _content(quoted);
+    final displayContent = media.isEmpty
+        ? content
+        : _mediaDisplayContent(content, media);
+    if (id.isEmpty && displayContent.isEmpty && media.isEmpty) return null;
+    return DingTalkQuotedMessage(
+      id: id,
+      content: displayContent.isEmpty ? _mediaSummary(media) : displayContent,
+      createdAt: _parseDateTime(
+        quoted['createTime'] ??
+            quoted['createdAt'] ??
+            quoted['create_time'] ??
+            quoted['created_at'],
+        fallback: fallbackCreatedAt,
+      ),
+      senderName: _eventString(quoted, const <String>[
+        'senderName',
+        'senderNick',
+        'sender_name',
+        'nick',
+        'sender',
+      ]),
+      senderId: _eventSenderId(quoted),
+      media: media,
+    );
   }
 
   bool _looksLikeMessageRecord(
@@ -3397,10 +3477,18 @@ class DingTalkMessageGatewayService {
       fallbackConversationId: conversationId,
       fallbackCreatedAt: createdAt,
     );
+    final quotedMessage = _parseQuotedMessage(
+      map,
+      fallbackConversationId: conversationId,
+      fallbackCreatedAt: createdAt,
+    );
     final displayContent = media.isEmpty
         ? content
         : _mediaDisplayContent(content, media);
-    if (content.isEmpty && media.isEmpty && forwarded.messages.isEmpty) {
+    if (content.isEmpty &&
+        media.isEmpty &&
+        quotedMessage == null &&
+        forwarded.messages.isEmpty) {
       return DingTalkGatewayEvent(
         type: DingTalkGatewayEventType.message,
         messageId: messageId,
@@ -3460,6 +3548,7 @@ class DingTalkMessageGatewayService {
         'title',
       ]),
       media: media,
+      quotedMessage: quotedMessage,
       forwardedMessages: forwarded.messages,
       forwardedMessageCount: forwarded.totalCount,
       fromSelf:
@@ -3931,7 +4020,10 @@ class DingTalkMessageGatewayService {
     return merge(primaryContentKeys.map((key) => read(map[key], depth + 1)));
   }
 
-  List<DingTalkGatewayMedia> _extractMedia(Map<String, Object?> map) {
+  List<DingTalkGatewayMedia> _extractMedia(
+    Map<String, Object?> map, {
+    bool includeResourceRefs = false,
+  }) {
     final result = <DingTalkGatewayMedia>[];
     final seen = <String>{};
 
@@ -4110,12 +4202,24 @@ class DingTalkMessageGatewayService {
         'download_code',
       ]);
       final fileId = _first(current, const <String>['fileId', 'file_id']);
-      if (mediaId.isNotEmpty || fileId.isNotEmpty) {
+      final resourceId = includeResourceRefs
+          ? _first(current, const <String>['resourceId', 'resource_id'])
+          : '';
+      if (mediaId.isNotEmpty || fileId.isNotEmpty || resourceId.isNotEmpty) {
+        final resourceType = _first(current, const <String>[
+          'resourceType',
+          'resource_type',
+          'type',
+        ]).toLowerCase();
         addCandidate(
-          resourceId: mediaId.isNotEmpty ? mediaId : fileId,
-          resourceType: mediaId.isNotEmpty
-              ? DingTalkMediaResourceType.mediaId
-              : DingTalkMediaResourceType.fileId,
+          resourceId: mediaId.isNotEmpty
+              ? mediaId
+              : fileId.isNotEmpty
+              ? fileId
+              : resourceId,
+          resourceType: fileId.isNotEmpty || resourceType.contains('fileid')
+              ? DingTalkMediaResourceType.fileId
+              : DingTalkMediaResourceType.mediaId,
           type: _first(current, const <String>[
             'messageType',
             'msgType',
@@ -4149,8 +4253,9 @@ class DingTalkMessageGatewayService {
           inheritedKind: currentKind,
         );
       }
-      for (final key in const <String>[
+      for (final key in <String>[
         'content',
+        'text',
         'msgContent',
         'messageContent',
         'body',
@@ -4167,8 +4272,8 @@ class DingTalkMessageGatewayService {
         'attachments',
         'forward_messages',
         'forwardMessages',
-        'quoted_message',
-        'quotedMessage',
+        if (includeResourceRefs) 'resourceRefs',
+        if (includeResourceRefs) 'resource_refs',
       ]) {
         final childKind = _mediaKindHint(key) ?? currentKind;
         visit(

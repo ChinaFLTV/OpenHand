@@ -1384,7 +1384,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           (item) => normalizeDingTalkMessageId(item.id) == normalizedMessageId,
         )
         .firstOrNull;
-    if (message == null || message.media.isEmpty) return message;
+    if (message == null || message.contextualMedia.isEmpty) return message;
     final taskKey = normalizedMessageId.isEmpty
         ? message.id
         : normalizedMessageId;
@@ -1400,7 +1400,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         );
         _setMediaHydrationFailure(
           taskKey,
-          hydrated.media.any((item) => item.localPath.trim().isEmpty),
+          hydrated.contextualMedia.any((item) => item.localPath.trim().isEmpty),
         );
         return hydrated;
       } catch (error, stack) {
@@ -1454,7 +1454,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           (item) => normalizeDingTalkMessageId(item.id) == normalizedMessageId,
         )
         .firstOrNull;
-    final sourceMedia = message?.media.where(matches).firstOrNull;
+    final sourceMedia = message?.contextualMedia.where(matches).firstOrNull;
     if (message == null || sourceMedia == null) {
       throw StateError('钉钉文件消息已失效，请刷新后重试。');
     }
@@ -1495,15 +1495,22 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final index = latestConversation.messages.indexWhere(
       (item) => normalizeDingTalkMessageId(item.id) == normalizedMessageId,
     );
-    if (index < 0 || !latestConversation.messages[index].media.any(matches)) {
+    if (index < 0 ||
+        !latestConversation.messages[index].contextualMedia.any(matches)) {
       return saved;
     }
 
     final current = latestConversation.messages[index];
+    final quotedMessage = current.quotedMessage;
     final updated = current.copyWith(
       media: current.media
           .map((item) => matches(item) ? savedMedia(item) : item)
           .toList(growable: false),
+      quotedMessage: quotedMessage?.copyWith(
+        media: quotedMessage.media
+            .map((item) => matches(item) ? savedMedia(item) : item)
+            .toList(growable: false),
+      ),
       forwardedMessages: current.forwardedMessages
           .map(
             (item) => item.copyWith(
@@ -1518,7 +1525,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _mediaHydrationFailures.remove(normalizedMessageId);
     _queuePersist();
     _notify();
-    return updated.media.firstWhere(matches);
+    return updated.contextualMedia.firstWhere(matches);
   }
 
   void _setMediaHydrationFailure(String messageId, bool failed) {
@@ -1539,11 +1546,64 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     DingTalkGatewayMessage message, {
     bool forceRetry = false,
   }) async {
+    final directResult = await _hydrateMediaItems(
+      message.media,
+      content: message.content,
+      forceRetry: forceRetry,
+    );
+    final quotedMessage = message.quotedMessage;
+    final quotedResult = quotedMessage == null
+        ? null
+        : await _hydrateMediaItems(
+            quotedMessage.media,
+            content: quotedMessage.content,
+            forceRetry: forceRetry,
+          );
+    if (!directResult.changed && quotedResult?.changed != true) return message;
+    final hydrated = message.copyWith(
+      media: directResult.media,
+      quotedMessage: quotedMessage?.copyWith(media: quotedResult?.media),
+    );
+    if (!identical(_conversations[conversation.id], conversation)) {
+      return hydrated;
+    }
+    final normalizedMessageId = normalizeDingTalkMessageId(message.id);
+    final index = conversation.messages.indexWhere(
+      (item) => normalizeDingTalkMessageId(item.id) == normalizedMessageId,
+    );
+    if (index >= 0) {
+      final current = conversation.messages[index];
+      final currentQuoted = current.quotedMessage;
+      final hydratedQuoted = hydrated.quotedMessage;
+      final updated = current.copyWith(
+        media: mergeDingTalkMediaCache(hydrated.media, current.media),
+        quotedMessage: hydratedQuoted?.copyWith(
+          media: currentQuoted == null
+              ? hydratedQuoted.media
+              : mergeDingTalkMediaCache(
+                  hydratedQuoted.media,
+                  currentQuoted.media,
+                ),
+        ),
+      );
+      conversation.messages[index] = updated;
+      _queuePersist();
+      _notify();
+      return updated;
+    }
+    return hydrated;
+  }
+
+  Future<({List<DingTalkGatewayMedia> media, bool changed})> _hydrateMediaItems(
+    List<DingTalkGatewayMedia> source, {
+    required String content,
+    required bool forceRetry,
+  }) async {
     var changed = false;
     final media = <DingTalkGatewayMedia>[];
-    for (final sourceItem in message.media) {
+    for (final sourceItem in source) {
       if (isDingTalkResourceIdInUrlQuery(
-        message.content,
+        content,
         sourceItem.resourceId,
         resourceType: sourceItem.resourceType,
       )) {
@@ -1608,26 +1668,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         changed = true;
       }
     }
-    if (!changed) return message;
-    final hydrated = message.copyWith(media: media);
-    if (!identical(_conversations[conversation.id], conversation)) {
-      return hydrated;
-    }
-    final normalizedMessageId = normalizeDingTalkMessageId(message.id);
-    final index = conversation.messages.indexWhere(
-      (item) => normalizeDingTalkMessageId(item.id) == normalizedMessageId,
-    );
-    if (index >= 0) {
-      final current = conversation.messages[index];
-      final updated = current.copyWith(
-        media: mergeDingTalkMediaCache(media, current.media),
-      );
-      conversation.messages[index] = updated;
-      _queuePersist();
-      _notify();
-      return updated;
-    }
-    return hydrated;
+    return (media: media, changed: changed);
   }
 
   Future<Object?> loadConversationDetails(String conversationId) async {
@@ -2608,6 +2649,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       media: remote.media.isEmpty
           ? null
           : mergeDingTalkMediaCache(local.media, remote.media),
+      quotedMessage: remote.quotedMessage,
       fromSelf:
           local.fromSelf || remote.fromSelf || _isGeneratedMediaLocalEcho(local)
           ? true
@@ -3134,7 +3176,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     );
     if (incomingConversation != null &&
         _mergeIncomingOutgoingEcho(normalizedMessage, incomingConversation)) {
-      if (!allowHistorical && normalizedMessage.media.isNotEmpty) {
+      if (!allowHistorical && normalizedMessage.contextualMedia.isNotEmpty) {
         unawaited(_cacheIncomingMedia(incomingConversation, normalizedMessage));
       }
       _notify();
@@ -3152,7 +3194,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       _mergeQueriedMessage(existingConversation, incoming);
       _applyPendingStatusEvents(existingConversation, messageId);
       _remember(messageId);
-      if (!allowHistorical && incoming.media.isNotEmpty) {
+      if (!allowHistorical && incoming.contextualMedia.isNotEmpty) {
         unawaited(_cacheIncomingMedia(existingConversation, incoming));
       }
       if (previous != null &&
@@ -3250,7 +3292,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         unawaited(SystemSound.play(SystemSoundType.alert));
       }
     }
-    if (!allowHistorical && incoming.media.isNotEmpty && !shouldRespond) {
+    if (!allowHistorical &&
+        incoming.contextualMedia.isNotEmpty &&
+        !shouldRespond) {
       unawaited(_cacheIncomingMedia(conversation, incoming));
     }
     if (shouldRespond) {
@@ -3313,6 +3357,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
               current.forwardedMessages,
               remote.forwardedMessages,
             ));
+    final remoteQuotedMessage = remote.quotedMessage;
+    final currentQuotedMessage = current.quotedMessage;
+    final quotedMessageChanged =
+        remoteQuotedMessage != null &&
+        (currentQuotedMessage == null ||
+            !_sameQuotedMessage(currentQuotedMessage, remoteQuotedMessage));
     final mentionChanged =
         remote.mentionedCurrentUser && !current.mentionedCurrentUser;
     final readChanged = remote.readByPeer && !current.readByPeer;
@@ -3327,6 +3377,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         !recalledChanged &&
         !mediaChanged &&
         !forwardedMessagesChanged &&
+        !quotedMessageChanged &&
         !mentionChanged &&
         !readChanged &&
         !reactionsChanged) {
@@ -3359,6 +3410,16 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     conversation.messages[index] = current.copyWith(
       content: contentChanged ? remote.content : null,
       media: media,
+      quotedMessage: quotedMessageChanged
+          ? remoteQuotedMessage.copyWith(
+              media: currentQuotedMessage == null
+                  ? remoteQuotedMessage.media
+                  : mergeDingTalkMediaCache(
+                      currentQuotedMessage.media,
+                      remoteQuotedMessage.media,
+                    ),
+            )
+          : null,
       forwardedMessages: forwardedMessagesChanged
           ? _preserveForwardedMessageState(
               current.forwardedMessages,
@@ -3401,6 +3462,20 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }
     }
     return true;
+  }
+
+  bool _sameQuotedMessage(
+    DingTalkQuotedMessage left,
+    DingTalkQuotedMessage right,
+  ) {
+    return normalizeDingTalkMessageId(left.id) ==
+            normalizeDingTalkMessageId(right.id) &&
+        left.senderId == right.senderId &&
+        left.senderName == right.senderName &&
+        left.createdAt == right.createdAt &&
+        normalizeDingTalkMessageContentForComparison(left.content) ==
+            normalizeDingTalkMessageContentForComparison(right.content) &&
+        _sameMedia(left.media, right.media);
   }
 
   bool _sameForwardedMessages(
@@ -3945,7 +4020,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       if (message.isAssistant ||
           message.isExcludedFromAiContext ||
           _isSkippedAiResponseMessage(message) ||
-          message.media.isEmpty) {
+          message.contextualMedia.isEmpty) {
         continue;
       }
       candidates.add(message);
@@ -4751,31 +4826,40 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   String _messageAiContextContent(DingTalkGatewayMessage message) {
-    if (!message.isForwardedChatRecord) {
-      return clipTextByCodeUnits(
-        _sanitizeDingTalkVisibleText(message.content).trim(),
-        _maxAiContextMessageCharacters,
-        suffix: '…',
-      );
-    }
-    final buffer = StringBuffer()
-      ..writeln('转发的聊天记录（共 ${message.forwardedMessageCount} 条）：');
-    var included = 0;
-    for (final item in message.forwardedMessages) {
-      if (item.ignoredForAiContext) continue;
-      final sender = item.senderName.trim().isEmpty
+    final buffer = StringBuffer();
+    final quoted = message.quotedMessage;
+    if (quoted != null) {
+      final sender = quoted.senderName.trim().isEmpty
           ? '用户'
-          : item.senderName.trim();
-      final sanitizedContent = _sanitizeDingTalkVisibleText(item.content);
+          : quoted.senderName.trim();
+      final sanitizedContent = _sanitizeDingTalkVisibleText(quoted.content);
       final text = sanitizedContent.trim().isNotEmpty
           ? sanitizedContent.trim()
-          : item.media.map((media) => '[${media.displayName}]').join(' ');
-      if (text.isEmpty) continue;
-      buffer.writeln('$sender：$text');
-      included++;
-      if (buffer.length >= _maxAiContextMessageCharacters) break;
+          : quoted.media.map((media) => '[${media.displayName}]').join(' ');
+      if (text.isNotEmpty) buffer.writeln('引用消息（$sender）：$text');
     }
-    if (included == 0) return '';
+    if (!message.isForwardedChatRecord) {
+      final content = _sanitizeDingTalkVisibleText(message.content).trim();
+      if (content.isNotEmpty) {
+        buffer.write(quoted == null ? content : '当前消息：$content');
+      }
+    } else {
+      buffer.writeln('转发的聊天记录（共 ${message.forwardedMessageCount} 条）：');
+      for (final item in message.forwardedMessages) {
+        if (item.ignoredForAiContext) continue;
+        final sender = item.senderName.trim().isEmpty
+            ? '用户'
+            : item.senderName.trim();
+        final sanitizedContent = _sanitizeDingTalkVisibleText(item.content);
+        final text = sanitizedContent.trim().isNotEmpty
+            ? sanitizedContent.trim()
+            : item.media.map((media) => '[${media.displayName}]').join(' ');
+        if (text.isEmpty) continue;
+        buffer.writeln('$sender：$text');
+        if (buffer.length >= _maxAiContextMessageCharacters) break;
+      }
+    }
+    if (buffer.isEmpty) return '';
     return clipTextByCodeUnits(
       buffer.toString().trim(),
       _maxAiContextMessageCharacters,
@@ -4837,7 +4921,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           _isSkippedAiResponseMessage(message)) {
         continue;
       }
-      for (final media in message.media.reversed) {
+      for (final media in message.contextualMedia.toList().reversed) {
         final path = media.localPath.trim();
         if (path.isEmpty || !File(path).existsSync()) continue;
         try {

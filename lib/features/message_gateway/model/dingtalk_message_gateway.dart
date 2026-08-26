@@ -1364,6 +1364,81 @@ class DingTalkMessageEditRecord {
 const int kDingTalkForwardedMessageLimit = 500;
 
 @immutable
+class DingTalkQuotedMessage {
+  const DingTalkQuotedMessage({
+    required this.id,
+    required this.content,
+    required this.createdAt,
+    this.senderName = '',
+    this.senderId = '',
+    this.media = const <DingTalkGatewayMedia>[],
+  });
+
+  factory DingTalkQuotedMessage.fromJson(Map<String, Object?> json) {
+    final createdAt = DateTime.tryParse('${json['created_at'] ?? ''}');
+    if (createdAt == null) {
+      throw const FormatException('钉钉引用消息时间不完整。');
+    }
+    final id = normalizeDingTalkMessageId(json['id']);
+    final rawContent = stripImageSummaryMarkup('${json['content'] ?? ''}');
+    final projection = parseDingTalkDwsFileProjection(rawContent);
+    final storedMedia = _dingTalkGatewayMediaList(json['media']);
+    final media = storedMedia.isNotEmpty || projection == null
+        ? storedMedia
+        : <DingTalkGatewayMedia>[
+            DingTalkGatewayMedia(
+              resourceId: projection.resourceId,
+              messageId: id,
+              resourceType: DingTalkMediaResourceType.fileId,
+              kind: DingTalkMediaKindX.fromFileName(projection.name),
+              name: projection.name,
+            ),
+          ];
+    final textContent = normalizeDingTalkMediaText(rawContent, media);
+    if (id.isEmpty && textContent.isEmpty && media.isEmpty) {
+      throw const FormatException('钉钉引用消息内容不完整。');
+    }
+    return DingTalkQuotedMessage(
+      id: id,
+      content: textContent.isEmpty
+          ? media.map((item) => '[${item.displayName}]').join(' ')
+          : textContent,
+      createdAt: createdAt,
+      senderName: _normalizedDingTalkString(json['sender_name']),
+      senderId: _normalizedDingTalkString(json['sender_id']),
+      media: media,
+    );
+  }
+
+  final String id;
+  final String content;
+  final DateTime createdAt;
+  final String senderName;
+  final String senderId;
+  final List<DingTalkGatewayMedia> media;
+
+  DingTalkQuotedMessage copyWith({List<DingTalkGatewayMedia>? media}) {
+    return DingTalkQuotedMessage(
+      id: id,
+      content: content,
+      createdAt: createdAt,
+      senderName: senderName,
+      senderId: senderId,
+      media: media ?? this.media,
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'id': id,
+    'content': content,
+    'created_at': createdAt.toIso8601String(),
+    'sender_name': senderName,
+    'sender_id': senderId,
+    'media': media.map((item) => item.toJson()).toList(growable: false),
+  };
+}
+
+@immutable
 class DingTalkForwardedMessage {
   const DingTalkForwardedMessage({
     required this.id,
@@ -1481,6 +1556,15 @@ List<DingTalkForwardedMessage> _dingTalkForwardedMessageList(Object? raw) {
       .toList(growable: false);
 }
 
+DingTalkQuotedMessage? _dingTalkQuotedMessage(Object? raw) {
+  if (raw is! Map) return null;
+  try {
+    return DingTalkQuotedMessage.fromJson(stringKeyedMapFromValue(raw));
+  } on FormatException {
+    return null;
+  }
+}
+
 class DingTalkGatewayMessage {
   const DingTalkGatewayMessage({
     required this.id,
@@ -1493,6 +1577,7 @@ class DingTalkGatewayMessage {
     this.senderId = '',
     this.conversationTitle = '',
     this.media = const <DingTalkGatewayMedia>[],
+    this.quotedMessage,
     this.forwardedMessages = const <DingTalkForwardedMessage>[],
     this.forwardedMessageCount = 0,
     this.fromSelf = false,
@@ -1556,6 +1641,9 @@ class DingTalkGatewayMessage {
     final forwardedMessages = _dingTalkForwardedMessageList(
       json['forwarded_messages'],
     );
+    final quotedMessage = _dingTalkQuotedMessage(
+      json['quoted_message'] ?? json['quotedMessage'],
+    );
     final media = <DingTalkGatewayMedia>[
       if (storedMedia.isNotEmpty)
         ...storedMedia
@@ -1601,6 +1689,7 @@ class DingTalkGatewayMessage {
       senderId: '${json['sender_id'] ?? ''}',
       conversationTitle: '${json['conversation_title'] ?? ''}',
       media: media,
+      quotedMessage: quotedMessage,
       forwardedMessages: forwardedMessages,
       forwardedMessageCount:
           storedForwardedCount != null &&
@@ -1640,6 +1729,7 @@ class DingTalkGatewayMessage {
   final String senderId;
   final String conversationTitle;
   final List<DingTalkGatewayMedia> media;
+  final DingTalkQuotedMessage? quotedMessage;
   final List<DingTalkForwardedMessage> forwardedMessages;
   final int forwardedMessageCount;
   final bool fromSelf;
@@ -1658,7 +1748,14 @@ class DingTalkGatewayMessage {
   final DingTalkGatewayMessageFeedback? feedback;
 
   bool get isAssistant => role == DingTalkGatewayMessageRole.assistant;
+  bool get hasQuotedMessage => quotedMessage != null;
   bool get isForwardedChatRecord => forwardedMessages.isNotEmpty;
+  Iterable<DingTalkGatewayMedia> get contextualMedia sync* {
+    yield* media;
+    final quoted = quotedMessage;
+    if (quoted != null) yield* quoted.media;
+  }
+
   bool get isEdited => editHistory.isNotEmpty;
   bool get isExcludedFromAiContext => recalled || ignoredForAiContext;
   bool get isThinkingEcho =>
@@ -1674,6 +1771,7 @@ class DingTalkGatewayMessage {
     String? id,
     String? content,
     List<DingTalkGatewayMedia>? media,
+    DingTalkQuotedMessage? quotedMessage,
     List<DingTalkForwardedMessage>? forwardedMessages,
     int? forwardedMessageCount,
     bool? fromSelf,
@@ -1701,6 +1799,7 @@ class DingTalkGatewayMessage {
       senderId: senderId,
       conversationTitle: conversationTitle,
       media: media ?? this.media,
+      quotedMessage: quotedMessage ?? this.quotedMessage,
       forwardedMessages: forwardedMessages ?? this.forwardedMessages,
       forwardedMessageCount:
           forwardedMessageCount ?? this.forwardedMessageCount,
@@ -1732,6 +1831,7 @@ class DingTalkGatewayMessage {
     'sender_id': senderId,
     'conversation_title': conversationTitle,
     'media': media.map((item) => item.toJson()).toList(growable: false),
+    'quoted_message': quotedMessage?.toJson(),
     'forwarded_messages': forwardedMessages
         .map((item) => item.toJson())
         .toList(growable: false),

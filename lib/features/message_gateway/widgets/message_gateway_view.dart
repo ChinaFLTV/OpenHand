@@ -13007,12 +13007,16 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                                     )
                                                               : null,
                                                           onRetryMedia:
-                                                              message.media.any(
-                                                                (item) => item
-                                                                    .localPath
-                                                                    .trim()
-                                                                    .isEmpty,
-                                                              )
+                                                              message
+                                                                  .contextualMedia
+                                                                  .any(
+                                                                    (
+                                                                      item,
+                                                                    ) => item
+                                                                        .localPath
+                                                                        .trim()
+                                                                        .isEmpty,
+                                                                  )
                                                               ? () => unawaited(
                                                                   widget.controller.ensureMessageMediaCached(
                                                                     conversationId:
@@ -14020,7 +14024,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     String conversationId,
     DingTalkGatewayMessage message,
   ) {
-    if (!message.media.any(
+    if (!message.contextualMedia.any(
       (item) => item.kind.isPreviewable && item.localPath.trim().isEmpty,
     )) {
       return;
@@ -16358,6 +16362,13 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     return Column(
       crossAxisAlignment: crossAxis,
       children: [
+        if (widget.message.quotedMessage case final quotedMessage?)
+          _buildQuotedMessageCard(
+            context,
+            quotedMessage: quotedMessage,
+            bubbleColor: bubbleColor,
+            foreground: foreground,
+          ),
         if (media.isNotEmpty)
           AnimatedOpacity(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
@@ -16390,6 +16401,105 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           _buildReactionRow(context, foreground, topSpacing: 2),
         if (media.isNotEmpty) _buildMessageStateLabel(context),
       ],
+    );
+  }
+
+  Widget _buildQuotedMessageCard(
+    BuildContext context, {
+    required DingTalkQuotedMessage quotedMessage,
+    required Color bubbleColor,
+    required Color foreground,
+  }) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final sender = quotedMessage.senderName.trim().isEmpty
+        ? '用户'
+        : quotedMessage.senderName.trim();
+    final content = normalizeDingTalkMediaText(
+      stripImageSummaryMarkup(quotedMessage.content),
+      quotedMessage.media,
+    ).trim();
+    final preview = content.isNotEmpty
+        ? content
+        : quotedMessage.media.map((item) => '[${item.displayName}]').join(' ');
+    return Semantics(
+      label: '引用 $sender 的消息：$preview',
+      child: AnimatedContainer(
+        duration: openHandMotionDuration(context, kOpenHandMotion220),
+        curve: kOpenHandSwitchInCurve,
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
+        decoration: BoxDecoration(
+          color: Color.alphaBlend(
+            colors.surface.withValues(alpha: widget.mine ? 0.24 : 0.42),
+            bubbleColor,
+          ),
+          borderRadius: kOpenHandBorderRadius12,
+          border: Border.all(color: colors.primary.withValues(alpha: 0.24)),
+        ),
+        child: Container(
+          padding: const EdgeInsets.only(left: 10),
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(
+                color: colors.primary.withValues(alpha: 0.78),
+                width: 3,
+              ),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.format_quote_rounded,
+                    size: 15,
+                    color: colors.primary,
+                  ),
+                  kOpenHandHGap6,
+                  Flexible(
+                    child: Text(
+                      sender,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: foreground.withValues(alpha: 0.82),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (preview.isNotEmpty) ...[
+                kOpenHandGap4,
+                Text(
+                  preview,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: foreground.withValues(alpha: 0.78),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+              if (quotedMessage.media.isNotEmpty) ...[
+                kOpenHandGap8,
+                _DingTalkMediaRail(
+                  media: quotedMessage.media,
+                  mine: widget.mine,
+                  loading: widget.mediaLoading,
+                  failed: widget.mediaFailed,
+                  onRetry: widget.onRetryMedia,
+                  onSaveFile: widget.onSaveMedia,
+                  onInteractiveTap: _cancelPendingActionToggle,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 
