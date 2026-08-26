@@ -41,6 +41,59 @@ const String _dingTalkResponseRoundIdMetadataKey = 'dingtalk_response_round_id';
 String _sanitizeDingTalkVisibleText(String value) =>
     stripImageSummaryMarkup(value);
 
+@visibleForTesting
+bool canMergeDingTalkOutgoingEcho({
+  required bool incomingIsSelf,
+  required bool unresolvedOutgoing,
+  required bool sameContent,
+  required bool sameMedia,
+}) => incomingIsSelf && unresolvedOutgoing && (sameContent || sameMedia);
+
+@visibleForTesting
+bool matchesDingTalkOutgoingMedia(
+  List<DingTalkGatewayMedia> local,
+  List<DingTalkGatewayMedia> incoming,
+  String incomingContent,
+) {
+  final normalizedContent = incomingContent.toLowerCase();
+  if (local.length == 1 && incoming.isEmpty) {
+    final localName = local.single.name.trim().toLowerCase();
+    return localName.isNotEmpty && normalizedContent.contains(localName);
+  }
+  if (local.isEmpty || local.length != incoming.length) return false;
+  for (var index = 0; index < local.length; index++) {
+    final expected = local[index];
+    final actual = incoming[index];
+    final expectedId = normalizeDingTalkResourceId(expected.resourceId);
+    final actualId = normalizeDingTalkResourceId(actual.resourceId);
+    if (!expectedId.startsWith('local-') &&
+        expectedId.isNotEmpty &&
+        expectedId == actualId &&
+        expected.resourceType == actual.resourceType &&
+        expected.kind == actual.kind) {
+      continue;
+    }
+    if (expected.kind != actual.kind) return false;
+
+    var matched = false;
+    if (expected.sizeBytes > 0 && actual.sizeBytes > 0) {
+      if (expected.sizeBytes != actual.sizeBytes) return false;
+      matched = true;
+    }
+    final expectedName = expected.name.trim().toLowerCase();
+    final actualName = actual.name.trim().toLowerCase();
+    if (expectedName.isNotEmpty && actualName.isNotEmpty) {
+      if (expectedName != actualName) return false;
+      matched = true;
+    } else if (expectedName.isNotEmpty &&
+        normalizedContent.contains(expectedName)) {
+      matched = true;
+    }
+    if (!matched) return false;
+  }
+  return true;
+}
+
 enum DingTalkConversationResponseState {
   idle,
   active,
@@ -2077,6 +2130,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _pendingStatusEvents.clear();
     _pendingInitialContextHydration.clear();
     _unresolvedOutgoingMessageIds.clear();
+    _selfSenderIds.clear();
     _notify();
     late final Future<void> task;
     task =
@@ -2888,44 +2942,19 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final incomingContentComparison =
         normalizeDingTalkMessageContentForComparison(incomingContent);
     final incomingSenderId = incoming.senderId.trim();
-    final incomingSenderName = incoming.senderName.trim();
     final incomingIsSelf = _isSelf(incoming);
-    final directPeerIds = conversation.type == DingTalkConversationType.direct
-        ? (<String>{
-            conversation.directUserId?.trim() ?? '',
-            conversation.directOpenDingTalkId?.trim() ?? '',
-          }..remove(''))
-        : const <String>{};
+    if (!incomingIsSelf) return false;
     var localIndex = -1;
     Duration? closestAge;
     for (final entry in conversation.messages.asMap().entries) {
       final local = entry.value;
-      if (!local.fromSelf ||
-          local.id == incomingId ||
-          local.conversationType != incoming.conversationType) {
-        continue;
-      }
-      final localSenderId = local.senderId.trim();
-      final localSenderName = local.senderName.trim();
-      final senderNamesMatch =
-          incomingSenderName.isNotEmpty &&
-          localSenderName.isNotEmpty &&
-          _sameIdentityName(incomingSenderName, localSenderName);
       final unresolvedOutgoing = _unresolvedOutgoingMessageIds.contains(
         local.id,
       );
-      if (!incomingIsSelf &&
-          !unresolvedOutgoing &&
-          (local.isAssistant ||
-              directPeerIds.contains(incomingSenderId) ||
-              (incomingSenderId.isNotEmpty &&
-                  localSenderId.isNotEmpty &&
-                  incomingSenderId != localSenderId &&
-                  !senderNamesMatch) ||
-              (incomingSenderId.isEmpty &&
-                  incomingSenderName.isNotEmpty &&
-                  localSenderName.isNotEmpty &&
-                  !senderNamesMatch))) {
+      if (!local.fromSelf ||
+          !unresolvedOutgoing ||
+          local.id == incomingId ||
+          local.conversationType != incoming.conversationType) {
         continue;
       }
       final age = incoming.createdAt.difference(local.createdAt).abs();
@@ -2939,12 +2968,19 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
                         _dingTalkRemoteEchoText(local.content),
                       ) ==
                       incomingContentComparison);
-      final sameMedia = _outgoingMediaMatches(
+      final sameMedia = matchesDingTalkOutgoingMedia(
         local.media,
         incoming.media,
         incomingContent,
       );
-      if (!sameContent && !sameMedia) continue;
+      if (!canMergeDingTalkOutgoingEcho(
+        incomingIsSelf: incomingIsSelf,
+        unresolvedOutgoing: unresolvedOutgoing,
+        sameContent: sameContent,
+        sameMedia: sameMedia,
+      )) {
+        continue;
+      }
       if (closestAge == null || age < closestAge) {
         localIndex = entry.key;
         closestAge = age;
@@ -3007,7 +3043,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             remoteContentComparison.isNotEmpty &&
             remoteContentComparison == localContentComparison;
         if (!sameContent &&
-            !_outgoingMediaMatches(local.media, remote.media, remote.content)) {
+            !matchesDingTalkOutgoingMedia(
+              local.media,
+              remote.media,
+              remote.content,
+            )) {
           continue;
         }
         if (closestAge == null || age < closestAge) {
@@ -3036,48 +3076,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     return message.id.startsWith('assistant-media-') &&
         message.isAssistant &&
         message.media.isNotEmpty;
-  }
-
-  bool _outgoingMediaMatches(
-    List<DingTalkGatewayMedia> local,
-    List<DingTalkGatewayMedia> incoming,
-    String incomingContent,
-  ) {
-    final normalizedContent = incomingContent.toLowerCase();
-    if (local.length == 1 && incoming.isEmpty) {
-      final localName = local.single.name.trim().toLowerCase();
-      return localName.isNotEmpty && normalizedContent.contains(localName);
-    }
-    if (local.isEmpty || local.length != incoming.length) return false;
-    for (var index = 0; index < local.length; index++) {
-      final expected = local[index];
-      final actual = incoming[index];
-      final expectedId = normalizeDingTalkResourceId(expected.resourceId);
-      final actualId = normalizeDingTalkResourceId(actual.resourceId);
-      if (!expectedId.startsWith('local-') &&
-          expectedId.isNotEmpty &&
-          expectedId == actualId &&
-          expected.resourceType == actual.resourceType) {
-        continue;
-      }
-      final expectedName = expected.name.trim().toLowerCase();
-      final actualName = actual.name.trim().toLowerCase();
-      final nameMatches =
-          expectedName.isNotEmpty &&
-          (expectedName == actualName ||
-              normalizedContent.contains(expectedName));
-      if (nameMatches) continue;
-      final sizeConflicts =
-          expected.sizeBytes > 0 &&
-          actual.sizeBytes > 0 &&
-          expected.sizeBytes != actual.sizeBytes;
-      if (sizeConflicts ||
-          expected.kind != actual.kind ||
-          (expectedName.isNotEmpty && actualName.isNotEmpty)) {
-        return false;
-      }
-    }
-    return true;
   }
 
   void _handleIncomingMessage(
@@ -6294,8 +6292,7 @@ ${_markdownStructuredFields(response)}''';
         ? profile.substring(profile.lastIndexOf(':') + 1)
         : profile;
     if (sender.isNotEmpty &&
-        (_selfSenderIds.contains(sender) ||
-            (current.isNotEmpty && sender == current) ||
+        ((current.isNotEmpty && sender == current) ||
             (currentOpenDingTalkId.isNotEmpty &&
                 sender == currentOpenDingTalkId) ||
             (profile.isNotEmpty && sender == profile) ||
@@ -6305,11 +6302,17 @@ ${_markdownStructuredFields(response)}''';
     final senderName = message.senderName.trim();
     final identityName = _authStatus.identity.name.trim();
     final identityLabel = _authStatus.identity.label.trim();
-    return senderName.isNotEmpty &&
+    final senderNameMatches =
+        senderName.isNotEmpty &&
         ((identityName.isNotEmpty &&
                 _sameIdentityName(senderName, identityName)) ||
             (identityLabel.isNotEmpty &&
                 _sameIdentityName(senderName, identityLabel)));
+    if (sender.isNotEmpty && _selfSenderIds.contains(sender)) {
+      if (senderName.isEmpty || senderNameMatches) return true;
+      _selfSenderIds.remove(sender);
+    }
+    return senderNameMatches;
   }
 
   bool _sameIdentityName(String left, String right) {
