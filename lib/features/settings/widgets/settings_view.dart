@@ -2288,21 +2288,18 @@ class _SettingsViewState extends State<SettingsView> {
                 de: 'Prüft GitHub Releases auf eine neuere Version.',
                 ja: 'GitHub Releases から新しいバージョンの有無を確認します。',
               ),
-              control: Align(
-                alignment: Alignment.centerLeft,
-                child: FilledButton.icon(
-                  onPressed: () => _showUpdateCheckDialog(context, appInfo),
-                  icon: const Icon(Icons.system_update_outlined, size: 18),
-                  label: Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '检查更新',
-                      zhHant: '檢查更新',
-                      en: 'Check',
-                      fr: 'Vérifier',
-                      de: 'Prüfen',
-                      ja: '確認',
-                    ),
+              control: FilledButton.icon(
+                onPressed: () => _showUpdateCheckDialog(context, appInfo),
+                icon: const Icon(Icons.system_update_outlined, size: 18),
+                label: Text(
+                  openHandLocalizedText(
+                    context,
+                    zh: '检查更新',
+                    zhHant: '檢查更新',
+                    en: 'Check',
+                    fr: 'Vérifier',
+                    de: 'Prüfen',
+                    ja: '確認',
                   ),
                 ),
               ),

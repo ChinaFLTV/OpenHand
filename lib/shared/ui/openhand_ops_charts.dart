@@ -3543,10 +3543,21 @@ class _OpenHandOperationalRankTableState
           label: '${widget.semanticsLabel}，共 ${sortedRows.length} 行',
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final tableWidth = widths.fold<double>(
+              final contentWidth = widths.fold<double>(
                 0,
                 (sum, width) => sum + width,
               );
+              final viewportWidth = constraints.hasBoundedWidth
+                  ? constraints.maxWidth
+                  : contentWidth;
+              final widthScale =
+                  contentWidth > 0 && viewportWidth > contentWidth
+                  ? viewportWidth / contentWidth
+                  : 1.0;
+              final displayWidths = widthScale == 1
+                  ? widths
+                  : <double>[for (final width in widths) width * widthScale];
+              final tableWidth = math.max(contentWidth, viewportWidth);
               final bodyCap =
                   widget.maxBodyHeight.isFinite &&
                       widget.maxBodyHeight > rowHeight
@@ -3565,7 +3576,7 @@ class _OpenHandOperationalRankTableState
               }) {
                 final inner = math.max(
                   0.0,
-                  widths[index] - _kRankCellPadding * 2,
+                  displayWidths[index] - _kRankCellPadding * 2,
                 );
                 final overflow =
                     _rankTextWidth(text, style, textScaler: scaler) >
@@ -3693,7 +3704,7 @@ class _OpenHandOperationalRankTableState
                     children: [
                       for (var i = 0; i < columnCount; i++)
                         SizedBox(
-                          width: widths[i],
+                          width: displayWidths[i],
                           height: header ? _kRankHeaderHeight : rowHeight,
                           child: Stack(
                             fit: StackFit.expand,
