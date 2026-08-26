@@ -12328,6 +12328,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         final selected = conversations
             .where((item) => item.id == _selectedId)
             .firstOrNull;
+        final selectedQueuedResponses = selected == null
+            ? const <DingTalkQueuedResponse>[]
+            : widget.controller.queuedResponses(selected.id);
         final messageActionFallbackModel = selected == null
             ? null
             : widget.controller.messageActionFallbackModel(selected);
@@ -13142,6 +13145,41 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                               ),
                                             ),
                                     ),
+                                    AnimatedSwitcher(
+                                      duration: openHandMotionDuration(
+                                        context,
+                                        kOpenHandMotion220,
+                                      ),
+                                      switchInCurve: kOpenHandEntranceCurve,
+                                      switchOutCurve: kOpenHandSwitchOutCurve,
+                                      child: selectedQueuedResponses.isEmpty
+                                          ? const SizedBox.shrink(
+                                              key: ValueKey<String>(
+                                                'dingtalk-response-queue-empty',
+                                              ),
+                                            )
+                                          : _DingTalkQueuedResponsesPanel(
+                                              key: ValueKey<String>(
+                                                'dingtalk-response-queue:${selected.id}',
+                                              ),
+                                              messages: selectedQueuedResponses,
+                                              animationSettings:
+                                                  chipAnimationSettings,
+                                              onRemove: (sequence) => widget
+                                                  .controller
+                                                  .removeQueuedResponse(
+                                                    selected.id,
+                                                    sequence,
+                                                  ),
+                                              onMove: (from, to) => widget
+                                                  .controller
+                                                  .moveQueuedResponse(
+                                                    selected.id,
+                                                    from,
+                                                    to,
+                                                  ),
+                                            ),
+                                    ),
                                     _buildComposer(
                                       selected,
                                       chipAnimationSettings,
@@ -13776,6 +13814,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
 
   void _handleControllerChanged() {
     if (!mounted) return;
+    if (widget.controller.unreadCount > 0) {
+      widget.controller.markAllRead();
+    }
     if (!widget.controller.isServiceEnabled) {
       unawaited(_ttsPlaybackService.stop());
       _translations.clear();
@@ -15653,6 +15694,144 @@ class _DingTalkStatusDotState extends State<_DingTalkStatusDot>
   );
 }
 
+class _DingTalkQueuedResponsesPanel extends StatelessWidget {
+  const _DingTalkQueuedResponsesPanel({
+    super.key,
+    required this.messages,
+    required this.animationSettings,
+    required this.onRemove,
+    required this.onMove,
+  });
+
+  final List<DingTalkQueuedResponse> messages;
+  final DialogAnimationSettings animationSettings;
+  final ValueChanged<int> onRemove;
+  final void Function(int from, int to) onMove;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 164),
+        child: ListView.builder(
+          shrinkWrap: true,
+          physics: messages.length > 3
+              ? null
+              : const NeverScrollableScrollPhysics(),
+          itemCount: messages.length,
+          itemBuilder: (context, index) {
+            final message = messages[index];
+            final isFirst = index == 0;
+            final isLast = index == messages.length - 1;
+            Color actionColor(bool enabled) => enabled
+                ? colors.onSurfaceVariant
+                : colors.onSurfaceVariant.withValues(alpha: 0.3);
+            return AnimatedRemovableChip(
+              key: ValueKey<String>('dingtalk-queued:${message.sequence}'),
+              settings: animationSettings,
+              collapseAxis: Axis.vertical,
+              onRemove: () => onRemove(message.sequence),
+              builder: (context, requestRemove) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerHighest.withValues(
+                      alpha: 0.5,
+                    ),
+                    borderRadius: kOpenHandBorderRadius8,
+                    border: Border.all(
+                      color: colors.outlineVariant.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.hourglass_empty_rounded,
+                        size: 14,
+                        color: colors.onSurfaceVariant,
+                      ),
+                      kOpenHandHGap8,
+                      Expanded(
+                        child: Text(
+                          message.content.replaceAll('\n', ' '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: colors.onSurfaceVariant,
+                                fontStyle: FontStyle.italic,
+                              ),
+                        ),
+                      ),
+                      kOpenHandHGap4,
+                      MicroPressFeedback(
+                        enabled: !isFirst,
+                        child: IconButton(
+                          onPressed: isFirst
+                              ? null
+                              : () => onMove(index, index - 1),
+                          icon: Icon(
+                            Icons.arrow_upward_rounded,
+                            size: 14,
+                            color: actionColor(!isFirst),
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: '上移',
+                        ),
+                      ),
+                      kOpenHandHGap4,
+                      MicroPressFeedback(
+                        enabled: !isLast,
+                        child: IconButton(
+                          onPressed: isLast
+                              ? null
+                              : () => onMove(index, index + 1),
+                          icon: Icon(
+                            Icons.arrow_downward_rounded,
+                            size: 14,
+                            color: actionColor(!isLast),
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: '下移',
+                        ),
+                      ),
+                      kOpenHandHGap4,
+                      MicroPressFeedback(
+                        child: IconButton(
+                          onPressed: requestRemove,
+                          icon: Icon(
+                            Icons.close_rounded,
+                            size: 14,
+                            color: colors.onSurfaceVariant,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: '删除此等待消息',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
 class _DingTalkResponseErrorBanner extends StatelessWidget {
   const _DingTalkResponseErrorBanner({
     required this.message,
@@ -16001,6 +16180,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     );
     final contentExpanded =
         !widget.message.isExcludedFromAiContext || _showExcludedContent;
+    final status = _messageStatus();
     return SizedBox(
       width: double.infinity,
       child: Column(
@@ -16100,16 +16280,74 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
             visible: contentExpanded && widget.actionsVisible,
             mine: widget.mine,
             actions: _buildMessageActions(context, widget.message.media),
-            meta: _DingTalkMessageMetaPill(
-              label: widget.mine && widget.message.readByPeer
-                  ? '${formatYearMonthDayHmLocal(widget.message.createdAt)} · 已读'
-                  : formatYearMonthDayHmLocal(widget.message.createdAt),
+            meta: _DingTalkMessageMetaRow(
+              createdAt: widget.message.createdAt,
+              statusIcon: status.icon,
+              statusLabel: status.label,
             ),
           ),
           kOpenHandGap7,
         ],
       ),
     );
+  }
+
+  ({IconData icon, String label}) _messageStatus() {
+    if (widget.message.recalled) {
+      return (icon: Icons.undo_rounded, label: '已撤回');
+    }
+    if (widget.message.failed) {
+      return (icon: Icons.error_outline_rounded, label: '发送失败');
+    }
+    if (widget.streaming) {
+      return (icon: Icons.auto_awesome_rounded, label: 'AI 正在响应');
+    }
+    final aiState = widget.message.aiResponseState;
+    if (aiState != DingTalkMessageAiResponseState.none) {
+      return switch (aiState) {
+        DingTalkMessageAiResponseState.queued => (
+          icon: Icons.hourglass_empty_rounded,
+          label: '已加入 AI 响应等待队列',
+        ),
+        DingTalkMessageAiResponseState.responding => (
+          icon: Icons.auto_awesome_rounded,
+          label: 'AI 正在响应',
+        ),
+        DingTalkMessageAiResponseState.responded => (
+          icon: Icons.task_alt_rounded,
+          label: 'AI 已响应',
+        ),
+        DingTalkMessageAiResponseState.rejected => (
+          icon: Icons.block_rounded,
+          label: 'AI 已拒绝响应',
+        ),
+        DingTalkMessageAiResponseState.dropped => (
+          icon: Icons.visibility_off_rounded,
+          label: '已被 AI 忽略丢弃',
+        ),
+        DingTalkMessageAiResponseState.cancelled => (
+          icon: Icons.cancel_outlined,
+          label: 'AI 响应已取消',
+        ),
+        DingTalkMessageAiResponseState.failed => (
+          icon: Icons.error_outline_rounded,
+          label: 'AI 响应失败',
+        ),
+        DingTalkMessageAiResponseState.none => (
+          icon: Icons.info_outline_rounded,
+          label: '未处理',
+        ),
+      };
+    }
+    if (widget.message.ignoredForAiContext) {
+      return (icon: Icons.visibility_off_rounded, label: '已忽略 AI 上下文');
+    }
+    final read =
+        widget.message.readByPeer ||
+        (!widget.message.isAssistant && !widget.message.fromSelf);
+    return read
+        ? (icon: Icons.mark_email_read_outlined, label: '已读')
+        : (icon: Icons.mark_email_unread_outlined, label: '未读');
   }
 
   Widget _buildMessageContent(
@@ -17475,16 +17713,44 @@ class _DingTalkExcludedMessageState extends StatelessWidget {
   }
 }
 
-class _DingTalkMessageMetaPill extends StatelessWidget {
-  const _DingTalkMessageMetaPill({required this.label});
+class _DingTalkMessageMetaRow extends StatelessWidget {
+  const _DingTalkMessageMetaRow({
+    required this.createdAt,
+    required this.statusIcon,
+    required this.statusLabel,
+  });
 
+  final DateTime createdAt;
+  final IconData statusIcon;
+  final String statusLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        _DingTalkMessageMetaPill(
+          icon: Icons.schedule_rounded,
+          label: formatYearMonthDayHmLocal(createdAt),
+        ),
+        _DingTalkMessageMetaPill(icon: statusIcon, label: statusLabel),
+      ],
+    );
+  }
+}
+
+class _DingTalkMessageMetaPill extends StatelessWidget {
+  const _DingTalkMessageMetaPill({required this.icon, required this.label});
+
+  final IconData icon;
   final String label;
 
   @override
   Widget build(BuildContext context) {
     return IgnorePointer(
       child: _DingTalkMessageActionButton(
-        icon: Icons.schedule_rounded,
+        icon: icon,
         label: label,
         onPressed: () {},
       ),
@@ -18612,6 +18878,7 @@ class _DingTalkForwardedChatDialogState
                       ),
                   ],
                   meta: _DingTalkMessageMetaPill(
+                    icon: Icons.schedule_rounded,
                     label: formatYearMonthDayHmLocal(item.createdAt),
                   ),
                 ),
@@ -22458,6 +22725,8 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
             ? OpenHandPaths.applicationDirectoryPath()
             : widget.controller.settings.workingDirectory,
       );
+  late DingTalkOverloadStrategy _overloadStrategy =
+      widget.controller.settings.overloadStrategy;
   late DingTalkReminderMode _reminderMode =
       widget.controller.settings.reminderMode;
   late DingTalkResponseMode _responseMode =
@@ -22580,6 +22849,33 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                       labelText: '工作线程数',
                       helperText: '同时处理的会话数，最小 1，保存后立即生效',
                       prefixIcon: Icon(Icons.account_tree_rounded),
+                    ),
+                  ),
+                  kOpenHandGap14,
+                  AnimatedDropdownButtonFormField<DingTalkOverloadStrategy>(
+                    initialValue: _overloadStrategy,
+                    decoration: const InputDecoration(
+                      labelText: '消息过载处理',
+                      helperText: '工作线程忙碌时对新到达的 AI 响应消息执行此策略',
+                      prefixIcon: Icon(Icons.traffic_rounded),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: DingTalkOverloadStrategy.queue,
+                        child: Text('加入等待队列'),
+                      ),
+                      DropdownMenuItem(
+                        value: DingTalkOverloadStrategy.reject,
+                        child: Text('拒绝响应'),
+                      ),
+                      DropdownMenuItem(
+                        value: DingTalkOverloadStrategy.drop,
+                        child: Text('静默丢弃'),
+                      ),
+                    ],
+                    onChanged: (value) => setState(
+                      () => _overloadStrategy =
+                          value ?? DingTalkOverloadStrategy.queue,
                     ),
                   ),
                   kOpenHandGap14,
@@ -23454,6 +23750,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
         DingTalkGatewaySettings(
           pollIntervalSeconds: seconds,
           responseWorkerCount: workerCount,
+          overloadStrategy: _overloadStrategy,
           reminderMode: _reminderMode,
           responseMode: _responseMode,
           responseModelKey: _modelKey,

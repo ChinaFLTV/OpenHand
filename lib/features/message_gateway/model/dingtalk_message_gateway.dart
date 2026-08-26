@@ -535,6 +535,47 @@ enum DingTalkResponseMode {
 
 enum DingTalkGatewayMessageRole { user, assistant }
 
+enum DingTalkOverloadStrategy {
+  queue('queue'),
+  reject('reject'),
+  drop('drop');
+
+  const DingTalkOverloadStrategy(this.storageValue);
+
+  final String storageValue;
+
+  static DingTalkOverloadStrategy fromStorage(Object? value) {
+    final normalized = '${value ?? ''}'.trim().toLowerCase();
+    return values.firstWhere(
+      (item) => item.storageValue == normalized,
+      orElse: () => DingTalkOverloadStrategy.queue,
+    );
+  }
+}
+
+enum DingTalkMessageAiResponseState {
+  none('none'),
+  queued('queued'),
+  responding('responding'),
+  responded('responded'),
+  rejected('rejected'),
+  dropped('dropped'),
+  cancelled('cancelled'),
+  failed('failed');
+
+  const DingTalkMessageAiResponseState(this.storageValue);
+
+  final String storageValue;
+
+  static DingTalkMessageAiResponseState fromStorage(Object? value) {
+    final normalized = '${value ?? ''}'.trim().toLowerCase();
+    return values.firstWhere(
+      (item) => item.storageValue == normalized,
+      orElse: () => DingTalkMessageAiResponseState.none,
+    );
+  }
+}
+
 enum DingTalkGatewayMessageFeedback {
   liked('liked'),
   needsImprovement('needs_improvement');
@@ -849,6 +890,7 @@ class DingTalkGatewaySettings {
   const DingTalkGatewaySettings({
     this.pollIntervalSeconds = defaultPollIntervalSeconds,
     this.responseWorkerCount = defaultResponseWorkerCount,
+    this.overloadStrategy = DingTalkOverloadStrategy.queue,
     this.reminderMode = DingTalkReminderMode.inApp,
     this.responseMode = DingTalkResponseMode.allowlist,
     this.responseModelKey = '',
@@ -884,6 +926,9 @@ class DingTalkGatewaySettings {
       ),
       responseWorkerCount: normalizeResponseWorkerCount(
         json['response_worker_count'],
+      ),
+      overloadStrategy: DingTalkOverloadStrategy.fromStorage(
+        json['overload_strategy'],
       ),
       reminderMode: mode,
       responseMode: DingTalkResponseMode.fromStorage(json['response_mode']),
@@ -929,6 +974,7 @@ class DingTalkGatewaySettings {
 
   final int pollIntervalSeconds;
   final int responseWorkerCount;
+  final DingTalkOverloadStrategy overloadStrategy;
   final DingTalkReminderMode reminderMode;
   final DingTalkResponseMode responseMode;
   final String responseModelKey;
@@ -975,6 +1021,7 @@ class DingTalkGatewaySettings {
   }) => DingTalkGatewaySettings(
     pollIntervalSeconds: normalizePollIntervalSeconds(pollIntervalSeconds),
     responseWorkerCount: normalizeResponseWorkerCount(responseWorkerCount),
+    overloadStrategy: overloadStrategy,
     reminderMode: reminderMode,
     responseMode: responseMode,
     responseModelKey: responseModelKey.trim(),
@@ -1027,6 +1074,7 @@ class DingTalkGatewaySettings {
   DingTalkGatewaySettings copyWith({
     int? pollIntervalSeconds,
     int? responseWorkerCount,
+    DingTalkOverloadStrategy? overloadStrategy,
     DingTalkReminderMode? reminderMode,
     DingTalkResponseMode? responseMode,
     String? responseModelKey,
@@ -1053,6 +1101,7 @@ class DingTalkGatewaySettings {
     responseWorkerCount: normalizeResponseWorkerCount(
       responseWorkerCount ?? this.responseWorkerCount,
     ),
+    overloadStrategy: overloadStrategy ?? this.overloadStrategy,
     reminderMode: reminderMode ?? this.reminderMode,
     responseMode: responseMode ?? this.responseMode,
     responseModelKey: responseModelKey ?? this.responseModelKey,
@@ -1083,6 +1132,7 @@ class DingTalkGatewaySettings {
   Map<String, Object?> toJson() => <String, Object?>{
     'poll_interval_seconds': pollIntervalSeconds,
     'response_worker_count': responseWorkerCount,
+    'overload_strategy': overloadStrategy.storageValue,
     'reminder_mode': reminderMode.name,
     'response_mode': responseMode.storageValue,
     'response_model_key': responseModelKey,
@@ -1410,6 +1460,7 @@ class DingTalkGatewayMessage {
     this.failed = false,
     this.mentionedCurrentUser = false,
     this.readByPeer = false,
+    this.aiResponseState = DingTalkMessageAiResponseState.none,
     this.recalled = false,
     this.ignoredForAiContext = false,
     this.reactions = const <String>[],
@@ -1525,6 +1576,9 @@ class DingTalkGatewayMessage {
       readByPeer: boolFromValue(
         json['read_by_peer'] ?? json['is_read'] ?? json['read'],
       ),
+      aiResponseState: DingTalkMessageAiResponseState.fromStorage(
+        json['ai_response_state'],
+      ),
       recalled: boolFromValue(
         json['recalled'] ?? json['is_recalled'] ?? json['recall'],
       ),
@@ -1555,6 +1609,7 @@ class DingTalkGatewayMessage {
   final bool failed;
   final bool mentionedCurrentUser;
   final bool readByPeer;
+  final DingTalkMessageAiResponseState aiResponseState;
   final bool recalled;
   final bool ignoredForAiContext;
   final List<String> reactions;
@@ -1586,6 +1641,7 @@ class DingTalkGatewayMessage {
     int? forwardedMessageCount,
     bool? mentionedCurrentUser,
     bool? readByPeer,
+    DingTalkMessageAiResponseState? aiResponseState,
     bool? recalled,
     bool? ignoredForAiContext,
     List<String>? reactions,
@@ -1614,6 +1670,7 @@ class DingTalkGatewayMessage {
       failed: failed,
       mentionedCurrentUser: mentionedCurrentUser ?? this.mentionedCurrentUser,
       readByPeer: readByPeer ?? this.readByPeer,
+      aiResponseState: aiResponseState ?? this.aiResponseState,
       recalled: recalled ?? this.recalled,
       ignoredForAiContext: ignoredForAiContext ?? this.ignoredForAiContext,
       reactions: reactions ?? this.reactions,
@@ -1645,6 +1702,7 @@ class DingTalkGatewayMessage {
     'failed': failed,
     'mentioned_current_user': mentionedCurrentUser,
     'read_by_peer': readByPeer,
+    'ai_response_state': aiResponseState.storageValue,
     'recalled': recalled,
     'ignored_for_ai_context': ignoredForAiContext,
     'reactions': reactions,
