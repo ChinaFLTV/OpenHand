@@ -33,6 +33,7 @@ import '../../../shared/ui/data_cleanup_range_dialog.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/frame_coalesced_rebuild.dart';
+import '../../../shared/ui/generated_media_result_card.dart';
 import '../../../shared/ui/image_editor_dialog.dart';
 import '../../../shared/ui/markdown_inline_code.dart';
 import '../../../shared/ui/media_preview_dialog.dart';
@@ -19387,6 +19388,7 @@ class _DingTalkMediaRail extends StatelessWidget {
                     '${item.resourceType.name}:${item.resourceId}',
                   ),
                   media: item,
+                  mine: mine,
                   loading: loading,
                   failed: failed,
                   onRetry: onRetry,
@@ -19405,6 +19407,7 @@ class _DingTalkMediaTile extends StatelessWidget {
   const _DingTalkMediaTile({
     super.key,
     required this.media,
+    required this.mine,
     required this.loading,
     required this.failed,
     this.onRetry,
@@ -19413,6 +19416,7 @@ class _DingTalkMediaTile extends StatelessWidget {
   });
 
   final DingTalkGatewayMedia media;
+  final bool mine;
   final bool loading;
   final bool failed;
   final VoidCallback? onRetry;
@@ -19469,6 +19473,28 @@ class _DingTalkMediaTile extends StatelessWidget {
         failed: failed,
         onSaveFile: onSaveFile,
         onInteractiveTap: onInteractiveTap,
+      );
+    }
+    if (available &&
+        (media.kind == DingTalkMediaKind.video ||
+            media.kind == DingTalkMediaKind.audio)) {
+      final detail = p.basename(path).trim();
+      return GeneratedMediaResultCard(
+        kind: media.kind == DingTalkMediaKind.video
+            ? GeneratedMediaResultKind.video
+            : GeneratedMediaResultKind.audio,
+        title: media.displayName,
+        detail: detail.isEmpty ? media.displayName : detail,
+        identity: path,
+        textColor: mine ? colors.onPrimaryContainer : colors.onSurface,
+        backgroundColor: mine
+            ? colors.primaryContainer
+            : colors.surfaceContainerHighest,
+        videoPath: media.kind == DingTalkMediaKind.video ? path : null,
+        videoMimeType: media.kind == DingTalkMediaKind.video
+            ? media.mimeType
+            : null,
+        onTap: () => unawaited(_open(context)),
       );
     }
     if (available && media.kind == DingTalkMediaKind.image) {
