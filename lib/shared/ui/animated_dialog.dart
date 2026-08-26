@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -1924,21 +1925,94 @@ class _ModalSheetDragHandle extends StatelessWidget {
   }
 }
 
-/// 为弹窗提供 ESC 关闭能力，且不抢占子输入控件焦点。
-///
-/// 主路径使用 [HardwareKeyboard] 监听；`Focus(autofocus: true)` 与
-/// `FocusScope(autofocus: true)` 会破坏 macOS IMK，导致 `TextField`
-/// 无法输入、复制或粘贴。硬件键盘监听不请求焦点，并通过
-/// `ModalRoute.isCurrent` 防止嵌套弹窗重复出栈。[Shortcuts] 与 [Actions]
-/// 作为焦点控件主动分发 [DismissIntent] 时的备用路径。
-/// 为当前 ModalRoute 接上 Escape 关闭。
-///
-/// 直接监听硬件按键而不是只挂 Shortcuts：弹窗里的输入框、WebView 会先吃掉
-/// 按键，只靠焦点树上的快捷键在这些场景下按 Esc 是没反应的。同时用
-/// `_dismissRequested` 挡住连按，避免退场动画期间重复触发导致一次弹掉两层。
-///
-/// MCP 运维弹窗此前另写了一份完全相同的实现，只多一个 [enabled] 开关；
-/// 那个开关现在并入这里。
+const String _openHandKeyboardChannelName = 'openhand/keyboard';
+const String _openHandEscapePressedMethod = 'escapePressed';
+const String _openHandSetEscapeCaptureEnabledMethod = 'setEscapeCaptureEnabled';
+const Duration _openHandEscapeDeduplicationWindow = Duration(milliseconds: 120);
+
+/// 统一调度 Flutter 与 macOS 原生 ESC 事件，只关闭最顶层弹窗。
+class _OpenHandEscapeDispatcher {
+  _OpenHandEscapeDispatcher._() {
+    HardwareKeyboard.instance.addHandler(_handleKey);
+    const MethodChannel(
+      _openHandKeyboardChannelName,
+    ).setMethodCallHandler(_handleMethodCall);
+  }
+
+  static final _OpenHandEscapeDispatcher instance =
+      _OpenHandEscapeDispatcher._();
+
+  static const MethodChannel _keyboardChannel = MethodChannel(
+    _openHandKeyboardChannelName,
+  );
+
+  final List<_OpenHandEscapeDismissScopeState> _scopes = [];
+  DateTime? _lastEscapeAt;
+
+  void register(_OpenHandEscapeDismissScopeState scope) {
+    _scopes.add(scope);
+    _syncNativeCapture();
+  }
+
+  void unregister(_OpenHandEscapeDismissScopeState scope) {
+    _scopes.remove(scope);
+    _syncNativeCapture();
+  }
+
+  void _syncNativeCapture() {
+    if (defaultTargetPlatform != TargetPlatform.macOS) return;
+    unawaited(
+      _keyboardChannel
+          .invokeMethod<void>(
+            _openHandSetEscapeCaptureEnabledMethod,
+            _scopes.isNotEmpty,
+          )
+          .catchError((Object _) {}),
+    );
+  }
+
+  bool _handleKey(KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.escape) {
+      return false;
+    }
+    return dismissTopmost();
+  }
+
+  Future<void> _handleMethodCall(MethodCall call) async {
+    if (call.method == _openHandEscapePressedMethod) dismissTopmost();
+  }
+
+  bool dismissTopmost() {
+    final now = DateTime.now();
+    final lastEscapeAt = _lastEscapeAt;
+    if (lastEscapeAt != null &&
+        now.difference(lastEscapeAt) < _openHandEscapeDeduplicationWindow) {
+      return true;
+    }
+
+    _scopes.removeWhere((scope) => !scope.mounted);
+    ModalRoute<Object?>? topRoute;
+    for (final scope in _scopes.reversed) {
+      final route = scope.route;
+      if (route?.isCurrent == true) {
+        topRoute = route;
+        break;
+      }
+    }
+    if (topRoute == null) return false;
+
+    _lastEscapeAt = now;
+    final routeScopes = _scopes.where((scope) => scope.route == topRoute);
+    if (routeScopes.any((scope) => !scope.widget.enabled)) return true;
+    for (final scope in routeScopes.toList().reversed) {
+      if (scope.dismiss()) return true;
+    }
+    return true;
+  }
+}
+
+/// 为弹窗提供统一 ESC 关闭能力，且不抢占输入控件焦点。
 class OpenHandEscapeDismissScope extends StatefulWidget {
   const OpenHandEscapeDismissScope({
     super.key,
@@ -1961,6 +2035,8 @@ class _OpenHandEscapeDismissScopeState
   ModalRoute<Object?>? _route;
   bool _dismissRequested = false;
 
+  ModalRoute<Object?>? get route => _route;
+
   @override
   void didUpdateWidget(covariant OpenHandEscapeDismissScope oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -1970,7 +2046,7 @@ class _OpenHandEscapeDismissScopeState
   @override
   void initState() {
     super.initState();
-    HardwareKeyboard.instance.addHandler(_handleKey);
+    _OpenHandEscapeDispatcher.instance.register(this);
   }
 
   @override
@@ -1981,18 +2057,11 @@ class _OpenHandEscapeDismissScopeState
 
   @override
   void dispose() {
-    HardwareKeyboard.instance.removeHandler(_handleKey);
+    _OpenHandEscapeDispatcher.instance.unregister(this);
     super.dispose();
   }
 
-  bool _handleKey(KeyEvent event) {
-    if (!widget.enabled) return false;
-    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
-    if (event.logicalKey != LogicalKeyboardKey.escape) return false;
-    return _dismiss();
-  }
-
-  bool _dismiss() {
+  bool dismiss() {
     final route = _route;
     if (route == null || !route.isCurrent) return false;
     if (_dismissRequested) return true;
@@ -2035,7 +2104,7 @@ class _OpenHandEscapeDismissScopeState
         actions: <Type, Action<Intent>>{
           DismissIntent: CallbackAction<DismissIntent>(
             onInvoke: (_) {
-              if (widget.enabled) _dismiss();
+              _OpenHandEscapeDispatcher.instance.dismissTopmost();
               return null;
             },
           ),
