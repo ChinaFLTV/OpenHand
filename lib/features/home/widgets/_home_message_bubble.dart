@@ -88,6 +88,58 @@ List<AiMessageAttachment> _cachedMessageAttachments(AiSessionMessage message) {
   return parsed;
 }
 
+enum _MessageBubbleWidthKind { user, assistant }
+
+const double _kMessageBubbleBaseMaxWidth = 760;
+const double _kUserMessageBubbleWidthFactor = 0.72;
+const double _kUserMessageBubbleMaxWidth = 1040;
+const double _kAssistantMessageBubbleWidthFactor = 0.94;
+const double _kAssistantMessageBubbleMaxWidth = 1360;
+
+class _ResponsiveMessageWidth extends StatelessWidget {
+  const _ResponsiveMessageWidth({
+    required this.kind,
+    required this.alignment,
+    required this.child,
+  });
+
+  final _MessageBubbleWidthKind kind;
+  final AlignmentGeometry alignment;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isUser = kind == _MessageBubbleWidthKind.user;
+        final widthFactor = isUser
+            ? _kUserMessageBubbleWidthFactor
+            : _kAssistantMessageBubbleWidthFactor;
+        final absoluteMaxWidth = isUser
+            ? _kUserMessageBubbleMaxWidth
+            : _kAssistantMessageBubbleMaxWidth;
+        final responsiveMaxWidth = math.min(
+          constraints.maxWidth,
+          math.min(
+            absoluteMaxWidth,
+            math.max(
+              _kMessageBubbleBaseMaxWidth,
+              constraints.maxWidth * widthFactor,
+            ),
+          ),
+        );
+        return Align(
+          alignment: alignment,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: responsiveMaxWidth),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _MessageBubble extends StatefulWidget {
   const _MessageBubble({
     super.key,
@@ -172,7 +224,6 @@ class _MessageBubble extends StatefulWidget {
 class _MessageBubbleState extends State<_MessageBubble>
     with AutomaticKeepAliveClientMixin<_MessageBubble> {
   static const int _messageExpansionStateCacheLimit = 500;
-  static const double _messageBubbleMaxWidth = 760;
   static const double _selectionTapMaxDistance = 8;
   static const double _htmlSelectionDragStartDistance = 4;
   static const Duration _selectionTapMaxDuration = Duration(milliseconds: 350);
@@ -636,14 +687,10 @@ class _MessageBubbleState extends State<_MessageBubble>
         enabled: widget.trackLayoutChanges,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Align(
+          child: _ResponsiveMessageWidth(
+            kind: _MessageBubbleWidthKind.assistant,
             alignment: Alignment.centerLeft,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: _messageBubbleMaxWidth,
-              ),
-              child: _RoundFileMutationSummaryCard(message: message),
-            ),
+            child: _RoundFileMutationSummaryCard(message: message),
           ),
         ),
       );
@@ -1619,90 +1666,90 @@ class _MessageBubbleState extends State<_MessageBubble>
     );
     final shouldTrackLayoutChanges =
         widget.trackLayoutChanges && !isGoalRuntimeMessage;
-    final bubbleShell = Align(
+    final bubbleShell = _ResponsiveMessageWidth(
+      kind: isUser
+          ? _MessageBubbleWidthKind.user
+          : _MessageBubbleWidthKind.assistant,
       alignment: alignment,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: _messageBubbleMaxWidth),
-        child: Listener(
-          key: _bubbleInteractionKey,
-          behavior: HitTestBehavior.opaque,
-          onPointerDown: (event) {
-            _pointerDownPosition = event.position;
-            _pointerDownAt = DateTime.now();
-            _htmlPointerDownState = _htmlInteractiveStateAt(event.position);
-            _htmlSelectionDragActive = false;
-          },
-          onPointerMove: (event) {
-            final htmlState = _htmlPointerDownState;
-            final downPos = _pointerDownPosition;
-            if (htmlState == null || downPos == null) return;
-            if (_htmlInteractiveStateAt(event.position) == null) return;
-            final movement = (event.position - downPos).distance;
-            if (movement <= _htmlSelectionDragStartDistance) return;
-            if (!_htmlSelectionDragActive) {
-              _htmlSelectionDragActive = true;
-              htmlState.beginSelectionAtGlobal(downPos);
-            }
-            htmlState.updateSelectionAtGlobal(event.position);
-          },
-          onPointerCancel: (event) {
-            _pointerDownPosition = null;
-            _pointerDownAt = null;
-            _htmlPointerDownState = null;
-            _htmlSelectionDragActive = false;
-          },
-          onPointerUp: (event) {
-            final downPos = _pointerDownPosition;
-            final downAt = _pointerDownAt;
-            final htmlStateFromDown = _htmlPointerDownState;
-            final htmlSelectionActive = _htmlSelectionDragActive;
-            _pointerDownPosition = null;
-            _pointerDownAt = null;
-            _htmlPointerDownState = null;
-            _htmlSelectionDragActive = false;
-            if (downPos == null || downAt == null) return;
-            // 命中消息卡片内的元数据胶囊时，只执行胶囊自身的折叠操作。
-            if (_isPointerInsideMetaCapsule(event.position)) return;
-            if (_isPointerInsideActionPanel(event.position) ||
-                _isPointerInsideActionPanel(downPos)) {
-              return;
-            }
-            // HTML 内嵌交互区域自行处理点击与文本选择。
-            final htmlStateUp = _htmlInteractiveStateAt(event.position);
-            final htmlStateDown =
-                htmlStateFromDown ?? _htmlInteractiveStateAt(downPos);
-            if (_isPointerInsideEmbeddedInteractiveRegion(event.position) ||
-                _isPointerInsideEmbeddedInteractiveRegion(downPos)) {
-              return;
-            }
-            if (htmlStateUp != null || htmlStateDown != null) {
-              if (htmlSelectionActive) {
-                (htmlStateUp ?? htmlStateDown)?.finishSelectionAtGlobal(
-                  event.position,
-                );
-                return;
-              }
-              final movement = (event.position - downPos).distance;
-              final elapsed = DateTime.now().difference(downAt);
-              if (movement <= _selectionTapMaxDistance &&
-                  elapsed <= _htmlTapMaxDuration) {
-                (htmlStateUp ?? htmlStateDown)?.simulateTapAtGlobal(
-                  event.position,
-                );
-              }
+      child: Listener(
+        key: _bubbleInteractionKey,
+        behavior: HitTestBehavior.opaque,
+        onPointerDown: (event) {
+          _pointerDownPosition = event.position;
+          _pointerDownAt = DateTime.now();
+          _htmlPointerDownState = _htmlInteractiveStateAt(event.position);
+          _htmlSelectionDragActive = false;
+        },
+        onPointerMove: (event) {
+          final htmlState = _htmlPointerDownState;
+          final downPos = _pointerDownPosition;
+          if (htmlState == null || downPos == null) return;
+          if (_htmlInteractiveStateAt(event.position) == null) return;
+          final movement = (event.position - downPos).distance;
+          if (movement <= _htmlSelectionDragStartDistance) return;
+          if (!_htmlSelectionDragActive) {
+            _htmlSelectionDragActive = true;
+            htmlState.beginSelectionAtGlobal(downPos);
+          }
+          htmlState.updateSelectionAtGlobal(event.position);
+        },
+        onPointerCancel: (event) {
+          _pointerDownPosition = null;
+          _pointerDownAt = null;
+          _htmlPointerDownState = null;
+          _htmlSelectionDragActive = false;
+        },
+        onPointerUp: (event) {
+          final downPos = _pointerDownPosition;
+          final downAt = _pointerDownAt;
+          final htmlStateFromDown = _htmlPointerDownState;
+          final htmlSelectionActive = _htmlSelectionDragActive;
+          _pointerDownPosition = null;
+          _pointerDownAt = null;
+          _htmlPointerDownState = null;
+          _htmlSelectionDragActive = false;
+          if (downPos == null || downAt == null) return;
+          // 命中消息卡片内的元数据胶囊时，只执行胶囊自身的折叠操作。
+          if (_isPointerInsideMetaCapsule(event.position)) return;
+          if (_isPointerInsideActionPanel(event.position) ||
+              _isPointerInsideActionPanel(downPos)) {
+            return;
+          }
+          // HTML 内嵌交互区域自行处理点击与文本选择。
+          final htmlStateUp = _htmlInteractiveStateAt(event.position);
+          final htmlStateDown =
+              htmlStateFromDown ?? _htmlInteractiveStateAt(downPos);
+          if (_isPointerInsideEmbeddedInteractiveRegion(event.position) ||
+              _isPointerInsideEmbeddedInteractiveRegion(downPos)) {
+            return;
+          }
+          if (htmlStateUp != null || htmlStateDown != null) {
+            if (htmlSelectionActive) {
+              (htmlStateUp ?? htmlStateDown)?.finishSelectionAtGlobal(
+                event.position,
+              );
               return;
             }
             final movement = (event.position - downPos).distance;
             final elapsed = DateTime.now().difference(downAt);
             if (movement <= _selectionTapMaxDistance &&
-                elapsed <= _selectionTapMaxDuration) {
-              if (!_isPointerInsideBubbleInteraction(event.position)) return;
-              // 延迟切换，给卡片内部按钮一个取消切换的时间窗口。
-              _scheduleSelectionToggle();
+                elapsed <= _htmlTapMaxDuration) {
+              (htmlStateUp ?? htmlStateDown)?.simulateTapAtGlobal(
+                event.position,
+              );
             }
-          },
-          child: bubbleCard,
-        ),
+            return;
+          }
+          final movement = (event.position - downPos).distance;
+          final elapsed = DateTime.now().difference(downAt);
+          if (movement <= _selectionTapMaxDistance &&
+              elapsed <= _selectionTapMaxDuration) {
+            if (!_isPointerInsideBubbleInteraction(event.position)) return;
+            // 延迟切换，给卡片内部按钮一个取消切换的时间窗口。
+            _scheduleSelectionToggle();
+          }
+        },
+        child: bubbleCard,
       ),
     );
     final messageLayout = Column(
@@ -6967,23 +7014,19 @@ class _UserMessageAttachmentRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
+    return _ResponsiveMessageWidth(
+      kind: _MessageBubbleWidthKind.user,
       alignment: Alignment.centerRight,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: _MessageBubbleState._messageBubbleMaxWidth,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: _userAttachmentBottomSpacing),
-          child: Wrap(
-            alignment: WrapAlignment.end,
-            spacing: _userAttachmentGap,
-            runSpacing: _userAttachmentGap,
-            children: [
-              for (final attachment in attachments)
-                _UserMessageAttachmentTile(attachment: attachment),
-            ],
-          ),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: _userAttachmentBottomSpacing),
+        child: Wrap(
+          alignment: WrapAlignment.end,
+          spacing: _userAttachmentGap,
+          runSpacing: _userAttachmentGap,
+          children: [
+            for (final attachment in attachments)
+              _UserMessageAttachmentTile(attachment: attachment),
+          ],
         ),
       ),
     );
