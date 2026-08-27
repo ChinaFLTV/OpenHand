@@ -21,6 +21,7 @@ class OpenHandOpsPressScale extends StatefulWidget {
     this.borderRadius,
     this.hoverScale = kOpenHandOpsHoverScale,
     this.pressScale = kOpenHandOpsPressScale,
+    this.showHoverOverlay = true,
     this.showFocusRing = false,
     this.motionClearance,
   });
@@ -32,6 +33,7 @@ class OpenHandOpsPressScale extends StatefulWidget {
   final BorderRadiusGeometry? borderRadius;
   final double hoverScale;
   final double pressScale;
+  final bool showHoverOverlay;
   final bool showFocusRing;
   final EdgeInsetsGeometry? motionClearance;
 
@@ -79,7 +81,7 @@ class _OpenHandOpsPressScaleState extends State<OpenHandOpsPressScale> {
     final overlay = widget.tone.withValues(
       alpha: _pressed
           ? kOpenHandOpsPressOverlay
-          : _hovered
+          : _hovered && widget.showHoverOverlay
           ? kOpenHandOpsHoverOverlay
           : 0,
     );
