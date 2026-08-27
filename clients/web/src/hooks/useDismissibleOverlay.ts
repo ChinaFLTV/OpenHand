@@ -1,4 +1,6 @@
 import { useEffect } from 'preact/hooks';
+import { registerOverlayEscapeLayer } from '../shared/ui/overlay_escape_stack';
+import { useEventCallback } from './useEventCallback';
 
 interface DismissibleOverlayTarget {
   readonly current: HTMLElement | null;
@@ -23,12 +25,6 @@ function targetInsideOverlay(
   });
 }
 
-function consumeEscape(event: KeyboardEvent): void {
-  event.preventDefault();
-  event.stopPropagation();
-  event.stopImmediatePropagation?.();
-}
-
 export function useDismissibleOverlay({
   active,
   targets,
@@ -36,6 +32,10 @@ export function useDismissibleOverlay({
   onEscape,
   pointerEventName = 'mousedown',
 }: UseDismissibleOverlayOptions): void {
+  const requestEscapeClose = useEventCallback(() => {
+    (onEscape ?? onDismiss)();
+  });
+
   useEffect(() => {
     if (!active || typeof document === 'undefined') return undefined;
 
@@ -43,17 +43,18 @@ export function useDismissibleOverlay({
       if (targetInsideOverlay(event.target, targets)) return;
       onDismiss();
     };
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.key !== 'Escape') return;
-      consumeEscape(event);
-      (onEscape ?? onDismiss)();
-    };
 
     document.addEventListener(pointerEventName, handlePointer);
-    document.addEventListener('keydown', handleKey);
     return () => {
       document.removeEventListener(pointerEventName, handlePointer);
-      document.removeEventListener('keydown', handleKey);
     };
-  }, [active, onDismiss, onEscape, pointerEventName, targets]);
+  }, [active, onDismiss, pointerEventName, targets]);
+
+  useEffect(() => {
+    if (!active || typeof window === 'undefined') return undefined;
+    return registerOverlayEscapeLayer({
+      canClose: () => true,
+      requestClose: requestEscapeClose,
+    });
+  }, [active, requestEscapeClose]);
 }

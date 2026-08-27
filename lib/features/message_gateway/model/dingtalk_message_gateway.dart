@@ -34,6 +34,9 @@ final RegExp _dingtalkSelfLabeledMarkdownLinkPattern = RegExp(
   r'^\[(https?://[^\]\r\n]+)\]\((https?://.+)\)$',
   caseSensitive: false,
 );
+const int _dingtalkEnhancedLinkMaxProjectionLines = 3;
+const String _dingtalkEnhancedLinkSource = 'dd_link_enhance';
+const String _dingtalkDesktopLinkSource = 'dingcardslide';
 final RegExp _dingtalkMediaPlaceholderPattern = RegExp(
   r'\[(?:图片|图片消息|照片|图像|视频|视频消息|语音|语音消息|音频|音频消息|文件|文件消息|附件|媒体消息|image|image message|photo|picture|video|video message|voice|voice message|audio|audio message|file|file message|attachment|media|media message)\]'
   r'(?:\(\s*(?:mediaId|fileId)\s*=\s*[^)\s]+\s*\))?',
@@ -68,7 +71,9 @@ String? _dingtalkEnhancedLinkProjectionUrl(String text) {
       .map((line) => line.trim())
       .where((line) => line.isNotEmpty)
       .toList(growable: false);
-  if (lines.isEmpty || lines.length > 3) return null;
+  if (lines.isEmpty || lines.length > _dingtalkEnhancedLinkMaxProjectionLines) {
+    return null;
+  }
 
   RegExpMatch? originalLink;
   var originalIndex = -1;
@@ -78,11 +83,13 @@ String? _dingtalkEnhancedLinkProjectionUrl(String text) {
     );
     if (match == null || match.group(1) != match.group(2)) continue;
     final uri = Uri.tryParse(match.group(2)!);
-    final enhanced = uri?.queryParameters.entries.any(
-      (entry) =>
-          entry.key.toLowerCase() == 'from' &&
-          entry.value.toLowerCase() == 'dd_link_enhance',
-    );
+    final enhanced =
+        uri != null &&
+        _uriHasQueryParameterValue(
+          uri,
+          key: 'from',
+          value: _dingtalkEnhancedLinkSource,
+        );
     if (enhanced != true || originalLink != null) continue;
     originalLink = match;
     originalIndex = index;
@@ -101,8 +108,25 @@ String? _dingtalkEnhancedLinkProjectionUrl(String text) {
         !_isDingTalkDesktopLinkProjection(desktopLink.group(2)!)) {
       return null;
     }
+    if (originalIndex + 2 != lines.length) return null;
   }
   return originalLink.group(2);
+}
+
+bool _uriHasQueryParameterValue(
+  Uri uri, {
+  required String key,
+  required String value,
+}) {
+  final normalizedKey = key.toLowerCase();
+  final normalizedValue = value.toLowerCase();
+  return uri.queryParametersAll.entries.any(
+    (entry) =>
+        entry.key.toLowerCase() == normalizedKey &&
+        entry.value.any(
+          (candidate) => candidate.toLowerCase() == normalizedValue,
+        ),
+  );
 }
 
 bool _isDingTalkDesktopLinkProjection(String value) {
@@ -110,11 +134,21 @@ bool _isDingTalkDesktopLinkProjection(String value) {
   if (uri == null || uri.host.toLowerCase() != 'applink.dingtalk.com') {
     return false;
   }
-  final nestedUrl = uri.queryParameters.entries
+  final nestedUrls = uri.queryParametersAll.entries
       .where((entry) => entry.key.toLowerCase() == 'url')
-      .map((entry) => entry.value)
-      .firstOrNull;
-  return nestedUrl != null && nestedUrl.contains('from=dingCardSlide');
+      .expand((entry) => entry.value);
+  for (final nestedUrl in nestedUrls) {
+    final nestedUri = Uri.tryParse(nestedUrl);
+    if (nestedUri != null &&
+        _uriHasQueryParameterValue(
+          nestedUri,
+          key: 'from',
+          value: _dingtalkDesktopLinkSource,
+        )) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /// 生成钉钉消息正文的比较值，消除平台回流时产生的换行和不可见字符差异。

@@ -169,7 +169,7 @@ import {
 import { WebReverseDashboardDialog } from '../../../components/WebReverseDashboardDialog';
 import { AndroidReverseDashboardDialog } from '../../../components/AndroidReverseDashboardDialog';
 import { copyTextToClipboard } from '../../../utils/clipboard';
-import { readResponseBlobBounded } from '../../../utils/bounded_response';
+import { fetchBlobBounded } from '../../../utils/bounded_response';
 import { buildSessionAssetUrl } from '../../../utils/session_asset';
 import { createTimedAbortController } from '../../../utils/timed_abort';
 import { PopMenu } from '../../../components/PopMenu';
@@ -6736,15 +6736,14 @@ export function SessionDetailPage() {
       }
       const timed = createTimedAbortController(ATTACHMENT_READ_TIMEOUT_MS);
       try {
-        const res = await fetch(buildSessionAssetUrl(requestSessionId, asset.path), {
-          credentials: 'same-origin',
-          signal: timed.controller.signal,
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const blob = await readResponseBlobBounded(res, {
-          maxBytes: attachmentMaxBytes,
-          signal: timed.controller.signal,
-        });
+        const blob = await fetchBlobBounded(
+          buildSessionAssetUrl(requestSessionId, asset.path),
+          {
+            credentials: 'same-origin',
+            maxBytes: attachmentMaxBytes,
+            signal: timed.controller.signal,
+          },
+        );
         if (restoredBytes + blob.size > attachmentMaxTotalBytes) {
           throw new Error(t('composer.error.attachmentTotalLimit', '单条消息附件总大小已达上限'));
         }

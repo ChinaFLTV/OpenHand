@@ -29,4 +29,25 @@ void main() {
 
     expect(normalizeDingTalkMessageContent(content), content);
   });
+
+  test('链接增强投影后的用户正文不会被误删', () {
+    const original =
+        'https://docs.yukework.com/doc?fileId=2092530279373856769&from=dd_link_enhance';
+    const desktop =
+        'https://applink.dingtalk.com/page/link?url=https%3A%2F%2Fdocs.yukework.com%2FkuAppSlide%3Ffrom%3DdingCardSlide&targetDesktop=slide';
+    const content = '[$original]($original)\n[$desktop]($desktop)\n请同时查看会议纪要';
+
+    expect(normalizeDingTalkMessageContent(content), content);
+  });
+
+  test('桌面链接仅接受准确的来源查询参数', () {
+    const original =
+        'https://docs.yukework.com/doc?fileId=2092530279373856769&from=dd_link_enhance';
+    const misleadingDesktop =
+        'https://applink.dingtalk.com/page/link?url=https%3A%2F%2Fdocs.yukework.com%2FkuAppSlide%3Ftransform%3DdingCardSlide&targetDesktop=slide';
+    const content =
+        '周例会\n[$original]($original)\n[$misleadingDesktop]($misleadingDesktop)';
+
+    expect(normalizeDingTalkMessageContent(content), content);
+  });
 }

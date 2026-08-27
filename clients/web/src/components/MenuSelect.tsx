@@ -13,7 +13,11 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'preact
 import { useDelayedVisibility } from '../hooks/useDelayedVisibility';
 import { useDismissibleOverlay } from '../hooks/useDismissibleOverlay';
 import { useRafScheduler } from '../hooks/useRafScheduler';
-import { clampNumber } from '../shared/util/number';
+import {
+  DEFAULT_FLOATING_ANCHOR_GAP,
+  DEFAULT_FLOATING_VIEWPORT_PADDING,
+  computeAnchoredMenuPosition,
+} from '../shared/ui/floating_position';
 import { OverlayPortal } from './OverlayPortal';
 
 interface MenuOption<T extends string = string> {
@@ -49,8 +53,8 @@ interface MenuPosition {
   transformOrigin: string;
 }
 
-const VIEWPORT_GAP = 8;
-const MENU_OFFSET = 4;
+const VIEWPORT_GAP = DEFAULT_FLOATING_VIEWPORT_PADDING;
+const MENU_OFFSET = DEFAULT_FLOATING_ANCHOR_GAP;
 
 export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>): JSX.Element {
   const {
@@ -81,26 +85,24 @@ export function MenuSelect<T extends string = string>(props: MenuSelectProps<T>)
   }, [hideMenu]);
 
   const computeMenuPosition = useCallback((measuredHeight?: number): MenuPosition | null => {
-    if (typeof window === 'undefined') return null;
     const trigger = triggerRef.current;
     if (!trigger) return null;
-    const rect = trigger.getBoundingClientRect();
-    const minMenuWidth = Math.max(minWidth, rect.width);
-    const maxLeft = window.innerWidth - minMenuWidth - VIEWPORT_GAP;
-    const left = clampNumber(rect.left, VIEWPORT_GAP, Math.max(VIEWPORT_GAP, maxLeft));
-    const below = window.innerHeight - rect.bottom - MENU_OFFSET - VIEWPORT_GAP;
-    const above = rect.top - MENU_OFFSET - VIEWPORT_GAP;
-    const openUp = below < 128 && above > below;
-    const available = clampNumber(openUp ? above : below, 96, Math.max(96, menuMaxHeight));
-    const visibleHeight = Math.min(measuredHeight ?? available, available);
+    const position = computeAnchoredMenuPosition({
+      anchor: trigger,
+      minWidth,
+      measuredHeight,
+      fallbackHeight: menuMaxHeight,
+      maxHeight: menuMaxHeight,
+      align: 'left',
+      viewportPadding: VIEWPORT_GAP,
+      gap: MENU_OFFSET,
+    });
     return {
-      top: openUp
-        ? Math.max(VIEWPORT_GAP, rect.top - MENU_OFFSET - visibleHeight)
-        : Math.min(window.innerHeight - VIEWPORT_GAP, rect.bottom + MENU_OFFSET),
-      left,
-      minWidth: minMenuWidth,
-      maxHeight: available,
-      transformOrigin: openUp ? 'bottom center' : 'top center',
+      top: position.top,
+      left: position.left,
+      minWidth: position.width,
+      maxHeight: position.maxHeight,
+      transformOrigin: position.placedAbove ? 'bottom center' : 'top center',
     };
   }, [minWidth, menuMaxHeight]);
 

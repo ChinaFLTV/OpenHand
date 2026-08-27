@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { registerOverlayEscapeLayer } from '../shared/ui/overlay_escape_stack';
 import { useEventCallback } from './useEventCallback';
 import { normalizeDialogExitDurationMs } from './useDialogMotionSettings';
 import { useReducedMotion } from './useReducedMotion';
@@ -16,59 +17,6 @@ interface DialogExitMotionController<Reason extends string = string> {
   requestClose: () => void;
   requestCloseWithReason: (reason?: Reason) => void;
   resetClosing: () => void;
-}
-
-interface DialogEscapeStackEntry {
-  readonly id: number;
-  readonly closeOnEscape: () => boolean;
-  readonly requestEscapeClose: () => void;
-}
-
-let nextDialogEscapeEntryId = 1;
-let dialogEscapeStack: DialogEscapeStackEntry[] = [];
-let dialogEscapeListenerAttached = false;
-
-function topDialogEscapeEntry(): DialogEscapeStackEntry | undefined {
-  return dialogEscapeStack[dialogEscapeStack.length - 1];
-}
-
-function handleGlobalDialogEscape(event: KeyboardEvent): void {
-  if (event.defaultPrevented || event.key !== 'Escape') return;
-  const entry = topDialogEscapeEntry();
-  if (!entry) return;
-  event.preventDefault();
-  event.stopPropagation();
-  if (entry.closeOnEscape()) {
-    entry.requestEscapeClose();
-  }
-}
-
-function ensureDialogEscapeListener(): void {
-  if (dialogEscapeListenerAttached || typeof window === 'undefined') return;
-  window.addEventListener('keydown', handleGlobalDialogEscape, true);
-  dialogEscapeListenerAttached = true;
-}
-
-function detachDialogEscapeListenerIfIdle(): void {
-  if (
-    !dialogEscapeListenerAttached ||
-    dialogEscapeStack.length > 0 ||
-    typeof window === 'undefined'
-  ) {
-    return;
-  }
-  window.removeEventListener('keydown', handleGlobalDialogEscape, true);
-  dialogEscapeListenerAttached = false;
-}
-
-function registerDialogEscapeEntry(entry: DialogEscapeStackEntry): () => void {
-  dialogEscapeStack = dialogEscapeStack.filter((item) => item.id !== entry.id);
-  dialogEscapeStack.push(entry);
-  ensureDialogEscapeListener();
-  return () => {
-    dialogEscapeStack = dialogEscapeStack.filter((item) => item.id !== entry.id);
-    detachDialogEscapeListenerIfIdle();
-  };
 }
 
 export function useDialogExitMotion(
@@ -89,7 +37,6 @@ export function useDialogExitMotion<Reason extends string = string>(
     typeof optionsOrExitMs === 'object' && optionsOrExitMs != null
       ? optionsOrExitMs
       : undefined;
-  const escapeEntryIdRef = useRef(0);
   const closingRef = useRef(false);
   const closeReasonRef = useRef<Reason | undefined>(undefined);
   const { clearTimer, scheduleTimer } = useTimeoutController();
@@ -136,17 +83,12 @@ export function useDialogExitMotion<Reason extends string = string>(
 
   useEffect(() => {
     if (!active || typeof window === 'undefined') return undefined;
-    if (escapeEntryIdRef.current === 0) {
-      escapeEntryIdRef.current = nextDialogEscapeEntryId++;
-    }
-    const entry: DialogEscapeStackEntry = {
-      id: escapeEntryIdRef.current,
-      closeOnEscape: canCloseOnEscape,
-      requestEscapeClose: () => {
+    return registerOverlayEscapeLayer({
+      canClose: canCloseOnEscape,
+      requestClose: () => {
         requestCloseWithReason('escape' as Reason);
       },
-    };
-    return registerDialogEscapeEntry(entry);
+    });
   }, [active, canCloseOnEscape, requestCloseWithReason]);
 
   return { closing, requestClose, requestCloseWithReason, resetClosing };

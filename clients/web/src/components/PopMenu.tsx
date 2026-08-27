@@ -59,6 +59,7 @@ interface MenuPos {
   top: number;
   left: number;
   width: number;
+  maxHeight: number;
   placedAbove: boolean;
 }
 
@@ -130,6 +131,7 @@ export function PopMenu({
       top: position.top,
       left: position.left,
       width: position.width,
+      maxHeight: position.maxHeight,
       placedAbove: position.placedAbove,
     });
   }, [align, verticalPlacement, width]);
@@ -170,6 +172,10 @@ export function PopMenu({
             left: pos ? `${pos.left}px` : '-9999px',
             width: pos ? `${pos.width}px` : width ? `${width}px` : '160px',
             maxWidth: 'calc(100vw - 16px)',
+            maxHeight: pos
+              ? `${pos.maxHeight}px`
+              : `calc(100vh - ${VIEWPORT_PADDING * 2}px)`,
+            overflowY: 'auto',
             zIndex: 2000,
             background: 'var(--m3-surface-container)',
             color: 'var(--m3-on-surface)',

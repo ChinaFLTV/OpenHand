@@ -7,6 +7,10 @@ interface BoundedResponseBlobOptions {
 
 type BoundedResponseBodyOptions = BoundedResponseBlobOptions;
 
+interface FetchBlobBoundedOptions extends RequestInit {
+  maxBytes: number;
+}
+
 class ResponseBodySizeLimitError extends Error {
   readonly maxBytes: number;
 
@@ -15,6 +19,12 @@ class ResponseBodySizeLimitError extends Error {
     super(`响应体超过 ${maxMiB} MiB 安全上限。`);
     this.name = 'ResponseBodySizeLimitError';
     this.maxBytes = maxBytes;
+  }
+}
+
+function requirePositiveByteLimit(maxBytes: number): void {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) {
+    throw new RangeError('maxBytes 必须是正安全整数。');
   }
 }
 
@@ -56,9 +66,7 @@ async function consumeResponseBodyBounded(
   { maxBytes, signal }: BoundedResponseBodyOptions,
   onChunk: (chunk: Uint8Array) => void,
 ): Promise<void> {
-  if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) {
-    throw new RangeError('maxBytes 必须是正安全整数。');
-  }
+  requirePositiveByteLimit(maxBytes);
   const declaredBytes = declaredResponseBytes(response);
   if (declaredBytes != null && declaredBytes > maxBytes) {
     const error = new ResponseBodySizeLimitError(maxBytes);
@@ -117,6 +125,24 @@ export async function readResponseBlobBounded(
   });
   return new Blob(chunks, {
     type: response.headers.get('content-type') ?? '',
+  });
+}
+
+/// 请求并在明确的字节上限内读取二进制响应；失败响应会主动释放数据流。
+export async function fetchBlobBounded(
+  input: RequestInfo | URL,
+  { maxBytes, ...init }: FetchBlobBoundedOptions,
+): Promise<Blob> {
+  requirePositiveByteLimit(maxBytes);
+  const response = await fetch(input, init);
+  if (!response.ok) {
+    const error = new Error(`请求失败（HTTP ${response.status}）`);
+    cancelResponseBodyQuietly(response, error);
+    throw error;
+  }
+  return readResponseBlobBounded(response, {
+    maxBytes,
+    signal: init.signal ?? undefined,
   });
 }
 

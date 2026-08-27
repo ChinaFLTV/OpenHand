@@ -23,7 +23,11 @@ import {
 } from '../utils/save_blob';
 import { buildSessionAssetUrl } from '../utils/session_asset';
 import { createTimedAbortController } from '../utils/timed_abort';
-import { readResponseBlobBounded } from '../utils/bounded_response';
+import {
+  cancelResponseBodyQuietly,
+  fetchBlobBounded,
+  readResponseBlobBounded,
+} from '../utils/bounded_response';
 import {
   DIALOG_OVERLAY_TOP_Z_INDEX,
   DialogFrame,
@@ -456,14 +460,7 @@ function pickerTypesForMedia(item: MediaItem): SaveBlobPickerType[] | undefined 
 }
 
 async function saveMediaAsset(item: MediaItem, url: string, signal?: AbortSignal): Promise<void> {
-  const res = await fetch(url, { credentials: 'same-origin', signal });
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
-  }
-  const blob = await readResponseBlobBounded(res, {
-    maxBytes: mediaDownloadMaxBytes(item.kind),
-    signal,
-  });
+  const blob = await fetchMediaBlob(item, url, signal);
   await saveBlobWithPicker(blob, item.name, pickerTypesForMedia(item));
 }
 
@@ -472,11 +469,8 @@ async function fetchMediaBlob(
   url: string,
   signal?: AbortSignal,
 ): Promise<Blob> {
-  const res = await fetch(url, { credentials: 'same-origin', signal });
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
-  }
-  return readResponseBlobBounded(res, {
+  return fetchBlobBounded(url, {
+    credentials: 'same-origin',
     maxBytes: mediaDownloadMaxBytes(item.kind),
     signal,
   });
@@ -554,6 +548,7 @@ async function resolveBrowserCachedMediaUrl(
 
   const response = await fetch(url, { credentials: 'same-origin', signal });
   if (!response.ok || !isCacheableMediaResponse(item, response)) {
+    cancelResponseBodyQuietly(response, '媒体响应不可缓存。');
     return null;
   }
   const blob = await readResponseBlobBounded(response, {
