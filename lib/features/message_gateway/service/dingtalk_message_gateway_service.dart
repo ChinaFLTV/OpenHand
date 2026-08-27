@@ -229,6 +229,7 @@ class DingTalkMessageGatewayService {
   static const Duration _sentMessageLookupTimeout = Duration(seconds: 8);
   static const int _sentMessageLookupLimit = 50;
   static const int _messageQueryPageSize = 50;
+  static const Duration _minimumMessageQueryWindow = Duration(seconds: 1);
   // 轮询窗口只取有限页数，避免两个并行查询在慢 dws 环境下拖住轮询回调；
   // 更早消息由会话对账和用户主动加载历史补齐。
   static const int _messageQueryMaxPages = 3;
@@ -1449,10 +1450,32 @@ class DingTalkMessageGatewayService {
         );
       }
     }
-    final startText = start.toIso8601String();
-    final endText = end.toIso8601String();
-    final allStartText = formatYearMonthDayHmsLocal(start);
-    final allEndText = formatYearMonthDayHmsLocal(end);
+    final effectiveEnd = end.isBefore(now) ? end : now;
+    var effectiveStart = start.isBefore(effectiveEnd)
+        ? start
+        : effectiveEnd.subtract(_minimumMessageQueryWindow);
+    final allEndText = formatYearMonthDayHmsLocal(effectiveEnd);
+    var allStartText = formatYearMonthDayHmsLocal(effectiveStart);
+    if (allStartText.compareTo(allEndText) >= 0) {
+      effectiveStart = effectiveEnd.subtract(_minimumMessageQueryWindow);
+      allStartText = formatYearMonthDayHmsLocal(effectiveStart);
+      if (allStartText.compareTo(allEndText) >= 0) {
+        final localEnd = effectiveEnd.toLocal();
+        final wallClockEnd = DateTime.utc(
+          localEnd.year,
+          localEnd.month,
+          localEnd.day,
+          localEnd.hour,
+          localEnd.minute,
+          localEnd.second,
+        );
+        allStartText = formatYearMonthDayHms(
+          wallClockEnd.subtract(_minimumMessageQueryWindow),
+        );
+      }
+    }
+    final startText = effectiveStart.toIso8601String();
+    final endText = effectiveEnd.toIso8601String();
     final deadline = MonotonicDeadline(
       _messageQueryTotalTimeout,
       timeoutMessage: '钉钉消息轮询超过总时限。',

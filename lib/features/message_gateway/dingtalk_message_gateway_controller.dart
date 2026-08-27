@@ -269,6 +269,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const int _initialConversationHistoryMessageLimit = 20;
   static const Duration _conversationStartSkew = Duration(seconds: 2);
   static const Duration _queryWindow = Duration(minutes: 10);
+  static const Duration _queryOverlap = Duration(seconds: 2);
   // 个人 IM 事件只覆盖收到的消息；当前账号自己发送的消息由短周期查询补齐。
   static const Duration _realtimeReconcilePollInterval = Duration(seconds: 3);
   // 编辑和本人发送消息没有独立的个人 IM 事件，保持有界快速对账。
@@ -2184,7 +2185,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _service.resetMessageQueryCapability();
     _usingPollingFallback = false;
     _warningMessage = null;
-    _lastPollAt = startedAt;
+    _lastPollAt = startedAt.subtract(_queryOverlap);
     _nextConversationReconcileAt = DateTime.fromMillisecondsSinceEpoch(0);
     _conversationReconcileCursor = 0;
     _conversationReconcileFailures.clear();
@@ -2767,7 +2768,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final now = DateTime.now();
       final queryStart = _lastPollAt.isBefore(now)
           ? _lastPollAt
-          : now.subtract(const Duration(seconds: 2));
+          : now.subtract(_queryOverlap);
       final maxQueryEnd = queryStart.add(_queryWindow);
       final queryEnd = maxQueryEnd.isBefore(now) ? maxQueryEnd : now;
       Object? queryError;
@@ -2789,7 +2790,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             );
         if (pollingGeneration != _pollingGeneration || !_isPolling) return;
         if (result.shouldAdvanceWindow) {
-          _lastPollAt = queryEnd.subtract(const Duration(seconds: 2));
+          _lastPollAt = queryEnd.subtract(_queryOverlap);
         }
         _warningMessage = result.warning;
         for (final message in result.messages) {
