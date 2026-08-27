@@ -1775,7 +1775,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     );
     if (index < 0) return false;
     final current = conversation.messages[index];
-    if (current.isAssistant || current.recalled) return false;
+    if (current.isAssistant || current.recalled || current.isAutomaticReply) {
+      return false;
+    }
     if (current.ignoredForAiContext == ignored) return true;
     conversation.messages[index] = current.copyWith(
       ignoredForAiContext: ignored,
@@ -3365,6 +3367,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         remoteQuotedMessage != null &&
         (currentQuotedMessage == null ||
             !_sameQuotedMessage(currentQuotedMessage, remoteQuotedMessage));
+    final automaticReplyChanged =
+        remote.automaticReplyCard != null &&
+        (current.messageType != remote.messageType ||
+            jsonEncode(current.automaticReplyCard?.toJson()) !=
+                jsonEncode(remote.automaticReplyCard!.toJson()));
     final mentionChanged =
         remote.mentionedCurrentUser && !current.mentionedCurrentUser;
     final readChanged = remote.readByPeer && !current.readByPeer;
@@ -3380,6 +3387,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         !mediaChanged &&
         !forwardedMessagesChanged &&
         !quotedMessageChanged &&
+        !automaticReplyChanged &&
         !mentionChanged &&
         !readChanged &&
         !reactionsChanged) {
@@ -3411,6 +3419,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (mediaChanged) _mediaHydrationFailures.remove(remoteId);
     conversation.messages[index] = current.copyWith(
       content: contentChanged ? remote.content : null,
+      messageType: automaticReplyChanged ? remote.messageType : null,
+      automaticReplyCard: automaticReplyChanged
+          ? remote.automaticReplyCard
+          : null,
       media: media,
       quotedMessage: quotedMessageChanged
           ? remoteQuotedMessage.copyWith(

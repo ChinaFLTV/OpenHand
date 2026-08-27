@@ -12939,6 +12939,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                       final textActionEnabled =
                                                           !message.recalled &&
                                                           !message
+                                                              .isAutomaticReply &&
+                                                          !message
                                                               .isForwardedChatRecord &&
                                                           _hasDingTalkTextContent(
                                                             message.content,
@@ -13028,7 +13030,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                           onToggleAiContextIgnored:
                                                               !message.isAssistant &&
                                                                   !message
-                                                                      .recalled
+                                                                      .recalled &&
+                                                                  !message
+                                                                      .isAutomaticReply
                                                               ? () =>
                                                                     _toggleMessageAiContextIgnored(
                                                                       selected,
@@ -16274,8 +16278,9 @@ Future<void> _openDingTalkMessageLink(
   final uri = target.isEmpty ? null : Uri.tryParse(target);
   final scheme = uri?.scheme.toLowerCase();
   final isWebLink = scheme == 'http' || scheme == 'https';
+  final isDingTalkLink = scheme == 'dingtalk';
   if (uri == null ||
-      (!isWebLink && scheme != 'mailto') ||
+      (!isWebLink && !isDingTalkLink && scheme != 'mailto') ||
       (isWebLink && (uri.host.isEmpty || uri.userInfo.isNotEmpty))) {
     const error = FormatException('消息链接无效或暂不支持。');
     silentLog('dingtalk_gateway', '打开消息链接', error);
@@ -16460,7 +16465,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     }
     if (oldWidget.message.content != widget.message.content &&
         !widget.streaming &&
-        widget.message.isExcludedFromAiContext) {
+        widget.message.isContentHidden) {
       _showExcludedContent = false;
     }
     if (oldWidget.message.recalled != widget.message.recalled ||
@@ -16521,7 +16526,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     _pointerDownPosition = null;
     _pointerDownAt = null;
     if (downPosition == null || downAt == null) return;
-    if (widget.message.isExcludedFromAiContext && !_showExcludedContent) {
+    if (widget.message.isContentHidden && !_showExcludedContent) {
       return;
     }
     final movement = (event.position - downPosition).distance;
@@ -16581,7 +16586,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           : widget.message.content,
     );
     final contentExpanded =
-        !widget.message.isExcludedFromAiContext || _showExcludedContent;
+        !widget.message.isContentHidden || _showExcludedContent;
     final status = _messageStatus();
     return SizedBox(
       width: double.infinity,
@@ -16762,6 +16767,9 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     if (widget.message.failed) {
       return (icon: Icons.error_outline_rounded, label: '发送失败');
     }
+    if (widget.message.isAutomaticReply) {
+      return (icon: Icons.auto_awesome_motion_rounded, label: '钉钉自动回复');
+    }
     if (widget.streaming) {
       return (icon: Icons.auto_awesome_rounded, label: 'AI 正在响应');
     }
@@ -16823,10 +16831,13 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   }) {
     final hasText = _hasDingTalkTextContent(effectiveContent, media);
     final hasQuotedMessage = widget.message.quotedMessage != null;
+    final automaticReplyCard = widget.message.automaticReplyCard;
     final childAlignment = widget.mine
         ? Alignment.centerRight
         : Alignment.centerLeft;
-    final textBubble = hasText || media.isEmpty
+    final textBubble = automaticReplyCard != null
+        ? _buildAutomaticReplyCard(context, automaticReplyCard)
+        : hasText || media.isEmpty
         ? _buildTextBubble(
             context,
             bubbleColor: bubbleColor,
@@ -16881,6 +16892,225 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           _buildReactionRow(context, foreground, topSpacing: 2),
         if (media.isNotEmpty) _buildMessageStateLabel(context),
       ],
+    );
+  }
+
+  Widget _buildAutomaticReplyCard(
+    BuildContext context,
+    DingTalkAutomaticReplyCard card,
+  ) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final borderRadius = BorderRadius.only(
+      topLeft: const Radius.circular(kOpenHandRadius17),
+      topRight: const Radius.circular(kOpenHandRadius17),
+      bottomLeft: Radius.circular(widget.mine ? 17 : 5),
+      bottomRight: Radius.circular(widget.mine ? 5 : 17),
+    );
+    return AnimatedContainer(
+      duration: openHandMotionDuration(context, kOpenHandMotion220),
+      curve: kOpenHandSwitchInCurve,
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: borderRadius,
+        border: Border.all(color: colors.primary.withValues(alpha: 0.28)),
+        boxShadow: [
+          BoxShadow(
+            color: colors.shadow.withValues(alpha: 0.1),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: Colors.transparent,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    colors.primaryContainer.withValues(alpha: 0.94),
+                    colors.tertiaryContainer.withValues(alpha: 0.72),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 11, 15, 11),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: colors.primary.withValues(alpha: 0.14),
+                        borderRadius: kOpenHandBorderRadius10,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Icon(
+                          Icons.auto_awesome_motion_rounded,
+                          size: 18,
+                          color: colors.primary,
+                        ),
+                      ),
+                    ),
+                    kOpenHandHGap9,
+                    Flexible(
+                      child: Text(
+                        card.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: colors.onSurface,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (card.textSegments.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(15, 14, 15, 12),
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      for (final segment in card.textSegments)
+                        TextSpan(
+                          text: segment.text,
+                          style: segment.emphasized
+                              ? TextStyle(
+                                  color: colors.primary,
+                                  fontWeight: FontWeight.w900,
+                                )
+                              : null,
+                        ),
+                    ],
+                  ),
+                  textWidthBasis: TextWidthBasis.longestLine,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: colors.onSurface,
+                    height: 1.42,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            for (var index = 0; index < card.actions.length; index++)
+              Padding(
+                padding: EdgeInsets.fromLTRB(12, index == 0 ? 0 : 3, 12, 7),
+                child: Semantics(
+                  button: true,
+                  label: card.actions[index].label,
+                  hint: '打开钉钉自动回复入口',
+                  child: OpenHandOpsPressScale(
+                    tone: colors.primary,
+                    borderRadius: kOpenHandPillBorderRadius,
+                    hoverScale: 1.008,
+                    pressScale: 0.975,
+                    showFocusRing: true,
+                    motionClearance: EdgeInsets.zero,
+                    onTap: () {
+                      _cancelPendingActionToggle();
+                      unawaited(
+                        _openDingTalkMessageLink(
+                          context,
+                          card.actions[index].url,
+                        ),
+                      );
+                    },
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Color.alphaBlend(
+                          colors.primaryContainer.withValues(alpha: 0.32),
+                          colors.surfaceContainerHighest,
+                        ),
+                        borderRadius: kOpenHandPillBorderRadius,
+                        border: Border.all(
+                          color: colors.primary.withValues(alpha: 0.18),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 13,
+                          vertical: 9,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.arrow_outward_rounded,
+                              size: 17,
+                              color: colors.primary,
+                            ),
+                            kOpenHandHGap8,
+                            Flexible(
+                              child: Text(
+                                card.actions[index].label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: colors.onSurface,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            if (card.privateOnly)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 2, 14, 11),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.lock_outline_rounded,
+                      size: 14,
+                      color: colors.onSurfaceVariant.withValues(alpha: 0.8),
+                    ),
+                    kOpenHandHGap5,
+                    Text(
+                      '仅你和对方可见',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (widget.message.reactions.isNotEmpty ||
+                widget.message.isContentHidden)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (widget.message.reactions.isNotEmpty)
+                      _buildReactionRow(
+                        context,
+                        colors.onSurface,
+                        topSpacing: 0,
+                      ),
+                    _buildMessageStateLabel(context),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -17207,7 +17437,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                 ),
               ),
               if (widget.message.reactions.isNotEmpty ||
-                  widget.message.isExcludedFromAiContext)
+                  widget.message.isContentHidden)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
                   child: Column(
@@ -17255,7 +17485,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
 
   void _toggleExcludedContent() {
     _cancelPendingActionToggle();
-    if (!widget.message.isExcludedFromAiContext) return;
+    if (!widget.message.isContentHidden) return;
     setState(() => _showExcludedContent = !_showExcludedContent);
   }
 
@@ -18593,10 +18823,16 @@ class _DingTalkMessageAuditDialogState
               foregroundColor: colors.primary,
             ),
             OhPill(
-              icon: message.isAssistant
+              icon: message.isAutomaticReply
+                  ? Icons.auto_awesome_motion_rounded
+                  : message.isAssistant
                   ? Icons.auto_awesome_outlined
                   : Icons.person_outline_rounded,
-              label: message.isAssistant ? 'AI 消息' : '用户消息',
+              label: message.isAutomaticReply
+                  ? '钉钉自动回复'
+                  : message.isAssistant
+                  ? 'AI 消息'
+                  : '用户消息',
               foregroundColor: colors.onSurfaceVariant,
             ),
             OhPill(

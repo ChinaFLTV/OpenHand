@@ -3046,6 +3046,12 @@ class DingTalkMessageGatewayService {
         ]),
       );
       final content = _content(map);
+      final automaticReplyCard = _automaticReplyCard(map);
+      final typedContent = automaticReplyCard == null
+          ? content
+          : automaticReplyCard.plainText.isNotEmpty
+          ? automaticReplyCard.plainText
+          : automaticReplyCard.title;
       final parsedConversationId = _first(map, const <String>[
         'openConversationId',
         'open_conversation_id',
@@ -3106,10 +3112,11 @@ class DingTalkMessageGatewayService {
         fallbackCreatedAt: createdAt,
       );
       final displayContent = media.isEmpty
-          ? content
-          : _mediaDisplayContent(content, media);
+          ? typedContent
+          : _mediaDisplayContent(typedContent, media);
       if (id.isEmpty ||
           (content.isEmpty &&
+              automaticReplyCard == null &&
               media.isEmpty &&
               quotedMessage == null &&
               forwarded.messages.isEmpty &&
@@ -3153,6 +3160,10 @@ class DingTalkMessageGatewayService {
             'groupName',
             'title',
           ]),
+          messageType: automaticReplyCard == null
+              ? DingTalkGatewayMessageType.text
+              : DingTalkGatewayMessageType.automaticReply,
+          automaticReplyCard: automaticReplyCard,
           media: media,
           quotedMessage: quotedMessage,
           forwardedMessages: forwarded.messages,
@@ -3502,6 +3513,12 @@ class DingTalkMessageGatewayService {
       );
     }
     final content = _content(map);
+    final automaticReplyCard = _automaticReplyCard(map);
+    final typedContent = automaticReplyCard == null
+        ? content
+        : automaticReplyCard.plainText.isNotEmpty
+        ? automaticReplyCard.plainText
+        : automaticReplyCard.title;
     final media = _extractMedia(map)
         .map(
           (item) => item.copyWith(
@@ -3526,9 +3543,10 @@ class DingTalkMessageGatewayService {
       fallbackCreatedAt: createdAt,
     );
     final displayContent = media.isEmpty
-        ? content
-        : _mediaDisplayContent(content, media);
+        ? typedContent
+        : _mediaDisplayContent(typedContent, media);
     if (content.isEmpty &&
+        automaticReplyCard == null &&
         media.isEmpty &&
         quotedMessage == null &&
         forwarded.messages.isEmpty) {
@@ -3590,6 +3608,10 @@ class DingTalkMessageGatewayService {
         'groupName',
         'title',
       ]),
+      messageType: automaticReplyCard == null
+          ? DingTalkGatewayMessageType.text
+          : DingTalkGatewayMessageType.automaticReply,
+      automaticReplyCard: automaticReplyCard,
       media: media,
       quotedMessage: quotedMessage,
       forwardedMessages: forwarded.messages,
@@ -4061,6 +4083,34 @@ class DingTalkMessageGatewayService {
     // 顶层 title/summary/description 通常属于会话或卡片元数据，不能混入消息正文；
     // 只有进入 content/text 对应的结构化对象后，才读取这些正文属性。
     return merge(primaryContentKeys.map((key) => read(map[key], depth + 1)));
+  }
+
+  DingTalkAutomaticReplyCard? _automaticReplyCard(Map<String, Object?> map) {
+    const contentKeys = <String>[
+      'content',
+      'text',
+      'msgContent',
+      'msg_content',
+      'messageContent',
+      'richText',
+      'rich_text',
+      'markdown',
+    ];
+    final nativeType = _first(map, const <String>[
+      'messageType',
+      'message_type',
+      'msgType',
+      'msgtype',
+      'msg_type',
+    ]);
+    for (final key in contentKeys) {
+      final card = parseDingTalkAutomaticReplyCard(
+        map[key],
+        nativeType: nativeType,
+      );
+      if (card != null) return card;
+    }
+    return null;
   }
 
   List<DingTalkGatewayMedia> _extractMedia(

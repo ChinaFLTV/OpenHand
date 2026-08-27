@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -554,6 +555,324 @@ enum DingTalkResponseMode {
 }
 
 enum DingTalkGatewayMessageRole { user, assistant }
+
+const int _maxDingTalkAutomaticReplyPayloadCharacters = 64 * 1024;
+const int _maxDingTalkAutomaticReplySegments = 32;
+const int _maxDingTalkAutomaticReplyActions = 8;
+const int _maxDingTalkAutomaticReplyJsonCandidates = 32;
+
+enum DingTalkGatewayMessageType {
+  text('text'),
+  automaticReply('automatic_reply');
+
+  const DingTalkGatewayMessageType(this.storageValue);
+
+  final String storageValue;
+
+  static DingTalkGatewayMessageType fromStorage(Object? value) {
+    final normalized = '${value ?? ''}'.trim().toLowerCase();
+    return values.firstWhere(
+      (item) => item.storageValue == normalized,
+      orElse: () => DingTalkGatewayMessageType.text,
+    );
+  }
+}
+
+@immutable
+class DingTalkAutomaticReplyTextSegment {
+  const DingTalkAutomaticReplyTextSegment({
+    required this.text,
+    this.emphasized = false,
+  });
+
+  factory DingTalkAutomaticReplyTextSegment.fromJson(
+    Map<String, Object?> json,
+  ) {
+    final text = '${json['text'] ?? ''}';
+    if (text.trim().isEmpty) {
+      throw const FormatException('钉钉自动回复文本为空。');
+    }
+    return DingTalkAutomaticReplyTextSegment(
+      text: text,
+      emphasized: boolFromValue(json['emphasized']),
+    );
+  }
+
+  final String text;
+  final bool emphasized;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'text': text,
+    'emphasized': emphasized,
+  };
+}
+
+@immutable
+class DingTalkAutomaticReplyAction {
+  const DingTalkAutomaticReplyAction({required this.label, required this.url});
+
+  factory DingTalkAutomaticReplyAction.fromJson(Map<String, Object?> json) {
+    final label = '${json['label'] ?? ''}'.trim();
+    final url = '${json['url'] ?? ''}'.trim();
+    if (label.isEmpty || url.isEmpty) {
+      throw const FormatException('钉钉自动回复操作数据不完整。');
+    }
+    return DingTalkAutomaticReplyAction(label: label, url: url);
+  }
+
+  final String label;
+  final String url;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'label': label,
+    'url': url,
+  };
+}
+
+@immutable
+class DingTalkAutomaticReplyCard {
+  const DingTalkAutomaticReplyCard({
+    required this.title,
+    required this.textSegments,
+    required this.actions,
+    this.privateOnly = false,
+    this.nativeType = '',
+  });
+
+  factory DingTalkAutomaticReplyCard.fromJson(Map<String, Object?> json) {
+    final title = '${json['title'] ?? ''}'.trim();
+    final textSegments =
+        (json['text_segments'] is List
+                ? json['text_segments'] as List
+                : const <Object?>[])
+            .take(_maxDingTalkAutomaticReplySegments)
+            .whereType<Map>()
+            .map((item) {
+              try {
+                return DingTalkAutomaticReplyTextSegment.fromJson(
+                  stringKeyedMapFromValue(item),
+                );
+              } on FormatException {
+                return null;
+              }
+            })
+            .whereType<DingTalkAutomaticReplyTextSegment>()
+            .toList(growable: false);
+    final actions =
+        (json['actions'] is List ? json['actions'] as List : const <Object?>[])
+            .take(_maxDingTalkAutomaticReplyActions)
+            .whereType<Map>()
+            .map((item) {
+              try {
+                return DingTalkAutomaticReplyAction.fromJson(
+                  stringKeyedMapFromValue(item),
+                );
+              } on FormatException {
+                return null;
+              }
+            })
+            .whereType<DingTalkAutomaticReplyAction>()
+            .toList(growable: false);
+    if (title.isEmpty || textSegments.isEmpty && actions.isEmpty) {
+      throw const FormatException('钉钉自动回复卡片数据不完整。');
+    }
+    return DingTalkAutomaticReplyCard(
+      title: title,
+      textSegments: textSegments,
+      actions: actions,
+      privateOnly: boolFromValue(json['private_only']),
+      nativeType: '${json['native_type'] ?? ''}'.trim(),
+    );
+  }
+
+  final String title;
+  final List<DingTalkAutomaticReplyTextSegment> textSegments;
+  final List<DingTalkAutomaticReplyAction> actions;
+  final bool privateOnly;
+  final String nativeType;
+
+  String get plainText => textSegments.map((item) => item.text).join().trim();
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'title': title,
+    'text_segments': textSegments
+        .map((item) => item.toJson())
+        .toList(growable: false),
+    'actions': actions.map((item) => item.toJson()).toList(growable: false),
+    'private_only': privateOnly,
+    'native_type': nativeType,
+  };
+}
+
+DingTalkAutomaticReplyCard? parseDingTalkAutomaticReplyCard(
+  Object? value, {
+  String nativeType = '',
+}) {
+  final structured = value is Map || value is List;
+  final raw = structured ? jsonEncode(value) : _normalizedDingTalkString(value);
+  if (raw.isEmpty ||
+      structured && raw.length > _maxDingTalkAutomaticReplyPayloadCharacters) {
+    return null;
+  }
+  final values = structured
+      ? <Object?>[value]
+      : _decodeDingTalkEmbeddedJsonValues(raw);
+  if (values.isEmpty) return null;
+  var title = '';
+  final segments = <DingTalkAutomaticReplyTextSegment>[];
+  final actions = <DingTalkAutomaticReplyAction>[];
+
+  void visit(Object? current, int depth) {
+    if (depth > 6) return;
+    if (current is String) {
+      for (final child in _decodeDingTalkEmbeddedJsonValues(current)) {
+        visit(child, depth + 1);
+      }
+      return;
+    }
+    if (current is List) {
+      for (final child in current.take(64)) {
+        visit(child, depth + 1);
+      }
+      return;
+    }
+    if (current is! Map) return;
+    final map = stringKeyedMapFromValue(current);
+    final type = '${map['type'] ?? ''}'.trim().toLowerCase();
+    if (type == 'markdown' && map['text'] is Map) {
+      final text = stringKeyedMapFromValue(map['text']);
+      final items = text['items'];
+      if (items is List) {
+        for (final item
+            in items
+                .take(_maxDingTalkAutomaticReplySegments)
+                .whereType<Map>()) {
+          final part = stringKeyedMapFromValue(item);
+          if ('${part['type'] ?? ''}'.trim().toLowerCase() != 'text') {
+            continue;
+          }
+          final data = part['data'] is Map
+              ? stringKeyedMapFromValue(part['data'])
+              : const <String, Object?>{};
+          final style = part['style'] is Map
+              ? stringKeyedMapFromValue(part['style'])
+              : const <String, Object?>{};
+          final textValue = '${data['text'] ?? ''}';
+          if (textValue.trim().isEmpty) continue;
+          segments.add(
+            DingTalkAutomaticReplyTextSegment(
+              text: textValue,
+              emphasized:
+                  boolFromValue(style['bold']) ||
+                  '${style['lightColor'] ?? style['darkColor'] ?? ''}'
+                      .trim()
+                      .isNotEmpty,
+            ),
+          );
+        }
+      }
+    } else if (type == 'action' && map['actions'] is List) {
+      for (final item
+          in (map['actions'] as List)
+              .take(_maxDingTalkAutomaticReplyActions)
+              .whereType<Map>()) {
+        final action = stringKeyedMapFromValue(item);
+        if ('${action['status'] ?? 'normal'}'.trim().toLowerCase() !=
+            'normal') {
+          continue;
+        }
+        final label = action['label'] is Map
+            ? '${stringKeyedMapFromValue(action['label'])['text'] ?? ''}'.trim()
+            : '';
+        final url = action['url'] is Map
+            ? '${stringKeyedMapFromValue(action['url'])['all'] ?? ''}'.trim()
+            : '';
+        if (label.isEmpty || url.isEmpty) continue;
+        actions.add(DingTalkAutomaticReplyAction(label: label, url: url));
+      }
+    }
+    final rawTitle = map['title'];
+    if (title.isEmpty && rawTitle is Map) {
+      title = '${stringKeyedMapFromValue(rawTitle)['text'] ?? ''}'.trim();
+    }
+    for (final child in map.values) {
+      if (child is Map || child is List || child is String) {
+        visit(child, depth + 1);
+      }
+    }
+  }
+
+  for (final item in values) {
+    visit(item, 0);
+  }
+  if (!title.contains('自动回复') || segments.isEmpty && actions.isEmpty) {
+    return null;
+  }
+  final normalizedNativeType = nativeType.trim().isNotEmpty
+      ? nativeType.trim()
+      : RegExp(r'(^|\n)\s*custom_link\s*($|\n)').hasMatch(raw)
+      ? 'custom_link'
+      : '';
+  return DingTalkAutomaticReplyCard(
+    title: title,
+    textSegments: segments.toList(growable: false),
+    actions: actions.toList(growable: false),
+    privateOnly: raw.contains('仅你和对方可见'),
+    nativeType: normalizedNativeType,
+  );
+}
+
+List<Object?> _decodeDingTalkEmbeddedJsonValues(String raw) {
+  final source = raw.length > _maxDingTalkAutomaticReplyPayloadCharacters
+      ? raw.substring(0, _maxDingTalkAutomaticReplyPayloadCharacters)
+      : raw;
+  final values = <Object?>[];
+  var attempts = 0;
+  for (
+    var start = 0;
+    start < source.length &&
+        values.length < _maxDingTalkAutomaticReplyActions &&
+        attempts < _maxDingTalkAutomaticReplyJsonCandidates;
+    start++
+  ) {
+    final opening = source.codeUnitAt(start);
+    if (opening != 0x5B && opening != 0x7B) continue;
+    attempts++;
+    final expectedClosings = <int>[opening == 0x5B ? 0x5D : 0x7D];
+    var quoted = false;
+    var escaped = false;
+    for (var end = start + 1; end < source.length; end++) {
+      final code = source.codeUnitAt(end);
+      if (quoted) {
+        if (escaped) {
+          escaped = false;
+        } else if (code == 0x5C) {
+          escaped = true;
+        } else if (code == 0x22) {
+          quoted = false;
+        }
+        continue;
+      }
+      if (code == 0x22) {
+        quoted = true;
+      } else if (code == 0x5B || code == 0x7B) {
+        expectedClosings.add(code == 0x5B ? 0x5D : 0x7D);
+      } else if (code == 0x5D || code == 0x7D) {
+        if (expectedClosings.isEmpty || expectedClosings.last != code) break;
+        expectedClosings.removeLast();
+        if (expectedClosings.isNotEmpty) continue;
+        try {
+          values.add(jsonDecode(source.substring(start, end + 1)));
+          start = end;
+        } on FormatException {
+          // 普通文本中的括号不是卡片 JSON，继续扫描后续内容。
+        }
+        break;
+      }
+    }
+  }
+  return values;
+}
 
 enum DingTalkOverloadStrategy {
   queue('queue'),
@@ -1576,6 +1895,8 @@ class DingTalkGatewayMessage {
     this.senderName = '',
     this.senderId = '',
     this.conversationTitle = '',
+    this.messageType = DingTalkGatewayMessageType.text,
+    this.automaticReplyCard,
     this.media = const <DingTalkGatewayMedia>[],
     this.quotedMessage,
     this.forwardedMessages = const <DingTalkForwardedMessage>[],
@@ -1611,6 +1932,24 @@ class DingTalkGatewayMessage {
       (item) => item.name == '${json['role'] ?? ''}',
       orElse: () => DingTalkGatewayMessageRole.user,
     );
+    DingTalkAutomaticReplyCard? automaticReplyCard;
+    final storedAutomaticReplyCard = json['automatic_reply_card'];
+    if (storedAutomaticReplyCard is Map) {
+      try {
+        automaticReplyCard = DingTalkAutomaticReplyCard.fromJson(
+          stringKeyedMapFromValue(storedAutomaticReplyCard),
+        );
+      } on FormatException {
+        automaticReplyCard = null;
+      }
+    }
+    automaticReplyCard ??= parseDingTalkAutomaticReplyCard(rawContent);
+    final storedMessageType = DingTalkGatewayMessageType.fromStorage(
+      json['message_type'],
+    );
+    final messageType = automaticReplyCard == null
+        ? storedMessageType
+        : DingTalkGatewayMessageType.automaticReply;
     final rawEditHistory = json['edit_history'];
     final editHistory = rawEditHistory is List
         ? rawEditHistory
@@ -1674,7 +2013,12 @@ class DingTalkGatewayMessage {
     final storedForwardedCount = int.tryParse(
       '${json['forwarded_message_count'] ?? ''}',
     );
-    final textContent = normalizeDingTalkMediaText(rawContent, media);
+    final automaticReplyText = automaticReplyCard?.plainText ?? '';
+    final textContent = automaticReplyCard == null
+        ? normalizeDingTalkMediaText(rawContent, media)
+        : automaticReplyText.isNotEmpty
+        ? automaticReplyText
+        : automaticReplyCard.title;
     final content = textContent.isEmpty && media.isNotEmpty
         ? media.map((item) => '[${item.displayName}]').join(' ')
         : textContent;
@@ -1688,6 +2032,8 @@ class DingTalkGatewayMessage {
       senderName: '${json['sender_name'] ?? ''}',
       senderId: '${json['sender_id'] ?? ''}',
       conversationTitle: '${json['conversation_title'] ?? ''}',
+      messageType: messageType,
+      automaticReplyCard: automaticReplyCard,
       media: media,
       quotedMessage: quotedMessage,
       forwardedMessages: forwardedMessages,
@@ -1728,6 +2074,8 @@ class DingTalkGatewayMessage {
   final String senderName;
   final String senderId;
   final String conversationTitle;
+  final DingTalkGatewayMessageType messageType;
+  final DingTalkAutomaticReplyCard? automaticReplyCard;
   final List<DingTalkGatewayMedia> media;
   final DingTalkQuotedMessage? quotedMessage;
   final List<DingTalkForwardedMessage> forwardedMessages;
@@ -1748,6 +2096,9 @@ class DingTalkGatewayMessage {
   final DingTalkGatewayMessageFeedback? feedback;
 
   bool get isAssistant => role == DingTalkGatewayMessageRole.assistant;
+  bool get isAutomaticReply =>
+      messageType == DingTalkGatewayMessageType.automaticReply &&
+      automaticReplyCard != null;
   bool get hasQuotedMessage => quotedMessage != null;
   bool get isForwardedChatRecord => forwardedMessages.isNotEmpty;
   Iterable<DingTalkGatewayMedia> get contextualMedia sync* {
@@ -1757,7 +2108,8 @@ class DingTalkGatewayMessage {
   }
 
   bool get isEdited => editHistory.isNotEmpty;
-  bool get isExcludedFromAiContext => recalled || ignoredForAiContext;
+  bool get isContentHidden => recalled || ignoredForAiContext;
+  bool get isExcludedFromAiContext => isContentHidden || isAutomaticReply;
   bool get isThinkingEcho =>
       responseEchoType == DingTalkResponseEchoType.thinking;
   bool get isToolCallEcho =>
@@ -1770,6 +2122,8 @@ class DingTalkGatewayMessage {
   DingTalkGatewayMessage copyWith({
     String? id,
     String? content,
+    DingTalkGatewayMessageType? messageType,
+    DingTalkAutomaticReplyCard? automaticReplyCard,
     List<DingTalkGatewayMedia>? media,
     DingTalkQuotedMessage? quotedMessage,
     List<DingTalkForwardedMessage>? forwardedMessages,
@@ -1798,6 +2152,8 @@ class DingTalkGatewayMessage {
       senderName: senderName,
       senderId: senderId,
       conversationTitle: conversationTitle,
+      messageType: messageType ?? this.messageType,
+      automaticReplyCard: automaticReplyCard ?? this.automaticReplyCard,
       media: media ?? this.media,
       quotedMessage: quotedMessage ?? this.quotedMessage,
       forwardedMessages: forwardedMessages ?? this.forwardedMessages,
@@ -1830,6 +2186,8 @@ class DingTalkGatewayMessage {
     'sender_name': senderName,
     'sender_id': senderId,
     'conversation_title': conversationTitle,
+    'message_type': messageType.storageValue,
+    'automatic_reply_card': automaticReplyCard?.toJson(),
     'media': media.map((item) => item.toJson()).toList(growable: false),
     'quoted_message': quotedMessage?.toJson(),
     'forwarded_messages': forwardedMessages
