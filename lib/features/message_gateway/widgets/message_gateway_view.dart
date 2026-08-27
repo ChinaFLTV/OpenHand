@@ -16915,13 +16915,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         color: colors.surfaceContainerLow,
         borderRadius: borderRadius,
         border: Border.all(color: colors.primary.withValues(alpha: 0.28)),
-        boxShadow: [
-          BoxShadow(
-            color: colors.shadow.withValues(alpha: 0.1),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
       ),
       clipBehavior: Clip.antiAlias,
       child: Material(
@@ -16931,16 +16924,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    colors.primaryContainer.withValues(alpha: 0.94),
-                    colors.tertiaryContainer.withValues(alpha: 0.72),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
+              decoration: BoxDecoration(color: colors.primaryContainer),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(14, 11, 15, 11),
                 child: Row(
