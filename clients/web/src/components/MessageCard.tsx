@@ -21,8 +21,13 @@ import type { ComponentChildren } from 'preact';
 import { t, tDuration, tNumber } from '../i18n';
 import { Markdown, looksLikeRenderableHtml, openHtmlInNewTab } from './Markdown';
 import { MediaGeneratingPlaceholderTransition, type MediaGenerationMode } from './MediaGeneratingPlaceholder';
-import { MediaPreviewDialog, MessageMedia, messageHasMultimedia, stripCollectedNetworkMedia } from './MessageMedia';
-import type { MediaItem } from './MessageMedia';
+import {
+  MediaPreviewDialog,
+  MessageMedia,
+  messageHasMultimedia,
+  stripCollectedNetworkMedia,
+  type MediaItem,
+} from './MessageMedia';
 import { MessageToolMeta } from './MessageToolMeta';
 import { ToolResultBody } from './ToolResultBody';
 import {

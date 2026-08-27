@@ -1,6 +1,5 @@
 import { useState } from 'preact/hooks';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import type { DashboardTone } from './ReverseDashboardPrimitives';
 import {
   DashboardHeaderIcon,
   DashboardInfoRow,
@@ -8,6 +7,7 @@ import {
   DashboardReadonlyHint,
   DashboardStatusPanel,
   DashboardTabPill,
+  type DashboardTone,
 } from './ReverseDashboardPrimitives';
 import {
   DIALOG_OVERLAY_TOP_Z_INDEX,

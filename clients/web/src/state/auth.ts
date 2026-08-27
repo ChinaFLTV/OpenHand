@@ -5,9 +5,12 @@
 
 import { useEffect, useState } from 'preact/hooks';
 import { apiRequest } from '../api/client';
-import { fetchApiMeta, type ApiMetaResponse } from '../api/meta';
+import {
+  fetchApiMeta,
+  metaThemeToTokens,
+  type ApiMetaResponse,
+} from '../api/meta';
 import { applyThemeTokens, defaultThemeTokens, type M3ThemeTokens } from '../theme/tokens';
-import { metaThemeToTokens } from '../api/meta';
 import { clearAuthStorage, readProfile, readToken, type AuthProfile } from './storage';
 import { setRemoteReducedMotion } from '../hooks/useReducedMotion';
 import { syncRemoteDialogMotionSettings } from '../hooks/useDialogMotionSettings';

@@ -16,7 +16,6 @@ import {
   DialogHeader,
   createStandardDialogFrameAppearance,
 } from './DialogFrame';
-import type { DashboardTone } from './ReverseDashboardPrimitives';
 import {
   DashboardChipList,
   DashboardHeaderIcon,
@@ -26,6 +25,7 @@ import {
   DashboardSection,
   DashboardStatusPanel,
   DashboardTabPill,
+  type DashboardTone,
 } from './ReverseDashboardPrimitives';
 
 interface AndroidReverseDashboardDialogProps {

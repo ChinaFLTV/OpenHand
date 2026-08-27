@@ -9,6 +9,7 @@ import {
   writeBrowserStorage,
 } from '../shared/util/browser_storage';
 import { STORAGE_KEY_DEVICE_ID, STORAGE_KEY_PROFILE, STORAGE_KEY_TOKEN } from '../shared/util/storage_keys';
+import { recordOrNullFromUnknown } from '../shared/util/value';
 
 let fallbackDeviceId = '';
 let fallbackToken: string | null = null;
@@ -56,17 +57,16 @@ export function readProfile(): AuthProfile | null {
   const raw = readBrowserStorage(STORAGE_KEY_PROFILE);
   if (!raw) return fallbackProfile;
   try {
-    const parsed = JSON.parse(raw);
-    if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      fallbackProfile = null;
-      return null;
+    const profile = recordOrNullFromUnknown(JSON.parse(raw)) as AuthProfile | null;
+    if (profile != null) {
+      fallbackProfile = profile;
+      return profile;
     }
-    fallbackProfile = parsed as AuthProfile;
-    return fallbackProfile;
   } catch {
-    fallbackProfile = null;
-    return null;
+    // 损坏的持久化数据无需反复解析，保留内存中的最近有效资料。
   }
+  removeBrowserStorage(STORAGE_KEY_PROFILE);
+  return fallbackProfile;
 }
 
 export function clearAuthStorage(): void {

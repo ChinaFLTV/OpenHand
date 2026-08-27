@@ -4,8 +4,7 @@
 // - 「降低动效」开启时，CSS 媒体查询会把所有动画时长压到 0.001ms，等价于直出。
 // - 同名 class 与 children 的 className 合并；不引入额外 DOM 包装层。
 
-import type { ComponentChildren } from 'preact';
-import type { JSX } from 'preact';
+import type { ComponentChildren, JSX } from 'preact';
 import { classNames } from '../shared/util/class_names';
 
 type AppearVariant = 'up' | 'pop' | 'page';
