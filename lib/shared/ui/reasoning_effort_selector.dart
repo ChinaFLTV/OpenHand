@@ -84,10 +84,7 @@ bool _isMaximumProgress(double progress) =>
 bool _isEnergyProgress(double progress) =>
     progress >= _kEnergyParticleThreshold;
 
-/// Opens the reasoning-effort selector popup above [anchorContext].
-///
-/// Entrance / exit motion follows global menu animation settings via
-/// [showAnimatedMenu] — never hard-coded.
+/// 在 [anchorContext] 上方打开推理强度选择器，动效遵循全局菜单设置。
 Future<void> showReasoningEffortSelector({
   required BuildContext context,
   required BuildContext anchorContext,
@@ -125,7 +122,9 @@ Future<void> showReasoningEffortSelector({
     context: context,
     position: RelativeRect.fromRect(anchorRect, Offset.zero & overlayBox.size),
     constraints: BoxConstraints(minWidth: popupWidth, maxWidth: popupWidth),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius24)),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(kOpenHandRadius24),
+    ),
     items: <PopupMenuEntry<String>>[
       _ReasoningEffortPopupEntry(
         width: popupWidth,

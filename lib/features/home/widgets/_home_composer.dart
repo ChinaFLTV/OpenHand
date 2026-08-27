@@ -1265,9 +1265,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     });
   }
 
-  /// Opens the shared AI model editor dialog pre-filled with the currently
-  /// selected provider configuration. Mirrors the gear button shown next to
-  /// each model capsule in Settings → AI Model Providers.
+  /// 使用当前提供商配置打开共享模型编辑弹窗。
   Future<void> _openSelectedModelEditor(BuildContext btnContext) async {
     final selected = widget.selectedModel;
     if (selected == null) {
@@ -2485,11 +2483,8 @@ class _ComposerModeButtonState extends State<_ComposerModeButton> {
   }
 }
 
-/// Creation mode types for the composer.
 enum _CreationMode { none, image, video, audio, deepResearch }
 
-/// A "+" button that opens a popup for creation modes (image, video, audio, deep research).
-/// When a supported mode is selected, the button turns active (primary color + mode icon).
 class _ComposerCreationModeButton extends StatefulWidget {
   const _ComposerCreationModeButton({
     required this.creationMode,
@@ -2860,7 +2855,6 @@ class _ReorderableChipWrapState<T> extends State<_ReorderableChipWrap<T>> {
   }
 }
 
-/// A wrap layout that allows drag-to-reorder of attachment chips.
 class _ReorderableAttachmentWrap extends StatelessWidget {
   const _ReorderableAttachmentWrap({
     required this.attachments,
@@ -4148,12 +4142,7 @@ IconData _iconForAttachmentKind(AiAttachmentKind kind) {
   };
 }
 
-// HE session tile shown in the navigation pane threads list.
-// Mirrors the visual design of _ThreadTile for consistency.
-
-/// Small chip rendered next to the creation-mode button that summarises the
-/// currently chosen options. Styled to match the send button and acts as a
-/// one-tap escape hatch back to plain text mode.
+/// 展示当前生成选项，点击可恢复纯文本模式。
 class _ComposerCreationOptionsChip extends StatelessWidget {
   const _ComposerCreationOptionsChip({
     required this.mode,

@@ -2357,8 +2357,7 @@ Future<void> _downloadRemoteUriToFile({
   }
 }
 
-/// Opens a message attachment inside the app preview surface. Images render
-/// directly; other files show a lightweight file preview with copy/open actions.
+/// 在应用内预览消息附件。
 Future<void> _openAttachment(
   BuildContext context,
   AiMessageAttachment attachment,
@@ -2494,8 +2493,6 @@ Future<void> _openLocalPathWithSystemApp(
   }
 }
 
-/// Opens a composer attachment draft through the same in-app preview path as
-/// persisted message attachments.
 Future<void> _openComposerAttachment(
   BuildContext context,
   _ComposerAttachmentDraft draft,
@@ -7324,12 +7321,7 @@ class _UserSkillSelectionChip extends StatelessWidget {
   }
 }
 
-/// Black-screen fullscreen route for immersive video playback. Reuses the
-/// `loadFile` trick from `_MediaPreviewDialog` so WKWebView can grant
-/// `file://` read access to the parent directory.
-///
-/// Pops with the most recent `currentTime` (in seconds) so the calling
-/// preview dialog can resync its scrub position when the user returns.
+/// 沉浸式视频页面；关闭时返回当前播放秒数以同步预览进度。
 class _FullscreenVideoPage extends StatefulWidget {
   const _FullscreenVideoPage({
     required this.source,
@@ -7672,11 +7664,6 @@ updateVolume();
   }
 }
 
-/// Slim, glassy chrome button used for the fullscreen back affordance.
-/// Designed to read as part of the player UI rather than a standalone
-/// material button — soft white fill at low alpha + rounded square with a
-/// thin border, matching the floating control aesthetic of native video
-/// players.
 class _FullscreenChromeButton extends StatefulWidget {
   const _FullscreenChromeButton({
     required this.icon,
@@ -7736,8 +7723,7 @@ class _FullscreenChromeButtonState extends State<_FullscreenChromeButton>
   }
 }
 
-/// Intent fired by the spacebar shortcut on the media preview / fullscreen
-/// routes. Toggles play/pause on the embedded `<video>`/`<audio>` element.
+/// 空格键切换媒体播放状态。
 class _MediaPlayPauseIntent extends Intent {
   const _MediaPlayPauseIntent();
 }

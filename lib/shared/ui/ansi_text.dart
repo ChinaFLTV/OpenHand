@@ -3,22 +3,10 @@ import 'package:flutter/material.dart';
 import '../util/byte_size_format.dart';
 import '../util/input_value_parsing.dart';
 
-/// Lightweight ANSI SGR (Select Graphic Rendition) parser that turns terminal
-/// output containing escape sequences into a list of `TextSpan`s suitable for
-/// rendering inside a `RichText` / `SelectableText.rich`.
+/// 将终端 ANSI SGR 转义序列解析为可渲染的 [TextSpan]。
 ///
-/// Supported subset (covers ~95% of CLI output found in the wild):
-///   * Reset / bold / dim / italic / underline / inverse
-///   * Standard fg/bg colours (30-37, 40-47)
-///   * Bright fg/bg colours (90-97, 100-107)
-///   * 256-colour fg/bg (38;5;N, 48;5;N)
-///   * Truecolour fg/bg (38;2;R;G;B, 48;2;R;G;B)
-///   * Default fg/bg (39, 49)
-///
-/// Non-SGR escape sequences (cursor movement, OSC, etc.) are stripped silently
-/// to keep output readable. The parser is bounded: oversized inputs above
-/// [_maxParseChars] are passed through as a single span using [base] without
-/// any ANSI processing, so this stays O(n) and never stalls the UI.
+/// 支持常用字体样式、前后景色、256 色和真彩色；移除光标移动、OSC 等非
+/// SGR 序列。超过 [_maxParseChars] 时直接返回原文，确保解析复杂度为 O(n)。
 List<TextSpan> ansiToSpans(
   String input, {
   required ColorScheme colorScheme,
@@ -49,11 +37,11 @@ List<TextSpan> ansiToSpans(
     final ch = input.codeUnitAt(i);
     if (ch == 0x1b && i + 1 < input.length) {
       final next = input.codeUnitAt(i + 1);
-      // CSI: ESC [ ... letter
+      // CSI：ESC [ ... 字母
       if (next == 0x5b /* [ */ ) {
         final endIdx = _findCsiEnd(input, i + 2);
         if (endIdx == -1) {
-          // Malformed — keep the literal ESC and continue.
+          // 序列不完整时保留 ESC 原文。
           buffer.writeCharCode(ch);
           i++;
           continue;
@@ -64,11 +52,11 @@ List<TextSpan> ansiToSpans(
           final params = input.substring(i + 2, endIdx);
           state.applySgr(params);
         }
-        // Non-SGR CSI sequences are stripped.
+        // 移除非 SGR 的 CSI 序列。
         i = endIdx + 1;
         continue;
       }
-      // OSC: ESC ] ... BEL or ESC \\
+      // OSC：ESC ] ... BEL 或 ESC \\
       if (next == 0x5d /* ] */ ) {
         final stEnd = _findOscEnd(input, i + 2);
         if (stEnd == -1) {
@@ -79,7 +67,7 @@ List<TextSpan> ansiToSpans(
         i = stEnd;
         continue;
       }
-      // Two-byte escape (e.g. ESC =, ESC > etc.) — drop both bytes.
+      // 移除 ESC =、ESC > 等双字节转义。
       i += 2;
       continue;
     }
@@ -90,8 +78,7 @@ List<TextSpan> ansiToSpans(
   return spans;
 }
 
-/// Convenience wrapper that wraps [ansiToSpans] in a `Text.rich` with the
-/// caller's [base] style as the default.
+/// 使用 [base] 作为默认样式渲染 [ansiToSpans] 的结果。
 Widget ansiText(
   String input, {
   required ColorScheme colorScheme,
@@ -263,8 +250,7 @@ class _AnsiState {
   }
 }
 
-// Material You-friendly basic ANSI palette. Tuned to be readable on both
-// light and dark surfaces; bright variants are noticeably more saturated.
+// ANSI 基础色板兼顾明暗主题，高亮色使用更高饱和度。
 const List<Color> _basic = [
   Color(0xFF3F3F3F), // black
   Color(0xFFD6453E), // red

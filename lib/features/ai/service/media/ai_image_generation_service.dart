@@ -84,13 +84,7 @@ const Set<String> _gmiMusicFormats = <String>{'mp3', 'wav', 'pcm'};
 const Set<int> _gmiMusicSampleRates = <int>{16000, 24000, 32000, 44100};
 const Set<int> _gmiMusicBitrates = <int>{32000, 64000, 128000, 256000};
 
-/// Outcome of a generative multimedia request (image/video/audio).
-///
-/// The [markdown] field contains assistant-ready markdown (e.g.
-/// `![prompt](file:///tmp/openhand_media_xxx/image_1.png)`) which the UI can
-/// drop straight into the chat. [attachments] carry the on-disk locations so
-/// downstream code may persist or re-render the media through
-/// `AiMessageAttachment` later.
+/// 多媒体生成结果；[markdown] 可直接写入会话，[attachments] 记录本地文件。
 class AiMediaGenerationResult {
   const AiMediaGenerationResult({
     required this.markdown,
@@ -127,15 +121,10 @@ class AiMediaGenerationCancelledException implements Exception {
   const AiMediaGenerationCancelledException();
 }
 
-/// Service that routes image, video and audio generation requests to the
-/// correct vendor endpoint.
+/// 按供应商路由图片、视频和音频生成请求。
 ///
-/// This intentionally lives outside [AiProtocolAdapter] because the
-/// /v1/images/generations endpoint is only loosely related to chat
-/// completions: it has its own body shape, no streaming, and different
-/// response handling. Keeping it isolated also lets us evolve per-vendor
-/// quirks (Qwen's `qwen-image` aliasing, Grok's `grok-image-1.0`,
-/// DALL·E 3's quality/style flags, …) without destabilising the chat path.
+/// 多媒体接口具有独立请求结构和响应流程，因此与 [AiProtocolAdapter] 隔离，
+/// 避免供应商差异影响聊天链路。
 class AiImageGenerationService {
   AiImageGenerationService({http.Client? client, AiEndpointRouter? router})
     : _transport = AiTransportClient(client: client),

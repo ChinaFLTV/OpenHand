@@ -11,13 +11,11 @@ import 'ai_session_controller.dart';
 import 'model/ai_model_config.dart';
 import 'service/hook/ai_claude_hook_service.dart';
 
-/// Assembly point for the ai feature.
-///
 /// AI 是状态机心脏，由 [AiSessionController] 持有整个会话状态。bootstrap
 /// 必须 await，且依赖：
 /// - hooks executor（hook 服务）
 /// - skills directory provider（懒求值的字符串提供者）
-/// - memory controller provider（late-bound — memory 是非首屏关键路径，
+/// - memory controller provider（延迟绑定；memory 是非首屏关键路径，
 ///   构造时可能尚未就绪；通过 provider 闭包延迟取值）
 ///
 /// 注意：AiSessionController.create 是真正异步重活（state 装载 + I/O），

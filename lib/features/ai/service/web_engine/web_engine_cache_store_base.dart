@@ -354,14 +354,13 @@ abstract class WebEngineCacheStoreBase<TSettings> {
   Future<void> _runSerialized(
     String action,
     Future<void> Function() operation,
-  ) async {
-    if (_shuttingDown) return;
-    try {
-      await _operations.enqueue(operation);
-    } catch (error, stack) {
-      silentLog(logTag, action, error, stack);
-    }
-  }
+  ) => runWebEngineSerializedOperation(
+    shuttingDown: _shuttingDown,
+    queue: _operations,
+    logTag: logTag,
+    action: action,
+    operation: operation,
+  );
 
   Future<void> _writeEntry({
     required String key,

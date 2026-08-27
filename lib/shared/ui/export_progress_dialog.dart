@@ -139,8 +139,7 @@ class ExportProgressDialog extends StatelessWidget {
   }
 }
 
-/// Opens a tracked progress dialog and owns [controller] until that exact
-/// route closes. Unexpected route teardown cancels the export before cleanup.
+/// 打开受跟踪的导出进度弹窗；路由关闭时取消未完成任务并释放 [controller]。
 OpenHandDialogSession<void> showExportProgressDialog({
   required BuildContext context,
   required ExportProgressController controller,

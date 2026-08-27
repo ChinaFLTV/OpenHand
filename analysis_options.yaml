@@ -1,24 +1,20 @@
-# 升级为生产级 lint 规则配置。
-# 基础规则来自 flutter_lints，在此基础上追加更严格的质量检查。
 include: package:flutter_lints/flutter.yaml
 
 linter:
   rules:
-    # — 代码风格 —
-    prefer_final_fields: true          # 不可变字段应声明为 final
-    prefer_final_locals: false         # 可变局部变量（如循环用 var）允许非 final
-    prefer_const_constructors: true    # 优先使用 const 构造函数
-    prefer_const_declarations: true    # const 字面量变量使用 const 声明
-    unnecessary_this: true             # 移除不必要的 this.
-    unnecessary_parenthesis: true      # 移除不改变语义的多余括号
-    use_super_parameters: true         # 构造函数转发参数用 super.x
-    avoid_void_async: true             # async 函数不返回 void（异常无处可接）
-    prefer_interpolation_to_compose_strings: true  # 字符串拼接改用插值
-    no_leading_underscores_for_local_identifiers: true  # 局部标识符不加下划线
+    prefer_final_fields: true
+    prefer_final_locals: false
+    prefer_const_constructors: true
+    prefer_const_declarations: true
+    unnecessary_this: true
+    unnecessary_parenthesis: true
+    use_super_parameters: true
+    avoid_void_async: true
+    prefer_interpolation_to_compose_strings: true
+    no_leading_underscores_for_local_identifiers: true
 
-    # — 安全性 —
-    avoid_print: true                  # 禁止生产代码使用 print()，改用日志框架
-    avoid_dynamic_calls: false         # 动态调用（工具参数解析场景允许）
+    avoid_print: true
+    avoid_dynamic_calls: false
 
     no_self_assignments: true
     no_wildcard_variable_uses: true
@@ -45,7 +41,7 @@ linter:
     collection_methods_unrelated_type: true
     avoid_returning_null_for_void: true
 
-    # — 刻意不启用（评估后判定不适用，勿再反复开启）—
+    # 以下规则已评估，不适用于当前异步错误与资源清理约定。
     # unnecessary_async：本项目的约定是「返回 Future 的函数，其错误一律经由
     #   Future 送达」，调用方只需处理一条错误路径。去掉 async 会让参数校验的
     #   throw 变成同步抛出——例如 skill_market_client 里
@@ -56,25 +52,20 @@ linter:
     # avoid_futureor_void：`FutureOr<void> Function()` 回调是刻意设计（同步与
     #   异步回调都收，调用处统一 await），不是该 lint 针对的歧义写法。
 
-    # — Null 安全 —
-    unnecessary_null_checks: true      # 不必要的 null 检查
+    unnecessary_null_checks: true
 
-    # — 性能 —
-    use_null_aware_elements: false     # ?'key' 仅在 nullable key 场景有效，字面量 key 会冲突
-    prefer_contains: true              # 优先使用 contains 而非 indexOf != -1
-    use_string_buffers: false          # 不强制 StringBuffer（有些场景 + 更可读）
+    use_null_aware_elements: false
+    prefer_contains: true
+    use_string_buffers: false
 
-    # — 可维护性 —
-    avoid_redundant_argument_values: true  # 移除与默认值相同的参数
-    sort_constructors_first: true          # 构造函数排在其他成员前面
-    directives_ordering: true              # import 语句按规范排序
+    avoid_redundant_argument_values: true
+    sort_constructors_first: true
+    directives_ordering: true
 
 analyzer:
   exclude:
-    # vendor 包含 OpenHand 本地补丁；静态检查只关注第一方源码，避免批量改写第三方风格。
+    # vendor 包含本地维护的第三方补丁，不纳入第一方代码风格检查。
     - vendor/**
   errors:
-    # 将以下规则降级为 info，避免过于严格影响开发效率
-    prefer_final_locals: info
     sort_constructors_first: info
     directives_ordering: info

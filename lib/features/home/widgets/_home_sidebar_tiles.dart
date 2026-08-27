@@ -198,10 +198,7 @@ class _HarnessSessionTile extends StatelessWidget {
   }
 }
 
-/// Status badge for Harness Engineering sessions.
-/// Uses the same [_SweepBadge] animation for the running state and a static
-/// rounded capsule for terminal states — matching the [_ActiveThreadBadge]
-/// pattern used for AI thread sessions.
+/// Harness Engineering 会话状态胶囊。
 class _HarnessStatusCapsule extends StatelessWidget {
   const _HarnessStatusCapsule({
     required this.status,
@@ -511,7 +508,6 @@ class _ActiveThreadBadge extends StatelessWidget {
   }
 }
 
-/// A small circle that pulses (fades in and out) to draw attention.
 class _PulsingDot extends StatefulWidget {
   const _PulsingDot({required this.color, required this.size});
 

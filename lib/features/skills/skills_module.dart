@@ -4,16 +4,7 @@ import 'package:provider/single_child_widget.dart';
 import 'data/skills_repository.dart';
 import 'skills_controller.dart';
 
-/// Assembly point for the skills feature.
-///
-/// Construction is synchronous via [SkillsController.uninitialized].
-/// `main.dart` currently bootstraps the module during app startup and then
-/// schedules `controller.refresh()` in the background so the filesystem scan
-/// stays off the first-frame critical path.
-///
-/// Unlike other Plan-2 modules, this bootstrap takes [initialStoragePath]
-/// because the underlying controller's lazy-init factory has it as a
-/// required dependency.
+/// 模块构造保持轻量；`main.dart` 在后台刷新技能目录，避免文件扫描阻塞首帧。
 class SkillsModule {
   SkillsModule._({required this.controller});
 

@@ -4212,11 +4212,7 @@ class _GeneratingMediaRingPainter extends CustomPainter {
   }
 }
 
-/// Failure card shown in place of the shimmer when a multimedia creation
-/// request ended with an error without producing any assistant content.
-/// Mirrors the user's chosen creation mode (image / video / audio) so the
-/// failed turn stays visually coupled to the request, and surfaces the
-/// underlying error message with a dismiss button.
+/// 多媒体生成失败且没有助手正文时展示的错误卡片。
 class _CreationFailureCard extends StatefulWidget {
   const _CreationFailureCard({
     required this.request,

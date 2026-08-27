@@ -406,7 +406,9 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
             onTap: _isEmpty
                 ? null
                 : () => setState(() => _expanded = !_expanded),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(kOpenHandRadius14)),
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(kOpenHandRadius14),
+            ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
               child: Row(
@@ -837,7 +839,9 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
         titlePadding: const EdgeInsets.fromLTRB(24, 20, 16, 0),
         contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
         actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius26),
+        shape: const RoundedRectangleBorder(
+          borderRadius: kOpenHandBorderRadius26,
+        ),
         title: Row(
           children: [
             Icon(Icons.fact_check_outlined, color: colorScheme.primary),
@@ -1943,8 +1947,7 @@ Map<String, Object?> _auditSafeMap(Map<String, Object?> Function() builder) {
   }
 }
 
-/// Opens the message-level audit dialog using the app's configured dialog
-/// animations so entrance/exit behavior matches the rest of the product.
+/// 使用全局弹窗动效打开消息审计详情。
 Future<void> _showMessageAuditDialog(
   BuildContext context, {
   required AiSessionMessage message,

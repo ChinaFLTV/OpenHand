@@ -3,12 +3,7 @@ import 'package:provider/single_child_widget.dart';
 
 import 'memory_controller.dart';
 
-/// Assembly point for the memory feature.
-///
-/// Initialization stays lightweight (synchronous-in-async wrapper). `main.dart`
-/// currently constructs the controller during boot and immediately schedules
-/// `controller.refresh()` in the background so memory hydration does not block
-/// first paint while still becoming available shortly after startup.
+/// 模块构造保持轻量；`main.dart` 在后台刷新数据，避免记忆加载阻塞首帧。
 class MemoryModule {
   MemoryModule._({required this.controller});
 

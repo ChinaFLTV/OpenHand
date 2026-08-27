@@ -62,10 +62,7 @@ class _AppearOnceState extends State<AppearOnce>
     _opacity = CurvedAnimation(parent: ctrl, curve: Curves.easeOut);
     // Match the Material 3 emphasized motion used by transcript bubbles and
     // panel transitions.
-    _translate = CurvedAnimation(
-      parent: ctrl,
-      curve: kOpenHandEmphasizedCurve,
-    );
+    _translate = CurvedAnimation(parent: ctrl, curve: kOpenHandEmphasizedCurve);
     ctrl.addStatusListener(_onStatus);
     _ctrl = ctrl;
     ctrl.forward();
@@ -234,19 +231,7 @@ double _safeAppearSlideOffset(double value) {
   return value;
 }
 
-/// Lightweight wrapper that reads the global
-/// `listItemAnimationSettings` from [SettingsController] and either
-/// passes [child] through (if the user has set the channel's entrance
-/// style to `none`) or wraps it with an [AppearOnce] using the
-/// configured duration.
-///
-/// The slide direction is also inferred from the channel's entrance
-/// style: `slideUp` (default) keeps the existing 12px translate-from-
-/// below feel; `slideDown` flips to translate-from-above; any other
-/// style falls back to a pure fade (no translate).
-///
-/// Use this around list-item subtrees that should benefit from the
-/// "List Item Animation" panel in Settings.
+/// 按全局列表项动效设置包装 [child]；禁用动效时直接返回原组件。
 class SettingsAwareAppearOnce extends StatelessWidget {
   const SettingsAwareAppearOnce({super.key, required this.child});
 

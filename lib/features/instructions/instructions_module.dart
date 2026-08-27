@@ -3,12 +3,7 @@ import 'package:provider/single_child_widget.dart';
 
 import 'instructions_controller.dart';
 
-/// Assembly point for the instructions feature.
-///
-/// Construction is intentionally lightweight and synchronous. `main.dart`
-/// currently bootstraps the module at app start, then schedules
-/// `controller.refresh()` in the background so sqlite hydration stays off the
-/// first-frame critical path while the feature remains ready soon after boot.
+/// 模块构造保持轻量；`main.dart` 在后台刷新数据，避免 SQLite 加载阻塞首帧。
 class InstructionsModule {
   InstructionsModule._({required this.controller});
 

@@ -191,175 +191,120 @@ String? readResponseHeaderOrNull(Map<String, String> headers, String name) {
   return nullIfBlank(readResponseHeader(headers, name));
 }
 
-/// `Content-Type` 头名，避免各处重复书写字面量后大小写不一致。
 const String kContentTypeHeaderName = 'content-type';
 
-/// `Authorization` 头名常量。
 const String kAuthorizationHeaderName = 'authorization';
 
-/// `Accept` 头名常量。
 const String kAcceptHeaderName = 'accept';
 
-/// `User-Agent` 头名常量。
 const String kUserAgentHeaderName = 'user-agent';
 
-/// `Cache-Control: no-store` 头值常量。
 const String kCacheControlNoStore = 'no-store';
 
-/// `Connection: keep-alive` 头值常量。
 const String kConnectionKeepAlive = 'keep-alive';
 
-/// `Connection: close` 头值常量。
 const String kConnectionClose = 'close';
 
-/// JSON MIME 类型常量，避免全库重复书写字面量。
 const String kApplicationJsonMimeType = 'application/json';
 
-/// 二进制流 MIME 类型常量。
 const String kApplicationOctetStreamMimeType = 'application/octet-stream';
 
-/// SSE (Server-Sent Events) MIME 类型常量。
 const String kTextEventStreamMimeType = 'text/event-stream';
 
-/// 表单提交 MIME 类型常量。
 const String kFormUrlEncodedMimeType = 'application/x-www-form-urlencoded';
 
-/// Markdown MIME 类型常量。
 const String kTextMarkdownMimeType = 'text/markdown';
 
-/// YAML MIME 类型常量。
 const String kApplicationYamlMimeType = 'application/yaml';
 
-/// HTML MIME 类型常量。
 const String kTextHtmlMimeType = 'text/html';
 
-/// PDF MIME 类型常量。
 const String kApplicationPdfMimeType = 'application/pdf';
 
-/// 带 UTF-8 charset 的纯文本 Content-Type。
 const String kTextPlainUtf8ContentType = 'text/plain; charset=utf-8';
 
-/// 带 UTF-8 charset 的 JSON `Content-Type` 取值，供发送 JSON 请求体时复用。
 const String kApplicationJsonUtf8ContentType =
     '$kApplicationJsonMimeType; charset=utf-8';
 
-/// 带 UTF-8 charset 的 SSE `Content-Type` 取值，供本地 SSE 服务响应复用。
 const String kTextEventStreamUtf8ContentType =
     '$kTextEventStreamMimeType; charset=utf-8';
 
-/// PNG 图片 MIME 类型常量。
 const String kImagePngMimeType = 'image/png';
 
-/// JPEG 图片 MIME 类型常量。
 const String kImageJpegMimeType = 'image/jpeg';
 
-/// GIF 图片 MIME 类型常量。
 const String kImageGifMimeType = 'image/gif';
 
-/// WebP 图片 MIME 类型常量。
 const String kImageWebpMimeType = 'image/webp';
 
-/// SVG 图片 MIME 类型常量。
 const String kImageSvgXmlMimeType = 'image/svg+xml';
 
-/// 纯文本 MIME 类型常量（不含 charset）。
 const String kTextPlainMimeType = 'text/plain';
 
-/// MP3 / MPEG 音频 MIME 类型常量。
 const String kAudioMpegMimeType = 'audio/mpeg';
 
-/// MP3 别名 MIME 类型（`audio/mp3`）。
 const String kAudioMp3AliasMimeType = 'audio/mp3';
 
-/// MP4 音频 MIME 类型常量。
 const String kAudioMp4MimeType = 'audio/mp4';
 
-/// WAV 音频 MIME 类型常量。
 const String kAudioWavMimeType = 'audio/wav';
 
-/// WAV 音频别名 MIME 类型（`audio/wave`）。
 const String kAudioWaveAliasMimeType = 'audio/wave';
 
-/// WAV 音频别名 MIME 类型（`audio/x-wav`）。
 const String kAudioXWavAliasMimeType = 'audio/x-wav';
 
-/// OGG 音频 MIME 类型常量。
 const String kAudioOggMimeType = 'audio/ogg';
 
-/// FLAC 音频 MIME 类型常量。
 const String kAudioFlacMimeType = 'audio/flac';
 
-/// AAC 音频 MIME 类型常量。
 const String kAudioAacMimeType = 'audio/aac';
 
-/// MP4 视频 MIME 类型常量。
 const String kVideoMp4MimeType = 'video/mp4';
 
-/// WebM 视频 MIME 类型常量。
 const String kVideoWebmMimeType = 'video/webm';
 
-/// QuickTime 视频 MIME 类型常量。
 const String kVideoQuickTimeMimeType = 'video/quicktime';
 
-/// Matroska 视频 MIME 类型常量。
 const String kVideoMatroskaMimeType = 'video/x-matroska';
 
-/// AVI 视频 MIME 类型常量。
 const String kVideoAviMimeType = 'video/x-msvideo';
 
-/// MOV 视频（QuickTime 容器的旧别名）MIME 类型常量。
 const String kVideoMovMimeType = 'video/mov';
 
-/// WMV 视频 MIME 类型常量。
 const String kVideoWmvMimeType = 'video/x-ms-wmv';
 
-/// XML MIME 类型常量。
 const String kApplicationXmlMimeType = 'application/xml';
 
-/// TOML MIME 类型常量。
 const String kApplicationTomlMimeType = 'application/toml';
 
-/// BMP 图片 MIME 类型常量。
 const String kImageBmpMimeType = 'image/bmp';
 
-/// CSV MIME 类型常量。
 const String kTextCsvMimeType = 'text/csv';
 
-/// TSV (Tab-Separated Values) MIME 类型常量。
 const String kTextTsvMimeType = 'text/tab-separated-values';
 
-/// NDJSON (Newline-Delimited JSON) MIME 类型常量。
 const String kApplicationNdjsonMimeType = 'application/x-ndjson';
 
-/// NDJSON UTF-8 Content-Type 常量。
 const String kApplicationNdjsonUtf8ContentType =
     'application/x-ndjson; charset=utf-8';
 
-/// Word 文档（.docx）MIME 类型常量。
 const String kApplicationDocxMimeType =
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
-/// Excel 表格（.xlsx）MIME 类型常量。
 const String kApplicationXlsxMimeType =
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-/// PowerPoint 演示文稿（.pptx）MIME 类型常量。
 const String kApplicationPptxMimeType =
     'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 
-/// 旧版 Excel 表格（.xls）MIME 类型常量。
 const String kApplicationXlsMimeType = 'application/vnd.ms-excel';
 
-/// 讯飞 TTS 原始音频格式（16kHz 16-bit PCM）。
 const String kAudioL16Rate16000 = 'audio/L16;rate=16000';
 
-/// SSML (Speech Synthesis Markup Language) MIME 类型常量。
 const String kApplicationSsmlXmlMimeType = 'application/ssml+xml';
 
-/// GitHub REST API v3 Accept 头常量。
 const String kGitHubApiV3AcceptHeader = 'application/vnd.github.v3+json';
 
-/// GitHub REST API（默认）Accept 头常量。
 const String kGitHubApiAcceptHeader = 'application/vnd.github+json';
 
 /// 取 `Content-Type` 的 MIME 部分（丢掉 `; charset=...` 参数），统一转小写；

@@ -13306,8 +13306,7 @@ double _editorPreviewGutterWidth({
   );
 }
 
-/// Handles Cmd/Ctrl + scroll‑wheel zoom and Cmd/Ctrl + +/-/0 keyboard zoom
-/// for the code editor, similar to IntelliJ IDEA and VS Code.
+/// 处理代码编辑器的 Cmd/Ctrl 滚轮与 +/-/0 缩放快捷键。
 class _EditorZoomWrapper extends StatefulWidget {
   const _EditorZoomWrapper({
     required this.onZoomIn,

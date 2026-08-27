@@ -1,8 +1,5 @@
 part of '../ai_session_controller.dart';
 
-// Pure utility functions extracted from AiSessionController.
-// These do not reference any instance state.
-
 bool _hasIncompleteTodoItems(List<AiSessionTodoItem> todoItems) {
   return AiSessionTodoState.hasIncomplete(todoItems);
 }

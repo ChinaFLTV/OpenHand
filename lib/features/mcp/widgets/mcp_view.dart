@@ -4322,9 +4322,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     });
   }
 
-  /// Opens a structured drill-down for a dashboard card. The dialog reuses the
-  /// shared animated shell and watches the controller, so its content stays
-  /// live while open. [kind] selects which sections to render.
+  /// 打开运维卡片下钻弹窗；[kind] 决定展示内容，弹窗持续监听控制器更新。
   void _showOpsInsight(BuildContext context, _McpOpsInsightKind kind) {
     final config = _buildConfig();
     final spec = _mcpOpsInsightSpec(context, kind);
@@ -4342,7 +4340,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
   }
 }
 
-/// Identifies which drill-down an ops card opens.
+/// 运维卡片下钻类型。
 enum _McpOpsInsightKind {
   connections,
   activeRequests,

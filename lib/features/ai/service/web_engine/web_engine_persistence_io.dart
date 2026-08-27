@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/argument_guards.dart';
 import '../../../../shared/util/async_concurrency.dart';
@@ -10,6 +11,7 @@ import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/hex_encoding.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/serial_task_queue.dart';
 
 const int webEngineMaxJsonFileBytes = 16 * kBytesPerMiB;
 const int webEngineMaxPayloadFileBytes = 64 * kBytesPerMiB;
@@ -20,6 +22,21 @@ const String webEngineCachePayloadExtension = '.txt';
 const Duration webEngineDirectoryIdleTimeout = Duration(seconds: 2);
 const Duration webEngineDirectoryTotalTimeout = Duration(seconds: 15);
 const Duration webEngineFileOperationTimeout = Duration(seconds: 2);
+
+Future<void> runWebEngineSerializedOperation({
+  required bool shuttingDown,
+  required SerialTaskQueue queue,
+  required String logTag,
+  required String action,
+  required Future<void> Function() operation,
+}) async {
+  if (shuttingDown) return;
+  try {
+    await queue.enqueue(operation);
+  } catch (error, stack) {
+    silentLog(logTag, action, error, stack);
+  }
+}
 
 /// 缓存键即载荷内容的 SHA-256 摘要。
 bool isValidWebEngineCacheKey(String key) {

@@ -5,13 +5,7 @@ import 'data/mcp_store.dart';
 import 'mcp_controller.dart';
 import 'service/mcp_tool_discovery_service.dart';
 
-/// Assembly point for the mcp feature.
-///
-/// Construction is synchronous via [McpController.uninitialized] — server-list
-/// load happens in [McpController.refresh], kicked off from main.dart.
-///
-/// Bootstrap takes `initialFilePath` because the underlying lazy-init factory
-/// requires it (same nuance as SkillsModule).
+/// 模块构造保持轻量；`main.dart` 通过 [McpController.refresh] 后台加载服务列表。
 class McpModule {
   McpModule._({required this.controller});
 
