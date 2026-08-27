@@ -16400,11 +16400,11 @@ class _DingTalkMessageBubble extends StatefulWidget {
 }
 
 class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
-  static const double _baseBubbleMaxWidth = 560;
-  static const double _mineBubbleWidthFactor = 0.76;
-  static const double _mineBubbleMaxWidth = 920;
-  static const double _peerBubbleWidthFactor = 0.90;
-  static const double _peerBubbleMaxWidth = 1160;
+  static const double _baseBubbleMaxWidth = 420;
+  static const double _mineBubbleWidthFactor = 0.57;
+  static const double _mineBubbleMaxWidth = 690;
+  static const double _peerBubbleWidthFactor = 0.675;
+  static const double _peerBubbleMaxWidth = 870;
   static const int _maxRenderedTextCharacters = 10000;
   static const int _maxRenderedTextLines = 160;
   static const int _maxRenderedToolTextCharacters = 1600;
@@ -16655,16 +16655,18 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                         bubbleColor: bubbleColor,
                         foreground: foreground,
                       )
-                    : _buildMessageContent(
-                        context,
+                    : IntrinsicWidth(
                         key: const ValueKey<String>(
                           'dingtalk-message-content-expanded',
                         ),
-                        bubbleColor: bubbleColor,
-                        foreground: foreground,
-                        effectiveContent: effectiveContent,
-                        crossAxis: crossAxis,
-                        media: messageMedia,
+                        child: _buildMessageContent(
+                          context,
+                          bubbleColor: bubbleColor,
+                          foreground: foreground,
+                          effectiveContent: effectiveContent,
+                          crossAxis: crossAxis,
+                          media: messageMedia,
+                        ),
                       ),
               );
               final bubbleContent = resizeDuration == Duration.zero
@@ -16812,7 +16814,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
 
   Widget _buildMessageContent(
     BuildContext context, {
-    Key? key,
     required Color bubbleColor,
     required Color foreground,
     required String effectiveContent,
@@ -16824,7 +16825,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         ? Alignment.centerRight
         : Alignment.centerLeft;
     return Column(
-      key: key,
       crossAxisAlignment: crossAxis,
       children: [
         if (widget.message.quotedMessage case final quotedMessage?)
