@@ -16405,6 +16405,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   static const double _mineBubbleMaxWidth = 690;
   static const double _peerBubbleWidthFactor = 0.675;
   static const double _peerBubbleMaxWidth = 870;
+  static const int _quotedMessagePreviewMaxLines = 3;
   static const int _maxRenderedTextCharacters = 10000;
   static const int _maxRenderedTextLines = 160;
   static const int _maxRenderedToolTextCharacters = 1600;
@@ -16895,6 +16896,10 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     final preview = content.isNotEmpty
         ? content
         : quotedMessage.media.map((item) => '[${item.displayName}]').join(' ');
+    final previewLines = const LineSplitter().convert(preview);
+    final visiblePreview = previewLines.length > _quotedMessagePreviewMaxLines
+        ? '${previewLines.take(_quotedMessagePreviewMaxLines).join('\n').trimRight()}…'
+        : preview;
     final card = AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion220),
       curve: kOpenHandSwitchInCurve,
@@ -16935,6 +16940,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                     sender,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    textWidthBasis: TextWidthBasis.longestLine,
                     style: theme.textTheme.labelMedium?.copyWith(
                       color: foreground.withValues(alpha: 0.82),
                       fontWeight: FontWeight.w700,
@@ -16943,12 +16949,13 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                 ),
               ],
             ),
-            if (preview.isNotEmpty) ...[
+            if (visiblePreview.isNotEmpty) ...[
               kOpenHandGap4,
               Text(
-                preview,
-                maxLines: 3,
+                visiblePreview,
+                maxLines: _quotedMessagePreviewMaxLines,
                 overflow: TextOverflow.ellipsis,
+                textWidthBasis: TextWidthBasis.longestLine,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: foreground.withValues(alpha: 0.78),
                   height: 1.4,
