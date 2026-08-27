@@ -30,6 +30,10 @@ final RegExp _dingtalkLinkCardProjectionPrefixPattern = RegExp(
   r'^(?:[\[【](?:分享|链接|网页)[\]】]|分享链接(?:消息)?[:：]?)\s*',
   caseSensitive: false,
 );
+final RegExp _dingtalkSelfLabeledMarkdownLinkPattern = RegExp(
+  r'^\[(https?://[^\]\r\n]+)\]\((https?://.+)\)$',
+  caseSensitive: false,
+);
 final RegExp _dingtalkMediaPlaceholderPattern = RegExp(
   r'\[(?:图片|图片消息|照片|图像|视频|视频消息|语音|语音消息|音频|音频消息|文件|文件消息|附件|媒体消息|image|image message|photo|picture|video|video message|voice|voice message|audio|audio message|file|file message|attachment|media|media message)\]'
   r'(?:\(\s*(?:mediaId|fileId)\s*=\s*[^)\s]+\s*\))?',
@@ -43,6 +47,8 @@ final RegExp _dwsMediaDownloadHintPattern = RegExp(
 
 String _removeDingTalkDuplicatedLinkProjection(Object? value) {
   final text = _normalizedDingTalkString(value);
+  final enhancedLink = _dingtalkEnhancedLinkProjectionUrl(text);
+  if (enhancedLink != null) return enhancedLink;
   final match = _dingtalkDuplicatedLinkProjectionPattern.firstMatch(text);
   if (match == null) return text;
   final content = match.group(1)!;
@@ -54,6 +60,61 @@ String _removeDingTalkDuplicatedLinkProjection(Object? value) {
     return text;
   }
   return content;
+}
+
+String? _dingtalkEnhancedLinkProjectionUrl(String text) {
+  final lines = text
+      .split(RegExp(r'\r?\n'))
+      .map((line) => line.trim())
+      .where((line) => line.isNotEmpty)
+      .toList(growable: false);
+  if (lines.isEmpty || lines.length > 3) return null;
+
+  RegExpMatch? originalLink;
+  var originalIndex = -1;
+  for (var index = 0; index < lines.length; index++) {
+    final match = _dingtalkSelfLabeledMarkdownLinkPattern.firstMatch(
+      lines[index],
+    );
+    if (match == null || match.group(1) != match.group(2)) continue;
+    final uri = Uri.tryParse(match.group(2)!);
+    final enhanced = uri?.queryParameters.entries.any(
+      (entry) =>
+          entry.key.toLowerCase() == 'from' &&
+          entry.value.toLowerCase() == 'dd_link_enhance',
+    );
+    if (enhanced != true || originalLink != null) continue;
+    originalLink = match;
+    originalIndex = index;
+  }
+  if (originalLink == null || originalIndex > 1) return null;
+  if (originalIndex == 1 &&
+      _dingtalkSelfLabeledMarkdownLinkPattern.hasMatch(lines.first)) {
+    return null;
+  }
+  if (originalIndex + 1 < lines.length) {
+    final desktopLink = _dingtalkSelfLabeledMarkdownLinkPattern.firstMatch(
+      lines[originalIndex + 1],
+    );
+    if (desktopLink == null ||
+        desktopLink.group(1) != desktopLink.group(2) ||
+        !_isDingTalkDesktopLinkProjection(desktopLink.group(2)!)) {
+      return null;
+    }
+  }
+  return originalLink.group(2);
+}
+
+bool _isDingTalkDesktopLinkProjection(String value) {
+  final uri = Uri.tryParse(value);
+  if (uri == null || uri.host.toLowerCase() != 'applink.dingtalk.com') {
+    return false;
+  }
+  final nestedUrl = uri.queryParameters.entries
+      .where((entry) => entry.key.toLowerCase() == 'url')
+      .map((entry) => entry.value)
+      .firstOrNull;
+  return nestedUrl != null && nestedUrl.contains('from=dingCardSlide');
 }
 
 /// 生成钉钉消息正文的比较值，消除平台回流时产生的换行和不可见字符差异。
