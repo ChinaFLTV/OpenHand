@@ -50,6 +50,7 @@ function emit(next: AuthState): void {
 
 let bootPromise: Promise<void> | null = null;
 let bootController: AbortController | null = null;
+let refreshPromise: Promise<void> | null = null;
 let bootGeneration = 0;
 let syncListenersInstalled = false;
 let lastForegroundMetaRefreshAt = 0;
@@ -171,6 +172,15 @@ export function logout(): void {
 
 /// 显式刷新一次 /api/meta（例如桌面端切换了主题色后）。
 export async function refreshMeta(): Promise<void> {
+  if (refreshPromise) return refreshPromise;
+  bootController?.abort();
   bootPromise = null;
-  await bootOnce();
+  const pending = bootOnce();
+  const refreshPending = pending.finally(() => {
+    if (refreshPromise === refreshPending) {
+      refreshPromise = null;
+    }
+  });
+  refreshPromise = refreshPending;
+  await refreshPending;
 }
