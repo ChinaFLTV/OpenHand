@@ -1091,9 +1091,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         conversation.id,
         _DingTalkConversationHistoryState.new,
       );
-      // 首次建会话只导入最近 20 条已有消息，后续新消息不受此上限影响。
+      // 首屏只导入最近 20 条，更早消息按需分页回溯。
       state
-        ..hasMore = false
+        ..hasMore = page.hasMore
         ..initialized = true;
     } catch (error, stack) {
       if (!_disposed) {

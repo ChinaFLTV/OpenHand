@@ -12217,6 +12217,11 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     seconds: 3,
   );
   static const int _maxAutoMediaLoadAttempts = 512;
+  static const int _quotedMessageHistoryPageLimit = 6;
+  static const int _quotedMessageMaterializeAttempts = 4;
+  static const Duration _quotedMessageHighlightDuration = Duration(
+    milliseconds: 1200,
+  );
   final TextEditingController _input = TextEditingController();
   final FocusNode _inputFocusNode = FocusNode();
   final ScrollController _messagesScrollController = ScrollController();
@@ -12232,6 +12237,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   final Set<String> _loadingTranslationMessageIds = <String>{};
   final Set<String> _autoMediaLoadAttemptedMessageIds = <String>{};
   final Set<String> _autoMediaLoadPendingMessageIds = <String>{};
+  final _DingTalkMessageAnchorRegistry _messageAnchorRegistry =
+      _DingTalkMessageAnchorRegistry();
   bool _followScheduled = false;
   String? _followConversationId;
   bool _followJumpToBottom = false;
@@ -12243,6 +12250,11 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   bool _editSubmitting = false;
   bool _autoFollow = true;
   bool _showJumpToLatest = false;
+  String? _quotedJumpTargetMessageId;
+  String? _quotedReturnMessageId;
+  String? _highlightedMessageId;
+  int _messageNavigationVersion = 0;
+  Timer? _quotedMessageHighlightTimer;
   bool _closing = false;
   AudioRecorder? _voiceRecorder;
   String? _voicePath;
@@ -12286,6 +12298,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     _input.removeListener(_handleInputChanged);
     _ttsPlaybackService.state.removeListener(_handleTtsStateChanged);
     _voiceVisualTimer?.cancel();
+    _quotedMessageHighlightTimer?.cancel();
+    _messageAnchorRegistry.clear();
     _pastedAttachmentPruneQueue.discardPending();
     unawaited(_cancelVoiceAmplitudeSubscription());
     final recorder = _voiceRecorder;
@@ -12955,6 +12969,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                         ),
                                                         child: _DingTalkMessageBubble(
                                                           message: message,
+                                                          anchorRegistry:
+                                                              _messageAnchorRegistry,
                                                           mine: _isMine(
                                                             message,
                                                           ),
@@ -13144,6 +13160,39 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                                       message,
                                                                     )
                                                               : null,
+                                                          onOpenQuotedMessage:
+                                                              message
+                                                                      .quotedMessage
+                                                                      ?.id
+                                                                      .trim()
+                                                                      .isNotEmpty ==
+                                                                  true
+                                                              ? () => unawaited(
+                                                                  _jumpToQuotedMessage(
+                                                                    selected,
+                                                                    message,
+                                                                  ),
+                                                                )
+                                                              : null,
+                                                          onReturnToQuotedSource:
+                                                              normalizeDingTalkMessageId(
+                                                                        message
+                                                                            .id,
+                                                                      ) ==
+                                                                      _quotedJumpTargetMessageId &&
+                                                                  _quotedReturnMessageId !=
+                                                                      null
+                                                              ? () => unawaited(
+                                                                  _returnToQuotedSource(
+                                                                    selected,
+                                                                  ),
+                                                                )
+                                                              : null,
+                                                          highlighted:
+                                                              normalizeDingTalkMessageId(
+                                                                message.id,
+                                                              ) ==
+                                                              _highlightedMessageId,
                                                           showRawAction:
                                                               message
                                                                   .isAssistant &&
@@ -13886,6 +13935,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       return;
     }
     _messagesProgrammaticScroll.cancel();
+    _messageNavigationVersion++;
     _followJumpToBottom = false;
     final requestVersion = ++_followRequestVersion;
     unawaited(_settleMessagesAtLatest(requestVersion));
@@ -13943,6 +13993,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     // 触控板/滚轮属于明确的用户输入，立即终止贴底动画，避免两套滚动
     // 同时写入同一个 ScrollPosition 造成来回抢占。
     _messagesProgrammaticScroll.cancel();
+    _messageNavigationVersion++;
     _lastMessagesPointerSignalAt = _messagesScrollActivityStopwatch.elapsed;
     final controller = _messagesScrollController;
     if (controller.hasClients &&
@@ -13973,6 +14024,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     final userScroll = explicitUserScroll || implicitPointerScroll;
     if (programmaticScroll && !explicitUserScroll) return false;
     if (!userScroll) return false;
+    if (explicitUserScroll) _messageNavigationVersion++;
     final distanceToBottom =
         notification.metrics.pixels - notification.metrics.minScrollExtent;
     if (distanceToBottom > 2) _disableAutoFollow();
@@ -14002,6 +14054,10 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   void _selectConversation(String id) {
     if (!widget.controller.isServiceEnabled) return;
     if (_selectedId == id) return;
+    _messageNavigationVersion++;
+    _quotedMessageHighlightTimer?.cancel();
+    _quotedMessageHighlightTimer = null;
+    _messageAnchorRegistry.clear();
     _messagesProgrammaticScroll.cancel();
     if (_messagesScrollController.hasClients) {
       final position = _messagesScrollController.position;
@@ -14021,6 +14077,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     setState(() {
       _selectedId = id;
       _showJumpToLatest = false;
+      _quotedJumpTargetMessageId = null;
+      _quotedReturnMessageId = null;
+      _highlightedMessageId = null;
       _expandedActionMessageId = null;
       _editingConversationId = null;
       _editingMessageId = null;
@@ -14029,6 +14088,243 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       _pendingAttachments = const <_DingTalkPendingAttachment>[];
     });
     _scheduleAutoFollow(force: true);
+  }
+
+  Future<void> _jumpToQuotedMessage(
+    DingTalkConversation conversation,
+    DingTalkGatewayMessage sourceMessage,
+  ) async {
+    final quotedMessage = sourceMessage.quotedMessage;
+    final targetId = normalizeDingTalkMessageId(quotedMessage?.id);
+    if (quotedMessage == null || targetId.isEmpty) {
+      showOpenHandInfoSnack(context, '引用消息缺少可定位的标识。');
+      return;
+    }
+    _disableAutoFollow();
+    final navigationVersion = ++_messageNavigationVersion;
+    var targetIndex = _messageIndexById(conversation.messages, targetId);
+    for (
+      var attempt = 0;
+      targetIndex < 0 &&
+          attempt < _quotedMessageHistoryPageLimit &&
+          widget.controller.hasOlderConversationMessages(conversation.id);
+      attempt += 1
+    ) {
+      final previousCount = conversation.messages.length;
+      await widget.controller.loadOlderConversationMessages(conversation.id);
+      if (!mounted ||
+          navigationVersion != _messageNavigationVersion ||
+          _selectedId != conversation.id) {
+        return;
+      }
+      targetIndex = _messageIndexById(conversation.messages, targetId);
+      if (conversation.messages.length == previousCount) break;
+    }
+    if (targetIndex < 0) {
+      if (mounted && navigationVersion == _messageNavigationVersion) {
+        showOpenHandInfoSnack(context, '暂时无法在已加载记录中定位该引用消息。');
+      }
+      return;
+    }
+    final sourceId = normalizeDingTalkMessageId(sourceMessage.id);
+    setState(() {
+      _quotedJumpTargetMessageId = targetId;
+      _quotedReturnMessageId = sourceId.isEmpty ? null : sourceId;
+      _expandedActionMessageId = null;
+    });
+    final located = await _scrollToMessage(
+      conversation,
+      targetId,
+      navigationVersion,
+    );
+    if (!mounted || navigationVersion != _messageNavigationVersion) return;
+    if (!located) {
+      showOpenHandInfoSnack(context, '引用消息已加载，但当前无法完成定位。');
+      return;
+    }
+    _highlightMessage(targetId);
+  }
+
+  Future<void> _returnToQuotedSource(DingTalkConversation conversation) async {
+    final sourceId = _quotedReturnMessageId;
+    if (sourceId == null ||
+        _messageIndexById(conversation.messages, sourceId) < 0) {
+      showOpenHandInfoSnack(context, '引用处已不在当前消息记录中。');
+      return;
+    }
+    _disableAutoFollow();
+    final navigationVersion = ++_messageNavigationVersion;
+    final located = await _scrollToMessage(
+      conversation,
+      sourceId,
+      navigationVersion,
+    );
+    if (!mounted || navigationVersion != _messageNavigationVersion) return;
+    if (!located) {
+      showOpenHandInfoSnack(context, '当前无法返回引用处。');
+      return;
+    }
+    setState(() {
+      _quotedJumpTargetMessageId = null;
+      _quotedReturnMessageId = null;
+      _expandedActionMessageId = null;
+    });
+    _highlightMessage(sourceId);
+  }
+
+  int _messageIndexById(
+    List<DingTalkGatewayMessage> messages,
+    String messageId,
+  ) {
+    final normalizedId = normalizeDingTalkMessageId(messageId);
+    return messages.lastIndexWhere(
+      (message) => normalizeDingTalkMessageId(message.id) == normalizedId,
+    );
+  }
+
+  Future<bool> _scrollToMessage(
+    DingTalkConversation conversation,
+    String messageId,
+    int navigationVersion,
+  ) async {
+    bool navigationIsCurrent() =>
+        mounted &&
+        navigationVersion == _messageNavigationVersion &&
+        _selectedId == conversation.id;
+
+    for (
+      var attempt = 0;
+      navigationIsCurrent() && attempt <= _quotedMessageMaterializeAttempts;
+      attempt += 1
+    ) {
+      final targetContext = _messageAnchorRegistry.contextOf(messageId);
+      if (targetContext != null) {
+        if (!mounted || !targetContext.mounted) return false;
+        final scrollDuration = openHandMotionDuration(
+          context,
+          kOpenHandMotion420,
+        );
+        _messagesProgrammaticScroll.begin();
+        try {
+          await Scrollable.ensureVisible(
+            targetContext,
+            alignment: 0.24,
+            duration: scrollDuration,
+            curve: kOpenHandEmphasizedCurve,
+          );
+          return navigationIsCurrent();
+        } catch (error, stack) {
+          if (navigationIsCurrent()) {
+            silentLog('钉钉消息网关', '定位引用消息', error, stack);
+          }
+          return false;
+        } finally {
+          _messagesProgrammaticScroll.end();
+        }
+      }
+      if (attempt == _quotedMessageMaterializeAttempts) break;
+      if (!await _scrollNearMessage(conversation, messageId)) return false;
+      await _awaitMessageLayout();
+    }
+    return false;
+  }
+
+  Future<bool> _scrollNearMessage(
+    DingTalkConversation conversation,
+    String messageId,
+  ) async {
+    final targetMessageIndex = _messageIndexById(
+      conversation.messages,
+      messageId,
+    );
+    final controller = _messagesScrollController;
+    if (targetMessageIndex < 0 ||
+        !controller.hasClients ||
+        !controller.position.hasContentDimensions) {
+      return false;
+    }
+    final position = controller.position;
+    final targetListIndex =
+        conversation.messages.length - targetMessageIndex - 1;
+    double? estimatedTarget;
+    var nearestDistance = 1 << 30;
+    for (final entry in _messageAnchorRegistry.entries) {
+      final visibleMessageIndex = _messageIndexById(
+        conversation.messages,
+        entry.key,
+      );
+      if (visibleMessageIndex < 0) continue;
+      final box = entry.value.findRenderObject() as RenderBox?;
+      if (box == null || !box.attached || !box.hasSize) continue;
+      final visibleListIndex =
+          conversation.messages.length - visibleMessageIndex - 1;
+      final distance = (targetListIndex - visibleListIndex).abs();
+      if (distance >= nearestDistance) continue;
+      nearestDistance = distance;
+      final estimatedExtent = math.max(56.0, box.size.height + 7);
+      estimatedTarget =
+          position.pixels +
+          (targetListIndex - visibleListIndex) * estimatedExtent;
+    }
+    estimatedTarget ??=
+        position.maxScrollExtent *
+        (targetListIndex / math.max(1, conversation.messages.length - 1)).clamp(
+          0.0,
+          1.0,
+        );
+    final target = estimatedTarget.clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if ((target - position.pixels).abs() < 1) return true;
+    final viewportDistances =
+        (target - position.pixels).abs() /
+        math.max(1, position.viewportDimension);
+    final duration = viewportDistances < 2
+        ? kOpenHandMotion320
+        : viewportDistances < 6
+        ? kOpenHandMotion520
+        : kOpenHandMotion660;
+    _messagesProgrammaticScroll.begin();
+    try {
+      await controller.animateTo(
+        target,
+        duration: openHandMotionDuration(context, duration),
+        curve: kOpenHandEmphasizedCurve,
+      );
+      return true;
+    } catch (error, stack) {
+      if (mounted) {
+        silentLog('钉钉消息网关', '滚动至引用消息附近', error, stack);
+      }
+      return false;
+    } finally {
+      _messagesProgrammaticScroll.end();
+    }
+  }
+
+  Future<void> _awaitMessageLayout() async {
+    try {
+      await WidgetsBinding.instance.endOfFrame.timeout(
+        const Duration(milliseconds: 300),
+      );
+    } on TimeoutException {
+      return;
+    }
+  }
+
+  void _highlightMessage(String messageId) {
+    final normalizedId = normalizeDingTalkMessageId(messageId);
+    _quotedMessageHighlightTimer?.cancel();
+    setState(() => _highlightedMessageId = normalizedId);
+    _quotedMessageHighlightTimer = startSafeTimer(
+      _quotedMessageHighlightDuration,
+      () {
+        _quotedMessageHighlightTimer = null;
+        if (!mounted || _highlightedMessageId != normalizedId) return;
+        setState(() => _highlightedMessageId = null);
+      },
+    );
   }
 
   void _scheduleVisibleMediaLoad(
@@ -15961,12 +16257,43 @@ typedef _DingTalkMediaSaveCallback =
       String destinationPath,
     );
 
+class _DingTalkMessageAnchorRegistry {
+  final Map<String, BuildContext> _contexts = <String, BuildContext>{};
+
+  void bind(String messageId, BuildContext context) {
+    final normalizedId = normalizeDingTalkMessageId(messageId);
+    if (normalizedId.isNotEmpty) _contexts[normalizedId] = context;
+  }
+
+  void unbind(String messageId, BuildContext context) {
+    final normalizedId = normalizeDingTalkMessageId(messageId);
+    if (identical(_contexts[normalizedId], context)) {
+      _contexts.remove(normalizedId);
+    }
+  }
+
+  BuildContext? contextOf(String messageId) {
+    final normalizedId = normalizeDingTalkMessageId(messageId);
+    final context = _contexts[normalizedId];
+    if (context is Element && !context.mounted) {
+      _contexts.remove(normalizedId);
+      return null;
+    }
+    return context;
+  }
+
+  Iterable<MapEntry<String, BuildContext>> get entries => _contexts.entries;
+
+  void clear() => _contexts.clear();
+}
+
 class _DingTalkMessageBubble extends StatefulWidget {
   const _DingTalkMessageBubble({
     required this.message,
     required this.mine,
     required this.actionsVisible,
     required this.onToggleActions,
+    required this.anchorRegistry,
     this.streaming = false,
     this.mediaLoading = false,
     this.mediaFailed = false,
@@ -15986,6 +16313,9 @@ class _DingTalkMessageBubble extends StatefulWidget {
     this.onSetFeedback,
     this.onAudit,
     this.onOpenForwardedChat,
+    this.onOpenQuotedMessage,
+    this.onReturnToQuotedSource,
+    this.highlighted = false,
     this.showRawAction = false,
   });
 
@@ -15993,6 +16323,7 @@ class _DingTalkMessageBubble extends StatefulWidget {
   final bool mine;
   final bool actionsVisible;
   final VoidCallback onToggleActions;
+  final _DingTalkMessageAnchorRegistry anchorRegistry;
 
   /// AI 流式回显中：正文按增量渐显并展示呼吸指示点。
   final bool streaming;
@@ -16014,6 +16345,9 @@ class _DingTalkMessageBubble extends StatefulWidget {
   final ValueChanged<DingTalkGatewayMessageFeedback?>? onSetFeedback;
   final VoidCallback? onAudit;
   final VoidCallback? onOpenForwardedChat;
+  final VoidCallback? onOpenQuotedMessage;
+  final VoidCallback? onReturnToQuotedSource;
+  final bool highlighted;
   final bool showRawAction;
 
   @override
@@ -16048,6 +16382,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   @override
   void initState() {
     super.initState();
+    widget.anchorRegistry.bind(widget.message.id, context);
     _longContentCollapseLatched = _shouldCollapseLongContent(
       _effectiveTextContent(widget),
     );
@@ -16056,6 +16391,11 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   @override
   void didUpdateWidget(covariant _DingTalkMessageBubble oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.message.id != widget.message.id ||
+        oldWidget.anchorRegistry != widget.anchorRegistry) {
+      oldWidget.anchorRegistry.unbind(oldWidget.message.id, context);
+    }
+    widget.anchorRegistry.bind(widget.message.id, context);
     if (_dingTalkMessageRenderIdentity(oldWidget.message) !=
         _dingTalkMessageRenderIdentity(widget.message)) {
       _cancelPendingActionToggle();
@@ -16087,6 +16427,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   @override
   void dispose() {
     _cancelPendingActionToggle();
+    widget.anchorRegistry.unbind(widget.message.id, context);
     super.dispose();
   }
 
@@ -16269,18 +16610,16 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                         bubbleColor: bubbleColor,
                         foreground: foreground,
                       )
-                    : IntrinsicWidth(
+                    : _buildMessageContent(
+                        context,
                         key: const ValueKey<String>(
                           'dingtalk-message-content-expanded',
                         ),
-                        child: _buildMessageContent(
-                          context,
-                          bubbleColor: bubbleColor,
-                          foreground: foreground,
-                          effectiveContent: effectiveContent,
-                          crossAxis: crossAxis,
-                          media: messageMedia,
-                        ),
+                        bubbleColor: bubbleColor,
+                        foreground: foreground,
+                        effectiveContent: effectiveContent,
+                        crossAxis: crossAxis,
+                        media: messageMedia,
                       ),
               );
               final bubbleContent = resizeDuration == Duration.zero
@@ -16291,6 +16630,52 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                       alignment: bubbleAlignment,
                       child: messageContent,
                     );
+              final highlightedContent = AnimatedScale(
+                scale: widget.highlighted ? 1.012 : 1,
+                duration: openHandMotionDuration(context, kOpenHandMotion260),
+                curve: kOpenHandEntranceCurve,
+                alignment: bubbleAlignment,
+                child: Stack(
+                  alignment: bubbleAlignment,
+                  children: [
+                    bubbleContent,
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: AnimatedContainer(
+                          duration: openHandMotionDuration(
+                            context,
+                            kOpenHandMotion260,
+                          ),
+                          curve: kOpenHandSwitchInCurve,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(
+                              kOpenHandRadius17,
+                            ),
+                            border: Border.all(
+                              color: colors.primary.withValues(
+                                alpha: widget.highlighted ? 0.82 : 0,
+                              ),
+                              width: 1.8,
+                            ),
+                            boxShadow: widget.highlighted
+                                ? [
+                                    BoxShadow(
+                                      color: colors.primary.withValues(
+                                        alpha: 0.2,
+                                      ),
+                                      blurRadius: 22,
+                                      spreadRadius: 1,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
               return Align(
                 alignment: alignment,
                 child: ConstrainedBox(
@@ -16299,7 +16684,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                     onPointerDown: _handlePointerDown,
                     onPointerCancel: _handlePointerCancel,
                     onPointerUp: _handlePointerUp,
-                    child: bubbleContent,
+                    child: highlightedContent,
                   ),
                 ),
               );
@@ -16313,6 +16698,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
               createdAt: widget.message.createdAt,
               statusIcon: status.icon,
               statusLabel: status.label,
+              onReturnToQuotedSource: widget.onReturnToQuotedSource,
             ),
           ),
           kOpenHandGap7,
@@ -16381,6 +16767,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
 
   Widget _buildMessageContent(
     BuildContext context, {
+    Key? key,
     required Color bubbleColor,
     required Color foreground,
     required String effectiveContent,
@@ -16388,15 +16775,23 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     required List<DingTalkGatewayMedia> media,
   }) {
     final hasText = _hasDingTalkTextContent(effectiveContent, media);
+    final childAlignment = widget.mine
+        ? Alignment.centerRight
+        : Alignment.centerLeft;
     return Column(
+      key: key,
       crossAxisAlignment: crossAxis,
       children: [
         if (widget.message.quotedMessage case final quotedMessage?)
-          _buildQuotedMessageCard(
-            context,
-            quotedMessage: quotedMessage,
-            bubbleColor: bubbleColor,
-            foreground: foreground,
+          Align(
+            alignment: childAlignment,
+            widthFactor: 1,
+            child: _buildQuotedMessageCard(
+              context,
+              quotedMessage: quotedMessage,
+              bubbleColor: bubbleColor,
+              foreground: foreground,
+            ),
           ),
         if (media.isNotEmpty)
           AnimatedOpacity(
@@ -16419,12 +16814,16 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           ),
         if (hasText && media.isNotEmpty) kOpenHandGap8,
         if (hasText || media.isEmpty)
-          _buildTextBubble(
-            context,
-            bubbleColor: bubbleColor,
-            foreground: foreground,
-            effectiveContent: effectiveContent,
-            includeFooter: media.isEmpty,
+          Align(
+            alignment: childAlignment,
+            widthFactor: 1,
+            child: _buildTextBubble(
+              context,
+              bubbleColor: bubbleColor,
+              foreground: foreground,
+              effectiveContent: effectiveContent,
+              includeFooter: media.isEmpty,
+            ),
           ),
         if (media.isNotEmpty && widget.message.reactions.isNotEmpty)
           _buildReactionRow(context, foreground, topSpacing: 2),
@@ -16451,83 +16850,100 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     final preview = content.isNotEmpty
         ? content
         : quotedMessage.media.map((item) => '[${item.displayName}]').join(' ');
-    return Semantics(
-      label: '引用 $sender 的消息：$preview',
-      child: AnimatedContainer(
-        duration: openHandMotionDuration(context, kOpenHandMotion220),
-        curve: kOpenHandSwitchInCurve,
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
-        decoration: BoxDecoration(
-          color: Color.alphaBlend(
-            colors.surface.withValues(alpha: widget.mine ? 0.24 : 0.42),
-            bubbleColor,
-          ),
-          borderRadius: kOpenHandBorderRadius12,
-          border: Border.all(color: colors.primary.withValues(alpha: 0.24)),
+    final card = AnimatedContainer(
+      duration: openHandMotionDuration(context, kOpenHandMotion220),
+      curve: kOpenHandSwitchInCurve,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          colors.surface.withValues(alpha: widget.mine ? 0.24 : 0.42),
+          bubbleColor,
         ),
-        child: Container(
-          padding: const EdgeInsets.only(left: 10),
-          decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(
-                color: colors.primary.withValues(alpha: 0.78),
-                width: 3,
-              ),
+        borderRadius: kOpenHandBorderRadius12,
+        border: Border.all(color: colors.primary.withValues(alpha: 0.24)),
+      ),
+      child: Container(
+        padding: const EdgeInsets.only(left: 10),
+        decoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(
+              color: colors.primary.withValues(alpha: 0.78),
+              width: 3,
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.format_quote_rounded,
-                    size: 15,
-                    color: colors.primary,
-                  ),
-                  kOpenHandHGap6,
-                  Flexible(
-                    child: Text(
-                      sender,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: foreground.withValues(alpha: 0.82),
-                        fontWeight: FontWeight.w700,
-                      ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.format_quote_rounded,
+                  size: 15,
+                  color: colors.primary,
+                ),
+                kOpenHandHGap6,
+                Flexible(
+                  child: Text(
+                    sender,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: foreground.withValues(alpha: 0.82),
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                ],
+                ),
+              ],
+            ),
+            if (preview.isNotEmpty) ...[
+              kOpenHandGap4,
+              Text(
+                preview,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: foreground.withValues(alpha: 0.78),
+                  height: 1.4,
+                ),
               ),
-              if (preview.isNotEmpty) ...[
-                kOpenHandGap4,
-                Text(
-                  preview,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: foreground.withValues(alpha: 0.78),
-                    height: 1.4,
-                  ),
-                ),
-              ],
-              if (quotedMessage.media.isNotEmpty) ...[
-                kOpenHandGap8,
-                _DingTalkMediaRail(
-                  media: quotedMessage.media,
-                  mine: widget.mine,
-                  loading: widget.mediaLoading,
-                  failed: widget.mediaFailed,
-                  onRetry: widget.onRetryMedia,
-                  onSaveFile: widget.onSaveMedia,
-                  onInteractiveTap: _cancelPendingActionToggle,
-                ),
-              ],
             ],
-          ),
+            if (quotedMessage.media.isNotEmpty) ...[
+              kOpenHandGap8,
+              _DingTalkMediaRail(
+                media: quotedMessage.media,
+                mine: widget.mine,
+                loading: widget.mediaLoading,
+                failed: widget.mediaFailed,
+                onRetry: widget.onRetryMedia,
+                onSaveFile: widget.onSaveMedia,
+                onInteractiveTap: _cancelPendingActionToggle,
+              ),
+            ],
+          ],
         ),
+      ),
+    );
+    return Semantics(
+      button: widget.onOpenQuotedMessage != null,
+      label: '引用 $sender 的消息：$preview',
+      hint: widget.onOpenQuotedMessage == null ? null : '点击跳转至原消息',
+      child: OpenHandOpsPressScale(
+        tone: colors.primary,
+        borderRadius: kOpenHandBorderRadius12,
+        hoverScale: 1.006,
+        pressScale: 0.985,
+        showFocusRing: true,
+        motionClearance: EdgeInsets.zero,
+        onTap: widget.onOpenQuotedMessage == null
+            ? null
+            : () {
+                _cancelPendingActionToggle();
+                widget.onOpenQuotedMessage?.call();
+              },
+        child: card,
       ),
     );
   }
@@ -17853,11 +18269,13 @@ class _DingTalkMessageMetaRow extends StatelessWidget {
     required this.createdAt,
     required this.statusIcon,
     required this.statusLabel,
+    this.onReturnToQuotedSource,
   });
 
   final DateTime createdAt;
   final IconData statusIcon;
   final String statusLabel;
+  final VoidCallback? onReturnToQuotedSource;
 
   @override
   Widget build(BuildContext context) {
@@ -17870,6 +18288,12 @@ class _DingTalkMessageMetaRow extends StatelessWidget {
           label: formatYearMonthDayHmLocal(createdAt),
         ),
         _DingTalkMessageMetaPill(icon: statusIcon, label: statusLabel),
+        if (onReturnToQuotedSource != null)
+          _DingTalkMessageActionButton(
+            icon: Icons.reply_all_rounded,
+            label: '返回至引用处',
+            onPressed: onReturnToQuotedSource,
+          ),
       ],
     );
   }
@@ -19514,6 +19938,7 @@ class _DingTalkMediaRail extends StatelessWidget {
   Widget build(BuildContext context) {
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+      widthFactor: 1,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: _maxWidth),
         child: Padding(
