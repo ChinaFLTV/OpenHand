@@ -299,6 +299,8 @@ class DingTalkMessageGatewayService {
   final Map<String, Future<String?>> _mediaDownloadTasks =
       <String, Future<String?>>{};
   final Set<String> _activeMediaCacheBasenames = <String>{};
+  final OpenHandSingleFlight<void> _mediaCachePruneFlight =
+      OpenHandSingleFlight<void>();
   Completer<void> _mediaDownloadCancelSignal = Completer<void>();
   final OpenHandAsyncSemaphore _mediaDownloadSemaphore = OpenHandAsyncSemaphore(
     3,
@@ -902,12 +904,12 @@ class DingTalkMessageGatewayService {
       await directory
           .create(recursive: true)
           .timeout(_mediaCacheFileOperationTimeout);
-      if (await output.exists().timeout(_mediaCacheFileOperationTimeout)) {
-        final size = await output.length().timeout(
-          _mediaCacheFileOperationTimeout,
-        );
-        if (size > 0 && size <= _maxMediaFileBytes) return output.path;
-        await output.delete().timeout(_mediaCacheFileOperationTimeout);
+      final cachedStat = await _statMediaCacheFileIfPresent(output);
+      if (cachedStat != null) {
+        if (cachedStat.size > 0 && cachedStat.size <= _maxMediaFileBytes) {
+          return output.path;
+        }
+        await _deleteMediaCacheFileIfPresent(output);
       }
       final cached = await _findCachedMediaFile(directory, basename);
       if (cached != null) return cached.path;
@@ -944,17 +946,16 @@ class DingTalkMessageGatewayService {
         timeout: _mediaDownloadTimeout,
         cancelSignal: cancelSignal,
       );
-      if (!await output.exists().timeout(_mediaCacheFileOperationTimeout)) {
+      final outputStat = await _statMediaCacheFileIfPresent(output);
+      if (outputStat == null) {
         throw StateError('钉钉媒体下载完成但未找到本地文件。');
       }
-      final outputBytes = await output.length().timeout(
-        _mediaCacheFileOperationTimeout,
-      );
+      final outputBytes = outputStat.size;
       if (outputBytes <= 0) {
         throw StateError('钉钉媒体下载完成但文件为空。');
       }
       if (outputBytes > _maxMediaFileBytes) {
-        await output.delete().timeout(_mediaCacheFileOperationTimeout);
+        await _deleteMediaCacheFileIfPresent(output);
         throw StateError('钉钉媒体超过 512MB 本地缓存上限。');
       }
       _logRuntime('SUCCESS', '钉钉媒体已缓存：${media.displayName}。');
@@ -963,9 +964,7 @@ class DingTalkMessageGatewayService {
     } catch (error, stack) {
       // dws 超时或中断时可能留下半截文件，不能让下一次请求误认为缓存有效。
       try {
-        if (await output.exists().timeout(_mediaCacheFileOperationTimeout)) {
-          await output.delete().timeout(_mediaCacheFileOperationTimeout);
-        }
+        await _deleteMediaCacheFileIfPresent(output);
       } catch (cleanupError, cleanupStack) {
         silentLog(
           'dingtalk_gateway',
@@ -1064,13 +1063,14 @@ class DingTalkMessageGatewayService {
             p.basenameWithoutExtension(entity.path) != basename) {
           continue;
         }
-        final size = await entity.length().timeout(
-          _mediaCacheFileOperationTimeout,
-        );
-        if (size > 0 && size <= _maxMediaFileBytes) return entity;
+        final stat = await _statMediaCacheFileIfPresent(entity);
+        if (stat == null) continue;
+        if (stat.size > 0 && stat.size <= _maxMediaFileBytes) return entity;
         try {
-          await entity.delete().timeout(_mediaCacheFileOperationTimeout);
-        } catch (_) {}
+          await _deleteMediaCacheFileIfPresent(entity);
+        } catch (error, stack) {
+          silentLog('dingtalk_gateway', '清理损坏的钉钉媒体缓存', error, stack);
+        }
       }
     } catch (error, stack) {
       silentLog('dingtalk_gateway', '查找钉钉媒体缓存', error, stack);
@@ -1152,47 +1152,67 @@ class DingTalkMessageGatewayService {
     };
   }
 
-  Future<void> _pruneMediaCache(Directory directory) async {
+  Future<void> _deleteMediaCacheFileIfPresent(File file) async {
     try {
-      final listing = await listDirectoryBounded(
-        directory,
-        maxEntries: _maxMediaCacheScanEntries,
-      );
-      final files = listing.entries.whereType<File>();
-      final entries = <(File, int, DateTime)>[];
-      var totalBytes = 0;
-      for (final file in files) {
-        try {
-          final stat = await file.stat().timeout(
-            _mediaCacheFileOperationTimeout,
-          );
-          if (stat.type != FileSystemEntityType.file) continue;
-          totalBytes += stat.size;
-          entries.add((file, stat.size, stat.modified));
-        } catch (_) {}
-      }
-      entries.sort((a, b) => a.$3.compareTo(b.$3));
-      var retainedFiles = entries.length;
-      while (entries.isNotEmpty &&
-          (retainedFiles > _maxMediaCacheFiles ||
-              totalBytes > _maxMediaCacheBytes)) {
-        final entry = entries.removeAt(0);
-        if (_activeMediaCacheBasenames.contains(
-          p.basenameWithoutExtension(entry.$1.path),
-        )) {
-          continue;
-        }
-        try {
-          await entry.$1.delete().timeout(_mediaCacheFileOperationTimeout);
-          retainedFiles -= 1;
-          totalBytes -= entry.$2;
-        } catch (error, stack) {
-          silentLog('dingtalk_gateway', '清理钉钉媒体缓存', error, stack);
-        }
-      }
-    } catch (error, stack) {
-      silentLog('dingtalk_gateway', '扫描钉钉媒体缓存', error, stack);
+      await file.delete().timeout(_mediaCacheFileOperationTimeout);
+    } on PathNotFoundException {
+      return;
     }
+  }
+
+  Future<FileStat?> _statMediaCacheFileIfPresent(File file) async {
+    try {
+      final stat = await file.stat().timeout(_mediaCacheFileOperationTimeout);
+      return stat.type == FileSystemEntityType.file ? stat : null;
+    } on PathNotFoundException {
+      return null;
+    }
+  }
+
+  Future<void> _pruneMediaCache(Directory directory) {
+    return _mediaCachePruneFlight.run(() async {
+      final activeBasenames = Set<String>.of(_activeMediaCacheBasenames);
+      try {
+        final listing = await listDirectoryBounded(
+          directory,
+          maxEntries: _maxMediaCacheScanEntries,
+        );
+        final files = listing.entries.whereType<File>();
+        final entries = <(File, int, DateTime)>[];
+        var totalBytes = 0;
+        for (final file in files) {
+          try {
+            final stat = await _statMediaCacheFileIfPresent(file);
+            if (stat == null) continue;
+            totalBytes += stat.size;
+            entries.add((file, stat.size, stat.modified));
+          } catch (error, stack) {
+            silentLog('dingtalk_gateway', '读取钉钉媒体缓存状态', error, stack);
+          }
+        }
+        entries.sort((a, b) => a.$3.compareTo(b.$3));
+        var retainedFiles = entries.length;
+        while (entries.isNotEmpty &&
+            (retainedFiles > _maxMediaCacheFiles ||
+                totalBytes > _maxMediaCacheBytes)) {
+          final entry = entries.removeAt(0);
+          final basename = p.basenameWithoutExtension(entry.$1.path);
+          if (activeBasenames.contains(basename) ||
+              _activeMediaCacheBasenames.contains(basename)) {
+            continue;
+          }
+          try {
+            await _deleteMediaCacheFileIfPresent(entry.$1);
+            retainedFiles -= 1;
+            totalBytes -= entry.$2;
+          } catch (error, stack) {
+            silentLog('dingtalk_gateway', '清理钉钉媒体缓存', error, stack);
+          }
+        }
+      } catch (error, stack) {
+        silentLog('dingtalk_gateway', '扫描钉钉媒体缓存', error, stack);
+      }
+    });
   }
 
   Future<String?> executable() async {
