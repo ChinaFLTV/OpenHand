@@ -300,6 +300,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const String _forcedResponseReminder =
       '钉钉网关规则：回复本轮最后一条有效消息；此前消息仅作上下文。直接输出一条适合发送的回复。';
   static const String _overloadBusyReply = 'AI 当前较忙，请稍后再试。';
+  static const String _responseFailureReply = 'AI 响应失败，请稍后重试。';
   static const int _maxConversationReconcileCount = 12;
   static const int _conversationReconcileConcurrency = 4;
   static const int _maxConversationReconcileFailureCount = 6;
@@ -4477,7 +4478,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         if (!created) {
           _setResponseError(
             conversation.id,
-            _sessionController.lastErrorMessage ?? '创建钉钉 AI 会话失败，请查看运行日志。',
+            nonBlankStringOr(
+              _sessionController.lastErrorMessage,
+              '创建钉钉 AI 会话失败，请查看运行日志。',
+            ),
           );
           return;
         }
@@ -4640,8 +4644,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           if (!responseCancelled()) {
             _setResponseError(
               conversation.id,
-              _sessionController.lastErrorMessageForSession(sessionId) ??
-                  'AI 未返回响应，请检查模型配置与运行日志。',
+              nonBlankStringOr(
+                _sessionController.lastErrorMessageForSession(sessionId),
+                'AI 未返回响应，请检查模型配置与运行日志。',
+              ),
             );
           }
           return;
@@ -5061,6 +5067,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     required DingTalkResponseEchoType type,
     required String text,
     required String uuid,
+    bool respectEchoTypeSettings = true,
   }) async {
     if (!isServiceEnabled ||
         !identical(_conversations[conversation.id], conversation)) {
@@ -5071,8 +5078,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         source.kind == AiSessionMessageKind.hook ||
         source.kind.isToolResultKind ||
         _isToolEchoArtifact(source);
-    if (!_settings.responseEchoTypes.contains(type) ||
-        isToolSource && type != DingTalkResponseEchoType.toolCall) {
+    if ((respectEchoTypeSettings &&
+            !_settings.responseEchoTypes.contains(type)) ||
+        (isToolSource && type != DingTalkResponseEchoType.toolCall)) {
       return null;
     }
     final completeText = _sanitizeDingTalkVisibleText(text).trim();
@@ -5104,7 +5112,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _notify();
     DingTalkSentMessage? sent;
     try {
-      if (!isServiceEnabled || !_settings.responseEchoTypes.contains(type)) {
+      if (!isServiceEnabled ||
+          (respectEchoTypeSettings &&
+              !_settings.responseEchoTypes.contains(type))) {
         conversation.messages.removeWhere(
           (message) => message.id == localMessage.id,
         );
@@ -5770,6 +5780,31 @@ ${_markdownStructuredFields(response)}''';
     }
   }
 
+  Future<void> _sendResponseFailureReply(
+    DingTalkConversation conversation,
+  ) async {
+    if (!isServiceEnabled ||
+        !identical(_conversations[conversation.id], conversation)) {
+      return;
+    }
+    try {
+      await _sendDingTalkEcho(
+        conversation: conversation,
+        source: AiSessionMessage.assistant(
+          id: 'dingtalk-response-failure-${_uuid.v4()}',
+          content: _responseFailureReply,
+          createdAt: DateTime.now(),
+        ),
+        type: DingTalkResponseEchoType.finalResponse,
+        text: _responseFailureReply,
+        uuid: _uuid.v4(),
+        respectEchoTypeSettings: false,
+      );
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '发送钉钉 AI 响应失败提示', error, stack);
+    }
+  }
+
   Future<void> _enqueueAiResponse(
     DingTalkConversation conversation,
     String content, {
@@ -6111,10 +6146,9 @@ ${_markdownStructuredFields(response)}''';
     DingTalkConversation conversation,
     _QueuedDingTalkResponse item,
   ) async {
+    final responseVersion = _responseCancellationVersions[conversation.id] ?? 0;
     try {
       if (isServiceEnabled) {
-        final preparationVersion =
-            _responseCancellationVersions[conversation.id] ?? 0;
         if (item.automaticResponse &&
             _pendingInitialContextHydration.remove(conversation.id)) {
           await _reconcileConversationNow(
@@ -6125,7 +6159,7 @@ ${_markdownStructuredFields(response)}''';
             before: item.scheduledAt,
             allowHistoricalBackfill: true,
           );
-          if (_isResponseCancelled(conversation.id, preparationVersion)) {
+          if (_isResponseCancelled(conversation.id, responseVersion)) {
             return;
           }
         }
@@ -6161,7 +6195,7 @@ ${_markdownStructuredFields(response)}''';
         }
         if (item.automaticResponse) {
           await _ensureIncomingContextMedia(conversation, item.sourceMessageId);
-          if (_isResponseCancelled(conversation.id, preparationVersion)) {
+          if (_isResponseCancelled(conversation.id, responseVersion)) {
             return;
           }
           source = conversation.messages
@@ -6207,14 +6241,23 @@ ${_markdownStructuredFields(response)}''';
         );
       }
     } catch (error, stack) {
+      final cancelled =
+          _messageAiResponseState(conversation, item.sourceMessageId) ==
+              DingTalkMessageAiResponseState.cancelled ||
+          _isResponseCancelled(conversation.id, responseVersion);
       _setMessageAiResponseState(
         conversation,
         item.sourceMessageId,
-        DingTalkMessageAiResponseState.failed,
+        cancelled
+            ? DingTalkMessageAiResponseState.cancelled
+            : DingTalkMessageAiResponseState.failed,
       );
+      if (!cancelled) {
+        _setResponseError(conversation.id, 'AI 响应失败，请查看钉钉网关运行日志。');
+      }
       silentLog('dingtalk_gateway', '处理钉钉消息队列', error, stack);
     } finally {
-      final sourceState = _messageAiResponseState(
+      var sourceState = _messageAiResponseState(
         conversation,
         item.sourceMessageId,
       );
@@ -6225,6 +6268,10 @@ ${_markdownStructuredFields(response)}''';
           item.sourceMessageId,
           DingTalkMessageAiResponseState.cancelled,
         );
+        sourceState = DingTalkMessageAiResponseState.cancelled;
+      }
+      if (sourceState == DingTalkMessageAiResponseState.failed) {
+        await _sendResponseFailureReply(conversation);
       }
       item.complete();
       _activeResponseConversationIds.remove(conversation.id);
