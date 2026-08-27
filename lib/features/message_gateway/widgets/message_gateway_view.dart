@@ -16822,9 +16822,19 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     required List<DingTalkGatewayMedia> media,
   }) {
     final hasText = _hasDingTalkTextContent(effectiveContent, media);
+    final hasQuotedMessage = widget.message.quotedMessage != null;
     final childAlignment = widget.mine
         ? Alignment.centerRight
         : Alignment.centerLeft;
+    final textBubble = hasText || media.isEmpty
+        ? _buildTextBubble(
+            context,
+            bubbleColor: bubbleColor,
+            foreground: foreground,
+            effectiveContent: effectiveContent,
+            includeFooter: media.isEmpty,
+          )
+        : null;
     return Column(
       crossAxisAlignment: crossAxis,
       children: [
@@ -16859,17 +16869,13 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
             ),
           ),
         if (hasText && media.isNotEmpty) kOpenHandGap8,
-        if (hasText || media.isEmpty)
+        if (textBubble != null)
           Align(
             alignment: childAlignment,
             widthFactor: 1,
-            child: _buildTextBubble(
-              context,
-              bubbleColor: bubbleColor,
-              foreground: foreground,
-              effectiveContent: effectiveContent,
-              includeFooter: media.isEmpty,
-            ),
+            child: hasQuotedMessage
+                ? IntrinsicWidth(child: textBubble)
+                : textBubble,
           ),
         if (media.isNotEmpty && widget.message.reactions.isNotEmpty)
           _buildReactionRow(context, foreground, topSpacing: 2),
