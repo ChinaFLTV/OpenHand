@@ -12250,6 +12250,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   bool _editSubmitting = false;
   bool _autoFollow = true;
   bool _showJumpToLatest = false;
+  bool _messagesUserScrollActive = false;
+  bool _autoFollowPausedByUserScroll = false;
   String? _quotedJumpTargetMessageId;
   String? _quotedReturnMessageId;
   String? _highlightedMessageId;
@@ -13936,6 +13938,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     }
     _messagesProgrammaticScroll.cancel();
     _messageNavigationVersion++;
+    _messagesUserScrollActive = false;
     _followJumpToBottom = false;
     final requestVersion = ++_followRequestVersion;
     unawaited(_settleMessagesAtLatest(requestVersion));
@@ -13977,6 +13980,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     final next = !_autoFollow;
     setState(() {
       _autoFollow = next;
+      _autoFollowPausedByUserScroll = false;
       if (!next) _followJumpToBottom = false;
     });
     if (next) {
@@ -13997,7 +14001,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     _lastMessagesPointerSignalAt = _messagesScrollActivityStopwatch.elapsed;
     final controller = _messagesScrollController;
     if (controller.hasClients &&
-        controller.position.pixels - controller.position.minScrollExtent > 2) {
+        controller.position.pixels - controller.position.minScrollExtent >
+            _latestMessageBottomThreshold) {
       _disableAutoFollow();
     }
   }
@@ -14021,13 +14026,36 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       programmaticScroll: programmaticScroll,
       recentPointerSignalScroll: _hasRecentMessagesPointerSignal(),
     );
-    final userScroll = explicitUserScroll || implicitPointerScroll;
     if (programmaticScroll && !explicitUserScroll) return false;
+    final userScrollStarted =
+        (explicitUserScroll || implicitPointerScroll) &&
+        !_messagesUserScrollActive;
+    if (explicitUserScroll) _messagesProgrammaticScroll.cancel();
+    if (explicitUserScroll || implicitPointerScroll) {
+      _messagesUserScrollActive = true;
+    }
+    final userScroll =
+        explicitUserScroll ||
+        implicitPointerScroll ||
+        _messagesUserScrollActive;
     if (!userScroll) return false;
-    if (explicitUserScroll) _messageNavigationVersion++;
+    if (userScrollStarted && explicitUserScroll) {
+      _messageNavigationVersion++;
+    }
     final distanceToBottom =
         notification.metrics.pixels - notification.metrics.minScrollExtent;
-    if (distanceToBottom > 2) _disableAutoFollow();
+    if (distanceToBottom <= _latestMessageBottomThreshold) {
+      if (_autoFollowPausedByUserScroll) {
+        _autoFollowPausedByUserScroll = false;
+        _enableAutoFollowAtLatest();
+      }
+    } else {
+      _autoFollowPausedByUserScroll = true;
+      _disableAutoFollow();
+    }
+    if (isUserScrollEndNotification(notification)) {
+      _messagesUserScrollActive = false;
+    }
     return false;
   }
 
@@ -14041,20 +14069,36 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   void _disableAutoFollow() {
     _messagesProgrammaticScroll.cancel();
     _followJumpToBottom = false;
-    _followRequestVersion++;
     if (!mounted) return;
-    if (_autoFollow) {
-      setState(() {
-        _autoFollow = false;
-      });
+    if (!_autoFollow) {
+      _updateMessagesBottomState();
+      return;
     }
+    _followRequestVersion++;
+    setState(() => _autoFollow = false);
     _updateMessagesBottomState();
+  }
+
+  void _enableAutoFollowAtLatest() {
+    _messagesProgrammaticScroll.cancel();
+    _followJumpToBottom = false;
+    if (!mounted || _autoFollow) {
+      _updateMessagesBottomState();
+      return;
+    }
+    _followRequestVersion++;
+    setState(() {
+      _autoFollow = true;
+      _showJumpToLatest = false;
+    });
   }
 
   void _selectConversation(String id) {
     if (!widget.controller.isServiceEnabled) return;
     if (_selectedId == id) return;
     _messageNavigationVersion++;
+    _messagesUserScrollActive = false;
+    _autoFollowPausedByUserScroll = false;
     _quotedMessageHighlightTimer?.cancel();
     _quotedMessageHighlightTimer = null;
     _messageAnchorRegistry.clear();
@@ -14187,6 +14231,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     String messageId,
     int navigationVersion,
   ) async {
+    _messagesUserScrollActive = false;
     bool navigationIsCurrent() =>
         mounted &&
         navigationVersion == _messageNavigationVersion &&
