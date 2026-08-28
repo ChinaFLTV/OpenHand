@@ -3169,6 +3169,7 @@ class DingTalkMessageGatewayService {
             'sender',
           ]),
           senderId: _eventSenderId(map),
+          senderOpenDingTalkId: _eventSenderOpenDingTalkId(map),
           conversationTitle: _first(map, const <String>[
             'conversationTitle',
             'groupName',
@@ -3615,6 +3616,7 @@ class DingTalkMessageGatewayService {
         'name',
       ]),
       senderId: _eventSenderId(map),
+      senderOpenDingTalkId: _eventSenderOpenDingTalkId(map),
       conversationTitle: _eventString(map, const <String>[
         'conversation_title',
         'conversationTitle',
@@ -3861,10 +3863,6 @@ class DingTalkMessageGatewayService {
 
   String _eventSenderId(Map<String, Object?> map) {
     const identifierKeys = <String>[
-      'sender_open_dingtalk_id',
-      'senderOpenDingTalkId',
-      'senderOpenId',
-      'sender_open_id',
       'sender_staff_id',
       'senderStaffId',
       'sender_user_id',
@@ -3873,6 +3871,10 @@ class DingTalkMessageGatewayService {
       'sender_id',
       'staffId',
       'staff_id',
+      'sender_open_dingtalk_id',
+      'senderOpenDingTalkId',
+      'senderOpenId',
+      'sender_open_id',
     ];
     const nestedIdentifierKeys = <String>[
       ...identifierKeys,
@@ -3912,6 +3914,43 @@ class DingTalkMessageGatewayService {
       if (result.isNotEmpty) return result;
     }
     return read(map['sender']);
+  }
+
+  String _eventSenderOpenDingTalkId(Map<String, Object?> map) {
+    const keys = <String>[
+      'sender_open_dingtalk_id',
+      'senderOpenDingTalkId',
+      'senderOpenId',
+      'sender_open_id',
+      'openDingTalkId',
+      'open_dingtalk_id',
+    ];
+
+    String read(Map<String, Object?> source) {
+      for (final key in keys) {
+        final value = source[key];
+        if (value == null || value is Map || value is List) continue;
+        final text = '$value'.trim();
+        if (text.isNotEmpty && text != 'null') return text;
+      }
+      return '';
+    }
+
+    final direct = read(map);
+    if (direct.isNotEmpty) return direct;
+    for (final key in const <String>[
+      'sender',
+      'senderInfo',
+      'sender_info',
+      'user',
+      'from',
+    ]) {
+      final value = map[key];
+      if (value is! Map) continue;
+      final nested = read(_asMap(value));
+      if (nested.isNotEmpty) return nested;
+    }
+    return '';
   }
 
   DateTime _eventDateTime(Map<String, Object?> map) => _parseDateTime(

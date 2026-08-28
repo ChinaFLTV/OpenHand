@@ -1989,6 +1989,7 @@ class DingTalkGatewayMessage {
     required this.createdAt,
     this.senderName = '',
     this.senderId = '',
+    this.senderOpenDingTalkId = '',
     this.conversationTitle = '',
     this.messageType = DingTalkGatewayMessageType.text,
     this.automaticReplyCard,
@@ -2126,6 +2127,8 @@ class DingTalkGatewayMessage {
       createdAt: createdAt,
       senderName: '${json['sender_name'] ?? ''}',
       senderId: '${json['sender_id'] ?? ''}',
+      senderOpenDingTalkId:
+          '${json['sender_open_dingtalk_id'] ?? json['senderOpenDingTalkId'] ?? ''}',
       conversationTitle: '${json['conversation_title'] ?? ''}',
       messageType: messageType,
       automaticReplyCard: automaticReplyCard,
@@ -2168,6 +2171,7 @@ class DingTalkGatewayMessage {
   final DateTime createdAt;
   final String senderName;
   final String senderId;
+  final String senderOpenDingTalkId;
   final String conversationTitle;
   final DingTalkGatewayMessageType messageType;
   final DingTalkAutomaticReplyCard? automaticReplyCard;
@@ -2217,6 +2221,8 @@ class DingTalkGatewayMessage {
   DingTalkGatewayMessage copyWith({
     String? id,
     String? content,
+    String? senderId,
+    String? senderOpenDingTalkId,
     DingTalkGatewayMessageType? messageType,
     DingTalkAutomaticReplyCard? automaticReplyCard,
     List<DingTalkGatewayMedia>? media,
@@ -2245,7 +2251,8 @@ class DingTalkGatewayMessage {
       content: content ?? this.content,
       createdAt: createdAt,
       senderName: senderName,
-      senderId: senderId,
+      senderId: senderId ?? this.senderId,
+      senderOpenDingTalkId: senderOpenDingTalkId ?? this.senderOpenDingTalkId,
       conversationTitle: conversationTitle,
       messageType: messageType ?? this.messageType,
       automaticReplyCard: automaticReplyCard ?? this.automaticReplyCard,
@@ -2280,6 +2287,7 @@ class DingTalkGatewayMessage {
     'created_at': createdAt.toIso8601String(),
     'sender_name': senderName,
     'sender_id': senderId,
+    'sender_open_dingtalk_id': senderOpenDingTalkId,
     'conversation_title': conversationTitle,
     'message_type': messageType.storageValue,
     'automatic_reply_card': automaticReplyCard?.toJson(),

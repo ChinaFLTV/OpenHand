@@ -365,6 +365,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   Timer? _pollTimer;
   StreamSubscription<DingTalkGatewayEvent>? _eventSubscription;
   Future<void>? _eventRestartFuture;
+  bool _eventRestartQueued = false;
   Future<void>? _periodicReconcileFuture;
   Future<void>? _pollingStopInFlight;
   Completer<void>? _activePollCancellation;
@@ -2203,6 +2204,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _pendingInitialContextHydration.clear();
     _unresolvedOutgoingMessageIds.clear();
     _selfSenderIds.clear();
+    _eventRestartQueued = false;
     _notify();
     late final Future<void> task;
     task =
@@ -2966,7 +2968,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   Future<void> _restartEventListening() {
     final active = _eventRestartFuture;
-    if (active != null) return active;
+    if (active != null) {
+      _eventRestartQueued = true;
+      return active;
+    }
     final pollingGeneration = _pollingGeneration;
     final task = () async {
       await _stopEventListening(pollingGeneration: pollingGeneration);
@@ -2979,7 +2984,17 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }();
     _eventRestartFuture = task;
     return task.whenComplete(() {
-      if (identical(_eventRestartFuture, task)) _eventRestartFuture = null;
+      if (!identical(_eventRestartFuture, task)) return;
+      _eventRestartFuture = null;
+      final restartQueued = _eventRestartQueued;
+      _eventRestartQueued = false;
+      if (restartQueued &&
+          _isPolling &&
+          !_usingPollingFallback &&
+          !_disposed &&
+          pollingGeneration == _pollingGeneration) {
+        unawaited(_restartEventListening());
+      }
     });
   }
 
@@ -3165,6 +3180,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final incomingConversation = _conversationForIncomingMessage(
       normalizedMessage,
     );
+    final subscriptionTargetUpdated =
+        incomingConversation != null &&
+        _updateDirectConversationPeerIdentity(
+          incomingConversation,
+          normalizedMessage,
+        );
     if (incomingConversation != null &&
         _mergeIncomingOutgoingEcho(normalizedMessage, incomingConversation)) {
       if (!allowHistorical && normalizedMessage.contextualMedia.isNotEmpty) {
@@ -3198,6 +3219,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           _isAutomaticResponseEligible(incoming) &&
           _canAutomaticallyRespondToMessage(incoming)) {
         _enqueueIncomingMessage(existingConversation, incoming);
+      }
+      if (subscriptionTargetUpdated &&
+          _isPolling &&
+          !_usingPollingFallback &&
+          _eventSubscription != null) {
+        unawaited(_restartEventListening());
       }
       return;
     }
@@ -3272,6 +3299,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         _queuePersist();
       }
     }
+    final peerIdentityUpdated = _updateDirectConversationPeerIdentity(
+      conversation,
+      incoming,
+    );
     _appendMessage(conversation, incoming);
     if (createdConversation) {
       _pendingInitialContextHydration.add(conversation.id);
@@ -3291,7 +3322,46 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (shouldRespond) {
       _enqueueIncomingMessage(conversation, incoming);
     }
+    if ((createdConversation ||
+            subscriptionTargetUpdated ||
+            peerIdentityUpdated) &&
+        _isPolling &&
+        !_usingPollingFallback &&
+        _eventSubscription != null) {
+      unawaited(_restartEventListening());
+    }
     _notify();
+  }
+
+  bool _updateDirectConversationPeerIdentity(
+    DingTalkConversation conversation,
+    DingTalkGatewayMessage message,
+  ) {
+    if (conversation.type != DingTalkConversationType.direct ||
+        message.conversationType != DingTalkConversationType.direct ||
+        _isSelf(message)) {
+      return false;
+    }
+    final openDingTalkId = message.senderOpenDingTalkId.trim();
+    final senderId = message.senderId.trim();
+    final userId = senderId == openDingTalkId ? '' : senderId;
+    var changed = false;
+    if (openDingTalkId.isNotEmpty &&
+        conversation.directOpenDingTalkId?.trim() != openDingTalkId) {
+      conversation.directOpenDingTalkId = openDingTalkId;
+      changed = true;
+    }
+    if (openDingTalkId.isNotEmpty &&
+        conversation.directUserId?.trim() == openDingTalkId) {
+      conversation.directUserId = null;
+      changed = true;
+    }
+    if (userId.isNotEmpty && conversation.directUserId?.trim() != userId) {
+      conversation.directUserId = userId;
+      changed = true;
+    }
+    if (changed) _queuePersist();
+    return changed;
   }
 
   Future<void> _cacheIncomingMedia(
@@ -3943,10 +4013,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     DingTalkGatewaySettings? settings,
   }) {
     final effectiveSettings = settings ?? _settings;
+    final recentConversations = _conversations.values.toList(growable: true)
+      ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
     final targets = <DingTalkConversationTarget>[
       ...effectiveSettings.allowedGroupTargets,
       ...effectiveSettings.allowedContactTargets,
-      ..._conversations.values.map(_targetFromConversation),
+      ...recentConversations.map(_eventTargetFromConversation),
     ];
     final seen = <String>{};
     return targets
@@ -3956,6 +4028,22 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
               seen.add('${target.type.name}:${target.id.trim()}'),
         )
         .toList(growable: false);
+  }
+
+  DingTalkConversationTarget _eventTargetFromConversation(
+    DingTalkConversation conversation,
+  ) {
+    final target = _targetFromConversation(conversation);
+    if (conversation.type != DingTalkConversationType.group) return target;
+    final remoteId = conversation.dwsConversationId;
+    if (remoteId.isEmpty || remoteId == target.id) return target;
+    return DingTalkConversationTarget(
+      id: remoteId,
+      title: target.title,
+      type: target.type,
+      subtitle: target.subtitle,
+      aliases: <String>{target.id, ...target.aliases}.toList(growable: false),
+    );
   }
 
   List<String> _eventSubscriptionTargetKeys(DingTalkGatewaySettings settings) {
@@ -4057,6 +4145,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   ) {
     final conversationId = message.conversationId.trim();
     final senderId = message.senderId.trim();
+    final senderOpenDingTalkId = message.senderOpenDingTalkId.trim();
     for (final conversation in _conversations.values) {
       if (conversation.type != message.conversationType) continue;
       if (conversation.type == DingTalkConversationType.group) {
@@ -4074,6 +4163,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }..remove('');
       if (identifiers.contains(conversationId) ||
           identifiers.contains(senderId) ||
+          identifiers.contains(senderOpenDingTalkId) ||
           conversation.messages.any(
             (item) => item.conversationId.trim() == conversationId,
           )) {
@@ -4109,6 +4199,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
     final candidates = <String>{
       message.senderId.trim(),
+      message.senderOpenDingTalkId.trim(),
       message.conversationId.trim(),
     }..remove('');
     for (final target in _settings.allowedContactTargets) {
@@ -4182,6 +4273,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     DingTalkGatewayMessage message,
   ) {
     final conversationId = message.conversationId.trim();
+    final senderOpenDingTalkId = message.senderOpenDingTalkId.trim();
+    final senderId = message.senderId.trim();
+    final userId = senderId == senderOpenDingTalkId ? '' : senderId;
     final title = message.conversationTitle.trim().isNotEmpty
         ? message.conversationTitle.trim()
         : message.senderName.trim().isNotEmpty
@@ -4194,7 +4288,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       title: title,
       type: message.conversationType,
       userId: message.conversationType == DingTalkConversationType.direct
-          ? message.senderId.trim()
+          ? userId
+          : '',
+      openDingTalkId:
+          message.conversationType == DingTalkConversationType.direct
+          ? senderOpenDingTalkId
           : '',
     );
   }
@@ -6418,6 +6516,7 @@ ${_markdownStructuredFields(response)}''';
   bool _isSelf(DingTalkGatewayMessage message) {
     if (message.isAssistant || message.fromSelf) return true;
     final sender = message.senderId.trim();
+    final senderOpenDingTalkId = message.senderOpenDingTalkId.trim();
     final current = _authStatus.identity.userId.trim();
     final currentOpenDingTalkId = _authStatus.identity.openDingTalkId.trim();
     final profile = _authStatus.identity.profile.trim();
@@ -6430,6 +6529,11 @@ ${_markdownStructuredFields(response)}''';
                 sender == currentOpenDingTalkId) ||
             (profile.isNotEmpty && sender == profile) ||
             (profileUserId.isNotEmpty && sender == profileUserId))) {
+      return true;
+    }
+    if (senderOpenDingTalkId.isNotEmpty &&
+        currentOpenDingTalkId.isNotEmpty &&
+        senderOpenDingTalkId == currentOpenDingTalkId) {
       return true;
     }
     final senderName = message.senderName.trim();
