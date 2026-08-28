@@ -16755,16 +16755,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                   ),
                   width: 1.8,
                 ),
-                boxShadow: widget.highlighted
-                    ? [
-                        BoxShadow(
-                          color: colors.primary.withValues(alpha: 0.2),
-                          blurRadius: 22,
-                          spreadRadius: 1,
-                          offset: const Offset(0, 4),
-                        ),
-                      ]
-                    : null,
               ),
             ),
           ),
