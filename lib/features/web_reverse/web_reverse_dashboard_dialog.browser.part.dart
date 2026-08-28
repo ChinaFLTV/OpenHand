@@ -306,10 +306,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     if (dirty) setState(() {});
     if (targetStateDirty) _persistTabsAndUrls();
     if (aliveJustFlipped) {
-      // 浏览器刚拉起 / 重启完毕：① 重新 acquire screencast（之前 release/safeStop
-      // 已把引用计数和 active 都清零，否则面板会一直停在"等待浏览器画面"
-      // 的占位上不动）；② 用上一轮持久化的 tab URL 恢复多 tab 场景；
-      // ③ 恢复持久化的 Sources 断点。
+      // 浏览器拉起或重启后重新获取画面，并恢复标签页与断点状态。
       unawaited(widget.controller.acquireScreencast());
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -2685,10 +2682,7 @@ class _TabStripState extends State<_TabStrip> {
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          // 在 tab 左侧加一个独立 drag
-                                          // handle，使用 ReorderableDragStartListener
-                                          // 即点即拖，不再需要等长按（之前的 long-
-                                          // press 在桌面下被 InkWell 抢走 / 体验差）。
+                                          // 独立拖动柄支持指针按下后立即重排。
                                           ReorderableDragStartListener(
                                             index: i,
                                             child: MouseRegion(

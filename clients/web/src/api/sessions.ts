@@ -1,15 +1,3 @@
-// 会话与消息相关接口的封装层。
-// 严格按服务端 `web_message_platform_service.dart` 的契约编码：
-//   GET    /api/sessions?page=&page_size=&source=&device_id=
-//   POST   /api/sessions {template_id, mode, title?}                  → 201
-//   GET    /api/sessions/:id
-//   PATCH  /api/sessions/:id {title}
-//   DELETE /api/sessions/:id
-//   GET    /api/sessions/:id/messages?limit=&offset=&reveal_message_id=
-//   POST   /api/sessions/:id/messages/:messageId/fork
-//
-// 任何接口的 401 都会被 apiRequest 自动转成 UnauthorizedError + 清理本地 token。
-
 import {
   apiRequest,
   fetchAuthenticatedBlob,

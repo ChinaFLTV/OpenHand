@@ -1,10 +1,3 @@
-// ToolboxPage —— 只读浏览应用资源及其调用统计。
-//
-// App 端是这些资源的真权威 (新增/修改/删除全在 GUI), Web 端只展示当前
-// 已加载的快照, 帮助远程使用者快速确认 MCP 是否在线 / 哪些技能可用 /
-// 哪些定时任务正在跑。所有列表 5 秒一次 polling, 出错只在头部红条提示,
-// 内容保留旧值, 避免短暂网络抖动让用户 tab 整个清空。
-
 import { useMemo, useState } from 'preact/hooks';
 import { TopBar } from '../../../components/TopBar';
 import { Appear } from '../../../components/Appear';

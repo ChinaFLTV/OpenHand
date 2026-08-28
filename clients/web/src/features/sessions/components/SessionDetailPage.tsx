@@ -1,20 +1,3 @@
-// 单会话详情页：会话头、消息分页、Composer 发送、SSE 实时同步与停止控制。
-//
-// 设计要点：
-// 1. 首屏拿最新一页（tail=1, limit=INITIAL_PAGE_SIZE）；列表按 created_at 升序展示。
-// 2. 「加载更早」按钮 / 下拉：按当前已加载窗口 offset 拉取更早一页，prepend 到顶部。
-// 3. 发送：POST /api/sessions/:id/messages 形成 user 消息；service 自身维护流式，
-//    前端进入 1.2s 轮询循环刷新最新一页，直到 send_phase == idle。
-// 4. 停止：POST /api/sessions/:id/stop（service 内部调用 AiSessionController.stopResponding）。
-// 5. 附件：用 FileReader.readAsDataURL 读出 base64，去掉 `data:*;base64,` 前缀后塞入
-//    {name, data_base64} 数组；service 端会落到 upload-cache。
-//
-// 服务端契约：
-//   GET   /api/sessions/:id
-//   GET   /api/sessions/:id/messages?limit=&offset=&tail=&reveal_message_id= → 分页或定点消息窗口
-//   POST  /api/sessions/:id/messages  body {content, mode, model_key, attachments}
-//   POST  /api/sessions/:id/stop     body {}
-
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren, JSX } from 'preact';
 import { useRoute } from 'preact-iso';
@@ -255,9 +238,7 @@ const TRANSCRIPT_INITIAL_SETTLE_MAX_MS = 1400;
 const TRANSCRIPT_INITIAL_SETTLE_MIN_FRAMES = 14;
 const TRANSCRIPT_INITIAL_SETTLE_STABLE_FRAMES = 4;
 const TRANSCRIPT_INITIAL_SETTLE_EPSILON_PX = 0.75;
-// 首屏稳定判定中「仍有测量待提交」只在前若干帧参与阻断。超过宽限期后，
-// 只要滚动高度与位置本身已稳定就放行——否则富文本卡片持续微调高度时，
-// stableFrames 会被无限清零，用户要盯着占位符等满 1.4s 上限。
+// 测量任务仅在宽限帧内阻断首屏揭示，避免微小布局调整持续重置稳定计数。
 const TRANSCRIPT_INITIAL_SETTLE_MEASURE_GRACE_FRAMES = 24;
 const COMPOSER_LAYOUT_TRANSITION_GUARD_MS = 440;
 const KNOWLEDGE_USAGE_PREVIEW_MAX_CHARS = 420;
@@ -284,12 +265,12 @@ const DEFAULT_ATTACHMENT_MAX_TOTAL_BYTES = 16 * 1024 * 1024;
 const DEFAULT_ATTACHMENT_MAX_COUNT = 20;
 const COMPOSER_QUEUE_MAX_MESSAGES = 32;
 const COMPOSER_QUEUE_MAX_ATTACHMENT_BYTES = 64 * 1024 * 1024;
-/// 键入后 composerText state 的去抖同步窗口：字符计数等低频 UI 允许
-/// 滞后一拍，换取每个 keystroke 不再整页重渲染。
+/// 输入文本状态的去抖同步窗口，避免每次键入都触发整页重渲染。
 const COMPOSER_TEXT_STATE_SYNC_MS = 150;
 const ATTACHMENT_READ_TIMEOUT_MS = 30_000;
 const COMPOSER_ITEM_EXIT_MS = 190;
 const QUEUE_SEND_SETTLE_MS = 600;
+const REMOTE_RUNNING_LOCAL_SEND_GRACE_MS = 4_000;
 const DEFAULT_COMPOSER_MODES = ['normal', 'image', 'video', 'audio', 'deep_research'];
 const THROTTLE_BUCKET_TICK_MS = 1000;
 const AUTO_TITLE_FOLLOW_UP_DELAYS_MS = [1200, 3200, 7000, 14000, 24000] as const;
@@ -1206,11 +1187,7 @@ interface AssociatedKnowledgeBaseBuildCache {
   result: Map<string, Record<string, unknown>>;
 }
 
-/// 按 identity 公共前缀增量重放：SSE 每 chunk 都会产出新消息数组（未变
-/// 前缀由 mergeStream 保留同一实例），KB 会话下逐 chunk 对全部已加载消息
-/// 重跑全文引用匹配是 O(窗口×内容) 的稳定税。这里从「首个非同一实例」
-/// 之前最近的 user 回合边界重放，其余直接复用上次结果；回合状态在 user
-/// 边界天然重置，语义与全量重放完全一致。
+/// 按对象引用识别公共消息前缀，仅从最近的用户回合边界重放知识库引用。
 function buildAssociatedKnowledgeBaseMetadataByMessageId(
   messages: SessionMessage[],
   buildCache?: { current: AssociatedKnowledgeBaseBuildCache | null },
@@ -3611,7 +3588,6 @@ export function SessionDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [sendPhase, setSendPhase] = useState<string>('idle');
   const [lastError, setLastError] = useState<string | null>(null);
-  // 服务端返回会话被删 (404 + body.error === 'session_deleted_or_not_found') 时拍起弹窗
   const [sessionGone, setSessionGone] = useState(false);
 
   // 输入区状态。composerText 仅供渲染读取（字符计数等低频 UI）；
@@ -3623,8 +3599,7 @@ export function SessionDetailPage() {
   const [composerAttachmentIds, setComposerAttachmentIds] = useState<string[]>([]);
   const [editingDraftMessage, setEditingDraftMessage] = useState<SessionMessage | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<SkillSummary | null>(null);
-  // 与 App 端 `_skippedInstructionIds` 1:1 对齐：本轮临时跳过的用户指令 id 集合，
-  // 仅作用于本次发送，不持久化。每次切换会话时清空，避免上一会话的跳过状态泄漏。
+  // 仅记录本轮临时跳过的用户指令，切换会话时清空。
   const [skippedInstructionIds, setSkippedInstructionIds] = useState<Set<string>>(() => new Set());
   const [skills, setSkills] = useState<SkillSummary[]>([]);
   const [skillPickerOpen, setSkillPickerOpen] = useState(false);
@@ -4806,19 +4781,14 @@ export function SessionDetailPage() {
     };
   }, [hasRecentUserScrollIntent, markUserScrollIntent]);
 
-  // 滚动活动标记只在真正离开会话页时清除。放在上面那个 effect 的 cleanup 里
-  // 会在监听器重挂时把「正在滚动」提前清掉，逼着被推迟的测量提交在滚动途中
-  // 集中涌出。
+  // 只在离开会话页时清除滚动活动，避免监听器重挂提前提交测量任务。
   useEffect(() => clearTranscriptScrollActivity, []);
 
   useEffect(() => {
     const target = messagesContentRef.current;
     const scroller = mainRef.current;
     if (!target || !scroller || typeof ResizeObserver === 'undefined') return;
-    // 内容增长跟随：autoFollow 开启且未被用户上滑暂停时，无论当前 isNearBottom
-    // 是否 ≤64px 都跟随到底部。修复 tool-call 内容暴涨一帧 >64px、isNearBottom
-    // 已翻 false 时 ResizeObserver 不再 follow 的 BUG。仅 autoFollowPaused
-    // (= 用户主动上滑) 时不跟随。
+    // 内容增长时持续跟随到底部，仅在用户主动上滑后暂停。
     const shouldFollowOnGrow = () =>
       autoFollowRef.current &&
       !autoFollowPausedRef.current &&
@@ -5045,8 +5015,7 @@ export function SessionDetailPage() {
       return;
     }
     const sinceLocal = Date.now() - lastLocalSendAtRef.current;
-    // > 4s 视为非本地触发的运行态
-    if (sinceLocal > 4000 && !remoteRunning) {
+    if (sinceLocal > REMOTE_RUNNING_LOCAL_SEND_GRACE_MS && !remoteRunning) {
       setRemoteRunning(true);
     }
   }, [sendPhase, remoteRunning]);
@@ -5066,14 +5035,12 @@ export function SessionDetailPage() {
     return false;
   }
 
-  // 当 API 返回 404 + body.error === 'session_deleted_or_not_found' 时，
-  // 切换到 SessionGoneDialog 流程；返回 true 让调用方跳过常规错误展示。
+  // 识别会话已删除响应，并阻止调用方重复展示普通错误。
   function handleSessionGoneError(e: unknown): boolean {
     if (e instanceof ApiError && e.status === 404) {
       const body = e.body as { error?: string; message?: string } | string | null;
       const marker = typeof body === 'string' ? body : `${body?.error ?? ''} ${body?.message ?? ''}`;
       if (marker.includes('session_deleted_or_not_found')) {
-        // 主动断开 SSE / 终止轮询，避免后续噪声错误覆盖弹窗
         sseCloseRef.current?.();
         sseCloseRef.current = null;
         clearAutoTitleRefreshTimers();
@@ -5604,22 +5571,14 @@ export function SessionDetailPage() {
     };
   }, [auth.loading, sessionId]);
 
-  // SSE 实时事件流：用 service 推送替代轮询，覆盖：
-  //   1. AI 流式增量（assistant 消息每次 delta 都会触发一次 snapshot）；
-  //   2. 跨端口同步（APP 端在同一会话发的消息也会推到 web）；
-  //   3. send_phase / last_error 实时更新。
-  // 失败 SSE_FAIL_THRESHOLD 次后切换到 polling 兜底。
+  // SSE 同步消息和运行状态，连续失败后切换到轮询兜底。
   useEffect(() => {
     if (auth.loading || !sessionId) return;
     sseCloseRef.current?.();
     const eventSessionId = sessionId;
     sseFailRef.current = 0;
     setSseLive(false);
-    // SSE 指纹短路：服务端 80ms 一次推全窗口 snapshot，但很多 tick 期间
-    // 内容其实没变化（idle 心跳 / 与本地相同的回放）。先用一个轻量指纹
-    // (窗口内消息内容/metadata 签名 + send_phase + last_error 长度)
-    // 比对，相等直接 return，省掉 applyServerMessageWindow + mergeSessionSummary
-    // 两个 O(N) 的合并。
+    // 使用轻量指纹跳过未变化的完整窗口快照，避免重复合并。
     let lastSnapshotFingerprint = '';
     const close = subscribeSessionEvents(eventSessionId, {
       onOpen: () => {
@@ -5629,9 +5588,7 @@ export function SessionDetailPage() {
       },
       onSnapshot: (snap) => {
         if (!ownsSessionAsyncResult(eventSessionId)) return;
-        // 将 token 统计（cache_hit_ratio / cache_hit_trend_points）纳入 fingerprint，
-        // 避免会话侧仅 token 计数器变化时客户端把快照当成
-        // 重复帧丢掉，导致 Token 弹窗不实时刷新。
+        // Token 统计纳入指纹，确保统计变化能刷新弹窗。
         const stats = (snap.session.statistics ?? {}) as Record<string, unknown>;
         const tokenSig = `${stats['total_prompt_tokens'] ?? 0}:${stats['cache_read_tokens'] ?? 0}:${stats['cache_creation_tokens'] ?? 0}:${stats['cache_hit_ratio'] ?? 'n'}:${(stats['cache_hit_trend_points'] as unknown[] | undefined)?.length ?? 0}`;
         const promptMeta = recordFromUnknown(snap.session.last_prompt_metadata);
@@ -5639,12 +5596,7 @@ export function SessionDetailPage() {
         const fingerprint = `${snapshotMessagesFingerprint(snap.messages)}|` + `${snap.send_phase}|${snap.last_error?.length ?? 0}|${snap.session.message_count ?? 0}|${snap.session.updated_at ?? ''}|` + `tok=${tokenSig}|ctx=${contextSig}`;
         if (fingerprint === lastSnapshotFingerprint) return;
         lastSnapshotFingerprint = fingerprint;
-        // 增量合并：当 snapshot 与本地 messages 的尾巴 N-1 条 id+content.length 完全一致，
-        // 仅末尾消息的 content 变长（流式 token），就只复用前缀对象 + 重建末尾对象，
-        // 让 Preact 的 keyed reconciliation 跳过前缀，每帧仅 patch 一个气泡。
-        // 这是 #9 "感觉不像流式" 的关键修复：之前 setMessages([...snap.messages]) 把
-        // 整个数组的 reference 全换了，所有 MessageCard 重建一遍 markdown / 高亮，
-        // 80ms 一次的 SSE snapshot 就形成肉眼可见的"分段抖动"。
+        // 增量合并复用未变化的消息前缀，仅更新流式尾消息。
         const snapOffset = snap.message_window?.offset ?? Math.max(0, (snap.session.message_count ?? snap.messages.length) - snap.messages.length);
         const snapTotal = snap.message_window?.total ?? snap.session.message_count ?? snap.messages.length;
         const emptyWindowWouldHideLoadedHistory = snap.messages.length === 0 && snapTotal > 0 && messagesRef.current.length > 0;
@@ -6144,10 +6096,7 @@ export function SessionDetailPage() {
     }
   }, [modelAllowedModes, composerMode]);
 
-  // 轮询：SSE 故障时 1.5s 拉一次；SSE 存活时也保留低频 phase guard，
-  // 兜底最后一帧 idle 丢失导致按钮一直停在「等待响应中」。
-  // 公共轮询 hook 内部仍用 setTimeout 自驱动，避免 setInterval 叠加；
-  // 同时提供 AbortSignal + 单次超时，防止异常网络导致无限等待。
+  // SSE 故障时轮询消息；连接存活时保留低频状态校验。
   const phasePollEnabled = !auth.loading && !sessionGone && Boolean(sessionId) && sendPhase !== 'idle' && sendPhase !== '';
   const phasePollIntervalMs = sseLive ? SSE_PHASE_GUARD_INTERVAL_MS : POLL_INTERVAL_MS;
   useAsyncPolling(
@@ -6191,9 +6140,7 @@ export function SessionDetailPage() {
     },
   );
 
-  // 桌面通知: 当窗口隐藏时, 若收到新的 assistant 消息 (id 与上次不同),
-  // 通过 Service Worker / Notification API 弹一个通知。
-  // lastNotifiedAssistantIdRef 防止同一条多次重弹 (轮询 + SSE 双源刷新)。
+  // 窗口隐藏时通知新的助手消息，同一消息只通知一次。
   const lastNotifiedAssistantIdRef = useRef<string | null>(null);
   useEffect(() => {
     const assistant = messageWindowView.latestAssistantMessage;

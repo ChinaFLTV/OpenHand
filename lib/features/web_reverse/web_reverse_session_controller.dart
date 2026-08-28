@@ -5747,19 +5747,8 @@ class WebReverseSessionController extends ChangeNotifier {
 
   /// 设置浏览器侧的页面缩放比例。`scale=1` 即 100%。
   ///
-  /// 历史遗留：早先用 `Emulation.setPageScaleFactor`，但它只在
-  /// `Emulation.setDeviceMetricsOverride` 配合下生效（即"移动端模拟"模式
-  /// 下的视觉缩放），桌面 page 上完全 no-op。
-  ///
-  /// 现行实现：直接走 Chrome 的 `chrome.tabs.setZoom` 等价 API ——
-  /// `Browser.setDownloadBehavior`-级 endpoint 不存在 zoom，只能借助 JS
-  /// `document.body.style.zoom`。问题是 SPA 在导航后会重置 body 样式，因此
-  /// 双管齐下：
-  ///   1. `Page.addScriptToEvaluateOnNewDocument` 注入一份"页面加载即套
-  ///      zoom"的脚本，保证导航后值不丢；
-  ///   2. 当前页立即 `Runtime.evaluate` 写一次 body.style.zoom；
-  ///   3. body 不存在时（DOMContentLoaded 之前）回退给 documentElement，
-  ///      事件触发后再补一次 body。
+  /// 当前页立即应用缩放，并注入初始化脚本以在页面导航后恢复设置。
+  /// DOM 尚未就绪时先处理根节点，再在加载完成后补充 body。
   Future<void> setZoomFactor(double scale) async {
     final cdp = _browserCdp;
     if (cdp == null || _pageSessionId == null) return;

@@ -1,8 +1,6 @@
 part of '../openhand_home_page.dart';
 
-/// 专家请求卡解析结果的进程级缓存（按消息对象；用户消息不可变且不流式，
-/// identity 稳定）。可空结果用哨兵区分「未缓存」，选中面板胶囊与气泡
-/// State 共用，legacy 消息不再每次 build 对全文重跑 fromPrompt 分行解析。
+/// 专家请求卡按不可变消息对象缓存，可空结果用哨兵区分未缓存状态。
 const Object _kExpertRequestCardNullSentinel = Object();
 final Expando<Object> _machineExpertRequestCardCache = Expando<Object>(
   'machineExpertRequestCard',

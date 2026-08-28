@@ -56,6 +56,27 @@ const TTS_PROVIDERS: readonly TtsProvider[] = [
   'mimo',
 ];
 
+function createProviderDefaults(
+  overrides: Partial<TtsProviderSettings> = {},
+): TtsProviderSettings {
+  return {
+    enabled: false,
+    voice: '',
+    language: 'zh-CN',
+    speed: 1,
+    volume: 1,
+    pitch: 1,
+    endpoint: '',
+    appId: '',
+    apiKey: '',
+    apiSecret: '',
+    accessToken: '',
+    region: '',
+    extra: {},
+    ...overrides,
+  };
+}
+
 function stringField(
   raw: Record<string, unknown>,
   key: string,
@@ -69,118 +90,47 @@ function stringField(
 function defaultProviderSettings(provider: TtsProvider): TtsProviderSettings {
   switch (provider) {
     case 'system':
-      return {
-        enabled: true,
-        voice: '',
-        language: 'zh-CN',
-        speed: 1,
-        volume: 1,
-        pitch: 1,
-        endpoint: '',
-        appId: '',
-        apiKey: '',
-        apiSecret: '',
-        accessToken: '',
-        region: '',
-        extra: {},
-      };
+      return createProviderDefaults({ enabled: true });
     case 'xfyun':
-      return {
-        enabled: false,
+      return createProviderDefaults({
         voice: 'xiaoyan',
-        language: 'zh-CN',
         speed: 50,
         volume: 50,
         pitch: 50,
         endpoint: 'wss://tts-api.xfyun.cn/v2/tts',
-        appId: '',
-        apiKey: '',
-        apiSecret: '',
-        accessToken: '',
-        region: '',
         extra: {
           aue: 'lame',
           auf: 'audio/L16;rate=16000',
         },
-      };
+      });
     case 'youdao':
-      return {
-        enabled: false,
-        voice: '',
-        language: 'zh-CHS',
-        speed: 1,
-        volume: 1,
-        pitch: 1,
-        endpoint: '',
-        appId: '',
-        apiKey: '',
-        apiSecret: '',
-        accessToken: '',
-        region: '',
-        extra: {},
-      };
+      return createProviderDefaults({ language: 'zh-CHS' });
     case 'bing':
-      return {
-        enabled: false,
+      return createProviderDefaults({
         voice: 'zh-CN-XiaoxiaoNeural',
-        language: 'zh-CN',
-        speed: 1,
-        volume: 1,
-        pitch: 1,
-        endpoint: '',
-        appId: '',
-        apiKey: '',
-        apiSecret: '',
-        accessToken: '',
-        region: '',
-        extra: {},
-      };
+      });
     case 'google':
-      return {
-        enabled: false,
+      return createProviderDefaults({
         voice: 'zh-CN-Standard-A',
-        language: 'zh-CN',
-        speed: 1,
-        volume: 1,
         pitch: 0,
-        endpoint: '',
-        appId: '',
-        apiKey: '',
-        apiSecret: '',
-        accessToken: '',
-        region: '',
         extra: { audioEncoding: 'MP3' },
-      };
+      });
     case 'baidu':
-      return {
-        enabled: false,
+      return createProviderDefaults({
         voice: '0',
         language: 'zh',
         speed: 5,
         volume: 5,
         pitch: 5,
         endpoint: 'https://tsn.baidu.com/text2audio',
-        appId: '',
-        apiKey: '',
-        apiSecret: '',
-        accessToken: '',
-        region: '',
-        extra: {},
-      };
+      });
     case 'doubao':
-      return {
-        enabled: false,
+      return createProviderDefaults({
         voice: 'zh_female_vv_uranus_bigtts',
-        language: 'zh-CN',
         speed: 0,
         volume: 0,
         pitch: 0,
         endpoint: 'https://openspeech.bytedance.com/api/v3/tts/unidirectional',
-        appId: '',
-        apiKey: '',
-        apiSecret: '',
-        accessToken: '',
-        region: '',
         extra: {
           resource_id: 'seed-tts-2.0',
           model: 'seed-tts-2.0-standard',
@@ -188,21 +138,11 @@ function defaultProviderSettings(provider: TtsProvider): TtsProviderSettings {
           sample_rate: 24000,
           bit_rate: 128000,
         },
-      };
+      });
     case 'mimo':
-      return {
-        enabled: false,
+      return createProviderDefaults({
         voice: 'mimo_default',
-        language: 'zh-CN',
-        speed: 1,
-        volume: 1,
-        pitch: 1,
         endpoint: 'https://api.xiaomimimo.com/v1/chat/completions',
-        appId: '',
-        apiKey: '',
-        apiSecret: '',
-        accessToken: '',
-        region: '',
         extra: {
           model: 'mimo-v2.5-tts',
           format: MIMO_DEFAULT_AUDIO_FORMAT,
@@ -210,23 +150,9 @@ function defaultProviderSettings(provider: TtsProvider): TtsProviderSettings {
           sample_rate: 24000,
           voice_sample_path: '',
         },
-      };
+      });
     case 'apple':
-      return {
-        enabled: false,
-        voice: '',
-        language: 'zh-CN',
-        speed: 1,
-        volume: 1,
-        pitch: 1,
-        endpoint: '',
-        appId: '',
-        apiKey: '',
-        apiSecret: '',
-        accessToken: '',
-        region: '',
-        extra: {},
-      };
+      return createProviderDefaults();
   }
 }
 

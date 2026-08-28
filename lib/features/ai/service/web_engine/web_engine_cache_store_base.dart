@@ -457,10 +457,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
   }
 
   Future<void> _enforceCap(int maxBytes) async {
-    // 旧实现每次写入都会调用 [totalBytesOnDisk]，递归 list 整个目录并对每个
-    // 文件做 .length()——是热路径上的 O(N) IO。改为先从 index.json 估算总量
-    // （我们在写入时已经把 payloadBytesField 落库），仅在估算超过阈值后再去
-    // 走真实磁盘大小做精确判断 + LRU 淘汰。
+    // 先按索引估算总量，仅在超限后读取真实磁盘大小并执行 LRU 淘汰。
     final dir = Directory(defaultDirectoryPath());
     final indexFile = File(p.join(dir.path, webEngineCacheIndexFileName));
     final deadline = WebEngineIoDeadline();

@@ -1,10 +1,3 @@
-// FilesPage —— 工作区文件浏览 / 读取 / 编辑。
-//
-// - 顶部面包屑 + 路径输入（手输跳转）
-// - 左侧文件列表（含搜索 + type 过滤），右侧详情/编辑器
-// - 浏览 / 读取始终开放；创建 / 保存 / 删除需后端 write_enabled=true，否则按钮禁用
-// - 二进制 / 超大文件按 ApiError 文案优雅退化
-
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
 import {

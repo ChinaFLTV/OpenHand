@@ -1,13 +1,3 @@
-// HarnessPage —— 本机最近一次 Harness Engineering 会话的只读浏览。
-//
-// App 端的 harness_session_dashboard.dart 用 5 个折叠卡片串行展示
-// metaCollection → reading → planning → implementing → reviewing,
-// 每个 card 含: 阶段标题/状态徽章/角色 CLI+model 配置/输出日志(可折叠)/
-// 改动文件列表/审核结果。Web 端只读还原同样布局, 5 秒一次 polling。
-//
-// 与 ToolboxPage 一样: 一个页面打开后做 polling, 错误顶部红条但保留旧数据,
-// 避免抖动清空界面。
-
 import { useState } from 'preact/hooks';
 import { TopBar } from '../../../components/TopBar';
 import { Appear } from '../../../components/Appear';

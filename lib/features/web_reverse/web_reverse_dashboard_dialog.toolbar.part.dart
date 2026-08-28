@@ -11,10 +11,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
     WebReverseSessionController ctrl,
     bool reduceMotion,
   ) {
-    // 工具条结构：
-    //   行 1：8 个 tab 胶囊（计数 badge 自动 cross-fade），可水平滚动避免溢出
-    //   行 2：搜索框 + 切换胶囊 + 节流下拉 + 图标按钮 + Primary，可水平滚动
-    // 两行布局保证 1024 宽度下不被挤变形（之前单行 8 tabs + 6+ 控件 必溢出）。
+    // 两行工具栏分别承载标签页与操作控件，窄窗口下保持可用。
     const tabs = _Tab.values;
     final showNetworkControls = _tab == _Tab.network;
     final showSearch = _tab == _Tab.network || _tab == _Tab.console;

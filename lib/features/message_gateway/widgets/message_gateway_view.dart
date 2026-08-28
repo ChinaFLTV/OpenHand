@@ -3862,8 +3862,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog>
                       onPressed: _clearTerminal,
                       icon: const Icon(Icons.cleaning_services_outlined),
                     ),
-                    // 日志级别多选菜单：取代原来顶部的 FilterChip 条，并走
-                    // OpenHand 共用菜单转场，让 App / Web 服务面板的进退场手感一致。
+                    // 日志级别多选菜单复用全局弹出动效。
                     AnimatedPopupMenuButton<WebGatewayLogLevel>(
                       tooltip: openHandLocalizedText(
                         context,

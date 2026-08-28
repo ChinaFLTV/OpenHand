@@ -1782,7 +1782,7 @@ WidgetBuilder _wrapDialogBuilderWithTheme(
     );
     // 视口收缩：保证任何子弹窗的最大尺寸不超过当前屏幕的 95%，
     // 在窄屏 / 浮动小窗模式下不会贴边或溢出。
-    // 只设置上限，不强行撑满，原本小弹窗（install_guide 等）不受影响。
+    // 只设置上限，不强行撑满小弹窗。
     final clamped = _ViewportClamp(alignment: alignment, child: themed);
     final stableHitTest = _DialogInitialHitTestShield(child: clamped);
     return OpenHandEscapeDismissScope(

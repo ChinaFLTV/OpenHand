@@ -1,17 +1,3 @@
-// 工作区文件浏览/读取/写入/删除。对应 service：
-//   GET    /api/workspace/files?path=&q=&type=&extensions=
-//   GET    /api/workspace/file?path=
-//   PUT    /api/workspace/file body {path, content}    — 创建 / 覆写（受 write_enabled）
-//   POST   /api/workspace/directory body {path}         — 创建目录（受 write_enabled）
-//   DELETE /api/workspace/file?path=                    — 删除文件 / 空目录（受 write_enabled）
-//
-// 设计决定：
-// - 列表只返回最多 300 项（由 service 兜底）；前端不再二次截断。
-// - 读取被 service 拦截二进制；前端遇到 binary_file_not_supported 时用提示卡退 化。
-// - 写入超出 max_file_bytes 时 service 回 content_too_large；前端在 byte 级
-//   做一次预判，避免无谓的请求往返。
-// - 创建新文件复用 PUT（path 不存在时 service 自动创建父目录 + 写入）。
-
 import { apiRequest } from './client';
 
 export interface WorkspaceItem {

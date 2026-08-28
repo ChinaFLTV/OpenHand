@@ -1,12 +1,5 @@
 // 通用 popover 菜单：触发器 + 弹出菜单项。点击外部 / Esc 自动关闭。
-//
-// 实现要点：
-// - 菜单项通过 OverlayPortal 挂到 body 或当前 fullscreenElement，并使用 `position: fixed`
-//   配合触发器的 `getBoundingClientRect()` 计算坐标，避免被祖先 transform / overflow
-//   截断（之前用 `position: absolute` + z-30 在 `Appear` 包裹的 translateY 容器里
-//   会被下一张卡片或 ListView 裁掉，导致菜单看起来"被遮挡"）。
-// - 监听 scroll / resize / 卡片重新布局，让菜单坐标实时跟随触发器。
-// - 默认 align='right' 时菜单右对齐到触发器右边，并在视口内自动收边避免溢出。
+// 面板挂载到当前全屏根节点，并随触发器布局与视口变化更新位置。
 
 import type { ComponentChildren } from 'preact';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';

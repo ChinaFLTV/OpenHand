@@ -2016,11 +2016,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
         widget.data.length <= _markdownPlainTextSkipThresholdChars &&
         !_canRenderMarkdownAsPlainText(widget.data) &&
         !hasWarmAst) {
-      // 流式抽搐修复：仅在「真·首挂载」（_children == null）
-      // 时铺轻量占位；后续 didUpdateWidget（流式 chunk / 主题变化）路径
-      // 保留上一帧已解析好的富文本，等帧节流回调 setState 再无缝替换。
-      // 之前每次 chunk 都把 _children 推回纯文本，造成「rich → raw
-      // text → rich」反复闪烁。
+      // 仅首次挂载使用占位，后续更新保留上一帧富文本直到新解析完成。
       final hadChildren = _children != null;
       if (widget.streaming &&
           !hadChildren &&
@@ -2687,20 +2683,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
             children: children,
           );
     if (!widget.selectable) return body;
-    // 跨多行 select 选中 BUG。
-    // 旧实现直接用 `SelectionArea(child: body)`，但 `SelectionArea` 内部
-    // 是 `SelectableRegion`，其 `add(Selectable)` 强制 `assert(_selectable == null)`，
-    // 一棵子树里只能注册一个 `Selectable`。而 `flutter_markdown_plus` 的
-    // `MarkdownBuilder.build()` 会把每个段落、列表项、表格 cell 各生成
-    // 一个独立带 `UniqueKey()` 的 `SelectableText.rich`，多个 `Selectable`
-    // 同时竞争 `SelectableRegion` 的注册 — 只有最后一个能成功，其余全部
-    // 沦为「选择孤岛」，用户在孤岛之间拖拽就会被卡死，体感是「只能选一行」。
-    // 在 `SelectionArea` 与 body 之间再嵌一层 `SelectionContainer`，
-    // 它本身是一个 `Selectable` 节点，对外层 `SelectionArea` 暴露为唯一
-    // 注册项；其 delegate 维护内部 N 个 `Selectable`（各 `SelectableText.rich`
-    // + 代码块内 `SelectableText.rich`），把跨节点的 selection event 派发到
-    // 命中节点。为避免 Flutter 内部多选代理在动态树更新时同步修改列表，
-    // 使用本地轻量代理覆盖核心需求，并在派发期间延迟节点变更。
+    // 通过统一选择容器协调 Markdown 内多个可选节点，支持跨段落选择。
     return SelectionArea(child: _MarkdownSelectionContainer(child: body));
   }
 }

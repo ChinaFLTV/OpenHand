@@ -1,13 +1,3 @@
-// 会话列表页：分页拉取 + 悬浮 FAB（先选模板再配参数） + 卡片三点菜单（重命名/删除/导出）。
-// 顶部条复用 TopBar；移除原本的"主题预览 / 可访问 URL"看板。
-//
-// 服务端契约：
-//   GET    /api/sessions?page=&page_size=
-//   POST   /api/sessions {template_id, mode, title?}
-//   PATCH  /api/sessions/:id {title}
-//   DELETE /api/sessions/:id
-//   GET    /api/sessions/:id/export
-
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useAnimatedLocation } from '../../../hooks/useAnimatedLocation';
 import { useBrowserFullscreen } from '../../../hooks/useBrowserFullscreen';

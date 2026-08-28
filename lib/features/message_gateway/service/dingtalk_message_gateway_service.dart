@@ -992,8 +992,7 @@ class DingTalkMessageGatewayService {
           _isResourceNotFoundError(error)) {
         _markMediaUnavailable(taskKey);
         _logRuntime('WARN', '钉钉媒体资源不可用，已停止重复下载：${media.displayName}。');
-        // RESOURCE_NOT_FOUND 属于服务端明确的永久业务失败，输出一次简洁日志即可，
-        // 不再把完整异常堆栈交给 silentLog，避免实时事件持续刷屏。
+        // 永久业务失败只输出一次运行日志，避免实时事件重复刷屏。
         return null;
       }
       if (commandError?.isPermissionDenied ?? false) {

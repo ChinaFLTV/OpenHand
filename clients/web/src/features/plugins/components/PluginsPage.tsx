@@ -1,8 +1,3 @@
-// PluginsPage —— 插件服务管理页面。
-//
-// 展示可选插件（NodeJS / Playwright / Python / pip）的安装状态，支持安装、更新与按能力约束的卸载操作。
-// 5 秒轮询刷新状态，操作期间实时反馈进度。UI 风格与 ToolboxPage 保持一致。
-
 import { useState } from 'preact/hooks';
 import { TopBar } from '../../../components/TopBar';
 import { Appear } from '../../../components/Appear';

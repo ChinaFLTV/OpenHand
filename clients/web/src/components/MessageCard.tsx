@@ -151,9 +151,7 @@ function useToolLiveElapsedMs(
   return null;
 }
 
-/// 活跃工具的耗时 chip 独立成组件：1s tick 的 setState 只重渲染这个小
-/// chip，不再拖着整张工具卡（含入参 pretty-print、输出分行判定）每秒
-/// 全量重渲染。
+/// 活跃工具的耗时胶囊独立更新，避免整张工具卡按秒重渲染。
 function ToolLiveElapsedChip({
   metadata,
   status,
@@ -2822,10 +2820,7 @@ function MessageCardImpl({
     />
   ) : null;
   const sizeMotionSignal = `${messageSizeMotionSignal(message)}|raw:${showRawContent ? 1 : 0}|tts:${ttsPlaying ? 1 : 0}|translated:${showingTranslation ? 1 : 0}:${visibleContent.length}|expanded:${expanded ? 1 : 0}|streaming:${streamingContent ? 1 : 0}|badgeCollapsed:${badgeCollapsed ? 1 : 0}`;
-  // 正文卡片只承接折叠 / 展开 / 原始内容切换这类语义级尺寸变化。
-  // 操作面板使用自己的布局槽动画，避免裁剪已加载的媒体节点。
-  // 流式正文只做文本 reveal，不再跑高频高度 FLIP；表格/代码块追加时
-  // 反复裁切 Markdown 容器会形成肉眼可见闪烁。
+  // 仅对语义级尺寸变化应用动画，流式正文保持布局稳定。
   const cardRef = useMessageSizeMotion(
     sizeMotionSignal,
     !reduceMotion &&
@@ -4631,20 +4626,10 @@ function ActionBtn({
   );
 }
 
-// 用 memo 包裹 MessageCard，跳过 props 等价时的重渲染——SSE 80ms snapshot 期间
-// 只有"流式增量的最后一条"会真正变更引用，其余卡片直接命中 memo 缓存，
-// 不再重做 markdown 解析 / 高亮 / 媒体解码，达到肉眼"逐字 / 逐 token 增长"。
-// 我们仅依赖父级 mergeStream 已经保证不变前缀的引用稳定，因此默认 shallow compare 已足够。
+// 消息合并保持未变化前缀的引用稳定，浅比较即可跳过重复渲染。
 export const MessageCard = memo(MessageCardImpl);
 
-/// 思考/工具调用类型消息卡片的可折叠正文容器：
-/// - 展开：正文完整呈现。
-/// - 折叠：限制 max-height ≈ 5-6 行，用 mask-image 在底部做渐隐，
-///   让预览像被「窗帘」半遮住，与 APP 端 _MarkdownPreviewBody 一比一对齐。
-///
-/// 单一高度动画来源：不在这里播 WAAPI，交由外层 `useMessageSizeMotion`
-/// 统一动画文章卡整体高度，避免父子两套 height transition 叠加产生
-/// 抽搐 / 鬼畜感。本容器只负责内容切换 + 渐隐遮罩。
+/// 可折叠正文仅处理内容与渐隐遮罩，尺寸动画由外层统一驱动。
 function ReasoningCollapsibleBody({
   collapsed,
   scrollableCollapsed = false,
@@ -5147,10 +5132,7 @@ function ToolArgumentsBlock({
   autoFollow?: boolean;
 }) {
   const raw = metadata?.['tool_arguments'];
-  // pretty 结果按 raw 缓存：卡片任何无关重渲染（每秒耗时 tick、流式
-  // chunk）不再重复对整段入参做 JSON.parse + pretty-print。
-  // hooks 全部提前到早退之前，顺便修正了原实现「条件早退后再调 hook」
-  // 在 raw 空/非空切换时的 hooks 顺序隐患。
+  // 按原始参数缓存格式化结果，避免无关重渲染重复解析。
   const pretty = useMemo(() => {
     if (raw == null) return null;
     if (typeof raw === 'string') {

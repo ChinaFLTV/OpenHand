@@ -1,7 +1,3 @@
-// 日志列表 + 导出 API。对应 service：
-//   GET /api/logs?offset=&limit= — 分页拉取（service 内存日志环；max 2000 / page）
-//   GET /api/logs/export         — 整包 JSON 下载（含 memory + disk 日志）
-
 import { apiRequest, fetchAuthenticatedBlob } from './client';
 import { downloadBlobWithAnchor } from '../utils/save_blob';
 

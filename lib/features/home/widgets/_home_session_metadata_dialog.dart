@@ -215,7 +215,9 @@ class _SessionMetadataDialog extends StatelessWidget {
                           ),
                           value: session.latestCompressionAt == null
                               ? '-'
-                              : formatYearMonthDayHmLocal(session.latestCompressionAt!),
+                              : formatYearMonthDayHmLocal(
+                                  session.latestCompressionAt!,
+                                ),
                         ),
                       ],
                     ),
@@ -2276,9 +2278,7 @@ _SessionErrorPresentation _presentSessionError(
   final fallbackMessage = rawMessage.isNotEmpty
       ? rawMessage
       : AppLocalizations.of(context)!.sessMetaThisSessionEndedEarlyRetryThe;
-  // Chat 系列 stage 直接使用底层 AiChatException 输出的「现象 / 原因 / 建议」
-  // 三段式中英诊断文案：第一行作为 banner 标题，其余多行作为正文，避免之前
-  // 一律展示通用兜底文案、丢失协议/网络层细节的问题。
+  // 结构化聊天异常使用首行作为标题，其余内容作为诊断正文。
   if (StructuredErrorText.isStructured(rawMessage) &&
       const <String>{
         'chat_request',
@@ -2875,7 +2875,9 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
                               color: colorScheme.inverseSurface.withValues(
                                 alpha: 0.9,
                               ),
-                              borderRadius: BorderRadius.circular(kOpenHandRadius6),
+                              borderRadius: BorderRadius.circular(
+                                kOpenHandRadius6,
+                              ),
                             ),
                             child: Text(
                               label.toString(),

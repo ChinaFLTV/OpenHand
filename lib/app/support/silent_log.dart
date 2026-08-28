@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-/// 仅在调试模式记录可安全忽略的非关键异常。
-/// 用它替代空 catch，保留开发期可观测性，同时避免在发布版本产生噪声。
+/// 仅在调试模式记录已由调用方处理的异常，发布版本不输出。
 @pragma('vm:prefer-inline')
 void silentLog(String tag, String action, Object error, [StackTrace? stack]) {
   if (!kDebugMode) {

@@ -4338,10 +4338,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           if (wasTap) forwardTap(tapX, tapY);
         }
       };
-      // 关键修复：使用 capture 阶段。Mermaid 10.x 在 SVG 节点上挂的
-      // click / pointer 处理器会 e.stopPropagation()，把 pointer 事件
-      // 拦在 SVG 内不再冒泡到 stage；切到 capture 后 stage 的监听
-      // 会在 SVG 自己的处理器之前触发，gesture 真正能拿到事件。
+      // 使用捕获阶段，避免 Mermaid 节点阻止冒泡后丢失指针手势。
       stage.addEventListener('pointerdown', onPointerDown, { capture: true });
       stage.addEventListener('pointermove', onPointerMove, { capture: true });
       stage.addEventListener('pointerup', onPointerEnd, { capture: true });

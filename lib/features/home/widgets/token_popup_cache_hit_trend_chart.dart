@@ -590,12 +590,7 @@ class _TokenPopupCacheHitTrendChartState
                   final middleTurn =
                       visiblePoints[visiblePoints.length ~/ 2].turnIndex;
                   final endTurn = visiblePoints.last.turnIndex;
-                  // 修复 X 轴刻度与数据点未对齐：按各数据点
-                  // 真实 x 坐标（chartRect.left + stepX * index）居中放置。
-                  // 旧实现用 Row + spaceBetween 会出现两类错位：
-                  //   1) 首尾各偏 8px（Row 起点 = chartRect.left - 8，终点 = Stack 右边），
-                  //   2) 中间标签落在 Row 几何中点，但可见点中点位于 chartRect.width
-                  //      * (length/2) / (length-1) 处，对 4 点而言是 2/3 宽而非 1/2 宽。
+                  // X 轴标签按对应数据点的真实坐标居中放置。
                   final singlePoint = visiblePoints.length == 1;
                   final startX = singlePoint
                       ? chartRect.center.dx
@@ -827,7 +822,9 @@ class _TokenPopupCacheHitTrendChartState
                                       color: colorScheme.surface.withValues(
                                         alpha: 0.92,
                                       ),
-                                      borderRadius: BorderRadius.circular(kOpenHandRadius4),
+                                      borderRadius: BorderRadius.circular(
+                                        kOpenHandRadius4,
+                                      ),
                                       border: Border.all(
                                         color: colorScheme.outlineVariant
                                             .withValues(alpha: 0.55),
@@ -864,13 +861,7 @@ class _TokenPopupCacheHitTrendChartState
                               top: chartRect.top - 7,
                               child: Text('100%', style: valueStyle),
                             ),
-                            // 修复"平均"标签与左侧 Y 轴刻度视觉重叠：
-                            // 旧位置 left:8 紧贴 y 轴 0%/100% 区域，当平均值接近
-                            // 25%/50% 等网格刻度时，文字与网格线 / 0%-100% 标签
-                            // 在同一水平条带叠加。改为贴虚线右端 + 轻量底色
-                            // （用 surface 浮于 chart 半透明背景之上），既远离
-                            // y 轴区域，又能在平均值贴近最后一个数据点时不被
-                            // 发光圆 / 实心点遮挡。
+                            // 平均值标签贴近虚线右端，避开 Y 轴刻度与数据点。
                             Positioned(
                               right: 12,
                               top: averageY - 8,
@@ -881,7 +872,9 @@ class _TokenPopupCacheHitTrendChartState
                                 ),
                                 decoration: BoxDecoration(
                                   color: colorScheme.surface,
-                                  borderRadius: BorderRadius.circular(kOpenHandRadius4),
+                                  borderRadius: BorderRadius.circular(
+                                    kOpenHandRadius4,
+                                  ),
                                 ),
                                 child: Text(
                                   l10n.sessMetaCacheHitAvg,
@@ -897,10 +890,7 @@ class _TokenPopupCacheHitTrendChartState
                               bottom: 14,
                               child: Text('0%', style: valueStyle),
                             ),
-                            // X 轴刻度改为按数据点真实 x 居中：
-                            // 用 Stack + Positioned(left: dataX - 16, width: 32)
-                            // 让每个标签在 32px 单元格内水平居中，单元格中心恰为
-                            // 对应数据点 x 坐标；不再使用 Row + spaceBetween。
+                            // 每个标签在固定宽度单元格内按数据点坐标居中。
                             Positioned(
                               left: 0,
                               right: 0,
@@ -1379,18 +1369,12 @@ class _CacheHitCompositionSummary extends StatelessWidget {
             color: missColor,
             child: TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: 0, end: cachedRatio),
-              duration: openHandMotionDuration(
-                context,
-                kOpenHandMotion520,
-              ),
+              duration: openHandMotionDuration(context, kOpenHandMotion520),
               curve: kOpenHandEntranceCurve,
               builder: (context, animatedCached, _) {
                 return TweenAnimationBuilder<double>(
                   tween: Tween<double>(begin: 0, end: readRatio),
-                  duration: openHandMotionDuration(
-                    context,
-                    kOpenHandMotion520,
-                  ),
+                  duration: openHandMotionDuration(context, kOpenHandMotion520),
                   curve: kOpenHandEntranceCurve,
                   builder: (context, animatedRead, _) => SizedBox(
                     height: 8,

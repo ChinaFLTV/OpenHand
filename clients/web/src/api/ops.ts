@@ -1,10 +1,3 @@
-// Ops 仪表盘 + 清理 API。对应 service：
-//   GET  /api/ops                       — 实时运行快照（进程诊断 2s 内复用）
-//   GET  /api/ops/cleanup/history        — 已成功清理的历史记录（最多 80 条）
-//   POST /api/ops/cleanup body {target,expired_only} — 触发清理
-//
-// 注意：runtime snapshot 字段 process.* 是嵌套对象，前端按 `OpsRuntimeProcess` 解构。
-
 import { apiRequest, type ApiRequestSignalOptions } from './client';
 
 interface OpsRuntimeProcess {

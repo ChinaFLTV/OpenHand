@@ -1,12 +1,4 @@
-// SSE 实时事件流封装（与服务端 GET /api/sessions/:id/events 对齐）。
-//
-// 设计：
-// - EventSource 浏览器内置，支持自动重连；不允许自定义 header，所以我们用
-//   query string 传 token / device_id / source。
-// - service 推送 `event: snapshot` + JSON payload，含 messages / send_phase /
-//   last_error / can_stop / session 摘要。前端消费方按 message id 增量合并。
-// - 暴露 `subscribe(...)` 返回 close 句柄，调用方负责在 unmount 时 close。
-// - 失败 / 服务端 500 时退化为 polling（由消费方决定）；这里仅把 onError 透出。
+// EventSource 不支持自定义请求头，鉴权与客户端信息通过查询参数传递。
 
 import { ensureDeviceId, readToken } from '../state/storage';
 import type { SessionMessage, SessionSummary } from './sessions';
