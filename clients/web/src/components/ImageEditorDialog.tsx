@@ -2,6 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
 import { t } from '../i18n';
 import { clampNumber, finiteNumberFromText } from '../shared/util/number';
+import {
+  base64PayloadFromDataUrl,
+  readBlobAsDataUrl,
+} from '../utils/blob_data_url';
 import { copyBlobToClipboard, copyTextToClipboard } from '../utils/clipboard';
 import {
   DIALOG_OVERLAY_MEDIA_Z_INDEX,
@@ -682,7 +686,7 @@ async function encodeCanvas(
   });
   if (blob == null) {
     const dataUrl = canvas.toDataURL(mime, quality);
-    const dataBase64 = dataUrl.split('base64,')[1] ?? '';
+    const dataBase64 = base64PayloadFromDataUrl(dataUrl) ?? '';
     if (!dataBase64) throw new Error('图片编码失败');
     return {
       dataUrl,
@@ -691,49 +695,12 @@ async function encodeCanvas(
     };
   }
 
-  const dataUrl = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    let settled = false;
-    let timer = 0;
-    const cleanup = () => {
-      window.clearTimeout(timer);
-      reader.onload = null;
-      reader.onerror = null;
-      reader.onabort = null;
-    };
-    const fail = (error: Error) => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(error);
-    };
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result === 'string') {
-        settled = true;
-        cleanup();
-        resolve(result);
-      } else {
-        fail(new Error('图片编码失败'));
-      }
-    };
-    reader.onerror = () => fail(reader.error ?? new Error('图片编码失败'));
-    reader.onabort = () => fail(new Error('图片编码超时'));
-    timer = window.setTimeout(() => {
-      fail(new Error('图片编码超时'));
-      try {
-        reader.abort();
-      } catch {
-        // 已结束，无需处理。
-      }
-    }, IMAGE_ENCODE_TIMEOUT_MS);
-    try {
-      reader.readAsDataURL(blob);
-    } catch (error: unknown) {
-      fail(error instanceof Error ? error : new Error('图片编码失败'));
-    }
+  const dataUrl = await readBlobAsDataUrl(blob, {
+    timeoutMs: IMAGE_ENCODE_TIMEOUT_MS,
+    failureMessage: '图片编码失败',
+    timeoutMessage: '图片编码超时',
   });
-  const dataBase64 = dataUrl.split('base64,')[1] ?? '';
+  const dataBase64 = base64PayloadFromDataUrl(dataUrl) ?? '';
   if (!dataBase64) throw new Error('图片编码失败');
   return { dataUrl, dataBase64, size: blob.size };
 }

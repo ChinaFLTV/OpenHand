@@ -2149,31 +2149,52 @@ class _LegacySseSession {
     Future<void>? cancelSignal,
   }) async {
     final requestIdText = '${payload['id']}';
-    final responseFuture = _messages.stream
-        .firstWhere(
-          (message) => '${message['id']}' == requestIdText,
-          // 匹配响应到达前连接关闭时统一转换为超时，让调用方只处理一种失败模式。
-          orElse: () =>
-              throw TimeoutException('MCP 流在请求 $requestIdText 返回响应前已关闭。'),
-        )
-        .timeout(timeout ?? _requestTimeout);
+    final response = Completer<Map<String, Object?>?>();
+    late final StreamSubscription<Map<String, Object?>> responseSubscription;
+    responseSubscription = _messages.stream.listen(
+      (message) {
+        if ('${message['id']}' == requestIdText && !response.isCompleted) {
+          response.complete(message);
+        }
+      },
+      onError: (Object error, StackTrace stack) {
+        if (!response.isCompleted) response.completeError(error, stack);
+      },
+      onDone: () {
+        if (!response.isCompleted) {
+          response.completeError(
+            TimeoutException('MCP 流在请求 $requestIdText 返回响应前已关闭。'),
+          );
+        }
+      },
+    );
+    final responseFuture = response.future.timeout(timeout ?? _requestTimeout);
     observeMcpPendingFuture(responseFuture);
-    await _post(payload, timeout: timeout, cancelSignal: cancelSignal);
-    if (cancelSignal == null) return responseFuture;
-    return Future.any<Map<String, Object?>?>(<Future<Map<String, Object?>?>>[
-      responseFuture,
-      cancelSignal.then<Map<String, Object?>?>(
-        (_) => throw const McpToolDiscoveryException(
-          'MCP 请求已取消。',
-          isExpectedLifecycleCancellation: true,
-        ),
-        onError: (Object _, StackTrace _) =>
-            throw const McpToolDiscoveryException(
+    try {
+      await _post(payload, timeout: timeout, cancelSignal: cancelSignal);
+      if (cancelSignal == null) return await responseFuture;
+      return await Future.any<Map<String, Object?>?>(
+        <Future<Map<String, Object?>?>>[
+          responseFuture,
+          cancelSignal.then<Map<String, Object?>?>(
+            (_) => throw const McpToolDiscoveryException(
               'MCP 请求已取消。',
               isExpectedLifecycleCancellation: true,
             ),
-      ),
-    ]);
+            onError: (Object _, StackTrace _) =>
+                throw const McpToolDiscoveryException(
+                  'MCP 请求已取消。',
+                  isExpectedLifecycleCancellation: true,
+                ),
+          ),
+        ],
+      );
+    } finally {
+      await _cancelMcpStreamSubscription(
+        responseSubscription,
+        where: '旧版 SSE 请求响应',
+      );
+    }
   }
 
   Future<void> sendNotification(

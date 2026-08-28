@@ -169,6 +169,10 @@ import {
 import { WebReverseDashboardDialog } from '../../../components/WebReverseDashboardDialog';
 import { AndroidReverseDashboardDialog } from '../../../components/AndroidReverseDashboardDialog';
 import { copyTextToClipboard } from '../../../utils/clipboard';
+import {
+  base64PayloadFromDataUrl,
+  readBlobAsDataUrl,
+} from '../../../utils/blob_data_url';
 import { fetchBlobBounded } from '../../../utils/bounded_response';
 import { buildSessionAssetUrl } from '../../../utils/session_asset';
 import { createTimedAbortController } from '../../../utils/timed_abort';
@@ -6657,62 +6661,19 @@ export function SessionDetailPage() {
   }
 
   async function readFileAsAttachment(file: File): Promise<{ att: SendMessageAttachment; mime: string; dataUrl: string }> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      let settled = false;
-      let timer = 0;
-      const cleanup = () => {
-        window.clearTimeout(timer);
-        reader.onload = null;
-        reader.onerror = null;
-        reader.onabort = null;
-      };
-      const fail = (error: Error, abort = false) => {
-        if (settled) return;
-        settled = true;
-        cleanup();
-        if (abort && reader.readyState === FileReader.LOADING) {
-          try {
-            reader.abort();
-          } catch {
-            // 读取已结束，无需处理。
-          }
-        }
-        reject(error);
-      };
-      reader.onload = () => {
-        const result = reader.result;
-        if (typeof result !== 'string') {
-          fail(new Error('附件读取结果格式无效'));
-          return;
-        }
-        const idx = result.indexOf('base64,');
-        const data = idx >= 0 ? result.substring(idx + 'base64,'.length) : '';
-        if (!data) {
-          fail(new Error('附件内容为空'));
-          return;
-        }
-        const mime = file.type || mimeForAttachmentName(file.name) || (idx > 0 ? result.substring(5, result.indexOf(';')) : 'application/octet-stream');
-        settled = true;
-        cleanup();
-        resolve({
-          att: { name: file.name, data_base64: data },
-          mime,
-          dataUrl: `data:${mime};base64,${data}`,
-        });
-      };
-      reader.onerror = () => fail(reader.error ?? new Error('附件读取失败'));
-      reader.onabort = () => fail(new Error('附件读取已取消'));
-      timer = window.setTimeout(
-        () => fail(new Error('附件读取超时'), true),
-        ATTACHMENT_READ_TIMEOUT_MS,
-      );
-      try {
-        reader.readAsDataURL(file);
-      } catch (error: unknown) {
-        fail(error instanceof Error ? error : new Error('附件读取失败'));
-      }
+    const dataUrl = await readBlobAsDataUrl(file, {
+      timeoutMs: ATTACHMENT_READ_TIMEOUT_MS,
+      failureMessage: '附件读取失败',
+      timeoutMessage: '附件读取超时',
     });
+    const data = base64PayloadFromDataUrl(dataUrl);
+    if (data == null) throw new Error('附件内容为空');
+    const mime = file.type || mimeForAttachmentName(file.name) || 'application/octet-stream';
+    return {
+      att: { name: file.name, data_base64: data },
+      mime,
+      dataUrl: `data:${mime};base64,${data}`,
+    };
   }
 
   async function restoreAttachmentsForEdit(message: SessionMessage): Promise<void> {

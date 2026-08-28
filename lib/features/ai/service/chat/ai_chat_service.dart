@@ -2959,7 +2959,8 @@ class AiChatService implements AiChatClient {
           fallbackFamily,
         );
       } on AiChatException catch (error) {
-        if (!_isOpenAiCompatibleProtocol(baseProbeModel.protocolType)) {
+        if (inferAiApiDialect(baseProbeModel.protocolType) !=
+            AiApiDialect.openAiCompat) {
           rethrow;
         }
         throw await _decorateProviderProbeFailure(
@@ -3592,35 +3593,6 @@ class AiChatCancelledException implements Exception {
 
   @override
   String toString() => message;
-}
-
-bool _isOpenAiCompatibleProtocol(AiProtocolType protocol) {
-  switch (protocol) {
-    case AiProtocolType.openai:
-    case AiProtocolType.dots:
-    case AiProtocolType.qwen:
-    case AiProtocolType.kimi:
-    case AiProtocolType.glm:
-    case AiProtocolType.grok:
-    case AiProtocolType.deepseek:
-    case AiProtocolType.seed:
-    case AiProtocolType.stepfun:
-    case AiProtocolType.minimax:
-    case AiProtocolType.longcat:
-    case AiProtocolType.agnes:
-    case AiProtocolType.joycode:
-    case AiProtocolType.wenxin:
-    case AiProtocolType.meta:
-    case AiProtocolType.mimo:
-    case AiProtocolType.hunyuan:
-    case AiProtocolType.vllm:
-    case AiProtocolType.sglang:
-    case AiProtocolType.ollama:
-      return true;
-    case AiProtocolType.gemini:
-    case AiProtocolType.claude:
-      return false;
-  }
 }
 
 extension on AiChatService {
