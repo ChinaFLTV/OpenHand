@@ -2572,51 +2572,49 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
         ),
         child: DefaultTabController(
           length: 3,
-          child: _McpOpsDialogSurface(
-            child: _McpOpsConsoleShell(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _McpOpsConsoleHeader(
-                    snapshot: snapshot,
-                    endpointUri: endpointUri,
-                    localEndpointUri: localEndpointUri,
-                    bindEndpointUri: bindEndpointUri,
-                    discoveredHosts: _advertisedHosts,
-                    config: config,
-                    onCopyEndpoint: () => _copyCurrentOpsEndpoint(context),
-                    onCopyCursorConfig: () => _copyCurrentCursorConfig(context),
-                    onConnectivityTest: () => _testConnectivity(context),
-                    onStart: () => _startServer(context),
-                    onRestart: () => _restartServer(context),
-                    onStop: () => _stopServer(context),
-                    configActionBusy: _saving || _hydratingConfig,
-                    configMessage: _configMessage,
-                    onResetConfig: () => _resetConfigWithConfirm(context),
-                    onSaveConfig: () => _saveConfig(context),
-                    onCleanupData: () => _clearOpsDataWithRange(context),
-                    onClose: () => Navigator.of(context).maybePop(),
+          child: OpenHandOperationsDialogFrame(
+            outerRadius: _mcpOpsOuterRadius,
+            innerRadius: _mcpOpsShellRadius,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _McpOpsConsoleHeader(
+                  snapshot: snapshot,
+                  endpointUri: endpointUri,
+                  localEndpointUri: localEndpointUri,
+                  bindEndpointUri: bindEndpointUri,
+                  discoveredHosts: _advertisedHosts,
+                  config: config,
+                  onCopyEndpoint: () => _copyCurrentOpsEndpoint(context),
+                  onCopyCursorConfig: () => _copyCurrentCursorConfig(context),
+                  onConnectivityTest: () => _testConnectivity(context),
+                  onStart: () => _startServer(context),
+                  onRestart: () => _restartServer(context),
+                  onStop: () => _stopServer(context),
+                  configActionBusy: _saving || _hydratingConfig,
+                  configMessage: _configMessage,
+                  onResetConfig: () => _resetConfigWithConfirm(context),
+                  onSaveConfig: () => _saveConfig(context),
+                  onCleanupData: () => _clearOpsDataWithRange(context),
+                  onClose: () => Navigator.of(context).maybePop(),
+                ),
+                kOpenHandGap12,
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      Builder(
+                        builder: (tabContext) =>
+                            _tabScroll(tabContext, _buildOpsTab(tabContext)),
+                      ),
+                      Builder(
+                        builder: (tabContext) =>
+                            _tabScroll(tabContext, _buildConfigTab(tabContext)),
+                      ),
+                      Builder(builder: _buildAuditTab),
+                    ],
                   ),
-                  kOpenHandGap12,
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        Builder(
-                          builder: (tabContext) =>
-                              _tabScroll(tabContext, _buildOpsTab(tabContext)),
-                        ),
-                        Builder(
-                          builder: (tabContext) => _tabScroll(
-                            tabContext,
-                            _buildConfigTab(tabContext),
-                          ),
-                        ),
-                        Builder(builder: _buildAuditTab),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -4401,63 +4399,16 @@ Widget buildMcpOpsSubDialog({
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(_mcpOpsOuterRadius),
     ),
-    child: _McpOpsDialogSurface(
-      child: _McpOpsConsoleShell(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: children,
-        ),
+    child: OpenHandOperationsDialogFrame(
+      outerRadius: _mcpOpsOuterRadius,
+      innerRadius: _mcpOpsShellRadius,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
       ),
     ),
   );
-}
-
-class _McpOpsDialogSurface extends StatelessWidget {
-  const _McpOpsDialogSurface({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(_mcpOpsOuterRadius),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.72)),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: cs.shadow.withValues(alpha: 0.18),
-            blurRadius: 38,
-            offset: const Offset(0, 20),
-          ),
-        ],
-      ),
-      child: Padding(padding: const EdgeInsets.all(16), child: child),
-    );
-  }
-}
-
-class _McpOpsConsoleShell extends StatelessWidget {
-  const _McpOpsConsoleShell({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: openHandMotionDuration(context, kOpenHandMotion180),
-      curve: kOpenHandSwitchInCurve,
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.46),
-        borderRadius: BorderRadius.circular(_mcpOpsShellRadius),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.74)),
-      ),
-      child: Padding(padding: const EdgeInsets.all(14), child: child),
-    );
-  }
 }
 
 class _McpOpsConsoleHeader extends StatelessWidget {
@@ -5149,7 +5100,7 @@ class _McpOpsHeaderMessage extends StatelessWidget {
 
   final String text;
 
-  /// Accent color; defaults to the primary "info" tone when omitted.
+  /// 强调色，默认使用主信息色。
   final Color? tone;
 
   @override
@@ -5278,10 +5229,7 @@ class _McpOpsDashboardStats {
     required McpOpsRuntimeSnapshot snapshot,
     required List<McpOpsAuditEntry> auditEntries,
   }) {
-    // The runtime traffic series is authoritative: it rolls up *every* request
-    // (initialize/list/stream/call) per minute, whereas audit entries cover
-    // only tool calls and blocks. Charts read from it so trends never sit empty
-    // while real traffic flows.
+    // 流量序列按分钟汇总全部请求；审计仅覆盖工具调用和拦截，因此图表以流量序列为准。
     final series = snapshot.trafficSeries;
     final successBuckets = <double>[];
     final blockedBuckets = <double>[];
@@ -5718,34 +5666,7 @@ class _McpOpsPanelGrid extends StatelessWidget {
   }
 }
 
-class _McpOpsCopyText extends StatelessWidget {
-  const _McpOpsCopyText(
-    this.text, {
-    this.style,
-    this.maxLines,
-    this.overflow,
-    this.textAlign,
-  });
-
-  final String text;
-  final TextStyle? style;
-  final int? maxLines;
-  final TextOverflow? overflow;
-  final TextAlign? textAlign;
-
-  @override
-  Widget build(BuildContext context) {
-    return SelectionArea(
-      child: Text(
-        text,
-        maxLines: maxLines,
-        overflow: overflow,
-        textAlign: textAlign,
-        style: style,
-      ),
-    );
-  }
-}
+typedef _McpOpsCopyText = OpenHandOperationsCopyText;
 
 class _McpOpsMetricTile extends StatelessWidget {
   const _McpOpsMetricTile({
@@ -6726,8 +6647,7 @@ class _McpOpsExposureTile extends StatelessWidget {
                       ),
                       onChanged: (value) => onEndpointChanged(endpoint, value),
                     ),
-                  // Shares _McpOpsTogglePill geometry so its top/bottom edges
-                  // line up exactly with the invoke pill beside it.
+                  // 与相邻调用胶囊共用几何尺寸，保持上下边缘对齐。
                   if (showSchemaPill)
                     _McpOpsSchemaPill(
                       editable: row.schemaEditable,
@@ -6811,10 +6731,7 @@ class _McpOpsSchemaPill extends StatelessWidget {
   }
 }
 
-/// Structured, editable viewer for a builtin tool's input schema. Editable
-/// entries are maintained through a field-form draft while the JSON source stays
-/// read-only for audit/copy. Reuses the shared ops dialog shell so it inherits
-/// the global Q-elastic enter/exit motion.
+/// 内置工具输入结构编辑器；字段表单可编辑，JSON 源仅供审计和复制。
 class _McpOpsSchemaDialog extends StatefulWidget {
   const _McpOpsSchemaDialog({
     required this.title,
@@ -7785,8 +7702,7 @@ class _McpOpsSchemaSourceCollapsedNotice extends StatelessWidget {
   }
 }
 
-/// Hierarchical, read-first rendering of parsed schema fields. Groups the field
-/// name, type badge, required marker and description into structured cards.
+/// 分层展示结构字段名称、类型、必填标记和描述。
 class _McpOpsSchemaFieldList extends StatelessWidget {
   const _McpOpsSchemaFieldList({required this.fields});
 
@@ -7886,7 +7802,7 @@ class _McpOpsSchemaFieldCard extends StatelessWidget {
   }
 }
 
-/// Syntax-neutral, scroll-safe code display for the schema JSON preview.
+/// 可安全滚动的 JSON 结构预览。
 class _McpOpsSchemaCodeView extends StatelessWidget {
   const _McpOpsSchemaCodeView({super.key, required this.text});
 
@@ -7911,8 +7827,7 @@ class _McpOpsSchemaCodeView extends StatelessWidget {
   }
 }
 
-/// A single audit log entry rendered as a fully-clickable, structured card:
-/// a status accent rail, a stage badge, a title + stage/status header, and a
+/// 可点击的结构化审计日志卡片。
 /// 紧凑审计记录行；点击内容或尾部按钮均打开详情弹窗。
 class _McpOpsAuditRow extends StatelessWidget {
   const _McpOpsAuditRow({required this.entry, required this.onDetails});
@@ -8019,9 +7934,7 @@ class _McpOpsAuditRow extends StatelessWidget {
           ),
         ),
         kOpenHandHGap8,
-        // Keep the status capsule and the open button on one baseline: the
-        // IntrinsicHeight + stretch pins the round button to the capsule's
-        // exact height, so their top and bottom edges line up precisely.
+        // 状态胶囊与打开按钮共用高度，保持上下边缘对齐。
         IntrinsicHeight(
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -8093,9 +8006,7 @@ class _McpOpsAuditRow extends StatelessWidget {
   }
 }
 
-/// Circular "open detail" affordance shown at the top-right of an audit card.
-/// Sized by an [AspectRatio] against the sibling status capsule so it stays a
-/// perfect circle whose top/bottom edges align with the capsule.
+/// 审计卡片右上角的圆形详情按钮。
 class _McpOpsAuditOpenButton extends StatelessWidget {
   const _McpOpsAuditOpenButton({required this.onTap});
 
@@ -8440,50 +8351,10 @@ class _McpOpsDetailSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final visibleRows = rows.entries
-        .where((row) => row.value.trim().isNotEmpty)
-        .toList(growable: false);
     return _McpOpsPanel(
       icon: icon,
       title: title,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final row in visibleRows.indexed)
-            Padding(
-              padding: EdgeInsets.only(
-                bottom: row.$1 == visibleRows.length - 1 ? 0 : 10,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: 180,
-                    child: _McpOpsCopyText(
-                      row.$2.key,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  kOpenHandHGap12,
-                  Expanded(
-                    child: OpenHandLiveValue(
-                      row.$2.value,
-                      selectable: true,
-                      maxLines: 6,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
+      child: OpenHandOperationsDetailRows(rows: rows),
     );
   }
 }
@@ -9631,8 +9502,7 @@ IconData _mcpOpsAuditKindIcon(McpOpsAuditKind kind) {
   };
 }
 
-/// A short, human title for a log row: the tool/method name, falling back to a
-/// stage label so protocol traffic never renders as a blank headline.
+/// 日志行短标题，缺少工具或方法名时回退到阶段名称。
 String _mcpOpsAuditTitle(BuildContext context, McpOpsAuditEntry entry) {
   final name = entry.toolName.trim();
   if (name.isNotEmpty) {
@@ -17115,8 +16985,7 @@ String _formatRelativePast(BuildContext context, DateTime utc) {
 
 /// 从 STDIO MCP 服务配置中提取包名。
 /// 兼容两种输入习惯：
-///   1. command="npx", args=["@playwright/mcp", "--headless"]  → "@playwright/mcp"
-///   2. command="npx chrome-devtools-mcp@latest", args=["--autoConnect"] → "chrome-devtools-mcp@latest"
+/// 从 npx 命令或首个参数中提取包名。
 String? _extractPackageName(McpServer server) {
   final cmd = server.command.trim();
   final tokens = cmd.split(kInlineWhitespacePattern);
@@ -17153,8 +17022,7 @@ String _formatRelativeFuture(BuildContext context, DateTime utc) {
   return l10n.mcpRelativeInDays(d);
 }
 
-/// Live view of the data every insight dialog renders against. The dialog
-/// watches [McpController], so these values refresh in place while it is open.
+/// 洞察弹窗使用的实时数据视图，随 [McpController] 原地刷新。
 class _McpOpsInsightData {
   const _McpOpsInsightData({
     required this.snapshot,
@@ -17174,9 +17042,7 @@ class _McpOpsInsightData {
 typedef _McpOpsInsightSections =
     List<Widget> Function(BuildContext context, _McpOpsInsightData data);
 
-/// Structured drill-down dialog shared by every clickable ops card. Reuses the
-/// audit dialog's animated shell so entrance/exit motion follows the global
-/// dialog animation setting, and recomputes its body from the live controller.
+/// 运维卡片共享的下钻弹窗，遵循全局弹窗动画并使用实时控制器数据。
 class _McpOpsInsightDialog extends StatelessWidget {
   const _McpOpsInsightDialog({
     required this.icon,
@@ -17217,75 +17083,21 @@ class _McpOpsInsightDialog extends StatelessWidget {
         context: context,
         maxWidth: 940,
         maxHeight: 800,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(kOpenHandRadius13),
-                  border: Border.all(color: accent.withValues(alpha: 0.26)),
-                ),
-                child: Icon(icon, color: accent),
-              ),
-              kOpenHandHGap10,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _McpOpsCopyText(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    if (subtitle.trim().isNotEmpty) ...[
-                      kOpenHandGap3,
-                      OpenHandLiveValue(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ],
-          ),
-          kOpenHandGap14,
-          Flexible(
-            child: ListView(
-              shrinkWrap: true,
-              physics: openHandDialogAwareScrollPhysics(context),
-              padding: EdgeInsets.zero,
-              children: [
-                for (var i = 0; i < children.length; i++) ...[
-                  if (i != 0) const SizedBox(height: _mcpOpsGridGap),
-                  children[i],
-                ],
-              ],
-            ),
-          ),
-        ],
+        children: buildOpenHandOperationsInsightContent(
+          context: context,
+          icon: icon,
+          title: title,
+          subtitle: subtitle,
+          tone: accent,
+          sections: children,
+          sectionSpacing: _mcpOpsGridGap,
+        ),
       ),
     );
   }
 }
 
-/// Panel wrapping an inline KPI grid — the workhorse for dialog headers.
+/// 弹窗标题区使用的内联 KPI 网格面板。
 class _McpOpsStatPanel extends StatelessWidget {
   const _McpOpsStatPanel({
     required this.icon,
@@ -17307,8 +17119,7 @@ class _McpOpsStatPanel extends StatelessWidget {
   }
 }
 
-/// Full breakdown of a distribution map — every entry ranked with share bars,
-/// unlike the dashboard cards which only surface the top five.
+/// 按占比完整排序分布项。
 class _McpOpsBarPanel extends StatelessWidget {
   const _McpOpsBarPanel({
     required this.icon,
@@ -17422,8 +17233,7 @@ Widget _mcpOpsBoundedList(
   );
 }
 
-/// Compact list of audit entries filtered to a single lens (blocked, failed,
-/// write, …). Shows a status-colored strip per row.
+/// 按单一维度筛选的紧凑审计列表。
 class _McpOpsLogListPanel extends StatelessWidget {
   const _McpOpsLogListPanel({
     required this.icon,
@@ -17651,7 +17461,7 @@ class _McpOpsInsightEmpty extends StatelessWidget {
   }
 }
 
-// Non-tappable metric tile for use inside insight dialogs.
+// 洞察弹窗内不可点击的指标卡片。
 _McpOpsMetricTile _mcpOpsInsightTile(
   IconData icon,
   String label,
@@ -17668,8 +17478,7 @@ _McpOpsMetricTile _mcpOpsInsightTile(
   );
 }
 
-/// Resolves the icon/title/tone and section builder for a drill-down [kind].
-/// Kept as one dispatcher so every card's dialog shares identical structure.
+/// 集中解析下钻类型的图标、标题、色调和区块构建器。
 _McpOpsInsightSpec _mcpOpsInsightSpec(
   BuildContext context,
   _McpOpsInsightKind kind,
@@ -18374,7 +18183,7 @@ _McpOpsInsightSpec _mcpOpsInsightSpec(
   }
 }
 
-/// Shared success/blocked/failed KPI tiles.
+/// 成功、拦截和失败 KPI 卡片。
 List<Widget> _mcpOpsOutcomeTiles(
   BuildContext context,
   _McpOpsInsightData data,
@@ -18447,7 +18256,7 @@ Widget _mcpOpsLatencyTrendPanel(BuildContext context, _McpOpsInsightData data) {
   );
 }
 
-/// Inbound/outbound traffic drill-down.
+/// 入站与出站流量下钻。
 _McpOpsInsightSpec _mcpOpsTrafficSpec(
   BuildContext context, {
   required bool inbound,
@@ -18515,7 +18324,7 @@ _McpOpsInsightSpec _mcpOpsTrafficSpec(
   );
 }
 
-/// Generic distribution drill-down: full ranked bars + a donut summary.
+/// 通用分布下钻，包含完整排行和环形摘要。
 _McpOpsInsightSpec _mcpOpsDistributionSpec(
   BuildContext context, {
   required IconData icon,

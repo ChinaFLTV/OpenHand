@@ -1,7 +1,6 @@
 part of '../openhand_home_page.dart';
 
-// Long messages parse only a bounded preview until the user expands them,
-// keeping initial rendering of large transcripts responsive.
+// 长消息展开前仅解析有界预览，保持大对话首帧流畅。
 const int _messageMarkdownCollapseCharThreshold = 2400;
 const int _toolResultMarkdownCollapseCharThreshold = 800;
 const int _messageMarkdownCollapseLineThreshold = 45;
@@ -18,11 +17,7 @@ const double _collapsedPreviewBottomEnterEpsilon = 2;
 const double _collapsedPreviewBottomExitEpsilon = 10;
 const int _collapsedBodyScrollOffsetCacheLimit = 500;
 
-/// Maximum message body size (in characters) at which we still attempt
-/// markdown parsing. Above this we render the raw text directly to keep
-/// transcript open / scroll responsive — `flutter_markdown_plus` runs the
-/// AST parse and widget build synchronously on the UI thread, and at this
-/// size both passes start to dominate frame budgets and trigger ANR.
+/// 允许 Markdown 解析的最大正文长度，超出后使用纯文本避免同步解析阻塞界面。
 const int _markdownPlainTextSkipThresholdChars = 120 * kBytesPerKiB;
 const int _toolResultMarkdownCollapseLineThreshold = 32;
 const int _htmlPreparedCacheMaxEntries = 160;
@@ -1516,13 +1511,11 @@ final RegExp _markdownFenceInfoTokenPattern = RegExp(
   r'^([A-Za-z0-9_+#\.-]+)(?:\s+|$)',
 );
 
-/// Matches scaffolding lines that sometimes leak from models into the
+/// 匹配模型偶尔泄漏的工具调用脚手架行。
 /// visible markdown body, e.g. a bare `Tool: Bash`, `工具: Bash`,
 /// `工具调用：xxx`, `[tool_call] ...`, or `function_calls: ...`.
 ///
-/// These come from the model's own chain-of-thought / training data and
-/// should be rendered by the structured tool-call bubble, not as plain text.
-/// We strip them before markdown parsing to keep transcripts clean.
+/// 这些内容应由结构化工具调用气泡展示，因此在 Markdown 解析前移除。
 final RegExp _markdownToolScaffoldingLinePattern = RegExp(
   r'^\s*(?:'
   r'tool\s*:\s*\w[\w\-\.]*'
@@ -2201,13 +2194,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       ];
       return false;
     }
-    // Hard size ceiling: very large messages (long log dumps, generated
-    // payloads pasted into the chat) blow up the markdown parser + builder
-    // — both run synchronously on the UI thread and produce visible
-    // freezes when opening the transcript. Fall back to plain text; users
-    // can still copy / select the body. The threshold (~120KB) is well
-    // above any natural human-authored markdown but below the size at
-    // which the parser starts to dominate frame budgets.
+    // 超大消息回退到可选择的纯文本，避免同步 Markdown 解析和构建卡顿。
     if (widget.data.length > _markdownPlainTextSkipThresholdChars) {
       _children = <Widget>[
         widget.selectable
@@ -2323,10 +2310,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
           Image.file(
             File(resolvedFilePath),
             fit: BoxFit.contain,
-            // Inline thumbnail constrained by _buildMarkdownImageFrame to
-            // 60% screen width / 400 height. Decode at 1280 logical px to
-            // cover most desktop sizes at 2x DPR; full-resolution image is
-            // shown via the dedicated preview dialog on tap.
+            // 内联缩略图按 1280 逻辑像素解码，点击后在专用弹窗展示原图。
             cacheWidth: 1280,
             frameBuilder: _fadeInImageFrameBuilder,
             errorBuilder: (_, _, _) =>
@@ -2535,7 +2519,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     );
   }
 
-  /// Shared frame builder that fades in images with a smooth animation.
+  /// 使用平滑淡入的共享图片框架。
   static Widget _fadeInImageFrameBuilder(
     BuildContext context,
     Widget child,
@@ -2544,10 +2528,10 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   ) {
     if (wasSynchronouslyLoaded) return child;
     if (frame == null) {
-      // No frame decoded yet — show shimmer placeholder.
+      // 首帧尚未解码时展示微光占位。
       return const _ImageShimmerPlaceholder();
     }
-    // First frame decoded — fade in with a one-shot animation.
+    // 首帧解码后播放一次淡入。
     final revealDuration = openHandMotionDuration(
       context,
       _kImageFirstFrameRevealDuration,
@@ -4925,15 +4909,13 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   static const double _kMinHeightClamp = 24.0;
   static const double _kMaxHeightClamp = 50000.0;
   static const double _kFirstMeasurementSkipThreshold = 5000.0;
-  // Filter DPR, font-subpixel and DOM measurement noise in steady state.
+  // 过滤设备像素比、字体子像素和 DOM 测量噪声。
   static const double _kMinHeightDelta = 8.0;
   static const double _kLargeChangeRatio = 0.30;
   static const Duration _kMinHeightApplyInterval = Duration(milliseconds: 300);
-  // Retain enough measured heights to avoid rebuilding HTML placeholders when
-  // a long transcript scrolls back into view.
+  // 保留足够的测量高度，避免长对话回滚时重建 HTML 占位。
   static const int _kHeightCacheMaxSize = 512;
-  // Debounce image/font reflow measurements without keeping the placeholder
-  // visible after the WebView has settled.
+  // 对图片和字体回流测量防抖，但 WebView 稳定后不延长占位时间。
   static const Duration _kHeightDebounceDuration = Duration(milliseconds: 250);
   // 渲染占位高度估算常量：HTML 文本在 14px 字体下平均每行约容纳 80
   // 字符、24 像素高。占位时按内容长度给出一个不至于"突然伸长"的
@@ -5374,8 +5356,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // 已渲染 HTML 卡片重新显示骨架屏。
   static final LinkedHashMap<int, double> _revealedHeightCache =
       LinkedHashMap<int, double>();
-  // Cache the assembled document by content and effective styling so ordinary
-  // rebuilds do not repeat regex and template work.
+  // 按正文和有效样式缓存文档，避免普通重建重复正则和模板处理。
   String? _documentCacheData;
   Color? _documentCacheTextColor;
   Color? _documentCacheBackgroundColor;
@@ -5392,8 +5373,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   int _loadGeneration = 0;
   Timer? _heightDebounceTimer;
   Timer? _initialRevealFallbackTimer;
-  // ResizeObserver updates only replace the pending value; they do not reset
-  // the one-shot timer, guaranteeing that continuous reflow eventually lands.
+  // 尺寸观察更新仅替换待处理值，不重置单次定时器，确保连续回流最终落地。
   double? _pendingHeight;
   // 限制高度应用间隔，阻断 WebView resize → setState → 再次 resize 闭环振荡。
   final Stopwatch _heightApplyStopwatch = Stopwatch()..start();

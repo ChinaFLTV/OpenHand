@@ -24,22 +24,16 @@ const BorderRadius kServiceInteractiveBorderRadius = BorderRadius.all(
 const Color _kServiceColorHighValue = Color(0xffa855f7);
 const Color _kServiceColorCyan = Color(0xff0891b2);
 
-/// Matches the first decimal number (with optional sign and fractional part)
-/// embedded in an arbitrary field value. Used by metric/record presentations
-/// to extract sortable numerics from free-form text.
+/// 从任意字段中提取首个带可选符号和小数部分的数字，用于指标排序。
 final RegExp _kNumericFieldRegex = RegExp(r'-?\d+(?:\.\d+)?');
 
-/// Heuristic keywords indicating a healthy service status. Chinese terms are
-/// matched as substrings (no word boundaries); English terms require word
-/// boundaries to avoid false positives such as "enabled" inside "disabled".
+/// 健康状态关键词。中文按子串匹配，英文使用单词边界避免误判。
 final RegExp _kHealthyKeywordRegex = RegExp(
   r'正常|可用|就绪|完成|启用|满足|成功|已配置|\bhealthy\b|\bready\b|\bconnected\b|\benabled\b|\bavailable\b|\bconfigured\b|\bsuccess(?:ful|ed|ing)?\b|\bcomplete(?:d)?\b|\bonline\b|\bactive\b|\brunning\b',
   caseSensitive: false,
 );
 
-/// Heuristic keywords indicating an unhealthy service status. Shares the same
-/// boundary conventions as [_kHealthyKeywordRegex]. The `fail` stem captures
-/// "fail", "failed", "failing", "failure" and "fails".
+/// 异常状态关键词，边界规则与 [_kHealthyKeywordRegex] 一致。
 final RegExp _kUnhealthyKeywordRegex = RegExp(
   r'异常|失败|阻塞|停用|未启用|未配置|不可用|\bunhealthy\b|\bunavailable\b|\bdisconnected\b|\bdisabled\b|\bunconfigured\b|\bfail(?:ure|ed|ing|s)?\b|\bblocked\b|\berror\b|\boffline\b|\btimeout\b|\bdown\b',
   caseSensitive: false,
@@ -1980,6 +1974,40 @@ class ServiceDialogIconActions extends StatelessWidget {
         if (index > 0) SizedBox(width: spacing),
         children[index],
       ],
+    ],
+  );
+}
+
+class ServiceDialogRefreshCloseActions extends StatelessWidget {
+  const ServiceDialogRefreshCloseActions({
+    super.key,
+    required this.refreshTooltip,
+    required this.refreshing,
+    required this.onRefresh,
+  });
+
+  final String refreshTooltip;
+  final bool refreshing;
+  final VoidCallback? onRefresh;
+
+  @override
+  Widget build(BuildContext context) => ServiceDialogIconActions(
+    children: [
+      ServiceDialogHeaderIconButton(
+        tooltip: refreshTooltip,
+        onPressed: onRefresh,
+        icon: refreshing
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.refresh_rounded),
+      ),
+      ServiceDialogHeaderIconButton(
+        tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+        onPressed: () => Navigator.of(context).maybePop(),
+        icon: const Icon(Icons.close_rounded),
+      ),
     ],
   );
 }

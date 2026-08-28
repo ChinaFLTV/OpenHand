@@ -6,7 +6,7 @@ import 'ai_dsml_tool_call_parser.dart'
         decodeDsmlParameterValue,
         dsmlParameterTreatsValueAsString;
 
-/// Partial DSML invoke parsed from a still-streaming text buffer.
+/// 从流式文本缓冲中解析出的未完成 DSML 调用。
 class PartialDsmlInvoke {
   const PartialDsmlInvoke({
     required this.index,
@@ -17,27 +17,21 @@ class PartialDsmlInvoke {
     this.isPreparing = false,
   });
 
-  /// 0-based ordinal across the buffer. Matches `extractDsmlToolCalls`
-  /// final ordering so post-stream IDs (`dsml-tool-call-${index+1}`) line
-  /// up exactly between preview and committed messages.
+  /// 缓冲内从零开始的顺序，与流结束后的提取顺序保持一致。
   final int index;
 
-  /// Stable ID matching the post-stream extraction: `dsml-tool-call-N`.
+  /// 与流结束后提取结果一致的稳定标识。
   final String id;
 
   final String name;
 
-  /// JSON-encoded arguments object. May be partial if `isComplete` is
-  /// false (only parameters parsed so far are included).
+  /// JSON 参数；调用未完成时仅包含当前已解析部分。
   final String argumentsJson;
 
-  /// True once the closing `</DSML:invoke>` has been seen for this block.
+  /// 是否已收到调用闭合标签。
   final bool isComplete;
 
-  /// True when a `<DSML:invoke` opener has been observed but the closing
-  /// `>` of the opening tag has not yet arrived — i.e. we don't even know
-  /// the tool name yet. Used to render a generic "preparing" placeholder
-  /// before the first real frame of state.
+  /// 是否仅收到未闭合的调用起始标签，此时工具名称仍未知。
   final bool isPreparing;
 }
 
@@ -67,22 +61,9 @@ Map<String, String> _parseAttributes(String raw) {
   return out;
 }
 
-/// Scan [buffer] for DSML invoke blocks, including a possibly-partial
-/// trailing one. Cheap enough to call on every text delta.
-///
-/// now applies the same canonicalization the post-stream
-/// extractor uses (`canonicalizeDsmlMarkup`) BEFORE scanning, so weak
-/// fine-tunes that emit ASCII-pipe (`<|DSML|invoke …>`), fullwidth-pipe
-/// (`<｜DSML｜invoke …>`), bracket-wrapped (`<<DSML>>`, `<【DSML】>`),
-/// namespaced (`<functions.invoke …>`), antml-prefixed
-/// (`<invoke …>`), or raw (`<invoke …>` / `<function_calls>`)
-/// variants all surface as a partial preview card during streaming
-/// instead of waiting for stream-end. The cheap `buffer.contains('DSML')`
-/// (or raw `<invoke`) early-out keeps the hot path nearly free for
-/// pure-text deltas.
+/// 扫描完整及尾部未完成的 DSML 调用；使用与流结束后相同的规范化规则。
 List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
-  // Cheap pre-filter: if the buffer cannot possibly contain a tool-call
-  // marker we know about, skip canonicalization entirely.
+  // 纯文本直接跳过规范化。
   if (!_mayContainToolCallMarker(buffer)) {
     return const <PartialDsmlInvoke>[];
   }
@@ -135,15 +116,11 @@ List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
       );
     }
     if (closeMatch == null) {
-      break; // trailing partial — nothing more to scan
+      break;
     }
     cursor = closeMatch.end;
   }
-  // Trailing "preparing" placeholder: if there is an unclosed
-  // `<DSML:invoke` token after the last fully-scanned position AND no
-  // partial invoke was already emitted for it (name still empty), emit a
-  // sentinel preparing entry so the UI can show a generic card before
-  // the tool name lands.
+  // 未收到工具名称时生成准备中占位项。
   if (_firstMatchFrom(_unclosedInvokeOpenerPattern, canonical, cursor) !=
           null &&
       (invokes.isEmpty || invokes.last.isComplete)) {
@@ -200,12 +177,7 @@ final int _longestMarkerNeedleLength = _markerNeedlesByLeadChar.values.fold(
   ),
 );
 
-/// Cheap pre-filter to skip canonicalization on pure-text deltas.
-///
-/// Returns true if [buffer] *might* contain something the full
-/// canonicalizer would normalize into a DSML invoke. Conservative:
-/// false-positives are fine (we just pay one regex pass), but
-/// false-negatives would silently drop the partial preview.
+/// 保守判断缓冲是否可能包含工具调用标记，纯文本可跳过规范化。
 bool _mayContainToolCallMarker(String buffer) {
   for (var index = 0; index < buffer.length; index++) {
     final needles =
@@ -226,15 +198,15 @@ bool _mayContainToolCallMarker(String buffer) {
 /// 而这个函数正是为了让纯文本 delta「几乎免费」才存在的。
 final Map<int, List<String>> _markerNeedlesByLeadChar = _groupNeedlesByLeadChar(
   const <String>[
-    // Already-canonical form.
+    // 标准形式。
     '<dsml:invoke',
-    // Bracket-pipe wrappers (ASCII + fullwidth + doubled).
+    // 半角、全角及双竖线外壳。
     '<|dsml', '<｜dsml', '<｜｜dsml', '<||dsml',
-    // Bracket-style wrappers used by some weak fine-tunes.
+    // 弱模型常见括号外壳。
     '<<dsml', '<【dsml', '<《dsml', '<[dsml', '<「dsml', '<『dsml',
-    // Raw or namespaced invoke / function_calls openers.
+    // 原始或带命名空间的调用标记。
     '<invoke', '<function_calls', '<tool_calls', '.invoke', ':invoke',
-    // JSON/YAML envelope variants recognized by the final extractor.
+    // JSON/YAML 信封变体。
     '##tool_call##', '[tool_call]', '[tool_use]', '[openai_fn]',
     '[function_call]', '<tool_call', '<tool_use', '<function_call',
     '<openai_fn', '<fn_call', '```tool', '```dsml', '```openai',
@@ -281,8 +253,7 @@ RegExpMatch? _firstMatchFrom(RegExp pattern, String input, int start) {
   return null;
 }
 
-/// Matches an opening `<DSML:invoke` whose `>` has not yet arrived. Used
-/// to detect a fresh, name-less invoke at the tail of a streaming buffer.
+/// 匹配流式缓冲末尾尚未闭合且工具名称未知的调用起始标签。
 final RegExp _unclosedInvokeOpenerPattern = RegExp(
   r'<DSML:invoke\b[^>]*$',
   caseSensitive: false,

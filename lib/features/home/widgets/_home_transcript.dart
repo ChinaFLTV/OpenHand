@@ -310,9 +310,7 @@ class _SessionTranscript extends StatefulWidget {
   final AiTtsPlaybackService ttsPlaybackService;
   final AiTranslationService translationService;
   final Future<void> Function(AiSessionErrorRecord error) onDismissError;
-  // When true, the list will jump to the very bottom on its first frame.
-  // This eliminates the visible scroll-from-top animation that would otherwise
-  // appear when a session is loaded and the parent schedules a forced scroll.
+  // 首帧直接跳到底部，避免加载会话时出现从顶部滚入的动画。
   final bool jumpToBottomOnInit;
   final bool fileExplorerVisible;
   final VoidCallback? onFileExplorerToggled;
@@ -480,10 +478,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     super.initState();
     _syncWindowStartIndex(forceReset: true);
     _TranscriptScrollDispatcher.instance.register(widget.session.id, this);
-    // Open path: first paint only the latest tail of the active window so
-    // large HTML/markdown cards never all mount in the opening frame.
-    // Remaining window rows expand on the next frame(s); rich work stays
-    // frame-throttled by the warmup / HTML mount schedulers.
+    // 首帧仅渲染活动窗口尾部，其余行后续逐帧展开，避免同时挂载大量富文本卡片。
     _materializeOpenWindow(progressive: true);
     _syncVisibleError();
     _scheduleInitialLayoutSettle(pinToBottom: widget.jumpToBottomOnInit);
@@ -649,9 +644,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           0,
           newDisplayLength - oldDisplayLength,
         );
-        // Keep the previous tail on screen while revealing one older slice.
-        // The materialized range itself remains hard-bounded and slides toward
-        // history, so repeated pagination never grows an unbounded widget list.
+        // 展示更早切片时保留原尾部，并滑动有界实体化窗口以限制组件数量。
         _windowStartIndex = TranscriptListWindowing.clampWindowStart(
           TranscriptListWindowing.windowStartAfterHistoryPrepend(
             previousWindowStart: _windowStartIndex,
@@ -776,9 +769,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             _windowStartIndex,
             displayMessages.length,
           );
-    // The range is hard-bounded on every build/reveal, not just on open.
-    // This keeps rich rendering and keyed-child bookkeeping independent of the
-    // number of messages already loaded into the session model.
+    // 每次构建均限制实体化范围，使富文本渲染成本不随会话总消息数增长。
     final nextWindowStartIndex = forceReset
         ? TranscriptListWindowing.cappedWindowStart(
             preferredWindowStart: preferred,
@@ -838,8 +829,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       if (!mounted || widget.session.id != sessionId) {
         return;
       }
-      // One frame of layout with the latest tail, then expand the rest of
-      // the bounded window without blocking the open paint.
+      // 最新尾部完成一帧布局后再展开有界窗口其余内容。
       WidgetsBinding.instance.addPostFrameCallback((_) => expandRemaining());
     });
   }
@@ -2178,7 +2168,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     }
     widget.onRevealOlderMessages();
 
-    // Remember current scroll metrics so we can restore visual position later.
+    // 保存滚动指标以便恢复视觉位置。
     final scrollController = widget.controller;
     final hadClients = scrollController.hasClients;
     final hiddenBefore =
@@ -3027,11 +3017,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   Widget build(BuildContext context) {
     final session = widget.session;
     final displayMessages = session.displayMessages;
-    // Read these provider values once here, at the transcript scope, instead
-    // of re-subscribing inside every message item. Calling `context.watch()`
-    // per item would make the full visible message window rebuild on unrelated
-    // SettingsController changes (theme, language, tool toggles, etc.).
-    // `select` keeps each subscription scoped to the actual fields used here.
+    // 在对话范围统一订阅所需字段，避免每条消息因无关设置变化而重建。
     final telemetryDebugEnabled = context.select<SettingsController, bool>(
       (controller) => controller.telemetryDebugEnabled,
     );
@@ -3067,9 +3053,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     // 字段赋值（与 didUpdateWidget 内的同名调用一致），赋值后
     // 当前帧即拿到新 `_renderEntries` 用于绘制，不破坏 build 不变量。
     if (_renderEntries.isEmpty && visibleMessages.isNotEmpty) {
-      // Build-stage open fallback: materialise only the latest first-paint
-      // tail synchronously; the progressive expansion scheduled inside
-      // `_materializeOpenWindow` fills the rest of the bounded window.
+      // 构建阶段仅同步实体化首帧尾部，其余有界窗口由渐进任务补齐。
       _materializeOpenWindow(progressive: true);
     }
     if (_renderEntries.isEmpty && visibleMessages.isEmpty) {
@@ -3117,11 +3101,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     }
     final hiddenLoadMoreCount = hiddenMessageCount > 0 ? 1 : 0;
     final returnLatestCount = range.end < displayMessages.length ? 1 : 0;
-    // When the session is actively awaiting the assistant and the most
-    // recent user message asked for a multimedia creation (image / video /
-    // audio / deep research), we slot in a shimmering placeholder card
-    // immediately below the user bubble so there is never a blank gap
-    // between the request and the eventual result.
+    // 等待媒体生成结果时在用户消息下方展示微光占位卡片。
     final pendingCreationRequest = returnLatestCount == 0
         ? _resolvePendingCreationPlaceholderCached(
             session: session,
@@ -3131,11 +3111,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             allowWhenIdle: false,
           )
         : null;
-    // When the assistant bailed out before producing any content AND the
-    // user had asked for a multimedia creation, we swap the shimmer for an
-    // explicit failure card (carrying the same error message the generic
-    // banner would have shown). This keeps the failed turn visually tied to
-    // the user's request instead of floating as a disconnected banner.
+    // 媒体生成未产出内容时用失败卡片替换微光占位，并紧邻原请求展示。
     final failedCreationRequest =
         (returnLatestCount == 0 &&
             pendingCreationRequest == null &&
@@ -3149,9 +3125,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             allowWhenIdle: true,
           )
         : null;
-    // If we render a dedicated failure card for the creation turn, suppress
-    // the redundant generic error banner that would otherwise carry the
-    // exact same message.
+    // 已展示专用失败卡片时隐藏内容相同的通用错误横幅。
     final suppressGenericErrorBanner = failedCreationRequest != null;
     final errorBannerCount =
         (userVisibleError == null || suppressGenericErrorBanner) ? 0 : 1;
@@ -3716,7 +3690,7 @@ AiCreationRequest? _resolvePendingCreationPlaceholder({
 }) {
   if (sendPhase == AiSendPhase.idle && !allowWhenIdle) return null;
   if (visibleMessages.isEmpty) return null;
-  // Walk backwards to find the most recent turn-opening user message.
+  // 反向查找最近一条开启新轮次的用户消息。
   AiSessionMessage? latestUser;
   var assistantContentSeenAfterLatestUser = false;
   for (var i = visibleMessages.length - 1; i >= 0; i--) {
@@ -3736,8 +3710,7 @@ AiCreationRequest? _resolvePendingCreationPlaceholder({
     latestUser.metadata[AiCreationRequest.metadataKey],
   );
   if (!request.isActive) return null;
-  // Only show the animated placeholder for modes that produce visual/audio
-  // artefacts; deep research replies as regular streamed text.
+  // 仅图片、视频和音频模式展示动画占位；深度研究使用普通流式文本。
   if (request.mode == AiCreationMode.deepResearch) return null;
   return request;
 }

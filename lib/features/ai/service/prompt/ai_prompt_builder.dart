@@ -598,7 +598,7 @@ class AiPromptBuilder {
           restoredAgentResultContext,
         ),
       ]),
-      // [3s] Static Session State — in stable prefix, before history.
+      // 静态会话状态位于历史记录前的稳定前缀中。
       _jsonSystemSectionTurn(
         AiPromptSectionHeaders.staticSessionState,
         staticSessionState,
@@ -661,13 +661,8 @@ class AiPromptBuilder {
     final runtimeTailTurns = runtimeTailReplayedFromHistory
         ? const <AiChatTurn>[]
         : runtimeTailSnapshotTurns;
-    // Cache-friendly unified assembly:
-    //   stable core prefix → runtime catalog prefix → persisted history
-    //   → current round anchor → persisted runtime tail.
-    // All templates share this same skeleton. The cache affinity key is derived
-    // from the actual leading request prefix (stable core + runtime catalog).
-    // Per-turn state is snapshotted on the round anchor and replayed from that
-    // exact location on later requests, including tool continuations.
+    // 所有模板统一按稳定前缀、运行时目录、历史、当前轮锚点和运行时尾部组装，
+    // 缓存亲和键取自真实请求前缀，逐轮状态始终从锚点原位重放。
     final promptAssembly = _PromptAssemblyPlan(
       stablePrefixTurns: stablePrefixTurns,
       runtimePrefixTurns: runtimePrefixTurns,
@@ -2043,12 +2038,7 @@ class AiPromptBuilder {
               : '## Builtin Tools (baseline)',
         );
       for (final tool in builtinTools) {
-        // Render builtin tools with their full description and
-        // required-args list even in compact mode. Some reasoner models
-        // (e.g. deepseek-expert-reasoner) ignore the API-level tools array
-        // and rely solely on the system-prompt catalog; the previous
-        // ultra-compact 80-char form caused the model to deny the existence
-        // of tools like Write/Edit on the very first turn.
+        // 紧凑模式仍保留内置工具完整描述与必填参数，兼容忽略 API 工具数组的模型。
         _renderToolEntry(buffer, tool, compact: compact);
       }
     }
@@ -2433,9 +2423,7 @@ class AiPromptBuilder {
     final resourceManifest = _renderCompressionResourceManifest(
       messagesToCompress,
     );
-    // Compression must follow the same coarse order as Claude Code:
-    // tool-result budget first, then transcript summarization. Stored history
-    // remains lossless; only this summarization prompt receives compact views.
+    // 先压缩工具结果，再总结对话；持久化历史保持无损。
     final compressionConfig = _ToolCompressionConfig.forCompressionPrompt(
       runtimeContext,
     );
@@ -3202,11 +3190,7 @@ $identity''';
     while (index < messages.length) {
       final message = messages[index];
       if (message.kind == AiSessionMessageKind.reasoning) {
-        // A new reasoning block starts a new "thinking round". Only buffer
-        // it for models that truly require reasoning echo on follow-up
-        // requests; otherwise the first post-response turn would suddenly gain
-        // a brand-new `reasoning_content` field, breaking second-turn prefix
-        // cache continuity for optional-thinking chat models.
+        // 仅为强制回传推理内容的模型缓存新思考轮，避免破坏下一轮前缀缓存。
         final trimmed = message.content.trim();
         roundReasoning = shouldEchoReasoning && trimmed.isNotEmpty
             ? trimmed
@@ -3216,7 +3200,7 @@ $identity''';
         continue;
       }
       if (message.kind == AiSessionMessageKind.user) {
-        // User message ends the previous thinking round.
+        // 用户消息结束上一思考轮。
         if (roundReasoning != null && !roundReasoningHasAssistantTurn) {
           turns.add(_reasoningOnlyAssistantTurn(roundReasoning));
         }
@@ -3452,7 +3436,7 @@ $identity''';
     for (final toolCall in groupedToolCalls) {
       final toolMessage = toolMessagesByCallId[toolCall.id]!;
       final toolMessageIndex = toolMessageIndexByCallId[toolCall.id]!;
-      // Keep hook reminders inside tool payloads to preserve assistant -> tool adjacency.
+      // 钩子提醒留在工具载荷内，保持助手与工具消息相邻。
       turns.addAll(
         _mapMessageContent(
           role: AiChatRole.tool,
@@ -3555,11 +3539,7 @@ $identity''';
           stripSystemReminders: preferInlineSystemReminders,
         );
       case AiSessionMessageKind.selfLearning:
-        // Self-learning cards are audit artefacts produced AFTER the fact by
-        // the background runner; their content is not intended as context
-        // for the main model (it bloats the prompt and can confuse the
-        // assistant into talking about the self-learning process). Drop
-        // them from history entirely.
+        // 自学习卡片是事后审计产物，不应进入主模型上下文。
         return const <AiChatTurn>[];
       case AiSessionMessageKind.reasoning:
         return const <AiChatTurn>[];
@@ -3742,10 +3722,7 @@ $tail''';
     final parts = <AiChatContentPart>[];
     for (final attachment in attachments) {
       if (attachment.isImage) {
-        // For non-latest historical user messages we replace the inline
-        // image with a structured text placeholder. This keeps token usage
-        // bounded while preserving the metadata + AI-generated summary so
-        // later turns can reason about the image.
+        // 历史图片改用带元数据和摘要的占位文本，限制上下文体积。
         if (!isLatestUserMessage) {
           parts.add(
             AiChatContentPart.text(_composeImagePlaceholder(attachment)),
@@ -3766,9 +3743,7 @@ $tail''';
             mimeType.isNotEmpty &&
             attachmentAvailability[storagePath] == true;
         final detailText = summaryText.isNotEmpty ? summaryText : promptText;
-        // Always expose the attachment id so the assistant can emit a matching
-        // <image_summary attachment_id="..."> block per the prompt contract.
-        // The `id=...` token mirrors the format used inside historical
+        // 始终提供附件标识，以便模型按约定生成匹配的图片摘要。
         // `[图片附件；图片元数据：{id=...,...}]` placeholders.
         final idLine = 'id=${attachment.id}';
         if (detailText.isNotEmpty) {
@@ -3787,9 +3762,7 @@ $tail''';
           continue;
         }
         if (!supportsInlineImages) {
-          // The current model does not support inline image content.
-          // Provide a clear note so the AI does not hallucinate about the
-          // image and the user can understand why the response is off.
+          // 明确提示模型不支持内联图片，避免模型臆测图片内容。
           const modelWarning =
               '[当前模型不支持直接查看图片内容，无法分析此图片。'
               '请切换到支持多模态/视觉的模型（如含有 vl、vision、omni 等关键字的模型）后重试。]';
@@ -3901,10 +3874,7 @@ $tail''';
     return parts;
   }
 
-  /// Builds the textual placeholder used for image attachments on
-  /// historical (non-latest) user messages.
-  ///
-  /// Format (matches the user-facing spec):
+  /// 构建历史用户消息中图片附件的文本占位内容。
   /// `[图片附件；图片元数据：{…};图片路径：{abs};原始图片路径：{abs};图片介绍：{summary}]`
   String _composeImagePlaceholder(AiMessageAttachment attachment) {
     final metadata = <String, Object?>{
@@ -3946,14 +3916,14 @@ $tail''';
       return false;
     }
     final normalizedStoragePath = p.normalize(storagePath);
-    // Legacy layout: {sessionsDir}/attachments/{sessionId}/{messageId}/file
+    // 旧目录结构。
     final legacyRoot = p.normalize(
       p.join(sessionsDirectoryPath, 'attachments', sessionId),
     );
     if (p.isWithin(legacyRoot, normalizedStoragePath)) {
       return true;
     }
-    // Modern layout: {sessionsDir}/{sessionId}/attachments/file
+    // 当前目录结构。
     final modernRoot = p.normalize(
       p.join(sessionsDirectoryPath, sessionId, 'attachments'),
     );
@@ -4473,19 +4443,14 @@ This durable checkpoint is ${trimmed.length} characters. The middle $omitted cha
 $tail''';
   }
 
-  /// Builds a compact "what just happened" digest for the LLM:
-  /// - the last up-to-3 tool / skill / mcp result messages from history
-  /// - any file paths and image attachments on the latest user message
-  ///
-  /// Returns an empty string when there is nothing salient to surface, so the
-  /// caller can skip injecting the system turn entirely.
+  /// 构建最近工具结果及最新用户附件的紧凑摘要；无内容时返回空字符串。
   String _renderFocusContext({
     required List<AiSessionMessage> historyMessages,
     required AiSessionMessage? latestUserMessage,
   }) {
     final lines = <String>[];
 
-    // Recent tool outcomes (most recent last).
+    // 最近工具结果按时间顺序排列。
     final recentToolMessages = <AiSessionMessage>[];
     for (
       var i = historyMessages.length - 1;
@@ -4565,7 +4530,7 @@ $tail''';
       }
     }
 
-    // Latest user message attachments / referenced paths.
+    // 最新用户消息的附件与路径。
     if (latestUserMessage != null) {
       final attachments = latestUserMessage.metadata['attachments'];
       if (attachments is List && attachments.isNotEmpty) {
@@ -5784,10 +5749,7 @@ $content
           original.length <= compressionConfig.thresholdChars) {
         return original;
       }
-      // Keep the first prompt representation byte-compatible with the later
-      // history representation. A separate "fresh preview" shape rewrites the
-      // same tool-result position on the next request and breaks provider
-      // prefix caches for every template that has tool loops.
+      // 首次与后续历史使用相同表示，避免工具循环改写前缀缓存位置。
       return _compressGenericToolResultContent(
         message,
         compressionConfig,
@@ -6575,7 +6537,7 @@ $content
           }
         }
       } catch (_) {
-        // Argument string was not valid JSON; nothing to extract.
+        // 参数不是有效 JSON，无可提取内容。
       }
     }
     return null;
@@ -6593,7 +6555,7 @@ $content
       if (raw == null || raw.isEmpty) {
         continue;
       }
-      // Filter trivial false-positives: pure version strings, numbers, etc.
+      // 过滤纯版本号、数字等误报。
       if (raw.length < 4 || !raw.contains('.')) {
         continue;
       }

@@ -133,14 +133,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
       argumentsExpanded: argumentsExpanded,
       resultExpanded: resultExpanded,
     );
-    // Construction state machine: tool call has been created from stream
-    // deltas but the executor has not yet picked it up. Three sub-phases
-    // crossfade through a single AnimatedContainer (320ms easeOutCubic):
-    //   preparing/constructing → submitting → running.
-    // - constructing: arguments still streaming (gray);
-    // - submitting:   arguments fully captured, awaiting hand-off
-    //                 (soft tertiary tint, brief but visible);
-    // - running/done: handled by the regular two-section layout.
+    // 工具调用依次经过参数构造、等待提交和执行阶段，并在同一容器内过渡。
     final isStreamingArgs =
         message.metadata['tool_arguments_streaming'] == true ||
         message.metadata['tool_preparing'] == true;
@@ -149,9 +142,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
     final isConstructing = isAwaitingExecutor && isStreamingArgs;
     final isSubmitting = isAwaitingExecutor && !isStreamingArgs;
     final isPreExecution = isConstructing || isSubmitting;
-    // Detect the pre-execution → executed transition once per state change
-    // and schedule the Q-bounce settle. Idempotent: only fires when the
-    // boolean flips from true → false, never on internal pre-exec churn.
+    // 仅在预执行转为执行时触发一次 Q 弹回稳动画。
     final motionEnabled = openHandTickerMotionEnabled(context);
     final preExecutionMotionDuration = openHandMotionDuration(
       context,
@@ -164,15 +155,14 @@ class _ToolCallBodyState extends State<_ToolCallBody>
         _settleBounceCtrl.forward(from: 0.0);
       }
     } else if (_wasPreExecution == null && !isPreExecution) {
-      // First mount on an already-executed message — skip ceremony.
+      // 首次挂载已执行消息时不播放过渡。
       _settleBounceCtrl.value = 1.0;
     } else if (isPreExecution) {
-      // Hold the bounce reset so the next exit replays cleanly.
+      // 重置动画，供下次退场重新播放。
       _settleBounceCtrl.value = 1.0;
     }
     _wasPreExecution = isPreExecution;
-    // Schedule a one-shot completion glow when status first lands on a
-    // terminal value. Idempotent — relies on _lastTerminalStatus.
+    // 首次进入终态时播放一次完成辉光。
     _maybeKickCompletionGlow(toolCall.status);
     final cs = theme.colorScheme;
     final borderColor = isSubmitting
@@ -193,10 +183,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
         child: AnimatedBuilder(
           animation: _mergedAnimations,
           builder: (context, child) {
-            // Compose completion glow on top of the steady-state tint.
-            // Curve: ease-out from 1 → 0 (alpha decays). The glow fully
-            // fades within ~620ms so the card settles into its neutral
-            // post-execution look without lingering color.
+            // 辉光叠加在稳定底色上，并在约 620 毫秒内衰减完毕。
             final glowProgress = _completionGlowCtrl.value;
             final glowActive = glowProgress > 0 && glowProgress < 1;
             Color glowFill = Colors.transparent;
@@ -418,12 +405,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                   ),
                 ],
               ),
-              // Phase swap: keys-row (pre-execution) ⇄ expandable-sections
-              // (executed). Single AnimatedSwitcher keyed on the binary phase
-              // so toggling expand/collapse INSIDE the executed phase does NOT
-              // re-trigger the cross-fade; only the structural transition
-              // does. Slide+fade gives the swap a soft, slick feel; the outer
-              // AnimatedSize already handles overall height.
+              // 仅预执行与已执行结构切换时播放淡入滑动，内部展开不重复触发。
               kOpenHandGap10,
               OpenHandCrossFadeSwitcher(
                 duration: _kToolStructureSwitchDuration,
@@ -560,7 +542,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                         ),
                       ),
               ),
-              // ── File mutation card (Codex-style multi-file list + ledger undo/redo) ──
+              // 多文件变更与撤销重做卡片。
               if (_fileMutationPaths(message).isNotEmpty &&
                   _toolExecutionStatus(message) == 'success') ...[
                 kOpenHandGap10,
@@ -657,9 +639,7 @@ class _ExpandableToolSection extends StatelessWidget {
           onToggle();
         },
         borderRadius: kOpenHandBorderRadius16,
-        // AnimatedSize wraps the *entire* card so the chevron rotation
-        // and content cross-fade ride a single height curve — feels
-        // like the card itself is breathing.
+        // 整卡共用同一高度曲线，统一箭头和正文过渡。
         child: AnimatedSize(
           duration: motionDuration,
           curve: kCardMotionCurve,
@@ -691,11 +671,7 @@ class _ExpandableToolSection extends StatelessWidget {
                     ),
                   ],
                 ),
-                // Cross-fade between collapsed preview and expanded body.
-                // Keys lock so toggling the same section animates; the
-                // outer AnimatedSize handles height. SizedBox.shrink covers
-                // the empty-preview / not-expanded fallback so transitions
-                // never see a null child.
+                // 折叠预览与展开正文交叉淡化，外层负责高度变化。
                 AnimatedSwitcher(
                   duration: motionDuration,
                   layoutBuilder: (current, previous) => Stack(
@@ -757,7 +733,7 @@ class _ToolOutputPanel extends StatefulWidget {
   final bool selectable;
   final bool isError;
 
-  /// Optional file path containing full (non-truncated) content.
+  /// 完整未截断内容的可选文件路径。
   final String? fullContentFile;
 
   @override
@@ -786,8 +762,7 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
 
   void _showFullContentDialog(BuildContext context) {
     _markToolCardInteractiveTap(context);
-    // Defer dialog insertion to avoid triggering MouseTracker re-entrancy
-    // when the button is pressed during pointer event processing.
+    // 延迟插入弹窗，避免指针事件处理中 MouseTracker 重入。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       showAnimatedDialog(
@@ -1004,7 +979,7 @@ _ToolOutputPreview _buildToolOutputPreview(String content) {
   );
 }
 
-// _ToolContentFullDialog — full-screen dialog showing complete tool output
+// 完整工具输出弹窗。
 
 const double _kToolContentDialogMaxWidth = 1180;
 const double _kToolContentDialogRadius = 26;
@@ -1039,7 +1014,7 @@ class _ToolContentFullDialog extends StatefulWidget {
   final _FormattedToolContent content;
   final bool isError;
 
-  /// Optional file path containing the full (non-truncated) output.
+  /// 完整未截断输出的可选文件路径。
   final String? fullContentFile;
 
   @override
@@ -1999,10 +1974,7 @@ class _ToolCancelButtonState extends State<_ToolCancelButton> {
 
 enum _ToolConstructingTone { constructing, submitting }
 
-/// Pulsing pill shown next to the primary chip during the pre-execution
-/// phases. `constructing` = gray (arguments still streaming),
-/// `submitting` = soft tertiary tint (arguments captured, awaiting the
-/// executor). Both pulse with the same 1.1s breathing rhythm.
+/// 预执行阶段的呼吸胶囊，区分参数构造与等待提交状态。
 class _ToolConstructingBadge extends StatefulWidget {
   const _ToolConstructingBadge({
     super.key,
@@ -2106,10 +2078,7 @@ class _ToolConstructingBadgeState extends State<_ToolConstructingBadge>
   }
 }
 
-/// Inline row used while a tool call is still in its "constructing" phase:
-/// shows the parameter keys parsed so far (e.g. `path, query`), or a muted
-/// "no parameters yet" placeholder. Each key fades in via [AppearOnce] so
-/// new arrivals feel alive without re-laying out neighbours.
+/// 参数构造阶段实时展示已解析的参数键，新参数使用 [AppearOnce] 淡入。
 class _ConstructingArgumentKeysRow extends StatelessWidget {
   const _ConstructingArgumentKeysRow({
     required this.keys,
@@ -2352,9 +2321,7 @@ class _ToolCallViewData {
   final int durationMs;
   final String argumentsPreview;
 
-  /// Argument names (top-level keys) that have been parsed so far. Useful
-  /// during the streaming "constructing" state to surface a real-time
-  /// preview of which parameters the model has already supplied.
+  /// 流式构造期间已解析的顶层参数名。
   final List<({String key, String? valuePreview})> argumentKeys;
   final _FormattedToolContent formattedCommand;
   final _FormattedToolContent formattedArguments;
@@ -2371,10 +2338,10 @@ class _ToolCallViewData {
   final String outcomeLabel;
   final String resultPreview;
 
-  /// File path containing full stdout when it was truncated at collection time.
+  /// 标准输出被截断时保存完整内容的文件路径。
   final String? stdoutFile;
 
-  /// File path containing full stderr when it was truncated at collection time.
+  /// 标准错误被截断时保存完整内容的文件路径。
   final String? stderrFile;
 }
 
@@ -2612,17 +2579,7 @@ IconData _toolExecutionStatusIcon(String status) {
   };
 }
 
-/// Builds a compact, non-redundant chip label for a tool call bubble.
-///
-/// - When [_ToolCallPresentation.categoryLabel] equals [_ToolCallPresentation.displayName]
-///   (the common built-in tool case, e.g. both are "Bash"), render the label once
-///   to avoid producing noisy strings such as "Bash: Bash".
-/// - For the generic "Tool" / "工具" fallback (used when the model emits an
-///   unrecognized tool name), drop the generic category prefix and surface only
-///   the actual name so the chip does not bleed scaffolding like "Tool: Bash"
-///   into the transcript.
-/// - Otherwise keep the `Category: DisplayName` form so MCP/Skill/Hook chips
-///   remain easy to scan.
+/// 构建紧凑工具标签，去除相同名称及通用“工具”前缀的重复展示。
 String _buildPrimaryChipLabel(
   BuildContext context,
   _ToolCallPresentation presentation,
@@ -2802,8 +2759,7 @@ _FormattedToolContent _formatToolContent(
   String rawContent, {
   String emptyFallback = '',
 }) {
-  // Short-circuit: cheap to recompute for tiny strings, and the cache key
-  // overhead would dominate.
+  // 短文本直接计算，缓存键成本反而更高。
   if (rawContent.length < 8 && emptyFallback.isEmpty) {
     return _formatToolContentImpl(rawContent, emptyFallback: emptyFallback);
   }
@@ -3118,19 +3074,14 @@ String _toolArgumentsPreview(AiSessionMessage message) {
         return '[${decoded.length} items]';
       }
     } catch (_) {
-      // Fallback to the prettified text preview below.
+      // 失败时使用下方格式化文本预览。
     }
   }
   final preview = rawArguments.isEmpty ? '{}' : rawArguments;
   return splitTrimmedNonEmpty(preview, separator: '\n').firstOrNull ?? '{}';
 }
 
-/// Best-effort parse of top-level argument key/value previews from a
-/// JSON-encoded `tool_arguments` blob. Used to surface a real-time
-/// preview of which parameters have been parsed during the streaming
-/// "constructing" state. Each value is truncated to ~16 chars and
-/// nested maps/lists are summarized as `{…}` / `[…]` so the row stays
-/// compact.
+/// 尽力解析工具参数顶层预览，截断长值并折叠嵌套集合。
 List<({String key, String? valuePreview})> _parseArgumentKeys(
   String rawArguments,
 ) {
@@ -3151,7 +3102,7 @@ List<({String key, String? valuePreview})> _parseArgumentKeys(
           .toList(growable: false);
     }
   } catch (_) {
-    // Partial JSON mid-stream — expected; fall through.
+    // 流式中途允许 JSON 尚未完整。
   }
   return const <({String key, String? valuePreview})>[];
 }
@@ -3360,11 +3311,7 @@ Future<void> _openResolvedMessagePath(
 }
 
 Future<void> _openMessageLinkUri(BuildContext context, Uri uri) async {
-  // Restrict the schemes we will hand to the OS launcher. Without this an
-  // adversarial markdown link such as `file:///etc/passwd` or
-  // `vbscript:msgbox(...)` could be opened verbatim with the user's
-  // default handler. Only the schemes that have a sensible “open this”
-  // semantic in this product are allowed.
+  // 仅允许产品支持的安全链接协议交给系统打开。
   const allowedSchemes = <String>{'http', 'https', 'mailto', 'file'};
   final scheme = uri.scheme.toLowerCase();
   if (!allowedSchemes.contains(scheme)) {
@@ -3521,13 +3468,7 @@ class _AsyncFilePathChip extends StatefulWidget {
 
 class _AsyncFilePathChipState extends State<_AsyncFilePathChip> {
   Future<MessageResolvedPath?>? _future;
-  // When the resolution cache already has the answer for the current
-  // `(normalizedPath, candidateRoots)` pair, we skip the FutureBuilder
-  // entirely and render synchronously.  This avoids the extra "loading"
-  // build frame that FutureBuilder always triggers (even when the future
-  // is already completed), and more importantly spares the cascade of
-  // 10+ setState pulses during the initial transcript paint when many
-  // chips all resolve at once.
+  // 路径解析缓存命中时同步渲染，避免额外加载帧和批量状态抖动。
   bool _resolvedSync = false;
   MessageResolvedPath? _syncValue;
 
@@ -3875,14 +3816,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
   }
 }
 
-/// Renders self-learning AI 思考 / AI 响应 with Markdown — reuses the same
-/// `_SafeMarkdownBody` engine the main message bubble uses, so code fences,
-/// lists and emphasis get full syntax-highlighted treatment instead of the
-/// previous plain `SelectableText`.
-///
-/// Wrapped in [AnimatedSize] so as the dispatcher streams token-deltas in
-/// (and the parent's metadata grows), the card height eases out with a
-/// gentle Q-bouncy easeOutCubicEmphasized curve instead of jumping.
+/// 使用消息气泡同款 Markdown 渲染自学习内容，并平滑响应流式高度。
 class _SelfLearningMarkdown extends StatelessWidget {
   const _SelfLearningMarkdown({required this.data, required this.muted});
 
@@ -3922,10 +3856,7 @@ String _previewText(String text) {
   return clipTextByCodeUnits(collapsed, 120, suffix: '…');
 }
 
-/// Header row for the self-learning card. Intentionally matches the visual
-/// weight of [_MessageMetaRow] but uses a tinted capsule so the colour slot
-/// used by the card (tertiary) is clearly differentiated from tool calls
-/// (secondary).
+/// 自学习卡片标题栏，使用独立色调与工具调用区分。
 class _SelfLearningHeaderRow extends StatelessWidget {
   const _SelfLearningHeaderRow({
     required this.icon,
@@ -3968,9 +3899,7 @@ class _SelfLearningHeaderRow extends StatelessWidget {
   }
 }
 
-/// Renders a list of self-learning change entries. Each entry is either a
-/// bare id string or a map with `id` / `summary` keys; the summary — when
-/// present — is shown in a muted style beneath the id.
+/// 渲染自学习变更项，支持标识字符串或含摘要的映射。
 class _SelfLearningChangeList extends StatelessWidget {
   const _SelfLearningChangeList({required this.items});
 
@@ -4057,14 +3986,7 @@ class _SelfLearningChangeItem {
   final String summary;
 }
 
-/// Coerces `memory_changes` / `skill_changes` metadata into a list of
-/// [_SelfLearningChangeItem]. Accepts any of the following shapes:
-///
-///   - `List<String>` → each becomes an id-only item.
-///   - `List<Map>`    → reads `id` and `summary` defensively.
-///   - `int`          → returns that many placeholder items so the header
-///                      count matches the list length (ids unknown).
-///   - any other type → empty list.
+/// 将多种形态的记忆或技能变更元数据统一为变更项列表。
 List<_SelfLearningChangeItem> _extractChangeItems(Object? raw) {
   if (raw is List) {
     final items = <_SelfLearningChangeItem>[];
@@ -4095,9 +4017,7 @@ String _extractProfileDiff(Object? raw) {
   if (raw is Map) {
     final summary = '${raw['summary'] ?? ''}'.trim();
     if (summary.isNotEmpty) return summary;
-    // Fallback: render a compact "key: value" preview if the map has
-    // primitive entries. Keeps the UI useful when the agent emits a
-    // structured diff instead of a pre-written paragraph.
+    // 映射仅含基础值时生成紧凑键值预览。
     final parts = <String>[];
     raw.forEach((key, value) {
       if (value is String || value is num || value is bool) {
@@ -4128,10 +4048,7 @@ String _changeItemsPreview(
   return '$names$suffix';
 }
 
-/// Formats the elapsed time since [createdAt] into a short relative label.
-/// Mirrors the bilingual convention used elsewhere in the home feature
-/// (e.g. the reasoning meta row) instead of the absolute timestamp used in
-/// the message footer, because the spec calls for a relative elapsed hint.
+/// 将创建时间格式化为简短相对时间。
 String _formatSelfLearningElapsed(BuildContext context, DateTime createdAt) {
   final now = DateTime.now().toUtc();
   final diff = now.difference(createdAt.toUtc());

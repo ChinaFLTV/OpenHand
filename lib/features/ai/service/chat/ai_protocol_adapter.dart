@@ -117,9 +117,7 @@ abstract final class AiThinkingRequestPolicy {
       return;
     }
 
-    // MiniMax's OpenAI-compatible API deliberately uses Anthropic-style
-    // adaptive thinking rather than `reasoning_effort` or
-    // `thinking:{type:enabled}`.
+    // MiniMax 的 OpenAI 兼容端点使用 Anthropic 自适应思考格式。
     if (protocol == AiProtocolType.minimax) {
       body[_thinkingField] = <String, Object?>{
         'type': enabled ? 'adaptive' : 'disabled',
@@ -241,8 +239,7 @@ abstract final class AiThinkingRequestPolicy {
         'type': model.resolvedThinkingEnabled ? 'adaptive' : 'disabled',
       };
     }
-    // Fable 5 / Mythos 5 reject `thinking: {type: "disabled"}` and use
-    // adaptive thinking whenever the field is omitted.
+    // Fable 5 / Mythos 5 省略 thinking 时自动使用自适应思考。
     if (_usesAlwaysOnClaudeAdaptiveThinking(model)) return null;
     if (!model.resolvedThinkingEnabled) {
       return const <String, Object?>{'type': 'disabled'};
@@ -691,8 +688,7 @@ class AiToolDefinition {
     };
   }
 
-  /// Claude/Anthropic tool format: top-level `name`, `description`,
-  /// `input_schema` (identical content to OpenAI `parameters`).
+  /// Claude/Anthropic 工具格式，`input_schema` 等同于 OpenAI 的 `parameters`。
   Map<String, Object?> toClaudeJson() {
     return <String, Object?>{
       'name': name,
@@ -764,12 +760,7 @@ class AiChatTurn {
   final List<AiToolCall> toolCalls;
   final List<AiChatContentPart> parts;
 
-  /// Echo-back chain-of-thought captured from the previous turn. Required by
-  /// some thinking-mode gateways (e.g. the `deepseek-v4-pro` family that
-  /// rejects the request with HTTP 400 "The 'reasoning_content' in the
-  /// thinking mode must be passed back to the API" when omitted) and harmless
-  /// for providers that ignore the field. Only meaningful for assistant role
-  /// turns.
+  /// 上一轮思考内容。部分思考模型要求后续请求原样回传，仅对助手消息有效。
   final String? reasoningContent;
 
   AiChatTurn copyWith({String? reasoningContent}) {
@@ -966,20 +957,13 @@ class AiPromptCacheAffinity {
         }
       case AiPromptCacheAffinityKind.grokCompatibleGateway:
         if (id.isNotEmpty) {
-          // Preserve xAI's upstream routing hint and also expose the standard
-          // session header used by OpenAI-compatible gateways to keep one
-          // downstream conversation on the same credential. Without this,
-          // round-robin credential pools can defeat an otherwise byte-stable
-          // prompt cache before the request reaches xAI.
+          // 同时设置 xAI 路由提示和标准会话头，避免轮询凭据破坏提示词缓存。
           _putHeaderIfAbsent(headers, grokConversationHeader, id);
           _putHeaderIfAbsent(headers, standardSessionAffinityHeader, id);
         }
       case AiPromptCacheAffinityKind.openAiCompatibleGateway:
         if (id.isNotEmpty) {
-          // Third-party OpenAI-compatible gateways may rotate upstream
-          // credentials or workers before forwarding prompt_cache_key. Keep
-          // one OpenHand thread on the same gateway route as well as the same
-          // upstream prompt-cache partition.
+          // 固定第三方网关路由和上游缓存分区。
           _putHeaderIfAbsent(headers, standardSessionAffinityHeader, id);
         }
       case AiPromptCacheAffinityKind.openRouterSession:
@@ -1621,9 +1605,7 @@ bool? _profileInlineImageSupport(AiModelConfig model) {
 List<AiToolDefinition> stableToolDefinitionsForAiRequest(
   List<AiToolDefinition> tools,
 ) {
-  // Upstream catalog resolution already produces a deterministic order that
-  // encodes capability priority. Preserve it so native tool-calling models see
-  // specialized file/search tools before broad shell fallbacks.
+  // 保留工具目录的能力优先级，让专用工具排在通用命令工具之前。
   return tools.map(stableToolDefinitionForAiRequest).toList(growable: false);
 }
 
@@ -1646,14 +1628,7 @@ AiToolDefinition stableToolDefinitionForAiRequest(AiToolDefinition tool) {
   );
 }
 
-/// Function-call arguments are always JSON objects. Some OpenAI-compatible
-/// providers validate every root `anyOf` / `oneOf` branch independently and
-/// reject shorthand branches such as `{required: ['command']}` because the
-/// branch does not repeat `type: object`.
-///
-/// Making the object constraint explicit does not change valid object inputs.
-/// Branches that explicitly exclude objects can never match beneath an object
-/// root, so removing them also preserves the schema's effective semantics.
+/// 规范函数参数的对象约束，兼容会独立校验 anyOf/oneOf 分支的服务商。
 Map<String, Object?> objectRootToolSchemaForAiRequest(
   Map<String, Object?> schema,
 ) {
@@ -1735,9 +1710,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
   @override
   final AiProtocolType protocolType;
 
-  /// Substring patterns used to detect whether a model ID supports inline
-  /// image attachments. If a model ID contains any of these patterns
-  /// (case-insensitive), the adapter treats it as vision-capable.
+  /// 用于判断模型是否支持内联图片的模型标识子串。
   final List<String> visionModelPatterns;
 
   @override
@@ -1777,11 +1750,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
           maxConcurrency: _messageMappingConcurrency,
           task: (index) => _mapOpenAiMessage(normalizedTurns[index]),
         );
-    // Many OpenAI-compatible providers reject multiple or mid-conversation
-    // system messages. Leading stable system turns are merged once; post-user
-    // runtime state is normalized into user-side context by
-    // [_partitionLeadingSystemTurns]. Tool-exchange reminders are preserved so
-    // the repair pass can attach them to the matching tool result.
+    // 多数兼容端点仅接受开头的一条系统消息，运行时状态转为用户侧上下文。
     final mergedMessages = _repairOpenAiToolMessageSequence(
       _mergeConsecutiveSystemMessages(requestMessages),
     );
@@ -1790,11 +1759,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
       if (model.maxTokens != null) 'max_tokens': model.maxTokens,
       if (model.temperature != null) 'temperature': model.temperature,
       if (stream) 'stream': true,
-      // Some OpenAI-compatible providers (DeepSeek / Kimi / GLM / Doubao /
-      // Grok / Qwen / Hunyuan / Wenxin / Stepfun / MiniMax / LongCat 等) only
-      // emit the trailing `usage` chunk—including cache hit/write fields—
-      // when `stream_options.include_usage` is explicitly requested. Always
-      // opt in for streaming so the token popup gets full cache stats.
+      // 显式请求流式 usage，确保缓存命中和写入统计完整。
       if (stream)
         'stream_options': const <String, Object?>{'include_usage': true},
       if (stableTools.isNotEmpty)
@@ -1839,13 +1804,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     if (item.role == AiChatRole.assistant) {
       final reasoning = item.reasoningContent;
       if (reasoning != null && reasoning.isNotEmpty) {
-        // Some thinking-mode providers (notably the `deepseek-v4-pro`
-        // family routed via OpenAI-compatible gateways) reject follow-up
-        // requests with HTTP 400 "The 'reasoning_content' in the thinking
-        // mode must be passed back to the API" if the prior assistant
-        // chain-of-thought is dropped. Echoing the reasoning here is
-        // ignored by providers that don't expect it (per the OpenAI
-        // schema unknown fields are tolerated).
+        // 部分思考模型要求后续请求回传上一轮 reasoning_content。
         payload['reasoning_content'] = reasoning;
       }
     }
@@ -2218,10 +2177,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
     return maps;
   }
 
-  /// Merges consecutive messages that share the `system` role into a single
-  /// message by concatenating their `content` fields with double newlines.
-  /// This ensures broad compatibility with OpenAI-compatible providers that
-  /// only accept a single system message.
+  /// 合并连续系统消息，兼容仅接受单条系统消息的端点。
   static List<Map<String, Object?>> _mergeConsecutiveSystemMessages(
     List<Map<String, Object?>> messages,
   ) {
@@ -2296,17 +2252,13 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
       throw const FormatException('Missing response message.');
     }
 
-    // Try extracting from 'content' first.
     final content = message['content'];
     final contentText = await _extractOpenAiContentWithMediaSafe(content);
     if (contentText.isNotEmpty) {
       return contentText;
     }
 
-    // Fallback: for reasoning models (e.g., deepseek-expert-reasoner),
-    // check 'reasoning_content' if 'content' is empty. Some reasoning models
-    // embed DSML tool calls in reasoning_content instead of using native
-    // tool_calls — return reasoning_content to let the DSML parser extract them.
+    // 部分推理模型会把 DSML 工具调用放入 reasoning_content。
     final reasoningContent = message['reasoning_content'];
     if (reasoningContent != null) {
       final reasoningText = await _extractOpenAiContentWithMediaSafe(
@@ -2317,8 +2269,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
       }
     }
 
-    // If native tool_calls exist, it's valid to have empty text content.
-    // Return empty string to allow tool call processing to proceed.
+    // 原生工具调用存在时允许文本为空。
     final toolCalls = message['tool_calls'];
     if (toolCalls is List && toolCalls.isNotEmpty) {
       return '';
@@ -2385,9 +2336,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
   }
 }
 
-/// Xiaomi MiMo's Chat Completions surface is OpenAI-shaped but deliberately
-/// accepts a smaller, stricter field set than OpenAI. Keep its normalization
-/// isolated so generic compatible gateways retain their existing behaviour.
+/// 小米 MiMo 仅接受 OpenAI 字段的严格子集，因此单独规范请求。
 void _validateMimoModelId(AiModelConfig model) {
   if (!lowercaseStringFromValue(model.modelId).contains('mimo-v2.5')) {
     throw ArgumentError.value(
@@ -2964,11 +2913,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     bool stream = false,
     AiInputCacheRuntimeConfig? inputCacheConfig,
   }) async {
-    // Only the contiguous leading system block is eligible for Claude's
-    // top-level `system` field and cache_control marker. Runtime system turns
-    // that appear after conversation history stay at their original position
-    // as user-side runtime context so per-turn state does not rewrite the
-    // cached request prefix.
+    // 仅开头连续系统消息进入 Claude 顶层 system，避免运行时状态改写缓存前缀。
     final systemPartition = _partitionLeadingSystemTurns(messages);
     final stableSystemContent = systemPartition.leadingSystemContent;
     final requestMessages = await _mapClaudeMessages(
@@ -3208,14 +3153,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     ]);
   }
 
-  /// Maps a sequence of [AiChatTurn] messages into Claude API format,
-  /// handling tool_use (assistant) and tool_result (user) content blocks.
-  ///
-  /// Claude requires:
-  /// - Assistant messages that invoked tools include `tool_use` content blocks.
-  /// - Tool results are sent as `user` messages with `tool_result` blocks.
-  /// - Consecutive messages with the same role are merged (Claude rejects
-  ///   adjacent same-role messages).
+  /// 将消息转换为 Claude 格式，并合并连续同角色消息。
   Future<List<Map<String, Object?>>> _mapClaudeMessages(
     List<AiChatTurn> turns,
   ) async {
@@ -3223,7 +3161,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
 
     for (final turn in turns) {
       if (turn.role == AiChatRole.assistant && turn.toolCalls.isNotEmpty) {
-        // Assistant message that made tool calls — emit content blocks.
+        // 助手工具调用转换为 tool_use 内容块。
         final contentBlocks = <Map<String, Object?>>[];
         final reasoning = nullIfBlank(turn.reasoningContent);
         if (reasoning != null) {
@@ -3255,21 +3193,19 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
           'content': contentBlocks,
         });
       } else if (turn.role == AiChatRole.tool) {
-        // Tool result — Claude expects this as a user message with
-        // tool_result content block.
+        // 工具结果以用户消息的 tool_result 内容块发送。
         final toolResultBlock = <String, Object?>{
           'type': 'tool_result',
           'tool_use_id': turn.toolCallId ?? '',
           'content': turn.content,
         };
-        // Merge with previous user message if possible to avoid
-        // consecutive user messages.
+        // 合并连续用户消息。
         if (result.isNotEmpty && result.last['role'] == 'user') {
           final prevContent = result.last['content'];
           if (prevContent is List<Map<String, Object?>>) {
             prevContent.add(toolResultBlock);
           } else if (prevContent is String && prevContent.isNotEmpty) {
-            // Preserve existing text content when merging tool results.
+            // 合并工具结果时保留已有文本。
             result.last['content'] = <Map<String, Object?>>[
               <String, Object?>{'type': 'text', 'text': prevContent},
               toolResultBlock,
@@ -3284,7 +3220,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
           });
         }
       } else {
-        // Regular user/assistant text message.
+        // 普通用户或助手文本消息。
         final mapped = await _mapClaudeMessage(turn);
         _appendClaudeMessage(result, mapped);
       }
@@ -3449,7 +3385,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
         continue;
       }
       final type = '${item['type'] ?? ''}'.trim();
-      // Text block.
+      // 文本块。
       if (type == 'text' || type.isEmpty) {
         final text = '${item['text'] ?? ''}'.trim();
         if (text.isEmpty) continue;
@@ -3457,7 +3393,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
         buffer.write(text);
         continue;
       }
-      // Image block (Claude may return base64 images in the future).
+      // 图片块。
       if (type == 'image') {
         final source = item['source'];
         if (source is Map<String, Object?>) {
@@ -3482,8 +3418,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     }
     final output = buffer.toString().trim();
     if (output.isEmpty) {
-      // When Claude returns only tool_use blocks with no text, return empty
-      // string rather than throwing — the tool calls carry the response.
+      // 仅包含工具调用时允许文本为空。
       return '';
     }
     return output;
@@ -3515,8 +3450,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
   }
 }
 
-/// MiniMax's Anthropic-compatible surface uses the same Messages schema and
-/// stream events as Claude, but is mounted at `/anthropic/v1/messages`.
+/// MiniMax 复用 Claude 消息格式，但端点位于 `/anthropic/v1/messages`。
 class MiniMaxAnthropicProtocolAdapter extends ClaudeProtocolAdapter {
   const MiniMaxAnthropicProtocolAdapter();
 
@@ -3527,8 +3461,7 @@ class MiniMaxAnthropicProtocolAdapter extends ClaudeProtocolAdapter {
   String get endpointPath => 'anthropic/v1/messages';
 }
 
-/// MiMo mounts the Anthropic-compatible Messages API below `/anthropic` and
-/// accepts `thinking.type` without Anthropic's budget field.
+/// MiMo 的 Anthropic 兼容端点位于 `/anthropic`，thinking 不需要预算字段。
 class MimoAnthropicProtocolAdapter extends ClaudeProtocolAdapter {
   const MimoAnthropicProtocolAdapter();
 
@@ -3649,10 +3582,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
       systemPartition.conversationTurns,
     );
 
-    /// Determine effective response modalities:
-    /// 1. If the caller explicitly requests modalities (e.g. from creation mode),
-    ///    use those directly.
-    /// 2. Otherwise, detect from the model name (image-capable models).
+    // 优先使用调用方指定的响应模态，否则根据模型名称判断。
     final effectiveModalities = responseModalities.isNotEmpty
         ? responseModalities
         : model.modelId.toLowerCase().contains('image')
@@ -3708,22 +3638,17 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
     ]);
   }
 
-  /// Maps a sequence of [AiChatTurn] into Gemini API format, handling
-  /// tool calls (functionCall parts) and tool results (functionResponse parts).
-  ///
-  /// Gemini requires:
-  /// - Model messages with `functionCall` parts for tool invocations.
-  /// - User messages with `functionResponse` parts for tool results.
+  /// 将消息转换为 Gemini 格式，包括 functionCall 和 functionResponse。
   Future<List<Map<String, Object?>>> _mapGeminiMessages(
     List<AiChatTurn> turns,
   ) async {
     final result = <Map<String, Object?>>[];
-    // Track tool call ID → function name for resolving functionResponse.
+    // 记录工具调用标识到函数名称的映射。
     final toolCallIdToName = <String, String>{};
 
     for (final turn in turns) {
       if (turn.role == AiChatRole.assistant && turn.toolCalls.isNotEmpty) {
-        // Model message with function calls.
+        // 模型函数调用消息。
         final parts = <Map<String, Object?>>[];
         final text = turn.content.trim();
         if (text.isNotEmpty) {
@@ -3749,8 +3674,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
           'parts': parts,
         });
       } else if (turn.role == AiChatRole.tool) {
-        // Tool result → functionResponse part.
-        // Gemini requires the function name, not the call ID.
+        // Gemini 工具结果需要函数名称而非调用标识。
         final callId = turn.toolCallId ?? '';
         final functionName = toolCallIdToName[callId] ?? callId;
         Object? parsedContent;
@@ -3765,7 +3689,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
             'response': parsedContent,
           },
         };
-        // Merge with previous user message if possible.
+        // 合并连续用户消息。
         if (result.isNotEmpty && result.last['role'] == 'user') {
           final prevParts = result.last['parts'];
           if (prevParts is List<Map<String, Object?>>) {
@@ -3806,7 +3730,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
 
   Future<Map<String, Object?>> _mapGeminiMessage(AiChatTurn item) async {
     final parts = await _mapGeminiContentParts(item.effectiveParts);
-    // Gemini API rejects messages with an empty parts array.
+    // Gemini 不接受 parts 为空的消息。
     if (parts.isEmpty) {
       parts.add(<String, Object?>{'text': ' '});
     }
@@ -3889,14 +3813,14 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
       if (item is! Map<String, Object?>) {
         continue;
       }
-      // Text part.
+      // 文本部分。
       final text = '${item['text'] ?? ''}'.trim();
       if (text.isNotEmpty) {
         if (buffer.isNotEmpty) buffer.writeln();
         buffer.write(text);
         continue;
       }
-      // Inline media part (image, audio, video).
+      // 内联图片、音频或视频。
       final inlineData = item['inline_data'] ?? item['inlineData'];
       if (inlineData is Map<String, Object?>) {
         final mimeType =
@@ -3914,7 +3838,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
         }
         continue;
       }
-      // File data part (Gemini API can return file URIs).
+      // 文件 URI。
       final fileData = item['file_data'] ?? item['fileData'];
       if (fileData is Map<String, Object?>) {
         final mimeType =
@@ -3944,8 +3868,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
     }
     final output = buffer.toString().trim();
     if (output.isEmpty) {
-      // When Gemini returns only function call parts with no text, return
-      // empty string — the tool calls carry the response.
+      // 仅包含函数调用时允许文本为空。
       return '';
     }
     return output;
@@ -3992,17 +3915,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
   }
 }
 
-/// Adapter for Ollama's OpenAI-compatible endpoint.
-///
-/// Ollama exposes `/v1/chat/completions` but has several behavioural
-/// differences compared to the upstream OpenAI API:
-///   * Authentication is typically unnecessary for local deployments.
-///   * Older Ollama versions may ignore `stream_options`.
-///   * The usage object in streaming responses may use
-///     `eval_count` / `prompt_eval_count` instead of the standard
-///     OpenAI field names.
-///   * Multimodal support depends on the loaded model (e.g. llava,
-///     llama3.2-vision, moondream).
+/// Ollama 的 OpenAI 兼容适配器，兼容其认证、流选项及用量字段差异。
 class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
   const OllamaProtocolAdapter({
     List<String> visionModelPatterns = const <String>[],
@@ -4013,9 +3926,7 @@ class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
     AiModelConfig model, {
     Map<String, String> endpointHeaders = const <String, String>{},
   }) {
-    // Ollama is commonly deployed locally without authentication.
-    // When the user has not set a token we can skip the auth header
-    // entirely to avoid confusing the server with an empty value.
+    // 本地 Ollama 未配置令牌时不发送空认证头。
     return super.buildHeaders(model, endpointHeaders: endpointHeaders);
   }
 
@@ -4036,22 +3947,19 @@ class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
       stream: stream,
       inputCacheConfig: inputCacheConfig,
     );
-    // Older Ollama releases do not recognise `stream_options` and may
-    // reject the request or ignore it silently.  Remove it to maximise
-    // compatibility across versions.
+    // 旧版 Ollama 不支持 stream_options。
     body.remove('stream_options');
     return body;
   }
 
   @override
   AiTokenUsage? parseUsage(String rawResponse) {
-    // Try the standard OpenAI-compatible parser first (covers cached_tokens
-    // when newer Ollama builds expose it via prompt_tokens_details).
+    // 优先解析标准 OpenAI 用量字段。
     final standardUsage = super.parseUsage(rawResponse);
     if (standardUsage != null && !standardUsage.isEmpty) {
       return standardUsage;
     }
-    // Fall back to Ollama-native field names that some versions emit.
+    // 兼容 Ollama 原生用量字段。
     try {
       final decoded = jsonDecode(rawResponse);
       if (decoded is! Map<String, Object?>) return null;
@@ -4072,34 +3980,41 @@ class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
     }
   }
 
-  // Ollama returns either a plain-text error or an `{"error":"..."}` JSON,
-  // both of which the shared extractor already handles — no override needed.
+  // 共享错误提取器已覆盖 Ollama 的文本和 JSON 错误。
 }
 
 abstract final class AiProtocolRegistry {
-  // Vision model detection patterns — per-provider.
-  // Each list contains case-insensitive substrings that, when found in a
-  // model ID, indicate the model accepts inline image content parts.
-  // Patterns are derived from each provider's official API documentation.
+  // 各服务商视觉模型标识，匹配时忽略大小写。
 
-  /// OpenAI: GPT-4o+, o-series, and common multimodal models served via
-  /// OpenAI-compatible proxy endpoints (Claude, Gemini, open-source VLMs).
   static const _openaiVisionPatterns = <String>[
-    // Native OpenAI vision models.
-    'gpt-4o', 'gpt-4.1', 'gpt-4.5', 'gpt-5',
-    'o1', 'o3', 'o4',
-    'vision', 'omni',
-    // Claude / Gemini models served through OpenAI-compatible proxies.
-    'claude-3', 'claude-4', 'claude-sonnet', 'claude-opus', 'claude-haiku',
+    'gpt-4o',
+    'gpt-4.1',
+    'gpt-4.5',
+    'gpt-5',
+    'o1',
+    'o3',
+    'o4',
+    'vision',
+    'omni',
+    'claude-3',
+    'claude-4',
+    'claude-sonnet',
+    'claude-opus',
+    'claude-haiku',
     'gemini',
-    // Open-source VLMs commonly accessed via OpenAI-compatible APIs.
-    'llava', 'pixtral', 'internvl', 'minicpm-v', 'cogvlm', 'moondream',
-    'qwen-vl', 'qwen2-vl', 'qwen2.5-vl',
-    'multimodal', 'multi-modal',
+    'llava',
+    'pixtral',
+    'internvl',
+    'minicpm-v',
+    'cogvlm',
+    'moondream',
+    'qwen-vl',
+    'qwen2-vl',
+    'qwen2.5-vl',
+    'multimodal',
+    'multi-modal',
   ];
 
-  /// DeepSeek: Only explicitly vision-capable model IDs.
-  /// Note: deepseek-chat / deepseek-reasoner are text-only per official API.
   static const _deepseekVisionPatterns = <String>[
     'vision',
     'vl',
@@ -4108,11 +4023,8 @@ abstract final class AiProtocolRegistry {
     'multi-modal',
   ];
 
-  /// Qwen (DashScope): VL / Omni models via OpenAI-compatible endpoint.
-  /// Note: qwen-plus / qwen-max / qwen-turbo without -vl are text-only.
   static const _qwenVisionPatterns = <String>['vl', 'omni', 'vision', 'doc'];
 
-  /// Kimi (Moonshot): Vision and multimodal model IDs.
   static const _kimiVisionPatterns = <String>[
     'vision',
     'vl',
@@ -4122,7 +4034,6 @@ abstract final class AiProtocolRegistry {
     'k2.5-vision',
   ];
 
-  /// GLM (Zhipu BigModel): GLM-4V / GLM-4.5V vision models.
   static const _glmVisionPatterns = <String>[
     'glm-4v',
     'glm-4.5v',
@@ -4132,14 +4043,12 @@ abstract final class AiProtocolRegistry {
     'vlm',
   ];
 
-  /// Grok (xAI): Vision-capable Grok model IDs.
   static const _grokVisionPatterns = <String>[
     'vision',
     'grok-2-vision',
     'grok-vision',
   ];
 
-  /// Ollama: Common local multimodal models.
   static const _ollamaVisionPatterns = <String>[
     'llava',
     'llama3.2-vision',
@@ -4151,7 +4060,6 @@ abstract final class AiProtocolRegistry {
     'vision',
   ];
 
-  /// vLLM: Open-source VLMs served via vLLM.
   static const _vllmVisionPatterns = <String>[
     'llava',
     'pixtral',
@@ -4164,7 +4072,6 @@ abstract final class AiProtocolRegistry {
     'vision',
   ];
 
-  /// SGLang: Open-source VLMs served via SGLang.
   static const _sglangVisionPatterns = <String>[
     'llava',
     'pixtral',
@@ -4175,8 +4082,6 @@ abstract final class AiProtocolRegistry {
     'vision',
   ];
 
-  /// Seed / Doubao (Volcengine): Vision models.
-  /// Official API uses standard OpenAI image_url format.
   static const _seedVisionPatterns = <String>[
     'vision',
     'vl',
@@ -4184,7 +4089,6 @@ abstract final class AiProtocolRegistry {
     'doubao-1.5-vision',
   ];
 
-  /// StepFun: Step vision model IDs.
   static const _stepfunVisionPatterns = <String>[
     'step-3.7',
     'step-3-7',
@@ -4195,7 +4099,6 @@ abstract final class AiProtocolRegistry {
     'vl',
   ];
 
-  /// MiniMax: M-series text models plus explicit vision/VL variants.
   static const _minimaxVisionPatterns = <String>[
     'minimax-m3',
     'minimax_m3',
@@ -4204,8 +4107,6 @@ abstract final class AiProtocolRegistry {
     'm2-vl',
   ];
 
-  /// LongCat / JoyCode are OpenAI-compatible providers; treat only explicit
-  /// vision model IDs as attachment-capable.
   static const _longCatVisionPatterns = <String>['vision', 'vl'];
   static const _agnesVisionPatterns = <String>[
     'agnes-1.5-flash',
@@ -4213,7 +4114,6 @@ abstract final class AiProtocolRegistry {
   ];
   static const _joyCodeVisionPatterns = <String>['vision', 'vl'];
 
-  /// Baidu ERNIE / Wenxin: ERNIE-VL model families.
   static const _wenxinVisionPatterns = <String>[
     'ernie-vl',
     'ernie-4.5-vl',
@@ -4221,7 +4121,6 @@ abstract final class AiProtocolRegistry {
     'vl',
   ];
 
-  /// Meta AI / Llama: official multimodal Llama families.
   static const _metaVisionPatterns = <String>[
     'llama-4',
     'llama3.2-vision',
@@ -4230,8 +4129,6 @@ abstract final class AiProtocolRegistry {
     'vl',
   ];
 
-  /// Hunyuan (Tencent): Vision models via OpenAI-compatible endpoint.
-  /// Official API: api.hunyuan.cloud.tencent.com/v1 with image_url format.
   static const _hunyuanVisionPatterns = <String>[
     'hunyuan-vision',
     'hunyuan-turbos-vision',
@@ -4341,8 +4238,7 @@ abstract final class AiProtocolRegistry {
     };
   }
 
-  /// Returns `true` when [model] is expected to accept inline image content
-  /// parts (e.g. base64-encoded images in the message body).
+  /// 判断模型是否支持消息正文中的内联图片。
   static bool supportsInlineImages(AiModelConfig model) {
     return adapterForModel(model).supportsAttachmentsForModel(model);
   }
@@ -4374,7 +4270,7 @@ Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
       }
       if (item is! Map<String, Object?>) continue;
       final type = stringFromValue(item['type']);
-      // Text block.
+      // 文本块。
       if (type == 'text' || type.isEmpty) {
         final text =
             optionalStringFromValue(item['text']) ??
@@ -4385,7 +4281,7 @@ Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
         }
         continue;
       }
-      // Image URL block (base64 data URI or remote URL).
+      // Base64 数据 URI 或远程图片地址。
       if (type == 'image_url') {
         final imageUrl = item['image_url'];
         if (imageUrl is Map<String, Object?>) {
@@ -4394,7 +4290,6 @@ Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
             continue;
           }
           if (url.startsWith('data:')) {
-            // data:image/png;base64,...
             final commaIndex = url.indexOf(',');
             if (commaIndex > 0) {
               final header = url.substring(0, commaIndex);
@@ -4411,7 +4306,7 @@ Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
               }
             }
           } else {
-            // Remote URL — render directly as markdown image.
+            // 远程地址直接渲染为 Markdown 图片。
             if (buffer.isNotEmpty) buffer.writeln();
             buffer.writeln();
             buffer.write('![AI Generated Image]($url)');
@@ -4419,8 +4314,7 @@ Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
         }
         continue;
       }
-      // Video block (some OpenAI-compatible providers return generated clips
-      // in chat-style content arrays).
+      // 视频块。
       if (type == 'video' || type == 'video_url') {
         final videoPayload = item['video'] ?? item['video_url'];
         final md = await _markdownFromOpenAiMediaPayload(
@@ -4435,7 +4329,7 @@ Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
         }
         continue;
       }
-      // Audio block (OpenAI gpt-4o-audio responses).
+      // 音频块。
       if (type == 'audio') {
         final audioData = item['audio'];
         if (audioData is Map<String, Object?>) {
@@ -4461,7 +4355,7 @@ Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
             buffer.writeln();
             buffer.write('[AI Audio Response]($url)');
           }
-          // Include transcript as text if present.
+          // 存在转写文本时一并返回。
           final transcript = optionalStringFromValue(audioData['transcript']);
           if (transcript != null) {
             if (buffer.isNotEmpty) buffer.writeln();
@@ -4562,16 +4456,16 @@ bool _containsAny(String value, List<String> candidates) {
   return false;
 }
 
-// Inline media extraction helpers
+// 内联媒体提取工具。
 
-/// Decoded inline media block from an AI response.
+/// 从 AI 响应解码出的内联媒体块。
 class AiInlineMedia {
   const AiInlineMedia({required this.mimeType, required this.base64Data});
 
   final String mimeType;
   final String base64Data;
 
-  /// Returns a short human-readable media type label.
+  /// 简短的媒体类型名称。
   String get mediaKind {
     if (isImageMimeType(mimeType)) return 'image';
     if (isAudioMimeType(mimeType)) return 'audio';
@@ -4579,7 +4473,7 @@ class AiInlineMedia {
     return 'file';
   }
 
-  /// File extension inferred from the MIME type.
+  /// 根据 MIME 类型推断文件扩展名。
   String get fileExtension {
     return switch (mimeType) {
       kImagePngMimeType => '.png',
@@ -4762,11 +4656,7 @@ Future<String> saveInlineMediaToMarkdown(
   }
 }
 
-/// Sanitize a label for use as markdown image/link alt text.
-///
-/// Strips characters that break `![alt](url)` parsing: `[`, `]`, newlines.
-/// Truncates to a reasonable length since the full user prompt can be very
-/// long and makes no sense as alt text.
+/// 清理 Markdown 图片或链接替代文本，并限制长度。
 String sanitizeMarkdownAltText(String text) {
   var sanitized = text
       .replaceAll('[', '')

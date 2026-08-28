@@ -981,7 +981,6 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                 ),
               ),
               kOpenHandHGap2,
-              // Select Opened File (scroll-from-source)
               Tooltip(
                 message: AppLocalizations.of(
                   context,
@@ -1004,7 +1003,6 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                 ),
               ),
               kOpenHandHGap2,
-              // Expand Selected
               Tooltip(
                 message: AppLocalizations.of(context)!.progExpFEExpandSelected,
                 child: Material(
@@ -1025,7 +1023,6 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                 ),
               ),
               kOpenHandHGap2,
-              // Collapse All
               Tooltip(
                 message: AppLocalizations.of(context)!.progExpFECollapseAll,
                 child: Material(
@@ -1087,7 +1084,6 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
             ],
           ),
         ),
-        // Search input field.
         if (_searchActive) ...[
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1837,7 +1833,7 @@ class _ProjectToolchainTreeNode {
   final List<_ProjectToolchainTreeNode> children;
 }
 
-// Code Editor View — IDEA-style editor with Material You Expressive
+// IDEA 风格代码编辑器。
 
 class _CodeEditorView extends StatefulWidget {
   const _CodeEditorView({
@@ -1865,7 +1861,7 @@ class _CodeEditorView extends StatefulWidget {
   final VoidCallback? onToggleFileExplorer;
   final bool fileExplorerVisible;
 
-  /// The configured project language ('dart', 'python', 'mixed', etc).
+  /// 配置的项目语言。
   final String projectLanguage;
   final String projectSdkPath;
   final String projectLspPath;
@@ -1917,15 +1913,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   final Map<String, Object> _lspDiagnosticsRequestTokens = <String, Object>{};
   int _nextFileLoadGeneration = 0;
 
-  /// Mutable font size for pinch / Cmd+scroll zoom.
+  /// 缩放时动态调整的字号。
   double _fontSize = _editorFontSizeDefault;
 
-  /// Visual scale applied via Transform.scale during continuous zoom gestures.
-  /// 1.0 means no transform; >1 means zoom-in, <1 means zoom-out.
+  /// 连续缩放期间的临时视觉比例。
   double _zoomVisualScale = 1.0;
   Timer? _zoomCommitTimer;
 
-  // ── Find & Replace state ──
+  // 查找与替换状态。
   bool _findBarVisible = false;
   bool _replaceBarVisible = false;
   final TextEditingController _findController = TextEditingController();
@@ -1935,12 +1930,12 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   int _currentMatchIndex = -1;
   bool _findCaseSensitive = false;
 
-  // ── Go To Line state ──
+  // 行跳转状态。
   bool _goToLineVisible = false;
   final TextEditingController _goToLineController = TextEditingController();
   final FocusNode _goToLineFocusNode = FocusNode();
 
-  // ── Symbol navigation state ──
+  // 符号导航状态。
   bool _symbolBarVisible = false;
   bool _workspaceSymbolMode = false;
   final TextEditingController _symbolController = TextEditingController();
@@ -1954,7 +1949,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   Timer? _symbolRefreshTimer;
   int _symbolRefreshEpoch = 0;
 
-  // ── Diagnostics state backed by shared LSP sessions ──
+  // 共享 LSP 会话诊断状态。
   bool _projectToolchainBarVisible = false;
   bool _diagnosticsBarVisible = false;
   final Map<String, List<_EditorDiagnostic>> _diagnosticsByFile =
@@ -1962,12 +1957,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   final Set<String> _diagnosticsLoadingFiles = <String>{};
   final Set<String> _diagnosticsStaleFiles = <String>{};
 
-  /// Files that received a text change while a diagnostic refresh was already
-  /// in-flight.  After the current refresh completes a re-fetch is queued so
-  /// the latest content is always diagnosed.
+  /// 诊断刷新期间再次变更的文件，当前刷新结束后重新排队。
   final Set<String> _diagnosticsPendingRefresh = <String>{};
 
-  // ── LSP action results ──
+  // LSP 操作结果。
   bool _lspResultBarVisible = false;
   bool _lspResultLoading = false;
   String _lspResultTitle = '';
@@ -1982,11 +1975,11 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   AiLspLocation? _pendingNavigationLocation;
   _PendingWorkspaceEditPreviewContext? _pendingWorkspaceEditPreviewContext;
 
-  // ── Cursor position tracking ──
+  // 光标位置。
   int _cursorLine = 1;
   int _cursorColumn = 1;
 
-  // ── Code completion (autocomplete) state ──
+  // 代码补全状态。
   List<AiLspCompletionItem> _completionItems = const <AiLspCompletionItem>[];
   List<AiLspCompletionItem> _filteredCompletionItems =
       const <AiLspCompletionItem>[];
@@ -2084,8 +2077,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     if (scrollController != null ||
         textController != null ||
         focusNode != null) {
-      // The old EditableText subtree is unmounted after didUpdateWidget.
-      // Defer disposal until that frame finishes so it can detach listeners.
+      // 旧输入子树会在本帧结束后卸载，延迟释放以便其移除监听器。
       WidgetsBinding.instance.addPostFrameCallback((_) {
         scrollController?.dispose();
         textController?.dispose();
@@ -2108,9 +2100,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
   }
 
-  // ── Zoom helpers ──
-
-  /// Discrete keyboard zoom (Cmd+/Cmd-): apply font size change directly.
+  /// 键盘缩放直接调整字号。
   void _zoomIn() {
     _commitZoomScale();
     setState(() {
@@ -2136,11 +2126,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     setState(() => _fontSize = _editorFontSizeDefault);
   }
 
-  /// Continuous zoom (pinch / scroll-wheel): apply a visual transform to avoid
-  /// expensive re-layout + re-highlight on every frame.
+  /// 连续缩放先使用视觉变换，避免每帧重新布局和高亮。
   void _zoomByScale(double scaleDelta) {
     final effectiveNewSize = _fontSize * _zoomVisualScale * scaleDelta;
-    // Clamp the visual scale so the effective font size stays within bounds.
+    // 限制临时缩放后的有效字号。
     final clampedSize = effectiveNewSize.clamp(
       _editorFontSizeMin,
       _editorFontSizeMax,
@@ -2148,13 +2137,12 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     setState(() {
       _zoomVisualScale = clampedSize / _fontSize;
     });
-    // Schedule a commit: when the gesture settles, apply the real font size
-    // change once (re-highlights only once instead of every frame).
+    // 手势稳定后一次性提交真实字号并重新高亮。
     _zoomCommitTimer?.cancel();
     _zoomCommitTimer = startSafeTimer(kOpenHandMotion180, _commitZoomScale);
   }
 
-  /// Collapse `_zoomVisualScale` into `_fontSize` for a real layout update.
+  /// 将临时视觉比例合并到真实字号。
   void _commitZoomScale() {
     _zoomCommitTimer?.cancel();
     if ((_zoomVisualScale - 1.0).abs() < 0.001) return;
@@ -2374,7 +2362,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   void _showSymbolBar() {
-    // Toggle: if already visible in document-symbol mode, hide it.
     if (_symbolBarVisible && !_workspaceSymbolMode) {
       _hideSymbolBar();
       return;
@@ -2383,7 +2370,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 
   void _showWorkspaceSymbolBar() {
-    // Toggle: if already visible in workspace-symbol mode, hide it.
     if (_symbolBarVisible && _workspaceSymbolMode) {
       _hideSymbolBar();
       return;
@@ -4929,7 +4915,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     super.dispose();
   }
 
-  // ── Find & Replace ──
+  // 查找与替换。
 
   void _showFind() {
     if (_findBarVisible && !_replaceBarVisible) {
@@ -5092,7 +5078,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     _updateFindMatches(findText);
   }
 
-  // ── Go To Line ──
+  // 行跳转。
 
   void _showGoToLine() {
     final controller = _textControllers[widget.activeFilePath];
@@ -7191,9 +7177,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
   }
 
-  // ── Cursor position tracking ──
-
-  // ── Code Completion (Autocomplete) ──
+  // 光标与代码补全。
 
   String _identifierPrefixAtOffset(String text, int offset) {
     var prefixStart = offset;
@@ -7311,15 +7295,13 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       return;
     }
     final offset = controller.selection.baseOffset;
-    // Guard against invalid or unset selection (-1) and offset beyond text.
+    // 选区未设置或偏移越界时忽略补全。
     if (offset < 0) {
       return;
     }
 
-    // Compute current line and column
     final text = controller.text;
-    // Skip completion request if text is empty or offset exceeds length
-    // (can happen briefly during rapid edits).
+    // 快速编辑期间文本和选区可能短暂不同步。
     if (text.isEmpty || offset > text.length) {
       return;
     }
@@ -7377,8 +7359,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         _dismissCompletionOverlay();
       }
     } catch (_) {
-      // Completion request failed (e.g. LSP backend unavailable or timeout).
-      // Silently dismiss overlay; the status bar already shows backend status.
+      // 补全失败时关闭浮层，后端状态由状态栏展示。
       if (mounted && epoch == _completionRequestEpoch) {
         _dismissCompletionOverlay();
       }
@@ -7576,7 +7557,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
   }
 
-  // ── Find / Replace bar UI ──
+  // 查找与替换栏。
 
   Widget _buildFindBar(ColorScheme colorScheme) {
     if (!_findBarVisible) return const SizedBox.shrink();
@@ -7589,7 +7570,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Search row ──
           Row(
             children: [
               Expanded(
@@ -7666,7 +7646,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               ),
             ],
           ),
-          // ── Replace row ──
           if (_replaceBarVisible) ...[
             kOpenHandGap4,
             Row(
@@ -7718,7 +7697,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     );
   }
 
-  // ── Go-to-Line bar UI ──
+  // 行跳转栏。
 
   Widget _buildGoToLineBar(ColorScheme colorScheme) {
     if (!_goToLineVisible) return const SizedBox.shrink();
@@ -9111,7 +9090,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     return Tooltip(message: tooltip, child: chip);
   }
 
-  // ── Status bar UI ──
+  // 状态栏。
 
   Widget _buildStatusBar(ColorScheme colorScheme) {
     final settingsController = context.watch<SettingsController>();
@@ -9224,7 +9203,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     onTap: () {
                       setState(() {
                         if (_diagnosticsBarVisible) {
-                          // Toggle off — dismiss the panel.
                           _diagnosticsBarVisible = false;
                           return;
                         }
@@ -9892,8 +9870,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     );
   }
 
-  // Editor code area context menu (right-click)
-  /// Top-level context menu action identifiers.
+  /// 编辑器右键菜单顶层操作标识。
   static const _ctxGoToDefinition = 'go_to_definition';
   static const _ctxFindReferences = 'find_references';
   static const _ctxGoToImplementation = 'go_to_implementation';
@@ -10217,7 +10194,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
   }
 
-  // ── Refactor submenu ──
+  // 重构子菜单。
 
   /// 重构 / 导航 / 折叠三个子菜单共用的条目构造，样式保持一致。
   PopupMenuItem<String> _buildSubmenuItem({
@@ -10384,7 +10361,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
   }
 
-  // ── Navigate submenu ──
+  // 导航子菜单。
 
   Future<void> _showNavigateSubmenu(
     String filePath,
@@ -10481,7 +10458,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
   }
 
-  // ── Folding submenu ──
+  // 折叠子菜单。
 
   Future<void> _showFoldingSubmenu(
     String filePath,
@@ -10616,7 +10593,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
   }
 
-  // ── Go to Implementation (LSP textDocument/implementation) ──
+  // 跳转到实现。
 
   Future<void> _goToImplementationAtCursor() async {
     final title = AppLocalizations.of(context)!.progExpFEGoToImplementation;
@@ -10662,7 +10639,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
   }
 
-  // ── Refactor code action by kind ──
+  // 按类型执行重构操作。
 
   Future<void> _executeRefactorCodeAction(
     String filePath,
@@ -10699,7 +10676,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         await _applyRefactorCodeAction(matching.first, filePath);
         return;
       }
-      // Multiple matching actions — let user choose
+      // 多个匹配项交由用户选择。
       await _showCodeActionPickerAndApply(
         title: title,
         actions: matching,
@@ -10797,7 +10774,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
   }
 
-  // ── Clipboard operations (for context menu) ──
+  // 右键菜单剪贴板操作。
 
   void _editorClipboardCut(String filePath) {
     final controller = _textControllers[filePath];
@@ -10865,7 +10842,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     );
   }
 
-  // ── Open file in system explorer ──
+  // 在系统文件管理器中打开。
 
   Future<void> _openFileInSystemExplorer(String filePath) async {
     final target = p.dirname(filePath);
@@ -10879,19 +10856,17 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     }
   }
 
-  // ── Code folding infrastructure ──
-
-  /// Map of filePath → set of start lines that are currently folded.
+  /// 文件路径到已折叠起始行的映射。
   final Map<String, Set<int>> _foldedRegions = <String, Set<int>>{};
 
-  /// Returns foldable regions for a file from braces/indentation analysis.
+  /// 根据括号和缩进分析文件可折叠区域。
   List<_FoldableRegion> _foldableRegionsForFile(String filePath) {
     final controller = _textControllers[filePath];
     if (controller == null) return const <_FoldableRegion>[];
     return _computeFoldableRegions(controller.text);
   }
 
-  /// Computes foldable regions from code structure (brace matching).
+  /// 通过括号匹配计算可折叠区域。
   static List<_FoldableRegion> _computeFoldableRegions(String text) {
     final regions = <_FoldableRegion>[];
     final lines = text.split('\n');
@@ -10899,7 +10874,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i].trimRight();
-      // Count brace openings/closings
       for (var j = 0; j < line.length; j++) {
         final ch = line.codeUnitAt(j);
         if (ch == 0x7B) {
@@ -10918,7 +10892,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       }
     }
 
-    // Also detect multi-line comment blocks (/* ... */ and /// doc comments)
+    // 同时检测块注释和连续文档注释。
     bool inBlockComment = false;
     int blockCommentStart = 0;
     int consecutiveDocStart = 0;
@@ -10926,7 +10900,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
     for (var i = 0; i < lines.length; i++) {
       final trimmed = lines[i].trimLeft();
-      // Block comments
       if (!inBlockComment && trimmed.startsWith('/*')) {
         inBlockComment = true;
         blockCommentStart = i + 1;
@@ -10944,7 +10917,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           );
         }
       }
-      // Consecutive line doc comments (///)
       if (trimmed.startsWith('///')) {
         if (consecutiveDocCount == 0) {
           consecutiveDocStart = i + 1;
@@ -11065,7 +11037,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     _applyFolding(filePath);
   }
 
-  /// Applies folding state to the text controller by updating hidden lines.
+  /// 将折叠状态同步到文本控制器。
   void _applyFolding(String filePath) {
     final controller = _textControllers[filePath];
     if (controller == null) return;
@@ -11096,7 +11068,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           _handleEditorShortcutKeyEvent(widget.activeFilePath, event),
       child: Column(
         children: [
-          // ── Tab bar — fully rounded pill container ──
           Container(
             height: 44,
             decoration: BoxDecoration(
@@ -11147,7 +11118,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     ],
                   ),
                 ),
-                // Save button
                 if (_fileDirty[widget.activeFilePath] == true) ...[
                   _EditorActionButton(
                     tooltip: AppLocalizations.of(context)!.progExpFESaveFile,
@@ -11156,7 +11126,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     onPressed: () => _saveFile(widget.activeFilePath),
                   ),
                 ],
-                // File explorer toggle button
                 if (widget.onToggleFileExplorer != null)
                   _EditorActionButton(
                     tooltip: (widget.fileExplorerVisible
@@ -11172,7 +11141,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         : colorScheme.onSurfaceVariant,
                     onPressed: widget.onToggleFileExplorer!,
                   ),
-                // Close all button
                 _EditorActionButton(
                   tooltip: AppLocalizations.of(
                     context,
@@ -11185,9 +11153,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               ],
             ),
           ),
-          // ── Gap between tab bar and editor ──
           kOpenHandGap6,
-          // ── Editor content — rounded outer shell, square code area ──
           Expanded(
             child: _EditorZoomWrapper(
               onZoomIn: _zoomIn,
@@ -11207,18 +11173,15 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 ),
                 child: Column(
                   children: [
-                    // ── Breadcrumb path bar ──
                     _EditorBreadcrumb(
                       filePath: widget.activeFilePath,
                       onNavigateToFile: widget.onTabSelected,
                     ),
-                    // ── Divider ──
                     Divider(
                       height: 0.5,
                       thickness: 0.5,
                       color: colorScheme.outlineVariant.withValues(alpha: 0.25),
                     ),
-                    // ── Find / Replace bar ──
                     ClipRect(
                       child: AnimatedSize(
                         duration: openHandMotionDuration(
@@ -11230,7 +11193,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         child: _buildFindBar(colorScheme),
                       ),
                     ),
-                    // ── Go-to-Line bar ──
                     ClipRect(
                       child: AnimatedSize(
                         duration: openHandMotionDuration(
@@ -11242,7 +11204,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         child: _buildGoToLineBar(colorScheme),
                       ),
                     ),
-                    // ── Symbol navigation bar ──
                     ClipRect(
                       child: AnimatedSize(
                         duration: openHandMotionDuration(
@@ -11254,7 +11215,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         child: _buildSymbolBar(colorScheme),
                       ),
                     ),
-                    // ── Code content ──
                     Expanded(
                       child: ClipRect(
                         child: ColoredBox(
@@ -11273,8 +11233,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         ),
                       ),
                     ),
-                    // ── Bottom tool panels (IDEA-style: above status bar) ──
-                    // Wrapped in AnimatedSize for smooth slide-in / slide-out.
                     ClipRect(
                       child: AnimatedSize(
                         duration: openHandMotionDuration(
@@ -11308,7 +11266,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         child: _buildLspResultBar(colorScheme),
                       ),
                     ),
-                    // ── Status bar ──
                     _buildStatusBar(colorScheme),
                   ],
                 ),
@@ -11408,8 +11365,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       );
     }
 
-    // Ensure the highlighting flag stays in sync when the full editor is forced
-    // open for a large file (e.g. after hot reload or widget rebuild).
+    // 强制打开大文件时保持高亮策略同步。
     if (textController.useVirtualizedPreview &&
         _forcedFullEditorFiles.contains(filePath)) {
       if (!textController.forceFullEditorHighlighting) {
@@ -11450,7 +11406,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           if (_symbolBarVisible) {
             _scheduleSymbolRefresh();
           }
-          // Trigger LSP completion on text changes
+          // 文本变更时触发 LSP 补全。
           _triggerCompletion();
           final signatureTriggerCharacter = _signatureTriggerCharacterAtOffset(
             textController.text,
@@ -11499,8 +11455,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       ),
     );
 
-    // Always wrap with a stable Stack so toggling the completion overlay
-    // does not restructure the widget tree (which would reset scroll position).
+    // 保持 Stack 结构稳定，避免补全浮层切换重置滚动位置。
     final showCompletion =
         _completionVisible && _filteredCompletionItems.isNotEmpty;
     final showSignatureHelp =
@@ -11520,7 +11475,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             fontSize: _fontSize,
             hasDiagnostics: hasAnyDiagnostics,
           );
-          // Measure monospace character width
+          // 测量等宽字符宽度。
           final charPainter = TextPainter(
             text: TextSpan(
               text: 'X',
@@ -11552,17 +11507,16 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             const overlayMaxHeight = 240.0;
             const overlayWidth = 360.0;
 
-            // Default: show below cursor
+            // 默认显示在光标下方。
             var overlayTop = cursorTop + lineExtent;
-            // If popup would overflow bottom, flip above cursor
+            // 底部空间不足时改为显示在光标上方。
             if (overlayTop + overlayMaxHeight > constraints.maxHeight &&
                 cursorTop - overlayMaxHeight > 0) {
               overlayTop = cursorTop - overlayMaxHeight;
             }
-            // Clamp so it stays within bounds
+            // 限制在可用边界内。
             overlayTop = overlayTop.clamp(0.0, constraints.maxHeight - 40);
 
-            // Clamp horizontal position
             var overlayLeft = cursorLeft;
             if (overlayLeft + overlayWidth > constraints.maxWidth) {
               overlayLeft = (constraints.maxWidth - overlayWidth).clamp(
@@ -11636,7 +11590,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   }
 }
 
-// Completion overlay — IDEA-style autocomplete popup
+// IDEA 风格代码补全浮层。
 class _CompletionOverlay extends StatelessWidget {
   const _CompletionOverlay({
     required this.items,
@@ -12036,7 +11990,7 @@ class _SignatureParameterChip extends StatelessWidget {
   }
 }
 
-// Breadcrumb path bar — clickable segments showing directory contents
+// 可点击的面包屑路径栏。
 class _EditorBreadcrumb extends StatelessWidget {
   const _EditorBreadcrumb({required this.filePath, this.onNavigateToFile});
 
@@ -12301,7 +12255,7 @@ class _BreadcrumbSegment extends StatelessWidget {
   }
 }
 
-// Editor action button (save / close)
+// 编辑器操作按钮。
 class _EditorActionButton extends StatelessWidget {
   const _EditorActionButton({
     required this.tooltip,
@@ -12335,7 +12289,7 @@ class _EditorActionButton extends StatelessWidget {
   }
 }
 
-// Find bar icon button
+// 查找栏图标按钮。
 class _FindBarButton extends StatelessWidget {
   const _FindBarButton({
     required this.icon,
@@ -12420,13 +12374,13 @@ class _FoldableRegion {
     this.isComment = false,
   });
 
-  /// 1-indexed start line of the foldable region.
+  /// 可折叠区域起始行，从 1 开始。
   final int startLine;
 
-  /// 1-indexed end line (inclusive) of the foldable region.
+  /// 可折叠区域结束行，从 1 开始且包含该行。
   final int endLine;
 
-  /// Whether this region is a comment block.
+  /// 是否为注释块。
   final bool isComment;
 }
 
@@ -13241,7 +13195,7 @@ _EditorSymbolExtractionResult _extractEditorSymbols({
   );
 }
 
-// Syntax-highlighted editable editor widget
+// 支持语法高亮的可编辑文本组件。
 const double _editorFontSizeDefault = 13.0;
 const double _editorFontSizeMin = 8.0;
 const double _editorFontSizeMax = 32.0;
@@ -13327,7 +13281,7 @@ class _EditorZoomWrapper extends StatefulWidget {
 }
 
 class _EditorZoomWrapperState extends State<_EditorZoomWrapper> {
-  // For smooth pinch-to-zoom on trackpad/touch
+  // 触控板和触屏连续缩放状态。
   double? _lastPanZoomScale;
   final Map<int, Offset> _touchPositions = <int, Offset>{};
   double? _lastTouchDistance;
@@ -13374,10 +13328,10 @@ class _EditorZoomWrapperState extends State<_EditorZoomWrapper> {
     final currentScale = event.scale;
     _lastPanZoomScale = currentScale;
 
-    // Calculate incremental scale delta and apply directly for smooth zoom
+    // 增量应用缩放比例。
     final scaleDelta = currentScale / previousScale;
 
-    // Only process if there's meaningful scale change (filters out noise)
+    // 忽略缩放噪声。
     if ((scaleDelta - 1.0).abs() > 0.001) {
       widget.onZoomByScale(scaleDelta);
     }
@@ -13427,15 +13381,14 @@ class _EditorZoomWrapperState extends State<_EditorZoomWrapper> {
                 HardwareKeyboard.instance.isMetaPressed ||
                 HardwareKeyboard.instance.isControlPressed;
             if (meta) {
-              // Convert scroll delta to scale factor for smooth zoom
-              // Sensitivity: 120 scroll units = ~10% zoom
+              // 120 个滚动单位约对应 10% 缩放。
               const scrollSensitivity = 0.001;
               final scaleFactor =
                   1.0 - (event.scrollDelta.dy * scrollSensitivity);
               widget.onZoomByScale(scaleFactor.clamp(0.9, 1.1));
             }
           } else if (event is PointerScaleEvent) {
-            // Trackpad pinch-to-zoom: apply scale directly for smooth experience
+            // 触控板捏合时直接应用临时比例。
             widget.onZoomByScale(event.scale);
           }
         },
@@ -13459,17 +13412,13 @@ class _HighlightingTextController extends TextEditingController {
   String? language;
   static const int _plainTextCacheHash = -1;
 
-  /// When true, override the normal highlighting size limits and use deferred
-  /// highlighting so that large files opened via "Open Full Editor" still get
-  /// syntax colouring without blocking the initial render.
+  /// 强制打开大文件时绕过常规限制并延迟高亮，避免阻塞首帧。
   bool forceFullEditorHighlighting = false;
 
-  /// Tracks whether the initial highlight for a forced-open large file has
-  /// been performed.  After the first successful highlight, subsequent edits
-  /// are deferred to keep typing smooth.
+  /// 是否已完成强制打开大文件的首次高亮，后续编辑统一延迟处理。
   bool _forceHighlightInitialDone = false;
 
-  // ── Highlight cache ──
+  // 高亮缓存。
   TextSpan? _cachedSpan;
   String? _lastText;
   int? _lastHighlighterHash;
@@ -13483,22 +13432,20 @@ class _HighlightingTextController extends TextEditingController {
   int _lineCount = 1;
   int _longestLineLength = 0;
 
-  // ── Line offset index for O(log n) lookups ──
-  /// Stores the character offset where each line starts (index 0 = line 0 = 0).
+  /// 每行起始字符偏移，用于对数复杂度查询。
   List<int> _lineOffsets = const <int>[0];
 
-  // ── Viewport-based highlighting for very large files ──
-  /// Number of lines to highlight around the cursor for viewport mode.
+  /// 视口模式下光标附近的高亮行数。
   static const _viewportHighlightLines = 400;
 
-  /// Buffer lines above/below the visible window so scrolling feels seamless.
+  /// 可见窗口上下的缓冲行数。
   static const _viewportBufferLines = 100;
 
-  /// Cached viewport range to avoid re-highlighting when cursor stays nearby.
+  /// 已缓存的视口高亮范围。
   int _viewportStartLine = -1;
   int _viewportEndLine = -1;
 
-  /// Cached cursor line for the viewport cache-hit check (avoids re-scanning).
+  /// 用于视口缓存命中判断的光标行。
   int _cachedCursorLine = 0;
   List<_FoldableRegion> _foldedLineRanges = const <_FoldableRegion>[];
 
@@ -13510,38 +13457,35 @@ class _HighlightingTextController extends TextEditingController {
 
   List<_FoldableRegion> get foldedLineRanges => _foldedLineRanges;
 
-  /// Beyond this length, skip syntax highlighting entirely.
+  /// 完全跳过语法高亮的字符数阈值。
   static const _maxHighlightLength = 96 * kBytesPerKiB;
 
-  /// Beyond this line count, skip syntax highlighting entirely.
+  /// 完全跳过语法高亮的行数阈值。
   static const _maxHighlightLines = 1800;
 
-  /// Absolute hard ceiling for forced full-editor highlighting.
-  /// Files exceeding this are too large even for deferred parsing.
+  /// 强制完整编辑器高亮的绝对字符上限。
   static const _absoluteMaxHighlightLength = 512 * kBytesPerKiB;
   static const _absoluteMaxHighlightLines = 12000;
 
-  /// Beyond this size, defer the expensive initial highlight parse.
+  /// 延迟首次高亮解析的字符数阈值。
   static const _deferHighlightLength = 36 * kBytesPerKiB;
   static const _deferHighlightLines = 900;
 
-  /// Large interactive editor features become expensive well before the
-  /// virtualized preview threshold.
+  /// 禁用高成本交互能力的字符数阈值。
   static const _reducedInteractivityLength = 80 * kBytesPerKiB;
   static const _reducedInteractivityLines = 1800;
   static const _reducedInteractivityLineLength = 1600;
 
-  /// For very large documents, keep completion explicit instead of firing on
-  /// every edit.
+  /// 大文档仅允许显式触发补全的字符数阈值。
   static const _explicitCompletionLength = 128 * kBytesPerKiB;
   static const _explicitCompletionLines = 2800;
   static const _explicitCompletionLineLength = 2200;
 
-  /// Measuring wrapped line heights requires a full-document layout pass.
+  /// 允许测量自动换行高度的字符数阈值。
   static const _preciseWrapMeasureLength = 72 * kBytesPerKiB;
   static const _preciseWrapMeasureLines = 1400;
 
-  /// Large documents switch to a virtualized preview by default.
+  /// 默认切换到虚拟化预览的字符数阈值。
   static const _previewLength = 160 * kBytesPerKiB;
   static const _previewLines = 3200;
 
@@ -13581,8 +13525,7 @@ class _HighlightingTextController extends TextEditingController {
     return _cachedLines!;
   }
 
-  /// Whether the file is so large that even forced full-editor mode must use
-  /// viewport-based highlighting (only the visible region is highlighted).
+  /// 强制完整编辑器是否也必须使用视口高亮。
   bool get _useViewportHighlighting {
     if (!forceFullEditorHighlighting) return false;
     return text.length > _absoluteMaxHighlightLength ||
@@ -13591,8 +13534,7 @@ class _HighlightingTextController extends TextEditingController {
 
   bool get _disableHighlighting {
     if (forceFullEditorHighlighting) {
-      // Never fully disable when force is on — very large files use viewport
-      // highlighting instead.
+      // 强制模式下超大文件改用视口高亮，不完全禁用。
       return false;
     }
     return text.length > _maxHighlightLength || _lineCount > _maxHighlightLines;
@@ -13601,14 +13543,11 @@ class _HighlightingTextController extends TextEditingController {
   bool get _deferHighlighting {
     if (_disableHighlighting) return false;
     if (forceFullEditorHighlighting) {
-      // For very large files (>100 KB / >2500 lines), always defer — even the
-      // first render — to prevent a multi-second UI freeze while the highlight
-      // parser runs synchronously on the main isolate.
+      // 超大文件首次高亮也延迟执行，避免主隔离区长时间卡顿。
       if (text.length > 100 * kBytesPerKiB || _lineCount > 2500) {
         return true;
       }
-      // Smaller forced-open files: highlight synchronously on the first render
-      // so colours appear immediately, then defer subsequent edits.
+      // 较小的强制打开文件首帧同步高亮，后续编辑延迟处理。
       return _forceHighlightInitialDone;
     }
     return text.length > _deferHighlightLength ||
@@ -13630,7 +13569,7 @@ class _HighlightingTextController extends TextEditingController {
   set value(TextEditingValue newValue) {
     final previousText = value.text;
     super.value = newValue;
-    // Update cached cursor line for viewport highlighting (cheap binary search).
+    // 通过二分查找更新视口高亮的光标行缓存。
     if (_useViewportHighlighting) {
       _cachedCursorLine = _lineIndexForOffset(
         newValue.selection.baseOffset.clamp(0, newValue.text.length),
@@ -13658,15 +13597,13 @@ class _HighlightingTextController extends TextEditingController {
             (deferHighlighting &&
                 _lastHighlighterHash == _plainTextCacheHash)) &&
         _lastDiagnosticsRevision == _diagnosticsRevision) {
-      // For viewport-mode highlighting, still check if cursor has moved
-      // outside the previously highlighted window so we can re-highlight.
+      // 光标移出已高亮窗口时重新调度视口高亮。
       if (_useViewportHighlighting) {
         _cachedCursorLine = _lineIndexForOffset(
           selection.baseOffset.clamp(0, text.length),
         );
         if (_cachedCursorLine < _viewportStartLine + _viewportBufferLines ||
             _cachedCursorLine > _viewportEndLine - _viewportBufferLines) {
-          // Cursor moved outside buffer — fall through to re-schedule.
         } else {
           return _cachedSpan!;
         }
@@ -13677,7 +13614,7 @@ class _HighlightingTextController extends TextEditingController {
     if (highlighter == null || _disableHighlighting) {
       return _cachePlainTextSpan(style);
     }
-    // ── Viewport-based highlighting for very large forced files ──
+    // 超大文件视口高亮。
     if (_useViewportHighlighting) {
       _scheduleViewportHighlight(style);
       return _cachedSpan ?? _cachePlainTextSpan(style);
@@ -13733,8 +13670,7 @@ class _HighlightingTextController extends TextEditingController {
 
   void _scheduleDelayedHighlight() {
     _debounceTimer?.cancel();
-    // Use a longer delay for very large files to avoid excessive CPU while
-    // the user is actively typing.
+    // 超大文件使用更长延迟，降低连续输入时的 CPU 占用。
     final delay = forceFullEditorHighlighting && _lineCount > 3000
         ? const Duration(milliseconds: 600)
         : const Duration(milliseconds: 350);
@@ -13757,7 +13693,7 @@ class _HighlightingTextController extends TextEditingController {
     var computedLineCount = 1;
     var currentLineLength = 0;
     var longestLineLength = 0;
-    // Build line-offset index in a single pass.
+    // 单次遍历构建行偏移索引。
     final offsets = <int>[0];
     final codeUnits = currentText.codeUnits;
     for (var i = 0; i < codeUnits.length; i++) {
@@ -13793,14 +13729,11 @@ class _HighlightingTextController extends TextEditingController {
     _viewportEndLine = -1;
   }
 
-  // ── Viewport highlighting helpers ──
-
-  /// Returns the line index (0-based) for a given character [offset].
-  /// Uses a binary search over the pre-built [_lineOffsets] index (O(log n)).
+  /// 通过二分查找返回字符偏移对应的行下标。
   int _lineIndexForOffset(int offset) {
     if (offset <= 0) return 0;
     final clamped = offset.clamp(0, text.length);
-    // Binary search: find the last entry in _lineOffsets that is <= clamped.
+    // 查找不大于目标偏移的最后一个行起点。
     var lo = 0;
     var hi = _lineOffsets.length - 1;
     while (lo < hi) {
@@ -13814,8 +13747,7 @@ class _HighlightingTextController extends TextEditingController {
     return lo;
   }
 
-  /// Returns the character offset where [lineIndex] (0-based) starts.
-  /// Uses the pre-built [_lineOffsets] index (O(1)).
+  /// 返回指定行的起始字符偏移。
   int _offsetForLine(int lineIndex) {
     if (lineIndex <= 0) return 0;
     if (lineIndex >= _lineOffsets.length) return text.length;
@@ -13850,13 +13782,11 @@ class _HighlightingTextController extends TextEditingController {
     return math.min(lineStart + columnOffset, lineEnd);
   }
 
-  /// Schedule (or immediately perform) viewport-based highlighting for the
-  /// window of lines around the current cursor position.
+  /// 调度或立即执行光标附近窗口的视口高亮。
   void _scheduleViewportHighlight(TextStyle? style) {
     final cursorLine = _cachedCursorLine;
 
-    // Check if the cursor is still within the already-highlighted viewport
-    // buffer zone — if so, reuse the cached span.
+    // 光标仍在缓存窗口内时复用高亮结果。
     if (_cachedSpan != null &&
         _lastText == text &&
         cursorLine >= _viewportStartLine + _viewportBufferLines &&
@@ -13866,12 +13796,12 @@ class _HighlightingTextController extends TextEditingController {
       return;
     }
 
-    // Compute the new viewport window.
+    // 计算新的视口窗口。
     const halfWindow = _viewportHighlightLines ~/ 2;
     final startLine = math.max(0, cursorLine - halfWindow);
     final endLine = math.min(_lineCount - 1, cursorLine + halfWindow);
 
-    // Debounce to avoid re-highlighting every frame during fast scrolling.
+    // 防抖处理，避免快速滚动时逐帧重新高亮。
     _debounceTimer?.cancel();
     _debounceTimer = startSafeTimer(const Duration(milliseconds: 80), () {
       if (highlighter == null) return;
@@ -13880,7 +13810,7 @@ class _HighlightingTextController extends TextEditingController {
     });
   }
 
-  /// Builds a composite TextSpan: plain-before + highlighted-window + plain-after.
+  /// 拼接高亮窗口及其前后普通文本。
   void _rebuildViewportHighlight(TextStyle? style, int startLine, int endLine) {
     try {
       final windowStart = _offsetForLine(startLine);
@@ -13896,15 +13826,12 @@ class _HighlightingTextController extends TextEditingController {
       );
 
       final children = <InlineSpan>[];
-      // Plain text before the highlighted window.
       if (windowStart > 0) {
         children.add(
           TextSpan(text: text.substring(0, windowStart), style: style),
         );
       }
-      // The highlighted window.
       children.add(highlighted);
-      // Plain text after the highlighted window.
       if (windowEnd < text.length) {
         children.add(TextSpan(text: text.substring(windowEnd), style: style));
       }
@@ -14014,9 +13941,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
   String? _resolvedDiagnosticRangesText;
   List<_EditorDiagnostic>? _resolvedDiagnosticRangesDiagnostics;
 
-  // ── Word-wrap per-line height cache ──
-  // When word wrap is on, each logical line may occupy multiple visual lines.
-  // We measure the wrapped heights so that line-number items match the text.
+  // 自动换行时缓存每个逻辑行的视觉高度，使行号与文本对齐。
   List<double>? _wrappedLineHeights;
   String? _wrappedLineHeightsText;
   double? _wrappedLineHeightsWidth;
@@ -14080,8 +14005,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     );
   }
 
-  /// Compute per-logical-line wrapped heights using [TextPainter] so that
-  /// line-number items match the actual rendered text when word wrap is on.
+  /// 使用 [TextPainter] 计算每个逻辑行自动换行后的高度。
   List<double> _computeWrappedLineHeights(double textLayoutWidth) {
     final text = widget.controller.text;
     if (_wrappedLineHeights != null &&
@@ -14106,11 +14030,11 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
         currentLogicalLineHeight = 0;
       }
     }
-    // Handle last line if no trailing newline
+    // 处理末尾没有换行符的最后一行。
     if (currentLogicalLineHeight > 0) {
       lineHeights.add(math.max(currentLogicalLineHeight, _lineExtent));
     }
-    // Guarantee at least one entry
+    // 至少保留一个高度项。
     if (lineHeights.isEmpty) {
       lineHeights.add(_lineExtent);
     }
@@ -14129,9 +14053,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     _horizontalScrollController = ScrollController();
     widget.scrollController.addListener(_syncLineNumbers);
     widget.controller.addListener(_handleSelectionChange);
-    // Note: The highlighter is set in didChangeDependencies, which is called
-    // after initState but before build. This ensures the Theme.of(context)
-    // is available for determining dark/light surface colors.
+    // 高亮器依赖主题，因此在依赖初始化完成后设置。
   }
 
   @override
@@ -14173,13 +14095,11 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
       _wrappedLineHeights = null;
       _removeDiagnosticTooltip();
     }
-    // Re-apply highlighter when controller changes or font/theme changes.
-    // Without this, switching files leaves the new controller without a
-    // highlighter and buildTextSpan falls back to plain text rendering.
+    // 控制器、字体或主题变化时重新绑定高亮器。
     if (controllerChanged ||
         oldWidget.fontSize != widget.fontSize ||
         oldWidget.codeTheme != widget.codeTheme) {
-      // Invalidate wrapped line height cache on font change.
+      // 字体变化时失效自动换行高度缓存。
       _wrappedLineHeights = null;
       widget.controller.highlighter = _CodeSyntaxHighlighter(
         baseStyle: _resolvedEditorStyle(),
@@ -14194,7 +14114,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
           widget.controller.supportsDiagnosticHoverTooltips) {
         _scheduleDiagnosticTooltipUpdate();
       }
-      // Re-sync line numbers after font size change to ensure alignment
+      // 字号变化后重新同步行号。
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _syncLineNumbers();
@@ -14216,9 +14136,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     final lineMax = _lineNumberScrollController.position.maxScrollExtent;
 
     double targetOffset;
-    // When word wrap is active the text area can be taller than the line-number
-    // list (wrapped lines occupy extra visual height).  Use proportional sync
-    // so both columns reach the end simultaneously.
+    // 自动换行时按比例同步文本区与行号区的滚动位置。
     if (widget.wordWrap &&
         textMax > 0 &&
         lineMax > 0 &&
@@ -14239,7 +14157,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
     super.didChangeDependencies();
     final brightness = Theme.of(context).brightness;
     final darkSurface = brightness == Brightness.dark;
-    // Always update _darkSurface first, then check if highlighter needs refresh.
+    // 先更新表面明暗状态，再判断是否刷新高亮器。
     final needsHighlighterRefresh =
         widget.controller.highlighter == null || darkSurface != _darkSurface;
     _darkSurface = darkSurface;
@@ -14923,8 +14841,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    // Safety check: Ensure highlighter is set. This handles edge cases where
-    // didChangeDependencies may not have run yet or was bypassed somehow.
+    // 构建前确保高亮器已绑定。
     if (widget.controller.highlighter == null) {
       final brightness = Theme.of(context).brightness;
       _darkSurface = brightness == Brightness.dark;
@@ -14956,8 +14873,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
 
     return LayoutBuilder(
       builder: (context, outerConstraints) {
-        // Compute per-line wrapped heights when word wrap is enabled and the
-        // file is not too large for a full text layout measurement.
+        // 文件规模允许时计算自动换行后的逐行高度。
         List<double>? wrappedHeights;
         if (widget.wordWrap &&
             widget.controller.supportsPreciseWrappedLineHeights) {
@@ -14974,7 +14890,6 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Gutter: line numbers (no scrollbar) ──
             Container(
               width: lineNumberWidth,
               decoration: BoxDecoration(
@@ -14988,8 +14903,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
               child: ScrollConfiguration(
                 behavior: noScrollbarBehavior,
                 child: ListView.builder(
-                  // Key based on fontSize + wordWrap forces rebuild when zoom or
-                  // wrap mode changes
+                  // 缩放或换行模式变化时重建行号列表。
                   key: ValueKey(
                     'line-numbers-${widget.fontSize}-${widget.wordWrap}',
                   ),
@@ -14997,8 +14911,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                   physics: const NeverScrollableScrollPhysics(),
                   padding: const EdgeInsets.only(top: 10, bottom: 10),
                   itemCount: lineCount,
-                  // Use fixed extent when word wrap is off (fast scroll); when on,
-                  // use wrapped per-line heights for exact alignment.
+                  // 未换行时使用固定高度，换行时使用逐行实测高度。
                   itemExtent: wrappedHeights != null ? null : _lineExtent,
                   itemBuilder: (context, index) {
                     final lineNumber = index + 1;
@@ -15156,8 +15069,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                     if (hasDiagnostics && tooltip.isNotEmpty) {
                       lineWidget = Tooltip(message: tooltip, child: lineWidget);
                     }
-                    // When using computed wrapped heights, constrain each item to
-                    // the corresponding text line's visual height.
+                    // 行号项高度与对应文本行视觉高度一致。
                     if (itemHeight != null) {
                       return SizedBox(height: itemHeight, child: lineWidget);
                     }
@@ -15166,7 +15078,6 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                 ),
               ),
             ),
-            // ── Code area — with optional horizontal scroll ──
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -15225,7 +15136,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                     onChanged: widget.onChanged,
                   );
 
-                  // When word wrap is disabled, wrap in horizontal scroll
+                  // 未开启自动换行时允许横向滚动。
                   if (!widget.wordWrap) {
                     textFieldWidget = SingleChildScrollView(
                       controller: _horizontalScrollController,
@@ -15339,11 +15250,11 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
       _lineSpanCache.clear();
       _lineHighlighter = null;
     }
-    // Handle font size changes: clear caches and re-sync scroll positions
+    // 字号变化时清理缓存并重新同步滚动位置。
     if (oldWidget.fontSize != widget.fontSize) {
       _lineSpanCache.clear();
       _lineHighlighter = null;
-      // Proportionally adjust scroll position based on font size change ratio
+      // 按字号变化比例调整滚动位置。
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _syncLineNumbers();
@@ -15577,7 +15488,7 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
   }
 }
 
-// Editor tab — Material You Expressive pill tab
+// Material You 胶囊样式编辑器标签。
 class _EditorTab extends StatelessWidget {
   const _EditorTab({
     super.key,

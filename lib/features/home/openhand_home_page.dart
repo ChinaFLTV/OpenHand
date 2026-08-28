@@ -287,9 +287,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   AppSection _selectedSection = AppSection.workspace;
   int _navigationSessionLimit = _navigationSessionPageSize;
   _CreationMode _creationMode = _CreationMode.none;
-  // macOS native menu bridge — see [_initNativeMenuChannel]. Only initialised
-  // on macOS, where the system menu bar's "Settings…" item should drive the
-  // in-app navigation to the Settings pane.
+  // macOS 系统菜单中的“设置”入口通过通道驱动应用内导航。
   MethodChannel? _macosMenuChannel;
   // 当前会话窗口下，本轮临时取消的【指令】ID 集合。
   // 切换会话或发送完成后通常重置；UI 上用胶囊条配合 X / + 切换。
@@ -302,12 +300,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   double? _lastComposerHeight;
   bool _composerLayoutMeasureScheduled = false;
   bool _autoFollowEnabled = true;
-  // True when auto-follow mode is ON but the user has scrolled away from the
-  // bottom, so auto-scrolling is temporarily paused until the user scrolls
-  // back near the bottom or presses the button to resume. Kept in sync via
-  // _syncAutoFollowPausedState() so the composer button can surface a
-  // distinct "paused" visual state and offer a "resume & jump to bottom"
-  // tap action instead of toggling the mode off.
+  // 自动跟随开启但用户离开底部时进入暂停态，输入区按钮用于恢复并跳到底部。
   bool _autoFollowPaused = false;
   String? _submittingSessionId;
   int _submissionSerial = 0;
@@ -334,9 +327,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   bool _composerScrollCompensationInProgress = false;
   final Stopwatch _scrollActivityStopwatch = Stopwatch()..start();
   Duration? _lastPointerSignalScrollAt;
-  // Pointer-signal scrolling emits a complete start/update/end sequence per
-  // tick. Keep a grace window between slow ticks so layout updates cannot
-  // re-arm auto-follow while the user is still reading history.
+  // 指针滚动每一拍都会结束，保留宽限窗口避免慢速滚动期间误恢复自动跟随。
   late final OpenHandDebouncer _userScrollGraceDebouncer = OpenHandDebouncer(
     delay: _userScrollEndGraceDuration,
   );
@@ -467,7 +458,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   final Map<String, Future<void>> _reverseControllerDisposalTasks =
       <String, Future<void>>{};
 
-  // Programming Expert: file explorer & inline editor state.
+  // 编程专家文件浏览器与内联编辑器状态。
   bool _fileExplorerVisible = false;
   final Set<String> _visibleMachineTerminalPanelSessionIds = <String>{};
   final List<String> _openFilePaths = [];
@@ -639,13 +630,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   void _syncEditorTabsForSession(String? sessionId) {
     if (_editorTabsSessionId == sessionId) return;
-    // Persist current tabs before switching.
+    // 切换前持久化当前标签。
     _editorTabsSaveDebouncer.cancel();
     if (_editorTabsSessionId != null) {
       unawaited(_persistEditorTabs());
     }
     _editorTabsSessionId = sessionId;
-    // Clear and restore.
+    // 清理并恢复标签。
     setState(() {
       _openFilePaths.clear();
       _activeFilePath = null;
@@ -995,9 +986,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _appLifecycleState = WidgetsBinding.instance.lifecycleState;
     _composerFocusNode.onKeyEvent = _handleComposerFocusNodeKeyEvent;
     _messageScrollController.addListener(_handleMessageScroll);
-    // Register a platform-level keyboard handler so shortcuts fire regardless
-    // of which widget currently holds keyboard focus (Focus.onKeyEvent bubbling
-    // is unreliable when the focus tree is not rooted at _globalShortcutFocusNode).
+    // 使用平台级键盘监听，避免焦点树结构影响全局快捷键。
     HardwareKeyboard.instance.addHandler(_handleGlobalShortcutKeyEvent);
     _disposeAskUserChoicePresenter = AiAskUserChoiceTool.registerPresenter(
       _presentAskUserChoiceDialog,
@@ -1155,7 +1144,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _reverseControllerDisposalTasks.clear();
     _harnessSessionSaveDebouncer.dispose();
     _editorTabsSaveDebouncer.cancel();
-    // Flush pending editor tabs before disposal.
+    // 销毁前写入待保存的编辑器标签。
     if (_editorTabsSessionId != null) {
       unawaited(_persistEditorTabs());
     }
@@ -1353,11 +1342,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     });
   }
 
-  /// Presents the AskUserChoice dialog on behalf of the AI tool.
-  ///
-  /// Registered once in [initState] and unregistered in [dispose]. Guarded
-  /// with `mounted` checks so background tool calls arriving after navigation
-  /// don't attempt to push a dialog onto a disposed route.
+  /// 代表 AI 工具展示用户选择弹窗，并避免向已销毁路由推送弹窗。
   Future<AskUserChoiceResponse?> _presentAskUserChoiceDialog(
     AskUserChoiceRequest request,
   ) async {
@@ -2166,13 +2151,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     AiSessionController? sessionController,
   ) async {
     if (sessionController == null || _submittingSessionId != null) return;
-    // Reentrancy guard: prevent overlapping async invocations caused by
-    // multiple rapid _handleSessionControllerChanged calls during the
-    // debounce window.
+    // 防止会话控制器快速变化导致异步处理重入。
     if (_processingQueueInProgress) return;
     _processingQueueInProgress = true;
     try {
-      // Add a small delay to debounce execution in case the AI phase is settling
+      // 短暂防抖，等待 AI 阶段稳定。
       await Future.delayed(_queuedMessageDispatchDebounce);
       if (!mounted || _submittingSessionId != null) return;
 
@@ -2189,8 +2172,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             if (_failedQueuedMessageIdsBySessionId[sessionId] == q.first.id) {
               continue;
             }
-            // Re-check guards before dequeue to avoid dropping a queued item
-            // while the AI phase is still settling.
+            // 出队前再次检查，避免 AI 阶段未稳定时丢失排队项。
             if (_submittingSessionId != null) break;
             final nextPhase = _displaySendPhaseForSession(
               sessionController,
@@ -2468,10 +2450,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return true;
   }
 
-  /// Recomputes [_autoFollowPaused] = enabled && !following-bottom and
-  /// triggers a rebuild only when the value actually changes, so the
-  /// composer button visuals stay consistent with the underlying state
-  /// without spamming setState on every scroll tick.
+  /// 仅在自动跟随暂停状态实际变化时重建输入区按钮。
   void _syncAutoFollowPausedState() {
     if (!mounted) {
       return;
@@ -2597,7 +2576,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     // ScrollController listener 无法可靠区分「用户上滑」和「弹簧回弹/布局沉降」，
     // 暂停/恢复决策统一交给携带 dragDetails / direction 的
-    // _handleMessageScrollNotification。
+    // 消息滚动通知处理器。
     // listener 仅保留同步 _syncAutoFollowPausedState（UI 状态一致性）职责。
     // 物理模拟期间（isScrollingNotifier && !_userDragActive）完全跳过，避免
     // 弹簧回弹/fling 减速产生的像素变化触发不必要的 UI 刷新。
@@ -2749,13 +2728,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     });
   }
 
-  /// Wires the macOS application menu's "Settings…" item to the in-app
-  /// navigation. On non-macOS platforms this is a no-op.
-  ///
-  /// The Swift side (`AppDelegate.openSettings:`) invokes a single method
-  /// `openSettings` on this channel. We respond by selecting the Settings
-  /// pane, which also updates the left navigation rail because the rail is
-  /// driven by `_selectedSection`.
+  /// 将 macOS 系统菜单的“设置”入口连接到应用内设置页，其他平台不执行。
   void _initNativeMenuChannel() {
     if (!Platform.isMacOS) return;
     const channel = MethodChannel('openhand/menu');
@@ -2774,12 +2747,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _toggleAutoFollow() {
-    // When auto-follow is ON but paused (user scrolled up so new messages
-    // stop following), a tap should RESUME — re-arm following and jump to
-    // bottom — instead of turning the mode off. Turning the mode off in
-    // this state is almost always unintended and would lose the user's
-    // preference. Only a second tap (while actively following at the
-    // bottom) actually disables the mode.
+    // 暂停态首次点击恢复并跳到底部，已跟随到底部时再次点击才关闭自动跟随。
     if (_autoFollowEnabled && _autoFollowPaused) {
       setState(() {
         _autoFollowPaused = false;
@@ -2809,8 +2777,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return false;
     }
     final focusContext = FocusManager.instance.primaryFocus?.context;
-    // Section and editable-focus gating keep composer shortcuts available in
-    // overlays and child Navigators without leaking them to other sections.
+    // 页面和可编辑焦点共同限制输入区快捷键的作用域。
     final isEditableFocused = _isEditableTextFocused(focusContext);
     if (!isEditableFocused && _isPlainCopyShortcut(event)) {
       if (HtmlSelectionBridgeClipboard.hasSelection) {
@@ -2864,9 +2831,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         (event is! KeyDownEvent && event is! KeyRepeatEvent)) {
       return KeyEventResult.ignored;
     }
-    // Cmd/Ctrl+V attachment paste: probe the OS clipboard in parallel with
-    // the platform text-paste path. If only text is present the TextField's
-    // normal paste continues unaffected.
+    // 粘贴时并行检查系统附件，纯文本仍走输入框默认路径。
     if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.keyV) {
       final hw = HardwareKeyboard.instance;
       final hasModifier = Platform.isMacOS
@@ -2874,12 +2839,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           : hw.isControlPressed;
       if (hasModifier && !hw.isShiftPressed && !hw.isAltPressed) {
         unawaited(_tryPasteAttachmentsFromClipboard());
-        // Intentionally fall through (return ignored) so the TextField can
-        // still paste text if the clipboard happens to carry both.
+        // 不消费事件，允许剪贴板同时含附件和文本时继续粘贴文本。
       }
     }
     final composerState = _composerPanelState;
-    // Escape dismisses the @ mention overlay if it is showing.
+    // Escape 优先关闭 @ 提及浮层。
     if (event.logicalKey == LogicalKeyboardKey.escape) {
       if (composerState != null && composerState._atMentionOverlay.hasEntry) {
         composerState._userDismissAtMentionOverlay();
@@ -2916,10 +2880,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         }
       }
     }
-    // When the skill picker overlay is visible, let Up/Down move the
-    // selection highlight and Enter commit the current selection.  This
-    // mirrors Codex / GitHub Copilot Chat behaviour and makes skill lookup
-    // an efficient keyboard-only workflow.
+    // 技能选择浮层支持上下键移动和回车确认。
     if (composerState != null && composerState._skillPickerOverlay.hasEntry) {
       if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
         composerState._moveSkillPickerSelection(1);
@@ -2936,14 +2897,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         }
       }
     }
-    // Composer shortcut consumption (no action).
-    // _handleGlobalShortcutKeyEvent (HardwareKeyboard) is the sole
-    // executor of send-message / toggle-composer.  Here we only need to
-    // CONSUME the matching keystroke in the focus tree so that
-    // DefaultTextEditingShortcuts (which maps Ctrl+P to MoveSelectionUp
-    // on macOS and was the cause of the visible "border flash") cannot
-    // fire.  Returning KeyEventResult.handled stops focus-tree dispatch
-    // without invoking the action a second time.
+    // 动作由平台级监听唯一执行，此处仅消费事件以阻止系统文本快捷键重复响应。
     final settingsController = context.read<SettingsController>();
     final pressedKeyIds = normalizedPressedShortcutKeyIds(<LogicalKeyboardKey>{
       ...HardwareKeyboard.instance.logicalKeysPressed,
@@ -3225,8 +3179,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _transcriptScrollActivity.markInactive();
     _clearPendingAutoFollowState();
 
-    // Session selection is a synchronous UI intent. Never keep the previous
-    // section visible while unrelated audio cleanup or frame callbacks finish.
+    // 会话选择是同步界面意图，不等待无关音频清理或帧回调。
     if (_selectedSection != AppSection.workspace) {
       setState(() {
         _selectedSection = AppSection.workspace;
@@ -3469,10 +3422,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted || peConfig == null) {
         return false;
       }
-      // Build runtime context with the PE project root as the working
-      // directory so the AI's tool calls (Read, Glob, Grep, Bash, etc.)
-      // resolve relative paths against the user's project, not the
-      // OpenHand application directory.
+      // 编程专家工具调用以用户项目根目录解析相对路径。
       final peRuntimeContext = await _buildRuntimeContext(
         workingDirectory: peConfig.projectRoot,
       );
@@ -4087,7 +4037,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return task;
   }
 
-  // ── Android Reverse ─────────────────────────────────────────────────────
+  // Android 逆向。
 
   AndroidReverseSessionController? androidReverseControllerFor(
     String sessionId,
@@ -5404,9 +5354,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  /// Wires API-mode (URL) support on a [HarnessOrchestrator] so that phases
-  /// configured with [HarnessExecutionMode.url] can run through the AI
-  /// chat infrastructure instead of a CLI tool.
+  /// 让 URL 执行模式通过 AI 聊天基础设施运行。
   void _wireHarnessApiMode(
     HarnessOrchestrator orchestrator, {
     required String sessionId,
@@ -5435,8 +5383,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     };
   }
 
-  /// Loads the last-persisted Harness Engineering session record from disk
-  /// and displays it in the navigation sidebar.
+  /// 加载最近持久化的 Harness 工程会话并显示在导航栏。
   Future<void> _loadPersistedHarnessSession() async {
     try {
       final record = await _harnessSessionStore.load();
@@ -5483,8 +5430,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
   }
 
-  /// Called whenever the active [HarnessOrchestrator] notifies listeners.
-  /// Propagates status changes to the navigation tile and persisted record.
+  /// 将 Harness 状态变化同步到导航项和持久化记录。
   void _onHarnessOrchestratorChanged() {
     if (!mounted) return;
     final orchestrator = _activeHarnessOrchestrator;
@@ -5509,7 +5455,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void _handleHeFullAccessToggle(bool enabled) {
     if (!mounted) return;
     if (enabled) {
-      // Show confirmation dialog before enabling full access.
+      // 开启完全访问前要求确认。
       unawaited(
         _showFullAccessConfirmationDialog().then((confirmed) {
           if (confirmed && mounted) {
@@ -5648,15 +5594,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _handlePhaseApprovalRequired(HarnessPhase nextPhase) {
-    // The orchestrator pauses, creates a completer, and sets awaitingApprovalPhase.
-    // The UI banner (_HePhaseApprovalBanner) handles user interaction.
-    // resolvePhaseApproval() is called from the banner's approve/reject buttons,
-    // which completes the orchestrator's internal completer and unblocks the
-    // pipeline. This callback only triggers a rebuild so the banner appears.
+    // 编排器暂停并等待审批，横幅负责完成审批；此回调仅触发横幅重建。
     if (mounted) setState(() {});
   }
 
-  /// Extracts a short display title from the raw task text.
+  /// 从原始任务文本提取短标题。
   static String _harnessTitleFromTask(String task) {
     final firstLine =
         splitTrimmedNonEmpty(task, separator: '\n').firstOrNull ?? task.trim();
@@ -6368,8 +6310,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         );
         return;
       }
-      // Programming Expert: show project config dialog so the AI knows
-      // the correct working directory and project context.
+      // 编程专家先收集项目目录和上下文。
       _ProgrammingExpertConfig? peConfig;
       if (templateId == 'programming_expert') {
         final recentPathCache = _collectProgrammingExpertRecentPaths(
@@ -6418,7 +6359,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!mounted || !created || sessionController.currentSession == null) {
         return;
       }
-      // After creating a PE session, persist the project config into metadata.
+      // 创建编程专家会话后将项目配置写入元数据。
       if (peConfig != null) {
         final currentSession = sessionController.currentSession;
         if (currentSession != null) {
@@ -6495,7 +6436,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
 
     _replaceComposerText('');
-    // Capture the creation mode and reset it before sending.
+    // 发送前捕获并重置创作模式。
     final creationMode = _creationMode;
     final creationRequest = _creationRequestFromComposer(creationMode);
     setState(() {
@@ -6547,8 +6488,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
   }
 
-  /// Translates the composer-private [_CreationMode] enum into the public
-  /// [AiCreationRequest] model that the controller/adapter layers speak.
+  /// 将输入区创作模式转换为控制器和适配器使用的请求模型。
   AiCreationRequest _creationRequestFromComposer(_CreationMode mode) {
     switch (mode) {
       case _CreationMode.none:
@@ -6592,8 +6532,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return (mode: mode, options: request.options);
   }
 
-  /// Returns a mode-appropriate default [AiCreationOptions] blob, used as a
-  /// starting point when the user first switches into a given creation mode.
+  /// 返回创作模式的默认选项。
   AiCreationOptions _defaultOptionsForComposerMode(_CreationMode mode) {
     switch (mode) {
       case _CreationMode.image:
@@ -6844,8 +6783,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         ...callerPreflightTimingsMs,
       };
       if (runtimeContext == null) {
-        // For Programming Expert sessions, use the project root as the
-        // working directory so tool calls resolve against the loaded project.
+        // 编程专家会话使用项目根目录作为工具工作目录。
         final peProjectRoot = _programmingExpertProjectRoot(initialSession);
         final runtimeContextStopwatch = Stopwatch()..start();
         runtimeContext = await _buildRuntimeContext(
@@ -8201,8 +8139,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         }
       }
     }
-    // Use the explicitly provided sessionId so the correct session badge
-    // is updated even when the user has navigated to a different session.
+    // 使用显式会话标识，避免切换会话后更新错误的状态标记。
     final effectiveSessionId = trackSessionBadge
         ? (sessionId ?? sessionController.currentSessionId)
         : null;
@@ -8887,8 +8824,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     });
   }
 
-  /// Hard cap on a single export operation so a corrupt session can never
-  /// hang the UI indefinitely.
+  /// 单次导出的最长时限，避免损坏会话无限阻塞界面。
   /// 导出统一走超时与失败兜底，避免某次卡住的写入把进度弹窗永久留在屏幕上。
   Future<ExportResult> _runBoundedExport({
     required String logAction,
@@ -8912,8 +8848,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _exportSession(AiSession session) async {
     final controller = context.read<AiSessionController>();
 
-    // Step 1: load the full session up-front so the config dialog can show
-    // an accurate message count for range validation.
+    // 先加载完整会话，供配置弹窗准确校验消息范围。
     AiSession? loaded;
     try {
       loaded = await controller.store.loadSession(session.id);
@@ -8947,14 +8882,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     // 绑定为 final：可空局部变量的类型提升不会延续到下面的闭包里。
     final loadedSession = loaded;
 
-    // Step 2: collect the export configuration from the user.
+    // 收集导出配置。
     final config = await showAiSessionExportConfigDialog(
       context: context,
       totalMessages: loadedSession.messages.length,
     );
     if (config == null || !mounted) return;
 
-    // Step 3: pick the destination file.
+    // 选择目标文件。
     const typeGroup = XTypeGroup(label: 'JSONL', extensions: <String>['jsonl']);
     final suggested = jsonlExportPickerSuggestedName(
       buildJsonlExportFilename(title: loaded.title, sessionId: loaded.id),
@@ -8981,7 +8916,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     if (location == null || !mounted) return;
 
-    // Step 4: kick off the streamed export with progress UI.
+    // 启动带进度反馈的流式导出。
     final destinationPath = normalizeJsonlExportPath(location.path);
     final result = await runWithExportProgressDialog(
       context: context,
@@ -9015,14 +8950,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final record = _persistedHarnessSession;
     if (record == null) return;
 
-    // Step 1: collect the export configuration from the user.
+    // 收集导出配置。
     final config = await showHarnessSessionExportConfigDialog(
       context: context,
       totalPhaseLogs: record.phaseLogs.length,
     );
     if (config == null || !mounted) return;
 
-    // Step 2: pick the destination file.
+    // 选择目标文件。
     const typeGroup = XTypeGroup(label: 'JSONL', extensions: <String>['jsonl']);
     final suggested = jsonlExportPickerSuggestedName(
       buildJsonlExportFilename(title: record.title, sessionId: record.id),
@@ -9124,8 +9059,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     _replaceComposerText(result.content);
 
-    // Restore attachments from the original message so the user can
-    // keep, remove, or add more attachments while editing.
+    // 恢复原消息附件，允许编辑时保留、删除或新增附件。
     final restoredAttachments = <_ComposerAttachmentDraft>[];
     for (final attachment in result.attachments) {
       final path = attachment.storagePath.trim();
@@ -9589,8 +9523,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                         ),
                       );
 
-                  // Swap left pane to file explorer when toggled for
-                  // programming_expert sessions.
+                  // 编程专家会话按开关切换左侧文件浏览器。
                   final machineTerminalSessionId =
                       workspaceSessionLayout.machineTerminalSessionId;
                   final showFileExplorer =
@@ -9667,7 +9600,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                     ),
                   );
 
-                  // Swap right pane to code editor when files are open.
+                  // 打开文件时右侧切换为代码编辑器。
                   final showEditor =
                       _selectedSection == AppSection.workspace &&
                       workspaceSessionLayout.currentSessionId != null &&
@@ -9763,9 +9696,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                           height: stackedNavigationHeight,
                           child: leftPane,
                         ),
-                        // Match the horizontal pane gap and SafeArea outer
-                        // inset so the spacing between stacked panes is
-                        // visually consistent with every other gutter.
+                        // 纵向布局间距与横向窗格和安全区保持一致。
                         const SizedBox(height: _contentPaneGap),
                         Expanded(child: rightPane),
                       ],
@@ -9866,9 +9797,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         : currentSession == null
         ? null
         : sessionController.sessionMessageWindowLoadErrorFor(currentSession.id);
-    // Defer runtime catalog preview work to the workspace section — these
-    // computations involve DateTime.now(), object allocation, and tool catalog
-    // resolution that are wasted when viewing other sections.
+    // 仅工作区页面计算运行时目录预览，避免其他页面产生无用分配。
     AiRuntimeToolPreview? liveRuntimeToolPreview;
     if (workspaceSelected) {
       liveRuntimeToolPreview = _previewRuntimeToolCatalogForWorkspace(
@@ -10073,8 +10002,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         creationMode: _creationMode,
         creationOptions: _creationOptions,
         onCreationModeChanged: (mode) async {
-          // Drop any leftover options from a previous mode when the user
-          // clears or switches to a mode whose options differ materially.
+          // 清空或切换创作模式时移除不兼容的旧选项。
           final previousMode = _creationMode;
           setState(() {
             _creationMode = mode;
@@ -10084,27 +10012,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
               _creationOptions = _defaultOptionsForComposerMode(mode);
             }
           });
-          // When the user just enabled a media-producing mode, open the
-          // options sheet so they can pick size / aspect ratio / duration
-          // without hunting through a settings screen.
+          // 开启媒体创作模式时直接展示尺寸、比例和时长选项。
           if ((mode == _CreationMode.image ||
                   mode == _CreationMode.video ||
                   mode == _CreationMode.audio) &&
               previousMode != mode) {
-            // Push the overlay route after the current frame has fully
-            // settled to avoid LayoutBuilder callback assertions.
+            // 当前帧稳定后再推送浮层，避免布局回调断言。
             await _awaitEndOfFrame();
             if (!mounted || _creationMode != mode) return;
             final picked = await _showCreationOptionsSheet(
               mode,
               _creationOptions,
             );
-            // Wait for the dialog's closing animation to finish before
-            // calling setState.  The dialog's future resolves immediately
-            // when Navigator.pop is called, while the route's animation is
-            // still running.  Calling setState here (while the animation is
-            // mid-frame) can restart AnimatedSwitcher animations, which
-            // trigger scheduleLayoutCallback assertions in LayoutBuilder.
+            // 等待弹窗退场动画结束后再更新状态，避免中途重启动画触发布局断言。
             await _awaitEndOfFrame();
             if (!mounted || _creationMode != mode) return;
             if (picked != null) {
@@ -10139,9 +10059,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         ttsPlaybackService: _ttsPlaybackService,
         translationService: _translationService,
         onDismissError: _dismissSessionError,
-        // Signal the transcript list to jump to the bottom on its first frame
-        // whenever a forced-scroll-to-bottom is pending (i.e. a session was
-        // just activated). This eliminates the visible animate-from-top jank.
+        // 新激活会话首帧直接跳到底部，避免从顶部滚入的抖动。
         jumpToBottomOnInit: _pendingForcedScrollToBottom,
         fileExplorerVisible: _fileExplorerVisible,
         onFileExplorerToggled:

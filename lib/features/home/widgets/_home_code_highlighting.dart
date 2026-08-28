@@ -1,13 +1,9 @@
 part of '../openhand_home_page.dart';
 
-/// Maximum code-block length (in characters) at which we still attempt
-/// syntax highlighting. Beyond this we render plain monospace text to keep
-/// transcript open / scroll responsive (very long log dumps were the
-/// dominant source of multi-second jank when opening a session).
+/// 允许语法高亮的最大代码块长度，超出后使用等宽纯文本以保持滚动流畅。
 const int _highlightSkipThresholdChars = 80 * kBytesPerKiB;
 
-/// Code-block length above which we defer the first highlight pass to the
-/// next frame, painting plain text on the first frame.
+/// 首次高亮延迟到下一帧的代码块长度阈值。
 ///
 /// 短代码片段同步高亮；非平凡代码块走 FrameScheduler 分帧高亮
 /// （首帧纯文本，后续帧补色），避免多 tool_call 同帧 mount 时把主线程撑爆。
@@ -22,10 +18,7 @@ const BoundedDeletePolicy _tempPreviewDeletePolicy = BoundedDeletePolicy(
   totalTimeout: Duration(seconds: 10),
 );
 
-/// Process-wide LRU cache for parsed code-block `TextSpan`s. The same code
-/// snippet (e.g. a tool result, a generated diff) frequently appears in
-/// many bubbles across a session; reusing the cached span avoids
-/// re-tokenising on every rebuild and on cross-session navigation.
+/// 进程级代码高亮 LRU 缓存，避免相同片段在重建和切换会话时重复分词。
 ///
 /// 含多 tool 调用的长会话很容易超过较小缓存容量；用少量内存
 /// （每条仅 ~几 KiB span）换取跨会话导航和滚回时的命中率。
@@ -1258,10 +1251,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         !_highlightIsPlaceholder) {
       return;
     }
-    // Fast path: try the global LRU cache. Identical code blocks rendered
-    // multiple times across the transcript reuse the same parsed TextSpan
-    // instead of re-running the highlight tokenizer (the dominant cost
-    // when opening a large session).
+    // 优先复用全局高亮缓存。
     final cached = _highlightSpanCache.get(signature);
     if (cached != null) {
       _highlightedSpan = cached;
@@ -1269,12 +1259,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       _highlightIsPlaceholder = false;
       return;
     }
-    // Skip syntax highlighting entirely for very large code blocks. The
-    // `package:highlight` parser is single-pass but allocates one node per
-    // token, which becomes the dominant frame cost for >~80KB code blocks
-    // and produces visible jank/ANR when opening sessions that contain
-    // long log dumps or generated source files. Plain text rendering keeps
-    // the transcript responsive; users can still copy / download the code.
+    // 超大代码块直接使用纯文本，避免分词节点分配导致卡顿。
     if (widget.content.length > _highlightSkipThresholdChars) {
       _highlightedSpan = TextSpan(
         text: widget.content,
@@ -1284,10 +1269,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       _highlightIsPlaceholder = false;
       return;
     }
-    // For blocks above the defer threshold, defer highlight via the global
-    // frame-spread scheduler. When a message with N code blocks expands,
-    // each block registers its highlight task with the scheduler, which
-    // executes at most 1 per frame instead of jamming them all into one.
+    // 大代码块交由全局调度器逐帧高亮，每帧最多处理一个。
     // The LRU cache ensures that on second expand (user's observation: "再次
     // 打开折叠消息卡片，卡顿情况会减少很多"), the highlight is instant.
     if (widget.content.length > _highlightDeferThresholdChars) {
@@ -1730,8 +1712,7 @@ String _closeUnterminatedFencedCodeBlock(String source) {
   return '$source$separator$openFence';
 }
 
-// Code editor colour themes
-/// Returns a set of token colours for the given [theme] and [darkSurface] flag.
+/// 根据主题和表面明暗返回代码标记颜色。
 ({
   Color comment,
   Color keyword,
@@ -1838,7 +1819,7 @@ class _CodeSyntaxHighlighter {
 
   final TextStyle _baseStyle;
 
-  // Pre-computed styles — avoids hundreds of copyWith() calls per code block.
+  // 预计算样式，避免每个代码块重复调用 copyWith。
   late final TextStyle _commentStyle;
   late final TextStyle _keywordStyle;
   late final TextStyle _stringStyle;
@@ -1848,7 +1829,7 @@ class _CodeSyntaxHighlighter {
   late final TextStyle _metaStyle;
   late final TextStyle _operatorStyle;
 
-  // Class-name → style fast lookup.
+  // 类名到样式的快速映射。
   static const Set<String> _commentClasses = {'comment', 'quote'};
   static const Set<String> _keywordClasses = {
     'keyword',
@@ -1919,7 +1900,7 @@ class _CodeSyntaxHighlighter {
             children: _buildHighlightedNodes(parsed.nodes),
           );
         } catch (_) {
-          // Fall through to plain text rendering.
+          // 失败时回退到纯文本渲染。
         }
       }
       return TextSpan(text: source, style: _baseStyle);
@@ -2480,7 +2461,7 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
   double _loadingProgress = 0;
   double _currentZoom = 1.0;
 
-  /// Called by parent dialog to programmatically set zoom.
+  /// 由父弹窗设置缩放比例。
   Future<void> setZoom(double zoom) async {
     _currentZoom = zoom;
     final controller = _webViewController;
@@ -2697,10 +2678,10 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
     try {
       if (!mounted) return;
 
-      // Initialize WebViewController with platform-safe configuration.
+      // 使用跨平台安全配置初始化 WebView。
       final controller = WebViewController();
 
-      // Set JavaScript mode (safe on all platforms).
+      // 启用各平台均支持的 JavaScript 模式。
       await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
       await controller.addJavaScriptChannel(
         'OpenHandZoom',
@@ -2711,7 +2692,7 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
         onMessageReceived: _onMetricsMessage,
       );
 
-      // Set navigation delegate for progress and error handling.
+      // 设置导航代理以处理进度和错误。
       await controller.setNavigationDelegate(
         NavigationDelegate(
           onProgress: (progress) {
@@ -2750,19 +2731,19 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
 
       if (!mounted) return;
 
-      // Load HTML content directly (more compatible across platforms).
+      // 直接加载 HTML 内容以提高跨平台兼容性。
       await controller.loadHtmlString(widget.htmlContent);
 
       if (!mounted) return;
 
       setState(() {
         _webViewController = controller;
-        // Note: _isLoading will be set to false by onPageFinished callback.
+        // 加载完成回调负责结束加载状态。
       });
     } catch (e) {
       if (!mounted) return;
 
-      // If direct HTML loading fails, try with file-based approach.
+      // 直接加载失败时尝试文件方式。
       await _tryLoadFromFile();
     }
   }

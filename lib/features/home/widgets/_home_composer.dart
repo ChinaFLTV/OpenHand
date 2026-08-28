@@ -291,7 +291,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     }
   }
 
-  // ── @ mention detection ──
+  // @ 提及检测。
 
   ({int triggerOffset, int tokenEnd, String query})?
   _computeAtMentionTrigger() {
@@ -548,8 +548,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           );
         }
       }
-      // If trimmedQuery is non-empty and we have few results, also search
-      // recursively for deeper matches (up to 80 total).
+      // 浅层结果不足时递归搜索深层路径，总数最多 80。
       if (trimmedQuery.isNotEmpty &&
           results.length < _atMentionDeepSearchSoftLimit) {
         await _deepSearchAtMention(
@@ -620,7 +619,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         if (name.startsWith('.')) continue;
         if (_atMentionIgnoredEntryNames.contains(name)) continue;
         final relativePath = p.relative(entry.path, from: scope.rootPath);
-        // Avoid duplicates already in the shallow list.
+        // 去除浅层列表已有项。
         if (name.toLowerCase().contains(query) &&
             !results.any((r) => r.path == entry.path)) {
           results.add(
@@ -678,8 +677,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     );
   }
 
-  /// Dismiss triggered by user action (click outside / Escape).
-  /// Remembers the '@' offset so the popup won't re-trigger for the same '@'.
+  /// 用户主动关闭后记住 @ 偏移，避免同一位置立即再次弹出。
   void _userDismissAtMentionOverlay() {
     final trigger = _computeAtMentionTrigger();
     if (trigger != null) {
@@ -714,9 +712,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       unawaited(_handleAtMentionLocalFileSelect());
       return;
     }
-    // Add to project file/directory references as a capsule chip.
+    // 添加为项目路径胶囊。
     if (_projectFileReferences.any((r) => r.path == item.path)) {
-      // Already referenced — just dismiss.
+      // 已引用时直接关闭。
       _atMentionDismissal = null;
       _dismissAtMentionOverlay();
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -790,7 +788,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           .where((s) => s.isNotEmpty)
           .toList();
     });
-    // Replace the query text after @ with just @
+    // 将 @ 后的查询文本还原为空。
     final textLen = widget.controller.text.length;
     if (_atMentionTriggerOffset >= 0 && _atMentionTriggerOffset < textLen) {
       final cursor = widget.controller.selection.baseOffset.clamp(0, textLen);
@@ -818,7 +816,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     if (root == null) return;
     final previousDirectory = _atMentionCurrentDirectory;
     if (depth < 0) {
-      // Go back to project root.
+      // 返回项目根目录。
       setState(() {
         _atMentionRestoreSelectionRelativePath = previousDirectory.isEmpty
             ? null
@@ -839,11 +837,9 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     _performAtMentionSearch(root, '');
   }
 
-  // ── Skill picker (leading `/` slash trigger) helpers ──
+  // 斜杠技能选择器。
 
-  /// Returns the parsed leading `/` trigger, or `null` when the text no
-  /// longer matches the shape `"/token<ws?>..."` with the cursor inside the
-  /// first token.
+  /// 解析光标位于首个 `/token` 内的斜杠触发器。
   ({int triggerOffset, int tokenEnd, String query})? _computeSlashTrigger() {
     final text = widget.controller.text;
     final selection = widget.controller.selection;
@@ -1057,9 +1053,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     return true;
   }
 
-  /// Moves the skill picker's highlight by [delta] rows (wrap-around).
-  /// Invoked by the parent focus node key handler when the user presses the
-  /// up/down arrow keys while the picker overlay is visible.
+  /// 循环移动技能选择器高亮项。
   void _moveSkillPickerSelection(int delta) {
     if (!_skillPickerOverlay.hasEntry) return;
     final total = _skillPickerResults.length;
@@ -1071,8 +1065,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     _skillPickerOverlay.markNeedsBuild();
   }
 
-  /// Commits the currently highlighted skill picker entry.  Returns true
-  /// when a selection was made (so the caller can swallow the key event).
+  /// 提交当前高亮技能，成功时返回 true 以消费按键事件。
   bool _commitSkillPickerSelection() {
     if (!_skillPickerOverlay.hasEntry) return false;
     if (_skillPickerLoading) return false;
@@ -1080,17 +1073,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     final index = _skillPickerSelectedIndex;
     if (index < 0 || index >= _skillPickerResults.length) return false;
     final skill = _skillPickerResults[index];
-    // Fire-and-forget: the select handler already manages state updates and
-    // SKILL.md loading.  Returning true tells the parent to swallow the key.
+    // 选择处理器自行更新状态并加载技能说明。
     unawaited(_handleSkillPickerSelect(skill));
     return true;
   }
 
-  /// Returns a display-only metadata payload describing the currently
-  /// pending skill selection (if any).  Meant to be read **before**
-  /// [consumePendingSkillReminder], since consuming clears the selection.
-  /// The payload is persisted verbatim onto the user message metadata so
-  /// the transcript bubble can render a skill capsule under the timestamp.
+  /// 返回待发送技能的展示元数据，必须在消费技能提醒前读取。
   Map<String, Object?>? peekPendingSkillMetadata() {
     final skill = _selectedSkill;
     if (skill == null) return null;
@@ -1217,8 +1205,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     });
   }
 
-  /// Injects project file/directory references into the prompt text as
-  /// `@path` tokens, clears the capsule list, then delegates to [widget.onSend].
+  /// 将项目路径以 @path 注入文本，清空胶囊后发送。
   Future<void> _sendWithReferences() async {
     _injectReferencesIntoText();
     await widget.onSend();
@@ -1305,8 +1292,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                 effort,
               );
         } catch (_) {
-          // Surface a stable user-facing error below and let the selector
-          // roll back to the last persisted effort.
+          // 展示稳定错误，并让选择器回滚到已持久化值。
         }
         if (!mounted) return false;
         if (saved) return true;
@@ -1546,10 +1532,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                           ),
                         ],
                         kOpenHandHGap4,
-                        // 2026-05 — wrap inline toolbar buttons in
-                        // MicroPressFeedback for an 80ms scale-down +
-                        // 140ms ease-out rebound on tap. Honors
-                        // reduceMotion via the wrapper.
+                        // 工具栏按钮使用统一按压反馈并遵循减少动效设置。
                         MicroPressFeedback(
                           enabled: !isFirst && !queueActionsLocked,
                           child: IconButton(
@@ -1853,11 +1836,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                             ),
                           ),
                         ),
-                        // Quick-edit gear: opens the same editor dialog used
-                        // in Settings → AI Model Providers, pre-filled with
-                        // the currently selected model. This shortens the
-                        // "tweak temperature mid-chat" flow from 4 taps
-                        // (open settings → providers → row → edit) to 1.
+                        // 快速编辑当前模型，复用设置页的模型编辑弹窗。
                         Tooltip(
                           message: openHandLocalizedText(
                             context,
@@ -1926,9 +1905,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           ),
         ),
         const SizedBox(width: _composerActionControlGap),
-        // Compact "+" button for picking attachments. Lives just left of the
-        // expand/collapse toggle so the affordance mirrors the right-side
-        // creation-mode button (which carries the mode-semantic icon below).
+        // 紧凑附件选择按钮，与右侧创作模式按钮形成对称。
         Tooltip(
           message: widget.attachments.enabled
               ? openHandLocalizedText(
@@ -2432,8 +2409,7 @@ class _ComposerModeButtonState extends State<_ComposerModeButton> {
               borderRadius: kOpenHandBorderRadius10,
             ),
             alignment: Alignment.center,
-            // FadeTransition-only: ScaleTransition is unsafe inside
-            // LayoutBuilder (see note in _ComposerPanelState.build).
+            // LayoutBuilder 内仅使用不会触发布局回调断言的淡入淡出。
             child: AnimatedSwitcher(
               duration: openHandMotionDuration(context, kOpenHandMotion180),
               child: Icon(
@@ -2445,8 +2421,7 @@ class _ComposerModeButtonState extends State<_ComposerModeButton> {
             ),
           ),
           kOpenHandHGap10,
-          // FadeTransition-only: SlideTransition is unsafe inside
-          // LayoutBuilder (see note in _ComposerPanelState.build).
+          // LayoutBuilder 内不使用会逐帧改写布局的滑动过渡。
           AnimatedSwitcher(
             duration: openHandMotionDuration(context, kOpenHandMotion180),
             child: Text(
@@ -2495,8 +2470,7 @@ class _ComposerCreationModeButtonState
     _CreationMode.deepResearch => Icons.travel_explore_rounded,
   };
 
-  /// Notify the parent of a mode change after the current frame to avoid
-  /// mutating the widget tree while the [MouseTracker] is mid-update.
+  /// 当前帧结束后通知模式变化，避免 MouseTracker 更新期间修改组件树。
   void _deferModeChange(_CreationMode mode) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) widget.onCreationModeChanged(mode);
@@ -2505,7 +2479,6 @@ class _ComposerCreationModeButtonState
 
   void _selectMode(_CreationMode mode) {
     if (mode == widget.creationMode) {
-      // Toggle off.
       _deferModeChange(_CreationMode.none);
       return;
     }
@@ -2544,7 +2517,6 @@ class _ComposerCreationModeButtonState
           curve: kOpenHandEmphasizedCurve,
           child: FilledButton(
             onPressed: () {
-              // When active, toggle off instead of opening the menu.
               if (isActive) {
                 _deferModeChange(_CreationMode.none);
                 return;
@@ -2564,11 +2536,7 @@ class _ComposerCreationModeButtonState
                   ? null
                   : BorderSide(color: colorScheme.outlineVariant),
             ),
-            // Same safety constraint as _ComposerCreationOptionsChip: avoid
-            // ScaleTransition / RotationTransition (AnimatedWidget subclasses)
-            // inside a LayoutBuilder subtree.  Their setState() ticks during
-            // handleBeginFrame trigger scheduleLayoutCallback assertions.
-            // FadeTransition (SingleChildRenderObjectWidget) is safe.
+            // LayoutBuilder 子树仅使用安全的淡入淡出过渡。
             child: AnimatedSwitcher(
               duration: openHandMotionDuration(context, kOpenHandMotion220),
               child: Icon(
@@ -2941,9 +2909,7 @@ class _ComposerAttachmentChip extends StatelessWidget {
   }
 }
 
-/// Square thumbnail chip dedicated to image attachments. Click-to-preview is
-/// inherited from `_openComposerAttachment` which routes images through the
-/// shared `_ImagePreviewDialog` used by message bubbles.
+/// 图片附件方形缩略图胶囊，点击后复用消息气泡的图片预览。
 class _ComposerImageThumbChip extends StatelessWidget {
   const _ComposerImageThumbChip({
     required this.attachment,
@@ -3031,7 +2997,7 @@ class _ComposerImageThumbChip extends StatelessWidget {
   }
 }
 
-// Project file/directory reference capsules (reorderable, removable chips)
+// 可排序、可移除的项目路径胶囊。
 
 class _ReorderableProjectReferenceWrap extends StatelessWidget {
   const _ReorderableProjectReferenceWrap({
@@ -3115,7 +3081,7 @@ class _ProjectReferenceChip extends StatelessWidget {
   }
 }
 
-// @ mention overlay (Cursor-style file reference autocomplete)
+// @ 提及文件补全浮层。
 
 class _AtMentionItem {
   const _AtMentionItem({
@@ -3437,7 +3403,6 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel> {
                           ],
                         ),
                       ),
-                      // Breadcrumb row.
                       if (!isLocalFileMode && widget.breadcrumbs.isNotEmpty)
                         Container(
                           padding: const EdgeInsets.fromLTRB(12, 2, 12, 2),
@@ -3486,7 +3451,6 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel> {
                             ),
                           ),
                         ),
-                      // Results.
                       if (widget.loading)
                         const Padding(
                           padding: EdgeInsets.all(16),
@@ -3719,7 +3683,7 @@ class _AtMentionBreadcrumbChip extends StatelessWidget {
   }
 }
 
-// Skill picker overlay (Codex-style leading '/' slash trigger)
+// 斜杠技能选择浮层。
 
 class _SkillPickerOverlayPanel extends StatefulWidget {
   const _SkillPickerOverlayPanel({
@@ -3989,10 +3953,7 @@ class _SkillPickerLeading extends StatelessWidget {
   }
 }
 
-/// Removable chip rendered at the top-left of the composer when the user
-/// explicitly selects a skill via the leading-slash picker.  Mirrors the
-/// Codex-style pill shown in the input area and exposes a close button to
-/// clear the selection.
+/// 用户通过斜杠选择技能后显示的可移除胶囊。
 class _SelectedSkillChip extends StatelessWidget {
   const _SelectedSkillChip({required this.skill, required this.onRemoved});
 
@@ -4258,8 +4219,7 @@ class _ComposerShortcutsHost extends StatelessWidget {
     );
   }
 
-  // Convert the user-configured key binding (a normalised list of logical
-  // key ids that already includes any modifiers) to a SingleActivator.
+  // 将已规范化的用户快捷键转换为 SingleActivator。
   static List<ShortcutActivator> _activatorsForBinding(
     List<int>? keyIds, {
     bool includeRepeats = true,

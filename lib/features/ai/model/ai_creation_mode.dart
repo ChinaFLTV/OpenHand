@@ -1,12 +1,4 @@
-/// Structured representation of a user-requested generative creation action
-/// (e.g. image / video / audio / deep-research) initiated from the composer.
-///
-/// Centralising this data structure means every layer of the app — composer
-/// UI, session controller, protocol adapter, message renderer and audit
-/// surface — speaks the same vocabulary when describing a non-text request.
-/// It also gives us a single place to attach per-provider routing hints and
-/// to evolve future fields (size, aspect ratio, resolution, duration, …)
-/// without breaking callers.
+/// 统一表示由输入框发起的图片、视频、音频或深度研究请求。
 library;
 
 import '../../../shared/util/input_value_parsing.dart';
@@ -34,8 +26,7 @@ enum AiCreationMode {
   }
 }
 
-/// User-chosen options for a creation request. All fields are optional; the
-/// adapter layer applies safe provider defaults when a value is absent.
+/// 用户选择的创作参数，缺省值由协议适配层补齐。
 class AiCreationOptions {
   const AiCreationOptions({
     this.size,
@@ -74,79 +65,55 @@ class AiCreationOptions {
     this.voiceModify = const <String, Object?>{},
   });
 
-  /// e.g. `"1024x1024"`, `"1024x1792"`. Leave `null` to let the provider pick.
   final String? size;
 
-  /// e.g. `"1:1"`, `"16:9"`, `"9:16"`, `"4:3"`.
   final String? aspectRatio;
 
-  /// Video/audio clip duration in seconds.
   final int? durationSeconds;
 
-  /// Number of outputs to request (n).
   final int count;
 
-  /// Provider-specific quality hint (e.g. `"standard"`, `"hd"`).
   final String? quality;
 
-  /// Provider-specific style hint (e.g. `"vivid"`, `"natural"`).
   final String? style;
 
-  /// Output container/codec hint (e.g. `"png"`, `"webp"`, `"mp3"`).
   final String? outputFormat;
 
-  /// Image background hint (e.g. `"auto"`, `"transparent"`, `"opaque"`).
   final String? background;
 
-  /// Negative prompt for providers that expose explicit avoidance guidance.
   final String? negativePrompt;
 
-  /// Provider prompt rewriting flag (`prompt_extend` / `prompt_optimizer`).
   final bool? promptEnhance;
 
-  /// Whether provider-side watermarking should be enabled.
   final bool? watermark;
 
-  /// Deterministic generation seed where supported.
   final int? seed;
 
-  /// Resolution preset for video providers (e.g. `"480p"`, `"720p"`).
   final String? resolution;
 
-  /// Requested video frame rate.
   final int? frameRate;
 
-  /// Requested video frame count.
   final int? numFrames;
 
-  /// Provider-specific generation mode (e.g. `"keyframes"`).
   final String? mode;
 
-  /// TTS voice identifier.
   final String? voice;
 
   /// 用户明确要求请求中不携带音色参数。
   final bool omitVoice;
 
-  /// TTS speed multiplier.
   final double? speed;
 
-  /// Audio sample rate in Hz.
   final int? sampleRate;
 
-  /// Audio bitrate in bps.
   final int? bitrate;
 
-  /// Audio volume multiplier where supported.
   final double? volume;
 
-  /// Audio pitch offset where supported.
   final double? pitch;
 
-  /// MiniMax language/dialect boost (`Chinese`, `English`, `auto`, ...).
   final String? languageBoost;
 
-  /// Provider-supported speech emotion.
   final String? emotion;
 
   final bool? textNormalization;
@@ -495,8 +462,7 @@ double? _doubleInRange(double? value, DoubleValueRange range) {
   return range.normalize(value);
 }
 
-/// A fully-resolved creation request (mode + options) that can be serialised
-/// into message metadata and passed to protocol adapters.
+/// 可写入消息元数据并传给协议适配器的完整创作请求。
 class AiCreationRequest {
   const AiCreationRequest({
     required this.mode,
@@ -508,11 +474,7 @@ class AiCreationRequest {
 
   bool get isActive => mode.isActive;
 
-  /// Modalities expected by chat endpoints that return generated media inline.
-  ///
-  /// OpenAI-compatible media models are diverted to dedicated endpoints before
-  /// this is used, but Gemini-style adapters need the same intent preserved
-  /// when a turn is queued, edited, or regenerated.
+  /// 通过聊天端点内联返回生成媒体时使用的响应模态。
   List<String> get responseModalities {
     return switch (mode) {
       AiCreationMode.image => const <String>['Text', 'Image'],
@@ -532,9 +494,7 @@ class AiCreationRequest {
     mode: AiCreationMode.none,
   );
 
-  /// Metadata key used on [AiSessionMessage.metadata] to persist creation
-  /// intent alongside a user message so downstream rendering (chips,
-  /// placeholders) can reconstruct the state.
+  /// 在消息元数据中持久化创作意图的键。
   static const String metadataKey = 'creation_request';
 
   Map<String, Object?> toMetadata() {
@@ -553,7 +513,7 @@ class AiCreationRequest {
     );
   }
 
-  /// Localised-agnostic, short identifier used in audit logs.
+  /// 审计日志使用的稳定短标识。
   String describe() {
     final parts = <String>[mode.storageValue];
     final optionsMeta = options.toMetadata();

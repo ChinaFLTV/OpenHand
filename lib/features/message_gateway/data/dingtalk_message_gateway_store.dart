@@ -119,21 +119,7 @@ class DingTalkMessageGatewayStore {
             conversation.messages,
             maxMessages: _maxMessagesPerConversation,
           );
-          final copy = DingTalkConversation(
-            id: conversation.id,
-            type: conversation.type,
-            title: conversation.title,
-            messages: messages,
-            createdAt: conversation.createdAt,
-            openConversationId: conversation.openConversationId,
-            directUserId: conversation.directUserId,
-            directOpenDingTalkId: conversation.directOpenDingTalkId,
-          );
-          copy
-            ..aiSessionId = conversation.aiSessionId
-            ..aiContextCheckpointMessageId =
-                conversation.aiContextCheckpointMessageId;
-          return copy;
+          return conversation.snapshot(messages: messages);
         })
         .toList(growable: true);
     limitedConversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));

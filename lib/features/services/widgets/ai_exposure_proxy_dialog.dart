@@ -2324,25 +2324,10 @@ class _ProxyAverageResponseDialogState
                 ),
               ],
             ),
-            actions: Wrap(
-              spacing: 8,
-              children: [
-                ServiceDialogHeaderIconButton(
-                  tooltip: text(zh: '刷新趋势', en: 'Refresh trend'),
-                  onPressed: _loading ? null : _loadTrend,
-                  icon: _loading
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.refresh_rounded),
-                ),
-                ServiceDialogHeaderIconButton(
-                  tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
+            actions: ServiceDialogRefreshCloseActions(
+              refreshTooltip: text(zh: '刷新趋势', en: 'Refresh trend'),
+              refreshing: _loading,
+              onRefresh: _loading ? null : _loadTrend,
             ),
           ),
           kOpenHandGap14,
@@ -3060,26 +3045,10 @@ class _ProxyRequestTelemetryDialogState
                 ),
               ],
             ),
-            actions: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ServiceDialogHeaderIconButton(
-                  tooltip: text(zh: '刷新遥测', en: 'Refresh telemetry'),
-                  onPressed: _loading ? null : _reload,
-                  icon: _loading
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.refresh_rounded),
-                ),
-                kOpenHandHGap8,
-                ServiceDialogHeaderIconButton(
-                  tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
+            actions: ServiceDialogRefreshCloseActions(
+              refreshTooltip: text(zh: '刷新遥测', en: 'Refresh telemetry'),
+              refreshing: _loading,
+              onRefresh: _loading ? null : _reload,
             ),
           ),
           kOpenHandGap14,

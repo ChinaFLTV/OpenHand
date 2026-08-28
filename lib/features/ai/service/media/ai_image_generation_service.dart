@@ -136,9 +136,7 @@ class AiImageGenerationService {
   final AiTransportClient _transport;
   final AiEndpointRouter _router;
 
-  /// Returns `true` when [protocol] is known to speak the OpenAI-compatible
-  /// images/generations HTTP contract. Gemini returns images inline through
-  /// the chat endpoint (responseModalities) and is handled separately.
+  /// 判断协议是否支持 OpenAI 兼容图片生成接口；Gemini 由聊天端点单独处理。
   static bool supportsImageGeneration(AiProtocolType protocol) {
     switch (protocol) {
       case AiProtocolType.openai:
@@ -180,10 +178,7 @@ class AiImageGenerationService {
       // xAI 原生接口与旧版 grok2api 网关均支持视频生成。
       case AiProtocolType.grok:
         return true;
-      // Hunyuan video uses Tencent Cloud's TC3-HMAC signed RPC at
-      // hunyuan.tencentcloudapi.com — incompatible with OpenAI-shape POST
-      // and bearer auth. Wenxin/StepFun likewise lack public OpenAI-compat
-      // video endpoints. Re-enable when dedicated adapters land.
+      // 混元使用 TC3-HMAC RPC，文心和阶跃也无公开兼容端点，需专用适配器。
       case AiProtocolType.hunyuan:
       case AiProtocolType.stepfun:
       case AiProtocolType.wenxin:
@@ -274,8 +269,7 @@ class AiImageGenerationService {
       case AiProtocolType.minimax:
       case AiProtocolType.stepfun:
         return true;
-      // Wenxin, Hunyuan, Seed (Volcengine TTS) use bespoke signed-RPC APIs
-      // rather than `/v1/audio/speech`. Re-enable when dedicated adapters land.
+      // 文心、混元和豆包语音使用专用签名 RPC，需专用适配器。
       case AiProtocolType.seed:
       case AiProtocolType.wenxin:
       case AiProtocolType.hunyuan:
@@ -297,8 +291,7 @@ class AiImageGenerationService {
     }
   }
 
-  /// Returns the model id to use for image generation. The user is expected
-  /// to configure an image-capable model directly in their provider settings.
+  /// 返回图片生成模型标识，由用户在服务商设置中配置。
   static String resolveImageModelId(AiModelConfig model, AiCreationMode mode) {
     return mode == AiCreationMode.image
         ? model.resolveOperationModelId(AiApiFamily.imageGeneration)
@@ -313,11 +306,7 @@ class AiImageGenerationService {
     return model.resolveOperationModelId(AiApiFamily.audioSpeech);
   }
 
-  /// Generates one or more images via an OpenAI-compatible
-  /// `/v1/images/generations` endpoint and returns a [AiMediaGenerationResult]
-  /// whose markdown can be inlined into an assistant bubble.
-  ///
-  /// Throws [AiMediaGenerationException] for any transport or decoding error.
+  /// 通过 OpenAI 兼容端点生成图片；传输或解码失败时抛出 [AiMediaGenerationException]。
   Future<AiMediaGenerationResult> generateImage({
     required AiModelConfig model,
     required String prompt,
@@ -580,10 +569,7 @@ class AiImageGenerationService {
     )) {
       headers[kAcceptHeaderName] = _acceptHeaderFor(kind);
     }
-    // DashScope (Qwen) video generation is async-by-design: the request must
-    // carry `X-DashScope-Async: enable` to be queued, otherwise it 400s
-    // with `InvalidParameter`. Inject only when the user has not already
-    // overridden the header.
+    // 通义视频任务必须携带异步请求头，且不覆盖用户自定义值。
     if (kind.isVideo && model.protocolType == AiProtocolType.qwen) {
       final hasOverride = model.customHeaders.keys.any(
         (key) => lowercaseStringFromValue(key) == 'x-dashscope-async',
@@ -846,18 +832,14 @@ class AiImageGenerationService {
   ) {
     if (kind.isVideo) {
       return switch (protocol) {
-        // OpenAI Sora 2 exposes `POST /v1/videos` (returns a job; poll via
-        // `/v1/videos/{id}` and download `/v1/videos/{id}/content`).
+        // OpenAI Sora 2 使用 `/v1/videos` 异步任务接口。
         AiProtocolType.openai => const <String>['videos'],
         // 旧版 grok2api 网关沿用 OpenAI Sora 的 `/v1/videos` 异步格式。
         AiProtocolType.grok => const <String>['videos'],
         AiProtocolType.agnes => const <String>['videos'],
-        // MiniMax uses a flat `POST /v1/video_generation` instead of the
-        // OpenAI-style nested `videos/generations` path.
+        // MiniMax 使用扁平的 `/v1/video_generation` 路径。
         AiProtocolType.minimax => const <String>['video_generation'],
-        // GLM/Zhipu BigModel: `POST /api/paas/v4/videos/generations`.
-        // Qwen DashScope compatible-mode also accepts `/videos/generations`
-        // as a passthrough to the native video-synthesis service.
+        // GLM 和通义兼容模式使用各自的视频生成路径。
         _ =>
           _isAgnesModel(modelId)
               ? const <String>['videos']
@@ -866,7 +848,7 @@ class AiImageGenerationService {
     }
     if (kind.isAudio) {
       return switch (protocol) {
-        // MiniMax T2A v2 endpoint.
+        // MiniMax T2A v2 端点。
         AiProtocolType.minimax when _isMiniMaxMusicModel(modelId) =>
           const <String>['music_generation'],
         AiProtocolType.minimax => const <String>['t2a_v2'],
@@ -908,10 +890,7 @@ class AiImageGenerationService {
     required bool useGrok2Api,
   }) {
     if (!kind.isVideo) return false;
-    // Agnes exposes an OpenAI-shaped `/v1/videos` URL, and users may
-    // reasonably configure it under the generic OpenAI-compatible protocol.
-    // Its video endpoint is JSON-only: multipart would stringify numeric
-    // fields such as `frame_rate`, which Agnes' Go backend rejects.
+    // Agnes 视频端点仅接受 JSON，multipart 会错误地字符串化数值字段。
     if (_usesAgnesMediaApi(protocol, modelId)) return false;
     // OpenAI Sora 2 与旧版 grok2api 使用 multipart/form-data。
     return protocol == AiProtocolType.openai || useGrok2Api;
@@ -1106,13 +1085,11 @@ class AiImageGenerationService {
           : (options.count > 0 ? options.count : 1),
       'response_format': 'b64_json',
     };
-    // Size: canonical OpenAI format (`1024x1024`). When the user specifies an
-    // aspect ratio instead, translate it to a concrete size for providers
-    // that only accept `size`.
+    // 将宽高比转换为部分服务商要求的具体尺寸。
     final size = options.size ?? _sizeFromAspectRatio(options.aspectRatio);
     if (size != null) body['size'] = size;
     if (options.aspectRatio != null) {
-      // Qwen/Grok/Seed accept `aspect_ratio`; harmless for others that ignore.
+      // 通义、Grok 和豆包接受 aspect_ratio。
       body['aspect_ratio'] = options.aspectRatio;
     }
     if (options.quality != null) body['quality'] = options.quality;
@@ -1167,7 +1144,7 @@ class AiImageGenerationService {
     // 各厂商媒体请求结构不同，必须按原生协议构造，避免服务端拒绝未知字段。
     switch (protocol) {
       case AiProtocolType.openai:
-        // OpenAI Sora 2: `{model, prompt, seconds, size}` (no `n`).
+        // Sora 2 不接受数量字段。
         final body = <String, Object?>{'model': modelId, 'prompt': prompt};
         final size = _videoSizeFromOptions(options);
         if (size != null) body['size'] = size;
@@ -1206,8 +1183,7 @@ class AiImageGenerationService {
         if (resolution != null) body['resolution'] = resolution.toUpperCase();
         return body;
       case AiProtocolType.qwen:
-        // DashScope native shape (works through compatible-mode passthrough):
-        //   `{model, input:{prompt}, parameters:{size, duration}}`.
+        // 通义使用原生的 input/parameters 请求结构。
         final parameters = <String, Object?>{};
         final size = _videoSizeFromOptions(options);
         if (size != null) parameters['size'] = size;
@@ -1246,8 +1222,7 @@ class AiImageGenerationService {
         if (options.durationSeconds != null) {
           body['seconds'] = options.durationSeconds;
         }
-        // grok2api documents resolution_name (480p|720p) and preset
-        // (fun|normal|spicy|custom) — surface via quality/style if set.
+        // grok2api 通过 quality/style 映射分辨率和预设。
         final resolutionName =
             nullIfBlank(options.resolution) ?? options.quality;
         putIfNotBlank(body, 'resolution_name', resolutionName);
@@ -1337,8 +1312,7 @@ class AiImageGenerationService {
     }
   }
 
-  /// Maps an aspect ratio to a concrete `WxH` video size for providers that
-  /// only accept absolute resolutions (OpenAI Sora, DashScope wan).
+  /// 将宽高比映射为仅接受绝对分辨率的服务商所需尺寸。
   String? _videoSizeFromOptions(AiCreationOptions options) {
     return nullIfBlank(options.size) ??
         _videoSizeFromAspectRatio(
@@ -1670,8 +1644,7 @@ class AiImageGenerationService {
       case AiProtocolType.openai:
       case AiProtocolType.glm:
       case AiProtocolType.stepfun:
-        // OpenAI TTS / GLM CogTTS share `/v1/audio/speech` body:
-        //   `{model, input, voice, response_format}`.
+        // OpenAI TTS 与 GLM CogTTS 共用标准语音请求结构。
         final body = <String, Object?>{
           'model': modelId,
           'input': prompt,
@@ -1701,8 +1674,7 @@ class AiImageGenerationService {
         }
         return body;
       case AiProtocolType.qwen:
-        // Qwen Qwen3-TTS / cosyvoice via DashScope native shape:
-        //   `{model, input:{text}, parameters:{voice, format}}`.
+        // 通义 Qwen3-TTS/cosyvoice 使用原生 input/parameters 结构。
         final parameters = <String, Object?>{
           if (voice != null) 'voice': voice,
           'format': format,
@@ -1730,9 +1702,7 @@ class AiImageGenerationService {
             if (options.watermark != null) 'aigc_watermark': options.watermark,
           };
         }
-        // MiniMax T2A v2 (`/v1/t2a_v2`):
-        //   `{model, text, voice_setting:{voice_id, speed, vol, pitch},
-        //     audio_setting:{sample_rate, bitrate, format}}`.
+        // MiniMax T2A v2 分别使用音色与音频设置。
         return <String, Object?>{
           'model': modelId,
           'text': prompt,
@@ -1771,8 +1741,7 @@ class AiImageGenerationService {
             'subtitle_enable': options.subtitleEnable,
           if (nullIfBlank(options.subtitleType) != null)
             'subtitle_type': options.subtitleType,
-          // URL output avoids retaining a very large hexadecimal response in
-          // memory and lets the bounded media downloader validate the bytes.
+          // URL 输出避免在内存中保留大段十六进制响应，并交由受限下载器校验。
           'output_format': 'url',
           if (options.watermark != null) 'aigc_watermark': options.watermark,
         };
@@ -1793,10 +1762,7 @@ class AiImageGenerationService {
       case AiProtocolType.joycode:
       case AiProtocolType.meta:
       case AiProtocolType.mimo:
-        // Generic OpenAI-compatible fallback for custom gateways. Listed
-        // protocols are already gated off in `supportsAudioGeneration` and
-        // will fail-fast at the chat layer; this body is only reached for
-        // user-overridden compatible models.
+        // 自定义兼容网关使用通用 OpenAI 请求结构。
         final body = <String, Object?>{
           'model': modelId,
           'input': prompt,
@@ -1904,8 +1870,7 @@ class AiImageGenerationService {
     );
   }
 
-  /// Parses an OpenAI-compatible `{ data: [ { url | b64_json } ] }` payload
-  /// and persists the returned bytes as markdown-ready image references.
+  /// 解析 OpenAI 兼容图片响应并持久化为可用于 Markdown 的引用。
   Future<String> _buildMarkdownFromResponse({
     required Map<String, Object?> decoded,
     required String altText,
@@ -1935,9 +1900,7 @@ class AiImageGenerationService {
     for (final entry in entries) {
       if (entry is! Map) continue;
       final map = entry.cast<String, Object?>();
-      // Some providers (DALL·E, Qwen) return a `revised_prompt` that is
-      // more descriptive than the original. Prefer it for alt text when
-      // available, but fall back to the caller-supplied text.
+      // 优先使用服务商返回的 revised_prompt 作为替代文本。
       final effectiveAlt =
           optionalStringFromValue(map['revised_prompt']) ?? altText;
       final b64 = optionalStringFromValue(map['b64_json']);
@@ -1971,7 +1934,7 @@ class AiImageGenerationService {
             continue;
           }
         }
-        // Fall back to rendering the direct URL if download failed.
+        // 下载失败时保留原始地址。
         if (buffer.isNotEmpty) buffer.writeln();
         buffer.writeln();
         final safeAlt = sanitizeMarkdownAltText(effectiveAlt);
@@ -2201,7 +2164,7 @@ class AiImageGenerationService {
         'media_urls',
         'file',
         'files',
-        // GLM CogVideoX returns the playable URL inside a `video_result` array.
+        // GLM CogVideoX 将播放地址放在 video_result 数组中。
         'video_result',
         'videoResult',
         'audio_result',
@@ -2643,9 +2606,7 @@ class AiImageGenerationService {
     return null;
   }
 
-  /// Status codes that warrant a brief backoff retry instead of failing the
-  /// whole media task. Cloud LLM media APIs commonly emit 429 (rate limit) or
-  /// 5xx during async-task polling without the task itself being dead.
+  /// 异步媒体任务轮询时允许短暂退避重试的状态码。
   static const Set<int> _transientPollStatuses = <int>{
     408,
     425,
@@ -2694,16 +2655,13 @@ class AiImageGenerationService {
     );
   }
 
-  /// Parses an HTTP `Retry-After` header (seconds or HTTP-date) to a Duration.
-  /// Returns null when the value is missing/invalid so callers can fall back
-  /// to local exponential backoff.
+  /// 解析秒数或 HTTP 日期格式的 Retry-After；无效时返回空。
   static Duration? _parseRetryAfter(String? raw) {
     final trimmed = nullIfBlank(raw);
     if (trimmed == null) return null;
     final seconds = optionalNonNegativeIntFromValue(trimmed);
     if (seconds != null) {
-      // Cap at 30s so a hostile/misconfigured server cannot block the
-      // media task for the full deadline window.
+      // 单次等待最多 30 秒，避免异常服务端占满任务总时限。
       final cappedSeconds = math.min(seconds, _retryAfterDelayCap.inSeconds);
       return Duration(seconds: cappedSeconds);
     }
@@ -2789,13 +2747,12 @@ class AiImageGenerationService {
           segments.add(id);
           return uri.replace(pathSegments: segments).toString();
         }(),
-      // GLM CogVideoX: status lives under `/api/paas/v4/async-result/{id}`.
+      // GLM CogVideoX 异步结果路径。
       AiProtocolType.glm => () {
         final segments = uri.pathSegments
             .where((segment) => segment.isNotEmpty)
             .toList(growable: true);
-        // Strip trailing `videos/generations` (or any sibling kind) and
-        // append `async-result/{id}`.
+        // 移除生成路径尾段后拼接异步结果标识。
         while (segments.isNotEmpty) {
           final last = segments.last.toLowerCase();
           if (last == 'generations' ||
@@ -2812,7 +2769,7 @@ class AiImageGenerationService {
           ..add(id);
         return uri.replace(pathSegments: segments).toString();
       }(),
-      // MiniMax: GET /v1/query/video_generation?task_id={id}.
+      // MiniMax 通过查询参数获取视频任务状态。
       AiProtocolType.minimax => () {
         final segments = uri.pathSegments
             .where((segment) => segment.isNotEmpty)
@@ -2828,10 +2785,7 @@ class AiImageGenerationService {
             )
             .toString();
       }(),
-      // Qwen DashScope native task lookup: GET /api/v1/tasks/{id}.
-      // We can't always rebuild that path from a `/compatible-mode/...` URL
-      // safely, so fall back to default path-append behaviour and let the
-      // gateway redirect when needed.
+      // 通义兼容地址无法可靠还原原生任务路径，交由网关按默认路径重定向。
       _ => () {
         final segments =
             uri.pathSegments
@@ -3016,8 +2970,7 @@ class AiImageGenerationService {
   }
 
   String _mimeFromUrl(String url) {
-    // Parse the URL path to avoid false positives from query parameters
-    // or unrelated path segments (e.g. "image.png.backup?format=webp").
+    // 仅解析 URL 路径，避免查询参数或无关后缀造成误判。
     final parsedPath = Uri.tryParse(url)?.path;
     final path = parsedPath != null
         ? lowercaseStringFromValue(parsedPath)

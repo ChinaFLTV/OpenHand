@@ -822,8 +822,7 @@ class _MessageBubbleState extends State<_MessageBubble>
     final markdownBuilders = _cachedBuilders!;
     final inlineSyntaxes = _cachedInlineSyntaxes!;
 
-    // Parse Harness Engineering agent/phase annotations from message content.
-    // Only assistant-role messages can carry these markers.
+    // 仅从助手消息解析 Harness 工程代理和阶段标记。
     final translatedContent = widget.translatedContent?.trim();
     final showingTranslation =
         widget.translationVisible &&
@@ -2911,7 +2910,7 @@ Size _adaptivePreviewDialogViewport(BuildContext context) {
   );
 }
 
-/// Adaptive image preview dialog with zoom and pan support.
+/// 支持缩放和平移的自适应图片预览弹窗。
 ///
 /// 弹窗体积根据图片自身的宽高比动态贴合, 四周保留统一的 [_kPadding]
 /// 留白, 与 WEB 端 `MediaPreviewDialog` (clients/web/.../MessageMedia.tsx)
@@ -3892,21 +3891,13 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog>
   bool _disposed = false;
   bool _mediaBootstrapStarted = false;
   DialogAnimationSettings _playerMotionSettings = OpenHandMotionDefaults.dialog;
-  // Cancel signal for the in-flight save. Completed when the user dismisses
-  // the dialog mid-download so we stop pulling bytes and clean up the
-  // partial file instead of writing into a destination the user is no
-  // longer watching.
+  // 下载中关闭弹窗时触发取消信号并清理部分文件。
   Completer<void>? _saveCancel;
-  // Path to a temp HTML wrapper written next to a local media file so
-  // WKWebView can load `file://` resources (it refuses to do so when the
-  // page itself was loaded via `loadHtmlString`/`about:blank`).
+  // 本地媒体旁的临时 HTML 路径，供 WKWebView 加载 file 资源。
   String? _tempHtmlPath;
-  // Last reported playback time from the embedded video. Used to hand
-  // off the resume position when the user enters / exits fullscreen so
-  // both views never play simultaneously and the audio never overlaps.
+  // 内嵌视频最近播放位置，用于全屏切换时无重叠地续播。
   double _currentTime = 0;
-  // Owns the keyboard focus so spacebar / Esc keystrokes hit the dialog
-  // even before the user clicks into the WebView surface.
+  // 主动持有键盘焦点，使空格和 Esc 无需点击 WebView 即可生效。
   final FocusNode _dialogFocus = FocusNode(debugLabel: 'media-preview');
 
   @override
@@ -6416,9 +6407,7 @@ class _KnowledgeCitationChip extends StatelessWidget {
   }
 }
 
-/// Context capsules shown in the focused message action panel's second row.
-/// Keeps message cards focused on message content while preserving mode, skill,
-/// attachment, model, and timestamp metadata next to the selected message.
+/// 聚焦消息操作面板第二行的模式、技能、附件、模型和时间胶囊。
 class _SelectedMessageContextRow extends StatelessWidget {
   const _SelectedMessageContextRow({
     required this.message,
@@ -7252,8 +7241,7 @@ class _CreationModeChip extends StatelessWidget {
   }
 }
 
-/// Context capsule shown in the focused action panel when the message was
-/// submitted with an explicit local-skill selection (e.g. `/caveman`).
+/// 消息显式选择本地技能时展示的上下文胶囊。
 class _UserSkillSelectionChip extends StatelessWidget {
   const _UserSkillSelectionChip({
     required this.metadata,
@@ -7344,8 +7332,7 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
   String? _loadError;
   double _currentTime = 0;
   bool _exiting = false;
-  // Focus node owns the keyboard route so ESC exits fullscreen without
-  // requiring the user to first click into the WebView surface.
+  // 主动持有键盘焦点，使 Esc 无需点击 WebView 即可退出全屏。
   final FocusNode _focusNode = FocusNode(debugLabel: 'fullscreen-video');
 
   @override

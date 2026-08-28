@@ -16,9 +16,7 @@ class AiDsmlToolCallExtractionResult {
   final String sanitizedText;
   final List<AiToolCall> toolCalls;
 
-  /// True when the input text contained an opening DSML/tool-call tag that
-  /// was never closed — a strong signal that the model output was truncated
-  /// mid–tool call.
+  /// 是否存在未闭合的工具调用标记，通常表示模型输出被截断。
   final bool hasTrailingIncompleteMarkup;
 }
 
@@ -28,10 +26,7 @@ AiDsmlToolCallExtractionResult extractDsmlToolCalls(
 }) {
   final canonical = canonicalizeDsmlMarkup(value);
   if (!canonical.contains('<DSML:')) {
-    // No tool-call markup at all — fast path, but still strip any leaked
-    // ##TOOL_CALL## opening fragment that lacks a closing marker. Operate
-    // on the converted form so we only strip true leftovers (the
-    // converter has already deleted complete envelopes).
+    // 完整信封已被转换，仅清理剩余的未闭合工具调用标记。
     final converted = _convertHashTagToolCalls(value);
     final fastSanitized = _stripDanglingHashTagToolCallMarker(converted);
     return AiDsmlToolCallExtractionResult(
@@ -66,12 +61,7 @@ AiDsmlToolCallExtractionResult extractDsmlToolCalls(
         treatAsString: dsmlParameterTreatsValueAsString(parameterAttributes),
       );
     }
-    // Fallback — when the model produced `<DSML:invoke ...>`
-    // wrappers but populated parameters with raw `<key>value</whatever>`
-    // tags (mismatched closing tags), salvage them by scanning the invoke
-    // body for any open-tag/close-tag pair and treating the open-tag name
-    // as the parameter key. This avoids surfacing useless `_raw` blobs
-    // to downstream tools.
+    // 兼容参数闭合标签错误的模型输出，避免向工具传递无意义的 `_raw` 数据。
     if (arguments.isEmpty) {
       for (final loose in _looseInvokeBodyTagPattern.allMatches(body)) {
         final paramKey = (loose.group(1) ?? '').trim();
@@ -90,8 +80,7 @@ AiDsmlToolCallExtractionResult extractDsmlToolCalls(
       ),
     );
   }
-  // Detect trailing incomplete DSML markup (opening tag without matching close).
-  // This happens when the model output is truncated mid–tool call.
+  // 检测流式输出末尾未闭合的 DSML 标记。
   final lastMatchEnd = invokeMatches.isEmpty ? 0 : invokeMatches.last.end;
   final remaining = canonical.substring(lastMatchEnd);
   final hasTrailingIncomplete = _trailingIncompleteDsmlPattern.hasMatch(
@@ -125,46 +114,28 @@ String sanitizeVisibleDsmlContent(String value) {
       .trim();
 }
 
-/// Matches an opening `<DSML:invoke` or `<DSML:function_calls` tag that
-/// appears after the last successfully matched complete invoke block.
-/// Presence of this pattern indicates the model was truncated mid–tool call.
+/// 匹配最后一个完整调用后的未闭合 DSML 调用标记。
 final RegExp _trailingIncompleteDsmlPattern = RegExp(
   r'<DSML:(?:invoke|function_calls)\b',
   caseSensitive: false,
 );
 
-// widened to `[|｜]+` (was `[|｜]\s*` = exactly one) so we
-// match doubled-pipe variants like `<｜｜DSML｜｜...>` emitted by some
-// fine-tunes (observed: deepseek-style `<｜｜DSML｜｜tool_calls>`,
-// `<｜｜DSML｜｜invoke name="…">`, `<｜｜DSML｜｜parameter …>`). Without
-// this, canonicalization no-ops on the doubled form and the raw markup
-// leaks straight into the user-visible bubble.
+// 同时兼容单、双竖线 DSML 前缀，避免原始标记泄漏到消息气泡。
 final RegExp _dsmlTagPrefixPattern = RegExp(
   r'<\s*(/?)\s*[|｜]+\s*DSML\s*[|｜]+\s*',
   caseSensitive: false,
 );
-// full-width / multi-bracket DSML wrappers used by some weak
-// fine-tunes that don't produce protocol-native tool calls. Treat any
-// run of bracket-like opening characters (`<<`, `[`, `(`, `《`, `【`,
-// `「`, `『`, `〔`, `〘`) followed by `DSML` followed by closing
-// brackets as our prefix. The text *after* the closing bracket (which
-// may be `tool_calls`, `function_calls`, `invoke ...`, `parameter ...`)
-// is preserved by the caller.
+// 兼容弱模型生成的全角或多括号 DSML 外壳。
 final RegExp _dsmlBracketWrapPattern = RegExp(
   r'<\s*(/?)\s*[\[(《【「『〔〘<]+\s*DSML\s*[\])》】」』〕〙>]+\s*',
   caseSensitive: false,
 );
-// some models emit `<DSML:tool_calls>` instead of the
-// canonical `<DSML:function_calls>`. Treat both as identical wrappers.
+// 将 `<DSML:tool_calls>` 视为标准的 `<DSML:function_calls>`。
 final RegExp _dsmlToolCallsAliasPattern = RegExp(
   r'<(/?)DSML:tool_calls\b([^>]*)>',
   caseSensitive: false,
 );
-// namespace-prefixed invoke/function_calls/parameter tags.
-// Covers `<functions.invoke …>`, `<tools.invoke …>`,
-// `<openai.invoke …>`, `<anthropic:invoke …>` and the like — anything
-// of the form `<{ns}{sep}{kind}>` where `kind` is one of our known
-// kinds and `ns` is an arbitrary identifier (case-insensitive).
+// 兼容 functions、tools、openai 等命名空间前缀。
 final RegExp _namespacedInvokePattern = RegExp(
   r'<\s*(/?)\s*[A-Za-z_][\w-]*\s*[.:]\s*invoke\b([^>]*)>',
   caseSensitive: false,
@@ -189,10 +160,7 @@ final RegExp _dsmlParameterPattern = RegExp(
   r'<DSML:parameter\b([^>]*)>([\s\S]*?)</DSML:parameter>',
   caseSensitive: false,
 );
-// Tolerant pattern for salvaging parameters whose closing
-// tag does not match the opening tag (e.g. `<query>foo</path>`). Only
-// used as a fallback inside an invoke body when the strict parameter
-// extraction yielded nothing.
+// 严格解析无结果时，兜底提取闭合标签名称不一致的参数。
 final RegExp _looseInvokeBodyTagPattern = RegExp(
   r'<\s*([A-Za-z_][\w:-]*)\s*>([\s\S]*?)</\s*[A-Za-z_][\w:-]*\s*>',
 );
@@ -201,29 +169,15 @@ final RegExp _dsmlLooseTagPattern = RegExp(
   caseSensitive: false,
 );
 final RegExp _dsmlAttributePattern = RegExp(
-  // tolerate unquoted attribute values
-  // (e.g. `<DSML:invoke name=Bash>`). Tries quoted forms first, then
-  // a bareword fallback that stops at whitespace / `>`.
+  // 优先匹配引号值，同时兼容未加引号的属性。
   r"""([A-Za-z_:][\w:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))""",
 );
 
-/// Public so streaming code paths (e.g.
-/// `ai_dsml_partial_stream_scanner.dart`) can apply the same normalization
-/// before scanning a still-growing buffer. All variants the post-stream
-/// extractor handles — fullwidth pipes (`<｜DSML｜...>`), ASCII pipes
-/// (`<|DSML|...>`), bracket wrappers (`<<DSML>>`, `<【DSML】>`),
-/// namespaced (`<functions.invoke …>`, `<invoke …>`) and the
-/// `##TOOL_CALL## … ##END_CALL##` envelope — are all canonicalized to
-/// `<DSML:invoke …>` / `<DSML:parameter …>` / `<DSML:function_calls>`.
+/// 将竖线、括号、命名空间及哈希信封等变体统一为标准 DSML，供流式与完整解析复用。
 String canonicalizeDsmlMarkup(String value) => _canonicalizeDsmlMarkup(value);
 
 String _canonicalizeDsmlMarkup(String value) {
-  // Some weaker models (notably ones that pretend to follow a
-  // generic "agent" protocol they were trained on) emit tool calls inside
-  // a `##TOOL_CALL## { "name": "...", "input": {...} } ##END_CALL##`
-  // envelope instead of using protocol-native tool_calls or our DSML
-  // tags. Convert these to canonical DSML *before* anything else so the
-  // rest of the pipeline (extraction + sanitization) can swallow them.
+  // 先转换哈希信封，后续解析和清理只处理标准 DSML。
   var normalized = _convertHashTagToolCalls(value);
   normalized = normalized.replaceAllMapped(_directDsmlPrefixPattern, (match) {
     final isClosing = (match.group(1) ?? '').trim().isNotEmpty;
@@ -234,7 +188,7 @@ String _canonicalizeDsmlMarkup(String value) {
       .replaceAll('</｜DSML｜', '</DSML:')
       .replaceAll('<｜dsml｜', '<DSML:')
       .replaceAll('</｜dsml｜', '</DSML:')
-      // doubled fullwidth pipes (deepseek-style envelope).
+      // 兼容双全角竖线信封。
       .replaceAll('<｜｜DSML｜｜', '<DSML:')
       .replaceAll('</｜｜DSML｜｜', '</DSML:')
       .replaceAll('<｜｜dsml｜｜', '<DSML:')
@@ -243,26 +197,18 @@ String _canonicalizeDsmlMarkup(String value) {
     final isClosing = (match.group(1) ?? '').trim().isNotEmpty;
     return isClosing ? '</DSML:' : '<DSML:';
   });
-  // full-width / multi-bracket DSML wrappers (e.g.
-  // `<【DSML】invoke …>`, `《DSML》tool_calls`, `<<DSML>>parameter …>`).
-  // Apply *before* the alias step so the suffix (`tool_calls`/etc.) is
-  // already canonicalized to `DSML:`.
+  // 先规范括号外壳，再处理工具调用别名。
   normalized = normalized.replaceAllMapped(_dsmlBracketWrapPattern, (match) {
     final isClosing = (match.group(1) ?? '').trim().isNotEmpty;
     return isClosing ? '</DSML:' : '<DSML:';
   });
-  // `<DSML:tool_calls>` -> `<DSML:function_calls>` so the
-  // downstream sanitizer / extractor treats it the same as the canonical
-  // group wrapper.
   normalized = normalized.replaceAllMapped(_dsmlToolCallsAliasPattern, (m) {
     final slash = m.group(1) ?? '';
     return slash.isNotEmpty
         ? '</DSML:function_calls>'
         : '<DSML:function_calls>';
   });
-  // Canonicalize raw (non-DSML) function_calls / invoke / parameter tags that
-  // low-intelligence models sometimes emit verbatim instead of using the DSML
-  // prefix or producing proper protocol-native tool_calls.
+  // 规范缺少 DSML 前缀的原始调用标签。
   normalized = normalized
       .replaceAllMapped(_rawFunctionCallsTagPattern, (m) {
         final slash = m.group(1) ?? '';
@@ -282,7 +228,7 @@ String _canonicalizeDsmlMarkup(String value) {
             ? '</DSML:parameter>'
             : '<DSML:parameter$attrs>';
       });
-  // Also canonicalize the antml variant used by some Claude-based models.
+  // 规范部分 Claude 模型使用的 antml 变体。
   normalized = normalized
       .replaceAllMapped(_antmlFunctionCallsTagPattern, (m) {
         final slash = m.group(1) ?? '';
@@ -302,9 +248,7 @@ String _canonicalizeDsmlMarkup(String value) {
             ? '</DSML:parameter>'
             : '<DSML:parameter$attrs>';
       });
-  // namespace-prefixed forms — `<functions.invoke …>`,
-  // `<tools:invoke …>`, `<openai.parameter …>`, etc. — get folded into
-  // canonical DSML so the same extractor / sanitizer pipeline applies.
+  // 将带命名空间的标签并入同一解析流程。
   normalized = normalized
       .replaceAllMapped(_namespacedFunctionCallsPattern, (m) {
         final slash = m.group(1) ?? '';
@@ -324,16 +268,7 @@ String _canonicalizeDsmlMarkup(String value) {
             ? '</DSML:parameter>'
             : '<DSML:parameter$attrs>';
       });
-  // sweep up stray pipe characters (`|` / `｜`) that some
-  // weak fine-tunes leave between the last attribute (or element name)
-  // and the closing `>` of *any* DSML tag — observed pattern is the
-  // model wrapping every node in `<|DSML|name|>...</|DSML|name|>`. The
-  // leading prefix already gets converted by `_dsmlTagPrefixPattern`,
-  // but the trailing `|>` survives because the regex only consumes the
-  // opener side. Without this sweep, `<DSML:parameter name="todos"|>`
-  // / `</DSML:parameter|>` look malformed to the partial-stream scanner
-  // (which expects `>` not `|>`), and tool-call cards stall in
-  // "参数构造中" forever even after stream end.
+  // 清理闭合尖括号前残留的竖线，避免流式扫描器一直等待参数结束。
   normalized = normalized.replaceAllMapped(_strayTrailingPipePattern, (m) {
     return '${m.group(1)}>';
   });
@@ -345,16 +280,13 @@ final RegExp _directDsmlPrefixPattern = RegExp(
   caseSensitive: false,
 );
 
-// Match any DSML tag (open or close) that has one or more stray pipe
-// characters immediately before the closing `>`. Capture everything up
-// to (but excluding) the run of pipes so we can rewrite it as `…>`.
+// 捕获闭合尖括号前带多余竖线的 DSML 标签。
 final RegExp _strayTrailingPipePattern = RegExp(
   r'(<\s*/?\s*DSML:[A-Za-z_][\w:.\-]*[^>|｜]*?)\s*[|｜]+\s*>',
   caseSensitive: false,
 );
 
-// Raw function_calls/invoke/parameter tags (without any namespace prefix).
-// Only match standalone XML element names — not already canonicalized DSML: forms.
+// 仅匹配无命名空间且尚未规范化的原始调用标签。
 final RegExp _rawFunctionCallsTagPattern = RegExp(
   r'<\s*(/?)\s*function_calls\s*>',
   caseSensitive: false,
@@ -368,7 +300,7 @@ final RegExp _rawParameterTagPattern = RegExp(
   caseSensitive: false,
 );
 
-// antml:function_calls / antml:invoke / antml:parameter variants.
+// antml 调用标签变体。
 final RegExp _antmlFunctionCallsTagPattern = RegExp(
   r'<\s*(/?)\s*antml:function_calls\s*>',
   caseSensitive: false,
@@ -402,9 +334,7 @@ Object? decodeDsmlParameterValue(
   String rawValue, {
   required bool treatAsString,
 }) {
-  // strip <![CDATA[ ... ]]> wrappers up front. Some weaker
-  // models emit CDATA inside DSML parameters which would otherwise be
-  // treated as opaque text and confuse downstream tools.
+  // 先移除 CDATA 外壳，避免下游工具收到不透明文本。
   final unwrapped = _stripCdataWrappers(rawValue);
   final trimmed = unwrapped.trim();
   if (treatAsString) {
@@ -446,33 +376,19 @@ String _stripCdataWrappers(String value) {
   return value.replaceAllMapped(_cdataPattern, (m) => m.group(1) ?? '');
 }
 
-// Recognize the `##TOOL_CALL## ... ##END_CALL##` envelope that
-// some weak models emit instead of native protocol tool calls or our DSML
-// tags. Convert each well-formed envelope into a DSML invoke block so the
-// downstream extractor + sanitizer treat it like any other tool call.
-// Body shape we accept:
-//   { "name": "<tool_name>", "input": { <key>: <value>, ... } }
-// or  { "tool_name": "...", "parameters": {...} }
-// or  { "name": "...", "arguments": {...} }
+// 识别哈希工具调用信封，并转换为标准 DSML 调用块。
 final RegExp _hashTagToolCallEnvelopePattern = RegExp(
   r'##\s*TOOL[_-]?CALL\s*##([\s\S]*?)##\s*END[_-]?CALL\s*##',
   caseSensitive: false,
 );
 
-// Matches a dangling `##TOOL_CALL## ...` opening with no `##END_CALL##`
-// terminator (truncated stream / model dropped the closing marker).
-// We strip from the opener through end-of-string to keep raw scaffolding
-// out of the rendered bubble, mirroring `_trailingIncompleteDsmlPattern`.
+// 匹配流式输出中缺少结束标记的哈希工具调用。
 final RegExp _hashTagToolCallDanglingPattern = RegExp(
   r'##\s*TOOL[_-]?CALL\s*##[\s\S]*$',
   caseSensitive: false,
 );
 
-// additional JSON-envelope variants that surface in weaker
-// model output. Each pattern's group(1) captures the JSON body.
-//   - [TOOL_CALL] {...} [/TOOL_CALL]
-//   - [OPENAI_FN] {...} [/OPENAI_FN]
-//   - [TOOL_USE] {...} [/TOOL_USE]
+// 兼容方括号包裹的 JSON 工具调用信封。
 final List<RegExp> _bracketEnvelopePatterns = <RegExp>[
   RegExp(
     r'\[\s*TOOL[_-]?CALL\s*\]([\s\S]*?)\[\s*/\s*TOOL[_-]?CALL\s*\]',
@@ -492,30 +408,19 @@ final List<RegExp> _bracketEnvelopePatterns = <RegExp>[
   ),
 ];
 
-// Tag-wrapped JSON: <tool>{...}</tool>, <tool_call>{...}</tool_call>,
-// <function_call>{...}</function_call>, <openai_fn>{...}</openai_fn>,
-// <tool_use>{...}</tool_use>. Conservative: requires a balanced opening
-// and closing pair of the same name and a JSON object body.
+// 仅转换标签成对且正文为 JSON 对象的工具调用信封。
 final RegExp _tagWrappedJsonEnvelopePattern = RegExp(
   r'<\s*(tool_call|tool_use|tool|function_call|openai_fn|fn_call)\s*>\s*(\{[\s\S]*?\})\s*</\s*\1\s*>',
   caseSensitive: false,
 );
 
-// Code-fence envelope: ```dsml / ```tool_call / ```tool_use /
-// ```openai_fn / ```function_call. We deliberately do NOT match
-// generic ```json fences — that would clobber legitimate JSON the
-// user is reading. Only fences whose info-string explicitly names a
-// tool envelope kind get converted.
+// 仅转换明确标记为工具调用的代码块，保留普通 JSON 代码块。
 final RegExp _codeFenceEnvelopePattern = RegExp(
   r'```\s*(?:dsml|tool[_-]?call|tool[_-]?use|openai[_-]?fn|function[_-]?call)[^\n]*\n([\s\S]*?)```',
   caseSensitive: false,
 );
 
-// YAML code-fence envelope (```yaml ...```). Conservative:
-// the body MUST contain a top-level `name:` / `tool_name:` /
-// `function:` line; otherwise we leave the fence untouched (it's
-// almost certainly the user's own YAML content). The actual decode +
-// safety check happens in `_convertHashTagToolCalls`.
+// YAML 代码块必须包含顶层工具名称，防止误改用户内容。
 final RegExp _codeFenceYamlEnvelopePattern = RegExp(
   r'```\s*yaml[^\n]*\n([\s\S]*?)```',
   caseSensitive: false,
@@ -525,11 +430,7 @@ final RegExp _yamlEnvelopeNameKeyPattern = RegExp(
   multiLine: true,
 );
 
-// multi-segment hash envelope —
-//   ##invoke## name: Bash ##args## command: ls ##end##
-// The body contains an `##args##` separator (case-insensitive). We
-// rebuild it as YAML (`name: Bash\nargs:\n  command: ls`) and let the
-// renderer's YAML fallback take over.
+// 将多段哈希信封重组为 YAML 后交给统一渲染逻辑。
 final RegExp _multiSegmentHashEnvelopePattern = RegExp(
   r'##\s*invoke\s*##([\s\S]*?)##\s*end\s*##',
   caseSensitive: false,
@@ -539,10 +440,7 @@ final RegExp _multiSegmentArgsSplitter = RegExp(
   caseSensitive: false,
 );
 
-// Line-prefix envelope: `TOOL_USE: {json}` / `OPENAI_FN: {json}` /
-// `TOOL_CALL: {json}` at the start of a line (or after a newline).
-// We capture a single brace-balanced JSON object that starts on the
-// same line. Greedy `\{...\}` is unsafe; use a counted alternative.
+// 匹配行首工具调用前缀及其单个 JSON 对象。
 final RegExp _linePrefixEnvelopePattern = RegExp(
   r'(?:^|\n)[ \t]*(?:TOOL[_-]?USE|OPENAI[_-]?FN|TOOL[_-]?CALL|FUNCTION[_-]?CALL)\s*[:=]\s*(\{[\s\S]*?\})(?=\s*(?:\n[ \t]*\n|\n[A-Za-z<#`]|$))',
   multiLine: true,
@@ -550,9 +448,6 @@ final RegExp _linePrefixEnvelopePattern = RegExp(
 );
 
 String _convertHashTagToolCalls(String value) {
-  // extended from `##TOOL_CALL##` only to a family of
-  // envelope conventions emitted by weaker fine-tunes that haven't
-  // learned protocol-native tool calls.
   var current = value;
   if (current.contains('##') &&
       _hashTagToolCallEnvelopePattern.hasMatch(current)) {
@@ -584,10 +479,7 @@ String _convertHashTagToolCalls(String value) {
       (m) => _renderEnvelopeAsDsml(m.group(1) ?? ''),
     );
   }
-  // YAML fence — convert ONLY when the body looks like an
-  // envelope (top-level `name`/`tool_name`/`function` key). Otherwise
-  // leave the original fence verbatim so we don't clobber unrelated
-  // YAML content.
+  // 仅转换含顶层工具名称的 YAML 信封。
   if (current.contains('```') &&
       _codeFenceYamlEnvelopePattern.hasMatch(current)) {
     current = current.replaceAllMapped(_codeFenceYamlEnvelopePattern, (m) {
@@ -599,8 +491,7 @@ String _convertHashTagToolCalls(String value) {
       return dsml.isEmpty ? m.group(0)! : dsml;
     });
   }
-  // multi-segment hash envelope (`##invoke## ... ##end##`).
-  // Rebuild as YAML so the YAML fallback parser handles the body.
+  // 多段哈希信封先重组为 YAML。
   if (current.contains('##invoke##') ||
       RegExp(r'##\s*invoke\s*##', caseSensitive: false).hasMatch(current)) {
     current = current.replaceAllMapped(_multiSegmentHashEnvelopePattern, (m) {
@@ -608,7 +499,7 @@ String _convertHashTagToolCalls(String value) {
       if (body.isEmpty) return '';
       final yamlBody = _multiSegmentBodyToYaml(body);
       final dsml = _renderEnvelopeAsDsml(yamlBody);
-      return dsml; // falls through to '' on parse failure
+      return dsml;
     });
   }
   if (current.contains(':') || current.contains('=')) {
@@ -622,14 +513,10 @@ String _convertHashTagToolCalls(String value) {
   return current;
 }
 
-/// Convert a multi-segment-hash envelope body
-/// (`name: Bash ##args## command: ls`) into canonical YAML
-/// (`name: Bash\nargs:\n  command: ls`) so `_renderEnvelopeAsDsml`'s
-/// YAML fallback can parse it.
+/// 将多段哈希信封转换为标准 YAML。
 String _multiSegmentBodyToYaml(String body) {
   final split = body.split(_multiSegmentArgsSplitter);
   if (split.length <= 1) {
-    // No args section — emit the body as-is (likely just `name: Bash`).
     return body.trim();
   }
   final headPart = split.first.trim();
@@ -637,8 +524,7 @@ String _multiSegmentBodyToYaml(String body) {
   if (argsPart.isEmpty) {
     return headPart;
   }
-  // Indent each non-empty line of argsPart by two spaces so YAML reads
-  // it as a nested mapping under `args:`.
+  // 参数缩进两格，作为 `args` 的嵌套映射。
   final indented = argsPart
       .split(RegExp(r'\r?\n'))
       .map((line) => line.isEmpty ? '' : '  $line')
@@ -646,10 +532,7 @@ String _multiSegmentBodyToYaml(String body) {
   return '$headPart\nargs:\n$indented';
 }
 
-/// Decode a JSON envelope body and emit it as canonical
-/// `<DSML:invoke>...</DSML:invoke>` markup. Returns an empty string when
-/// the body is unparseable or missing a tool name (so the scaffolding
-/// is dropped from user-visible text rather than leaked).
+/// 将 JSON 或 YAML 信封转换为标准 DSML；无效信封返回空字符串。
 String _renderEnvelopeAsDsml(String rawBody) {
   final raw = _normalizeFullwidthJsonPunctuation(rawBody.trim());
   if (raw.isEmpty) {
@@ -661,11 +544,7 @@ String _renderEnvelopeAsDsml(String rawBody) {
   } catch (_) {
     decoded = null;
   }
-  // fall back to YAML when JSON fails — covers YAML-shaped
-  // envelopes (`name: Bash\nargs:\n  command: ls`) emitted by some
-  // weaker fine-tunes. Only proceed when the YAML decode yields a Map
-  // with a `name`/`tool_name`/`function` key (otherwise we'd silently
-  // eat unrelated YAML content the user is showing).
+  // JSON 解析失败时尝试 YAML，后续仍校验映射结构和工具名称。
   if (decoded == null) {
     try {
       final yamlValue = loadYaml(raw);
@@ -726,13 +605,7 @@ String _jsonEncodeForDsmlParameter(Object? value) {
   ).replaceAll('<', r'\u003C').replaceAll('>', r'\u003E');
 }
 
-/// Normalize fullwidth JSON punctuation (`"` `"` `'` `'` `：` `，` `｛` `｝`)
-/// to ASCII so a `jsonDecode` first-pass can succeed. Conservative: only
-/// touches characters that have a deterministic ASCII equivalent and
-/// only inside contexts where the substitution can't break unicode
-/// strings (we apply to the *whole* body — string content with
-/// fullwidth quotes is already corrupted by the model and the
-/// substitution is the user's intent).
+/// 将具有确定对应关系的全角 JSON 标点转换为半角字符。
 String _normalizeFullwidthJsonPunctuation(String value) {
   if (value.isEmpty) return value;
   return value
@@ -752,9 +625,7 @@ String _normalizeFullwidthJsonPunctuation(String value) {
       .replaceAll('］', ']');
 }
 
-/// `loadYaml` returns `YamlMap`/`YamlList` proxies; convert to a plain
-/// `Map<String, Object?>` / `List<Object?>` tree so existing
-/// `argsRaw is Map` checks succeed.
+/// 将 YAML 代理对象递归转换为普通 Map/List。
 Object? _coerceYamlToPlain(Object? value) {
   if (value is YamlMap) {
     return <String, Object?>{

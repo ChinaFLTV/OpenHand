@@ -1,12 +1,11 @@
 part of '../openhand_home_page.dart';
 
-/// Pretty-prints a JSON-ish value into a stable, human-readable string.
+/// 将类 JSON 值稳定格式化为可读文本。
 String _auditFormatJson(Object? value) {
   try {
     return prettyPrintJson(_auditSanitizeValue(value));
   } catch (_) {
-    // Last-resort stringification keeps the dialog useful even for cyclic or
-    // otherwise unencodable structures. This is intentionally permissive.
+    // 无法编码时回退到字符串，保证循环结构等异常数据仍可查看。
     return '${value ?? '—'}';
   }
 }
@@ -135,7 +134,7 @@ Widget _auditShimmerLine({double? width}) {
   );
 }
 
-/// A stack of shimmer bars that gives the impression of loading text content.
+/// 模拟文本加载状态的微光条。
 Widget _auditShimmerBlock({int lines = 3, double spacing = 8}) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -151,8 +150,7 @@ Widget _auditShimmerBlock({int lines = 3, double spacing = 8}) {
   );
 }
 
-/// Smoothly animates dialog shell size changes caused by expanding/collapsing
-/// large audit sections.
+/// 平滑处理审计区块展开或折叠引起的弹窗尺寸变化。
 class _AuditDialogSizeAnimator extends StatelessWidget {
   const _AuditDialogSizeAnimator({required this.child});
 
@@ -171,11 +169,7 @@ class _AuditDialogSizeAnimator extends StatelessWidget {
   }
 }
 
-/// Shared section card used by both the message-level and session-level audit
-/// dialogs. Follows Material You Expressive surfaces and the active theme.
-///
-/// When [collapsible] is true the card renders a toggle chevron so the user
-/// can expand/collapse the content with a smooth [AnimatedSize] transition.
+/// 消息与会话审计弹窗共用的区块卡片，可选平滑折叠。
 class _AuditSectionCard extends StatefulWidget {
   const _AuditSectionCard({
     required this.title,
@@ -191,10 +185,10 @@ class _AuditSectionCard extends StatefulWidget {
   final IconData? icon;
   final Widget child;
 
-  /// When true the body can be collapsed behind a chevron toggle.
+  /// 正文是否可折叠。
   final bool collapsible;
 
-  /// Only relevant when [collapsible] is true. Defaults to expanded.
+  /// 可折叠时是否默认展开。
   final bool initiallyExpanded;
 
   @override
@@ -295,8 +289,7 @@ class _AuditSectionCardState extends State<_AuditSectionCard> {
   }
 }
 
-/// Key-value row used by audit dialogs. Keys are right-aligned, values are
-/// selectable so operators can copy individual fields quickly.
+/// 审计弹窗键值行，值可单独选择复制。
 class _AuditKvRow extends StatelessWidget {
   const _AuditKvRow({
     required this.label,
@@ -308,8 +301,7 @@ class _AuditKvRow extends StatelessWidget {
   final String label;
   final String? value;
 
-  /// Optional custom widget shown instead of [value]. Used for shimmer
-  /// placeholders during streaming.
+  /// 替代文本值的可选组件，用于流式微光占位。
   final Widget? valueWidget;
   final bool mono;
 
@@ -354,9 +346,7 @@ class _AuditKvRow extends StatelessWidget {
   }
 }
 
-/// A collapsible JSON block with copy-to-clipboard support.
-/// Uses [AnimatedSize] + [ClipRect] for smooth expand/collapse transitions
-/// consistent with the reasoning message card animation style.
+/// 支持复制并可平滑折叠的 JSON 区块。
 class _AuditJsonBlock extends StatefulWidget {
   const _AuditJsonBlock({
     required this.label,
@@ -501,8 +491,7 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
   }
 }
 
-/// Message-level audit dialog. Shows raw response, parameters, timing,
-/// error information and all other telemetry gleaned from the message model.
+/// 消息级审计弹窗，展示原始响应、参数、耗时、错误和遥测信息。
 class _MessageAuditDialog extends StatefulWidget {
   const _MessageAuditDialog({
     required this.message,
@@ -581,7 +570,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
     final relatedMetadata = relatedMessage == null
         ? const <String, Object?>{}
         : Map<String, Object?>.from(relatedMessage.metadata);
-    // Pull well-known telemetry shape if present.
+    // 提取已知遥测结构。
     final telemetry = metadata['telemetry'];
     final relatedTelemetry = relatedMetadata['telemetry'];
     final durationMs = _auditFirstInt([
@@ -699,8 +688,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
       relatedMetadata['estimated_total_tokens'],
       estimatedPromptTokens,
     ]);
-    // The composed prompt body that was actually sent to the AI. Stored on
-    // user messages by the session controller when telemetry debug is on.
+    // 遥测调试开启时保存的实际发送提示词正文。
     final composedPromptText = _auditFirstString([
       metadata['composed_prompt_text'],
     ]);
@@ -1936,9 +1924,7 @@ Object? _auditFirstAny(Iterable<Object?> candidates) {
   return null;
 }
 
-/// Safely invokes a toJson-like getter and falls back to an empty map on
-/// failure. Keeps the audit dialog resilient against model-side serialization
-/// regressions.
+/// 安全读取模型序列化结果，失败时返回空映射。
 Map<String, Object?> _auditSafeMap(Map<String, Object?> Function() builder) {
   try {
     return builder();

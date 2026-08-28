@@ -260,29 +260,12 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                 ),
               ],
             ),
-            actions: ServiceDialogIconActions(
-              children: [
-                ServiceDialogHeaderIconButton(
-                  tooltip: '刷新插件、数据与遥测',
-                  onPressed: _busy
-                      ? null
-                      : () => _refresh(
-                          includeData: true,
-                          forcePluginRescan: true,
-                        ),
-                  icon: _loading
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.refresh_rounded),
-                ),
-                ServiceDialogHeaderIconButton(
-                  tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
+            actions: ServiceDialogRefreshCloseActions(
+              refreshTooltip: '刷新插件、数据与遥测',
+              refreshing: _loading,
+              onRefresh: _busy
+                  ? null
+                  : () => _refresh(includeData: true, forcePluginRescan: true),
             ),
           ),
           kOpenHandGap14,

@@ -153,10 +153,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
     }
   }
 
-  /// Builds an interleaved list of AI thread tiles and the optional HE session
-  /// tile, sorted by [updatedAt] descending.  The incoming [widget.sessions]
-  /// are already sorted by the store; we simply merge-insert the HE record at
-  /// the correct position.
+  /// 按更新时间将可选 Harness 会话合并插入已排序的 AI 会话列表。
   List<Widget> _buildMergedThreadTiles({
     required HarnessSessionRecord? heRecord,
     required HarnessOrchestratorStatus? heStatus,
@@ -199,10 +196,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
           ),
         ),
       );
-      // Wrap brand-new HE records with an entrance animation. The wrapper
-      // is keyed off the record id so it's preserved across cache misses
-      // (e.g. title edit) — once its internal animation completes the
-      // wrapper short-circuits to its child, so reuse is free.
+      // 新 Harness 记录按标识播放一次入场动画，后续缓存复用直接返回子组件。
       final heKey = 'he-${record.id}';
       final heIsNew = _threadAppear.shouldAnimate(heKey);
       _threadAppear.markSeen(heKey);
@@ -225,7 +219,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
     }
 
     for (final session in widget.sessions) {
-      // Insert HE tile when its updatedAt >= the current AI session's.
+      // Harness 更新时间不早于当前 AI 会话时插入。
       if (!heInserted &&
           heRecord != null &&
           !session.updatedAt.isAfter(heRecord.updatedAt)) {
@@ -284,12 +278,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
           ),
         ),
       );
-      // Only sessions that appear AFTER the first build (i.e. user just
-      // created a new thread) get the AppearOnce entrance — we don't
-      // want the entire sidebar to animate on app launch. The wrapped
-      // widget is what we cache so subsequent cache-hits keep the
-      // wrapper alive until its 220ms animation completes; afterwards
-      // AppearOnce short-circuits to the child.
+      // 仅首帧后新增的会话播放入场动画，避免启动时整个侧栏同时动画。
       final aiKey = 'ai-$sessionId';
       final aiIsNew = _threadAppear.shouldAnimate(aiKey);
       _threadAppear.markSeen(aiKey);
@@ -309,12 +298,12 @@ class _NavigationPaneState extends State<_NavigationPane> {
       tiles.add(aiDisplayed);
     }
 
-    // HE session is the oldest, or there are no AI sessions — append at end.
+    // Harness 会话最旧或没有 AI 会话时追加到末尾。
     if (!heInserted && heRecord != null) {
       tiles.add(buildHeTile());
     }
 
-    // Evict cache entries for sessions that no longer exist to bound memory.
+    // 移除已不存在会话的缓存项。
     if (_threadTileCache.length != activeSessionIds.length) {
       _threadTileCache.removeWhere(
         (sessionId, _) => !activeSessionIds.contains(sessionId),
@@ -334,10 +323,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
-    // HE tile status: prefer the live orchestrator status when it is actually
-    // running/completed/failed/cancelled; fall back to the persisted record
-    // status when the live orchestrator is idle (e.g. an orchestrator that
-    // was reconstructed from a persisted record on app restart).
+    // Harness 运行时优先使用实时状态，空闲时回退到持久化状态。
     final liveHeStatus = widget.activeHarnessOrchestrator?.status;
     final heAwaitingApprovalForTile =
         widget.activeHarnessOrchestrator?.awaitingApprovalPhase != null;
@@ -844,12 +830,7 @@ class _ContentPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The right-pane content is cross-faded inside an `AnimatedSwitcher`
-    // that stacks the outgoing and incoming sections during the
-    // transition. A `RepaintBoundary` here gives each pane its own
-    // compositor layer so the heavy widget tree of one section (large
-    // transcripts, MCP tool catalogues, memory entry markdown) does not
-    // dirty / repaint the other on every frame of the fade.
+    // 为切换器两侧页面提供独立合成层，避免重型页面在淡入淡出时相互触发重绘。
     return RepaintBoundary(
       child: Card(
         clipBehavior: Clip.antiAlias,
@@ -859,8 +840,7 @@ class _ContentPane extends StatelessWidget {
   }
 }
 
-/// Cached tile instance + signature used by [_NavigationPaneState] to avoid
-/// rebuilding sidebar tiles whose visual state did not change.
+/// 缓存导航项及其签名，避免视觉状态未变时重建。
 class _ThreadTileCacheEntry {
   const _ThreadTileCacheEntry({
     required this.title,

@@ -1938,35 +1938,7 @@ class _ProxyOpsInsightSpec {
 typedef _ProxyOpsInsightSections =
     List<Widget> Function(BuildContext context, _ProxyOpsSnapshot data);
 
-class _ProxyOpsCopyText extends StatelessWidget {
-  const _ProxyOpsCopyText(
-    this.text, {
-    this.style,
-    this.maxLines,
-    this.overflow,
-    this.textAlign,
-    this.selectable = true,
-  });
-
-  final String text;
-  final TextStyle? style;
-  final int? maxLines;
-  final TextOverflow? overflow;
-  final TextAlign? textAlign;
-  final bool selectable;
-
-  @override
-  Widget build(BuildContext context) {
-    final child = Text(
-      text,
-      maxLines: maxLines,
-      overflow: overflow,
-      textAlign: textAlign,
-      style: style,
-    );
-    return selectable ? SelectionArea(child: child) : child;
-  }
-}
+typedef _ProxyOpsCopyText = OpenHandOperationsCopyText;
 
 class _ProxyOpsInsightDialog extends StatefulWidget {
   const _ProxyOpsInsightDialog({
@@ -2005,69 +1977,15 @@ class _ProxyOpsInsightDialogState extends State<_ProxyOpsInsightDialog> {
         context: context,
         maxWidth: _kProxyOpsInsightMaxWidth,
         maxHeight: _kProxyOpsInsightMaxHeight,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(kOpenHandRadius13),
-                  border: Border.all(color: accent.withValues(alpha: 0.26)),
-                ),
-                child: Icon(widget.icon, color: accent),
-              ),
-              kOpenHandHGap10,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _ProxyOpsCopyText(
-                      widget.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    if (widget.subtitle.trim().isNotEmpty) ...[
-                      kOpenHandGap3,
-                      OpenHandLiveValue(
-                        widget.subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ],
-          ),
-          kOpenHandGap14,
-          Flexible(
-            child: ListView(
-              shrinkWrap: true,
-              physics: openHandDialogAwareScrollPhysics(context),
-              padding: EdgeInsets.zero,
-              children: [
-                for (var i = 0; i < children.length; i++) ...[
-                  if (i != 0) const SizedBox(height: _kProxyOpsGap),
-                  children[i],
-                ],
-              ],
-            ),
-          ),
-        ],
+        children: buildOpenHandOperationsInsightContent(
+          context: context,
+          icon: widget.icon,
+          title: widget.title,
+          subtitle: widget.subtitle,
+          tone: accent,
+          sections: children,
+          sectionSpacing: _kProxyOpsGap,
+        ),
       ),
     );
   }
@@ -2090,63 +2008,16 @@ Widget _buildProxyOpsSubDialog({
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(_kProxyOpsOuterRadius),
     ),
-    child: _ProxyOpsDialogSurface(
-      child: _ProxyOpsConsoleShell(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: children,
-        ),
+    child: OpenHandOperationsDialogFrame(
+      outerRadius: _kProxyOpsOuterRadius,
+      innerRadius: _kProxyOpsShellRadius,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
       ),
     ),
   );
-}
-
-class _ProxyOpsDialogSurface extends StatelessWidget {
-  const _ProxyOpsDialogSurface({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: BorderRadius.circular(_kProxyOpsOuterRadius),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.72)),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: cs.shadow.withValues(alpha: 0.18),
-            blurRadius: 38,
-            offset: const Offset(0, 20),
-          ),
-        ],
-      ),
-      child: Padding(padding: const EdgeInsets.all(16), child: child),
-    );
-  }
-}
-
-class _ProxyOpsConsoleShell extends StatelessWidget {
-  const _ProxyOpsConsoleShell({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return AnimatedContainer(
-      duration: openHandMotionDuration(context, kOpenHandMotion180),
-      curve: kOpenHandSwitchInCurve,
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.46),
-        borderRadius: BorderRadius.circular(_kProxyOpsShellRadius),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.74)),
-      ),
-      child: Padding(padding: const EdgeInsets.all(14), child: child),
-    );
-  }
 }
 
 class _ProxyOpsInsightEmpty extends StatelessWidget {
@@ -2369,57 +2240,15 @@ class _ProxyOpsDetailSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final visibleRows = rows.entries
-        .where((row) => row.value.trim().isNotEmpty)
-        .toList(growable: false);
     return _ProxyOpsPanel(
       icon: icon,
       title: title,
-      child: visibleRows.isEmpty
-          ? _ProxyOpsInsightEmpty(
-              label: openHandTextResolver(context)(
-                zh: '暂无明细',
-                en: 'No details',
-              ),
-            )
-          : Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final row in visibleRows.indexed)
-                  Padding(
-                    padding: EdgeInsets.only(
-                      bottom: row.$1 == visibleRows.length - 1 ? 0 : 10,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: 180,
-                          child: _ProxyOpsCopyText(
-                            row.$2.key,
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: cs.onSurfaceVariant,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        kOpenHandHGap12,
-                        Expanded(
-                          child: OpenHandLiveValue(
-                            row.$2.value,
-                            selectable: true,
-                            maxLines: 6,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodyMedium,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
+      child: OpenHandOperationsDetailRows(
+        rows: rows,
+        empty: _ProxyOpsInsightEmpty(
+          label: openHandTextResolver(context)(zh: '暂无明细', en: 'No details'),
+        ),
+      ),
     );
   }
 }

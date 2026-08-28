@@ -6690,25 +6690,7 @@ ${_markdownStructuredFields(response)}''';
     while (_persistQueued && !_disposed) {
       _persistQueued = false;
       final conversations = _conversations.values
-          .map((conversation) {
-            final copy = DingTalkConversation(
-              id: conversation.id,
-              type: conversation.type,
-              title: conversation.title,
-              messages: List<DingTalkGatewayMessage>.from(
-                conversation.messages,
-              ),
-              createdAt: conversation.createdAt,
-              openConversationId: conversation.openConversationId,
-              directUserId: conversation.directUserId,
-              directOpenDingTalkId: conversation.directOpenDingTalkId,
-            );
-            copy
-              ..aiSessionId = conversation.aiSessionId
-              ..aiContextCheckpointMessageId =
-                  conversation.aiContextCheckpointMessageId;
-            return copy;
-          })
+          .map((conversation) => conversation.snapshot())
           .toList(growable: false);
       try {
         await _store

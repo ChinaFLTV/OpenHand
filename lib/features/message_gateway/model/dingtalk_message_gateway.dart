@@ -2411,6 +2411,23 @@ class DingTalkConversation {
     'messages': messages.map((item) => item.toJson()).toList(growable: false),
   };
 
+  DingTalkConversation snapshot({Iterable<DingTalkGatewayMessage>? messages}) {
+    final copy = DingTalkConversation(
+      id: id,
+      type: type,
+      title: title,
+      messages: List<DingTalkGatewayMessage>.of(messages ?? this.messages),
+      createdAt: createdAt,
+      openConversationId: openConversationId,
+      directUserId: directUserId,
+      directOpenDingTalkId: directOpenDingTalkId,
+    );
+    copy
+      ..aiSessionId = aiSessionId
+      ..aiContextCheckpointMessageId = aiContextCheckpointMessageId;
+    return copy;
+  }
+
   DateTime get updatedAt =>
       messages.isEmpty ? createdAt : messages.last.createdAt;
 

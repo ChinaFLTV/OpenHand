@@ -2032,24 +2032,10 @@ class _MetricDialogHeader extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final actions = ServiceDialogIconActions(
-            children: [
-              ServiceDialogHeaderIconButton(
-                tooltip: '重新加载指标',
-                onPressed: reloading ? null : onReload,
-                icon: reloading
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.refresh_rounded),
-              ),
-              ServiceDialogHeaderIconButton(
-                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ],
+          final actions = ServiceDialogRefreshCloseActions(
+            refreshTooltip: '重新加载指标',
+            refreshing: reloading,
+            onRefresh: reloading ? null : onReload,
           );
           final identity = Row(
             children: [
