@@ -3731,8 +3731,7 @@ class _KnowledgeBaseConfigDialogState
                 sourceType: sourceType,
               ),
             ),
-            if (sourceType != ReaderFileType.sourceTypes.last)
-              kOpenHandGap10,
+            if (sourceType != ReaderFileType.sourceTypes.last) kOpenHandGap10,
           ],
           if (readerModels.isEmpty) ...[
             kOpenHandGap12,
@@ -4060,13 +4059,11 @@ class _KnowledgeBaseConfigDialogState
   Widget _animatedFullRow(Widget child) {
     return _fullRow(
       AnimatedSize(
-        duration: openHandMotionDuration(context, kOpenHandMotion260,
-        ),
+        duration: openHandMotionDuration(context, kOpenHandMotion260),
         curve: kOpenHandEntranceCurve,
         alignment: Alignment.topCenter,
         child: AnimatedSwitcher(
-          duration: openHandMotionDuration(context, kOpenHandMotion220,
-          ),
+          duration: openHandMotionDuration(context, kOpenHandMotion220),
           switchInCurve: kOpenHandSwitchInCurve,
           switchOutCurve: kOpenHandSwitchOutCurve,
           transitionBuilder: (child, animation) {

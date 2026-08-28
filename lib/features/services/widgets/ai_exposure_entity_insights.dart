@@ -369,22 +369,19 @@ class _TaskEntityInsightBody extends StatelessWidget {
         icon: Icons.account_tree_outlined,
         child: Column(
           children: stages.indexed
-              .map(
-                (entry) {
-                  final timing = task.stageTimings
-                      .where((timing) => timing.stage == entry.$2)
-                      .firstOrNull;
-                  return _StageRow(
-                    stage: entry.$2,
-                    taskId: task.id,
-                    timing: timing,
-                    completed:
-                        timing?.finishedAt != null ||
-                        timing?.durationMs != null,
-                    active: entry.$2 == task.stage && !task.isTerminal,
-                  );
-                },
-              )
+              .map((entry) {
+                final timing = task.stageTimings
+                    .where((timing) => timing.stage == entry.$2)
+                    .firstOrNull;
+                return _StageRow(
+                  stage: entry.$2,
+                  taskId: task.id,
+                  timing: timing,
+                  completed:
+                      timing?.finishedAt != null || timing?.durationMs != null,
+                  active: entry.$2 == task.stage && !task.isTerminal,
+                );
+              })
               .toList(growable: false),
         ),
       ),

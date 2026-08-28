@@ -275,7 +275,9 @@ class _CssCovDialogState extends State<_CssCovDialog> {
                             ),
                             kOpenHandGap6,
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(kOpenHandRadius3),
+                              borderRadius: BorderRadius.circular(
+                                kOpenHandRadius3,
+                              ),
                               child: LinearProgressIndicator(
                                 value: r.totalBytes == 0
                                     ? 0
@@ -289,8 +291,10 @@ class _CssCovDialogState extends State<_CssCovDialog> {
                               loc?.webReverseCssCovRuleStats(
                                     r.usedRanges,
                                     r.totalRanges,
-                                    (r.usedBytes / kBytesPerKiB).toStringAsFixed(1),
-                                    (r.totalBytes / kBytesPerKiB).toStringAsFixed(1),
+                                    (r.usedBytes / kBytesPerKiB)
+                                        .toStringAsFixed(1),
+                                    (r.totalBytes / kBytesPerKiB)
+                                        .toStringAsFixed(1),
                                   ) ??
                                   '${r.usedRanges}/${r.totalRanges} rules · ${(r.usedBytes / kBytesPerKiB).toStringAsFixed(1)}/${(r.totalBytes / kBytesPerKiB).toStringAsFixed(1)} KB',
                               style: theme.textTheme.labelSmall?.copyWith(

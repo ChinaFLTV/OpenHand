@@ -11,7 +11,6 @@ import 'package:openhand/shared/util/text_normalization.dart';
 
 import '../../../shared/util/text_clip.dart';
 
-
 class UserInstructionEntry {
   const UserInstructionEntry({
     required this.id,

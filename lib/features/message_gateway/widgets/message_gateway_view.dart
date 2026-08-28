@@ -14062,15 +14062,13 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   bool _handleMessagesScrollNotification(ScrollNotification notification) {
     if (notification.depth != 0) return false;
     final programmaticScroll = _messagesProgrammaticScroll.active;
-    final explicitUserScroll = isExplicitUserScrollNotification(
-      notification,
-      programmaticScroll: programmaticScroll,
-    );
-    final implicitPointerScroll = isImplicitPointerSignalScrollNotification(
+    final activity = classifyAutoFollowScrollActivity(
       notification,
       programmaticScroll: programmaticScroll,
       recentPointerSignalScroll: _hasRecentMessagesPointerSignal(),
     );
+    final explicitUserScroll = activity.explicitUserScroll;
+    final implicitPointerScroll = activity.implicitPointerSignalScroll;
     if (programmaticScroll && !explicitUserScroll) return false;
     final userScrollStarted =
         (explicitUserScroll || implicitPointerScroll) &&
@@ -14098,7 +14096,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       _autoFollowPausedByUserScroll = true;
       _disableAutoFollow();
     }
-    if (isUserScrollEndNotification(notification)) {
+    if (activity.userScrollEnded) {
       _messagesUserScrollActive = false;
     }
     return false;

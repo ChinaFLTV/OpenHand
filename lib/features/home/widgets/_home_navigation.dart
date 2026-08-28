@@ -481,7 +481,9 @@ class _NavigationPaneState extends State<_NavigationPane> {
                               alpha: 0.09,
                             ),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(kOpenHandRadius11),
+                              borderRadius: BorderRadius.circular(
+                                kOpenHandRadius11,
+                              ),
                             ),
                           ),
                           icon: AnimatedSwitcher(

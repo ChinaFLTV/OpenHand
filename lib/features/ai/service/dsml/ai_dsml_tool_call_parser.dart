@@ -125,7 +125,6 @@ String sanitizeVisibleDsmlContent(String value) {
       .trim();
 }
 
-
 /// Matches an opening `<DSML:invoke` or `<DSML:function_calls` tag that
 /// appears after the last successfully matched complete invoke block.
 /// Presence of this pattern indicates the model was truncated mid–tool call.

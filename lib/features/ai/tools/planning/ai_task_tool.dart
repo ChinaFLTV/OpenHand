@@ -249,6 +249,7 @@ class AiTaskTool extends AiTool {
         startHookResult: subagentStartHookResult,
       );
     }
+
     Future<AiToolExecutionResult> failedResult(
       String error, {
       required int rounds,
@@ -290,8 +291,7 @@ class AiTaskTool extends AiTool {
         stdout: '',
         stderr: blockReason,
         durationMs: startedAt.elapsedMilliseconds,
-        resultText:
-            'status: failed\nerror: $blockReason',
+        resultText: 'status: failed\nerror: $blockReason',
         metadata: _subagentMetadata(
           subagentType: canonicalSubagentType,
           toolCount: subagentCatalog.definitions.length,
@@ -343,19 +343,20 @@ class AiTaskTool extends AiTool {
               'subagent_type': canonicalSubagentType,
               'round': round + 1,
             },
-            body: () => _backgroundChatClient.sendMessage(
-              model: context.model,
-              messages: turns,
-              tools: subagentCatalog.definitions,
-              timeout: turnTimeout,
-              cancelSignal: context.cancelSignal,
-            ).timeout(turnTimeout),
+            body: () => _backgroundChatClient
+                .sendMessage(
+                  model: context.model,
+                  messages: turns,
+                  tools: subagentCatalog.definitions,
+                  timeout: turnTimeout,
+                  cancelSignal: context.cancelSignal,
+                )
+                .timeout(turnTimeout),
           ),
           cancelSignal: context.cancelSignal,
         );
       } catch (error, stack) {
-        if (cancelled ||
-            await isCancelSignalCompleted(context.cancelSignal)) {
+        if (cancelled || await isCancelSignalCompleted(context.cancelSignal)) {
           return cancelledResult(round);
         }
         silentLog('ai_task_tool', '请求子智能体模型', error, stack);
@@ -396,18 +397,12 @@ class AiTaskTool extends AiTool {
       }
       if (completion.toolCalls.length > _maxToolCallsPerRound ||
           totalToolCalls + completion.toolCalls.length > _maxTotalToolCalls) {
-        return failedResult(
-          '子智能体工具调用次数超过安全上限。',
-          rounds: round + 1,
-        );
+        return failedResult('子智能体工具调用次数超过安全上限。', rounds: round + 1);
       }
       if (completion.toolCalls.any(
         (call) => call.arguments.length > _maxToolArgumentCharacters,
       )) {
-        return failedResult(
-          '子智能体工具参数超过安全上限。',
-          rounds: round + 1,
-        );
+        return failedResult('子智能体工具参数超过安全上限。', rounds: round + 1);
       }
       totalToolCalls += completion.toolCalls.length;
       turns.add(
@@ -419,8 +414,7 @@ class AiTaskTool extends AiTool {
       );
       // 通过重建的上下文调用子工具，并在每次分发前检查取消状态。
       for (var index = 0; index < completion.toolCalls.length; index++) {
-        if (cancelled ||
-            await isCancelSignalCompleted(context.cancelSignal)) {
+        if (cancelled || await isCancelSignalCompleted(context.cancelSignal)) {
           return cancelledResult(round);
         }
         final toolCall = completion.toolCalls[index];

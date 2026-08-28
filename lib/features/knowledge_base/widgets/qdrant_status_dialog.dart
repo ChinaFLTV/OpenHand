@@ -1090,7 +1090,10 @@ class _QdrantTrendPainter extends CustomPainter {
       ..color = grid.withValues(alpha: 0.72)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
-    final rounded = RRect.fromRectAndRadius(rect, const Radius.circular(kOpenHandRadius14));
+    final rounded = RRect.fromRectAndRadius(
+      rect,
+      const Radius.circular(kOpenHandRadius14),
+    );
     canvas.drawRRect(rounded, background);
     canvas.drawRRect(rounded, border);
 

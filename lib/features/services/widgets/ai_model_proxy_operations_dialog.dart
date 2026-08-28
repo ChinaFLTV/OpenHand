@@ -13,6 +13,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_live_value.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
+import '../../../shared/ui/openhand_ops_panel.dart';
 import '../../../shared/ui/openhand_ops_press_scale.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
@@ -1793,12 +1794,6 @@ class _ProxyOpsRecentRequests extends StatelessWidget {
   }
 }
 
-BoxDecoration _proxyOpsCardDecoration(ColorScheme cs) => BoxDecoration(
-  color: cs.surfaceContainerLow.withValues(alpha: 0.84),
-  borderRadius: BorderRadius.circular(_kProxyOpsPanelRadius),
-  border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.62)),
-);
-
 class _ProxyOpsPanel extends StatelessWidget {
   const _ProxyOpsPanel({
     required this.title,
@@ -1815,81 +1810,22 @@ class _ProxyOpsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final subtitleText = subtitle?.trim();
-    final panel = AnimatedContainer(
-      duration: openHandMotionDuration(context, kOpenHandMotion180),
-      curve: kOpenHandSwitchInCurve,
-      decoration: _proxyOpsCardDecoration(cs),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: cs.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(kOpenHandRadius11),
-                    border: Border.all(
-                      color: cs.primary.withValues(alpha: 0.24),
-                    ),
-                  ),
-                  child: Icon(icon, size: 19, color: cs.primary),
-                ),
-                kOpenHandHGap11,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _ProxyOpsCopyText(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      if (subtitleText != null && subtitleText.isNotEmpty) ...[
-                        kOpenHandGap3,
-                        OpenHandLiveValue(
-                          subtitleText,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                            height: 1.3,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (onTap != null) ...[
-                  kOpenHandHGap8,
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 20,
-                    color: cs.primary.withValues(alpha: 0.7),
-                  ),
-                ],
-              ],
-            ),
-            kOpenHandGap14,
-            child,
-          ],
+    return OpenHandOperationsPanel(
+      icon: icon,
+      radius: _kProxyOpsPanelRadius,
+      subtitle: subtitle,
+      onTap: onTap,
+      expandWidth: true,
+      title: _ProxyOpsCopyText(
+        title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w900,
         ),
       ),
+      child: child,
     );
-    final sized = SizedBox(width: double.infinity, child: panel);
-    if (onTap == null) return sized;
-    return OpenHandOpsPressScale(onTap: onTap, tone: cs.primary, child: sized);
   }
 }
 
@@ -2408,41 +2344,13 @@ class _ProxyOpsTrendDetailPanel extends StatelessWidget {
       icon: icon,
       title: title,
       subtitle: subtitle,
-      child: OpenHandTrendZoomRegion(
-        itemCount: series.fold<int>(
-          minutes.length,
-          (count, item) => math.max(count, item.values.length),
-        ),
+      child: OpenHandOperationalTrendDetail(
+        title: title,
+        series: series,
         sampleTimes: minutes,
+        emptyLabel: emptyLabel,
+        valueSuffix: valueSuffix,
         initialVisibleItemCount: _kProxyOpsTrendBuckets,
-        semanticLabel: '$title，支持双指缩放',
-        builder: (context, viewport) {
-          final visibleSeries = viewport.sliceSeries(series);
-          final labels = [
-            for (final minute in viewport.slice(minutes))
-              formatHourMinuteLocal(minute),
-          ];
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              OpenHandOperationalTrendChart(
-                series: visibleSeries,
-                valueSuffix: valueSuffix,
-                xLabels: labels,
-                emptyLabel: emptyLabel,
-                area: true,
-                showLegend: false,
-                externalLegendProvided: true,
-                onSelectionChanged: null,
-              ),
-              OpenHandOperationalTrendLanes(
-                series: visibleSeries,
-                xLabels: labels,
-                valueSuffix: valueSuffix,
-              ),
-            ],
-          );
-        },
       ),
     );
   }

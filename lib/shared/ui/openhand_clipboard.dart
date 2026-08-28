@@ -222,9 +222,9 @@ Future<bool> writeOpenHandClipboardImage(
   Duration timeout = kOpenHandClipboardWriteTimeout,
 }) async {
   try {
-    await Pasteboard.writeImage(bytes).timeout(
-      clampOpenHandClipboardTimeout(timeout),
-    );
+    await Pasteboard.writeImage(
+      bytes,
+    ).timeout(clampOpenHandClipboardTimeout(timeout));
     return true;
   } catch (_) {
     return false;
@@ -237,9 +237,9 @@ Future<bool> writeOpenHandClipboardFiles(
   Duration timeout = kOpenHandClipboardWriteTimeout,
 }) async {
   try {
-    await Pasteboard.writeFiles(paths).timeout(
-      clampOpenHandClipboardTimeout(timeout),
-    );
+    await Pasteboard.writeFiles(
+      paths,
+    ).timeout(clampOpenHandClipboardTimeout(timeout));
     return true;
   } catch (_) {
     return false;

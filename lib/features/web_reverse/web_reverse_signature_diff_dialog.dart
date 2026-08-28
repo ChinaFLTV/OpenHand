@@ -155,7 +155,9 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
               prefixIcon: const Icon(Icons.search_rounded, size: 18),
               hintText:
                   loc?.webReverseSignatureDiffSearchHint ?? 'Search endpoint',
-              border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
+              border: const OutlineInputBorder(
+                borderRadius: kOpenHandBorderRadius10,
+              ),
             ),
           ),
         ),

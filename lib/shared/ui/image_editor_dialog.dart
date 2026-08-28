@@ -724,7 +724,9 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                                   ? colorScheme.primaryContainer
                                   : null,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(kOpenHandRadius8),
+                                borderRadius: BorderRadius.circular(
+                                  kOpenHandRadius8,
+                                ),
                               ),
                             ),
                             onPressed: _canEdit
@@ -1685,13 +1687,17 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                               lightness = hsl.lightness;
                             });
                           },
-                          borderRadius: BorderRadius.circular(kOpenHandRadius12),
+                          borderRadius: BorderRadius.circular(
+                            kOpenHandRadius12,
+                          ),
                           child: Container(
                             width: 28,
                             height: 28,
                             decoration: BoxDecoration(
                               color: color,
-                              borderRadius: BorderRadius.circular(kOpenHandRadius12),
+                              borderRadius: BorderRadius.circular(
+                                kOpenHandRadius12,
+                              ),
                               border: Border.all(
                                 color: Theme.of(
                                   dialogContext,
@@ -2286,7 +2292,9 @@ class _AdvancedSection extends StatelessWidget {
       elevation: 0,
       margin: const EdgeInsets.symmetric(vertical: 4),
       color: theme.colorScheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius16)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kOpenHandRadius16),
+      ),
       child: Theme(
         data: theme.copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
@@ -2941,7 +2949,9 @@ class _ProcessingDialog extends StatelessWidget {
       backgroundColor: colorScheme.surfaceContainerHigh,
       surfaceTintColor: colorScheme.surfaceTint,
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandDialogDefaultRadius)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kOpenHandDialogDefaultRadius),
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
         child: Row(

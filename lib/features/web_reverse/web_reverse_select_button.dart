@@ -78,8 +78,7 @@ class WebReverseSelectButton<T> extends StatelessWidget {
           ),
       ],
       child: AnimatedContainer(
-        duration: openHandMotionDuration(context, kOpenHandMotion180,
-        ),
+        duration: openHandMotionDuration(context, kOpenHandMotion180),
         curve: kOpenHandSwitchInCurve,
         height: height,
         constraints: BoxConstraints(minWidth: minWidth ?? 0),

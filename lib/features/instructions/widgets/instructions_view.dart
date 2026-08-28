@@ -251,7 +251,9 @@ class _InstructionCard extends StatelessWidget {
                               color: entry.enabled
                                   ? colorScheme.primaryContainer
                                   : colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(kOpenHandRadius18),
+                              borderRadius: BorderRadius.circular(
+                                kOpenHandRadius18,
+                              ),
                             ),
                             alignment: Alignment.center,
                             child: Icon(
@@ -523,8 +525,7 @@ class _InstructionToggleCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(kOpenHandRadius20),
           onTap: onChanged == null ? null : () => onChanged!(!value),
           child: AnimatedContainer(
-            duration: openHandMotionDuration(context, kOpenHandMotion180,
-            ),
+            duration: openHandMotionDuration(context, kOpenHandMotion180),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: value
@@ -743,11 +744,7 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
                           );
                           if (stacked) {
                             return Column(
-                              children: [
-                                description,
-                                kOpenHandGap12,
-                                version,
-                              ],
+                              children: [description, kOpenHandGap12, version],
                             );
                           }
                           return Row(

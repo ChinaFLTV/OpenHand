@@ -1189,19 +1189,21 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
     if (messageId == null) return;
     final generation = ++_metadataLoadGeneration;
     setState(() => _selectedMetadataLoading = true);
-    unawaited(widget.controller
-        .loadFullSessionMessageMetadata(_session.id, messageId)
-        .then((metadata) {
-          if (!mounted ||
-              generation != _metadataLoadGeneration ||
-              _selectedRecordId != record.id) {
-            return;
-          }
-          setState(() {
-            _selectedMetadata = metadata;
-            _selectedMetadataLoading = false;
-          });
-        }));
+    unawaited(
+      widget.controller
+          .loadFullSessionMessageMetadata(_session.id, messageId)
+          .then((metadata) {
+            if (!mounted ||
+                generation != _metadataLoadGeneration ||
+                _selectedRecordId != record.id) {
+              return;
+            }
+            setState(() {
+              _selectedMetadata = metadata;
+              _selectedMetadataLoading = false;
+            });
+          }),
+    );
   }
 
   void _selectRecordFromTimeline(_TrajectoryRecord record) {
@@ -2707,7 +2709,9 @@ class _TrajectoryOlderHistoryRow extends StatelessWidget {
           backgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.42),
           disabledForegroundColor: colorScheme.onSurfaceVariant,
           disabledBackgroundColor: colorScheme.surfaceContainerHighest,
-          shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius8),
+          shape: const RoundedRectangleBorder(
+            borderRadius: kOpenHandBorderRadius8,
+          ),
         ),
         icon: loading
             ? SizedBox(

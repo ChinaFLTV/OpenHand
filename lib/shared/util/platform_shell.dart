@@ -17,8 +17,7 @@ final RegExp _posixShellSafeTokenPattern = RegExp(r'^[A-Za-z0-9_./:@%+=,-]+$');
 ///
 /// 全库所有拼接 shell 命令行的位置都必须走这里，不要各自内联实现——
 /// 转义写错一次就是一个命令注入漏洞。
-String posixShellQuote(String value) =>
-    "'${value.replaceAll("'", "'\"'\"'")}'";
+String posixShellQuote(String value) => "'${value.replaceAll("'", "'\"'\"'")}'";
 
 /// 仅在必要时加引号：[value] 只含无需转义的安全字符时原样返回，
 /// 否则等价于 [posixShellQuote]。

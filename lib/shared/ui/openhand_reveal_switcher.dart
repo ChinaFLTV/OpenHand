@@ -218,7 +218,10 @@ class OpenHandCrossFadeSwitcher extends StatelessWidget {
                 begin: Offset(0, slideBeginOffsetY),
                 end: Offset.zero,
               ).animate(
-                CurvedAnimation(parent: animation, curve: kOpenHandSwitchInCurve),
+                CurvedAnimation(
+                  parent: animation,
+                  curve: kOpenHandSwitchInCurve,
+                ),
               ),
           child: transitionChild,
         ),

@@ -2058,35 +2058,37 @@ class AiModelProxyHttpServer {
     final durationMs = DateTime.now().difference(started).inMilliseconds;
     unawaited(
       _controller.recordRequest(
-        success: statusCode < 400,
-        tokens: 0,
-        durationMs: durationMs < 0 ? 0 : durationMs,
-        error: error,
-        clientIp: headers['x-client-ip'] ?? '',
-        clientPort: headers['x-client-port'] ?? '',
-        clientUserAgent: headers['user-agent'] ?? '',
-        clientProcessId: _optionalClientHeader(
-          headers,
-          'x-openhand-client-pid',
+        AiModelProxyRequestRecord.capture(
+          success: statusCode < 400,
+          tokens: 0,
+          durationMs: durationMs,
+          error: error,
+          clientIp: headers['x-client-ip'] ?? '',
+          clientPort: headers['x-client-port'] ?? '',
+          clientUserAgent: headers['user-agent'] ?? '',
+          clientProcessId: _optionalClientHeader(
+            headers,
+            'x-openhand-client-pid',
+          ),
+          clientProcessName: _optionalClientHeader(
+            headers,
+            'x-openhand-client-name',
+          ),
+          clientServiceName: _optionalClientHeader(
+            headers,
+            'x-openhand-client-service',
+          ),
+          clientMacAddress: _optionalClientHeader(
+            headers,
+            'x-openhand-client-mac',
+          ),
+          proxyMode: aiModelProxyLocalMode,
+          proxyEndpoint: _controller.publicStatusUrl,
+          requestPath: _normalizePath(request.uri.path),
+          inboundBytes: request.contentLength,
+          outboundBytes: outboundBytes,
+          statusCode: statusCode,
         ),
-        clientProcessName: _optionalClientHeader(
-          headers,
-          'x-openhand-client-name',
-        ),
-        clientServiceName: _optionalClientHeader(
-          headers,
-          'x-openhand-client-service',
-        ),
-        clientMacAddress: _optionalClientHeader(
-          headers,
-          'x-openhand-client-mac',
-        ),
-        proxyMode: aiModelProxyLocalMode,
-        proxyEndpoint: _controller.publicStatusUrl,
-        requestPath: _normalizePath(request.uri.path),
-        inboundBytes: request.contentLength < 0 ? 0 : request.contentLength,
-        outboundBytes: outboundBytes,
-        statusCode: statusCode,
       ),
     );
   }

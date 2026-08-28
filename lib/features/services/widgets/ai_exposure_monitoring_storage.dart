@@ -30,10 +30,8 @@ class _StoragePanel extends StatelessWidget {
         .toList(growable: false);
     final chronologicalLabels = chronological
         .map(
-          (entry) => _reportedShortDateTime(
-            entry.createdAt,
-            entry.createdAtReported,
-          ),
+          (entry) =>
+              _reportedShortDateTime(entry.createdAt, entry.createdAtReported),
         )
         .toList(growable: false);
     final resultsByJobId = <String, int>{};
@@ -234,47 +232,53 @@ class _StoragePanel extends StatelessWidget {
           icon: Icons.history_rounded,
           child: history.isEmpty
               ? const Text('暂无任务归档。')
-          : OpenHandClientPager<AiExposureHistoryEntry>(
-              items: history,
-              builder: (context, shown) => _InsightListViewport(
-                child: Column(
-                  children: shown.map((entry) {
-                    final resultCount = resultsByJobId[entry.id] ?? 0;
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      onTap: () => _showTaskEntityInsight(context, entry),
-                      leading: Icon(_stageIcon(entry.stage)),
-                      title: Text(
-                        entry.name.trim().isEmpty
-                            ? entry.id
-                            : entry.name.trim(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        '${entry.effectiveFinishedAt == null ? _reportedShortDateTime(entry.createdAt, entry.createdAtReported) : _shortDateTime(entry.effectiveFinishedAt!)} · 处理 ${entry.progress.processed} · 结果 $resultCount',
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _StatusPill(
-                            icon: _stageIcon(entry.stage),
-                            label: _stageName(entry.stage),
-                            color: entry.stage == 'completed'
-                                ? OpenHandStatusColors.success
-                                : entry.stage == 'failed'
-                                ? OpenHandStatusColors.error
-                                : OpenHandStatusColors.warning,
-                          ),
-                          kOpenHandHGap4,
-                          const Icon(Icons.chevron_right_rounded, size: 19),
-                        ],
-                      ),
-                    );
-                  }).toList(growable: false),
+              : OpenHandClientPager<AiExposureHistoryEntry>(
+                  items: history,
+                  builder: (context, shown) => _InsightListViewport(
+                    child: Column(
+                      children: shown
+                          .map((entry) {
+                            final resultCount = resultsByJobId[entry.id] ?? 0;
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              onTap: () =>
+                                  _showTaskEntityInsight(context, entry),
+                              leading: Icon(_stageIcon(entry.stage)),
+                              title: Text(
+                                entry.name.trim().isEmpty
+                                    ? entry.id
+                                    : entry.name.trim(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                '${entry.effectiveFinishedAt == null ? _reportedShortDateTime(entry.createdAt, entry.createdAtReported) : _shortDateTime(entry.effectiveFinishedAt!)} · 处理 ${entry.progress.processed} · 结果 $resultCount',
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _StatusPill(
+                                    icon: _stageIcon(entry.stage),
+                                    label: _stageName(entry.stage),
+                                    color: entry.stage == 'completed'
+                                        ? OpenHandStatusColors.success
+                                        : entry.stage == 'failed'
+                                        ? OpenHandStatusColors.error
+                                        : OpenHandStatusColors.warning,
+                                  ),
+                                  kOpenHandHGap4,
+                                  const Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 19,
+                                  ),
+                                ],
+                              ),
+                            );
+                          })
+                          .toList(growable: false),
+                    ),
+                  ),
                 ),
-              ),
-            ),
         ),
         if (controller.health?.databasePath.isNotEmpty == true) ...[
           kOpenHandGap12,

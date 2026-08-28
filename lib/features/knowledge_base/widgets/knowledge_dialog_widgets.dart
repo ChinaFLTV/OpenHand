@@ -727,7 +727,9 @@ InputDecoration knowledgeDialogInputDecoration(
     filled: true,
     fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.46),
     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(kOpenHandRadius12)),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(kOpenHandRadius12),
+    ),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(kOpenHandRadius12),
       borderSide: BorderSide(

@@ -687,8 +687,7 @@ class _KnowledgeNoteEditor extends StatelessWidget {
           kOpenHandGap10,
           Expanded(
             child: AnimatedSwitcher(
-              duration: openHandMotionDuration(context, kOpenHandMotion180,
-              ),
+              duration: openHandMotionDuration(context, kOpenHandMotion180),
               switchInCurve: kOpenHandSwitchInCurve,
               switchOutCurve: kOpenHandSwitchOutCurve,
               child: preview

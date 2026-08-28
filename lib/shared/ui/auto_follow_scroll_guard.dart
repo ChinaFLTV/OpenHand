@@ -49,6 +49,41 @@ bool isUserScrollEndNotification(ScrollNotification notification) {
           notification.direction == ScrollDirection.idle;
 }
 
+/// 自动跟随列表关心的标准化滚动活动。
+class AutoFollowScrollActivity {
+  const AutoFollowScrollActivity({
+    required this.explicitUserScroll,
+    required this.implicitPointerSignalScroll,
+    required this.userScrollEnded,
+  });
+
+  final bool explicitUserScroll;
+  final bool implicitPointerSignalScroll;
+  final bool userScrollEnded;
+
+  bool get userScrollActive =>
+      explicitUserScroll || implicitPointerSignalScroll;
+}
+
+AutoFollowScrollActivity classifyAutoFollowScrollActivity(
+  ScrollNotification notification, {
+  required bool programmaticScroll,
+  bool recentPointerSignalScroll = false,
+}) {
+  return AutoFollowScrollActivity(
+    explicitUserScroll: isExplicitUserScrollNotification(
+      notification,
+      programmaticScroll: programmaticScroll,
+    ),
+    implicitPointerSignalScroll: isImplicitPointerSignalScrollNotification(
+      notification,
+      programmaticScroll: programmaticScroll,
+      recentPointerSignalScroll: recentPointerSignalScroll,
+    ),
+    userScrollEnded: isUserScrollEndNotification(notification),
+  );
+}
+
 class AutoFollowProgrammaticScrollWindow {
   AutoFollowProgrammaticScrollWindow({
     this.settleDuration = kAutoFollowProgrammaticSettleDuration,
@@ -114,20 +149,17 @@ class AutoFollowScrollGuard {
   /// 接入 NotificationListener.onNotification；固定返回 false 以继续冒泡。
   bool handleNotification(ScrollNotification notification) {
     final programmaticScroll = _programmaticScroll.active;
-    final explicitUserScroll = isExplicitUserScrollNotification(
+    final activity = classifyAutoFollowScrollActivity(
       notification,
       programmaticScroll: programmaticScroll,
     );
-    final userScrollEnded = isUserScrollEndNotification(notification);
-    if (programmaticScroll && !explicitUserScroll) {
+    if (programmaticScroll && !activity.explicitUserScroll) {
       return false;
     }
-    if (explicitUserScroll) {
+    if (activity.explicitUserScroll) {
       _programmaticScroll.cancel();
-    }
-    if (explicitUserScroll) {
       _userScrolling = true;
-    } else if (userScrollEnded) {
+    } else if (activity.userScrollEnded) {
       _userScrolling = false;
     }
     return false;

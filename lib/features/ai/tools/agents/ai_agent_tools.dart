@@ -333,17 +333,11 @@ class AiAgentTool extends AiTool {
     final stopwatch = Stopwatch()..start();
     final controller = _agentsControllerProvider();
     if (controller == null) {
-      return AiToolUtils.invalidResult(
-        _name,
-        '当前会话无法使用数字员工控制器。',
-      );
+      return AiToolUtils.invalidResult(_name, '当前会话无法使用数字员工控制器。');
     }
     final accessPolicy = _AgentToolAccessPolicy.fromMetadata(context.metadata);
     if (!accessPolicy.enabled) {
-      return AiToolUtils.invalidResult(
-        _name,
-        '当前会话已禁用数字员工工具。',
-      );
+      return AiToolUtils.invalidResult(_name, '当前会话已禁用数字员工工具。');
     }
     if (_enabledAgentsForPolicy(controller, accessPolicy).isEmpty) {
       return _noEnabledAgentsResult(controller, accessPolicy);
@@ -490,21 +484,12 @@ class AiAgentTool extends AiTool {
       );
     }
     if (controller.agents.isEmpty) {
-      return AiToolUtils.invalidResult(
-        _name,
-        '尚未配置数字员工，请先创建并启动数字员工。',
-      );
+      return AiToolUtils.invalidResult(_name, '尚未配置数字员工，请先创建并启动数字员工。');
     }
     if (accessPolicy.isScoped) {
-      return AiToolUtils.invalidResult(
-        _name,
-        '当前会话没有可用的数字员工，请启用并至少选择一个数字员工。',
-      );
+      return AiToolUtils.invalidResult(_name, '当前会话没有可用的数字员工，请启用并至少选择一个数字员工。');
     }
-    return AiToolUtils.invalidResult(
-      _name,
-      '没有已启用的数字员工，请先启动数字员工。',
-    );
+    return AiToolUtils.invalidResult(_name, '没有已启用的数字员工，请先启动数字员工。');
   }
 
   AiToolExecutionResult _list(
@@ -903,10 +888,7 @@ class AiAgentTool extends AiTool {
       auditToolName: _name,
     );
     if (!saved) {
-      return AiToolUtils.invalidResult(
-        _name,
-        '配置数字员工集群失败，目标数字员工可能已被移除。',
-      );
+      return AiToolUtils.invalidResult(_name, '配置数字员工集群失败，目标数字员工可能已被移除。');
     }
     final currentAgent = controller.agentById(agent.id) ?? agent;
     final callableAgentToolNames = _callableAgentToolNames(context.catalog);
@@ -1092,10 +1074,7 @@ class AiAgentTool extends AiTool {
       auditToolName: _name,
     );
     if (event == null) {
-      return AiToolUtils.invalidResult(
-        _name,
-        '记录审计事件失败，目标数字员工可能已被移除。',
-      );
+      return AiToolUtils.invalidResult(_name, '记录审计事件失败，目标数字员工可能已被移除。');
     }
     final currentAgent = controller.agentById(resolution.agent!.id);
     final auditEvents = currentAgent?.auditEvents ?? <AgentAuditEvent>[event];
@@ -1154,10 +1133,7 @@ class AiAgentTool extends AiTool {
       auditToolName: _name,
     );
     if (!saved) {
-      return AiToolUtils.invalidResult(
-        _name,
-        '更新资源用量失败，目标数字员工可能已被移除。',
-      );
+      return AiToolUtils.invalidResult(_name, '更新资源用量失败，目标数字员工可能已被移除。');
     }
     final currentAgent = controller.agentById(agent.id) ?? agent;
     final callableAgentToolNames = _callableAgentToolNames(context.catalog);
@@ -1218,10 +1194,7 @@ class AiAgentTool extends AiTool {
 
     final resolvedName = name.isNotEmpty ? name : existing?.name.trim() ?? '';
     if (resolvedName.isEmpty) {
-      return AiToolUtils.invalidResult(
-        _name,
-        '创建 KPI 时 name 为必填参数。',
-      );
+      return AiToolUtils.invalidResult(_name, '创建 KPI 时 name 为必填参数。');
     }
 
     final rawStatus = _optionalText(args['status']);
@@ -1264,10 +1237,7 @@ class AiAgentTool extends AiTool {
       auditToolName: _name,
     );
     if (saved == null) {
-      return AiToolUtils.invalidResult(
-        _name,
-        '保存 KPI 失败，目标数字员工可能已被移除。',
-      );
+      return AiToolUtils.invalidResult(_name, '保存 KPI 失败，目标数字员工可能已被移除。');
     }
 
     final currentAgent = controller.agentById(agent.id);
@@ -1334,10 +1304,7 @@ class AiAgentTool extends AiTool {
       auditToolName: _name,
     );
     if (approval == null) {
-      return AiToolUtils.invalidResult(
-        _name,
-        '申请审批失败，目标数字员工可能已停用或被移除。',
-      );
+      return AiToolUtils.invalidResult(_name, '申请审批失败，目标数字员工可能已停用或被移除。');
     }
     final currentAgent = controller.agentById(resolution.agent!.id);
     return _success(
@@ -1495,10 +1462,7 @@ class AiAgentTool extends AiTool {
       auditToolName: _name,
     );
     if (task == null) {
-      return AiToolUtils.invalidResult(
-        _name,
-        '发布任务失败，目标数字员工可能已停用或被移除。',
-      );
+      return AiToolUtils.invalidResult(_name, '发布任务失败，目标数字员工可能已停用或被移除。');
     }
     var currentAgent = controller.agentById(resolution.agent!.id);
     var currentTask = task;
@@ -1686,10 +1650,7 @@ class AiAgentTool extends AiTool {
     };
     final resultText = _optionalText(args['result']);
     if (status == AgentTaskStatus.completed && resultText == null) {
-      return AiToolUtils.invalidResult(
-        _name,
-        '完成任务时 result 为必填参数。',
-      );
+      return AiToolUtils.invalidResult(_name, '完成任务时 result 为必填参数。');
     }
     final rawExtra = optionalStringKeyedMapFromValueOrJsonText(args['extra']);
     final updated = await controller.updateTaskState(
@@ -1709,10 +1670,7 @@ class AiAgentTool extends AiTool {
       auditToolName: _name,
     );
     if (updated == null) {
-      return AiToolUtils.invalidResult(
-        _name,
-        '更新任务失败，数字员工或任务状态可能已变化。',
-      );
+      return AiToolUtils.invalidResult(_name, '更新任务失败，数字员工或任务状态可能已变化。');
     }
     final currentAgent = controller.agentById(resolved.agent!.id);
     return _success(
@@ -1942,10 +1900,7 @@ class AiAgentTool extends AiTool {
     }
 
     Future<_AgentWorkerRunResult> finishCancelled() {
-      return finishFailure(
-        'cancelled',
-        '数字员工执行已取消。',
-      );
+      return finishFailure('cancelled', '数字员工执行已取消。');
     }
 
     if (await isCancelSignalCompleted(context.cancelSignal)) {
@@ -2040,9 +1995,7 @@ class AiAgentTool extends AiTool {
             modelId: workerModel.modelId,
             tokenUsage: usage,
             result: finalResult,
-            error: finalResult.isEmpty
-                ? '数字员工执行完成，但未返回结果。'
-                : null,
+            error: finalResult.isEmpty ? '数字员工执行完成，但未返回结果。' : null,
           );
           if (finalResult.isEmpty) {
             return _writeWorkerFailure(controller, agent, task, result);
@@ -2052,18 +2005,12 @@ class AiAgentTool extends AiTool {
         if (completion.toolCalls.length > _agentWorkerMaxToolCallsPerRound ||
             toolCalls.length + completion.toolCalls.length >
                 _agentWorkerMaxTotalToolCalls) {
-          return finishFailure(
-            'failed',
-            '数字员工工具调用次数超过安全上限。',
-          );
+          return finishFailure('failed', '数字员工工具调用次数超过安全上限。');
         }
         if (completion.toolCalls.any(
           (call) => call.arguments.length > _agentWorkerMaxToolArgumentChars,
         )) {
-          return finishFailure(
-            'failed',
-            '数字员工工具参数超过安全上限。',
-          );
+          return finishFailure('failed', '数字员工工具参数超过安全上限。');
         }
         turns.add(
           AiChatTurn(
@@ -2131,10 +2078,7 @@ class AiAgentTool extends AiTool {
                 if (!timeoutCancellation.isCompleted) {
                   timeoutCancellation.complete();
                 }
-                throw TimeoutException(
-                  timeoutMessage,
-                  maxDuration,
-                );
+                throw TimeoutException(timeoutMessage, maxDuration);
               },
             ),
             cancelSignal: context.cancelSignal,
@@ -2270,11 +2214,7 @@ class AiAgentTool extends AiTool {
       expectedAssignmentId:
           '${task.extra[agentTaskAssignmentIdExtraKey] ?? ''}',
       progress: task.progress,
-      note:
-          result.error ??
-          (cancelled
-              ? '数字员工执行已取消。'
-              : '数字员工执行失败。'),
+      note: result.error ?? (cancelled ? '数字员工执行已取消。' : '数字员工执行失败。'),
       result: result.result ?? '',
       extra: _workerTaskExtra(result, retryable: false),
       activityKind: cancelled ? 'task_canceled' : 'task_failed',
@@ -2521,26 +2461,17 @@ class AiAgentTool extends AiTool {
     );
     if (disabled != null && !disabled.enabled) {
       return _AgentResolution.error(
-        AiToolUtils.invalidResult(
-          _name,
-          '数字员工“$identifier”已停用，请先启动。',
-        ),
+        AiToolUtils.invalidResult(_name, '数字员工“$identifier”已停用，请先启动。'),
       );
     }
     final existing = controller.findAgent(identifier, includeDisabled: true);
     if (existing != null && !accessPolicy.allows(existing)) {
       return _AgentResolution.error(
-        AiToolUtils.invalidResult(
-          _name,
-          '当前会话无法访问数字员工“$identifier”。',
-        ),
+        AiToolUtils.invalidResult(_name, '当前会话无法访问数字员工“$identifier”。'),
       );
     }
     return _AgentResolution.error(
-      AiToolUtils.invalidResult(
-        _name,
-        '未找到匹配“$identifier”的已启用数字员工。',
-      ),
+      AiToolUtils.invalidResult(_name, '未找到匹配“$identifier”的已启用数字员工。'),
     );
   }
 
@@ -2687,10 +2618,7 @@ class AiAgentTool extends AiTool {
 
   _AgentResolution _noAgentBoundCurrentToolResult() {
     return _AgentResolution.error(
-      AiToolUtils.invalidResult(
-        _name,
-        '没有已启用的数字员工绑定 $_name，请先在数字员工配置中启用该工具。',
-      ),
+      AiToolUtils.invalidResult(_name, '没有已启用的数字员工绑定 $_name，请先在数字员工配置中启用该工具。'),
     );
   }
 
@@ -3048,9 +2976,7 @@ class AiAgentTool extends AiTool {
           return '${task.id}(${task.status.storageValue})';
         })
         .join(', ');
-    return recent.isEmpty
-        ? '当前没有任务记录。'
-        : '最近任务：$recent。';
+    return recent.isEmpty ? '当前没有任务记录。' : '最近任务：$recent。';
   }
 
   AiToolExecutionResult _success(
@@ -3221,8 +3147,7 @@ class _RecoveredTask {
         'requested_task_id': requestedTaskId,
       'resolved_task_id': task.id,
       'reason': reason,
-      'message':
-          '请求的任务 ID 缺失或不存在，OpenHand 已恢复最可靠的匹配任务。',
+      'message': '请求的任务 ID 缺失或不存在，OpenHand 已恢复最可靠的匹配任务。',
     };
   }
 }
@@ -4751,8 +4676,7 @@ String _resourcePressureLevel(double pressure) {
 Map<String, Object?> _taskExtraJson(Map<String, Object?> extra) {
   return omitAgentSystemPromptMetadata(
     extra,
-    reason:
-        '除非明确需要完整提示词，否则请使用 agent_prompt_snapshot 元数据。',
+    reason: '除非明确需要完整提示词，否则请使用 agent_prompt_snapshot 元数据。',
   );
 }
 

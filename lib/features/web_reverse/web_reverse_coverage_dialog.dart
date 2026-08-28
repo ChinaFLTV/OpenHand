@@ -493,5 +493,4 @@ class _CoverageDialogState extends State<_CoverageDialog> {
       ),
     );
   }
-
 }

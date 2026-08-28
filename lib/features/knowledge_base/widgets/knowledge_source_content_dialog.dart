@@ -997,7 +997,9 @@ class _KnowledgeFindTextField extends StatelessWidget {
             horizontal: 14,
             vertical: 10,
           ),
-          border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
+          border: const OutlineInputBorder(
+            borderRadius: kOpenHandBorderRadius10,
+          ),
           enabledBorder: OutlineInputBorder(
             borderRadius: kOpenHandBorderRadius10,
             borderSide: BorderSide(

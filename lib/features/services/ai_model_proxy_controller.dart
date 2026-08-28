@@ -591,75 +591,17 @@ class AiModelProxyController extends ChangeNotifier {
     'data': buildModelsMetadata(),
   };
 
-  Future<void> recordRequest({
-    required bool success,
-    required int tokens,
-    required int durationMs,
-    String providerId = '',
-    String modelId = '',
-    String apiStyle = '',
-    String? error,
-    String clientIp = '',
-    String clientPort = '',
-    String clientUserAgent = '',
-    String clientProcessId = '',
-    String clientProcessName = '',
-    String clientServiceName = '',
-    String clientMacAddress = '',
-    String proxyMode = '',
-    String proxyEndpoint = '',
-    String remoteHost = '',
-    String remotePort = '',
-    String exposedModel = '',
-    String requestPath = '',
-    int promptTokens = 0,
-    int completionTokens = 0,
-    int inboundBytes = 0,
-    int outboundBytes = 0,
-    int statusCode = 0,
-    int attempt = 1,
-    bool stream = false,
-  }) async {
+  Future<void> recordRequest(AiModelProxyRequestRecord request) async {
     try {
       // 统计请求可能并发完成。先在内存中基于最新快照累加，再让最新任务落盘，
       // 避免 LatestTaskQueue 丢弃等待任务时覆盖前一个请求的统计。
-      final at = DateTime.now();
-      _settings = _settings.record(
-        success: success,
-        tokens: tokens,
-        durationMs: durationMs,
-        providerId: providerId,
-        modelId: modelId,
-        apiStyle: apiStyle,
-        error: error,
-        clientIp: clientIp,
-        clientPort: clientPort,
-        clientUserAgent: clientUserAgent,
-        clientProcessId: clientProcessId,
-        clientProcessName: clientProcessName,
-        clientServiceName: clientServiceName,
-        clientMacAddress: clientMacAddress,
-        proxyMode: proxyMode,
-        proxyEndpoint: proxyEndpoint,
-        remoteHost: remoteHost,
-        remotePort: remotePort,
-        exposedModel: exposedModel,
-        requestPath: requestPath,
-        promptTokens: promptTokens,
-        completionTokens: completionTokens,
-        inboundBytes: inboundBytes,
-        outboundBytes: outboundBytes,
-        statusCode: statusCode,
-        attempt: attempt,
-        stream: stream,
-        at: at,
-      );
+      _settings = _settings.record(request);
       _recordTelemetry(
-        successCount: success ? 1 : 0,
-        failureCount: success ? 0 : 1,
-        durationTotalMs: durationMs,
-        tokenCount: tokens,
-        at: at,
+        successCount: request.success ? 1 : 0,
+        failureCount: request.success ? 0 : 1,
+        durationTotalMs: request.durationMs,
+        tokenCount: request.tokens,
+        at: request.startedAt,
       );
       _notify();
       await _writes.enqueue(() => _store.save(_settings));

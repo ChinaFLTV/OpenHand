@@ -394,8 +394,9 @@ class AiKnowledgeReadTool extends AiTool {
         ? rows
         : rows
               .where(
-                (row) =>
-                    allowedSourceIds.contains(stringFromValue(row['source_id'])),
+                (row) => allowedSourceIds.contains(
+                  stringFromValue(row['source_id']),
+                ),
               )
               .toList(growable: false);
     if (allowedSourceIds != null &&

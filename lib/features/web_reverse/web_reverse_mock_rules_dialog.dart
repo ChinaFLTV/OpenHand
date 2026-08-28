@@ -220,8 +220,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                                   horizontal: 8,
                                 ),
                                 itemCount: _draft.length,
-                                separatorBuilder: (_, _) =>
-                                    kOpenHandGap4,
+                                separatorBuilder: (_, _) => kOpenHandGap4,
                                 itemBuilder: (_, i) {
                                   final r = _draft[i];
                                   final sel = i == _selected;

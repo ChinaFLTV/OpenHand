@@ -806,7 +806,7 @@ class AiSessionMessage {
 
   /// 按消息对象缓存的响应变体列表。消息不可变，一次解析终身有效。
   static final Expando<List<AiSessionMessageResponseVariant>>
-      _responseVariantsCache = Expando<List<AiSessionMessageResponseVariant>>(
+  _responseVariantsCache = Expando<List<AiSessionMessageResponseVariant>>(
     'responseVariants',
   );
 

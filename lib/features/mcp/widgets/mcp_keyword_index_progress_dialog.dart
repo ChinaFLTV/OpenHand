@@ -13,7 +13,6 @@ import '../mcp_controller.dart';
 import '../mcp_errors.dart';
 import '../service/mcp_keyword_index.dart';
 
-
 /// 「构建关键词映射」按钮触发的进度弹窗。负责：
 ///   * 调用 [McpController.buildKeywordIndex]
 ///   * 实时把 [McpKeywordIndexProgress] 渲染为线性进度条 + 当前服务名 + 计数

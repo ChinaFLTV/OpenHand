@@ -108,7 +108,9 @@ class _OperationsInsightDialog extends StatelessWidget {
         maxHeightFraction: 0.9,
         backgroundColor: colors.surface,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius16)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kOpenHandRadius16),
+        ),
         expandToMax: !adaptiveHeight,
         child: ServiceDialogInteractionTheme(
           child: Padding(
@@ -596,7 +598,9 @@ class _InsightRecordPanel extends StatelessWidget {
                           if (entry.$1 > 0)
                             Divider(
                               height: 18,
-                              color: colors.outlineVariant.withValues(alpha: 0.5),
+                              color: colors.outlineVariant.withValues(
+                                alpha: 0.5,
+                              ),
                             ),
                           _InsightRecordRow(record: entry.$2),
                         ],
@@ -768,57 +772,55 @@ class _TrendSampleTable extends StatelessWidget {
       (count, item) => item.values.length > count ? item.values.length : count,
     );
     if (maxSamples == 0) return const _InsightEmpty(label: '暂无趋势样本。');
-    final newestFirst = <int>[
-      for (var i = maxSamples - 1; i >= 0; i--) i,
-    ];
+    final newestFirst = <int>[for (var i = maxSamples - 1; i >= 0; i--) i];
     return OpenHandClientPager<int>(
       items: newestFirst,
       builder: (context, indexes) => Column(
-      children: [
-        ...indexes.map((index) {
-          final target = index < targets.length ? targets[index] : null;
-          return ServiceInteractiveSurface(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            tooltip: target == null ? null : '查看样本详情',
-            onTap: target == null
-                ? null
-                : () => _openInsightTarget(context, target),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 116,
-                  child: Text(
-                    index < sampleLabels.length
-                        ? sampleLabels[index]
-                        : '样本 ${index + 1}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelMedium,
+        children: [
+          ...indexes.map((index) {
+            final target = index < targets.length ? targets[index] : null;
+            return ServiceInteractiveSurface(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              tooltip: target == null ? null : '查看样本详情',
+              onTap: target == null
+                  ? null
+                  : () => _openInsightTarget(context, target),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 116,
+                    child: Text(
+                      index < sampleLabels.length
+                          ? sampleLabels[index]
+                          : '样本 ${index + 1}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
                   ),
-                ),
-                kOpenHandHGap8,
-                Expanded(
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 6,
-                    alignment: WrapAlignment.end,
-                    children: series
-                        .map(
-                          (item) => _StatusPill(
-                            icon: Icons.circle,
-                            label:
-                                '${item.label} ${index < item.values.length ? _formatChartValue(item.values[index]) : '--'}$suffix',
-                            color: item.color,
-                          ),
-                        )
-                        .toList(growable: false),
+                  kOpenHandHGap8,
+                  Expanded(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      alignment: WrapAlignment.end,
+                      children: series
+                          .map(
+                            (item) => _StatusPill(
+                              icon: Icons.circle,
+                              label:
+                                  '${item.label} ${index < item.values.length ? _formatChartValue(item.values[index]) : '--'}$suffix',
+                              color: item.color,
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
+                ],
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
@@ -987,7 +989,7 @@ class _InsightDonutSectionState extends State<_InsightDonutSection> {
           return Row(
             children: [
               donut,
-               kOpenHandWidth22,
+              kOpenHandWidth22,
               Expanded(child: rows),
             ],
           );
@@ -1214,110 +1216,112 @@ class _InsightRankingSectionState extends State<_InsightRankingSection> {
                 child: Column(
                   children: shown.indexed
                       .map((entry) {
-                      final item = entry.$2;
-                      final actionable =
-                          item.value > 0 &&
-                          (item.target != null || widget.detailBuilder != null);
-                      return Opacity(
-                        opacity: item.value > 0 ? 1 : 0.52,
-                        child: ServiceInteractiveSurface(
-                          margin: const EdgeInsets.symmetric(vertical: 2),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 7,
-                          ),
-                          reserveDetailsIconSpace: actionable,
-                          detailsIconColor: item.color,
-                          tooltip: !actionable
-                              ? null
-                              : item.target != null
-                              ? '查看排行详情'
-                              : widget.detailBuilder != null && item.value > 0
-                              ? '筛选${item.label}记录'
-                              : null,
-                          onTap: !actionable
-                              ? null
-                              : item.target != null
-                              ? () => _openInsightTarget(context, item.target!)
-                              : () => setState(
-                                  () => _selectedKey = item.key ?? item.label,
+                        final item = entry.$2;
+                        final actionable =
+                            item.value > 0 &&
+                            (item.target != null ||
+                                widget.detailBuilder != null);
+                        return Opacity(
+                          opacity: item.value > 0 ? 1 : 0.52,
+                          child: ServiceInteractiveSurface(
+                            margin: const EdgeInsets.symmetric(vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 7,
+                            ),
+                            reserveDetailsIconSpace: actionable,
+                            detailsIconColor: item.color,
+                            tooltip: !actionable
+                                ? null
+                                : item.target != null
+                                ? '查看排行详情'
+                                : widget.detailBuilder != null && item.value > 0
+                                ? '筛选${item.label}记录'
+                                : null,
+                            onTap: !actionable
+                                ? null
+                                : item.target != null
+                                ? () =>
+                                      _openInsightTarget(context, item.target!)
+                                : () => setState(
+                                    () => _selectedKey = item.key ?? item.label,
+                                  ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 28,
+                                      child: Text(
+                                        '${entry.$1 + 1}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelLarge
+                                            ?.copyWith(
+                                              color: item.color,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        item.label,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .labelLarge
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                      ),
+                                    ),
+                                    kOpenHandHGap12,
+                                    Text(
+                                      item.value <= 0 ? '无记录' : item.valueLabel,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.labelLarge,
+                                    ),
+                                  ],
                                 ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Row(
-                                children: [
-                                  SizedBox(
-                                    width: 28,
-                                    child: Text(
-                                      '${entry.$1 + 1}',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .labelLarge
-                                          ?.copyWith(
-                                            color: item.color,
-                                            fontWeight: FontWeight.w900,
-                                          ),
+                                kOpenHandGap7,
+                                ClipRRect(
+                                  borderRadius: kOpenHandPillBorderRadius,
+                                  child: ServiceAnimatedProgressBar(
+                                    value: maxValue <= 0
+                                        ? 0
+                                        : item.value / maxValue,
+                                    minHeight: 9,
+                                    color: item.color,
+                                    backgroundColor: item.color.withValues(
+                                      alpha: 0.1,
                                     ),
                                   ),
-                                  Expanded(
-                                    child: Text(
-                                      item.label,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .labelLarge
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                    ),
-                                  ),
-                                  kOpenHandHGap12,
+                                ),
+                                if (item.helper.isNotEmpty) ...[
+                                  kOpenHandGap5,
                                   Text(
-                                    item.value <= 0 ? '无记录' : item.valueLabel,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.labelLarge,
+                                    item.helper,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                        ),
                                   ),
                                 ],
-                              ),
-                              kOpenHandGap7,
-                              ClipRRect(
-                                borderRadius: kOpenHandPillBorderRadius,
-                                child: ServiceAnimatedProgressBar(
-                                  value: maxValue <= 0
-                                      ? 0
-                                      : item.value / maxValue,
-                                  minHeight: 9,
-                                  color: item.color,
-                                  backgroundColor: item.color.withValues(
-                                    alpha: 0.1,
-                                  ),
-                                ),
-                              ),
-                              if (item.helper.isNotEmpty) ...[
-                                kOpenHandGap5,
-                                Text(
-                                  item.helper,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.onSurfaceVariant,
-                                      ),
-                                ),
                               ],
-                            ],
+                            ),
                           ),
-                        ),
-                      );
-                    })
-                    .toList(growable: false),
+                        );
+                      })
+                      .toList(growable: false),
+                ),
               ),
-            ),
             ),
     );
     return Column(
@@ -1382,96 +1386,105 @@ class _InsightMatrixSection extends StatelessWidget {
           : OpenHandClientPager<_InsightMatrixRow>(
               items: rows,
               builder: (context, shown) => _InsightListViewport(
-              child: Column(
-                children: [
-                  ...shown.indexed.map(
-                    (entry) => Column(
-                      children: [
-                        if (entry.$1 > 0)
-                          Divider(
-                            height: 18,
-                            color: colors.outlineVariant.withValues(alpha: 0.5),
-                          ),
-                        ServiceInteractiveSurface(
-                          padding: const EdgeInsets.all(4),
-                          tooltip: entry.$2.target == null ? null : '查看矩阵记录详情',
-                          onTap: entry.$2.target == null
-                              ? null
-                              : () => _openInsightTarget(
-                                  context,
-                                  entry.$2.target!,
-                                ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 38,
-                                height: 38,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: entry.$2.color.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(kOpenHandRadius8),
-                                ),
-                                child: Icon(
-                                  entry.$2.icon,
-                                  size: 19,
-                                  color: entry.$2.color,
-                                ),
+                child: Column(
+                  children: [
+                    ...shown.indexed.map(
+                      (entry) => Column(
+                        children: [
+                          if (entry.$1 > 0)
+                            Divider(
+                              height: 18,
+                              color: colors.outlineVariant.withValues(
+                                alpha: 0.5,
                               ),
-                              kOpenHandHGap11,
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      entry.$2.title,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .labelLarge
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w800,
-                                          ),
+                            ),
+                          ServiceInteractiveSurface(
+                            padding: const EdgeInsets.all(4),
+                            tooltip: entry.$2.target == null
+                                ? null
+                                : '查看矩阵记录详情',
+                            onTap: entry.$2.target == null
+                                ? null
+                                : () => _openInsightTarget(
+                                    context,
+                                    entry.$2.target!,
+                                  ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 38,
+                                  height: 38,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: entry.$2.color.withValues(
+                                      alpha: 0.1,
                                     ),
-                                    if (entry.$2.subtitle.isNotEmpty) ...[
-                                      kOpenHandGap3,
+                                    borderRadius: BorderRadius.circular(
+                                      kOpenHandRadius8,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    entry.$2.icon,
+                                    size: 19,
+                                    color: entry.$2.color,
+                                  ),
+                                ),
+                                kOpenHandHGap11,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
                                       Text(
-                                        entry.$2.subtitle,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
+                                        entry.$2.title,
                                         style: Theme.of(context)
                                             .textTheme
-                                            .bodySmall
+                                            .labelLarge
                                             ?.copyWith(
-                                              color: colors.onSurfaceVariant,
+                                              fontWeight: FontWeight.w800,
                                             ),
                                       ),
+                                      if (entry.$2.subtitle.isNotEmpty) ...[
+                                        kOpenHandGap3,
+                                        Text(
+                                          entry.$2.subtitle,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: colors.onSurfaceVariant,
+                                              ),
+                                        ),
+                                      ],
+                                      kOpenHandGap7,
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        children: entry.$2.cells
+                                            .map(
+                                              (cell) => _StatusPill(
+                                                icon: Icons.circle,
+                                                label: cell.label,
+                                                color: cell.color,
+                                              ),
+                                            )
+                                            .toList(growable: false),
+                                      ),
                                     ],
-                                    kOpenHandGap7,
-                                    Wrap(
-                                      spacing: 6,
-                                      runSpacing: 6,
-                                      children: entry.$2.cells
-                                          .map(
-                                            (cell) => _StatusPill(
-                                              icon: Icons.circle,
-                                              label: cell.label,
-                                              color: cell.color,
-                                            ),
-                                          )
-                                          .toList(growable: false),
-                                    ),
-                                  ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
             ),
     );
   }
@@ -1519,106 +1532,109 @@ class _InsightTimelineSection extends StatelessWidget {
           : OpenHandClientPager<_InsightTimelineEntry>(
               items: entries,
               builder: (context, shown) => _InsightListViewport(
-              child: Column(
-                children: [
-                  ...shown.indexed.map((entry) {
-                    final item = entry.$2;
-                    return ServiceInteractiveSurface(
-                      padding: const EdgeInsets.all(4),
-                      margin: const EdgeInsets.only(bottom: 4),
-                      tooltip: item.target == null ? null : '查看时间线详情',
-                      onTap: item.target == null
-                          ? null
-                          : () => _openInsightTarget(context, item.target!),
-                      child: IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            SizedBox(
-                              width: 76,
-                              child: Text(
-                                _shortDateTime(item.at),
-                                maxLines: 2,
-                                style: Theme.of(context).textTheme.labelSmall
-                                    ?.copyWith(color: colors.onSurfaceVariant),
-                              ),
-                            ),
-                            SizedBox(
-                              width: 18,
-                              child: Column(
-                                children: [
-                                  Container(
-                                    width: 10,
-                                    height: 10,
-                                    decoration: BoxDecoration(
-                                      color: item.color,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  if (entry.$1 < shown.length - 1)
-                                    Expanded(
-                                      child: Container(
-                                        width: 2,
-                                        color: colors.outlineVariant,
+                child: Column(
+                  children: [
+                    ...shown.indexed.map((entry) {
+                      final item = entry.$2;
+                      return ServiceInteractiveSurface(
+                        padding: const EdgeInsets.all(4),
+                        margin: const EdgeInsets.only(bottom: 4),
+                        tooltip: item.target == null ? null : '查看时间线详情',
+                        onTap: item.target == null
+                            ? null
+                            : () => _openInsightTarget(context, item.target!),
+                        child: IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              SizedBox(
+                                width: 76,
+                                child: Text(
+                                  _shortDateTime(item.at),
+                                  maxLines: 2,
+                                  style: Theme.of(context).textTheme.labelSmall
+                                      ?.copyWith(
+                                        color: colors.onSurfaceVariant,
                                       ),
-                                    ),
-                                ],
+                                ),
                               ),
-                            ),
-                            kOpenHandHGap8,
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.only(bottom: 14),
+                              SizedBox(
+                                width: 18,
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            item.title,
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .labelLarge
-                                                ?.copyWith(
-                                                  fontWeight: FontWeight.w800,
-                                                ),
-                                          ),
-                                        ),
-                                        if (item.tag.isNotEmpty) ...[
-                                          kOpenHandHGap8,
-                                          _InsightMiniTag(label: item.tag),
-                                        ],
-                                      ],
-                                    ),
-                                    if (item.detail.isNotEmpty) ...[
-                                      kOpenHandGap4,
-                                      Text(
-                                        item.detail,
-                                        maxLines: 3,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: colors.onSurfaceVariant,
-                                            ),
+                                    Container(
+                                      width: 10,
+                                      height: 10,
+                                      decoration: BoxDecoration(
+                                        color: item.color,
+                                        shape: BoxShape.circle,
                                       ),
-                                    ],
+                                    ),
+                                    if (entry.$1 < shown.length - 1)
+                                      Expanded(
+                                        child: Container(
+                                          width: 2,
+                                          color: colors.outlineVariant,
+                                        ),
+                                      ),
                                   ],
                                 ),
                               ),
-                            ),
-                          ],
+                              kOpenHandHGap8,
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(bottom: 14),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              item.title,
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .labelLarge
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.w800,
+                                                  ),
+                                            ),
+                                          ),
+                                          if (item.tag.isNotEmpty) ...[
+                                            kOpenHandHGap8,
+                                            _InsightMiniTag(label: item.tag),
+                                          ],
+                                        ],
+                                      ),
+                                      if (item.detail.isNotEmpty) ...[
+                                        kOpenHandGap4,
+                                        Text(
+                                          item.detail,
+                                          maxLines: 3,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: colors.onSurfaceVariant,
+                                              ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  }),
-                ],
+                      );
+                    }),
+                  ],
+                ),
               ),
-            ),
             ),
     );
   }

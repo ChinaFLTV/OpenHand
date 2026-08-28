@@ -33,9 +33,7 @@ const Map<int, String> _kGrpcCodeNames = <int, String>{
 
 /// 匹配 gRPC 风格错误体的 code，兼容合法 JSON 与 Dart/Go `toString()` 形态
 /// （键名无引号）。捕获组 1 = code。
-final RegExp _kGrpcCodeFieldPattern = RegExp(
-  r'"?code"?\s*:\s*(\d+)\b',
-);
+final RegExp _kGrpcCodeFieldPattern = RegExp(r'"?code"?\s*:\s*(\d+)\b');
 
 /// 匹配 gRPC message 字段值：优先带引号字符串，否则取到逗号/大括号前的 token。
 /// 捕获组 1 = 带引号内容，组 2 = 不带引号 token。

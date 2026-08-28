@@ -619,7 +619,9 @@ class FileVersionInfo {
       filePath: nullIfBlank(json['file_path']?.toString()) ?? '',
       sessionId: nullIfBlank(json['session_id']?.toString()) ?? '',
       createdAt: dateTimeFromValue(json['created_at']) ?? DateTime.now(),
-      toolCallId: nullIfBlank(json[aiSessionMessageToolCallIdMetadataKey]?.toString()),
+      toolCallId: nullIfBlank(
+        json[aiSessionMessageToolCallIdMetadataKey]?.toString(),
+      ),
       fileSizeBytes: optionalNonNegativeIntFromValue(json['file_size_bytes']),
     );
   }

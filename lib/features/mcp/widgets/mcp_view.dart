@@ -39,6 +39,7 @@ import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_live_value.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
+import '../../../shared/ui/openhand_ops_panel.dart';
 import '../../../shared/ui/openhand_ops_press_scale.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
@@ -2346,14 +2347,10 @@ const Duration _mcpOpsEndpointDiscoveryDebounce = Duration(milliseconds: 320);
 const Color _mcpOpsTerminalBackground = Color(0xFF0B0D10);
 const Color _mcpOpsTerminalSurface = OpenHandConsolePalette.terminalSurface;
 
-/// 运维面板外层卡片的统一表面：半透明底 + 细描边。
-///
-/// 与 [_mcpOpsPanelDecoration] 的区别：那个是卡片**内部**信息块的底色，
-/// 这个是卡片本身。两者取值不同，不可互换。
-BoxDecoration _mcpOpsCardDecoration(ColorScheme cs) => BoxDecoration(
-  color: cs.surfaceContainerLow.withValues(alpha: 0.84),
+BoxDecoration _mcpOpsAuditRowDecoration(ColorScheme colors) => BoxDecoration(
+  color: colors.surfaceContainerLow.withValues(alpha: 0.84),
   borderRadius: BorderRadius.circular(_mcpOpsPanelRadius),
-  border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.62)),
+  border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.62)),
 );
 
 const List<String> _mcpOpsSchemaEditableTypes = <String>[
@@ -5994,85 +5991,21 @@ class _McpOpsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final subtitleText = subtitle?.trim();
-    final panel = AnimatedContainer(
-      duration: openHandMotionDuration(context, kOpenHandMotion180),
-      curve: kOpenHandSwitchInCurve,
-      decoration: _mcpOpsCardDecoration(cs),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: cs.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(kOpenHandRadius11),
-                    border: Border.all(
-                      color: cs.primary.withValues(alpha: 0.24),
-                    ),
-                  ),
-                  child: Icon(icon, color: cs.primary, size: 19),
-                ),
-                kOpenHandHGap11,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _McpOpsCopyText(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      if (subtitleText != null && subtitleText.isNotEmpty) ...[
-                        kOpenHandGap3,
-                        OpenHandLiveValue(
-                          subtitleText,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                            height: 1.3,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                if (trailing != null) ...[kOpenHandHGap8, trailing!],
-                if (trailing == null && onTap != null) ...[
-                  kOpenHandHGap8,
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 20,
-                    color: cs.primary.withValues(alpha: 0.7),
-                  ),
-                ],
-              ],
-            ),
-            kOpenHandGap14,
-            child,
-          ],
+    return OpenHandOperationsPanel(
+      icon: icon,
+      radius: _mcpOpsPanelRadius,
+      subtitle: subtitle,
+      trailing: trailing,
+      onTap: onTap,
+      title: _McpOpsCopyText(
+        title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w900,
         ),
       ),
-    );
-    if (onTap == null) return panel;
-    return OpenHandOpsPressScale(
-      onTap: onTap,
-      radius: _mcpOpsPanelRadius,
-      tone: cs.primary,
-      child: panel,
+      child: child,
     );
   }
 }
@@ -7980,8 +7913,7 @@ class _McpOpsSchemaCodeView extends StatelessWidget {
 
 /// A single audit log entry rendered as a fully-clickable, structured card:
 /// a status accent rail, a stage badge, a title + stage/status header, and a
-/// compact metadata strip. Tapping anywhere (or the trailing button) opens the
-/// detail dialog.
+/// 紧凑审计记录行；点击内容或尾部按钮均打开详情弹窗。
 class _McpOpsAuditRow extends StatelessWidget {
   const _McpOpsAuditRow({required this.entry, required this.onDetails});
 
@@ -8005,7 +7937,7 @@ class _McpOpsAuditRow extends StatelessWidget {
           child: AnimatedContainer(
             duration: openHandMotionDuration(context, kOpenHandMotion180),
             curve: kOpenHandSwitchInCurve,
-            decoration: _mcpOpsCardDecoration(cs),
+            decoration: _mcpOpsAuditRowDecoration(cs),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(_mcpOpsPanelRadius),
               child: IntrinsicHeight(
@@ -17462,40 +17394,12 @@ class _McpOpsTrendDetailPanel extends StatelessWidget {
       icon: icon,
       title: title,
       subtitle: subtitle,
-      child: OpenHandTrendZoomRegion(
-        itemCount: series.fold<int>(
-          minutes.length,
-          (count, item) => math.max(count, item.values.length),
-        ),
+      child: OpenHandOperationalTrendDetail(
+        title: title,
+        series: series,
         sampleTimes: minutes,
-        semanticLabel: '$title，支持双指缩放',
-        builder: (context, viewport) {
-          final visibleSeries = viewport.sliceSeries(series);
-          final labels = [
-            for (final minute in viewport.slice(minutes))
-              formatHourMinuteLocal(minute),
-          ];
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              OpenHandOperationalTrendChart(
-                series: visibleSeries,
-                valueSuffix: valueSuffix,
-                xLabels: labels,
-                emptyLabel: emptyLabel,
-                area: true,
-                showLegend: false,
-                externalLegendProvided: true,
-                onSelectionChanged: null,
-              ),
-              OpenHandOperationalTrendLanes(
-                series: visibleSeries,
-                xLabels: labels,
-                valueSuffix: valueSuffix,
-              ),
-            ],
-          );
-        },
+        emptyLabel: emptyLabel,
+        valueSuffix: valueSuffix,
       ),
     );
   }

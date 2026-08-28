@@ -436,7 +436,9 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                     child: pending
                         ? DecoratedBox(
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(kOpenHandRadius2),
+                              borderRadius: BorderRadius.circular(
+                                kOpenHandRadius2,
+                              ),
                               border: Border.all(color: cs.outlineVariant),
                             ),
                           )
@@ -448,7 +450,9 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                                   color: cs.primary.withValues(alpha: 0.7),
                                   borderRadius: const BorderRadius.only(
                                     topLeft: Radius.circular(kOpenHandRadius2),
-                                    bottomLeft: Radius.circular(kOpenHandRadius2),
+                                    bottomLeft: Radius.circular(
+                                      kOpenHandRadius2,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -458,7 +462,9 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                                   color: cs.tertiary.withValues(alpha: 0.85),
                                   borderRadius: const BorderRadius.only(
                                     topRight: Radius.circular(kOpenHandRadius2),
-                                    bottomRight: Radius.circular(kOpenHandRadius2),
+                                    bottomRight: Radius.circular(
+                                      kOpenHandRadius2,
+                                    ),
                                   ),
                                 ),
                               ),

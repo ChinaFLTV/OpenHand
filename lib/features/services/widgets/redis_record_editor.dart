@@ -525,9 +525,7 @@ class _RedisRecordEditorState extends State<RedisRecordEditor> {
                 _RedisPairDraft(first: '$item', second: '${value[++index]}'),
               );
             } else {
-              throw const FormatException(
-                'ZSet 扁平列表长度为奇数，最后一个元素缺少对应分数',
-              );
+              throw const FormatException('ZSet 扁平列表长度为奇数，最后一个元素缺少对应分数');
             }
           }
         }

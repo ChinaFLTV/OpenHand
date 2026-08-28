@@ -139,7 +139,7 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
                         )
                         .toList(),
                   ),
-                   kOpenHandGap22,
+                  kOpenHandGap22,
                   Text(
                     loc?.webReverseCpuThrottleSliderLabel(
                           _rate.toStringAsFixed(1),

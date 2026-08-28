@@ -152,10 +152,7 @@ class FeatureStateCard extends StatelessWidget {
             Expanded(child: textArea)
           else
             Flexible(child: textArea),
-          if (trailingActions != null) ...[
-            kOpenHandHGap12,
-            trailingActions,
-          ],
+          if (trailingActions != null) ...[kOpenHandHGap12, trailingActions],
         ],
       ),
     );

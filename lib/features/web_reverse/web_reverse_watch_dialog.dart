@@ -349,8 +349,7 @@ class _WatchDialogState extends State<_WatchDialog> {
                             : ListView.separated(
                                 padding: const EdgeInsets.all(8),
                                 itemCount: _exprs.length,
-                                separatorBuilder: (_, _) =>
-                                    kOpenHandGap4,
+                                separatorBuilder: (_, _) => kOpenHandGap4,
                                 itemBuilder: (_, i) {
                                   final e = _exprs[i];
                                   final sel = i == _selected;

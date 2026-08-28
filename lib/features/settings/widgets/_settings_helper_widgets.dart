@@ -1,5 +1,36 @@
 part of 'settings_view.dart';
 
+mixin _SettingsModelSearchState<T extends StatefulWidget> on State<T> {
+  bool _modelSearchVisible = false;
+  final TextEditingController _modelSearchController = TextEditingController();
+  final FocusNode _modelSearchFocusNode = FocusNode();
+
+  void _toggleModelSearch() {
+    HapticFeedback.selectionClick();
+    final nextVisible = !_modelSearchVisible;
+    setState(() {
+      _modelSearchVisible = nextVisible;
+      if (!nextVisible) _modelSearchController.clear();
+    });
+    if (!nextVisible) {
+      _modelSearchFocusNode.unfocus();
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _modelSearchVisible) {
+        _modelSearchFocusNode.requestFocus();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _modelSearchController.dispose();
+    _modelSearchFocusNode.dispose();
+    super.dispose();
+  }
+}
+
 const int _aiModelChipPreviewLimit = 8;
 const double _aiModelSearchClearActionSize = 36;
 const String _settingsZeroDurationLabel = '0s';
@@ -5396,11 +5427,9 @@ class _AiModelTile extends StatefulWidget {
   State<_AiModelTile> createState() => _AiModelTileState();
 }
 
-class _AiModelTileState extends State<_AiModelTile> {
+class _AiModelTileState extends State<_AiModelTile>
+    with _SettingsModelSearchState<_AiModelTile> {
   bool _modelChipsExpanded = false;
-  bool _modelSearchVisible = false;
-  final TextEditingController _modelSearchController = TextEditingController();
-  final FocusNode _modelSearchFocusNode = FocusNode();
   final Set<String> _healthCheckingModelIds = <String>{};
 
   /// APP 运行期间稳定的胶囊排序。冷启动后第一次构建本卡片
@@ -5446,37 +5475,10 @@ class _AiModelTileState extends State<_AiModelTile> {
     }
   }
 
-  @override
-  void dispose() {
-    _modelSearchController.dispose();
-    _modelSearchFocusNode.dispose();
-    super.dispose();
-  }
-
   void _toggleModelChipsExpanded() {
     HapticFeedback.selectionClick();
     setState(() {
       _modelChipsExpanded = !_modelChipsExpanded;
-    });
-  }
-
-  void _toggleModelSearch() {
-    HapticFeedback.selectionClick();
-    final nextVisible = !_modelSearchVisible;
-    setState(() {
-      _modelSearchVisible = nextVisible;
-      if (!nextVisible) {
-        _modelSearchController.clear();
-      }
-    });
-    if (!nextVisible) {
-      _modelSearchFocusNode.unfocus();
-      return;
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _modelSearchVisible) {
-        _modelSearchFocusNode.requestFocus();
-      }
     });
   }
 

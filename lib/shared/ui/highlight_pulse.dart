@@ -44,10 +44,7 @@ class _HighlightPulseState extends State<HighlightPulse>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: kOpenHandMotion660,
-    );
+    _ctrl = AnimationController(vsync: this, duration: kOpenHandMotion660);
     _lastSeen = widget.signal.value;
     widget.signal.addListener(_onSignal);
   }

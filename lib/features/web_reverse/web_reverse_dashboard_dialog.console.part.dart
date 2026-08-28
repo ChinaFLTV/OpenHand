@@ -357,7 +357,9 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
           ),
         ),
       ],
-      shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius12),
+      shape: const RoundedRectangleBorder(
+        borderRadius: kOpenHandBorderRadius12,
+      ),
     );
     if (!mounted || selected == null) return;
     switch (selected) {

@@ -132,8 +132,7 @@ class _KnowledgeIndexingProgressDialog extends StatelessWidget {
               final progress = controller.progress;
               final cancelling = controller.cancelToken.isCancelled;
               return AnimatedSize(
-                duration: openHandMotionDuration(context, kOpenHandMotion220,
-                ),
+                duration: openHandMotionDuration(context, kOpenHandMotion220),
                 curve: kOpenHandSwitchInCurve,
                 alignment: Alignment.topCenter,
                 child: Column(
@@ -317,10 +316,7 @@ class _KnowledgeIndexingProgressBarState
     }
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: _begin, end: _end),
-      duration: openHandMotionDuration(
-        context,
-        kOpenHandMotion380,
-      ),
+      duration: openHandMotionDuration(context, kOpenHandMotion380),
       curve: kOpenHandSwitchInCurve,
       builder: (context, value, _) {
         return LinearProgressIndicator(minHeight: 9, value: value);

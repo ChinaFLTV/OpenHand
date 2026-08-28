@@ -1809,19 +1809,15 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
     final programmaticScroll = _isProgrammaticFeedScrollInProgress();
     final recentPointerSignalScroll =
         _hasRecentFeedPointerSignalScrollActivity();
-    final explicitUserScroll = isExplicitUserScrollNotification(
+    final activity = classifyAutoFollowScrollActivity(
       notification,
       programmaticScroll: programmaticScroll,
+      recentPointerSignalScroll: recentPointerSignalScroll,
     );
-    final userScrollEnded = isUserScrollEndNotification(notification);
-    final implicitPointerSignalScroll =
-        isImplicitPointerSignalScrollNotification(
-          notification,
-          programmaticScroll: programmaticScroll,
-          recentPointerSignalScroll: recentPointerSignalScroll,
-        );
-    final userScrollActivity =
-        explicitUserScroll || implicitPointerSignalScroll;
+    final explicitUserScroll = activity.explicitUserScroll;
+    final userScrollEnded = activity.userScrollEnded;
+    final implicitPointerSignalScroll = activity.implicitPointerSignalScroll;
+    final userScrollActivity = activity.userScrollActive;
 
     if (userScrollActivity) {
       _markUserFeedScrollInProgress();

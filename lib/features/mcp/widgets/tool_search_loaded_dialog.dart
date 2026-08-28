@@ -484,7 +484,9 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       verticalMargin: 40,
       safeAreaMinimum: const EdgeInsets.all(12),
       backgroundColor: colorScheme.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius20)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kOpenHandRadius20),
+      ),
       expandToMax: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -704,7 +706,9 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                   onPressed: onClear,
                 ),
           suffixIconConstraints: const BoxConstraints(minWidth: 42),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(kOpenHandRadius14)),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(kOpenHandRadius14),
+          ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(kOpenHandRadius14),
             borderSide: BorderSide(
@@ -1292,7 +1296,9 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                   },
                   icon: AnimatedRotation(
                     turns: expanded ? 0.5 : 0,
-                    duration: openHandMotionDuration(context, kOpenHandMotion180,
+                    duration: openHandMotionDuration(
+                      context,
+                      kOpenHandMotion180,
                     ),
                     curve: kOpenHandSwitchInCurve,
                     child: const Icon(Icons.expand_more_rounded, size: 19),

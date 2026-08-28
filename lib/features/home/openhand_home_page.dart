@@ -2630,17 +2630,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final explicitUserScrollStart =
         notification is ScrollStartNotification &&
         notification.dragDetails != null;
-    final explicitUserScroll = isExplicitUserScrollNotification(
+    final activity = classifyAutoFollowScrollActivity(
       notification,
       programmaticScroll: programmaticScroll,
+      recentPointerSignalScroll: recentPointerSignalScroll,
     );
-    final userScrollEnded = isUserScrollEndNotification(notification);
-    final implicitPointerSignalScroll =
-        isImplicitPointerSignalScrollNotification(
-          notification,
-          programmaticScroll: programmaticScroll,
-          recentPointerSignalScroll: recentPointerSignalScroll,
-        );
+    final explicitUserScroll = activity.explicitUserScroll;
+    final userScrollEnded = activity.userScrollEnded;
+    final implicitPointerSignalScroll = activity.implicitPointerSignalScroll;
     // WebView / 桌面平台视图有时吞掉 PointerSignal，导致
     // recentPointerSignalScroll 与 dragDetails 都缺失；但外层 ScrollPosition
     // 仍处于 scrolling，且 ScrollUpdateNotification 携带了非零 delta。

@@ -184,8 +184,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                         : ListView.separated(
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             itemCount: entries.length,
-                            separatorBuilder: (_, _) =>
-                                kOpenHandGap2,
+                            separatorBuilder: (_, _) => kOpenHandGap2,
                             itemBuilder: (_, i) {
                               final e = entries[i];
                               final isSel = e.requestId == _selectedReqId;
@@ -381,10 +380,7 @@ class _ConnTile extends StatelessWidget {
       borderRadius: kOpenHandBorderRadius10,
       onTap: onTap,
       child: AnimatedContainer(
-        duration: openHandMotionDuration(
-          context,
-          kOpenHandMotion160,
-        ),
+        duration: openHandMotionDuration(context, kOpenHandMotion160),
         curve: kOpenHandSwitchInCurve,
         margin: const EdgeInsets.symmetric(horizontal: 6),
         padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),

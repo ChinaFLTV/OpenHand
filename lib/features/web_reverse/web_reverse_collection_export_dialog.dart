@@ -157,7 +157,8 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
           if (e.requestPostData != null)
             'body': <String, Object?>{
               'mimeType':
-                  e.requestHeaders[kContentTypeHeaderName] ?? kApplicationJsonMimeType,
+                  e.requestHeaders[kContentTypeHeaderName] ??
+                  kApplicationJsonMimeType,
               'text': e.requestPostData,
             },
         };
@@ -243,7 +244,8 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
           if (e.requestPostData != null)
             'postData': <String, Object?>{
               'mimeType':
-                  e.requestHeaders[kContentTypeHeaderName] ?? kApplicationJsonMimeType,
+                  e.requestHeaders[kContentTypeHeaderName] ??
+                  kApplicationJsonMimeType,
               'text': e.requestPostData,
             },
           'headersSize': -1,
@@ -283,7 +285,6 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
       },
     });
   }
-
 
   String _escSingle(String s) => s.replaceAll("'", r"'\''");
 

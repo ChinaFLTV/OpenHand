@@ -1,6 +1,5 @@
 import '../../../../shared/util/text_normalization.dart';
 
-
 /// Shared Plan-mode tool gate rules.
 ///
 /// The controller filters the runtime catalog with these rules; prompt builders

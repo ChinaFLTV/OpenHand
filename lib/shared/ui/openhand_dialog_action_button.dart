@@ -98,7 +98,7 @@ class OpenHandDialogSaveActions extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         OpenHandDialogBusyBar(busy: busy),
-         kOpenHandGap22,
+        kOpenHandGap22,
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

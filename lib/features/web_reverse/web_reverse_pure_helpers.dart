@@ -396,13 +396,22 @@ List<Map<String, Object?>> compactWebReverseCookies(
     if (domain.isEmpty || path.isEmpty) continue;
     final value = _boundedWebReverseText(raw['value'], maxValueChars);
     final sameSite = raw['sameSite'] is String
-        ? _boundedWebReverseText(raw['sameSite'], kWebReverseMaxCookieEnumFieldChars)
+        ? _boundedWebReverseText(
+            raw['sameSite'],
+            kWebReverseMaxCookieEnumFieldChars,
+          )
         : '';
     final priority = raw['priority'] is String
-        ? _boundedWebReverseText(raw['priority'], kWebReverseMaxCookieEnumFieldChars)
+        ? _boundedWebReverseText(
+            raw['priority'],
+            kWebReverseMaxCookieEnumFieldChars,
+          )
         : '';
     final sourceScheme = raw['sourceScheme'] is String
-        ? _boundedWebReverseText(raw['sourceScheme'], kWebReverseMaxCookieEnumFieldChars)
+        ? _boundedWebReverseText(
+            raw['sourceScheme'],
+            kWebReverseMaxCookieEnumFieldChars,
+          )
         : '';
     final partitionKey = _compactWebReverseCookiePartitionKey(
       raw['partitionKey'],
@@ -556,16 +565,25 @@ Map<String, Object?>? _compactIndexedDbRemoteObject(
 }) {
   if (raw is! Map) return null;
   if (raw['type'] is! String) return null;
-  final type = _boundedWebReverseText(raw['type'], kWebReverseMaxRemoteObjectTypeChars);
+  final type = _boundedWebReverseText(
+    raw['type'],
+    kWebReverseMaxRemoteObjectTypeChars,
+  );
   if (type.isEmpty) return null;
   final value = raw['value'];
   if (identity && value is String && value.length > maxTextChars) return null;
   final compact = <String, Object?>{
     'type': type,
     if (raw['subtype'] is String)
-      'subtype': _boundedWebReverseText(raw['subtype'], kWebReverseMaxRemoteObjectSubtypeChars),
+      'subtype': _boundedWebReverseText(
+        raw['subtype'],
+        kWebReverseMaxRemoteObjectSubtypeChars,
+      ),
     if (raw['className'] is String)
-      'className': _boundedWebReverseText(raw['className'], kWebReverseMaxRemoteObjectClassNameChars),
+      'className': _boundedWebReverseText(
+        raw['className'],
+        kWebReverseMaxRemoteObjectClassNameChars,
+      ),
     if (value is String)
       'value': _boundedWebReverseText(value, maxTextChars)
     else if (value is num || value is bool || value == null)
@@ -787,7 +805,11 @@ Map<String, Object?>? _compactWebReverseRemoteObject(
   required int maxTextChars,
 }) {
   if (raw is! Map || raw['type'] is! String) return null;
-  final type = _boundedWebReverseText(raw['type'], kWebReverseMaxRemoteObjectTypeChars, trim: true);
+  final type = _boundedWebReverseText(
+    raw['type'],
+    kWebReverseMaxRemoteObjectTypeChars,
+    trim: true,
+  );
   if (type.isEmpty) return null;
   final compact = <String, Object?>{'type': type};
   for (final key in const <String>['subtype', 'className', 'description']) {
@@ -797,11 +819,14 @@ Map<String, Object?>? _compactWebReverseRemoteObject(
     }
   }
   final objectId = raw['objectId'];
-  if (objectId is String && objectId.isNotEmpty && objectId.length <= kWebReverseMaxRemoteObjectIdChars) {
+  if (objectId is String &&
+      objectId.isNotEmpty &&
+      objectId.length <= kWebReverseMaxRemoteObjectIdChars) {
     compact['objectId'] = objectId;
   }
   final unserializable = raw['unserializableValue'];
-  if (unserializable is String && unserializable.length <= kWebReverseMaxRemoteObjectIdChars) {
+  if (unserializable is String &&
+      unserializable.length <= kWebReverseMaxRemoteObjectIdChars) {
     compact['unserializableValue'] = unserializable;
   }
   final value = raw['value'];
@@ -826,7 +851,10 @@ List<Map<String, Object?>> compactWebReverseRuntimeProperties(
   for (final raw in rawProperties) {
     if (inspected++ >= maxEntries * 4 || result.length >= maxEntries) break;
     if (raw is! Map || raw['name'] is! String) continue;
-    final name = _boundedWebReverseText(raw['name'], kWebReverseMaxRuntimePropertyNameChars);
+    final name = _boundedWebReverseText(
+      raw['name'],
+      kWebReverseMaxRuntimePropertyNameChars,
+    );
     if (name.isEmpty) continue;
     final compact = <String, Object?>{'name': name};
     for (final key in const <String>[
@@ -864,7 +892,11 @@ List<Map<String, Object?>> compactWebReverseDomEventListeners(
     if (raw is! Map) continue;
     final compact = <String, Object?>{};
     final type = raw['type'];
-    if (type is! String || type.isEmpty || type.length > kWebReverseMaxDomEventListenerTypeChars) continue;
+    if (type is! String ||
+        type.isEmpty ||
+        type.length > kWebReverseMaxDomEventListenerTypeChars) {
+      continue;
+    }
     compact['type'] = type;
     for (final key in const <String>[
       'useCapture',
@@ -876,7 +908,10 @@ List<Map<String, Object?>> compactWebReverseDomEventListeners(
     }
     for (final key in const <String>['scriptId', 'backendNodeId']) {
       final value = raw[key];
-      if (value is String && value.length <= kWebReverseMaxRemoteObjectIdChars) compact[key] = value;
+      if (value is String &&
+          value.length <= kWebReverseMaxRemoteObjectIdChars) {
+        compact[key] = value;
+      }
       if (value is num && value.isFinite) compact[key] = value.toInt();
     }
     for (final key in const <String>['lineNumber', 'columnNumber']) {
@@ -967,7 +1002,10 @@ Object? _compactWebReverseJsonValue(
     final result = <String, Object?>{};
     var count = 0;
     for (final entry in value.entries) {
-      if (count++ >= kWebReverseMaxJsonCollectionItems || entry.key is! String) break;
+      if (count++ >= kWebReverseMaxJsonCollectionItems ||
+          entry.key is! String) {
+        break;
+      }
       result[_boundedWebReverseText(
         entry.key,
         kWebReverseMaxJsonKeyChars,
@@ -998,7 +1036,9 @@ List<Map<String, Object?>> compactWebReverseWebRtcLog(
     if (inspected++ >= maxEntries * 4 || result.length >= maxEntries) break;
     if (raw is! Map || raw['kind'] is! String) continue;
     final kind = (raw['kind'] as String).trim();
-    if (kind.isEmpty || kind.length > kWebReverseMaxWebRtcEventKindChars) continue;
+    if (kind.isEmpty || kind.length > kWebReverseMaxWebRtcEventKindChars) {
+      continue;
+    }
     final event = <String, Object?>{'kind': kind};
     final ts = raw['ts'];
     if (ts is num && ts.isFinite && ts >= 0) event['ts'] = ts.toInt();

@@ -2370,11 +2370,7 @@ _StatusPageView _assembleAiModelProxyStatusPage({
     name: copy.gateway,
     days: apiDays,
     children: [
-      _StatusComponent(
-        id: 'api',
-        name: settings.apiStyle.label,
-        days: apiDays,
-      ),
+      _StatusComponent(id: 'api', name: settings.apiStyle.label, days: apiDays),
       _StatusComponent(
         id: 'status-page',
         name: copy.statusPage,

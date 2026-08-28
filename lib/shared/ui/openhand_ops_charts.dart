@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../../shared/ui/openhand_spacing.dart';
+import '../util/date_time_format.dart';
 import '../util/localized_text.dart';
 import '../util/timer_safety.dart';
 import 'animated_dialog.dart';
@@ -2687,6 +2688,70 @@ class OpenHandOperationalTrendLanes extends StatelessWidget {
           },
         ),
       ),
+    );
+  }
+}
+
+/// 将趋势图、时间窗口缩放和同轴明细统一为一个可复用组件。
+class OpenHandOperationalTrendDetail extends StatelessWidget {
+  const OpenHandOperationalTrendDetail({
+    super.key,
+    required this.title,
+    required this.series,
+    required this.sampleTimes,
+    required this.emptyLabel,
+    this.valueSuffix = '',
+    this.initialVisibleItemCount,
+  });
+
+  final String title;
+  final List<OpenHandChartSeries> series;
+  final List<DateTime> sampleTimes;
+  final String emptyLabel;
+  final String valueSuffix;
+  final int? initialVisibleItemCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return OpenHandTrendZoomRegion(
+      itemCount: series.fold<int>(
+        sampleTimes.length,
+        (count, item) => math.max(count, item.values.length),
+      ),
+      sampleTimes: sampleTimes,
+      initialVisibleItemCount: initialVisibleItemCount,
+      semanticLabel: '$title，支持双指缩放',
+      builder: (context, viewport) {
+        final visibleSeries = viewport.sliceSeries(series);
+        final labels = List<String>.generate(viewport.displayedItemCount, (
+          index,
+        ) {
+          final sourceIndex = viewport.sourceIndexForDisplayedIndex(index);
+          return sourceIndex < sampleTimes.length
+              ? formatHourMinuteLocal(sampleTimes[sourceIndex])
+              : '#${sourceIndex + 1}';
+        }, growable: false);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            OpenHandOperationalTrendChart(
+              series: visibleSeries,
+              valueSuffix: valueSuffix,
+              xLabels: labels,
+              emptyLabel: emptyLabel,
+              area: true,
+              showLegend: false,
+              externalLegendProvided: true,
+              onSelectionChanged: null,
+            ),
+            OpenHandOperationalTrendLanes(
+              series: visibleSeries,
+              xLabels: labels,
+              valueSuffix: valueSuffix,
+            ),
+          ],
+        );
+      },
     );
   }
 }

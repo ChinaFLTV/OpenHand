@@ -504,10 +504,7 @@ class _ApprovalPayloadPanel extends StatelessWidget {
             curve: kOpenHandSwitchInCurve,
             alignment: Alignment.topCenter,
             child: AnimatedSwitcher(
-              duration: openHandMotionDuration(
-                context,
-                kOpenHandMotion160,
-              ),
+              duration: openHandMotionDuration(context, kOpenHandMotion160),
               switchInCurve: kOpenHandSwitchInCurve,
               switchOutCurve: kOpenHandSwitchOutCurve,
               child: _ApprovalPayloadNode(
@@ -907,10 +904,7 @@ class _ApprovalPayloadToggle extends StatelessWidget {
           splashColor: color.withValues(alpha: 0.10),
           highlightColor: color.withValues(alpha: 0.06),
           child: AnimatedContainer(
-            duration: openHandMotionDuration(
-              context,
-              kOpenHandMotion160,
-            ),
+            duration: openHandMotionDuration(context, kOpenHandMotion160),
             curve: kOpenHandSwitchInCurve,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
@@ -923,10 +917,7 @@ class _ApprovalPayloadToggle extends StatelessWidget {
               children: [
                 AnimatedRotation(
                   turns: expanded ? 0.5 : 0,
-                  duration: openHandMotionDuration(
-                    context,
-                    kOpenHandMotion160,
-                  ),
+                  duration: openHandMotionDuration(context, kOpenHandMotion160),
                   curve: kOpenHandSwitchInCurve,
                   child: Icon(
                     Icons.keyboard_arrow_down_rounded,

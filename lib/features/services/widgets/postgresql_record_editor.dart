@@ -813,6 +813,7 @@ class _PostgresqlColumnSpec {
     final type = dataType.toLowerCase();
     return type == 'boolean' || type == 'bool';
   }
+
   bool get isDateTime {
     final type = dataType.toLowerCase();
     return type.contains('timestamp') ||

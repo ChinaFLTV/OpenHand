@@ -197,7 +197,10 @@ class _HeStreamingSubConversationState
                     children: [
                       AnimatedRotation(
                         turns: _showEarlierSegments ? 0.5 : 0,
-                        duration: openHandMotionDuration(context, kOpenHandMotion220),
+                        duration: openHandMotionDuration(
+                          context,
+                          kOpenHandMotion220,
+                        ),
                         curve: kOpenHandSwitchInCurve,
                         child: Icon(
                           Icons.keyboard_arrow_down_rounded,
@@ -603,7 +606,10 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
                         kOpenHandHGap6,
                         AnimatedRotation(
                           turns: _expanded ? 0.5 : 0,
-                          duration: openHandMotionDuration(context, kOpenHandMotion220),
+                          duration: openHandMotionDuration(
+                            context,
+                            kOpenHandMotion220,
+                          ),
                           curve: kOpenHandSwitchInCurve,
                           child: Icon(
                             Icons.keyboard_arrow_down_rounded,
@@ -647,7 +653,10 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
                         kOpenHandHGap4,
                         AnimatedRotation(
                           turns: _expanded ? 0.5 : 0,
-                          duration: openHandMotionDuration(context, kOpenHandMotion220),
+                          duration: openHandMotionDuration(
+                            context,
+                            kOpenHandMotion220,
+                          ),
                           curve: kOpenHandSwitchInCurve,
                           child: Icon(
                             Icons.keyboard_arrow_down_rounded,

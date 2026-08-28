@@ -9,15 +9,14 @@ class _AiModelEditorDialog extends StatefulWidget {
   State<_AiModelEditorDialog> createState() => _AiModelEditorDialogState();
 }
 
-class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
+class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
+    with _SettingsModelSearchState<_AiModelEditorDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _officialWebsiteUrlController;
   late final TextEditingController _baseUrlController;
   late final TextEditingController _tokenController;
   late final TextEditingController _modelIdController;
-  late final TextEditingController _modelSearchController;
-  late final FocusNode _modelSearchFocusNode;
   late final TextEditingController _maxContextTokensController;
   late final TextEditingController _manualModelIdController;
   late final TextEditingController _maxTokensController;
@@ -50,7 +49,6 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   late String _filesCapabilityStatus;
   late String _fineTunesCapabilityStatus;
   bool _obscureToken = true;
-  bool _modelSearchVisible = false;
   bool _isSaving = false;
   bool _isScanning = false;
   final Set<String> _healthCheckingModelIds = <String>{};
@@ -97,8 +95,6 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     _modelIdController = TextEditingController(
       text: widget.initialModel?.modelId ?? '',
     );
-    _modelSearchController = TextEditingController();
-    _modelSearchFocusNode = FocusNode();
     _maxContextTokensController = TextEditingController(
       text: widget.initialModel?.maxContextTokens?.toString() ?? '',
     );
@@ -236,8 +232,6 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     _baseUrlController.dispose();
     _tokenController.dispose();
     _modelIdController.dispose();
-    _modelSearchController.dispose();
-    _modelSearchFocusNode.dispose();
     _maxContextTokensController.dispose();
     _manualModelIdController.dispose();
     _maxTokensController.dispose();
@@ -264,26 +258,6 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     _chipScrollController.dispose();
     _errorPulse.dispose();
     super.dispose();
-  }
-
-  void _toggleModelSearch() {
-    HapticFeedback.selectionClick();
-    final nextVisible = !_modelSearchVisible;
-    setState(() {
-      _modelSearchVisible = nextVisible;
-      if (!nextVisible) {
-        _modelSearchController.clear();
-      }
-    });
-    if (!nextVisible) {
-      _modelSearchFocusNode.unfocus();
-      return;
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _modelSearchVisible) {
-        _modelSearchFocusNode.requestFocus();
-      }
-    });
   }
 
   Future<void> _checkModelHealth(String modelId) async {
@@ -405,7 +379,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         manualId,
       ]);
       _manualModelIdController.clear();
-      // If no model was selected, auto-select this one.
+      // 尚未选择模型时，自动选中刚添加的模型。
       if (_activeModelId == null) {
         _activeModelId = manualId;
         _modelIdController.text = manualId;

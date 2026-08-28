@@ -193,7 +193,9 @@ class _ReplayDialogState extends State<_ReplayDialog> {
                           loc?.webReverseReplayFilterByUrl ?? 'Filter by URL',
                       prefixIcon: const Icon(Icons.search_rounded, size: 18),
                       isDense: true,
-                      border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
+                      border: const OutlineInputBorder(
+                        borderRadius: kOpenHandBorderRadius10,
+                      ),
                     ),
                     onChanged: (v) => setState(() => _filter = v.trim()),
                   ),

@@ -96,10 +96,19 @@ class AgentPromptRenderer {
     final effectiveTaskContext = _boundedPromptSection(rawTaskContext);
     final rendered = template
         .replaceAll('{{AGENT_PROFILE_JSON}}', prettyPrintJson(profile))
-        .replaceAll('{{CAPABILITY_BINDINGS_JSON}}', prettyPrintJson(capabilities))
+        .replaceAll(
+          '{{CAPABILITY_BINDINGS_JSON}}',
+          prettyPrintJson(capabilities),
+        )
         .replaceAll('{{RUNTIME_POLICY_JSON}}', prettyPrintJson(runtimePolicy))
-        .replaceAll('{{OPERATIONAL_STATE_JSON}}', prettyPrintJson(operationalState))
-        .replaceAll('{{TASK_CONTEXT_JSON}}', prettyPrintJson(effectiveTaskContext))
+        .replaceAll(
+          '{{OPERATIONAL_STATE_JSON}}',
+          prettyPrintJson(operationalState),
+        )
+        .replaceAll(
+          '{{TASK_CONTEXT_JSON}}',
+          prettyPrintJson(effectiveTaskContext),
+        )
         .replaceAll(
           '{{AGENT_COORDINATION_GUIDANCE}}',
           _agentCoordinationGuidance(
@@ -607,7 +616,6 @@ const Set<String> _agentPromptSensitiveMetadataKeys = <String>{
   'developer_prompt',
   'hidden_prompt',
 };
-
 
 String _agentCoordinationGuidance(
   AgentProfile agent, {

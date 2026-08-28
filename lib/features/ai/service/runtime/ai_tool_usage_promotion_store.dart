@@ -328,7 +328,8 @@ final class AiToolUsagePromotionStore {
   static const int _version = 3;
   static const int _aggregateVersion = 2;
   static const int _legacyVersion = 1;
-  static const Duration runtimeCleanupTimeout = kOpenHandServiceRuntimeCleanupTimeout;
+  static const Duration runtimeCleanupTimeout =
+      kOpenHandServiceRuntimeCleanupTimeout;
   static const int _maxStoreBytes = 8 * kBytesPerMiB;
   static const int _maxSessions = 256;
   static const int _maxResourcesPerKind = 1024;
@@ -955,7 +956,11 @@ final class AiToolUsagePromotionStore {
           subResourceId:
               _validIdentifier('${raw['sub_resource_id'] ?? ''}') ?? '',
           sessionId: sessionId,
-          toolCallId: _validIdentifier('${raw[aiSessionMessageToolCallIdMetadataKey] ?? ''}') ?? '',
+          toolCallId:
+              _validIdentifier(
+                '${raw[aiSessionMessageToolCallIdMetadataKey] ?? ''}',
+              ) ??
+              '',
           toolName: _validIdentifier('${raw['tool_name'] ?? ''}') ?? '',
           occurredAt: occurredAt,
           status: _normalizeStatus('${raw['status'] ?? ''}'),

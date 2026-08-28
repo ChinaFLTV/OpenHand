@@ -50,8 +50,7 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
       if (!mounted || !_scroll.hasClients) return;
       _scroll.animateTo(
         _scroll.position.maxScrollExtent,
-        duration: openHandMotionDuration(context, kOpenHandMotion220,
-        ),
+        duration: openHandMotionDuration(context, kOpenHandMotion220),
         curve: kOpenHandSwitchInCurve,
       );
     });
@@ -326,9 +325,7 @@ class _LogRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = _logColor(entry.level);
     final local = entry.at.toLocal();
-    final time = entry.atReported
-        ? formatMonthDayHms(local)
-        : '时间未上报';
+    final time = entry.atReported ? formatMonthDayHms(local) : '时间未上报';
     return ServiceInteractiveSurface(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       showDetailsIcon: false,
@@ -448,8 +445,7 @@ class _AnimatedLogScopeTabs extends StatelessWidget {
       showSelectedIcon: false,
       style: ButtonStyle(
         minimumSize: const WidgetStatePropertyAll(Size(104, 40)),
-        animationDuration: openHandMotionDuration(context, kOpenHandMotion280,
-        ),
+        animationDuration: openHandMotionDuration(context, kOpenHandMotion280),
       ),
     );
   }
