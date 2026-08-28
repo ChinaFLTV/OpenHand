@@ -5142,9 +5142,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
     _rememberRemoteConversationId(conversation, sent?.conversationId);
     final sentId = sent?.messageId?.trim() ?? '';
-    _bindSentMessageId(conversation, localMessage, sentId);
+    final bound = _bindSentMessageId(conversation, localMessage, sentId);
     _notify();
-    return sentId.isEmpty ? null : sentId;
+    var resolvedId = sentId;
+    if (resolvedId.isEmpty && !_isTemporaryMessageId(bound.id)) {
+      resolvedId = bound.id.trim();
+    }
+    return resolvedId.isEmpty ? null : resolvedId;
   }
 
   Future<DingTalkSentMessage?> _sendDingTalkTextWithResolvedId({
@@ -5177,20 +5181,24 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (!isServiceEnabled) return sent;
     if (sent?.messageId?.trim().isNotEmpty == true) return sent;
     try {
-      final resolved = await _service
-          .resolveRecentSentMessage(
-            conversation: conversation,
-            content: content,
-            createdAt: createdAt,
-            senderName: senderName,
-          )
-          .timeout(const Duration(seconds: 9));
+      final resolved = await _service.resolveRecentSentMessage(
+        conversation: conversation,
+        content: content,
+        createdAt: createdAt,
+        senderName: senderName,
+      );
       if (resolved?.messageId?.trim().isNotEmpty == true) {
         return DingTalkSentMessage(
           messageId: resolved!.messageId,
           conversationId: sent?.conversationId ?? resolved.conversationId,
         );
       }
+    } on DingTalkGatewayCommandException catch (error, stack) {
+      if (!error.isRetryable && !error.isCancelled) {
+        silentLog('dingtalk_gateway', '补齐钉钉已发送消息标识', error, stack);
+      }
+    } on TimeoutException {
+      // 可选反查超时不影响消息已发送结果，后续流式更新会有限重试。
     } catch (error, stack) {
       silentLog('dingtalk_gateway', '补齐钉钉已发送消息标识', error, stack);
     }
@@ -5249,6 +5257,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
     final local = _echoMessageBySourceId(conversation, sourceMessageId);
     if (local == null) return null;
+    final localId = local.id.trim();
+    if (localId.isNotEmpty && !_isTemporaryMessageId(localId)) {
+      return localId;
+    }
     final remoteText = _dingTalkRemoteEchoText(
       sentText.trim().isNotEmpty ? sentText : local.content,
     );

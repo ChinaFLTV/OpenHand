@@ -136,7 +136,12 @@ class DingTalkGatewayCommandException implements Exception {
   /// dws 将网络请求失败包装为进程退出时，通常不会提供结构化 retryable 字段。
   bool get isTransientNetworkFailure {
     final normalized = message.trim().toLowerCase();
-    return const <String>[
+    final normalizedServerCode = serverCode?.trim().toLowerCase() ?? '';
+    return normalizedServerCode == 'network_timeout' ||
+        const <String>[
+          '[network_timeout]',
+          'network timeout',
+          'request timed out',
           'connection reset',
           'connection closed',
           'connection refused',
@@ -215,6 +220,7 @@ class _DingTalkEventProcessHandle {
 
 class DingTalkMessageGatewayService {
   static const Duration _commandTimeout = Duration(seconds: 25);
+  static const Duration _commandCleanupReserve = Duration(seconds: 3);
   static const Duration _fileSendTimeout = Duration(minutes: 5);
   static const Duration _authTimeout = Duration(minutes: 15);
   static const Duration _eventProcessStartTimeout = Duration(seconds: 10);
@@ -226,7 +232,8 @@ class DingTalkMessageGatewayService {
   static const Duration _mediaDownloadTimeout = Duration(minutes: 3);
   static const Duration _mediaDownloadQueueTimeout = Duration(seconds: 30);
   static const Duration _sentMessageLookupWindow = Duration(minutes: 2);
-  static const Duration _sentMessageLookupTimeout = Duration(seconds: 8);
+  // 为网络请求和子进程回收保留充足时间，避免反查消息标识频繁超时。
+  static const Duration _sentMessageLookupTimeout = Duration(seconds: 15);
   static const int _sentMessageLookupLimit = 50;
   static const int _messageQueryPageSize = 50;
   static const Duration _minimumMessageQueryWindow = Duration(seconds: 1);
@@ -1881,22 +1888,26 @@ class DingTalkMessageGatewayService {
         return null;
       }
     }
+    final selfMatches = candidates
+        .where((message) => message.fromSelf)
+        .toList(growable: false);
+    if (selfMatches.isNotEmpty) candidates = selfMatches;
     final exact = candidates
         .where(
           (message) =>
               normalizeDingTalkMessageContentForComparison(message.content) ==
               normalizedContent,
         )
-        .toList(growable: false);
-    final pool = exact.isEmpty ? candidates : exact;
-    final sorted = pool.toList(growable: true)
-      ..sort(
-        (a, b) => a.createdAt
-            .difference(createdAt)
-            .abs()
-            .compareTo(b.createdAt.difference(createdAt).abs()),
-      );
-    final selected = sorted.first;
+        .toList(growable: true);
+    // 只允许精确正文命中，避免并发发送时误绑定并编辑其他消息。
+    if (exact.isEmpty) return null;
+    exact.sort(
+      (a, b) => a.createdAt
+          .difference(createdAt)
+          .abs()
+          .compareTo(b.createdAt.difference(createdAt).abs()),
+    );
+    final selected = exact.first;
     return DingTalkSentMessage(
       messageId: selected.id,
       conversationId: selected.conversationId,
@@ -2758,7 +2769,10 @@ class DingTalkMessageGatewayService {
     final effectiveTimeout = timeout ?? _commandTimeout;
     final commandArguments = List<String>.of(arguments);
     if (!commandArguments.contains('--timeout')) {
-      final dwsTimeoutSeconds = math.max(1, effectiveTimeout.inSeconds - 3);
+      final dwsTimeoutSeconds = math.max(
+        1,
+        effectiveTimeout.inSeconds - _commandCleanupReserve.inSeconds,
+      );
       commandArguments.addAll(<String>['--timeout', '$dwsTimeoutSeconds']);
     }
     _logRuntime('INFO', '执行 dws：$operation。');
