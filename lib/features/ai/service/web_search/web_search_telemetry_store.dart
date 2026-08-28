@@ -97,16 +97,9 @@ class WebSearchCallLog {
   });
 
   factory WebSearchCallLog.fromJson(Map<String, Object?> m) {
-    final perEngineRaw = m['per_engine'];
-    final perEngine = perEngineRaw is List
-        ? perEngineRaw
-              .whereType<Map>()
-              .map(
-                (e) =>
-                    WebSearchPerEngineLog.fromJson(stringKeyedMapFromValue(e)),
-              )
-              .toList(growable: false)
-        : const <WebSearchPerEngineLog>[];
+    final perEngine = stringKeyedMapListFromValue(
+      m['per_engine'],
+    ).map(WebSearchPerEngineLog.fromJson).toList(growable: false);
     return WebSearchCallLog(
       timestampMs: webEngineNonNegativeIntFromValue(m['timestamp_ms']),
       query: '${m['query'] ?? ''}',

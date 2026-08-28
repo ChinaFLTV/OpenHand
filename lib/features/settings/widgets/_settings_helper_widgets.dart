@@ -4133,10 +4133,7 @@ List<String> _miniMaxDelimitedValues(String raw, {required String separator}) {
 }
 
 String _miniMaxTimbreWeightsText(Object? raw) {
-  if (raw is! List) return '';
-  return raw
-      .whereType<Map>()
-      .map(stringKeyedMapFromValue)
+  return stringKeyedMapListFromValue(raw)
       .map((item) {
         final voiceId = optionalStringFromValue(item['voice_id']);
         final weight = optionalIntFromValue(item['weight']);

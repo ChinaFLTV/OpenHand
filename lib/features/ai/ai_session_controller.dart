@@ -15343,11 +15343,9 @@ $tail''';
     final rawSnapshot =
         promptResult.metadata[aiPromptRuntimeTailSnapshotMetadataKey];
     if (rawSnapshot is! List) return session;
-    final snapshot = rawSnapshot
-        .whereType<Map>()
-        .map(stringKeyedMapFromValue)
-        .map(Map<String, Object?>.unmodifiable)
-        .toList(growable: false);
+    final snapshot = stringKeyedMapListFromValue(
+      rawSnapshot,
+    ).map(Map<String, Object?>.unmodifiable).toList(growable: false);
     if (snapshot.length != rawSnapshot.length) return session;
     final updatedMessages = <AiSessionMessage>[];
     var changed = false;

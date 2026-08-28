@@ -1677,13 +1677,7 @@ class AiModelProxyHttpServer {
     Map<String, String> query,
   ) {
     final base = _dispatcher.buildModelsResponse();
-    final data = base['data'];
-    final allModels = data is List
-        ? data
-              .whereType<Map>()
-              .map((item) => Map<String, Object?>.from(item))
-              .toList(growable: false)
-        : const <Map<String, Object?>>[];
+    final allModels = stringKeyedMapListFromValue(base['data']);
     if (style == AiModelProxyApiStyle.claude) {
       final page = _paginateClaudeModels(allModels, query);
       final models = page.models;
@@ -1707,13 +1701,7 @@ class AiModelProxyHttpServer {
 
   Map<String, Object?> _buildGeminiModelsResponse(Map<String, String> query) {
     final base = _dispatcher.buildModelsResponse();
-    final data = base['data'];
-    final allModels = data is List
-        ? data
-              .whereType<Map>()
-              .map((item) => Map<String, Object?>.from(item))
-              .toList(growable: false)
-        : const <Map<String, Object?>>[];
+    final allModels = stringKeyedMapListFromValue(base['data']);
     final filter = _readString(query['filter']);
     final filtered = filter.isEmpty
         ? allModels

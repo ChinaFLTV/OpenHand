@@ -831,21 +831,16 @@ class _WebReverseDashboardDialogState
       // 恢复网络拦截规则。
       final rulesRaw = session.metadata[_kInterceptRulesMetaKey];
       if (rulesRaw is List) {
-        final rules = rulesRaw
-            .whereType<Map>()
-            .map(
-              (m) =>
-                  WebReverseInterceptRule.fromJson(stringKeyedMapFromValue(m)),
-            )
-            .toList(growable: false);
+        final rules = stringKeyedMapListFromValue(
+          rulesRaw,
+        ).map(WebReverseInterceptRule.fromJson).toList(growable: false);
         if (rules.isNotEmpty) widget.controller.setInterceptRules(rules);
       }
       // 恢复 snippet pad 内容。
       final snipRaw = session.metadata[_kSnippetsMetaKey];
       if (snipRaw is List) {
-        final snips = snipRaw
-            .whereType<Map>()
-            .map((m) => WebReverseSnippet.fromJson(stringKeyedMapFromValue(m)))
+        final snips = stringKeyedMapListFromValue(snipRaw)
+            .map(WebReverseSnippet.fromJson)
             .where((s) => s.id.isNotEmpty)
             .toList(growable: false);
         if (snips.isNotEmpty) widget.controller.replaceSnippets(snips);
@@ -853,9 +848,8 @@ class _WebReverseDashboardDialogState
       // 恢复 JS Hook 库。replaceHooks 会按 enabled 重新装载。
       final hookRaw = session.metadata[_kHooksMetaKey];
       if (hookRaw is List) {
-        final hooks = hookRaw
-            .whereType<Map>()
-            .map((m) => WebReverseHook.fromJson(stringKeyedMapFromValue(m)))
+        final hooks = stringKeyedMapListFromValue(hookRaw)
+            .map(WebReverseHook.fromJson)
             .where((h) => h.id.isNotEmpty)
             .toList(growable: false);
         if (hooks.isNotEmpty) unawaited(widget.controller.replaceHooks(hooks));
@@ -863,9 +857,8 @@ class _WebReverseDashboardDialogState
       // 恢复定时任务。replaceCrons 会按 enabled 重新 schedule。
       final cronRaw = session.metadata[_kCronsMetaKey];
       if (cronRaw is List) {
-        final crons = cronRaw
-            .whereType<Map>()
-            .map((m) => WebReverseCron.fromJson(stringKeyedMapFromValue(m)))
+        final crons = stringKeyedMapListFromValue(cronRaw)
+            .map(WebReverseCron.fromJson)
             .where((c) => c.id.isNotEmpty)
             .toList(growable: false);
         if (crons.isNotEmpty) unawaited(widget.controller.replaceCrons(crons));

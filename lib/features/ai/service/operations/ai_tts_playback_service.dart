@@ -633,12 +633,9 @@ class AiTtsPlaybackService {
                 pronunciationTone: stringListFromListValue(
                   settings.extra['pronunciation_tone'],
                 ),
-                timbreWeights: settings.extra['timbre_weights'] is List
-                    ? (settings.extra['timbre_weights'] as List)
-                          .whereType<Map>()
-                          .map(stringKeyedMapFromValue)
-                          .toList(growable: false)
-                    : const <Map<String, Object?>>[],
+                timbreWeights: stringKeyedMapListFromValue(
+                  settings.extra['timbre_weights'],
+                ),
                 voiceModify: settings.extra['voice_modify'] is Map
                     ? stringKeyedMapFromValue(settings.extra['voice_modify'])
                     : const <String, Object?>{},

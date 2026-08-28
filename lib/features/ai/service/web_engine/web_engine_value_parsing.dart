@@ -5,7 +5,7 @@ const int _minHttpStatusCode = 100;
 const int _maxHttpStatusCode = 599;
 
 String? resolveWebEngineApiKey(String? configured, String? fallback) {
-  return configured != null && configured.isNotEmpty ? configured : fallback;
+  return nullIfBlank(configured) ?? nullIfBlank(fallback);
 }
 
 double? webEngineScoreFromValue(Object? value) {
@@ -36,9 +36,10 @@ String? resolveWebEngineProviderApiKey(
   List<AiModelConfig> availableModels,
   String? configId,
 ) {
-  if (configId == null || configId.isEmpty) return null;
+  final normalizedId = nullIfBlank(configId);
+  if (normalizedId == null) return null;
   for (final m in availableModels) {
-    if (m.id == configId) return m.token.isEmpty ? null : m.token;
+    if (m.id == normalizedId) return nullIfBlank(m.token);
   }
   return null;
 }

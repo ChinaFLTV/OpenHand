@@ -87,16 +87,9 @@ class WebFetchCallLog {
   });
 
   factory WebFetchCallLog.fromJson(Map<String, Object?> m) {
-    final perEngineRaw = m['per_engine'];
-    final perEngine = perEngineRaw is List
-        ? perEngineRaw
-              .whereType<Map>()
-              .map(
-                (e) =>
-                    WebFetchPerEngineLog.fromJson(stringKeyedMapFromValue(e)),
-              )
-              .toList(growable: false)
-        : const <WebFetchPerEngineLog>[];
+    final perEngine = stringKeyedMapListFromValue(
+      m['per_engine'],
+    ).map(WebFetchPerEngineLog.fromJson).toList(growable: false);
     final winning = enumByName(
       AiWebFetchEngineKind.values,
       m['winning_engine'],

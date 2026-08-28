@@ -333,12 +333,7 @@ class AiCreationOptions {
       subtitleEnable: optionalBoolFromValue(map['subtitle_enable']),
       subtitleType: optionalStringFromValue(map['subtitle_type']),
       pronunciationTone: stringListFromListValue(map['pronunciation_tone']),
-      timbreWeights: map['timbre_weights'] is List
-          ? (map['timbre_weights'] as List)
-                .whereType<Map>()
-                .map(stringKeyedMapFromValue)
-                .toList(growable: false)
-          : const <Map<String, Object?>>[],
+      timbreWeights: stringKeyedMapListFromValue(map['timbre_weights']),
       voiceModify: map['voice_modify'] is Map
           ? stringKeyedMapFromValue(map['voice_modify'])
           : const <String, Object?>{},
