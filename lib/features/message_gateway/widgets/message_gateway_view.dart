@@ -17208,6 +17208,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         borderRadius: kOpenHandBorderRadius12,
         hoverScale: 1.006,
         pressScale: 0.985,
+        showHoverOverlay: false,
         showFocusRing: true,
         motionClearance: EdgeInsets.zero,
         onTap: widget.onOpenQuotedMessage == null
