@@ -355,7 +355,10 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
       ..value = 1.0;
     // 入场使用 easeOutCubic：开始快、收尾舒缓，符合全局丝滑节奏；
     // 与 easeIn（开始慢）相比能更早把首帧像素呈现给用户。
-    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: kOpenHandSwitchInCurve);
+    _fadeAnim = CurvedAnimation(
+      parent: _fadeCtrl,
+      curve: kOpenHandSwitchInCurve,
+    );
   }
 
   @override
@@ -940,7 +943,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
                       ),
                     )
                   else
-                     kOpenHandGap26,
+                    kOpenHandGap26,
                   const Spacer(),
                   Material(
                     color: Colors.transparent,
@@ -1343,9 +1346,6 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
     );
   }
 }
-
-// ── 本文件内复用的文案 ──
-// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
 
 String _harnessSessionHistoricalSessionRestoredLabel(BuildContext context) {
   return openHandLocalizedText(

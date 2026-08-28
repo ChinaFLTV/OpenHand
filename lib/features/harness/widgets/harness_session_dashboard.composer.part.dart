@@ -80,7 +80,9 @@ class _HeComposer extends StatelessWidget {
             side: BorderSide(color: disabledBorder),
             padding: const EdgeInsets.symmetric(horizontal: 14),
             backgroundColor: disabledBg,
-            shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius16),
+            shape: const RoundedRectangleBorder(
+              borderRadius: kOpenHandBorderRadius16,
+            ),
           ),
         ),
       );
@@ -147,7 +149,9 @@ class _HeComposer extends StatelessWidget {
               backgroundColor: buttonBg,
               foregroundColor: buttonFg,
               side: BorderSide(color: buttonBorderColor),
-              shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius16),
+              shape: const RoundedRectangleBorder(
+                borderRadius: kOpenHandBorderRadius16,
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -457,7 +461,9 @@ class _HeComposer extends StatelessWidget {
                   color: colorScheme.error.withValues(alpha: 0.5),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 14),
-                shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius16),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: kOpenHandBorderRadius16,
+                ),
               ),
             ),
           ),
@@ -926,7 +932,15 @@ class _HePendingPhaseEditor extends StatelessWidget {
                         cliNames.any((c) => c.name == roleConfig.cliName)
                         ? roleConfig.cliName
                         : null,
-                    decoration: const InputDecoration(labelText: 'CLI', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10), border: OutlineInputBorder(borderRadius: _br12)),
+                    decoration: const InputDecoration(
+                      labelText: 'CLI',
+                      isDense: true,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      border: OutlineInputBorder(borderRadius: _br12),
+                    ),
                     items: cliNames.map((cli) {
                       return DropdownMenuItem(
                         value: cli.name,
@@ -963,9 +977,6 @@ class _HePendingPhaseEditor extends StatelessWidget {
     );
   }
 }
-
-// ── 本文件内复用的文案 ──
-// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
 
 String _harnessSessionSubmittingLabel(BuildContext context) {
   return openHandLocalizedText(

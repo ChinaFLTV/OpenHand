@@ -836,7 +836,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                               _pickDirectory(_persistenceDirController),
                           crossAxisAlignment: CrossAxisAlignment.center,
                         ),
-                         kOpenHandGap28,
+                        kOpenHandGap28,
 
                         Row(
                           children: [
@@ -2310,9 +2310,6 @@ class _SearchableModelSelectorState extends State<_SearchableModelSelector> {
     );
   }
 }
-
-// ── 本文件内复用的文案 ──
-// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
 
 String _harnessEngineeApiModelLabel(BuildContext context) {
   return openHandApiModelLabel(context);

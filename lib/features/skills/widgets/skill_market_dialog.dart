@@ -302,8 +302,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
         if (_isSearching && result != null) kOpenHandGap10,
         Expanded(
           child: AnimatedSwitcher(
-            duration: openHandMotionDuration(context, kOpenHandMotion180,
-            ),
+            duration: openHandMotionDuration(context, kOpenHandMotion180),
             child: _searchError != null
                 ? _MarketStateMessage(
                     key: const ValueKey<String>('market-search-error'),
@@ -362,8 +361,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                       'market-results-${result?.page}-$_keyword',
                     ),
                     itemCount: skills.length,
-                    separatorBuilder: (context, index) =>
-                        kOpenHandGap10,
+                    separatorBuilder: (context, index) => kOpenHandGap10,
                     itemBuilder: (context, index) {
                       final skill = skills[index];
                       return AppearOnce(
@@ -911,7 +909,7 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
-             kOpenHandGap22,
+            kOpenHandGap22,
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -1704,9 +1702,6 @@ String _truncateMarkdown(String markdown, int maxChars, BuildContext context) {
   );
   return clipTextByCodeUnits(markdown, maxChars, suffix: suffix);
 }
-
-// ── 本文件内复用的文案 ──
-// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
 
 String _skillMarketDiaRetryLabel(BuildContext context) {
   return openHandLocalizedText(

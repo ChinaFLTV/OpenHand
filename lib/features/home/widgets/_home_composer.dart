@@ -4323,9 +4323,6 @@ class _ComposerShortcutsHost extends StatelessWidget {
   }
 }
 
-// ── 本文件内复用的文案 ──
-// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
-
 String _homeComposerDefaultAccessLabel(BuildContext context) {
   return openHandDefaultAccessLabel(context);
 }

@@ -1678,9 +1678,6 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
   }
 }
 
-// ── 本文件内复用的文案 ──
-// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
-
 String _openhandHomePaAutoLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '默认', en: 'Auto');
 }

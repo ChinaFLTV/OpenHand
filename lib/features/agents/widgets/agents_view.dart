@@ -588,11 +588,11 @@ class _AgentCard extends StatelessWidget {
                         onPressed: () => onToggleEnabled(!agent.enabled),
                         style: agent.enabled
                             ? OpenHandStatusColors.runningStopButtonStyle()
-                                .copyWith(
-                                  shape: const WidgetStatePropertyAll(
-                                    CircleBorder(),
-                                  ),
-                                )
+                                  .copyWith(
+                                    shape: const WidgetStatePropertyAll(
+                                      CircleBorder(),
+                                    ),
+                                  )
                             : null,
                         icon: Icon(
                           agent.enabled
@@ -5873,11 +5873,7 @@ class _AgentResourcePressureCard extends StatelessWidget {
                       if (compact) {
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            progressBar,
-                            kOpenHandGap7,
-                            valueText,
-                          ],
+                          children: [progressBar, kOpenHandGap7, valueText],
                         );
                       }
                       final valueWidth = _agentResourcePressureValueWidth(
@@ -14855,9 +14851,6 @@ String _agentWorkerStatusLabel(
     AgentWorkerStatus.offline => l10n.agentWorkerStatusOffline,
   };
 }
-
-// ── 本文件内复用的文案 ──
-// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
 
 String _agentsViewAddKpiLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '新增 KPI', en: 'Add KPI');

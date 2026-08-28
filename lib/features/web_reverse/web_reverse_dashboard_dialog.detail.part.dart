@@ -1662,7 +1662,9 @@ class _TimingWaterfall extends StatelessWidget {
                             color: cs.surfaceContainerHigh.withValues(
                               alpha: 0.45,
                             ),
-                            borderRadius: BorderRadius.circular(kOpenHandRadius2),
+                            borderRadius: BorderRadius.circular(
+                              kOpenHandRadius2,
+                            ),
                           ),
                         ),
                         Positioned(
@@ -1673,7 +1675,9 @@ class _TimingWaterfall extends StatelessWidget {
                           child: Container(
                             decoration: BoxDecoration(
                               color: color,
-                              borderRadius: BorderRadius.circular(kOpenHandRadius2),
+                              borderRadius: BorderRadius.circular(
+                                kOpenHandRadius2,
+                              ),
                             ),
                           ),
                         ),
@@ -2196,9 +2200,6 @@ class _MediaInlinePreview extends StatelessWidget {
     );
   }
 }
-
-// ── 本文件内复用的文案 ──
-// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
 
 String _webReverseDashInitiatorLabel(BuildContext context) {
   return openHandLocalizedText(

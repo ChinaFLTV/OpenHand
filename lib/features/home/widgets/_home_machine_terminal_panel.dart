@@ -883,10 +883,7 @@ class _MachineTerminalHistoryDialogState
     final restoring = _restoringTerminalId == terminal.terminalId;
     final actionDisabled = deleting || restoring;
     return AnimatedContainer(
-      duration: openHandMotionDuration(
-        context,
-        kOpenHandMotion160,
-      ),
+      duration: openHandMotionDuration(context, kOpenHandMotion160),
       curve: kOpenHandSwitchInCurve,
       constraints: const BoxConstraints(minHeight: 56),
       decoration: BoxDecoration(
@@ -1547,8 +1544,7 @@ class _MachineTerminalHistoryDetailDialogState
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
                 child: AnimatedSwitcher(
-                  duration: openHandMotionDuration(context, kOpenHandMotion180,
-                  ),
+                  duration: openHandMotionDuration(context, kOpenHandMotion180),
                   switchInCurve: kOpenHandSwitchInCurve,
                   switchOutCurve: kOpenHandSwitchOutCurve,
                   child: KeyedSubtree(
@@ -1889,10 +1885,7 @@ class _MachineTerminalDialogHeader extends StatelessWidget {
               ],
             ),
           ),
-          for (final action in trailingActions) ...[
-            kOpenHandHGap7,
-            action,
-          ],
+          for (final action in trailingActions) ...[kOpenHandHGap7, action],
           if (trailingActions.isNotEmpty) kOpenHandHGap7,
           _MachineTerminalIconButton(
             icon: Icons.close_rounded,
@@ -2044,8 +2037,7 @@ class _MachineTerminalMiniActionButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(kOpenHandRadius9),
         onTap: onPressed,
         child: AnimatedOpacity(
-          duration: openHandMotionDuration(context, kOpenHandMotion140,
-          ),
+          duration: openHandMotionDuration(context, kOpenHandMotion140),
           opacity: enabled ? 1 : 0.45,
           child: Container(
             width: 30,
@@ -2078,10 +2070,7 @@ class _MachineTerminalTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final duration = openHandMotionDuration(
-      context,
-      kOpenHandMotion160,
-    );
+    final duration = openHandMotionDuration(context, kOpenHandMotion160);
     final terminals = workspace.attachedTerminals;
     final canCloseTabs = terminals.isNotEmpty;
     return SizedBox(
@@ -2323,8 +2312,7 @@ class _MachineTerminalIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final duration = openHandMotionDuration(context, kOpenHandMotion140,
-    );
+    final duration = openHandMotionDuration(context, kOpenHandMotion140);
     return Tooltip(
       message: tooltip,
       child: InkWell(
@@ -2533,9 +2521,6 @@ String _replayAnsiOutput(MachineTerminalSnapshot snapshot) {
   }
   return '\x1b[38;5;245m暂无终端历史记录。\x1b[0m\r\n';
 }
-
-// ── 本文件内复用的文案 ──
-// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
 
 String _homeMachineTerClosePanelLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '关闭面板', en: 'Close Panel');
