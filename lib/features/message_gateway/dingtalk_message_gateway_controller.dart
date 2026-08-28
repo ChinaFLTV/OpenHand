@@ -920,28 +920,25 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     int minBytes = 1,
     required int maxBytes,
   }) async {
+    late final FileSystemEntityType type;
     try {
-      if (await FileSystemEntity.type(
-            path,
-            followLinks: false,
-          ).timeout(defaultBoundedFileReadIdleTimeout) !=
-          FileSystemEntityType.file) {
-        return null;
-      }
-      final file = File(path);
-      if (!await isPhysicalPathWithinOrEqual(allowedRoot, path)) {
-        return null;
-      }
-      final stat = await file.stat().timeout(defaultBoundedFileReadIdleTimeout);
-      if (stat.type != FileSystemEntityType.file ||
-          stat.size < minBytes ||
-          stat.size > maxBytes) {
-        return null;
-      }
-      return stat.size;
-    } on Object {
+      type = await FileSystemEntity.type(
+        path,
+        followLinks: false,
+      ).timeout(defaultBoundedFileReadIdleTimeout);
+    } on FileSystemException {
+      return null;
+    } on TimeoutException {
+      return null;
+    } on ArgumentError {
       return null;
     }
+    if (type != FileSystemEntityType.file ||
+        !await isPhysicalPathWithinOrEqual(allowedRoot, path)) {
+      return null;
+    }
+    final size = await probeFileSizeBounded(File(path));
+    return size != null && size >= minBytes && size <= maxBytes ? size : null;
   }
 
   List<({String? path, String? remoteUrl})> _generatedMediaReferences(
@@ -1626,22 +1623,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }
       final currentPath = item.localPath.trim();
       if (currentPath.isNotEmpty) {
-        try {
-          final file = File(currentPath);
-          if (await file.exists().timeout(defaultBoundedFileReadIdleTimeout)) {
-            final sizeBytes = await file.length().timeout(
-              defaultBoundedFileReadIdleTimeout,
-            );
-            if (sizeBytes > 0) {
-              final next = item.sizeBytes > 0
-                  ? item
-                  : item.copyWith(sizeBytes: sizeBytes);
-              media.add(next);
-              if (!identical(next, item)) changed = true;
-              continue;
-            }
-          }
-        } catch (_) {}
+        final sizeBytes = await probeFileSizeBounded(File(currentPath));
+        if (sizeBytes != null && sizeBytes > 0) {
+          final next = item.sizeBytes > 0
+              ? item
+              : item.copyWith(sizeBytes: sizeBytes);
+          media.add(next);
+          if (!identical(next, item)) changed = true;
+          continue;
+        }
       }
       if (item.resourceId.startsWith('local-')) {
         final next = item.copyWith(localPath: '');
@@ -1655,11 +1645,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       );
       var sizeBytes = item.sizeBytes;
       if (sizeBytes <= 0 && path != null && path.trim().isNotEmpty) {
-        try {
-          sizeBytes = await File(
-            path,
-          ).length().timeout(defaultBoundedFileReadIdleTimeout);
-        } catch (_) {}
+        sizeBytes = await probeFileSizeBounded(File(path)) ?? sizeBytes;
       }
       final next = path == null || path.trim().isEmpty
           ? item.copyWith(localPath: '')

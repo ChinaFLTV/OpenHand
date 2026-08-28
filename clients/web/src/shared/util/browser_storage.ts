@@ -28,12 +28,33 @@ export function readBrowserStorage(key: string): string | null {
   }
 }
 
+export function readBrowserJsonStorage(key: string): unknown | null {
+  const raw = readBrowserStorage(key);
+  if (raw == null) return null;
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    removeBrowserStorage(key);
+    return null;
+  }
+}
+
 export function writeBrowserStorage(key: string, value: string): boolean {
   try {
     const storage = getBrowserStorage();
     if (storage == null) return false;
     storage.setItem(key, value);
     return true;
+  } catch {
+    return false;
+  }
+}
+
+export function writeBrowserJsonStorage(key: string, value: unknown): boolean {
+  try {
+    const serialized = JSON.stringify(value);
+    return typeof serialized === 'string'
+      && writeBrowserStorage(key, serialized);
   } catch {
     return false;
   }

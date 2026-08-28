@@ -85,7 +85,11 @@ import '../model/web_message_platform_config.dart';
 import '../service/web_message_platform_service.dart';
 
 const int _dingtalkTranslationCacheMaxEntries = 64;
+const int _dingtalkClipboardImageMaxBytes = 64 * kBytesPerMiB;
+const Duration _dingtalkMediaClipboardTimeout = Duration(seconds: 15);
 int _dingtalkTemporaryFileSerial = 0;
+
+enum _DingTalkMediaClipboardContent { image, files }
 
 String _dingtalkTextContent(String content) =>
     stripImageSummaryMarkup(content).trim();
@@ -103,9 +107,50 @@ String _nextDingTalkTemporaryFileName(String prefix, String extension) {
 Future<bool> _pathExistsBounded(FileSystemEntity entity) async {
   try {
     return await entity.exists().timeout(defaultBoundedFileReadIdleTimeout);
-  } on Object {
+  } on FileSystemException {
+    return false;
+  } on TimeoutException {
     return false;
   }
+}
+
+Future<_DingTalkMediaClipboardContent> _copyDingTalkMediaToClipboard(
+  List<DingTalkGatewayMedia> media, {
+  VoidCallback? onUnavailable,
+}) async {
+  final paths = <String>[];
+  int? singleFileSize;
+  for (final item in media) {
+    final path = item.localPath.trim();
+    if (path.isEmpty) continue;
+    final size = await probeFileSizeBounded(File(path));
+    if (size == null || size <= 0) continue;
+    paths.add(path);
+    if (media.length == 1) singleFileSize = size;
+  }
+  if (paths.isEmpty) {
+    onUnavailable?.call();
+    throw const FileSystemException('媒体文件尚未准备完成。');
+  }
+  if (paths.length == 1 &&
+      media.length == 1 &&
+      media.single.kind == DingTalkMediaKind.image &&
+      singleFileSize != null &&
+      singleFileSize <= _dingtalkClipboardImageMaxBytes) {
+    await writeOpenHandClipboardImage(
+      await readBoundedFileBytes(
+        File(paths.single),
+        maxBytes: _dingtalkClipboardImageMaxBytes,
+        idleTimeout: _dingtalkMediaClipboardTimeout,
+        totalTimeout: _dingtalkMediaClipboardTimeout,
+      ),
+    );
+    return _DingTalkMediaClipboardContent.image;
+  }
+  if (!await writeOpenHandClipboardFiles(paths)) {
+    throw const FileSystemException('系统不支持复制媒体文件。');
+  }
+  return _DingTalkMediaClipboardContent.files;
 }
 
 String _reportMessageGatewayUiFailure(
@@ -16415,8 +16460,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   static const double _actionToggleMaxDistance = 8;
   static const Duration _actionToggleMaxDuration = Duration(milliseconds: 350);
   static const Duration _actionToggleDelay = Duration(milliseconds: 80);
-  static const int _maxClipboardImageBytes = 64 * kBytesPerMiB;
-  static const Duration _mediaClipboardTimeout = Duration(seconds: 15);
   static final RegExp _forwardedPreviewWhitespacePattern = RegExp(r'\s+');
   Offset? _pointerDownPosition;
   DateTime? _pointerDownAt;
@@ -18027,42 +18070,17 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     if (_copyingMedia) return;
     if (mounted) setState(() => _copyingMedia = true);
     try {
-      final paths = <String>[];
-      for (final item in media) {
-        final path = item.localPath.trim();
-        if (path.isEmpty || !await _pathExistsBounded(File(path))) continue;
-        paths.add(path);
-      }
-      if (paths.isEmpty) {
-        widget.onRetryMedia?.call();
-        throw const FileSystemException('媒体文件尚未准备完成。');
-      }
-      if (paths.length == 1 &&
-          media.length == 1 &&
-          media.single.kind == DingTalkMediaKind.image) {
-        final file = File(paths.single);
-        final size = await file.length().timeout(
-          defaultBoundedFileReadIdleTimeout,
-        );
-        if (size <= _maxClipboardImageBytes) {
-          await writeOpenHandClipboardImage(
-            await readBoundedFileBytes(
-              file,
-              maxBytes: _maxClipboardImageBytes,
-              idleTimeout: _mediaClipboardTimeout,
-              totalTimeout: _mediaClipboardTimeout,
-            ),
-          );
-          if (context.mounted) {
-            showOpenHandSuccessSnack(context, '图片已复制到剪贴板。');
-          }
-          return;
-        }
-      }
-      final copied = await writeOpenHandClipboardFiles(paths);
-      if (!copied) throw const FileSystemException('系统不支持复制媒体文件。');
+      final content = await _copyDingTalkMediaToClipboard(
+        media,
+        onUnavailable: widget.onRetryMedia,
+      );
       if (context.mounted) {
-        showOpenHandSuccessSnack(context, '媒体文件已复制到剪贴板。');
+        showOpenHandSuccessSnack(
+          context,
+          content == _DingTalkMediaClipboardContent.image
+              ? '图片已复制到剪贴板。'
+              : '媒体文件已复制到剪贴板。',
+        );
       }
     } catch (error, stack) {
       silentLog('dingtalk_gateway', '复制媒体文件', error, stack);
@@ -19106,8 +19124,6 @@ class _DingTalkForwardedChatDialogState
   static const double _actionToggleMaxDistance = 8;
   static const Duration _actionToggleMaxDuration = Duration(milliseconds: 350);
   static const Duration _actionToggleDelay = Duration(milliseconds: 80);
-  static const int _maxClipboardImageBytes = 64 * kBytesPerMiB;
-  static const Duration _mediaClipboardTimeout = Duration(seconds: 15);
   final AiTtsPlaybackService _ttsPlaybackService = AiTtsPlaybackService();
   final AiTranslationService _translationService = AiTranslationService();
   final Map<String, _DingTalkMessageTranslation> _translations =
@@ -19932,48 +19948,25 @@ class _DingTalkForwardedChatDialogState
     if (_copyingMediaMessageIds.contains(messageId)) return;
     setState(() => _copyingMediaMessageIds.add(messageId));
     try {
-      final paths = <String>[];
-      for (final item in media) {
-        final path = item.localPath.trim();
-        if (path.isNotEmpty && await _pathExistsBounded(File(path))) {
-          paths.add(path);
-        }
-      }
-      if (paths.isEmpty) {
-        unawaited(
-          widget.controller.ensureMessageMediaCached(
-            conversationId: widget.conversationId,
-            messageId: widget.messageId,
-            forceRetry: true,
-          ),
-        );
-        throw const FileSystemException('媒体文件尚未准备完成。');
-      }
-      if (paths.length == 1 &&
-          media.length == 1 &&
-          media.single.kind == DingTalkMediaKind.image) {
-        final file = File(paths.single);
-        if (await file.length().timeout(defaultBoundedFileReadIdleTimeout) <=
-            _maxClipboardImageBytes) {
-          await writeOpenHandClipboardImage(
-            await readBoundedFileBytes(
-              file,
-              maxBytes: _maxClipboardImageBytes,
-              idleTimeout: _mediaClipboardTimeout,
-              totalTimeout: _mediaClipboardTimeout,
+      final content = await _copyDingTalkMediaToClipboard(
+        media,
+        onUnavailable: () {
+          unawaited(
+            widget.controller.ensureMessageMediaCached(
+              conversationId: widget.conversationId,
+              messageId: widget.messageId,
+              forceRetry: true,
             ),
           );
-          if (context.mounted) {
-            showOpenHandSuccessSnack(context, '图片已复制到剪贴板。');
-          }
-          return;
-        }
-      }
-      if (!await writeOpenHandClipboardFiles(paths)) {
-        throw const FileSystemException('系统不支持复制媒体文件。');
-      }
+        },
+      );
       if (context.mounted) {
-        showOpenHandSuccessSnack(context, '媒体文件已复制到剪贴板。');
+        showOpenHandSuccessSnack(
+          context,
+          content == _DingTalkMediaClipboardContent.image
+              ? '图片已复制到剪贴板。'
+              : '媒体文件已复制到剪贴板。',
+        );
       }
     } catch (error, stack) {
       silentLog('dingtalk_gateway', '复制转发聊天记录媒体', error, stack);

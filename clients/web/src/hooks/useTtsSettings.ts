@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
-import { readBrowserStorage, writeBrowserStorage } from '../shared/util/browser_storage';
+import {
+  readBrowserJsonStorage,
+  writeBrowserJsonStorage,
+} from '../shared/util/browser_storage';
 import { clampNumber } from '../shared/util/number';
 import {
   booleanFromUnknown,
@@ -321,18 +324,12 @@ export function normalizeTtsSettings(value: unknown): TtsSettings {
 }
 
 function readTtsSettings(): TtsSettings {
-  const raw = readBrowserStorage(STORAGE_KEY_TTS_SETTINGS);
-  if (!raw) return defaultTtsSettings();
-  try {
-    return normalizeTtsSettings(JSON.parse(raw));
-  } catch {
-    return defaultTtsSettings();
-  }
+  return normalizeTtsSettings(readBrowserJsonStorage(STORAGE_KEY_TTS_SETTINGS));
 }
 
 export function saveTtsSettings(settings: TtsSettings): void {
   const normalized = normalizeTtsSettings(settings);
-  writeBrowserStorage(STORAGE_KEY_TTS_SETTINGS, JSON.stringify(normalized));
+  writeBrowserJsonStorage(STORAGE_KEY_TTS_SETTINGS, normalized);
   window.dispatchEvent(new CustomEvent(EVENT_TTS_SETTINGS_CHANGED));
 }
 

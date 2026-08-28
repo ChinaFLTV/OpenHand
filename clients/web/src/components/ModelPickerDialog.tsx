@@ -9,7 +9,16 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ApiMetaModel } from '../api/meta';
 import { t } from '../i18n';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
-import { readBrowserStorage, writeBrowserStorage } from '../shared/util/browser_storage';
+import {
+  readBrowserJsonStorage,
+  writeBrowserJsonStorage,
+} from '../shared/util/browser_storage';
+import {
+  arrayFromUnknown,
+  finiteNumberOrNullFromUnknown,
+  nonBlankStringFromUnknown,
+  recordOrNullFromUnknown,
+} from '../shared/util/value';
 import {
   DIALOG_OVERLAY_CENTER_FLUSH_CLASS,
   DIALOG_OVERLAY_PRIORITY_Z_INDEX,
@@ -41,14 +50,20 @@ interface RecentEntry {
 }
 
 function readRecent(): RecentEntry[] {
-  try {
-    const raw = readBrowserStorage(STORAGE_KEY_RECENT_MODELS);
-    if (!raw) return [];
-    const arr = JSON.parse(raw) as RecentEntry[];
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
+  const entries: RecentEntry[] = [];
+  const seen = new Set<string>();
+  for (const value of arrayFromUnknown(
+    readBrowserJsonStorage(STORAGE_KEY_RECENT_MODELS),
+  )) {
+    const record = recordOrNullFromUnknown(value);
+    const key = nonBlankStringFromUnknown(record?.key, { coerce: false });
+    const ts = finiteNumberOrNullFromUnknown(record?.ts);
+    if (key == null || ts == null || ts < 0 || seen.has(key)) continue;
+    seen.add(key);
+    entries.push({ key, ts });
+    if (entries.length >= RECENT_MAX) break;
   }
+  return entries;
 }
 
 function pushRecentModel(modelKey: string): void {
@@ -57,7 +72,7 @@ function pushRecentModel(modelKey: string): void {
     { key: modelKey, ts: Date.now() },
     ...readRecent().filter((r) => r.key !== modelKey),
   ].slice(0, RECENT_MAX);
-  writeBrowserStorage(STORAGE_KEY_RECENT_MODELS, JSON.stringify(next));
+  writeBrowserJsonStorage(STORAGE_KEY_RECENT_MODELS, next);
 }
 
 interface ModelPickerDialogProps {

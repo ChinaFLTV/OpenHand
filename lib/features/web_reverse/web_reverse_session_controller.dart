@@ -5114,6 +5114,7 @@ class WebReverseSessionController extends ChangeNotifier {
       seen.delete(value);
     }
   };
+  const MAX_LOG_ENTRIES = 800;
   const log = (kind, payload) => {
     try {
       const buf = window.__oh_rtc_log = window.__oh_rtc_log || [];
@@ -5121,7 +5122,9 @@ class WebReverseSessionController extends ChangeNotifier {
       // 避免载荷覆盖 `kind`。
       const clean = sanitize(payload);
       buf.push({ ...(clean || {}), kind, ts: Date.now() });
-      if (buf.length > 800) buf.splice(0, buf.length - 800);
+      if (buf.length > MAX_LOG_ENTRIES) {
+        buf.splice(0, buf.length - MAX_LOG_ENTRIES);
+      }
     } catch (_) {}
   };
   const Orig = window.RTCPeerConnection || window.webkitRTCPeerConnection;
@@ -5129,11 +5132,80 @@ class WebReverseSessionController extends ChangeNotifier {
   let nextId = 1;
   // 活跃 PeerConnection 注册表，供周期性 getStats 轮询使用。
   const reg = window.__oh_rtc_reg = window.__oh_rtc_reg || new Map();
+  const MAX_CONNECTIONS = 128;
+  const STATS_INTERVAL_MS = 1000;
+  const STATS_TIMEOUT_MS = 4000;
+  let statsBusy = false;
+  const stopStatsTimer = () => {
+    if (!window.__oh_rtc_stats_timer) return;
+    clearInterval(window.__oh_rtc_stats_timer);
+    window.__oh_rtc_stats_timer = 0;
+  };
+  const getStatsBounded = async (pc) => {
+    let timeoutId = 0;
+    try {
+      return await Promise.race([
+        pc.getStats(null),
+        new Promise(resolve => {
+          timeoutId = setTimeout(() => resolve(null), STATS_TIMEOUT_MS);
+        }),
+      ]);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  };
+  // 每秒采集活跃连接的收发量、丢包、往返时延和抖动。
+  const pollStats = async () => {
+    if (statsBusy) return;
+    if (reg.size === 0) {
+      stopStatsTimer();
+      return;
+    }
+    statsBusy = true;
+    try {
+      for (const [id, pc] of reg) {
+        try {
+          if (!pc || pc.connectionState === 'closed' || pc.connectionState === 'failed') {
+            reg.delete(id);
+            continue;
+          }
+          const stats = await getStatsBounded(pc);
+          if (!stats) {
+            reg.delete(id);
+            continue;
+          }
+          const sample = { id, bytesSent: 0, bytesReceived: 0, packetsLost: 0, packetsSent: 0, packetsReceived: 0, rtt: null, jitter: null };
+          stats.forEach((r) => {
+            if (r.type === 'outbound-rtp') {
+              sample.bytesSent += r.bytesSent || 0;
+              sample.packetsSent += r.packetsSent || 0;
+            } else if (r.type === 'inbound-rtp') {
+              sample.bytesReceived += r.bytesReceived || 0;
+              sample.packetsReceived += r.packetsReceived || 0;
+              sample.packetsLost += r.packetsLost || 0;
+              if (typeof r.jitter === 'number') sample.jitter = r.jitter;
+            } else if (r.type === 'candidate-pair' && r.state === 'succeeded' && r.nominated) {
+              if (typeof r.currentRoundTripTime === 'number') sample.rtt = r.currentRoundTripTime;
+            }
+          });
+          log('stats', sample);
+        } catch (_) {}
+      }
+    } finally {
+      statsBusy = false;
+      if (reg.size === 0) stopStatsTimer();
+    }
+  };
+  const ensureStatsTimer = () => {
+    if (window.__oh_rtc_stats_timer) return;
+    window.__oh_rtc_stats_timer = setInterval(pollStats, STATS_INTERVAL_MS);
+  };
   function patched(...args) {
     const pc = new Orig(...args);
     const id = nextId++;
     reg.set(id, pc);
-    if (reg.size > 128) reg.delete(reg.keys().next().value);
+    if (reg.size > MAX_CONNECTIONS) reg.delete(reg.keys().next().value);
+    ensureStatsTimer();
     log('pc.create', { id, config: args[0] || null });
     const serializeArg = (value) => {
       try {
@@ -5209,6 +5281,7 @@ class WebReverseSessionController extends ChangeNotifier {
       log('connectionstatechange', { id, state: pc.connectionState });
       if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
         reg.delete(id);
+        if (reg.size === 0) stopStatsTimer();
       }
     });
     pc.addEventListener('iceconnectionstatechange', () => {
@@ -5219,41 +5292,6 @@ class WebReverseSessionController extends ChangeNotifier {
   patched.prototype = Orig.prototype;
   window.RTCPeerConnection = patched;
   if (window.webkitRTCPeerConnection) window.webkitRTCPeerConnection = patched;
-  // 每秒轮询所有活跃 PC 的 getStats，挑关键字段累计：
-  // outbound-rtp / inbound-rtp 的 bytesSent/bytesReceived/packetsLost,
-  // remote-candidate-pair 的 currentRoundTripTime。
-  if (!window.__oh_rtc_stats_timer) {
-    let statsBusy = false;
-    window.__oh_rtc_stats_timer = setInterval(async () => {
-      if (statsBusy) return;
-      statsBusy = true;
-      try {
-        for (const [id, pc] of reg) {
-          try {
-            if (!pc || pc.connectionState === 'closed') { reg.delete(id); continue; }
-            const stats = await pc.getStats(null);
-            const sample = { id, bytesSent: 0, bytesReceived: 0, packetsLost: 0, packetsSent: 0, packetsReceived: 0, rtt: null, jitter: null };
-            stats.forEach((r) => {
-              if (r.type === 'outbound-rtp') {
-                sample.bytesSent += r.bytesSent || 0;
-                sample.packetsSent += r.packetsSent || 0;
-              } else if (r.type === 'inbound-rtp') {
-                sample.bytesReceived += r.bytesReceived || 0;
-                sample.packetsReceived += r.packetsReceived || 0;
-                sample.packetsLost += r.packetsLost || 0;
-                if (typeof r.jitter === 'number') sample.jitter = r.jitter;
-              } else if (r.type === 'candidate-pair' && r.state === 'succeeded' && r.nominated) {
-                if (typeof r.currentRoundTripTime === 'number') sample.rtt = r.currentRoundTripTime;
-              }
-            });
-            log('stats', sample);
-          } catch (_) {}
-        }
-      } finally {
-        statsBusy = false;
-      }
-    }, 1000);
-  }
 })();
 ''';
     try {

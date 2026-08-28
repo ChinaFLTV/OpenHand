@@ -4,8 +4,10 @@
 // 调度。所有 key 统一登记在 shared/util/storage_keys，并统一使用既定前缀。
 
 import {
+  readBrowserJsonStorage,
   readBrowserStorage,
   removeBrowserStorage,
+  writeBrowserJsonStorage,
   writeBrowserStorage,
 } from '../shared/util/browser_storage';
 import { STORAGE_KEY_DEVICE_ID, STORAGE_KEY_PROFILE, STORAGE_KEY_TOKEN } from '../shared/util/storage_keys';
@@ -47,24 +49,21 @@ export function writeToken(token: string, profile: AuthProfile | null): void {
   fallbackProfile = profile;
   writeBrowserStorage(STORAGE_KEY_TOKEN, token);
   if (profile) {
-    writeBrowserStorage(STORAGE_KEY_PROFILE, JSON.stringify(profile));
+    writeBrowserJsonStorage(STORAGE_KEY_PROFILE, profile);
   } else {
     removeBrowserStorage(STORAGE_KEY_PROFILE);
   }
 }
 
 export function readProfile(): AuthProfile | null {
-  const raw = readBrowserStorage(STORAGE_KEY_PROFILE);
-  if (!raw) return fallbackProfile;
-  try {
-    const profile = recordOrNullFromUnknown(JSON.parse(raw)) as AuthProfile | null;
-    if (profile != null) {
-      fallbackProfile = profile;
-      return profile;
-    }
-  } catch {
-    // 损坏的持久化数据无需反复解析，保留内存中的最近有效资料。
+  const profile = recordOrNullFromUnknown(
+    readBrowserJsonStorage(STORAGE_KEY_PROFILE),
+  ) as AuthProfile | null;
+  if (profile != null) {
+    fallbackProfile = profile;
+    return profile;
   }
+  // 损坏的持久化数据无需反复解析，保留内存中的最近有效资料。
   removeBrowserStorage(STORAGE_KEY_PROFILE);
   return fallbackProfile;
 }

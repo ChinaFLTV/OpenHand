@@ -28,6 +28,22 @@ const int _posixRegularFileType = 0x8000;
 
 enum BoundedFileReadFailure { tooLarge, changedDuringRead }
 
+/// 在限定时间内读取普通文件大小；文件不存在、类型不符或探测超时返回 null。
+Future<int?> probeFileSizeBounded(
+  File file, {
+  Duration timeout = defaultBoundedFileReadIdleTimeout,
+}) async {
+  requirePositiveDuration(timeout, 'timeout');
+  try {
+    final stat = await file.stat().timeout(timeout);
+    return stat.type == FileSystemEntityType.file ? stat.size : null;
+  } on FileSystemException {
+    return null;
+  } on TimeoutException {
+    return null;
+  }
+}
+
 /// 在指定父目录内创建临时目录，并在创建超时后接管迟到结果的清理。
 Future<Directory> createTemporaryDirectoryBounded({
   Directory? parent,
