@@ -16638,6 +16638,8 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
               final contentTransitionDuration = widget.streaming
                   ? Duration.zero
                   : openHandMotionDuration(context, kOpenHandMotion180);
+              final highlightPrimaryContent =
+                  contentExpanded && widget.message.quotedMessage != null;
               final messageContent = AnimatedSwitcher(
                 duration: contentTransitionDuration,
                 switchInCurve: kOpenHandSwitchInCurve,
@@ -16688,46 +16690,9 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                 duration: openHandMotionDuration(context, kOpenHandMotion260),
                 curve: kOpenHandEntranceCurve,
                 alignment: bubbleAlignment,
-                child: Stack(
-                  alignment: bubbleAlignment,
-                  children: [
-                    bubbleContent,
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: AnimatedContainer(
-                          duration: openHandMotionDuration(
-                            context,
-                            kOpenHandMotion260,
-                          ),
-                          curve: kOpenHandSwitchInCurve,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(
-                              kOpenHandRadius17,
-                            ),
-                            border: Border.all(
-                              color: colors.primary.withValues(
-                                alpha: widget.highlighted ? 0.82 : 0,
-                              ),
-                              width: 1.8,
-                            ),
-                            boxShadow: widget.highlighted
-                                ? [
-                                    BoxShadow(
-                                      color: colors.primary.withValues(
-                                        alpha: 0.2,
-                                      ),
-                                      blurRadius: 22,
-                                      spreadRadius: 1,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                child: highlightPrimaryContent
+                    ? bubbleContent
+                    : _buildNavigationHighlight(context, child: bubbleContent),
               );
               return Align(
                 alignment: alignment,
@@ -16757,6 +16722,54 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           kOpenHandGap7,
         ],
       ),
+    );
+  }
+
+  BorderRadius get _messageBubbleBorderRadius => BorderRadius.only(
+    topLeft: const Radius.circular(kOpenHandRadius17),
+    topRight: const Radius.circular(kOpenHandRadius17),
+    bottomLeft: Radius.circular(widget.mine ? 17 : 5),
+    bottomRight: Radius.circular(widget.mine ? 5 : 17),
+  );
+
+  Widget _buildNavigationHighlight(
+    BuildContext context, {
+    required Widget child,
+    double bottomInset = 0,
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    return Stack(
+      children: [
+        child,
+        Positioned.fill(
+          bottom: bottomInset,
+          child: IgnorePointer(
+            child: AnimatedContainer(
+              duration: openHandMotionDuration(context, kOpenHandMotion260),
+              curve: kOpenHandSwitchInCurve,
+              decoration: BoxDecoration(
+                borderRadius: _messageBubbleBorderRadius,
+                border: Border.all(
+                  color: colors.primary.withValues(
+                    alpha: widget.highlighted ? 0.82 : 0,
+                  ),
+                  width: 1.8,
+                ),
+                boxShadow: widget.highlighted
+                    ? [
+                        BoxShadow(
+                          color: colors.primary.withValues(alpha: 0.2),
+                          blurRadius: 22,
+                          spreadRadius: 1,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
+                    : null,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -16846,6 +16859,15 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
             includeFooter: media.isEmpty,
           )
         : null;
+    final mediaRail = _DingTalkMediaRail(
+      media: media,
+      mine: widget.mine,
+      loading: widget.mediaLoading,
+      failed: widget.mediaFailed,
+      onRetry: widget.onRetryMedia,
+      onSaveFile: widget.onSaveMedia,
+      onInteractiveTap: _cancelPendingActionToggle,
+    );
     return Column(
       crossAxisAlignment: crossAxis,
       children: [
@@ -16869,15 +16891,9 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                 : widget.message.ignoredForAiContext
                 ? 0.68
                 : 1,
-            child: _DingTalkMediaRail(
-              media: media,
-              mine: widget.mine,
-              loading: widget.mediaLoading,
-              failed: widget.mediaFailed,
-              onRetry: widget.onRetryMedia,
-              onSaveFile: widget.onSaveMedia,
-              onInteractiveTap: _cancelPendingActionToggle,
-            ),
+            child: hasQuotedMessage && textBubble == null
+                ? _buildNavigationHighlight(context, child: mediaRail)
+                : mediaRail,
           ),
         if (hasText && media.isNotEmpty) kOpenHandGap8,
         if (textBubble != null)
@@ -16885,7 +16901,13 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
             alignment: childAlignment,
             widthFactor: 1,
             child: hasQuotedMessage
-                ? IntrinsicWidth(child: textBubble)
+                ? IntrinsicWidth(
+                    child: _buildNavigationHighlight(
+                      context,
+                      child: textBubble,
+                      bottomInset: 6,
+                    ),
+                  )
                 : textBubble,
           ),
         if (media.isNotEmpty && widget.message.reactions.isNotEmpty)
@@ -16901,12 +16923,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   ) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final borderRadius = BorderRadius.only(
-      topLeft: const Radius.circular(kOpenHandRadius17),
-      topRight: const Radius.circular(kOpenHandRadius17),
-      bottomLeft: Radius.circular(widget.mine ? 17 : 5),
-      bottomRight: Radius.circular(widget.mine ? 5 : 17),
-    );
+    final borderRadius = _messageBubbleBorderRadius;
     return AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion220),
       curve: kOpenHandSwitchInCurve,
@@ -17247,12 +17264,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         border: widget.message.ignoredForAiContext && !widget.message.recalled
             ? Border.all(color: colors.tertiary.withValues(alpha: 0.42))
             : null,
-        borderRadius: BorderRadius.only(
-          topLeft: const Radius.circular(kOpenHandRadius17),
-          topRight: const Radius.circular(kOpenHandRadius17),
-          bottomLeft: Radius.circular(widget.mine ? 17 : 5),
-          bottomRight: Radius.circular(widget.mine ? 5 : 17),
-        ),
+        borderRadius: _messageBubbleBorderRadius,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -17280,12 +17292,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     final messages = widget.message.forwardedMessages;
     final totalCount = widget.message.forwardedMessageCount;
     final preview = messages.take(4).toList(growable: false);
-    final borderRadius = BorderRadius.only(
-      topLeft: const Radius.circular(kOpenHandRadius17),
-      topRight: const Radius.circular(kOpenHandRadius17),
-      bottomLeft: Radius.circular(widget.mine ? 17 : 5),
-      bottomRight: Radius.circular(widget.mine ? 5 : 17),
-    );
+    final borderRadius = _messageBubbleBorderRadius;
     return Semantics(
       button: true,
       label:
