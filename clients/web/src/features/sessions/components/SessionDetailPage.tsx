@@ -3765,13 +3765,7 @@ export function SessionDetailPage() {
   const blockedQueuedMessageIdRef = useRef<string | null>(null);
   const composerAttachmentIdsRef = useRef<string[]>([]);
   const attachmentIdSeqRef = useRef(0);
-  // 跨客户端协同: 自动跟随到底 + 远端发送冲突警告
-  // ---------------------------------------------------------------------
-  // 1) 自动跟随: 用户离底 ≤64px 视为「贴底」, 新消息追加时直接 scrollTo bottom;
-  //    用户主动上滑后暂停跟随，手动滚回底部时恢复。
-  // 2) 冲突警告: 本地 handleSend 触发会写 lastLocalSendAtRef. 当 sendPhase 转入
-  //    运行态且距离最近一次本地 send > 4s, 视为「另一处客户端在生成」,
-  //    若此时 composerText 非空 → 顶部黄色 banner 提示, 防止用户误以为自己刚发了。
+  // 用户离底超过阈值时暂停自动跟随；检测到远端生成且本地有草稿时显示冲突提示。
   const isNearBottomRef = useRef<boolean>(true);
   const autoFollowRef = useRef<boolean>(true);
   const autoFollowPausedRef = useRef<boolean>(false);
@@ -10976,14 +10970,8 @@ function SessionMetadataDialog({ detail, messages, onClose }: { detail: SessionD
   );
 }
 
-// 「会话级节流」弹窗。
-//
-// 覆盖写入会话 metadata，重启后仍保留；用户可分别为字符 / 卡片速率指定
-// 0..上限内的整数；留空 = 沿用全局值；0 = 该方向关闭节流并展示禁
-// 用提示。"恢复默认"清除全部覆盖。
-//
-// 弹窗顶部贴 30s 字符吞吐柱状图（桶 0 = 当前秒，超阈值红、当前秒高亮）；
-// 后端 SSE snapshot 已带 throughput_buckets，组件每次 props 变更直接拿 buckets 重绘。
+// 会话级节流覆盖写入 metadata；留空沿用全局值，0 表示关闭对应方向。
+// 弹窗使用 SSE 快照中的吞吐桶绘制最近 30 秒统计。
 function SessionThrottleDialog({
   sessionId,
   current,

@@ -109,7 +109,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
   final ScrollController _sourceLineScroll = ScrollController();
   final ScrollController _sourceHorizontalScroll = ScrollController();
 
-  // ── Slice 3: Source Map ──
+  // 源码映射
   // 当前选中脚本的 source map（懒加载，失败/无 map 时为 null）。
   WebReverseSourceMapInfo? _sourceMap;
   // 是否正在抓 map，决定 chip 是否显示进度。

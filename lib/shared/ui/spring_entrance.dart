@@ -7,8 +7,7 @@ import 'motion_preference.dart';
 const double kOpenHandSpringEntranceMinScale = 0.5;
 const double kOpenHandSpringEntranceMaxScale = 1.0;
 
-/// Reusable fade + scale + slide entrance used by transient content that should
-/// feel tactile without inventing a bespoke animation controller at each call.
+/// 临时内容共用的淡入、缩放与位移进场动画。
 class OpenHandSpringEntrance extends StatefulWidget {
   const OpenHandSpringEntrance({
     super.key,
@@ -87,14 +86,17 @@ class _OpenHandSpringEntranceState extends State<OpenHandSpringEntrance>
         ),
       ),
     );
-    _scale = Tween<double>(
-      begin: _safeScaleBegin(widget.scaleBegin),
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: kOpenHandEntranceCurve));
-    _slide = Tween<Offset>(
-      begin: _safeOffset(widget.slideBegin),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: kOpenHandSwitchInCurve));
+    _scale = Tween<double>(begin: _safeScaleBegin(widget.scaleBegin), end: 1.0)
+        .animate(
+          CurvedAnimation(parent: _controller, curve: kOpenHandEntranceCurve),
+        );
+    _slide =
+        Tween<Offset>(
+          begin: _safeOffset(widget.slideBegin),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(parent: _controller, curve: kOpenHandSwitchInCurve),
+        );
   }
 
   void _syncMotion() {

@@ -1,4 +1,4 @@
-export interface OverlayEscapeLayer {
+interface OverlayEscapeLayer {
   canClose: () => boolean;
   requestClose: () => void;
 }

@@ -22,19 +22,16 @@ const double _kReasoningPopupGap = 8;
 const double _kReasoningThumbRadius = 22;
 const double _kReasoningTrackHalfHeight = 13;
 
-// ── Energy thresholds ───────────────────────────────────────────────────────
 const double _kEnergyParticleThreshold = 0.72;
 const double _kMaximumProgressThreshold = 0.96;
 
-// ── Motion ──────────────────────────────────────────────────────────────────
 const Duration _kProgressAnimDuration = Duration(milliseconds: 360);
 const Duration _kCapsuleAnimDuration = kOpenHandMotion420;
 const Duration _kLabelSwitchDuration = kOpenHandMotion280;
 
-/// Progress at which the capsule starts blending into the max-tier palette.
+/// 胶囊开始混合最高档配色的进度阈值。
 const double _kCapsuleMaxBlendStart = 0.72;
 
-// ── Particles ───────────────────────────────────────────────────────────────
 const int _kBaseParticleCount = 18;
 const int _kMaximumParticleCount = 42;
 const int _kMaxThumbSparks = 64;
@@ -43,8 +40,7 @@ const double _kThumbRingPeriodSeconds = 10.0;
 const double _kThumbEmberInterval = 0.065;
 const double _kThumbSparkMaxDist = 58;
 
-/// Void Aurora — cool deep-space prestige.
-/// Deep ink → navy → electric blue → ice cyan. No gold/purple "VIP bar" look.
+/// 最高档使用深墨、海军蓝、电光蓝和冰青渐变。
 abstract final class _MaximumEffortPalette {
   static const Color voidInk = Color(0xFF05070E);
   static const Color deepNavy = Color(0xFF0B1A33);
@@ -207,7 +203,7 @@ class _ReasoningEffortPopupEntryState
         try {
           saved = await widget.onChanged(effort);
         } catch (_) {
-          // Caller owns error UX; roll back to last persisted value.
+          // 错误提示由调用方负责，此处仅回滚到最近一次持久化值。
         }
         if (saved) {
           _persistedValue = effort;
@@ -332,7 +328,7 @@ class _ReasoningEffortPopupEntryState
 
 // ── Capsule badge ───────────────────────────────────────────────────────────
 
-/// 0→1 blend into the max-tier palette. Starts near high energy, fully on at max.
+/// 将高能档位平滑混合到最高档配色。
 double _capsuleMaxBlend(double progress) {
   final raw =
       ((progress - _kCapsuleMaxBlendStart) / (1 - _kCapsuleMaxBlendStart))
@@ -340,8 +336,7 @@ double _capsuleMaxBlend(double progress) {
   return kOpenHandEmphasizedTransitionCurve.transform(raw);
 }
 
-/// Continuous 4-stop gradient: mid tiers ease through theme containers,
-/// then gently dissolve into Void Aurora as progress approaches 1.
+/// 中档沿主题容器色过渡，接近最高档时混入专属配色。
 List<Color> _capsuleGradientStops(double progress, ColorScheme colors) {
   final blend = _capsuleMaxBlend(progress);
   final base = <Color>[
@@ -386,7 +381,6 @@ class _ReasoningEffortCapsule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Tween discrete slider steps so fill / border / label colors ease together.
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(end: progress.clamp(0.0, 1.0)),
       duration: openHandMotionDuration(context, _kCapsuleAnimDuration),
@@ -416,7 +410,6 @@ class _ReasoningEffortCapsule extends StatelessWidget {
         )!;
         final labelColor = Color.lerp(midOn, Colors.white, blend)!;
 
-        // Plain Container: color is already eased by the outer TweenAnimationBuilder.
         final badge = Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
           decoration: BoxDecoration(
@@ -427,7 +420,7 @@ class _ReasoningEffortCapsule extends StatelessWidget {
             ),
             borderRadius: kOpenHandPillBorderRadius,
             border: Border.all(color: borderColor),
-            // Fixed shadow slots so intensity can fade without layer pop-in.
+            // 固定阴影层数量，避免强度变化时阴影层突然增减。
             boxShadow: <BoxShadow>[
               BoxShadow(
                 color: shadowA.withValues(alpha: 0.16 + blend * 0.22),
@@ -493,7 +486,7 @@ class _ReasoningEffortCapsule extends StatelessWidget {
   }
 }
 
-/// Soft dual-tone breathing glow; [intensity] 0 hides it without mount flicker.
+/// 双层呼吸光晕；强度为 0 时保留节点并完全隐藏。
 class _MaximumPulseAura extends StatefulWidget {
   const _MaximumPulseAura({required this.child, required this.intensity});
 
@@ -682,10 +675,10 @@ class _ReasoningParticleField extends ChangeNotifier {
   double _seconds = 0;
   double _emberAcc = 0;
 
-  /// Soft multi-harmonic glow (0..1) — no obvious reverse loop.
+  /// 0 到 1 的多谐波光晕强度。
   double glow = 0.55;
 
-  /// Continuous ring rotation angle in radians (always forward).
+  /// 持续正向旋转的圆环弧度。
   double ringAngle = 0;
 
   void resetClock() {
@@ -707,7 +700,6 @@ class _ReasoningParticleField extends ChangeNotifier {
         .toDouble();
     _seconds += deltaSeconds;
 
-    // Incommensurate sines → seamless organic breath, no hard loop seams.
     glow =
         (0.52 +
                 0.24 * math.sin(_seconds * 1.07) +
@@ -831,7 +823,6 @@ class _ReasoningParticleField extends ChangeNotifier {
       }
       spark.dist += spark.speed * deltaSeconds;
       spark.speed *= drag;
-      // Slight angular drift for organic scatter.
       spark.angle += (_random.nextDouble() - 0.5) * deltaSeconds * 1.4;
     }
   }
@@ -904,11 +895,11 @@ class _ReasoningParticle {
   final _ParticleKind kind;
   final int colorIndex;
 
-  /// When true, may render slightly outside the track clip (spark overflow).
+  /// 是否允许粒子轻微越过轨道裁剪范围。
   final bool spill;
 }
 
-/// Radial ember / burst spark emitted from the max-tier thumb.
+/// 最高档滑块发射的径向火花粒子。
 class _ThumbSpark {
   _ThumbSpark({
     required this.angle,
@@ -1050,7 +1041,6 @@ class _ReasoningTrackPainter extends CustomPainter {
           ).createShader(activeRect.outerRect),
       );
 
-      // Soft top-edge specular — static, color-matched; no gray sweep band.
       if (isMaximum) {
         final specular = Rect.fromLTRB(
           left,
@@ -1076,13 +1066,11 @@ class _ReasoningTrackPainter extends CustomPainter {
       }
     }
 
-    // Intermediate ticks only (Codex-style): skip head/tail so rounded
-    // track caps stay clean — no ugly endpoint dots on either end.
+    // 只绘制中间刻度，避免端点与圆角轨道重叠。
     final safeDivisions = math.max(1, divisions);
     if (safeDivisions >= 2) {
       for (var index = 1; index < safeDivisions; index++) {
         final tickProgress = index / safeDivisions;
-        // Align with thumb travel path (inset from capsule ends).
         final x = thumbLeft + (thumbRight - thumbLeft) * tickProgress;
         final active = tickProgress <= progress + 0.001;
         canvas.drawCircle(
@@ -1166,7 +1154,6 @@ class _ReasoningTrackPainter extends CustomPainter {
           (clipped ? 1.0 : 0.85);
       final center = Offset(x, y);
 
-      // Soft bloom under spark / flare.
       if (particle.kind != _ParticleKind.dust) {
         final bloomScale = particle.kind == _ParticleKind.flare ? 2.8 : 2.1;
         canvas.drawCircle(
@@ -1191,14 +1178,12 @@ class _ReasoningTrackPainter extends CustomPainter {
               : const MaskFilter.blur(BlurStyle.normal, 0.8),
       );
 
-      // Bright core for flares.
       if (particle.kind == _ParticleKind.flare) {
         canvas.drawCircle(
           center,
           radius * 0.38,
           Paint()..color = Colors.white.withValues(alpha: alpha * 0.9),
         );
-        // Tiny cross sparkle.
         final arm = radius * 1.6;
         final sparkPaint = Paint()
           ..color = Colors.white.withValues(alpha: alpha * 0.55)
@@ -1217,7 +1202,6 @@ class _ReasoningTrackPainter extends CustomPainter {
       }
     }
 
-    // Clipped layer inside the track.
     canvas.save();
     canvas.clipRRect(trackRect);
     for (var index = 0; index < activeCount; index++) {
@@ -1225,7 +1209,6 @@ class _ReasoningTrackPainter extends CustomPainter {
     }
     canvas.restore();
 
-    // Unclipped overflow sparks around the track at max.
     if (isMaximum) {
       for (var index = 0; index < activeCount; index++) {
         drawOne(particles.particles[index], clipped: false);
@@ -1236,7 +1219,6 @@ class _ReasoningTrackPainter extends CustomPainter {
   void _paintThumbSparks(Canvas canvas, Offset center) {
     for (final spark in particles.thumbSparks) {
       final lifeT = (spark.life / spark.maxLife).clamp(0.0, 1.0);
-      // Ease-out fade so sparks die softly, not pop off.
       final fade = kOpenHandSwitchInCurve.transform(lifeT);
       final color =
           _MaximumEffortPalette.particleColors[spark.colorIndex %
@@ -1246,7 +1228,6 @@ class _ReasoningTrackPainter extends CustomPainter {
       final pos = center + Offset(dx, dy);
       final alpha = (0.15 + fade * 0.85).clamp(0.0, 1.0);
 
-      // Soft bloom
       canvas.drawCircle(
         pos,
         spark.radius * 2.4,
@@ -1255,7 +1236,6 @@ class _ReasoningTrackPainter extends CustomPainter {
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.5),
       );
 
-      // Streak along radial direction (fireworks trail).
       final trail = spark.radius * (2.2 + spark.streak * 3.5) * fade;
       final tail = Offset(
         pos.dx - math.cos(spark.angle) * trail,
@@ -1271,7 +1251,6 @@ class _ReasoningTrackPainter extends CustomPainter {
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.6),
       );
 
-      // Hot core
       canvas.drawCircle(
         pos,
         spark.radius * (0.55 + fade * 0.45),
@@ -1282,7 +1261,6 @@ class _ReasoningTrackPainter extends CustomPainter {
 
   void _paintThumb(Canvas canvas, Offset center, bool isMaximum, double glow) {
     if (isMaximum) {
-      // Soft multi-layer aura — continuous multi-harmonic glow, no hard pulse.
       canvas.drawCircle(
         center,
         _kReasoningThumbRadius + 10 + glow * 3,
@@ -1303,7 +1281,6 @@ class _ReasoningTrackPainter extends CustomPainter {
       );
     }
 
-    // Porcelain disc with subtle cool tint edge via outer soft ring.
     canvas.drawCircle(
       center,
       _kReasoningThumbRadius,
@@ -1311,7 +1288,6 @@ class _ReasoningTrackPainter extends CustomPainter {
     );
 
     if (isMaximum) {
-      // Continuous forward-rotating prestige ring (linear time, seamless).
       final ringPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.2
@@ -1326,7 +1302,6 @@ class _ReasoningTrackPainter extends CustomPainter {
             );
       canvas.drawCircle(center, _kReasoningThumbRadius, ringPaint);
 
-      // Quiet inner ice rim — stable alpha, slightly breathing with glow.
       canvas.drawCircle(
         center,
         _kReasoningThumbRadius - 4,

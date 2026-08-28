@@ -1,13 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
 
-/// Error-container banner that surfaces a data persistence issue (recovered /
-/// sanitized / save-failed) with a dismiss affordance.
-///
-/// Callers resolve the localized [title], [body] and [dismissLabel] from their
-/// own feature l10n, so this widget stays free of any feature-specific strings.
-/// When [dismissLabel] is null the dismiss control renders as a close icon
-/// button (using [dismissTooltip]) instead of a text button.
+/// 可关闭的数据持久化异常卡片；文案由调用方完成本地化。
 class PersistenceIssueCard extends StatelessWidget {
   const PersistenceIssueCard({
     super.key,

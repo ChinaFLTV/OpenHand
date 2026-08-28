@@ -169,10 +169,7 @@ class _ComposerPanel extends StatefulWidget {
   final bool isCollapsed;
   final ValueChanged<bool> onCollapsedChanged;
   final bool autoFollowEnabled;
-  // True when auto-follow mode is ON but the user has scrolled away from
-  // the bottom, so following is temporarily paused. In this state the
-  // button renders as a muted "resume" affordance; tapping it re-arms the
-  // follow and jumps to the latest message instead of disabling the mode.
+  // 自动跟随已启用但因用户离开底部而暂停；点击后恢复并跳到最新消息。
   final bool autoFollowPaused;
   final VoidCallback onToggleAutoFollow;
   final AiSendPhase sendPhase;
@@ -1193,9 +1190,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
 
   bool get hasPendingProjectFileReferences => _projectFileReferences.isNotEmpty;
 
-  /// Injects project file/directory references into the controller text and
-  /// clears the capsule list. Called both from the send button and from the
-  /// parent via [GlobalKey] for keyboard-shortcut sends.
+  /// 将项目文件引用写入输入框并清空胶囊列表。
   void _injectReferencesIntoText() {
     if (_projectFileReferences.isEmpty) return;
     final refs = _projectFileReferences
@@ -1744,16 +1739,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                   link: _skillPickerLayerLink,
                   child: const SizedBox.expand(),
                 ),
-                // Wrap the editable text in a Shortcuts/Actions
-                // pair driven by the global SettingsController bindings so
-                // that send-message and toggle-composer hotkeys (Ctrl+Enter
-                // and Ctrl+P by default) are consumed *inside* the focused
-                // TextField before default editing shortcuts see them.
-                // Background: macOS' DefaultTextEditingShortcuts maps Ctrl+P
-                // to MoveSelectionUpTextIntent at the WidgetsApp level. The
-                // actual send/toggle action is still dispatched once by
-                // _handleGlobalShortcutKeyEvent; this local host only stops
-                // the focus-tree shortcut from leaking onward.
+                // 在输入框层拦截全局快捷键，避免 macOS 文本编辑快捷键抢占 Ctrl+P。
                 _ComposerShortcutsHost(
                   bindings: context
                       .watch<SettingsController>()
@@ -4219,13 +4205,7 @@ class _ComposerCreationOptionsChip extends StatelessWidget {
   }
 }
 
-// ─── Composer shortcut interception ────────────────────────────────────────
-// Hosts a Shortcuts/Actions pair just above the composer's TextField.  The
-// activators are derived from the user's global SettingsController bindings
-// (sendMessage / toggleComposer).  Because Shortcuts widgets are walked from
-// the focused EditableText outward, this layer intercepts before the global
-// DefaultTextEditingShortcuts (which would otherwise consume Ctrl+P as
-// MoveSelectionUpTextIntent on macOS).
+// 输入框快捷键拦截层，优先于系统文本编辑快捷键处理发送与折叠操作。
 
 class _ComposerSendIntent extends Intent {
   const _ComposerSendIntent();

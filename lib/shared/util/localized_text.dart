@@ -398,7 +398,6 @@ _openHandInlineTextCatalog = <String, Map<String, String>>{
 };
 
 // 跨模块通用文案
-//
 
 String openHandAddLabel(BuildContext context) {
   return openHandLocalizedText(

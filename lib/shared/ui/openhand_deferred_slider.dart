@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Previews drag updates locally and commits only when the interaction ends.
+/// 拖动时仅更新本地预览，交互结束后再提交最终值。
 class OpenHandDeferredSlider extends StatefulWidget {
   const OpenHandDeferredSlider({
     super.key,

@@ -33,10 +33,7 @@ class _ModelEntry {
   (String, String) get selectionKey => (configId, modelId);
 }
 
-/// A searchable model selection dialog.
-///
-/// Groups models by provider, with real-time filtering. Call
-/// [showModelSearchSelector] to display it.
+/// 显示按服务商分组并支持实时筛选的模型选择弹窗。
 Future<(String, String)?> showModelSearchSelector({
   required BuildContext context,
   required List<AiModelConfig> models,
@@ -45,8 +42,6 @@ Future<(String, String)?> showModelSearchSelector({
   List<RecentModelSelection> recentSelections = const <RecentModelSelection>[],
   bool Function(AiModelConfig config, String modelId)? modelFilter,
 }) async {
-  // Build flat list of entries grouped by provider.
-  // Skip providers that have no models at all (empty allModelIds).
   final entries = <_ModelEntry>[];
   final entriesBySelection = <(String, String), _ModelEntry>{};
   for (final config in models) {
@@ -58,7 +53,6 @@ Future<(String, String)?> showModelSearchSelector({
     final protocolLabel = config.protocolType.storageValue;
     final allIds = config.allModelIds;
     if (allIds.isEmpty) {
-      // Provider has no models — hide from the selector.
       continue;
     }
     for (final modelId in allIds) {
@@ -79,8 +73,7 @@ Future<(String, String)?> showModelSearchSelector({
     }
   }
 
-  // Build recent entries from persisted selections, validating against current
-  // provider configs to prune stale entries.
+  // 仅保留当前配置仍可用的最近选择。
   final recentEntries = <_ModelEntry>[];
   final seenRecentSelections = <(String, String)>{};
   for (final recent in recentSelections) {
@@ -167,7 +160,6 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
 
-    // Group filtered entries by provider.
     final grouped = <String, List<_ModelEntry>>{};
     for (final entry in _filtered) {
       final key = '${entry.providerLabel}  (${entry.protocolLabel})';
@@ -214,7 +206,6 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ─── Search field ───
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: TextField(
@@ -245,7 +236,6 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
               ),
               style: theme.textTheme.bodyMedium,
               onSubmitted: (_) {
-                // Select the first filtered result on Enter.
                 if (_filtered.isNotEmpty) {
                   final first = _filtered.first;
                   Navigator.of(context).pop((first.configId, first.modelId));
@@ -253,7 +243,6 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
               },
             ),
           ),
-          // ─── Result count ───
           if (_searchController.text.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -271,7 +260,6 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
               ),
             ),
           kOpenHandGap4,
-          // ─── Model list ───
           Flexible(
             child: !hasAnyModels
                 ? OpenHandInlineEmptyState(

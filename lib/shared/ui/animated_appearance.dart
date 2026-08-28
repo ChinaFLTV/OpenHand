@@ -5,24 +5,7 @@ import 'animated_dialog.dart';
 import 'bounded_animation.dart';
 import 'motion_preference.dart';
 
-/// Reusable enter/exit animation wrapper that consumes a
-/// [DialogAnimationSettings] (the same struct that drives dialogs,
-/// panels, menus, and pages) and re-uses the shared transition library
-/// from [buildAnimationStyleTransition].
-///
-/// Behaviour:
-/// - On first build, plays the [DialogAnimationSettings.entranceStyle]
-///   forward.
-/// - When [present] flips from `true` → `false`, plays the
-///   [DialogAnimationSettings.exitStyle] in reverse, then invokes
-///   [onDismissed] (typically used by the parent to remove this entry
-///   from its data list, which makes the widget unmount on the next
-///   rebuild).
-/// - When [present] flips from `false` → `true` (resurrection /
-///   re-add), plays the entrance again.
-/// - When [collapseSize] is true (default), the widget is wrapped in a
-///   [SizeTransition] that smoothly collapses the layout slot during
-///   exit so neighbours flow into place rather than jumping.
+/// 复用全局弹窗设置的进退场动画；隐藏后回调 [onDismissed]，重新显示时重播进场。
 ///
 /// 动态列表默认使用 [kOpenHandLayoutSafeTransitionProfile]，尺寸变化期间不会
 /// 创建依赖布局状态的 `RenderFractionalTranslation`。
@@ -44,21 +27,16 @@ class AnimatedAppearance extends StatefulWidget {
   final DialogAnimationSettings settings;
   final bool present;
 
-  /// Called once the exit animation completes. Use this to remove the
-  /// associated data entry from a list. Not called when the widget is
-  /// disposed before the animation finishes (e.g. parent unmounts).
+  /// 退场完成后调用；提前释放组件时不调用。
   final VoidCallback? onDismissed;
 
-  /// When true, also collapses the widget's layout slot during exit /
-  /// expands it during entrance — so neighbour items reflow smoothly.
+  /// 是否在进退场期间同步展开或收缩布局槽。
   final bool collapseSize;
 
-  /// Axis along which [collapseSize] collapses. Default vertical.
+  /// 布局槽收缩方向。
   final Axis collapseAxis;
 
-  /// Alignment along the collapse axis (-1 = top/leading,
-  /// 0 = center, 1 = bottom/trailing). Defaults to leading so a chip
-  /// removed from a `Wrap` collapses leftward into the row.
+  /// 收缩轴对齐方式：-1 为起点，0 为居中，1 为终点。
   final double collapseAxisAlignment;
 
   final OpenHandAnimationTransitionProfile transitionProfile;
@@ -94,8 +72,7 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
         _ctrl.forward();
       }
     } else {
-      // A node that starts absent was never presented, so making it flash in
-      // merely to play an exit would violate the meaning of [present].
+      // 初始隐藏的节点直接保持隐藏，避免为退场而闪现。
       _dismissImmediately();
     }
   }
@@ -141,9 +118,7 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
         _startExit();
       }
     } else if (durationsChanged) {
-      // AnimationController snapshots the duration when a simulation starts;
-      // restart from the current value so a live preference change takes
-      // effect instead of waiting out the stale duration.
+      // 从当前进度重启动画，让运行时修改的时长立即生效。
       if (widget.present && !_ctrl.isCompleted) {
         _ctrl.forward();
       } else if (!widget.present && !_ctrl.isDismissed) {

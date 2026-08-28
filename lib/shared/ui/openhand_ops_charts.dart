@@ -1402,10 +1402,7 @@ class OpenHandOperationalTrendChart extends StatefulWidget {
   final OpenHandChartInterpolation interpolation;
   final bool area;
 
-  /// Requests an internal legend when the chart has multiple series.
-  ///
-  /// An internal legend is still rendered when this is false unless the caller
-  /// explicitly declares an external legend or table.
+  /// 多序列时是否请求内部图例；没有外部图例或表格时仍会显示。
   final bool showLegend;
   final bool externalLegendProvided;
   final double? fixedMaximum;
@@ -1940,10 +1937,7 @@ class OpenHandOperationalDonutChart extends StatefulWidget {
   final double height;
   final String? centerLabel;
 
-  /// Requests an internal legend when the chart has multiple segments.
-  ///
-  /// An internal legend is still rendered when this is false unless the caller
-  /// explicitly declares an external legend or table.
+  /// 多分段时是否请求内部图例；没有外部图例或表格时仍会显示。
   final bool showLegend;
   final bool externalLegendProvided;
   final bool showSelectionHighlight;

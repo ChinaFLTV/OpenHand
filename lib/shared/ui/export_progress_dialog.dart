@@ -14,8 +14,7 @@ import 'openhand_dialog_action_button.dart';
 /// 卡住的写入把进度弹窗永久钉在屏幕上。
 const Duration kOpenHandExportTimeout = Duration(minutes: 5);
 
-/// Listenable controller backing the export progress dialog. Holds the
-/// current progress payload, a cancellation token, and the latest result.
+/// 导出进度弹窗控制器，统一管理进度、取消令牌与完成状态。
 class ExportProgressController extends ChangeNotifier {
   ExportProgressController({required this.cancelToken});
 
@@ -54,9 +53,7 @@ class ExportProgressController extends ChangeNotifier {
   }
 }
 
-/// Modal dialog that surfaces real-time export progress and lets the user
-/// cancel a running export. The dialog is non-dismissible: the only ways
-/// to leave are pressing Cancel, completion, or the caller closing it.
+/// 展示实时进度且支持取消的模态弹窗；只能由取消、完成或调用方主动关闭。
 class ExportProgressDialog extends StatelessWidget {
   const ExportProgressDialog({
     super.key,

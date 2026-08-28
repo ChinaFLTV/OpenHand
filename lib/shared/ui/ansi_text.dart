@@ -213,13 +213,12 @@ class _AnsiState {
     }
   }
 
-  /// Returns the number of *additional* parts consumed beyond the leading
-  /// 38/48 token. Returns 0 if the format was unrecognised.
+  /// 返回 38/48 标记之后额外消耗的段数；格式无效时返回 0。
   int _parseExtendedColor(List<String> parts, int start, {required bool isFg}) {
     if (start >= parts.length) return 0;
     final mode = _parseAnsiInt(parts[start]);
     if (mode == 5) {
-      // 256-color
+      // 256 色
       if (start + 1 >= parts.length) return 0;
       final idx = _parseAnsiInt(parts[start + 1]);
       if (idx == null) return 0;
@@ -232,7 +231,7 @@ class _AnsiState {
       return 2;
     }
     if (mode == 2) {
-      // truecolor
+      // 真彩色
       if (start + 3 >= parts.length) return 0;
       final r = _parseAnsiInt(parts[start + 1]);
       final g = _parseAnsiInt(parts[start + 2]);
@@ -252,14 +251,14 @@ class _AnsiState {
 
 // ANSI 基础色板兼顾明暗主题，高亮色使用更高饱和度。
 const List<Color> _basic = [
-  Color(0xFF3F3F3F), // black
-  Color(0xFFD6453E), // red
-  Color(0xFF3FA45A), // green
-  Color(0xFFC59B22), // yellow
-  Color(0xFF3F7BD6), // blue
-  Color(0xFFB347C4), // magenta
-  Color(0xFF1FA0A8), // cyan
-  Color(0xFFBFBFBF), // white
+  Color(0xFF3F3F3F),
+  Color(0xFFD6453E),
+  Color(0xFF3FA45A),
+  Color(0xFFC59B22),
+  Color(0xFF3F7BD6),
+  Color(0xFFB347C4),
+  Color(0xFF1FA0A8),
+  Color(0xFFBFBFBF),
 ];
 const List<Color> _bright = [
   Color(0xFF6E6E6E),

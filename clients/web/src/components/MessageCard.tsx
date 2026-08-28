@@ -2479,18 +2479,7 @@ function MessageCardImpl({
     !isUserBubble && activelyStreaming && content.trim().length < 10
       ? mediaGenerationModeFromMetadata(metadata)
       : null;
-  // 在同一回合内，即便此卡不再是「最新流式卡」，已完成的非 reasoning 卡
-  // 只要回合仍在运行就保持展开；正在增长的正式响应达到阈值后由
-  // responseCollapsedWhileStreaming 单独进入折叠预览。
-  //
-  // 关键去抖：服务器 send_phase 在 SSE / 2.5s phase guard / polling 三路之间
-  // 存在竞态，turnActive 会瞬态 true → false → true 跳变 (~ 每隔几秒一次)，
-  // 直接驱动 keepExpandedDuringTurn → 长正文卡的 collapsed 跟着跳变 → CSS
-  // 360ms max-height (4000px ↔ 240px) 过渡每隔几秒跑一遍 → 视觉上正文
-  // 区每隔几秒"消失再立刻显示"（卡片外框稳定，因 collapsed 只裁 body），
-  // 同时撑高的工具卡在视窗中表现为"折叠 → 展开 → 折叠"。
-  // 这里把 turnActive 的 false 沿做 12s 去抖：只有持续 12s false 才认为回合
-  // 真正结束，覆盖慢速节流 / drain 间隔里的 idle 抖动。true 沿立即生效。
+  // 非推理卡在回合内保持展开；延迟确认结束状态，避免多路状态更新竞态引发闪烁。
   const stableTurnActive = useDelayedFalse(
     turnActive,
     STREAMING_TURN_IDLE_DEBOUNCE_MS,

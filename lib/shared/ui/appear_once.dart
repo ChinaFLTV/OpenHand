@@ -10,26 +10,11 @@ import 'motion_preference.dart';
 const Duration _kDefaultAppearDuration = kOpenHandMotion320;
 const double _kDefaultAppearSlideOffset = 12.0;
 
-/// One-shot, ticker-self-disposing entrance animation wrapper.
-///
-/// Wrap a list item (or any widget that newly enters the tree) with
-/// [AppearOnce] to give it a gentle fade + upward slide on first build.
-/// After the animation completes the internal [AnimationController] is
-/// disposed and subsequent rebuilds fall through to a static fast path —
-/// so a sidebar / list with hundreds of items pays no per-frame ticker
-/// cost once they have settled.
-///
-/// This intentionally mirrors the entrance pattern already used by the
-/// transcript bubble (`_TranscriptAnimatedMessageEntry`) and the
-/// `_PaintOffsetTransition` family in `openhand_home_page.dart`: it only
-/// uses `FadeTransition` + a paint-time translate, never an
-/// `AnimatedWidget` subclass that would assert under `LayoutBuilder`.
+/// 一次性淡入上移动画；完成后释放控制器，后续重建直接返回静态子树。
 class AppearOnce extends StatefulWidget {
   const AppearOnce({
     super.key,
     required this.child,
-    // Keep compact chips and tiles aligned with the softer transcript
-    // message entrance.
     this.duration = _kDefaultAppearDuration,
     this.slideOffset = _kDefaultAppearSlideOffset,
   });
@@ -37,8 +22,7 @@ class AppearOnce extends StatefulWidget {
   final Widget child;
   final Duration duration;
 
-  /// Pixels of vertical translation at animation start (`offset.dy`).
-  /// Always animates from `slideOffset` (down) up to `0`.
+  /// 初始向下偏移的逻辑像素数，终点始终为 0。
   final double slideOffset;
 
   @override
@@ -60,8 +44,6 @@ class _AppearOnceState extends State<AppearOnce>
       vsync: this,
     );
     _opacity = CurvedAnimation(parent: ctrl, curve: Curves.easeOut);
-    // Match the Material 3 emphasized motion used by transcript bubbles and
-    // panel transitions.
     _translate = CurvedAnimation(parent: ctrl, curve: kOpenHandEmphasizedCurve);
     ctrl.addStatusListener(_onStatus);
     _ctrl = ctrl;
@@ -115,15 +97,10 @@ class _AppearOnceState extends State<AppearOnce>
     final opacity = _opacity;
     final translate = _translate;
     if (opacity == null || translate == null) {
-      // Animation already finished — return the child directly so we add
-      // zero overhead per frame from here on out.
       return widget.child;
     }
     if (!openHandTickerMotionEnabled(context)) {
-      // Honor user / OS reduce-motion without mutating the controller during
-      // build; cleanup is deferred to avoid build-phase setState hazards.
-      // TickerMode-off subtrees use the same fast path so content never stays
-      // invisible at the animation's first frame while tickers are muted.
+      // 延后释放，避免在构建阶段触发状态变更。
       _disposeControllerAfterBuild();
       return widget.child;
     }
@@ -138,12 +115,7 @@ class _AppearOnceState extends State<AppearOnce>
   }
 }
 
-/// Paint-time vertical translation (no setState per tick).
-///
-/// Mirrors the safe pattern from `_PaintOffsetTransition` in
-/// `openhand_home_page.dart` so this wrapper composes safely inside
-/// `LayoutBuilder` / `SliverList` contexts where `SlideTransition` would
-/// trip the `BuildScope` assertion.
+/// 绘制阶段执行垂直位移，不在每帧调用 setState。
 class _AppearTranslate extends SingleChildRenderObjectWidget {
   const _AppearTranslate({
     required this.animation,

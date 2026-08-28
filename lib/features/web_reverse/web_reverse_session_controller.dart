@@ -9345,7 +9345,7 @@ class WebReverseSessionController extends ChangeNotifier {
     }
   }
 
-  // ─── Source Map 解析（Slice 3：源码板块集成） ───
+  // 源码映射解析
   // 缓存 key 用脚本 URL；map 经常达到数 MB，因此同时限制条目数与估算字符数。
   final LifecycleLruCache<WebReverseSourceMapInfo> _sourceMapCache =
       LifecycleLruCache<WebReverseSourceMapInfo>(
