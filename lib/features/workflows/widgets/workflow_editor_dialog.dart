@@ -96,6 +96,7 @@ Future<WorkflowDefinition?> showWorkflowEditorDialog(
   return showAnimatedDialog<WorkflowDefinition>(
     context: context,
     barrierDismissible: false,
+    dismissOnEscape: false,
     builder: (dialogContext) {
       final viewport = MediaQuery.sizeOf(dialogContext);
       return buildOpenHandDialog(
@@ -169,7 +170,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   String? _connectionTargetError;
   Offset? _connectionDragPosition;
   late final List<_WorkflowHistoryEntry> _history;
+  late final String _initialDraftFingerprint;
   int _historyIndex = 0;
+  bool _closeConfirmationOpen = false;
+  bool _allowPop = false;
 
   WorkflowNode? get _selectedNode {
     final id = _selectedNodeId;
@@ -182,10 +186,13 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
 
   bool get _canUndo => _historyIndex > 0;
   bool get _canRedo => _historyIndex + 1 < _history.length;
+  bool get _hasUnsavedChanges =>
+      _currentDraftFingerprint() != _initialDraftFingerprint;
 
   @override
   void initState() {
     super.initState();
+    _initialDraftFingerprint = _currentDraftFingerprint();
     _history = <_WorkflowHistoryEntry>[
       _WorkflowHistoryEntry(
         label: widget.workflow == null ? '创建工作流' : '打开工作流',
@@ -206,7 +213,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Material(
+    final content = Material(
       color: theme.colorScheme.surface,
       child: Column(
         children: [
@@ -268,7 +275,28 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         ],
       ),
     );
+    return PopScope(
+      canPop: _allowPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) unawaited(_requestClose());
+      },
+      child: CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          const SingleActivator(LogicalKeyboardKey.escape): () =>
+              unawaited(_requestClose()),
+        },
+        child: content,
+      ),
+    );
   }
+
+  String _currentDraftFingerprint() => jsonEncode(<String, Object?>{
+    'name': _workflowName,
+    'nodes': _nodes.map((node) => node.toJson()).toList(growable: false),
+    'connections': _connections
+        .map((connection) => connection.toJson())
+        .toList(growable: false),
+  });
 
   Widget _buildHeader(BuildContext context) {
     final theme = Theme.of(context);
@@ -315,13 +343,46 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
           kOpenHandHGap8,
           IconButton.filledTonal(
             tooltip: '关闭',
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: _closeConfirmationOpen ? null : _requestClose,
             style: actionStyle,
             icon: const Icon(Icons.close_rounded),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _requestClose() async {
+    if (!_hasUnsavedChanges) {
+      _popEditor();
+      return;
+    }
+    if (_closeConfirmationOpen) return;
+    setState(() => _closeConfirmationOpen = true);
+    final discard = await showOpenHandConfirmDialog(
+      context: context,
+      title: '放弃未保存的工作流？',
+      message: '当前工作流存在未保存的变更。关闭后，这些内容将无法恢复。',
+      cancelLabel: '继续编辑',
+      confirmLabel: '放弃并关闭',
+      icon: Icon(
+        Icons.warning_amber_rounded,
+        color: Theme.of(context).colorScheme.error,
+      ),
+      destructive: true,
+      barrierDismissible: false,
+    );
+    if (!mounted) return;
+    setState(() => _closeConfirmationOpen = false);
+    if (discard) _popEditor();
+  }
+
+  void _popEditor([WorkflowDefinition? result]) {
+    if (!mounted || _allowPop) return;
+    setState(() => _allowPop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).pop(result);
+    });
   }
 
   Widget _buildCanvas(BuildContext context) {
@@ -1986,7 +2047,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       showOpenHandInfoSnack(context, error);
       return;
     }
-    Navigator.of(context).pop(
+    _popEditor(
       WorkflowDefinition(
         id: _workflowId,
         name: name,
