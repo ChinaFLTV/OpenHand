@@ -91,6 +91,10 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
               children: [
                 _buildCommonTitle(context),
                 kOpenHandGap14,
+                if (node.kind == WorkflowNodeKind.llm) ...[
+                  _buildLlmInput(),
+                  kOpenHandGap14,
+                ],
                 switch (node.kind) {
                   WorkflowNodeKind.llm => _buildLlm(context),
                   WorkflowNodeKind.httpRequest => _buildHttp(context),
@@ -198,6 +202,21 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           decoration: _inputDecoration('输入便于识别的节点名称'),
           onChanged: (value) => onChanged(node.copyWith(title: value)),
         ),
+      ),
+    );
+  }
+
+  Widget _buildLlmInput() {
+    return _FormSection(
+      title: '输入内容',
+      icon: Icons.input_rounded,
+      child: TextFormField(
+        key: ValueKey('input-${node.id}'),
+        initialValue: node.stringSetting(WorkflowSettingKeys.inputContent),
+        minLines: 4,
+        maxLines: 10,
+        decoration: _inputDecoration('输入发送给模型的用户命令，支持 {{变量名}}'),
+        onChanged: (value) => _set(WorkflowSettingKeys.inputContent, value),
       ),
     );
   }

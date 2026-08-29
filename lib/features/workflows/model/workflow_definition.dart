@@ -78,6 +78,7 @@ abstract final class WorkflowSettingKeys {
   static const String reasoningEffort = 'reasoning_effort';
   static const String templateId = 'template_id';
   static const String prompt = 'prompt';
+  static const String inputContent = 'input_content';
   static const String multimodalCapabilities = 'multimodal_capabilities';
   static const String skillNames = 'skill_names';
   static const String memoryIds = 'memory_ids';

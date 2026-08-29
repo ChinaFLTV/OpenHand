@@ -177,8 +177,15 @@ class WorkflowNodeExecutor {
     if (prompt.isEmpty) {
       throw const WorkflowNodeExecutionException('提示词不能为空。');
     }
-    if (prompt.length > _maxWorkflowPromptCharacters) {
-      throw const WorkflowNodeExecutionException('提示词超过长度上限。');
+    final inputContent = renderWorkflowTemplate(
+      node.stringSetting(WorkflowSettingKeys.inputContent),
+      variables,
+    ).trim();
+    final userPrompt = inputContent.isEmpty
+        ? prompt
+        : '$prompt\n\n<WorkflowInput>\n$inputContent\n</WorkflowInput>';
+    if (userPrompt.length > _maxWorkflowPromptCharacters) {
+      throw const WorkflowNodeExecutionException('提示词与输入内容超过长度上限。');
     }
 
     final templateId = node
@@ -190,7 +197,7 @@ class WorkflowNodeExecutor {
     final resourcePrompt = await _buildResourcePrompt(
       node: node,
       resources: resources,
-      query: prompt,
+      query: userPrompt,
     );
     final outputFields = node.outputFields();
     final structured = node.boolSetting(WorkflowSettingKeys.structuredOutput);
@@ -214,7 +221,7 @@ class WorkflowNodeExecutor {
         final completion = await _sendLlmWithTools(
           model: model,
           systemPrompt: systemPrompt,
-          prompt: prompt,
+          prompt: userPrompt,
           bindings: mcpBindings,
           invoker: resources.mcpToolInvoker,
         );

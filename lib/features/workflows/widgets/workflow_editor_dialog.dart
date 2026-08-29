@@ -543,6 +543,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             widget.catalog.templates.firstOrNull?.id ??
             '',
         WorkflowSettingKeys.prompt: '',
+        WorkflowSettingKeys.inputContent: '',
         WorkflowSettingKeys.multimodalCapabilities: <String>[],
         WorkflowSettingKeys.skillNames: <String>[],
         WorkflowSettingKeys.memoryIds: <String>[],
