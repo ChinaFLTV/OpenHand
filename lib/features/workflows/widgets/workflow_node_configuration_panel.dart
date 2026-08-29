@@ -1167,6 +1167,7 @@ class _OutputFieldCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Column(
@@ -1246,16 +1247,37 @@ class _OutputFieldCard extends StatelessWidget {
                   ),
                 ),
                 kOpenHandHGap8,
-                FilterChip(
-                  label: const Text('必需'),
-                  selected: field.required,
-                  showCheckmark: false,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(kOpenHandRadius12),
+                SizedBox(
+                  width: 82,
+                  child: Semantics(
+                    selected: field.required,
+                    child: OutlinedButton(
+                      onPressed: () =>
+                          onChanged(field.copyWith(required: !field.required)),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: Size.zero,
+                        padding: EdgeInsets.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        backgroundColor: field.required
+                            ? theme.colorScheme.primaryContainer
+                            : theme.colorScheme.surfaceContainerLow,
+                        foregroundColor: field.required
+                            ? theme.colorScheme.onPrimaryContainer
+                            : theme.colorScheme.onSurface,
+                        side: BorderSide(
+                          color: field.required
+                              ? theme.colorScheme.primary.withValues(alpha: 0.5)
+                              : theme.colorScheme.outlineVariant,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            kOpenHandRadius12,
+                          ),
+                        ),
+                      ),
+                      child: const Text('必需'),
+                    ),
                   ),
-                  onSelected: (value) =>
-                      onChanged(field.copyWith(required: value)),
                 ),
               ],
             ),
