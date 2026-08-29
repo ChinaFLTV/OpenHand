@@ -1,6 +1,5 @@
 import '../../app/model/app_info.dart';
 import '../../app/state/settings_controller.dart';
-import '../agents/index.dart';
 import '../ai/index.dart';
 import '../crons/index.dart';
 import '../hooks/index.dart' show HooksController;
@@ -13,7 +12,7 @@ import '../skills/index.dart';
 
 /// 消息网关运行所需的全部外部依赖。
 ///
-/// 这十二个依赖此前在模块 bootstrap、控制器构造、平台服务构造三处逐字重复
+/// 这些依赖此前在模块 bootstrap、控制器构造、平台服务构造三处逐字重复
 /// 声明，再逐层原样转发两次：新增一个依赖要改三处签名加两处转发，漏一处就是
 /// 编译错误，而同类型参数写错顺序则是静默错配。收成一个参数对象后只剩一处
 /// 定义、一处构造。
@@ -21,7 +20,6 @@ class MessageGatewayDependencies {
   const MessageGatewayDependencies({
     required this.sessionController,
     required this.settingsController,
-    required this.agentsController,
     required this.skillsController,
     required this.mcpController,
     required this.memoryController,
@@ -35,7 +33,6 @@ class MessageGatewayDependencies {
 
   final AiSessionController sessionController;
   final SettingsController settingsController;
-  final AgentsController agentsController;
   final SkillsController skillsController;
   final McpController mcpController;
   final MemoryController memoryController;

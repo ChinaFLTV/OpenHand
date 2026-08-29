@@ -42,8 +42,8 @@ int clampCronRetryDelaySeconds(int value) {
 enum CronScriptType {
   command('command'),
   script('script'),
-  // 系统管理的智能体任务由进程内处理器执行，界面以只读锁定状态展示。
-  agent('agent');
+  // 系统托管任务由进程内处理器执行，界面以只读锁定状态展示。
+  managed('managed');
 
   const CronScriptType(this.storageValue);
 
@@ -53,11 +53,12 @@ enum CronScriptType {
     return switch (this) {
       CronScriptType.command => l10n.cronScriptTypeCommand,
       CronScriptType.script => l10n.cronScriptTypeScript,
-      CronScriptType.agent => l10n.cronScriptTypeAgent,
+      CronScriptType.managed => l10n.cronScriptTypeManaged,
     };
   }
 
   static CronScriptType? fromStorage(String? value) {
+    if (value == 'agent') return CronScriptType.managed;
     return enumByStorageValue(values, value, (type) => type.storageValue);
   }
 }

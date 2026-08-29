@@ -165,8 +165,6 @@ class TemplateRuntimeDependencyRegistry {
     'anything_analyzer',
   ];
 
-  static const List<String> hermesTalkerPluginIds = <String>['hermes_agent'];
-
   static const List<String> webReverseMcpKeywords = <String>[
     'cdp',
     'chrome',
@@ -429,9 +427,9 @@ class TemplateRuntimeDependencyRegistry {
         templateId: AiPromptTemplatePolicies.hermesTalkerTemplateId,
         labelZh: 'Hermes Talker',
         labelEn: 'Hermes Talker',
-        pluginIds: hermesTalkerPluginIds,
+        pluginIds: <String>[],
         mcpKeywords: <String>[],
-        toolSearchFallbackQuery: 'select:memory,skill,agent,hermes',
+        toolSearchFallbackQuery: 'select:memory,skill',
         mcpCapabilities: <TemplateRuntimeMcpCapabilitySpec>[],
       );
 

@@ -11,41 +11,7 @@ export '../service/runtime/ai_tool_runtime_service.dart' show AiBuiltinToolKind;
 export 'ai_web_fetch_settings.dart';
 export 'ai_web_search_settings.dart';
 
-enum AiAgentBuiltinToolGroup {
-  discovery,
-  taskLifecycle,
-  governance,
-  operations,
-  cluster,
-}
-
-class AiAgentBuiltinToolMetadata {
-  const AiAgentBuiltinToolMetadata({
-    required this.canonicalName,
-    required this.group,
-    required this.labelZh,
-    required this.labelEn,
-    required this.summaryZh,
-    required this.summaryEn,
-    this.isCore = false,
-    this.isMutation = false,
-  });
-
-  final String canonicalName;
-  final AiAgentBuiltinToolGroup group;
-  final String labelZh;
-  final String labelEn;
-  final String summaryZh;
-  final String summaryEn;
-  final bool isCore;
-  final bool isMutation;
-}
-
-/// 只读内建工具：不改动工作区、不发起写操作，可安全交给并行子代理。
-///
-/// Task 子代理与数字员工 worker 此前各写了一份同样的十项名单；新增只读工具
-/// 时漏改一处，就会出现「同一个工具在 Task 子代理里可用、在员工里不可用」
-/// 这种说不通的差异。
+/// 不修改工作区、不会发起外部写操作的内建工具。
 const Set<AiBuiltinToolKind> kAiReadOnlyBuiltinToolKinds = <AiBuiltinToolKind>{
   AiBuiltinToolKind.glob,
   AiBuiltinToolKind.grep,
@@ -59,224 +25,11 @@ const Set<AiBuiltinToolKind> kAiReadOnlyBuiltinToolKinds = <AiBuiltinToolKind>{
   AiBuiltinToolKind.readLints,
 };
 
-const List<AiBuiltinToolKind> aiAgentBuiltinToolKinds = <AiBuiltinToolKind>[
-  AiBuiltinToolKind.agentList,
-  AiBuiltinToolKind.agentDetail,
-  AiBuiltinToolKind.agentActivityLog,
-  AiBuiltinToolKind.agentAuditReport,
-  AiBuiltinToolKind.agentAuditRecord,
-  AiBuiltinToolKind.agentApprovalRequest,
-  AiBuiltinToolKind.agentKpiUpsert,
-  AiBuiltinToolKind.agentResourceUpdate,
-  AiBuiltinToolKind.agentClusterConfigure,
-  AiBuiltinToolKind.agentClusterStatus,
-  AiBuiltinToolKind.agentTaskList,
-  AiBuiltinToolKind.agentTaskPublish,
-  AiBuiltinToolKind.agentTaskTrack,
-  AiBuiltinToolKind.agentTaskProgress,
-  AiBuiltinToolKind.agentTaskCancel,
-  AiBuiltinToolKind.agentTaskPause,
-  AiBuiltinToolKind.agentTaskTerminate,
-  AiBuiltinToolKind.agentTaskResume,
-  AiBuiltinToolKind.agentTaskComplete,
-  AiBuiltinToolKind.agentTaskResult,
-];
-
-const Map<AiBuiltinToolKind, AiAgentBuiltinToolMetadata>
-aiAgentBuiltinToolMetadataByKind =
-    <AiBuiltinToolKind, AiAgentBuiltinToolMetadata>{
-      AiBuiltinToolKind.agentList: AiAgentBuiltinToolMetadata(
-        canonicalName: 'AgentList',
-        group: AiAgentBuiltinToolGroup.discovery,
-        labelZh: '智能体列表',
-        labelEn: 'Agent list',
-        summaryZh: '发现可用智能体',
-        summaryEn: 'Discover available agents',
-        isCore: true,
-      ),
-      AiBuiltinToolKind.agentDetail: AiAgentBuiltinToolMetadata(
-        canonicalName: 'AgentDetail',
-        group: AiAgentBuiltinToolGroup.discovery,
-        labelZh: '智能体详情',
-        labelEn: 'Agent detail',
-        summaryZh: '读取职责与绑定能力',
-        summaryEn: 'Read profile and bindings',
-      ),
-      AiBuiltinToolKind.agentActivityLog: AiAgentBuiltinToolMetadata(
-        canonicalName: 'AgentActivityLog',
-        group: AiAgentBuiltinToolGroup.governance,
-        labelZh: '活动记录',
-        labelEn: 'Activity log',
-        summaryZh: '查看工作循环输出',
-        summaryEn: 'Read work-loop output',
-      ),
-      AiBuiltinToolKind.agentAuditReport: AiAgentBuiltinToolMetadata(
-        canonicalName: 'AgentAuditReport',
-        group: AiAgentBuiltinToolGroup.governance,
-        labelZh: '审计报表',
-        labelEn: 'Audit report',
-        summaryZh: '汇总能力与任务审计',
-        summaryEn: 'Summarize audit metrics',
-      ),
-      AiBuiltinToolKind.agentAuditRecord: AiAgentBuiltinToolMetadata(
-        canonicalName: 'AgentAuditRecord',
-        group: AiAgentBuiltinToolGroup.governance,
-        labelZh: '写入审计',
-        labelEn: 'Audit record',
-        summaryZh: '记录能力调用审计',
-        summaryEn: 'Write capability audit',
-        isMutation: true,
-      ),
-      AiBuiltinToolKind.agentApprovalRequest: AiAgentBuiltinToolMetadata(
-        canonicalName: 'AgentApprovalRequest',
-        group: AiAgentBuiltinToolGroup.governance,
-        labelZh: '审批请求',
-        labelEn: 'Approval request',
-        summaryZh: '提交 mentor 审批',
-        summaryEn: 'Request mentor approval',
-        isMutation: true,
-      ),
-      AiBuiltinToolKind.agentKpiUpsert: AiAgentBuiltinToolMetadata(
-        canonicalName: 'AgentKpiUpsert',
-        group: AiAgentBuiltinToolGroup.operations,
-        labelZh: 'KPI 维护',
-        labelEn: 'KPI upsert',
-        summaryZh: '创建或更新 KPI',
-        summaryEn: 'Create or update KPI',
-        isMutation: true,
-      ),
-      AiBuiltinToolKind.agentResourceUpdate: AiAgentBuiltinToolMetadata(
-        canonicalName: 'AgentResourceUpdate',
-        group: AiAgentBuiltinToolGroup.operations,
-        labelZh: '资源更新',
-        labelEn: 'Resource update',
-        summaryZh: '登记资源占用',
-        summaryEn: 'Record resource usage',
-        isMutation: true,
-      ),
-      AiBuiltinToolKind.agentClusterConfigure: AiAgentBuiltinToolMetadata(
-        canonicalName: 'AgentClusterConfigure',
-        group: AiAgentBuiltinToolGroup.cluster,
-        labelZh: '集群配置',
-        labelEn: 'Cluster configure',
-        summaryZh: '调整 worker 池策略',
-        summaryEn: 'Tune worker pool policy',
-        isMutation: true,
-      ),
-      AiBuiltinToolKind.agentClusterStatus: AiAgentBuiltinToolMetadata(
-        canonicalName: 'AgentClusterStatus',
-        group: AiAgentBuiltinToolGroup.cluster,
-        labelZh: '集群状态',
-        labelEn: 'Cluster status',
-        summaryZh: '读取 worker 状态',
-        summaryEn: 'Read worker status',
-      ),
-      AiBuiltinToolKind.agentTaskList: AiAgentBuiltinToolMetadata(
-        canonicalName: 'AgentTaskList',
-        group: AiAgentBuiltinToolGroup.taskLifecycle,
-        labelZh: '任务列表',
-        labelEn: 'Task list',
-        summaryZh: '筛选任务台任务',
-        summaryEn: 'Filter task desk',
-      ),
-      AiBuiltinToolKind.agentTaskPublish: AiAgentBuiltinToolMetadata(
-        canonicalName: 'AgentTaskPublish',
-        group: AiAgentBuiltinToolGroup.taskLifecycle,
-        labelZh: '任务发布',
-        labelEn: 'Task publish',
-        summaryZh: '向匹配智能体派发任务',
-        summaryEn: 'Delegate matched work',
-        isCore: true,
-        isMutation: true,
-      ),
-      AiBuiltinToolKind.agentTaskTrack: AiAgentBuiltinToolMetadata(
-        canonicalName: 'AgentTaskTrack',
-        group: AiAgentBuiltinToolGroup.taskLifecycle,
-        labelZh: '任务追踪',
-        labelEn: 'Task track',
-        summaryZh: '读取完整任务状态',
-        summaryEn: 'Read full task state',
-        isCore: true,
-      ),
-      AiBuiltinToolKind.agentTaskProgress: AiAgentBuiltinToolMetadata(
-        canonicalName: 'AgentTaskProgress',
-        group: AiAgentBuiltinToolGroup.taskLifecycle,
-        labelZh: '任务进度',
-        labelEn: 'Task progress',
-        summaryZh: '轮询进度与下一步',
-        summaryEn: 'Poll progress and next step',
-      ),
-      AiBuiltinToolKind.agentTaskCancel: AiAgentBuiltinToolMetadata(
-        canonicalName: 'AgentTaskCancel',
-        group: AiAgentBuiltinToolGroup.taskLifecycle,
-        labelZh: '任务取消',
-        labelEn: 'Task cancel',
-        summaryZh: '撤销队列或运行任务',
-        summaryEn: 'Cancel queued or active task',
-        isMutation: true,
-      ),
-      AiBuiltinToolKind.agentTaskPause: AiAgentBuiltinToolMetadata(
-        canonicalName: 'AgentTaskPause',
-        group: AiAgentBuiltinToolGroup.taskLifecycle,
-        labelZh: '任务暂停',
-        labelEn: 'Task pause',
-        summaryZh: '暂停任务等待介入',
-        summaryEn: 'Pause for intervention',
-        isMutation: true,
-      ),
-      AiBuiltinToolKind.agentTaskTerminate: AiAgentBuiltinToolMetadata(
-        canonicalName: 'AgentTaskTerminate',
-        group: AiAgentBuiltinToolGroup.taskLifecycle,
-        labelZh: '任务终止',
-        labelEn: 'Task terminate',
-        summaryZh: '异常终止并标记失败',
-        summaryEn: 'Abort and mark failed',
-        isMutation: true,
-      ),
-      AiBuiltinToolKind.agentTaskResume: AiAgentBuiltinToolMetadata(
-        canonicalName: 'AgentTaskResume',
-        group: AiAgentBuiltinToolGroup.taskLifecycle,
-        labelZh: '任务恢复',
-        labelEn: 'Task resume',
-        summaryZh: '恢复暂停任务',
-        summaryEn: 'Resume paused task',
-        isMutation: true,
-      ),
-      AiBuiltinToolKind.agentTaskComplete: AiAgentBuiltinToolMetadata(
-        canonicalName: 'AgentTaskComplete',
-        group: AiAgentBuiltinToolGroup.taskLifecycle,
-        labelZh: '任务完成',
-        labelEn: 'Task complete',
-        summaryZh: '回写任务结果',
-        summaryEn: 'Write task result',
-        isMutation: true,
-      ),
-      AiBuiltinToolKind.agentTaskResult: AiAgentBuiltinToolMetadata(
-        canonicalName: 'AgentTaskResult',
-        group: AiAgentBuiltinToolGroup.taskLifecycle,
-        labelZh: '任务结果',
-        labelEn: 'Task result',
-        summaryZh: '读取终态结果',
-        summaryEn: 'Read terminal result',
-        isCore: true,
-      ),
-    };
-
-AiAgentBuiltinToolMetadata? agentBuiltinToolMetadata(AiBuiltinToolKind kind) {
-  return aiAgentBuiltinToolMetadataByKind[kind];
-}
-
-String agentBuiltinToolCanonicalName(AiBuiltinToolKind kind) {
-  final metadata = agentBuiltinToolMetadata(kind);
-  if (metadata != null) return metadata.canonicalName;
+String builtinToolCanonicalName(AiBuiltinToolKind kind) {
   final name = kind.name;
   if (name.isEmpty) return '';
   return '${name[0].toUpperCase()}${name.substring(1)}';
 }
-
-const String aiAgentToolAccessEnabledMetadataKey = 'agent_tools_enabled';
-const String aiAgentToolAllowedAgentIdsMetadataKey = 'allowed_agent_ids';
-const String aiAgentToolAccessSourceMetadataKey = 'agent_tool_access_source';
 
 extension AiBuiltinToolKindMachineTerminalMetadata on AiBuiltinToolKind {
   bool get isMachineTerminalTool {
@@ -296,24 +49,6 @@ extension AiBuiltinToolKindMachineTerminalMetadata on AiBuiltinToolKind {
       AiBuiltinToolKind.machineTerminalControl => true,
       _ => false,
     };
-  }
-}
-
-extension AiBuiltinToolKindAgentMetadata on AiBuiltinToolKind {
-  bool get isAgentCoordinationTool {
-    return agentBuiltinToolMetadata(this) != null;
-  }
-
-  bool get isAgentCoreCoordinationTool {
-    return agentBuiltinToolMetadata(this)?.isCore ?? false;
-  }
-
-  AiAgentBuiltinToolGroup? get agentToolGroup {
-    return agentBuiltinToolMetadata(this)?.group;
-  }
-
-  bool get isAgentMutationTool {
-    return agentBuiltinToolMetadata(this)?.isMutation ?? false;
   }
 }
 
@@ -748,8 +483,6 @@ class AiBuiltinToolConfig {
 
   /// 返回内建工具在默认配置中的视觉/Prompt 优先级。数值越小越优先。
   static int defaultPriorityForKind(AiBuiltinToolKind kind) {
-    if (kind.isAgentCoreCoordinationTool) return 80;
-    if (kind.isAgentCoordinationTool) return 110;
     return switch (kind) {
       AiBuiltinToolKind.machineTerminalRead ||
       AiBuiltinToolKind.machineTerminalWrite ||
@@ -830,26 +563,6 @@ class AiBuiltinToolConfig {
       AiBuiltinToolKind.dingtalkImageGeneration => 101,
       AiBuiltinToolKind.dingtalkVideoGeneration => 102,
       AiBuiltinToolKind.dingtalkAudioGeneration => 103,
-      AiBuiltinToolKind.agentList => 200,
-      AiBuiltinToolKind.agentDetail => 201,
-      AiBuiltinToolKind.agentActivityLog => 202,
-      AiBuiltinToolKind.agentAuditReport => 203,
-      AiBuiltinToolKind.agentAuditRecord => 204,
-      AiBuiltinToolKind.agentApprovalRequest => 205,
-      AiBuiltinToolKind.agentKpiUpsert => 206,
-      AiBuiltinToolKind.agentResourceUpdate => 207,
-      AiBuiltinToolKind.agentClusterConfigure => 208,
-      AiBuiltinToolKind.agentClusterStatus => 209,
-      AiBuiltinToolKind.agentTaskList => 210,
-      AiBuiltinToolKind.agentTaskPublish => 211,
-      AiBuiltinToolKind.agentTaskTrack => 212,
-      AiBuiltinToolKind.agentTaskProgress => 213,
-      AiBuiltinToolKind.agentTaskCancel => 214,
-      AiBuiltinToolKind.agentTaskPause => 215,
-      AiBuiltinToolKind.agentTaskTerminate => 216,
-      AiBuiltinToolKind.agentTaskResume => 217,
-      AiBuiltinToolKind.agentTaskComplete => 218,
-      AiBuiltinToolKind.agentTaskResult => 219,
     };
   }
 
@@ -857,12 +570,6 @@ class AiBuiltinToolConfig {
   static AiBuiltinToolLoadStrategy defaultLoadStrategyForKind(
     AiBuiltinToolKind kind,
   ) {
-    if (kind.isAgentCoreCoordinationTool) {
-      return AiBuiltinToolLoadStrategy.eager;
-    }
-    if (kind.isAgentCoordinationTool) {
-      return AiBuiltinToolLoadStrategy.lazy;
-    }
     switch (kind) {
       case AiBuiltinToolKind.task:
       case AiBuiltinToolKind.bash:
@@ -903,7 +610,6 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.askUserChoice:
       case AiBuiltinToolKind.skillManager:
       case AiBuiltinToolKind.memory:
-      default:
         return AiBuiltinToolLoadStrategy.lazy;
     }
   }

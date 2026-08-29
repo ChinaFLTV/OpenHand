@@ -19,7 +19,7 @@
 
 </div>
 
-OpenHand 是一款本地优先的跨平台 AI 智能体工作台。它把多模型会话、工具执行、MCP、技能、记忆、知识库、插件、Hooks、Crons、线程模板和 Web 消息平台整合到一个 Flutter 原生应用里，用来承载真实、可控、可审计、可长期维护的 AI 工作流。
+OpenHand 是一款本地优先的跨平台 AI 工作台。它把多模型会话、工具执行、MCP、技能、记忆、知识库、插件、Hooks、Crons、线程模板和 Web 消息平台整合到一个 Flutter 原生应用里，用来承载真实、可控、可审计、可长期维护的 AI 工作流。
 
 ## 项目定位
 
@@ -44,7 +44,7 @@ OpenHand 不只是聊天窗口，而是面向开发者、研究人员和团队�
 | 记忆与自学习 | 管理用户长期记忆、用户画像和 Hermes Talker 自学习定时任务，帮助对话持续个性化但不打断回复。 |
 | 知识库 | 导入 Markdown、Office、PDF、HTML、CSV、JSON、TOML、YAML、TXT、代码文件或笔记，使用 Qdrant 建立本地向量索引并提供检索详情。 |
 | 自动化 | Hooks 覆盖会话生命周期事件，Crons 覆盖定时任务、后台维护、系统托管任务和执行历史。 |
-| 高级工作台 | 内置 Web 逆向 CDP Dashboard、Android 逆向 Dashboard、Harness Engineering、多智能体/数字员工和本地机器终端。 |
+| 高级工作台 | 内置 Web 逆向 CDP Dashboard、Android 逆向 Dashboard、Harness Engineering 和本地机器终端。 |
 | 桌面体验 | 支持多线程会话、附件、Markdown / KaTeX / HTML 渲染、代码高亮、快捷键、主题、动效设置、多语言和丝滑的弹窗/页面过渡。 |
 
 ## 应用截图
@@ -84,7 +84,6 @@ OpenHand 不只是聊天窗口，而是面向开发者、研究人员和团队�
 - `Skills`：本地技能扫描、安装、卸载、市场入口和默认 prompt 展示。
 - `Memory`：用户画像、长期记忆、增删改查和运行时上下文注入。
 - `Knowledge Base`：文档解析、分块、embedding、Qdrant 向量库、检索详情和向量分布。
-- `Agents`：数字员工配置、能力绑定、知识源绑定、协调工具、KPI 和任务状态。
 - `Plugin Service`：插件生命周期、依赖管理、Qdrant / Android 工具链等插件化能力。
 - `Message Gateway`：Web 端访问、鉴权、模型白名单、命令审批、文件写入审批和日志导出。
 - `Hooks / Crons / Instructions`：生命周期脚本、定时任务、用户指令和项目指令管理。
@@ -156,7 +155,6 @@ lib/
   features/
     ai/                      会话状态机、模型协议、工具运行时、提示词、WebFetch/WebSearch
     home/                    主工作台、线程列表、composer、消息渲染、文件浏览器和模板入口
-    agents/                  数字员工、能力绑定、调度策略、KPI、任务和审计
     knowledge_base/          文档导入、解析、分块、embedding、Qdrant 检索和运维
     message_gateway/         Web 消息平台服务、鉴权、审批、日志和运行时桥接
     plugin_service/          插件扫描、安装、更新、卸载和依赖管理

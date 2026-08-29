@@ -9,7 +9,6 @@ import '../../shared/core/managed_change_notifier.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
-import '../agents/index.dart';
 import '../ai/index.dart';
 import '../instructions/index.dart';
 import '../mcp/index.dart';
@@ -69,18 +68,6 @@ class WebGatewayInstructionOption {
   final bool enabled;
 }
 
-class WebGatewayAgentOption {
-  const WebGatewayAgentOption({
-    required this.id,
-    required this.label,
-    required this.subtitle,
-  });
-
-  final String id;
-  final String label;
-  final String subtitle;
-}
-
 class MessageGatewayController extends ManagedChangeNotifier {
   MessageGatewayController.uninitialized(
     MessageGatewayDependencies dependencies, {
@@ -88,7 +75,6 @@ class MessageGatewayController extends ManagedChangeNotifier {
     WebMessagePlatformService? service,
   }) : _sessionController = dependencies.sessionController,
        _settingsController = dependencies.settingsController,
-       _agentsController = dependencies.agentsController,
        _skillsController = dependencies.skillsController,
        _mcpController = dependencies.mcpController,
        _memoryController = dependencies.memoryController,
@@ -108,7 +94,6 @@ class MessageGatewayController extends ManagedChangeNotifier {
 
   final AiSessionController _sessionController;
   final SettingsController _settingsController;
-  final AgentsController _agentsController;
   final SkillsController _skillsController;
   final McpController _mcpController;
   final MemoryController _memoryController;
@@ -262,26 +247,6 @@ class MessageGatewayController extends ManagedChangeNotifier {
           id: id,
           label: name.isEmpty ? id : name,
           enabled: entry.enabled,
-        ),
-      );
-    }
-    return result;
-  }
-
-  List<WebGatewayAgentOption> get agentOptions {
-    final result = <WebGatewayAgentOption>[];
-    for (final agent in _agentsController.enabledAgents) {
-      final id = agent.id.trim();
-      if (id.isEmpty) continue;
-      final subtitle = <String>[
-        agent.position.trim(),
-        agent.department.trim(),
-      ].where((item) => item.isNotEmpty).join(' · ');
-      result.add(
-        WebGatewayAgentOption(
-          id: id,
-          label: agent.name.trim().isEmpty ? id : agent.name.trim(),
-          subtitle: subtitle,
         ),
       );
     }
@@ -586,7 +551,6 @@ class MessageGatewayController extends ManagedChangeNotifier {
     final tools = builtinToolNames.toSet();
     final models = modelOptions.map((item) => item.key).toSet();
     final instructions = instructionOptions.map((item) => item.id).toSet();
-    final agents = agentOptions.map((item) => item.id).toSet();
     final allowedToolNames = normalizedValue.knowledgeBaseEnabled
         ? normalizedValue.allowedBuiltinToolNames
         : _withoutKnowledgeBaseBuiltinToolNames(
@@ -614,9 +578,6 @@ class MessageGatewayController extends ManagedChangeNotifier {
         normalizedValue.allowedInstructionIds,
         instructions,
       ),
-      allowedAgentIds: agents.isEmpty
-          ? normalizedValue.allowedAgentIds
-          : keep(normalizedValue.allowedAgentIds, agents),
     );
   }
 

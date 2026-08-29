@@ -1,9 +1,7 @@
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 
-import '../agents/agents_controller.dart';
 import '../hooks/index.dart';
-import '../instructions/instructions_controller.dart';
 import '../knowledge_base/knowledge_base_controller.dart';
 import '../machine_terminal/index.dart';
 import '../memory/index.dart';
@@ -30,8 +28,6 @@ class AiModule {
     required HooksExecutor userHooksExecutor,
     required String Function() skillsDirProvider,
     required MemoryController? Function() memoryControllerProvider,
-    required AgentsControllerProvider agentsControllerProvider,
-    required InstructionsControllerProvider instructionsControllerProvider,
     required List<AiModelConfig> Function() aiModelsProvider,
     required KnowledgeBaseController? Function()
     knowledgeBaseControllerProvider,
@@ -42,8 +38,6 @@ class AiModule {
       userHooksExecutor: userHooksExecutor,
       skillsDirProvider: skillsDirProvider,
       memoryControllerProvider: memoryControllerProvider,
-      agentsControllerProvider: agentsControllerProvider,
-      instructionsControllerProvider: instructionsControllerProvider,
       aiModelsProvider: aiModelsProvider,
       knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
       machineTerminalService: machineTerminalService,

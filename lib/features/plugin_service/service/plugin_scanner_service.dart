@@ -153,9 +153,6 @@ Map<String, Object?>? _managedDatabaseMetadataFromDecoded(
 /// 对于 nvm / pyenv 用户，优先直接解析或借助管理器拿到真实可执行路径，
 /// 避免 GUI 应用进程 PATH 与终端不一致的问题。
 class PluginScannerService {
-  static const String hermesAgentPackageName = 'hermes-agent';
-  static const String hermesAgentCommand = 'hermes-agent';
-  static const String hermesAgentAltCommand = 'hermes';
   static const String qdrantContainerName =
       ManagedServiceDefaults.qdrantContainerName;
   static const int qdrantRestPort = ManagedServiceDefaults.qdrantRestPort;
@@ -873,7 +870,6 @@ class PluginScannerService {
       PluginCatalogIds.nodejs => _nodeNotInstalled,
       PluginCatalogIds.playwright => _playwrightNotInstalled,
       PluginCatalogIds.googleChrome => _googleChromeNotInstalled,
-      PluginCatalogIds.hermesAgent => _hermesAgentNotInstalled,
       PluginCatalogIds.dingtalkWorkspaceCli =>
         _dingtalkWorkspaceCliNotInstalled,
       PluginCatalogIds.python => _pythonNotInstalled,
@@ -1246,21 +1242,6 @@ class PluginScannerService {
         },
       );
     },
-  );
-
-  Future<PluginInfo> scanHermesAgent() => _runWithFallback(
-    operation: '扫描 Hermes Agent',
-    fallback: _hermesAgentNotInstalled,
-    operationBody: () => _scanCommandPlugin(
-      id: PluginCatalogIds.hermesAgent,
-      name: 'Hermes Agent',
-      description: 'Hermes Agent 运行时，用于智能体编排、自我学习与技能沉淀',
-      commands: const <String>[hermesAgentCommand, hermesAgentAltCommand],
-      versionArgs: const <String>['--version'],
-      versionParser: _extractLooseVersion,
-      latestNpmPackage: hermesAgentPackageName,
-      dependencies: const <String>[PluginCatalogIds.nodejs],
-    ),
   );
 
   Future<String?> _queryDingtalkWorkspaceCliRelease(String url) async {
@@ -1967,7 +1948,7 @@ class PluginScannerService {
     name: 'Node.js',
     description: 'JavaScript 运行时环境，用于执行 JS/TS 脚本与工具链',
     status: PluginStatus.notInstalled,
-    dependents: [PluginCatalogIds.playwright, PluginCatalogIds.hermesAgent],
+    dependents: [PluginCatalogIds.playwright],
   );
 
   static const _playwrightNotInstalled = PluginInfo(
@@ -2008,14 +1989,6 @@ class PluginScannerService {
       'documentation': _googleChromeCdpDocumentation,
       'runtime_managed': false,
     },
-  );
-
-  static const _hermesAgentNotInstalled = PluginInfo(
-    id: PluginCatalogIds.hermesAgent,
-    name: 'Hermes Agent',
-    description: 'Hermes Agent 运行时，用于智能体编排、自我学习与技能沉淀',
-    status: PluginStatus.notInstalled,
-    dependencies: [PluginCatalogIds.nodejs],
   );
 
   static const _dingtalkWorkspaceCliNotInstalled = PluginInfo(
@@ -2209,7 +2182,6 @@ class PluginScannerService {
     _qdrantNotInstalled,
     _postgresqlNotInstalled,
     _redisNotInstalled,
-    _hermesAgentNotInstalled,
     _aiJunglerPlugin,
     _dingtalkWorkspaceCliNotInstalled,
     _googleChromeNotInstalled,
@@ -2223,7 +2195,6 @@ class PluginScannerService {
 
     final nodeFuture = runScan(scanNodeJs);
     final playwrightFuture = runScan(scanPlaywright);
-    final hermesAgentFuture = runScan(scanHermesAgent);
     final dingtalkWorkspaceCliFuture = runScan(scanDingtalkWorkspaceCli);
     final googleChromeFuture = runScan(scanGoogleChrome);
     final javaFuture = runScan(scanJava);
@@ -2241,7 +2212,6 @@ class PluginScannerService {
     final pythonRuntimeFuture = runScan(_resolvePythonRuntime);
     final nodeJs = await nodeFuture;
     final playwright = await playwrightFuture;
-    final hermesAgent = await hermesAgentFuture;
     final dingtalkWorkspaceCli = await dingtalkWorkspaceCliFuture;
     final googleChrome = await googleChromeFuture;
     final java = await javaFuture;
@@ -2271,7 +2241,6 @@ class PluginScannerService {
     final updatedNodeJs = nodeJs.copyWith(
       dependents: <String>[
         if (playwright.isInstalled) PluginCatalogIds.playwright,
-        if (hermesAgent.isInstalled) PluginCatalogIds.hermesAgent,
       ],
     );
     final updatedDocker = docker.copyWith(
@@ -2305,7 +2274,6 @@ class PluginScannerService {
       qdrant,
       postgresql,
       redis,
-      hermesAgent,
       _aiJunglerPlugin,
       dingtalkWorkspaceCli,
       googleChrome,

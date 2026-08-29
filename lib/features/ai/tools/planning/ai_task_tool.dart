@@ -337,7 +337,7 @@ class AiTaskTool extends AiTool {
       try {
         completion = await AiToolUtils.awaitWithCancellation<AiChatCompletion>(
           AiUsageTraceContext.runDerived(
-            source: AiUsageSource.agent,
+            source: AiUsageSource.subagent,
             operation: 'subagent_round',
             metadata: <String, Object?>{
               'subagent_type': canonicalSubagentType,

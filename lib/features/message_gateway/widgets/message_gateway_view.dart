@@ -1242,7 +1242,6 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
   late bool _opsEnabled;
   late bool _healthEnabled;
   late bool _planModeEnabled;
-  late bool _agentsEnabled;
   late bool _knowledgeBaseEnabled;
   late bool _readAloudEnabled;
   late bool _translationEnabled;
@@ -1278,7 +1277,6 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
   late Set<String> _memories;
   late Set<String> _tools;
   late Set<String> _instructions;
-  late Set<String> _agents;
   late Set<String> _models;
   late Set<WebGatewayMessageType> _messageTypes;
   late Set<WebGatewayConversationMode> _modes;
@@ -1298,7 +1296,6 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     _opsEnabled = config.opsEnabled;
     _healthEnabled = config.healthCheck.enabled;
     _planModeEnabled = config.planModeEnabled;
-    _agentsEnabled = config.agentsEnabled;
     _knowledgeBaseEnabled = config.knowledgeBaseEnabled;
     _readAloudEnabled = config.readAloudEnabled;
     _translationEnabled = config.translationEnabled;
@@ -1370,7 +1367,6 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
         ? configuredTools
         : _toolsWithoutKnowledgeBase(configuredTools);
     _instructions = config.allowedInstructionIds.toSet();
-    _agents = config.allowedAgentIds.toSet();
     _models = config.allowedModelKeys.toSet();
     _messageTypes = config.allowedMessageTypes.toSet();
     _modes = config.allowedConversationModes.toSet();
@@ -1630,20 +1626,6 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                           _SwitchTile(
                             label: openHandLocalizedText(
                               context,
-                              zh: '是否开启智能体',
-                              zhHant: '是否開啟智能體',
-                              en: 'Agent access',
-                              fr: 'Accès aux agents',
-                              de: 'Agent-Zugriff',
-                              ja: 'エージェントアクセス',
-                            ),
-                            value: _agentsEnabled,
-                            onChanged: (v) =>
-                                setState(() => _agentsEnabled = v),
-                          ),
-                          _SwitchTile(
-                            label: openHandLocalizedText(
-                              context,
                               zh: '是否开启知识库',
                               zhHant: '是否開啟知識庫',
                               en: 'Knowledge base',
@@ -1776,26 +1758,6 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                 ),
                               ),
                       ),
-                      AnimatedSwitcher(
-                        duration: openHandMotionDurationMs(context, 240),
-                        switchInCurve: kOpenHandEntranceCurve,
-                        switchOutCurve: kOpenHandSwitchOutCurve,
-                        transitionBuilder: _switcherSizeFadeTransition,
-                        child: _agentsEnabled
-                            ? Padding(
-                                key: const ValueKey('agents-enabled'),
-                                padding: const EdgeInsets.only(top: 12),
-                                child: _AgentExposurePanel(
-                                  options: widget.controller.agentOptions,
-                                  selected: _effectiveAgentIdsForDisplay(),
-                                  onChanged: _setEffectiveAgentIds,
-                                ),
-                              )
-                            : const SizedBox.shrink(
-                                key: ValueKey('agents-disabled'),
-                              ),
-                      ),
-                      kOpenHandGap18,
                       _SectionTitle(
                         openHandLocalizedText(
                           context,
@@ -2509,12 +2471,10 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
         growable: false,
       ),
       allowedInstructionIds: _instructions.toList(growable: false),
-      allowedAgentIds: _normalizedAgentIdsForSave(),
       allowedMessageTypes: _messageTypes,
       allowedConversationModes: _modes,
       allowedModelKeys: _models.toList(growable: false),
       planModeEnabled: _planModeEnabled,
-      agentsEnabled: _agentsEnabled,
       knowledgeBaseEnabled: _knowledgeBaseEnabled,
       readAloudEnabled: _readAloudEnabled,
       translationEnabled: _translationEnabled,
@@ -2660,49 +2620,6 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     return _toolsWithoutKnowledgeBase(_tools);
   }
 
-  Set<String> _effectiveAgentIdsForDisplay() {
-    final optionIds = widget.controller.agentOptions
-        .map((option) => option.id)
-        .toSet();
-    if (optionIds.isEmpty ||
-        _isExplicitNone(_agents, webGatewayDenyAllSelectionMarker)) {
-      return <String>{};
-    }
-    if (_agents.isEmpty) return optionIds;
-    return _agents.intersection(optionIds);
-  }
-
-  void _setEffectiveAgentIds(Set<String> values) {
-    final optionIds = widget.controller.agentOptions
-        .map((option) => option.id)
-        .toSet();
-    setState(() {
-      if (values.isEmpty) {
-        _agents = <String>{webGatewayDenyAllSelectionMarker};
-      } else if (optionIds.isNotEmpty && values.length == optionIds.length) {
-        _agents = <String>{};
-      } else {
-        _agents = values.intersection(optionIds);
-      }
-    });
-  }
-
-  List<String> _normalizedAgentIdsForSave() {
-    final optionIds = widget.controller.agentOptions
-        .map((option) => option.id)
-        .toSet();
-    if (optionIds.isEmpty) return _agents.toList(growable: false);
-    if (_isExplicitNone(_agents, webGatewayDenyAllSelectionMarker)) {
-      return const <String>[webGatewayDenyAllSelectionMarker];
-    }
-    final selected = _effectiveAgentIdsForDisplay();
-    if (selected.isEmpty) {
-      return const <String>[webGatewayDenyAllSelectionMarker];
-    }
-    if (selected.length == optionIds.length) return const <String>[];
-    return selected.toList(growable: false);
-  }
-
   Set<String> _toolsWithoutKnowledgeBase(Set<String> source) {
     if (source.isEmpty ||
         _isExplicitNone(source, webGatewayDenyAllSelectionMarker)) {
@@ -2761,219 +2678,6 @@ class _EditorNotice extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _AgentExposurePanel extends StatelessWidget {
-  const _AgentExposurePanel({
-    required this.options,
-    required this.selected,
-    required this.onChanged,
-  });
-
-  final List<WebGatewayAgentOption> options;
-  final Set<String> selected;
-  final ValueChanged<Set<String>> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final optionIds = options.map((option) => option.id).toSet();
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 13, 14, 14),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: .46),
-        borderRadius: kOpenHandBorderRadius16,
-        border: Border.all(color: colorScheme.primary.withValues(alpha: .24)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer.withValues(alpha: .74),
-                  borderRadius: BorderRadius.circular(kOpenHandRadius13),
-                ),
-                child: Icon(
-                  Icons.smart_toy_outlined,
-                  size: 18,
-                  color: colorScheme.onPrimaryContainer,
-                ),
-              ),
-              kOpenHandHGap10,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '可暴露给 Web 的智能体',
-                        zhHant: '可暴露給 Web 的智能體',
-                        en: 'Agents exposed to Web',
-                        fr: 'Agents exposés au Web',
-                        de: 'Für Web freigegebene Agenten',
-                        ja: 'Webに公開するエージェント',
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    kOpenHandGap2,
-                    Text(
-                      options.isEmpty
-                          ? openHandLocalizedText(
-                              context,
-                              zh: '暂无可用智能体',
-                              zhHant: '暫無可用智能體',
-                              en: 'No available agents',
-                              fr: 'Aucun agent disponible',
-                              de: 'Keine Agenten verfügbar',
-                              ja: '利用可能なエージェントなし',
-                            )
-                          : _gatewaySelectedCount(
-                              context,
-                              selected.length,
-                              options.length,
-                            ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              kOpenHandHGap8,
-              _GatewayRoundIconActionButton(
-                tooltip: _messageGatewaySelectAllLabel(context),
-                icon: Icons.done_all_rounded,
-                onPressed: options.isEmpty ? null : () => onChanged(optionIds),
-              ),
-              kOpenHandHGap8,
-              _GatewayRoundIconActionButton(
-                tooltip: _messageGatewayDeselectAllLabel(context),
-                icon: Icons.remove_done_rounded,
-                onPressed: options.isEmpty
-                    ? null
-                    : () => onChanged(const <String>{}),
-              ),
-            ],
-          ),
-          if (options.isNotEmpty) ...[
-            kOpenHandGap12,
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final option in options)
-                  _AgentExposureChip(
-                    option: option,
-                    selected: selected.contains(option.id),
-                    onTap: () {
-                      final next = Set<String>.from(selected);
-                      if (!next.add(option.id)) next.remove(option.id);
-                      onChanged(next);
-                    },
-                  ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _AgentExposureChip extends StatelessWidget {
-  const _AgentExposureChip({
-    required this.option,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final WebGatewayAgentOption option;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final tooltip = option.subtitle.isEmpty
-        ? option.label
-        : '${option.label} · ${option.subtitle}';
-    return Tooltip(
-      message: tooltip,
-      child: AnimatedContainer(
-        duration: openHandMotionDurationMs(context, 160),
-        curve: kOpenHandSwitchInCurve,
-        decoration: BoxDecoration(
-          color: selected
-              ? colorScheme.primaryContainer.withValues(alpha: .82)
-              : colorScheme.surfaceContainerHighest.withValues(alpha: .72),
-          borderRadius: kOpenHandPillBorderRadius,
-          border: Border.all(
-            color: selected
-                ? colorScheme.primary.withValues(alpha: .42)
-                : colorScheme.outlineVariant,
-          ),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: kOpenHandPillBorderRadius,
-            child: Padding(
-              padding: const EdgeInsetsDirectional.fromSTEB(10, 7, 12, 7),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AnimatedSwitcher(
-                    duration: openHandMotionDurationMs(context, 140),
-                    child: Icon(
-                      selected
-                          ? Icons.check_circle_rounded
-                          : Icons.radio_button_unchecked_rounded,
-                      key: ValueKey<bool>(selected),
-                      size: 16,
-                      color: selected
-                          ? colorScheme.primary
-                          : colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  kOpenHandHGap7,
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 220),
-                    child: Text(
-                      option.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        fontWeight: selected
-                            ? FontWeight.w800
-                            : FontWeight.w600,
-                        color: selected
-                            ? colorScheme.onPrimaryContainer
-                            : colorScheme.onSurface,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -7649,11 +7353,6 @@ class _WebOpsFeatureMatrixPanel extends StatelessWidget {
               ),
               _webOpsFlagChip(
                 context,
-                label: openHandAgentsLabel(context),
-                enabled: config.agentsEnabled,
-              ),
-              _webOpsFlagChip(
-                context,
                 label: openHandKnowledgeLabel(context),
                 enabled: config.knowledgeBaseEnabled,
               ),
@@ -7784,13 +7483,13 @@ class _WebOpsFeatureMatrixPanel extends StatelessWidget {
             ),
             openHandLocalizedText(
               context,
-              zh: '技能 ${_webOpsScopeCount(context, config.allowedSkillNames)} · 工具 ${_webOpsScopeCount(context, config.allowedBuiltinToolNames)} · 指令 ${_webOpsScopeCount(context, config.allowedInstructionIds)} · 智能体 ${_webOpsScopeCount(context, config.allowedAgentIds)}',
+              zh: '技能 ${_webOpsScopeCount(context, config.allowedSkillNames)} · 工具 ${_webOpsScopeCount(context, config.allowedBuiltinToolNames)} · 指令 ${_webOpsScopeCount(context, config.allowedInstructionIds)}',
               zhHant:
-                  '技能 ${_webOpsScopeCount(context, config.allowedSkillNames)} · 工具 ${_webOpsScopeCount(context, config.allowedBuiltinToolNames)} · 指令 ${_webOpsScopeCount(context, config.allowedInstructionIds)} · 智能體 ${_webOpsScopeCount(context, config.allowedAgentIds)}',
-              en: 'skills ${_webOpsScopeCount(context, config.allowedSkillNames)} · tools ${_webOpsScopeCount(context, config.allowedBuiltinToolNames)} · instructions ${_webOpsScopeCount(context, config.allowedInstructionIds)} · agents ${_webOpsScopeCount(context, config.allowedAgentIds)}',
-              fr: 'skills ${_webOpsScopeCount(context, config.allowedSkillNames)} · outils ${_webOpsScopeCount(context, config.allowedBuiltinToolNames)} · instructions ${_webOpsScopeCount(context, config.allowedInstructionIds)} · agents ${_webOpsScopeCount(context, config.allowedAgentIds)}',
-              de: 'Skills ${_webOpsScopeCount(context, config.allowedSkillNames)} · Tools ${_webOpsScopeCount(context, config.allowedBuiltinToolNames)} · Anweisungen ${_webOpsScopeCount(context, config.allowedInstructionIds)} · Agenten ${_webOpsScopeCount(context, config.allowedAgentIds)}',
-              ja: 'スキル ${_webOpsScopeCount(context, config.allowedSkillNames)} · ツール ${_webOpsScopeCount(context, config.allowedBuiltinToolNames)} · 指示 ${_webOpsScopeCount(context, config.allowedInstructionIds)} · エージェント ${_webOpsScopeCount(context, config.allowedAgentIds)}',
+                  '技能 ${_webOpsScopeCount(context, config.allowedSkillNames)} · 工具 ${_webOpsScopeCount(context, config.allowedBuiltinToolNames)} · 指令 ${_webOpsScopeCount(context, config.allowedInstructionIds)}',
+              en: 'skills ${_webOpsScopeCount(context, config.allowedSkillNames)} · tools ${_webOpsScopeCount(context, config.allowedBuiltinToolNames)} · instructions ${_webOpsScopeCount(context, config.allowedInstructionIds)}',
+              fr: 'skills ${_webOpsScopeCount(context, config.allowedSkillNames)} · outils ${_webOpsScopeCount(context, config.allowedBuiltinToolNames)} · instructions ${_webOpsScopeCount(context, config.allowedInstructionIds)}',
+              de: 'Skills ${_webOpsScopeCount(context, config.allowedSkillNames)} · Tools ${_webOpsScopeCount(context, config.allowedBuiltinToolNames)} · Anweisungen ${_webOpsScopeCount(context, config.allowedInstructionIds)}',
+              ja: 'スキル ${_webOpsScopeCount(context, config.allowedSkillNames)} · ツール ${_webOpsScopeCount(context, config.allowedBuiltinToolNames)} · 指示 ${_webOpsScopeCount(context, config.allowedInstructionIds)}',
             ),
           ),
           _WebOpsInfoRow(
@@ -23812,7 +23511,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                   _DingTalkSettingsCard(
                     icon: Icons.folder_open_rounded,
                     title: '工作目录',
-                    subtitle: 'Agent 只能读写此目录及其子目录',
+                    subtitle: 'AI 助手只能读写此目录及其子目录',
                     child: Row(
                       children: [
                         Expanded(
@@ -24032,7 +23731,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                   kOpenHandGap12,
                   _DingTalkSettingsCard(
                     icon: Icons.auto_awesome_rounded,
-                    title: 'Agent 提示词模板',
+                    title: 'AI 助手提示词模板',
                     subtitle: '选择钉钉消息会话使用的线程模板',
                     child: AnimatedDropdownButtonFormField<String>(
                       initialValue:

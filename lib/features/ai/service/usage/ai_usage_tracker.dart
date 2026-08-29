@@ -25,7 +25,7 @@ abstract final class AiUsageSource {
   static const String translation = 'translation';
   static const String textToSpeech = 'text_to_speech';
   static const String selfLearning = 'self_learning';
-  static const String agent = 'agent';
+  static const String subagent = 'subagent';
   static const String webSearch = 'web_search';
   static const String webFetch = 'web_fetch';
   static const String modelTest = 'model_test';

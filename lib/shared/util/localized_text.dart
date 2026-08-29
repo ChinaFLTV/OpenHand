@@ -643,18 +643,6 @@ String openHandActiveLabel(BuildContext context) {
   return openHandLocalizedText(context, zh: '进行中', en: 'Active');
 }
 
-String openHandAgentLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '智能体',
-    zhHant: '智能體',
-    en: 'Agent',
-    fr: 'Agent',
-    de: 'Agent',
-    ja: 'エージェント',
-  );
-}
-
 String openHandAllLabel(BuildContext context) {
   return openHandLocalizedText(
     context,
@@ -1187,18 +1175,6 @@ String openHandCompletedLabel(BuildContext context) {
     fr: 'Terminé',
     de: 'Abgeschlossen',
     ja: '完了',
-  );
-}
-
-String openHandAgentsLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '智能体',
-    zhHant: '智能體',
-    en: 'Agents',
-    fr: 'Agents',
-    de: 'Agenten',
-    ja: 'エージェント',
   );
 }
 

@@ -19,7 +19,7 @@
 
 </div>
 
-OpenHand is a local-first AI agent workbench. It combines multi-model chat, tool execution, MCP, skills, memory, knowledge base, plugins, hooks, scheduled jobs, thread templates, and a Web message platform in one native Flutter app for real, controllable, auditable, and maintainable AI workflows.
+OpenHand is a local-first AI workbench. It combines multi-model chat, tool execution, MCP, skills, memory, knowledge base, plugins, hooks, scheduled jobs, thread templates, and a Web message platform in one native Flutter app for real, controllable, auditable, and maintainable AI workflows.
 
 ## Positioning
 
@@ -44,7 +44,7 @@ OpenHand is more than a chat window. It is a local AI operations console for dev
 | Memory and self-learning | User profile, long-term memory, and Hermes Talker self-learning jobs for continuous personalization without noisy replies. |
 | Knowledge base | Import Markdown, Office, PDF, HTML, CSV, JSON, TOML, YAML, TXT, code files, or notes; build a local Qdrant vector index and inspect retrieval details. |
 | Automation | Hooks for session lifecycle events, Crons for scheduled jobs, background maintenance, system-managed jobs, and execution history. |
-| Advanced workbenches | Web reverse CDP Dashboard, Android reverse Dashboard, Harness Engineering, multi-agent / digital employee management, and local machine terminal. |
+| Advanced workbenches | Web reverse CDP Dashboard, Android reverse Dashboard, Harness Engineering, and local machine terminal. |
 | Desktop experience | Multi-thread sessions, attachments, Markdown / KaTeX / HTML rendering, syntax highlighting, shortcuts, themes, motion settings, localization, and smooth dialog/page transitions. |
 
 ## Screenshots
@@ -84,7 +84,6 @@ OpenHand is more than a chat window. It is a local AI operations console for dev
 - `Skills`: local skill scanning, install/uninstall, marketplace entry, and default prompt preview.
 - `Memory`: user profile, long-term memory, CRUD, and runtime context injection.
 - `Knowledge Base`: document parsing, chunking, embedding, Qdrant vector retrieval, retrieval details, and vector distribution.
-- `Agents`: digital employees, capability binding, knowledge-source binding, coordination tools, KPIs, and task state.
 - `Plugin Service`: plugin lifecycle, dependencies, Qdrant, Android toolchains, and other plugin capabilities.
 - `Message Gateway`: Web access, auth, model allowlists, command approval, file-write approval, and log export.
 - `Hooks / Crons / Instructions`: lifecycle scripts, scheduled jobs, user instructions, and project instructions.
@@ -156,7 +155,6 @@ lib/
   features/
     ai/                      session state machine, model protocols, tool runtime, prompts, WebFetch/WebSearch
     home/                    main workbench, threads, composer, message rendering, file explorer, template entrypoints
-    agents/                  digital employees, capabilities, scheduling, KPIs, tasks, audit
     knowledge_base/          document import, parsing, chunking, embeddings, Qdrant retrieval and ops
     message_gateway/         Web platform service, auth, approvals, logs, runtime bridge
     plugin_service/          plugin scanning, install, update, uninstall, dependency management

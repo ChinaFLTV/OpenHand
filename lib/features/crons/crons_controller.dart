@@ -227,7 +227,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
             '得た知識と好みをメモリ / プロフィール / スキルへ静かに書き込みます。'
             'システム管理のため削除できません。一時停止は右側のスイッチで行えます。',
       ),
-      scriptType: CronScriptType.agent,
+      scriptType: CronScriptType.managed,
       cronExpression: '*/5 * * * *',
       timeoutSeconds: 600,
       tags: <String>[systemTag, hermesTalkerTag],
@@ -283,7 +283,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
             '作成して有効のまま保ちます。有効状態はその設定に固定されるため、ここでの'
             '切り替えや削除はできません。実行履歴の確認と単発実行は可能です。',
       ),
-      scriptType: CronScriptType.agent,
+      scriptType: CronScriptType.managed,
       cronExpression: '0 2 * * *',
       timeoutSeconds: 1800,
       tags: <String>[systemTag, mcpKeywordIndexTag],
@@ -392,8 +392,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   /// 进程任务启动完成前的短暂占位，防止状态通知同步重入造成重复启动。
   final Map<String, Object> _startingJobTokens = <String, Object>{};
 
-  /// 智能体任务的执行令牌。超时后原任务仍未结束时保留令牌，避免重复调度。
-  final Map<String, Object> _runningAgentJobTokens = <String, Object>{};
+  /// 系统托管任务的执行令牌。超时后原任务仍未结束时保留令牌，避免重复调度。
+  final Map<String, Object> _runningManagedJobTokens = <String, Object>{};
 
   /// 单个任务运行态令牌。配置变更后，旧执行结果不得回写新配置。
   final Map<String, Object> _entryRuntimeTokens = <String, Object>{};
@@ -571,29 +571,29 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
 
   /// `appContext` 中存放 Hermes Talker 单次 tick 的会话级 JSON 报告
   /// （`List<SelfLearningSessionReport.toJson()>` 序列化结果）的键名。
-  /// 由 `main.dart` 的 agent handler 写入，由 Crons 历史 UI 解析渲染。
+  /// 由 `main.dart` 的任务处理器写入，由 Crons 历史 UI 解析渲染。
   static const String hermesTalkerReportsKey = 'hermes_talker.reports';
 
   /// `appContext` 中存放 Hermes Talker 单次 tick 聚合统计的键名
   /// （`{scanned, triggered, skipped, errors}` 的 JSON 编码）。
   static const String hermesTalkerStatsKey = 'hermes_talker.stats';
 
-  /// `CronScriptType.agent` 任务的进程内处理器，由启动流程注入 Hermes Talker
+  /// `CronScriptType.managed` 任务的进程内处理器，由启动流程注入 Hermes Talker
   /// `SelfLearningScheduler`。处理器不应抛出异常。
   ///
-  /// 返回的 [AgentHandlerResult.stdout] 写入历史记录的 stdout 字段，
-  /// [AgentHandlerResult.appContext] 写入历史记录的 app_context 字段，
+  /// 返回的 [CronTaskHandlerResult.stdout] 写入历史记录的 stdout 字段，
+  /// [CronTaskHandlerResult.appContext] 写入历史记录的 app_context 字段，
   /// 用于在 Crons 历史详情中展示富信息（例如 Hermes Talker 的会话报告）。
-  Future<AgentHandlerResult> Function(CronEntry entry)? _agentHandler;
+  Future<CronTaskHandlerResult> Function(CronEntry entry)? _taskHandler;
 
-  /// 注册或替换智能体定时任务处理器，传入 `null` 时移除。
-  void registerAgentHandler(
-    Future<AgentHandlerResult> Function(CronEntry entry)? handler,
+  /// 注册或替换系统托管任务处理器，传入 `null` 时移除。
+  void registerTaskHandler(
+    Future<CronTaskHandlerResult> Function(CronEntry entry)? handler,
   ) {
-    _agentHandler = handler;
+    _taskHandler = handler;
   }
 
-  Future<bool> _executeAgentJob(
+  Future<bool> _executeManagedJob(
     CronEntry entry, {
     required String triggerType,
     required int generation,
@@ -601,28 +601,28 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     required Object executionToken,
     required Object activeExecutionToken,
   }) async {
-    var keepsAgentLock = false;
+    var keepsManagedLock = false;
     final startedAt = DateTime.now();
     String stdout = '';
     Map<String, String> appContext = const <String, String>{};
     String status = 'success';
     String? errorMessage;
     try {
-      final handler = _agentHandler;
+      final handler = _taskHandler;
       if (handler == null) {
-        stdout = '未注册智能体任务处理器，已跳过执行。';
+        stdout = '未注册系统托管任务处理器，已跳过执行。';
       } else {
         final pending = handler(entry);
-        late final AgentHandlerResult result;
+        late final CronTaskHandlerResult result;
         try {
           result = await pending.timeout(
             Duration(seconds: entry.timeoutSeconds),
           );
         } on TimeoutException {
           status = 'timed_out';
-          errorMessage = '智能体定时任务超时（${entry.timeoutSeconds} 秒）。';
-          keepsAgentLock = true;
-          _observeTimedOutAgentCompletion(
+          errorMessage = '系统托管任务超时（${entry.timeoutSeconds} 秒）。';
+          keepsManagedLock = true;
+          _observeTimedOutManagedCompletion(
             pending,
             entryId: entry.id,
             executionToken: executionToken,
@@ -637,8 +637,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       // 超时后仅在后台观察原任务，当前执行立即结束。
     } catch (error, stack) {
       status = 'failed';
-      errorMessage = userFailureMessage(error, fallback: '智能体定时任务执行失败，请稍后重试。');
-      silentLog('crons_controller', '执行智能体定时任务', error, stack);
+      errorMessage = userFailureMessage(error, fallback: '系统托管任务执行失败，请稍后重试。');
+      silentLog('crons_controller', '执行系统托管任务', error, stack);
     }
 
     final record = CronExecutionRecord(
@@ -671,17 +671,17 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         updatedAt: DateTime.now(),
       ),
     );
-    return keepsAgentLock;
+    return keepsManagedLock;
   }
 
   /// 原 Future 完成后释放超时任务的重入锁，避免不可取消任务重复堆积。
-  void _observeTimedOutAgentCompletion(
-    Future<AgentHandlerResult> pending, {
+  void _observeTimedOutManagedCompletion(
+    Future<CronTaskHandlerResult> pending, {
     required String entryId,
     required Object executionToken,
     required Object activeExecutionToken,
   }) {
-    if (!identical(_runningAgentJobTokens[entryId], executionToken)) {
+    if (!identical(_runningManagedJobTokens[entryId], executionToken)) {
       _finishActiveExecution(activeExecutionToken);
       return;
     }
@@ -690,12 +690,12 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       pending.then<void>(
         (_) {
           _finishActiveExecution(activeExecutionToken);
-          _releaseAgentExecutionLock(entryId, executionToken);
+          _releaseManagedExecutionLock(entryId, executionToken);
         },
         onError: (Object error, StackTrace stack) {
-          silentLog('crons_controller', '观察超时智能体任务的迟到异常', error, stack);
+          silentLog('crons_controller', '观察超时系统托管任务的迟到异常', error, stack);
           _finishActiveExecution(activeExecutionToken);
-          _releaseAgentExecutionLock(entryId, executionToken);
+          _releaseManagedExecutionLock(entryId, executionToken);
         },
       ),
     );
@@ -732,8 +732,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     if (index < 0) return;
     final entry = _entries[index];
     if (!entry.enabled) return;
-    // 智能体任务通过 [_agentHandler] 执行，无需脚本内容。
-    if (entry.scriptType != CronScriptType.agent && !entry.hasScript) return;
+    // 系统托管任务通过 [_taskHandler] 执行，无需脚本内容。
+    if (entry.scriptType != CronScriptType.managed && !entry.hasScript) return;
     await _executeJob(entry, triggerType: 'manual');
   }
 
@@ -921,7 +921,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     if (!permanent) return;
     _runningJobs.clear();
     _startingJobTokens.clear();
-    _runningAgentJobTokens.clear();
+    _runningManagedJobTokens.clear();
     _entryRuntimeTokens.clear();
   }
 
@@ -957,8 +957,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     if (!_canExecuteInCurrentState) return;
     _cancelTimer(entry.id);
     if (!entry.enabled) return;
-    // 智能体任务无需脚本内容，通过 [_agentHandler] 而非 [CronExecutor] 执行。
-    if (entry.scriptType != CronScriptType.agent && !entry.hasScript) return;
+    // 系统托管任务无需脚本内容，通过 [_taskHandler] 而非 [CronExecutor] 执行。
+    if (entry.scriptType != CronScriptType.managed && !entry.hasScript) return;
 
     final nextRun = CronParser.nextRun(entry.cronExpression);
     if (nextRun == null) return;
@@ -1023,12 +1023,12 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     }
     final generation = _runtimeGeneration;
     final entryRuntimeToken = _ensureEntryRuntimeToken(entry.id);
-    final isAgent = entry.scriptType == CronScriptType.agent;
-    Object? agentExecutionToken;
+    final isManaged = entry.scriptType == CronScriptType.managed;
+    Object? managedExecutionToken;
     Object? processStartToken;
-    if (isAgent) {
-      agentExecutionToken = Object();
-      _runningAgentJobTokens[entry.id] = agentExecutionToken;
+    if (isManaged) {
+      managedExecutionToken = Object();
+      _runningManagedJobTokens[entry.id] = managedExecutionToken;
     } else {
       processStartToken = Object();
       _startingJobTokens[entry.id] = processStartToken;
@@ -1046,20 +1046,23 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
           identical(_startingJobTokens[entry.id], processStartToken)) {
         _startingJobTokens.remove(entry.id);
       }
-      if (agentExecutionToken != null &&
-          identical(_runningAgentJobTokens[entry.id], agentExecutionToken)) {
-        _runningAgentJobTokens.remove(entry.id);
+      if (managedExecutionToken != null &&
+          identical(
+            _runningManagedJobTokens[entry.id],
+            managedExecutionToken,
+          )) {
+        _runningManagedJobTokens.remove(entry.id);
       }
       _finishActiveExecution(activeExecutionToken);
       notifyListeners();
       return;
     }
 
-    if (isAgent) {
-      final executionToken = agentExecutionToken!;
-      var keepsAgentLock = false;
+    if (isManaged) {
+      final executionToken = managedExecutionToken!;
+      var keepsManagedLock = false;
       try {
-        keepsAgentLock = await _executeAgentJob(
+        keepsManagedLock = await _executeManagedJob(
           entry,
           triggerType: triggerType,
           generation: generation,
@@ -1068,11 +1071,11 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
           activeExecutionToken: activeExecutionToken,
         );
       } finally {
-        if (keepsAgentLock) {
+        if (keepsManagedLock) {
           notifyListeners();
         } else {
           _finishActiveExecution(activeExecutionToken);
-          _releaseAgentExecutionLock(entry.id, executionToken);
+          _releaseManagedExecutionLock(entry.id, executionToken);
         }
       }
       return;
@@ -1183,12 +1186,12 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   bool _isEntryExecuting(String id) {
     return _runningJobs.containsKey(id) ||
         _startingJobTokens.containsKey(id) ||
-        _runningAgentJobTokens.containsKey(id);
+        _runningManagedJobTokens.containsKey(id);
   }
 
-  void _releaseAgentExecutionLock(String entryId, Object executionToken) {
-    if (!identical(_runningAgentJobTokens[entryId], executionToken)) return;
-    _runningAgentJobTokens.remove(entryId);
+  void _releaseManagedExecutionLock(String entryId, Object executionToken) {
+    if (!identical(_runningManagedJobTokens[entryId], executionToken)) return;
+    _runningManagedJobTokens.remove(entryId);
     final index = _entries.indexWhere((entry) => entry.id == entryId);
     if (index >= 0) {
       final current = _entries[index];
@@ -1326,7 +1329,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   void _setEntries(List<CronEntry> entries) {
     _entries = entries
         .map((entry) {
-          if (!_runningAgentJobTokens.containsKey(entry.id)) return entry;
+          if (!_runningManagedJobTokens.containsKey(entry.id)) return entry;
           final status = entry.enabled
               ? CronJobStatus.running
               : CronJobStatus.paused;
@@ -1551,14 +1554,14 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   }
 }
 
-/// Agent 处理函数返回的结构化结果。
+/// 系统托管任务处理函数返回的结构化结果。
 ///
 /// * [stdout] 写入 [CronExecutionRecord.stdout]，用于历史详情默认展示。
 /// * [appContext] 写入 [CronExecutionRecord.appContext]，用于承载结构化
 ///   元数据（例如 Hermes Talker 的会话级 JSON 报告），由 UI 侧根据特定
 ///   key 渲染富面板。
-class AgentHandlerResult {
-  const AgentHandlerResult({
+class CronTaskHandlerResult {
+  const CronTaskHandlerResult({
     this.stdout = '',
     this.appContext = const <String, String>{},
   });

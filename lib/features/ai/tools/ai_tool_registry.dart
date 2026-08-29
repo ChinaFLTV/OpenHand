@@ -4,8 +4,6 @@ import 'package:http/http.dart' as http;
 
 import '../../../app/support/silent_log.dart';
 import '../../../shared/model/dingtalk_multimodal_capability.dart';
-import '../../agents/agents_controller.dart';
-import '../../instructions/instructions_controller.dart';
 import '../../knowledge_base/knowledge_base_controller.dart';
 import '../../machine_terminal/index.dart';
 import '../model/ai_model_config.dart';
@@ -14,7 +12,6 @@ import '../service/chat/ai_chat_service.dart';
 import '../service/hook/ai_claude_hook_service.dart';
 import '../service/runtime/ai_tool_runtime_service.dart';
 import '../service/web_fetch/web_fetch_scrapling_bridge.dart';
-import 'agents/ai_agent_tools.dart';
 import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'bash/ai_bash_background_tool.dart';
@@ -120,8 +117,6 @@ class AiToolRegistry {
     Future<List<InternetAddress>> Function(String host)? hostLookup,
     String Function()? skillsDirProvider,
     MemoryControllerProvider? memoryControllerProvider,
-    AgentsControllerProvider? agentsControllerProvider,
-    InstructionsControllerProvider? instructionsControllerProvider,
     KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
     List<AiModelConfig> Function()? aiModelsProvider,
     MachineTerminalService? machineTerminalService,
@@ -157,28 +152,6 @@ class AiToolRegistry {
       registry.register(
         AiMemoryTool(memoryControllerProvider: memoryControllerProvider),
       );
-    }
-
-    // 延迟接入智能体工具，避免持久化配置加载阻塞 AI 运行时启动。
-    if (agentsControllerProvider != null) {
-      final agentTools = AiAgentTool.all(
-        agentsControllerProvider: agentsControllerProvider,
-        backgroundChatClient: backgroundChatClient,
-        aiModelsProvider: aiModelsProvider,
-        instructionsControllerProvider: instructionsControllerProvider,
-      );
-      for (final tool in agentTools) {
-        tool.withExecutor(
-          (parentContext, subContext) => registry._executeSubTool(
-            parentContext,
-            subContext,
-            observer: subToolExecutionObserver,
-            unsupportedError: '不支持的数字员工工具：${subContext.toolCall.name}',
-            unavailableError: '数字员工工具不可用：${subContext.toolCall.name}',
-          ),
-        );
-        registry.register(tool);
-      }
     }
 
     // WebFetch — 需要 http.Client + AiChatClient

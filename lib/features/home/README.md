@@ -50,7 +50,7 @@ lib/features/home/
 
 ## 跨 feature 依赖
 - 入向：openhand_app.dart 通过 `import '../features/home/openhand_home_page.dart'` 注入到 MaterialApp.home
-- 出向（通过 sibling barrel）：agents / ai / android_reverse / crons / harness /
+- 出向（通过 sibling barrel）：ai / android_reverse / crons / harness /
   hooks / instructions / knowledge_base / machine_terminal / mcp / memory /
   message_gateway / plugin_service / settings / skills /
   thread_template_runtime / web_reverse

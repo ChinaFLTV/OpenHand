@@ -63,7 +63,6 @@ flutter:
   assets:
     - assets/prompts/_shared/
     - assets/prompts/common/
-    - assets/prompts/agents/
     - assets/prompts/default/
     - assets/prompts/harness_engineering/
     - assets/prompts/hermes_talker/

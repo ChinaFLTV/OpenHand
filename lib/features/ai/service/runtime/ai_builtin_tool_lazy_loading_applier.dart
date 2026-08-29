@@ -203,9 +203,6 @@ class AiBuiltinToolLazyLoadingApplier {
           if (tool.builtinKind!.isMachineTerminalTool) {
             return false;
           }
-          if (tool.builtinKind!.isAgentCoreCoordinationTool) {
-            return false;
-          }
           final config = tool.builtinConfig;
           final forceLoad =
               config?.forceLoad ??

@@ -53,7 +53,6 @@ lib/features/ai/
     web_fetch/                    # web_fetch_orchestrator / engine / direct_engines / scrape_engines / search_engines / cache_store / telemetry_store
     web_search/                   # web_search_orchestrator / engine / api_engines / html_engines / provider_engines / cache_store / telemetry_store
   tools/                          # 按能力分组的内置工具
-    agents/                       # 智能体工具
     fs/                           # read/write/edit/multi_edit/delete/glob/ls/file_read_renderer/apply_file_diffs/notebook_edit (10)
     bash/                         # bash/bash_background
     search/                       # grep/codebase_search/tool_search

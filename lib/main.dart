@@ -19,7 +19,6 @@ import 'app/support/input_repair_service.dart';
 import 'app/support/safe_subprocess.dart';
 import 'app/support/silent_log.dart';
 import 'app/support/system_proxy.dart';
-import 'features/agents/index.dart';
 import 'features/ai/index.dart';
 import 'features/ai/service/chat/ai_protocol_adapter.dart'
     as ai_protocol_adapter;
@@ -177,7 +176,6 @@ Future<void> _bootstrap() async {
   final hooksModuleFuture = HooksModule.bootstrap();
   final instructionsModuleFuture = InstructionsModule.bootstrap();
   final memoryModuleFuture = MemoryModule.bootstrap();
-  final agentsModuleFuture = AgentsModule.bootstrap();
   final servicesModuleFuture = ServicesModule.bootstrap();
   final pluginServiceModuleFuture = PluginServiceModule.bootstrap();
   final knowledgeBaseModuleFuture = KnowledgeBaseModule.bootstrap();
@@ -201,8 +199,6 @@ Future<void> _bootstrap() async {
   mcpStdioMirrorModeOverride = settingsController.mcpStdioMirrorMode;
   // MemoryController 懒加载完成后再暴露给 AI 内建 Memory 工具。
   MemoryController? memoryControllerHandle;
-  AgentsController? agentsControllerHandle;
-  InstructionsController? instructionsControllerHandle;
   KnowledgeBaseController? knowledgeBaseControllerHandle;
   final machineTerminalService = MachineTerminalService();
   final machineTerminalFileService = MachineTerminalFileService(
@@ -212,8 +208,6 @@ Future<void> _bootstrap() async {
     userHooksExecutor: hooks.executor,
     skillsDirProvider: () => settingsController.skillsStoragePath,
     memoryControllerProvider: () => memoryControllerHandle,
-    agentsControllerProvider: () => agentsControllerHandle,
-    instructionsControllerProvider: () => instructionsControllerHandle,
     aiModelsProvider: () => settingsController.aiModels,
     knowledgeBaseControllerProvider: () => knowledgeBaseControllerHandle,
     machineTerminalService: machineTerminalService,
@@ -235,9 +229,6 @@ Future<void> _bootstrap() async {
   // MemoryController 只在用户动作路径使用，刷新放到后台以缩短冷启动关键路径。
   final memory = await memoryModuleFuture;
   _runMainBackgroundTask(memory.controller.refresh(), '刷新记忆');
-  final agents = await agentsModuleFuture;
-  agentsControllerHandle = agents.controller;
-  _runMainBackgroundTask(agents.controller.refresh(), '刷新智能体');
   final services = await servicesModuleFuture;
   services.aiModelProxyController.attachModelsProvider(
     () => settingsController.aiModels,
@@ -264,12 +255,11 @@ Future<void> _bootstrap() async {
   services.controller.attachSelectedAiModelProvider(
     () => settingsController.selectedAiModel,
   );
-  // CronsController 先注册 agent 处理器，再把数据库加载和调度器启动放到后台。
+  // CronsController 先注册托管任务处理器，再把数据库加载和调度器启动放到后台。
   final crons = await cronsModuleFuture;
   final cronsController = crons.controller;
   // InstructionsController 不是首屏关键路径，后台刷新即可。
   final instructions = await instructionsModuleFuture;
-  instructionsControllerHandle = instructions.controller;
   _runMainBackgroundTask(instructions.controller.refresh(), '刷新指令');
   final appInfo = await appInfoFuture;
   AppRuntimeContext.initialize(appInfo);
@@ -298,7 +288,7 @@ Future<void> _bootstrap() async {
     runForSession: selfLearningRunner.runForSession,
     concurrency: settingsController.selfLearningConcurrency,
   );
-  cronsController.registerAgentHandler((entry) async {
+  cronsController.registerTaskHandler((entry) async {
     if (entry.tags.contains(CronsController.hermesTalkerTag)) {
       final result = await selfLearningScheduler.tick();
       final stdout =
@@ -324,14 +314,14 @@ Future<void> _bootstrap() async {
         // JSON 编码失败时降级为纯标准输出，保留诊断线索但不影响调度链路。
         silentLog('main', '编码 Hermes Talker 上下文', error, stack);
       }
-      return AgentHandlerResult(stdout: stdout, appContext: appContext);
+      return CronTaskHandlerResult(stdout: stdout, appContext: appContext);
     }
     if (entry.tags.contains(CronsController.mcpKeywordIndexTag)) {
       // 复用 McpController 单飞构建器，与 UI 入口共享同一份磁盘缓存。
       try {
         await mcp.controller.ensureKeywordIndexLoaded();
         final result = await mcp.controller.buildKeywordIndex();
-        return AgentHandlerResult(
+        return CronTaskHandlerResult(
           stdout:
               '完成：服务=${result.index.totalServers} '
               '工具=${result.index.totalTools} '
@@ -340,12 +330,14 @@ Future<void> _bootstrap() async {
         );
       } catch (error, stack) {
         silentLog('main', '重建 MCP 关键词索引', error, stack);
-        return AgentHandlerResult(
+        return CronTaskHandlerResult(
           stdout: '错误：${mcpFailureMessage(error, fallback: '重建 MCP 关键词索引失败。')}',
         );
       }
     }
-    return AgentHandlerResult(stdout: '未处理：未知智能体标签（${entry.tags.join(",")}）');
+    return CronTaskHandlerResult(
+      stdout: '未处理：未知系统托管任务标签（${entry.tags.join(",")}）',
+    );
   });
   void syncRuntimeSettings() {
     SystemProxyResolver.instance.applyConfig(settingsController.proxySettings);
@@ -383,7 +375,7 @@ Future<void> _bootstrap() async {
   AiUsageTracker.instance.updateEstimatedCharactersPerToken(
     settingsController.aiEstimatedCharactersPerToken,
   );
-  // agent 处理器注册后再初始化 cron；启动期主动同步一次 MCP 关键词索引计划。
+  // 托管任务处理器注册后再初始化 cron；启动期主动同步一次 MCP 关键词索引计划。
   _runMainBackgroundTask(() async {
     await cronsController.initialize();
     await cronsController.updateMcpKeywordIndexSchedule(
@@ -414,7 +406,6 @@ Future<void> _bootstrap() async {
     MessageGatewayDependencies(
       sessionController: aiSessionController,
       settingsController: settingsController,
-      agentsController: agents.controller,
       skillsController: skills.controller,
       mcpController: mcp.controller,
       memoryController: memory.controller,
@@ -438,15 +429,6 @@ Future<void> _bootstrap() async {
     );
   }
   _runMainBackgroundTask(pluginService.controller.initialize(), '初始化插件服务');
-  agents.controller.setRuntimeAvailabilityProvider(
-    () => AgentRuntimeAvailability.fromHermesPlugin(
-      pluginService.controller.pluginById(PluginCatalogIds.hermesAgent),
-      isLoading: pluginService.controller.isLoading,
-    ),
-  );
-  final pluginAvailabilityListener =
-      agents.controller.notifyRuntimeAvailabilityChanged;
-  pluginService.controller.addListener(pluginAvailabilityListener);
   messageGateway.controller.pluginServiceController = pluginService.controller;
   _runMainBackgroundTask(knowledgeBase.controller.initialize(), '初始化知识库');
 
@@ -497,7 +479,6 @@ Future<void> _bootstrap() async {
     ..register('技能控制器', skills.controller.shutdown)
     ..register('记忆控制器', memory.controller.shutdown)
     ..register('插件服务控制器', pluginService.controller.shutdown)
-    ..register('智能体控制器', agents.controller.shutdown)
     ..register('AI 模型中转站控制器', services.aiModelProxyController.shutdown)
     ..register('AI 模型健康巡检控制器', services.aiModelHealthController.dispose)
     ..register('扫描服务控制器', services.controller.shutdown)
@@ -548,11 +529,7 @@ Future<void> _bootstrap() async {
     }, timeout: MessageGatewayController.runtimeCleanupTimeout)
     ..register('FPS 监控器', OpenHandFpsMonitor.instance.stop);
   runtimeCleanup
-    ..register('定时任务智能体处理器', () => cronsController.registerAgentHandler(null))
-    ..register(
-      '插件可用性监听器',
-      () => pluginService.controller.removeListener(pluginAvailabilityListener),
-    )
+    ..register('定时任务托管处理器', () => cronsController.registerTaskHandler(null))
     ..register(
       '运行时设置监听器',
       () => settingsController.removeListener(syncRuntimeSettings),
@@ -605,7 +582,6 @@ Future<void> _bootstrap() async {
         ...McpModule.providers(mcp),
         ...HooksModule.providers(hooks),
         ...MemoryModule.providers(memory),
-        ...AgentsModule.providers(agents),
         ...ServicesModule.providers(services),
         ...CronsModule.providers(crons),
         ...InstructionsModule.providers(instructions),

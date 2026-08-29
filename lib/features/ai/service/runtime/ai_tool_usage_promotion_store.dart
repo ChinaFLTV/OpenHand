@@ -23,7 +23,6 @@ enum AiResourceUsageKind {
   skill('skill'),
   hook('hook'),
   knowledge('knowledge'),
-  agent('agent'),
   memory('memory'),
   mcp('mcp');
 
@@ -344,7 +343,6 @@ final class AiToolUsagePromotionStore {
   static const int _periodTrimBatchSize = 8;
   static const List<String> _nestedSessionMarkers = <String>[
     '::parallel-',
-    '/agent/',
     '/task/',
   ];
   static const Map<AiResourceUsagePeriod, int> _periodRetention =
@@ -429,11 +427,6 @@ final class AiToolUsagePromotionStore {
       );
     }
 
-    _addResource(
-      resources,
-      AiResourceUsageKind.agent,
-      _string(resultMetadata['agent_id']),
-    );
     final isMemoryTool =
         resolvedTool?.builtinKind == AiBuiltinToolKind.memory ||
         logicalToolId.toLowerCase() == 'memory';

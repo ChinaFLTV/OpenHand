@@ -44,7 +44,6 @@ class PluginCatalogIds {
   static const String qdrant = 'qdrant';
   static const String postgresql = 'postgresql';
   static const String redis = 'redis';
-  static const String hermesAgent = 'hermes_agent';
   static const String aiJungler = 'ai_jungler';
   static const String dingtalkWorkspaceCli = 'dingtalk_workspace_cli';
   static const String googleChrome = 'google_chrome';
@@ -67,7 +66,6 @@ class PluginCatalogIds {
     qdrant,
     postgresql,
     redis,
-    hermesAgent,
     aiJungler,
     dingtalkWorkspaceCli,
     googleChrome,

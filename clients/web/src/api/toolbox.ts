@@ -90,19 +90,7 @@ export interface KnowledgeSourceSummary {
   updated_at: string;
 }
 
-export interface AgentSummary {
-  id: string;
-  name: string;
-  position: string;
-  department: string;
-  enabled: boolean;
-  lifecycle_state: string;
-  skill_count: number;
-  knowledge_count: number;
-  memory_count: number;
-}
-
-export type ResourceUsageKind = 'tool' | 'skill' | 'hook' | 'knowledge' | 'agent' | 'memory' | 'mcp';
+export type ResourceUsageKind = 'tool' | 'skill' | 'hook' | 'knowledge' | 'memory' | 'mcp';
 export type ResourceUsageLevel = 'session' | 'day' | 'week' | 'month' | 'quarter' | 'year';
 
 interface ResourceUsageTrendPoint {
@@ -205,12 +193,6 @@ export function listKnowledgeSources(
   options: ApiRequestSignalOptions = {},
 ): Promise<{ items: KnowledgeSourceSummary[] }> {
   return apiRequest<{ items: KnowledgeSourceSummary[] }>('/api/knowledge/sources', options);
-}
-
-export function listAgents(
-  options: ApiRequestSignalOptions = {},
-): Promise<{ items: AgentSummary[] }> {
-  return apiRequest<{ items: AgentSummary[] }>('/api/agents', options);
 }
 
 export function getResourceUsage(

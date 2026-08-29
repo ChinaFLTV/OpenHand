@@ -4676,9 +4676,6 @@ class _SettingsViewState extends State<SettingsView> {
         return cmp != 0 ? cmp : a.kind.index.compareTo(b.kind.index);
       });
     final enabledCount = sorted.where((c) => c.enabled).length;
-    final agentToolConfigs = sorted
-        .where((config) => config.kind.isAgentCoordinationTool)
-        .toList(growable: false);
     final machineTerminalToolConfigs = sorted
         .where((config) => config.kind.isMachineTerminalTool)
         .toList(growable: false);
@@ -4738,24 +4735,6 @@ class _SettingsViewState extends State<SettingsView> {
               ),
             ),
           ),
-        ),
-        kOpenHandGap14,
-        _AgentBuiltinToolSummaryCard(
-          configs: agentToolConfigs,
-          onEnableAll: agentToolConfigs.isEmpty
-              ? null
-              : () => _toggleAgentBuiltinTools(
-                  context,
-                  settingsController,
-                  enabled: true,
-                ),
-          onDisableAll: agentToolConfigs.isEmpty
-              ? null
-              : () => _toggleAgentBuiltinTools(
-                  context,
-                  settingsController,
-                  enabled: false,
-                ),
         ),
         kOpenHandGap14,
         _MachineTerminalBuiltinToolSummaryCard(
@@ -4930,29 +4909,6 @@ class _SettingsViewState extends State<SettingsView> {
     final updated = configs
         .map((c) => c.copyWith(enabled: enabled))
         .toList(growable: false);
-    final saved = await settingsController.updateBuiltinToolConfigs(updated);
-    if (!context.mounted || saved) return;
-    _showPersistenceFailureSnackBar(context);
-  }
-
-  Future<void> _toggleAgentBuiltinTools(
-    BuildContext context,
-    SettingsController settingsController, {
-    required bool enabled,
-  }) async {
-    final configs = settingsController.builtinToolConfigs;
-    var changed = false;
-    final updated = configs
-        .map((config) {
-          if (!config.kind.isAgentCoordinationTool ||
-              config.enabled == enabled) {
-            return config;
-          }
-          changed = true;
-          return config.copyWith(enabled: enabled);
-        })
-        .toList(growable: false);
-    if (!changed) return;
     final saved = await settingsController.updateBuiltinToolConfigs(updated);
     if (!context.mounted || saved) return;
     _showPersistenceFailureSnackBar(context);

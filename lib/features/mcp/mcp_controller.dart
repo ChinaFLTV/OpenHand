@@ -29,7 +29,7 @@ import '../ai/index.dart'
         AiToolExecutionRegistry,
         AiToolRuntimeService,
         BashToolExecutionStatus,
-        agentBuiltinToolCanonicalName;
+        builtinToolCanonicalName;
 import '../instructions/index.dart';
 import '../knowledge_base/index.dart';
 import '../memory/index.dart';
@@ -68,7 +68,7 @@ class McpOpsRuntimeBindings {
   /// 共享的 AI 工具运行时，供 MCP 运维服务器真正执行内建工具（而非仅返回配置）。
   final AiToolRuntimeService? Function()? toolRuntimeServiceProvider;
 
-  /// 首个可用模型，供依赖大模型的内建工具（Task/WebSearch/WebFetch/Agent）使用；
+  /// 首个可用模型，供依赖大模型的内建工具（Task/WebSearch/WebFetch）使用；
   /// 无可用模型时返回 null，调用方据此优雅报错。
   final AiModelConfig? Function()? opsModelProvider;
 }
@@ -1039,7 +1039,7 @@ class McpController extends ChangeNotifier {
       )) {
         continue;
       }
-      final canonicalName = agentBuiltinToolCanonicalName(config.kind);
+      final canonicalName = builtinToolCanonicalName(config.kind);
       final schemaOverride = config.schemaOverride;
       tools.add(
         McpOpsToolDefinition(

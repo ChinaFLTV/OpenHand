@@ -62,8 +62,6 @@ String _pluginIconAssetPath(String pluginId) {
     PluginCatalogIds.qdrant => '$_pluginIconAssetDirectory/qdrant.svg',
     PluginCatalogIds.postgresql => '$_pluginIconAssetDirectory/postgresql.svg',
     PluginCatalogIds.redis => '$_pluginIconAssetDirectory/redis.svg',
-    PluginCatalogIds.hermesAgent =>
-      '$_pluginIconAssetDirectory/hermes-agent.svg',
     PluginCatalogIds.dingtalkWorkspaceCli =>
       '$_pluginIconAssetDirectory/dingtalk-workspace-cli.svg',
     PluginCatalogIds.googleChrome =>
@@ -104,7 +102,6 @@ String _localizedPluginDescription(AppLocalizations l10n, PluginInfo plugin) {
   return switch (plugin.id) {
     PluginCatalogIds.nodejs => l10n.pluginServiceDescriptionNodejs,
     PluginCatalogIds.playwright => l10n.pluginServiceDescriptionPlaywright,
-    PluginCatalogIds.hermesAgent => l10n.pluginServiceDescriptionHermesAgent,
     PluginCatalogIds.python => l10n.pluginServiceDescriptionPython,
     PluginCatalogIds.pip => l10n.pluginServiceDescriptionPip,
     PluginCatalogIds.java => l10n.pluginServiceDescriptionJava,

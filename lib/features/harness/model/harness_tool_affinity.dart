@@ -31,8 +31,8 @@ enum HarnessToolCategory {
   /// MCP 工具。
   mcp,
 
-  /// 子代理工具；Harness 各阶段均不开放。
-  agent,
+  /// 子任务工具；Harness 各阶段均不开放。
+  subtask,
 }
 
 /// 将内建工具映射到阶段能力类别。
@@ -66,27 +66,7 @@ HarnessToolCategory? builtinToolCategory(AiBuiltinToolKind kind) {
     AiBuiltinToolKind.readLints => HarnessToolCategory.lsp,
     AiBuiltinToolKind.todoWrite ||
     AiBuiltinToolKind.exitPlanMode => HarnessToolCategory.planning,
-    AiBuiltinToolKind.task ||
-    AiBuiltinToolKind.agentList ||
-    AiBuiltinToolKind.agentDetail ||
-    AiBuiltinToolKind.agentActivityLog ||
-    AiBuiltinToolKind.agentAuditReport ||
-    AiBuiltinToolKind.agentAuditRecord ||
-    AiBuiltinToolKind.agentApprovalRequest ||
-    AiBuiltinToolKind.agentKpiUpsert ||
-    AiBuiltinToolKind.agentResourceUpdate ||
-    AiBuiltinToolKind.agentClusterConfigure ||
-    AiBuiltinToolKind.agentClusterStatus ||
-    AiBuiltinToolKind.agentTaskList ||
-    AiBuiltinToolKind.agentTaskPublish ||
-    AiBuiltinToolKind.agentTaskTrack ||
-    AiBuiltinToolKind.agentTaskProgress ||
-    AiBuiltinToolKind.agentTaskCancel ||
-    AiBuiltinToolKind.agentTaskPause ||
-    AiBuiltinToolKind.agentTaskTerminate ||
-    AiBuiltinToolKind.agentTaskResume ||
-    AiBuiltinToolKind.agentTaskComplete ||
-    AiBuiltinToolKind.agentTaskResult => HarnessToolCategory.agent,
+    AiBuiltinToolKind.task => HarnessToolCategory.subtask,
     // 交互工具由提示词构建器统一排除。
     AiBuiltinToolKind.askUserChoice => null,
     // 下列工具由其他专用链路使用，不参与 Harness 阶段亲和。

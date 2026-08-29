@@ -16,10 +16,10 @@ class AiPromptSectionHeaders {
   static const String restoredMcpContext = '# [5.9] Restored MCP Context';
   static const String restoredSessionStartHookContext =
       '# [5.10] Restored SessionStart Hook Context';
-  static const String restoredToolAndAgentListing =
-      '# [5.11] Restored Tool and Agent Listing';
-  static const String restoredAgentResultContext =
-      '# [5.12] Restored Agent Result Context';
+  static const String restoredToolAndSubagentListing =
+      '# [5.11] Restored Tool and Subagent Listing';
+  static const String restoredSubagentResultContext =
+      '# [5.12] Restored Subagent Result Context';
   static const String systemReminder = '# System Reminder';
   static const String planModeReminder = '# Plan Mode Reminder';
   static const String workspaceInstructions = '# Workspace Instructions';
@@ -50,8 +50,8 @@ const Set<String> aiInternalPromptLeakHeaders = <String>{
   AiPromptSectionHeaders.restoredPlanContext,
   AiPromptSectionHeaders.restoredMcpContext,
   AiPromptSectionHeaders.restoredSessionStartHookContext,
-  AiPromptSectionHeaders.restoredToolAndAgentListing,
-  AiPromptSectionHeaders.restoredAgentResultContext,
+  AiPromptSectionHeaders.restoredToolAndSubagentListing,
+  AiPromptSectionHeaders.restoredSubagentResultContext,
   AiPromptSectionHeaders.systemReminder,
   AiPromptSectionHeaders.planModeReminder,
   AiPromptSectionHeaders.workspaceInstructions,

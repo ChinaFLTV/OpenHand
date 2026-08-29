@@ -225,7 +225,7 @@ class _CronEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    // 与 Hooks / 智能体 / 记忆几页统一走页面级空态卡；不能是 Expanded：本 widget
+    // 与 Hooks / 记忆等页面统一走页面级空态卡；不能是 Expanded：本 widget
     // 挂在 AnimatedSwitcher 下，其默认 layoutBuilder 会把 child 放进 Stack 并包
     // 一层 FadeTransition，Expanded.applyParentData 会把 RenderAnimatedOpacity
     // 的 parentData 强转成 FlexParentData 而断言失败。

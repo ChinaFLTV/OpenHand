@@ -210,7 +210,6 @@ class PluginServiceController extends ManagedChangeNotifier {
         PluginCatalogIds.nodejs => _scanner.scanNodeJs(),
         PluginCatalogIds.playwright => _scanner.scanPlaywright(),
         PluginCatalogIds.googleChrome => _scanner.scanGoogleChrome(),
-        PluginCatalogIds.hermesAgent => _scanner.scanHermesAgent(),
         PluginCatalogIds.dingtalkWorkspaceCli =>
           _scanner.scanDingtalkWorkspaceCli(),
         PluginCatalogIds.python => _scanner.scanPython(),
@@ -239,9 +238,6 @@ class PluginServiceController extends ManagedChangeNotifier {
                 if (pluginById(PluginCatalogIds.playwright)?.isInstalled ==
                     true)
                   PluginCatalogIds.playwright,
-                if (pluginById(PluginCatalogIds.hermesAgent)?.isInstalled ==
-                    true)
-                  PluginCatalogIds.hermesAgent,
               ],
             )
           : refreshed;
@@ -322,9 +318,6 @@ class PluginServiceController extends ManagedChangeNotifier {
         PluginCatalogIds.playwright => _lifecycle.installPlaywright(
           onProgress: _addLog,
         ),
-        PluginCatalogIds.hermesAgent => _lifecycle.installHermesAgent(
-          onProgress: _addLog,
-        ),
         PluginCatalogIds.dingtalkWorkspaceCli =>
           _lifecycle.installDingtalkWorkspaceCli(onProgress: _addLog),
         PluginCatalogIds.python => _lifecycle.installPython(
@@ -392,9 +385,6 @@ class PluginServiceController extends ManagedChangeNotifier {
       operation: () => switch (pluginId) {
         PluginCatalogIds.nodejs => _lifecycle.updateNodeJs(onProgress: _addLog),
         PluginCatalogIds.playwright => _lifecycle.updatePlaywright(
-          onProgress: _addLog,
-        ),
-        PluginCatalogIds.hermesAgent => _lifecycle.updateHermesAgent(
           onProgress: _addLog,
         ),
         PluginCatalogIds.dingtalkWorkspaceCli =>
@@ -478,9 +468,6 @@ class PluginServiceController extends ManagedChangeNotifier {
           onProgress: _addLog,
         ),
         PluginCatalogIds.playwright => _lifecycle.uninstallPlaywright(
-          onProgress: _addLog,
-        ),
-        PluginCatalogIds.hermesAgent => _lifecycle.uninstallHermesAgent(
           onProgress: _addLog,
         ),
         PluginCatalogIds.dingtalkWorkspaceCli =>

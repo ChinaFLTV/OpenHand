@@ -44,7 +44,7 @@ function levelLabel(level: ResourceUsageLevel): string {
 
 function kindLabel(kind: ResourceUsageKind): string {
   return t(`resourceUsage.kind.${kind}`, {
-    tool: '工具', skill: '技能', hook: 'Hook', knowledge: '知识库', agent: '智能体', memory: '记忆', mcp: 'MCP',
+    tool: '工具', skill: '技能', hook: 'Hook', knowledge: '知识库', memory: '记忆', mcp: 'MCP',
   }[kind]);
 }
 

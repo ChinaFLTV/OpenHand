@@ -73,7 +73,6 @@ String resourceUsageKindLabel(BuildContext context, AiResourceUsageKind kind) {
     ),
     AiResourceUsageKind.hook => 'Hook',
     AiResourceUsageKind.knowledge => openHandKnowledgeLabel(context),
-    AiResourceUsageKind.agent => openHandAgentLabel(context),
     AiResourceUsageKind.memory => openHandLocalizedText(
       context,
       zh: '记忆',

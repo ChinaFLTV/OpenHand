@@ -43,7 +43,6 @@ import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_fingerprint.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../../../shared/util/timer_safety.dart';
-import '../../agents/index.dart';
 import '../../ai/index.dart';
 import '../../crons/index.dart';
 import '../../harness/index.dart';
@@ -212,7 +211,6 @@ class WebMessagePlatformService {
     WebGatewayOpsStore? opsStore,
   }) : _sessionController = dependencies.sessionController,
        _settingsController = dependencies.settingsController,
-       _agentsController = dependencies.agentsController,
        _skillsController = dependencies.skillsController,
        _mcpController = dependencies.mcpController,
        _memoryController = dependencies.memoryController,
@@ -237,7 +235,6 @@ class WebMessagePlatformService {
 
   final AiSessionController _sessionController;
   final SettingsController _settingsController;
-  final AgentsController _agentsController;
   final SkillsController _skillsController;
   final McpController _mcpController;
   final MemoryController _memoryController;
@@ -392,10 +389,6 @@ class WebMessagePlatformService {
         AiBuiltinToolKind.knowledgeSearch,
         AiBuiltinToolKind.knowledgeRead,
       };
-  static final Set<AiBuiltinToolKind> _agentBuiltinToolKinds = AiBuiltinToolKind
-      .values
-      .where((kind) => kind.isAgentCoordinationTool)
-      .toSet();
   final Map<String, int> _statusBuckets = <String, int>{
     '1xx': 0,
     '2xx': 0,
@@ -2632,10 +2625,6 @@ class WebMessagePlatformService {
           _withAuth(r, (_, _) => _listKnowledgeSourcesHandler()),
     );
     router.get(
-      '/api/agents',
-      (shelf.Request r) => _withAuth(r, (_, _) => _listAgentsHandler()),
-    );
-    router.get(
       '/api/resource-usage',
       (shelf.Request r) => _withAuth(r, (req, _) => _resourceUsageHandler(req)),
     );
@@ -3234,25 +3223,6 @@ class WebMessagePlatformService {
     return _json(HttpStatus.ok, <String, Object?>{'items': items});
   }
 
-  Future<shelf.Response> _listAgentsHandler() async {
-    final items = _exposedWebAgents()
-        .map(
-          (agent) => <String, Object?>{
-            'id': agent.id,
-            'name': agent.name,
-            'position': agent.position,
-            'department': agent.department,
-            'enabled': agent.enabled,
-            'lifecycle_state': agent.lifecycleState.storageValue,
-            'skill_count': agent.skillNames.length,
-            'knowledge_count': agent.knowledgeSourceIds.length,
-            'memory_count': agent.memoryIds.length,
-          },
-        )
-        .toList(growable: false);
-    return _json(HttpStatus.ok, <String, Object?>{'items': items});
-  }
-
   Future<shelf.Response> _resourceUsageHandler(shelf.Request request) async {
     final kind = AiResourceUsageKind.fromStorage(
       request.url.queryParameters['kind'],
@@ -3726,7 +3696,6 @@ class WebMessagePlatformService {
         'logging_enabled': _config.loggingEnabled,
         'ops_enabled': _config.opsEnabled,
         'plan_mode_enabled': _config.planModeEnabled,
-        'agents_enabled': _config.agentsEnabled,
         'knowledge_base_enabled': _config.knowledgeBaseEnabled,
         'read_aloud_enabled': _config.readAloudEnabled,
         'translation_enabled': _config.translationEnabled,
@@ -3759,7 +3728,6 @@ class WebMessagePlatformService {
         'max_file_bytes': kWebGatewayAttachmentMaxFileBytes,
         'max_total_bytes': kWebGatewayAttachmentMaxTotalBytes,
       },
-      'agents': _webAgentSummaryJson(),
       'preferences': <String, Object?>{
         'reduce_motion': _settingsController.reduceMotion,
         'locale': _settingsController.locale.toLanguageTag(),
@@ -8322,7 +8290,6 @@ class WebMessagePlatformService {
                 .toList(growable: false),
       skippedInstructionIds: skippedInstructionIds,
       templateId: templateId,
-      toolExecutionMetadata: _webAgentToolExecutionMetadata(),
     );
   }
 
@@ -8348,65 +8315,7 @@ class WebMessagePlatformService {
         _knowledgeBaseBuiltinToolKinds,
       );
     }
-    if (!_config.agentsEnabled) {
-      effective = _withBuiltinToolKindsDisabled(
-        effective,
-        _agentBuiltinToolKinds,
-      );
-    }
     return effective;
-  }
-
-  Map<String, Object?> _webAgentToolExecutionMetadata() {
-    final exposed = _exposedWebAgents();
-    return <String, Object?>{
-      aiAgentToolAccessEnabledMetadataKey: _config.agentsEnabled,
-      aiAgentToolAllowedAgentIdsMetadataKey: exposed
-          .map((agent) => agent.id)
-          .toList(growable: false),
-      aiAgentToolAccessSourceMetadataKey: 'web_gateway',
-    };
-  }
-
-  List<AgentProfile> _availableWebAgents() {
-    return _agentsController.enabledAgents;
-  }
-
-  List<AgentProfile> _exposedWebAgents() {
-    if (!_config.agentsEnabled ||
-        webGatewayIsDenyAllSelection(_config.allowedAgentIds)) {
-      return const <AgentProfile>[];
-    }
-    final available = _availableWebAgents();
-    if (_config.allowedAgentIds.isEmpty) return available;
-    final allowed = _config.allowedAgentIds.toSet();
-    return available
-        .where((agent) => allowed.contains(agent.id))
-        .toList(growable: false);
-  }
-
-  Map<String, Object?> _webAgentSummaryJson() {
-    final available = _availableWebAgents();
-    final exposed = _exposedWebAgents();
-    return <String, Object?>{
-      'enabled': _config.agentsEnabled,
-      'available_count': available.length,
-      'exposed_count': exposed.length,
-      'allowed_agent_ids': _config.allowedAgentIds,
-      'exposed_agent_ids': exposed
-          .map((agent) => agent.id)
-          .toList(growable: false),
-      'items': exposed
-          .map(
-            (agent) => <String, Object?>{
-              'id': agent.id,
-              'name': agent.name,
-              'position': agent.position,
-              'department': agent.department,
-            },
-          )
-          .toList(growable: false),
-    };
   }
 
   List<AiBuiltinToolConfig> _disabledBuiltinToolConfigs(

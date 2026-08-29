@@ -245,8 +245,8 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
       title: openHandLocalizedText(context, zh: '使用统计', en: 'Usage Analytics'),
       description: openHandLocalizedText(
         context,
-        zh: '查看线程、知识库、智能体与辅助 AI 请求的 Token 消耗、成本、缓存效率和性能追踪。',
-        en: 'Inspect token usage, cost, cache efficiency, and performance traces across threads, knowledge, agents, and supporting AI requests.',
+        zh: '查看线程、知识库、子任务与辅助 AI 请求的 Token 消耗、成本、缓存效率和性能追踪。',
+        en: 'Inspect token usage, cost, cache efficiency, and performance traces across threads, knowledge, subagents, and supporting AI requests.',
       ),
       child: child,
     );
@@ -4255,8 +4255,8 @@ class _AiUsageEmptyState extends StatelessWidget {
           Text(
             openHandLocalizedText(
               context,
-              zh: '发起线程对话、知识库索引、翻译或智能体任务后，这里会自动更新。',
-              en: 'Start a thread, knowledge indexing, translation, or agent task and analytics will update automatically.',
+              zh: '发起线程对话、知识库索引、翻译或子任务后，这里会自动更新。',
+              en: 'Start a thread, knowledge indexing, translation, or subagent task and analytics will update automatically.',
             ),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
@@ -4346,7 +4346,11 @@ String _usageSourceLabel(BuildContext context, String source) {
       zh: '自学习',
       en: 'Self Learning',
     ),
-    AiUsageSource.agent => openHandAgentLabel(context),
+    AiUsageSource.subagent => openHandLocalizedText(
+      context,
+      zh: '子任务',
+      en: 'Subagent',
+    ),
     AiUsageSource.webSearch => 'WebSearch',
     AiUsageSource.webFetch => 'WebFetch',
     AiUsageSource.modelTest => openHandLocalizedText(
@@ -4446,10 +4450,10 @@ String _usageOperationLabel(BuildContext context, String operation) {
       zh: '结果总结',
       en: 'Result Summary',
     ),
-    'subagent_round' || 'agent_worker_round' => openHandLocalizedText(
+    'subagent_round' => openHandLocalizedText(
       context,
-      zh: '智能体轮次',
-      en: 'Agent Round',
+      zh: '子任务轮次',
+      en: 'Subagent Round',
     ),
     'availability_probe' => openHandLocalizedText(
       context,

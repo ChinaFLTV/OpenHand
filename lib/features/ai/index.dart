@@ -111,7 +111,6 @@ export 'tools/search/ai_dingtalk_tool_search_tool.dart';
 export 'tools/search/ai_tool_search_tool.dart';
 
 // 工具函数
-export 'util/agent_builtin_tool_display.dart';
 export 'widgets/resource_usage_statistics_dialog.dart'
     show
         resourceUsageKindLabel,

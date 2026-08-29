@@ -174,11 +174,11 @@ class AiPromptBuilder {
   static const int _postCompactRestoreMaxMcpTools = 40;
   static const int _postCompactRestoreMaxSessionStartHooks = 5;
   static const int _postCompactRestoreMaxSessionStartHookChars = 8000;
-  static const int _postCompactRestoreMaxToolAgentChars = 8000;
+  static const int _postCompactRestoreMaxToolSubagentChars = 8000;
   static const int _postCompactRestoreMaxDeferredTools = 40;
-  static const int _postCompactRestoreMaxAgentResults = 3;
-  static const int _postCompactRestoreMaxAgentResultChars = 12000;
-  static const int _postCompactRestoreMaxCharsPerAgentResult = 4000;
+  static const int _postCompactRestoreMaxSubagentResults = 3;
+  static const int _postCompactRestoreMaxSubagentResultChars = 12000;
+  static const int _postCompactRestoreMaxCharsPerSubagentResult = 4000;
   static const int _compressionUserManifestMaxChars = 12000;
   static const int _compressionUserManifestMaxCharsPerMessage = 1200;
   static const int _compressionResourceManifestMaxItems = 40;
@@ -484,13 +484,14 @@ class AiPromptBuilder {
           historyMessages: historyMessages,
           latestCompressionPoint: latestCompressionPoint,
         );
-    final restoredToolAgentContext = _renderPostCompactRestoredToolAgentContext(
-      availableTools: availableTools,
-      resolvedToolsByName: resolvedToolsByName,
-      latestCompressionPoint: latestCompressionPoint,
-    );
-    final restoredAgentResultContext =
-        _renderPostCompactRestoredAgentResultContext(
+    final restoredToolSubagentContext =
+        _renderPostCompactRestoredToolSubagentContext(
+          availableTools: availableTools,
+          resolvedToolsByName: resolvedToolsByName,
+          latestCompressionPoint: latestCompressionPoint,
+        );
+    final restoredSubagentResultContext =
+        _renderPostCompactRestoredSubagentResultContext(
           historyMessages: historyMessages,
           latestCompressionPoint: latestCompressionPoint,
         );
@@ -590,12 +591,12 @@ class AiPromptBuilder {
           restoredSessionStartHookContext,
         ),
         _PromptSection(
-          AiPromptSectionHeaders.restoredToolAndAgentListing,
-          restoredToolAgentContext,
+          AiPromptSectionHeaders.restoredToolAndSubagentListing,
+          restoredToolSubagentContext,
         ),
         _PromptSection(
-          AiPromptSectionHeaders.restoredAgentResultContext,
-          restoredAgentResultContext,
+          AiPromptSectionHeaders.restoredSubagentResultContext,
+          restoredSubagentResultContext,
         ),
       ]),
       // 静态会话状态位于历史记录前的稳定前缀中。
@@ -1062,14 +1063,18 @@ class AiPromptBuilder {
     if (content.contains(AiPromptSectionHeaders.conversationContext) ||
         content.contains(AiPromptSectionHeaders.focusContext) ||
         content.contains(AiPromptSectionHeaders.restoredFileContext) ||
-        content.contains(AiPromptSectionHeaders.restoredAgentResultContext)) {
+        content.contains(
+          AiPromptSectionHeaders.restoredSubagentResultContext,
+        )) {
       return AiContextUsageCategory.conversation;
     }
     if (content.contains(AiPromptSectionHeaders.staticSessionState) ||
         content.contains(AiPromptSectionHeaders.dynamicSessionState) ||
         content.contains(AiPromptSectionHeaders.planModeReminder) ||
         content.contains(AiPromptSectionHeaders.restoredPlanContext) ||
-        content.contains(AiPromptSectionHeaders.restoredToolAndAgentListing)) {
+        content.contains(
+          AiPromptSectionHeaders.restoredToolAndSubagentListing,
+        )) {
       return AiContextUsageCategory.runtime;
     }
     return AiContextUsageCategory.systemPrompt;
@@ -1460,7 +1465,7 @@ class AiPromptBuilder {
     required AiSessionMessage? latestCompressionPoint,
   }) {
     // 未发生压缩时返回空 map：这是「恢复上下文清单」，没压缩点就
-    // 没必要把工具数 / MCP / agent_types 等会话级近静态数据塞进 [3d]，每轮多
+    // 没必要把工具数 / MCP / subagent_types 等会话级近静态数据塞进 [3d]，每轮多
     // 上千 token 体积只会增加 prefix-cache 抖动风险。
     if (latestCompressionPoint == null) return const <String, Object?>{};
     final skillToolCount = availableToolNames
@@ -1497,12 +1502,12 @@ class AiPromptBuilder {
       historyMessages: historyMessages,
       latestCompressionPoint: latestCompressionPoint,
     );
-    final recentAgentResults = _recentAgentResultAnchors(
+    final recentSubagentResults = _recentSubagentResultAnchors(
       historyMessages: historyMessages,
       latestCompressionPoint: latestCompressionPoint,
     );
     final deferredTools = _postCompactDeferredBuiltinTools(resolvedToolsByName);
-    final taskAgentTypes = _postCompactTaskAgentTypes(
+    final taskSubagentTypes = _postCompactTaskSubagentTypes(
       availableToolNames: availableToolNames,
       resolvedToolsByName: resolvedToolsByName,
     );
@@ -1534,9 +1539,9 @@ class AiPromptBuilder {
       if (recentFileAnchors.isNotEmpty) 'recent_file_anchors',
       if (recentInvokedSkills.isNotEmpty) 'invoked_skills',
       if (recentSessionStartHooks.isNotEmpty) 'session_start_hooks',
-      if (recentAgentResults.isNotEmpty) 'agent_results',
+      if (recentSubagentResults.isNotEmpty) 'subagent_results',
       if (deferredTools.isNotEmpty) 'deferred_builtin_tools',
-      if (taskAgentTypes.isNotEmpty) 'agent_listing',
+      if (taskSubagentTypes.isNotEmpty) 'subagent_listing',
     ];
     return <String, Object?>{
       'active': true,
@@ -1566,9 +1571,9 @@ class AiPromptBuilder {
       'repository_snapshot_present': repositorySnapshot != null,
       'recent_file_anchor_count': recentFileAnchors.length,
       'session_start_hook_count': recentSessionStartHooks.length,
-      'agent_result_count': recentAgentResults.length,
-      if (recentAgentResults.isNotEmpty)
-        'agent_results': recentAgentResults
+      'subagent_result_count': recentSubagentResults.length,
+      if (recentSubagentResults.isNotEmpty)
+        'subagent_results': recentSubagentResults
             .map(
               (message) => <String, Object?>{
                 'message_id': message.id,
@@ -1586,8 +1591,8 @@ class AiPromptBuilder {
         'deferred_builtin_tool_names': deferredTools
             .map((tool) => tool.name)
             .toList(growable: false),
-      'agent_type_count': taskAgentTypes.length,
-      if (taskAgentTypes.isNotEmpty) 'agent_types': taskAgentTypes,
+      'subagent_type_count': taskSubagentTypes.length,
+      if (taskSubagentTypes.isNotEmpty) 'subagent_types': taskSubagentTypes,
       if (recentFileAnchors.isNotEmpty)
         'recent_file_anchors': recentFileAnchors,
       'invoked_skill_count': recentInvokedSkills.length,
@@ -1744,7 +1749,7 @@ class AiPromptBuilder {
     }
 
     // 仅在真实存在压缩点（active=true）时注入 rehydration 块。
-    // 否则该块会把会话级近静态数据（工具数 / MCP 列表 / agent_types 等）每轮带进
+    // 否则该块会把会话级近静态数据（工具数 / MCP 列表 / subagent_types 等）每轮带进
     // [3d]，徒增体积而无实际"恢复上下文"语义。
     final rehydrationActive = postCompactRehydration['active'] == true;
     if (rehydrationActive) {
@@ -5122,27 +5127,26 @@ $content
     return lines.join('\n');
   }
 
-  String _renderPostCompactRestoredAgentResultContext({
+  String _renderPostCompactRestoredSubagentResultContext({
     required List<AiSessionMessage> historyMessages,
     required AiSessionMessage? latestCompressionPoint,
   }) {
-    final agentResults = _recentAgentResultAnchors(
+    final subagentResults = _recentSubagentResultAnchors(
       historyMessages: historyMessages,
       latestCompressionPoint: latestCompressionPoint,
     );
-    if (agentResults.isEmpty) {
+    if (subagentResults.isEmpty) {
       return '';
     }
     final buffer = StringBuffer()
       ..writeln(
-        'Agent results restored after compaction. Treat these as prior Task/subagent or Hermes Agent tool observations that may no longer be present in the compressed transcript.',
+        'Subagent results restored after compaction. Treat these as prior Task observations that may no longer be present in the compressed transcript.',
       );
-    for (final message in agentResults) {
+    for (final message in subagentResults) {
       final metadata = message.metadata;
       final subagentType = '${metadata['subagent_type'] ?? ''}'.trim();
       final toolName = '${metadata['tool_name'] ?? ''}'.trim();
       final action = '${metadata['action'] ?? ''}'.trim();
-      final agentId = '${metadata['agent_id'] ?? ''}'.trim();
       final taskId = '${metadata['task_id'] ?? ''}'.trim();
       final status =
           '${metadata['status'] ?? metadata['tool_execution_status'] ?? ''}'
@@ -5151,12 +5155,12 @@ $content
       final durationMs = metadata['duration_ms'];
       final content = _truncateRestoredContextContent(
         message.content.trim(),
-        _postCompactRestoreMaxCharsPerAgentResult,
-        'agent_result_truncated',
+        _postCompactRestoreMaxCharsPerSubagentResult,
+        'subagent_result_truncated',
       );
       buffer
         ..writeln()
-        ..writeln('## ${_restoredAgentResultTitle(metadata)}')
+        ..writeln('## ${_restoredSubagentResultTitle(metadata)}')
         ..writeln('- message_id: ${message.id}')
         ..writeln(
           '- created_at: ${message.createdAt.toUtc().toIso8601String()}',
@@ -5169,9 +5173,6 @@ $content
       }
       if (action.isNotEmpty) {
         buffer.writeln('- action: $action');
-      }
-      if (agentId.isNotEmpty) {
-        buffer.writeln('- agent_id: $agentId');
       }
       if (taskId.isNotEmpty) {
         buffer.writeln('- task_id: $taskId');
@@ -5193,15 +5194,15 @@ $content
     }
     return _truncateRestoredContextContent(
       buffer.toString().trimRight(),
-      _postCompactRestoreMaxAgentResultChars,
-      'restored_agent_results_truncated',
+      _postCompactRestoreMaxSubagentResultChars,
+      'restored_subagent_results_truncated',
     );
   }
 
-  List<AiSessionMessage> _recentAgentResultAnchors({
+  List<AiSessionMessage> _recentSubagentResultAnchors({
     required List<AiSessionMessage> historyMessages,
     required AiSessionMessage? latestCompressionPoint,
-    int maxResults = _postCompactRestoreMaxAgentResults,
+    int maxResults = _postCompactRestoreMaxSubagentResults,
   }) {
     if (latestCompressionPoint == null || maxResults <= 0) {
       return const <AiSessionMessage>[];
@@ -5215,42 +5216,30 @@ $content
     final results = <AiSessionMessage>[];
     for (var i = searchEnd - 1; i >= 0 && results.length < maxResults; i--) {
       final message = historyMessages[i];
-      if (_isRestorableAgentResultMessage(message)) {
+      if (_isRestorableSubagentResultMessage(message)) {
         results.add(message);
       }
     }
     return results.reversed.toList(growable: false);
   }
 
-  bool _isRestorableAgentResultMessage(AiSessionMessage message) {
+  bool _isRestorableSubagentResultMessage(AiSessionMessage message) {
     if (message.kind != AiSessionMessageKind.tool) {
       return false;
     }
     final toolName = '${message.metadata['tool_name'] ?? ''}'.trim();
     final subagentType = '${message.metadata['subagent_type'] ?? ''}'.trim();
     final isolated = message.metadata['subagent_session_isolated'] == true;
-    return toolName == 'Task' ||
-        (subagentType.isNotEmpty && isolated) ||
-        _isHermesAgentToolResult(toolName);
+    return toolName == 'Task' || (subagentType.isNotEmpty && isolated);
   }
 
-  bool _isHermesAgentToolResult(String toolName) {
-    if (!toolName.startsWith('Agent')) return false;
-    if (toolName == 'Agent') return false;
-    return true;
-  }
-
-  String _restoredAgentResultTitle(Map<String, Object?> metadata) {
+  String _restoredSubagentResultTitle(Map<String, Object?> metadata) {
     final subagentType = '${metadata['subagent_type'] ?? ''}'.trim();
     if (subagentType.isNotEmpty) return subagentType;
-    final toolName = '${metadata['tool_name'] ?? ''}'.trim();
-    if (_isHermesAgentToolResult(toolName)) {
-      return 'Hermes Agent Tool: $toolName';
-    }
     return 'Task Subagent';
   }
 
-  String _renderPostCompactRestoredToolAgentContext({
+  String _renderPostCompactRestoredToolSubagentContext({
     required List<AiToolDefinition> availableTools,
     required Map<String, AiResolvedTool> resolvedToolsByName,
     required AiSessionMessage? latestCompressionPoint,
@@ -5263,17 +5252,17 @@ $content
         .where((name) => name.isNotEmpty)
         .toList(growable: false);
     final deferredTools = _postCompactDeferredBuiltinTools(resolvedToolsByName);
-    final taskAgentTypes = _postCompactTaskAgentTypes(
+    final taskSubagentTypes = _postCompactTaskSubagentTypes(
       availableToolNames: availableToolNames,
       resolvedToolsByName: resolvedToolsByName,
     );
-    if (deferredTools.isEmpty && taskAgentTypes.isEmpty) {
+    if (deferredTools.isEmpty && taskSubagentTypes.isEmpty) {
       return '';
     }
 
     final buffer = StringBuffer()
       ..writeln(
-        'Tool and agent listing restored after compaction. The runtime tool catalog remains authoritative; this section re-announces deferred/lazy built-in tools and Task subagent choices that may have been summarized away.',
+        'Tool and subagent listing restored after compaction. The runtime tool catalog remains authoritative; this section re-announces deferred/lazy built-in tools and Task subagent choices that may have been summarized away.',
       );
 
     if (deferredTools.isNotEmpty) {
@@ -5301,7 +5290,7 @@ $content
       }
     }
 
-    if (taskAgentTypes.isNotEmpty) {
+    if (taskSubagentTypes.isNotEmpty) {
       final taskToolName = _postCompactTaskToolName(
         availableToolNames: availableToolNames,
         resolvedToolsByName: resolvedToolsByName,
@@ -5312,7 +5301,7 @@ $content
       if (taskToolName.isNotEmpty) {
         buffer.writeln('- Task tool: $taskToolName');
       }
-      for (final type in taskAgentTypes) {
+      for (final type in taskSubagentTypes) {
         final description = AiTaskTool.subagentDescriptions[type]?.trim() ?? '';
         buffer.writeln('- $type${description.isEmpty ? '' : ': $description'}');
       }
@@ -5320,8 +5309,8 @@ $content
 
     return _truncateRestoredContextContent(
       buffer.toString().trimRight(),
-      _postCompactRestoreMaxToolAgentChars,
-      'restored_tool_agent_listing_truncated',
+      _postCompactRestoreMaxToolSubagentChars,
+      'restored_tool_subagent_listing_truncated',
     );
   }
 
@@ -5362,7 +5351,7 @@ $content
     return tools;
   }
 
-  List<String> _postCompactTaskAgentTypes({
+  List<String> _postCompactTaskSubagentTypes({
     required List<String> availableToolNames,
     required Map<String, AiResolvedTool> resolvedToolsByName,
   }) {

@@ -143,7 +143,6 @@ import '../../shared/util/unified_diff.dart'
     show unifiedDiffLines, unifiedDiffLinesFromText;
 import '../../shared/util/user_failure_message.dart';
 import '../../shared/util/workspace_root_resolver.dart';
-import '../agents/index.dart';
 import '../ai/index.dart';
 import '../android_reverse/index.dart';
 import '../crons/index.dart';
@@ -8276,9 +8275,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       case OpenHandSlashCommandKind.mcp:
         _activateSlashCommandSection(AppSection.mcp);
         return;
-      case OpenHandSlashCommandKind.agents:
-        _activateSlashCommandSection(AppSection.agents);
-        return;
       case OpenHandSlashCommandKind.crons:
         _activateSlashCommandSection(AppSection.crons);
         return;
@@ -8306,7 +8302,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       ),
       AppSection.pluginService => _homePluginsLabel(context),
       AppSection.knowledgeBase => openHandKnowledgeBaseLabel(context),
-      AppSection.agents => _homeAgentsLabel(context),
       AppSection.services => AppLocalizations.of(context)!.servicesTitle,
       AppSection.settings => openHandLocalizedText(
         context,
@@ -8352,7 +8347,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       '/skills',
       '/memory',
       '/mcp',
-      '/agents',
     ].join('\n');
     final detail = openHandLocalizedText(
       context,
@@ -10090,7 +10084,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AppSection.knowledgeBase => KnowledgeBaseView(
         onOpenPlugins: () => _selectSection(AppSection.pluginService),
       ),
-      AppSection.agents => const AgentsView(),
       AppSection.services => const ServicesView(),
       AppSection.settings => Provider<ToolSearchReplayDispatcher>.value(
         value: _toolSearchReplayDispatcher,
@@ -10158,10 +10151,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 }
 
 // 本库内复用的文案。
-
-String _homeAgentsLabel(BuildContext context) {
-  return openHandAgentsLabel(context);
-}
 
 String _homeAwaitingApprovalLabel(BuildContext context) {
   return openHandAwaitingApprovalLabel(context);

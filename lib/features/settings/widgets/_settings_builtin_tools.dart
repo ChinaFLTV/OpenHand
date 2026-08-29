@@ -112,7 +112,7 @@ class _MachineTerminalBuiltinToolSummaryCard extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _AgentToolMetricChip(
+                      _BuiltinToolMetricChip(
                         icon: Icons.toggle_on_rounded,
                         label: openHandLocalizedText(
                           context,
@@ -120,7 +120,7 @@ class _MachineTerminalBuiltinToolSummaryCard extends StatelessWidget {
                           en: 'Enabled $enabledCount/${configs.length}',
                         ),
                       ),
-                      _AgentToolMetricChip(
+                      _BuiltinToolMetricChip(
                         icon: Icons.visibility_outlined,
                         label: openHandLocalizedText(
                           context,
@@ -128,7 +128,7 @@ class _MachineTerminalBuiltinToolSummaryCard extends StatelessWidget {
                           en: 'Read $enabledReadCount/$readCount',
                         ),
                       ),
-                      _AgentToolMetricChip(
+                      _BuiltinToolMetricChip(
                         icon: Icons.edit_note_rounded,
                         label: openHandLocalizedText(
                           context,
@@ -148,262 +148,8 @@ class _MachineTerminalBuiltinToolSummaryCard extends StatelessWidget {
   }
 }
 
-class _AgentBuiltinToolSummaryCard extends StatelessWidget {
-  const _AgentBuiltinToolSummaryCard({
-    required this.configs,
-    required this.onEnableAll,
-    required this.onDisableAll,
-  });
-
-  final List<AiBuiltinToolConfig> configs;
-  final VoidCallback? onEnableAll;
-  final VoidCallback? onDisableAll;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final enabledCount = configs.where((config) => config.enabled).length;
-    final mutationCount = configs
-        .where((config) => config.kind.isAgentMutationTool)
-        .length;
-    final enabledMutationCount = configs
-        .where((config) => config.enabled && config.kind.isAgentMutationTool)
-        .length;
-    final readOnlyCount = configs.length - mutationCount;
-    final enabledReadOnlyCount = enabledCount - enabledMutationCount;
-    final allEnabled = configs.isNotEmpty && enabledCount == configs.length;
-    final allDisabled = configs.isNotEmpty && enabledCount == 0;
-    final groupSummaries = AiAgentBuiltinToolGroup.values
-        .map((group) {
-          final groupConfigs = configs
-              .where((config) => config.kind.agentToolGroup == group)
-              .toList(growable: false);
-          return _AgentToolGroupSummary(
-            group: group,
-            totalCount: groupConfigs.length,
-            enabledCount: groupConfigs.where((config) => config.enabled).length,
-            mutationCount: groupConfigs
-                .where((config) => config.kind.isAgentMutationTool)
-                .length,
-          );
-        })
-        .where((summary) => summary.totalCount > 0)
-        .toList(growable: false);
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: cs.primaryContainer.withValues(alpha: 0.28),
-        borderRadius: BorderRadius.circular(kOpenHandRadius16),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.22)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: cs.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(kOpenHandRadius12),
-              ),
-              alignment: Alignment.center,
-              child: Icon(Icons.account_tree_rounded, color: cs.primary),
-            ),
-            kOpenHandHGap12,
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '智能体协同工具',
-                      en: 'Agent coordination tools',
-                    ),
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  kOpenHandGap4,
-                  Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '全局启用只表示工具允许参与目录解析；实际进入线程会话工具目录，还需要至少一个已启用智能体在配置弹窗中绑定对应工具。',
-                      en: 'Global enablement only allows catalog resolution. A tool appears in chat sessions only when at least one enabled agent binds it in the agent configuration dialog.',
-                    ),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                      height: 1.35,
-                    ),
-                  ),
-                  kOpenHandGap10,
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      FilledButton.tonalIcon(
-                        onPressed: allEnabled ? null : onEnableAll,
-                        icon: const Icon(Icons.check_circle_outline_rounded),
-                        label: Text(
-                          openHandLocalizedText(
-                            context,
-                            zh: '启用智能体工具',
-                            en: 'Enable agent tools',
-                          ),
-                        ),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: allDisabled ? null : onDisableAll,
-                        icon: const Icon(Icons.remove_circle_outline_rounded),
-                        label: Text(
-                          openHandLocalizedText(
-                            context,
-                            zh: '禁用智能体工具',
-                            en: 'Disable agent tools',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  kOpenHandGap10,
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _AgentToolMetricChip(
-                        icon: Icons.toggle_on_rounded,
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '已启用 $enabledCount/${configs.length}',
-                          en: 'Enabled $enabledCount/${configs.length}',
-                        ),
-                      ),
-                      _AgentToolMetricChip(
-                        icon: Icons.visibility_outlined,
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '只读 $enabledReadOnlyCount/$readOnlyCount',
-                          en: 'Read-only $enabledReadOnlyCount/$readOnlyCount',
-                        ),
-                      ),
-                      _AgentToolMetricChip(
-                        icon: Icons.edit_note_rounded,
-                        label: openHandLocalizedText(
-                          context,
-                          zh: '变更 $enabledMutationCount/$mutationCount',
-                          en: 'Mutating $enabledMutationCount/$mutationCount',
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (groupSummaries.isNotEmpty) ...[
-                    kOpenHandGap12,
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final summary in groupSummaries)
-                          _AgentToolGroupChip(summary: summary),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AgentToolGroupSummary {
-  const _AgentToolGroupSummary({
-    required this.group,
-    required this.totalCount,
-    required this.enabledCount,
-    required this.mutationCount,
-  });
-
-  final AiAgentBuiltinToolGroup group;
-  final int totalCount;
-  final int enabledCount;
-  final int mutationCount;
-}
-
-class _AgentToolGroupChip extends StatelessWidget {
-  const _AgentToolGroupChip({required this.summary});
-
-  final _AgentToolGroupSummary summary;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final allEnabled = summary.enabledCount == summary.totalCount;
-    final statusColor = allEnabled ? cs.primary : cs.onSurfaceVariant;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 178, maxWidth: 236),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: cs.surface.withValues(alpha: 0.58),
-          borderRadius: BorderRadius.circular(kOpenHandRadius12),
-          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.8)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-          child: Row(
-            children: [
-              Icon(
-                agentBuiltinToolGroupIcon(summary.group),
-                size: 18,
-                color: statusColor,
-              ),
-              kOpenHandHGap8,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      agentBuiltinToolGroupLabel(context, summary.group),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: cs.onSurface,
-                      ),
-                    ),
-                    kOpenHandGap2,
-                    Text(
-                      openHandLocalizedText(
-                        context,
-                        zh: '启用 ${summary.enabledCount}/${summary.totalCount} · 变更 ${summary.mutationCount}',
-                        en: 'Enabled ${summary.enabledCount}/${summary.totalCount} · Mutating ${summary.mutationCount}',
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AgentToolMetricChip extends StatelessWidget {
-  const _AgentToolMetricChip({required this.icon, required this.label});
+class _BuiltinToolMetricChip extends StatelessWidget {
+  const _BuiltinToolMetricChip({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -498,26 +244,6 @@ class _BuiltinToolTile extends StatelessWidget {
       AiBuiltinToolKind.memory => Icons.psychology_rounded,
       AiBuiltinToolKind.knowledgeSearch => Icons.library_books_outlined,
       AiBuiltinToolKind.knowledgeRead => Icons.menu_book_outlined,
-      AiBuiltinToolKind.agentList => Icons.badge_outlined,
-      AiBuiltinToolKind.agentDetail => Icons.assignment_ind_outlined,
-      AiBuiltinToolKind.agentActivityLog => Icons.history_rounded,
-      AiBuiltinToolKind.agentAuditReport => Icons.analytics_outlined,
-      AiBuiltinToolKind.agentAuditRecord => Icons.manage_search_outlined,
-      AiBuiltinToolKind.agentApprovalRequest => Icons.approval_outlined,
-      AiBuiltinToolKind.agentKpiUpsert => Icons.flag_outlined,
-      AiBuiltinToolKind.agentResourceUpdate => Icons.speed_outlined,
-      AiBuiltinToolKind.agentClusterConfigure => Icons.account_tree_outlined,
-      AiBuiltinToolKind.agentClusterStatus => Icons.account_tree_rounded,
-      AiBuiltinToolKind.agentTaskList => Icons.playlist_add_check_rounded,
-      AiBuiltinToolKind.agentTaskPublish => Icons.send_to_mobile_rounded,
-      AiBuiltinToolKind.agentTaskTrack => Icons.track_changes_rounded,
-      AiBuiltinToolKind.agentTaskProgress => Icons.trending_up_rounded,
-      AiBuiltinToolKind.agentTaskCancel => Icons.cancel_outlined,
-      AiBuiltinToolKind.agentTaskPause => Icons.pause_circle_outline_rounded,
-      AiBuiltinToolKind.agentTaskTerminate => Icons.gpp_bad_outlined,
-      AiBuiltinToolKind.agentTaskResume => Icons.play_circle_outline_rounded,
-      AiBuiltinToolKind.agentTaskComplete => Icons.task_alt_outlined,
-      AiBuiltinToolKind.agentTaskResult => Icons.fact_check_outlined,
       AiBuiltinToolKind.machineTerminalRead => Icons.terminal_rounded,
       AiBuiltinToolKind.machineTerminalWrite =>
         Icons.keyboard_command_key_rounded,
@@ -548,13 +274,9 @@ class _BuiltinToolTile extends StatelessWidget {
     final customSummary = config.summary?.trim();
     final displayName = customDisplayName?.isNotEmpty == true
         ? customDisplayName!
-        : config.kind.isAgentCoordinationTool
-        ? agentBuiltinToolLabel(context, config.kind)
         : config.kind.name;
     final summaryText = customSummary?.isNotEmpty == true
-        ? customSummary!
-        : config.kind.isAgentCoordinationTool
-        ? '${agentBuiltinToolCanonicalName(config.kind)} · ${agentBuiltinToolSummary(context, config.kind)}'
+        ? customSummary
         : null;
 
     return DecoratedBox(

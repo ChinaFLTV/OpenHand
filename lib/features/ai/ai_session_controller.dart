@@ -31,17 +31,14 @@ import '../../shared/util/stable_hash.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/text_normalization.dart';
 import '../../shared/util/timer_safety.dart';
-import '../agents/agents_controller.dart';
 import '../home/index.dart';
 import '../hooks/index.dart';
-import '../instructions/instructions_controller.dart';
 import '../knowledge_base/index.dart';
 import '../machine_terminal/index.dart';
 import '../mcp/index.dart';
 import 'data/ai_session_store.dart';
 import 'model/ai_attachment.dart';
 import 'model/ai_auto_title_fetch_mode.dart';
-import 'model/ai_builtin_tool_config.dart' show AiBuiltinToolKindAgentMetadata;
 import 'model/ai_context_usage.dart';
 import 'model/ai_creation_mode.dart';
 import 'model/ai_deny_command_rule.dart';
@@ -361,8 +358,6 @@ class AiSessionController extends ChangeNotifier {
     DateTime Function()? clock,
     String Function()? skillsDirProvider,
     MemoryControllerProvider? memoryControllerProvider,
-    AgentsControllerProvider? agentsControllerProvider,
-    InstructionsControllerProvider? instructionsControllerProvider,
     KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
     List<AiModelConfig> Function()? aiModelsProvider,
     MachineTerminalService? machineTerminalService,
@@ -411,8 +406,6 @@ class AiSessionController extends ChangeNotifier {
             backgroundChatClient: resolvedBackgroundChatClient,
             skillsDirProvider: skillsDirProvider,
             memoryControllerProvider: memoryControllerProvider,
-            agentsControllerProvider: agentsControllerProvider,
-            instructionsControllerProvider: instructionsControllerProvider,
             knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
             aiModelsProvider: aiModelsProvider,
             machineTerminalService: machineTerminalService,
@@ -9907,9 +9900,6 @@ class AiSessionController extends ChangeNotifier {
       return false;
     }
     final builtinKind = resolvedTool.builtinKind;
-    if (builtinKind != null && builtinKind.isAgentCoordinationTool) {
-      return !builtinKind.isAgentMutationTool;
-    }
     switch (builtinKind) {
       case AiBuiltinToolKind.read:
       case AiBuiltinToolKind.ls:
