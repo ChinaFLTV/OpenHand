@@ -109,26 +109,26 @@ enum WorkflowCodeLanguage {
   }
 }
 
-enum WorkflowCodeErrorStrategy {
+enum WorkflowErrorStrategy {
   terminate('none'),
   defaultValue('default-value'),
   failBranch('fail-branch');
 
-  const WorkflowCodeErrorStrategy(this.storageValue);
+  const WorkflowErrorStrategy(this.storageValue);
 
   final String storageValue;
 
   String get label => switch (this) {
-    WorkflowCodeErrorStrategy.terminate => '终止工作流',
-    WorkflowCodeErrorStrategy.defaultValue => '返回默认值',
-    WorkflowCodeErrorStrategy.failBranch => '进入异常分支',
+    WorkflowErrorStrategy.terminate => '终止工作流',
+    WorkflowErrorStrategy.defaultValue => '返回默认值',
+    WorkflowErrorStrategy.failBranch => '进入异常分支',
   };
 
-  static WorkflowCodeErrorStrategy fromStorage(Object? value) {
+  static WorkflowErrorStrategy fromStorage(Object? value) {
     final normalized = '${value ?? ''}'.trim();
     return values.firstWhere(
       (strategy) => strategy.storageValue == normalized,
-      orElse: () => WorkflowCodeErrorStrategy.terminate,
+      orElse: () => WorkflowErrorStrategy.terminate,
     );
   }
 }
@@ -361,7 +361,7 @@ enum WorkflowOutputType {
   }
 }
 
-String defaultWorkflowCodeErrorValue(WorkflowOutputType type) => switch (type) {
+String defaultWorkflowErrorValue(WorkflowOutputType type) => switch (type) {
   WorkflowOutputType.string => '',
   WorkflowOutputType.integer || WorkflowOutputType.number => '0',
   WorkflowOutputType.boolean => 'false',
@@ -405,7 +405,8 @@ enum WorkflowHttpBodyFormat {
   json('json'),
   text('text'),
   formUrlEncoded('form_url_encoded'),
-  formData('form_data');
+  formData('form_data'),
+  binary('binary');
 
   const WorkflowHttpBodyFormat(this.storageValue);
 
@@ -540,13 +541,13 @@ String? validateWorkflowSourcedValue(
 }
 
 const String workflowContainerStartHandleId = 'container_start';
-const String workflowCodeSuccessHandleId = 'success';
-const String workflowCodeFailureHandleId = 'fail-branch';
-const String workflowCodeErrorTypeOutputName = 'error_type';
-const String workflowCodeErrorMessageOutputName = 'error_message';
-const Set<String> workflowCodeSystemOutputNames = <String>{
-  workflowCodeErrorTypeOutputName,
-  workflowCodeErrorMessageOutputName,
+const String workflowSuccessHandleId = 'success';
+const String workflowFailureHandleId = 'fail-branch';
+const String workflowErrorTypeOutputName = 'error_type';
+const String workflowErrorMessageOutputName = 'error_message';
+const Set<String> workflowErrorSystemOutputNames = <String>{
+  workflowErrorTypeOutputName,
+  workflowErrorMessageOutputName,
 };
 const int defaultWorkflowCodeRetryCount = 3;
 const int minWorkflowCodeRetryCount = 1;
@@ -554,6 +555,29 @@ const int maxWorkflowCodeRetryCount = 10;
 const int defaultWorkflowCodeRetryIntervalMs = 1000;
 const int minWorkflowCodeRetryIntervalMs = 100;
 const int maxWorkflowCodeRetryIntervalMs = 5000;
+const int defaultWorkflowHttpConnectTimeoutSeconds = 10;
+const int defaultWorkflowHttpReadTimeoutSeconds = 60;
+const int defaultWorkflowHttpWriteTimeoutSeconds = 60;
+const int minWorkflowHttpTimeoutSeconds = 1;
+const int maxWorkflowHttpConnectTimeoutSeconds = 10;
+const int maxWorkflowHttpReadTimeoutSeconds = 600;
+const int maxWorkflowHttpWriteTimeoutSeconds = 600;
+const int defaultWorkflowHttpRetryCount = 3;
+const int defaultWorkflowHttpRetryIntervalMs = 100;
+const int minWorkflowHttpRetryCount = 1;
+const int maxWorkflowHttpRetryCount = 10;
+const int minWorkflowHttpRetryIntervalMs = 100;
+const int maxWorkflowHttpRetryIntervalMs = 5000;
+const String workflowHttpBodyOutputName = 'body';
+const String workflowHttpStatusCodeOutputName = 'status_code';
+const String workflowHttpHeadersOutputName = 'headers';
+const String workflowHttpFilesOutputName = 'files';
+const Set<String> workflowHttpFixedOutputNames = <String>{
+  workflowHttpBodyOutputName,
+  workflowHttpStatusCodeOutputName,
+  workflowHttpHeadersOutputName,
+  workflowHttpFilesOutputName,
+};
 const int maxWorkflowNestedNodeCount = 128;
 const int maxWorkflowHumanActionCount = 8;
 const int maxWorkflowHumanActionTitleLength = 100;
@@ -642,8 +666,10 @@ abstract final class WorkflowSettingKeys {
   static const String body = 'body';
   static const String bodyEntries = 'body_entries';
   static const String bodyFormat = 'body_format';
+  static const String verifySsl = 'verify_ssl';
   static const String connectTimeoutSeconds = 'connect_timeout_seconds';
   static const String responseTimeoutSeconds = 'response_timeout_seconds';
+  static const String writeTimeoutSeconds = 'write_timeout_seconds';
 }
 
 @immutable
@@ -1123,7 +1149,7 @@ class WorkflowNode {
   List<WorkflowOutputField> codeInputFields() =>
       _fieldsSetting(WorkflowSettingKeys.codeInputFields);
 
-  Map<String, String> codeErrorDefaultValues() {
+  Map<String, String> errorDefaultValues() {
     final value = settings[WorkflowSettingKeys.errorDefaultValues];
     if (value is! Map) return const <String, String>{};
     return Map<String, String>.unmodifiable(<String, String>{
@@ -1199,19 +1225,37 @@ class WorkflowNode {
           .toList(growable: false),
     WorkflowNodeKind.codeExecution => <WorkflowOutputField>[
       ...outputFields(),
-      if (WorkflowCodeErrorStrategy.fromStorage(
+      if (WorkflowErrorStrategy.fromStorage(
             settings[WorkflowSettingKeys.errorStrategy],
           ) ==
-          WorkflowCodeErrorStrategy.failBranch) ...<WorkflowOutputField>[
+          WorkflowErrorStrategy.failBranch) ...<WorkflowOutputField>[
         WorkflowOutputField(
           id: '$id-code-error-type',
-          name: workflowCodeErrorTypeOutputName,
+          name: workflowErrorTypeOutputName,
           description: '代码执行异常类型',
         ),
         WorkflowOutputField(
           id: '$id-code-error-message',
-          name: workflowCodeErrorMessageOutputName,
+          name: workflowErrorMessageOutputName,
           description: '代码执行异常信息',
+        ),
+      ],
+    ],
+    WorkflowNodeKind.httpRequest => <WorkflowOutputField>[
+      ...httpResponseFields(),
+      if (WorkflowErrorStrategy.fromStorage(
+            settings[WorkflowSettingKeys.errorStrategy],
+          ) ==
+          WorkflowErrorStrategy.failBranch) ...<WorkflowOutputField>[
+        WorkflowOutputField(
+          id: '$id-http-error-type',
+          name: workflowErrorTypeOutputName,
+          description: 'HTTP 请求异常类型',
+        ),
+        WorkflowOutputField(
+          id: '$id-http-error-message',
+          name: workflowErrorMessageOutputName,
+          description: 'HTTP 请求异常信息',
         ),
       ],
     ],
@@ -1235,6 +1279,35 @@ class WorkflowNode {
     ],
     _ => outputFields(),
   };
+
+  List<WorkflowOutputField> httpResponseFields() =>
+      boolSetting(WorkflowSettingKeys.structuredOutput)
+      ? outputFields()
+      : <WorkflowOutputField>[
+          WorkflowOutputField(
+            id: '$id-http-body',
+            name: workflowHttpBodyOutputName,
+            description: 'HTTP 响应正文',
+          ),
+          WorkflowOutputField(
+            id: '$id-http-status-code',
+            name: workflowHttpStatusCodeOutputName,
+            description: 'HTTP 响应状态码',
+            type: WorkflowOutputType.integer,
+          ),
+          WorkflowOutputField(
+            id: '$id-http-headers',
+            name: workflowHttpHeadersOutputName,
+            description: 'HTTP 响应头',
+            type: WorkflowOutputType.object,
+          ),
+          WorkflowOutputField(
+            id: '$id-http-files',
+            name: workflowHttpFilesOutputName,
+            description: 'HTTP 响应文件',
+            type: WorkflowOutputType.arrayObject,
+          ),
+        ];
 
   List<WorkflowOutputField> _fieldsSetting(String key) {
     final value = settings[key];
@@ -1262,10 +1335,20 @@ String? validateWorkflowParameterNames(List<WorkflowNode> nodes) {
   for (final node in nodes) {
     if (node.kind == WorkflowNodeKind.codeExecution) {
       final conflict = node.outputFields().where(
-        (field) => workflowCodeSystemOutputNames.contains(field.name.trim()),
+        (field) => workflowErrorSystemOutputNames.contains(field.name.trim()),
       );
       if (conflict.isNotEmpty) {
         return '节点“${node.title}”使用了系统保留参数名称“${conflict.first.name.trim()}”。';
+      }
+    }
+    if (node.kind == WorkflowNodeKind.httpRequest) {
+      final conflict = node.outputFields().where(
+        (field) =>
+            workflowErrorSystemOutputNames.contains(field.name.trim()) ||
+            workflowHttpFixedOutputNames.contains(field.name.trim()),
+      );
+      if (conflict.isNotEmpty) {
+        return '节点“${node.title}”使用了 HTTP 系统保留参数名称“${conflict.first.name.trim()}”。';
       }
     }
     if (node.kind == WorkflowNodeKind.humanIntervention) {
@@ -1286,13 +1369,26 @@ String? validateWorkflowParameterNames(List<WorkflowNode> nodes) {
           workflowHumanSystemOutputNames.contains(name) &&
           node.kind == WorkflowNodeKind.humanIntervention &&
           previous?.kind == WorkflowNodeKind.humanIntervention;
-      final sharedCodeSystemOutput =
-          workflowCodeSystemOutputNames.contains(name) &&
-          node.kind == WorkflowNodeKind.codeExecution &&
-          previous?.kind == WorkflowNodeKind.codeExecution;
+      final sharedErrorOutput =
+          workflowErrorSystemOutputNames.contains(name) &&
+          const <WorkflowNodeKind>{
+            WorkflowNodeKind.codeExecution,
+            WorkflowNodeKind.httpRequest,
+          }.contains(node.kind) &&
+          const <WorkflowNodeKind>{
+            WorkflowNodeKind.codeExecution,
+            WorkflowNodeKind.httpRequest,
+          }.contains(previous?.kind);
+      final sharedHttpFixedOutput =
+          workflowHttpFixedOutputNames.contains(name) &&
+          node.kind == WorkflowNodeKind.httpRequest &&
+          previous?.kind == WorkflowNodeKind.httpRequest &&
+          !node.boolSetting(WorkflowSettingKeys.structuredOutput) &&
+          !previous!.boolSetting(WorkflowSettingKeys.structuredOutput);
       if (previous != null &&
           !sharedHumanSystemOutput &&
-          !sharedCodeSystemOutput) {
+          !sharedErrorOutput &&
+          !sharedHttpFixedOutput) {
         return '参数名称“$name”在节点“${previous.title}”和“${node.title}”中重复。';
       }
       owners[name] = node;

@@ -30,7 +30,9 @@ import '../../memory/index.dart' show UserMemoryEntry;
 import '../../skills/index.dart' show LocalSkill;
 import '../model/workflow_definition.dart';
 import '../service/workflow_code_executor.dart';
+import '../service/workflow_curl_parser.dart';
 import '../service/workflow_node_executor.dart';
+import 'workflow_curl_import_dialog.dart';
 import 'workflow_llm_conversation_view.dart';
 import 'workflow_parameter_reference_field.dart';
 
@@ -248,6 +250,15 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
             ),
             kOpenHandHGap6,
           ],
+          if (node.kind == WorkflowNodeKind.httpRequest) ...[
+            IconButton(
+              tooltip: '导入 cURL',
+              onPressed: () => _importCurl(context),
+              style: actionStyle,
+              icon: const Icon(Icons.file_download_outlined),
+            ),
+            kOpenHandHGap6,
+          ],
           IconButton(
             tooltip: '删除节点',
             onPressed: onDelete,
@@ -357,7 +368,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     final inputFields = node.codeInputFields();
     final codeReservedParameterNames = <String, String>{
       ...reservedParameterNames,
-      for (final name in workflowCodeSystemOutputNames) name: '代码异常分支',
+      for (final name in workflowErrorSystemOutputNames) name: '代码异常分支',
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -494,16 +505,34 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           ),
         ),
         kOpenHandGap14,
-        _buildCodeRetrySection(context),
+        _buildRetryPolicySection(
+          context,
+          subject: '代码',
+          defaultCount: defaultWorkflowCodeRetryCount,
+          minCount: minWorkflowCodeRetryCount,
+          maxCount: maxWorkflowCodeRetryCount,
+          defaultIntervalMs: defaultWorkflowCodeRetryIntervalMs,
+          minIntervalMs: minWorkflowCodeRetryIntervalMs,
+          maxIntervalMs: maxWorkflowCodeRetryIntervalMs,
+        ),
         kOpenHandGap14,
-        _buildCodeErrorSection(context),
+        _buildErrorSection(context, fields: node.outputFields(), subject: '代码'),
         kOpenHandGap16,
         _buildTestButton(),
       ],
     );
   }
 
-  Widget _buildCodeRetrySection(BuildContext context) {
+  Widget _buildRetryPolicySection(
+    BuildContext context, {
+    required String subject,
+    required int defaultCount,
+    required int minCount,
+    required int maxCount,
+    required int defaultIntervalMs,
+    required int minIntervalMs,
+    required int maxIntervalMs,
+  }) {
     final enabled = node.boolSetting(WorkflowSettingKeys.retryEnabled);
     return _FormSection(
       title: '失败时重试',
@@ -513,7 +542,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
         children: [
           _SwitchSetting(
             title: enabled ? '已启用自动重试' : '自动重试已关闭',
-            description: '仅重试运行失败、超时或输出校验失败；配置错误不会重复执行。',
+            description: '仅重试$subject执行失败、超时或输出校验失败；配置错误不会重复执行。',
             value: enabled,
             onChanged: (value) => _set(WorkflowSettingKeys.retryEnabled, value),
           ),
@@ -528,19 +557,19 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                       leftLabel: '最大重试次数',
                       leftValue: node.intSetting(
                         WorkflowSettingKeys.retryCount,
-                        defaultWorkflowCodeRetryCount,
+                        defaultCount,
                       ),
-                      leftMin: minWorkflowCodeRetryCount,
-                      leftMax: maxWorkflowCodeRetryCount,
+                      leftMin: minCount,
+                      leftMax: maxCount,
                       onLeftChanged: (value) =>
                           _set(WorkflowSettingKeys.retryCount, value),
                       rightLabel: '重试间隔（毫秒）',
                       rightValue: node.intSetting(
                         WorkflowSettingKeys.retryIntervalMs,
-                        defaultWorkflowCodeRetryIntervalMs,
+                        defaultIntervalMs,
                       ),
-                      rightMin: minWorkflowCodeRetryIntervalMs,
-                      rightMax: maxWorkflowCodeRetryIntervalMs,
+                      rightMin: minIntervalMs,
+                      rightMax: maxIntervalMs,
                       onRightChanged: (value) =>
                           _set(WorkflowSettingKeys.retryIntervalMs, value),
                     ),
@@ -552,12 +581,15 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildCodeErrorSection(BuildContext context) {
-    final strategy = WorkflowCodeErrorStrategy.fromStorage(
+  Widget _buildErrorSection(
+    BuildContext context, {
+    required List<WorkflowOutputField> fields,
+    required String subject,
+  }) {
+    final strategy = WorkflowErrorStrategy.fromStorage(
       node.settings[WorkflowSettingKeys.errorStrategy],
     );
-    final defaults = node.codeErrorDefaultValues();
-    final outputFields = node.outputFields();
+    final defaults = node.errorDefaultValues();
     final theme = Theme.of(context);
     return _FormSection(
       title: '异常处理',
@@ -568,13 +600,13 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           _LabeledField(
             label: '处理方式',
             required: true,
-            child: AnimatedDropdownButtonFormField<WorkflowCodeErrorStrategy>(
+            child: AnimatedDropdownButtonFormField<WorkflowErrorStrategy>(
               isExpanded: true,
               initialValue: strategy,
               decoration: _inputDecoration('选择异常处理方式'),
-              items: WorkflowCodeErrorStrategy.values
+              items: WorkflowErrorStrategy.values
                   .map(
-                    (item) => DropdownMenuItem<WorkflowCodeErrorStrategy>(
+                    (item) => DropdownMenuItem<WorkflowErrorStrategy>(
                       value: item,
                       child: Text(item.label),
                     ),
@@ -585,8 +617,8 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                 _setValues(<String, Object?>{
                   WorkflowSettingKeys.errorStrategy: value.storageValue,
                   WorkflowSettingKeys.errorDefaultValues:
-                      value == WorkflowCodeErrorStrategy.defaultValue
-                      ? _normalizedCodeErrorDefaults(node.outputFields())
+                      value == WorkflowErrorStrategy.defaultValue
+                      ? _normalizedErrorDefaults(fields)
                       : <String, Object?>{},
                 });
               },
@@ -597,7 +629,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
             curve: Curves.easeOutCubic,
             alignment: Alignment.topCenter,
             child: switch (strategy) {
-              WorkflowCodeErrorStrategy.terminate => Padding(
+              WorkflowErrorStrategy.terminate => Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   '重试耗尽后终止当前工作流，并返回最后一次异常。',
@@ -606,22 +638,22 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                   ),
                 ),
               ),
-              WorkflowCodeErrorStrategy.defaultValue => Padding(
+              WorkflowErrorStrategy.defaultValue => Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (final (index, field) in outputFields.indexed) ...[
+                    for (final (index, field) in fields.indexed) ...[
                       _LabeledField(
                         label: '${field.name.trim()} · ${field.type.label}',
                         required: true,
                         child: _WorkflowTypedValueField(
                           key: ValueKey<String>(
-                            'code-error-default-${field.id}-${field.type.storageValue}',
+                            'error-default-${node.id}-${field.id}-${field.type.storageValue}',
                           ),
                           value:
                               defaults[field.id] ??
-                              defaultWorkflowCodeErrorValue(field.type),
+                              defaultWorkflowErrorValue(field.type),
                           type: field.type,
                           source: WorkflowValueSource.constant,
                           references: const <WorkflowParameterReference>[],
@@ -632,12 +664,12 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (index < outputFields.length - 1) kOpenHandGap10,
+                      if (index < fields.length - 1) kOpenHandGap10,
                     ],
                   ],
                 ),
               ),
-              WorkflowCodeErrorStrategy.failBranch => Padding(
+              WorkflowErrorStrategy.failBranch => Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: Container(
                   padding: const EdgeInsets.all(12),
@@ -661,7 +693,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                       kOpenHandHGap10,
                       Expanded(
                         child: Text(
-                          '节点将提供“成功”和“异常”两条分支；异常分支可读取 error_type 与 error_message。',
+                          '$subject节点将提供“成功”和“异常”两条分支；异常分支可读取 error_type 与 error_message。',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                             height: 1.45,
@@ -850,7 +882,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
         _FormSection(
           title: '节点输出',
           icon: Icons.output_rounded,
-          child: _HumanOutputPreview(fields: node.declaredParameterFields()),
+          child: _OutputPreview(fields: node.declaredParameterFields()),
         ),
         kOpenHandGap16,
         _buildTestButton(),
@@ -920,7 +952,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
   }
 
   void _setCodeOutputFields(List<WorkflowOutputField> fields) {
-    final strategy = WorkflowCodeErrorStrategy.fromStorage(
+    final strategy = WorkflowErrorStrategy.fromStorage(
       node.settings[WorkflowSettingKeys.errorStrategy],
     );
     _setValues(<String, Object?>{
@@ -928,16 +960,16 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           .map((item) => item.toJson())
           .toList(growable: false),
       WorkflowSettingKeys.errorDefaultValues:
-          strategy == WorkflowCodeErrorStrategy.defaultValue
-          ? _normalizedCodeErrorDefaults(fields)
+          strategy == WorkflowErrorStrategy.defaultValue
+          ? _normalizedErrorDefaults(fields)
           : <String, Object?>{},
     });
   }
 
-  Map<String, Object?> _normalizedCodeErrorDefaults(
+  Map<String, Object?> _normalizedErrorDefaults(
     List<WorkflowOutputField> fields,
   ) {
-    final existing = node.codeErrorDefaultValues();
+    final existing = node.errorDefaultValues();
     final previous = <String, WorkflowOutputField>{
       for (final field in node.outputFields()) field.id: field,
     };
@@ -947,7 +979,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
             previous[field.id]?.type == field.type &&
                 existing.containsKey(field.id)
             ? existing[field.id]!
-            : defaultWorkflowCodeErrorValue(field.type),
+            : defaultWorkflowErrorValue(field.type),
     };
   }
 
@@ -1348,10 +1380,13 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                               kOpenHandGap12,
                               _LabeledField(
                                 label: '请求体',
-                                helper:
-                                    bodyFormat == WorkflowHttpBodyFormat.json
-                                    ? '发送前会校验 JSON 格式。'
-                                    : null,
+                                helper: switch (bodyFormat) {
+                                  WorkflowHttpBodyFormat.json =>
+                                    '发送前会校验 JSON 格式。',
+                                  WorkflowHttpBodyFormat.binary =>
+                                    '支持引用二进制参数、字节数组、Base64 或 Data URL。',
+                                  _ => null,
+                                },
                                 child: WorkflowParameterReferenceField(
                                   key: ValueKey(
                                     'body-${node.id}-${bodyFormat.name}',
@@ -1363,9 +1398,13 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                                   minLines: 4,
                                   maxLines: 10,
                                   decoration: _inputDecoration(
-                                    bodyFormat == WorkflowHttpBodyFormat.json
-                                        ? '{\n  "key": "{{value}}"\n}'
-                                        : '输入请求体内容',
+                                    switch (bodyFormat) {
+                                      WorkflowHttpBodyFormat.json =>
+                                        '{\n  "key": "{{value}}"\n}',
+                                      WorkflowHttpBodyFormat.binary =>
+                                        '{{binary_data}} 或 Base64 内容',
+                                      _ => '输入请求体内容',
+                                    },
                                   ),
                                   onChanged: (value) =>
                                       _set(WorkflowSettingKeys.body, value),
@@ -1377,42 +1416,85 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                       )
                     : const SizedBox.shrink(),
               ),
+              kOpenHandGap14,
+              _SwitchSetting(
+                title: node.boolSetting(WorkflowSettingKeys.verifySsl, true)
+                    ? '校验 SSL 证书'
+                    : '已关闭 SSL 证书校验',
+                description: '仅在调试可信服务时关闭；关闭后无法验证 HTTPS 服务器身份。',
+                value: node.boolSetting(WorkflowSettingKeys.verifySsl, true),
+                onChanged: (value) =>
+                    _set(WorkflowSettingKeys.verifySsl, value),
+              ),
             ],
           ),
         ),
         kOpenHandGap14,
         _FormSection(
-          title: '超时与重试',
+          title: '超时设置',
           icon: Icons.timer_outlined,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _NumberFieldRow(
                 leftLabel: '连接超时（秒）',
                 leftValue: node.intSetting(
                   WorkflowSettingKeys.connectTimeoutSeconds,
-                  15,
+                  defaultWorkflowHttpConnectTimeoutSeconds,
                 ),
-                leftMin: 1,
-                leftMax: 120,
+                leftMin: minWorkflowHttpTimeoutSeconds,
+                leftMax: maxWorkflowHttpConnectTimeoutSeconds,
                 onLeftChanged: (value) =>
                     _set(WorkflowSettingKeys.connectTimeoutSeconds, value),
-                rightLabel: '响应超时（秒）',
+                rightLabel: '读取超时（秒）',
                 rightValue: node.intSetting(
                   WorkflowSettingKeys.responseTimeoutSeconds,
-                  60,
+                  defaultWorkflowHttpReadTimeoutSeconds,
                 ),
-                rightMin: 1,
-                rightMax: 600,
+                rightMin: minWorkflowHttpTimeoutSeconds,
+                rightMax: maxWorkflowHttpReadTimeoutSeconds,
                 onRightChanged: (value) =>
                     _set(WorkflowSettingKeys.responseTimeoutSeconds, value),
               ),
               kOpenHandGap12,
-              _retryFields(),
+              _LabeledField(
+                label: '写入超时（秒）',
+                child: TextFormField(
+                  key: ValueKey('http-write-timeout-${node.id}'),
+                  initialValue:
+                      '${node.intSetting(WorkflowSettingKeys.writeTimeoutSeconds, defaultWorkflowHttpWriteTimeoutSeconds)}',
+                  keyboardType: TextInputType.number,
+                  decoration: _inputDecoration(
+                    '$minWorkflowHttpTimeoutSeconds–$maxWorkflowHttpWriteTimeoutSeconds',
+                  ),
+                  onChanged: (value) => _set(
+                    WorkflowSettingKeys.writeTimeoutSeconds,
+                    int.tryParse(value) ?? 0,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
         kOpenHandGap14,
-        _buildOutputSection(context),
+        _buildRetryPolicySection(
+          context,
+          subject: 'HTTP 请求',
+          defaultCount: defaultWorkflowHttpRetryCount,
+          minCount: minWorkflowHttpRetryCount,
+          maxCount: maxWorkflowHttpRetryCount,
+          defaultIntervalMs: defaultWorkflowHttpRetryIntervalMs,
+          minIntervalMs: minWorkflowHttpRetryIntervalMs,
+          maxIntervalMs: maxWorkflowHttpRetryIntervalMs,
+        ),
+        kOpenHandGap14,
+        _buildHttpOutputSection(context),
+        kOpenHandGap14,
+        _buildErrorSection(
+          context,
+          fields: node.httpResponseFields(),
+          subject: 'HTTP',
+        ),
         kOpenHandGap16,
         _buildTestButton(),
       ],
@@ -2196,6 +2278,50 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     );
   }
 
+  Widget _buildHttpOutputSection(BuildContext context) {
+    final enabled = node.boolSetting(WorkflowSettingKeys.structuredOutput);
+    final fields = node.outputFields();
+    final reservedNames = <String, String>{
+      ...reservedParameterNames,
+      for (final name in workflowHttpFixedOutputNames) name: 'HTTP 固定输出',
+      for (final name in workflowErrorSystemOutputNames) name: '异常分支输出',
+    };
+    return _FormSection(
+      title: '输出参数',
+      icon: Icons.data_object_rounded,
+      trailing: Switch(value: enabled, onChanged: _setHttpStructuredOutput),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            enabled ? '从响应正文解析并校验自定义结构化参数。' : '关闭结构化解析时，节点固定输出响应正文、状态码、响应头和文件。',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          AnimatedSize(
+            duration: openHandMotionDuration(context, kOpenHandMotion220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: enabled
+                  ? _OutputFieldEditor(
+                      fields: fields,
+                      addLabel: '添加输出参数',
+                      idPrefix: 'http-output',
+                      availableReferences: availableReferences,
+                      reservedParameterNames: reservedNames,
+                      onChanged: _setHttpOutputFields,
+                    )
+                  : _OutputPreview(fields: node.httpResponseFields()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTestButton() {
     return FilledButton.tonalIcon(
       onPressed: testing ? null : onTest,
@@ -2228,6 +2354,76 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
       if (format == WorkflowHttpBodyFormat.none || format.usesFields)
         WorkflowSettingKeys.body: '',
       if (!format.usesFields) WorkflowSettingKeys.bodyEntries: <Object?>[],
+    });
+  }
+
+  Future<void> _importCurl(BuildContext context) async {
+    final imported = await showWorkflowCurlImportDialog(context);
+    if (imported == null) return;
+    List<Object?> entries(List<WorkflowCurlEntry> values, String prefix) =>
+        values
+            .map(
+              (entry) => WorkflowKeyValueEntry(
+                id: '$prefix-${_workflowConfigurationUuid.v4()}',
+                key: entry.key,
+                value: entry.value,
+              ).toJson(),
+            )
+            .toList(growable: false);
+    _setValues(<String, Object?>{
+      WorkflowSettingKeys.method: imported.method,
+      WorkflowSettingKeys.url: imported.url,
+      WorkflowSettingKeys.headers: entries(imported.headers, 'curl-header'),
+      WorkflowSettingKeys.queryParameters: entries(
+        imported.queryParameters,
+        'curl-query',
+      ),
+      WorkflowSettingKeys.bodyFormat: imported.bodyFormat.storageValue,
+      WorkflowSettingKeys.body: imported.body,
+      WorkflowSettingKeys.bodyEntries: entries(
+        imported.bodyEntries,
+        'curl-body',
+      ),
+      WorkflowSettingKeys.verifySsl: imported.verifySsl,
+    });
+  }
+
+  void _setHttpStructuredOutput(bool enabled) {
+    final fields = enabled
+        ? node.outputFields()
+        : node
+              .copyWith(
+                settings: <String, Object?>{
+                  ...node.settings,
+                  WorkflowSettingKeys.structuredOutput: false,
+                },
+              )
+              .httpResponseFields();
+    final strategy = WorkflowErrorStrategy.fromStorage(
+      node.settings[WorkflowSettingKeys.errorStrategy],
+    );
+    _setValues(<String, Object?>{
+      WorkflowSettingKeys.structuredOutput: enabled,
+      if (!enabled) WorkflowSettingKeys.outputFields: <Object?>[],
+      if (strategy == WorkflowErrorStrategy.defaultValue)
+        WorkflowSettingKeys.errorDefaultValues: _normalizedErrorDefaults(
+          fields,
+        ),
+    });
+  }
+
+  void _setHttpOutputFields(List<WorkflowOutputField> fields) {
+    final strategy = WorkflowErrorStrategy.fromStorage(
+      node.settings[WorkflowSettingKeys.errorStrategy],
+    );
+    _setValues(<String, Object?>{
+      WorkflowSettingKeys.outputFields: fields
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      if (strategy == WorkflowErrorStrategy.defaultValue)
+        WorkflowSettingKeys.errorDefaultValues: _normalizedErrorDefaults(
+          fields,
+        ),
     });
   }
 
@@ -3770,8 +3966,8 @@ class _HumanActionEditor extends StatelessWidget {
   }
 }
 
-class _HumanOutputPreview extends StatelessWidget {
-  const _HumanOutputPreview({required this.fields});
+class _OutputPreview extends StatelessWidget {
+  const _OutputPreview({required this.fields});
 
   final List<WorkflowOutputField> fields;
 
@@ -4332,6 +4528,7 @@ String _bodyFormatLabel(WorkflowHttpBodyFormat format) => switch (format) {
   WorkflowHttpBodyFormat.text => '原始文本',
   WorkflowHttpBodyFormat.formUrlEncoded => 'x-www-form-urlencoded',
   WorkflowHttpBodyFormat.formData => 'form-data',
+  WorkflowHttpBodyFormat.binary => '二进制',
 };
 
 String _conditionLogicLabel(WorkflowConditionLogic logic) => switch (logic) {

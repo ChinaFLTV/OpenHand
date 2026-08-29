@@ -1700,7 +1700,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         WorkflowSettingKeys.retryCount: defaultWorkflowCodeRetryCount,
         WorkflowSettingKeys.retryIntervalMs: defaultWorkflowCodeRetryIntervalMs,
         WorkflowSettingKeys.errorStrategy:
-            WorkflowCodeErrorStrategy.terminate.storageValue,
+            WorkflowErrorStrategy.terminate.storageValue,
         WorkflowSettingKeys.errorDefaultValues: <String, Object?>{},
       },
       WorkflowNodeKind.humanIntervention => <String, Object?>{
@@ -1757,12 +1757,21 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         WorkflowSettingKeys.bodyEntries: <Object?>[],
         WorkflowSettingKeys.bodyFormat:
             WorkflowHttpBodyFormat.none.storageValue,
-        WorkflowSettingKeys.connectTimeoutSeconds: 15,
-        WorkflowSettingKeys.responseTimeoutSeconds: 60,
+        WorkflowSettingKeys.verifySsl: true,
+        WorkflowSettingKeys.connectTimeoutSeconds:
+            defaultWorkflowHttpConnectTimeoutSeconds,
+        WorkflowSettingKeys.responseTimeoutSeconds:
+            defaultWorkflowHttpReadTimeoutSeconds,
+        WorkflowSettingKeys.writeTimeoutSeconds:
+            defaultWorkflowHttpWriteTimeoutSeconds,
         WorkflowSettingKeys.structuredOutput: false,
         WorkflowSettingKeys.outputFields: <Object?>[],
-        WorkflowSettingKeys.retryCount: 0,
-        WorkflowSettingKeys.retryIntervalMs: 1000,
+        WorkflowSettingKeys.retryEnabled: true,
+        WorkflowSettingKeys.retryCount: defaultWorkflowHttpRetryCount,
+        WorkflowSettingKeys.retryIntervalMs: defaultWorkflowHttpRetryIntervalMs,
+        WorkflowSettingKeys.errorStrategy:
+            WorkflowErrorStrategy.terminate.storageValue,
+        WorkflowSettingKeys.errorDefaultValues: <String, Object?>{},
       },
       WorkflowNodeKind.end => <String, Object?>{
         WorkflowSettingKeys.outputFields: <Object?>[],
@@ -1819,7 +1828,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             .map((connection) {
               if (connection.sourceNodeId != updated.id) return connection;
               if (branches.isEmpty &&
-                  connection.sourceHandleId == workflowCodeSuccessHandleId) {
+                  connection.sourceHandleId == workflowSuccessHandleId) {
                 return WorkflowConnection(
                   id: connection.id,
                   sourceNodeId: connection.sourceNodeId,
@@ -2392,21 +2401,20 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             node.outputFields(),
             label: '代码输出变量',
           );
-          if (WorkflowCodeErrorStrategy.fromStorage(
+          if (WorkflowErrorStrategy.fromStorage(
                 node.settings[WorkflowSettingKeys.errorStrategy],
               ) ==
-              WorkflowCodeErrorStrategy.defaultValue) {
-            final defaults = node.codeErrorDefaultValues();
-            WorkflowStructuredOutputParser.resolveValues(
-              node.outputFields(),
-              <String, Object?>{
-                for (final field in node.outputFields())
-                  field.name.trim():
-                      defaults[field.id] ??
-                      defaultWorkflowCodeErrorValue(field.type),
-              },
-              label: '代码异常默认值',
-            );
+              WorkflowErrorStrategy.defaultValue) {
+            final defaults = node.errorDefaultValues();
+            final outputFields = node.outputFields();
+            WorkflowStructuredOutputParser.resolveValues(outputFields, <
+              String,
+              Object?
+            >{
+              for (final field in outputFields)
+                field.name.trim():
+                    defaults[field.id] ?? defaultWorkflowErrorValue(field.type),
+            }, label: '代码异常默认值');
           }
         } catch (error) {
           return '$error';
@@ -2485,6 +2493,74 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             label: '请求体字段',
           );
           if (bodyError != null) return bodyError;
+        }
+        final connectTimeout = node.intSetting(
+          WorkflowSettingKeys.connectTimeoutSeconds,
+          defaultWorkflowHttpConnectTimeoutSeconds,
+        );
+        final readTimeout = node.intSetting(
+          WorkflowSettingKeys.responseTimeoutSeconds,
+          defaultWorkflowHttpReadTimeoutSeconds,
+        );
+        final writeTimeout = node.intSetting(
+          WorkflowSettingKeys.writeTimeoutSeconds,
+          defaultWorkflowHttpWriteTimeoutSeconds,
+        );
+        if (connectTimeout < minWorkflowHttpTimeoutSeconds ||
+            connectTimeout > maxWorkflowHttpConnectTimeoutSeconds) {
+          return 'HTTP 连接超时必须在 $minWorkflowHttpTimeoutSeconds–$maxWorkflowHttpConnectTimeoutSeconds 秒之间。';
+        }
+        if (readTimeout < minWorkflowHttpTimeoutSeconds ||
+            readTimeout > maxWorkflowHttpReadTimeoutSeconds) {
+          return 'HTTP 读取超时必须在 $minWorkflowHttpTimeoutSeconds–$maxWorkflowHttpReadTimeoutSeconds 秒之间。';
+        }
+        if (writeTimeout < minWorkflowHttpTimeoutSeconds ||
+            writeTimeout > maxWorkflowHttpWriteTimeoutSeconds) {
+          return 'HTTP 写入超时必须在 $minWorkflowHttpTimeoutSeconds–$maxWorkflowHttpWriteTimeoutSeconds 秒之间。';
+        }
+        if (node.boolSetting(WorkflowSettingKeys.retryEnabled)) {
+          final retryCount = node.intSetting(
+            WorkflowSettingKeys.retryCount,
+            defaultWorkflowHttpRetryCount,
+          );
+          final retryInterval = node.intSetting(
+            WorkflowSettingKeys.retryIntervalMs,
+            defaultWorkflowHttpRetryIntervalMs,
+          );
+          if (retryCount < minWorkflowHttpRetryCount ||
+              retryCount > maxWorkflowHttpRetryCount) {
+            return 'HTTP 最大重试次数必须在 $minWorkflowHttpRetryCount–$maxWorkflowHttpRetryCount 次之间。';
+          }
+          if (retryInterval < minWorkflowHttpRetryIntervalMs ||
+              retryInterval > maxWorkflowHttpRetryIntervalMs) {
+            return 'HTTP 重试间隔必须在 $minWorkflowHttpRetryIntervalMs–$maxWorkflowHttpRetryIntervalMs 毫秒之间。';
+          }
+        }
+        try {
+          if (node.boolSetting(WorkflowSettingKeys.structuredOutput)) {
+            WorkflowStructuredOutputParser.validateFields(
+              node.outputFields(),
+              label: 'HTTP 输出参数',
+            );
+          }
+          if (WorkflowErrorStrategy.fromStorage(
+                node.settings[WorkflowSettingKeys.errorStrategy],
+              ) ==
+              WorkflowErrorStrategy.defaultValue) {
+            final defaults = node.errorDefaultValues();
+            WorkflowStructuredOutputParser.resolveValues(
+              node.httpResponseFields(),
+              <String, Object?>{
+                for (final field in node.httpResponseFields())
+                  field.name.trim():
+                      defaults[field.id] ??
+                      defaultWorkflowErrorValue(field.type),
+              },
+              label: 'HTTP 异常默认值',
+            );
+          }
+        } catch (error) {
+          return '$error';
         }
       }
       if (node.kind == WorkflowNodeKind.condition) {
@@ -3611,11 +3687,14 @@ bool _isWorkflowBranchingKind(WorkflowNodeKind kind) =>
 
 bool _workflowNodeHasBranches(WorkflowNode node) =>
     _isWorkflowBranchingKind(node.kind) ||
-    node.kind == WorkflowNodeKind.codeExecution &&
-        WorkflowCodeErrorStrategy.fromStorage(
+    const <WorkflowNodeKind>{
+          WorkflowNodeKind.codeExecution,
+          WorkflowNodeKind.httpRequest,
+        }.contains(node.kind) &&
+        WorkflowErrorStrategy.fromStorage(
               node.settings[WorkflowSettingKeys.errorStrategy],
             ) ==
-            WorkflowCodeErrorStrategy.failBranch;
+            WorkflowErrorStrategy.failBranch;
 
 List<({String id, String label})> _workflowNodeBranches(WorkflowNode node) =>
     switch (node.kind) {
@@ -3636,8 +3715,15 @@ List<({String id, String label})> _workflowNodeBranches(WorkflowNode node) =>
       WorkflowNodeKind.codeExecution =>
         _workflowNodeHasBranches(node)
             ? const <({String id, String label})>[
-                (id: workflowCodeSuccessHandleId, label: '成功'),
-                (id: workflowCodeFailureHandleId, label: '异常'),
+                (id: workflowSuccessHandleId, label: '成功'),
+                (id: workflowFailureHandleId, label: '异常'),
+              ]
+            : const <({String id, String label})>[],
+      WorkflowNodeKind.httpRequest =>
+        _workflowNodeHasBranches(node)
+            ? const <({String id, String label})>[
+                (id: workflowSuccessHandleId, label: '成功'),
+                (id: workflowFailureHandleId, label: '异常'),
               ]
             : const <({String id, String label})>[],
       _ => const <({String id, String label})>[],

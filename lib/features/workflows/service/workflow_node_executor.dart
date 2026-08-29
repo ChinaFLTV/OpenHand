@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/net/bounded_http_request.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart'
     show
@@ -367,7 +368,7 @@ class WorkflowNodeExecutor {
       outputFields,
       label: '代码输出变量',
     );
-    final errorStrategy = WorkflowCodeErrorStrategy.fromStorage(
+    final errorStrategy = WorkflowErrorStrategy.fromStorage(
       node.settings[WorkflowSettingKeys.errorStrategy],
     );
     final retryCount = node.boolSetting(WorkflowSettingKeys.retryEnabled)
@@ -425,9 +426,8 @@ class WorkflowNodeExecutor {
           rawOutput: jsonEncode(output),
           attempts: attempts,
           duration: stopwatch.elapsed,
-          selectedBranchId:
-              errorStrategy == WorkflowCodeErrorStrategy.failBranch
-              ? workflowCodeSuccessHandleId
+          selectedBranchId: errorStrategy == WorkflowErrorStrategy.failBranch
+              ? workflowSuccessHandleId
               : null,
         );
       } catch (error) {
@@ -451,17 +451,16 @@ class WorkflowNodeExecutor {
 
     final failure =
         latestError ?? const WorkflowNodeExecutionException('代码执行失败。');
-    if (errorStrategy == WorkflowCodeErrorStrategy.terminate) throw failure;
-    if (errorStrategy == WorkflowCodeErrorStrategy.defaultValue) {
-      final defaults = node.codeErrorDefaultValues();
+    if (errorStrategy == WorkflowErrorStrategy.terminate) throw failure;
+    if (errorStrategy == WorkflowErrorStrategy.defaultValue) {
+      final defaults = node.errorDefaultValues();
       try {
         final output = WorkflowStructuredOutputParser.resolveValues(
           outputFields,
           <String, Object?>{
             for (final field in outputFields)
               field.name.trim():
-                  defaults[field.id] ??
-                  defaultWorkflowCodeErrorValue(field.type),
+                  defaults[field.id] ?? defaultWorkflowErrorValue(field.type),
           },
           label: '代码异常默认值',
         );
@@ -479,15 +478,15 @@ class WorkflowNodeExecutor {
       }
     }
     final output = <String, Object?>{
-      workflowCodeErrorTypeOutputName: latestErrorType,
-      workflowCodeErrorMessageOutputName: failure.message,
+      workflowErrorTypeOutputName: latestErrorType,
+      workflowErrorMessageOutputName: failure.message,
     };
     return WorkflowNodeExecutionResult(
       output: Map<String, Object?>.unmodifiable(output),
       rawOutput: jsonEncode(output),
       attempts: attempts,
       duration: stopwatch.elapsed,
-      selectedBranchId: workflowCodeFailureHandleId,
+      selectedBranchId: workflowFailureHandleId,
     );
   }
 
@@ -1003,10 +1002,40 @@ class WorkflowNodeExecutor {
     }.contains(method)) {
       throw const WorkflowNodeExecutionException('HTTP 请求方式无效。');
     }
-    final retries = _boundedRetryCount(node);
-    final interval = _boundedRetryInterval(node);
+    final structured = node.boolSetting(WorkflowSettingKeys.structuredOutput);
+    final responseFields = node.httpResponseFields();
+    if (structured) {
+      WorkflowStructuredOutputParser.validateFields(
+        responseFields,
+        label: 'HTTP 输出参数',
+      );
+    }
+    final errorStrategy = WorkflowErrorStrategy.fromStorage(
+      node.settings[WorkflowSettingKeys.errorStrategy],
+    );
+    _validateHttpRequestBody(node, variables);
+    final retries = node.boolSetting(WorkflowSettingKeys.retryEnabled)
+        ? node
+              .intSetting(
+                WorkflowSettingKeys.retryCount,
+                defaultWorkflowHttpRetryCount,
+              )
+              .clamp(minWorkflowHttpRetryCount, maxWorkflowHttpRetryCount)
+        : 0;
+    final interval = Duration(
+      milliseconds: node
+          .intSetting(
+            WorkflowSettingKeys.retryIntervalMs,
+            defaultWorkflowHttpRetryIntervalMs,
+          )
+          .clamp(
+            minWorkflowHttpRetryIntervalMs,
+            maxWorkflowHttpRetryIntervalMs,
+          ),
+    );
     final stopwatch = Stopwatch()..start();
     Object? lastError;
+    var lastErrorType = 'HTTPExecutionError';
     var attempts = 0;
     while (attempts <= retries) {
       attempts += 1;
@@ -1018,20 +1047,17 @@ class WorkflowNodeExecutor {
           headers: headers,
           variables: variables,
         );
-        final structured = node.boolSetting(
-          WorkflowSettingKeys.structuredOutput,
-        );
-        final fields = node.outputFields();
         final output = structured
             ? WorkflowStructuredOutputParser.parse(
                 response.body,
-                fields,
+                responseFields,
                 variables: variables,
               )
             : <String, Object?>{
-                'status_code': response.statusCode,
-                'headers': response.headers,
-                'body': response.body,
+                workflowHttpBodyOutputName: response.body,
+                workflowHttpStatusCodeOutputName: response.statusCode,
+                workflowHttpHeadersOutputName: response.headers,
+                workflowHttpFilesOutputName: response.files,
               };
         stopwatch.stop();
         return WorkflowNodeExecutionResult(
@@ -1039,17 +1065,63 @@ class WorkflowNodeExecutor {
           rawOutput: response.body,
           attempts: attempts,
           duration: stopwatch.elapsed,
+          selectedBranchId: errorStrategy == WorkflowErrorStrategy.failBranch
+              ? workflowSuccessHandleId
+              : null,
         );
       } catch (error) {
+        if (error is! WorkflowNodeExecutionException &&
+            error is! TimeoutException &&
+            error is! IOException) {
+          rethrow;
+        }
         lastError = error;
+        lastErrorType = _httpErrorType(error);
         if (attempts > retries) break;
         await Future<void>.delayed(interval);
       }
     }
     stopwatch.stop();
-    throw WorkflowNodeExecutionException(
+    final failure = WorkflowNodeExecutionException(
       'HTTP 节点执行失败：${_executionErrorText(lastError)}',
       cause: lastError,
+    );
+    if (errorStrategy == WorkflowErrorStrategy.terminate) throw failure;
+    if (errorStrategy == WorkflowErrorStrategy.defaultValue) {
+      try {
+        final defaults = node.errorDefaultValues();
+        final output = WorkflowStructuredOutputParser.resolveValues(
+          responseFields,
+          <String, Object?>{
+            for (final field in responseFields)
+              field.name.trim():
+                  defaults[field.id] ?? defaultWorkflowErrorValue(field.type),
+          },
+          label: 'HTTP 异常默认值',
+        );
+        return WorkflowNodeExecutionResult(
+          output: output,
+          rawOutput: jsonEncode(output),
+          attempts: attempts,
+          duration: stopwatch.elapsed,
+        );
+      } on WorkflowNodeExecutionException catch (error) {
+        throw WorkflowNodeExecutionException(
+          'HTTP 异常默认值无效：${error.message}',
+          cause: error,
+        );
+      }
+    }
+    final output = <String, Object?>{
+      workflowErrorTypeOutputName: lastErrorType,
+      workflowErrorMessageOutputName: failure.message,
+    };
+    return WorkflowNodeExecutionResult(
+      output: Map<String, Object?>.unmodifiable(output),
+      rawOutput: jsonEncode(output),
+      attempts: attempts,
+      duration: stopwatch.elapsed,
+      selectedBranchId: workflowFailureHandleId,
     );
   }
 
@@ -1061,34 +1133,62 @@ class WorkflowNodeExecutor {
     required Map<String, Object?> variables,
   }) async {
     final connectSeconds = node
-        .intSetting(WorkflowSettingKeys.connectTimeoutSeconds, 15)
-        .clamp(1, 120);
+        .intSetting(
+          WorkflowSettingKeys.connectTimeoutSeconds,
+          defaultWorkflowHttpConnectTimeoutSeconds,
+        )
+        .clamp(
+          minWorkflowHttpTimeoutSeconds,
+          maxWorkflowHttpConnectTimeoutSeconds,
+        );
     final responseSeconds = node
-        .intSetting(WorkflowSettingKeys.responseTimeoutSeconds, 60)
-        .clamp(1, 600);
+        .intSetting(
+          WorkflowSettingKeys.responseTimeoutSeconds,
+          defaultWorkflowHttpReadTimeoutSeconds,
+        )
+        .clamp(
+          minWorkflowHttpTimeoutSeconds,
+          maxWorkflowHttpReadTimeoutSeconds,
+        );
+    final writeSeconds = node
+        .intSetting(
+          WorkflowSettingKeys.writeTimeoutSeconds,
+          defaultWorkflowHttpWriteTimeoutSeconds,
+        )
+        .clamp(
+          minWorkflowHttpTimeoutSeconds,
+          maxWorkflowHttpWriteTimeoutSeconds,
+        );
     final client = SystemProxyResolver.instance.createRawHttpClient(
       connectionTimeout: Duration(seconds: connectSeconds),
       userAgent: 'OpenHand-Workflow/1.0',
     );
+    if (!node.boolSetting(WorkflowSettingKeys.verifySsl, true)) {
+      client.badCertificateCallback = (_, _, _) => true;
+    }
     try {
-      final request = await client
-          .openUrl(method, uri)
-          .timeout(
-            Duration(seconds: connectSeconds),
-            onTimeout: () => throw TimeoutException('HTTP 连接超时。'),
-          );
+      final request = await openHttpClientRequestBounded(
+        () => client.openUrl(method, uri),
+        timeout: Duration(seconds: connectSeconds),
+        timeoutMessage: 'HTTP 连接超时。',
+      );
       for (final entry in headers.entries) {
         request.headers.set(entry.key, entry.value);
       }
       if (!const <String>{'GET', 'HEAD'}.contains(method)) {
         _writeHttpBody(request, node, variables);
+        await request.flush().timeout(
+          Duration(seconds: writeSeconds),
+          onTimeout: () {
+            request.abort(TimeoutException('HTTP 请求体写入超时。'));
+            throw TimeoutException('HTTP 请求体写入超时。');
+          },
+        );
       }
-      final response = await request.close().timeout(
-        Duration(seconds: responseSeconds),
-        onTimeout: () {
-          request.abort(TimeoutException('HTTP 响应超时。'));
-          throw TimeoutException('HTTP 响应超时。');
-        },
+      final response = await closeHttpClientRequestBounded(
+        request,
+        timeout: Duration(seconds: responseSeconds),
+        timeoutMessage: 'HTTP 响应超时。',
       );
       final bytes = BytesBuilder(copy: false);
       await for (final chunk in response.timeout(
@@ -1099,7 +1199,8 @@ class WorkflowNodeExecutor {
         }
         bytes.add(chunk);
       }
-      final body = utf8.decode(bytes.takeBytes(), allowMalformed: true);
+      final responseBytes = bytes.takeBytes();
+      final body = utf8.decode(responseBytes, allowMalformed: true);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final preview = body.length > 500 ? '${body.substring(0, 500)}…' : body;
         throw WorkflowNodeExecutionException(
@@ -1114,6 +1215,7 @@ class WorkflowNodeExecutor {
         statusCode: response.statusCode,
         headers: responseHeaders,
         body: body,
+        files: _httpResponseFiles(response, responseBytes, uri),
       );
     } finally {
       client.close(force: true);
@@ -1141,15 +1243,15 @@ class WorkflowNodeExecutor {
         } on FormatException {
           throw const WorkflowNodeExecutionException('请求体不是有效 JSON。');
         }
-        request.headers.contentType = ContentType.json;
+        request.headers.contentType ??= ContentType.json;
         return;
       case WorkflowHttpBodyFormat.text:
-        request.headers.contentType = ContentType.text;
+        request.headers.contentType ??= ContentType.text;
         request.add(utf8.encode(body));
         return;
       case WorkflowHttpBodyFormat.formUrlEncoded:
         final values = _bodyEntries(node, variables);
-        request.headers.contentType = ContentType(
+        request.headers.contentType ??= ContentType(
           'application',
           'x-www-form-urlencoded',
           charset: 'utf-8',
@@ -1166,16 +1268,82 @@ class WorkflowNodeExecutor {
         final buffer = StringBuffer();
         for (final entry in _bodyEntries(node, variables).entries) {
           buffer
-            ..writeln('--$boundary')
-            ..writeln(
-              'Content-Disposition: form-data; name="${_escapeMultipartName(entry.key)}"',
+            ..write('--$boundary\r\n')
+            ..write(
+              'Content-Disposition: form-data; name="${_escapeMultipartName(entry.key)}"\r\n\r\n',
             )
-            ..writeln()
-            ..writeln(entry.value);
+            ..write(entry.value)
+            ..write('\r\n');
         }
         buffer.write('--$boundary--\r\n');
-        request.add(utf8.encode(buffer.toString().replaceAll('\n', '\r\n')));
+        request.add(utf8.encode(buffer.toString()));
         return;
+      case WorkflowHttpBodyFormat.binary:
+        request.headers.contentType ??= ContentType.binary;
+        request.add(_binaryHttpBody(node, variables));
+        return;
+    }
+  }
+
+  void _validateHttpRequestBody(
+    WorkflowNode node,
+    Map<String, Object?> variables,
+  ) {
+    final format = WorkflowHttpBodyFormat.fromStorage(
+      node.settings[WorkflowSettingKeys.bodyFormat],
+    );
+    switch (format) {
+      case WorkflowHttpBodyFormat.json:
+        try {
+          jsonDecode(
+            renderWorkflowTemplate(
+              node.stringSetting(WorkflowSettingKeys.body),
+              variables,
+            ),
+          );
+        } on FormatException {
+          throw const WorkflowNodeExecutionException('请求体不是有效 JSON。');
+        }
+      case WorkflowHttpBodyFormat.formUrlEncoded ||
+          WorkflowHttpBodyFormat.formData:
+        _bodyEntries(node, variables);
+      case WorkflowHttpBodyFormat.binary:
+        _binaryHttpBody(node, variables);
+      case WorkflowHttpBodyFormat.none || WorkflowHttpBodyFormat.text:
+        return;
+    }
+  }
+
+  List<int> _binaryHttpBody(WorkflowNode node, Map<String, Object?> variables) {
+    final source = node.stringSetting(WorkflowSettingKeys.body);
+    final resolved = resolveWorkflowTemplateValue(source, variables);
+    if (resolved is Uint8List) return resolved;
+    if (resolved is List) {
+      final bytes = <int>[];
+      for (final value in resolved) {
+        if (value is! int || value < 0 || value > 255) {
+          throw const WorkflowNodeExecutionException('二进制请求体的字节数组无效。');
+        }
+        bytes.add(value);
+      }
+      return bytes;
+    }
+    final text = '$resolved';
+    final dataUrl = RegExp(
+      r'^data:[^;,]+;base64,(.*)$',
+      caseSensitive: false,
+      dotAll: true,
+    ).firstMatch(text.trim());
+    final encoded =
+        dataUrl?.group(1) ??
+        (text.trim().startsWith('base64:')
+            ? text.trim().substring('base64:'.length)
+            : null);
+    if (encoded == null) return utf8.encode(text);
+    try {
+      return base64Decode(encoded.replaceAll(RegExp(r'\s+'), ''));
+    } on FormatException {
+      throw const WorkflowNodeExecutionException('二进制请求体包含无效的 Base64 内容。');
     }
   }
 
@@ -2357,11 +2525,77 @@ class _WorkflowHttpResponse {
     required this.statusCode,
     required this.headers,
     required this.body,
+    required this.files,
   });
 
   final int statusCode;
   final Map<String, String> headers;
   final String body;
+  final List<Map<String, Object?>> files;
+}
+
+List<Map<String, Object?>> _httpResponseFiles(
+  HttpClientResponse response,
+  Uint8List bytes,
+  Uri uri,
+) {
+  if (bytes.isEmpty) return const <Map<String, Object?>>[];
+  final contentType = response.headers.contentType;
+  final mimeType = contentType?.mimeType ?? 'application/octet-stream';
+  final disposition = response.headers.value('content-disposition') ?? '';
+  final encodedName = RegExp(
+    r"filename\*=UTF-8''([^;]+)",
+    caseSensitive: false,
+  ).firstMatch(disposition)?.group(1);
+  final regularName = RegExp(
+    r'filename\s*=\s*"?([^";]+)',
+    caseSensitive: false,
+  ).firstMatch(disposition)?.group(1);
+  final isTextResponse =
+      mimeType.startsWith('text/') ||
+      mimeType.contains('json') ||
+      mimeType.contains('xml') ||
+      mimeType.contains('javascript') ||
+      mimeType.contains('x-www-form-urlencoded');
+  if (!disposition.toLowerCase().contains('attachment') &&
+      encodedName == null &&
+      regularName == null &&
+      isTextResponse) {
+    return const <Map<String, Object?>>[];
+  }
+  var name = encodedName ?? regularName ?? '';
+  if (name.isNotEmpty) {
+    try {
+      name = Uri.decodeComponent(name);
+    } on FormatException {
+      name = name.trim();
+    }
+  }
+  if (name.isEmpty && uri.pathSegments.isNotEmpty) {
+    name = uri.pathSegments.last.trim();
+  }
+  if (name.isEmpty) name = 'response.bin';
+  return <Map<String, Object?>>[
+    <String, Object?>{
+      'name': name,
+      'mime_type': mimeType,
+      'size': bytes.length,
+      'data_base64': base64Encode(bytes),
+    },
+  ];
+}
+
+String _httpErrorType(Object error) {
+  if (error is TimeoutException) return 'HTTPTimeoutError';
+  if (error is HandshakeException) return 'HTTPTlsError';
+  if (error is SocketException) return 'HTTPConnectionError';
+  if (error is HttpException) return 'HTTPProtocolError';
+  if (error is WorkflowNodeExecutionException) {
+    return error.message.startsWith('HTTP ')
+        ? 'HTTPStatusError'
+        : 'HTTPResponseError';
+  }
+  return 'HTTPExecutionError';
 }
 
 String _executionErrorText(Object? error) {
