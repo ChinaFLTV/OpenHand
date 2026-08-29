@@ -34,8 +34,8 @@ const double _nodeAddButtonSize = 26;
 const double _nodeAddButtonHitSize = 38;
 const double _conditionBranchStart = 70;
 const double _conditionBranchSpacing = 28;
-const double _containerMinWidth = 720;
-const double _containerMinHeight = 330;
+const double _containerMinWidth = 360;
+const double _containerMinHeight = 196;
 const double _containerHeaderHeight = 66;
 const double _containerChildLeft = 132;
 const double _containerChildTop = 96;
@@ -152,9 +152,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   late final String _workflowId = widget.workflow?.id ?? _uuid.v4();
   late final DateTime _createdAt =
       widget.workflow?.createdAt ?? DateTime.now().toUtc();
-  late List<WorkflowNode> _nodes = List<WorkflowNode>.from(
-    widget.workflow?.nodes ?? const <WorkflowNode>[],
-  );
+  late List<WorkflowNode> _nodes;
   late List<WorkflowConnection> _connections = List<WorkflowConnection>.from(
     widget.workflow?.connections ?? const <WorkflowConnection>[],
   );
@@ -192,6 +190,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   @override
   void initState() {
     super.initState();
+    _nodes = _fitContainerSizes(
+      List<WorkflowNode>.from(widget.workflow?.nodes ?? const <WorkflowNode>[]),
+    );
     _initialDraftFingerprint = _currentDraftFingerprint();
     _history = <_WorkflowHistoryEntry>[
       _WorkflowHistoryEntry(
@@ -651,189 +652,224 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     return Positioned(
       left: node.x,
       top: node.y,
-      width: width + _nodeAddButtonHitSize / 2,
-      height: height,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            left: 0,
-            top: 0,
-            width: width,
-            height: height,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTapUp: (details) {
-                final position = details.localPosition + Offset(node.x, node.y);
-                final connectionId = _hitTestConnection(position);
-                connectionId == null
-                    ? _selectNode(node.id)
-                    : _selectConnection(connectionId);
-              },
-              onPanUpdate: (details) => _moveNode(node, details.delta),
-              child: AnimatedContainer(
-                duration: openHandMotionDuration(context, kOpenHandMotion180),
-                curve: Curves.easeOutCubic,
-                decoration: BoxDecoration(
-                  color: Color.alphaBlend(
-                    descriptor.color.withValues(alpha: 0.055),
-                    theme.colorScheme.surfaceContainerLow,
-                  ),
-                  borderRadius: BorderRadius.circular(kOpenHandRadius20),
-                  border: Border.all(
-                    color: borderColor,
-                    width: selected || connectionTarget ? 2 : 1.2,
-                  ),
-                  boxShadow: selected || connectionTarget
-                      ? <BoxShadow>[
-                          BoxShadow(
-                            color: borderColor.withValues(alpha: 0.16),
-                            blurRadius: 22,
-                            offset: const Offset(0, 7),
-                          ),
-                        ]
-                      : const <BoxShadow>[],
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      top: _containerHeaderHeight,
-                      child: ColoredBox(
-                        color: theme.colorScheme.surfaceContainerLowest
-                            .withValues(alpha: 0.7),
-                        child: CustomPaint(
-                          painter: _WorkflowConnectionPainter(
-                            nodes: _nodes,
-                            connections: _connections,
-                            scopeParentId: node.id,
-                            canvasOrigin: Offset(
-                              node.x,
-                              node.y + _containerHeaderHeight,
-                            ),
-                            selectedConnectionId: _selectedConnectionId,
-                            draftSourceNodeId: _connectingSourceNodeId,
-                            draftSourceHandleId: _connectingSourceHandleId,
-                            draftTargetNodeId: _connectionTargetNodeId,
-                            draftEnd: _connectionDragPosition,
-                            draftValid:
-                                _connectionTargetNodeId != null &&
-                                _connectionTargetError == null,
-                            color: descriptor.color,
-                            errorColor: theme.colorScheme.error,
-                            mutedColor: theme.colorScheme.outline,
-                          ),
+      child: TweenAnimationBuilder<Offset>(
+        tween: Tween<Offset>(
+          begin: Offset(width, height),
+          end: Offset(width, height),
+        ),
+        duration: openHandMotionDuration(context, kOpenHandMotion260),
+        curve: Curves.easeOutBack,
+        builder: (context, size, _) {
+          final animatedWidth = size.dx;
+          final animatedHeight = size.dy;
+          return SizedBox(
+            width: animatedWidth + _nodeAddButtonHitSize / 2,
+            height: animatedHeight,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  width: animatedWidth,
+                  height: animatedHeight,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapUp: (details) {
+                      final position =
+                          details.localPosition + Offset(node.x, node.y);
+                      final connectionId = _hitTestConnection(position);
+                      connectionId == null
+                          ? _selectNode(node.id)
+                          : _selectConnection(connectionId);
+                    },
+                    onPanUpdate: (details) => _moveNode(node, details.delta),
+                    child: AnimatedContainer(
+                      duration: openHandMotionDuration(
+                        context,
+                        kOpenHandMotion180,
+                      ),
+                      curve: Curves.easeOutCubic,
+                      decoration: BoxDecoration(
+                        color: Color.alphaBlend(
+                          descriptor.color.withValues(alpha: 0.055),
+                          theme.colorScheme.surfaceContainerLow,
+                        ),
+                        borderRadius: BorderRadius.circular(kOpenHandRadius20),
+                        boxShadow: selected || connectionTarget
+                            ? <BoxShadow>[
+                                BoxShadow(
+                                  color: borderColor.withValues(alpha: 0.16),
+                                  blurRadius: 22,
+                                  offset: const Offset(0, 7),
+                                ),
+                              ]
+                            : const <BoxShadow>[],
+                      ),
+                      foregroundDecoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(kOpenHandRadius20),
+                        border: Border.all(
+                          color: borderColor,
+                          width: selected || connectionTarget ? 2 : 1.2,
                         ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                      child: Row(
+                      clipBehavior: Clip.antiAlias,
+                      child: Stack(
                         children: [
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: descriptor.color.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(
-                                kOpenHandRadius10,
+                          Positioned.fill(
+                            top: _containerHeaderHeight,
+                            child: ColoredBox(
+                              color: theme.colorScheme.surfaceContainerLowest
+                                  .withValues(alpha: 0.7),
+                              child: CustomPaint(
+                                painter: _WorkflowConnectionPainter(
+                                  nodes: _nodes,
+                                  connections: _connections,
+                                  scopeParentId: node.id,
+                                  canvasOrigin: Offset(
+                                    node.x,
+                                    node.y + _containerHeaderHeight,
+                                  ),
+                                  selectedConnectionId: _selectedConnectionId,
+                                  draftSourceNodeId: _connectingSourceNodeId,
+                                  draftSourceHandleId:
+                                      _connectingSourceHandleId,
+                                  draftTargetNodeId: _connectionTargetNodeId,
+                                  draftEnd: _connectionDragPosition,
+                                  draftValid:
+                                      _connectionTargetNodeId != null &&
+                                      _connectionTargetError == null,
+                                  color: descriptor.color,
+                                  errorColor: theme.colorScheme.error,
+                                  mutedColor: theme.colorScheme.outline,
+                                ),
                               ),
                             ),
-                            child: Icon(
-                              descriptor.icon,
-                              color: descriptor.color,
-                              size: 20,
-                            ),
                           ),
-                          kOpenHandHGap10,
-                          Expanded(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                            child: Row(
                               children: [
-                                Text(
-                                  node.title.trim().isEmpty
-                                      ? descriptor.label
-                                      : node.title.trim(),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w900,
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: descriptor.color.withValues(
+                                      alpha: 0.15,
+                                    ),
+                                    borderRadius: BorderRadius.circular(
+                                      kOpenHandRadius10,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    descriptor.icon,
+                                    color: descriptor.color,
+                                    size: 20,
                                   ),
                                 ),
-                                Text(
-                                  '$childCount 个内部节点 · ${_nodeSummary(node)}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
+                                kOpenHandHGap10,
+                                Expanded(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        node.title.trim().isEmpty
+                                            ? descriptor.label
+                                            : node.title.trim(),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.titleSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                      ),
+                                      Text(
+                                        '$childCount 个内部节点 · ${_nodeSummary(node)}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ],
                                   ),
+                                ),
+                                Icon(
+                                  Icons.drag_indicator_rounded,
+                                  size: 18,
+                                  color: theme.colorScheme.onSurfaceVariant,
                                 ),
                               ],
                             ),
                           ),
-                          Icon(
-                            Icons.drag_indicator_rounded,
-                            size: 18,
-                            color: theme.colorScheme.onSurfaceVariant,
+                          Positioned(
+                            left: 28,
+                            top: _containerChildTop + (_nodeHeight - 44) / 2,
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: descriptor.color.withValues(alpha: 0.16),
+                                borderRadius: BorderRadius.circular(
+                                  kOpenHandRadius14,
+                                ),
+                                border: Border.all(
+                                  color: descriptor.color.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.home_rounded,
+                                size: 20,
+                                color: descriptor.color,
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            left: 76,
+                            top:
+                                _containerChildTop +
+                                (_nodeHeight - _nodeAddButtonHitSize) / 2,
+                            child: _buildAddNodeButton(
+                              context,
+                              node,
+                              sourceHandleId: workflowContainerStartHandleId,
+                              tooltip: '添加内部工作流的第一个节点',
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    Positioned(
-                      left: 28,
-                      top: _containerChildTop + (_nodeHeight - 44) / 2,
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: descriptor.color.withValues(alpha: 0.16),
-                          borderRadius: BorderRadius.circular(
-                            kOpenHandRadius14,
-                          ),
-                          border: Border.all(
-                            color: descriptor.color.withValues(alpha: 0.5),
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.home_rounded,
-                          size: 20,
-                          color: descriptor.color,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 76,
-                      top:
-                          _containerChildTop +
-                          (_nodeHeight - _nodeAddButtonHitSize) / 2,
-                      child: _buildAddNodeButton(
-                        context,
-                        node,
-                        sourceHandleId: workflowContainerStartHandleId,
-                        tooltip: '添加内部工作流的第一个节点',
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                Positioned(
+                  left: -5,
+                  top: _containerHeaderHeight / 2 - 5,
+                  child: _buildInputPort(
+                    context,
+                    connectionTarget: connectionTarget,
+                    connectionTargetValid: connectionTargetValid,
+                  ),
+                ),
+                Positioned(
+                  left: animatedWidth - _nodeAddButtonHitSize / 2,
+                  top: (_containerHeaderHeight - _nodeAddButtonHitSize) / 2,
+                  child: _buildAddNodeButton(
+                    context,
+                    node,
+                    tooltip: '添加或连接循环结束后的节点',
+                  ),
+                ),
+              ],
             ),
-          ),
-          Positioned(
-            left: -5,
-            top: _containerHeaderHeight / 2 - 5,
-            child: _buildInputPort(
-              context,
-              connectionTarget: connectionTarget,
-              connectionTargetValid: connectionTargetValid,
-            ),
-          ),
-          Positioned(
-            left: width - _nodeAddButtonHitSize / 2,
-            top: (_containerHeaderHeight - _nodeAddButtonHitSize) / 2,
-            child: _buildAddNodeButton(context, node, tooltip: '添加或连接循环结束后的节点'),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -1399,17 +1435,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       settings: _defaultSettings(kind),
     );
     setState(() {
-      var nodes = <WorkflowNode>[..._nodes, node];
-      if (parentNodeId != null) {
-        nodes = nodes
-            .map(
-              (item) => item.id == parentNodeId
-                  ? _expandedContainerForChild(item, node)
-                  : item,
-            )
-            .toList(growable: false);
-      }
-      _nodes = nodes;
+      _nodes = _fitContainerSizes(<WorkflowNode>[..._nodes, node]);
       _connections = <WorkflowConnection>[
         ..._connections,
         WorkflowConnection(
@@ -1481,36 +1507,6 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       );
     }
     return candidate;
-  }
-
-  WorkflowNode _expandedContainerForChild(
-    WorkflowNode parent,
-    WorkflowNode child,
-  ) {
-    final width = math.min(
-      _canvasWidth - parent.x - 16,
-      math.max(
-        _nodeWidthFor(parent),
-        child.x + _nodeWidthFor(child) - parent.x + _containerPadding,
-      ),
-    );
-    final height = math.min(
-      _canvasHeight - parent.y - 16,
-      math.max(
-        _nodeHeightFor(parent),
-        child.y + _nodeHeightFor(child) - parent.y + _containerPadding,
-      ),
-    );
-    if (width == _nodeWidthFor(parent) && height == _nodeHeightFor(parent)) {
-      return parent;
-    }
-    return parent.copyWith(
-      settings: Map<String, Object?>.unmodifiable(<String, Object?>{
-        ...parent.settings,
-        WorkflowSettingKeys.containerWidth: width,
-        WorkflowSettingKeys.containerHeight: height,
-      }),
-    );
   }
 
   Offset _nextNodePosition(WorkflowNode source, WorkflowNodeKind targetKind) {
@@ -1638,19 +1634,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   }) {
     if (!mounted) return;
     setState(() {
-      var nodes = _nodes
-          .map((node) => node.id == updated.id ? updated : node)
-          .toList(growable: false);
-      if (updated.parentNodeId != null) {
-        nodes = nodes
-            .map(
-              (node) => node.id == updated.parentNodeId
-                  ? _expandedContainerForChild(node, updated)
-                  : node,
-            )
-            .toList(growable: false);
-      }
-      _nodes = nodes;
+      _nodes = _fitContainerSizes(
+        _nodes
+            .map((node) => node.id == updated.id ? updated : node)
+            .toList(growable: false),
+      );
       if (updated.kind == WorkflowNodeKind.condition) {
         final branches = _conditionBranches(updated);
         final branchIds = branches.map((branch) => branch.id).toSet();
@@ -1723,7 +1711,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     final moved = latest.copyWith(x: nextX, y: nextY);
     final actualDelta = Offset(nextX - latest.x, nextY - latest.y);
     setState(() {
-      var nodes = _nodes
+      final nodes = _nodes
           .map((item) {
             if (item.id == moved.id) return moved;
             if (latest.isContainer && item.parentNodeId == latest.id) {
@@ -1735,16 +1723,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             return item;
           })
           .toList(growable: false);
-      if (moved.parentNodeId != null) {
-        nodes = nodes
-            .map(
-              (item) => item.id == moved.parentNodeId
-                  ? _expandedContainerForChild(item, moved)
-                  : item,
-            )
-            .toList(growable: false);
-      }
-      _nodes = nodes;
+      _nodes = _fitContainerSizes(nodes);
       _recordHistory('移动节点', mergeKey: 'move:${latest.id}');
     });
   }
@@ -1767,9 +1746,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             .map((node) => node.id),
     };
     setState(() {
-      _nodes = _nodes
-          .where((node) => !removedIds.contains(node.id))
-          .toList(growable: false);
+      _nodes = _fitContainerSizes(
+        _nodes
+            .where((node) => !removedIds.contains(node.id))
+            .toList(growable: false),
+      );
       _connections = _connections
           .where(
             (edge) =>
@@ -1851,7 +1832,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     setState(() {
       _clearConnectionDragState();
       _historyIndex = index;
-      _nodes = List<WorkflowNode>.from(snapshot.nodes);
+      _nodes = _fitContainerSizes(List<WorkflowNode>.from(snapshot.nodes));
       _connections = List<WorkflowConnection>.from(snapshot.connections);
       _selectedNodeId = null;
       _selectedConnectionId = null;
@@ -3192,6 +3173,55 @@ List<({String id, String label})> _conditionBranches(WorkflowNode node) {
         (id: item.$2.id, label: item.$1 == 0 ? 'IF' : 'ELIF ${item.$1}'),
     (id: 'else', label: 'ELSE'),
   ];
+}
+
+List<WorkflowNode> _fitContainerSizes(List<WorkflowNode> nodes) {
+  final childrenByParent = <String, List<WorkflowNode>>{};
+  for (final node in nodes) {
+    final parentId = node.parentNodeId;
+    if (parentId != null) {
+      (childrenByParent[parentId] ??= <WorkflowNode>[]).add(node);
+    }
+  }
+  return nodes
+      .map((node) {
+        if (!node.isContainer) return node;
+        var width = _containerMinWidth;
+        var height = _containerMinHeight;
+        for (final child
+            in childrenByParent[node.id] ?? const <WorkflowNode>[]) {
+          width = math.max(
+            width,
+            child.x + _nodeWidthFor(child) - node.x + _containerPadding,
+          );
+          height = math.max(
+            height,
+            child.y + _nodeHeightFor(child) - node.y + _containerPadding,
+          );
+        }
+        width = math.min(width, _canvasWidth - node.x - 16);
+        height = math.min(height, _canvasHeight - node.y - 16);
+        if (width ==
+                node.doubleSetting(
+                  WorkflowSettingKeys.containerWidth,
+                  _containerMinWidth,
+                ) &&
+            height ==
+                node.doubleSetting(
+                  WorkflowSettingKeys.containerHeight,
+                  _containerMinHeight,
+                )) {
+          return node;
+        }
+        return node.copyWith(
+          settings: Map<String, Object?>.unmodifiable(<String, Object?>{
+            ...node.settings,
+            WorkflowSettingKeys.containerWidth: width,
+            WorkflowSettingKeys.containerHeight: height,
+          }),
+        );
+      })
+      .toList(growable: false);
 }
 
 double _nodeHeightFor(WorkflowNode node) {
