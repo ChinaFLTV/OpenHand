@@ -39,6 +39,7 @@ const double _containerMinHeight = 196;
 const double _containerHeaderHeight = 66;
 const double _containerChildLeft = 132;
 const double _containerChildTop = 96;
+const double _containerStartNodeSize = 44;
 const double _containerPadding = 34;
 const double _configurationWidth = 440;
 const double _headerActionSize = 44;
@@ -682,6 +683,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         builder: (context, size, _) {
           final animatedWidth = size.dx;
           final animatedHeight = size.dy;
+          final startCenterY = _containerStartCenterY(
+            containerHeight: animatedHeight,
+            hasChildren: childCount > 0,
+          );
           return SizedBox(
             width: animatedWidth + _nodeAddButtonHitSize / 2,
             height: animatedHeight,
@@ -829,10 +834,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                           ),
                           Positioned(
                             left: 28,
-                            top: _containerChildTop + (_nodeHeight - 44) / 2,
+                            top: startCenterY - _containerStartNodeSize / 2,
                             child: Container(
-                              width: 44,
-                              height: 44,
+                              width: _containerStartNodeSize,
+                              height: _containerStartNodeSize,
                               decoration: BoxDecoration(
                                 color: descriptor.color.withValues(alpha: 0.16),
                                 borderRadius: BorderRadius.circular(
@@ -853,9 +858,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                           ),
                           Positioned(
                             left: 76,
-                            top:
-                                _containerChildTop +
-                                (_nodeHeight - _nodeAddButtonHitSize) / 2,
+                            top: startCenterY - _nodeAddButtonHitSize / 2,
                             child: _buildAddNodeButton(
                               context,
                               node,
@@ -3082,6 +3085,9 @@ class _WorkflowConnectionPainter extends CustomPainter {
     final start = _workflowConnectionStart(
       draftSource,
       sourceHandleId: draftSourceHandleId,
+      containerHasChildren: nodes.any(
+        (node) => node.parentNodeId == draftSource.id,
+      ),
     );
     final end = draftTarget == null
         ? pointerEnd
@@ -3144,11 +3150,19 @@ Path _workflowConnectionPath(
   return _workflowConnectionPathBetween(start, end);
 }
 
-Offset _workflowConnectionStart(WorkflowNode source, {String? sourceHandleId}) {
+Offset _workflowConnectionStart(
+  WorkflowNode source, {
+  String? sourceHandleId,
+  bool containerHasChildren = true,
+}) {
   if (source.isContainer && sourceHandleId == workflowContainerStartHandleId) {
     return Offset(
       source.x + 76 + _nodeAddButtonHitSize / 2,
-      source.y + _containerChildTop + _nodeHeight / 2,
+      source.y +
+          _containerStartCenterY(
+            containerHeight: _nodeHeightFor(source),
+            hasChildren: containerHasChildren,
+          ),
     );
   }
   if (source.kind == WorkflowNodeKind.condition && sourceHandleId != null) {
@@ -3170,6 +3184,13 @@ Offset _workflowConnectionStart(WorkflowNode source, {String? sourceHandleId}) {
             : _nodeHeightFor(source) / 2),
   );
 }
+
+double _containerStartCenterY({
+  required double containerHeight,
+  required bool hasChildren,
+}) => hasChildren
+    ? _containerChildTop + _nodeHeight / 2
+    : (_containerHeaderHeight + containerHeight) / 2;
 
 Offset _workflowConnectionEnd(WorkflowNode target) => Offset(
   target.x,
