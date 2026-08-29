@@ -427,7 +427,6 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () => _selectNode(node.id),
-              onPanStart: (_) => _selectNode(node.id),
               onPanUpdate: (details) {
                 final scale = math.max(
                   0.35,
