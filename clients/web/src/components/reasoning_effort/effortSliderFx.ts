@@ -74,6 +74,9 @@ const DARK_PURPLE_LEFT: Rgb = [24, 19, 40];
 export const EFFORT_COMMIT_THROTTLE_MS = 16;
 export const EFFORT_PIXEL_FRAME_MS = 33;
 export const EFFORT_STREAM_FRAME_MS = 33;
+/** 非末档潮水柔边宽度（相对轨长）。 */
+export const EFFORT_TIDE_SOFT_WIDTH = 0.18;
+export const EFFORT_MAX_TIER_PROGRESS = 0.995;
 
 export function clamp(value: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, value));
@@ -274,7 +277,8 @@ export function attachEffortPixelField(
     ctx.clearRect(0, 0, width, height);
     if (!active) return;
 
-    const maskFrac = clamp(thumb100 / 100, 0, 1);
+    const isMaxTier = thumb100 >= EFFORT_MAX_TIER_PROGRESS * 100 || maxBlend >= 0.9;
+    const maskFrac = isMaxTier ? 1 : clamp(thumb100 / 100, 0, 1);
     const reveal = reduced
       ? 1
       : smoothstep(0, 1, (time - startedAt) / 1000);
@@ -282,6 +286,7 @@ export function attachEffortPixelField(
     const bandIn = 0.1 * maskFrac;
     const bandOut = 0.07 * maskFrac;
     const gap = 0.2 + (gapBase - 0.2) * maxBlend;
+    const soft = isMaxTier ? 0 : EFFORT_TIDE_SOFT_WIDTH;
     const elapsed = reduced ? 0 : Math.max(0, time - startedAt);
 
     const greenPal: EffortPalette = {
@@ -318,7 +323,14 @@ export function attachEffortPixelField(
     ctx.clip();
 
     for (const c of grid) {
-      if (maskFrac < 1 && c.nX > maskFrac) continue;
+      const tide = Math.sin(c.nX * 26 + c.row * 1.85 + elapsed * 0.0021 + c.base * 6.283);
+      const spray = Math.sin(
+        c.column * 3.17 + c.row * 5.41 + elapsed * 0.0033 + c.phase * Math.PI * 2,
+      );
+      const tideEdge = isMaxTier
+        ? 1.08
+        : maskFrac + 0.015 + tide * 0.05 + spray * 0.028;
+      if (c.nX > tideEdge + soft * 0.35) continue;
       const nLocal = c.nX / Math.max(maskFrac, 0.001);
       const effIntensity = mix(1, c.intensity, maxBlend);
       const revealAlpha = smoothstep(frontier - bandIn, frontier + bandOut, c.nX);
@@ -404,13 +416,20 @@ export function attachEffortPixelField(
         : mixRgb(blendedColor, pal.highlight, highlightAmount);
 
       const baseOpacity = mix(0.82 + c.base * 0.08, 0.7 + c.base * 0.2, maxBlend);
-      ctx.globalAlpha =
+      const edgeFade = isMaxTier
+        ? 1
+        : (1 - smoothstep(tideEdge - soft, tideEdge, c.nX)) *
+          (0.62 + 0.38 * (0.5 + 0.5 * tide));
+      const cellAlpha =
         (peakHighlight || hottestHighlight
           ? revealAlpha * effIntensity
           : revealAlpha *
             effIntensity *
             clamp(baseOpacity + lightAmount * 0.12, 0, 1)) *
+        edgeFade *
         pal.boost;
+      if (cellAlpha < 0.02) continue;
+      ctx.globalAlpha = cellAlpha;
       ctx.fillStyle = rgbCss(color);
       ctx.fillRect(
         c.x + gap * 0.5,

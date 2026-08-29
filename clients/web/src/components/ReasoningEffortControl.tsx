@@ -7,6 +7,8 @@ import {
   attachEffortPixelField,
   attachEffortStreamField,
   clamp,
+  EFFORT_MAX_TIER_PROGRESS,
+  EFFORT_TIDE_SOFT_WIDTH,
   isDarkEffortTheme,
   resolveEffortFxBlends,
   type EffortPixelFieldHandle,
@@ -152,22 +154,26 @@ function ReasoningEffortPanel({
     };
   }, []);
 
+  const isMaxTier =
+    isMax || blends.maxBlend >= 0.9 || slider100 >= EFFORT_MAX_TIER_PROGRESS * 100;
+
   useEffect(() => {
     pixelHandleRef.current?.setParams({
       active: blends.pixelBlend > 0.01,
       lowBlend: blends.lowBlend,
       maxBlend: blends.maxBlend,
-      thumb100: slider100,
+      // 末档按满轨渲染，交界柔边只在非末档启用。
+      thumb100: isMaxTier ? 100 : slider100,
       dark: darkTheme,
       reducedMotion,
     });
     streamHandleRef.current?.setParams({
-      intensity: blends.stream01,
+      intensity: isMaxTier ? 1 : blends.stream01,
       opacity: Math.max(0, 1 - blends.pixelBlend),
       dark: darkTheme,
       reducedMotion,
     });
-  }, [blends, slider100, darkTheme, reducedMotion]);
+  }, [blends, slider100, darkTheme, reducedMotion, isMaxTier]);
 
   const commit = (nextIndex: number) => {
     const next = options[clampIndex(nextIndex, options)];
@@ -225,6 +231,12 @@ function ReasoningEffortPanel({
       : blends.lowBlend < 0.99
         ? `color-mix(in srgb, #2ea86c ${Math.round((1 - blends.lowBlend) * 100)}%, #3b5bd8)`
         : '#3b5bd8';
+  const fillPct = isMaxTier ? 100 : slider100;
+  // 非末档：宽柔边潮水掩膜；末档：不透明满轨。
+  const tideSoftPct = EFFORT_TIDE_SOFT_WIDTH * 100;
+  const tideMask = isMaxTier
+    ? 'none'
+    : `linear-gradient(to right, #000 0%, #000 calc(${slider100}% - ${tideSoftPct * 0.85}%), rgba(0,0,0,0.55) calc(${slider100}% - 4%), transparent calc(${slider100}% + ${tideSoftPct * 0.55}%))`;
 
   return (
     <div
@@ -232,9 +244,11 @@ function ReasoningEffortPanel({
       data-es-theme={darkTheme ? 'dark' : 'light'}
       data-status={statusClass}
       data-dragging={dragging ? '1' : '0'}
+      data-max-tier={isMaxTier ? '1' : '0'}
       style={
         {
           '--oh-effort-progress': `${slider100}%`,
+          '--oh-effort-fill': `${fillPct}%`,
           '--oh-effort-thumb': thumbPosition,
           '--oh-effort-pixel': `${blends.pixelBlend}`,
           '--oh-effort-max': `${blends.maxBlend}`,
@@ -282,9 +296,11 @@ function ReasoningEffortPanel({
               }`}
               style={{
                 opacity: String(0.35 + blends.maxBlend * 0.65),
-                clipPath: `inset(0 ${Math.max(0, 100 - slider100)}% 0 0)`,
-                maskImage: `linear-gradient(to right, #000 0%, #000 calc(${slider100}% - 14px), transparent ${slider100}%)`,
-                WebkitMaskImage: `linear-gradient(to right, #000 0%, #000 calc(${slider100}% - 14px), transparent ${slider100}%)`,
+                clipPath: isMaxTier
+                  ? 'none'
+                  : `inset(0 ${Math.max(0, 100 - fillPct)}% 0 0)`,
+                maskImage: tideMask,
+                WebkitMaskImage: tideMask,
               }}
             />
             <div
@@ -311,10 +327,14 @@ function ReasoningEffortPanel({
               ref={streamCanvasRef}
               class="oh-reasoning-effort-stream"
               aria-hidden="true"
-              style={{
-                maskImage: `linear-gradient(to right, #000 0%, #000 calc(${slider100}% - 14px), transparent ${slider100}%)`,
-                WebkitMaskImage: `linear-gradient(to right, #000 0%, #000 calc(${slider100}% - 14px), transparent ${slider100}%)`,
-              }}
+              style={
+                isMaxTier
+                  ? undefined
+                  : {
+                      maskImage: tideMask,
+                      WebkitMaskImage: tideMask,
+                    }
+              }
             />
             <canvas
               ref={pixelCanvasRef}
@@ -322,10 +342,6 @@ function ReasoningEffortPanel({
                 blends.pixelBlend > 0.01 ? 'is-on' : ''
               }`}
               aria-hidden="true"
-              style={{
-                maskImage: `linear-gradient(to right, #000 0%, #000 calc(${slider100}% - 14px), transparent ${slider100}%)`,
-                WebkitMaskImage: `linear-gradient(to right, #000 0%, #000 calc(${slider100}% - 14px), transparent ${slider100}%)`,
-              }}
             />
           </div>
           <span class="oh-reasoning-effort-thumb" aria-hidden="true" />

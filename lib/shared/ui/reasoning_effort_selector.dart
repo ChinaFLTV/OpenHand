@@ -20,6 +20,11 @@ const double _kReasoningPopupGap = 8;
 const double _kThumbSize = 22;
 const double _kTrackHeight = 32;
 const Duration _kLabelSwitchDuration = kOpenHandMotion280;
+/// 末档判定：进度或紫段混合足够高时视为满轨。
+const double _kMaxTierProgress = 0.995;
+const double _kMaxTierBlend = 0.9;
+/// 非末档潮水前沿相对拇指的柔边宽度（归一化轨长）。
+const double _kTideSoftWidth = 0.18;
 
 /// Codex 风格色板：Low 绿 → High 蓝 → MAX 紫（派生自 dsh-effort-slider）。
 abstract final class _EffortPalettes {
@@ -588,20 +593,35 @@ class _EffortTrackPainter extends CustomPainter {
 
     const thumbPad = _kThumbSize / 2;
     final thumbX = thumbPad + (size.width - _kThumbSize) * progress;
-    final fillRight = thumbX.clamp(0.0, size.width);
+    final isMaxTier =
+        progress >= _kMaxTierProgress || maxBlend >= _kMaxTierBlend;
+    // 末档满轨；非末档填到拇指，再由潮水柔边自然漫过交界。
+    final fillRight = isMaxTier ? size.width : thumbX.clamp(0.0, size.width);
     final accent = _EffortPalettes.resolveFill(progress, dark: dark);
     final cy = size.height / 2;
 
     if (maxBlend > 0.02 && fillRight > 0) {
       canvas.save();
       canvas.clipRRect(track);
+      final maxEnd = isMaxTier
+          ? size.width
+          : math.min(size.width, fillRight + size.width * 0.08);
       canvas.drawRect(
-        Rect.fromLTRB(0, trackTop, fillRight, trackTop + _kTrackHeight),
+        Rect.fromLTRB(0, trackTop, maxEnd, trackTop + _kTrackHeight),
         Paint()
           ..shader = LinearGradient(
-            colors: _EffortPalettes.trackMaxGradient(dark: dark),
-          ).createShader(track.outerRect)
-          ..color = Colors.white.withValues(alpha: 0.35 + maxBlend * 0.65),
+            colors: <Color>[
+              ..._EffortPalettes.trackMaxGradient(dark: dark).map(
+                (c) => c.withValues(alpha: 0.35 + maxBlend * 0.65),
+              ),
+              if (!isMaxTier) const Color(0x00000000),
+            ],
+            stops: isMaxTier
+                ? null
+                : <double>[0, 0.35, 0.62, 0.82, 1],
+          ).createShader(
+            Rect.fromLTRB(0, trackTop, maxEnd, trackTop + _kTrackHeight),
+          ),
       );
       canvas.restore();
     }
@@ -609,18 +629,24 @@ class _EffortTrackPainter extends CustomPainter {
     if (progress > 0.01 && pixelBlend < 0.98) {
       canvas.save();
       canvas.clipRRect(track);
+      final streamEnd = isMaxTier
+          ? size.width
+          : math.min(size.width, fillRight + size.width * _kTideSoftWidth);
       canvas.drawRect(
-        Rect.fromLTRB(0, trackTop, fillRight, trackTop + _kTrackHeight),
+        Rect.fromLTRB(0, trackTop, streamEnd, trackTop + _kTrackHeight),
         Paint()
           ..shader = LinearGradient(
             colors: <Color>[
-              accent.withValues(alpha: 0.12),
-              accent.withValues(alpha: 0.5 + progress * 0.28),
-              accent.withValues(alpha: 0.08),
+              accent.withValues(alpha: 0.14),
+              accent.withValues(alpha: 0.52 + progress * 0.28),
+              accent.withValues(alpha: isMaxTier ? 0.42 : 0.18),
+              if (!isMaxTier) accent.withValues(alpha: 0),
             ],
-            stops: const <double>[0, 0.78, 1],
+            stops: isMaxTier
+                ? const <double>[0, 0.55, 1]
+                : const <double>[0, 0.55, 0.82, 1],
           ).createShader(
-            Rect.fromLTRB(0, trackTop, fillRight, trackTop + _kTrackHeight),
+            Rect.fromLTRB(0, trackTop, streamEnd, trackTop + _kTrackHeight),
           )
           ..color = Colors.white.withValues(alpha: 1 - pixelBlend),
       );
@@ -631,27 +657,13 @@ class _EffortTrackPainter extends CustomPainter {
     }
 
     if (pixelBlend > 0.01) {
-      canvas.saveLayer(
-        track.outerRect,
-        Paint()..color = Colors.white.withValues(alpha: pixelBlend),
-      );
+      canvas.save();
       canvas.clipRRect(track);
-      _paintPixelField(canvas, size, fillRight);
-      // 前沿柔化：避免特效区与空白轨硬切。
-      canvas.drawRect(
-        Rect.fromLTRB(
-          math.max(0, fillRight - 18),
-          trackTop,
-          fillRight,
-          trackTop + _kTrackHeight,
-        ),
-        Paint()
-          ..blendMode = BlendMode.dstIn
-          ..shader = const LinearGradient(
-            colors: <Color>[Colors.white, Colors.transparent],
-          ).createShader(
-            Rect.fromLTRB(fillRight - 18, trackTop, fillRight, trackTop + _kTrackHeight),
-          ),
+      _paintPixelField(
+        canvas,
+        size,
+        maskFrac: isMaxTier ? 1 : (thumbX / size.width).clamp(0.0, 1.0),
+        isMaxTier: isMaxTier,
       );
       canvas.restore();
     }
@@ -731,10 +743,14 @@ class _EffortTrackPainter extends CustomPainter {
     }
   }
 
-  void _paintPixelField(Canvas canvas, Size size, double fillRight) {
+  void _paintPixelField(
+    Canvas canvas,
+    Size size, {
+    required double maskFrac,
+    required bool isMaxTier,
+  }) {
     final cell = size.width < 280 ? 5.0 : 6.0;
     final gap = 0.2 + 0.9 * maxBlend;
-    final maskFrac = (fillRight / size.width).clamp(0.0, 1.0);
     final elapsed = reducedMotion ? 0.0 : timeMs;
     final reveal = reducedMotion ? 1.0 : _smoothstep(0, 1, elapsed / 1000);
     final frontier = maskFrac * (1 - reveal);
@@ -742,19 +758,34 @@ class _EffortTrackPainter extends CustomPainter {
     final columns = (size.width / cell).ceil();
     final rows = (size.height / cell).ceil();
     final flow = reducedMotion ? 0.0 : elapsed / 4000;
+    final soft = isMaxTier ? 0.0 : _kTideSoftWidth;
 
     for (var row = 0; row < rows; row++) {
       for (var column = 0; column < columns; column++) {
         final x = column * cell;
         final y = row * cell;
         final nX = (x + cell * 0.5) / size.width;
-        if (nX > maskFrac) continue;
-        final revealAlpha = _smoothstep(frontier - 0.1 * maskFrac, frontier + 0.07 * maskFrac, nX);
+        final base = (math.sin(column * 12.9898 + row * 78.233) * 43758.5453).abs() % 1;
+        final phase = (math.sin(column * 31.17 + row * 11.93) * 28437.123).abs() % 1;
+        // 潮水前沿：按行起伏，并向拇指右侧轻柔漫出。
+        final tide =
+            math.sin(nX * 26 + row * 1.85 + elapsed * 0.0021 + base * 6.283);
+        final spray = math.sin(
+          column * 3.17 + row * 5.41 + elapsed * 0.0033 + phase * math.pi * 2,
+        );
+        final tideEdge = isMaxTier
+            ? 1.08
+            : maskFrac + 0.015 + tide * 0.05 + spray * 0.028;
+        if (nX > tideEdge + soft * 0.35) continue;
+
+        final revealAlpha = _smoothstep(
+          frontier - 0.1 * maskFrac,
+          frontier + 0.07 * maskFrac,
+          nX,
+        );
         if (revealAlpha <= 0.002) continue;
 
-        final base = (math.sin(column * 12.9898 + row * 78.233) * 43758.5453).abs() % 1;
         final tempo = (math.sin(column * 7.13 + row * 19.41) * 19341.731).abs() % 1;
-        final phase = (math.sin(column * 31.17 + row * 11.93) * 28437.123).abs() % 1;
         final period = 500 + tempo * 1500;
         final localTime = elapsed + phase * period;
         final cycle = (localTime / period).floor();
@@ -777,11 +808,15 @@ class _EffortTrackPainter extends CustomPainter {
           maxBlend,
         )!;
         final highlight = Color.lerp(color, Colors.white, light * 0.55)!;
-        final edgeFade = 1.0 - _smoothstep(maskFrac - 0.1, maskFrac, nX);
+        final edgeFade = isMaxTier
+            ? 1.0
+            : (1.0 - _smoothstep(tideEdge - soft, tideEdge, nX)) *
+                (0.62 + 0.38 * (0.5 + 0.5 * tide));
         final alpha = revealAlpha *
             edgeFade *
             _mix(0.82, 0.7 + base * 0.2, maxBlend) *
             (0.75 + light * 0.25);
+        if (alpha < 0.02) continue;
         canvas.drawRRect(
           RRect.fromRectAndRadius(
             Rect.fromLTWH(x + gap * 0.5, y + gap * 0.5, cell - gap, cell - gap),
