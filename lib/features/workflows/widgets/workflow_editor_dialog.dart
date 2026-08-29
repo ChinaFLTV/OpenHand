@@ -641,7 +641,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                 ),
               ),
             ),
-          if (_isWorkflowBranchingKind(node.kind))
+          if (_workflowNodeHasBranches(node))
             for (final branch in _workflowNodeBranches(node).indexed)
               Positioned(
                 left: _nodeWidth - _nodeAddButtonHitSize / 2,
@@ -975,7 +975,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             ),
           ],
         ),
-        if (_isWorkflowBranchingKind(node.kind)) ...[
+        if (_workflowNodeHasBranches(node)) ...[
           kOpenHandGap8,
           ..._workflowNodeBranches(node).map(
             (branch) => SizedBox(
@@ -1018,7 +1018,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
           ),
           const Spacer(),
         ],
-        if (!_isWorkflowBranchingKind(node.kind))
+        if (!_workflowNodeHasBranches(node))
           Row(
             children: [
               const Spacer(),
@@ -1375,7 +1375,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         (!source.isContainer || target.parentNodeId != source.id)) {
       return '内部起点只能连接当前容器内的节点。';
     }
-    if (_isWorkflowBranchingKind(source.kind) &&
+    if (_workflowNodeHasBranches(source) &&
         !_workflowNodeBranches(
           source,
         ).any((branch) => branch.id == sourceHandleId)) {
@@ -1696,6 +1696,12 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         ],
         WorkflowSettingKeys.codeExecutionTimeoutSeconds:
             defaultWorkflowCodeTimeoutSeconds,
+        WorkflowSettingKeys.retryEnabled: false,
+        WorkflowSettingKeys.retryCount: defaultWorkflowCodeRetryCount,
+        WorkflowSettingKeys.retryIntervalMs: defaultWorkflowCodeRetryIntervalMs,
+        WorkflowSettingKeys.errorStrategy:
+            WorkflowCodeErrorStrategy.terminate.storageValue,
+        WorkflowSettingKeys.errorDefaultValues: <String, Object?>{},
       },
       WorkflowNodeKind.humanIntervention => <String, Object?>{
         WorkflowSettingKeys.humanDeliveryMethod:
@@ -1789,7 +1795,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             .map((node) => node.id == updated.id ? updated : node)
             .toList(growable: false),
       );
-      if (_isWorkflowBranchingKind(updated.kind)) {
+      if (_workflowNodeHasBranches(updated) ||
+          (previous != null && _workflowNodeHasBranches(previous))) {
         final branches = _workflowNodeBranches(updated);
         final branchIds = branches.map((branch) => branch.id).toSet();
         final renamedHandles = <String, String>{};
@@ -1808,6 +1815,14 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         _connections = _connections
             .map((connection) {
               if (connection.sourceNodeId != updated.id) return connection;
+              if (branches.isEmpty &&
+                  connection.sourceHandleId == workflowCodeSuccessHandleId) {
+                return WorkflowConnection(
+                  id: connection.id,
+                  sourceNodeId: connection.sourceNodeId,
+                  targetNodeId: connection.targetNodeId,
+                );
+              }
               final nextHandle = renamedHandles[connection.sourceHandleId];
               if (nextHandle != null) {
                 return WorkflowConnection(
@@ -2341,6 +2356,24 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             timeout > maxWorkflowCodeTimeoutSeconds) {
           return '代码执行节点的超时时间必须在 $minWorkflowCodeTimeoutSeconds–$maxWorkflowCodeTimeoutSeconds 秒之间。';
         }
+        if (node.boolSetting(WorkflowSettingKeys.retryEnabled)) {
+          final retryCount = node.intSetting(
+            WorkflowSettingKeys.retryCount,
+            defaultWorkflowCodeRetryCount,
+          );
+          final retryInterval = node.intSetting(
+            WorkflowSettingKeys.retryIntervalMs,
+            defaultWorkflowCodeRetryIntervalMs,
+          );
+          if (retryCount < minWorkflowCodeRetryCount ||
+              retryCount > maxWorkflowCodeRetryCount) {
+            return '代码执行节点的重试次数必须在 $minWorkflowCodeRetryCount–$maxWorkflowCodeRetryCount 次之间。';
+          }
+          if (retryInterval < minWorkflowCodeRetryIntervalMs ||
+              retryInterval > maxWorkflowCodeRetryIntervalMs) {
+            return '代码执行节点的重试间隔必须在 $minWorkflowCodeRetryIntervalMs–$maxWorkflowCodeRetryIntervalMs 毫秒之间。';
+          }
+        }
         try {
           WorkflowStructuredOutputParser.validateFields(
             node.codeInputFields(),
@@ -2356,6 +2389,22 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             node.outputFields(),
             label: '代码输出变量',
           );
+          if (WorkflowCodeErrorStrategy.fromStorage(
+                node.settings[WorkflowSettingKeys.errorStrategy],
+              ) ==
+              WorkflowCodeErrorStrategy.defaultValue) {
+            final defaults = node.codeErrorDefaultValues();
+            WorkflowStructuredOutputParser.resolveValues(
+              node.outputFields(),
+              <String, Object?>{
+                for (final field in node.outputFields())
+                  field.name.trim():
+                      defaults[field.id] ??
+                      defaultWorkflowCodeErrorValue(field.type),
+              },
+              label: '代码异常默认值',
+            );
+          }
         } catch (error) {
           return '$error';
         }
@@ -2559,7 +2608,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       if (!internalStart && !sameNestedScope && !topLevel) {
         return '节点“${source.title}”存在跨工作流作用域的连线。';
       }
-      if (!_isWorkflowBranchingKind(source.kind)) {
+      if (!_workflowNodeHasBranches(source)) {
         continue;
       }
       final branchIds = _workflowNodeBranches(
@@ -3494,7 +3543,7 @@ Offset _workflowConnectionStart(
           ),
     );
   }
-  if (_isWorkflowBranchingKind(source.kind) && sourceHandleId != null) {
+  if (_workflowNodeHasBranches(source) && sourceHandleId != null) {
     final index = _workflowNodeBranches(
       source,
     ).indexWhere((branch) => branch.id == sourceHandleId);
@@ -3552,6 +3601,14 @@ bool _isWorkflowBranchingKind(WorkflowNodeKind kind) =>
     kind == WorkflowNodeKind.condition ||
     kind == WorkflowNodeKind.humanIntervention;
 
+bool _workflowNodeHasBranches(WorkflowNode node) =>
+    _isWorkflowBranchingKind(node.kind) ||
+    node.kind == WorkflowNodeKind.codeExecution &&
+        WorkflowCodeErrorStrategy.fromStorage(
+              node.settings[WorkflowSettingKeys.errorStrategy],
+            ) ==
+            WorkflowCodeErrorStrategy.failBranch;
+
 List<({String id, String label})> _workflowNodeBranches(WorkflowNode node) =>
     switch (node.kind) {
       WorkflowNodeKind.condition => <({String id, String label})>[
@@ -3567,6 +3624,13 @@ List<({String id, String label})> _workflowNodeBranches(WorkflowNode node) =>
             .humanActions()
             .map((action) => (id: action.id, label: action.title.trim()))
             .toList(growable: false),
+      WorkflowNodeKind.codeExecution =>
+        _workflowNodeHasBranches(node)
+            ? const <({String id, String label})>[
+                (id: workflowCodeSuccessHandleId, label: '成功'),
+                (id: workflowCodeFailureHandleId, label: '异常'),
+              ]
+            : const <({String id, String label})>[],
       _ => const <({String id, String label})>[],
     };
 
@@ -3629,7 +3693,7 @@ double _nodeHeightFor(WorkflowNode node) {
       ),
     );
   }
-  if (!_isWorkflowBranchingKind(node.kind)) return _nodeHeight;
+  if (!_workflowNodeHasBranches(node)) return _nodeHeight;
   final branchCount = _workflowNodeBranches(node).length;
   return math.max(
     _nodeHeight,

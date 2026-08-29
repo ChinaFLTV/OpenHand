@@ -15096,17 +15096,11 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                           ),
                         );
 
-                  Widget textFieldWidget = TextField(
+                  Widget textFieldWidget = OpenHandCodeTextField(
                     controller: widget.controller,
                     focusNode: widget.focusNode,
                     readOnly: widget.readOnly,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    maxLines: null,
-                    expands: true,
                     scrollController: widget.scrollController,
-                    smartDashesType: SmartDashesType.disabled,
-                    smartQuotesType: SmartQuotesType.disabled,
                     style: editorStyle,
                     cursorColor: colorScheme.primary,
                     contextMenuBuilder: widget.readOnly
@@ -15115,23 +15109,11 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                                 editableTextState: state0,
                               )
                         : (context0, state0) => const SizedBox.shrink(),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      disabledBorder: InputBorder.none,
-                      errorBorder: InputBorder.none,
-                      focusedErrorBorder: InputBorder.none,
-                      filled: false,
-                      fillColor: Colors.transparent,
-                      contentPadding: EdgeInsets.only(
-                        top: _editorTextPaddingTop,
-                        bottom: _editorTextPaddingBottom,
-                        left: _editorTextPaddingLeft,
-                        right: _editorTextPaddingRight,
-                      ),
-                      isDense: true,
-                      isCollapsed: true,
+                    contentPadding: const EdgeInsets.only(
+                      top: _editorTextPaddingTop,
+                      bottom: _editorTextPaddingBottom,
+                      left: _editorTextPaddingLeft,
+                      right: _editorTextPaddingRight,
                     ),
                     onChanged: widget.onChanged,
                   );

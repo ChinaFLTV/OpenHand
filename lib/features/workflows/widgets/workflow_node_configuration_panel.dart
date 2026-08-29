@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/model/app_settings_snapshot.dart'
     show RecentModelSelection;
+import '../../../app/model/editor_code_theme.dart';
+import '../../../app/state/settings_controller.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/openhand_code_editor.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
@@ -351,6 +355,10 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
       defaultWorkflowCode(language),
     );
     final inputFields = node.codeInputFields();
+    final codeReservedParameterNames = <String, String>{
+      ...reservedParameterNames,
+      for (final name in workflowCodeSystemOutputNames) name: '代码异常分支',
+    };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -398,29 +406,36 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
         _FormSection(
           title: '输入变量',
           icon: Icons.input_rounded,
-          trailing: TextButton.icon(
-            onPressed: () => _syncCodeInputsFromSignature(language, code),
-            icon: const Icon(Icons.sync_rounded, size: 17),
-            label: const Text('从代码同步'),
-          ),
-          child: _OutputFieldEditor(
-            fields: inputFields,
-            addLabel: '添加输入变量',
-            idPrefix: 'code-input',
-            availableReferences: availableReferences,
-            reservedParameterNames: const <String, String>{},
-            inputMode: true,
-            emptyMessage: '当前 main 函数不接收输入变量。',
-            onChanged: (fields) => _setValues(<String, Object?>{
-              WorkflowSettingKeys.codeInputFields: fields
-                  .map((item) => item.toJson())
-                  .toList(growable: false),
-              WorkflowSettingKeys.code: workflowCodeWithInputSignature(
-                code,
-                language,
-                fields,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _OutputFieldEditor(
+                fields: inputFields,
+                addLabel: '添加输入变量',
+                idPrefix: 'code-input',
+                availableReferences: availableReferences,
+                reservedParameterNames: const <String, String>{},
+                inputMode: true,
+                emptyMessage: '当前 main 函数不接收输入变量。',
+                onChanged: (fields) => _setValues(<String, Object?>{
+                  WorkflowSettingKeys.codeInputFields: fields
+                      .map((item) => item.toJson())
+                      .toList(growable: false),
+                  WorkflowSettingKeys.code: workflowCodeWithInputSignature(
+                    code,
+                    language,
+                    fields,
+                  ),
+                }),
               ),
-            }),
+              kOpenHandGap8,
+              OutlinedButton.icon(
+                onPressed: () => _syncCodeInputsFromSignature(language, code),
+                icon: const Icon(Icons.sync_rounded),
+                label: const Text('从代码同步'),
+                style: OutlinedButton.styleFrom(shape: _workflowButtonShape),
+              ),
+            ],
           ),
         ),
         kOpenHandGap14,
@@ -447,12 +462,9 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
             addLabel: '添加输出变量',
             idPrefix: 'code-output',
             availableReferences: const <WorkflowParameterReference>[],
-            reservedParameterNames: reservedParameterNames,
+            reservedParameterNames: codeReservedParameterNames,
             definitionOnly: true,
-            onChanged: (value) => _set(
-              WorkflowSettingKeys.outputFields,
-              value.map((item) => item.toJson()).toList(growable: false),
-            ),
+            onChanged: _setCodeOutputFields,
           ),
         ),
         kOpenHandGap14,
@@ -481,9 +493,189 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
             ),
           ),
         ),
+        kOpenHandGap14,
+        _buildCodeRetrySection(context),
+        kOpenHandGap14,
+        _buildCodeErrorSection(context),
         kOpenHandGap16,
         _buildTestButton(),
       ],
+    );
+  }
+
+  Widget _buildCodeRetrySection(BuildContext context) {
+    final enabled = node.boolSetting(WorkflowSettingKeys.retryEnabled);
+    return _FormSection(
+      title: '失败时重试',
+      icon: Icons.replay_circle_filled_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SwitchSetting(
+            title: enabled ? '已启用自动重试' : '自动重试已关闭',
+            description: '仅重试运行失败、超时或输出校验失败；配置错误不会重复执行。',
+            value: enabled,
+            onChanged: (value) => _set(WorkflowSettingKeys.retryEnabled, value),
+          ),
+          AnimatedSize(
+            duration: openHandMotionDuration(context, kOpenHandMotion220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: enabled
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: _NumberFieldRow(
+                      leftLabel: '最大重试次数',
+                      leftValue: node.intSetting(
+                        WorkflowSettingKeys.retryCount,
+                        defaultWorkflowCodeRetryCount,
+                      ),
+                      leftMin: minWorkflowCodeRetryCount,
+                      leftMax: maxWorkflowCodeRetryCount,
+                      onLeftChanged: (value) =>
+                          _set(WorkflowSettingKeys.retryCount, value),
+                      rightLabel: '重试间隔（毫秒）',
+                      rightValue: node.intSetting(
+                        WorkflowSettingKeys.retryIntervalMs,
+                        defaultWorkflowCodeRetryIntervalMs,
+                      ),
+                      rightMin: minWorkflowCodeRetryIntervalMs,
+                      rightMax: maxWorkflowCodeRetryIntervalMs,
+                      onRightChanged: (value) =>
+                          _set(WorkflowSettingKeys.retryIntervalMs, value),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCodeErrorSection(BuildContext context) {
+    final strategy = WorkflowCodeErrorStrategy.fromStorage(
+      node.settings[WorkflowSettingKeys.errorStrategy],
+    );
+    final defaults = node.codeErrorDefaultValues();
+    final outputFields = node.outputFields();
+    final theme = Theme.of(context);
+    return _FormSection(
+      title: '异常处理',
+      icon: Icons.account_tree_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _LabeledField(
+            label: '处理方式',
+            required: true,
+            child: AnimatedDropdownButtonFormField<WorkflowCodeErrorStrategy>(
+              isExpanded: true,
+              initialValue: strategy,
+              decoration: _inputDecoration('选择异常处理方式'),
+              items: WorkflowCodeErrorStrategy.values
+                  .map(
+                    (item) => DropdownMenuItem<WorkflowCodeErrorStrategy>(
+                      value: item,
+                      child: Text(item.label),
+                    ),
+                  )
+                  .toList(growable: false),
+              onChanged: (value) {
+                if (value == null || value == strategy) return;
+                _setValues(<String, Object?>{
+                  WorkflowSettingKeys.errorStrategy: value.storageValue,
+                  WorkflowSettingKeys.errorDefaultValues:
+                      value == WorkflowCodeErrorStrategy.defaultValue
+                      ? _normalizedCodeErrorDefaults(node.outputFields())
+                      : <String, Object?>{},
+                });
+              },
+            ),
+          ),
+          AnimatedSize(
+            duration: openHandMotionDuration(context, kOpenHandMotion220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: switch (strategy) {
+              WorkflowCodeErrorStrategy.terminate => Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '重试耗尽后终止当前工作流，并返回最后一次异常。',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              WorkflowCodeErrorStrategy.defaultValue => Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final (index, field) in outputFields.indexed) ...[
+                      _LabeledField(
+                        label: '${field.name.trim()} · ${field.type.label}',
+                        required: true,
+                        child: _WorkflowTypedValueField(
+                          key: ValueKey<String>(
+                            'code-error-default-${field.id}-${field.type.storageValue}',
+                          ),
+                          value:
+                              defaults[field.id] ??
+                              defaultWorkflowCodeErrorValue(field.type),
+                          type: field.type,
+                          source: WorkflowValueSource.constant,
+                          references: const <WorkflowParameterReference>[],
+                          label: '异常默认值',
+                          onChanged: (value) => _set(
+                            WorkflowSettingKeys.errorDefaultValues,
+                            <String, Object?>{...defaults, field.id: value},
+                          ),
+                        ),
+                      ),
+                      if (index < outputFields.length - 1) kOpenHandGap10,
+                    ],
+                  ],
+                ),
+              ),
+              WorkflowCodeErrorStrategy.failBranch => Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer.withValues(
+                      alpha: 0.42,
+                    ),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius12),
+                    border: Border.all(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.24),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.alt_route_rounded,
+                        size: 20,
+                        color: theme.colorScheme.primary,
+                      ),
+                      kOpenHandHGap10,
+                      Expanded(
+                        child: Text(
+                          '节点将提供“成功”和“异常”两条分支；异常分支可读取 error_type 与 error_message。',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            height: 1.45,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -672,10 +864,39 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
               ),
         )
         .toList(growable: false);
-    _set(
-      WorkflowSettingKeys.outputFields,
-      fields.map((item) => item.toJson()).toList(growable: false),
+    _setCodeOutputFields(fields);
+  }
+
+  void _setCodeOutputFields(List<WorkflowOutputField> fields) {
+    final strategy = WorkflowCodeErrorStrategy.fromStorage(
+      node.settings[WorkflowSettingKeys.errorStrategy],
     );
+    _setValues(<String, Object?>{
+      WorkflowSettingKeys.outputFields: fields
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      WorkflowSettingKeys.errorDefaultValues:
+          strategy == WorkflowCodeErrorStrategy.defaultValue
+          ? _normalizedCodeErrorDefaults(fields)
+          : <String, Object?>{},
+    });
+  }
+
+  Map<String, Object?> _normalizedCodeErrorDefaults(
+    List<WorkflowOutputField> fields,
+  ) {
+    final existing = node.codeErrorDefaultValues();
+    final previous = <String, WorkflowOutputField>{
+      for (final field in node.outputFields()) field.id: field,
+    };
+    return <String, Object?>{
+      for (final field in fields)
+        field.id:
+            previous[field.id]?.type == field.type &&
+                existing.containsKey(field.id)
+            ? existing[field.id]!
+            : defaultWorkflowCodeErrorValue(field.type),
+    };
   }
 
   Widget _buildLlmInput() {
@@ -3196,7 +3417,7 @@ class _CodeRuntimeStatus extends StatelessWidget {
   }
 }
 
-class _WorkflowCodeEditor extends StatefulWidget {
+class _WorkflowCodeEditor extends StatelessWidget {
   const _WorkflowCodeEditor({
     required this.value,
     required this.language,
@@ -3208,94 +3429,21 @@ class _WorkflowCodeEditor extends StatefulWidget {
   final ValueChanged<String> onChanged;
 
   @override
-  State<_WorkflowCodeEditor> createState() => _WorkflowCodeEditorState();
-}
-
-class _WorkflowCodeEditorState extends State<_WorkflowCodeEditor> {
-  late final TextEditingController _controller = TextEditingController(
-    text: widget.value,
-  );
-
-  @override
-  void didUpdateWidget(covariant _WorkflowCodeEditor oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (_controller.text == widget.value) return;
-    _controller.value = TextEditingValue(
-      text: widget.value,
-      selection: TextSelection.collapsed(offset: widget.value.length),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(kOpenHandRadius14),
-      child: ColoredBox(
-        color: theme.colorScheme.surfaceContainerLowest,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              color: theme.colorScheme.surfaceContainerHigh,
-              child: Row(
-                children: [
-                  Icon(
-                    widget.language == WorkflowCodeLanguage.python3
-                        ? Icons.data_object_rounded
-                        : Icons.javascript_rounded,
-                    size: 18,
-                    color: theme.colorScheme.primary,
-                  ),
-                  kOpenHandHGap8,
-                  Text(
-                    'main.${widget.language.fileExtension}',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '${_controller.text.length} 字符',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(
-              height: 330,
-              child: TextField(
-                controller: _controller,
-                expands: true,
-                maxLines: null,
-                textAlignVertical: TextAlignVertical.top,
-                keyboardType: TextInputType.multiline,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontFamily: kOpenHandMonospaceFontFamily,
-                  height: 1.5,
-                ),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.all(14),
-                ),
-                onChanged: (value) {
-                  widget.onChanged(value);
-                  setState(() {});
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
+    final codeTheme = context.select<SettingsController, EditorCodeTheme>(
+      (controller) => controller.editorCodeTheme,
+    );
+    return OpenHandCodeEditor(
+      value: value,
+      language: language == WorkflowCodeLanguage.python3
+          ? 'python'
+          : 'javascript',
+      fileName: 'main.${language.fileExtension}',
+      codeTheme: codeTheme,
+      icon: language == WorkflowCodeLanguage.python3
+          ? Icons.data_object_rounded
+          : Icons.javascript_rounded,
+      onChanged: onChanged,
     );
   }
 }
@@ -3883,6 +4031,7 @@ class _ValueSourceDropdown extends StatelessWidget {
 
 class _WorkflowTypedValueField extends StatelessWidget {
   const _WorkflowTypedValueField({
+    super.key,
     required this.value,
     required this.type,
     required this.source,

@@ -82,6 +82,30 @@ enum WorkflowCodeLanguage {
   }
 }
 
+enum WorkflowCodeErrorStrategy {
+  terminate('none'),
+  defaultValue('default-value'),
+  failBranch('fail-branch');
+
+  const WorkflowCodeErrorStrategy(this.storageValue);
+
+  final String storageValue;
+
+  String get label => switch (this) {
+    WorkflowCodeErrorStrategy.terminate => '终止工作流',
+    WorkflowCodeErrorStrategy.defaultValue => '返回默认值',
+    WorkflowCodeErrorStrategy.failBranch => '进入异常分支',
+  };
+
+  static WorkflowCodeErrorStrategy fromStorage(Object? value) {
+    final normalized = '${value ?? ''}'.trim();
+    return values.firstWhere(
+      (strategy) => strategy.storageValue == normalized,
+      orElse: () => WorkflowCodeErrorStrategy.terminate,
+    );
+  }
+}
+
 String defaultWorkflowCode(WorkflowCodeLanguage language) => switch (language) {
   WorkflowCodeLanguage.python3 =>
     '''def main():
@@ -310,6 +334,18 @@ enum WorkflowOutputType {
   }
 }
 
+String defaultWorkflowCodeErrorValue(WorkflowOutputType type) => switch (type) {
+  WorkflowOutputType.string => '',
+  WorkflowOutputType.integer || WorkflowOutputType.number => '0',
+  WorkflowOutputType.boolean => 'false',
+  WorkflowOutputType.object => '{}',
+  WorkflowOutputType.array ||
+  WorkflowOutputType.arrayString ||
+  WorkflowOutputType.arrayNumber ||
+  WorkflowOutputType.arrayObject ||
+  WorkflowOutputType.arrayBoolean => '[]',
+};
+
 enum WorkflowValueSource {
   variable('variable'),
   constant('constant');
@@ -477,6 +513,20 @@ String? validateWorkflowSourcedValue(
 }
 
 const String workflowContainerStartHandleId = 'container_start';
+const String workflowCodeSuccessHandleId = 'success';
+const String workflowCodeFailureHandleId = 'fail-branch';
+const String workflowCodeErrorTypeOutputName = 'error_type';
+const String workflowCodeErrorMessageOutputName = 'error_message';
+const Set<String> workflowCodeSystemOutputNames = <String>{
+  workflowCodeErrorTypeOutputName,
+  workflowCodeErrorMessageOutputName,
+};
+const int defaultWorkflowCodeRetryCount = 3;
+const int minWorkflowCodeRetryCount = 1;
+const int maxWorkflowCodeRetryCount = 10;
+const int defaultWorkflowCodeRetryIntervalMs = 1000;
+const int minWorkflowCodeRetryIntervalMs = 100;
+const int maxWorkflowCodeRetryIntervalMs = 5000;
 const int maxWorkflowNestedNodeCount = 128;
 const int maxWorkflowListItemCount = 10000;
 const int maxWorkflowListLimit = 20;
@@ -530,6 +580,9 @@ abstract final class WorkflowSettingKeys {
   static const String codeInputFields = 'code_input_fields';
   static const String codeExecutionTimeoutSeconds =
       'code_execution_timeout_seconds';
+  static const String retryEnabled = 'retry_enabled';
+  static const String errorStrategy = 'error_strategy';
+  static const String errorDefaultValues = 'error_default_values';
   static const String humanDeliveryMethod = 'human_delivery_method';
   static const String humanPrompt = 'human_prompt';
   static const String humanInputFields = 'human_input_fields';
@@ -1041,6 +1094,14 @@ class WorkflowNode {
   List<WorkflowOutputField> codeInputFields() =>
       _fieldsSetting(WorkflowSettingKeys.codeInputFields);
 
+  Map<String, String> codeErrorDefaultValues() {
+    final value = settings[WorkflowSettingKeys.errorDefaultValues];
+    if (value is! Map) return const <String, String>{};
+    return Map<String, String>.unmodifiable(<String, String>{
+      for (final entry in value.entries) '${entry.key}': '${entry.value ?? ''}',
+    });
+  }
+
   List<WorkflowOutputField> humanInputFields() =>
       _fieldsSetting(WorkflowSettingKeys.humanInputFields);
 
@@ -1107,6 +1168,24 @@ class WorkflowNode {
             ),
           )
           .toList(growable: false),
+    WorkflowNodeKind.codeExecution => <WorkflowOutputField>[
+      ...outputFields(),
+      if (WorkflowCodeErrorStrategy.fromStorage(
+            settings[WorkflowSettingKeys.errorStrategy],
+          ) ==
+          WorkflowCodeErrorStrategy.failBranch) ...<WorkflowOutputField>[
+        WorkflowOutputField(
+          id: '$id-code-error-type',
+          name: workflowCodeErrorTypeOutputName,
+          description: '代码执行异常类型',
+        ),
+        WorkflowOutputField(
+          id: '$id-code-error-message',
+          name: workflowCodeErrorMessageOutputName,
+          description: '代码执行异常信息',
+        ),
+      ],
+    ],
     WorkflowNodeKind.humanIntervention => <WorkflowOutputField>[
       ...humanInputFields(),
       WorkflowOutputField(
@@ -1152,6 +1231,14 @@ class WorkflowNode {
 String? validateWorkflowParameterNames(List<WorkflowNode> nodes) {
   final owners = <String, WorkflowNode>{};
   for (final node in nodes) {
+    if (node.kind == WorkflowNodeKind.codeExecution) {
+      final conflict = node.outputFields().where(
+        (field) => workflowCodeSystemOutputNames.contains(field.name.trim()),
+      );
+      if (conflict.isNotEmpty) {
+        return '节点“${node.title}”使用了系统保留参数名称“${conflict.first.name.trim()}”。';
+      }
+    }
     if (node.kind == WorkflowNodeKind.humanIntervention) {
       final conflict = node.humanInputFields().where(
         (field) => workflowHumanSystemOutputNames.contains(field.name.trim()),
@@ -1170,7 +1257,13 @@ String? validateWorkflowParameterNames(List<WorkflowNode> nodes) {
           workflowHumanSystemOutputNames.contains(name) &&
           node.kind == WorkflowNodeKind.humanIntervention &&
           previous?.kind == WorkflowNodeKind.humanIntervention;
-      if (previous != null && !sharedHumanSystemOutput) {
+      final sharedCodeSystemOutput =
+          workflowCodeSystemOutputNames.contains(name) &&
+          node.kind == WorkflowNodeKind.codeExecution &&
+          previous?.kind == WorkflowNodeKind.codeExecution;
+      if (previous != null &&
+          !sharedHumanSystemOutput &&
+          !sharedCodeSystemOutput) {
         return '参数名称“$name”在节点“${previous.title}”和“${node.title}”中重复。';
       }
       owners[name] = node;

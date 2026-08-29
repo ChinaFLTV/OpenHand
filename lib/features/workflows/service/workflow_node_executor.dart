@@ -362,43 +362,128 @@ class WorkflowNodeExecutor {
       outputFields,
       label: '代码输出变量',
     );
-    try {
-      final result = await _codeExecutor.execute(
-        runtime: runtime,
-        code: node.stringSetting(WorkflowSettingKeys.code),
-        inputs: inputs,
-        timeout: Duration(
-          seconds: node
+    final errorStrategy = WorkflowCodeErrorStrategy.fromStorage(
+      node.settings[WorkflowSettingKeys.errorStrategy],
+    );
+    final retryCount = node.boolSetting(WorkflowSettingKeys.retryEnabled)
+        ? node
               .intSetting(
-                WorkflowSettingKeys.codeExecutionTimeoutSeconds,
-                defaultWorkflowCodeTimeoutSeconds,
+                WorkflowSettingKeys.retryCount,
+                defaultWorkflowCodeRetryCount,
               )
-              .clamp(
-                minWorkflowCodeTimeoutSeconds,
-                maxWorkflowCodeTimeoutSeconds,
-              ),
-        ),
-      );
-      for (final field in outputFields) {
-        final name = field.name.trim();
-        if (!result.output.containsKey(name)) {
-          throw WorkflowNodeExecutionException('代码返回结果缺少输出变量：$name');
+              .clamp(minWorkflowCodeRetryCount, maxWorkflowCodeRetryCount)
+              .toInt()
+        : 0;
+    final retryInterval = Duration(
+      milliseconds: node
+          .intSetting(
+            WorkflowSettingKeys.retryIntervalMs,
+            defaultWorkflowCodeRetryIntervalMs,
+          )
+          .clamp(minWorkflowCodeRetryIntervalMs, maxWorkflowCodeRetryIntervalMs)
+          .toInt(),
+    );
+    final timeout = Duration(
+      seconds: node
+          .intSetting(
+            WorkflowSettingKeys.codeExecutionTimeoutSeconds,
+            defaultWorkflowCodeTimeoutSeconds,
+          )
+          .clamp(minWorkflowCodeTimeoutSeconds, maxWorkflowCodeTimeoutSeconds),
+    );
+    final stopwatch = Stopwatch()..start();
+    WorkflowNodeExecutionException? latestError;
+    var latestErrorType = 'WorkflowCodeExecutionException';
+    var attempts = 0;
+    for (var attempt = 0; attempt <= retryCount; attempt++) {
+      attempts = attempt + 1;
+      try {
+        final result = await _codeExecutor.execute(
+          runtime: runtime,
+          code: node.stringSetting(WorkflowSettingKeys.code),
+          inputs: inputs,
+          timeout: timeout,
+        );
+        for (final field in outputFields) {
+          final name = field.name.trim();
+          if (!result.output.containsKey(name)) {
+            throw WorkflowNodeExecutionException('代码返回结果缺少输出变量：$name');
+          }
+        }
+        final output = WorkflowStructuredOutputParser.resolveValues(
+          outputFields,
+          result.output,
+          label: '代码输出变量',
+        );
+        return WorkflowNodeExecutionResult(
+          output: output,
+          rawOutput: jsonEncode(output),
+          attempts: attempts,
+          duration: stopwatch.elapsed,
+          selectedBranchId:
+              errorStrategy == WorkflowCodeErrorStrategy.failBranch
+              ? workflowCodeSuccessHandleId
+              : null,
+        );
+      } catch (error) {
+        if (error is WorkflowCodeExecutionException) {
+          latestErrorType = 'WorkflowCodeExecutionException';
+          latestError = WorkflowNodeExecutionException(
+            error.message,
+            cause: error.cause ?? error,
+          );
+        } else if (error is WorkflowNodeExecutionException) {
+          latestErrorType = 'WorkflowNodeExecutionException';
+          latestError = error;
+        } else {
+          rethrow;
         }
       }
-      final output = WorkflowStructuredOutputParser.resolveValues(
-        outputFields,
-        result.output,
-        label: '代码输出变量',
-      );
-      return WorkflowNodeExecutionResult(
-        output: output,
-        rawOutput: jsonEncode(output),
-        attempts: 1,
-        duration: result.duration,
-      );
-    } on WorkflowCodeExecutionException catch (error) {
-      throw WorkflowNodeExecutionException(error.message, cause: error.cause);
+      if (attempt < retryCount) {
+        await Future<void>.delayed(retryInterval);
+      }
     }
+
+    final failure =
+        latestError ?? const WorkflowNodeExecutionException('代码执行失败。');
+    if (errorStrategy == WorkflowCodeErrorStrategy.terminate) throw failure;
+    if (errorStrategy == WorkflowCodeErrorStrategy.defaultValue) {
+      final defaults = node.codeErrorDefaultValues();
+      try {
+        final output = WorkflowStructuredOutputParser.resolveValues(
+          outputFields,
+          <String, Object?>{
+            for (final field in outputFields)
+              field.name.trim():
+                  defaults[field.id] ??
+                  defaultWorkflowCodeErrorValue(field.type),
+          },
+          label: '代码异常默认值',
+        );
+        return WorkflowNodeExecutionResult(
+          output: output,
+          rawOutput: jsonEncode(output),
+          attempts: attempts,
+          duration: stopwatch.elapsed,
+        );
+      } on WorkflowNodeExecutionException catch (error) {
+        throw WorkflowNodeExecutionException(
+          '代码异常默认值无效：${error.message}',
+          cause: error,
+        );
+      }
+    }
+    final output = <String, Object?>{
+      workflowCodeErrorTypeOutputName: latestErrorType,
+      workflowCodeErrorMessageOutputName: failure.message,
+    };
+    return WorkflowNodeExecutionResult(
+      output: Map<String, Object?>.unmodifiable(output),
+      rawOutput: jsonEncode(output),
+      attempts: attempts,
+      duration: stopwatch.elapsed,
+      selectedBranchId: workflowCodeFailureHandleId,
+    );
   }
 
   Future<WorkflowNodeExecutionResult> _executeLlm(
