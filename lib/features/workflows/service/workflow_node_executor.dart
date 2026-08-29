@@ -44,6 +44,61 @@ typedef WorkflowMcpToolInvoker =
       required String toolCallId,
     });
 
+typedef WorkflowLlmConversationListener =
+    void Function(WorkflowLlmConversation conversation);
+
+enum WorkflowLlmConversationStatus { running, succeeded, failed }
+
+enum WorkflowLlmMessageKind { user, reasoning, assistant, toolCall, toolResult }
+
+class WorkflowLlmConversationMessage {
+  const WorkflowLlmConversationMessage({
+    required this.id,
+    required this.kind,
+    required this.content,
+    required this.createdAt,
+    this.toolName,
+    this.toolCallId,
+    this.isError = false,
+  });
+
+  final String id;
+  final WorkflowLlmMessageKind kind;
+  final String content;
+  final DateTime createdAt;
+  final String? toolName;
+  final String? toolCallId;
+  final bool isError;
+}
+
+class WorkflowLlmConversation {
+  const WorkflowLlmConversation({
+    required this.nodeId,
+    required this.modelConfigId,
+    required this.modelId,
+    required this.modelLabel,
+    required this.startedAt,
+    required this.duration,
+    required this.attempts,
+    required this.status,
+    required this.messages,
+    this.endedAt,
+    this.error,
+  });
+
+  final String nodeId;
+  final String modelConfigId;
+  final String modelId;
+  final String modelLabel;
+  final DateTime startedAt;
+  final DateTime? endedAt;
+  final Duration duration;
+  final int attempts;
+  final WorkflowLlmConversationStatus status;
+  final List<WorkflowLlmConversationMessage> messages;
+  final String? error;
+}
+
 class WorkflowMcpToolInvocationResult {
   const WorkflowMcpToolInvocationResult({
     required this.output,
@@ -75,6 +130,7 @@ class WorkflowExecutionResources {
     this.mcpServers = const <McpServer>[],
     this.mcpTools = const <String, List<McpTool>>{},
     this.mcpToolInvoker,
+    this.onLlmConversation,
   });
 
   final List<AiModelConfig> models;
@@ -86,6 +142,7 @@ class WorkflowExecutionResources {
   final List<McpServer> mcpServers;
   final Map<String, List<McpTool>> mcpTools;
   final WorkflowMcpToolInvoker? mcpToolInvoker;
+  final WorkflowLlmConversationListener? onLlmConversation;
 }
 
 class WorkflowNodeExecutionResult {
@@ -94,12 +151,14 @@ class WorkflowNodeExecutionResult {
     required this.attempts,
     required this.duration,
     this.rawOutput = '',
+    this.conversation,
   });
 
   final Object? output;
   final String rawOutput;
   final int attempts;
   final Duration duration;
+  final WorkflowLlmConversation? conversation;
 }
 
 class WorkflowNodeExecutor {
@@ -270,11 +329,48 @@ class WorkflowNodeExecutor {
 
     final retries = _boundedRetryCount(node);
     final interval = _boundedRetryInterval(node);
+    final startedAt = DateTime.now().toUtc();
+    final conversationId = startedAt.microsecondsSinceEpoch;
     final stopwatch = Stopwatch()..start();
     var attempts = 0;
     Object? lastError;
+    var lastMessages = const <WorkflowLlmConversationMessage>[];
     while (attempts <= retries) {
       attempts += 1;
+      final messages = <WorkflowLlmConversationMessage>[
+        WorkflowLlmConversationMessage(
+          id: '$conversationId-${node.id}-$attempts-user',
+          kind: WorkflowLlmMessageKind.user,
+          content: userPrompt,
+          createdAt: DateTime.now().toUtc(),
+        ),
+      ];
+      lastMessages = messages;
+      WorkflowLlmConversation snapshot(
+        WorkflowLlmConversationStatus status, {
+        DateTime? endedAt,
+        String? error,
+      }) {
+        return WorkflowLlmConversation(
+          nodeId: node.id,
+          modelConfigId: modelConfigId,
+          modelId: modelId,
+          modelLabel: provider.providerLabel,
+          startedAt: startedAt,
+          endedAt: endedAt,
+          duration: stopwatch.elapsed,
+          attempts: attempts,
+          status: status,
+          messages: List<WorkflowLlmConversationMessage>.unmodifiable(messages),
+          error: error,
+        );
+      }
+
+      void publishRunning() => resources.onLlmConversation?.call(
+        snapshot(WorkflowLlmConversationStatus.running),
+      );
+
+      publishRunning();
       try {
         final completion = await _sendLlmWithTools(
           model: model,
@@ -282,6 +378,8 @@ class WorkflowNodeExecutor {
           prompt: userPrompt,
           bindings: mcpBindings,
           invoker: resources.mcpToolInvoker,
+          conversationMessages: messages,
+          onConversationChanged: publishRunning,
         );
         final raw = completion.reply.trim();
         if (raw.isEmpty) {
@@ -295,11 +393,18 @@ class WorkflowNodeExecutor {
               )
             : raw;
         stopwatch.stop();
+        final endedAt = DateTime.now().toUtc();
+        final conversation = snapshot(
+          WorkflowLlmConversationStatus.succeeded,
+          endedAt: endedAt,
+        );
+        resources.onLlmConversation?.call(conversation);
         return WorkflowNodeExecutionResult(
           output: output,
           rawOutput: raw,
           attempts: attempts,
           duration: stopwatch.elapsed,
+          conversation: conversation,
         );
       } catch (error) {
         lastError = error;
@@ -308,10 +413,25 @@ class WorkflowNodeExecutor {
       }
     }
     stopwatch.stop();
-    throw WorkflowNodeExecutionException(
-      'LLM 节点执行失败：${_executionErrorText(lastError)}',
-      cause: lastError,
+    final message = 'LLM 节点执行失败：${_executionErrorText(lastError)}';
+    resources.onLlmConversation?.call(
+      WorkflowLlmConversation(
+        nodeId: node.id,
+        modelConfigId: modelConfigId,
+        modelId: modelId,
+        modelLabel: provider.providerLabel,
+        startedAt: startedAt,
+        endedAt: DateTime.now().toUtc(),
+        duration: stopwatch.elapsed,
+        attempts: attempts,
+        status: WorkflowLlmConversationStatus.failed,
+        messages: List<WorkflowLlmConversationMessage>.unmodifiable(
+          lastMessages,
+        ),
+        error: message,
+      ),
     );
+    throw WorkflowNodeExecutionException(message, cause: lastError);
   }
 
   Future<AiChatCompletion> _sendLlmWithTools({
@@ -320,6 +440,8 @@ class WorkflowNodeExecutor {
     required String prompt,
     required List<_WorkflowMcpBinding> bindings,
     required WorkflowMcpToolInvoker? invoker,
+    required List<WorkflowLlmConversationMessage> conversationMessages,
+    required void Function() onConversationChanged,
   }) async {
     final messages = <AiChatTurn>[
       AiChatTurn(role: AiChatRole.system, content: systemPrompt),
@@ -347,6 +469,8 @@ class WorkflowNodeExecutor {
         tools: tools,
         timeout: const Duration(seconds: 120),
       );
+      _appendLlmCompletionMessages(conversationMessages, completion);
+      onConversationChanged();
       if (completion.toolCalls.isEmpty) return completion;
       if (invoker == null || bindings.isEmpty) {
         throw const WorkflowNodeExecutionException('MCP 工具执行器不可用。');
@@ -390,9 +514,59 @@ class WorkflowNodeExecutor {
             content: result.isError ? '工具执行失败：$output' : output,
           ),
         );
+        final createdAt = DateTime.now().toUtc();
+        conversationMessages.add(
+          WorkflowLlmConversationMessage(
+            id: '${createdAt.microsecondsSinceEpoch}-tool-result-${call.id}',
+            kind: WorkflowLlmMessageKind.toolResult,
+            content: output,
+            createdAt: createdAt,
+            toolName: call.name,
+            toolCallId: call.id,
+            isError: result.isError,
+          ),
+        );
+        onConversationChanged();
       }
     }
     throw const WorkflowNodeExecutionException('LLM 工具调用未能完成。');
+  }
+
+  void _appendLlmCompletionMessages(
+    List<WorkflowLlmConversationMessage> messages,
+    AiChatCompletion completion,
+  ) {
+    void add(
+      WorkflowLlmMessageKind kind,
+      String? content, {
+      String? toolName,
+      String? toolCallId,
+    }) {
+      final text = content?.trim() ?? '';
+      if (text.isEmpty) return;
+      final createdAt = DateTime.now().toUtc();
+      messages.add(
+        WorkflowLlmConversationMessage(
+          id: '${createdAt.microsecondsSinceEpoch}-${kind.name}-${toolCallId ?? ''}',
+          kind: kind,
+          content: text,
+          createdAt: createdAt,
+          toolName: toolName,
+          toolCallId: toolCallId,
+        ),
+      );
+    }
+
+    add(WorkflowLlmMessageKind.reasoning, completion.reasoningContent);
+    add(WorkflowLlmMessageKind.assistant, completion.reply);
+    for (final call in completion.toolCalls) {
+      add(
+        WorkflowLlmMessageKind.toolCall,
+        _boundedToolOutput(call.arguments),
+        toolName: call.name,
+        toolCallId: call.id,
+      );
+    }
   }
 
   List<_WorkflowMcpBinding> _resolveMcpBindings(

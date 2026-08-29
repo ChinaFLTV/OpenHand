@@ -142,6 +142,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   static const Uuid _uuid = Uuid();
 
   late final WorkflowNodeExecutor _executor = WorkflowNodeExecutor();
+  late final AiTtsPlaybackService _ttsPlaybackService = AiTtsPlaybackService();
+  late final AiTranslationService _translationService = AiTranslationService();
   late final TransformationController _transformationController =
       TransformationController();
   late final FocusNode _canvasFocusNode = FocusNode(
@@ -162,6 +164,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   String? _testResult;
   String? _testError;
   WorkflowNodeTestStatus? _testStatus;
+  final Map<String, WorkflowLlmConversation> _llmConversations =
+      <String, WorkflowLlmConversation>{};
+  String? _conversationNodeId;
   String? _connectingSourceNodeId;
   String? _connectingSourceHandleId;
   String? _connectionTargetNodeId;
@@ -206,6 +211,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   @override
   void dispose() {
     _executor.dispose();
+    unawaited(_ttsPlaybackService.dispose());
+    _translationService.dispose();
     _transformationController.dispose();
     _canvasFocusNode.dispose();
     super.dispose();
@@ -265,6 +272,19 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                                 testResult: _testResult,
                                 testError: _testError,
                                 testStatus: _testStatus,
+                                conversation:
+                                    _llmConversations[_selectedNode!.id],
+                                showConversation:
+                                    _conversationNodeId == _selectedNode!.id,
+                                onConversationModeChanged: (show) {
+                                  setState(() {
+                                    _conversationNodeId = show
+                                        ? _selectedNode!.id
+                                        : null;
+                                  });
+                                },
+                                ttsPlaybackService: _ttsPlaybackService,
+                                translationService: _translationService,
                               ),
                             ),
                     ),
@@ -1763,6 +1783,12 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       _testResult = null;
       _testError = null;
       _testStatus = null;
+      for (final id in removedIds) {
+        _llmConversations.remove(id);
+      }
+      if (removedIds.contains(_conversationNodeId)) {
+        _conversationNodeId = null;
+      }
       _recordHistory('删除${selectedNode.title.trim()}节点');
     });
   }
@@ -1994,6 +2020,15 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                     isError: result.isError,
                   );
                 },
+          onLlmConversation: (conversation) {
+            if (!mounted ||
+                !_nodes.any((node) => node.id == conversation.nodeId)) {
+              return;
+            }
+            setState(() {
+              _llmConversations[conversation.nodeId] = conversation;
+            });
+          },
         ),
         variables: _testVariablesFor(node),
       );

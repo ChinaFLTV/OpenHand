@@ -12,13 +12,20 @@ import '../../../shared/ui/openhand_model_selector_field.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../ai/index.dart'
-    show AiModelConfig, AiReasoningEffortOption, AiThreadTemplate;
+    show
+        AiModelConfig,
+        AiReasoningEffortOption,
+        AiThreadTemplate,
+        AiTranslationService,
+        AiTtsPlaybackService;
 import '../../instructions/index.dart' show UserInstructionEntry;
 import '../../knowledge_base/index.dart' show KnowledgeSource;
 import '../../mcp/index.dart' show McpServer;
 import '../../memory/index.dart' show UserMemoryEntry;
 import '../../skills/index.dart' show LocalSkill;
 import '../model/workflow_definition.dart';
+import '../service/workflow_node_executor.dart';
+import 'workflow_llm_conversation_view.dart';
 import 'workflow_parameter_reference_field.dart';
 
 const double _formControlHeight = 52;
@@ -68,6 +75,11 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     required this.availableReferences,
     required this.nestedOutputReferences,
     required this.reservedParameterNames,
+    required this.showConversation,
+    required this.onConversationModeChanged,
+    required this.ttsPlaybackService,
+    required this.translationService,
+    this.conversation,
     this.testResult,
     this.testError,
     this.testStatus,
@@ -83,6 +95,11 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
   final List<WorkflowParameterReference> availableReferences;
   final List<WorkflowParameterReference> nestedOutputReferences;
   final Map<String, String> reservedParameterNames;
+  final bool showConversation;
+  final ValueChanged<bool> onConversationModeChanged;
+  final AiTtsPlaybackService ttsPlaybackService;
+  final AiTranslationService translationService;
+  final WorkflowLlmConversation? conversation;
   final String? testResult;
   final String? testError;
   final WorkflowNodeTestStatus? testStatus;
@@ -97,48 +114,61 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           _buildHeader(context),
           Divider(height: 1, color: theme.colorScheme.outlineVariant),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(18, 16, 18, 24),
-              children: [
-                if (node.kind != WorkflowNodeKind.start &&
-                    node.kind != WorkflowNodeKind.end) ...[
-                  _buildCommonTitle(context),
-                  kOpenHandGap14,
-                ],
-                if (node.kind == WorkflowNodeKind.llm) ...[
-                  _buildLlmInput(),
-                  kOpenHandGap14,
-                ],
-                switch (node.kind) {
-                  WorkflowNodeKind.start => _buildStart(),
-                  WorkflowNodeKind.llm => _buildLlm(context),
-                  WorkflowNodeKind.httpRequest => _buildHttp(context),
-                  WorkflowNodeKind.condition => _buildCondition(context),
-                  WorkflowNodeKind.loop => _buildLoop(context),
-                  WorkflowNodeKind.iteration => _buildIteration(context),
-                  WorkflowNodeKind.end => _buildEnd(),
-                },
-                OpenHandVerticalRevealSwitcher(
-                  reverseDuration: kOpenHandVerticalRevealReverseDuration,
-                  slideBeginOffsetY: -0.04,
-                  child:
-                      testStatus == null ||
-                          (testResult == null && testError == null)
-                      ? null
-                      : Padding(
-                          key: ValueKey<WorkflowNodeTestStatus>(testStatus!),
-                          padding: const EdgeInsets.only(top: 16),
-                          child: _ExecutionResultCard(
-                            status: testStatus!,
-                            message: testError ?? testResult ?? '',
-                          ),
-                        ),
-                ),
-              ],
+            child: OpenHandCrossFadeSwitcher(
+              child: node.kind == WorkflowNodeKind.llm && showConversation
+                  ? WorkflowLlmConversationView(
+                      key: ValueKey<String>('conversation-${node.id}'),
+                      conversation: conversation,
+                      testing: testing,
+                      ttsPlaybackService: ttsPlaybackService,
+                      translationService: translationService,
+                    )
+                  : _buildConfigurationContent(context),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildConfigurationContent(BuildContext context) {
+    return ListView(
+      key: ValueKey<String>('configuration-${node.id}'),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 24),
+      children: [
+        if (node.kind != WorkflowNodeKind.start &&
+            node.kind != WorkflowNodeKind.end) ...[
+          _buildCommonTitle(),
+          kOpenHandGap14,
+        ],
+        if (node.kind == WorkflowNodeKind.llm) ...[
+          _buildLlmInput(),
+          kOpenHandGap14,
+        ],
+        switch (node.kind) {
+          WorkflowNodeKind.start => _buildStart(),
+          WorkflowNodeKind.llm => _buildLlm(context),
+          WorkflowNodeKind.httpRequest => _buildHttp(context),
+          WorkflowNodeKind.condition => _buildCondition(context),
+          WorkflowNodeKind.loop => _buildLoop(context),
+          WorkflowNodeKind.iteration => _buildIteration(context),
+          WorkflowNodeKind.end => _buildEnd(),
+        },
+        OpenHandVerticalRevealSwitcher(
+          reverseDuration: kOpenHandVerticalRevealReverseDuration,
+          slideBeginOffsetY: -0.04,
+          child: testStatus == null || (testResult == null && testError == null)
+              ? null
+              : Padding(
+                  key: ValueKey<WorkflowNodeTestStatus>(testStatus!),
+                  padding: const EdgeInsets.only(top: 16),
+                  child: _ExecutionResultCard(
+                    status: testStatus!,
+                    message: testError ?? testResult ?? '',
+                  ),
+                ),
+        ),
+      ],
     );
   }
 
@@ -186,6 +216,23 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
               ],
             ),
           ),
+          if (node.kind == WorkflowNodeKind.llm) ...[
+            IconButton(
+              tooltip: showConversation ? '返回配置' : '会话记录',
+              onPressed: () => onConversationModeChanged(!showConversation),
+              style: actionStyle,
+              icon: AnimatedSwitcher(
+                duration: openHandMotionDuration(context, kOpenHandMotion220),
+                switchInCurve: kOpenHandSwitchInCurve,
+                switchOutCurve: kOpenHandSwitchOutCurve,
+                child: Icon(
+                  showConversation ? Icons.tune_rounded : Icons.forum_outlined,
+                  key: ValueKey<bool>(showConversation),
+                ),
+              ),
+            ),
+            kOpenHandHGap6,
+          ],
           IconButton(
             tooltip: '删除节点',
             onPressed: onDelete,
@@ -204,7 +251,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildCommonTitle(BuildContext context) {
+  Widget _buildCommonTitle() {
     return _FormSection(
       title: '基本信息',
       icon: Icons.badge_outlined,
