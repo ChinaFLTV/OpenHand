@@ -3595,6 +3595,7 @@ export function SessionDetailPage() {
   const [composerText, setComposerTextState] = useState<string>('');
   const [composerMode, setComposerMode] = useState<string>('normal');
   const [composerModelKey, setComposerModelKey] = useState<string>('');
+  const composerModelBindingRef = useRef<string>('');
   const [composerAttachments, setComposerAttachments] = useState<SendMessageAttachment[]>([]);
   const [composerAttachmentIds, setComposerAttachmentIds] = useState<string[]>([]);
   const [editingDraftMessage, setEditingDraftMessage] = useState<SessionMessage | null>(null);
@@ -4819,7 +4820,7 @@ export function SessionDetailPage() {
 
   const detailBelongsToRoute = detail?.session.id === sessionId;
   const session = detailBelongsToRoute ? detail?.session : undefined;
-  const modelSelectionLocked = session?.input_cache_model_selection_locked === true;
+  const modelSelectionLocked = session?.input_cache_model_selection_locked === true && Boolean(session.last_model_key);
   const modelSelectionLockReason = t(
     'composer.model.lockedByInputCache',
     '已锁定服务商、模型与推理强度以保证缓存命中（可在设置→AI→成本控制中关闭输入缓存后再切换）',
@@ -5261,7 +5262,6 @@ export function SessionDetailPage() {
     replaceMessageWindow([], 0);
     updateTotalKnown(0);
     setActiveMessageId(null);
-    setComposerModelKey('');
     setComposerMode('normal');
     editingDraftMessageRef.current = null;
     setEditingDraftMessage(null);
@@ -5674,7 +5674,9 @@ export function SessionDetailPage() {
   const availableInstructions = useMemo<ApiMetaInstruction[]>(() => meta?.instructions ?? [], [meta]);
   const shortcutBindings = useMemo(() => meta?.shortcut_bindings ?? {}, [meta]);
   const selectedModel = useMemo(() => allowedModels.find((model) => model.key === composerModelKey), [allowedModels, composerModelKey]);
-  const selectedModelName = selectedModel?.model_id || selectedModel?.label || '';
+  const persistedModelName = detail?.session.last_used_model_label?.trim() ?? '';
+  const selectedModelUnavailable = !selectedModel && Boolean(persistedModelName);
+  const selectedModelName = selectedModel?.model_id || selectedModel?.label || persistedModelName;
   const titleSummaryDefaultModelKey = useMemo(() => {
     const sessionModelKey = detail?.session.last_model_key ?? '';
     return resolveDefaultTitleModelKey(
@@ -6079,16 +6081,19 @@ export function SessionDetailPage() {
     const fallbackModelKey = activeModelAllowed ? activeModelKey : allowedModels[0]!.key;
     const sessionModelKey = detail?.session.last_model_key ?? '';
     const sessionModelAllowed = sessionModelKey ? allowedModels.some((model) => model.key === sessionModelKey) : false;
+    const hasPersistedModel = Boolean(sessionModelKey || persistedModelName);
+    const binding = `${detail?.session.id ?? ''}\u0000${sessionModelKey}\u0000${persistedModelName}`;
     setComposerModelKey((current) => {
       const currentAllowed = current ? allowedModels.some((model) => model.key === current) : false;
-      if (modelSelectionLocked && sessionModelAllowed) return sessionModelKey;
-      if (sessionModelAllowed && (!currentAllowed || current === fallbackModelKey)) {
-        return sessionModelKey;
+      if (composerModelBindingRef.current !== binding) {
+        composerModelBindingRef.current = binding;
+        return sessionModelAllowed ? sessionModelKey : hasPersistedModel ? '' : fallbackModelKey;
       }
-      if (!currentAllowed) return fallbackModelKey;
-      return current;
+      if (modelSelectionLocked && sessionModelAllowed) return sessionModelKey;
+      if (currentAllowed) return current;
+      return sessionModelAllowed ? sessionModelKey : hasPersistedModel ? '' : fallbackModelKey;
     });
-  }, [allowedModels, detail?.session.id, detail?.session.last_model_key, meta?.active_model_key, modelSelectionLocked]);
+  }, [allowedModels, detail?.session.id, detail?.session.last_model_key, meta?.active_model_key, modelSelectionLocked, persistedModelName]);
 
   useEffect(() => {
     if (modelAllowedModes.length > 0 && !modelAllowedModes.includes(composerMode)) {
@@ -6873,6 +6878,12 @@ export function SessionDetailPage() {
 
   async function handleSend(): Promise<void> {
     if (composerSending) return;
+    if (selectedModelUnavailable) {
+      const message = t('composer.modelUnavailable', '线程固定模型配置已不可用，请重新选择模型');
+      setComposerError(message);
+      showSnackbar(message, { tone: 'error' });
+      return;
+    }
     if (hasModeLockedGoal) {
       const message = t('goal.manualSend.blocked', '目标执行中，请先暂停、恢复或终止当前目标。');
       setComposerError(message);
@@ -7766,8 +7777,8 @@ export function SessionDetailPage() {
                   />
                 ) : null}
 
-                <span class="oh-composer-model-menu" title={modelSelectionLocked ? modelSelectionLockReason : undefined}>
-                  <button type="button" onClick={() => setShowComposerModelPicker(true)} disabled={composerSending || modelSelectionLocked || allowedModels.length === 0} class="oh-composer-control oh-composer-model-control oh-tap-press disabled:opacity-50 min-w-0" title={modelSelectionLocked ? undefined : selectedModelName || t('composer.model', '模型')}>
+                <span class="oh-composer-model-menu" title={modelSelectionLocked ? modelSelectionLockReason : selectedModelUnavailable ? t('composer.modelUnavailable', '线程固定模型配置已不可用，请重新选择模型') : undefined}>
+                  <button type="button" onClick={() => setShowComposerModelPicker(true)} disabled={composerSending || modelSelectionLocked || allowedModels.length === 0} class="oh-composer-control oh-composer-model-control oh-tap-press disabled:opacity-50 min-w-0" title={modelSelectionLocked ? undefined : selectedModelUnavailable ? t('composer.modelUnavailable', '线程固定模型配置已不可用，请重新选择模型') : selectedModelName || t('composer.model', '模型')}>
                     <span class="truncate">
                       {selectedModelName || t('composer.modelEmpty', '主控制台未配置模型')}
                     </span>

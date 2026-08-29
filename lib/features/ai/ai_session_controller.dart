@@ -66,6 +66,7 @@ import 'service/fs/ai_attachment_service.dart';
 import 'service/hook/ai_claude_hook_service.dart';
 import 'service/mcp_bridge/mcp_loaded_tools_tracker.dart';
 import 'service/media/ai_image_summary_extractor.dart';
+import 'service/model_registry/ai_session_model_resolver.dart';
 import 'service/model_registry/ai_title_model_resolver.dart';
 import 'service/prompt/ai_prompt_builder.dart';
 import 'service/prompt/ai_prompt_sections.dart';
@@ -726,13 +727,11 @@ class AiSessionController extends ChangeNotifier {
 
   /// APP 端用：根据会话解析应使用的模型配置。
   AiModelConfig? resolveModelForSession(AiSession session) {
-    if (session.lastUsedModelId != null) {
-      final match = _cachedAvailableModels
-          .where((m) => m.id == session.lastUsedModelId)
-          .firstOrNull;
-      if (match != null) return match;
-    }
-    return _cachedAvailableModels.firstOrNull;
+    return resolveAiSessionModel(
+      session: session,
+      availableModels: _cachedAvailableModels,
+      fallbackForUnboundSession: _cachedAvailableModels.firstOrNull,
+    );
   }
 
   /// APP 端用：为非标准 [AiSession] 载体生成自动标题。
@@ -2658,13 +2657,8 @@ class AiSessionController extends ChangeNotifier {
       return null;
     }
     final session = currentSession;
-    if (session != null && session.lastUsedModelId != null) {
-      final match = _cachedAvailableModels
-          .where((m) => m.id == session.lastUsedModelId)
-          .firstOrNull;
-      if (match != null) return match;
-    }
-    return _cachedAvailableModels.firstOrNull;
+    if (session == null) return _cachedAvailableModels.firstOrNull;
+    return resolveModelForSession(session);
   }
 
   /// 获取当前全局设置中的标题重试上限。

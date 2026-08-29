@@ -1214,6 +1214,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   bool _isModelSelectionLocked(SettingsController settings) {
     final session = widget.currentSession;
     return session != null &&
+        widget.selectedModel != null &&
         isInputCacheModelSelectionLockedForSession(
           inputCacheEnabled: settings.aiInputCacheEnabled,
           session: session,
@@ -1313,8 +1314,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final colorScheme = Theme.of(context).colorScheme;
+    final persistedModelId = widget.currentSession?.lastUsedModelLabel?.trim();
+    final selectedModelUnavailable =
+        widget.selectedModel == null && persistedModelId?.isNotEmpty == true;
     final selectedModelLabel =
-        widget.selectedModel?.displayName ?? l10n.chatModelButton;
+        widget.selectedModel?.displayName ??
+        (selectedModelUnavailable ? persistedModelId! : l10n.chatModelButton);
     final selectedModelReasoningEffortLabel = widget.selectedModel
         ?.reasoningEffortLabelForLocaleName(
           Localizations.localeOf(context).toLanguageTag(),
@@ -1760,6 +1765,12 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                         Tooltip(
                           message: modelSelectionLocked
                               ? modelLockReason
+                              : selectedModelUnavailable
+                              ? openHandLocalizedText(
+                                  context,
+                                  zh: '线程固定模型配置已不可用，请重新选择模型',
+                                  en: 'The model fixed to this thread is unavailable. Select another model.',
+                                )
                               : selectedModelLabel,
                           child: OutlinedButton(
                             onPressed:

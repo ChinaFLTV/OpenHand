@@ -3219,32 +3219,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     AiSession? session,
   ) {
     final fallback = settingsController.selectedAiModel;
-    final storedProviderId = session?.lastUsedModelId?.trim();
-    final storedModelId = session?.lastUsedModelLabel?.trim();
-    if (storedProviderId == null ||
-        storedProviderId.isEmpty ||
-        storedModelId == null ||
-        storedModelId.isEmpty) {
-      return fallback;
-    }
-    AiModelConfig? provider;
-    for (final item in settingsController.aiModels) {
-      if (item.id == storedProviderId) {
-        provider = item;
-        break;
-      }
-    }
-    if (provider == null) {
-      return fallback;
-    }
-    final allIds = provider.allModelIds;
-    if (allIds.isNotEmpty && !allIds.contains(storedModelId)) {
-      return provider;
-    }
-    if (provider.modelId == storedModelId) {
-      return provider;
-    }
-    return provider.copyWith(modelId: storedModelId);
+    if (session == null) return fallback;
+    return resolveAiSessionModel(
+      session: session,
+      availableModels: settingsController.aiModels,
+      fallbackForUnboundSession: fallback,
+    );
   }
 
   Future<String?> _showThreadTemplateDialog() async {
@@ -3318,11 +3298,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted) {
       return false;
     }
+    final initialModel = context.read<SettingsController>().selectedAiModel;
     final created = await sessionController.createSession(
       templateId: templateId,
       runtimeContext: resolvedRuntimeContext,
       mode: initialMode,
       fullAccessPermission: initialFullAccessPermission,
+      initialModelProviderConfigId: initialModel?.id ?? '',
+      initialModelId: initialModel?.modelId ?? '',
       // F5 优化：UI 创建新会话不再等 session_start hook 跑完。hook 可能涉及
       // shell 进程冷启动 (~数百 ms ~ 数秒)，会让 "+新会话" 按钮卡顿；通过
       // unawaited 让 hook 异步执行，新会话立刻可见、可输入。
@@ -6220,7 +6203,18 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       sessionController.currentSession,
     );
     if (selectedModel == null) {
-      showOpenHandErrorSnack(context, l10n.aiModelSelectionRequired);
+      showOpenHandErrorSnack(
+        context,
+        sessionController.currentSession != null &&
+                aiSessionModelReference(sessionController.currentSession!) !=
+                    null
+            ? openHandLocalizedText(
+                context,
+                zh: '线程固定模型配置已不可用，请重新选择模型',
+                en: 'The model fixed to this thread is unavailable. Select another model.',
+              )
+            : l10n.aiModelSelectionRequired,
+      );
       return;
     }
     final attachmentCapabilities = _selectedModelAttachmentCapabilities(
@@ -9834,6 +9828,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         onModelSelected: (providerConfigId, modelId) {
           final session = sessionController.currentSession;
           if (session != null &&
+              selectedModel != null &&
               isInputCacheModelSelectionLockedForSession(
                 inputCacheEnabled: settingsController.aiInputCacheEnabled,
                 session: session,

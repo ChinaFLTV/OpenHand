@@ -63,6 +63,7 @@ export 'service/mcp_bridge/mcp_loaded_tools_tracker.dart';
 export 'service/media/ai_image_generation_service.dart';
 export 'service/media/media_cache_service.dart';
 export 'service/model_registry/ai_model_scanner.dart';
+export 'service/model_registry/ai_session_model_resolver.dart';
 export 'service/model_registry/ai_title_model_resolver.dart';
 export 'service/model_registry/openrouter_model_sync_service.dart';
 export 'service/operations/ai_embeddings_service.dart';

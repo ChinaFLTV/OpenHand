@@ -4104,9 +4104,7 @@ class WebMessagePlatformService {
       _ => AiSessionMode.chat,
     };
     final requestedModelKey = _string(body['model_key'], '').trim();
-    final requestedModel = requestedModelKey.isEmpty
-        ? null
-        : _resolveModel(requestedModelKey);
+    final requestedModel = _resolveModel(requestedModelKey);
     if (requestedModelKey.isNotEmpty && requestedModel == null) {
       return _json(HttpStatus.badRequest, <String, Object?>{
         'error': 'model_not_configured',
@@ -4881,7 +4879,20 @@ class WebMessagePlatformService {
       return _errorJson(HttpStatus.forbidden, 'text_not_allowed');
     }
     final requestedModelKey = _string(body['model_key'], '').trim();
-    final model = _resolveModel(requestedModelKey);
+    final persistedModelKey = _lastModelKeyForSession(
+      session,
+      candidateMessages: recentMessageWindow.messages,
+    );
+    final hasPersistedModel =
+        aiSessionModelReference(session) != null ||
+        session.messageTotalCount > 0;
+    final model = requestedModelKey.isNotEmpty
+        ? _resolveModel(requestedModelKey)
+        : persistedModelKey != null
+        ? _resolveModel(persistedModelKey)
+        : hasPersistedModel
+        ? null
+        : _resolveModel('');
     if (model == null) {
       await _deleteMaterializedAttachments(attachments);
       return _errorJson(HttpStatus.badRequest, 'model_not_configured');
@@ -7515,6 +7526,12 @@ class WebMessagePlatformService {
     AiSession session, {
     List<AiSessionMessage>? candidateMessages,
   }) {
+    final storedProviderId = session.lastUsedModelId?.trim() ?? '';
+    final storedModelId = session.lastUsedModelLabel?.trim() ?? '';
+    if (storedProviderId.isNotEmpty && storedModelId.isNotEmpty) {
+      return _allowedModelKeyForReference(storedProviderId, storedModelId);
+    }
+
     final fromCandidates =
         candidateMessages == null || candidateMessages.isEmpty
         ? null
@@ -7538,18 +7555,26 @@ class WebMessagePlatformService {
     final context = _webContext(session.metadata);
     final requested = _allowedModelKeyFromValue(context['requested_model_key']);
     if (requested != null) return requested;
-    final providerId = session.lastUsedModelId;
-    final label = session.lastUsedModelLabel;
-    if (providerId == null || label == null) return null;
-    for (final model in _allowedModels()) {
-      if (model.providerId != providerId) continue;
-      if (model.modelId == label ||
-          model.label == label ||
-          model.key == label) {
+    return null;
+  }
+
+  String? _allowedModelKeyForReference(String providerId, String modelId) {
+    final allowedModels = _allowedModels();
+    for (final model in allowedModels) {
+      if (model.providerId == providerId && model.modelId == modelId) {
         return model.key;
       }
     }
-    return null;
+    final compatible = allowedModels
+        .where((model) => model.modelId == modelId)
+        .toList(growable: false);
+    if (compatible.isEmpty) return null;
+    final activeModelKey = _activeModelKey();
+    return compatible
+            .where((model) => model.key == activeModelKey)
+            .firstOrNull
+            ?.key ??
+        compatible.first.key;
   }
 
   String? _lastModelKeyFromMessages(List<AiSessionMessage> messages) {
@@ -7561,6 +7586,12 @@ class WebMessagePlatformService {
       final context = _webContext(message.metadata);
       final nested = _allowedModelKeyFromValue(context['model_key']);
       if (nested != null) return nested;
+      final providerId = message.modelId?.trim() ?? '';
+      final modelId = message.modelLabel?.trim() ?? '';
+      if (providerId.isNotEmpty && modelId.isNotEmpty) {
+        final resolved = _allowedModelKeyForReference(providerId, modelId);
+        if (resolved != null) return resolved;
+      }
     }
     return null;
   }
@@ -8105,6 +8136,7 @@ class WebMessagePlatformService {
           .toIso8601String(),
       'last_model_key': lastModelKey,
       'input_cache_model_selection_locked':
+          lastModelKey != null &&
           _isSessionInputCacheModelSelectionLocked(
             session,
             candidateMessages:
