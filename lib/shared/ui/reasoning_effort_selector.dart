@@ -62,12 +62,12 @@ abstract final class _EffortPalettes {
     final lowBlend = _smoothstep(0.0, 0.55, progress);
     final maxBlend = _smoothstep(0.55, 1.0, progress);
     final left = Color.lerp(
-      Color.lerp(dark ? darkGreenLeft : greenLeft, dark ? darkBlueLeft : blueLeft, lowBlend)!,
+      Color.lerp(dark ? darkGreenLeft : greenLeft, dark ? darkBlueLeft : blueLeft, lowBlend),
       dark ? darkPurpleLeft : purpleLeft,
       maxBlend,
     )!;
     final deep = Color.lerp(
-      Color.lerp(toneAt(greenTones, 0), toneAt(blueTones, 0), lowBlend)!,
+      Color.lerp(toneAt(greenTones, 0), toneAt(blueTones, 0), lowBlend),
       toneAt(purpleTones, 0),
       maxBlend,
     )!;
@@ -633,7 +633,7 @@ class _EffortTrackPainter extends CustomPainter {
             : const Color(0x458B93A3),
     );
 
-    final thumbPad = _kThumbSize / 2;
+    const thumbPad = _kThumbSize / 2;
     final thumbX = thumbPad + (size.width - _kThumbSize) * progress;
     final fillRight = thumbX.clamp(0.0, size.width);
 
@@ -798,7 +798,7 @@ class _EffortTrackPainter extends CustomPainter {
         final cycleHash =
             (math.sin(column * 17.17 + row * 41.73 + cycle * 13.11) * 24634.6345).abs() % 1;
         final pulseCenter = 0.2 + cycleHash * 0.55;
-        final pulseWidth = 0.12;
+        const pulseWidth = 0.12;
         final pulseDistance = (cycleProgress - pulseCenter) / pulseWidth;
         final flicker = math.exp(-pulseDistance * pulseDistance * 1.45) * (cycleHash > 0.12 ? 1 : 0.26);
         final wave = math.pow(0.5 + 0.5 * math.cos((nX + flow + row * 0.06) * math.pi * 2), 5).toDouble();
@@ -808,7 +808,7 @@ class _EffortTrackPainter extends CustomPainter {
         final blue = _EffortPalettes.toneAt(_EffortPalettes.blueTones, nX);
         final purple = _EffortPalettes.toneAt(_EffortPalettes.purpleTones, nX);
         final color = Color.lerp(
-          Color.lerp(green, blue, lowBlend)!,
+          Color.lerp(green, blue, lowBlend),
           purple,
           maxBlend,
         )!;
