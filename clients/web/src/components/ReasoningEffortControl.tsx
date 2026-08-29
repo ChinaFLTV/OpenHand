@@ -191,7 +191,18 @@ function ReasoningEffortPanel({
     const stream = attachEffortStreamField(streamCanvas);
     pixelHandleRef.current = pixel;
     streamHandleRef.current = stream;
+    // 弹层进场 scale 动画结束后再量一次布局尺寸，避免画布偏小。
+    const raf = window.requestAnimationFrame(() => {
+      pixel.resize();
+      stream.resize();
+    });
+    const timer = window.setTimeout(() => {
+      pixel.resize();
+      stream.resize();
+    }, 360);
     return () => {
+      window.cancelAnimationFrame(raf);
+      window.clearTimeout(timer);
       pixel.destroy();
       stream.destroy();
       pixelHandleRef.current = null;
@@ -315,14 +326,18 @@ function ReasoningEffortPanel({
 
         <div class="oh-reasoning-effort-levels" aria-hidden="true">
           {options.map((option, index) => {
-            const left = 10 + (index / Math.max(options.length - 1, 1)) * 80;
+            const last = Math.max(options.length - 1, 1);
+            const at = index / last;
+            // 与 App Align(-1…1) 一致：首尾贴齐「更快 / 更智能」，中间居中。
+            const edge =
+              index === 0 ? 'start' : index === options.length - 1 ? 'end' : 'mid';
             return (
               <span
                 key={option.value}
-                class={`oh-reasoning-effort-level ${
+                class={`oh-reasoning-effort-level is-${edge} ${
                   index === displayIndex ? 'is-active' : ''
                 }`}
-                style={{ left: `${left}%` }}
+                style={{ left: `${at * 100}%` }}
               >
                 {shortLevelLabel(option, index, options.length)}
               </span>
@@ -338,7 +353,11 @@ function ReasoningEffortPanel({
                 blends.maxBlend > 0.02 ? 'is-on' : ''
               }`}
               style={{
-                opacity: String(0.35 + blends.maxBlend * 0.65),
+                // 仅紫段混合时显现，避免 maxBlend=0 仍被 inline opacity 透出。
+                opacity:
+                  blends.maxBlend > 0.02
+                    ? String(0.35 + blends.maxBlend * 0.65)
+                    : '0',
                 clipPath: isLastTier
                   ? 'none'
                   : tideSoftScale < 0.05

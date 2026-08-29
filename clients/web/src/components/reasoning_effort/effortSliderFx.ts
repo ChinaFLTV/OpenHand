@@ -200,10 +200,10 @@ export function isDarkEffortTheme(): boolean {
   return window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
-/** 连续滑块 0..100 → 像素场 / 流光混合系数。 */
+/** 连续滑块 0..100 → 像素场 / 流光混合系数（与 Flutter 进度曲线对齐）。 */
 export function resolveEffortFxBlends(
   slider100: number,
-  optionCount: number,
+  _optionCount: number,
 ): {
   pixelStart: number;
   pixelBlend: number;
@@ -211,27 +211,13 @@ export function resolveEffortFxBlends(
   maxBlend: number;
   stream01: number;
 } {
-  const count = Math.max(2, optionCount);
-  const step = 100 / (count - 1);
-  const pixelStart = Math.max(count - 3, 1);
-  const fireEndPos = (pixelStart - 1) * step;
-  const pixelStartPos = pixelStart * step;
-  const rawPixel =
-    pixelStartPos > fireEndPos
-      ? (slider100 - fireEndPos) / (pixelStartPos - fireEndPos)
-      : 0;
-  const pixelBlend = smoothstep(0, 1, clamp(rawPixel, 0, 1));
-  const highPos = (count - 2) * step;
-  const maxPos = (count - 1) * step;
-  const lowPos = pixelStart * step;
-  const rawLow =
-    highPos > lowPos ? (slider100 - lowPos) / (highPos - lowPos) : 1;
-  const lowBlend = smoothstep(0, 1, clamp(rawLow, 0, 1));
-  const rawMax =
-    maxPos > highPos ? (slider100 - highPos) / (maxPos - highPos) : 0;
-  const maxBlend = smoothstep(0, 1, clamp(rawMax, 0, 1));
-  const stream01 = slider100 > 0 ? 0.15 + (slider100 / 100) * 0.85 : 0;
-  return { pixelStart, pixelBlend, lowBlend, maxBlend, stream01 };
+  const progress = clamp(slider100 / 100, 0, 1);
+  // 与 App 端 _smoothstep 阈值一致：像素场 / 绿→蓝 / 蓝→紫。
+  const pixelBlend = smoothstep(0.18, 0.55, progress);
+  const lowBlend = smoothstep(0.0, 0.55, progress);
+  const maxBlend = smoothstep(0.55, 1.0, progress);
+  const stream01 = progress > 0 ? 0.15 + progress * 0.85 : 0;
+  return { pixelStart: 1, pixelBlend, lowBlend, maxBlend, stream01 };
 }
 
 interface PixelCell {
@@ -258,6 +244,8 @@ export interface EffortPixelFieldHandle {
     dark: boolean;
     reducedMotion: boolean;
   }) => void;
+  /** 弹层动画结束后需重测布局尺寸（勿用 getBoundingClientRect，会吃到 scale）。 */
+  resize: () => void;
   destroy: () => void;
 }
 
@@ -269,6 +257,7 @@ export function attachEffortPixelField(
   if (!ctx) {
     return {
       setParams: () => undefined,
+      resize: () => undefined,
       destroy: () => undefined,
     };
   }
@@ -327,15 +316,20 @@ export function attachEffortPixelField(
 
   const resize = () => {
     if (destroyed) return;
-    const rect = canvas.getBoundingClientRect();
-    const w = rect.width || canvas.clientWidth || 280;
-    const h = rect.height || canvas.clientHeight || 32;
-    if (!w || !h) return;
-    ratio = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = Math.round(w * ratio);
-    canvas.height = Math.round(h * ratio);
-    canvas.style.width = `${w}px`;
-    canvas.style.height = `${h}px`;
+    // clientWidth 不受弹层 scale transform 影响，避免画布被量成动画中的缩小尺寸。
+    const w = canvas.clientWidth || canvas.offsetWidth || 0;
+    const h = canvas.clientHeight || canvas.offsetHeight || 0;
+    if (w < 2 || h < 2) return;
+    const nextRatio = Math.min(window.devicePixelRatio || 1, 2);
+    const nextW = Math.round(w * nextRatio);
+    const nextH = Math.round(h * nextRatio);
+    if (width === w && height === h && ratio === nextRatio && canvas.width === nextW) {
+      draw(Date.now());
+      return;
+    }
+    ratio = nextRatio;
+    canvas.width = nextW;
+    canvas.height = nextH;
     width = w;
     height = h;
     buildGrid();
@@ -545,6 +539,7 @@ export function attachEffortPixelField(
       if (active) ensureLoop();
       else if (!loopRunning) draw(Date.now());
     },
+    resize,
     destroy: () => {
       destroyed = true;
       if (rafId != null) window.cancelAnimationFrame(rafId);
@@ -564,6 +559,7 @@ export interface EffortStreamFieldHandle {
     dark: boolean;
     reducedMotion: boolean;
   }) => void;
+  resize: () => void;
   destroy: () => void;
 }
 
@@ -575,6 +571,7 @@ export function attachEffortStreamField(
   if (!ctx) {
     return {
       setParams: () => undefined,
+      resize: () => undefined,
       destroy: () => undefined,
     };
   }
@@ -595,15 +592,19 @@ export function attachEffortStreamField(
 
   const resize = () => {
     if (destroyed) return;
-    const rect = canvas.getBoundingClientRect();
-    const w = rect.width || canvas.clientWidth || 280;
-    const h = rect.height || canvas.clientHeight || 32;
-    if (!w || !h) return;
-    ratio = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = Math.round(w * ratio);
-    canvas.height = Math.round(h * ratio);
-    canvas.style.width = `${w}px`;
-    canvas.style.height = `${h}px`;
+    const w = canvas.clientWidth || canvas.offsetWidth || 0;
+    const h = canvas.clientHeight || canvas.offsetHeight || 0;
+    if (w < 2 || h < 2) return;
+    const nextRatio = Math.min(window.devicePixelRatio || 1, 2);
+    const nextW = Math.round(w * nextRatio);
+    const nextH = Math.round(h * nextRatio);
+    if (width === w && height === h && ratio === nextRatio && canvas.width === nextW) {
+      draw(performance.now());
+      return;
+    }
+    ratio = nextRatio;
+    canvas.width = nextW;
+    canvas.height = nextH;
     width = w;
     height = h;
     draw(performance.now());
@@ -723,6 +724,7 @@ export function attachEffortStreamField(
       if (wasOff && intensity > 0.001) startedAt = performance.now();
       ensureLoop();
     },
+    resize,
     destroy: () => {
       destroyed = true;
       if (rafId != null) window.cancelAnimationFrame(rafId);

@@ -6138,16 +6138,27 @@ button.oh-message-context-capsule {
 .oh-reasoning-effort-level {
   position: absolute;
   top: 0;
-  transform: translateX(-50%);
   color: var(--es-level-label);
   font-size: 10px;
-  font-weight: 740;
+  font-weight: 700;
   letter-spacing: 0.02em;
   transition: color 160ms ease;
   white-space: nowrap;
   max-width: 72px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.oh-reasoning-effort-level.is-start {
+  transform: translateX(0);
+  text-align: start;
+}
+.oh-reasoning-effort-level.is-mid {
+  transform: translateX(-50%);
+  text-align: center;
+}
+.oh-reasoning-effort-level.is-end {
+  transform: translateX(-100%);
+  text-align: end;
 }
 .oh-reasoning-effort-level.is-active {
   color: var(--es-level-label-active);
@@ -6238,19 +6249,18 @@ button.oh-message-context-capsule {
   width: 22px;
   height: 22px;
   border-radius: 999px;
+  /* 与 App 圆形毛玻璃拇指一致：径向高光 + 着色描边 + 柔光晕 */
   background:
     radial-gradient(
-      circle at 35% 32%,
-      #fff 0%,
-      color-mix(in srgb, #fff 78%, var(--oh-effort-accent)) 42%,
-      color-mix(in srgb, var(--m3-surface-container-highest) 55%, var(--oh-effort-accent)) 100%
+      circle at 38% 34%,
+      color-mix(in srgb, #fff 88%, var(--oh-effort-accent)) 0%,
+      color-mix(in srgb, #f4f6fc 72%, var(--oh-effort-accent)) 100%
     );
   border: 1.4px solid color-mix(in srgb, var(--oh-effort-accent) 48%, transparent);
   box-shadow:
-    0 0 0 5px color-mix(in srgb, var(--oh-effort-accent) 12%, transparent),
-    0 0 16px color-mix(in srgb, var(--oh-effort-accent) 28%, transparent),
-    0 4px 10px color-mix(in srgb, var(--m3-on-surface) 12%, transparent),
-    inset 0 1px #ffffffb0;
+    0 0 0 6px color-mix(in srgb, var(--oh-effort-accent) 14%, transparent),
+    0 0 18px color-mix(in srgb, var(--oh-effort-accent) 22%, transparent),
+    inset 0 1px #ffffffcc;
   transform: translate(-50%, -50%);
   z-index: 6;
   pointer-events: none;
@@ -6260,6 +6270,14 @@ button.oh-message-context-capsule {
     border-color 240ms ease,
     box-shadow 280ms ease,
     background 280ms ease;
+}
+.oh-reasoning-effort-panel[data-es-theme='dark'] .oh-reasoning-effort-thumb {
+  background:
+    radial-gradient(
+      circle at 38% 34%,
+      color-mix(in srgb, #fff 70%, var(--oh-effort-accent)) 0%,
+      color-mix(in srgb, #e8e0f4 72%, var(--oh-effort-accent)) 100%
+    );
 }
 .oh-reasoning-effort-panel[data-dragging='1'] .oh-reasoning-effort-thumb {
   transition: transform 160ms var(--oh-motion-spring), box-shadow 180ms ease, border-color 160ms ease;
