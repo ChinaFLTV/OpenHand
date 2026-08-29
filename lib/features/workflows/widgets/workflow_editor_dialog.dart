@@ -30,7 +30,8 @@ const double _canvasWidth = 2400;
 const double _canvasHeight = 1600;
 const double _nodeWidth = 246;
 const double _nodeHeight = 130;
-const double _nodeAddButtonSize = 32;
+const double _nodeAddButtonSize = 26;
+const double _nodeAddButtonHitSize = 38;
 const double _configurationWidth = 440;
 const double _headerActionSize = 44;
 const int _maxWorkflowHistoryEntries = 80;
@@ -137,6 +138,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   late final FocusNode _canvasFocusNode = FocusNode(
     debugLabel: 'workflow-canvas',
   );
+  final GlobalKey _canvasSurfaceKey = GlobalKey();
   late String _workflowName = widget.workflow?.name ?? '';
   late final String _workflowId = widget.workflow?.id ?? _uuid.v4();
   late final DateTime _createdAt =
@@ -153,6 +155,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   String? _testResult;
   String? _testError;
   WorkflowNodeTestStatus? _testStatus;
+  String? _connectingSourceNodeId;
+  String? _connectionTargetNodeId;
+  String? _connectionTargetError;
+  Offset? _connectionDragPosition;
   late final List<_WorkflowHistoryEntry> _history;
   int _historyIndex = 0;
 
@@ -318,10 +324,13 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             child: InteractiveViewer(
               transformationController: _transformationController,
               constrained: false,
+              panEnabled: _connectingSourceNodeId == null,
+              scaleEnabled: _connectingSourceNodeId == null,
               minScale: 0.35,
               maxScale: 2.2,
               boundaryMargin: const EdgeInsets.all(320),
               child: SizedBox(
+                key: _canvasSurfaceKey,
                 width: _canvasWidth,
                 height: _canvasHeight,
                 child: Stack(
@@ -345,7 +354,14 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                             nodes: _nodes,
                             connections: _connections,
                             selectedConnectionId: _selectedConnectionId,
+                            draftSourceNodeId: _connectingSourceNodeId,
+                            draftTargetNodeId: _connectionTargetNodeId,
+                            draftEnd: _connectionDragPosition,
+                            draftValid:
+                                _connectionTargetNodeId != null &&
+                                _connectionTargetError == null,
                             color: theme.colorScheme.primary,
+                            errorColor: theme.colorScheme.error,
                             mutedColor: theme.colorScheme.outline,
                           ),
                         ),
@@ -390,12 +406,15 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
 
   Widget _buildNodeCard(BuildContext context, WorkflowNode node) {
     final selected = node.id == _selectedNodeId;
+    final connectionTarget = node.id == _connectionTargetNodeId;
+    final connectionTargetValid =
+        connectionTarget && _connectionTargetError == null;
     final theme = Theme.of(context);
     final descriptor = workflowNodeDescriptor(node.kind, theme.colorScheme);
     return Positioned(
       left: node.x,
       top: node.y,
-      width: _nodeWidth + _nodeAddButtonSize / 2,
+      width: _nodeWidth + _nodeAddButtonHitSize / 2,
       height: _nodeHeight,
       child: Stack(
         clipBehavior: Clip.none,
@@ -429,41 +448,74 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                   mergeKey: 'move:${node.id}',
                 );
               },
-              child: AnimatedContainer(
+              child: AnimatedScale(
+                scale: connectionTarget ? 1.015 : 1,
                 duration: openHandMotionDuration(context, kOpenHandMotion180),
                 curve: Curves.easeOutCubic,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: selected
-                      ? theme.colorScheme.primaryContainer.withValues(
-                          alpha: 0.38,
-                        )
-                      : theme.colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(kOpenHandRadius18),
-                  border: Border.all(
-                    color: selected
-                        ? descriptor.color
-                        : theme.colorScheme.outlineVariant,
-                    width: selected ? 2 : 1,
-                  ),
-                  boxShadow: <BoxShadow>[
-                    BoxShadow(
-                      color: theme.colorScheme.shadow.withValues(
-                        alpha: selected ? 0.18 : 0.09,
-                      ),
-                      blurRadius: selected ? 24 : 14,
-                      offset: const Offset(0, 7),
+                child: AnimatedContainer(
+                  duration: openHandMotionDuration(context, kOpenHandMotion180),
+                  curve: Curves.easeOutCubic,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: connectionTarget
+                        ? (connectionTargetValid
+                              ? theme.colorScheme.primaryContainer.withValues(
+                                  alpha: 0.46,
+                                )
+                              : theme.colorScheme.errorContainer.withValues(
+                                  alpha: 0.34,
+                                ))
+                        : selected
+                        ? theme.colorScheme.primaryContainer.withValues(
+                            alpha: 0.38,
+                          )
+                        : theme.colorScheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(kOpenHandRadius18),
+                    border: Border.all(
+                      color: connectionTarget
+                          ? (connectionTargetValid
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.error)
+                          : selected
+                          ? descriptor.color
+                          : theme.colorScheme.outlineVariant,
+                      width: connectionTarget || selected ? 2 : 1,
                     ),
-                  ],
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color:
+                            (connectionTarget
+                                    ? (connectionTargetValid
+                                          ? theme.colorScheme.primary
+                                          : theme.colorScheme.error)
+                                    : theme.colorScheme.shadow)
+                                .withValues(
+                                  alpha: connectionTarget
+                                      ? 0.2
+                                      : selected
+                                      ? 0.18
+                                      : 0.09,
+                                ),
+                        blurRadius: connectionTarget || selected ? 24 : 14,
+                        offset: const Offset(0, 7),
+                      ),
+                    ],
+                  ),
+                  child: _buildNodeCardContent(
+                    context,
+                    node,
+                    descriptor,
+                    connectionTarget: connectionTarget,
+                    connectionTargetValid: connectionTargetValid,
+                  ),
                 ),
-                child: _buildNodeCardContent(context, node, descriptor),
               ),
             ),
           ),
           if (node.kind != WorkflowNodeKind.end)
             Positioned(
-              left: _nodeWidth - _nodeAddButtonSize / 2,
-              top: (_nodeHeight - _nodeAddButtonSize) / 2,
+              left: _nodeWidth - _nodeAddButtonHitSize / 2,
+              top: (_nodeHeight - _nodeAddButtonHitSize) / 2,
               child: _buildAddNodeButton(context, node),
             ),
         ],
@@ -474,8 +526,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   Widget _buildNodeCardContent(
     BuildContext context,
     WorkflowNode node,
-    ({String label, String description, IconData icon, Color color}) descriptor,
-  ) {
+    ({String label, String description, IconData icon, Color color})
+    descriptor, {
+    required bool connectionTarget,
+    required bool connectionTargetValid,
+  }) {
     final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -525,12 +580,17 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         Row(
           children: [
             if (node.kind != WorkflowNodeKind.start)
-              Container(
-                width: 8,
-                height: 8,
+              AnimatedContainer(
+                duration: openHandMotionDuration(context, kOpenHandMotion180),
+                width: connectionTarget ? 10 : 8,
+                height: connectionTarget ? 10 : 8,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: theme.colorScheme.outline,
+                  color: connectionTarget
+                      ? (connectionTargetValid
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.error)
+                      : theme.colorScheme.outline,
                 ),
               ),
             const Spacer(),
@@ -559,21 +619,93 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
 
   Widget _buildAddNodeButton(BuildContext context, WorkflowNode source) {
     final theme = Theme.of(context);
-    return AnimatedPopupMenuButton<WorkflowNodeKind>(
-      tooltip: '添加后续节点',
+    final connecting = source.id == _connectingSourceNodeId;
+    return Tooltip(
+      message: '单击添加节点，拖拽连接已有节点',
+      child: MouseRegion(
+        cursor: connecting
+            ? SystemMouseCursors.grabbing
+            : SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onPanStart: (details) =>
+              _startConnectionDrag(source, details.globalPosition),
+          onPanUpdate: (details) =>
+              _updateConnectionDrag(details.globalPosition),
+          onPanEnd: (_) => _finishConnectionDrag(),
+          onPanCancel: _cancelConnectionDrag,
+          child: SizedBox.square(
+            dimension: _nodeAddButtonHitSize,
+            child: Center(
+              child: AnimatedScale(
+                scale: connecting ? 0.92 : 1,
+                duration: openHandMotionDuration(context, kOpenHandMotion120),
+                curve: Curves.easeOutCubic,
+                child: AnimatedContainer(
+                  duration: openHandMotionDuration(context, kOpenHandMotion180),
+                  width: _nodeAddButtonSize,
+                  height: _nodeAddButtonSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: connecting
+                        ? theme.colorScheme.primaryContainer
+                        : theme.colorScheme.primary,
+                    border: Border.all(
+                      color: connecting
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.primary.withValues(alpha: 0.7),
+                    ),
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: theme.colorScheme.primary.withValues(
+                          alpha: connecting ? 0.28 : 0.18,
+                        ),
+                        blurRadius: connecting ? 12 : 7,
+                      ),
+                    ],
+                  ),
+                  child: Builder(
+                    builder: (buttonContext) => Material(
+                      color: Colors.transparent,
+                      shape: const CircleBorder(),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () => _showAddNodeMenu(buttonContext, source),
+                        child: Icon(
+                          Icons.add_rounded,
+                          size: 17,
+                          color: connecting
+                              ? theme.colorScheme.onPrimaryContainer
+                              : theme.colorScheme.onPrimary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showAddNodeMenu(
+    BuildContext buttonContext,
+    WorkflowNode source,
+  ) async {
+    final theme = Theme.of(buttonContext);
+    final selected = await showAnimatedAnchoredPopupMenu<WorkflowNodeKind>(
+      context: buttonContext,
       offset: const Offset(18, 0),
       constraints: const BoxConstraints(minWidth: 260, maxWidth: 300),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(kOpenHandRadius14),
       ),
-      onSelected: (kind) => _addConnectedNode(source, kind),
-      itemBuilder: (menuContext) => WorkflowNodeKind.values
+      items: WorkflowNodeKind.values
           .where((kind) => kind != WorkflowNodeKind.start)
           .map((kind) {
-            final descriptor = workflowNodeDescriptor(
-              kind,
-              Theme.of(menuContext).colorScheme,
-            );
+            final descriptor = workflowNodeDescriptor(kind, theme.colorScheme);
             return PopupMenuItem<WorkflowNodeKind>(
               value: kind,
               height: 58,
@@ -621,17 +753,153 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             );
           })
           .toList(growable: false),
-      style: TextButton.styleFrom(
-        fixedSize: const Size.square(_nodeAddButtonSize),
-        minimumSize: const Size.square(_nodeAddButtonSize),
-        padding: EdgeInsets.zero,
-        shape: const CircleBorder(),
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
-        shadowColor: Colors.transparent,
-      ),
-      child: const Icon(Icons.add_rounded, size: 20),
     );
+    if (!mounted || selected == null) return;
+    final latestSource = _nodes
+        .where((node) => node.id == source.id)
+        .firstOrNull;
+    if (latestSource != null) _addConnectedNode(latestSource, selected);
+  }
+
+  void _startConnectionDrag(WorkflowNode source, Offset globalPosition) {
+    if (source.kind == WorkflowNodeKind.end ||
+        !_nodes.any((node) => node.id == source.id)) {
+      return;
+    }
+    final position = _canvasPosition(globalPosition);
+    if (position == null) return;
+    setState(() {
+      _connectingSourceNodeId = source.id;
+      _connectionDragPosition = position;
+      _connectionTargetNodeId = null;
+      _connectionTargetError = null;
+      _selectedConnectionId = null;
+    });
+  }
+
+  void _updateConnectionDrag(Offset globalPosition) {
+    final sourceId = _connectingSourceNodeId;
+    if (sourceId == null) return;
+    final position = _canvasPosition(globalPosition);
+    if (position == null) return;
+    final target = _nodeAtPosition(position, excludingNodeId: sourceId);
+    final source = _nodes.where((node) => node.id == sourceId).firstOrNull;
+    setState(() {
+      _connectionDragPosition = position;
+      _connectionTargetNodeId = target?.id;
+      _connectionTargetError = source == null || target == null
+          ? null
+          : _connectionError(source, target);
+    });
+  }
+
+  void _finishConnectionDrag() {
+    final source = _nodes
+        .where((node) => node.id == _connectingSourceNodeId)
+        .firstOrNull;
+    final target = _nodes
+        .where((node) => node.id == _connectionTargetNodeId)
+        .firstOrNull;
+    final error = source == null || target == null
+        ? null
+        : _connectionError(source, target);
+    if (source == null || target == null || error != null) {
+      _cancelConnectionDrag();
+      if (error != null && mounted) showOpenHandInfoSnack(context, error);
+      return;
+    }
+
+    final connection = WorkflowConnection(
+      id: _uuid.v4(),
+      sourceNodeId: source.id,
+      targetNodeId: target.id,
+    );
+    setState(() {
+      _clearConnectionDragState();
+      _connections = <WorkflowConnection>[..._connections, connection];
+      _selectedNodeId = null;
+      _selectedConnectionId = connection.id;
+      _testResult = null;
+      _testError = null;
+      _testStatus = null;
+      _recordHistory('连接${source.title.trim()}与${target.title.trim()}节点');
+    });
+    _canvasFocusNode.requestFocus();
+  }
+
+  void _cancelConnectionDrag() {
+    if (_connectingSourceNodeId == null && _connectionDragPosition == null) {
+      return;
+    }
+    setState(_clearConnectionDragState);
+  }
+
+  void _clearConnectionDragState() {
+    _connectingSourceNodeId = null;
+    _connectionTargetNodeId = null;
+    _connectionTargetError = null;
+    _connectionDragPosition = null;
+  }
+
+  Offset? _canvasPosition(Offset globalPosition) {
+    final renderObject =
+        _canvasSurfaceKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderObject == null || !renderObject.hasSize) return null;
+    final local = renderObject.globalToLocal(globalPosition);
+    return Offset(
+      local.dx.clamp(0, _canvasWidth),
+      local.dy.clamp(0, _canvasHeight),
+    );
+  }
+
+  WorkflowNode? _nodeAtPosition(
+    Offset position, {
+    required String excludingNodeId,
+  }) {
+    for (final node in _nodes.reversed) {
+      if (node.id == excludingNodeId) continue;
+      final bounds = Rect.fromLTWH(
+        node.x,
+        node.y,
+        _nodeWidth,
+        _nodeHeight,
+      ).inflate(8);
+      if (bounds.contains(position)) return node;
+    }
+    return null;
+  }
+
+  String? _connectionError(WorkflowNode source, WorkflowNode target) {
+    if (source.id == target.id) return '节点不能连接到自身。';
+    if (source.kind == WorkflowNodeKind.end) return '结束节点不能连接后续节点。';
+    if (target.kind == WorkflowNodeKind.start) return '开始节点不能作为后续节点。';
+    if (_connections.any(
+      (connection) =>
+          connection.sourceNodeId == source.id &&
+          connection.targetNodeId == target.id,
+    )) {
+      return '这两个节点已经连接。';
+    }
+    if (_wouldCreateConnectionCycle(source.id, target.id)) {
+      return '该连接会形成循环，请调整节点方向。';
+    }
+    return null;
+  }
+
+  bool _wouldCreateConnectionCycle(String sourceId, String targetId) {
+    final visited = <String>{};
+    final pending = <String>[targetId];
+    while (pending.isNotEmpty) {
+      final current = pending.removeLast();
+      if (current == sourceId) return true;
+      if (!visited.add(current)) continue;
+      for (final connection in _connections) {
+        if (connection.sourceNodeId == current) {
+          pending.add(connection.targetNodeId);
+        }
+      }
+    }
+    return false;
   }
 
   void _addNode(WorkflowNodeKind kind) {
@@ -898,6 +1166,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     if (index < 0 || index >= _history.length || index == _historyIndex) return;
     final snapshot = _history[index].snapshot;
     setState(() {
+      _clearConnectionDragState();
       _historyIndex = index;
       _nodes = List<WorkflowNode>.from(snapshot.nodes);
       _connections = List<WorkflowConnection>.from(snapshot.connections);
@@ -988,8 +1257,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.escape &&
-        (_selectedNodeId != null || _selectedConnectionId != null)) {
+        (_connectingSourceNodeId != null ||
+            _selectedNodeId != null ||
+            _selectedConnectionId != null)) {
       setState(() {
+        _clearConnectionDragState();
         _selectedNodeId = null;
         _selectedConnectionId = null;
       });
@@ -1746,14 +2018,24 @@ class _WorkflowConnectionPainter extends CustomPainter {
     required this.nodes,
     required this.connections,
     required this.selectedConnectionId,
+    required this.draftSourceNodeId,
+    required this.draftTargetNodeId,
+    required this.draftEnd,
+    required this.draftValid,
     required this.color,
+    required this.errorColor,
     required this.mutedColor,
   });
 
   final List<WorkflowNode> nodes;
   final List<WorkflowConnection> connections;
   final String? selectedConnectionId;
+  final String? draftSourceNodeId;
+  final String? draftTargetNodeId;
+  final Offset? draftEnd;
+  final bool draftValid;
   final Color color;
+  final Color errorColor;
   final Color mutedColor;
 
   @override
@@ -1797,6 +2079,42 @@ class _WorkflowConnectionPainter extends CustomPainter {
         );
       canvas.drawPath(arrow, linePaint);
     }
+
+    final draftSource = byId[draftSourceNodeId];
+    final pointerEnd = draftEnd;
+    if (draftSource == null || pointerEnd == null) return;
+    final draftTarget = byId[draftTargetNodeId];
+    final start = Offset(
+      draftSource.x + _nodeWidth,
+      draftSource.y + _nodeHeight / 2,
+    );
+    final end = draftTarget == null
+        ? pointerEnd
+        : Offset(draftTarget.x, draftTarget.y + _nodeHeight / 2);
+    final invalidTarget = draftTarget != null && !draftValid;
+    final draftColor = invalidTarget ? errorColor : color;
+    final path = _workflowConnectionPathBetween(start, end);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = draftColor.withValues(alpha: 0.16)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 9
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = draftColor.withValues(alpha: 0.92)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.6
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawCircle(
+      end,
+      draftTarget == null ? 4 : 5,
+      Paint()..color = draftColor,
+    );
   }
 
   @override
@@ -1804,7 +2122,12 @@ class _WorkflowConnectionPainter extends CustomPainter {
     return nodes != oldDelegate.nodes ||
         connections != oldDelegate.connections ||
         selectedConnectionId != oldDelegate.selectedConnectionId ||
+        draftSourceNodeId != oldDelegate.draftSourceNodeId ||
+        draftTargetNodeId != oldDelegate.draftTargetNodeId ||
+        draftEnd != oldDelegate.draftEnd ||
+        draftValid != oldDelegate.draftValid ||
         color != oldDelegate.color ||
+        errorColor != oldDelegate.errorColor ||
         mutedColor != oldDelegate.mutedColor;
   }
 }
@@ -1812,6 +2135,10 @@ class _WorkflowConnectionPainter extends CustomPainter {
 Path _workflowConnectionPath(WorkflowNode source, WorkflowNode target) {
   final start = Offset(source.x + _nodeWidth, source.y + _nodeHeight / 2);
   final end = Offset(target.x, target.y + _nodeHeight / 2);
+  return _workflowConnectionPathBetween(start, end);
+}
+
+Path _workflowConnectionPathBetween(Offset start, Offset end) {
   final distance = math.max(70, (end.dx - start.dx).abs() * 0.46);
   return Path()
     ..moveTo(start.dx, start.dy)
