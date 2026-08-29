@@ -10,24 +10,16 @@ import 'animated_menu.dart';
 import 'collision_safe_animated_switcher.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
+import 'openhand_spacing.dart';
 
 // ── Layout ──────────────────────────────────────────────────────────────────
 const double _kReasoningPopupWidth = 300;
-const double _kReasoningPopupEntryHeight = 168;
-const double _kReasoningPopupEstimatedHeight = 186;
+const double _kReasoningPopupEntryHeight = 142;
+const double _kReasoningPopupEstimatedHeight = 158;
 const double _kReasoningPopupGap = 8;
-const double _kThumbSize = 28;
+const double _kThumbSize = 22;
 const double _kTrackHeight = 32;
 const Duration _kLabelSwitchDuration = kOpenHandMotion280;
-
-/// MAX 状态字流光色带（首尾同色，便于无缝循环）。
-const List<Color> _kMaxStatusFlowColors = <Color>[
-  Color(0xFFB39AD6),
-  Color(0xFF9D86E0),
-  Color(0xFF8BB0FF),
-  Color(0xFFA88FE8),
-  Color(0xFFB39AD6),
-];
 
 /// Codex 风格色板：Low 绿 → High 蓝 → MAX 紫（派生自 dsh-effort-slider）。
 abstract final class _EffortPalettes {
@@ -151,15 +143,18 @@ Future<void> showReasoningEffortSelector({
   final popupWidth = math
       .min(_kReasoningPopupWidth, math.max(112, overlayBox.size.width - 16))
       .toDouble();
+  final colors = Theme.of(context).colorScheme;
   await showAnimatedMenu<String>(
     context: context,
     position: RelativeRect.fromRect(anchorRect, Offset.zero & overlayBox.size),
     constraints: BoxConstraints(minWidth: popupWidth, maxWidth: popupWidth),
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: kOpenHandBorderRadius16,
+      side: BorderSide(
+        color: colors.outline.withValues(alpha: 0.55),
+      ),
     ),
-    color: Colors.transparent,
-    elevation: 0,
+    color: colors.surfaceContainer,
     items: <PopupMenuEntry<String>>[
       _ReasoningEffortPopupEntry(
         width: popupWidth,
@@ -322,331 +317,164 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
     final option = widget.options[displayIndex];
     final maxBlend = _smoothstep(0.55, 1.0, progress);
     final pixelBlend = _smoothstep(0.18, 0.55, progress);
-    final isMax =
-        displayIndex == widget.options.length - 1 && widget.options.length > 1;
-
-    final panel = Container(
-      width: widget.width,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(
-          color: dark
-              ? const Color(0x1FA855F7)
-              : const Color(0x408CA0FF),
+    final axisStyle = theme.textTheme.labelSmall?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+      fontWeight: FontWeight.w700,
+    );
+    final statusColor = Color.lerp(
+      colorScheme.onSurfaceVariant,
+      Color.lerp(
+        const Color(0xFF2EA86C),
+        Color.lerp(
+          const Color(0xFF3B5BD8),
+          const Color(0xFF9660CD),
+          maxBlend,
         ),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: dark
-              ? const <Color>[
-                  Color(0xFF0E0A16),
-                  Color(0xFF140E20),
-                  Color(0xFF0C0818),
-                ]
-              : const <Color>[
-                  Color(0xFFFBFCFF),
-                  Color(0xFFF2F5FF),
-                  Color(0xFFF7F4FF),
-                ],
-        ),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: dark
-                ? Colors.black.withValues(alpha: 0.45)
-                : const Color(0x141A2344),
-            blurRadius: 28,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        _smoothstep(0.0, 0.7, progress),
       ),
-      padding: const EdgeInsets.fromLTRB(12, 10, 10, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Text(
-                openHandLocalizedText(context, zh: '推理强度', en: 'Effort'),
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: dark
-                      ? const Color(0xFF8880A0)
-                      : const Color(0xFF5A6180),
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.3,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: AnimatedSwitcher(
-                  duration: openHandMotionDuration(context, _kLabelSwitchDuration),
-                  switchInCurve: kOpenHandSwitchInCurve,
-                  switchOutCurve: kOpenHandSwitchOutCurve,
-                  layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
-                  transitionBuilder: (child, animation) {
-                    return FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0, 0.12),
-                          end: Offset.zero,
-                        ).animate(animation),
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: _EffortStatusLabel(
-                    key: ValueKey<String>(option.value),
-                    label: option.labelForLocaleName(localeName),
-                    isMax: isMax,
-                    progress: progress,
-                    maxBlend: maxBlend,
-                    dark: dark,
-                    baseStyle: theme.textTheme.titleSmall,
-                    flowClock: _fxClock,
-                    reducedMotion: !openHandTickerMotionEnabled(context),
-                  ),
-                ),
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: Icon(
-                  Icons.close_rounded,
-                  size: 16,
-                  color: dark
-                      ? const Color(0xFF8880A0)
-                      : const Color(0xFF5A6180),
-                ),
-              ),
-            ],
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: <Widget>[
-              Text(
-                openHandLocalizedText(context, zh: '更快', en: 'Faster'),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: dark
-                      ? const Color(0xFF8880A0)
-                      : const Color(0xFF5A6180),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              Text(
-                openHandLocalizedText(context, zh: '更智能', en: 'Smarter'),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: dark
-                      ? const Color(0xFF8880A0)
-                      : const Color(0xFF5A6180),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          SizedBox(
-            height: 16,
-            child: Stack(
-              children: <Widget>[
-                for (var i = 0; i < widget.options.length; i++)
-                  Align(
-                    alignment: Alignment(
-                      -1 + 2 * (i / math.max(1, widget.options.length - 1)),
-                      0,
-                    ),
-                    child: Text(
-                      i == 0
-                          ? 'OFF'
-                          : i == widget.options.length - 1
-                          ? 'MAX'
-                          : widget.options[i].labelForLocaleName(localeName),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.4,
-                        color: i == displayIndex
-                            ? (dark
-                                  ? const Color(0xFFC084FC)
-                                  : const Color(0xFF3B5BD8))
-                            : (dark
-                                  ? const Color(0xFF6A6080)
-                                  : const Color(0xFF8B92AD)),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 6),
-          SizedBox(
-            height: 40,
-            child: Stack(
-              alignment: Alignment.center,
-              children: <Widget>[
-                AnimatedBuilder(
-                  animation: _fxClock,
-                  builder: (context, _) {
-                    return CustomPaint(
-                      size: Size(widget.width - 22, _kTrackHeight),
-                      painter: _EffortTrackPainter(
-                        progress: progress,
-                        divisions: math.max(1, widget.options.length - 1),
-                        dark: dark,
-                        pixelBlend: pixelBlend,
-                        maxBlend: maxBlend,
-                        timeMs: _fxClock.value * 12000,
-                        reducedMotion: !openHandTickerMotionEnabled(context),
-                      ),
-                    );
-                  },
-                ),
-                SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 0,
-                    activeTrackColor: Colors.transparent,
-                    inactiveTrackColor: Colors.transparent,
-                    thumbColor: Colors.transparent,
-                    overlayColor: Colors.transparent,
-                    thumbShape: const _InvisibleThumb(size: _kThumbSize),
-                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 0),
-                    tickMarkShape: SliderTickMarkShape.noTickMark,
-                  ),
-                  child: Slider(
-                    value: _slider100,
-                    max: 100,
-                    semanticFormatterCallback: (value) => widget
-                        .options[_indexFromProgress(value / 100, widget.options.length)]
-                        .labelForLocaleName(localeName),
-                    onChanged: _selectRaw,
-                    onChangeEnd: _commit,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      0.82,
     );
 
     return SizedBox(
       width: widget.width,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: <Widget>[
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: dark
-                        ? const <Color>[
-                            Color(0x4DA855F7),
-                            Color(0x263B82F6),
-                            Color(0x33A855F7),
-                          ]
-                        : const <Color>[
-                            Color(0x407AA2FF),
-                            Color(0x1F3B82F6),
-                            Color(0x2EA855F7),
-                          ],
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Text(
+                  openHandLocalizedText(context, zh: '更快', en: 'Faster'),
+                  style: axisStyle,
+                ),
+                Expanded(
+                  child: Center(
+                    child: AnimatedSwitcher(
+                      duration: openHandMotionDuration(
+                        context,
+                        _kLabelSwitchDuration,
+                      ),
+                      switchInCurve: kOpenHandSwitchInCurve,
+                      switchOutCurve: kOpenHandSwitchOutCurve,
+                      layoutBuilder: buildCollisionSafeAnimatedSwitcherLayout,
+                      transitionBuilder: (child, animation) {
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, 0.1),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: Text(
+                        option.labelForLocaleName(localeName),
+                        key: ValueKey<String>(option.value),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: axisStyle?.copyWith(color: statusColor),
+                      ),
+                    ),
                   ),
                 ),
-                child: const SizedBox.expand(),
+                Text(
+                  openHandLocalizedText(context, zh: '更智能', en: 'Smarter'),
+                  style: axisStyle,
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              height: 16,
+              child: Stack(
+                children: <Widget>[
+                  for (var i = 0; i < widget.options.length; i++)
+                    Align(
+                      alignment: Alignment(
+                        -1 + 2 * (i / math.max(1, widget.options.length - 1)),
+                        0,
+                      ),
+                      child: Text(
+                        i == 0
+                            ? 'OFF'
+                            : i == widget.options.length - 1
+                            ? 'MAX'
+                            : widget.options[i].labelForLocaleName(localeName),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                          color: i == displayIndex
+                              ? colorScheme.primary
+                              : colorScheme.onSurfaceVariant.withValues(
+                                  alpha: 0.62,
+                                ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(3),
-            child: panel,
-          ),
-        ],
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 40,
+              child: Stack(
+                alignment: Alignment.center,
+                clipBehavior: Clip.none,
+                children: <Widget>[
+                  AnimatedBuilder(
+                    animation: _fxClock,
+                    builder: (context, _) {
+                      return CustomPaint(
+                        size: Size(widget.width - 28, _kTrackHeight + 8),
+                        painter: _EffortTrackPainter(
+                          progress: progress,
+                          divisions: math.max(1, widget.options.length - 1),
+                          dark: dark,
+                          pixelBlend: pixelBlend,
+                          maxBlend: maxBlend,
+                          timeMs: _fxClock.value * 12000,
+                          reducedMotion: !openHandTickerMotionEnabled(context),
+                          outlineColor: colorScheme.outlineVariant,
+                        ),
+                      );
+                    },
+                  ),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 0,
+                      activeTrackColor: Colors.transparent,
+                      inactiveTrackColor: Colors.transparent,
+                      thumbColor: Colors.transparent,
+                      overlayColor: Colors.transparent,
+                      thumbShape: const _InvisibleThumb(size: _kThumbSize),
+                      overlayShape: const RoundSliderOverlayShape(
+                        overlayRadius: 0,
+                      ),
+                      tickMarkShape: SliderTickMarkShape.noTickMark,
+                    ),
+                    child: Slider(
+                      value: _slider100,
+                      max: 100,
+                      semanticFormatterCallback: (value) => widget
+                          .options[_indexFromProgress(
+                            value / 100,
+                            widget.options.length,
+                          )]
+                          .labelForLocaleName(localeName),
+                      onChanged: _selectRaw,
+                      onChangeEnd: _commit,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-    );
-  }
-}
-
-/// 推理强度状态字：中低档主题色过渡，MAX 档用 ShaderMask 流光（避免 ui.Gradient.linear 色停限制）。
-class _EffortStatusLabel extends StatelessWidget {
-  const _EffortStatusLabel({
-    super.key,
-    required this.label,
-    required this.isMax,
-    required this.progress,
-    required this.maxBlend,
-    required this.dark,
-    required this.baseStyle,
-    required this.flowClock,
-    required this.reducedMotion,
-  });
-
-  final String label;
-  final bool isMax;
-  final double progress;
-  final double maxBlend;
-  final bool dark;
-  final TextStyle? baseStyle;
-  final Animation<double> flowClock;
-  final bool reducedMotion;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = baseStyle?.copyWith(
-      fontFamily: 'Georgia',
-      fontStyle: FontStyle.italic,
-      fontWeight: FontWeight.w700,
-      color: isMax
-          ? Colors.white
-          : Color.lerp(
-              const Color(0xBF58BC8A),
-              dark ? const Color(0xFFC084FC) : const Color(0xFF3B5BD8),
-              progress,
-            ),
-      shadows: maxBlend > 0.2 && !isMax
-          ? <Shadow>[
-              Shadow(
-                color: (dark ? const Color(0xFFC084FC) : const Color(0xFF3B5BD8))
-                    .withValues(alpha: 0.35 * maxBlend),
-                blurRadius: 10,
-              ),
-            ]
-          : null,
-    );
-    final text = Text(
-      label,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: style,
-    );
-    if (!isMax) return text;
-
-    return AnimatedBuilder(
-      animation: flowClock,
-      builder: (context, child) {
-        final shift = reducedMotion ? 0.0 : flowClock.value;
-        return ShaderMask(
-          blendMode: BlendMode.srcIn,
-          shaderCallback: (bounds) {
-            if (bounds.isEmpty) {
-              return const LinearGradient(
-                colors: <Color>[Color(0xFFB39AD6), Color(0xFF8BB0FF)],
-              ).createShader(const Rect.fromLTWH(0, 0, 1, 1));
-            }
-            // 双倍色带宽度 + 平移，形成无缝流光。
-            final width = math.max(bounds.width, 1.0);
-            return LinearGradient(
-              colors: _kMaxStatusFlowColors,
-              begin: Alignment(-1.0 + shift * 2, 0),
-              end: Alignment(1.0 + shift * 2, 0),
-            ).createShader(Rect.fromLTWH(-width * shift, 0, width * 2, bounds.height));
-          },
-          child: child,
-        );
-      },
-      child: text,
     );
   }
 }
@@ -660,6 +488,7 @@ class _EffortTrackPainter extends CustomPainter {
     required this.maxBlend,
     required this.timeMs,
     required this.reducedMotion,
+    required this.outlineColor,
   });
 
   final double progress;
@@ -669,11 +498,13 @@ class _EffortTrackPainter extends CustomPainter {
   final double maxBlend;
   final double timeMs;
   final bool reducedMotion;
+  final Color outlineColor;
 
   @override
   void paint(Canvas canvas, Size size) {
+    final trackTop = (size.height - _kTrackHeight) / 2;
     final track = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0, (size.height - _kTrackHeight) / 2, size.width, _kTrackHeight),
+      Rect.fromLTWH(0, trackTop, size.width, _kTrackHeight),
       const Radius.circular(10),
     );
     canvas.drawRRect(
@@ -692,20 +523,20 @@ class _EffortTrackPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
-        ..color = dark
-            ? const Color(0x2EA855F7)
-            : const Color(0x458B93A3),
+        ..color = outlineColor.withValues(alpha: 0.72),
     );
 
     const thumbPad = _kThumbSize / 2;
     final thumbX = thumbPad + (size.width - _kThumbSize) * progress;
     final fillRight = thumbX.clamp(0.0, size.width);
+    final accent = _EffortPalettes.resolveFill(progress, dark: dark);
+    final cy = size.height / 2;
 
     if (maxBlend > 0.02 && fillRight > 0) {
       canvas.save();
-      canvas.clipRect(Rect.fromLTRB(0, 0, fillRight, size.height));
-      canvas.drawRRect(
-        track,
+      canvas.clipRRect(track);
+      canvas.drawRect(
+        Rect.fromLTRB(0, trackTop, fillRight, trackTop + _kTrackHeight),
         Paint()
           ..shader = LinearGradient(
             colors: _EffortPalettes.trackMaxGradient(dark: dark),
@@ -715,33 +546,26 @@ class _EffortTrackPainter extends CustomPainter {
       canvas.restore();
     }
 
-    // 低档流光底色。
     if (progress > 0.01 && pixelBlend < 0.98) {
-      final fillColor = _EffortPalettes.resolveFill(progress, dark: dark);
-      final streamRect = RRect.fromRectAndRadius(
-        Rect.fromLTRB(
-          track.left,
-          track.top,
-          fillRight,
-          track.bottom,
-        ),
-        const Radius.circular(10),
-      );
       canvas.save();
       canvas.clipRRect(track);
-      canvas.drawRRect(
-        streamRect,
+      canvas.drawRect(
+        Rect.fromLTRB(0, trackTop, fillRight, trackTop + _kTrackHeight),
         Paint()
           ..shader = LinearGradient(
             colors: <Color>[
-              fillColor.withValues(alpha: 0.15),
-              fillColor.withValues(alpha: 0.55 + progress * 0.25),
+              accent.withValues(alpha: 0.12),
+              accent.withValues(alpha: 0.5 + progress * 0.28),
+              accent.withValues(alpha: 0.08),
             ],
-          ).createShader(streamRect.outerRect)
+            stops: const <double>[0, 0.78, 1],
+          ).createShader(
+            Rect.fromLTRB(0, trackTop, fillRight, trackTop + _kTrackHeight),
+          )
           ..color = Colors.white.withValues(alpha: 1 - pixelBlend),
       );
       if (!reducedMotion) {
-        _paintStreamSparks(canvas, size, fillRight, fillColor);
+        _paintStreamSparks(canvas, size, fillRight, accent);
       }
       canvas.restore();
     }
@@ -753,6 +577,22 @@ class _EffortTrackPainter extends CustomPainter {
       );
       canvas.clipRRect(track);
       _paintPixelField(canvas, size, fillRight);
+      // 前沿柔化：避免特效区与空白轨硬切。
+      canvas.drawRect(
+        Rect.fromLTRB(
+          math.max(0, fillRight - 18),
+          trackTop,
+          fillRight,
+          trackTop + _kTrackHeight,
+        ),
+        Paint()
+          ..blendMode = BlendMode.dstIn
+          ..shader = const LinearGradient(
+            colors: <Color>[Colors.white, Colors.transparent],
+          ).createShader(
+            Rect.fromLTRB(fillRight - 18, trackTop, fillRight, trackTop + _kTrackHeight),
+          ),
+      );
       canvas.restore();
     }
 
@@ -762,53 +602,53 @@ class _EffortTrackPainter extends CustomPainter {
         final x = thumbPad + (size.width - _kThumbSize) * t;
         final active = t <= progress + 0.001;
         canvas.drawCircle(
-          Offset(x, size.height / 2),
+          Offset(x, cy),
           2,
           Paint()
-            ..color = (active
-                    ? (dark ? const Color(0xFFC084FC) : const Color(0xFF3B5BD8))
-                    : (dark ? const Color(0x4DA855F7) : const Color(0x333B5BD8)))
-                .withValues(alpha: (1 - pixelBlend) * (active ? 1 : 0.7)),
+            ..color = (active ? accent : outlineColor).withValues(
+              alpha: (1 - pixelBlend) * (active ? 0.9 : 0.45),
+            ),
         );
       }
     }
 
-    // Thumb
-    final thumbRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset(thumbX, size.height / 2),
-        width: _kThumbSize,
-        height: _kThumbSize,
-      ),
-      const Radius.circular(8),
-    );
-    canvas.drawRRect(
-      thumbRect,
+    // 圆形毛玻璃拇指：光晕随色轨染色，避免白块硬切特效区。
+    canvas.drawCircle(
+      Offset(thumbX, cy),
+      16,
       Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: dark
-              ? const <Color>[
-                  Color(0xFFF4EEFB),
-                  Color(0xFFDCCFEE),
-                  Color(0xFFCBB8E6),
-                ]
-              : const <Color>[
-                  Color(0xFFFFFFFF),
-                  Color(0xFFE8ECFA),
-                  Color(0xFFD8DEF4),
-                ],
-        ).createShader(thumbRect.outerRect),
+        ..color = accent.withValues(alpha: 0.2 + maxBlend * 0.12)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
     );
-    canvas.drawRRect(
-      thumbRect,
+    canvas.drawCircle(
+      Offset(thumbX, cy),
+      _kThumbSize / 2,
+      Paint()
+        ..shader = RadialGradient(
+          colors: <Color>[
+            Color.lerp(Colors.white, accent, 0.12)!,
+            Color.lerp(
+              dark ? const Color(0xFFE8E0F4) : const Color(0xFFF4F6FC),
+              accent,
+              0.28,
+            )!,
+          ],
+        ).createShader(
+          Rect.fromCircle(center: Offset(thumbX, cy), radius: _kThumbSize / 2),
+        ),
+    );
+    canvas.drawCircle(
+      Offset(thumbX, cy),
+      _kThumbSize / 2,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..color = dark
-            ? const Color(0x26A855F7)
-            : const Color(0x263B5BD8),
+        ..strokeWidth = 1.4
+        ..color = accent.withValues(alpha: 0.48 + maxBlend * 0.2),
+    );
+    canvas.drawCircle(
+      Offset(thumbX - 2.2, cy - 2.4),
+      3.2,
+      Paint()..color = Colors.white.withValues(alpha: 0.55),
     );
   }
 
@@ -877,7 +717,11 @@ class _EffortTrackPainter extends CustomPainter {
           maxBlend,
         )!;
         final highlight = Color.lerp(color, Colors.white, light * 0.55)!;
-        final alpha = revealAlpha * _mix(0.82, 0.7 + base * 0.2, maxBlend) * (0.75 + light * 0.25);
+        final edgeFade = 1.0 - _smoothstep(maskFrac - 0.1, maskFrac, nX);
+        final alpha = revealAlpha *
+            edgeFade *
+            _mix(0.82, 0.7 + base * 0.2, maxBlend) *
+            (0.75 + light * 0.25);
         canvas.drawRRect(
           RRect.fromRectAndRadius(
             Rect.fromLTWH(x + gap * 0.5, y + gap * 0.5, cell - gap, cell - gap),
@@ -897,7 +741,8 @@ class _EffortTrackPainter extends CustomPainter {
         pixelBlend != oldDelegate.pixelBlend ||
         maxBlend != oldDelegate.maxBlend ||
         timeMs != oldDelegate.timeMs ||
-        reducedMotion != oldDelegate.reducedMotion;
+        reducedMotion != oldDelegate.reducedMotion ||
+        outlineColor != oldDelegate.outlineColor;
   }
 }
 

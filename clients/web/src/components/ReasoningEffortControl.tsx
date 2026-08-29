@@ -216,8 +216,15 @@ function ReasoningEffortPanel({
     commit(nextIndex);
   };
 
-  const thumbInset = 14 - 28 * (slider100 / 100);
+  const thumbInset = 11 - 22 * (slider100 / 100);
   const thumbPosition = `calc(${slider100}% + ${thumbInset}px)`;
+  // 拇指染色：绿 → 蓝 → 紫，与色轨前沿一致。
+  const accent =
+    blends.maxBlend > 0.01
+      ? `color-mix(in srgb, #3b5bd8 ${Math.round((1 - blends.maxBlend) * 100)}%, #9660cd)`
+      : blends.lowBlend < 0.99
+        ? `color-mix(in srgb, #2ea86c ${Math.round((1 - blends.lowBlend) * 100)}%, #3b5bd8)`
+        : '#3b5bd8';
 
   return (
     <div
@@ -233,43 +240,19 @@ function ReasoningEffortPanel({
           '--oh-effort-max': `${blends.maxBlend}`,
           '--oh-effort-low': `${blends.lowBlend}`,
           '--oh-effort-stream': `${Math.max(0, 1 - blends.pixelBlend)}`,
+          '--oh-effort-accent': accent,
         } as Record<string, string>
       }
     >
-      <div class="oh-reasoning-effort-glow" aria-hidden="true" />
       <div class="oh-reasoning-effort-inner">
-        <div class="oh-reasoning-effort-head">
-          <div class="oh-reasoning-effort-head-left">
-            <span class="oh-reasoning-effort-kicker">
-              {t('composer.reasoning.title', '推理强度')}
-            </span>
-            <span
-              key={selected.value}
-              class={`oh-reasoning-effort-status oh-soft-replace ${statusClass}`}
-            >
-              {selected.label}
-            </span>
-          </div>
-          <button
-            type="button"
-            class="oh-reasoning-effort-close"
-            aria-label={t('common.close', '关闭')}
-            onClick={onClose}
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path
-                d="M6 6l12 12M18 6L6 18"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.2"
-                stroke-linecap="round"
-              />
-            </svg>
-          </button>
-        </div>
-
-        <div class="oh-reasoning-effort-axis" aria-hidden="true">
+        <div class="oh-reasoning-effort-axis">
           <span>{t('composer.reasoning.faster', '更快')}</span>
+          <span
+            key={selected.value}
+            class={`oh-reasoning-effort-status oh-soft-replace ${statusClass}`}
+          >
+            {selected.label}
+          </span>
           <span>{t('composer.reasoning.smarter', '更智能')}</span>
         </div>
 
@@ -299,7 +282,9 @@ function ReasoningEffortPanel({
               }`}
               style={{
                 opacity: String(0.35 + blends.maxBlend * 0.65),
-                clipPath: `inset(0 ${100 - slider100}% 0 0)`,
+                clipPath: `inset(0 ${Math.max(0, 100 - slider100)}% 0 0)`,
+                maskImage: `linear-gradient(to right, #000 0%, #000 calc(${slider100}% - 14px), transparent ${slider100}%)`,
+                WebkitMaskImage: `linear-gradient(to right, #000 0%, #000 calc(${slider100}% - 14px), transparent ${slider100}%)`,
               }}
             />
             <div
@@ -308,7 +293,7 @@ function ReasoningEffortPanel({
             >
               {options.map((option, index) => {
                 const tick = index / Math.max(options.length - 1, 1);
-                const inset = 14 - 28 * tick;
+                const inset = 11 - 22 * tick;
                 return (
                   <span
                     key={option.value}
@@ -326,6 +311,10 @@ function ReasoningEffortPanel({
               ref={streamCanvasRef}
               class="oh-reasoning-effort-stream"
               aria-hidden="true"
+              style={{
+                maskImage: `linear-gradient(to right, #000 0%, #000 calc(${slider100}% - 14px), transparent ${slider100}%)`,
+                WebkitMaskImage: `linear-gradient(to right, #000 0%, #000 calc(${slider100}% - 14px), transparent ${slider100}%)`,
+              }}
             />
             <canvas
               ref={pixelCanvasRef}
@@ -333,14 +322,13 @@ function ReasoningEffortPanel({
                 blends.pixelBlend > 0.01 ? 'is-on' : ''
               }`}
               aria-hidden="true"
+              style={{
+                maskImage: `linear-gradient(to right, #000 0%, #000 calc(${slider100}% - 14px), transparent ${slider100}%)`,
+                WebkitMaskImage: `linear-gradient(to right, #000 0%, #000 calc(${slider100}% - 14px), transparent ${slider100}%)`,
+              }}
             />
-            <span
-              class={`oh-reasoning-effort-point-light ${
-                dragging && blends.pixelBlend < 0.2 ? 'is-on' : ''
-              }`}
-            />
-            <span class="oh-reasoning-effort-thumb" />
           </div>
+          <span class="oh-reasoning-effort-thumb" aria-hidden="true" />
           <input
             class="oh-reasoning-effort-range"
             type="range"
