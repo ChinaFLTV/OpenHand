@@ -152,6 +152,9 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           WorkflowNodeKind.condition => _buildCondition(context),
           WorkflowNodeKind.loop => _buildLoop(context),
           WorkflowNodeKind.iteration => _buildIteration(context),
+          WorkflowNodeKind.parameterAssignment => _buildParameterAssignment(),
+          WorkflowNodeKind.listOperation => _buildListOperation(context),
+          WorkflowNodeKind.loopExit => _buildLoopExit(context),
           WorkflowNodeKind.end => _buildEnd(),
         },
         OpenHandVerticalRevealSwitcher(
@@ -302,6 +305,31 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           value.map((item) => item.toJson()).toList(growable: false),
         ),
       ),
+    );
+  }
+
+  Widget _buildParameterAssignment() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _FormSection(
+          title: '响应输出',
+          icon: Icons.assignment_turned_in_outlined,
+          child: _OutputFieldEditor(
+            fields: node.outputFields(),
+            addLabel: '添加赋值参数',
+            idPrefix: 'assignment',
+            availableReferences: availableReferences,
+            reservedParameterNames: reservedParameterNames,
+            onChanged: (value) => _set(
+              WorkflowSettingKeys.outputFields,
+              value.map((item) => item.toJson()).toList(growable: false),
+            ),
+          ),
+        ),
+        kOpenHandGap16,
+        _buildTestButton(),
+      ],
     );
   }
 
@@ -1081,6 +1109,405 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
         _buildTestButton(),
       ],
     );
+  }
+
+  Widget _buildListOperation(BuildContext context) {
+    final filterEnabled = node.boolSetting(
+      WorkflowSettingKeys.listFilterEnabled,
+    );
+    final filterOperator = WorkflowConditionOperator.fromStorage(
+      node.settings[WorkflowSettingKeys.listFilterOperator],
+    );
+    final filterSource = WorkflowValueSource.fromStorage(
+      node.settings[WorkflowSettingKeys.listFilterValueSource],
+      legacyValue: node.stringSetting(WorkflowSettingKeys.listFilterValue),
+    );
+    final extractEnabled = node.boolSetting(
+      WorkflowSettingKeys.listExtractEnabled,
+    );
+    final orderEnabled = node.boolSetting(WorkflowSettingKeys.listOrderEnabled);
+    final limitEnabled = node.boolSetting(WorkflowSettingKeys.listLimitEnabled);
+    final arrayReferences = availableReferences
+        .where((reference) => reference.field.type.isArray)
+        .toList(growable: false);
+    final numberReferences = availableReferences
+        .where(
+          (reference) =>
+              reference.field.type == WorkflowOutputType.integer ||
+              reference.field.type == WorkflowOutputType.number,
+        )
+        .toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _FormSection(
+          title: '数组输入',
+          icon: Icons.data_array_rounded,
+          child: _LabeledField(
+            label: '输入变量',
+            required: true,
+            helper: '输入 / 引用上游数组参数，单次最多处理 $maxWorkflowListItemCount 项。',
+            child: WorkflowParameterReferenceField(
+              key: ValueKey('list-input-${node.id}'),
+              value: node.stringSetting(WorkflowSettingKeys.listInput),
+              references: arrayReferences,
+              decoration: _inputDecoration('引用上游数组参数'),
+              onChanged: _setListInput,
+            ),
+          ),
+        ),
+        kOpenHandGap14,
+        _FormSection(
+          title: '筛选条件',
+          icon: Icons.filter_alt_outlined,
+          child: Column(
+            children: [
+              _SwitchSetting(
+                title: '启用筛选',
+                description: '仅保留满足条件的列表项。',
+                value: filterEnabled,
+                onChanged: (value) =>
+                    _set(WorkflowSettingKeys.listFilterEnabled, value),
+              ),
+              OpenHandVerticalRevealSwitcher(
+                child: filterEnabled
+                    ? Padding(
+                        key: const ValueKey('list-filter-fields'),
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Column(
+                          children: [
+                            _LabeledField(
+                              label: '列表项属性（可选）',
+                              helper: '对象数组可填写属性路径，例如 user.score；留空时比较列表项本身。',
+                              child: TextFormField(
+                                key: ValueKey('list-filter-key-${node.id}'),
+                                initialValue: node.stringSetting(
+                                  WorkflowSettingKeys.listFilterKey,
+                                ),
+                                decoration: _inputDecoration('例如 name'),
+                                onChanged: (value) => _set(
+                                  WorkflowSettingKeys.listFilterKey,
+                                  value,
+                                ),
+                              ),
+                            ),
+                            kOpenHandGap12,
+                            _LabeledField(
+                              label: '比较方式',
+                              child:
+                                  AnimatedDropdownButtonFormField<
+                                    WorkflowConditionOperator
+                                  >(
+                                    initialValue: filterOperator,
+                                    decoration: _inputDecoration('选择比较方式'),
+                                    items: WorkflowConditionOperator.values
+                                        .map(
+                                          (operator) => DropdownMenuItem(
+                                            value: operator,
+                                            child: Text(
+                                              _conditionOperatorLabel(operator),
+                                            ),
+                                          ),
+                                        )
+                                        .toList(growable: false),
+                                    onChanged: (value) => _set(
+                                      WorkflowSettingKeys.listFilterOperator,
+                                      (value ??
+                                              WorkflowConditionOperator.equals)
+                                          .storageValue,
+                                    ),
+                                  ),
+                            ),
+                            OpenHandVerticalRevealSwitcher(
+                              child: filterOperator.requiresValue
+                                  ? Padding(
+                                      key: const ValueKey('list-filter-value'),
+                                      padding: const EdgeInsets.only(top: 12),
+                                      child: SizedBox(
+                                        height: _formControlHeight,
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            SizedBox(
+                                              width: _valueSourceControlWidth,
+                                              child: _ValueSourceDropdown(
+                                                value: filterSource,
+                                                onChanged: (value) => _set(
+                                                  WorkflowSettingKeys
+                                                      .listFilterValueSource,
+                                                  value.storageValue,
+                                                ),
+                                              ),
+                                            ),
+                                            kOpenHandHGap8,
+                                            Expanded(
+                                              child: _WorkflowTypedValueField(
+                                                value: node.stringSetting(
+                                                  WorkflowSettingKeys
+                                                      .listFilterValue,
+                                                ),
+                                                type: WorkflowOutputType.string,
+                                                source: filterSource,
+                                                references: availableReferences,
+                                                label: '比较值',
+                                                filterReferencesByType: false,
+                                                onChanged: (value) => _set(
+                                                  WorkflowSettingKeys
+                                                      .listFilterValue,
+                                                  value,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                          ],
+                        ),
+                      )
+                    : null,
+              ),
+            ],
+          ),
+        ),
+        kOpenHandGap14,
+        _FormSection(
+          title: '截取与排序',
+          icon: Icons.sort_rounded,
+          child: Column(
+            children: [
+              _SwitchSetting(
+                title: '按序号提取',
+                description: '筛选后提取指定的第 N 项，序号从 1 开始。',
+                value: extractEnabled,
+                onChanged: (value) =>
+                    _set(WorkflowSettingKeys.listExtractEnabled, value),
+              ),
+              OpenHandVerticalRevealSwitcher(
+                child: extractEnabled
+                    ? Padding(
+                        key: const ValueKey('list-extract-fields'),
+                        padding: const EdgeInsets.only(top: 12),
+                        child: _LabeledField(
+                          label: '提取序号',
+                          required: true,
+                          child: WorkflowParameterReferenceField(
+                            key: ValueKey('list-extract-${node.id}'),
+                            value: node.stringSetting(
+                              WorkflowSettingKeys.listExtractSerial,
+                              '1',
+                            ),
+                            references: numberReferences,
+                            decoration: _inputDecoration('1'),
+                            onChanged: (value) => _set(
+                              WorkflowSettingKeys.listExtractSerial,
+                              value,
+                            ),
+                          ),
+                        ),
+                      )
+                    : null,
+              ),
+              kOpenHandGap12,
+              _SwitchSetting(
+                title: '启用排序',
+                description: '按列表项本身或对象属性进行稳定排序。',
+                value: orderEnabled,
+                onChanged: (value) =>
+                    _set(WorkflowSettingKeys.listOrderEnabled, value),
+              ),
+              OpenHandVerticalRevealSwitcher(
+                child: orderEnabled
+                    ? Padding(
+                        key: const ValueKey('list-order-fields'),
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: _LabeledField(
+                                label: '排序属性（可选）',
+                                child: TextFormField(
+                                  key: ValueKey('list-order-key-${node.id}'),
+                                  initialValue: node.stringSetting(
+                                    WorkflowSettingKeys.listOrderKey,
+                                  ),
+                                  decoration: _inputDecoration('例如 score'),
+                                  onChanged: (value) => _set(
+                                    WorkflowSettingKeys.listOrderKey,
+                                    value,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            kOpenHandHGap10,
+                            SizedBox(
+                              width: 138,
+                              child: _LabeledField(
+                                label: '顺序',
+                                child:
+                                    AnimatedDropdownButtonFormField<
+                                      WorkflowListOrder
+                                    >(
+                                      initialValue:
+                                          WorkflowListOrder.fromStorage(
+                                            node.settings[WorkflowSettingKeys
+                                                .listOrder],
+                                          ),
+                                      decoration: _inputDecoration('顺序'),
+                                      items: const [
+                                        DropdownMenuItem(
+                                          value: WorkflowListOrder.ascending,
+                                          child: Text('升序'),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: WorkflowListOrder.descending,
+                                          child: Text('降序'),
+                                        ),
+                                      ],
+                                      onChanged: (value) => _set(
+                                        WorkflowSettingKeys.listOrder,
+                                        (value ?? WorkflowListOrder.ascending)
+                                            .storageValue,
+                                      ),
+                                    ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : null,
+              ),
+              kOpenHandGap12,
+              _SwitchSetting(
+                title: '限制数量',
+                description: '完成筛选、提取和排序后，仅保留前 N 项。',
+                value: limitEnabled,
+                onChanged: (value) =>
+                    _set(WorkflowSettingKeys.listLimitEnabled, value),
+              ),
+              OpenHandVerticalRevealSwitcher(
+                child: limitEnabled
+                    ? Padding(
+                        key: const ValueKey('list-limit-fields'),
+                        padding: const EdgeInsets.only(top: 12),
+                        child: _LabeledField(
+                          label: '最大数量',
+                          required: true,
+                          helper: '限制为 1–$maxWorkflowListLimit 项。',
+                          child: TextFormField(
+                            key: ValueKey('list-limit-${node.id}'),
+                            initialValue:
+                                '${node.intSetting(WorkflowSettingKeys.listLimitSize, 10)}',
+                            keyboardType: TextInputType.number,
+                            decoration: _inputDecoration(
+                              '1–$maxWorkflowListLimit',
+                            ),
+                            onChanged: (value) {
+                              final parsed = int.tryParse(value);
+                              if (parsed != null) {
+                                _set(
+                                  WorkflowSettingKeys.listLimitSize,
+                                  parsed.clamp(1, maxWorkflowListLimit),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                      )
+                    : null,
+              ),
+            ],
+          ),
+        ),
+        kOpenHandGap14,
+        _FormSection(
+          title: '输出参数',
+          icon: Icons.output_rounded,
+          child: _ListOutputFieldEditor(
+            fields: node.outputFields(),
+            reservedParameterNames: reservedParameterNames,
+            onChanged: (value) => _set(
+              WorkflowSettingKeys.outputFields,
+              value.map((item) => item.toJson()).toList(growable: false),
+            ),
+          ),
+        ),
+        kOpenHandGap16,
+        _buildTestButton(),
+      ],
+    );
+  }
+
+  Widget _buildLoopExit(BuildContext context) {
+    final theme = Theme.of(context);
+    return _FormSection(
+      title: '退出当前循环',
+      icon: Icons.exit_to_app_rounded,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            size: 20,
+            color: theme.colorScheme.primary,
+          ),
+          kOpenHandHGap10,
+          Expanded(
+            child: Text(
+              '执行到此节点时会立即结束当前循环，并继续执行循环节点之后的工作流。此节点无需配置参数。',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _setListInput(String value) {
+    final outputFields = node.outputFields();
+    final match = workflowTemplatePlaceholderPattern.firstMatch(value.trim());
+    final referenceName =
+        match != null && match.start == 0 && match.end == value.trim().length
+        ? match.group(1)
+        : value.trim();
+    final reference = availableReferences
+        .where((item) => item.name == referenceName)
+        .firstOrNull;
+    final (resultType, itemType) = switch (reference?.field.type) {
+      WorkflowOutputType.arrayString => (
+        WorkflowOutputType.arrayString,
+        WorkflowOutputType.string,
+      ),
+      WorkflowOutputType.arrayNumber => (
+        WorkflowOutputType.arrayNumber,
+        WorkflowOutputType.number,
+      ),
+      WorkflowOutputType.arrayBoolean => (
+        WorkflowOutputType.arrayBoolean,
+        WorkflowOutputType.boolean,
+      ),
+      WorkflowOutputType.arrayObject => (
+        WorkflowOutputType.arrayObject,
+        WorkflowOutputType.object,
+      ),
+      _ => (WorkflowOutputType.array, WorkflowOutputType.object),
+    };
+    _setValues(<String, Object?>{
+      WorkflowSettingKeys.listInput: value,
+      if (outputFields.length == 3)
+        WorkflowSettingKeys.outputFields: <Object?>[
+          outputFields[0].copyWith(type: resultType).toJson(),
+          outputFields[1].copyWith(type: itemType).toJson(),
+          outputFields[2].copyWith(type: itemType).toJson(),
+        ],
+    });
   }
 
   Widget _buildRetrySection(BuildContext context) {
@@ -2216,6 +2643,139 @@ class _KeyValueEditor extends StatelessWidget {
   }
 }
 
+class _ListOutputFieldEditor extends StatelessWidget {
+  const _ListOutputFieldEditor({
+    required this.fields,
+    required this.reservedParameterNames,
+    required this.onChanged,
+  });
+
+  final List<WorkflowOutputField> fields;
+  final Map<String, String> reservedParameterNames;
+  final ValueChanged<List<WorkflowOutputField>> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (fields.length != 3) {
+      return Text(
+        '输出参数配置不完整，请删除并重新添加此节点。',
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.error,
+        ),
+      );
+    }
+    const labels = <String>['处理结果', '首项记录', '末项记录'];
+    const descriptions = <String>[
+      '经过筛选、截取、排序和限量后的数组',
+      '结果数组的第一项，空数组时为 null',
+      '结果数组的最后一项，空数组时为 null',
+    ];
+    return Column(
+      children: fields.indexed
+          .map((entry) {
+            final (index, field) = entry;
+            final error = _nameError(field);
+            return Padding(
+              key: ValueKey(field.id),
+              padding: EdgeInsets.only(
+                bottom: index == fields.length - 1 ? 0 : 8,
+              ),
+              child: _EntryCard(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(kOpenHandRadius10),
+                      ),
+                      child: Icon(
+                        index == 0
+                            ? Icons.data_array_rounded
+                            : index == 1
+                            ? Icons.first_page_rounded
+                            : Icons.last_page_rounded,
+                        size: 18,
+                        color: theme.colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    kOpenHandHGap10,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  labels[index],
+                                  style: theme.textTheme.labelLarge?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                field.type.label,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                          kOpenHandGap3,
+                          Text(
+                            descriptions[index],
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          kOpenHandGap8,
+                          TextFormField(
+                            key: ValueKey('list-output-${field.id}'),
+                            initialValue: field.name,
+                            decoration: _inputDecoration(
+                              '输出参数名称',
+                            ).copyWith(errorText: error),
+                            onChanged: (value) => onChanged(
+                              fields
+                                  .map(
+                                    (item) => item.id == field.id
+                                        ? item.copyWith(name: value)
+                                        : item,
+                                  )
+                                  .toList(growable: false),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          })
+          .toList(growable: false),
+    );
+  }
+
+  String? _nameError(WorkflowOutputField field) {
+    final name = field.name.trim();
+    if (name.isEmpty) return '请输入输出参数名称。';
+    if (!workflowParameterNamePattern.hasMatch(name)) {
+      return '名称须以英文字母或下划线开头，仅包含字母、数字和下划线。';
+    }
+    if (fields.where((item) => item.name.trim() == name).length > 1) {
+      return '当前节点中已存在参数“$name”。';
+    }
+    final owner = reservedParameterNames[name];
+    return owner == null ? null : '参数“$name”已由节点“$owner”使用。';
+  }
+}
+
 class _OutputFieldEditor extends StatelessWidget {
   const _OutputFieldEditor({
     required this.fields,
@@ -2851,6 +3411,24 @@ workflowNodeDescriptor(WorkflowNodeKind kind, ColorScheme colors) {
       description: '逐项处理数组输入',
       icon: Icons.view_week_outlined,
       color: colors.primary,
+    ),
+    WorkflowNodeKind.parameterAssignment => (
+      label: '参数赋值',
+      description: '生成可供后续节点引用的参数',
+      icon: Icons.assignment_turned_in_outlined,
+      color: colors.secondary,
+    ),
+    WorkflowNodeKind.listOperation => (
+      label: '列表操作',
+      description: '筛选、截取、排序并限制数组',
+      icon: Icons.filter_list_rounded,
+      color: colors.tertiary,
+    ),
+    WorkflowNodeKind.loopExit => (
+      label: '退出循环',
+      description: '立即结束当前循环',
+      icon: Icons.exit_to_app_rounded,
+      color: colors.error,
     ),
     WorkflowNodeKind.llm => (
       label: 'LLM',

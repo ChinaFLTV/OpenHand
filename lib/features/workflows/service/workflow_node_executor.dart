@@ -119,6 +119,12 @@ class WorkflowNodeExecutionException implements Exception {
   String toString() => message;
 }
 
+class _WorkflowLoopExitSignal implements Exception {
+  const _WorkflowLoopExitSignal([this.variables = const <String, Object?>{}]);
+
+  final Map<String, Object?> variables;
+}
+
 class WorkflowExecutionResources {
   const WorkflowExecutionResources({
     required this.models,
@@ -200,6 +206,18 @@ class WorkflowNodeExecutor {
         variables,
         workflowNodes,
         workflowConnections,
+      ),
+      WorkflowNodeKind.parameterAssignment =>
+        Future<WorkflowNodeExecutionResult>.value(
+          _executeParameterNode(
+            fields: node.outputFields(),
+            variables: variables,
+            label: '赋值参数',
+          ),
+        ),
+      WorkflowNodeKind.listOperation => _executeListOperation(node, variables),
+      WorkflowNodeKind.loopExit => Future<WorkflowNodeExecutionResult>.error(
+        const _WorkflowLoopExitSignal(),
       ),
       WorkflowNodeKind.end => Future<WorkflowNodeExecutionResult>.value(
         _executeParameterNode(
@@ -1039,6 +1057,134 @@ class WorkflowNodeExecutor {
     );
   }
 
+  Future<WorkflowNodeExecutionResult> _executeListOperation(
+    WorkflowNode node,
+    Map<String, Object?> variables,
+  ) async {
+    final stopwatch = Stopwatch()..start();
+    final input = node.stringSetting(WorkflowSettingKeys.listInput).trim();
+    if (input.isEmpty) {
+      throw const WorkflowNodeExecutionException('列表操作的数组输入不能为空。');
+    }
+    final resolved = resolveWorkflowTemplateValue(input, variables);
+    final directValue = resolved == input && variables.containsKey(input)
+        ? variables[input]
+        : resolved;
+    final decodedValue = directValue is String
+        ? _tryDecodeList(directValue) ?? directValue
+        : directValue;
+    if (decodedValue is! List) {
+      throw const WorkflowNodeExecutionException('列表操作的输入必须是数组。');
+    }
+    if (decodedValue.length > maxWorkflowListItemCount) {
+      throw const WorkflowNodeExecutionException(
+        '列表操作的输入超过 $maxWorkflowListItemCount 项上限。',
+      );
+    }
+    var items = List<Object?>.from(decodedValue);
+
+    if (node.boolSetting(WorkflowSettingKeys.listFilterEnabled)) {
+      final key = node.stringSetting(WorkflowSettingKeys.listFilterKey).trim();
+      final operator = WorkflowConditionOperator.fromStorage(
+        node.settings[WorkflowSettingKeys.listFilterOperator],
+      );
+      final valueSource = WorkflowValueSource.fromStorage(
+        node.settings[WorkflowSettingKeys.listFilterValueSource],
+        legacyValue: node.stringSetting(WorkflowSettingKeys.listFilterValue),
+      );
+      final right = operator.requiresValue
+          ? _configuredValue(
+              node.stringSetting(WorkflowSettingKeys.listFilterValue),
+              variables,
+              valueSource: valueSource,
+            )
+          : null;
+      items = items
+          .where((item) {
+            final selected = _listItemValue(item, key);
+            if (!selected.found) {
+              throw WorkflowNodeExecutionException('列表项中不存在属性“$key”。');
+            }
+            try {
+              return _compareWorkflowValues(selected.value, operator, right);
+            } on FormatException {
+              throw const WorkflowNodeExecutionException('列表筛选的数值比较参数无效。');
+            }
+          })
+          .toList(growable: true);
+    }
+
+    if (node.boolSetting(WorkflowSettingKeys.listExtractEnabled)) {
+      final serialSource = node
+          .stringSetting(WorkflowSettingKeys.listExtractSerial, '1')
+          .trim();
+      final serialValue = resolveWorkflowTemplateValue(serialSource, variables);
+      final serial = serialValue is int
+          ? serialValue
+          : int.tryParse('$serialValue'.trim());
+      if (serial == null || serial < 1 || serial > items.length) {
+        throw WorkflowNodeExecutionException(
+          items.isEmpty ? '列表为空，无法按序号提取。' : '提取序号必须在 1–${items.length} 之间。',
+        );
+      }
+      items = <Object?>[items[serial - 1]];
+    }
+
+    if (node.boolSetting(WorkflowSettingKeys.listOrderEnabled)) {
+      final key = node.stringSetting(WorkflowSettingKeys.listOrderKey).trim();
+      final order = WorkflowListOrder.fromStorage(
+        node.settings[WorkflowSettingKeys.listOrder],
+      );
+      final indexed = items.indexed.toList(growable: true);
+      indexed.sort((left, right) {
+        final leftValue = _listItemValue(left.$2, key);
+        final rightValue = _listItemValue(right.$2, key);
+        if (!leftValue.found || !rightValue.found) {
+          throw WorkflowNodeExecutionException('列表项中不存在排序属性“$key”。');
+        }
+        final compared = _compareListValues(leftValue.value, rightValue.value);
+        if (compared != 0) {
+          return order == WorkflowListOrder.ascending ? compared : -compared;
+        }
+        return left.$1.compareTo(right.$1);
+      });
+      items = indexed.map((item) => item.$2).toList(growable: true);
+    }
+
+    if (node.boolSetting(WorkflowSettingKeys.listLimitEnabled)) {
+      final limit = node
+          .intSetting(WorkflowSettingKeys.listLimitSize, 10)
+          .clamp(1, maxWorkflowListLimit);
+      items = items.take(limit).toList(growable: true);
+    }
+
+    final outputFields = node.outputFields();
+    if (outputFields.length != 3) {
+      throw const WorkflowNodeExecutionException('列表操作必须包含三个输出参数。');
+    }
+    WorkflowStructuredOutputParser.validateFields(
+      outputFields,
+      label: '列表输出参数',
+    );
+    final output = <String, Object?>{
+      outputFields[0].name.trim(): List<Object?>.unmodifiable(items),
+      outputFields[1].name.trim(): items.firstOrNull,
+      outputFields[2].name.trim(): items.lastOrNull,
+    };
+    String rawOutput;
+    try {
+      rawOutput = jsonEncode(output);
+    } on JsonUnsupportedObjectError catch (error) {
+      throw WorkflowNodeExecutionException('列表结果包含无法序列化的值。', cause: error);
+    }
+    return WorkflowNodeExecutionResult(
+      output: Map<String, Object?>.unmodifiable(output),
+      rawOutput: rawOutput,
+      attempts: 1,
+      duration: stopwatch.elapsed,
+    );
+  }
+
   Future<WorkflowNodeExecutionResult> _executeLoop(
     WorkflowNode node,
     WorkflowExecutionResources resources,
@@ -1088,17 +1234,29 @@ class WorkflowNodeExecutor {
     var didBreak = false;
     var iterations = 0;
     for (var index = 0; index < count; index++) {
-      final graphVariables = await _executeNestedGraph(
-        parent: node,
-        resources: resources,
-        variables: <String, Object?>{
-          ...variables,
-          ...resolvedVariables,
-          'loop_index': index,
-        },
-        workflowNodes: workflowNodes,
-        workflowConnections: workflowConnections,
-      );
+      late final Map<String, Object?> graphVariables;
+      try {
+        graphVariables = await _executeNestedGraph(
+          parent: node,
+          resources: resources,
+          variables: <String, Object?>{
+            ...variables,
+            ...resolvedVariables,
+            'loop_index': index,
+          },
+          workflowNodes: workflowNodes,
+          workflowConnections: workflowConnections,
+        );
+      } on _WorkflowLoopExitSignal catch (signal) {
+        for (final name in resolvedVariables.keys) {
+          if (signal.variables.containsKey(name)) {
+            resolvedVariables[name] = signal.variables[name];
+          }
+        }
+        iterations = index + 1;
+        didBreak = true;
+        break;
+      }
       for (final name in resolvedVariables.keys) {
         if (graphVariables.containsKey(name)) {
           resolvedVariables[name] = graphVariables[name];
@@ -1331,6 +1489,11 @@ class WorkflowNodeExecutor {
       if (!activeNodeIds.contains(nodeId)) continue;
       final child = childrenById[nodeId];
       if (child == null) continue;
+      if (child.kind == WorkflowNodeKind.loopExit) {
+        throw _WorkflowLoopExitSignal(
+          Map<String, Object?>.unmodifiable(resolvedVariables),
+        );
+      }
       final result = await execute(
         node: child,
         resources: resources,
@@ -1405,6 +1568,38 @@ class WorkflowNodeExecutor {
     if (resolved != value) return resolved;
     final lookup = _lookupWorkflowVariable(value, variables);
     return lookup.found ? lookup.value : resolved;
+  }
+
+  ({bool found, Object? value}) _listItemValue(Object? item, String path) {
+    if (path.isEmpty) return (found: true, value: item);
+    Object? value = item;
+    for (final segment in path.split('.')) {
+      if (value is Map && value.containsKey(segment)) {
+        value = value[segment];
+        continue;
+      }
+      final index = int.tryParse(segment);
+      if (value is List &&
+          index != null &&
+          index >= 0 &&
+          index < value.length) {
+        value = value[index];
+        continue;
+      }
+      return (found: false, value: null);
+    }
+    return (found: true, value: value);
+  }
+
+  int _compareListValues(Object? left, Object? right) {
+    if (identical(left, right) || left == right) return 0;
+    if (left == null) return 1;
+    if (right == null) return -1;
+    if (left is num && right is num) return left.compareTo(right);
+    if (left is bool && right is bool) {
+      return (left ? 1 : 0).compareTo(right ? 1 : 0);
+    }
+    return '$left'.toLowerCase().compareTo('$right'.toLowerCase());
   }
 
   int _boundedRetryCount(WorkflowNode node) => node

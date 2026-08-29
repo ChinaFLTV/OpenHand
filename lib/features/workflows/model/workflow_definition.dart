@@ -7,6 +7,9 @@ enum WorkflowNodeKind {
   condition('condition'),
   loop('loop'),
   iteration('iteration'),
+  parameterAssignment('parameter_assignment'),
+  listOperation('list_operation'),
+  loopExit('loop_exit'),
   llm('llm'),
   httpRequest('http_request'),
   end('end');
@@ -223,6 +226,23 @@ enum WorkflowIterationErrorMode {
   }
 }
 
+enum WorkflowListOrder {
+  ascending('asc'),
+  descending('desc');
+
+  const WorkflowListOrder(this.storageValue);
+
+  final String storageValue;
+
+  static WorkflowListOrder fromStorage(Object? value) {
+    final normalized = '${value ?? ''}'.trim();
+    return values.firstWhere(
+      (order) => order.storageValue == normalized,
+      orElse: () => WorkflowListOrder.ascending,
+    );
+  }
+}
+
 final RegExp workflowParameterNamePattern = RegExp(
   r'^[A-Za-z_][A-Za-z0-9_]{0,63}$',
 );
@@ -246,9 +266,14 @@ String? validateWorkflowSourcedValue(
 
 const String workflowContainerStartHandleId = 'container_start';
 const int maxWorkflowNestedNodeCount = 128;
+const int maxWorkflowListItemCount = 10000;
+const int maxWorkflowListLimit = 20;
 
 bool isWorkflowContainerKind(WorkflowNodeKind kind) =>
     kind == WorkflowNodeKind.loop || kind == WorkflowNodeKind.iteration;
+
+bool isWorkflowTerminalNodeKind(WorkflowNodeKind kind) =>
+    kind == WorkflowNodeKind.end || kind == WorkflowNodeKind.loopExit;
 
 abstract final class WorkflowSettingKeys {
   static const String expression = 'expression';
@@ -264,6 +289,19 @@ abstract final class WorkflowSettingKeys {
   static const String iterationParallelism = 'iteration_parallelism';
   static const String iterationErrorMode = 'iteration_error_mode';
   static const String iterationFlattenOutput = 'iteration_flatten_output';
+  static const String listInput = 'list_input';
+  static const String listFilterEnabled = 'list_filter_enabled';
+  static const String listFilterKey = 'list_filter_key';
+  static const String listFilterOperator = 'list_filter_operator';
+  static const String listFilterValue = 'list_filter_value';
+  static const String listFilterValueSource = 'list_filter_value_source';
+  static const String listExtractEnabled = 'list_extract_enabled';
+  static const String listExtractSerial = 'list_extract_serial';
+  static const String listOrderEnabled = 'list_order_enabled';
+  static const String listOrderKey = 'list_order_key';
+  static const String listOrder = 'list_order';
+  static const String listLimitEnabled = 'list_limit_enabled';
+  static const String listLimitSize = 'list_limit_size';
   static const String containerWidth = 'container_width';
   static const String containerHeight = 'container_height';
   static const String modelConfigId = 'model_config_id';
@@ -1001,6 +1039,15 @@ class WorkflowDefinition {
           isWorkflowContainerKind(node.kind)) {
         throw const FormatException('内部工作流包含不支持的节点类型。');
       }
+      if (node.kind == WorkflowNodeKind.loopExit &&
+          parent.kind != WorkflowNodeKind.loop) {
+        throw const FormatException('退出循环节点只能位于循环节点内部。');
+      }
+    }
+    if (nodes.any(
+      (node) => node.kind == WorkflowNodeKind.loopExit && !node.isNested,
+    )) {
+      throw const FormatException('退出循环节点不能位于顶层工作流。');
     }
     final connections = _mapList(json['connections'])
         .map(WorkflowConnection.fromJson)
@@ -1015,6 +1062,9 @@ class WorkflowDefinition {
     for (final edge in connections) {
       final source = nodesById[edge.sourceNodeId]!;
       final target = nodesById[edge.targetNodeId]!;
+      if (source.kind == WorkflowNodeKind.loopExit) {
+        throw const FormatException('退出循环节点不能连接后续内部节点。');
+      }
       final internalStart =
           source.isContainer &&
           edge.sourceHandleId == workflowContainerStartHandleId &&

@@ -519,6 +519,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       WorkflowNodeKind.condition,
       WorkflowNodeKind.loop,
       WorkflowNodeKind.iteration,
+      WorkflowNodeKind.loopExit,
     }.contains(node.kind);
     final idleColor = controlFlowNode
         ? Color.alphaBlend(
@@ -640,7 +641,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                   tooltip: '从 ${branch.$2.label} 分支添加或连接节点',
                 ),
               )
-          else if (node.kind != WorkflowNodeKind.end)
+          else if (!isWorkflowTerminalNodeKind(node.kind))
             Positioned(
               left: _nodeWidth - _nodeAddButtonHitSize / 2,
               top: (nodeHeight - _nodeAddButtonHitSize) / 2,
@@ -1014,7 +1015,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                 ),
               ),
               kOpenHandHGap6,
-              if (node.kind != WorkflowNodeKind.end)
+              if (!isWorkflowTerminalNodeKind(node.kind))
                 Container(
                   width: 8,
                   height: 8,
@@ -1123,6 +1124,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   }) async {
     final theme = Theme.of(buttonContext);
     final nestedScope = _connectionScopeForSource(source, sourceHandleId);
+    final nestedParent = nestedScope == null
+        ? null
+        : _nodes.where((node) => node.id == nestedScope).firstOrNull;
     final selected = await showAnimatedAnchoredPopupMenu<WorkflowNodeKind>(
       context: buttonContext,
       offset: const Offset(18, 0),
@@ -1133,10 +1137,15 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       items: WorkflowNodeKind.values
           .where(
             (kind) => nestedScope == null
-                ? kind != WorkflowNodeKind.start
+                ? kind != WorkflowNodeKind.start &&
+                      kind != WorkflowNodeKind.loopExit
                 : kind == WorkflowNodeKind.condition ||
                       kind == WorkflowNodeKind.llm ||
-                      kind == WorkflowNodeKind.httpRequest,
+                      kind == WorkflowNodeKind.httpRequest ||
+                      kind == WorkflowNodeKind.parameterAssignment ||
+                      kind == WorkflowNodeKind.listOperation ||
+                      kind == WorkflowNodeKind.loopExit &&
+                          nestedParent?.kind == WorkflowNodeKind.loop,
           )
           .map((kind) {
             final descriptor = workflowNodeDescriptor(kind, theme.colorScheme);
@@ -1202,7 +1211,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     Offset globalPosition, {
     String? sourceHandleId,
   }) {
-    if (source.kind == WorkflowNodeKind.end ||
+    if (isWorkflowTerminalNodeKind(source.kind) ||
         !_nodes.any((node) => node.id == source.id)) {
       return;
     }
@@ -1338,7 +1347,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     String? sourceHandleId,
   }) {
     if (source.id == target.id) return '节点不能连接到自身。';
-    if (source.kind == WorkflowNodeKind.end) return '结束节点不能连接后续节点。';
+    if (isWorkflowTerminalNodeKind(source.kind)) {
+      return source.kind == WorkflowNodeKind.loopExit
+          ? '退出循环节点不能连接后续内部节点。'
+          : '结束节点不能连接后续节点。';
+    }
     final sourceScope = _connectionScopeForSource(source, sourceHandleId);
     if (target.parentNodeId != sourceScope) return '节点只能连接到同一工作流作用域。';
     if (sourceHandleId == workflowContainerStartHandleId &&
@@ -1394,6 +1407,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   }
 
   void _addNode(WorkflowNodeKind kind) {
+    if (kind == WorkflowNodeKind.loopExit) {
+      showOpenHandInfoSnack(context, '退出循环节点只能添加到循环节点内部。');
+      return;
+    }
     final hasStart = _nodes.any((node) => node.kind == WorkflowNodeKind.start);
     if (!hasStart && kind != WorkflowNodeKind.start) {
       showOpenHandInfoSnack(context, '请先添加开始节点。');
@@ -1434,8 +1451,13 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     String? sourceHandleId,
   }) {
     final parentNodeId = _connectionScopeForSource(source, sourceHandleId);
-    if (source.kind == WorkflowNodeKind.end ||
+    final parent = parentNodeId == null
+        ? null
+        : _nodes.where((node) => node.id == parentNodeId).firstOrNull;
+    if (isWorkflowTerminalNodeKind(source.kind) ||
         kind == WorkflowNodeKind.start ||
+        (kind == WorkflowNodeKind.loopExit &&
+            (parentNodeId == null || parent?.kind != WorkflowNodeKind.loop)) ||
         (parentNodeId != null &&
             (kind == WorkflowNodeKind.end || isWorkflowContainerKind(kind))) ||
         !_nodes.any((node) => node.id == source.id)) {
@@ -1601,6 +1623,47 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             WorkflowIterationErrorMode.stop.storageValue,
         WorkflowSettingKeys.iterationFlattenOutput: true,
       },
+      WorkflowNodeKind.parameterAssignment => <String, Object?>{
+        WorkflowSettingKeys.outputFields: <Object?>[],
+      },
+      WorkflowNodeKind.listOperation => <String, Object?>{
+        WorkflowSettingKeys.listInput: '',
+        WorkflowSettingKeys.listFilterEnabled: false,
+        WorkflowSettingKeys.listFilterKey: '',
+        WorkflowSettingKeys.listFilterOperator:
+            WorkflowConditionOperator.contains.storageValue,
+        WorkflowSettingKeys.listFilterValue: '',
+        WorkflowSettingKeys.listFilterValueSource:
+            WorkflowValueSource.constant.storageValue,
+        WorkflowSettingKeys.listExtractEnabled: false,
+        WorkflowSettingKeys.listExtractSerial: '1',
+        WorkflowSettingKeys.listOrderEnabled: false,
+        WorkflowSettingKeys.listOrderKey: '',
+        WorkflowSettingKeys.listOrder: WorkflowListOrder.ascending.storageValue,
+        WorkflowSettingKeys.listLimitEnabled: false,
+        WorkflowSettingKeys.listLimitSize: 10,
+        WorkflowSettingKeys.outputFields: <Object?>[
+          WorkflowOutputField(
+            id: _uuid.v4(),
+            name: _uniqueParameterName('result'),
+            description: '处理后的列表',
+            type: WorkflowOutputType.array,
+          ).toJson(),
+          WorkflowOutputField(
+            id: _uuid.v4(),
+            name: _uniqueParameterName('first_record'),
+            description: '处理结果的第一项',
+            type: WorkflowOutputType.object,
+          ).toJson(),
+          WorkflowOutputField(
+            id: _uuid.v4(),
+            name: _uniqueParameterName('last_record'),
+            description: '处理结果的最后一项',
+            type: WorkflowOutputType.object,
+          ).toJson(),
+        ],
+      },
+      WorkflowNodeKind.loopExit => const <String, Object?>{},
       WorkflowNodeKind.llm => <String, Object?>{
         WorkflowSettingKeys.modelConfigId:
             widget.catalog.models.firstOrNull?.id ?? '',
@@ -1648,6 +1711,19 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         WorkflowSettingKeys.outputFields: <Object?>[],
       },
     };
+  }
+
+  String _uniqueParameterName(String base) {
+    final names = _nodes
+        .expand((node) => node.declaredParameterFields())
+        .map((field) => field.name.trim())
+        .toSet();
+    if (!names.contains(base)) return base;
+    var suffix = 2;
+    while (names.contains('${base}_$suffix')) {
+      suffix += 1;
+    }
+    return '${base}_$suffix';
   }
 
   void _updateNode(
@@ -2100,6 +2176,82 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
           return '$error';
         }
       }
+      if (node.kind == WorkflowNodeKind.parameterAssignment) {
+        try {
+          WorkflowStructuredOutputParser.validateFields(
+            node.outputFields(),
+            label: '赋值参数',
+          );
+        } catch (error) {
+          return '$error';
+        }
+      }
+      if (node.kind == WorkflowNodeKind.listOperation) {
+        if (node.stringSetting(WorkflowSettingKeys.listInput).trim().isEmpty) {
+          return '列表操作节点的数组输入不能为空。';
+        }
+        if (node.boolSetting(WorkflowSettingKeys.listFilterEnabled)) {
+          final operator = WorkflowConditionOperator.fromStorage(
+            node.settings[WorkflowSettingKeys.listFilterOperator],
+          );
+          final value = node.stringSetting(WorkflowSettingKeys.listFilterValue);
+          if (operator.requiresValue && value.trim().isEmpty) {
+            return '列表操作节点的筛选比较值不能为空。';
+          }
+          if (operator.requiresValue) {
+            final source = WorkflowValueSource.fromStorage(
+              node.settings[WorkflowSettingKeys.listFilterValueSource],
+              legacyValue: value,
+            );
+            final error = validateWorkflowSourcedValue(
+              source,
+              value,
+              label: '列表筛选比较值',
+            );
+            if (error != null) return error;
+          }
+        }
+        if (node.boolSetting(WorkflowSettingKeys.listExtractEnabled)) {
+          final serial = node
+              .stringSetting(WorkflowSettingKeys.listExtractSerial, '1')
+              .trim();
+          final match = workflowTemplatePlaceholderPattern.firstMatch(serial);
+          final fullReference =
+              match != null && match.start == 0 && match.end == serial.length;
+          final parsed = int.tryParse(serial);
+          if (!fullReference && (parsed == null || parsed < 1)) {
+            return '列表操作节点的提取序号必须是大于等于 1 的整数或参数引用。';
+          }
+        }
+        if (node.boolSetting(WorkflowSettingKeys.listLimitEnabled)) {
+          final limit = node.intSetting(WorkflowSettingKeys.listLimitSize, 10);
+          if (limit < 1 || limit > maxWorkflowListLimit) {
+            return '列表操作节点的最大数量必须在 1–$maxWorkflowListLimit 之间。';
+          }
+        }
+        if (node.outputFields().length != 3) {
+          return '列表操作节点必须包含三个输出参数。';
+        }
+        try {
+          WorkflowStructuredOutputParser.validateFields(
+            node.outputFields(),
+            label: '列表输出参数',
+          );
+        } catch (error) {
+          return '$error';
+        }
+      }
+      if (node.kind == WorkflowNodeKind.loopExit) {
+        final parent = _nodes
+            .where((item) => item.id == node.parentNodeId)
+            .firstOrNull;
+        if (parent?.kind != WorkflowNodeKind.loop) {
+          return '退出循环节点只能位于循环节点内部。';
+        }
+        if (_connections.any((edge) => edge.sourceNodeId == node.id)) {
+          return '退出循环节点不能连接后续内部节点。';
+        }
+      }
       if (node.kind == WorkflowNodeKind.llm) {
         final modelConfigId = node
             .stringSetting(WorkflowSettingKeys.modelConfigId)
@@ -2239,6 +2391,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       final source = nodesById[connection.sourceNodeId];
       final target = nodesById[connection.targetNodeId];
       if (source == null || target == null) return '工作流包含失效连线。';
+      if (source.kind == WorkflowNodeKind.loopExit) {
+        return '退出循环节点不能连接后续内部节点。';
+      }
       final internalStart =
           source.isContainer &&
           connection.sourceHandleId == workflowContainerStartHandleId &&
@@ -3330,6 +3485,13 @@ String _nodeSummary(WorkflowNode node) {
       '${node.loopVariables().length} 个循环变量 · 最多 ${node.intSetting(WorkflowSettingKeys.maxIterations, 10)} 次',
     WorkflowNodeKind.iteration =>
       '${node.boolSetting(WorkflowSettingKeys.iterationParallel) ? '并行' : '串行'}迭代 · ${node.stringSetting(WorkflowSettingKeys.iterationOutputName, 'iteration_result')}',
+    WorkflowNodeKind.parameterAssignment =>
+      node.outputFields().isEmpty
+          ? '添加需要赋值的输出参数'
+          : '${node.outputFields().length} 个赋值参数',
+    WorkflowNodeKind.listOperation =>
+      '${node.boolSetting(WorkflowSettingKeys.listFilterEnabled) ? '筛选 · ' : ''}${node.boolSetting(WorkflowSettingKeys.listOrderEnabled) ? '排序 · ' : ''}${node.boolSetting(WorkflowSettingKeys.listLimitEnabled) ? '限量' : '输出列表'}',
+    WorkflowNodeKind.loopExit => '立即结束当前循环',
     WorkflowNodeKind.end =>
       node.outputFields().isEmpty
           ? '暂无输出参数'
