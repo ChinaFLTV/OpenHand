@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:provider/provider.dart';
@@ -392,6 +393,9 @@ class _ConversationMessageCard extends StatefulWidget {
 }
 
 class _ConversationMessageCardState extends State<_ConversationMessageCard> {
+  static const double _tapMaxDistance = 8;
+  static const Duration _tapMaxDuration = Duration(milliseconds: 350);
+
   late bool _expanded = switch (widget.message.kind) {
     WorkflowLlmMessageKind.user || WorkflowLlmMessageKind.assistant => true,
     WorkflowLlmMessageKind.reasoning ||
@@ -403,6 +407,9 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
   String? _translation;
   bool _showRawContent = false;
   _WorkflowMessageFeedback? _feedback;
+  int? _activePointer;
+  Offset? _pointerDownPosition;
+  DateTime? _pointerDownAt;
 
   @override
   void didUpdateWidget(covariant _ConversationMessageCard oldWidget) {
@@ -558,9 +565,35 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
                   maxWidth: constraints.maxWidth * _messageMaxWidthFactor,
                 ),
                 child: IntrinsicWidth(
-                  child: GestureDetector(
+                  child: Listener(
                     behavior: HitTestBehavior.opaque,
-                    onTap: widget.onSelected,
+                    onPointerDown: (event) {
+                      if (_activePointer != null ||
+                          (event.buttons & kPrimaryButton) == 0) {
+                        return;
+                      }
+                      _activePointer = event.pointer;
+                      _pointerDownPosition = event.position;
+                      _pointerDownAt = DateTime.now();
+                    },
+                    onPointerCancel: (event) {
+                      if (event.pointer == _activePointer) {
+                        _clearPointerState();
+                      }
+                    },
+                    onPointerUp: (event) {
+                      if (event.pointer != _activePointer) return;
+                      final downPosition = _pointerDownPosition;
+                      final downAt = _pointerDownAt;
+                      _clearPointerState();
+                      if (downPosition == null || downAt == null) return;
+                      if ((event.position - downPosition).distance <=
+                              _tapMaxDistance &&
+                          DateTime.now().difference(downAt) <=
+                              _tapMaxDuration) {
+                        widget.onSelected();
+                      }
+                    },
                     child: AnimatedSize(
                       duration: openHandMotionDuration(
                         context,
@@ -592,6 +625,12 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
         );
       },
     );
+  }
+
+  void _clearPointerState() {
+    _activePointer = null;
+    _pointerDownPosition = null;
+    _pointerDownAt = null;
   }
 
   Widget _buildContent(BuildContext context) {
