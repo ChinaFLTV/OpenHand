@@ -7,8 +7,9 @@ import {
   attachEffortPixelField,
   attachEffortStreamField,
   clamp,
-  EFFORT_MAX_TIER_PROGRESS,
+  EFFORT_SNAP_MS,
   EFFORT_TIDE_UNDERLAY_SOFT,
+  effortTideSoftScale,
   isDarkEffortTheme,
   resolveEffortFxBlends,
   type EffortPixelFieldHandle,
@@ -99,14 +100,49 @@ function ReasoningEffortPanel({
   const persistedValueRef = useRef(options[currentIndex]?.value ?? '');
   const queuedValueRef = useRef<string | null>(null);
   const persistingRef = useRef(false);
+  const slider100Ref = useRef(slider100);
+  const snapRafRef = useRef<number | null>(null);
   const pixelCanvasRef = useRef<HTMLCanvasElement>(null);
   const streamCanvasRef = useRef<HTMLCanvasElement>(null);
   const pixelHandleRef = useRef<EffortPixelFieldHandle | null>(null);
   const streamHandleRef = useRef<EffortStreamFieldHandle | null>(null);
 
+  slider100Ref.current = slider100;
+
+  const cancelSnapAnim = () => {
+    if (snapRafRef.current != null) {
+      cancelAnimationFrame(snapRafRef.current);
+      snapRafRef.current = null;
+    }
+  };
+
+  const animateSliderTo = (target: number) => {
+    cancelSnapAnim();
+    const from = slider100Ref.current;
+    if (reducedMotion || Math.abs(from - target) < 0.08) {
+      setSlider100(target);
+      return;
+    }
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / EFFORT_SNAP_MS);
+      const eased = 1 - (1 - t) ** 3;
+      setSlider100(from + (target - from) * eased);
+      if (t < 1) {
+        snapRafRef.current = requestAnimationFrame(tick);
+        return;
+      }
+      snapRafRef.current = null;
+      setSlider100(target);
+    };
+    snapRafRef.current = requestAnimationFrame(tick);
+  };
+
   const displayIndex = slider100ToIndex(slider100, options.length);
   const selected = options[displayIndex]!;
   const blends = resolveEffortFxBlends(slider100, options.length);
+  const maskFrac = clamp(slider100 / 100, 0, 1);
+  const tideSoftScale = effortTideSoftScale(maskFrac, blends.maxBlend);
   const isMax = displayIndex === options.length - 1 && options.length > 1;
   const statusClass = isMax
     ? 'is-max'
@@ -117,10 +153,17 @@ function ReasoningEffortPanel({
         : 'is-low';
 
   useLayoutEffect(() => {
-    if (!dragging) {
-      setSlider100(indexToSlider100(optionIndex(options, currentValue), options.length));
+    if (dragging) return;
+    const target = indexToSlider100(optionIndex(options, currentValue), options.length);
+    if (Math.abs(target - slider100Ref.current) < 0.08) {
+      setSlider100(target);
+      return;
     }
+    animateSliderTo(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅随外部当前值同步
   }, [currentValue, options, dragging]);
+
+  useEffect(() => () => cancelSnapAnim(), []);
 
   useEffect(() => {
     const syncTheme = () => setDarkTheme(isDarkEffortTheme());
@@ -154,26 +197,23 @@ function ReasoningEffortPanel({
     };
   }, []);
 
-  const isMaxTier =
-    isMax || blends.maxBlend >= 0.9 || slider100 >= EFFORT_MAX_TIER_PROGRESS * 100;
-
   useEffect(() => {
     pixelHandleRef.current?.setParams({
       active: blends.pixelBlend > 0.01,
       lowBlend: blends.lowBlend,
       maxBlend: blends.maxBlend,
-      // 末档按满轨渲染，交界柔边只在非末档启用。
-      thumb100: isMaxTier ? 100 : slider100,
+      // 右缘始终跟随拇指，极高→最大靠补间与 softScale 连续铺满。
+      thumb100: slider100,
       dark: darkTheme,
       reducedMotion,
     });
     streamHandleRef.current?.setParams({
-      intensity: isMaxTier ? 1 : blends.stream01,
+      intensity: blends.stream01,
       opacity: Math.max(0, 1 - blends.pixelBlend),
       dark: darkTheme,
       reducedMotion,
     });
-  }, [blends, slider100, darkTheme, reducedMotion, isMaxTier]);
+  }, [blends, slider100, darkTheme, reducedMotion]);
 
   const commit = (nextIndex: number) => {
     const next = options[clampIndex(nextIndex, options)];
@@ -217,8 +257,8 @@ function ReasoningEffortPanel({
   const snapAndCommit = (raw: number) => {
     const nextIndex = slider100ToIndex(raw, options.length);
     const snapped = indexToSlider100(nextIndex, options.length);
-    setSlider100(snapped);
     setDragging(false);
+    animateSliderTo(snapped);
     commit(nextIndex);
   };
 
@@ -231,12 +271,12 @@ function ReasoningEffortPanel({
       : blends.lowBlend < 0.99
         ? `color-mix(in srgb, #2ea86c ${Math.round((1 - blends.lowBlend) * 100)}%, #3b5bd8)`
         : '#3b5bd8';
-  const fillPct = isMaxTier ? 100 : slider100;
-  // 底轨/流光：更早收束、更宽消散，把交界留给像素潮汐碎裂。
-  const underlaySoftPct = EFFORT_TIDE_UNDERLAY_SOFT * 100;
-  const tideMask = isMaxTier
-    ? 'none'
-    : `linear-gradient(to right, #000 0%, #000 calc(${slider100}% - ${underlaySoftPct}%), rgba(0,0,0,0.35) calc(${slider100}% - ${underlaySoftPct * 0.45}%), transparent calc(${slider100}% - 2%))`;
+  const fillPct = slider100;
+  const underlaySoftPct = EFFORT_TIDE_UNDERLAY_SOFT * 100 * tideSoftScale;
+  const tideMask =
+    tideSoftScale < 0.05
+      ? 'none'
+      : `linear-gradient(to right, #000 0%, #000 calc(${slider100}% - ${underlaySoftPct}%), rgba(0,0,0,0.35) calc(${slider100}% - ${underlaySoftPct * 0.45}%), transparent calc(${slider100}% - 1%))`;
 
   return (
     <div
@@ -244,7 +284,7 @@ function ReasoningEffortPanel({
       data-es-theme={darkTheme ? 'dark' : 'light'}
       data-status={statusClass}
       data-dragging={dragging ? '1' : '0'}
-      data-max-tier={isMaxTier ? '1' : '0'}
+      data-max-tier={isMax ? '1' : '0'}
       style={
         {
           '--oh-effort-progress': `${slider100}%`,
@@ -296,9 +336,10 @@ function ReasoningEffortPanel({
               }`}
               style={{
                 opacity: String(0.35 + blends.maxBlend * 0.65),
-                clipPath: isMaxTier
-                  ? 'none'
-                  : `inset(0 ${Math.max(0, 100 - fillPct + underlaySoftPct * 0.35)}% 0 0)`,
+                clipPath:
+                  tideSoftScale < 0.05
+                    ? `inset(0 ${Math.max(0, 100 - fillPct)}% 0 0)`
+                    : `inset(0 ${Math.max(0, 100 - fillPct + underlaySoftPct * 0.35)}% 0 0)`,
                 maskImage: tideMask,
                 WebkitMaskImage: tideMask,
               }}
@@ -328,7 +369,7 @@ function ReasoningEffortPanel({
               class="oh-reasoning-effort-stream"
               aria-hidden="true"
               style={
-                isMaxTier
+                tideSoftScale < 0.05
                   ? undefined
                   : {
                       maskImage: tideMask,
@@ -355,8 +396,12 @@ function ReasoningEffortPanel({
             value={slider100}
             aria-label={t('composer.reasoning.title', '推理强度')}
             aria-valuetext={selected.label}
-            onPointerDown={() => setDragging(true)}
+            onPointerDown={() => {
+              cancelSnapAnim();
+              setDragging(true);
+            }}
             onInput={(event) => {
+              cancelSnapAnim();
               setDragging(true);
               setSlider100(clamp(Number(event.currentTarget.value), 0, 100));
             }}
@@ -384,11 +429,9 @@ function ReasoningEffortPanel({
                         : null;
               if (next != null) {
                 event.preventDefault();
-                const snapped = indexToSlider100(
-                  clampIndex(next, options),
-                  options.length,
+                animateSliderTo(
+                  indexToSlider100(clampIndex(next, options), options.length),
                 );
-                setSlider100(snapped);
               }
             }}
             onKeyUp={(event) => {

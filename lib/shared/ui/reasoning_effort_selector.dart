@@ -20,55 +20,62 @@ const double _kReasoningPopupGap = 8;
 const double _kThumbSize = 22;
 const double _kTrackHeight = 32;
 const Duration _kLabelSwitchDuration = kOpenHandMotion280;
-/// 末档判定：进度或紫段混合足够高时视为满轨。
-const double _kMaxTierProgress = 0.995;
-const double _kMaxTierBlend = 0.9;
-/// 非末档：主岸线左侧开始碎裂 / 右侧飞沫漫出（贴拇指，避免过渡带过宽）。
-const double _kTideSoftLead = 0.09;
-const double _kTideSoftSpill = 0.055;
-const double _kTideWaveAmp = 0.055;
-const double _kTideSprayAmp = 0.032;
-const double _kTideFoamAmp = 0.018;
-/// 底轨/流光比像素潮汐略宽收束，避免矩形软切抢戏。
-const double _kTideUnderlaySoft = 0.13;
+/// 主岸线碎裂前导 / 飞沫漫出（再乘 softScale）。
+const double _kTideSoftLead = 0.07;
+const double _kTideSoftSpill = 0.04;
+const double _kTideWaveAmp = 0.048;
+const double _kTideSprayAmp = 0.028;
+const double _kTideFoamAmp = 0.016;
+const double _kTideUnderlaySoft = 0.1;
 
-/// 潮汐前沿占位：起伏岸线 + 随机空洞/飞沫（与 Web effortTidePresence 对齐）。
+/// 接近满轨时潮汐柔边收束：1=完整潮汐，0=贴拇指实填。
+double _effortTideSoftScale(double maskFrac, double maxBlend) {
+  final settle =
+      _smoothstep(0.28, 0.97, maxBlend) * _smoothstep(0.78, 1.0, maskFrac);
+  return 1 - settle;
+}
+
+/// 潮汐前沿：锯齿岸线 + 二元空洞/飞沫（与 Web effortTidePresence 对齐）。
 double _effortTidePresence({
   required double nX,
   required double maskFrac,
-  required bool isMaxTier,
+  required double maxBlend,
   required int row,
   required int column,
   required double base,
   required double phase,
   required double elapsed,
 }) {
-  if (isMaxTier) return 1;
-  final tide = math.sin(nX * 21 + row * 2.15 + elapsed * 0.0017 + base * 6.283);
+  final softScale = _effortTideSoftScale(maskFrac, maxBlend);
+  if (nX > maskFrac + _kTideSoftSpill * softScale + 0.015) return 0;
+  if (softScale < 0.05) {
+    return nX <= maskFrac + 0.002 ? 1.0 : 0.0;
+  }
+  final lead = _kTideSoftLead * softScale;
+  final spill = _kTideSoftSpill * softScale;
+  final tide = math.sin(nX * 18 + row * 2.4 + elapsed * 0.0016 + base * 6.283);
   final spray = math.sin(
-    column * 2.61 + row * 5.07 + elapsed * 0.0026 + phase * math.pi * 2,
+    column * 2.41 + row * 5.33 + elapsed * 0.0024 + phase * math.pi * 2,
   );
   final foam = math.sin(
-    column * 9.17 + row * 1.41 + base * 13.7 + elapsed * 0.0011,
+    column * 11.3 + row * 1.7 + base * 9.1 + elapsed * 0.0009,
   );
   final shore = maskFrac -
-      _kTideSoftLead +
-      tide * _kTideWaveAmp +
-      spray * _kTideSprayAmp +
-      foam * _kTideFoamAmp;
-  const span = _kTideSoftLead + _kTideSoftSpill;
-  final t = (nX - shore) / span;
+      lead * 0.4 +
+      tide * _kTideWaveAmp * softScale +
+      spray * _kTideSprayAmp * softScale +
+      foam * _kTideFoamAmp * softScale;
+  final t = (nX - shore) / math.max(lead * 0.6 + spill, 0.001);
   if (t <= 0) return 1;
-  if (t >= 1.2) return 0;
-  // 前半仍较实，后段才急速碎裂成飞沫，过渡带紧凑贴拇指。
-  final density = math.pow(1 - t.clamp(0.0, 1.0), 2.35).toDouble();
+  if (t >= 1) return 0;
+  final density = math.pow(1 - t.clamp(0.0, 1.0), 1.85).toDouble();
   final gate =
-      base * 0.52 + phase * 0.33 + ((column * 17 + row * 31) % 97) / 97 * 0.15;
-  if (t < 0.28) return (0.82 + density * 0.18).clamp(0.08, 1.0);
-  if (gate > density * 0.98) return 0;
-  if (t > 0.52 && gate > density * 0.58) return 0;
-  if (t > 0.78 && gate > density * 0.34) return 0;
-  return (density * (0.55 + 0.45 * (0.5 + 0.5 * tide))).clamp(0.08, 1.0);
+      base * 0.48 + phase * 0.37 + ((column * 19 + row * 29) % 89) / 89 * 0.15;
+  if (gate > density) {
+    if (t < 0.7 || gate > density + 0.22) return 0;
+    return 0.28 + density * 0.22;
+  }
+  return t < 0.32 ? 1.0 : (0.62 + density * 0.38).clamp(0.25, 1.0);
 }
 
 /// Codex 风格色板：Low 绿 → High 蓝 → MAX 紫（派生自 dsh-effort-slider）。
@@ -273,15 +280,20 @@ class _ReasoningEffortPopupEntry extends PopupMenuEntry<String> {
 }
 
 class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late double _slider100;
   late String _persistedValue;
   String? _pendingValue;
   bool _saving = false;
   int _lastHapticIndex = -1;
+  VoidCallback? _snapTick;
   late final AnimationController _fxClock = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 12),
+  );
+  late final AnimationController _snapClock = AnimationController(
+    vsync: this,
+    duration: kOpenHandMotion320,
   );
 
   @override
@@ -304,6 +316,8 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
 
   @override
   void dispose() {
+    _stopSnapAnim();
+    _snapClock.dispose();
     _fxClock.dispose();
     super.dispose();
   }
@@ -321,7 +335,44 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
       ..value = 0;
   }
 
+  void _stopSnapAnim() {
+    final tick = _snapTick;
+    if (tick != null) {
+      _snapClock.removeListener(tick);
+      _snapTick = null;
+    }
+    _snapClock.stop();
+  }
+
+  void _animateSliderTo(double target) {
+    _stopSnapAnim();
+    final reduced = !openHandTickerMotionEnabled(context);
+    if (reduced || (target - _slider100).abs() < 0.08) {
+      setState(() => _slider100 = target);
+      _syncFx();
+      return;
+    }
+    final anim = Tween<double>(begin: _slider100, end: target).animate(
+      CurvedAnimation(parent: _snapClock, curve: Curves.easeOutCubic),
+    );
+    void tick() {
+      setState(() => _slider100 = anim.value);
+      _syncFx();
+    }
+    _snapTick = tick;
+    _snapClock
+      ..duration = openHandMotionDuration(context, kOpenHandMotion320)
+      ..addListener(tick)
+      ..forward(from: 0).whenCompleteOrCancel(() {
+        if (!mounted) return;
+        _stopSnapAnim();
+        setState(() => _slider100 = target);
+        _syncFx();
+      });
+  }
+
   void _selectRaw(double value) {
+    _stopSnapAnim();
     final next = value.clamp(0.0, 100.0);
     if ((next - _slider100).abs() < 0.01) return;
     final nextIndex = _indexFromProgress(next / 100, widget.options.length);
@@ -337,9 +388,8 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
     final nextIndex = _indexFromProgress(value / 100, widget.options.length);
     final snapped = _progressFromIndex(nextIndex, widget.options.length) * 100;
     final effort = widget.options[nextIndex].value;
-    setState(() => _slider100 = snapped);
     _lastHapticIndex = nextIndex;
-    _syncFx();
+    _animateSliderTo(snapped);
     if (!_saving && effort.toLowerCase() == _persistedValue.toLowerCase()) {
       return;
     }
@@ -371,11 +421,9 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
                 option.value.toLowerCase() == _persistedValue.toLowerCase(),
           );
           if (persistedIndex >= 0) {
-            setState(() {
-              _slider100 =
-                  _progressFromIndex(persistedIndex, widget.options.length) *
-                  100;
-            });
+            _animateSliderTo(
+              _progressFromIndex(persistedIndex, widget.options.length) * 100,
+            );
           }
         }
       }
@@ -638,20 +686,19 @@ class _EffortTrackPainter extends CustomPainter {
 
     const thumbPad = _kThumbSize / 2;
     final thumbX = thumbPad + (size.width - _kThumbSize) * progress;
-    final isMaxTier =
-        progress >= _kMaxTierProgress || maxBlend >= _kMaxTierBlend;
-    // 末档满轨；非末档填到拇指，再由潮水柔边自然漫过交界。
-    final fillRight = isMaxTier ? size.width : thumbX.clamp(0.0, size.width);
+    // 右缘始终跟随拇指；接近满轨时 softScale 收束实现连续铺满。
+    final fillRight = thumbX.clamp(0.0, size.width);
+    final maskFrac = (thumbX / size.width).clamp(0.0, 1.0);
+    final softScale = _effortTideSoftScale(maskFrac, maxBlend);
     final accent = _EffortPalettes.resolveFill(progress, dark: dark);
     final cy = size.height / 2;
 
     if (maxBlend > 0.02 && fillRight > 0) {
       canvas.save();
       canvas.clipRRect(track);
-      // 非末档底轨提前收束，把交界留给像素潮汐碎裂。
-      final maxEnd = isMaxTier
-          ? size.width
-          : math.max(0.0, fillRight - size.width * _kTideUnderlaySoft * 0.35);
+      final maxEnd = softScale < 0.05
+          ? fillRight
+          : math.max(0.0, fillRight - size.width * _kTideUnderlaySoft * softScale * 0.35);
       if (maxEnd > 1) {
         canvas.drawRect(
           Rect.fromLTRB(0, trackTop, maxEnd, trackTop + _kTrackHeight),
@@ -661,9 +708,9 @@ class _EffortTrackPainter extends CustomPainter {
                 ..._EffortPalettes.trackMaxGradient(dark: dark).map(
                   (c) => c.withValues(alpha: 0.35 + maxBlend * 0.65),
                 ),
-                if (!isMaxTier) const Color(0x00000000),
+                if (softScale >= 0.05) const Color(0x00000000),
               ],
-              stops: isMaxTier
+              stops: softScale < 0.05
                   ? null
                   : const <double>[0, 0.28, 0.52, 0.74, 1],
             ).createShader(
@@ -677,9 +724,9 @@ class _EffortTrackPainter extends CustomPainter {
     if (progress > 0.01 && pixelBlend < 0.98) {
       canvas.save();
       canvas.clipRRect(track);
-      final streamEnd = isMaxTier
-          ? size.width
-          : math.max(0.0, fillRight - size.width * 0.02);
+      final streamEnd = softScale < 0.05
+          ? fillRight
+          : math.max(0.0, fillRight - size.width * 0.02 * softScale);
       canvas.drawRect(
         Rect.fromLTRB(0, trackTop, streamEnd, trackTop + _kTrackHeight),
         Paint()
@@ -687,10 +734,10 @@ class _EffortTrackPainter extends CustomPainter {
             colors: <Color>[
               accent.withValues(alpha: 0.14),
               accent.withValues(alpha: 0.52 + progress * 0.28),
-              accent.withValues(alpha: isMaxTier ? 0.42 : 0.12),
-              if (!isMaxTier) accent.withValues(alpha: 0),
+              accent.withValues(alpha: softScale < 0.05 ? 0.42 : 0.12),
+              if (softScale >= 0.05) accent.withValues(alpha: 0),
             ],
-            stops: isMaxTier
+            stops: softScale < 0.05
                 ? const <double>[0, 0.55, 1]
                 : const <double>[0, 0.48, 0.78, 1],
           ).createShader(
@@ -707,12 +754,7 @@ class _EffortTrackPainter extends CustomPainter {
     if (pixelBlend > 0.01) {
       canvas.save();
       canvas.clipRRect(track);
-      _paintPixelField(
-        canvas,
-        size,
-        maskFrac: isMaxTier ? 1 : (thumbX / size.width).clamp(0.0, 1.0),
-        isMaxTier: isMaxTier,
-      );
+      _paintPixelField(canvas, size, maskFrac: maskFrac);
       canvas.restore();
     }
 
@@ -795,7 +837,6 @@ class _EffortTrackPainter extends CustomPainter {
     Canvas canvas,
     Size size, {
     required double maskFrac,
-    required bool isMaxTier,
   }) {
     final cell = size.width < 280 ? 5.0 : 6.0;
     final gap = 0.2 + 0.9 * maxBlend;
@@ -817,7 +858,7 @@ class _EffortTrackPainter extends CustomPainter {
         final tidePresence = _effortTidePresence(
           nX: nX,
           maskFrac: maskFrac,
-          isMaxTier: isMaxTier,
+          maxBlend: maxBlend,
           row: row,
           column: column,
           base: base,

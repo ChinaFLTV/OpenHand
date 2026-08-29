@@ -74,16 +74,17 @@ const DARK_PURPLE_LEFT: Rgb = [24, 19, 40];
 export const EFFORT_COMMIT_THROTTLE_MS = 16;
 export const EFFORT_PIXEL_FRAME_MS = 33;
 export const EFFORT_STREAM_FRAME_MS = 33;
-/** 非末档：主岸线左侧开始碎裂的相对宽度（贴拇指，避免过渡带过宽）。 */
-export const EFFORT_TIDE_SOFT_LEAD = 0.09;
-/** 非末档：主岸线右侧飞沫可漫出的相对宽度。 */
-export const EFFORT_TIDE_SOFT_SPILL = 0.055;
-/** 底轨/流光掩膜柔边（略宽于像素潮汐，避免矩形软切抢戏）。 */
-export const EFFORT_TIDE_UNDERLAY_SOFT = 0.13;
-export const EFFORT_MAX_TIER_PROGRESS = 0.995;
-const EFFORT_TIDE_WAVE_AMP = 0.055;
-const EFFORT_TIDE_SPRAY_AMP = 0.032;
-const EFFORT_TIDE_FOAM_AMP = 0.018;
+/** 主岸线左侧碎裂前导（相对轨长，再乘 softScale）。 */
+export const EFFORT_TIDE_SOFT_LEAD = 0.07;
+/** 主岸线右侧飞沫漫出。 */
+export const EFFORT_TIDE_SOFT_SPILL = 0.04;
+/** 底轨/流光掩膜柔边。 */
+export const EFFORT_TIDE_UNDERLAY_SOFT = 0.1;
+/** 档位吸附补间时长。 */
+export const EFFORT_SNAP_MS = 320;
+const EFFORT_TIDE_WAVE_AMP = 0.048;
+const EFFORT_TIDE_SPRAY_AMP = 0.028;
+const EFFORT_TIDE_FOAM_AMP = 0.016;
 
 export function clamp(value: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, value));
@@ -98,46 +99,59 @@ export function mix(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
+/** 接近满轨时潮汐柔边收束系数：1=完整潮汐，0=贴拇指实填。 */
+export function effortTideSoftScale(maskFrac: number, maxBlend: number): number {
+  const settle =
+    smoothstep(0.28, 0.97, maxBlend) * smoothstep(0.78, 1, maskFrac);
+  return 1 - settle;
+}
+
 /**
- * 潮汐前沿占位：起伏岸线 + 随机空洞/飞沫，避免均匀渐隐的一刀切。
- * 返回 0 表示不绘制该格；末档恒为 1。
+ * 潮汐前沿：锯齿岸线 + 二元空洞/飞沫。
+ * 随 maxBlend/maskFrac 收束，极高→最大连续铺满，禁止一次性硬切满轨。
  */
 export function effortTidePresence(input: {
   nX: number;
   maskFrac: number;
-  isMaxTier: boolean;
+  maxBlend: number;
   row: number;
   column: number;
   base: number;
   phase: number;
   elapsed: number;
 }): number {
-  if (input.isMaxTier) return 1;
-  const { nX, maskFrac, row, column, base, phase, elapsed } = input;
-  const tide = Math.sin(nX * 21 + row * 2.15 + elapsed * 0.0017 + base * 6.283);
+  const { nX, maskFrac, maxBlend, row, column, base, phase, elapsed } = input;
+  const softScale = effortTideSoftScale(maskFrac, maxBlend);
+  if (nX > maskFrac + EFFORT_TIDE_SOFT_SPILL * softScale + 0.015) return 0;
+  if (softScale < 0.05) {
+    return nX <= maskFrac + 0.002 ? 1 : 0;
+  }
+
+  const lead = EFFORT_TIDE_SOFT_LEAD * softScale;
+  const spill = EFFORT_TIDE_SOFT_SPILL * softScale;
+  const tide = Math.sin(nX * 18 + row * 2.4 + elapsed * 0.0016 + base * 6.283);
   const spray = Math.sin(
-    column * 2.61 + row * 5.07 + elapsed * 0.0026 + phase * Math.PI * 2,
+    column * 2.41 + row * 5.33 + elapsed * 0.0024 + phase * Math.PI * 2,
   );
-  const foam = Math.sin(column * 9.17 + row * 1.41 + base * 13.7 + elapsed * 0.0011);
+  const foam = Math.sin(column * 11.3 + row * 1.7 + base * 9.1 + elapsed * 0.0009);
+  // 岸线贴拇指：前导很短，靠锯齿与空洞做出潮水感，避免大段半透明糊边。
   const shore =
     maskFrac -
-    EFFORT_TIDE_SOFT_LEAD +
-    tide * EFFORT_TIDE_WAVE_AMP +
-    spray * EFFORT_TIDE_SPRAY_AMP +
-    foam * EFFORT_TIDE_FOAM_AMP;
-  const span = EFFORT_TIDE_SOFT_LEAD + EFFORT_TIDE_SOFT_SPILL;
-  const t = (nX - shore) / Math.max(span, 0.001);
+    lead * 0.4 +
+    tide * EFFORT_TIDE_WAVE_AMP * softScale +
+    spray * EFFORT_TIDE_SPRAY_AMP * softScale +
+    foam * EFFORT_TIDE_FOAM_AMP * softScale;
+  const t = (nX - shore) / Math.max(lead * 0.6 + spill, 0.001);
   if (t <= 0) return 1;
-  if (t >= 1.2) return 0;
+  if (t >= 1) return 0;
 
-  // 前半仍较实，后段才急速碎裂成飞沫，过渡带紧凑贴拇指。
-  const density = Math.pow(1 - clamp(t, 0, 1), 2.35);
-  const gate = base * 0.52 + phase * 0.33 + ((column * 17 + row * 31) % 97) / 97 * 0.15;
-  if (t < 0.28) return clamp(0.82 + density * 0.18, 0.08, 1);
-  if (gate > density * 0.98) return 0;
-  if (t > 0.52 && gate > density * 0.58) return 0;
-  if (t > 0.78 && gate > density * 0.34) return 0;
-  return clamp(density * (0.55 + 0.45 * (0.5 + 0.5 * tide)), 0.08, 1);
+  const density = Math.pow(1 - clamp(t, 0, 1), 1.85);
+  const gate = base * 0.48 + phase * 0.37 + ((column * 19 + row * 29) % 89) / 89 * 0.15;
+  if (gate > density) {
+    if (t < 0.7 || gate > density + 0.22) return 0;
+    return 0.28 + density * 0.22;
+  }
+  return t < 0.32 ? 1 : clamp(0.62 + density * 0.38, 0.25, 1);
 }
 
 function mixRgb(a: Rgb, b: Rgb, t: number): Rgb {
@@ -326,8 +340,8 @@ export function attachEffortPixelField(
     ctx.clearRect(0, 0, width, height);
     if (!active) return;
 
-    const isMaxTier = thumb100 >= EFFORT_MAX_TIER_PROGRESS * 100 || maxBlend >= 0.9;
-    const maskFrac = isMaxTier ? 1 : clamp(thumb100 / 100, 0, 1);
+    // 覆盖右缘始终跟随拇指，禁止末档一次性跳满轨。
+    const maskFrac = clamp(thumb100 / 100, 0, 1);
     const reveal = reduced
       ? 1
       : smoothstep(0, 1, (time - startedAt) / 1000);
@@ -374,7 +388,7 @@ export function attachEffortPixelField(
       const tidePresence = effortTidePresence({
         nX: c.nX,
         maskFrac,
-        isMaxTier,
+        maxBlend,
         row: c.row,
         column: c.column,
         base: c.base,
