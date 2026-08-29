@@ -23365,35 +23365,40 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
   @override
   Widget build(BuildContext context) {
     final responseModel = _resolvedResponseModel();
-    final reasoningOptions =
-        responseModel?.resolvedReasoningEffortOptions
-            .where((option) => option.isSelectable)
-            .toList(growable: false) ??
+    final allReasoningOptions =
+        responseModel?.resolvedReasoningEffortOptions ??
         const <AiReasoningEffortOption>[];
+    final reasoningOptions = allReasoningOptions
+        .where((option) => option.isSelectable)
+        .toList(growable: false);
     final reasoningAdjustable =
         responseModel?.resolvedReasoningEffortControlEnabled == true &&
         reasoningOptions.isNotEmpty;
-    final reasoningEffortLabel = responseModel
-        ?.reasoningEffortLabelForLocaleName(
-          Localizations.localeOf(context).toLanguageTag(),
-        );
-    final reasoningStatus = reasoningAdjustable
-        ? '推理 ${reasoningEffortLabel ?? '默认'}'
-        : responseModel?.resolvedThinkingEnabled == true
-        ? '推理强度固定'
-        : reasoningOptions.isNotEmpty
-        ? '推理已关闭'
-        : '不支持推理强度';
+    final profile = responseModel?.profileFor(responseModel.modelId);
+    final reasoningEffort =
+        responseModel?.resolvedReasoningEffort?.trim() ??
+        profile?.reasoningEffort?.trim() ??
+        '';
+    final normalizedEffort = reasoningEffort.toLowerCase();
+    final reasoningClosed =
+        responseModel?.resolvedThinkingEnabled != true ||
+        const <String>{'none', 'off', 'disabled'}.contains(normalizedEffort);
+    final reasoningOption = allReasoningOptions
+        .where((option) => option.value.toLowerCase() == normalizedEffort)
+        .firstOrNull;
+    final reasoningEffortLabel = reasoningClosed
+        ? '关闭'
+        : reasoningOption?.labelForLocaleName(
+                Localizations.localeOf(context).toLanguageTag(),
+              ) ??
+              (reasoningEffort.isEmpty ? '默认' : reasoningEffort);
     final reasoningTooltip = reasoningAdjustable
-        ? '调整响应模型的推理强度，当前为 ${reasoningEffortLabel ?? '默认'}'
+        ? '调整响应模型的推理强度，当前为 $reasoningEffortLabel'
         : responseModel == null
-        ? '暂无可用响应模型'
+        ? '暂无可用响应模型，推理强度保持关闭'
         : responseModel.resolvedThinkingEnabled
-        ? '当前模型的推理强度固定，无法调整'
-        : reasoningOptions.isNotEmpty
-        ? '当前模型未启用推理强度控制'
-        : '当前模型不支持推理强度控制';
-    final model = '${_modelLabel()} · $reasoningStatus';
+        ? '当前模型的推理强度固定为 $reasoningEffortLabel，无法调整'
+        : '当前模型不支持推理强度控制，保持关闭';
     final theme = Theme.of(context);
     final responseModeAll = _responseMode == DingTalkResponseMode.all;
     return SizedBox(
@@ -24042,7 +24047,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                   _DingTalkSettingsCard(
                     icon: Icons.auto_awesome_rounded,
                     title: '响应模型',
-                    subtitle: model,
+                    subtitle: _modelLabel(),
                     onTap: _selectModel,
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -24054,27 +24059,20 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                               behavior: HitTestBehavior.opaque,
                               excludeFromSemantics: true,
                               onTap: reasoningAdjustable ? null : () {},
-                              child: IconButton.filledTonal(
+                              child: FilledButton.tonalIcon(
                                 onPressed: reasoningAdjustable
                                     ? () => unawaited(
                                         _selectReasoningEffort(buttonContext),
                                       )
                                     : null,
-                                style: IconButton.styleFrom(
-                                  fixedSize: const Size.square(44),
-                                  foregroundColor:
-                                      theme.colorScheme.onSecondaryContainer,
-                                  backgroundColor:
-                                      theme.colorScheme.secondaryContainer,
-                                  disabledForegroundColor: theme
-                                      .colorScheme
-                                      .onSurfaceVariant
-                                      .withValues(alpha: 0.48),
-                                  disabledBackgroundColor: theme
-                                      .colorScheme
-                                      .surfaceContainerHigh
-                                      .withValues(alpha: 0.72),
-                                  shape: const CircleBorder(),
+                                style: FilledButton.styleFrom(
+                                  minimumSize: const Size(0, 40),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                  shadowColor: Colors.transparent,
+                                  shape: const StadiumBorder(),
                                 ),
                                 icon: Icon(
                                   reasoningAdjustable
@@ -24084,8 +24082,9 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                                             true
                                       ? Icons.lock_rounded
                                       : Icons.psychology_alt_outlined,
-                                  size: 20,
+                                  size: 17,
                                 ),
+                                label: Text('推理 · $reasoningEffortLabel'),
                               ),
                             ),
                           ),
