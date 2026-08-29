@@ -82,9 +82,15 @@ export const EFFORT_TIDE_SOFT_SPILL = 0.04;
 export const EFFORT_TIDE_UNDERLAY_SOFT = 0.1;
 /** 档位吸附补间时长。 */
 export const EFFORT_SNAP_MS = 320;
+/** 滑块到达末档（满轨实填、关闭潮汐过渡）。 */
+export const EFFORT_LAST_TIER_SLIDER = 99.5;
 const EFFORT_TIDE_WAVE_AMP = 0.048;
 const EFFORT_TIDE_SPRAY_AMP = 0.028;
 const EFFORT_TIDE_FOAM_AMP = 0.016;
+
+export function isEffortLastTier(slider100: number): boolean {
+  return slider100 >= EFFORT_LAST_TIER_SLIDER;
+}
 
 export function clamp(value: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, value));
@@ -108,18 +114,20 @@ export function effortTideSoftScale(maskFrac: number, maxBlend: number): number 
 
 /**
  * 潮汐前沿：锯齿岸线 + 二元空洞/飞沫。
- * 随 maxBlend/maskFrac 收束，极高→最大连续铺满，禁止一次性硬切满轨。
+ * 末档 solidTrack 时整轨实填，不做过渡碎裂。
  */
 export function effortTidePresence(input: {
   nX: number;
   maskFrac: number;
   maxBlend: number;
+  solidTrack?: boolean;
   row: number;
   column: number;
   base: number;
   phase: number;
   elapsed: number;
 }): number {
+  if (input.solidTrack) return 1;
   const { nX, maskFrac, maxBlend, row, column, base, phase, elapsed } = input;
   const softScale = effortTideSoftScale(maskFrac, maxBlend);
   if (nX > maskFrac + EFFORT_TIDE_SOFT_SPILL * softScale + 0.015) return 0;
@@ -340,8 +348,9 @@ export function attachEffortPixelField(
     ctx.clearRect(0, 0, width, height);
     if (!active) return;
 
-    // 覆盖右缘始终跟随拇指；不做从右向左扫过显现，避免剧烈跳变。
-    const maskFrac = clamp(thumb100 / 100, 0, 1);
+    // 末档整轨实填；非末档右缘跟随拇指。不做从右向左扫过显现。
+    const solidTrack = isEffortLastTier(thumb100);
+    const maskFrac = solidTrack ? 1 : clamp(thumb100 / 100, 0, 1);
     const gap = 0.2 + (gapBase - 0.2) * maxBlend;
     const elapsed = reduced ? 0 : Math.max(0, time - startedAt);
 
@@ -383,6 +392,7 @@ export function attachEffortPixelField(
         nX: c.nX,
         maskFrac,
         maxBlend,
+        solidTrack,
         row: c.row,
         column: c.column,
         base: c.base,

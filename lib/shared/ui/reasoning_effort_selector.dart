@@ -27,6 +27,10 @@ const double _kTideWaveAmp = 0.048;
 const double _kTideSprayAmp = 0.028;
 const double _kTideFoamAmp = 0.016;
 const double _kTideUnderlaySoft = 0.1;
+/// 滑块到达末档：满轨实填、关闭潮汐过渡。
+const double _kLastTierProgress = 0.995;
+
+bool _isEffortLastTier(double progress) => progress >= _kLastTierProgress;
 
 /// 接近满轨时潮汐柔边收束：1=完整潮汐，0=贴拇指实填。
 double _effortTideSoftScale(double maskFrac, double maxBlend) {
@@ -40,12 +44,14 @@ double _effortTidePresence({
   required double nX,
   required double maskFrac,
   required double maxBlend,
+  required bool solidTrack,
   required int row,
   required int column,
   required double base,
   required double phase,
   required double elapsed,
 }) {
+  if (solidTrack) return 1;
   final softScale = _effortTideSoftScale(maskFrac, maxBlend);
   if (nX > maskFrac + _kTideSoftSpill * softScale + 0.015) return 0;
   if (softScale < 0.05) {
@@ -692,17 +698,20 @@ class _EffortTrackPainter extends CustomPainter {
 
     const thumbPad = _kThumbSize / 2;
     final thumbX = thumbPad + (size.width - _kThumbSize) * progress;
-    // 右缘始终跟随拇指；接近满轨时 softScale 收束实现连续铺满。
-    final fillRight = thumbX.clamp(0.0, size.width);
-    final maskFrac = (thumbX / size.width).clamp(0.0, 1.0);
-    final softScale = _effortTideSoftScale(maskFrac, maxBlend);
+    // 末档整轨实填、关闭潮汐；非末档右缘跟随拇指。
+    final solidTrack = _isEffortLastTier(progress);
+    final fillRight = solidTrack ? size.width : thumbX.clamp(0.0, size.width);
+    final maskFrac =
+        solidTrack ? 1.0 : (thumbX / size.width).clamp(0.0, 1.0);
+    final softScale =
+        solidTrack ? 0.0 : _effortTideSoftScale(maskFrac, maxBlend);
     final accent = _EffortPalettes.resolveFill(progress, dark: dark);
     final cy = size.height / 2;
 
     if (maxBlend > 0.02 && fillRight > 0) {
       canvas.save();
       canvas.clipRRect(track);
-      final maxEnd = softScale < 0.05
+      final maxEnd = solidTrack || softScale < 0.05
           ? fillRight
           : math.max(0.0, fillRight - size.width * _kTideUnderlaySoft * softScale * 0.35);
       if (maxEnd > 1) {
@@ -714,9 +723,9 @@ class _EffortTrackPainter extends CustomPainter {
                 ..._EffortPalettes.trackMaxGradient(dark: dark).map(
                   (c) => c.withValues(alpha: 0.35 + maxBlend * 0.65),
                 ),
-                if (softScale >= 0.05) const Color(0x00000000),
+                if (!solidTrack && softScale >= 0.05) const Color(0x00000000),
               ],
-              stops: softScale < 0.05
+              stops: solidTrack || softScale < 0.05
                   ? null
                   : const <double>[0, 0.28, 0.52, 0.74, 1],
             ).createShader(
@@ -730,7 +739,7 @@ class _EffortTrackPainter extends CustomPainter {
     if (progress > 0.01 && pixelBlend < 0.98) {
       canvas.save();
       canvas.clipRRect(track);
-      final streamEnd = softScale < 0.05
+      final streamEnd = solidTrack || softScale < 0.05
           ? fillRight
           : math.max(0.0, fillRight - size.width * 0.02 * softScale);
       canvas.drawRect(
@@ -740,10 +749,10 @@ class _EffortTrackPainter extends CustomPainter {
             colors: <Color>[
               accent.withValues(alpha: 0.14),
               accent.withValues(alpha: 0.52 + progress * 0.28),
-              accent.withValues(alpha: softScale < 0.05 ? 0.42 : 0.12),
-              if (softScale >= 0.05) accent.withValues(alpha: 0),
+              accent.withValues(alpha: solidTrack || softScale < 0.05 ? 0.42 : 0.12),
+              if (!solidTrack && softScale >= 0.05) accent.withValues(alpha: 0),
             ],
-            stops: softScale < 0.05
+            stops: solidTrack || softScale < 0.05
                 ? const <double>[0, 0.55, 1]
                 : const <double>[0, 0.48, 0.78, 1],
           ).createShader(
@@ -760,7 +769,12 @@ class _EffortTrackPainter extends CustomPainter {
     if (pixelBlend > 0.01) {
       canvas.save();
       canvas.clipRRect(track);
-      _paintPixelField(canvas, size, maskFrac: maskFrac);
+      _paintPixelField(
+        canvas,
+        size,
+        maskFrac: maskFrac,
+        solidTrack: solidTrack,
+      );
       canvas.restore();
     }
 
@@ -843,6 +857,7 @@ class _EffortTrackPainter extends CustomPainter {
     Canvas canvas,
     Size size, {
     required double maskFrac,
+    required bool solidTrack,
   }) {
     final cell = size.width < 280 ? 5.0 : 6.0;
     final gap = 0.2 + 0.9 * maxBlend;
@@ -863,6 +878,7 @@ class _EffortTrackPainter extends CustomPainter {
           nX: nX,
           maskFrac: maskFrac,
           maxBlend: maxBlend,
+          solidTrack: solidTrack,
           row: row,
           column: column,
           base: base,

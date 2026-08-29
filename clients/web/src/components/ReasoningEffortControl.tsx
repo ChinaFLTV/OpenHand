@@ -11,6 +11,7 @@ import {
   EFFORT_TIDE_UNDERLAY_SOFT,
   effortTideSoftScale,
   isDarkEffortTheme,
+  isEffortLastTier,
   resolveEffortFxBlends,
   type EffortPixelFieldHandle,
   type EffortStreamFieldHandle,
@@ -141,8 +142,9 @@ function ReasoningEffortPanel({
   const displayIndex = slider100ToIndex(slider100, options.length);
   const selected = options[displayIndex]!;
   const blends = resolveEffortFxBlends(slider100, options.length);
-  const maskFrac = clamp(slider100 / 100, 0, 1);
-  const tideSoftScale = effortTideSoftScale(maskFrac, blends.maxBlend);
+  const isLastTier = isEffortLastTier(slider100);
+  const maskFrac = isLastTier ? 1 : clamp(slider100 / 100, 0, 1);
+  const tideSoftScale = isLastTier ? 0 : effortTideSoftScale(maskFrac, blends.maxBlend);
   const isMax = displayIndex === options.length - 1 && options.length > 1;
   const statusClass = isMax
     ? 'is-max'
@@ -271,10 +273,11 @@ function ReasoningEffortPanel({
       : blends.lowBlend < 0.99
         ? `color-mix(in srgb, #2ea86c ${Math.round((1 - blends.lowBlend) * 100)}%, #3b5bd8)`
         : '#3b5bd8';
-  const fillPct = slider100;
+  // 末档满轨实填、关闭潮汐过渡；非末档跟随拇指。
+  const fillPct = isLastTier ? 100 : slider100;
   const underlaySoftPct = EFFORT_TIDE_UNDERLAY_SOFT * 100 * tideSoftScale;
   const tideMask =
-    tideSoftScale < 0.05
+    isLastTier || tideSoftScale < 0.05
       ? 'none'
       : `linear-gradient(to right, #000 0%, #000 calc(${slider100}% - ${underlaySoftPct}%), rgba(0,0,0,0.35) calc(${slider100}% - ${underlaySoftPct * 0.45}%), transparent calc(${slider100}% - 1%))`;
 
@@ -284,7 +287,7 @@ function ReasoningEffortPanel({
       data-es-theme={darkTheme ? 'dark' : 'light'}
       data-status={statusClass}
       data-dragging={dragging ? '1' : '0'}
-      data-max-tier={isMax ? '1' : '0'}
+      data-max-tier={isLastTier || isMax ? '1' : '0'}
       style={
         {
           '--oh-effort-progress': `${slider100}%`,
@@ -336,8 +339,9 @@ function ReasoningEffortPanel({
               }`}
               style={{
                 opacity: String(0.35 + blends.maxBlend * 0.65),
-                clipPath:
-                  tideSoftScale < 0.05
+                clipPath: isLastTier
+                  ? 'none'
+                  : tideSoftScale < 0.05
                     ? `inset(0 ${Math.max(0, 100 - fillPct)}% 0 0)`
                     : `inset(0 ${Math.max(0, 100 - fillPct + underlaySoftPct * 0.35)}% 0 0)`,
                 maskImage: tideMask,
@@ -369,7 +373,7 @@ function ReasoningEffortPanel({
               class="oh-reasoning-effort-stream"
               aria-hidden="true"
               style={
-                tideSoftScale < 0.05
+                isLastTier || tideSoftScale < 0.05
                   ? undefined
                   : {
                       maskImage: tideMask,
