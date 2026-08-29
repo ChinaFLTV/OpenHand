@@ -80,8 +80,6 @@ export const EFFORT_TIDE_SOFT_LEAD = 0.07;
 export const EFFORT_TIDE_SOFT_SPILL = 0.04;
 /** 底轨/流光掩膜柔边。 */
 export const EFFORT_TIDE_UNDERLAY_SOFT = 0.1;
-/** 档位吸附补间时长。 */
-export const EFFORT_SNAP_MS = 320;
 /** 滑块到达末档（满轨实填、关闭潮汐过渡）。 */
 export const EFFORT_LAST_TIER_SLIDER = 99.5;
 const EFFORT_TIDE_WAVE_AMP = 0.048;

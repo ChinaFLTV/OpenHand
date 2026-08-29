@@ -286,22 +286,17 @@ class _ReasoningEffortPopupEntry extends PopupMenuEntry<String> {
 }
 
 class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   late double _slider100;
   late String _persistedValue;
   String? _pendingValue;
   bool _saving = false;
   int _lastHapticIndex = -1;
-  VoidCallback? _snapTick;
   /// 单调时钟：禁止用 AnimationController.value 作时间源（repeat 归零会重播显现）。
   final Stopwatch _fxWatch = Stopwatch();
   late final AnimationController _fxClock = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 12),
-  );
-  late final AnimationController _snapClock = AnimationController(
-    vsync: this,
-    duration: kOpenHandMotion320,
   );
 
   @override
@@ -324,8 +319,6 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
 
   @override
   void dispose() {
-    _stopSnapAnim();
-    _snapClock.dispose();
     _fxClock.dispose();
     super.dispose();
   }
@@ -347,44 +340,7 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
       ..value = 0;
   }
 
-  void _stopSnapAnim() {
-    final tick = _snapTick;
-    if (tick != null) {
-      _snapClock.removeListener(tick);
-      _snapTick = null;
-    }
-    _snapClock.stop();
-  }
-
-  void _animateSliderTo(double target) {
-    _stopSnapAnim();
-    final reduced = !openHandTickerMotionEnabled(context);
-    if (reduced || (target - _slider100).abs() < 0.08) {
-      setState(() => _slider100 = target);
-      _syncFx();
-      return;
-    }
-    final anim = Tween<double>(begin: _slider100, end: target).animate(
-      CurvedAnimation(parent: _snapClock, curve: Curves.easeOutCubic),
-    );
-    void tick() {
-      setState(() => _slider100 = anim.value);
-      _syncFx();
-    }
-    _snapTick = tick;
-    _snapClock
-      ..duration = openHandMotionDuration(context, kOpenHandMotion320)
-      ..addListener(tick)
-      ..forward(from: 0).whenCompleteOrCancel(() {
-        if (!mounted) return;
-        _stopSnapAnim();
-        setState(() => _slider100 = target);
-        _syncFx();
-      });
-  }
-
   void _selectRaw(double value) {
-    _stopSnapAnim();
     final next = value.clamp(0.0, 100.0);
     if ((next - _slider100).abs() < 0.01) return;
     final nextIndex = _indexFromProgress(next / 100, widget.options.length);
@@ -401,7 +357,9 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
     final snapped = _progressFromIndex(nextIndex, widget.options.length) * 100;
     final effort = widget.options[nextIndex].value;
     _lastHapticIndex = nextIndex;
-    _animateSliderTo(snapped);
+    // 松手吸附瞬时到位，禁止补间回弹。
+    setState(() => _slider100 = snapped);
+    _syncFx();
     if (!_saving && effort.toLowerCase() == _persistedValue.toLowerCase()) {
       return;
     }
@@ -433,9 +391,12 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
                 option.value.toLowerCase() == _persistedValue.toLowerCase(),
           );
           if (persistedIndex >= 0) {
-            _animateSliderTo(
-              _progressFromIndex(persistedIndex, widget.options.length) * 100,
-            );
+            setState(() {
+              _slider100 =
+                  _progressFromIndex(persistedIndex, widget.options.length) *
+                  100;
+            });
+            _syncFx();
           }
         }
       }
