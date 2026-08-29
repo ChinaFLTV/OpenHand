@@ -36,6 +36,7 @@ import 'features/services/index.dart';
 import 'features/settings/service/throttle_auto_sync_service.dart';
 import 'features/skills/index.dart';
 import 'features/thread_template_runtime/index.dart';
+import 'features/workflows/index.dart';
 import 'shared/db/database_service.dart';
 import 'shared/fps/openhand_fps_monitor.dart';
 import 'shared/ui/startup_failure_view.dart';
@@ -179,6 +180,7 @@ Future<void> _bootstrap() async {
   final servicesModuleFuture = ServicesModule.bootstrap();
   final pluginServiceModuleFuture = PluginServiceModule.bootstrap();
   final knowledgeBaseModuleFuture = KnowledgeBaseModule.bootstrap();
+  final workflowsModuleFuture = WorkflowsModule.bootstrap();
   // 预加载输出格式控制 Prompt 片段；未就绪时 AiPromptBuilder 会回退到内置兜底。
   _runMainBackgroundTask(AiOutputFormatPrompts.ensureLoaded(), '加载输出格式 Prompt');
   // 后台恢复已同步的 OpenRouter 模型档案，不阻塞首帧启动。
@@ -387,6 +389,7 @@ Future<void> _bootstrap() async {
   }(), '初始化定时任务');
 
   final knowledgeBase = await knowledgeBaseModuleFuture;
+  final workflows = await workflowsModuleFuture;
   knowledgeBaseControllerHandle = knowledgeBase.controller;
   mcp.controller.attachOpsRuntimeBindings(
     McpOpsRuntimeBindings(
@@ -485,6 +488,7 @@ Future<void> _bootstrap() async {
     ..register('指令控制器', instructions.controller.shutdown)
     ..register('模板运行时联动控制器', templateRuntimeLinkageController.dispose)
     ..register('知识库控制器', knowledgeBase.controller.shutdown)
+    ..register('工作流控制器', workflows.controller.dispose)
     ..register('自学习聊天客户端', selfLearningChatClient.dispose)
     ..register('AI LSP 会话', AiLspClientService.instance.disposeAll)
     ..register('WebSearch 持久化', () async {
@@ -588,6 +592,7 @@ Future<void> _bootstrap() async {
         ...MessageGatewayModule.providers(messageGateway),
         ...PluginServiceModule.providers(pluginService),
         ...KnowledgeBaseModule.providers(knowledgeBase),
+        ...WorkflowsModule.providers(workflows),
         ...AiModule.providers(ai),
         ChangeNotifierProvider<MachineTerminalService>.value(
           value: machineTerminalService,
