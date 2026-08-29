@@ -64,6 +64,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     required this.onTest,
     required this.testing,
     required this.availableReferences,
+    required this.nestedOutputReferences,
     required this.reservedParameterNames,
     this.testResult,
     this.testError,
@@ -78,6 +79,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
   final VoidCallback onTest;
   final bool testing;
   final List<WorkflowParameterReference> availableReferences;
+  final List<WorkflowParameterReference> nestedOutputReferences;
   final Map<String, String> reservedParameterNames;
   final String? testResult;
   final String? testError;
@@ -756,6 +758,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     );
     final loopReferences = <WorkflowParameterReference>[
       ...availableReferences,
+      ...nestedOutputReferences,
       ...variables
           .where(
             (variable) =>
@@ -860,6 +863,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
         : '参数已由节点“$outputNameOwner”使用。';
     final iterationReferences = <WorkflowParameterReference>[
       ...availableReferences,
+      ...nestedOutputReferences,
       WorkflowParameterReference(
         nodeId: node.id,
         nodeTitle: '当前迭代',

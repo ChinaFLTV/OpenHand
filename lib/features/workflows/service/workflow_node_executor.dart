@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import '../../../app/support/system_proxy.dart';
@@ -112,6 +114,8 @@ class WorkflowNodeExecutor {
     required WorkflowNode node,
     required WorkflowExecutionResources resources,
     Map<String, Object?> variables = const <String, Object?>{},
+    List<WorkflowNode> workflowNodes = const <WorkflowNode>[],
+    List<WorkflowConnection> workflowConnections = const <WorkflowConnection>[],
   }) {
     return switch (node.kind) {
       WorkflowNodeKind.start => Future<WorkflowNodeExecutionResult>.value(
@@ -124,8 +128,20 @@ class WorkflowNodeExecutor {
       WorkflowNodeKind.llm => _executeLlm(node, resources, variables),
       WorkflowNodeKind.httpRequest => _executeHttp(node, variables),
       WorkflowNodeKind.condition => _executeCondition(node, variables),
-      WorkflowNodeKind.loop => _executeLoop(node, variables),
-      WorkflowNodeKind.iteration => _executeIteration(node, variables),
+      WorkflowNodeKind.loop => _executeLoop(
+        node,
+        resources,
+        variables,
+        workflowNodes,
+        workflowConnections,
+      ),
+      WorkflowNodeKind.iteration => _executeIteration(
+        node,
+        resources,
+        variables,
+        workflowNodes,
+        workflowConnections,
+      ),
       WorkflowNodeKind.end => Future<WorkflowNodeExecutionResult>.value(
         _executeParameterNode(
           fields: node.outputFields(),
@@ -848,8 +864,12 @@ class WorkflowNodeExecutor {
 
   Future<WorkflowNodeExecutionResult> _executeLoop(
     WorkflowNode node,
+    WorkflowExecutionResources resources,
     Map<String, Object?> variables,
+    List<WorkflowNode> workflowNodes,
+    List<WorkflowConnection> workflowConnections,
   ) async {
+    final stopwatch = Stopwatch()..start();
     final count = node
         .intSetting(WorkflowSettingKeys.maxIterations, 10)
         .clamp(1, 1000);
@@ -858,20 +878,22 @@ class WorkflowNodeExecutor {
     if (variableError != null) {
       throw WorkflowNodeExecutionException(variableError);
     }
-    final resolvedVariables = WorkflowStructuredOutputParser.resolveValues(
-      loopVariables
-          .map(
-            (variable) => WorkflowOutputField(
-              id: variable.id,
-              name: variable.name,
-              type: variable.type,
-              required: true,
-              defaultValue: variable.initialValue,
-            ),
-          )
-          .toList(growable: false),
-      variables,
-      label: '循环变量',
+    final resolvedVariables = Map<String, Object?>.of(
+      WorkflowStructuredOutputParser.resolveValues(
+        loopVariables
+            .map(
+              (variable) => WorkflowOutputField(
+                id: variable.id,
+                name: variable.name,
+                type: variable.type,
+                required: true,
+                defaultValue: variable.initialValue,
+              ),
+            )
+            .toList(growable: false),
+        variables,
+        label: '循环变量',
+      ),
     );
     final breakConditions = node.loopBreakConditions();
     final conditionError = validateWorkflowConditionClauses(
@@ -885,29 +907,57 @@ class WorkflowNodeExecutor {
     final conditionLogic = WorkflowConditionLogic.fromStorage(
       node.settings[WorkflowSettingKeys.loopConditionLogic],
     );
-    final shouldBreak =
-        breakConditions.isNotEmpty &&
-        _matchesConditions(breakConditions, conditionLogic, <String, Object?>{
+    var didBreak = false;
+    var iterations = 0;
+    for (var index = 0; index < count; index++) {
+      final graphVariables = await _executeNestedGraph(
+        parent: node,
+        resources: resources,
+        variables: <String, Object?>{
           ...variables,
           ...resolvedVariables,
-        });
+          'loop_index': index,
+        },
+        workflowNodes: workflowNodes,
+        workflowConnections: workflowConnections,
+      );
+      for (final name in resolvedVariables.keys) {
+        if (graphVariables.containsKey(name)) {
+          resolvedVariables[name] = graphVariables[name];
+        }
+      }
+      iterations = index + 1;
+      didBreak =
+          breakConditions.isNotEmpty &&
+          _matchesConditions(breakConditions, conditionLogic, <String, Object?>{
+            ...variables,
+            ...graphVariables,
+            ...resolvedVariables,
+            'loop_index': index,
+          });
+      if (didBreak) break;
+    }
     final output = <String, Object?>{
-      'max_iterations': count,
-      'variables': resolvedVariables,
-      'should_break': shouldBreak,
+      ...resolvedVariables,
+      'iterations': iterations,
+      'did_break': didBreak,
     };
     return WorkflowNodeExecutionResult(
       output: output,
       rawOutput: jsonEncode(output),
       attempts: 1,
-      duration: Duration.zero,
+      duration: stopwatch.elapsed,
     );
   }
 
   Future<WorkflowNodeExecutionResult> _executeIteration(
     WorkflowNode node,
+    WorkflowExecutionResources resources,
     Map<String, Object?> variables,
+    List<WorkflowNode> workflowNodes,
+    List<WorkflowConnection> workflowConnections,
   ) async {
+    final stopwatch = Stopwatch()..start();
     final input = node.stringSetting(WorkflowSettingKeys.iterationInput).trim();
     final rendered = resolveWorkflowTemplateValue(input, variables);
     final raw = rendered == input && variables.containsKey(input)
@@ -949,31 +999,66 @@ class WorkflowNodeExecutor {
     );
     final output = <Object?>[];
     final boundedItems = items.take(1000).toList(growable: false);
-    for (var index = 0; index < boundedItems.length; index++) {
+    Future<({bool include, Object? value})> process(int index) async {
       try {
-        output.add(
-          resolveWorkflowTemplateValue(outputTemplate, <String, Object?>{
+        final graphVariables = await _executeNestedGraph(
+          parent: node,
+          resources: resources,
+          variables: <String, Object?>{
             ...variables,
             'item': boundedItems[index],
             'index': index,
             'length': boundedItems.length,
-          }),
+          },
+          workflowNodes: workflowNodes,
+          workflowConnections: workflowConnections,
+        );
+        return (
+          include: true,
+          value: resolveWorkflowTemplateValue(outputTemplate, graphVariables),
         );
       } catch (error) {
-        switch (errorMode) {
-          case WorkflowIterationErrorMode.stop:
+        return switch (errorMode) {
+          WorkflowIterationErrorMode.stop =>
             throw WorkflowNodeExecutionException(
               '迭代第 ${index + 1} 项处理失败：${_executionErrorText(error)}',
               cause: error,
-            );
-          case WorkflowIterationErrorMode.continueOnError:
-            output.add(<String, Object?>{
+            ),
+          WorkflowIterationErrorMode.continueOnError => (
+            include: true,
+            value: <String, Object?>{
               'index': index,
               'error': _executionErrorText(error),
-            });
-          case WorkflowIterationErrorMode.removeFailed:
-            continue;
-        }
+            },
+          ),
+          WorkflowIterationErrorMode.removeFailed => (
+            include: false,
+            value: null,
+          ),
+        };
+      }
+    }
+
+    if (parallel) {
+      for (
+        var offset = 0;
+        offset < boundedItems.length;
+        offset += parallelism
+      ) {
+        final end = math.min(offset + parallelism, boundedItems.length);
+        final batch = await Future.wait(
+          <Future<({bool include, Object? value})>>[
+            for (var index = offset; index < end; index++) process(index),
+          ],
+        );
+        output.addAll(
+          batch.where((item) => item.include).map((item) => item.value),
+        );
+      }
+    } else {
+      for (var index = 0; index < boundedItems.length; index++) {
+        final item = await process(index);
+        if (item.include) output.add(item.value);
       }
     }
     final flatten = node.boolSetting(
@@ -990,8 +1075,117 @@ class WorkflowNodeExecutor {
       output: Map<String, Object?>.unmodifiable(result),
       rawOutput: jsonEncode(result),
       attempts: 1,
-      duration: Duration.zero,
+      duration: stopwatch.elapsed,
     );
+  }
+
+  Future<Map<String, Object?>> _executeNestedGraph({
+    required WorkflowNode parent,
+    required WorkflowExecutionResources resources,
+    required Map<String, Object?> variables,
+    required List<WorkflowNode> workflowNodes,
+    required List<WorkflowConnection> workflowConnections,
+  }) async {
+    final children = workflowNodes
+        .where((node) => node.parentNodeId == parent.id)
+        .toList(growable: false);
+    if (children.isEmpty) {
+      throw WorkflowNodeExecutionException('节点“${parent.title}”缺少内部执行节点。');
+    }
+    if (children.length > maxWorkflowNestedNodeCount) {
+      throw const WorkflowNodeExecutionException('内部工作流节点数量超过执行上限。');
+    }
+    final childrenById = <String, WorkflowNode>{
+      for (final child in children) child.id: child,
+    };
+    final internalEdges = workflowConnections
+        .where(
+          (edge) =>
+              (edge.sourceNodeId == parent.id &&
+                  edge.sourceHandleId == workflowContainerStartHandleId &&
+                  childrenById.containsKey(edge.targetNodeId)) ||
+              (childrenById.containsKey(edge.sourceNodeId) &&
+                  childrenById.containsKey(edge.targetNodeId)),
+        )
+        .toList(growable: false);
+    final activeNodeIds = internalEdges
+        .where(
+          (edge) =>
+              edge.sourceNodeId == parent.id &&
+              edge.sourceHandleId == workflowContainerStartHandleId,
+        )
+        .map((edge) => edge.targetNodeId)
+        .toSet();
+    if (activeNodeIds.isEmpty) {
+      throw WorkflowNodeExecutionException('节点“${parent.title}”的内部起点尚未连接。');
+    }
+    final childEdges = internalEdges
+        .where((edge) => childrenById.containsKey(edge.sourceNodeId))
+        .toList(growable: false);
+    final incomingCounts = <String, int>{
+      for (final child in children) child.id: 0,
+    };
+    for (final edge in childEdges) {
+      incomingCounts[edge.targetNodeId] =
+          incomingCounts[edge.targetNodeId]! + 1;
+    }
+    final ready = ListQueue<String>.from(
+      children
+          .where((child) => incomingCounts[child.id] == 0)
+          .map((child) => child.id),
+    );
+    final executionOrder = <String>[];
+    while (ready.isNotEmpty) {
+      final nodeId = ready.removeFirst();
+      executionOrder.add(nodeId);
+      for (final edge in childEdges) {
+        if (edge.sourceNodeId != nodeId) continue;
+        final remaining = incomingCounts[edge.targetNodeId]! - 1;
+        incomingCounts[edge.targetNodeId] = remaining;
+        if (remaining == 0) ready.add(edge.targetNodeId);
+      }
+    }
+    if (executionOrder.length != children.length) {
+      throw WorkflowNodeExecutionException('节点“${parent.title}”的内部工作流存在循环连线。');
+    }
+    final resolvedVariables = <String, Object?>{...variables};
+    for (final nodeId in executionOrder) {
+      if (!activeNodeIds.contains(nodeId)) continue;
+      final child = childrenById[nodeId];
+      if (child == null) continue;
+      final result = await execute(
+        node: child,
+        resources: resources,
+        variables: resolvedVariables,
+        workflowNodes: workflowNodes,
+        workflowConnections: workflowConnections,
+      );
+      if (result.output case final Map output) {
+        for (final entry in output.entries) {
+          resolvedVariables['${entry.key}'] = entry.value;
+        }
+      } else {
+        final fields = child.declaredParameterFields();
+        if (fields.length == 1) {
+          resolvedVariables[fields.first.name.trim()] = result.output;
+        }
+      }
+      final selectedBranch = child.kind != WorkflowNodeKind.condition
+          ? null
+          : result.output is Map
+          ? '${(result.output! as Map)['branch_id'] ?? ''}'
+          : result.output == true
+          ? 'legacy-if'
+          : 'else';
+      for (final edge in childEdges) {
+        if (edge.sourceNodeId != child.id) continue;
+        if (selectedBranch != null && edge.sourceHandleId != selectedBranch) {
+          continue;
+        }
+        activeNodeIds.add(edge.targetNodeId);
+      }
+    }
+    return Map<String, Object?>.unmodifiable(resolvedVariables);
   }
 
   bool _matchesConditions(

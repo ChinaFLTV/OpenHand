@@ -34,6 +34,12 @@ const double _nodeAddButtonSize = 26;
 const double _nodeAddButtonHitSize = 38;
 const double _conditionBranchStart = 70;
 const double _conditionBranchSpacing = 28;
+const double _containerMinWidth = 720;
+const double _containerMinHeight = 330;
+const double _containerHeaderHeight = 66;
+const double _containerChildLeft = 132;
+const double _containerChildTop = 96;
+const double _containerPadding = 34;
 const double _configurationWidth = 440;
 const double _headerActionSize = 44;
 const int _maxWorkflowHistoryEntries = 80;
@@ -237,6 +243,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                                 availableReferences: _availableReferencesFor(
                                   _selectedNode!,
                                 ),
+                                nestedOutputReferences:
+                                    _nestedOutputReferencesFor(_selectedNode!),
                                 reservedParameterNames:
                                     _reservedParameterNamesFor(_selectedNode!),
                                 onChanged: _updateNode,
@@ -356,6 +364,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                           painter: _WorkflowConnectionPainter(
                             nodes: _nodes,
                             connections: _connections,
+                            scopeParentId: null,
+                            canvasOrigin: Offset.zero,
                             selectedConnectionId: _selectedConnectionId,
                             draftSourceNodeId: _connectingSourceNodeId,
                             draftSourceHandleId: _connectingSourceHandleId,
@@ -371,7 +381,12 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                         ),
                       ),
                     ),
-                    for (final node in _nodes) _buildNodeCard(context, node),
+                    for (final node in _nodes.where((item) => item.isContainer))
+                      _buildNodeCard(context, node),
+                    for (final node in _nodes.where(
+                      (item) => !item.isContainer,
+                    ))
+                      _buildNodeCard(context, node),
                   ],
                 ),
               ),
@@ -409,6 +424,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   }
 
   Widget _buildNodeCard(BuildContext context, WorkflowNode node) {
+    if (node.isContainer) return _buildContainerNodeCard(context, node);
     final selected = node.id == _selectedNodeId;
     final connectionTarget = node.id == _connectionTargetNodeId;
     final connectionTargetValid =
@@ -443,26 +459,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () => _selectNode(node.id),
-              onPanUpdate: (details) {
-                final scale = math.max(
-                  0.35,
-                  _transformationController.value.getMaxScaleOnAxis(),
-                );
-                _updateNode(
-                  node.copyWith(
-                    x: (node.x + details.delta.dx / scale).clamp(
-                      16,
-                      _canvasWidth - _nodeWidth - 16,
-                    ),
-                    y: (node.y + details.delta.dy / scale).clamp(
-                      16,
-                      _canvasHeight - nodeHeight - 16,
-                    ),
-                  ),
-                  historyLabel: '移动节点',
-                  mergeKey: 'move:${node.id}',
-                );
-              },
+              onPanUpdate: (details) => _moveNode(node, details.delta),
               child: AnimatedScale(
                 scale: connectionTarget ? 1.015 : 1,
                 duration: openHandMotionDuration(context, kOpenHandMotion180),
@@ -567,6 +564,237 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
               child: _buildAddNodeButton(context, node),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildContainerNodeCard(BuildContext context, WorkflowNode node) {
+    final theme = Theme.of(context);
+    final descriptor = workflowNodeDescriptor(node.kind, theme.colorScheme);
+    final selected = node.id == _selectedNodeId;
+    final connectionTarget = node.id == _connectionTargetNodeId;
+    final connectionTargetValid =
+        connectionTarget && _connectionTargetError == null;
+    final width = _nodeWidthFor(node);
+    final height = _nodeHeightFor(node);
+    final childCount = _nodes
+        .where((item) => item.parentNodeId == node.id)
+        .length;
+    final borderColor = connectionTarget
+        ? connectionTargetValid
+              ? theme.colorScheme.primary
+              : theme.colorScheme.error
+        : selected
+        ? descriptor.color
+        : descriptor.color.withValues(alpha: 0.5);
+    return Positioned(
+      left: node.x,
+      top: node.y,
+      width: width + _nodeAddButtonHitSize / 2,
+      height: height,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: 0,
+            top: 0,
+            width: width,
+            height: height,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapUp: (details) {
+                final position = details.localPosition + Offset(node.x, node.y);
+                final connectionId = _hitTestConnection(position);
+                connectionId == null
+                    ? _selectNode(node.id)
+                    : _selectConnection(connectionId);
+              },
+              onPanUpdate: (details) => _moveNode(node, details.delta),
+              child: AnimatedContainer(
+                duration: openHandMotionDuration(context, kOpenHandMotion180),
+                curve: Curves.easeOutCubic,
+                decoration: BoxDecoration(
+                  color: Color.alphaBlend(
+                    descriptor.color.withValues(alpha: 0.055),
+                    theme.colorScheme.surfaceContainerLow,
+                  ),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius20),
+                  border: Border.all(
+                    color: borderColor,
+                    width: selected || connectionTarget ? 2 : 1.2,
+                  ),
+                  boxShadow: selected || connectionTarget
+                      ? <BoxShadow>[
+                          BoxShadow(
+                            color: borderColor.withValues(alpha: 0.16),
+                            blurRadius: 22,
+                            offset: const Offset(0, 7),
+                          ),
+                        ]
+                      : const <BoxShadow>[],
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      top: _containerHeaderHeight,
+                      child: ColoredBox(
+                        color: theme.colorScheme.surfaceContainerLowest
+                            .withValues(alpha: 0.7),
+                        child: CustomPaint(
+                          painter: _WorkflowConnectionPainter(
+                            nodes: _nodes,
+                            connections: _connections,
+                            scopeParentId: node.id,
+                            canvasOrigin: Offset(
+                              node.x,
+                              node.y + _containerHeaderHeight,
+                            ),
+                            selectedConnectionId: _selectedConnectionId,
+                            draftSourceNodeId: _connectingSourceNodeId,
+                            draftSourceHandleId: _connectingSourceHandleId,
+                            draftTargetNodeId: _connectionTargetNodeId,
+                            draftEnd: _connectionDragPosition,
+                            draftValid:
+                                _connectionTargetNodeId != null &&
+                                _connectionTargetError == null,
+                            color: descriptor.color,
+                            errorColor: theme.colorScheme.error,
+                            mutedColor: theme.colorScheme.outline,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: descriptor.color.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(
+                                kOpenHandRadius10,
+                              ),
+                            ),
+                            child: Icon(
+                              descriptor.icon,
+                              color: descriptor.color,
+                              size: 20,
+                            ),
+                          ),
+                          kOpenHandHGap10,
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  node.title.trim().isEmpty
+                                      ? descriptor.label
+                                      : node.title.trim(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                Text(
+                                  '$childCount 个内部节点 · ${_nodeSummary(node)}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.drag_indicator_rounded,
+                            size: 18,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      left: 28,
+                      top: _containerChildTop + (_nodeHeight - 44) / 2,
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: descriptor.color.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(
+                            kOpenHandRadius14,
+                          ),
+                          border: Border.all(
+                            color: descriptor.color.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.home_rounded,
+                          size: 20,
+                          color: descriptor.color,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 76,
+                      top:
+                          _containerChildTop +
+                          (_nodeHeight - _nodeAddButtonHitSize) / 2,
+                      child: _buildAddNodeButton(
+                        context,
+                        node,
+                        sourceHandleId: workflowContainerStartHandleId,
+                        tooltip: '添加内部工作流的第一个节点',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: -5,
+            top: _containerHeaderHeight / 2 - 5,
+            child: _buildInputPort(
+              context,
+              connectionTarget: connectionTarget,
+              connectionTargetValid: connectionTargetValid,
+            ),
+          ),
+          Positioned(
+            left: width - _nodeAddButtonHitSize / 2,
+            top: (_containerHeaderHeight - _nodeAddButtonHitSize) / 2,
+            child: _buildAddNodeButton(context, node, tooltip: '添加或连接循环结束后的节点'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInputPort(
+    BuildContext context, {
+    required bool connectionTarget,
+    required bool connectionTargetValid,
+  }) {
+    final theme = Theme.of(context);
+    return AnimatedContainer(
+      duration: openHandMotionDuration(context, kOpenHandMotion180),
+      width: connectionTarget ? 10 : 8,
+      height: connectionTarget ? 10 : 8,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: connectionTarget
+            ? connectionTargetValid
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.error
+            : theme.colorScheme.outline,
+        border: Border.all(color: theme.colorScheme.surface, width: 1.5),
       ),
     );
   }
@@ -774,6 +1002,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     String? sourceHandleId,
   }) async {
     final theme = Theme.of(buttonContext);
+    final nestedScope = _connectionScopeForSource(source, sourceHandleId);
     final selected = await showAnimatedAnchoredPopupMenu<WorkflowNodeKind>(
       context: buttonContext,
       offset: const Offset(18, 0),
@@ -782,7 +1011,13 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         borderRadius: BorderRadius.circular(kOpenHandRadius14),
       ),
       items: WorkflowNodeKind.values
-          .where((kind) => kind != WorkflowNodeKind.start)
+          .where(
+            (kind) => nestedScope == null
+                ? kind != WorkflowNodeKind.start
+                : kind == WorkflowNodeKind.condition ||
+                      kind == WorkflowNodeKind.llm ||
+                      kind == WorkflowNodeKind.httpRequest,
+          )
           .map((kind) {
             final descriptor = workflowNodeDescriptor(kind, theme.colorScheme);
             return PopupMenuItem<WorkflowNodeKind>(
@@ -868,8 +1103,14 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     if (sourceId == null) return;
     final position = _canvasPosition(globalPosition);
     if (position == null) return;
-    final target = _nodeAtPosition(position, excludingNodeId: sourceId);
     final source = _nodes.where((node) => node.id == sourceId).firstOrNull;
+    final target = source == null
+        ? null
+        : _nodeAtPosition(
+            position,
+            source: source,
+            sourceHandleId: _connectingSourceHandleId,
+          );
     setState(() {
       _connectionDragPosition = position;
       _connectionTargetNodeId = target?.id;
@@ -950,14 +1191,20 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
 
   WorkflowNode? _nodeAtPosition(
     Offset position, {
-    required String excludingNodeId,
+    required WorkflowNode source,
+    required String? sourceHandleId,
   }) {
-    for (final node in _nodes.reversed) {
-      if (node.id == excludingNodeId) continue;
+    final sourceScope = _connectionScopeForSource(source, sourceHandleId);
+    final candidates = <WorkflowNode>[
+      ..._nodes.reversed.where((node) => !node.isContainer),
+      ..._nodes.reversed.where((node) => node.isContainer),
+    ];
+    for (final node in candidates) {
+      if (node.id == source.id || node.parentNodeId != sourceScope) continue;
       final bounds = Rect.fromLTWH(
         node.x,
         node.y,
-        _nodeWidth,
+        _nodeWidthFor(node),
         _nodeHeightFor(node),
       ).inflate(8);
       if (bounds.contains(position)) return node;
@@ -972,6 +1219,12 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   }) {
     if (source.id == target.id) return '节点不能连接到自身。';
     if (source.kind == WorkflowNodeKind.end) return '结束节点不能连接后续节点。';
+    final sourceScope = _connectionScopeForSource(source, sourceHandleId);
+    if (target.parentNodeId != sourceScope) return '节点只能连接到同一工作流作用域。';
+    if (sourceHandleId == workflowContainerStartHandleId &&
+        (!source.isContainer || target.parentNodeId != source.id)) {
+      return '内部起点只能连接当前容器内的节点。';
+    }
     if (source.kind == WorkflowNodeKind.condition &&
         !_conditionBranches(
           source,
@@ -991,6 +1244,17 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       return '该连接会形成循环，请调整节点方向。';
     }
     return null;
+  }
+
+  String? _connectionScopeForSource(
+    WorkflowNode source,
+    String? sourceHandleId,
+  ) {
+    if (source.isContainer &&
+        sourceHandleId == workflowContainerStartHandleId) {
+      return source.id;
+    }
+    return source.parentNodeId;
   }
 
   bool _wouldCreateConnectionCycle(String sourceId, String targetId) {
@@ -1049,8 +1313,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     WorkflowNodeKind kind, {
     String? sourceHandleId,
   }) {
+    final parentNodeId = _connectionScopeForSource(source, sourceHandleId);
     if (source.kind == WorkflowNodeKind.end ||
         kind == WorkflowNodeKind.start ||
+        (parentNodeId != null &&
+            (kind == WorkflowNodeKind.end || isWorkflowContainerKind(kind))) ||
         !_nodes.any((node) => node.id == source.id)) {
       return;
     }
@@ -1058,17 +1325,30 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       kind,
       Theme.of(context).colorScheme,
     );
-    final position = _nextNodePosition(source, kind);
+    final position = parentNodeId == null
+        ? _nextNodePosition(source, kind)
+        : _nextNestedNodePosition(source, parentNodeId, kind);
     final node = WorkflowNode(
       id: _uuid.v4(),
       kind: kind,
       title: descriptor.label,
       x: position.dx,
       y: position.dy,
+      parentNodeId: parentNodeId,
       settings: _defaultSettings(kind),
     );
     setState(() {
-      _nodes = <WorkflowNode>[..._nodes, node];
+      var nodes = <WorkflowNode>[..._nodes, node];
+      if (parentNodeId != null) {
+        nodes = nodes
+            .map(
+              (item) => item.id == parentNodeId
+                  ? _expandedContainerForChild(item, node)
+                  : item,
+            )
+            .toList(growable: false);
+      }
+      _nodes = nodes;
       _connections = <WorkflowConnection>[
         ..._connections,
         WorkflowConnection(
@@ -1088,25 +1368,114 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     _canvasFocusNode.requestFocus();
   }
 
-  Offset _nextNodePosition(WorkflowNode source, WorkflowNodeKind targetKind) {
-    const maxX = _canvasWidth - _nodeWidth - 16;
+  Offset _nextNestedNodePosition(
+    WorkflowNode source,
+    String parentNodeId,
+    WorkflowNodeKind targetKind,
+  ) {
+    final parent = _nodes.where((node) => node.id == parentNodeId).firstOrNull;
+    if (parent == null) return Offset(source.x, source.y);
     final targetHeight = targetKind == WorkflowNodeKind.condition
         ? _conditionBranchStart + _conditionBranchSpacing + 32
         : _nodeHeight;
+    final fromStart = source.id == parent.id;
+    const maxX = _canvasWidth - _nodeWidth - _containerPadding;
+    final maxY = _canvasHeight - targetHeight - _containerPadding;
+    final x =
+        (fromStart
+                ? parent.x + _containerChildLeft
+                : source.x + _nodeWidth + 88)
+            .clamp(parent.x + _containerChildLeft, maxX);
+    final y = (fromStart ? parent.y + _containerChildTop : source.y).clamp(
+      parent.y + _containerChildTop,
+      maxY,
+    );
+    final occupied = _nodes.where((node) => node.parentNodeId == parentNodeId);
+    var candidate = Offset(x, y);
+    for (var index = 0; index < 20; index++) {
+      final rect = Rect.fromLTWH(
+        candidate.dx,
+        candidate.dy,
+        _nodeWidth,
+        targetHeight,
+      );
+      if (!occupied.any(
+        (node) => rect.overlaps(
+          Rect.fromLTWH(
+            node.x,
+            node.y,
+            _nodeWidthFor(node),
+            _nodeHeightFor(node),
+          ).inflate(18),
+        ),
+      )) {
+        return candidate;
+      }
+      candidate = Offset(
+        x,
+        (y + (index + 1) * (targetHeight + 28)).clamp(
+          parent.y + _containerChildTop,
+          maxY,
+        ),
+      );
+    }
+    return candidate;
+  }
+
+  WorkflowNode _expandedContainerForChild(
+    WorkflowNode parent,
+    WorkflowNode child,
+  ) {
+    final width = math.min(
+      _canvasWidth - parent.x - 16,
+      math.max(
+        _nodeWidthFor(parent),
+        child.x + _nodeWidthFor(child) - parent.x + _containerPadding,
+      ),
+    );
+    final height = math.min(
+      _canvasHeight - parent.y - 16,
+      math.max(
+        _nodeHeightFor(parent),
+        child.y + _nodeHeightFor(child) - parent.y + _containerPadding,
+      ),
+    );
+    if (width == _nodeWidthFor(parent) && height == _nodeHeightFor(parent)) {
+      return parent;
+    }
+    return parent.copyWith(
+      settings: Map<String, Object?>.unmodifiable(<String, Object?>{
+        ...parent.settings,
+        WorkflowSettingKeys.containerWidth: width,
+        WorkflowSettingKeys.containerHeight: height,
+      }),
+    );
+  }
+
+  Offset _nextNodePosition(WorkflowNode source, WorkflowNodeKind targetKind) {
+    final targetWidth = isWorkflowContainerKind(targetKind)
+        ? _containerMinWidth
+        : _nodeWidth;
+    final targetHeight = isWorkflowContainerKind(targetKind)
+        ? _containerMinHeight
+        : targetKind == WorkflowNodeKind.condition
+        ? _conditionBranchStart + _conditionBranchSpacing + 32
+        : _nodeHeight;
+    final maxX = _canvasWidth - targetWidth - 16;
     final maxY = _canvasHeight - targetHeight - 16;
-    final x = (source.x + _nodeWidth + 110).clamp(16.0, maxX);
+    final x = (source.x + _nodeWidthFor(source) + 110).clamp(16.0, maxX);
     final verticalStep = math.max(_nodeHeightFor(source), targetHeight) + 42;
     for (var index = 0; index < 20; index++) {
       final level = (index + 1) ~/ 2;
       final direction = index == 0 ? 0 : (index.isOdd ? 1 : -1);
       final y = (source.y + level * verticalStep * direction).clamp(16.0, maxY);
-      final candidate = Rect.fromLTWH(x, y, _nodeWidth, targetHeight);
+      final candidate = Rect.fromLTWH(x, y, targetWidth, targetHeight);
       final occupied = _nodes.any(
         (node) => candidate.overlaps(
           Rect.fromLTWH(
             node.x,
             node.y,
-            _nodeWidth,
+            _nodeWidthFor(node),
             _nodeHeightFor(node),
           ).inflate(24),
         ),
@@ -1132,6 +1501,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         ],
       },
       WorkflowNodeKind.loop => <String, Object?>{
+        WorkflowSettingKeys.containerWidth: _containerMinWidth,
+        WorkflowSettingKeys.containerHeight: _containerMinHeight,
         WorkflowSettingKeys.maxIterations: 10,
         WorkflowSettingKeys.loopVariables: <Object?>[],
         WorkflowSettingKeys.loopBreakConditions: <Object?>[],
@@ -1139,6 +1510,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             WorkflowConditionLogic.all.storageValue,
       },
       WorkflowNodeKind.iteration => <String, Object?>{
+        WorkflowSettingKeys.containerWidth: _containerMinWidth,
+        WorkflowSettingKeys.containerHeight: _containerMinHeight,
         WorkflowSettingKeys.iterationInput: 'items',
         WorkflowSettingKeys.iterationOutputName: 'iteration_result',
         WorkflowSettingKeys.iterationOutput: '{{item}}',
@@ -1204,9 +1577,19 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   }) {
     if (!mounted) return;
     setState(() {
-      _nodes = _nodes
+      var nodes = _nodes
           .map((node) => node.id == updated.id ? updated : node)
           .toList(growable: false);
+      if (updated.parentNodeId != null) {
+        nodes = nodes
+            .map(
+              (node) => node.id == updated.parentNodeId
+                  ? _expandedContainerForChild(node, updated)
+                  : node,
+            )
+            .toList(growable: false);
+      }
+      _nodes = nodes;
       if (updated.kind == WorkflowNodeKind.condition) {
         final branches = _conditionBranches(updated);
         final branchIds = branches.map((branch) => branch.id).toSet();
@@ -1243,18 +1626,95 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     });
   }
 
+  void _moveNode(WorkflowNode node, Offset screenDelta) {
+    final latest = _nodes.where((item) => item.id == node.id).firstOrNull;
+    if (latest == null) return;
+    final scale = math.max(
+      0.35,
+      _transformationController.value.getMaxScaleOnAxis(),
+    );
+    final delta = screenDelta / scale;
+    double nextX;
+    double nextY;
+    if (latest.parentNodeId != null) {
+      final parent = _nodes
+          .where((item) => item.id == latest.parentNodeId)
+          .firstOrNull;
+      if (parent == null) return;
+      nextX = (latest.x + delta.dx).clamp(
+        parent.x + _containerChildLeft,
+        _canvasWidth - _nodeWidthFor(latest) - _containerPadding,
+      );
+      nextY = (latest.y + delta.dy).clamp(
+        parent.y + _containerChildTop,
+        _canvasHeight - _nodeHeightFor(latest) - _containerPadding,
+      );
+    } else {
+      nextX = (latest.x + delta.dx).clamp(
+        16,
+        _canvasWidth - _nodeWidthFor(latest) - 16,
+      );
+      nextY = (latest.y + delta.dy).clamp(
+        16,
+        _canvasHeight - _nodeHeightFor(latest) - 16,
+      );
+    }
+    final moved = latest.copyWith(x: nextX, y: nextY);
+    final actualDelta = Offset(nextX - latest.x, nextY - latest.y);
+    setState(() {
+      var nodes = _nodes
+          .map((item) {
+            if (item.id == moved.id) return moved;
+            if (latest.isContainer && item.parentNodeId == latest.id) {
+              return item.copyWith(
+                x: item.x + actualDelta.dx,
+                y: item.y + actualDelta.dy,
+              );
+            }
+            return item;
+          })
+          .toList(growable: false);
+      if (moved.parentNodeId != null) {
+        nodes = nodes
+            .map(
+              (item) => item.id == moved.parentNodeId
+                  ? _expandedContainerForChild(item, moved)
+                  : item,
+            )
+            .toList(growable: false);
+      }
+      _nodes = nodes;
+      _recordHistory('移动节点', mergeKey: 'move:${latest.id}');
+    });
+  }
+
   void _deleteSelectedNode() {
     final selectedNode = _selectedNode;
     if (selectedNode == null) return;
-    if (selectedNode.kind == WorkflowNodeKind.start && _nodes.length > 1) {
+    if (selectedNode.kind == WorkflowNodeKind.start &&
+        _nodes.any(
+          (node) => node.parentNodeId == null && node.id != selectedNode.id,
+        )) {
       showOpenHandInfoSnack(context, '请先删除其他节点，再删除开始节点。');
       return;
     }
-    final id = selectedNode.id;
+    final removedIds = <String>{
+      selectedNode.id,
+      if (selectedNode.isContainer)
+        ..._nodes
+            .where((node) => node.parentNodeId == selectedNode.id)
+            .map((node) => node.id),
+    };
     setState(() {
-      _nodes = _nodes.where((node) => node.id != id).toList(growable: false);
+      _nodes = _nodes
+          .where((node) => !removedIds.contains(node.id))
+          .toList(growable: false);
       _connections = _connections
-          .where((edge) => edge.sourceNodeId != id && edge.targetNodeId != id)
+          .where(
+            (edge) =>
+                !removedIds.contains(edge.sourceNodeId) &&
+                !removedIds.contains(edge.targetNodeId),
+          )
           .toList(growable: false);
       _selectedNodeId = null;
       _selectedConnectionId = null;
@@ -1345,6 +1805,17 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     setState(() {
       _selectedNodeId = nodeId;
       _selectedConnectionId = null;
+      _testResult = null;
+      _testError = null;
+      _testStatus = null;
+    });
+    _canvasFocusNode.requestFocus();
+  }
+
+  void _selectConnection(String connectionId) {
+    setState(() {
+      _selectedNodeId = null;
+      _selectedConnectionId = connectionId;
       _testResult = null;
       _testError = null;
       _testStatus = null;
@@ -1451,6 +1922,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       };
       final result = await _executor.execute(
         node: node,
+        workflowNodes: _nodes,
+        workflowConnections: _connections,
         resources: WorkflowExecutionResources(
           models: widget.catalog.models,
           templateRepository: widget.templateRepository,
@@ -1624,6 +2097,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         }
       }
       if (node.kind == WorkflowNodeKind.loop) {
+        final graphError = _validateContainerGraph(node);
+        if (graphError != null) return graphError;
         final count = node.intSetting(WorkflowSettingKeys.maxIterations, 10);
         if (count < 1 || count > 1000) return '最大循环次数必须在 1–1000 之间。';
         final variableError = validateWorkflowLoopVariables(
@@ -1638,6 +2113,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         if (breakConditionError != null) return breakConditionError;
       }
       if (node.kind == WorkflowNodeKind.iteration) {
+        final graphError = _validateContainerGraph(node);
+        if (graphError != null) return graphError;
         if (node
             .stringSetting(WorkflowSettingKeys.iterationInput)
             .trim()
@@ -1680,8 +2157,24 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     };
     for (final connection in _connections) {
       final source = nodesById[connection.sourceNodeId];
-      if (source?.kind != WorkflowNodeKind.condition ||
-          source!.conditionCases().isEmpty) {
+      final target = nodesById[connection.targetNodeId];
+      if (source == null || target == null) return '工作流包含失效连线。';
+      final internalStart =
+          source.isContainer &&
+          connection.sourceHandleId == workflowContainerStartHandleId &&
+          target.parentNodeId == source.id;
+      final sameNestedScope =
+          source.parentNodeId != null &&
+          source.parentNodeId == target.parentNodeId;
+      final topLevel =
+          source.parentNodeId == null &&
+          target.parentNodeId == null &&
+          connection.sourceHandleId != workflowContainerStartHandleId;
+      if (!internalStart && !sameNestedScope && !topLevel) {
+        return '节点“${source.title}”存在跨工作流作用域的连线。';
+      }
+      if (source.kind != WorkflowNodeKind.condition ||
+          source.conditionCases().isEmpty) {
         continue;
       }
       final branchIds = _conditionBranches(
@@ -1692,6 +2185,76 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       }
     }
     return validateWorkflowParameterNames(_nodes);
+  }
+
+  String? _validateContainerGraph(WorkflowNode container) {
+    final children = _nodes
+        .where((node) => node.parentNodeId == container.id)
+        .toList(growable: false);
+    if (children.isEmpty) return '节点“${container.title}”至少需要一个内部执行节点。';
+    if (children.length > maxWorkflowNestedNodeCount) {
+      return '节点“${container.title}”的内部节点不能超过 $maxWorkflowNestedNodeCount 个。';
+    }
+    final childIds = children.map((node) => node.id).toSet();
+    final starts = _connections
+        .where(
+          (edge) =>
+              edge.sourceNodeId == container.id &&
+              edge.sourceHandleId == workflowContainerStartHandleId &&
+              childIds.contains(edge.targetNodeId),
+        )
+        .map((edge) => edge.targetNodeId)
+        .toList(growable: false);
+    if (starts.isEmpty) return '节点“${container.title}”的内部起点尚未连接执行节点。';
+    final reachable = <String>{};
+    final pending = <String>[...starts];
+    while (pending.isNotEmpty) {
+      final current = pending.removeLast();
+      if (!reachable.add(current)) continue;
+      for (final edge in _connections) {
+        if (edge.sourceNodeId == current &&
+            childIds.contains(edge.targetNodeId)) {
+          pending.add(edge.targetNodeId);
+        }
+      }
+    }
+    final unreachable = children.where((node) => !reachable.contains(node.id));
+    if (unreachable.isNotEmpty) {
+      return '节点“${container.title}”包含未连接的内部节点“${unreachable.first.title}”。';
+    }
+    final childEdges = _connections
+        .where(
+          (edge) =>
+              childIds.contains(edge.sourceNodeId) &&
+              childIds.contains(edge.targetNodeId),
+        )
+        .toList(growable: false);
+    final incomingCounts = <String, int>{
+      for (final child in children) child.id: 0,
+    };
+    for (final edge in childEdges) {
+      incomingCounts[edge.targetNodeId] =
+          incomingCounts[edge.targetNodeId]! + 1;
+    }
+    final ready = children
+        .where((child) => incomingCounts[child.id] == 0)
+        .map((child) => child.id)
+        .toList(growable: true);
+    var sortedCount = 0;
+    while (ready.isNotEmpty) {
+      final current = ready.removeLast();
+      sortedCount += 1;
+      for (final edge in childEdges) {
+        if (edge.sourceNodeId != current) continue;
+        final remaining = incomingCounts[edge.targetNodeId]! - 1;
+        incomingCounts[edge.targetNodeId] = remaining;
+        if (remaining == 0) ready.add(edge.targetNodeId);
+      }
+    }
+    if (sortedCount != children.length) {
+      return '节点“${container.title}”的内部工作流不能包含循环连线。';
+    }
+    return null;
   }
 
   List<WorkflowParameterReference> _availableReferencesFor(
@@ -1715,8 +2278,108 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     }
 
     final names = <String>{};
+    final parent = target.parentNodeId == null
+        ? null
+        : _nodes.where((node) => node.id == target.parentNodeId).firstOrNull;
+    final references = _nodes
+        .where(
+          (node) =>
+              upstreamIds.contains(node.id) &&
+              (parent == null || node.id != parent.id),
+        )
+        .expand(
+          (node) => node
+              .declaredParameterFields()
+              .where((field) {
+                final name = field.name.trim();
+                return workflowParameterNamePattern.hasMatch(name) &&
+                    names.add(name);
+              })
+              .map(
+                (field) => WorkflowParameterReference(
+                  nodeId: node.id,
+                  nodeTitle: node.title.trim().isEmpty ? '未命名节点' : node.title,
+                  field: field,
+                ),
+              ),
+        )
+        .toList(growable: true);
+    if (parent?.kind == WorkflowNodeKind.iteration) {
+      for (final field in const <WorkflowOutputField>[
+        WorkflowOutputField(
+          id: 'iteration-item',
+          name: 'item',
+          description: '当前数组项',
+          type: WorkflowOutputType.object,
+        ),
+        WorkflowOutputField(
+          id: 'iteration-index',
+          name: 'index',
+          description: '当前索引',
+          type: WorkflowOutputType.integer,
+        ),
+        WorkflowOutputField(
+          id: 'iteration-length',
+          name: 'length',
+          description: '数组长度',
+          type: WorkflowOutputType.integer,
+        ),
+      ]) {
+        if (names.add(field.name)) {
+          references.add(
+            WorkflowParameterReference(
+              nodeId: parent!.id,
+              nodeTitle: '当前迭代',
+              field: field,
+            ),
+          );
+        }
+      }
+    } else if (parent?.kind == WorkflowNodeKind.loop) {
+      for (final field in <WorkflowOutputField>[
+        ...parent!.declaredParameterFields(),
+        const WorkflowOutputField(
+          id: 'loop-index',
+          name: 'loop_index',
+          description: '当前循环索引',
+          type: WorkflowOutputType.integer,
+        ),
+      ]) {
+        if (names.add(field.name)) {
+          references.add(
+            WorkflowParameterReference(
+              nodeId: parent.id,
+              nodeTitle: '当前循环',
+              field: field,
+            ),
+          );
+        }
+      }
+    }
+    return List<WorkflowParameterReference>.unmodifiable(references);
+  }
+
+  Map<String, String> _reservedParameterNamesFor(WorkflowNode current) {
+    return <String, String>{
+      for (final node in _nodes)
+        if (node.id != current.id)
+          for (final field in node.declaredParameterFields())
+            if (field.name.trim().isNotEmpty)
+              field.name.trim(): node.title.trim().isEmpty
+                  ? '未命名节点'
+                  : node.title,
+    };
+  }
+
+  List<WorkflowParameterReference> _nestedOutputReferencesFor(
+    WorkflowNode container,
+  ) {
+    if (!container.isContainer) {
+      return const <WorkflowParameterReference>[];
+    }
+    final names = <String>{};
     return _nodes
-        .where((node) => upstreamIds.contains(node.id))
+        .where((node) => node.parentNodeId == container.id)
         .expand(
           (node) => node
               .declaredParameterFields()
@@ -1734,18 +2397,6 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
               ),
         )
         .toList(growable: false);
-  }
-
-  Map<String, String> _reservedParameterNamesFor(WorkflowNode current) {
-    return <String, String>{
-      for (final node in _nodes)
-        if (node.id != current.id)
-          for (final field in node.declaredParameterFields())
-            if (field.name.trim().isNotEmpty)
-              field.name.trim(): node.title.trim().isEmpty
-                  ? '未命名节点'
-                  : node.title,
-    };
   }
 
   Map<String, Object?> _testVariablesFor(WorkflowNode node) {
@@ -2252,6 +2903,8 @@ class _WorkflowConnectionPainter extends CustomPainter {
   const _WorkflowConnectionPainter({
     required this.nodes,
     required this.connections,
+    required this.scopeParentId,
+    required this.canvasOrigin,
     required this.selectedConnectionId,
     required this.draftSourceNodeId,
     required this.draftSourceHandleId,
@@ -2265,6 +2918,8 @@ class _WorkflowConnectionPainter extends CustomPainter {
 
   final List<WorkflowNode> nodes;
   final List<WorkflowConnection> connections;
+  final String? scopeParentId;
+  final Offset canvasOrigin;
   final String? selectedConnectionId;
   final String? draftSourceNodeId;
   final String? draftSourceHandleId;
@@ -2277,13 +2932,20 @@ class _WorkflowConnectionPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.translate(-canvasOrigin.dx, -canvasOrigin.dy);
     final byId = <String, WorkflowNode>{
       for (final node in nodes) node.id: node,
     };
     for (final edge in connections) {
       final source = byId[edge.sourceNodeId];
       final target = byId[edge.targetNodeId];
-      if (source == null || target == null) continue;
+      if (source == null ||
+          target == null ||
+          _workflowConnectionScope(source, edge.sourceHandleId) !=
+              scopeParentId) {
+        continue;
+      }
       final selected = edge.id == selectedConnectionId;
       final linePaint = Paint()
         ..color = color.withValues(alpha: selected ? 1 : 0.72)
@@ -2300,7 +2962,7 @@ class _WorkflowConnectionPainter extends CustomPainter {
         source,
         sourceHandleId: edge.sourceHandleId,
       );
-      final end = Offset(target.x, target.y + _nodeHeightFor(target) / 2);
+      final end = _workflowConnectionEnd(target);
       final distance = math.max(70, (end.dx - start.dx).abs() * 0.46);
       final path = _workflowConnectionPath(
         source,
@@ -2326,7 +2988,13 @@ class _WorkflowConnectionPainter extends CustomPainter {
 
     final draftSource = byId[draftSourceNodeId];
     final pointerEnd = draftEnd;
-    if (draftSource == null || pointerEnd == null) return;
+    if (draftSource == null ||
+        pointerEnd == null ||
+        _workflowConnectionScope(draftSource, draftSourceHandleId) !=
+            scopeParentId) {
+      canvas.restore();
+      return;
+    }
     final draftTarget = byId[draftTargetNodeId];
     final start = _workflowConnectionStart(
       draftSource,
@@ -2334,10 +3002,7 @@ class _WorkflowConnectionPainter extends CustomPainter {
     );
     final end = draftTarget == null
         ? pointerEnd
-        : Offset(
-            draftTarget.x,
-            draftTarget.y + _nodeHeightFor(draftTarget) / 2,
-          );
+        : _workflowConnectionEnd(draftTarget);
     final invalidTarget = draftTarget != null && !draftValid;
     final draftColor = invalidTarget ? errorColor : color;
     final path = _workflowConnectionPathBetween(start, end);
@@ -2362,12 +3027,15 @@ class _WorkflowConnectionPainter extends CustomPainter {
       draftTarget == null ? 4 : 5,
       Paint()..color = draftColor,
     );
+    canvas.restore();
   }
 
   @override
   bool shouldRepaint(_WorkflowConnectionPainter oldDelegate) {
     return nodes != oldDelegate.nodes ||
         connections != oldDelegate.connections ||
+        scopeParentId != oldDelegate.scopeParentId ||
+        canvasOrigin != oldDelegate.canvasOrigin ||
         selectedConnectionId != oldDelegate.selectedConnectionId ||
         draftSourceNodeId != oldDelegate.draftSourceNodeId ||
         draftSourceHandleId != oldDelegate.draftSourceHandleId ||
@@ -2389,24 +3057,49 @@ Path _workflowConnectionPath(
     source,
     sourceHandleId: sourceHandleId,
   );
-  final end = Offset(target.x, target.y + _nodeHeightFor(target) / 2);
+  final end = _workflowConnectionEnd(target);
   return _workflowConnectionPathBetween(start, end);
 }
 
 Offset _workflowConnectionStart(WorkflowNode source, {String? sourceHandleId}) {
+  if (source.isContainer && sourceHandleId == workflowContainerStartHandleId) {
+    return Offset(
+      source.x + 76 + _nodeAddButtonHitSize / 2,
+      source.y + _containerChildTop + _nodeHeight / 2,
+    );
+  }
   if (source.kind == WorkflowNodeKind.condition && sourceHandleId != null) {
     final index = _conditionBranches(
       source,
     ).indexWhere((branch) => branch.id == sourceHandleId);
     if (index >= 0) {
       return Offset(
-        source.x + _nodeWidth,
+        source.x + _nodeWidthFor(source),
         source.y + _conditionBranchStart + index * _conditionBranchSpacing,
       );
     }
   }
-  return Offset(source.x + _nodeWidth, source.y + _nodeHeightFor(source) / 2);
+  return Offset(
+    source.x + _nodeWidthFor(source),
+    source.y +
+        (source.isContainer
+            ? _containerHeaderHeight / 2
+            : _nodeHeightFor(source) / 2),
+  );
 }
+
+Offset _workflowConnectionEnd(WorkflowNode target) => Offset(
+  target.x,
+  target.y +
+      (target.isContainer
+          ? _containerHeaderHeight / 2
+          : _nodeHeightFor(target) / 2),
+);
+
+String? _workflowConnectionScope(WorkflowNode source, String? sourceHandleId) =>
+    source.isContainer && sourceHandleId == workflowContainerStartHandleId
+    ? source.id
+    : source.parentNodeId;
 
 Path _workflowConnectionPathBetween(Offset start, Offset end) {
   final distance = math.max(70, (end.dx - start.dx).abs() * 0.46);
@@ -2435,6 +3128,15 @@ List<({String id, String label})> _conditionBranches(WorkflowNode node) {
 }
 
 double _nodeHeightFor(WorkflowNode node) {
+  if (node.isContainer) {
+    return math.max(
+      _containerMinHeight,
+      node.doubleSetting(
+        WorkflowSettingKeys.containerHeight,
+        _containerMinHeight,
+      ),
+    );
+  }
   if (node.kind != WorkflowNodeKind.condition) return _nodeHeight;
   final branchCount = _conditionBranches(node).length;
   return math.max(
@@ -2442,6 +3144,16 @@ double _nodeHeightFor(WorkflowNode node) {
     _conditionBranchStart + (branchCount - 1) * _conditionBranchSpacing + 32,
   );
 }
+
+double _nodeWidthFor(WorkflowNode node) => node.isContainer
+    ? math.max(
+        _containerMinWidth,
+        node.doubleSetting(
+          WorkflowSettingKeys.containerWidth,
+          _containerMinWidth,
+        ),
+      )
+    : _nodeWidth;
 
 String _nodeSummary(WorkflowNode node) {
   return switch (node.kind) {

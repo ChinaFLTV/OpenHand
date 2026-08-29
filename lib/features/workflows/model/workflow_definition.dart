@@ -152,6 +152,12 @@ final RegExp workflowTemplatePlaceholderPattern = RegExp(
 
 String workflowParameterPlaceholder(String name) => '{{${name.trim()}}}';
 
+const String workflowContainerStartHandleId = 'container_start';
+const int maxWorkflowNestedNodeCount = 128;
+
+bool isWorkflowContainerKind(WorkflowNodeKind kind) =>
+    kind == WorkflowNodeKind.loop || kind == WorkflowNodeKind.iteration;
+
 abstract final class WorkflowSettingKeys {
   static const String expression = 'expression';
   static const String conditionCases = 'condition_cases';
@@ -166,6 +172,8 @@ abstract final class WorkflowSettingKeys {
   static const String iterationParallelism = 'iteration_parallelism';
   static const String iterationErrorMode = 'iteration_error_mode';
   static const String iterationFlattenOutput = 'iteration_flatten_output';
+  static const String containerWidth = 'container_width';
+  static const String containerHeight = 'container_height';
   static const String modelConfigId = 'model_config_id';
   static const String modelId = 'model_id';
   static const String reasoningEffort = 'reasoning_effort';
@@ -478,6 +486,7 @@ class WorkflowNode {
     required this.title,
     required this.x,
     required this.y,
+    this.parentNodeId,
     this.settings = const <String, Object?>{},
   });
 
@@ -491,6 +500,7 @@ class WorkflowNode {
       throw const FormatException('工作流节点数据不完整。');
     }
     final settings = _stringMap(json['settings']);
+    final parentNodeId = '${json['parent_node_id'] ?? ''}'.trim();
     _clearInactiveWorkflowNodeSettings(kind, settings);
     return WorkflowNode(
       id: id,
@@ -498,6 +508,7 @@ class WorkflowNode {
       title: '${json['title'] ?? ''}'.trim(),
       x: x,
       y: y,
+      parentNodeId: parentNodeId.isEmpty ? null : parentNodeId,
       settings: Map<String, Object?>.unmodifiable(settings),
     );
   }
@@ -507,12 +518,17 @@ class WorkflowNode {
   final String title;
   final double x;
   final double y;
+  final String? parentNodeId;
   final Map<String, Object?> settings;
+
+  bool get isNested => parentNodeId != null;
+  bool get isContainer => isWorkflowContainerKind(kind) && !isNested;
 
   WorkflowNode copyWith({
     String? title,
     double? x,
     double? y,
+    String? parentNodeId,
     Map<String, Object?>? settings,
   }) {
     return WorkflowNode(
@@ -521,6 +537,7 @@ class WorkflowNode {
       title: title ?? this.title,
       x: x ?? this.x,
       y: y ?? this.y,
+      parentNodeId: parentNodeId ?? this.parentNodeId,
       settings: settings ?? this.settings,
     );
   }
@@ -532,6 +549,13 @@ class WorkflowNode {
   int intSetting(String key, int fallback) {
     final value = settings[key];
     return value is int ? value : int.tryParse('$value') ?? fallback;
+  }
+
+  double doubleSetting(String key, double fallback) {
+    final value = settings[key];
+    return value is num
+        ? value.toDouble()
+        : double.tryParse('$value') ?? fallback;
   }
 
   bool boolSetting(String key, [bool fallback = false]) {
@@ -637,6 +661,7 @@ class WorkflowNode {
     'title': title,
     'x': x,
     'y': y,
+    if (parentNodeId != null) 'parent_node_id': parentNodeId,
     'settings': settings,
   };
 }
@@ -808,6 +833,20 @@ class WorkflowDefinition {
     if (nodeIds.length != nodes.length) {
       throw const FormatException('工作流包含重复节点。');
     }
+    final nodesById = <String, WorkflowNode>{
+      for (final node in nodes) node.id: node,
+    };
+    for (final node in nodes.where((item) => item.isNested)) {
+      final parent = nodesById[node.parentNodeId];
+      if (parent == null || !parent.isContainer) {
+        throw const FormatException('工作流包含无效的内部节点。');
+      }
+      if (node.kind == WorkflowNodeKind.start ||
+          node.kind == WorkflowNodeKind.end ||
+          isWorkflowContainerKind(node.kind)) {
+        throw const FormatException('内部工作流包含不支持的节点类型。');
+      }
+    }
     final connections = _mapList(json['connections'])
         .map(WorkflowConnection.fromJson)
         .where(
@@ -818,6 +857,24 @@ class WorkflowDefinition {
               nodeIds.contains(edge.targetNodeId),
         )
         .toList(growable: false);
+    for (final edge in connections) {
+      final source = nodesById[edge.sourceNodeId]!;
+      final target = nodesById[edge.targetNodeId]!;
+      final internalStart =
+          source.isContainer &&
+          edge.sourceHandleId == workflowContainerStartHandleId &&
+          target.parentNodeId == source.id;
+      final sameNestedScope =
+          source.parentNodeId != null &&
+          source.parentNodeId == target.parentNodeId;
+      final topLevel =
+          source.parentNodeId == null &&
+          target.parentNodeId == null &&
+          edge.sourceHandleId != workflowContainerStartHandleId;
+      if (!internalStart && !sameNestedScope && !topLevel) {
+        throw const FormatException('工作流包含跨作用域连线。');
+      }
+    }
     return WorkflowDefinition(
       id: id,
       name: name,
