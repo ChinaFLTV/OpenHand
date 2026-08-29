@@ -937,6 +937,8 @@ class _ResourceSection extends StatelessWidget {
         splashFactory: NoSplash.splashFactory,
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
+        hoverColor: Colors.transparent,
+        focusColor: Colors.transparent,
       ),
       child: Container(
         decoration: BoxDecoration(
