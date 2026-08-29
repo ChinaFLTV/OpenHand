@@ -23,6 +23,8 @@ import 'workflow_parameter_reference_field.dart';
 
 const double _formControlHeight = 52;
 const double _configurationActionSize = 44;
+const double _parameterTypeControlWidth = 146;
+const double _valueSourceControlWidth = 112;
 const Set<String> _httpMethodsWithoutBody = <String>{'GET', 'HEAD'};
 const RoundedRectangleBorder _workflowButtonShape = RoundedRectangleBorder(
   borderRadius: kOpenHandBorderRadius12,
@@ -1764,12 +1766,35 @@ class _ConditionClauseCard extends StatelessWidget {
                 ? Padding(
                     key: ValueKey('${condition.id}-value'),
                     padding: const EdgeInsets.only(top: 8),
-                    child: WorkflowParameterReferenceField(
-                      value: condition.value,
-                      references: availableReferences,
-                      decoration: _inputDecoration('比较值'),
-                      onChanged: (value) =>
-                          onChanged(condition.copyWith(value: value)),
+                    child: SizedBox(
+                      height: _formControlHeight,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(
+                            width: _valueSourceControlWidth,
+                            child: _ValueSourceDropdown(
+                              value: condition.valueSource,
+                              onChanged: (value) => onChanged(
+                                condition.copyWith(valueSource: value),
+                              ),
+                            ),
+                          ),
+                          kOpenHandHGap8,
+                          Expanded(
+                            child: _WorkflowTypedValueField(
+                              value: condition.value,
+                              type: WorkflowOutputType.string,
+                              source: condition.valueSource,
+                              references: availableReferences,
+                              label: '比较值',
+                              filterReferencesByType: false,
+                              onChanged: (value) =>
+                                  onChanged(condition.copyWith(value: value)),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   )
                 : null,
@@ -1832,7 +1857,7 @@ class _LoopVariableEditor extends StatelessWidget {
                           ),
                           kOpenHandHGap8,
                           SizedBox(
-                            width: 116,
+                            width: _parameterTypeControlWidth,
                             child:
                                 AnimatedDropdownButtonFormField<
                                   WorkflowOutputType
@@ -1846,7 +1871,7 @@ class _LoopVariableEditor extends StatelessWidget {
                                               WorkflowOutputType
                                             >(
                                               value: type,
-                                              child: Text(type.storageValue),
+                                              child: Text(type.label),
                                             ),
                                       )
                                       .toList(growable: false),
@@ -1880,13 +1905,35 @@ class _LoopVariableEditor extends StatelessWidget {
                       ),
                     ),
                     kOpenHandGap8,
-                    WorkflowParameterReferenceField(
-                      key: ValueKey('${variable.id}-initial-value'),
-                      value: variable.initialValue,
-                      references: availableReferences,
-                      decoration: _inputDecoration('初始值（必填）'),
-                      onChanged: (value) =>
-                          _replace(variable.copyWith(initialValue: value)),
+                    SizedBox(
+                      height: _formControlHeight,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(
+                            width: _valueSourceControlWidth,
+                            child: _ValueSourceDropdown(
+                              value: variable.valueSource,
+                              onChanged: (value) => _replace(
+                                variable.copyWith(valueSource: value),
+                              ),
+                            ),
+                          ),
+                          kOpenHandHGap8,
+                          Expanded(
+                            child: _WorkflowTypedValueField(
+                              value: variable.initialValue,
+                              type: variable.type,
+                              source: variable.valueSource,
+                              references: availableReferences,
+                              label: '初始值（必填）',
+                              onChanged: (value) => _replace(
+                                variable.copyWith(initialValue: value),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -2035,57 +2082,85 @@ class _KeyValueEditor extends StatelessWidget {
                           key: ValueKey(entry.id),
                           padding: EdgeInsets.only(top: index == 0 ? 12 : 8),
                           child: _EntryCard(
-                            child: SizedBox(
-                              height: _formControlHeight,
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Expanded(
-                                    child: WorkflowParameterReferenceField(
-                                      key: ValueKey('${entry.id}-key'),
-                                      value: entry.key,
-                                      references: availableReferences,
-                                      decoration: _inputDecoration('键（必填）'),
-                                      onChanged: (value) => _replaceEntry(
-                                        entry.copyWith(key: value),
+                            child: Column(
+                              children: [
+                                SizedBox(
+                                  height: _formControlHeight,
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(
+                                        child: WorkflowParameterReferenceField(
+                                          key: ValueKey('${entry.id}-key'),
+                                          value: entry.key,
+                                          references: availableReferences,
+                                          decoration: _inputDecoration('键（必填）'),
+                                          onChanged: (value) => _replaceEntry(
+                                            entry.copyWith(key: value),
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  ),
-                                  kOpenHandHGap8,
-                                  Expanded(
-                                    child: WorkflowParameterReferenceField(
-                                      key: ValueKey('${entry.id}-value'),
-                                      value: entry.value,
-                                      references: availableReferences,
-                                      decoration: _inputDecoration('值（必填）'),
-                                      onChanged: (value) => _replaceEntry(
-                                        entry.copyWith(value: value),
+                                      kOpenHandHGap8,
+                                      IconButton.filledTonal(
+                                        tooltip: '移除',
+                                        onPressed: () => onChanged(
+                                          entries
+                                              .where(
+                                                (item) => item.id != entry.id,
+                                              )
+                                              .toList(growable: false),
+                                        ),
+                                        style: IconButton.styleFrom(
+                                          fixedSize: const Size.square(
+                                            _formControlHeight,
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                          shape: _workflowButtonShape,
+                                          shadowColor: Colors.transparent,
+                                        ),
+                                        icon: const Icon(
+                                          Icons.close_rounded,
+                                          size: 18,
+                                        ),
                                       ),
-                                    ),
+                                    ],
                                   ),
-                                  kOpenHandHGap8,
-                                  IconButton.filledTonal(
-                                    tooltip: '移除',
-                                    onPressed: () => onChanged(
-                                      entries
-                                          .where((item) => item.id != entry.id)
-                                          .toList(growable: false),
-                                    ),
-                                    style: IconButton.styleFrom(
-                                      fixedSize: const Size.square(
-                                        _formControlHeight,
+                                ),
+                                kOpenHandGap8,
+                                SizedBox(
+                                  height: _formControlHeight,
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      SizedBox(
+                                        width: _valueSourceControlWidth,
+                                        child: _ValueSourceDropdown(
+                                          value: entry.valueSource,
+                                          onChanged: (value) => _replaceEntry(
+                                            entry.copyWith(valueSource: value),
+                                          ),
+                                        ),
                                       ),
-                                      padding: EdgeInsets.zero,
-                                      shape: _workflowButtonShape,
-                                      shadowColor: Colors.transparent,
-                                    ),
-                                    icon: const Icon(
-                                      Icons.close_rounded,
-                                      size: 18,
-                                    ),
+                                      kOpenHandHGap8,
+                                      Expanded(
+                                        child: _WorkflowTypedValueField(
+                                          value: entry.value,
+                                          type: WorkflowOutputType.string,
+                                          source: entry.valueSource,
+                                          references: availableReferences,
+                                          label: '值（必填）',
+                                          filterReferencesByType: false,
+                                          onChanged: (value) => _replaceEntry(
+                                            entry.copyWith(value: value),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                         );
@@ -2241,7 +2316,7 @@ class _OutputFieldCard extends StatelessWidget {
                   ),
                   kOpenHandHGap8,
                   SizedBox(
-                    width: 122,
+                    width: _parameterTypeControlWidth,
                     child: AnimatedDropdownButtonFormField<WorkflowOutputType>(
                       isExpanded: true,
                       initialValue: field.type,
@@ -2250,7 +2325,7 @@ class _OutputFieldCard extends StatelessWidget {
                           .map(
                             (type) => DropdownMenuItem<WorkflowOutputType>(
                               value: type,
-                              child: Text(type.storageValue),
+                              child: Text(type.label),
                             ),
                           )
                           .toList(growable: false),
@@ -2310,12 +2385,22 @@ class _OutputFieldCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  SizedBox(
+                    width: _valueSourceControlWidth,
+                    child: _ValueSourceDropdown(
+                      value: field.valueSource,
+                      onChanged: (value) =>
+                          onChanged(field.copyWith(valueSource: value)),
+                    ),
+                  ),
+                  kOpenHandHGap8,
                   Expanded(
-                    child: WorkflowParameterReferenceField(
-                      key: ValueKey('${field.id}-value'),
+                    child: _WorkflowTypedValueField(
                       value: field.defaultValue,
+                      type: field.type,
+                      source: field.valueSource,
                       references: availableReferences,
-                      decoration: _inputDecoration('默认值（可选）'),
+                      label: '默认值（可选）',
                       onChanged: (value) =>
                           onChanged(field.copyWith(defaultValue: value)),
                     ),
@@ -2358,6 +2443,103 @@ class _OutputFieldCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ValueSourceDropdown extends StatelessWidget {
+  const _ValueSourceDropdown({required this.value, required this.onChanged});
+
+  final WorkflowValueSource value;
+  final ValueChanged<WorkflowValueSource> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedDropdownButtonFormField<WorkflowValueSource>(
+      isExpanded: true,
+      initialValue: value,
+      decoration: _inputDecoration('取值方式'),
+      items: WorkflowValueSource.values
+          .map(
+            (source) => DropdownMenuItem<WorkflowValueSource>(
+              value: source,
+              child: Text(source.label, overflow: TextOverflow.ellipsis),
+            ),
+          )
+          .toList(growable: false),
+      onChanged: (source) => onChanged(source ?? WorkflowValueSource.constant),
+    );
+  }
+}
+
+class _WorkflowTypedValueField extends StatelessWidget {
+  const _WorkflowTypedValueField({
+    required this.value,
+    required this.type,
+    required this.source,
+    required this.references,
+    required this.label,
+    required this.onChanged,
+    this.filterReferencesByType = true,
+  });
+
+  final String value;
+  final WorkflowOutputType type;
+  final WorkflowValueSource source;
+  final List<WorkflowParameterReference> references;
+  final String label;
+  final ValueChanged<String> onChanged;
+  final bool filterReferencesByType;
+
+  @override
+  Widget build(BuildContext context) {
+    if (source == WorkflowValueSource.variable) {
+      final compatibleReferences = filterReferencesByType
+          ? references
+                .where(
+                  (reference) =>
+                      type.acceptsReferenceType(reference.field.type),
+                )
+                .toList(growable: false)
+          : references;
+      return WorkflowParameterReferenceField(
+        key: ValueKey('$label-${type.storageValue}-${source.storageValue}'),
+        value: value,
+        references: compatibleReferences,
+        decoration: _inputDecoration(label),
+        onChanged: onChanged,
+      );
+    }
+
+    if (type == WorkflowOutputType.boolean) {
+      final normalized = value.trim().toLowerCase();
+      return AnimatedDropdownButtonFormField<String>(
+        key: ValueKey('$label-${type.storageValue}-${source.storageValue}'),
+        isExpanded: true,
+        initialValue: normalized == 'true' || normalized == 'false'
+            ? normalized
+            : null,
+        decoration: _inputDecoration(label),
+        items: const <DropdownMenuItem<String>>[
+          DropdownMenuItem(value: 'true', child: Text('true')),
+          DropdownMenuItem(value: 'false', child: Text('false')),
+        ],
+        onChanged: (next) {
+          if (next != null) onChanged(next);
+        },
+      );
+    }
+
+    return TextFormField(
+      key: ValueKey('$label-${type.storageValue}-${source.storageValue}'),
+      initialValue: value,
+      keyboardType:
+          type == WorkflowOutputType.integer ||
+              type == WorkflowOutputType.number
+          ? const TextInputType.numberWithOptions(decimal: true, signed: true)
+          : TextInputType.text,
+      decoration: _inputDecoration(label),
+      onChanged: onChanged,
     );
   }
 }

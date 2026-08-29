@@ -2477,6 +2477,12 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
           WorkflowOutputType.boolean => true,
           WorkflowOutputType.object => <String, Object?>{'key': 'value'},
           WorkflowOutputType.array => <Object?>['第一项', '第二项'],
+          WorkflowOutputType.arrayString => <String>['第一项', '第二项'],
+          WorkflowOutputType.arrayNumber => <num>[1, 2],
+          WorkflowOutputType.arrayObject => <Map<String, Object?>>[
+            <String, Object?>{'key': 'value'},
+          ],
+          WorkflowOutputType.arrayBoolean => <bool>[true, false],
         },
       );
     }

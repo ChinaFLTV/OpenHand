@@ -775,7 +775,10 @@ class WorkflowNodeExecutor {
           (entry) => WorkflowKeyValueEntry(
             id: entry.id,
             key: renderWorkflowTemplate(entry.key, variables).trim(),
-            value: renderWorkflowTemplate(entry.value, variables),
+            value: entry.valueSource == WorkflowValueSource.variable
+                ? renderWorkflowTemplate(entry.value, variables)
+                : entry.value,
+            valueSource: entry.valueSource,
           ),
         )
         .toList(growable: false);
@@ -888,6 +891,7 @@ class WorkflowNodeExecutor {
                 type: variable.type,
                 required: true,
                 defaultValue: variable.initialValue,
+                valueSource: variable.valueSource,
               ),
             )
             .toList(growable: false),
@@ -1196,7 +1200,11 @@ class WorkflowNodeExecutor {
     bool matches(WorkflowConditionClause condition) {
       final left = _configuredValue(condition.variable, variables);
       final right = condition.operator.requiresValue
-          ? _configuredValue(condition.value, variables, literal: true)
+          ? _configuredValue(
+              condition.value,
+              variables,
+              valueSource: condition.valueSource,
+            )
           : null;
       try {
         return _compareWorkflowValues(left, condition.operator, right);
@@ -1213,12 +1221,14 @@ class WorkflowNodeExecutor {
   Object? _configuredValue(
     String source,
     Map<String, Object?> variables, {
-    bool literal = false,
+    WorkflowValueSource valueSource = WorkflowValueSource.variable,
   }) {
     final value = source.trim();
+    if (valueSource == WorkflowValueSource.constant) {
+      return _literalValue(value);
+    }
     final resolved = resolveWorkflowTemplateValue(value, variables);
     if (resolved != value) return resolved;
-    if (literal) return _literalValue(value);
     final lookup = _lookupWorkflowVariable(value, variables);
     return lookup.found ? lookup.value : resolved;
   }
@@ -1252,9 +1262,18 @@ abstract final class WorkflowStructuredOutputParser {
       if (!names.add(name)) {
         throw WorkflowNodeExecutionException('$label名称重复：$name');
       }
-      if (field.defaultValue.trim().isNotEmpty &&
-          !workflowTemplatePlaceholderPattern.hasMatch(field.defaultValue)) {
-        _coerce(field.defaultValue, field.type, fieldName: name);
+      if (field.defaultValue.trim().isNotEmpty) {
+        final sourceError = validateWorkflowSourcedValue(
+          field.valueSource,
+          field.defaultValue,
+          label: '$label“$name”',
+        );
+        if (sourceError != null) {
+          throw WorkflowNodeExecutionException(sourceError);
+        }
+        if (field.valueSource == WorkflowValueSource.constant) {
+          _coerce(field.defaultValue, field.type, fieldName: name);
+        }
       }
     }
   }
@@ -1273,7 +1292,7 @@ abstract final class WorkflowStructuredOutputParser {
         result[name] = _coerce(values[name], field.type, fieldName: name);
       } else if (field.defaultValue.trim().isNotEmpty) {
         result[name] = _coerce(
-          resolveWorkflowTemplateValue(field.defaultValue, values),
+          _resolveSourcedValue(field, values),
           field.type,
           fieldName: name,
         );
@@ -1303,7 +1322,7 @@ abstract final class WorkflowStructuredOutputParser {
       if (!hasValue) {
         if (field.defaultValue.trim().isNotEmpty) {
           result[name] = _coerce(
-            resolveWorkflowTemplateValue(field.defaultValue, variables),
+            _resolveSourcedValue(field, variables),
             field.type,
             fieldName: name,
           );
@@ -1331,16 +1350,16 @@ abstract final class WorkflowStructuredOutputParser {
       'properties': <String, Object?>{
         for (final field in fields)
           field.name.trim(): <String, Object?>{
-            'type': field.type.storageValue,
+            'type': field.type.isArray ? 'array' : field.type.storageValue,
+            if (field.type.arrayItemType case final itemType?)
+              'items': <String, Object?>{'type': itemType.storageValue},
             if (field.description.trim().isNotEmpty)
               'description': field.description.trim(),
             if (field.defaultValue.trim().isNotEmpty &&
-                (!workflowTemplatePlaceholderPattern.hasMatch(
-                      field.defaultValue,
-                    ) ||
+                (field.valueSource == WorkflowValueSource.constant ||
                     variables.isNotEmpty))
               'default': _coerce(
-                resolveWorkflowTemplateValue(field.defaultValue, variables),
+                _resolveSourcedValue(field, variables),
                 field.type,
                 fieldName: field.name.trim(),
               ),
@@ -1445,10 +1464,30 @@ $schema''';
         WorkflowOutputType.boolean => _boolValue(value),
         WorkflowOutputType.object => _objectValue(value),
         WorkflowOutputType.array => _arrayValue(value),
+        WorkflowOutputType.arrayString => _typedArrayValue(
+          value,
+          WorkflowOutputType.string,
+          fieldName,
+        ),
+        WorkflowOutputType.arrayNumber => _typedArrayValue(
+          value,
+          WorkflowOutputType.number,
+          fieldName,
+        ),
+        WorkflowOutputType.arrayObject => _typedArrayValue(
+          value,
+          WorkflowOutputType.object,
+          fieldName,
+        ),
+        WorkflowOutputType.arrayBoolean => _typedArrayValue(
+          value,
+          WorkflowOutputType.boolean,
+          fieldName,
+        ),
       };
     } catch (_) {
       throw WorkflowNodeExecutionException(
-        '参数 $fieldName 无法转换为 ${type.storageValue}。',
+        '参数 $fieldName 无法转换为 ${type.label}。',
       );
     }
   }
@@ -1483,6 +1522,27 @@ $schema''';
     final decoded = value is String ? jsonDecode(value) : value;
     if (decoded is! List) throw const FormatException();
     return List<Object?>.unmodifiable(decoded);
+  }
+
+  static List<Object?> _typedArrayValue(
+    Object? value,
+    WorkflowOutputType itemType,
+    String fieldName,
+  ) {
+    return List<Object?>.unmodifiable(
+      _arrayValue(
+        value,
+      ).map((item) => _coerce(item, itemType, fieldName: '$fieldName[]')),
+    );
+  }
+
+  static Object? _resolveSourcedValue(
+    WorkflowOutputField field,
+    Map<String, Object?> variables,
+  ) {
+    return field.valueSource == WorkflowValueSource.variable
+        ? resolveWorkflowTemplateValue(field.defaultValue, variables)
+        : field.defaultValue;
   }
 }
 

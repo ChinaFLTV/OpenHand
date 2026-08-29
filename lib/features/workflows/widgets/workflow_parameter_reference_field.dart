@@ -585,7 +585,7 @@ class _WorkflowReferenceMenuState extends State<_WorkflowReferenceMenu> {
                                                     ),
                                               ),
                                               Text(
-                                                '${reference.nodeTitle} · ${reference.field.type.storageValue}',
+                                                '${reference.nodeTitle} · ${reference.field.type.label}',
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                                 style: theme

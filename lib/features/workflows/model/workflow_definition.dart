@@ -30,11 +30,64 @@ enum WorkflowOutputType {
   number('number'),
   boolean('boolean'),
   object('object'),
-  array('array');
+  array('array'),
+  arrayString('array[string]'),
+  arrayNumber('array[number]'),
+  arrayObject('array[object]'),
+  arrayBoolean('array[boolean]');
 
   const WorkflowOutputType(this.storageValue);
 
   final String storageValue;
+
+  String get label => switch (this) {
+    WorkflowOutputType.string => 'String',
+    WorkflowOutputType.integer => 'Integer',
+    WorkflowOutputType.number => 'Number',
+    WorkflowOutputType.boolean => 'Boolean',
+    WorkflowOutputType.object => 'Object',
+    WorkflowOutputType.array => 'Array',
+    WorkflowOutputType.arrayString => 'Array[String]',
+    WorkflowOutputType.arrayNumber => 'Array[Number]',
+    WorkflowOutputType.arrayObject => 'Array[Object]',
+    WorkflowOutputType.arrayBoolean => 'Array[Boolean]',
+  };
+
+  bool get isArray => switch (this) {
+    WorkflowOutputType.array ||
+    WorkflowOutputType.arrayString ||
+    WorkflowOutputType.arrayNumber ||
+    WorkflowOutputType.arrayObject ||
+    WorkflowOutputType.arrayBoolean => true,
+    _ => false,
+  };
+
+  WorkflowOutputType? get arrayItemType => switch (this) {
+    WorkflowOutputType.arrayString => WorkflowOutputType.string,
+    WorkflowOutputType.arrayNumber => WorkflowOutputType.number,
+    WorkflowOutputType.arrayObject => WorkflowOutputType.object,
+    WorkflowOutputType.arrayBoolean => WorkflowOutputType.boolean,
+    _ => null,
+  };
+
+  bool acceptsReferenceType(WorkflowOutputType source) {
+    if (this == source) return true;
+    return switch (this) {
+      WorkflowOutputType.string => true,
+      WorkflowOutputType.integer || WorkflowOutputType.number =>
+        source == WorkflowOutputType.string ||
+            source == WorkflowOutputType.integer ||
+            source == WorkflowOutputType.number,
+      WorkflowOutputType.boolean ||
+      WorkflowOutputType.object => source == WorkflowOutputType.string,
+      WorkflowOutputType.array ||
+      WorkflowOutputType.arrayString ||
+      WorkflowOutputType.arrayNumber ||
+      WorkflowOutputType.arrayObject ||
+      WorkflowOutputType.arrayBoolean =>
+        source == WorkflowOutputType.string || source.isArray,
+    };
+  }
 
   static WorkflowOutputType fromStorage(Object? value) {
     final normalized = '${value ?? ''}'.trim();
@@ -42,6 +95,33 @@ enum WorkflowOutputType {
       (type) => type.storageValue == normalized,
       orElse: () => WorkflowOutputType.string,
     );
+  }
+}
+
+enum WorkflowValueSource {
+  variable('variable'),
+  constant('constant');
+
+  const WorkflowValueSource(this.storageValue);
+
+  final String storageValue;
+
+  String get label => switch (this) {
+    WorkflowValueSource.variable => '变量',
+    WorkflowValueSource.constant => '常量',
+  };
+
+  static WorkflowValueSource fromStorage(
+    Object? value, {
+    String legacyValue = '',
+  }) {
+    final normalized = '${value ?? ''}'.trim();
+    for (final source in values) {
+      if (source.storageValue == normalized) return source;
+    }
+    return workflowTemplatePlaceholderPattern.hasMatch(legacyValue)
+        ? WorkflowValueSource.variable
+        : WorkflowValueSource.constant;
   }
 }
 
@@ -152,6 +232,18 @@ final RegExp workflowTemplatePlaceholderPattern = RegExp(
 
 String workflowParameterPlaceholder(String name) => '{{${name.trim()}}}';
 
+String? validateWorkflowSourcedValue(
+  WorkflowValueSource source,
+  String value, {
+  required String label,
+}) {
+  if (source == WorkflowValueSource.variable &&
+      !workflowTemplatePlaceholderPattern.hasMatch(value)) {
+    return '$label请选择有效变量。';
+  }
+  return null;
+}
+
 const String workflowContainerStartHandleId = 'container_start';
 const int maxWorkflowNestedNodeCount = 128;
 
@@ -209,14 +301,20 @@ class WorkflowConditionClause {
     this.variable = '',
     this.operator = WorkflowConditionOperator.equals,
     this.value = '',
+    this.valueSource = WorkflowValueSource.constant,
   });
 
   factory WorkflowConditionClause.fromJson(Map<String, Object?> json) {
+    final value = '${json['value'] ?? ''}';
     return WorkflowConditionClause(
       id: '${json['id'] ?? ''}'.trim(),
       variable: '${json['variable'] ?? ''}',
       operator: WorkflowConditionOperator.fromStorage(json['operator']),
-      value: '${json['value'] ?? ''}',
+      value: value,
+      valueSource: WorkflowValueSource.fromStorage(
+        json['value_source'],
+        legacyValue: value,
+      ),
     );
   }
 
@@ -224,17 +322,20 @@ class WorkflowConditionClause {
   final String variable;
   final WorkflowConditionOperator operator;
   final String value;
+  final WorkflowValueSource valueSource;
 
   WorkflowConditionClause copyWith({
     String? variable,
     WorkflowConditionOperator? operator,
     String? value,
+    WorkflowValueSource? valueSource,
   }) {
     return WorkflowConditionClause(
       id: id,
       variable: variable ?? this.variable,
       operator: operator ?? this.operator,
       value: value ?? this.value,
+      valueSource: valueSource ?? this.valueSource,
     );
   }
 
@@ -243,6 +344,7 @@ class WorkflowConditionClause {
     'variable': variable,
     'operator': operator.storageValue,
     'value': value,
+    'value_source': valueSource.storageValue,
   };
 }
 
@@ -296,14 +398,20 @@ class WorkflowLoopVariable {
     this.name = '',
     this.type = WorkflowOutputType.string,
     this.initialValue = '',
+    this.valueSource = WorkflowValueSource.constant,
   });
 
   factory WorkflowLoopVariable.fromJson(Map<String, Object?> json) {
+    final initialValue = '${json['initial_value'] ?? ''}';
     return WorkflowLoopVariable(
       id: '${json['id'] ?? ''}'.trim(),
       name: '${json['name'] ?? ''}',
       type: WorkflowOutputType.fromStorage(json['type']),
-      initialValue: '${json['initial_value'] ?? ''}',
+      initialValue: initialValue,
+      valueSource: WorkflowValueSource.fromStorage(
+        json['value_source'],
+        legacyValue: initialValue,
+      ),
     );
   }
 
@@ -311,17 +419,20 @@ class WorkflowLoopVariable {
   final String name;
   final WorkflowOutputType type;
   final String initialValue;
+  final WorkflowValueSource valueSource;
 
   WorkflowLoopVariable copyWith({
     String? name,
     WorkflowOutputType? type,
     String? initialValue,
+    WorkflowValueSource? valueSource,
   }) {
     return WorkflowLoopVariable(
       id: id,
       name: name ?? this.name,
       type: type ?? this.type,
       initialValue: initialValue ?? this.initialValue,
+      valueSource: valueSource ?? this.valueSource,
     );
   }
 
@@ -330,6 +441,7 @@ class WorkflowLoopVariable {
     'name': name,
     'type': type.storageValue,
     'initial_value': initialValue,
+    'value_source': valueSource.storageValue,
   };
 }
 
@@ -339,25 +451,37 @@ class WorkflowKeyValueEntry {
     required this.id,
     this.key = '',
     this.value = '',
+    this.valueSource = WorkflowValueSource.constant,
   });
 
   factory WorkflowKeyValueEntry.fromJson(Map<String, Object?> json) {
+    final value = '${json['value'] ?? ''}';
     return WorkflowKeyValueEntry(
       id: '${json['id'] ?? ''}'.trim(),
       key: '${json['key'] ?? ''}',
-      value: '${json['value'] ?? ''}',
+      value: value,
+      valueSource: WorkflowValueSource.fromStorage(
+        json['value_source'],
+        legacyValue: value,
+      ),
     );
   }
 
   final String id;
   final String key;
   final String value;
+  final WorkflowValueSource valueSource;
 
-  WorkflowKeyValueEntry copyWith({String? key, String? value}) {
+  WorkflowKeyValueEntry copyWith({
+    String? key,
+    String? value,
+    WorkflowValueSource? valueSource,
+  }) {
     return WorkflowKeyValueEntry(
       id: id,
       key: key ?? this.key,
       value: value ?? this.value,
+      valueSource: valueSource ?? this.valueSource,
     );
   }
 
@@ -365,6 +489,7 @@ class WorkflowKeyValueEntry {
     'id': id,
     'key': key,
     'value': value,
+    'value_source': valueSource.storageValue,
   };
 }
 
@@ -385,6 +510,12 @@ String? validateWorkflowKeyValueEntries(
     if (key.isEmpty || value.trim().isEmpty) {
       return '$label第 ${index + 1} 项的键和值都不能为空。';
     }
+    final sourceError = validateWorkflowSourcedValue(
+      entry.valueSource,
+      value,
+      label: '$label第 ${index + 1} 项',
+    );
+    if (sourceError != null) return sourceError;
     if (httpHeaders && !_workflowHttpHeaderNamePattern.hasMatch(key)) {
       return '$label第 ${index + 1} 项的键不是有效的 HTTP 请求头名称。';
     }
@@ -416,16 +547,22 @@ class WorkflowOutputField {
     this.type = WorkflowOutputType.string,
     this.required = false,
     this.defaultValue = '',
+    this.valueSource = WorkflowValueSource.constant,
   });
 
   factory WorkflowOutputField.fromJson(Map<String, Object?> json) {
+    final defaultValue = '${json['default_value'] ?? ''}';
     return WorkflowOutputField(
       id: '${json['id'] ?? ''}'.trim(),
       name: '${json['name'] ?? ''}',
       description: '${json['description'] ?? ''}',
       type: WorkflowOutputType.fromStorage(json['type']),
       required: json['required'] == true,
-      defaultValue: '${json['default_value'] ?? ''}',
+      defaultValue: defaultValue,
+      valueSource: WorkflowValueSource.fromStorage(
+        json['value_source'],
+        legacyValue: defaultValue,
+      ),
     );
   }
 
@@ -435,6 +572,7 @@ class WorkflowOutputField {
   final WorkflowOutputType type;
   final bool required;
   final String defaultValue;
+  final WorkflowValueSource valueSource;
 
   WorkflowOutputField copyWith({
     String? name,
@@ -442,6 +580,7 @@ class WorkflowOutputField {
     WorkflowOutputType? type,
     bool? required,
     String? defaultValue,
+    WorkflowValueSource? valueSource,
   }) {
     return WorkflowOutputField(
       id: id,
@@ -450,6 +589,7 @@ class WorkflowOutputField {
       type: type ?? this.type,
       required: required ?? this.required,
       defaultValue: defaultValue ?? this.defaultValue,
+      valueSource: valueSource ?? this.valueSource,
     );
   }
 
@@ -460,6 +600,7 @@ class WorkflowOutputField {
     'type': type.storageValue,
     'required': required,
     'default_value': defaultValue,
+    'value_source': valueSource.storageValue,
   };
 }
 
@@ -702,6 +843,14 @@ String? validateWorkflowConditionClauses(
     if (condition.operator.requiresValue && condition.value.trim().isEmpty) {
       return '$label第 ${index + 1} 项缺少比较值。';
     }
+    if (condition.operator.requiresValue) {
+      final sourceError = validateWorkflowSourcedValue(
+        condition.valueSource,
+        condition.value,
+        label: '$label第 ${index + 1} 项的比较值',
+      );
+      if (sourceError != null) return sourceError;
+    }
   }
   return null;
 }
@@ -737,6 +886,12 @@ String? validateWorkflowLoopVariables(List<WorkflowLoopVariable> variables) {
     if (variable.initialValue.trim().isEmpty) {
       return '循环变量“$name”缺少初始值。';
     }
+    final sourceError = validateWorkflowSourcedValue(
+      variable.valueSource,
+      variable.initialValue,
+      label: '循环变量“$name”',
+    );
+    if (sourceError != null) return sourceError;
   }
   return null;
 }
