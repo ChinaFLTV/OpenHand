@@ -101,12 +101,14 @@ function ReasoningEffortPanel({
   const queuedValueRef = useRef<string | null>(null);
   const persistingRef = useRef(false);
   const slider100Ref = useRef(slider100);
+  const draggingRef = useRef(false);
   const pixelCanvasRef = useRef<HTMLCanvasElement>(null);
   const streamCanvasRef = useRef<HTMLCanvasElement>(null);
   const pixelHandleRef = useRef<EffortPixelFieldHandle | null>(null);
   const streamHandleRef = useRef<EffortStreamFieldHandle | null>(null);
 
   slider100Ref.current = slider100;
+  draggingRef.current = dragging;
 
   const displayIndex = slider100ToIndex(slider100, options.length);
   const selected = options[displayIndex]!;
@@ -123,11 +125,18 @@ function ReasoningEffortPanel({
         ? 'is-mid'
         : 'is-low';
 
+  // 只跟外部 currentValue / options 同步。切勿把 dragging 放进依赖：
+  // 松手时 currentValue 仍是旧档 A，若此时回写会先弹回 A，保存完成后再跳到 B。
   useLayoutEffect(() => {
-    if (dragging) return;
-    // 外部值同步与松手吸附均瞬时到位，禁止补间回弹。
-    setSlider100(indexToSlider100(optionIndex(options, currentValue), options.length));
-  }, [currentValue, options, dragging]);
+    if (draggingRef.current) return;
+    if (persistingRef.current || queuedValueRef.current != null) return;
+    const target = indexToSlider100(
+      optionIndex(options, currentValue),
+      options.length,
+    );
+    if (Math.abs(target - slider100Ref.current) < 0.08) return;
+    setSlider100(target);
+  }, [currentValue, options]);
 
   useEffect(() => {
     const syncTheme = () => setDarkTheme(isDarkEffortTheme());
@@ -232,9 +241,10 @@ function ReasoningEffortPanel({
   const snapAndCommit = (raw: number) => {
     const nextIndex = slider100ToIndex(raw, options.length);
     const snapped = indexToSlider100(nextIndex, options.length);
-    setDragging(false);
+    // 先占位目标档并入队，再结束 dragging，避免松手瞬间被旧 currentValue 拉回 A。
     setSlider100(snapped);
     commit(nextIndex);
+    setDragging(false);
   };
 
   const thumbInset = 11 - 22 * (slider100 / 100);
