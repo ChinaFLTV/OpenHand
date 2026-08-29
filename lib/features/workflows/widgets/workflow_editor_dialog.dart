@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/state/settings_controller.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -28,7 +30,7 @@ const double _canvasWidth = 2400;
 const double _canvasHeight = 1600;
 const double _nodeWidth = 246;
 const double _nodeHeight = 130;
-const double _paletteWidth = 92;
+const double _nodeAddButtonSize = 32;
 const double _configurationWidth = 440;
 const double _headerActionSize = 44;
 const RoundedRectangleBorder _workflowButtonShape = RoundedRectangleBorder(
@@ -106,6 +108,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   late final WorkflowNodeExecutor _executor = WorkflowNodeExecutor();
   late final TransformationController _transformationController =
       TransformationController();
+  late final FocusNode _canvasFocusNode = FocusNode(
+    debugLabel: 'workflow-canvas',
+  );
   late String _workflowName = widget.workflow?.name ?? '';
   late final String _workflowId = widget.workflow?.id ?? _uuid.v4();
   late final DateTime _createdAt =
@@ -117,7 +122,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     widget.workflow?.connections ?? const <WorkflowConnection>[],
   );
   String? _selectedNodeId;
-  String? _connectionSourceId;
+  String? _selectedConnectionId;
   bool _testing = false;
   String? _testResult;
   String? _testError;
@@ -136,6 +141,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   void dispose() {
     _executor.dispose();
     _transformationController.dispose();
+    _canvasFocusNode.dispose();
     super.dispose();
   }
 
@@ -157,11 +163,6 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                 );
                 return Row(
                   children: [
-                    _WorkflowNodePalette(onAdd: _addNode),
-                    VerticalDivider(
-                      width: 1,
-                      color: theme.colorScheme.outlineVariant,
-                    ),
                     Expanded(child: _buildCanvas(context)),
                     AnimatedContainer(
                       duration: openHandMotionDuration(
@@ -184,7 +185,6 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                                 onChanged: _updateNode,
                                 onClose: () => setState(() {
                                   _selectedNodeId = null;
-                                  _connectionSourceId = null;
                                 }),
                                 onDelete: _deleteSelectedNode,
                                 onTest: _testSelectedNode,
@@ -261,15 +261,12 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
 
   Widget _buildCanvas(BuildContext context) {
     final theme = Theme.of(context);
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => setState(() {
-              _selectedNodeId = null;
-              _connectionSourceId = null;
-            }),
+    return Focus(
+      focusNode: _canvasFocusNode,
+      onKeyEvent: _handleCanvasKeyEvent,
+      child: Stack(
+        children: [
+          Positioned.fill(
             child: InteractiveViewer(
               transformationController: _transformationController,
               constrained: false,
@@ -280,6 +277,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                 width: _canvasWidth,
                 height: _canvasHeight,
                 child: Stack(
+                  clipBehavior: Clip.none,
                   children: [
                     Positioned.fill(
                       child: CustomPaint(
@@ -290,11 +288,15 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                       ),
                     ),
                     Positioned.fill(
-                      child: IgnorePointer(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTapUp: (details) =>
+                            _selectCanvasAt(details.localPosition),
                         child: CustomPaint(
                           painter: _WorkflowConnectionPainter(
                             nodes: _nodes,
                             connections: _connections,
+                            selectedConnectionId: _selectedConnectionId,
                             color: theme.colorScheme.primary,
                             mutedColor: theme.colorScheme.outline,
                           ),
@@ -307,119 +309,224 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
               ),
             ),
           ),
-        ),
-        if (_nodes.isEmpty)
-          Center(
-            child: _CanvasEmptyState(
-              onAddStart: () => _addNode(WorkflowNodeKind.start),
+          if (_nodes.isEmpty)
+            Center(
+              child: _CanvasEmptyState(
+                onAddStart: () => _addNode(WorkflowNodeKind.start),
+              ),
+            ),
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: _CanvasToolbar(
+              scale: _transformationController.value.getMaxScaleOnAxis(),
+              canDelete:
+                  _selectedNodeId != null || _selectedConnectionId != null,
+              onZoomIn: () => _changeZoom(0.15),
+              onZoomOut: () => _changeZoom(-0.15),
+              onReset: _resetViewport,
+              onDelete: _deleteSelection,
             ),
           ),
-        if (_connectionSourceId != null)
-          const Positioned(
-            top: 14,
-            left: 16,
-            child: _StatusPill(
-              icon: Icons.link_rounded,
-              label: '请选择目标节点，按 Esc 或点击空白处取消',
-              emphasized: true,
-            ),
-          ),
-        Positioned(
-          right: 16,
-          bottom: 16,
-          child: _CanvasToolbar(
-            scale: _transformationController.value.getMaxScaleOnAxis(),
-            canConnect:
-                _selectedNode != null &&
-                _selectedNode!.kind != WorkflowNodeKind.end,
-            connecting: _connectionSourceId != null,
-            onZoomIn: () => _changeZoom(0.15),
-            onZoomOut: () => _changeZoom(-0.15),
-            onReset: _resetViewport,
-            onConnect: _startConnection,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildNodeCard(BuildContext context, WorkflowNode node) {
     final selected = node.id == _selectedNodeId;
-    final source = node.id == _connectionSourceId;
     final theme = Theme.of(context);
     final descriptor = workflowNodeDescriptor(node.kind, theme.colorScheme);
     return Positioned(
       left: node.x,
       top: node.y,
-      width: _nodeWidth,
+      width: _nodeWidth + _nodeAddButtonSize / 2,
       height: _nodeHeight,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          if (_connectionSourceId != null && _connectionSourceId != node.id) {
-            _finishConnection(node.id);
-            return;
-          }
-          setState(() {
-            _selectedNodeId = node.id;
-            _testResult = null;
-            _testError = null;
-            _testStatus = null;
-          });
-        },
-        onPanUpdate: (details) {
-          final scale = math.max(
-            0.35,
-            _transformationController.value.getMaxScaleOnAxis(),
-          );
-          _updateNode(
-            node.copyWith(
-              x: (node.x + details.delta.dx / scale).clamp(
-                16,
-                _canvasWidth - _nodeWidth - 16,
-              ),
-              y: (node.y + details.delta.dy / scale).clamp(
-                16,
-                _canvasHeight - _nodeHeight - 16,
-              ),
-            ),
-          );
-        },
-        child: AnimatedContainer(
-          duration: openHandMotionDuration(context, kOpenHandMotion180),
-          curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: selected
-                ? theme.colorScheme.primaryContainer.withValues(alpha: 0.38)
-                : theme.colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(kOpenHandRadius18),
-            border: Border.all(
-              color: selected || source
-                  ? descriptor.color
-                  : theme.colorScheme.outlineVariant,
-              width: selected || source ? 2 : 1,
-            ),
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: theme.colorScheme.shadow.withValues(
-                  alpha: selected ? 0.18 : 0.09,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: 0,
+            top: 0,
+            width: _nodeWidth,
+            height: _nodeHeight,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _selectNode(node.id),
+              onPanStart: (_) => _selectNode(node.id),
+              onPanUpdate: (details) {
+                final scale = math.max(
+                  0.35,
+                  _transformationController.value.getMaxScaleOnAxis(),
+                );
+                _updateNode(
+                  node.copyWith(
+                    x: (node.x + details.delta.dx / scale).clamp(
+                      16,
+                      _canvasWidth - _nodeWidth - 16,
+                    ),
+                    y: (node.y + details.delta.dy / scale).clamp(
+                      16,
+                      _canvasHeight - _nodeHeight - 16,
+                    ),
+                  ),
+                );
+              },
+              child: AnimatedContainer(
+                duration: openHandMotionDuration(context, kOpenHandMotion180),
+                curve: Curves.easeOutCubic,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: selected
+                      ? theme.colorScheme.primaryContainer.withValues(
+                          alpha: 0.38,
+                        )
+                      : theme.colorScheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(kOpenHandRadius18),
+                  border: Border.all(
+                    color: selected
+                        ? descriptor.color
+                        : theme.colorScheme.outlineVariant,
+                    width: selected ? 2 : 1,
+                  ),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: theme.colorScheme.shadow.withValues(
+                        alpha: selected ? 0.18 : 0.09,
+                      ),
+                      blurRadius: selected ? 24 : 14,
+                      offset: const Offset(0, 7),
+                    ),
+                  ],
                 ),
-                blurRadius: selected ? 24 : 14,
-                offset: const Offset(0, 7),
+                child: _buildNodeCardContent(context, node, descriptor),
               ),
-            ],
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
+          if (node.kind != WorkflowNodeKind.end)
+            Positioned(
+              left: _nodeWidth - _nodeAddButtonSize / 2,
+              top: (_nodeHeight - _nodeAddButtonSize) / 2,
+              child: _buildAddNodeButton(context, node),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNodeCardContent(
+    BuildContext context,
+    WorkflowNode node,
+    ({String label, String description, IconData icon, Color color}) descriptor,
+  ) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: descriptor.color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(kOpenHandRadius10),
+              ),
+              child: Icon(descriptor.icon, color: descriptor.color, size: 19),
+            ),
+            kOpenHandHGap9,
+            Expanded(
+              child: Text(
+                node.title.trim().isEmpty
+                    ? descriptor.label
+                    : node.title.trim(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.drag_indicator_rounded,
+              size: 18,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+        kOpenHandGap12,
+        Text(
+          _nodeSummary(node),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodySmall?.copyWith(
+            height: 1.4,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const Spacer(),
+        Row(
+          children: [
+            if (node.kind != WorkflowNodeKind.start)
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: theme.colorScheme.outline,
+                ),
+              ),
+            const Spacer(),
+            Text(
+              descriptor.label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: descriptor.color,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            kOpenHandHGap6,
+            if (node.kind != WorkflowNodeKind.end)
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: descriptor.color,
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAddNodeButton(BuildContext context, WorkflowNode source) {
+    final theme = Theme.of(context);
+    return AnimatedPopupMenuButton<WorkflowNodeKind>(
+      tooltip: '添加后续节点',
+      offset: const Offset(18, 0),
+      constraints: const BoxConstraints(minWidth: 260, maxWidth: 300),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kOpenHandRadius14),
+      ),
+      onSelected: (kind) => _addConnectedNode(source, kind),
+      itemBuilder: (menuContext) => WorkflowNodeKind.values
+          .where((kind) => kind != WorkflowNodeKind.start)
+          .map((kind) {
+            final descriptor = workflowNodeDescriptor(
+              kind,
+              Theme.of(menuContext).colorScheme,
+            );
+            return PopupMenuItem<WorkflowNodeKind>(
+              value: kind,
+              height: 58,
+              child: Row(
                 children: [
                   Container(
                     width: 34,
                     height: 34,
                     decoration: BoxDecoration(
-                      color: descriptor.color.withValues(alpha: 0.15),
+                      color: descriptor.color.withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(kOpenHandRadius10),
                     ),
                     child: Icon(
@@ -428,72 +535,45 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                       size: 19,
                     ),
                   ),
-                  kOpenHandHGap9,
+                  kOpenHandHGap10,
                   Expanded(
-                    child: Text(
-                      node.title.trim().isEmpty
-                          ? descriptor.label
-                          : node.title.trim(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          descriptor.label,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        kOpenHandGap2,
+                        Text(
+                          descriptor.description,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  Icon(
-                    Icons.drag_indicator_rounded,
-                    size: 18,
-                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ],
               ),
-              kOpenHandGap12,
-              Text(
-                _nodeSummary(node),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  height: 1.4,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const Spacer(),
-              Row(
-                children: [
-                  if (node.kind != WorkflowNodeKind.start)
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: theme.colorScheme.outline,
-                      ),
-                    ),
-                  const Spacer(),
-                  Text(
-                    descriptor.label,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: descriptor.color,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  kOpenHandHGap6,
-                  if (node.kind != WorkflowNodeKind.end)
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: descriptor.color,
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
+            );
+          })
+          .toList(growable: false),
+      style: TextButton.styleFrom(
+        fixedSize: const Size.square(_nodeAddButtonSize),
+        minimumSize: const Size.square(_nodeAddButtonSize),
+        padding: EdgeInsets.zero,
+        shape: const CircleBorder(),
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: theme.colorScheme.onPrimary,
+        shadowColor: Colors.transparent,
       ),
+      child: const Icon(Icons.add_rounded, size: 20),
     );
   }
 
@@ -523,11 +603,70 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     setState(() {
       _nodes = <WorkflowNode>[..._nodes, node];
       _selectedNodeId = node.id;
-      _connectionSourceId = null;
+      _selectedConnectionId = null;
       _testResult = null;
       _testError = null;
       _testStatus = null;
     });
+    _canvasFocusNode.requestFocus();
+  }
+
+  void _addConnectedNode(WorkflowNode source, WorkflowNodeKind kind) {
+    if (source.kind == WorkflowNodeKind.end ||
+        kind == WorkflowNodeKind.start ||
+        !_nodes.any((node) => node.id == source.id)) {
+      return;
+    }
+    final descriptor = workflowNodeDescriptor(
+      kind,
+      Theme.of(context).colorScheme,
+    );
+    final position = _nextNodePosition(source);
+    final node = WorkflowNode(
+      id: _uuid.v4(),
+      kind: kind,
+      title: descriptor.label,
+      x: position.dx,
+      y: position.dy,
+      settings: _defaultSettings(kind),
+    );
+    setState(() {
+      _nodes = <WorkflowNode>[..._nodes, node];
+      _connections = <WorkflowConnection>[
+        ..._connections,
+        WorkflowConnection(
+          id: _uuid.v4(),
+          sourceNodeId: source.id,
+          targetNodeId: node.id,
+        ),
+      ];
+      _selectedNodeId = node.id;
+      _selectedConnectionId = null;
+      _testResult = null;
+      _testError = null;
+      _testStatus = null;
+    });
+    _canvasFocusNode.requestFocus();
+  }
+
+  Offset _nextNodePosition(WorkflowNode source) {
+    const maxX = _canvasWidth - _nodeWidth - 16;
+    const maxY = _canvasHeight - _nodeHeight - 16;
+    final x = (source.x + _nodeWidth + 110).clamp(16.0, maxX);
+    const verticalStep = _nodeHeight + 42;
+    for (var index = 0; index < 20; index++) {
+      final level = (index + 1) ~/ 2;
+      final direction = index == 0 ? 0 : (index.isOdd ? 1 : -1);
+      final y = (source.y + level * verticalStep * direction).clamp(16.0, maxY);
+      final candidate = Rect.fromLTWH(x, y, _nodeWidth, _nodeHeight);
+      final occupied = _nodes.any(
+        (node) => candidate.overlaps(
+          Rect.fromLTWH(node.x, node.y, _nodeWidth, _nodeHeight).inflate(24),
+        ),
+      );
+      if (!occupied) return Offset(x, y);
+    }
+    return Offset(x, (source.y + verticalStep).clamp(16.0, maxY));
   }
 
   Map<String, Object?> _defaultSettings(WorkflowNodeKind kind) {
@@ -621,60 +760,104 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
           .where((edge) => edge.sourceNodeId != id && edge.targetNodeId != id)
           .toList(growable: false);
       _selectedNodeId = null;
-      if (_connectionSourceId == id) _connectionSourceId = null;
+      _selectedConnectionId = null;
       _testResult = null;
       _testError = null;
       _testStatus = null;
     });
   }
 
-  void _startConnection() {
-    final node = _selectedNode;
-    if (node == null || node.kind == WorkflowNodeKind.end) return;
-    final id = node.id;
-    setState(() => _connectionSourceId = _connectionSourceId == id ? null : id);
-  }
-
-  void _finishConnection(String targetNodeId) {
-    final sourceNodeId = _connectionSourceId;
-    if (sourceNodeId == null || sourceNodeId == targetNodeId) return;
-    final sourceNode = _nodes
-        .where((node) => node.id == sourceNodeId)
-        .firstOrNull;
-    final targetNode = _nodes
-        .where((node) => node.id == targetNodeId)
-        .firstOrNull;
-    if (sourceNode == null || targetNode == null) return;
-    if (sourceNode.kind == WorkflowNodeKind.end) {
-      showOpenHandInfoSnack(context, '结束节点不能连接后续节点。');
+  void _deleteSelection() {
+    if (_selectedNodeId != null) {
+      _deleteSelectedNode();
       return;
     }
-    if (targetNode.kind == WorkflowNodeKind.start) {
-      showOpenHandInfoSnack(context, '开始节点不能作为连接目标。');
-      return;
-    }
-    final duplicate = _connections.any(
-      (edge) =>
-          edge.sourceNodeId == sourceNodeId &&
-          edge.targetNodeId == targetNodeId,
-    );
+    final connectionId = _selectedConnectionId;
+    if (connectionId == null) return;
     setState(() {
-      if (!duplicate) {
-        _connections = <WorkflowConnection>[
-          ..._connections,
-          WorkflowConnection(
-            id: _uuid.v4(),
-            sourceNodeId: sourceNodeId,
-            targetNodeId: targetNodeId,
-          ),
-        ];
-      }
-      _selectedNodeId = targetNodeId;
-      _connectionSourceId = null;
+      _connections = _connections
+          .where((connection) => connection.id != connectionId)
+          .toList(growable: false);
+      _selectedConnectionId = null;
+    });
+  }
+
+  void _selectNode(String nodeId) {
+    setState(() {
+      _selectedNodeId = nodeId;
+      _selectedConnectionId = null;
       _testResult = null;
       _testError = null;
       _testStatus = null;
     });
+    _canvasFocusNode.requestFocus();
+  }
+
+  void _selectCanvasAt(Offset position) {
+    final connectionId = _hitTestConnection(position);
+    setState(() {
+      _selectedNodeId = null;
+      _selectedConnectionId = connectionId;
+      _testResult = null;
+      _testError = null;
+      _testStatus = null;
+    });
+    _canvasFocusNode.requestFocus();
+  }
+
+  String? _hitTestConnection(Offset position) {
+    final nodesById = <String, WorkflowNode>{
+      for (final node in _nodes) node.id: node,
+    };
+    final scale = math.max(
+      0.35,
+      _transformationController.value.getMaxScaleOnAxis(),
+    );
+    final threshold = 12 / scale;
+    final sampleStep = math.max(3.0, 6 / scale);
+    for (final connection in _connections.reversed) {
+      final source = nodesById[connection.sourceNodeId];
+      final target = nodesById[connection.targetNodeId];
+      if (source == null || target == null) continue;
+      for (final metric in _workflowConnectionPath(
+        source,
+        target,
+      ).computeMetrics()) {
+        for (
+          var distance = 0.0;
+          distance <= metric.length;
+          distance += sampleStep
+        ) {
+          final tangent = metric.getTangentForOffset(distance);
+          if (tangent != null &&
+              (tangent.position - position).distance <= threshold) {
+            return connection.id;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  KeyEventResult _handleCanvasKeyEvent(FocusNode _, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (event.logicalKey == LogicalKeyboardKey.delete ||
+        event.logicalKey == LogicalKeyboardKey.backspace) {
+      if (_selectedNodeId == null && _selectedConnectionId == null) {
+        return KeyEventResult.ignored;
+      }
+      _deleteSelection();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.escape &&
+        (_selectedNodeId != null || _selectedConnectionId != null)) {
+      setState(() {
+        _selectedNodeId = null;
+        _selectedConnectionId = null;
+      });
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   Future<void> _testSelectedNode() async {
@@ -887,103 +1070,6 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   }
 }
 
-class _WorkflowNodePalette extends StatelessWidget {
-  const _WorkflowNodePalette({required this.onAdd});
-
-  final ValueChanged<WorkflowNodeKind> onAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return SizedBox(
-      width: _paletteWidth,
-      child: ColoredBox(
-        color: theme.colorScheme.surfaceContainerLow,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 13, 8, 7),
-              child: Text(
-                '节点',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                children: WorkflowNodeKind.values
-                    .map(
-                      (kind) =>
-                          _PaletteItem(kind: kind, onTap: () => onAdd(kind)),
-                    )
-                    .toList(growable: false),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PaletteItem extends StatelessWidget {
-  const _PaletteItem({required this.kind, required this.onTap});
-
-  final WorkflowNodeKind kind;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final descriptor = workflowNodeDescriptor(kind, theme.colorScheme);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Tooltip(
-        message: '${descriptor.label}\n${descriptor.description}',
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(kOpenHandRadius12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-              child: Column(
-                children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: descriptor.color.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(kOpenHandRadius11),
-                    ),
-                    child: Icon(
-                      descriptor.icon,
-                      color: descriptor.color,
-                      size: 20,
-                    ),
-                  ),
-                  kOpenHandGap5,
-                  Text(
-                    descriptor.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _CanvasEmptyState extends StatelessWidget {
   const _CanvasEmptyState({required this.onAddStart});
 
@@ -1046,21 +1132,19 @@ class _CanvasEmptyState extends StatelessWidget {
 class _CanvasToolbar extends StatelessWidget {
   const _CanvasToolbar({
     required this.scale,
-    required this.canConnect,
-    required this.connecting,
+    required this.canDelete,
     required this.onZoomIn,
     required this.onZoomOut,
     required this.onReset,
-    required this.onConnect,
+    required this.onDelete,
   });
 
   final double scale;
-  final bool canConnect;
-  final bool connecting;
+  final bool canDelete;
   final VoidCallback onZoomIn;
   final VoidCallback onZoomOut;
   final VoidCallback onReset;
-  final VoidCallback onConnect;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -1107,10 +1191,9 @@ class _CanvasToolbar extends StatelessWidget {
               color: theme.colorScheme.outlineVariant,
             ),
             _ToolbarButton(
-              tooltip: connecting ? '取消连接' : '连接所选节点',
-              icon: connecting ? Icons.link_off_rounded : Icons.link_rounded,
-              selected: connecting,
-              onPressed: canConnect ? onConnect : null,
+              tooltip: '删除所选节点或连线',
+              icon: Icons.delete_outline_rounded,
+              onPressed: canDelete ? onDelete : null,
             ),
           ],
         ),
@@ -1265,13 +1348,11 @@ class _ToolbarButton extends StatelessWidget {
     required this.tooltip,
     required this.icon,
     required this.onPressed,
-    this.selected = false,
   });
 
   final String tooltip;
   final IconData icon;
   final VoidCallback? onPressed;
-  final bool selected;
 
   @override
   Widget build(BuildContext context) {
@@ -1281,57 +1362,11 @@ class _ToolbarButton extends StatelessWidget {
         onPressed: onPressed,
         icon: Icon(icon, size: 19),
         style: IconButton.styleFrom(
-          backgroundColor: selected
-              ? Theme.of(context).colorScheme.primaryContainer
-              : Colors.transparent,
+          backgroundColor: Colors.transparent,
           fixedSize: const Size.square(36),
           padding: EdgeInsets.zero,
           shape: _workflowButtonShape,
         ),
-      ),
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({
-    required this.icon,
-    required this.label,
-    this.emphasized = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool emphasized;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: emphasized
-            ? theme.colorScheme.primaryContainer
-            : theme.colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: emphasized
-              ? theme.colorScheme.primary.withValues(alpha: 0.35)
-              : theme.colorScheme.outlineVariant,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: theme.colorScheme.primary),
-          kOpenHandHGap6,
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1371,12 +1406,14 @@ class _WorkflowConnectionPainter extends CustomPainter {
   const _WorkflowConnectionPainter({
     required this.nodes,
     required this.connections,
+    required this.selectedConnectionId,
     required this.color,
     required this.mutedColor,
   });
 
   final List<WorkflowNode> nodes;
   final List<WorkflowConnection> connections;
+  final String? selectedConnectionId;
   final Color color;
   final Color mutedColor;
 
@@ -1385,32 +1422,26 @@ class _WorkflowConnectionPainter extends CustomPainter {
     final byId = <String, WorkflowNode>{
       for (final node in nodes) node.id: node,
     };
-    final linePaint = Paint()
-      ..color = color.withValues(alpha: 0.72)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.4
-      ..strokeCap = StrokeCap.round;
-    final haloPaint = Paint()
-      ..color = mutedColor.withValues(alpha: 0.16)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 7;
     for (final edge in connections) {
       final source = byId[edge.sourceNodeId];
       final target = byId[edge.targetNodeId];
       if (source == null || target == null) continue;
+      final selected = edge.id == selectedConnectionId;
+      final linePaint = Paint()
+        ..color = color.withValues(alpha: selected ? 1 : 0.72)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = selected ? 4 : 2.4
+        ..strokeCap = StrokeCap.round;
+      final haloPaint = Paint()
+        ..color = (selected ? color : mutedColor).withValues(
+          alpha: selected ? 0.2 : 0.16,
+        )
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = selected ? 12 : 7;
       final start = Offset(source.x + _nodeWidth, source.y + _nodeHeight / 2);
       final end = Offset(target.x, target.y + _nodeHeight / 2);
       final distance = math.max(70, (end.dx - start.dx).abs() * 0.46);
-      final path = Path()
-        ..moveTo(start.dx, start.dy)
-        ..cubicTo(
-          start.dx + distance,
-          start.dy,
-          end.dx - distance,
-          end.dy,
-          end.dx,
-          end.dy,
-        );
+      final path = _workflowConnectionPath(source, target);
       canvas.drawPath(path, haloPaint);
       canvas.drawPath(path, linePaint);
       final angle = math.atan2(end.dy - (end.dy), end.dx - (end.dx - distance));
@@ -1433,9 +1464,26 @@ class _WorkflowConnectionPainter extends CustomPainter {
   bool shouldRepaint(_WorkflowConnectionPainter oldDelegate) {
     return nodes != oldDelegate.nodes ||
         connections != oldDelegate.connections ||
+        selectedConnectionId != oldDelegate.selectedConnectionId ||
         color != oldDelegate.color ||
         mutedColor != oldDelegate.mutedColor;
   }
+}
+
+Path _workflowConnectionPath(WorkflowNode source, WorkflowNode target) {
+  final start = Offset(source.x + _nodeWidth, source.y + _nodeHeight / 2);
+  final end = Offset(target.x, target.y + _nodeHeight / 2);
+  final distance = math.max(70, (end.dx - start.dx).abs() * 0.46);
+  return Path()
+    ..moveTo(start.dx, start.dy)
+    ..cubicTo(
+      start.dx + distance,
+      start.dy,
+      end.dx - distance,
+      end.dy,
+      end.dx,
+      end.dy,
+    );
 }
 
 String _nodeSummary(WorkflowNode node) {
