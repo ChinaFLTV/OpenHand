@@ -1434,6 +1434,7 @@ class _ConditionCasesEditor extends StatelessWidget {
                             size: 17,
                           ),
                         ),
+                        kOpenHandHGap6,
                         IconButton(
                           tooltip: '下移分支',
                           onPressed: index == cases.length - 1
@@ -1450,7 +1451,8 @@ class _ConditionCasesEditor extends StatelessWidget {
                           ),
                         ),
                       ],
-                      if (index > 0)
+                      if (index > 0) ...[
+                        kOpenHandHGap6,
                         IconButton(
                           tooltip: '删除分支',
                           onPressed: () => onChanged(
@@ -1468,6 +1470,7 @@ class _ConditionCasesEditor extends StatelessWidget {
                             size: 19,
                           ),
                         ),
+                      ],
                     ],
                   ),
                   kOpenHandGap10,
