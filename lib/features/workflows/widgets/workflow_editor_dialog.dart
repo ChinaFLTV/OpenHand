@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -117,6 +118,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   bool _testing = false;
   String? _testResult;
   String? _testError;
+  WorkflowNodeTestStatus? _testStatus;
 
   WorkflowNode? get _selectedNode {
     final id = _selectedNodeId;
@@ -186,6 +188,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                                 testing: _testing,
                                 testResult: _testResult,
                                 testError: _testError,
+                                testStatus: _testStatus,
                               ),
                             ),
                     ),
@@ -356,6 +359,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             _selectedNodeId = node.id;
             _testResult = null;
             _testError = null;
+            _testStatus = null;
           });
         },
         onPanUpdate: (details) {
@@ -506,6 +510,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       _connectionSourceId = null;
       _testResult = null;
       _testError = null;
+      _testStatus = null;
     });
   }
 
@@ -574,6 +579,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       if (_selectedNodeId == updated.id) {
         _testResult = null;
         _testError = null;
+        _testStatus = null;
       }
     });
   }
@@ -590,6 +596,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       if (_connectionSourceId == id) _connectionSourceId = null;
       _testResult = null;
       _testError = null;
+      _testStatus = null;
     });
   }
 
@@ -620,6 +627,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       }
       _selectedNodeId = targetNodeId;
       _connectionSourceId = null;
+      _testResult = null;
+      _testError = null;
+      _testStatus = null;
     });
   }
 
@@ -630,6 +640,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       _testing = true;
       _testResult = null;
       _testError = null;
+      _testStatus = null;
     });
     try {
       final mcpController = widget.mcpController;
@@ -680,12 +691,14 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       setState(() {
         _testResult = _formatExecutionResult(result);
         _testError = null;
+        _testStatus = _workflowTestResultStatus(result);
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _testResult = null;
         _testError = '$error';
+        _testStatus = _workflowTestErrorStatus(error);
       });
     } finally {
       if (mounted) setState(() => _testing = false);
@@ -1385,4 +1398,31 @@ String _formatExecutionResult(WorkflowNodeExecutionResult result) {
       ? output
       : const JsonEncoder.withIndent('  ').convert(output);
   return '尝试 ${result.attempts} 次 · ${result.duration.inMilliseconds} 毫秒\n\n$formatted';
+}
+
+WorkflowNodeTestStatus _workflowTestResultStatus(
+  WorkflowNodeExecutionResult result,
+) {
+  final output = result.output;
+  final statusCode = output is Map ? output['status_code'] : null;
+  if (result.attempts > 1 || statusCode == 206 || statusCode == 207) {
+    return WorkflowNodeTestStatus.warning;
+  }
+  return WorkflowNodeTestStatus.success;
+}
+
+WorkflowNodeTestStatus _workflowTestErrorStatus(Object error) {
+  Object? current = error;
+  for (var depth = 0; depth < 6 && current != null; depth++) {
+    if (current is TimeoutException) return WorkflowNodeTestStatus.warning;
+    current = current is WorkflowNodeExecutionException ? current.cause : null;
+  }
+  final message = '$error'.toLowerCase();
+  if (message.contains('超时') ||
+      message.contains('timeout') ||
+      message.contains('部分成功') ||
+      message.contains('partial')) {
+    return WorkflowNodeTestStatus.warning;
+  }
+  return WorkflowNodeTestStatus.failure;
 }

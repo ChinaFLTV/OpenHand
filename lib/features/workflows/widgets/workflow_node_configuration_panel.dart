@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../../app/model/app_settings_snapshot.dart'
     show RecentModelSelection;
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
+import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../ai/index.dart'
     show AiModelConfig, AiReasoningEffortOption, AiThreadTemplate;
@@ -19,6 +21,8 @@ import '../model/workflow_definition.dart';
 
 const double _formControlHeight = 52;
 const Set<String> _httpMethodsWithoutBody = <String>{'GET', 'HEAD'};
+
+enum WorkflowNodeTestStatus { success, warning, failure }
 
 class WorkflowEditorCatalog {
   const WorkflowEditorCatalog({
@@ -54,6 +58,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     required this.testing,
     this.testResult,
     this.testError,
+    this.testStatus,
   });
 
   final WorkflowNode node;
@@ -65,6 +70,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
   final bool testing;
   final String? testResult;
   final String? testError;
+  final WorkflowNodeTestStatus? testStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -88,10 +94,22 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                   WorkflowNodeKind.loop => _buildLoop(context),
                   WorkflowNodeKind.iteration => _buildIteration(context),
                 },
-                if (testResult != null || testError != null) ...[
-                  kOpenHandGap16,
-                  _ExecutionResultCard(result: testResult, error: testError),
-                ],
+                OpenHandVerticalRevealSwitcher(
+                  reverseDuration: kOpenHandVerticalRevealReverseDuration,
+                  slideBeginOffsetY: -0.04,
+                  child:
+                      testStatus == null ||
+                          (testResult == null && testError == null)
+                      ? null
+                      : Padding(
+                          key: ValueKey<WorkflowNodeTestStatus>(testStatus!),
+                          padding: const EdgeInsets.only(top: 16),
+                          child: _ExecutionResultCard(
+                            status: testStatus!,
+                            message: testError ?? testResult ?? '',
+                          ),
+                        ),
+                ),
               ],
             ),
           ),
@@ -1390,40 +1408,56 @@ class _NumberFieldRow extends StatelessWidget {
 }
 
 class _ExecutionResultCard extends StatelessWidget {
-  const _ExecutionResultCard({this.result, this.error});
+  const _ExecutionResultCard({required this.status, required this.message});
 
-  final String? result;
-  final String? error;
+  final WorkflowNodeTestStatus status;
+  final String message;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final failed = error != null;
-    final color = failed
-        ? theme.colorScheme.tertiary
-        : theme.colorScheme.primary;
+    final (color, icon, title) = switch (status) {
+      WorkflowNodeTestStatus.success => (
+        OpenHandStatusColors.success,
+        Icons.check_circle_outline_rounded,
+        '测试成功',
+      ),
+      WorkflowNodeTestStatus.warning => (
+        OpenHandStatusColors.warning,
+        Icons.warning_amber_rounded,
+        '测试异常',
+      ),
+      WorkflowNodeTestStatus.failure => (
+        OpenHandStatusColors.error,
+        Icons.error_outline_rounded,
+        '测试失败',
+      ),
+    };
+    final dark = theme.brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.09),
+        color: color.withValues(alpha: dark ? 0.16 : 0.1),
         borderRadius: BorderRadius.circular(kOpenHandRadius14),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
+        border: Border.all(color: color.withValues(alpha: dark ? 0.55 : 0.4)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              Icon(
-                failed
-                    ? Icons.error_outline_rounded
-                    : Icons.check_circle_outline_rounded,
-                color: color,
-                size: 19,
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: dark ? 0.2 : 0.14),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius10),
+                ),
+                child: Icon(icon, color: color, size: 20),
               ),
-              kOpenHandHGap8,
+              kOpenHandHGap10,
               Text(
-                failed ? '测试失败' : '测试完成',
+                title,
                 style: theme.textTheme.titleSmall?.copyWith(
                   color: color,
                   fontWeight: FontWeight.w800,
@@ -1433,8 +1467,11 @@ class _ExecutionResultCard extends StatelessWidget {
           ),
           kOpenHandGap8,
           SelectableText(
-            error ?? result ?? '',
-            style: theme.textTheme.bodySmall?.copyWith(height: 1.45),
+            message,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface,
+              height: 1.45,
+            ),
           ),
         ],
       ),
