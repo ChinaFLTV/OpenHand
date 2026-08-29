@@ -1729,7 +1729,11 @@ class DingTalkGatewaySettings {
 }
 
 bool isDingTalkAutomaticResponseCandidate(DingTalkGatewayMessage message) {
-  if (message.isAssistant || message.isExcludedFromAiContext) return false;
+  if (message.isAssistant ||
+      message.fromSelf ||
+      message.isExcludedFromAiContext) {
+    return false;
+  }
   return message.conversationType == DingTalkConversationType.direct ||
       message.mentionedCurrentUser;
 }

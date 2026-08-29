@@ -2281,7 +2281,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         !isServiceEnabled) {
       return false;
     }
-    final responseVersion = _responseCancellationVersions[conversationId] ?? 0;
     final files = <({String path, FileStat stat})>[];
     try {
       for (final path in paths) {
@@ -2304,7 +2303,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _isSending = true;
     _notify();
     try {
-      DingTalkGatewayMessage? lastSentMessage;
       for (final entry in files) {
         if (!isServiceEnabled) return false;
         final name = p.basename(entry.path).trim().isEmpty
@@ -2327,11 +2325,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         );
         if (!isServiceEnabled) return false;
         _rememberRemoteConversationId(conversation, sent?.conversationId);
-        lastSentMessage = _bindSentMessageId(
-          conversation,
-          localMessage,
-          sent?.messageId,
-        );
+        _bindSentMessageId(conversation, localMessage, sent?.messageId);
       }
       if (content.isNotEmpty) {
         if (!isServiceEnabled) return false;
@@ -2359,23 +2353,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         );
         if (!isServiceEnabled) return false;
         _rememberRemoteConversationId(conversation, sent?.conversationId);
-        lastSentMessage = _bindSentMessageId(
-          conversation,
-          localMessage,
-          sent?.messageId,
-        );
+        _bindSentMessageId(conversation, localMessage, sent?.messageId);
       }
-      final sourceMessage = lastSentMessage;
-      if (sourceMessage == null) return false;
-      final aiContent = content.isNotEmpty
-          ? content
-          : '用户发送了 ${files.length} 个文件附件，请结合附件内容处理。';
-      await _enqueueAiResponse(
-        conversation,
-        aiContent,
-        sourceMessageId: sourceMessage.id,
-        responseVersion: responseVersion,
-      );
       return true;
     } catch (error, stack) {
       _setError(files.isEmpty ? '发送钉钉消息' : '发送钉钉消息及附件', error, stack);
@@ -2441,7 +2420,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       audio: audio,
     );
     _isSending = true;
-    final responseVersion = _responseCancellationVersions[conversation.id] ?? 0;
     _rememberUnresolvedOutgoingMessage(message.id);
     _appendMessage(conversation, message);
     _notify();
@@ -2455,17 +2433,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       );
       if (!isServiceEnabled) return false;
       _rememberRemoteConversationId(conversation, sent?.conversationId);
-      final sentMessage = _bindSentMessageId(
-        conversation,
-        message,
-        sent?.messageId,
-      );
-      await _enqueueAiResponse(
-        conversation,
-        sentMessage.content,
-        sourceMessageId: sentMessage.id,
-        responseVersion: responseVersion,
-      );
+      _bindSentMessageId(conversation, message, sent?.messageId);
       return true;
     } catch (error, stack) {
       _setError(audio ? '发送钉钉语音' : '发送钉钉文件', error, stack);
