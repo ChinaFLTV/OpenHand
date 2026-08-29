@@ -287,6 +287,8 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
   bool _saving = false;
   int _lastHapticIndex = -1;
   VoidCallback? _snapTick;
+  /// 单调时钟：禁止用 AnimationController.value 作时间源（repeat 归零会重播显现）。
+  final Stopwatch _fxWatch = Stopwatch();
   late final AnimationController _fxClock = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 12),
@@ -327,9 +329,13 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
     final want =
         progress > 0.02 && openHandTickerMotionEnabled(context);
     if (want) {
+      if (!_fxWatch.isRunning) _fxWatch.start();
       if (!_fxClock.isAnimating) _fxClock.repeat();
       return;
     }
+    _fxWatch
+      ..stop()
+      ..reset();
     _fxClock
       ..stop()
       ..value = 0;
@@ -594,7 +600,7 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
                           dark: dark,
                           pixelBlend: pixelBlend,
                           maxBlend: maxBlend,
-                          timeMs: _fxClock.value * 12000,
+                          timeMs: _fxWatch.elapsedMilliseconds.toDouble(),
                           reducedMotion: !openHandTickerMotionEnabled(context),
                           outlineColor: colorScheme.outlineVariant,
                         ),
@@ -841,8 +847,6 @@ class _EffortTrackPainter extends CustomPainter {
     final cell = size.width < 280 ? 5.0 : 6.0;
     final gap = 0.2 + 0.9 * maxBlend;
     final elapsed = reducedMotion ? 0.0 : timeMs;
-    final reveal = reducedMotion ? 1.0 : _smoothstep(0, 1, elapsed / 1000);
-    final frontier = maskFrac * (1 - reveal);
     final lowBlend = _smoothstep(0.0, 0.55, progress);
     final columns = (size.width / cell).ceil();
     final rows = (size.height / cell).ceil();
@@ -867,13 +871,6 @@ class _EffortTrackPainter extends CustomPainter {
         );
         if (tidePresence <= 0.02) continue;
 
-        final revealAlpha = _smoothstep(
-          frontier - 0.1 * maskFrac,
-          frontier + 0.07 * maskFrac,
-          nX,
-        );
-        if (revealAlpha <= 0.002) continue;
-
         final tempo = (math.sin(column * 7.13 + row * 19.41) * 19341.731).abs() % 1;
         final period = 500 + tempo * 1500;
         final localTime = elapsed + phase * period;
@@ -897,8 +894,8 @@ class _EffortTrackPainter extends CustomPainter {
           maxBlend,
         )!;
         final highlight = Color.lerp(color, Colors.white, light * 0.55)!;
-        final alpha = revealAlpha *
-            tidePresence *
+        // 覆盖由拇指/潮汐决定，不做从右向左扫过显现（避免周期重播与剧烈跳变）。
+        final alpha = tidePresence *
             _mix(0.82, 0.7 + base * 0.2, maxBlend) *
             (0.75 + light * 0.25);
         if (alpha < 0.02) continue;

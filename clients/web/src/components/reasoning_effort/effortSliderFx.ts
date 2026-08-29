@@ -340,14 +340,8 @@ export function attachEffortPixelField(
     ctx.clearRect(0, 0, width, height);
     if (!active) return;
 
-    // 覆盖右缘始终跟随拇指，禁止末档一次性跳满轨。
+    // 覆盖右缘始终跟随拇指；不做从右向左扫过显现，避免剧烈跳变。
     const maskFrac = clamp(thumb100 / 100, 0, 1);
-    const reveal = reduced
-      ? 1
-      : smoothstep(0, 1, (time - startedAt) / 1000);
-    const frontier = maskFrac * (1 - reveal);
-    const bandIn = 0.1 * maskFrac;
-    const bandOut = 0.07 * maskFrac;
     const gap = 0.2 + (gapBase - 0.2) * maxBlend;
     const elapsed = reduced ? 0 : Math.max(0, time - startedAt);
 
@@ -398,8 +392,6 @@ export function attachEffortPixelField(
       if (tidePresence <= 0.02) continue;
       const nLocal = c.nX / Math.max(maskFrac, 0.001);
       const effIntensity = mix(1, c.intensity, maxBlend);
-      const revealAlpha = smoothstep(frontier - bandIn, frontier + bandOut, c.nX);
-      if (revealAlpha <= 0.002) continue;
 
       const period = 500 + c.tempo * 1500;
       const localTime = elapsed + c.phase * period;
@@ -427,15 +419,10 @@ export function attachEffortPixelField(
       const wavePhase = (c.nX + easedFlow + c.row * 0.06 + c.base * 0.02) * Math.PI * 2;
       const directionalWave = Math.pow(0.5 + 0.5 * Math.cos(wavePhase), 5);
       const directionalFlow = Math.max(clusterGate, directionalWave * 0.62);
-      let lightAmount = Math.max(
+      const lightAmount = Math.max(
         irregularFlicker * (0.48 + directionalFlow * 0.58),
         directionalFlow * (0.38 + c.base * 0.28),
       );
-      const revealGlow =
-        reveal < 0.995
-          ? Math.exp(-((c.nX - frontier) ** 2) / 0.012) * (1 - smoothstep(0.7, 1, reveal))
-          : 0;
-      lightAmount = Math.max(lightAmount, revealGlow * (0.4 + c.base * 0.4));
 
       const peakHighlight =
         lightAmount > 0.4 &&
@@ -483,10 +470,8 @@ export function attachEffortPixelField(
       const baseOpacity = mix(0.82 + c.base * 0.08, 0.7 + c.base * 0.2, maxBlend);
       const cellAlpha =
         (peakHighlight || hottestHighlight
-          ? revealAlpha * effIntensity
-          : revealAlpha *
-            effIntensity *
-            clamp(baseOpacity + lightAmount * 0.12, 0, 1)) *
+          ? effIntensity
+          : effIntensity * clamp(baseOpacity + lightAmount * 0.12, 0, 1)) *
         tidePresence *
         pal.boost;
       if (cellAlpha < 0.02) continue;
