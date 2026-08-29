@@ -6041,273 +6041,335 @@ button.oh-message-context-capsule {
   opacity: 1;
   animation: oh-reasoning-control-sweep 980ms var(--oh-motion-emphasized) both;
 }
+/* Codex / Claude Code 风格推理强度滑块（绿→蓝→紫 + 像素场/流光） */
 .oh-reasoning-effort-popover {
   padding: 0 !important;
-  border-radius: 24px !important;
-  /* visible: allow max-tier thumb fireworks to bloom past the track shell */
-  overflow: visible;
-  background:
-    linear-gradient(
-      145deg,
-      color-mix(in srgb, var(--m3-surface-container-high) 94%, var(--m3-primary) 6%),
-      var(--m3-surface-container)
-    ) !important;
-  box-shadow:
-    var(--m3-elev-3),
-    0 22px 52px -34px color-mix(in srgb, var(--m3-primary) 46%, transparent) !important;
+  border-radius: 18px !important;
+  overflow: visible !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
   transform-origin: bottom center !important;
 }
-@property --oh-reasoning-progress {
-  syntax: '<percentage>';
-  inherits: true;
-  initial-value: 50%;
-}
-@property --oh-cap-blend {
-  syntax: '<number>';
-  inherits: true;
-  initial-value: 0;
-}
 .oh-reasoning-effort-panel {
-  --oh-reasoning-progress: 50%;
-  --oh-reasoning-fill-position: 50%;
-  --oh-reasoning-thumb-position: 50%;
-  --oh-reasoning-start: var(--m3-primary);
-  --oh-reasoning-mid: var(--m3-primary);
-  --oh-reasoning-accent: var(--m3-primary);
-  --oh-reasoning-end: var(--m3-primary);
-  --oh-cap-blend: 0;
+  --oh-effort-progress: 50%;
+  --oh-effort-thumb: 50%;
+  --oh-effort-pixel: 0;
+  --oh-effort-max: 0;
+  --oh-effort-low: 1;
+  --oh-effort-stream: 1;
+  --es-glow: linear-gradient(135deg, #7aa2ff40, #3b82f61f, #a855f72e);
+  --es-inner-bg: linear-gradient(160deg, #fbfcff 0%, #f2f5ff 50%, #f7f4ff 100%);
+  --es-inner-border: #8ca0ff40;
+  --es-inner-shadow: 0 8px 32px #1a234414, inset 0 1px #ffffff;
+  --es-label-text: #5a6180;
+  --es-status: #3a4157;
+  --es-status-glow: #3b5bd8;
+  --es-level-label: #8b92ad;
+  --es-level-label-active: #3b5bd8;
+  --es-track-bg: linear-gradient(135deg, #e6e8ec, #d5d8de);
+  --es-track-border: #8b93a345;
+  --es-dot: #3b5bd833;
+  --es-dot-active: #3b5bd8;
+  --es-track-max: linear-gradient(90deg, #eeebe9 0%, #e6e0ea 14%, #d8c9ec 30%, #c5a8e4 48%, #b08ddc 68%, #9d74d2 85%, #8f63cd 100%);
+  --es-close-color: #5a6180;
+  --es-close-hover-color: #232842;
+  --es-close-hover-bg: #3b5bd829;
+  --es-close-shadow-hover: 0 1px 2px rgba(26, 35, 68, 0.08), 0 4px 14px rgba(26, 35, 68, 0.18);
+  --es-thumb-bg: linear-gradient(145deg, #ffffff 0%, #e8ecfa 50%, #d8def4 100%);
+  --es-thumb-ring: #3b5bd826;
+  --es-thumb-active-ring: #3b5bd840;
+  --es-point-light: radial-gradient(circle, #7aa2ff30 0%, #7aa2ff0e 30%, #7aa2ff04 55%, transparent 70%);
+  --es-fire-blend: normal;
+  position: relative;
   width: 100%;
-  padding: 17px 18px 15px;
   user-select: none;
-  transition:
-    --oh-reasoning-progress 420ms var(--oh-motion-emphasized),
-    --oh-cap-blend 420ms var(--oh-motion-emphasized);
+  padding: 2px;
 }
-.oh-reasoning-effort-panel[data-energy='balanced'] {
-  --oh-reasoning-mid: color-mix(in srgb, var(--m3-primary) 82%, var(--m3-tertiary));
-  --oh-reasoning-accent: color-mix(in srgb, var(--m3-primary) 70%, var(--m3-tertiary));
-  --oh-reasoning-end: color-mix(in srgb, var(--m3-primary) 62%, var(--m3-tertiary));
+.oh-reasoning-effort-panel[data-es-theme='dark'] {
+  --es-glow: linear-gradient(135deg, #a855f74d, #3b82f626, #a855f733);
+  --es-inner-bg: linear-gradient(160deg, #0e0a16 0%, #140e20 50%, #0c0818 100%);
+  --es-inner-border: #a855f71f;
+  --es-inner-shadow: 0 8px 32px #00000080, inset 0 1px #ffffff0a;
+  --es-label-text: #8880a0;
+  --es-status: #aaa0c0;
+  --es-status-glow: #c084fc;
+  --es-level-label: #6a6080;
+  --es-level-label-active: #c084fc;
+  --es-track-bg: linear-gradient(135deg, #1c1428, #110b1c);
+  --es-track-border: #a855f72e;
+  --es-dot: #a855f74d;
+  --es-dot-active: #c084fc;
+  --es-track-max: linear-gradient(90deg, #181228 0%, #201838 14%, #2e2056 30%, #402a7c 48%, #54389c 68%, #6c49b6 85%, #8f63cd 100%);
+  --es-close-color: #8880a0;
+  --es-close-hover-color: #e8e0f0;
+  --es-close-hover-bg: #a855f729;
+  --es-close-shadow-hover: 0 1px 2px rgba(0, 0, 0, 0.45), 0 2px 12px rgba(168, 85, 247, 0.3);
+  --es-thumb-bg: linear-gradient(145deg, #f4eefb 0%, #dccfee 50%, #cbb8e6 100%);
+  --es-thumb-ring: #a855f726;
+  --es-thumb-active-ring: #a855f740;
+  --es-point-light: radial-gradient(circle, #a855f733 0%, #a855f70f 30%, #a855f704 55%, transparent 70%);
+  --es-fire-blend: screen;
 }
-.oh-reasoning-effort-panel[data-energy='high'] {
-  --oh-reasoning-mid: color-mix(in srgb, var(--m3-primary) 56%, var(--m3-tertiary));
-  --oh-reasoning-accent: color-mix(in srgb, var(--m3-primary) 30%, var(--m3-tertiary));
-  --oh-reasoning-end: var(--m3-tertiary);
+.oh-reasoning-effort-glow {
+  position: absolute;
+  inset: -3px;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 18px;
+  background: var(--es-glow);
+  opacity: 0.62;
+  filter: blur(8px);
 }
-/* Void Aurora — cool deep-space prestige (no gold/purple VIP-bar look). */
-.oh-reasoning-effort-panel[data-energy='max'] {
-  --oh-reasoning-start: #05070e;
-  --oh-reasoning-mid: #0b1a33;
-  --oh-reasoning-accent: #1d4ed8;
-  --oh-reasoning-end: #38bdf8;
+.oh-reasoning-effort-inner {
+  position: relative;
+  z-index: 1;
+  border-radius: 13px;
+  border: 1px solid var(--es-inner-border);
+  background: var(--es-inner-bg);
+  box-shadow: var(--es-inner-shadow);
+  padding: 10px 10px 14px 12px;
 }
-.oh-reasoning-effort-heading {
+.oh-reasoning-effort-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  color: var(--m3-on-surface-variant);
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.oh-reasoning-effort-head-left {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+.oh-reasoning-effort-kicker {
+  color: var(--es-label-text);
   font-size: 13px;
-  font-weight: 760;
-  letter-spacing: 0.01em;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  flex: none;
+}
+.oh-reasoning-effort-status {
+  color: var(--es-status);
+  font-family: Georgia, 'Palatino Linotype', Palatino, serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  transition:
+    color 380ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    text-shadow 380ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    filter 380ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.oh-reasoning-effort-status.is-low {
+  color: #58bc8abf;
+}
+.oh-reasoning-effort-status.is-mid {
+  color: #3b82f6d0;
+  text-shadow: 0 0 12px #3b82f640;
+}
+.oh-reasoning-effort-status.is-high {
+  color: var(--es-status-glow);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--es-status-glow) 55%, transparent);
+}
+.oh-reasoning-effort-status.is-max {
+  background: linear-gradient(90deg, #b39ad6, #9d86e0, #8bb0ff, #a88fe8, #b39ad6);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  text-shadow: none !important;
+  animation: oh-effort-level-flow 3.2s linear infinite;
+}
+.oh-reasoning-effort-close {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 8px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--es-close-color);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    color 150ms ease-out,
+    background-color 150ms ease-out,
+    box-shadow 180ms ease-out,
+    transform 150ms var(--oh-motion-spring);
+}
+.oh-reasoning-effort-close svg {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+.oh-reasoning-effort-close:hover {
+  color: var(--es-close-hover-color);
+  background: var(--es-close-hover-bg);
+  box-shadow: var(--es-close-shadow-hover);
+}
+.oh-reasoning-effort-close:active {
+  transform: scale(0.94);
+  box-shadow: none;
+}
+.oh-reasoning-effort-close:focus-visible {
+  outline: 2px solid color-mix(in srgb, currentColor 45%, transparent);
+  outline-offset: 1px;
+}
+.oh-reasoning-effort-axis {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--es-label-text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+  opacity: 0.88;
+}
+.oh-reasoning-effort-levels {
+  position: relative;
+  height: 16px;
+  margin-bottom: 6px;
+}
+.oh-reasoning-effort-level {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  color: var(--es-level-label);
+  font-size: 10px;
+  font-weight: 740;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: color 160ms ease, text-shadow 160ms ease;
+  white-space: nowrap;
+  max-width: 64px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.oh-reasoning-effort-level.is-active {
+  color: var(--es-level-label-active);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--es-level-label-active) 35%, transparent);
 }
 .oh-reasoning-effort-track-shell {
   position: relative;
-  height: 72px;
-  margin-top: 2px;
-  overflow: visible;
+  height: 36px;
+  isolation: isolate;
 }
 .oh-reasoning-effort-track {
   position: absolute;
-  inset: 22px 0;
-  height: 28px;
-  border-radius: 999px;
-  overflow: visible;
-  background: var(--m3-surface-container-highest);
-  border: 1px solid var(--m3-outline-variant);
-  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--m3-on-surface) 8%, transparent);
-}
-.oh-reasoning-effort-fill {
-  position: absolute;
-  inset: -1px auto -1px -1px;
-  width: var(--oh-reasoning-fill-position);
-  min-width: 2px;
-  border-radius: 999px;
+  inset: 0;
+  border-radius: 10px;
   overflow: hidden;
-  background: linear-gradient(
-    90deg,
-    var(--oh-reasoning-start),
-    var(--oh-reasoning-mid) 34%,
-    var(--oh-reasoning-accent) 68%,
-    var(--oh-reasoning-end)
-  );
-  box-shadow: 0 8px 22px -13px color-mix(in srgb, var(--oh-reasoning-end) 82%, transparent);
-  transition:
-    width 360ms var(--oh-motion-spring),
-    background 280ms var(--oh-motion-emphasized),
-    box-shadow 280ms var(--oh-motion-emphasized);
+  border: 1px solid var(--es-track-border);
+  background: var(--es-track-bg);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 28%, transparent);
 }
-.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-fill {
-  box-shadow:
-    0 0 14px -4px color-mix(in srgb, #1d4ed8 72%, transparent),
-    0 0 28px -8px color-mix(in srgb, #38bdf8 60%, transparent);
-  animation: oh-reasoning-max-fill-pulse 1600ms ease-in-out infinite alternate;
-}
-/* Soft top-edge specular only — no gray/white sweep band. */
-.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-fill::after {
-  content: '';
+.oh-reasoning-effort-track-bg {
   position: absolute;
   inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, #bae6fd 18%, transparent) 0%,
-    transparent 42%
-  );
-  pointer-events: none;
+  background: var(--es-track-bg);
+  z-index: 0;
 }
-.oh-reasoning-effort-tick {
+.oh-reasoning-effort-track-max {
   position: absolute;
-  top: 50%;
-  width: 5px;
-  height: 5px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--m3-on-surface-variant) 28%, transparent);
-  transform: translate(-50%, -50%);
+  inset: 0;
+  z-index: 1;
   pointer-events: none;
-  transition:
-    background-color 220ms var(--oh-motion-emphasized),
-    opacity 220ms var(--oh-motion-emphasized);
-}
-.oh-reasoning-effort-tick.is-active {
-  background: color-mix(in srgb, #fff 58%, transparent);
-  box-shadow: none;
-}
-.oh-reasoning-effort-orb {
-  position: absolute;
-  top: 50%;
-  left: var(--oh-reasoning-thumb-position);
-  width: 44px;
-  height: 44px;
-  border-radius: 999px;
-  background: #fff;
-  border: 1px solid color-mix(in srgb, var(--oh-reasoning-end) 36%, transparent);
-  box-shadow:
-    0 10px 24px -10px color-mix(in srgb, var(--m3-on-surface) 38%, transparent),
-    0 0 0 5px color-mix(in srgb, var(--oh-reasoning-end) 9%, transparent);
-  transform: translate(-50%, -50%);
-  transition:
-    left 360ms var(--oh-motion-spring),
-    border-color 260ms var(--oh-motion-emphasized),
-    box-shadow 300ms var(--oh-motion-emphasized),
-    transform 180ms var(--oh-motion-spring);
-}
-.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-orb {
-  /* Continuous forward ring spin — no reverse alternate loop seams. */
-  --oh-orb-angle: 0deg;
-  border: 2.2px solid transparent;
-  background:
-    linear-gradient(#fff, #fff) padding-box,
-    conic-gradient(
-      from var(--oh-orb-angle),
-      #38bdf8,
-      #bae6fd,
-      #f8fafc,
-      #60a5fa,
-      #38bdf8
-    ) border-box;
-  box-shadow:
-    0 10px 24px -10px color-mix(in srgb, var(--m3-on-surface) 38%, transparent),
-    0 0 0 3px color-mix(in srgb, #1d4ed8 12%, transparent),
-    0 0 16px -2px color-mix(in srgb, #38bdf8 42%, transparent),
-    0 0 28px -6px color-mix(in srgb, #1d4ed8 30%, transparent);
-  animation:
-    oh-reasoning-orb-spin 10s linear infinite,
-    oh-reasoning-max-orb-glow 5.4s ease-in-out infinite;
-}
-.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-orb::after {
-  content: '';
-  position: absolute;
-  inset: 5px;
-  border-radius: inherit;
-  border: 0.9px solid color-mix(in srgb, #bae6fd 42%, transparent);
-  pointer-events: none;
-  opacity: 0.85;
-}
-.oh-reasoning-effort-track-shell:active .oh-reasoning-effort-orb {
-  transform: translate(-50%, -50%) scale(1.06);
-  box-shadow: none;
-  animation: none;
-}
-/* Radial fireworks layer, centered on the thumb. */
-.oh-reasoning-thumb-sparks {
-  position: absolute;
-  top: 50%;
-  left: var(--oh-reasoning-thumb-position);
-  width: 0;
-  height: 0;
-  pointer-events: none;
-  z-index: 3;
-  overflow: visible;
-}
-.oh-reasoning-thumb-spark {
-  position: absolute;
-  left: 0;
-  top: 0;
-  border-radius: 999px;
-  background: radial-gradient(circle, #fff 0%, #bae6fd 45%, #38bdf8 100%);
-  box-shadow: 0 0 6px color-mix(in srgb, #38bdf8 65%, transparent);
-  will-change: transform, opacity;
-  pointer-events: none;
-}
-.oh-reasoning-effort-sparkles {
-  position: absolute;
-  inset: 2px auto 2px 2px;
-  width: max(0px, calc(var(--oh-reasoning-fill-position) - 4px));
-  border-radius: inherit;
-  overflow: hidden;
-  pointer-events: none;
-  contain: strict;
   opacity: 0;
-  transition:
-    width 360ms var(--oh-motion-spring),
-    opacity 260ms var(--oh-motion-emphasized);
+  background: var(--es-track-max);
+  transition: opacity 340ms ease;
 }
-.oh-reasoning-effort-sparkles.is-max {
-  /* Allow flare overflow around the track. */
-  inset: -6px auto -6px -2px;
-  width: max(0px, calc(var(--oh-reasoning-fill-position) + 4px));
-  overflow: visible;
-  contain: none;
-}
-.oh-reasoning-effort-sparkles > i {
-  position: absolute;
-  display: block;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 78%);
-  box-shadow: 0 0 4px rgb(255 255 255 / 42%);
-  transform: translate(-50%, -50%);
-  opacity: 0;
-  will-change: left, top, opacity, transform;
-  pointer-events: none;
-}
-.oh-reasoning-effort-panel[data-energy='high'] .oh-reasoning-effort-sparkles,
-.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-sparkles {
+.oh-reasoning-effort-track-max.is-on {
   opacity: 1;
 }
-.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-sparkles > i[data-kind='dust'] {
-  background: color-mix(in srgb, #fff 78%, #bae6fd);
-  box-shadow: 0 0 5px color-mix(in srgb, #bae6fd 48%, transparent);
+.oh-reasoning-effort-dots {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  transition: opacity 220ms ease;
 }
-.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-sparkles > i[data-kind='spark'] {
-  background: color-mix(in srgb, #fff 45%, #38bdf8);
-  box-shadow:
-    0 0 8px color-mix(in srgb, #38bdf8 62%, transparent),
-    0 0 14px color-mix(in srgb, #1d4ed8 36%, transparent);
+.oh-reasoning-effort-dot {
+  position: absolute;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--es-dot);
+  transform: translate(-50%, -50%);
+  transition: background 160ms ease, box-shadow 160ms ease;
 }
-.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-sparkles > i[data-kind='flare'] {
-  background: radial-gradient(circle, #fff 0%, #bae6fd 42%, #38bdf8 100%);
+.oh-reasoning-effort-dot.is-active {
+  background: var(--es-dot-active);
+  box-shadow: 0 0 8px var(--es-dot-active);
+}
+.oh-reasoning-effort-stream,
+.oh-reasoning-effort-pixel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 3;
+}
+.oh-reasoning-effort-stream {
+  mix-blend-mode: var(--es-fire-blend);
+  opacity: var(--oh-effort-stream);
+}
+.oh-reasoning-effort-pixel {
+  z-index: 4;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+.oh-reasoning-effort-pixel.is-on {
+  opacity: 1;
+}
+.oh-reasoning-effort-point-light {
+  position: absolute;
+  top: 50%;
+  left: var(--oh-effort-thumb);
+  width: 140px;
+  height: 140px;
+  border-radius: 999px;
+  background: var(--es-point-light);
+  transform: translate(-100%, -50%);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 3;
+  transition: opacity 240ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.oh-reasoning-effort-point-light.is-on {
+  opacity: 1;
+}
+.oh-reasoning-effort-thumb {
+  position: absolute;
+  top: 50%;
+  left: var(--oh-effort-thumb);
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--es-thumb-bg);
+  border: 1px solid var(--es-thumb-ring);
   box-shadow:
-    0 0 10px color-mix(in srgb, #38bdf8 70%, transparent),
-    0 0 18px color-mix(in srgb, #1d4ed8 48%, transparent);
+    inset 0 1px #ffffff80,
+    0 4px 14px color-mix(in srgb, #1a2344 16%, transparent);
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  pointer-events: none;
+  transition:
+    left 320ms var(--oh-motion-spring),
+    transform 220ms var(--oh-motion-spring),
+    box-shadow 280ms ease;
+}
+.oh-reasoning-effort-panel[data-dragging='1'] .oh-reasoning-effort-thumb {
+  transition: transform 160ms var(--oh-motion-spring), box-shadow 180ms ease;
+}
+.oh-reasoning-effort-track-shell:active .oh-reasoning-effort-thumb {
+  transform: translate(-50%, -50%) scale(0.94);
+  border-color: var(--es-thumb-active-ring);
 }
 .oh-reasoning-effort-range {
   position: absolute;
@@ -6315,37 +6377,38 @@ button.oh-message-context-capsule {
   width: 100%;
   height: 100%;
   margin: 0;
+  padding: 0;
   cursor: grab;
   opacity: 0;
   appearance: none;
   -webkit-appearance: none;
   background: transparent;
-  padding-inline: 0;
+  z-index: 7;
 }
 .oh-reasoning-effort-range::-webkit-slider-runnable-track {
-  height: 28px;
+  height: 36px;
   background: transparent;
 }
 .oh-reasoning-effort-range::-webkit-slider-thumb {
-  width: 44px;
-  height: 44px;
-  margin-top: -8px;
+  width: 28px;
+  height: 28px;
+  margin-top: 4px;
   appearance: none;
   -webkit-appearance: none;
   border: 0;
-  border-radius: 999px;
+  border-radius: 8px;
   background: transparent;
 }
 .oh-reasoning-effort-range::-moz-range-track {
-  height: 28px;
+  height: 36px;
   border: 0;
   background: transparent;
 }
 .oh-reasoning-effort-range::-moz-range-thumb {
-  width: 44px;
-  height: 44px;
+  width: 28px;
+  height: 28px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 8px;
   background: transparent;
 }
 .oh-reasoning-effort-range:active {
@@ -6355,172 +6418,25 @@ button.oh-message-context-capsule {
   outline: none;
 }
 .oh-reasoning-effort-track-shell:has(.oh-reasoning-effort-range:focus-visible) .oh-reasoning-effort-track {
-  outline: 3px solid color-mix(in srgb, var(--m3-primary) 46%, transparent);
-  outline-offset: 3px;
-}
-.oh-reasoning-effort-current {
-  --oh-cap-blend: 0;
-  display: flex;
-  justify-content: center;
-  min-height: 36px;
-}
-/* Host for dual-layer capsule: base theme fill crossfades into max aurora. */
-.oh-reasoning-effort-capsule {
-  position: relative;
-  min-width: 92px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 16px;
-  border-radius: 999px;
-  isolation: isolate;
-  overflow: hidden;
-  border: 1px solid
-    color-mix(
-      in srgb,
-      color-mix(in srgb, var(--oh-reasoning-end) 44%, var(--m3-outline-variant))
-        calc((1 - var(--oh-cap-blend)) * 100%),
-      color-mix(in srgb, #bae6fd 52%, #1d4ed8) calc(var(--oh-cap-blend) * 100%)
-    );
-  box-shadow:
-    0 8px 20px -16px color-mix(in srgb, var(--oh-reasoning-end) 72%, transparent),
-    0 10px 24px -14px color-mix(in srgb, #1d4ed8 calc(var(--oh-cap-blend) * 70%), transparent),
-    0 0 18px -4px color-mix(in srgb, #38bdf8 calc(var(--oh-cap-blend) * 36%), transparent);
-  transition:
-    border-color 420ms var(--oh-motion-emphasized),
-    box-shadow 420ms var(--oh-motion-emphasized);
-}
-.oh-cap-fill {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  transition: opacity 420ms var(--oh-motion-emphasized);
-}
-.oh-cap-fill-base {
-  background: linear-gradient(
-    110deg,
-    color-mix(
-      in srgb,
-      var(--m3-primary-container) calc(100% - var(--oh-reasoning-progress)),
-      var(--m3-tertiary-container)
-    ),
-    color-mix(
-      in srgb,
-      var(--m3-primary-container) calc(100% - var(--oh-reasoning-progress)),
-      var(--m3-tertiary-container)
-    )
-  );
-  opacity: calc(1 - var(--oh-cap-blend));
-  z-index: 0;
-}
-.oh-cap-fill-max {
-  background: linear-gradient(
-    110deg,
-    #05070e,
-    #0b1a33 34%,
-    #1d4ed8 68%,
-    #38bdf8
-  );
-  opacity: var(--oh-cap-blend);
-  z-index: 1;
-}
-.oh-cap-label {
-  position: relative;
-  z-index: 2;
-  color: color-mix(
-    in srgb,
-    var(--m3-on-primary-container) calc((1 - var(--oh-cap-blend)) * 100%),
-    #fff calc(var(--oh-cap-blend) * 100%)
-  );
-  letter-spacing: calc(0.035em * var(--oh-cap-blend));
-  text-shadow: 0 1px 6px rgb(0 0 0 / calc(42% * var(--oh-cap-blend)));
-  font-size: 13px;
-  font-weight: 800;
-  transition:
-    color 420ms var(--oh-motion-emphasized),
-    letter-spacing 420ms var(--oh-motion-emphasized),
-    text-shadow 420ms var(--oh-motion-emphasized);
-}
-/* Soft max-only aura — fades in with blend via box-shadow above; pulse only near max. */
-.oh-reasoning-effort-panel[data-energy='max'] .oh-reasoning-effort-capsule {
-  animation: oh-reasoning-max-capsule-glow 6s ease-in-out infinite;
+  outline: 2px solid color-mix(in srgb, var(--es-level-label-active) 55%, transparent);
+  outline-offset: 2px;
 }
 @keyframes oh-reasoning-control-sweep {
   from { transform: translateX(-60%); }
   to { transform: translateX(60%); }
 }
-@keyframes oh-reasoning-max-fill-pulse {
-  0%, 100% {
-    box-shadow:
-      0 0 12px -6px color-mix(in srgb, #1d4ed8 55%, transparent),
-      0 0 20px -10px color-mix(in srgb, #38bdf8 42%, transparent);
-  }
-  40% {
-    box-shadow:
-      0 0 18px -3px color-mix(in srgb, #1d4ed8 72%, transparent),
-      0 0 28px -6px color-mix(in srgb, #38bdf8 58%, transparent);
-  }
-  70% {
-    box-shadow:
-      0 0 14px -5px color-mix(in srgb, #1d4ed8 60%, transparent),
-      0 0 24px -8px color-mix(in srgb, #38bdf8 50%, transparent);
+@keyframes oh-effort-level-flow {
+  to { background-position: 200% center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .oh-reasoning-effort-status.is-max {
+    animation: none;
   }
 }
-/* Continuous angle advance — seamless, no reverse hitch. */
-@keyframes oh-reasoning-orb-spin {
-  to { --oh-orb-angle: 360deg; }
-}
-/* Soft multi-stop glow (asymmetric keyframes hide loop seams). */
-@keyframes oh-reasoning-max-orb-glow {
-  0%, 100% {
-    box-shadow:
-      0 10px 24px -10px color-mix(in srgb, var(--m3-on-surface) 38%, transparent),
-      0 0 0 3px color-mix(in srgb, #1d4ed8 11%, transparent),
-      0 0 14px -3px color-mix(in srgb, #38bdf8 36%, transparent),
-      0 0 24px -6px color-mix(in srgb, #1d4ed8 26%, transparent);
-  }
-  35% {
-    box-shadow:
-      0 10px 24px -10px color-mix(in srgb, var(--m3-on-surface) 38%, transparent),
-      0 0 0 4px color-mix(in srgb, #1d4ed8 14%, transparent),
-      0 0 20px -1px color-mix(in srgb, #38bdf8 50%, transparent),
-      0 0 32px -4px color-mix(in srgb, #1d4ed8 34%, transparent);
-  }
-  62% {
-    box-shadow:
-      0 10px 24px -10px color-mix(in srgb, var(--m3-on-surface) 38%, transparent),
-      0 0 0 3px color-mix(in srgb, #1d4ed8 12%, transparent),
-      0 0 16px -2px color-mix(in srgb, #38bdf8 40%, transparent),
-      0 0 26px -5px color-mix(in srgb, #1d4ed8 28%, transparent);
-  }
-}
-@keyframes oh-reasoning-max-capsule-glow {
-  0%, 100% {
-    box-shadow:
-      0 10px 24px -14px color-mix(in srgb, #1d4ed8 52%, transparent),
-      0 12px 28px -16px color-mix(in srgb, #38bdf8 44%, transparent),
-      0 0 12px -6px color-mix(in srgb, #38bdf8 26%, transparent);
-  }
-  42% {
-    box-shadow:
-      0 12px 28px -12px color-mix(in srgb, #1d4ed8 72%, transparent),
-      0 14px 32px -14px color-mix(in srgb, #38bdf8 58%, transparent),
-      0 0 20px -3px color-mix(in srgb, #38bdf8 38%, transparent);
-  }
-  68% {
-    box-shadow:
-      0 10px 24px -14px color-mix(in srgb, #1d4ed8 58%, transparent),
-      0 12px 28px -16px color-mix(in srgb, #38bdf8 48%, transparent),
-      0 0 14px -5px color-mix(in srgb, #38bdf8 30%, transparent);
-  }
+[data-motion='reduced'] .oh-reasoning-effort-status.is-max {
+  animation: none;
 }
 
-@property --oh-orb-angle {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
 .oh-composer-mode-control {
   padding-right: 8px;
 }
