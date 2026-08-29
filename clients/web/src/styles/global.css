@@ -6088,9 +6088,9 @@ button.oh-message-context-capsule {
 }
 .oh-reasoning-effort-axis {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  column-gap: 6px;
   color: var(--es-label-text);
   font-size: 12px;
   font-weight: 700;
@@ -6099,19 +6099,22 @@ button.oh-message-context-capsule {
 }
 .oh-reasoning-effort-axis > span:first-child {
   justify-self: start;
+  text-align: start;
 }
 .oh-reasoning-effort-axis > span:last-child {
   justify-self: end;
+  text-align: end;
 }
 .oh-reasoning-effort-status {
   justify-self: center;
+  text-align: center;
   color: var(--es-status);
   font-size: 12px;
   font-weight: 700;
   font-style: normal;
   line-height: 1.2;
   letter-spacing: 0.02em;
-  max-width: 96px;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -6139,11 +6142,10 @@ button.oh-message-context-capsule {
   color: var(--es-level-label);
   font-size: 10px;
   font-weight: 740;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
   transition: color 160ms ease;
   white-space: nowrap;
-  max-width: 64px;
+  max-width: 72px;
   overflow: hidden;
   text-overflow: ellipsis;
 }

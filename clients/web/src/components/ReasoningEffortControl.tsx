@@ -71,8 +71,8 @@ function shortLevelLabel(
   index: number,
   total: number,
 ): string {
-  if (index === 0) return t('composer.reasoning.level.off', 'OFF');
-  if (index === total - 1) return t('composer.reasoning.level.max', 'MAX');
+  if (index === 0) return t('composer.reasoning.level.off', '关闭');
+  if (index === total - 1) return t('composer.reasoning.level.max', '最大');
   return option.label;
 }
 

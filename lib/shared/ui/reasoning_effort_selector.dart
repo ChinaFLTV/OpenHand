@@ -109,6 +109,38 @@ double _progressFromIndex(int index, int count) {
   return index / (count - 1);
 }
 
+/// 档位刻度标签：首档/末档走本地化，中间档用模型自带多语言标签。
+String _effortTickLabel(
+  BuildContext context, {
+  required List<AiReasoningEffortOption> options,
+  required int index,
+  required String localeName,
+}) {
+  if (index <= 0) {
+    return openHandLocalizedText(
+      context,
+      zh: '关闭',
+      en: 'Off',
+      zhHant: '關閉',
+      ja: 'オフ',
+      fr: 'Off',
+      de: 'Aus',
+    );
+  }
+  if (index >= options.length - 1) {
+    return openHandLocalizedText(
+      context,
+      zh: '最大',
+      en: 'Max',
+      zhHant: '最大',
+      ja: '最大',
+      fr: 'Max',
+      de: 'Max',
+    );
+  }
+  return options[index].labelForLocaleName(localeName);
+}
+
 /// 在 [anchorContext] 上方打开推理强度选择器，动效遵循全局菜单设置。
 Future<void> showReasoningEffortSelector({
   required BuildContext context,
@@ -344,9 +376,22 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
           children: <Widget>[
             Row(
               children: <Widget>[
-                Text(
-                  openHandLocalizedText(context, zh: '更快', en: 'Faster'),
-                  style: axisStyle,
+                Expanded(
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      openHandLocalizedText(
+                        context,
+                        zh: '更快',
+                        en: 'Faster',
+                        zhHant: '更快',
+                        ja: '高速',
+                        fr: 'Plus rapide',
+                        de: 'Schneller',
+                      ),
+                      style: axisStyle,
+                    ),
+                  ),
                 ),
                 Expanded(
                   child: Center(
@@ -375,14 +420,28 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
                         key: ValueKey<String>(option.value),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
                         style: axisStyle?.copyWith(color: statusColor),
                       ),
                     ),
                   ),
                 ),
-                Text(
-                  openHandLocalizedText(context, zh: '更智能', en: 'Smarter'),
-                  style: axisStyle,
+                Expanded(
+                  child: Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: Text(
+                      openHandLocalizedText(
+                        context,
+                        zh: '更智能',
+                        en: 'Smarter',
+                        zhHant: '更智慧',
+                        ja: '高精度',
+                        fr: 'Plus intelligent',
+                        de: 'Intelligenter',
+                      ),
+                      style: axisStyle,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -398,15 +457,16 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
                         0,
                       ),
                       child: Text(
-                        i == 0
-                            ? 'OFF'
-                            : i == widget.options.length - 1
-                            ? 'MAX'
-                            : widget.options[i].labelForLocaleName(localeName),
+                        _effortTickLabel(
+                          context,
+                          options: widget.options,
+                          index: i,
+                          localeName: localeName,
+                        ),
                         style: theme.textTheme.labelSmall?.copyWith(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
-                          letterSpacing: 0.4,
+                          letterSpacing: 0.2,
                           color: i == displayIndex
                               ? colorScheme.primary
                               : colorScheme.onSurfaceVariant.withValues(
