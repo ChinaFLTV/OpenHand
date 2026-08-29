@@ -1653,7 +1653,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         WorkflowSettingKeys.listFilterValueSource:
             WorkflowValueSource.constant.storageValue,
         WorkflowSettingKeys.listExtractEnabled: false,
-        WorkflowSettingKeys.listExtractSerial: '1',
+        WorkflowSettingKeys.listExtractSerial: '0',
         WorkflowSettingKeys.listOrderEnabled: false,
         WorkflowSettingKeys.listOrderKey: '',
         WorkflowSettingKeys.listOrder: WorkflowListOrder.ascending.storageValue,
@@ -1708,6 +1708,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             workflowHumanDeliveryMethodInAppDialog,
         WorkflowSettingKeys.humanPrompt: '请确认是否继续执行当前工作流。',
         WorkflowSettingKeys.humanInputFields: <Object?>[],
+        WorkflowSettingKeys.humanTimeout: defaultWorkflowHumanTimeout,
+        WorkflowSettingKeys.humanTimeoutUnit:
+            WorkflowHumanTimeoutUnit.day.storageValue,
         WorkflowSettingKeys.humanActions: <Object?>[
           const WorkflowHumanAction(
             id: 'approve',
@@ -2304,20 +2307,20 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         }
         if (node.boolSetting(WorkflowSettingKeys.listExtractEnabled)) {
           final serial = node
-              .stringSetting(WorkflowSettingKeys.listExtractSerial, '1')
+              .stringSetting(WorkflowSettingKeys.listExtractSerial, '0')
               .trim();
           final match = workflowTemplatePlaceholderPattern.firstMatch(serial);
           final fullReference =
               match != null && match.start == 0 && match.end == serial.length;
           final parsed = int.tryParse(serial);
-          if (!fullReference && (parsed == null || parsed < 1)) {
-            return '列表操作节点的提取序号必须是大于等于 1 的整数或参数引用。';
+          if (!fullReference && (parsed == null || parsed < 0)) {
+            return '列表操作节点的提取序号必须是大于等于 0 的整数或参数引用。';
           }
         }
         if (node.boolSetting(WorkflowSettingKeys.listLimitEnabled)) {
           final limit = node.intSetting(WorkflowSettingKeys.listLimitSize, 10);
-          if (limit < 1 || limit > maxWorkflowListLimit) {
-            return '列表操作节点的最大数量必须在 1–$maxWorkflowListLimit 之间。';
+          if (limit < 1) {
+            return '列表操作节点的最大数量必须是大于等于 1 的整数。';
           }
         }
         if (node.outputFields().length != 3) {
@@ -2512,6 +2515,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         }
         final actionError = validateWorkflowHumanActions(node.humanActions());
         if (actionError != null) return actionError;
+        final timeout = node.intSetting(
+          WorkflowSettingKeys.humanTimeout,
+          defaultWorkflowHumanTimeout,
+        );
+        if (timeout < 1) return '人工介入节点的超时时长必须大于等于 1。';
         try {
           WorkflowStructuredOutputParser.validateFields(
             node.humanInputFields(),
@@ -3619,11 +3627,12 @@ List<({String id, String label})> _workflowNodeBranches(WorkflowNode node) =>
             (id: item.$2.id, label: item.$1 == 0 ? 'IF' : 'ELIF ${item.$1}'),
         (id: 'else', label: 'ELSE'),
       ],
-      WorkflowNodeKind.humanIntervention =>
-        node
-            .humanActions()
-            .map((action) => (id: action.id, label: action.title.trim()))
-            .toList(growable: false),
+      WorkflowNodeKind.humanIntervention => <({String id, String label})>[
+        ...node.humanActions().map(
+          (action) => (id: action.id, label: action.title.trim()),
+        ),
+        (id: workflowHumanTimeoutHandleId, label: '超时'),
+      ],
       WorkflowNodeKind.codeExecution =>
         _workflowNodeHasBranches(node)
             ? const <({String id, String label})>[

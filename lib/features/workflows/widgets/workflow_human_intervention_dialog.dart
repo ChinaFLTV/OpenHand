@@ -11,6 +11,7 @@ import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../model/workflow_definition.dart';
 import '../service/workflow_node_executor.dart';
 
@@ -51,10 +52,22 @@ class _WorkflowHumanInterventionDialogState
             ),
           ),
       };
+  late final OpenHandDebouncer _timeout;
+  bool _completed = false;
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _timeout = OpenHandDebouncer(
+      delay: widget.request.timeout,
+      maxDelay: widget.request.timeout,
+    )..schedule(_handleTimeout);
+  }
+
+  @override
   void dispose() {
+    _timeout.dispose();
     for (final controller in _controllers.values) {
       controller.dispose();
     }
@@ -345,9 +358,24 @@ class _WorkflowHumanInterventionDialogState
       setState(() => _error = '$error');
       return;
     }
-    Navigator.of(context).pop(
+    _complete(
       WorkflowHumanInterventionResponse(actionId: actionId, inputs: values),
     );
+  }
+
+  void _handleTimeout() {
+    _complete(
+      const WorkflowHumanInterventionResponse(
+        actionId: workflowHumanTimeoutHandleId,
+      ),
+    );
+  }
+
+  void _complete(WorkflowHumanInterventionResponse response) {
+    if (!mounted || _completed) return;
+    _completed = true;
+    _timeout.cancel();
+    Navigator.of(context).pop(response);
   }
 }
 

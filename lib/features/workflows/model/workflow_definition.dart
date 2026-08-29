@@ -55,6 +55,33 @@ enum WorkflowHumanActionStyle {
   }
 }
 
+enum WorkflowHumanTimeoutUnit {
+  day('day'),
+  hour('hour');
+
+  const WorkflowHumanTimeoutUnit(this.storageValue);
+
+  final String storageValue;
+
+  String get label => switch (this) {
+    WorkflowHumanTimeoutUnit.day => '天',
+    WorkflowHumanTimeoutUnit.hour => '小时',
+  };
+
+  Duration duration(int value) => switch (this) {
+    WorkflowHumanTimeoutUnit.day => Duration(days: value),
+    WorkflowHumanTimeoutUnit.hour => Duration(hours: value),
+  };
+
+  static WorkflowHumanTimeoutUnit fromStorage(Object? value) {
+    final normalized = '${value ?? ''}'.trim();
+    return values.firstWhere(
+      (unit) => unit.storageValue == normalized,
+      orElse: () => WorkflowHumanTimeoutUnit.day,
+    );
+  }
+}
+
 enum WorkflowCodeLanguage {
   python3('python3'),
   javascript('javascript');
@@ -528,11 +555,11 @@ const int defaultWorkflowCodeRetryIntervalMs = 1000;
 const int minWorkflowCodeRetryIntervalMs = 100;
 const int maxWorkflowCodeRetryIntervalMs = 5000;
 const int maxWorkflowNestedNodeCount = 128;
-const int maxWorkflowListItemCount = 10000;
-const int maxWorkflowListLimit = 20;
 const int maxWorkflowHumanActionCount = 8;
 const int maxWorkflowHumanActionTitleLength = 100;
+const int defaultWorkflowHumanTimeout = 3;
 const String workflowHumanDeliveryMethodInAppDialog = 'in_app_dialog';
+const String workflowHumanTimeoutHandleId = '__timeout';
 const String workflowHumanActionIdOutputName = '__action_id';
 const String workflowHumanActionValueOutputName = '__action_value';
 const String workflowHumanRenderedContentOutputName = '__rendered_content';
@@ -587,6 +614,8 @@ abstract final class WorkflowSettingKeys {
   static const String humanPrompt = 'human_prompt';
   static const String humanInputFields = 'human_input_fields';
   static const String humanActions = 'human_actions';
+  static const String humanTimeout = 'human_timeout';
+  static const String humanTimeoutUnit = 'human_timeout_unit';
   static const String containerWidth = 'container_width';
   static const String containerHeight = 'container_height';
   static const String modelConfigId = 'model_config_id';
@@ -1280,6 +1309,9 @@ String? validateWorkflowHumanActions(List<WorkflowHumanAction> actions) {
   final ids = <String>{};
   for (var index = 0; index < actions.length; index++) {
     final action = actions[index];
+    if (action.id == workflowHumanTimeoutHandleId) {
+      return '用户动作标识“$workflowHumanTimeoutHandleId”已被超时分支保留。';
+    }
     if (!workflowHumanActionIdPattern.hasMatch(action.id)) {
       return '用户动作第 ${index + 1} 项的标识无效。';
     }

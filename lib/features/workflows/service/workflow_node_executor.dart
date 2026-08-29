@@ -33,6 +33,7 @@ const int _maxWorkflowResourceCharacters = 96 * 1024;
 const int _maxWorkflowRetries = 10;
 const int _maxWorkflowRetryIntervalMs = 60 * 1000;
 const int _maxWorkflowMcpTools = 64;
+const Duration _humanInterventionTimeoutGrace = Duration(seconds: 1);
 const int _maxWorkflowToolRounds = 8;
 const int _maxWorkflowToolCalls = 32;
 const int _maxWorkflowToolOutputCharacters = 128 * 1024;
@@ -61,6 +62,7 @@ class WorkflowHumanInterventionRequest {
     required this.fields,
     required this.initialValues,
     required this.actions,
+    required this.timeout,
   });
 
   final String nodeId;
@@ -69,6 +71,7 @@ class WorkflowHumanInterventionRequest {
   final List<WorkflowOutputField> fields;
   final Map<String, Object?> initialValues;
   final List<WorkflowHumanAction> actions;
+  final Duration timeout;
 }
 
 class WorkflowHumanInterventionResponse {
@@ -79,6 +82,8 @@ class WorkflowHumanInterventionResponse {
 
   final String actionId;
   final Map<String, Object?> inputs;
+
+  bool get timedOut => actionId == workflowHumanTimeoutHandleId;
 }
 
 enum WorkflowLlmConversationStatus { running, succeeded, failed }
@@ -1307,6 +1312,16 @@ class WorkflowNodeExecutor {
     final actions = node.humanActions();
     final actionError = validateWorkflowHumanActions(actions);
     if (actionError != null) throw WorkflowNodeExecutionException(actionError);
+    final timeoutValue = node.intSetting(
+      WorkflowSettingKeys.humanTimeout,
+      defaultWorkflowHumanTimeout,
+    );
+    if (timeoutValue < 1) {
+      throw const WorkflowNodeExecutionException('人工介入超时时长必须大于等于 1。');
+    }
+    final timeout = WorkflowHumanTimeoutUnit.fromStorage(
+      node.settings[WorkflowSettingKeys.humanTimeoutUnit],
+    ).duration(timeoutValue);
     final fields = node.humanInputFields();
     WorkflowStructuredOutputParser.validateFields(
       fields,
@@ -1335,16 +1350,37 @@ class WorkflowNodeExecutor {
       );
     }
     final stopwatch = Stopwatch()..start();
-    final response = await handler(
-      WorkflowHumanInterventionRequest(
-        nodeId: node.id,
-        nodeTitle: node.title,
-        content: content,
-        fields: List<WorkflowOutputField>.unmodifiable(fields),
-        initialValues: Map<String, Object?>.unmodifiable(initialValues),
-        actions: List<WorkflowHumanAction>.unmodifiable(actions),
-      ),
-    );
+    final response =
+        await handler(
+          WorkflowHumanInterventionRequest(
+            nodeId: node.id,
+            nodeTitle: node.title,
+            content: content,
+            fields: List<WorkflowOutputField>.unmodifiable(fields),
+            initialValues: Map<String, Object?>.unmodifiable(initialValues),
+            actions: List<WorkflowHumanAction>.unmodifiable(actions),
+            timeout: timeout,
+          ),
+        ).timeout(
+          timeout + _humanInterventionTimeoutGrace,
+          onTimeout: () => const WorkflowHumanInterventionResponse(
+            actionId: workflowHumanTimeoutHandleId,
+          ),
+        );
+    if (response.timedOut) {
+      final output = <String, Object?>{
+        workflowHumanActionIdOutputName: workflowHumanTimeoutHandleId,
+        workflowHumanActionValueOutputName: '超时',
+        workflowHumanRenderedContentOutputName: content,
+      };
+      return WorkflowNodeExecutionResult(
+        output: Map<String, Object?>.unmodifiable(output),
+        rawOutput: jsonEncode(output),
+        attempts: 1,
+        duration: stopwatch.elapsed,
+        selectedBranchId: workflowHumanTimeoutHandleId,
+      );
+    }
     final action = actions
         .where((item) => item.id == response.actionId)
         .firstOrNull;
@@ -1390,12 +1426,7 @@ class WorkflowNodeExecutor {
     if (decodedValue is! List) {
       throw const WorkflowNodeExecutionException('列表操作的输入必须是数组。');
     }
-    if (decodedValue.length > maxWorkflowListItemCount) {
-      throw const WorkflowNodeExecutionException(
-        '列表操作的输入超过 $maxWorkflowListItemCount 项上限。',
-      );
-    }
-    var items = List<Object?>.from(decodedValue);
+    var items = decodedValue.cast<Object?>();
 
     if (node.boolSetting(WorkflowSettingKeys.listFilterEnabled)) {
       final key = node.stringSetting(WorkflowSettingKeys.listFilterKey).trim();
@@ -1430,18 +1461,18 @@ class WorkflowNodeExecutor {
 
     if (node.boolSetting(WorkflowSettingKeys.listExtractEnabled)) {
       final serialSource = node
-          .stringSetting(WorkflowSettingKeys.listExtractSerial, '1')
+          .stringSetting(WorkflowSettingKeys.listExtractSerial, '0')
           .trim();
       final serialValue = resolveWorkflowTemplateValue(serialSource, variables);
       final serial = serialValue is int
           ? serialValue
           : int.tryParse('$serialValue'.trim());
-      if (serial == null || serial < 1 || serial > items.length) {
+      if (serial == null || serial < 0 || serial >= items.length) {
         throw WorkflowNodeExecutionException(
-          items.isEmpty ? '列表为空，无法按序号提取。' : '提取序号必须在 1–${items.length} 之间。',
+          items.isEmpty ? '列表为空，无法按序号提取。' : '提取序号必须在 0–${items.length - 1} 之间。',
         );
       }
-      items = <Object?>[items[serial - 1]];
+      items = <Object?>[items[serial]];
     }
 
     if (node.boolSetting(WorkflowSettingKeys.listOrderEnabled)) {
@@ -1466,10 +1497,13 @@ class WorkflowNodeExecutor {
     }
 
     if (node.boolSetting(WorkflowSettingKeys.listLimitEnabled)) {
-      final limit = node
-          .intSetting(WorkflowSettingKeys.listLimitSize, 10)
-          .clamp(1, maxWorkflowListLimit);
-      items = items.take(limit).toList(growable: true);
+      final limit = node.intSetting(WorkflowSettingKeys.listLimitSize, 10);
+      if (limit < 1) {
+        throw const WorkflowNodeExecutionException('列表限制数量必须大于等于 1。');
+      }
+      if (limit < items.length) {
+        items = items.take(limit).toList(growable: true);
+      }
     }
 
     final outputFields = node.outputFields();

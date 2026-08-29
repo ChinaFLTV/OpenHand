@@ -682,6 +682,9 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
   Widget _buildHumanIntervention(BuildContext context) {
     final theme = Theme.of(context);
     final actions = node.humanActions();
+    final timeoutUnit = WorkflowHumanTimeoutUnit.fromStorage(
+      node.settings[WorkflowSettingKeys.humanTimeoutUnit],
+    );
     final systemNames = <String, String>{
       ...reservedParameterNames,
       for (final name in workflowHumanSystemOutputNames) name: '人工介入系统输出',
@@ -791,6 +794,55 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
             onChanged: (value) => _set(
               WorkflowSettingKeys.humanActions,
               value.map((item) => item.toJson()).toList(growable: false),
+            ),
+          ),
+        ),
+        kOpenHandGap14,
+        _FormSection(
+          title: '超时设置',
+          icon: Icons.timer_outlined,
+          child: _LabeledField(
+            label: '等待时长',
+            required: true,
+            helper: '超过等待时长仍未处理时，自动进入“超时”分支。',
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    key: ValueKey('human-timeout-${node.id}'),
+                    initialValue:
+                        '${node.intSetting(WorkflowSettingKeys.humanTimeout, defaultWorkflowHumanTimeout)}',
+                    keyboardType: TextInputType.number,
+                    decoration: _inputDecoration('大于等于 1'),
+                    onChanged: (value) => _set(
+                      WorkflowSettingKeys.humanTimeout,
+                      int.tryParse(value) ?? 0,
+                    ),
+                  ),
+                ),
+                kOpenHandHGap10,
+                SizedBox(
+                  width: 132,
+                  child:
+                      AnimatedDropdownButtonFormField<WorkflowHumanTimeoutUnit>(
+                        initialValue: timeoutUnit,
+                        decoration: _inputDecoration('单位'),
+                        items: WorkflowHumanTimeoutUnit.values
+                            .map(
+                              (unit) => DropdownMenuItem(
+                                value: unit,
+                                child: Text(unit.label),
+                              ),
+                            )
+                            .toList(growable: false),
+                        onChanged: (value) => _set(
+                          WorkflowSettingKeys.humanTimeoutUnit,
+                          (value ?? WorkflowHumanTimeoutUnit.day).storageValue,
+                        ),
+                      ),
+                ),
+              ],
             ),
           ),
         ),
@@ -1712,7 +1764,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           child: _LabeledField(
             label: '输入变量',
             required: true,
-            helper: '输入 / 引用上游数组参数，单次最多处理 $maxWorkflowListItemCount 项。',
+            helper: '输入 / 引用上游数组参数。',
             child: WorkflowParameterReferenceField(
               key: ValueKey('list-input-${node.id}'),
               value: node.stringSetting(WorkflowSettingKeys.listInput),
@@ -1847,7 +1899,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
             children: [
               _SwitchSetting(
                 title: '按序号提取',
-                description: '筛选后提取指定的第 N 项，序号从 1 开始。',
+                description: '筛选后提取指定的第 N 项，序号从 0 开始。',
                 value: extractEnabled,
                 onChanged: (value) =>
                     _set(WorkflowSettingKeys.listExtractEnabled, value),
@@ -1864,10 +1916,10 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                             key: ValueKey('list-extract-${node.id}'),
                             value: node.stringSetting(
                               WorkflowSettingKeys.listExtractSerial,
-                              '1',
+                              '0',
                             ),
                             references: numberReferences,
-                            decoration: _inputDecoration('1'),
+                            decoration: _inputDecoration('0'),
                             onChanged: (value) => _set(
                               WorkflowSettingKeys.listExtractSerial,
                               value,
@@ -1963,24 +2015,17 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                         child: _LabeledField(
                           label: '最大数量',
                           required: true,
-                          helper: '限制为 1–$maxWorkflowListLimit 项。',
+                          helper: '填写大于等于 1 的整数，不限制最大数量。',
                           child: TextFormField(
                             key: ValueKey('list-limit-${node.id}'),
                             initialValue:
                                 '${node.intSetting(WorkflowSettingKeys.listLimitSize, 10)}',
                             keyboardType: TextInputType.number,
-                            decoration: _inputDecoration(
-                              '1–$maxWorkflowListLimit',
+                            decoration: _inputDecoration('大于等于 1'),
+                            onChanged: (value) => _set(
+                              WorkflowSettingKeys.listLimitSize,
+                              int.tryParse(value) ?? 0,
                             ),
-                            onChanged: (value) {
-                              final parsed = int.tryParse(value);
-                              if (parsed != null) {
-                                _set(
-                                  WorkflowSettingKeys.listLimitSize,
-                                  parsed.clamp(1, maxWorkflowListLimit),
-                                );
-                              }
-                            },
                           ),
                         ),
                       )
