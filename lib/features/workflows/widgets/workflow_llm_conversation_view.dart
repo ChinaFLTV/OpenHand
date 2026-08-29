@@ -450,6 +450,10 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
         message.isError ? colors.error : OpenHandStatusColors.success,
       ),
     };
+    final collapsible =
+        message.kind == WorkflowLlmMessageKind.reasoning ||
+        message.kind == WorkflowLlmMessageKind.toolCall ||
+        message.kind == WorkflowLlmMessageKind.toolResult;
     final background = user
         ? colors.primaryContainer.withValues(alpha: 0.58)
         : colors.surfaceContainer;
@@ -506,6 +510,25 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
                     ),
                   ),
                 ),
+                if (collapsible) ...[
+                  kOpenHandHGap4,
+                  IconButton(
+                    tooltip: _expanded ? '收起' : '展开',
+                    onPressed: () => setState(() => _expanded = !_expanded),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 28,
+                      height: 28,
+                    ),
+                    icon: Icon(
+                      _expanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      size: 18,
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -635,8 +658,6 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
     final toolActivity =
         widget.message.kind == WorkflowLlmMessageKind.toolCall ||
         widget.message.kind == WorkflowLlmMessageKind.toolResult;
-    final collapsible =
-        widget.message.kind == WorkflowLlmMessageKind.reasoning || toolActivity;
     final canShowRaw =
         widget.message.kind == WorkflowLlmMessageKind.reasoning ||
         widget.message.kind == WorkflowLlmMessageKind.assistant;
@@ -731,15 +752,6 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
                 icon: Icons.fact_check_outlined,
                 onPressed: () => unawaited(_showMessageAudit(context)),
               ),
-              if (collapsible)
-                OpenHandMessageActionChip(
-                  label: _expanded ? '收起' : '展开',
-                  icon: _expanded
-                      ? Icons.keyboard_arrow_up_rounded
-                      : Icons.keyboard_arrow_down_rounded,
-                  selected: _expanded,
-                  onPressed: () => setState(() => _expanded = !_expanded),
-                ),
               if (canShowRaw)
                 OpenHandMessageActionChip(
                   label: _showRawContent ? '显示渲染' : '显示原始',
