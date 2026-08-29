@@ -24090,7 +24090,17 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                           ),
                         ),
                         kOpenHandHGap4,
-                        const Icon(Icons.chevron_right_rounded),
+                        IconButton.filledTonal(
+                          tooltip: '选择响应模型',
+                          onPressed: _selectModel,
+                          style: IconButton.styleFrom(
+                            fixedSize: const Size(40, 40),
+                            padding: EdgeInsets.zero,
+                            shape: const CircleBorder(),
+                            shadowColor: Colors.transparent,
+                          ),
+                          icon: const Icon(Icons.chevron_right_rounded),
+                        ),
                       ],
                     ),
                   ),
