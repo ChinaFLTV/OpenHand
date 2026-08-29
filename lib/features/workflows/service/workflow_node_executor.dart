@@ -244,7 +244,11 @@ class WorkflowNodeExecutor {
       bundle.systemInstructions.trim(),
       bundle.developerInstructions.trim(),
       resourcePrompt,
-      if (structured) WorkflowStructuredOutputParser.schemaPrompt(outputFields),
+      if (structured)
+        WorkflowStructuredOutputParser.schemaPrompt(
+          outputFields,
+          variables: variables,
+        ),
     ].where((part) => part.isNotEmpty).join('\n\n');
     final mcpBindings = _resolveMcpBindings(node, resources);
 
@@ -268,7 +272,11 @@ class WorkflowNodeExecutor {
           throw const WorkflowNodeExecutionException('模型返回内容为空。');
         }
         final output = structured
-            ? WorkflowStructuredOutputParser.parse(raw, outputFields)
+            ? WorkflowStructuredOutputParser.parse(
+                raw,
+                outputFields,
+                variables: variables,
+              )
             : raw;
         stopwatch.stop();
         return WorkflowNodeExecutionResult(
@@ -573,7 +581,11 @@ class WorkflowNodeExecutor {
         );
         final fields = node.outputFields();
         final output = structured
-            ? WorkflowStructuredOutputParser.parse(response.body, fields)
+            ? WorkflowStructuredOutputParser.parse(
+                response.body,
+                fields,
+                variables: variables,
+              )
             : <String, Object?>{
                 'status_code': response.statusCode,
                 'headers': response.headers,
@@ -819,8 +831,11 @@ class WorkflowNodeExecutor {
     WorkflowNode node,
     Map<String, Object?> variables,
   ) async {
-    final key = node.stringSetting(WorkflowSettingKeys.iterationInput).trim();
-    final raw = variables[key];
+    final input = node.stringSetting(WorkflowSettingKeys.iterationInput).trim();
+    final rendered = resolveWorkflowTemplateValue(input, variables);
+    final raw = rendered == input && variables.containsKey(input)
+        ? variables[input]
+        : rendered;
     final items = raw is List
         ? raw
         : raw is String
@@ -860,13 +875,14 @@ abstract final class WorkflowStructuredOutputParser {
     final names = <String>{};
     for (final field in fields) {
       final name = field.name.trim();
-      if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_]{0,63}$').hasMatch(name)) {
+      if (!workflowParameterNamePattern.hasMatch(name)) {
         throw WorkflowNodeExecutionException('$label名称无效：${field.name}');
       }
       if (!names.add(name)) {
         throw WorkflowNodeExecutionException('$label名称重复：$name');
       }
-      if (field.defaultValue.trim().isNotEmpty) {
+      if (field.defaultValue.trim().isNotEmpty &&
+          !workflowTemplatePlaceholderPattern.hasMatch(field.defaultValue)) {
         _coerce(field.defaultValue, field.type, fieldName: name);
       }
     }
@@ -885,7 +901,11 @@ abstract final class WorkflowStructuredOutputParser {
       if (hasValue) {
         result[name] = _coerce(values[name], field.type, fieldName: name);
       } else if (field.defaultValue.trim().isNotEmpty) {
-        result[name] = _coerce(field.defaultValue, field.type, fieldName: name);
+        result[name] = _coerce(
+          resolveWorkflowTemplateValue(field.defaultValue, values),
+          field.type,
+          fieldName: name,
+        );
       } else if (field.required) {
         throw WorkflowNodeExecutionException('$label缺少必需参数：$name');
       } else {
@@ -897,8 +917,9 @@ abstract final class WorkflowStructuredOutputParser {
 
   static Map<String, Object?> parse(
     String raw,
-    List<WorkflowOutputField> fields,
-  ) {
+    List<WorkflowOutputField> fields, {
+    Map<String, Object?> variables = const <String, Object?>{},
+  }) {
     validateFields(fields);
     final decoded = _decodeObject(raw);
     if (decoded == null) {
@@ -911,7 +932,7 @@ abstract final class WorkflowStructuredOutputParser {
       if (!hasValue) {
         if (field.defaultValue.trim().isNotEmpty) {
           result[name] = _coerce(
-            field.defaultValue,
+            resolveWorkflowTemplateValue(field.defaultValue, variables),
             field.type,
             fieldName: name,
           );
@@ -928,7 +949,10 @@ abstract final class WorkflowStructuredOutputParser {
     return Map<String, Object?>.unmodifiable(result);
   }
 
-  static Map<String, Object?> jsonSchema(List<WorkflowOutputField> fields) {
+  static Map<String, Object?> jsonSchema(
+    List<WorkflowOutputField> fields, {
+    Map<String, Object?> variables = const <String, Object?>{},
+  }) {
     validateFields(fields);
     return <String, Object?>{
       'type': 'object',
@@ -939,9 +963,13 @@ abstract final class WorkflowStructuredOutputParser {
             'type': field.type.storageValue,
             if (field.description.trim().isNotEmpty)
               'description': field.description.trim(),
-            if (field.defaultValue.trim().isNotEmpty)
+            if (field.defaultValue.trim().isNotEmpty &&
+                (!workflowTemplatePlaceholderPattern.hasMatch(
+                      field.defaultValue,
+                    ) ||
+                    variables.isNotEmpty))
               'default': _coerce(
-                field.defaultValue,
+                resolveWorkflowTemplateValue(field.defaultValue, variables),
                 field.type,
                 fieldName: field.name.trim(),
               ),
@@ -954,10 +982,13 @@ abstract final class WorkflowStructuredOutputParser {
     };
   }
 
-  static String schemaPrompt(List<WorkflowOutputField> fields) {
+  static String schemaPrompt(
+    List<WorkflowOutputField> fields, {
+    Map<String, Object?> variables = const <String, Object?>{},
+  }) {
     final schema = const JsonEncoder.withIndent(
       '  ',
-    ).convert(jsonSchema(fields));
+    ).convert(jsonSchema(fields, variables: variables));
     return '''# 响应格式
 仅返回一个符合下列 JSON Schema 的 JSON 对象，不要添加 Markdown、解释或额外字段。
 
@@ -1086,20 +1117,40 @@ $schema''';
 
 String renderWorkflowTemplate(String template, Map<String, Object?> variables) {
   if (template.isEmpty || variables.isEmpty) return template;
-  return template.replaceAllMapped(
-    RegExp(r'\{\{\s*([A-Za-z_][A-Za-z0-9_.-]*)\s*\}\}'),
-    (match) {
-      Object? value = variables;
-      for (final segment in match.group(1)!.split('.')) {
-        if (value is Map && value.containsKey(segment)) {
-          value = value[segment];
-        } else {
-          return match.group(0)!;
-        }
-      }
-      return value is String ? value : jsonEncode(value);
-    },
-  );
+  return template.replaceAllMapped(workflowTemplatePlaceholderPattern, (match) {
+    final resolved = _lookupWorkflowVariable(match.group(1)!, variables);
+    if (!resolved.found) return match.group(0)!;
+    return resolved.value is String
+        ? resolved.value! as String
+        : jsonEncode(resolved.value);
+  });
+}
+
+Object? resolveWorkflowTemplateValue(
+  String template,
+  Map<String, Object?> variables,
+) {
+  final match = workflowTemplatePlaceholderPattern.firstMatch(template);
+  if (match != null && match.start == 0 && match.end == template.length) {
+    final resolved = _lookupWorkflowVariable(match.group(1)!, variables);
+    if (resolved.found) return resolved.value;
+  }
+  return renderWorkflowTemplate(template, variables);
+}
+
+({bool found, Object? value}) _lookupWorkflowVariable(
+  String path,
+  Map<String, Object?> variables,
+) {
+  Object? value = variables;
+  for (final segment in path.split('.')) {
+    if (value is Map && value.containsKey(segment)) {
+      value = value[segment];
+    } else {
+      return (found: false, value: null);
+    }
+  }
+  return (found: true, value: value);
 }
 
 class _WorkflowMcpBinding {

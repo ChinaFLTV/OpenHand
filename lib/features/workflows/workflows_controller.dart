@@ -44,6 +44,12 @@ class WorkflowsController extends ManagedChangeNotifier {
         notifyListeners();
         return false;
       }
+      final parameterError = validateWorkflowParameterNames(workflow.nodes);
+      if (parameterError != null) {
+        _errorMessage = parameterError;
+        notifyListeners();
+        return false;
+      }
       final now = DateTime.now().toUtc();
       final nextWorkflow = workflow.copyWith(
         name: normalizedName,

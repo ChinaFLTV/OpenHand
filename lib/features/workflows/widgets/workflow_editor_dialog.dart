@@ -225,6 +225,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                               child: WorkflowNodeConfigurationPanel(
                                 node: _selectedNode!,
                                 catalog: widget.catalog,
+                                availableReferences: _availableReferencesFor(
+                                  _selectedNode!,
+                                ),
+                                reservedParameterNames:
+                                    _reservedParameterNamesFor(_selectedNode!),
                                 onChanged: _updateNode,
                                 onClose: () => setState(() {
                                   _selectedNodeId = null;
@@ -1040,12 +1045,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                   );
                 },
         ),
-        variables: <String, Object?>{
-          'input': '测试输入',
-          'status': 'success',
-          'value': 'demo',
-          'items': <Object?>['第一项', '第二项'],
-        },
+        variables: _testVariablesFor(node),
       );
       if (!mounted) return;
       setState(() {
@@ -1184,7 +1184,84 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         }
       }
     }
-    return null;
+    return validateWorkflowParameterNames(_nodes);
+  }
+
+  List<WorkflowParameterReference> _availableReferencesFor(
+    WorkflowNode target,
+  ) {
+    if (target.kind == WorkflowNodeKind.start) {
+      return const <WorkflowParameterReference>[];
+    }
+    final upstreamIds = <String>{};
+    final pending = <String>[target.id];
+    while (pending.isNotEmpty) {
+      final targetId = pending.removeLast();
+      for (final connection in _connections) {
+        if (connection.targetNodeId != targetId ||
+            connection.sourceNodeId == target.id ||
+            !upstreamIds.add(connection.sourceNodeId)) {
+          continue;
+        }
+        pending.add(connection.sourceNodeId);
+      }
+    }
+
+    final names = <String>{};
+    return _nodes
+        .where((node) => upstreamIds.contains(node.id))
+        .expand(
+          (node) => node
+              .declaredParameterFields()
+              .where((field) {
+                final name = field.name.trim();
+                return workflowParameterNamePattern.hasMatch(name) &&
+                    names.add(name);
+              })
+              .map(
+                (field) => WorkflowParameterReference(
+                  nodeId: node.id,
+                  nodeTitle: node.title.trim().isEmpty ? '未命名节点' : node.title,
+                  field: field,
+                ),
+              ),
+        )
+        .toList(growable: false);
+  }
+
+  Map<String, String> _reservedParameterNamesFor(WorkflowNode current) {
+    return <String, String>{
+      for (final node in _nodes)
+        if (node.id != current.id)
+          for (final field in node.declaredParameterFields())
+            if (field.name.trim().isNotEmpty)
+              field.name.trim(): node.title.trim().isEmpty
+                  ? '未命名节点'
+                  : node.title,
+    };
+  }
+
+  Map<String, Object?> _testVariablesFor(WorkflowNode node) {
+    final values = <String, Object?>{
+      'input': '测试输入',
+      'status': 'success',
+      'value': 'demo',
+      'items': <Object?>['第一项', '第二项'],
+    };
+    for (final reference in _availableReferencesFor(node)) {
+      values.putIfAbsent(
+        reference.name,
+        () => switch (reference.field.type) {
+          WorkflowOutputType.string => '测试值',
+          WorkflowOutputType.integer => 1,
+          WorkflowOutputType.number => 1.5,
+          WorkflowOutputType.boolean => true,
+          WorkflowOutputType.object => <String, Object?>{'key': 'value'},
+          WorkflowOutputType.array => <Object?>['第一项', '第二项'],
+        },
+      );
+    }
+    return values;
   }
 
   void _changeZoom(double delta) {

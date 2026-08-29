@@ -71,6 +71,15 @@ enum WorkflowHttpBodyFormat {
   }
 }
 
+final RegExp workflowParameterNamePattern = RegExp(
+  r'^[A-Za-z_][A-Za-z0-9_]{0,63}$',
+);
+final RegExp workflowTemplatePlaceholderPattern = RegExp(
+  r'\{\{\s*([A-Za-z_][A-Za-z0-9_.-]*)\s*\}\}',
+);
+
+String workflowParameterPlaceholder(String name) => '{{${name.trim()}}}';
+
 abstract final class WorkflowSettingKeys {
   static const String expression = 'expression';
   static const String maxIterations = 'max_iterations';
@@ -234,6 +243,21 @@ class WorkflowOutputField {
 }
 
 @immutable
+class WorkflowParameterReference {
+  const WorkflowParameterReference({
+    required this.nodeId,
+    required this.nodeTitle,
+    required this.field,
+  });
+
+  final String nodeId;
+  final String nodeTitle;
+  final WorkflowOutputField field;
+
+  String get name => field.name.trim();
+}
+
+@immutable
 class WorkflowNode {
   const WorkflowNode({
     required this.id,
@@ -327,6 +351,9 @@ class WorkflowNode {
   List<WorkflowOutputField> outputFields() =>
       _fieldsSetting(WorkflowSettingKeys.outputFields);
 
+  List<WorkflowOutputField> declaredParameterFields() =>
+      kind == WorkflowNodeKind.start ? inputFields() : outputFields();
+
   List<WorkflowOutputField> _fieldsSetting(String key) {
     final value = settings[key];
     if (value is! List) return const <WorkflowOutputField>[];
@@ -345,6 +372,24 @@ class WorkflowNode {
     'y': y,
     'settings': settings,
   };
+}
+
+String? validateWorkflowParameterNames(List<WorkflowNode> nodes) {
+  final owners = <String, WorkflowNode>{};
+  for (final node in nodes) {
+    for (final field in node.declaredParameterFields()) {
+      final name = field.name.trim();
+      if (!workflowParameterNamePattern.hasMatch(name)) {
+        return '节点“${node.title}”包含无效参数名称“${field.name}”。';
+      }
+      final previous = owners[name];
+      if (previous != null) {
+        return '参数名称“$name”在节点“${previous.title}”和“${node.title}”中重复。';
+      }
+      owners[name] = node;
+    }
+  }
+  return null;
 }
 
 void _clearInactiveWorkflowNodeSettings(

@@ -18,6 +18,7 @@ import '../../mcp/index.dart' show McpServer;
 import '../../memory/index.dart' show UserMemoryEntry;
 import '../../skills/index.dart' show LocalSkill;
 import '../model/workflow_definition.dart';
+import 'workflow_parameter_reference_field.dart';
 
 const double _formControlHeight = 52;
 const double _configurationActionSize = 44;
@@ -60,6 +61,8 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     required this.onDelete,
     required this.onTest,
     required this.testing,
+    required this.availableReferences,
+    required this.reservedParameterNames,
     this.testResult,
     this.testError,
     this.testStatus,
@@ -72,6 +75,8 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback onTest;
   final bool testing;
+  final List<WorkflowParameterReference> availableReferences;
+  final Map<String, String> reservedParameterNames;
   final String? testResult;
   final String? testError;
   final WorkflowNodeTestStatus? testStatus;
@@ -219,6 +224,8 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
         fields: node.inputFields(),
         addLabel: '添加输入参数',
         idPrefix: 'input',
+        availableReferences: availableReferences,
+        reservedParameterNames: reservedParameterNames,
         onChanged: (value) => _set(
           WorkflowSettingKeys.inputFields,
           value.map((item) => item.toJson()).toList(growable: false),
@@ -235,6 +242,8 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
         fields: node.outputFields(),
         addLabel: '添加输出参数',
         idPrefix: 'output',
+        availableReferences: availableReferences,
+        reservedParameterNames: reservedParameterNames,
         onChanged: (value) => _set(
           WorkflowSettingKeys.outputFields,
           value.map((item) => item.toJson()).toList(growable: false),
@@ -247,12 +256,13 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     return _FormSection(
       title: '输入内容',
       icon: Icons.input_rounded,
-      child: TextFormField(
+      child: WorkflowParameterReferenceField(
         key: ValueKey('input-${node.id}'),
-        initialValue: node.stringSetting(WorkflowSettingKeys.inputContent),
+        value: node.stringSetting(WorkflowSettingKeys.inputContent),
+        references: availableReferences,
         minLines: 4,
         maxLines: 10,
-        decoration: _inputDecoration('输入发送给模型的用户命令，支持 {{变量名}}'),
+        decoration: _inputDecoration('输入发送给模型的用户命令，输入 / 引用上游参数'),
         onChanged: (value) => _set(WorkflowSettingKeys.inputContent, value),
       ),
     );
@@ -373,10 +383,11 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
               _LabeledField(
                 label: '提示词',
                 required: true,
-                helper: '使用 {{变量名}} 引用工作流输入或上游输出。',
-                child: TextFormField(
+                helper: '输入 / 可快速引用上游节点的输出参数。',
+                child: WorkflowParameterReferenceField(
                   key: ValueKey('prompt-${node.id}'),
-                  initialValue: node.stringSetting(WorkflowSettingKeys.prompt),
+                  value: node.stringSetting(WorkflowSettingKeys.prompt),
+                  references: availableReferences,
                   minLines: 5,
                   maxLines: 12,
                   decoration: _inputDecoration('描述任务、输入与约束'),
@@ -550,11 +561,10 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                     child: _LabeledField(
                       label: '请求 URL',
                       required: true,
-                      child: TextFormField(
+                      child: WorkflowParameterReferenceField(
                         key: ValueKey('url-${node.id}'),
-                        initialValue: node.stringSetting(
-                          WorkflowSettingKeys.url,
-                        ),
+                        value: node.stringSetting(WorkflowSettingKeys.url),
+                        references: availableReferences,
                         decoration: _inputDecoration(
                           'https://api.example.com/v1/data',
                         ),
@@ -570,6 +580,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                 title: '请求头',
                 addLabel: '添加请求头',
                 entries: node.keyValueSetting(WorkflowSettingKeys.headers),
+                availableReferences: availableReferences,
                 onChanged: (value) =>
                     _setKeyValues(WorkflowSettingKeys.headers, value),
               ),
@@ -580,6 +591,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                 entries: node.keyValueSetting(
                   WorkflowSettingKeys.queryParameters,
                 ),
+                availableReferences: availableReferences,
                 onChanged: (value) =>
                     _setKeyValues(WorkflowSettingKeys.queryParameters, value),
               ),
@@ -626,6 +638,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                                 entries: node.keyValueSetting(
                                   WorkflowSettingKeys.bodyEntries,
                                 ),
+                                availableReferences: availableReferences,
                                 onChanged: (value) => _setKeyValues(
                                   WorkflowSettingKeys.bodyEntries,
                                   value,
@@ -640,13 +653,14 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                                     bodyFormat == WorkflowHttpBodyFormat.json
                                     ? '发送前会校验 JSON 格式。'
                                     : null,
-                                child: TextFormField(
+                                child: WorkflowParameterReferenceField(
                                   key: ValueKey(
                                     'body-${node.id}-${bodyFormat.name}',
                                   ),
-                                  initialValue: node.stringSetting(
+                                  value: node.stringSetting(
                                     WorkflowSettingKeys.body,
                                   ),
+                                  references: availableReferences,
                                   minLines: 4,
                                   maxLines: 10,
                                   decoration: _inputDecoration(
@@ -716,10 +730,11 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           child: _LabeledField(
             label: '条件表达式',
             required: true,
-            helper: '支持 ==、!=、>、<、>=、<=、contains，可使用 {{变量名}}。',
-            child: TextFormField(
+            helper: '支持 ==、!=、>、<、>=、<=、contains，输入 / 引用参数。',
+            child: WorkflowParameterReferenceField(
               key: ValueKey('condition-${node.id}'),
-              initialValue: node.stringSetting(WorkflowSettingKeys.expression),
+              value: node.stringSetting(WorkflowSettingKeys.expression),
+              references: availableReferences,
               decoration: _inputDecoration('{{status}} == success'),
               onChanged: (value) => _set(WorkflowSettingKeys.expression, value),
             ),
@@ -773,15 +788,14 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           title: '迭代设置',
           icon: Icons.view_week_outlined,
           child: _LabeledField(
-            label: '数组变量名',
+            label: '数组输入',
             required: true,
-            helper: '最多处理前 1000 项。',
-            child: TextFormField(
+            helper: '输入 / 引用数组参数，最多处理前 1000 项。',
+            child: WorkflowParameterReferenceField(
               key: ValueKey('iteration-${node.id}'),
-              initialValue: node.stringSetting(
-                WorkflowSettingKeys.iterationInput,
-              ),
-              decoration: _inputDecoration('items'),
+              value: node.stringSetting(WorkflowSettingKeys.iterationInput),
+              references: availableReferences,
+              decoration: _inputDecoration('输入数组变量名或引用上游参数'),
               onChanged: (value) =>
                   _set(WorkflowSettingKeys.iterationInput, value),
             ),
@@ -851,6 +865,8 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                       fields: fields,
                       addLabel: '添加输出参数',
                       idPrefix: 'output',
+                      availableReferences: availableReferences,
+                      reservedParameterNames: reservedParameterNames,
                       onChanged: (value) => _set(
                         WorkflowSettingKeys.outputFields,
                         value
@@ -1136,12 +1152,14 @@ class _KeyValueEditor extends StatelessWidget {
     required this.title,
     required this.addLabel,
     required this.entries,
+    required this.availableReferences,
     required this.onChanged,
   });
 
   final String title;
   final String addLabel;
   final List<WorkflowKeyValueEntry> entries;
+  final List<WorkflowParameterReference> availableReferences;
   final ValueChanged<List<WorkflowKeyValueEntry>> onChanged;
 
   @override
@@ -1185,8 +1203,10 @@ class _KeyValueEditor extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   Expanded(
-                                    child: TextFormField(
-                                      initialValue: entry.key,
+                                    child: WorkflowParameterReferenceField(
+                                      key: ValueKey('${entry.id}-key'),
+                                      value: entry.key,
+                                      references: availableReferences,
                                       decoration: _inputDecoration('键（必填）'),
                                       onChanged: (value) => _replaceEntry(
                                         entry.copyWith(key: value),
@@ -1195,8 +1215,10 @@ class _KeyValueEditor extends StatelessWidget {
                                   ),
                                   kOpenHandHGap8,
                                   Expanded(
-                                    child: TextFormField(
-                                      initialValue: entry.value,
+                                    child: WorkflowParameterReferenceField(
+                                      key: ValueKey('${entry.id}-value'),
+                                      value: entry.value,
+                                      references: availableReferences,
                                       decoration: _inputDecoration('值（必填）'),
                                       onChanged: (value) => _replaceEntry(
                                         entry.copyWith(value: value),
@@ -1251,12 +1273,16 @@ class _OutputFieldEditor extends StatelessWidget {
     required this.fields,
     required this.addLabel,
     required this.idPrefix,
+    required this.availableReferences,
+    required this.reservedParameterNames,
     required this.onChanged,
   });
 
   final List<WorkflowOutputField> fields;
   final String addLabel;
   final String idPrefix;
+  final List<WorkflowParameterReference> availableReferences;
+  final Map<String, String> reservedParameterNames;
   final ValueChanged<List<WorkflowOutputField>> onChanged;
 
   @override
@@ -1276,6 +1302,8 @@ class _OutputFieldEditor extends StatelessWidget {
                         (field) => _OutputFieldCard(
                           key: ValueKey(field.id),
                           field: field,
+                          availableReferences: availableReferences,
+                          nameError: _nameError(field),
                           onChanged: (updated) => onChanged(
                             fields
                                 .map(
@@ -1309,23 +1337,52 @@ class _OutputFieldEditor extends StatelessWidget {
       ],
     );
   }
+
+  String? _nameError(WorkflowOutputField field) {
+    final name = field.name.trim();
+    if (name.isEmpty) return null;
+    if (!workflowParameterNamePattern.hasMatch(name)) {
+      return '参数名称须以英文字母或下划线开头，仅包含字母、数字和下划线。';
+    }
+    if (fields.where((item) => item.name.trim() == name).length > 1) {
+      return '当前节点中已存在参数“$name”。';
+    }
+    final owner = reservedParameterNames[name];
+    return owner == null ? null : '参数“$name”已由节点“$owner”使用。';
+  }
 }
 
 class _OutputFieldCard extends StatelessWidget {
   const _OutputFieldCard({
     super.key,
     required this.field,
+    required this.availableReferences,
+    required this.nameError,
     required this.onChanged,
     required this.onDelete,
   });
 
   final WorkflowOutputField field;
+  final List<WorkflowParameterReference> availableReferences;
+  final String? nameError;
   final ValueChanged<WorkflowOutputField> onChanged;
   final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final nameDecoration = nameError == null
+        ? _inputDecoration('参数名称')
+        : _inputDecoration('参数名称').copyWith(
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(kOpenHandRadius12),
+              borderSide: BorderSide(color: theme.colorScheme.error),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(kOpenHandRadius12),
+              borderSide: BorderSide(color: theme.colorScheme.error, width: 2),
+            ),
+          );
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: _EntryCard(
@@ -1339,7 +1396,7 @@ class _OutputFieldCard extends StatelessWidget {
                   Expanded(
                     child: TextFormField(
                       initialValue: field.name,
-                      decoration: _inputDecoration('参数名称'),
+                      decoration: nameDecoration,
                       onChanged: (value) =>
                           onChanged(field.copyWith(name: value)),
                     ),
@@ -1381,6 +1438,24 @@ class _OutputFieldCard extends StatelessWidget {
                 ],
               ),
             ),
+            AnimatedSize(
+              duration: openHandMotionDuration(context, kOpenHandMotion180),
+              curve: Curves.easeOutCubic,
+              child: nameError == null
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          nameError!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.error,
+                          ),
+                        ),
+                      ),
+                    ),
+            ),
             kOpenHandGap8,
             SizedBox(
               height: _formControlHeight,
@@ -1398,8 +1473,10 @@ class _OutputFieldCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(
-                    child: TextFormField(
-                      initialValue: field.defaultValue,
+                    child: WorkflowParameterReferenceField(
+                      key: ValueKey('${field.id}-value'),
+                      value: field.defaultValue,
+                      references: availableReferences,
                       decoration: _inputDecoration('默认值（可选）'),
                       onChanged: (value) =>
                           onChanged(field.copyWith(defaultValue: value)),
