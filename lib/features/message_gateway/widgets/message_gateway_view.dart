@@ -58,6 +58,7 @@ import '../../../shared/ui/openhand_sweep_shimmer.dart';
 import '../../../shared/ui/openhand_tap_region.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/ui/openhand_typography.dart';
+import '../../../shared/ui/reasoning_effort_selector.dart';
 import '../../../shared/ui/runtime_log_dialog.dart';
 import '../../../shared/ui/streaming_text_reveal.dart';
 import '../../../shared/util/async_concurrency.dart';
@@ -23363,7 +23364,36 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final model = _modelLabel();
+    final responseModel = _resolvedResponseModel();
+    final reasoningOptions =
+        responseModel?.resolvedReasoningEffortOptions
+            .where((option) => option.isSelectable)
+            .toList(growable: false) ??
+        const <AiReasoningEffortOption>[];
+    final reasoningAdjustable =
+        responseModel?.resolvedReasoningEffortControlEnabled == true &&
+        reasoningOptions.isNotEmpty;
+    final reasoningEffortLabel = responseModel
+        ?.reasoningEffortLabelForLocaleName(
+          Localizations.localeOf(context).toLanguageTag(),
+        );
+    final reasoningStatus = reasoningAdjustable
+        ? '推理 ${reasoningEffortLabel ?? '默认'}'
+        : responseModel?.resolvedThinkingEnabled == true
+        ? '推理强度固定'
+        : reasoningOptions.isNotEmpty
+        ? '推理已关闭'
+        : '不支持推理强度';
+    final reasoningTooltip = reasoningAdjustable
+        ? '调整响应模型的推理强度，当前为 ${reasoningEffortLabel ?? '默认'}'
+        : responseModel == null
+        ? '暂无可用响应模型'
+        : responseModel.resolvedThinkingEnabled
+        ? '当前模型的推理强度固定，无法调整'
+        : reasoningOptions.isNotEmpty
+        ? '当前模型未启用推理强度控制'
+        : '当前模型不支持推理强度控制';
+    final model = '${_modelLabel()} · $reasoningStatus';
     final theme = Theme.of(context);
     final responseModeAll = _responseMode == DingTalkResponseMode.all;
     return SizedBox(
@@ -24014,7 +24044,56 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                     title: '响应模型',
                     subtitle: model,
                     onTap: _selectModel,
-                    trailing: const Icon(Icons.chevron_right_rounded),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Builder(
+                          builder: (buttonContext) => Tooltip(
+                            message: reasoningTooltip,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              excludeFromSemantics: true,
+                              onTap: reasoningAdjustable ? null : () {},
+                              child: IconButton.filledTonal(
+                                onPressed: reasoningAdjustable
+                                    ? () => unawaited(
+                                        _selectReasoningEffort(buttonContext),
+                                      )
+                                    : null,
+                                style: IconButton.styleFrom(
+                                  fixedSize: const Size.square(44),
+                                  foregroundColor:
+                                      theme.colorScheme.onSecondaryContainer,
+                                  backgroundColor:
+                                      theme.colorScheme.secondaryContainer,
+                                  disabledForegroundColor: theme
+                                      .colorScheme
+                                      .onSurfaceVariant
+                                      .withValues(alpha: 0.48),
+                                  disabledBackgroundColor: theme
+                                      .colorScheme
+                                      .surfaceContainerHigh
+                                      .withValues(alpha: 0.72),
+                                  shape: const CircleBorder(),
+                                ),
+                                icon: Icon(
+                                  reasoningAdjustable
+                                      ? Icons.psychology_alt_rounded
+                                      : responseModel
+                                                ?.resolvedThinkingEnabled ==
+                                            true
+                                      ? Icons.lock_rounded
+                                      : Icons.psychology_alt_outlined,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        kOpenHandHGap4,
+                        const Icon(Icons.chevron_right_rounded),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -24271,6 +24350,39 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
     }
   }
 
+  Future<void> _selectReasoningEffort(BuildContext buttonContext) async {
+    final model = _resolvedResponseModel();
+    if (model == null || !model.resolvedReasoningEffortControlEnabled) return;
+    final options = model.resolvedReasoningEffortOptions
+        .where((option) => option.isSelectable)
+        .toList(growable: false);
+    if (options.isEmpty) return;
+    await showReasoningEffortSelector(
+      context: context,
+      anchorContext: buttonContext,
+      options: options,
+      currentValue: model.resolvedReasoningEffort,
+      onChanged: (effort) async {
+        if (!mounted) return false;
+        var saved = false;
+        try {
+          saved = await context
+              .read<SettingsController>()
+              .updateAiModelReasoningEffort(model.id, model.modelId, effort);
+        } catch (_) {
+          // 选择器会回滚到已保存的推理强度。
+        }
+        if (!mounted) return false;
+        if (saved) {
+          setState(() {});
+          return true;
+        }
+        showOpenHandErrorSnack(context, '推理强度保存失败，请检查当前模型配置。');
+        return false;
+      },
+    );
+  }
+
   Future<void> _save() async {
     final seconds = DingTalkGatewaySettings.normalizePollIntervalSeconds(
       _intervalController.text,
@@ -24350,6 +24462,19 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
       if (model.id == key.$1) return '${model.providerLabel} / ${key.$2}';
     }
     return '${key.$1} / ${key.$2}';
+  }
+
+  AiModelConfig? _resolvedResponseModel() {
+    final key = _splitModelKey(_modelKey);
+    if (key.$1.isEmpty || key.$2.isEmpty) {
+      return widget.controller.activeAiModel;
+    }
+    for (final provider in widget.controller.aiModels) {
+      if (provider.id == key.$1 && provider.allModelIds.contains(key.$2)) {
+        return provider.copyWith(modelId: key.$2);
+      }
+    }
+    return null;
   }
 
   (String, String) _splitModelKey(String key) {
