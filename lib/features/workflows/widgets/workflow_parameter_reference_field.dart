@@ -6,6 +6,9 @@ import 'package:flutter/services.dart';
 
 import '../../../shared/ui/animated_overlay.dart';
 import '../../../shared/ui/motion_durations.dart';
+import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../model/workflow_definition.dart';
 
@@ -13,6 +16,8 @@ const int _firstReferenceMarker = 0xE000;
 const int _lastReferenceMarker = 0xF8FF;
 const double _referenceMenuGap = 8;
 const double _referenceMenuMargin = 12;
+const double _referenceMenuHeaderExtent = 32;
+const double _referenceMenuItemExtent = 44;
 
 class WorkflowParameterReferenceField extends StatefulWidget {
   const WorkflowParameterReferenceField({
@@ -45,11 +50,14 @@ class _WorkflowParameterReferenceFieldState
       AnimatedOverlayEntryController();
   late final _WorkflowReferenceEditingController _controller;
   late final FocusNode _focusNode = FocusNode()..addListener(_handleFocus);
+  late final FocusNode _searchFocusNode = FocusNode()
+    ..addListener(_handleFocus);
   late TextEditingValue _previousValue;
   late String _lastSerializedText;
   bool _applyingExternalValue = false;
   int _selectedIndex = 0;
   int _triggerOffset = -1;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -74,17 +82,22 @@ class _WorkflowParameterReferenceFieldState
     _previousValue = _controller.value;
     _lastSerializedText = _controller.serializedText;
     _applyingExternalValue = false;
-    if (widget.references.isEmpty) {
+    final references = _visibleReferences;
+    if (references.isEmpty && widget.references.isEmpty) {
       _dismissMenu();
-    } else if (_selectedIndex >= widget.references.length) {
-      _selectedIndex = widget.references.length - 1;
+    } else if (_selectedIndex >= references.length) {
+      _selectedIndex = math.max(0, references.length - 1);
     }
+    if (_overlay.hasEntry) _overlay.markNeedsBuild();
   }
 
   @override
   void dispose() {
     _overlay.dispose();
     _focusNode
+      ..removeListener(_handleFocus)
+      ..dispose();
+    _searchFocusNode
       ..removeListener(_handleFocus)
       ..dispose();
     _controller
@@ -150,7 +163,11 @@ class _WorkflowParameterReferenceFieldState
   }
 
   void _handleFocus() {
-    if (!_focusNode.hasFocus) _dismissMenu();
+    if (_focusNode.hasFocus || _searchFocusNode.hasFocus) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _focusNode.hasFocus || _searchFocusNode.hasFocus) return;
+      _dismissMenu();
+    });
   }
 
   KeyEventResult _handleKeyEvent(FocusNode _, KeyEvent event) {
@@ -167,26 +184,52 @@ class _WorkflowParameterReferenceFieldState
     }
     if (event.logicalKey == LogicalKeyboardKey.enter ||
         event.logicalKey == LogicalKeyboardKey.numpadEnter) {
-      if (widget.references.isEmpty) {
+      final references = _visibleReferences;
+      if (references.isEmpty) {
         _dismissMenu();
         return KeyEventResult.handled;
       }
-      _selectReference(widget.references[_selectedIndex]);
+      _selectReference(references[_selectedIndex]);
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.escape) {
       _dismissMenu();
+      _focusNode.requestFocus();
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
   }
 
   void _moveSelection(int delta) {
-    if (widget.references.isEmpty) return;
-    _selectedIndex =
-        (_selectedIndex + delta + widget.references.length) %
-        widget.references.length;
+    final references = _visibleReferences;
+    if (references.isEmpty) return;
+    _selectedIndex = (_selectedIndex + delta).clamp(0, references.length - 1);
     _overlay.markNeedsBuild();
+  }
+
+  void _updateSearchQuery(String value) {
+    _searchQuery = value;
+    _selectedIndex = 0;
+    _overlay.markNeedsBuild();
+  }
+
+  List<WorkflowParameterReference> get _visibleReferences {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return widget.references;
+    final terms = query.split(RegExp(r'\s+'));
+    return widget.references
+        .where((reference) {
+          final nodeTitle = reference.nodeTitle.toLowerCase();
+          if (terms.every(nodeTitle.contains)) return true;
+          final searchable = <String>[
+            nodeTitle,
+            reference.name.toLowerCase(),
+            reference.field.type.label.toLowerCase(),
+            reference.field.description.toLowerCase(),
+          ].join(' ');
+          return terms.every(searchable.contains);
+        })
+        .toList(growable: false);
   }
 
   void _selectReference(WorkflowParameterReference reference) {
@@ -199,16 +242,28 @@ class _WorkflowParameterReferenceFieldState
   }
 
   void _showMenu() {
+    _searchQuery = '';
+    _selectedIndex = 0;
     _overlay.show(
       overlay: Overlay.of(context, rootOverlay: true),
       builder: (context, visibility, onExitCompleted) {
+        final references = _visibleReferences;
         return _WorkflowReferenceMenu(
           link: _layerLink,
           anchorKey: _anchorKey,
-          references: widget.references,
+          references: references,
           selectedIndex: _selectedIndex,
+          searchQuery: _searchQuery,
+          searchFocusNode: _searchFocusNode,
           visibility: visibility,
           onSelected: _selectReference,
+          onHighlighted: (index) {
+            if (_selectedIndex == index) return;
+            _selectedIndex = index;
+            _overlay.markNeedsBuild();
+          },
+          onSearchChanged: _updateSearchQuery,
+          onSearchKeyEvent: _handleKeyEvent,
           onDismiss: _dismissMenu,
           onExitCompleted: onExitCompleted,
         );
@@ -398,8 +453,13 @@ class _WorkflowReferenceMenu extends StatefulWidget {
     required this.anchorKey,
     required this.references,
     required this.selectedIndex,
+    required this.searchQuery,
+    required this.searchFocusNode,
     required this.visibility,
     required this.onSelected,
+    required this.onHighlighted,
+    required this.onSearchChanged,
+    required this.onSearchKeyEvent,
     required this.onDismiss,
     required this.onExitCompleted,
   });
@@ -408,8 +468,13 @@ class _WorkflowReferenceMenu extends StatefulWidget {
   final GlobalKey anchorKey;
   final List<WorkflowParameterReference> references;
   final int selectedIndex;
+  final String searchQuery;
+  final FocusNode searchFocusNode;
   final ValueListenable<bool> visibility;
   final ValueChanged<WorkflowParameterReference> onSelected;
+  final ValueChanged<int> onHighlighted;
+  final ValueChanged<String> onSearchChanged;
+  final KeyEventResult Function(FocusNode, KeyEvent) onSearchKeyEvent;
   final VoidCallback onDismiss;
   final VoidCallback onExitCompleted;
 
@@ -418,18 +483,52 @@ class _WorkflowReferenceMenu extends StatefulWidget {
 }
 
 class _WorkflowReferenceMenuState extends State<_WorkflowReferenceMenu> {
-  static const double _itemExtent = 54;
   final ScrollController _scrollController = ScrollController();
+  late final TextEditingController _searchController = TextEditingController(
+    text: widget.searchQuery,
+  )..addListener(_handleSearchChanged);
+  bool _syncingSearchQuery = false;
 
   @override
   void didUpdateWidget(covariant _WorkflowReferenceMenu oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.selectedIndex == widget.selectedIndex) return;
+    if (_searchController.text != widget.searchQuery) {
+      _syncingSearchQuery = true;
+      _searchController.value = TextEditingValue(
+        text: widget.searchQuery,
+        selection: TextSelection.collapsed(offset: widget.searchQuery.length),
+      );
+      _syncingSearchQuery = false;
+    }
+    if (oldWidget.selectedIndex == widget.selectedIndex &&
+        _sameReferenceList(oldWidget.references, widget.references)) {
+      return;
+    }
+    _ensureSelectionVisible();
+  }
+
+  void _handleSearchChanged() {
+    if (_syncingSearchQuery) return;
+    setState(() {});
+    widget.onSearchChanged(_searchController.text);
+  }
+
+  void _ensureSelectionVisible() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
+      if (!mounted || !_scrollController.hasClients) return;
       final position = _scrollController.position;
-      final itemTop = widget.selectedIndex * _itemExtent;
-      final itemBottom = itemTop + _itemExtent;
+      final rows = _referenceMenuRows(widget.references);
+      var itemTop = 4.0;
+      var found = false;
+      for (final row in rows) {
+        if (row.referenceIndex == widget.selectedIndex) {
+          found = true;
+          break;
+        }
+        itemTop += row.extent;
+      }
+      if (!found) return;
+      final itemBottom = itemTop + _referenceMenuItemExtent;
       final viewportTop = _scrollController.offset;
       final viewportBottom = viewportTop + position.viewportDimension;
       final target = itemTop < viewportTop
@@ -438,16 +537,25 @@ class _WorkflowReferenceMenuState extends State<_WorkflowReferenceMenu> {
           ? itemBottom - position.viewportDimension
           : null;
       if (target == null) return;
-      _scrollController.animateTo(
-        target.clamp(0, position.maxScrollExtent),
-        duration: kOpenHandMotion120,
-        curve: Curves.easeOutCubic,
-      );
+      final offset = target.clamp(0, position.maxScrollExtent).toDouble();
+      final duration = openHandMotionDuration(context, kOpenHandMotion120);
+      if (duration == Duration.zero) {
+        _scrollController.jumpTo(offset);
+      } else {
+        _scrollController.animateTo(
+          offset,
+          duration: duration,
+          curve: Curves.easeOutCubic,
+        );
+      }
     });
   }
 
   @override
   void dispose() {
+    _searchController
+      ..removeListener(_handleSearchChanged)
+      ..dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -456,6 +564,7 @@ class _WorkflowReferenceMenuState extends State<_WorkflowReferenceMenu> {
   Widget build(BuildContext context) {
     final layout = _resolveMenuLayout(context, widget.anchorKey);
     final theme = Theme.of(context);
+    final rows = _referenceMenuRows(widget.references);
     return Stack(
       children: [
         Positioned.fill(
@@ -485,128 +594,156 @@ class _WorkflowReferenceMenuState extends State<_WorkflowReferenceMenu> {
                     shadowColor: theme.colorScheme.shadow.withValues(
                       alpha: 0.22,
                     ),
-                    borderRadius: BorderRadius.circular(kOpenHandRadius14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(kOpenHandRadius14),
+                      side: BorderSide(
+                        color: theme.colorScheme.outlineVariant.withValues(
+                          alpha: 0.82,
+                        ),
+                      ),
+                    ),
                     clipBehavior: Clip.antiAlias,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.data_object_rounded,
-                                size: 17,
-                                color: theme.colorScheme.primary,
-                              ),
-                              kOpenHandHGap7,
-                              Expanded(
-                                child: Text(
-                                  '引用上游参数',
-                                  style: theme.textTheme.labelLarge?.copyWith(
-                                    fontWeight: FontWeight.w800,
+                          padding: const EdgeInsets.all(10),
+                          child: Focus(
+                            onKeyEvent: widget.onSearchKeyEvent,
+                            child: TextField(
+                              controller: _searchController,
+                              focusNode: widget.searchFocusNode,
+                              textInputAction: TextInputAction.search,
+                              style: theme.textTheme.bodyMedium,
+                              decoration: InputDecoration(
+                                hintText: '搜索参数、节点或类型',
+                                prefixIcon: const Icon(
+                                  Icons.search_rounded,
+                                  size: 19,
+                                ),
+                                suffixIcon: _searchController.text.isEmpty
+                                    ? null
+                                    : IconButton(
+                                        tooltip: '清空搜索',
+                                        onPressed: () {
+                                          _searchController.clear();
+                                          widget.searchFocusNode.requestFocus();
+                                        },
+                                        icon: const Icon(
+                                          Icons.cancel_rounded,
+                                          size: 17,
+                                        ),
+                                      ),
+                                isDense: true,
+                                filled: true,
+                                fillColor:
+                                    theme.colorScheme.surfaceContainerHighest,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 11,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    kOpenHandRadius12,
+                                  ),
+                                  borderSide: BorderSide(
+                                    color: theme.colorScheme.outlineVariant,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    kOpenHandRadius12,
+                                  ),
+                                  borderSide: BorderSide(
+                                    color: theme.colorScheme.outlineVariant,
                                   ),
                                 ),
                               ),
-                              Text(
-                                '↑↓ 选择  ↵ 确认',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
+                            ),
+                          ),
+                        ),
+                        Divider(
+                          height: 1,
+                          color: theme.colorScheme.outlineVariant.withValues(
+                            alpha: 0.7,
                           ),
                         ),
                         Flexible(
-                          child: ListView.builder(
-                            controller: _scrollController,
-                            padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
-                            shrinkWrap: true,
-                            itemExtent: _itemExtent,
-                            itemCount: widget.references.length,
-                            itemBuilder: (context, index) {
-                              final reference = widget.references[index];
-                              final selected = index == widget.selectedIndex;
-                              return Material(
-                                color: selected
-                                    ? theme.colorScheme.primaryContainer
-                                          .withValues(alpha: 0.48)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(
-                                  kOpenHandRadius10,
-                                ),
-                                child: InkWell(
-                                  onTap: () => widget.onSelected(reference),
-                                  borderRadius: BorderRadius.circular(
-                                    kOpenHandRadius10,
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 7,
-                                    ),
-                                    child: Row(
+                          child: rows.isEmpty
+                              ? SizedBox(
+                                  height: 96,
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Container(
-                                          width: 30,
-                                          height: 30,
-                                          decoration: BoxDecoration(
-                                            color: theme.colorScheme.primary
-                                                .withValues(alpha: 0.12),
-                                            borderRadius: BorderRadius.circular(
-                                              kOpenHandRadius8,
-                                            ),
-                                          ),
-                                          child: Icon(
-                                            Icons.code_rounded,
-                                            size: 16,
-                                            color: theme.colorScheme.primary,
-                                          ),
+                                        Icon(
+                                          Icons.search_off_rounded,
+                                          size: 24,
+                                          color: theme
+                                              .colorScheme
+                                              .onSurfaceVariant,
                                         ),
-                                        kOpenHandHGap9,
-                                        Expanded(
-                                          child: Column(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                reference.name,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: theme
-                                                    .textTheme
-                                                    .labelLarge
-                                                    ?.copyWith(
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
+                                        kOpenHandGap6,
+                                        Text(
+                                          '没有匹配的参数',
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: theme
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
                                               ),
-                                              Text(
-                                                '${reference.nodeTitle} · ${reference.field.type.label}',
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: theme
-                                                    .textTheme
-                                                    .labelSmall
-                                                    ?.copyWith(
-                                                      color: theme
-                                                          .colorScheme
-                                                          .onSurfaceVariant,
-                                                    ),
-                                              ),
-                                            ],
-                                          ),
                                         ),
                                       ],
                                     ),
                                   ),
+                                )
+                              : OpenHandSafeScrollbar(
+                                  controller: _scrollController,
+                                  thumbVisibility: true,
+                                  interactive: true,
+                                  thickness: 5,
+                                  radius: kOpenHandPillRadius,
+                                  notificationPredicate: (notification) =>
+                                      notification.metrics.axis ==
+                                      Axis.vertical,
+                                  child: ScrollConfiguration(
+                                    behavior: ScrollConfiguration.of(
+                                      context,
+                                    ).copyWith(scrollbars: false),
+                                    child: ListView.builder(
+                                      controller: _scrollController,
+                                      primary: false,
+                                      shrinkWrap: true,
+                                      padding: const EdgeInsets.fromLTRB(
+                                        6,
+                                        4,
+                                        6,
+                                        6,
+                                      ),
+                                      itemCount: rows.length,
+                                      itemBuilder: (context, index) {
+                                        final row = rows[index];
+                                        if (row.reference == null) {
+                                          return _WorkflowReferenceGroupHeader(
+                                            title: row.headerTitle!,
+                                          );
+                                        }
+                                        return _WorkflowReferenceMenuItem(
+                                          reference: row.reference!,
+                                          selected:
+                                              row.referenceIndex ==
+                                              widget.selectedIndex,
+                                          onTap: () =>
+                                              widget.onSelected(row.reference!),
+                                          onHover: () => widget.onHighlighted(
+                                            row.referenceIndex,
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
                                 ),
-                              );
-                            },
-                          ),
                         ),
                       ],
                     ),
@@ -617,6 +754,187 @@ class _WorkflowReferenceMenuState extends State<_WorkflowReferenceMenu> {
           ),
         ),
       ],
+    );
+  }
+
+  bool _sameReferenceList(
+    List<WorkflowParameterReference> left,
+    List<WorkflowParameterReference> right,
+  ) {
+    if (left.length != right.length) return false;
+    for (var index = 0; index < left.length; index++) {
+      if (left[index].nodeId != right[index].nodeId ||
+          left[index].name != right[index].name) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
+class _WorkflowReferenceMenuRow {
+  const _WorkflowReferenceMenuRow.header(this.headerTitle)
+    : reference = null,
+      referenceIndex = -1,
+      extent = _referenceMenuHeaderExtent;
+
+  const _WorkflowReferenceMenuRow.item(this.reference, this.referenceIndex)
+    : headerTitle = null,
+      extent = _referenceMenuItemExtent;
+
+  final String? headerTitle;
+  final WorkflowParameterReference? reference;
+  final int referenceIndex;
+  final double extent;
+}
+
+List<_WorkflowReferenceMenuRow> _referenceMenuRows(
+  List<WorkflowParameterReference> references,
+) {
+  final grouped =
+      <String, List<({int index, WorkflowParameterReference ref})>>{};
+  final titles = <String, String>{};
+  for (final (index, reference) in references.indexed) {
+    titles.putIfAbsent(reference.nodeId, () => reference.nodeTitle);
+    (grouped[reference.nodeId] ??=
+            <({int index, WorkflowParameterReference ref})>[])
+        .add((index: index, ref: reference));
+  }
+  return <_WorkflowReferenceMenuRow>[
+    for (final group in grouped.entries) ...[
+      _WorkflowReferenceMenuRow.header(titles[group.key] ?? '未命名节点'),
+      for (final item in group.value)
+        _WorkflowReferenceMenuRow.item(item.ref, item.index),
+    ],
+  ];
+}
+
+class _WorkflowReferenceGroupHeader extends StatelessWidget {
+  const _WorkflowReferenceGroupHeader({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      height: _referenceMenuHeaderExtent,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 9, 10, 4),
+        child: Text(
+          title.toUpperCase(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.45,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkflowReferenceMenuItem extends StatelessWidget {
+  const _WorkflowReferenceMenuItem({
+    required this.reference,
+    required this.selected,
+    required this.onTap,
+    required this.onHover,
+  });
+
+  final WorkflowParameterReference reference;
+  final bool selected;
+  final VoidCallback onTap;
+  final VoidCallback onHover;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final description = reference.field.description.trim();
+    return SizedBox(
+      height: _referenceMenuItemExtent,
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label:
+            '${reference.nodeTitle}，${reference.name}，${reference.field.type.label}',
+        child: AnimatedContainer(
+          duration: openHandMotionDuration(context, kOpenHandMotion160),
+          curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(
+            color: selected
+                ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(kOpenHandRadius9),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              onHover: (hovering) {
+                if (hovering) onHover();
+              },
+              borderRadius: BorderRadius.circular(kOpenHandRadius9),
+              child: Tooltip(
+                message: description.isEmpty
+                    ? '${reference.nodeTitle} · ${reference.name}'
+                    : '${reference.nodeTitle} · ${reference.name}\n$description',
+                waitDuration: const Duration(milliseconds: 650),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 9),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 25,
+                        height: 25,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withValues(
+                            alpha: 0.1,
+                          ),
+                          borderRadius: BorderRadius.circular(kOpenHandRadius7),
+                          border: Border.all(
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.18,
+                            ),
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.data_object_rounded,
+                          size: 15,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                      kOpenHandHGap8,
+                      Expanded(
+                        child: Text(
+                          reference.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      kOpenHandHGap10,
+                      Text(
+                        reference.field.type.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -641,21 +959,21 @@ _resolveMenuLayout(BuildContext context, GlobalKey anchorKey) {
       targetAnchor: Alignment.bottomLeft,
       followerAnchor: Alignment.topLeft,
       offset: const Offset(0, _referenceMenuGap),
-      width: 320,
-      maxHeight: 280,
+      width: 360,
+      maxHeight: 380,
     );
   }
   final origin = anchor.localToGlobal(Offset.zero, ancestor: overlay);
   final overlaySize = overlay.size;
   final width = math
-      .max(anchor.size.width, 300)
-      .clamp(240.0, math.max(240.0, overlaySize.width - 24))
+      .max(anchor.size.width, 360)
+      .clamp(280.0, math.max(280.0, overlaySize.width - 24))
       .toDouble();
   final alignRight =
       origin.dx + width > overlaySize.width - _referenceMenuMargin;
   final below = overlaySize.height - origin.dy - anchor.size.height;
   final above = origin.dy;
-  final placeAbove = below < 220 && above > below;
+  final placeAbove = below < 280 && above > below;
   final available =
       (placeAbove ? above : below) - _referenceMenuGap - _referenceMenuMargin;
   return (
@@ -667,6 +985,6 @@ _resolveMenuLayout(BuildContext context, GlobalKey anchorKey) {
         : (alignRight ? Alignment.topRight : Alignment.topLeft),
     offset: Offset(0, placeAbove ? -_referenceMenuGap : _referenceMenuGap),
     width: width,
-    maxHeight: available.clamp(120.0, 300.0),
+    maxHeight: available.clamp(160.0, 420.0),
   );
 }
