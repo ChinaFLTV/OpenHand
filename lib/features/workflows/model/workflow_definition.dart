@@ -54,6 +54,12 @@ enum WorkflowHttpBodyFormat {
 
   final String storageValue;
 
+  bool get usesFields => switch (this) {
+    WorkflowHttpBodyFormat.formUrlEncoded ||
+    WorkflowHttpBodyFormat.formData => true,
+    _ => false,
+  };
+
   static WorkflowHttpBodyFormat fromStorage(Object? value) {
     final normalized = '${value ?? ''}'.trim();
     return values.firstWhere(
@@ -243,13 +249,15 @@ class WorkflowNode {
     if (id.isEmpty || x == null || y == null) {
       throw const FormatException('工作流节点数据不完整。');
     }
+    final settings = _stringMap(json['settings']);
+    _clearInactiveWorkflowNodeSettings(kind, settings);
     return WorkflowNode(
       id: id,
       kind: kind,
       title: '${json['title'] ?? ''}'.trim(),
       x: x,
       y: y,
-      settings: Map<String, Object?>.unmodifiable(_stringMap(json['settings'])),
+      settings: Map<String, Object?>.unmodifiable(settings),
     );
   }
 
@@ -274,10 +282,6 @@ class WorkflowNode {
       y: y ?? this.y,
       settings: settings ?? this.settings,
     );
-  }
-
-  WorkflowNode withSetting(String key, Object? value) {
-    return copyWith(settings: <String, Object?>{...settings, key: value});
   }
 
   String stringSetting(String key, [String fallback = '']) {
@@ -331,6 +335,39 @@ class WorkflowNode {
     'y': y,
     'settings': settings,
   };
+}
+
+void _clearInactiveWorkflowNodeSettings(
+  WorkflowNodeKind kind,
+  Map<String, Object?> settings,
+) {
+  if (const <WorkflowNodeKind>{
+        WorkflowNodeKind.llm,
+        WorkflowNodeKind.httpRequest,
+      }.contains(kind) &&
+      settings[WorkflowSettingKeys.structuredOutput] != true) {
+    settings[WorkflowSettingKeys.outputFields] = <Object?>[];
+  }
+  if (kind != WorkflowNodeKind.httpRequest) return;
+  final method = '${settings[WorkflowSettingKeys.method] ?? 'GET'}'
+      .trim()
+      .toUpperCase();
+  if (const <String>{'GET', 'HEAD'}.contains(method)) {
+    settings[WorkflowSettingKeys.bodyFormat] =
+        WorkflowHttpBodyFormat.none.storageValue;
+    settings[WorkflowSettingKeys.body] = '';
+    settings[WorkflowSettingKeys.bodyEntries] = <Object?>[];
+    return;
+  }
+  final format = WorkflowHttpBodyFormat.fromStorage(
+    settings[WorkflowSettingKeys.bodyFormat],
+  );
+  if (format == WorkflowHttpBodyFormat.none || format.usesFields) {
+    settings[WorkflowSettingKeys.body] = '';
+  }
+  if (!format.usesFields) {
+    settings[WorkflowSettingKeys.bodyEntries] = <Object?>[];
+  }
 }
 
 @immutable

@@ -777,10 +777,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         final bodyFormat = WorkflowHttpBodyFormat.fromStorage(
           node.stringSetting(WorkflowSettingKeys.bodyFormat),
         );
-        if (const <WorkflowHttpBodyFormat>{
-          WorkflowHttpBodyFormat.formData,
-          WorkflowHttpBodyFormat.formUrlEncoded,
-        }.contains(bodyFormat)) {
+        if (bodyFormat.usesFields) {
           final bodyError = validateWorkflowKeyValueEntries(
             node.keyValueSetting(WorkflowSettingKeys.bodyEntries),
             label: '请求体字段',

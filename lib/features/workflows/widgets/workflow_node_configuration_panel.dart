@@ -18,6 +18,7 @@ import '../../skills/index.dart' show LocalSkill;
 import '../model/workflow_definition.dart';
 
 const double _formControlHeight = 52;
+const Set<String> _httpMethodsWithoutBody = <String>{'GET', 'HEAD'};
 
 class WorkflowEditorCatalog {
   const WorkflowEditorCatalog({
@@ -402,22 +403,20 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
         .where((item) => item.id == selection.$1)
         .firstOrNull
         ?.copyWith(modelId: selection.$2);
-    onChanged(
-      node.copyWith(
-        settings: <String, Object?>{
-          ...node.settings,
-          WorkflowSettingKeys.modelConfigId: selection.$1,
-          WorkflowSettingKeys.modelId: selection.$2,
-          WorkflowSettingKeys.reasoningEffort:
-              selectedModel?.resolvedReasoningEffort ?? '',
-        },
-      ),
-    );
+    _setValues(<String, Object?>{
+      WorkflowSettingKeys.modelConfigId: selection.$1,
+      WorkflowSettingKeys.modelId: selection.$2,
+      WorkflowSettingKeys.reasoningEffort:
+          selectedModel?.resolvedReasoningEffort ?? '',
+    });
   }
 
   Widget _buildHttp(BuildContext context) {
-    final method = node.stringSetting(WorkflowSettingKeys.method, 'GET');
-    final bodyVisible = !const <String>{'GET', 'HEAD'}.contains(method);
+    final method = node
+        .stringSetting(WorkflowSettingKeys.method, 'GET')
+        .trim()
+        .toUpperCase();
+    final bodyVisible = !_httpMethodsWithoutBody.contains(method);
     final bodyFormat = WorkflowHttpBodyFormat.fromStorage(
       node.settings[WorkflowSettingKeys.bodyFormat],
     );
@@ -456,8 +455,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                                   ),
                                 )
                                 .toList(growable: false),
-                        onChanged: (value) =>
-                            _set(WorkflowSettingKeys.method, value ?? 'GET'),
+                        onChanged: (value) => _setHttpMethod(value ?? 'GET'),
                       ),
                     ),
                   ),
@@ -529,17 +527,12 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                                               ),
                                         )
                                         .toList(growable: false),
-                                    onChanged: (value) => _set(
-                                      WorkflowSettingKeys.bodyFormat,
-                                      (value ?? WorkflowHttpBodyFormat.none)
-                                          .storageValue,
+                                    onChanged: (value) => _setBodyFormat(
+                                      value ?? WorkflowHttpBodyFormat.none,
                                     ),
                                   ),
                             ),
-                            if (const <WorkflowHttpBodyFormat>{
-                              WorkflowHttpBodyFormat.formData,
-                              WorkflowHttpBodyFormat.formUrlEncoded,
-                            }.contains(bodyFormat)) ...[
+                            if (bodyFormat.usesFields) ...[
                               kOpenHandGap12,
                               _KeyValueEditor(
                                 title: '请求体字段',
@@ -746,13 +739,18 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
       icon: Icons.data_object_rounded,
       trailing: Switch(
         value: enabled,
-        onChanged: (value) => _set(WorkflowSettingKeys.structuredOutput, value),
+        onChanged: (value) => _setValues(<String, Object?>{
+          WorkflowSettingKeys.structuredOutput: value,
+          if (!value) WorkflowSettingKeys.outputFields: <Object?>[],
+        }),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            enabled ? '按参数定义生成并校验结构化结果；解析失败会使节点执行失败。' : '关闭时保留节点原始响应。',
+            enabled
+                ? '按参数定义生成并校验结构化结果；解析失败会使节点执行失败。'
+                : '关闭时返回原始响应，并清空已配置的输出参数。',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -793,8 +791,35 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     );
   }
 
+  void _setHttpMethod(String method) {
+    final clearBody = _httpMethodsWithoutBody.contains(method);
+    _setValues(<String, Object?>{
+      WorkflowSettingKeys.method: method,
+      if (clearBody)
+        WorkflowSettingKeys.bodyFormat:
+            WorkflowHttpBodyFormat.none.storageValue,
+      if (clearBody) WorkflowSettingKeys.body: '',
+      if (clearBody) WorkflowSettingKeys.bodyEntries: <Object?>[],
+    });
+  }
+
+  void _setBodyFormat(WorkflowHttpBodyFormat format) {
+    _setValues(<String, Object?>{
+      WorkflowSettingKeys.bodyFormat: format.storageValue,
+      if (format == WorkflowHttpBodyFormat.none || format.usesFields)
+        WorkflowSettingKeys.body: '',
+      if (!format.usesFields) WorkflowSettingKeys.bodyEntries: <Object?>[],
+    });
+  }
+
   void _set(String key, Object? value) =>
-      onChanged(node.withSetting(key, value));
+      _setValues(<String, Object?>{key: value});
+
+  void _setValues(Map<String, Object?> values) {
+    onChanged(
+      node.copyWith(settings: <String, Object?>{...node.settings, ...values}),
+    );
+  }
 
   void _setStringSet(String key, Set<String> value) {
     final sorted = value.toList()..sort();
