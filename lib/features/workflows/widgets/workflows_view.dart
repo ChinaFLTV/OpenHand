@@ -79,11 +79,6 @@ class WorkflowsView extends StatelessWidget {
                 tone: FeatureStateTone.neutral,
                 title: l10n.workflowsEmptyTitle,
                 body: l10n.workflowsEmptyBody,
-                action: FilledButton.icon(
-                  onPressed: () => _openEditor(context, controller),
-                  icon: const Icon(Icons.add_rounded),
-                  label: Text(l10n.workflowsNew),
-                ),
               ),
             )
           : LayoutBuilder(
