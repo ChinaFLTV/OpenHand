@@ -1780,7 +1780,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsPageAnimationSubtitle =>
-      'Übergänge des rechten Hauptinhalts konfigurieren, einschließlich Workspace, Einstellungen, MCP, Speicher, Hooks, Crons, Skills und Automatisierungen.';
+      'Übergänge des rechten Hauptinhalts konfigurieren, einschließlich Workspace, Einstellungen, MCP, Speicher, Hooks, Crons, Skills, Workflows und Automatisierungen.';
 
   @override
   String get settingsChipAnimationTitle => 'Chip-Animation';
@@ -10200,6 +10200,23 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get nativeAudioEffectWarm => 'Warm';
+
+  @override
+  String get workflowsTitle => 'Workflows';
+
+  @override
+  String get workflowsSubtitle =>
+      'Erstellen Sie wiederverwendbare Automatisierungen, die mehrere Aufgabenschritte koordinieren und der Reihe nach ausführen.';
+
+  @override
+  String get workflowsNew => 'Neuer Workflow';
+
+  @override
+  String get workflowsEmptyTitle => 'Noch keine Workflows';
+
+  @override
+  String get workflowsEmptyBody =>
+      'Klicken Sie oben auf „Neuer Workflow“, um zu beginnen.';
 
   @override
   String get hooksTitle => 'Hooks';

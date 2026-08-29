@@ -1739,7 +1739,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsPageAnimationSubtitle =>
-      'Workspace、設定、MCP、メモリ、Hooks、Crons、スキル、自動化など、右側メインコンテンツの切り替えを設定します。';
+      'Workspace、設定、MCP、メモリ、Hooks、Crons、スキル、ワークフロー、自動化など、右側メインコンテンツの切り替えを設定します。';
 
   @override
   String get settingsChipAnimationTitle => 'チップアニメーション';
@@ -9900,6 +9900,21 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get nativeAudioEffectWarm => 'ウォーム';
+
+  @override
+  String get workflowsTitle => 'ワークフロー';
+
+  @override
+  String get workflowsSubtitle => '複数のタスクステップを連携し、順番に実行する再利用可能な自動化フローを構築します。';
+
+  @override
+  String get workflowsNew => '新規ワークフロー';
+
+  @override
+  String get workflowsEmptyTitle => 'ワークフローはまだありません';
+
+  @override
+  String get workflowsEmptyBody => '右上の「新規ワークフロー」をクリックして作成を開始します。';
 
   @override
   String get hooksTitle => 'Hooks';

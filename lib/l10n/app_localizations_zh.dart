@@ -1720,7 +1720,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsPageAnimationSubtitle =>
-      '配置右侧主内容模块切换的进场动画、退场动画、时长和速率曲线，包括会话、设置、MCP、记忆、Hooks、Crons、技能、自动化等页面之间的切换。';
+      '配置右侧主内容模块切换的进场动画、退场动画、时长和速率曲线，包括会话、设置、MCP、记忆、Hooks、Crons、技能、工作流、自动化等页面之间的切换。';
 
   @override
   String get settingsChipAnimationTitle => '胶囊动画';
@@ -9787,6 +9787,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get nativeAudioEffectWarm => '暖声';
 
   @override
+  String get workflowsTitle => '工作流';
+
+  @override
+  String get workflowsSubtitle => '编排可复用的自动化流程，让多个任务步骤按顺序协同执行。';
+
+  @override
+  String get workflowsNew => '新建工作流';
+
+  @override
+  String get workflowsEmptyTitle => '暂无工作流';
+
+  @override
+  String get workflowsEmptyBody => '点击右上角「新建工作流」按钮开始创建。';
+
+  @override
   String get hooksTitle => 'Hooks';
 
   @override
@@ -12089,7 +12104,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsPageAnimationSubtitle =>
-      '設定右側主內容模組切換的進場動畫、退場動畫、時長和速率曲線，包括會話、設定、MCP、記憶、Hooks、Crons、技能、自動化等頁面之間的切換。';
+      '設定右側主內容模組切換的進場動畫、退場動畫、時長和速率曲線，包括會話、設定、MCP、記憶、Hooks、Crons、技能、工作流程、自動化等頁面之間的切換。';
 
   @override
   String get settingsChipAnimationTitle => '膠囊動畫';
@@ -20151,6 +20166,21 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get nativeAudioEffectWarm => '暖聲';
+
+  @override
+  String get workflowsTitle => '工作流程';
+
+  @override
+  String get workflowsSubtitle => '編排可重複使用的自動化流程，讓多個任務步驟依序協同執行。';
+
+  @override
+  String get workflowsNew => '新增工作流程';
+
+  @override
+  String get workflowsEmptyTitle => '暫無工作流程';
+
+  @override
+  String get workflowsEmptyBody => '點擊右上角「新增工作流程」按鈕開始建立。';
 
   @override
   String get hooksTitle => 'Hooks';

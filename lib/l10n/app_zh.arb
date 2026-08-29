@@ -1160,7 +1160,7 @@
   "settingsPanelAnimationTitle": "工作区面板动画",
   "settingsPanelAnimationSubtitle": "配置工作区左右面板切换的进场动画、退场动画、时长和速率曲线，例如左侧导航与文件浏览器切换、右侧会话与代码编辑器切换。Settings、MCP、记忆等右侧模块页面切换由“页面动画”控制。",
   "settingsPageAnimationTitle": "页面 / 模块动画",
-  "settingsPageAnimationSubtitle": "配置右侧主内容模块切换的进场动画、退场动画、时长和速率曲线，包括会话、设置、MCP、记忆、Hooks、Crons、技能、自动化等页面之间的切换。",
+  "settingsPageAnimationSubtitle": "配置右侧主内容模块切换的进场动画、退场动画、时长和速率曲线，包括会话、设置、MCP、记忆、Hooks、Crons、技能、工作流、自动化等页面之间的切换。",
   "settingsChipAnimationTitle": "胶囊动画",
   "settingsChipAnimationSubtitle": "配置技能、附件、项目引用、队列消息、编辑提示等所有可关闭胶囊（chip）的进场 / 退场动画样式、时长和速率曲线。点击叉号关闭时会先播放退场动效再从布局中移除。",
   "settingsListItemAnimationTitle": "列表项动画",
@@ -7739,6 +7739,26 @@
   "nativeAudioEffectWarm": "暖声",
   "@nativeAudioEffectWarm": {
     "description": "OpenHand localized UI text."
+  },
+  "workflowsTitle": "工作流",
+  "@workflowsTitle": {
+    "description": "工作流板块的本地化界面文案。"
+  },
+  "workflowsSubtitle": "编排可复用的自动化流程，让多个任务步骤按顺序协同执行。",
+  "@workflowsSubtitle": {
+    "description": "工作流板块的本地化界面文案。"
+  },
+  "workflowsNew": "新建工作流",
+  "@workflowsNew": {
+    "description": "工作流板块的本地化界面文案。"
+  },
+  "workflowsEmptyTitle": "暂无工作流",
+  "@workflowsEmptyTitle": {
+    "description": "工作流板块的本地化界面文案。"
+  },
+  "workflowsEmptyBody": "点击右上角「新建工作流」按钮开始创建。",
+  "@workflowsEmptyBody": {
+    "description": "工作流板块的本地化界面文案。"
   },
   "hooksTitle": "Hooks",
   "@hooksTitle": {

@@ -3070,7 +3070,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsPageAnimationSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'配置右侧主内容模块切换的进场动画、退场动画、时长和速率曲线，包括会话、设置、MCP、记忆、Hooks、Crons、技能、自动化等页面之间的切换。'**
+  /// **'配置右侧主内容模块切换的进场动画、退场动画、时长和速率曲线，包括会话、设置、MCP、记忆、Hooks、Crons、技能、工作流、自动化等页面之间的切换。'**
   String get settingsPageAnimationSubtitle;
 
   /// No description provided for @settingsChipAnimationTitle.
@@ -17840,6 +17840,36 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'暖声'**
   String get nativeAudioEffectWarm;
+
+  /// 工作流板块的本地化界面文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'工作流'**
+  String get workflowsTitle;
+
+  /// 工作流板块的本地化界面文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'编排可复用的自动化流程，让多个任务步骤按顺序协同执行。'**
+  String get workflowsSubtitle;
+
+  /// 工作流板块的本地化界面文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'新建工作流'**
+  String get workflowsNew;
+
+  /// 工作流板块的本地化界面文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'暂无工作流'**
+  String get workflowsEmptyTitle;
+
+  /// 工作流板块的本地化界面文案。
+  ///
+  /// In zh, this message translates to:
+  /// **'点击右上角「新建工作流」按钮开始创建。'**
+  String get workflowsEmptyBody;
 
   /// OpenHand localized UI text.
   ///

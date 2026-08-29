@@ -647,6 +647,11 @@ const List<_NavigationDestinationSpec> _kSystemNavigationDestinations =
         selectedIcon: Icons.library_books_rounded,
       ),
       _NavigationDestinationSpec(
+        section: AppSection.workflows,
+        icon: Icons.account_tree_outlined,
+        selectedIcon: Icons.account_tree_rounded,
+      ),
+      _NavigationDestinationSpec(
         section: AppSection.services,
         icon: Icons.auto_awesome_mosaic_outlined,
         selectedIcon: Icons.auto_awesome_mosaic_rounded,
@@ -811,6 +816,7 @@ String _navigationDestinationLabel(BuildContext context, AppSection section) {
     AppSection.messageGateway => l10n.settingsMessageGatewayTitle,
     AppSection.pluginService => _homePluginsLabel(context),
     AppSection.knowledgeBase => openHandKnowledgeBaseLabel(context),
+    AppSection.workflows => l10n.workflowsTitle,
     AppSection.services => l10n.servicesTitle,
     AppSection.settings => l10n.settings,
     AppSection.workspace || AppSection.harnessSession => '',

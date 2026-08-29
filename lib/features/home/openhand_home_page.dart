@@ -160,6 +160,7 @@ import '../settings/index.dart';
 import '../skills/index.dart';
 import '../thread_template_runtime/index.dart';
 import '../web_reverse/index.dart';
+import '../workflows/index.dart';
 import 'model/session_cache_hit_trend.dart';
 import 'util/editor_indentation.dart';
 import 'util/message_path_linking.dart';
@@ -8302,6 +8303,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       ),
       AppSection.pluginService => _homePluginsLabel(context),
       AppSection.knowledgeBase => openHandKnowledgeBaseLabel(context),
+      AppSection.workflows => AppLocalizations.of(context)!.workflowsTitle,
       AppSection.services => AppLocalizations.of(context)!.servicesTitle,
       AppSection.settings => openHandLocalizedText(
         context,
@@ -10084,6 +10086,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       AppSection.knowledgeBase => KnowledgeBaseView(
         onOpenPlugins: () => _selectSection(AppSection.pluginService),
       ),
+      AppSection.workflows => const WorkflowsView(),
       AppSection.services => const ServicesView(),
       AppSection.settings => Provider<ToolSearchReplayDispatcher>.value(
         value: _toolSearchReplayDispatcher,

@@ -1155,7 +1155,7 @@
   "settingsPanelAnimationTitle": "Arbeitsbereichspanel-Animation",
   "settingsPanelAnimationSubtitle": "Übergänge der Arbeitsbereichspanels konfigurieren, etwa Navigation/Dateien links und Unterhaltung/Editor rechts. Rechte Module nutzen die Seitenanimation.",
   "settingsPageAnimationTitle": "Seiten-/Modulanimation",
-  "settingsPageAnimationSubtitle": "Übergänge des rechten Hauptinhalts konfigurieren, einschließlich Workspace, Einstellungen, MCP, Speicher, Hooks, Crons, Skills und Automatisierungen.",
+  "settingsPageAnimationSubtitle": "Übergänge des rechten Hauptinhalts konfigurieren, einschließlich Workspace, Einstellungen, MCP, Speicher, Hooks, Crons, Skills, Workflows und Automatisierungen.",
   "settingsChipAnimationTitle": "Chip-Animation",
   "settingsChipAnimationSubtitle": "Eingangs-/Ausgangsanimationen für entfernbare Chips konfigurieren: ausgewählte Skills, Anhänge, Projektreferenzen, Warteschlangen-Nachrichten, Bearbeitungspille usw.",
   "settingsListItemAnimationTitle": "Listenelement-Animation",
@@ -7667,6 +7667,26 @@
   "nativeAudioEffectWarm": "Warm",
   "@nativeAudioEffectWarm": {
     "description": "OpenHand localized UI text."
+  },
+  "workflowsTitle": "Workflows",
+  "@workflowsTitle": {
+    "description": "工作流板块的本地化界面文案。"
+  },
+  "workflowsSubtitle": "Erstellen Sie wiederverwendbare Automatisierungen, die mehrere Aufgabenschritte koordinieren und der Reihe nach ausführen.",
+  "@workflowsSubtitle": {
+    "description": "工作流板块的本地化界面文案。"
+  },
+  "workflowsNew": "Neuer Workflow",
+  "@workflowsNew": {
+    "description": "工作流板块的本地化界面文案。"
+  },
+  "workflowsEmptyTitle": "Noch keine Workflows",
+  "@workflowsEmptyTitle": {
+    "description": "工作流板块的本地化界面文案。"
+  },
+  "workflowsEmptyBody": "Klicken Sie oben auf „Neuer Workflow“, um zu beginnen.",
+  "@workflowsEmptyBody": {
+    "description": "工作流板块的本地化界面文案。"
   },
   "hooksTitle": "Hooks",
   "@hooksTitle": {

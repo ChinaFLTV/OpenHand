@@ -1155,7 +1155,7 @@
   "settingsPanelAnimationTitle": "ワークスペースパネルアニメーション",
   "settingsPanelAnimationSubtitle": "左側のナビ/ファイル、右側の会話/エディタなど、ワークスペースパネルの切り替えを設定します。右側モジュールはページアニメーションで制御します。",
   "settingsPageAnimationTitle": "ページ / モジュールアニメーション",
-  "settingsPageAnimationSubtitle": "Workspace、設定、MCP、メモリ、Hooks、Crons、スキル、自動化など、右側メインコンテンツの切り替えを設定します。",
+  "settingsPageAnimationSubtitle": "Workspace、設定、MCP、メモリ、Hooks、Crons、スキル、ワークフロー、自動化など、右側メインコンテンツの切り替えを設定します。",
   "settingsChipAnimationTitle": "チップアニメーション",
   "settingsChipAnimationSubtitle": "選択スキル、添付、プロジェクト参照、キュー内メッセージ、編集ピルなど、閉じられるチップの入場/退場アニメーションを設定します。",
   "settingsListItemAnimationTitle": "リスト項目アニメーション",
@@ -7667,6 +7667,26 @@
   "nativeAudioEffectWarm": "ウォーム",
   "@nativeAudioEffectWarm": {
     "description": "OpenHand localized UI text."
+  },
+  "workflowsTitle": "ワークフロー",
+  "@workflowsTitle": {
+    "description": "工作流板块的本地化界面文案。"
+  },
+  "workflowsSubtitle": "複数のタスクステップを連携し、順番に実行する再利用可能な自動化フローを構築します。",
+  "@workflowsSubtitle": {
+    "description": "工作流板块的本地化界面文案。"
+  },
+  "workflowsNew": "新規ワークフロー",
+  "@workflowsNew": {
+    "description": "工作流板块的本地化界面文案。"
+  },
+  "workflowsEmptyTitle": "ワークフローはまだありません",
+  "@workflowsEmptyTitle": {
+    "description": "工作流板块的本地化界面文案。"
+  },
+  "workflowsEmptyBody": "右上の「新規ワークフロー」をクリックして作成を開始します。",
+  "@workflowsEmptyBody": {
+    "description": "工作流板块的本地化界面文案。"
   },
   "hooksTitle": "Hooks",
   "@hooksTitle": {

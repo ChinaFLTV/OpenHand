@@ -1155,7 +1155,7 @@
   "settingsPanelAnimationTitle": "Animation des panneaux",
   "settingsPanelAnimationSubtitle": "Configure les transitions des panneaux de l’espace de travail, comme navigation/fichiers à gauche et conversation/éditeur à droite. Les modules de droite utilisent l’animation de page.",
   "settingsPageAnimationTitle": "Animation page / module",
-  "settingsPageAnimationSubtitle": "Configure les transitions du contenu principal à droite, notamment Workspace, Paramètres, MCP, Mémoire, Hooks, Crons, Compétences et Automatisations.",
+  "settingsPageAnimationSubtitle": "Configure les transitions du contenu principal à droite, notamment Workspace, Paramètres, MCP, Mémoire, Hooks, Crons, Compétences, Flux de travail et Automatisations.",
   "settingsChipAnimationTitle": "Animation des chips",
   "settingsChipAnimationSubtitle": "Configure les animations d’entrée/sortie des chips amovibles : compétence sélectionnée, pièces jointes, références projet, messages en file, indicateur d’édition, etc.",
   "settingsListItemAnimationTitle": "Animation des listes",
@@ -7667,6 +7667,26 @@
   "nativeAudioEffectWarm": "Chaud",
   "@nativeAudioEffectWarm": {
     "description": "OpenHand localized UI text."
+  },
+  "workflowsTitle": "Flux de travail",
+  "@workflowsTitle": {
+    "description": "工作流板块的本地化界面文案。"
+  },
+  "workflowsSubtitle": "Créez des automatisations réutilisables qui coordonnent plusieurs étapes et les exécutent dans l’ordre.",
+  "@workflowsSubtitle": {
+    "description": "工作流板块的本地化界面文案。"
+  },
+  "workflowsNew": "Nouveau flux de travail",
+  "@workflowsNew": {
+    "description": "工作流板块的本地化界面文案。"
+  },
+  "workflowsEmptyTitle": "Aucun flux de travail",
+  "@workflowsEmptyTitle": {
+    "description": "工作流板块的本地化界面文案。"
+  },
+  "workflowsEmptyBody": "Cliquez sur « Nouveau flux de travail » ci-dessus pour commencer.",
+  "@workflowsEmptyBody": {
+    "description": "工作流板块的本地化界面文案。"
   },
   "hooksTitle": "Hooks",
   "@hooksTitle": {

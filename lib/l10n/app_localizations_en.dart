@@ -1769,7 +1769,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsPageAnimationSubtitle =>
-      'Configure entrance/exit animation style, duration, and easing curve for right-side main content module switches, including Workspace, Settings, MCP, Memory, Hooks, Crons, Skills, and Automations.';
+      'Configure entrance/exit animation style, duration, and easing curve for right-side main content module switches, including Workspace, Settings, MCP, Memory, Hooks, Crons, Skills, Workflows, and Automations.';
 
   @override
   String get settingsChipAnimationTitle => 'Chip Animation';
@@ -10107,6 +10107,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nativeAudioEffectWarm => 'Warm';
+
+  @override
+  String get workflowsTitle => 'Workflows';
+
+  @override
+  String get workflowsSubtitle =>
+      'Build reusable automations that coordinate multiple task steps and run them in order.';
+
+  @override
+  String get workflowsNew => 'New Workflow';
+
+  @override
+  String get workflowsEmptyTitle => 'No workflows yet';
+
+  @override
+  String get workflowsEmptyBody =>
+      'Click \"New Workflow\" above to get started.';
 
   @override
   String get hooksTitle => 'Hooks';

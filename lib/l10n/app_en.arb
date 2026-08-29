@@ -1160,7 +1160,7 @@
   "settingsPanelAnimationTitle": "Workspace Panel Animation",
   "settingsPanelAnimationSubtitle": "Configure entrance/exit animation style, duration, and easing curve for workspace panel transitions, such as left navigation/file explorer and right conversation/code editor switches. Settings, MCP, Memory, and other right-side module page switches are controlled by Page Animation.",
   "settingsPageAnimationTitle": "Page / Module Animation",
-  "settingsPageAnimationSubtitle": "Configure entrance/exit animation style, duration, and easing curve for right-side main content module switches, including Workspace, Settings, MCP, Memory, Hooks, Crons, Skills, and Automations.",
+  "settingsPageAnimationSubtitle": "Configure entrance/exit animation style, duration, and easing curve for right-side main content module switches, including Workspace, Settings, MCP, Memory, Hooks, Crons, Skills, Workflows, and Automations.",
   "settingsChipAnimationTitle": "Chip Animation",
   "settingsChipAnimationSubtitle": "Configure entrance/exit animation style, duration, and easing curve for all removable chips (selected skill, attachments, project references, queued messages, editing pill, etc.). Tapping × plays the exit animation before the chip is removed from layout.",
   "settingsListItemAnimationTitle": "List Item Animation",
@@ -7672,6 +7672,26 @@
   "nativeAudioEffectWarm": "Warm",
   "@nativeAudioEffectWarm": {
     "description": "OpenHand localized UI text."
+  },
+  "workflowsTitle": "Workflows",
+  "@workflowsTitle": {
+    "description": "工作流板块的本地化界面文案。"
+  },
+  "workflowsSubtitle": "Build reusable automations that coordinate multiple task steps and run them in order.",
+  "@workflowsSubtitle": {
+    "description": "工作流板块的本地化界面文案。"
+  },
+  "workflowsNew": "New Workflow",
+  "@workflowsNew": {
+    "description": "工作流板块的本地化界面文案。"
+  },
+  "workflowsEmptyTitle": "No workflows yet",
+  "@workflowsEmptyTitle": {
+    "description": "工作流板块的本地化界面文案。"
+  },
+  "workflowsEmptyBody": "Click \"New Workflow\" above to get started.",
+  "@workflowsEmptyBody": {
+    "description": "工作流板块的本地化界面文案。"
   },
   "hooksTitle": "Hooks",
   "@hooksTitle": {

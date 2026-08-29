@@ -1786,7 +1786,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsPageAnimationSubtitle =>
-      'Configure les transitions du contenu principal à droite, notamment Workspace, Paramètres, MCP, Mémoire, Hooks, Crons, Compétences et Automatisations.';
+      'Configure les transitions du contenu principal à droite, notamment Workspace, Paramètres, MCP, Mémoire, Hooks, Crons, Compétences, Flux de travail et Automatisations.';
 
   @override
   String get settingsChipAnimationTitle => 'Animation des chips';
@@ -10237,6 +10237,23 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get nativeAudioEffectWarm => 'Chaud';
+
+  @override
+  String get workflowsTitle => 'Flux de travail';
+
+  @override
+  String get workflowsSubtitle =>
+      'Créez des automatisations réutilisables qui coordonnent plusieurs étapes et les exécutent dans l’ordre.';
+
+  @override
+  String get workflowsNew => 'Nouveau flux de travail';
+
+  @override
+  String get workflowsEmptyTitle => 'Aucun flux de travail';
+
+  @override
+  String get workflowsEmptyBody =>
+      'Cliquez sur « Nouveau flux de travail » ci-dessus pour commencer.';
 
   @override
   String get hooksTitle => 'Hooks';

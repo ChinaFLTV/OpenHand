@@ -11,6 +11,7 @@ enum AppSection {
   messageGateway,
   pluginService,
   knowledgeBase,
+  workflows,
   services,
   settings,
   harnessSession,
