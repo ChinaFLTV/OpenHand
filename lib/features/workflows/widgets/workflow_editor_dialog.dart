@@ -29,6 +29,7 @@ const double _nodeWidth = 246;
 const double _nodeHeight = 130;
 const double _paletteWidth = 92;
 const double _configurationWidth = 440;
+const double _headerActionSize = 44;
 
 Future<WorkflowDefinition?> showWorkflowEditorDialog(
   BuildContext context, {
@@ -43,6 +44,7 @@ Future<WorkflowDefinition?> showWorkflowEditorDialog(
   final mcp = context.read<McpController>();
   final catalog = WorkflowEditorCatalog(
     models: settings.aiModels,
+    recentModelSelections: settings.recentModelSelections,
     templates: sessions.availableTemplates,
     skills: skills.skills,
     memories: memories.entries,
@@ -100,9 +102,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   late final WorkflowNodeExecutor _executor = WorkflowNodeExecutor();
   late final TransformationController _transformationController =
       TransformationController();
-  late final TextEditingController _nameController = TextEditingController(
-    text: widget.workflow?.name ?? '',
-  );
+  late String _workflowName = widget.workflow?.name ?? '';
   late final String _workflowId = widget.workflow?.id ?? _uuid.v4();
   late final DateTime _createdAt =
       widget.workflow?.createdAt ?? DateTime.now().toUtc();
@@ -131,7 +131,6 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   void dispose() {
     _executor.dispose();
     _transformationController.dispose();
-    _nameController.dispose();
     super.dispose();
   }
 
@@ -200,88 +199,54 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
 
   Widget _buildHeader(BuildContext context) {
     final theme = Theme.of(context);
-    return LayoutBuilder(
-      builder: (context, constraints) => Padding(
-        padding: const EdgeInsets.fromLTRB(18, 12, 12, 12),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: <Color>[
-                    theme.colorScheme.primary,
-                    theme.colorScheme.tertiary,
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(kOpenHandRadius12),
-              ),
-              child: Icon(
-                Icons.account_tree_rounded,
-                color: theme.colorScheme.onPrimary,
-                size: 22,
+    final actionStyle = IconButton.styleFrom(
+      fixedSize: const Size.square(_headerActionSize),
+      padding: EdgeInsets.zero,
+      shape: const CircleBorder(),
+      shadowColor: Colors.transparent,
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 12, 12, 12),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(kOpenHandRadius12),
+            ),
+            child: Icon(
+              Icons.account_tree_rounded,
+              color: theme.colorScheme.onPrimaryContainer,
+              size: 22,
+            ),
+          ),
+          kOpenHandHGap12,
+          Expanded(
+            child: Text(
+              '新建工作流',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
               ),
             ),
-            kOpenHandHGap12,
-            Expanded(
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 280),
-                  child: TextField(
-                    controller: _nameController,
-                    maxLength: 80,
-                    buildCounter: openHandHiddenTextFieldCounter,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                    decoration: const InputDecoration(
-                      hintText: '未命名工作流',
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(vertical: 8),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            if (constraints.maxWidth >= 900) ...[
-              kOpenHandHGap12,
-              _StatusPill(
-                icon: Icons.cloud_done_outlined,
-                label: widget.workflow == null ? '新建草稿' : '编辑草稿',
-              ),
-            ],
-            if (constraints.maxWidth >= 720) ...[
-              kOpenHandHGap10,
-              OutlinedButton.icon(
-                onPressed: _testing || _selectedNode == null
-                    ? null
-                    : _testSelectedNode,
-                icon: _testing
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.play_arrow_rounded),
-                label: const Text('测试节点'),
-              ),
-            ],
-            kOpenHandHGap10,
-            OpenHandDialogActionButton.primary(
-              onPressed: _save,
-              label: '保存工作流',
-              icon: Icons.save_rounded,
-            ),
-            kOpenHandHGap8,
-            IconButton(
-              tooltip: '关闭',
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.close_rounded),
-            ),
-          ],
-        ),
+          ),
+          IconButton.filledTonal(
+            tooltip: '保存工作流',
+            onPressed: _save,
+            style: actionStyle,
+            icon: const Icon(Icons.save_rounded),
+          ),
+          kOpenHandHGap8,
+          IconButton.filledTonal(
+            tooltip: '关闭',
+            onPressed: () => Navigator.of(context).pop(),
+            style: actionStyle,
+            icon: const Icon(Icons.close_rounded),
+          ),
+        ],
       ),
     );
   }
@@ -358,12 +323,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             scale: _transformationController.value.getMaxScaleOnAxis(),
             canConnect: _selectedNode != null,
             connecting: _connectionSourceId != null,
-            canDelete: _selectedNode != null,
             onZoomIn: () => _changeZoom(0.15),
             onZoomOut: () => _changeZoom(-0.15),
             onReset: _resetViewport,
             onConnect: _startConnection,
-            onDelete: _deleteSelectedNode,
           ),
         ),
       ],
@@ -558,6 +521,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       WorkflowNodeKind.llm => <String, Object?>{
         WorkflowSettingKeys.modelConfigId:
             widget.catalog.models.firstOrNull?.id ?? '',
+        WorkflowSettingKeys.modelId:
+            widget.catalog.models.firstOrNull?.modelId ?? '',
+        WorkflowSettingKeys.reasoningEffort:
+            widget.catalog.models.firstOrNull?.resolvedReasoningEffort ?? '',
         WorkflowSettingKeys.templateId:
             widget.catalog.templates
                 .where((item) => item.id == 'default')
@@ -723,9 +690,15 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     }
   }
 
-  void _save() {
-    final name = _nameController.text.trim();
-    final error = _validate(name);
+  Future<void> _save() async {
+    final name = await showAnimatedDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _WorkflowNameDialog(initialName: _workflowName),
+    );
+    if (name == null || !mounted) return;
+    _workflowName = name;
+    final error = _validateNodes();
     if (error != null) {
       showOpenHandInfoSnack(context, error);
       return;
@@ -742,17 +715,42 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     );
   }
 
-  String? _validate(String name) {
-    if (name.isEmpty) return '请输入工作流名称。';
+  String? _validateNodes() {
     if (_nodes.isEmpty) return '请至少添加一个节点。';
     for (final node in _nodes) {
       if (node.title.trim().isEmpty) return '节点名称不能为空。';
       if (node.kind == WorkflowNodeKind.llm) {
-        if (node
+        final modelConfigId = node
             .stringSetting(WorkflowSettingKeys.modelConfigId)
-            .trim()
-            .isEmpty) {
+            .trim();
+        final provider = widget.catalog.models
+            .where((item) => item.id == modelConfigId)
+            .firstOrNull;
+        if (provider == null) {
           return '请为 LLM 节点选择模型。';
+        }
+        final storedModelId = node
+            .stringSetting(WorkflowSettingKeys.modelId)
+            .trim();
+        final modelId = storedModelId.isEmpty
+            ? provider.modelId
+            : storedModelId;
+        if (modelId.isEmpty || !provider.allModelIds.contains(modelId)) {
+          return 'LLM 节点所选模型已不可用，请重新选择。';
+        }
+        final reasoningEffort = node
+            .stringSetting(WorkflowSettingKeys.reasoningEffort)
+            .trim();
+        if (reasoningEffort.isNotEmpty) {
+          final model = provider.copyWith(modelId: modelId);
+          final supported =
+              model.resolvedReasoningEffortControlEnabled &&
+              model.resolvedReasoningEffortOptions.any(
+                (option) =>
+                    option.isSelectable &&
+                    option.value.toLowerCase() == reasoningEffort.toLowerCase(),
+              );
+          if (!supported) return 'LLM 节点的推理强度已不可用，请重新选择。';
         }
         if (node.stringSetting(WorkflowSettingKeys.prompt).trim().isEmpty) {
           return '请填写 LLM 节点提示词。';
@@ -949,23 +947,19 @@ class _CanvasToolbar extends StatelessWidget {
     required this.scale,
     required this.canConnect,
     required this.connecting,
-    required this.canDelete,
     required this.onZoomIn,
     required this.onZoomOut,
     required this.onReset,
     required this.onConnect,
-    required this.onDelete,
   });
 
   final double scale;
   final bool canConnect;
   final bool connecting;
-  final bool canDelete;
   final VoidCallback onZoomIn;
   final VoidCallback onZoomOut;
   final VoidCallback onReset;
   final VoidCallback onConnect;
-  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -1017,10 +1011,145 @@ class _CanvasToolbar extends StatelessWidget {
               selected: connecting,
               onPressed: canConnect ? onConnect : null,
             ),
-            _ToolbarButton(
-              tooltip: '删除所选节点',
-              icon: Icons.delete_outline_rounded,
-              onPressed: canDelete ? onDelete : null,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkflowNameDialog extends StatefulWidget {
+  const _WorkflowNameDialog({required this.initialName});
+
+  final String initialName;
+
+  @override
+  State<_WorkflowNameDialog> createState() => _WorkflowNameDialogState();
+}
+
+class _WorkflowNameDialogState extends State<_WorkflowNameDialog> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialName,
+  );
+  final FocusNode _focusNode = FocusNode();
+
+  bool get _canSave => _controller.text.trim().isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_handleChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _focusNode.requestFocus();
+        _controller.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: _controller.text.length,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller
+      ..removeListener(_handleChanged)
+      ..dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _handleChanged() => setState(() {});
+
+  void _confirm() {
+    final name = _controller.text.trim();
+    if (name.isNotEmpty) Navigator.of(context).pop(name);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return buildOpenHandDialog(
+      maxWidth: 500,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(kOpenHandRadius12),
+                  ),
+                  child: Icon(
+                    Icons.edit_note_rounded,
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
+                ),
+                kOpenHandHGap12,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '为工作流命名',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      kOpenHandGap2,
+                      Text(
+                        '输入一个清晰、便于识别的名称。',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            kOpenHandGap20,
+            TextField(
+              controller: _controller,
+              focusNode: _focusNode,
+              maxLength: 80,
+              buildCounter: openHandHiddenTextFieldCounter,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                if (_canSave) _confirm();
+              },
+              decoration: InputDecoration(
+                labelText: '工作流名称',
+                hintText: '例如：内容审核与发布',
+                prefixIcon: const Icon(Icons.account_tree_outlined),
+                filled: true,
+                fillColor: theme.colorScheme.surfaceContainerLow,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(kOpenHandRadius14),
+                ),
+              ),
+            ),
+            kOpenHandGap18,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  label: '取消',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                kOpenHandHGap12,
+                OpenHandDialogActionButton.primary(
+                  label: '确认保存',
+                  onPressed: _canSave ? _confirm : null,
+                  icon: Icons.save_rounded,
+                ),
+              ],
             ),
           ],
         ),

@@ -13,6 +13,7 @@ import '../../ai/index.dart'
         AiChatService,
         AiChatTurn,
         AiModelConfig,
+        AiModelProfile,
         AiPromptTemplateRepository,
         AiToolDefinition;
 import '../../instructions/index.dart' show UserInstructionEntry;
@@ -130,14 +131,44 @@ class WorkflowNodeExecutor {
     WorkflowExecutionResources resources,
     Map<String, Object?> variables,
   ) async {
-    final modelId = node
+    final modelConfigId = node
         .stringSetting(WorkflowSettingKeys.modelConfigId)
         .trim();
-    final model = resources.models
-        .where((item) => item.id == modelId)
+    final provider = resources.models
+        .where((item) => item.id == modelConfigId)
         .firstOrNull;
-    if (model == null) {
+    if (provider == null) {
       throw const WorkflowNodeExecutionException('请选择可用模型。');
+    }
+    final storedModelId = node
+        .stringSetting(WorkflowSettingKeys.modelId)
+        .trim();
+    final modelId = storedModelId.isEmpty ? provider.modelId : storedModelId;
+    if (modelId.isEmpty || !provider.allModelIds.contains(modelId)) {
+      throw const WorkflowNodeExecutionException('所选模型已不可用，请重新选择。');
+    }
+    var model = provider.copyWith(modelId: modelId);
+    final reasoningEffort = node
+        .stringSetting(WorkflowSettingKeys.reasoningEffort)
+        .trim();
+    if (reasoningEffort.isNotEmpty) {
+      final supported =
+          model.resolvedReasoningEffortControlEnabled &&
+          model.resolvedReasoningEffortOptions.any(
+            (option) =>
+                option.isSelectable &&
+                option.value.toLowerCase() == reasoningEffort.toLowerCase(),
+          );
+      if (!supported) {
+        throw const WorkflowNodeExecutionException('所选模型不支持当前推理强度。');
+      }
+      final profiles = Map<String, AiModelProfile>.from(model.modelProfiles);
+      profiles[modelId] = (profiles[modelId] ?? const AiModelProfile())
+          .copyWith(
+            reasoningEffortControlEnabled: true,
+            reasoningEffort: reasoningEffort,
+          );
+      model = model.copyWith(modelProfiles: profiles);
     }
     final prompt = renderWorkflowTemplate(
       node.stringSetting(WorkflowSettingKeys.prompt),

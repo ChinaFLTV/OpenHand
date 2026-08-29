@@ -68,6 +68,8 @@ abstract final class WorkflowSettingKeys {
   static const String maxIterations = 'max_iterations';
   static const String iterationInput = 'iteration_input';
   static const String modelConfigId = 'model_config_id';
+  static const String modelId = 'model_id';
+  static const String reasoningEffort = 'reasoning_effort';
   static const String templateId = 'template_id';
   static const String prompt = 'prompt';
   static const String multimodalCapabilities = 'multimodal_capabilities';

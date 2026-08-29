@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/model/app_settings_snapshot.dart'
+    show RecentModelSelection;
+import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
+import '../../../shared/ui/openhand_model_selector_field.dart';
 import '../../../shared/ui/openhand_spacing.dart';
-import '../../ai/index.dart' show AiModelConfig, AiThreadTemplate;
+import '../../ai/index.dart'
+    show AiModelConfig, AiReasoningEffortOption, AiThreadTemplate;
 import '../../instructions/index.dart' show UserInstructionEntry;
 import '../../knowledge_base/index.dart' show KnowledgeSource;
 import '../../mcp/index.dart' show McpServer;
@@ -15,6 +20,7 @@ import '../model/workflow_definition.dart';
 class WorkflowEditorCatalog {
   const WorkflowEditorCatalog({
     required this.models,
+    required this.recentModelSelections,
     required this.templates,
     required this.skills,
     required this.memories,
@@ -24,6 +30,7 @@ class WorkflowEditorCatalog {
   });
 
   final List<AiModelConfig> models;
+  final List<RecentModelSelection> recentModelSelections;
   final List<AiThreadTemplate> templates;
   final List<LocalSkill> skills;
   final List<UserMemoryEntry> memories;
@@ -133,6 +140,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
             onPressed: onDelete,
             icon: const Icon(Icons.delete_outline_rounded),
           ),
+          kOpenHandHGap6,
           IconButton(
             tooltip: '关闭配置',
             onPressed: onClose,
@@ -162,7 +170,34 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
   }
 
   Widget _buildLlm(BuildContext context) {
-    final selectedModel = node.stringSetting(WorkflowSettingKeys.modelConfigId);
+    final selectedConfigId = node.stringSetting(
+      WorkflowSettingKeys.modelConfigId,
+    );
+    final selectedProvider = catalog.models
+        .where((item) => item.id == selectedConfigId)
+        .firstOrNull;
+    final storedModelId = node.stringSetting(WorkflowSettingKeys.modelId);
+    final selectedModelId =
+        selectedProvider?.allModelIds.contains(storedModelId) == true
+        ? storedModelId
+        : selectedProvider?.modelId ??
+              selectedProvider?.allModelIds.firstOrNull;
+    final selectedModel = selectedProvider == null || selectedModelId == null
+        ? null
+        : selectedProvider.copyWith(modelId: selectedModelId);
+    final reasoningOptions =
+        selectedModel?.resolvedReasoningEffortControlEnabled == true
+        ? selectedModel!.resolvedReasoningEffortOptions
+              .where((option) => option.isSelectable)
+              .toList(growable: false)
+        : const <AiReasoningEffortOption>[];
+    final storedReasoningEffort = node.stringSetting(
+      WorkflowSettingKeys.reasoningEffort,
+    );
+    final reasoningEffort =
+        reasoningOptions.any((option) => option.value == storedReasoningEffort)
+        ? storedReasoningEffort
+        : selectedModel?.resolvedReasoningEffort;
     final selectedTemplate = node.stringSetting(WorkflowSettingKeys.templateId);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -171,38 +206,56 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           title: '模型与提示词',
           icon: Icons.auto_awesome_rounded,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _LabeledField(
-                label: '模型',
+              OpenHandModelSelectorField(
+                models: catalog.models,
+                recentSelections: catalog.recentModelSelections,
+                selectedConfigId: selectedConfigId,
+                selectedModelId: selectedModelId,
                 required: true,
-                child: DropdownButtonFormField<String>(
+                labelZh: '模型',
+                helperZh: '选择此节点实际调用的模型。',
+                helperEn: 'Choose the model used by this node.',
+                onSelected: _setModelSelection,
+              ),
+              kOpenHandGap12,
+              _LabeledField(
+                label: '推理强度',
+                helper: reasoningOptions.isEmpty
+                    ? '当前模型不支持推理强度配置。'
+                    : '仅影响当前工作流节点。',
+                child: AnimatedDropdownButtonFormField<String>(
                   isExpanded: true,
-                  initialValue:
-                      catalog.models.any((item) => item.id == selectedModel)
-                      ? selectedModel
-                      : null,
+                  initialValue: reasoningEffort,
                   decoration: _inputDecoration(
-                    catalog.models.isEmpty ? '请先在设置中添加模型' : '选择模型',
+                    reasoningOptions.isEmpty ? '不可配置' : '选择推理强度',
                   ),
-                  items: catalog.models
+                  items: reasoningOptions
                       .map(
-                        (model) => DropdownMenuItem<String>(
-                          value: model.id,
+                        (option) => DropdownMenuItem<String>(
+                          value: option.value,
                           child: Text(
-                            _modelLabel(model),
+                            option.labelForLocaleName(
+                              Localizations.localeOf(context).toLanguageTag(),
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       )
                       .toList(growable: false),
-                  onChanged: (value) =>
-                      _set(WorkflowSettingKeys.modelConfigId, value ?? ''),
+                  onChanged: reasoningOptions.isEmpty
+                      ? null
+                      : (value) => _set(
+                          WorkflowSettingKeys.reasoningEffort,
+                          value ?? '',
+                        ),
                 ),
               ),
               kOpenHandGap12,
               _LabeledField(
                 label: '提示词模板',
-                child: DropdownButtonFormField<String>(
+                child: AnimatedDropdownButtonFormField<String>(
                   isExpanded: true,
                   initialValue:
                       catalog.templates.any(
@@ -338,6 +391,24 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
         kOpenHandGap16,
         _buildTestButton(),
       ],
+    );
+  }
+
+  void _setModelSelection((String, String) selection) {
+    final selectedModel = catalog.models
+        .where((item) => item.id == selection.$1)
+        .firstOrNull
+        ?.copyWith(modelId: selection.$2);
+    onChanged(
+      node.copyWith(
+        settings: <String, Object?>{
+          ...node.settings,
+          WorkflowSettingKeys.modelConfigId: selection.$1,
+          WorkflowSettingKeys.modelId: selection.$2,
+          WorkflowSettingKeys.reasoningEffort:
+              selectedModel?.resolvedReasoningEffort ?? '',
+        },
+      ),
     );
   }
 
@@ -1132,6 +1203,13 @@ class _OutputFieldCard extends StatelessWidget {
               IconButton(
                 tooltip: '删除参数',
                 onPressed: onDelete,
+                style: IconButton.styleFrom(
+                  fixedSize: const Size.square(42),
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(kOpenHandRadius10),
+                  ),
+                ),
                 icon: const Icon(Icons.delete_outline_rounded, size: 19),
               ),
             ],
@@ -1158,6 +1236,9 @@ class _OutputFieldCard extends StatelessWidget {
                 label: const Text('必需'),
                 selected: field.required,
                 showCheckmark: false,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(kOpenHandRadius10),
+                ),
                 onSelected: (value) =>
                     onChanged(field.copyWith(required: value)),
               ),
@@ -1331,11 +1412,6 @@ InputDecoration _inputDecoration(String hint) {
       borderRadius: BorderRadius.circular(kOpenHandRadius10),
     ),
   );
-}
-
-String _modelLabel(AiModelConfig model) {
-  final name = model.name.trim();
-  return name.isEmpty ? model.modelId : '$name · ${model.modelId}';
 }
 
 String _bodyFormatLabel(WorkflowHttpBodyFormat format) => switch (format) {

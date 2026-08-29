@@ -193,12 +193,7 @@ class _WorkflowCard extends StatelessWidget {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: <Color>[
-                          theme.colorScheme.primaryContainer,
-                          theme.colorScheme.tertiaryContainer,
-                        ],
-                      ),
+                      color: theme.colorScheme.primaryContainer,
                       borderRadius: BorderRadius.circular(kOpenHandRadius13),
                     ),
                     child: Icon(
