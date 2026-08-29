@@ -33,9 +33,35 @@ const double _nodeHeight = 130;
 const double _nodeAddButtonSize = 32;
 const double _configurationWidth = 440;
 const double _headerActionSize = 44;
+const int _maxWorkflowHistoryEntries = 80;
+const Duration _workflowHistoryMergeWindow = Duration(milliseconds: 900);
 const RoundedRectangleBorder _workflowButtonShape = RoundedRectangleBorder(
   borderRadius: kOpenHandBorderRadius12,
 );
+
+class _WorkflowGraphSnapshot {
+  const _WorkflowGraphSnapshot({
+    required this.nodes,
+    required this.connections,
+  });
+
+  final List<WorkflowNode> nodes;
+  final List<WorkflowConnection> connections;
+}
+
+class _WorkflowHistoryEntry {
+  const _WorkflowHistoryEntry({
+    required this.label,
+    required this.createdAt,
+    required this.snapshot,
+    this.mergeKey,
+  });
+
+  final String label;
+  final DateTime createdAt;
+  final _WorkflowGraphSnapshot snapshot;
+  final String? mergeKey;
+}
 
 Future<WorkflowDefinition?> showWorkflowEditorDialog(
   BuildContext context, {
@@ -127,6 +153,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   String? _testResult;
   String? _testError;
   WorkflowNodeTestStatus? _testStatus;
+  late final List<_WorkflowHistoryEntry> _history;
+  int _historyIndex = 0;
 
   WorkflowNode? get _selectedNode {
     final id = _selectedNodeId;
@@ -135,6 +163,21 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       if (node.id == id) return node;
     }
     return null;
+  }
+
+  bool get _canUndo => _historyIndex > 0;
+  bool get _canRedo => _historyIndex + 1 < _history.length;
+
+  @override
+  void initState() {
+    super.initState();
+    _history = <_WorkflowHistoryEntry>[
+      _WorkflowHistoryEntry(
+        label: widget.workflow == null ? '创建工作流' : '打开工作流',
+        createdAt: DateTime.now(),
+        snapshot: _currentSnapshot(),
+      ),
+    ];
   }
 
   @override
@@ -326,6 +369,13 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
               onZoomOut: () => _changeZoom(-0.15),
               onReset: _resetViewport,
               onDelete: _deleteSelection,
+              canUndo: _canUndo,
+              canRedo: _canRedo,
+              history: _history,
+              historyIndex: _historyIndex,
+              onUndo: _undo,
+              onRedo: _redo,
+              onHistorySelected: _restoreHistory,
             ),
           ),
         ],
@@ -370,6 +420,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                       _canvasHeight - _nodeHeight - 16,
                     ),
                   ),
+                  historyLabel: '移动节点',
+                  mergeKey: 'move:${node.id}',
                 );
               },
               child: AnimatedContainer(
@@ -607,6 +659,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       _testResult = null;
       _testError = null;
       _testStatus = null;
+      _recordHistory('添加${descriptor.label}节点');
     });
     _canvasFocusNode.requestFocus();
   }
@@ -645,6 +698,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       _testResult = null;
       _testError = null;
       _testStatus = null;
+      _recordHistory('添加${descriptor.label}节点并连接');
     });
     _canvasFocusNode.requestFocus();
   }
@@ -732,7 +786,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     };
   }
 
-  void _updateNode(WorkflowNode updated) {
+  void _updateNode(
+    WorkflowNode updated, {
+    String? historyLabel,
+    String? mergeKey,
+  }) {
     if (!mounted) return;
     setState(() {
       _nodes = _nodes
@@ -743,6 +801,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         _testError = null;
         _testStatus = null;
       }
+      _recordHistory(
+        historyLabel ?? '修改节点配置',
+        mergeKey: mergeKey ?? 'edit:${updated.id}',
+      );
     });
   }
 
@@ -764,6 +826,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       _testResult = null;
       _testError = null;
       _testStatus = null;
+      _recordHistory('删除${selectedNode.title.trim()}节点');
     });
   }
 
@@ -779,7 +842,67 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
           .where((connection) => connection.id != connectionId)
           .toList(growable: false);
       _selectedConnectionId = null;
+      _recordHistory('删除节点连线');
     });
+  }
+
+  _WorkflowGraphSnapshot _currentSnapshot() {
+    return _WorkflowGraphSnapshot(
+      nodes: List<WorkflowNode>.unmodifiable(_nodes),
+      connections: List<WorkflowConnection>.unmodifiable(_connections),
+    );
+  }
+
+  void _recordHistory(String label, {String? mergeKey}) {
+    final now = DateTime.now();
+    if (_historyIndex + 1 < _history.length) {
+      _history.removeRange(_historyIndex + 1, _history.length);
+    }
+    final entry = _WorkflowHistoryEntry(
+      label: label,
+      createdAt: now,
+      snapshot: _currentSnapshot(),
+      mergeKey: mergeKey,
+    );
+    final previous = _history.last;
+    final shouldMerge =
+        mergeKey != null &&
+        previous.mergeKey == mergeKey &&
+        now.difference(previous.createdAt) <= _workflowHistoryMergeWindow;
+    if (shouldMerge) {
+      _history[_history.length - 1] = entry;
+      _historyIndex = _history.length - 1;
+      return;
+    }
+    _history.add(entry);
+    if (_history.length > _maxWorkflowHistoryEntries) {
+      _history.removeAt(0);
+    }
+    _historyIndex = _history.length - 1;
+  }
+
+  void _undo() {
+    if (_canUndo) _restoreHistory(_historyIndex - 1);
+  }
+
+  void _redo() {
+    if (_canRedo) _restoreHistory(_historyIndex + 1);
+  }
+
+  void _restoreHistory(int index) {
+    if (index < 0 || index >= _history.length || index == _historyIndex) return;
+    final snapshot = _history[index].snapshot;
+    setState(() {
+      _historyIndex = index;
+      _nodes = List<WorkflowNode>.from(snapshot.nodes);
+      _connections = List<WorkflowConnection>.from(snapshot.connections);
+      _selectedNodeId = null;
+      _selectedConnectionId = null;
+      _testResult = null;
+      _testError = null;
+      _testStatus = null;
+    });
+    _canvasFocusNode.requestFocus();
   }
 
   void _selectNode(String nodeId) {
@@ -841,6 +964,16 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
 
   KeyEventResult _handleCanvasKeyEvent(FocusNode _, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final keyboard = HardwareKeyboard.instance;
+    final commandPressed = keyboard.isMetaPressed || keyboard.isControlPressed;
+    if (commandPressed && event.logicalKey == LogicalKeyboardKey.keyZ) {
+      keyboard.isShiftPressed ? _redo() : _undo();
+      return KeyEventResult.handled;
+    }
+    if (commandPressed && event.logicalKey == LogicalKeyboardKey.keyY) {
+      _redo();
+      return KeyEventResult.handled;
+    }
     if (event.logicalKey == LogicalKeyboardKey.delete ||
         event.logicalKey == LogicalKeyboardKey.backspace) {
       if (_selectedNodeId == null && _selectedConnectionId == null) {
@@ -1133,18 +1266,32 @@ class _CanvasToolbar extends StatelessWidget {
   const _CanvasToolbar({
     required this.scale,
     required this.canDelete,
+    required this.canUndo,
+    required this.canRedo,
+    required this.history,
+    required this.historyIndex,
     required this.onZoomIn,
     required this.onZoomOut,
     required this.onReset,
     required this.onDelete,
+    required this.onUndo,
+    required this.onRedo,
+    required this.onHistorySelected,
   });
 
   final double scale;
   final bool canDelete;
+  final bool canUndo;
+  final bool canRedo;
+  final List<_WorkflowHistoryEntry> history;
+  final int historyIndex;
   final VoidCallback onZoomIn;
   final VoidCallback onZoomOut;
   final VoidCallback onReset;
   final VoidCallback onDelete;
+  final VoidCallback onUndo;
+  final VoidCallback onRedo;
+  final ValueChanged<int> onHistorySelected;
 
   @override
   Widget build(BuildContext context) {
@@ -1195,11 +1342,126 @@ class _CanvasToolbar extends StatelessWidget {
               icon: Icons.delete_outline_rounded,
               onPressed: canDelete ? onDelete : null,
             ),
+            Container(
+              width: 1,
+              height: 24,
+              margin: const EdgeInsets.symmetric(horizontal: 6),
+              color: theme.colorScheme.outlineVariant,
+            ),
+            _ToolbarButton(
+              tooltip: '撤销（⌘/Ctrl+Z）',
+              icon: Icons.undo_rounded,
+              onPressed: canUndo ? onUndo : null,
+            ),
+            _ToolbarButton(
+              tooltip: '重做（⌘/Ctrl+Shift+Z 或 Ctrl+Y）',
+              icon: Icons.redo_rounded,
+              onPressed: canRedo ? onRedo : null,
+            ),
+            Container(
+              width: 1,
+              height: 24,
+              margin: const EdgeInsets.symmetric(horizontal: 6),
+              color: theme.colorScheme.outlineVariant,
+            ),
+            AnimatedPopupMenuButton<int>(
+              tooltip: '变更历史',
+              icon: const Icon(Icons.history_rounded, size: 19),
+              padding: EdgeInsets.zero,
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                fixedSize: const Size.square(36),
+                padding: EdgeInsets.zero,
+                shape: _workflowButtonShape,
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 300,
+                maxWidth: 340,
+                maxHeight: 480,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(kOpenHandRadius14),
+              ),
+              onSelected: onHistorySelected,
+              itemBuilder: (_) => history
+                  .asMap()
+                  .entries
+                  .toList(growable: false)
+                  .reversed
+                  .map(
+                    (entry) => PopupMenuItem<int>(
+                      value: entry.key,
+                      height: 58,
+                      child: _HistoryMenuItem(
+                        entry: entry.value,
+                        current: entry.key == historyIndex,
+                      ),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+class _HistoryMenuItem extends StatelessWidget {
+  const _HistoryMenuItem({required this.entry, required this.current});
+
+  final _WorkflowHistoryEntry entry;
+  final bool current;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: 270,
+      child: Row(
+        children: [
+          Icon(
+            current ? Icons.check_circle_rounded : Icons.history_rounded,
+            size: 20,
+            color: current
+                ? theme.colorScheme.primary
+                : theme.colorScheme.onSurfaceVariant,
+          ),
+          kOpenHandHGap10,
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: current ? theme.colorScheme.primary : null,
+                    fontWeight: current ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
+                kOpenHandGap2,
+                Text(
+                  _historyTimeText(entry.createdAt),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _historyTimeText(DateTime value) {
+  final local = value.toLocal();
+  String two(int number) => number.toString().padLeft(2, '0');
+  return '${two(local.hour)}:${two(local.minute)}:${two(local.second)}';
 }
 
 class _WorkflowNameDialog extends StatefulWidget {
