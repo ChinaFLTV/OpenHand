@@ -1728,6 +1728,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             widget.catalog.models.firstOrNull?.modelId ?? '',
         WorkflowSettingKeys.reasoningEffort:
             widget.catalog.models.firstOrNull?.resolvedReasoningEffort ?? '',
+        WorkflowSettingKeys.reasoningFormat:
+            WorkflowLlmReasoningFormat.tagged.storageValue,
         WorkflowSettingKeys.templateId:
             widget.catalog.templates
                 .where((item) => item.id == 'default')
@@ -1745,8 +1747,12 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         WorkflowSettingKeys.mcpServerNames: <String>[],
         WorkflowSettingKeys.structuredOutput: false,
         WorkflowSettingKeys.outputFields: <Object?>[],
-        WorkflowSettingKeys.retryCount: 0,
-        WorkflowSettingKeys.retryIntervalMs: 1000,
+        WorkflowSettingKeys.retryEnabled: false,
+        WorkflowSettingKeys.retryCount: defaultWorkflowLlmRetryCount,
+        WorkflowSettingKeys.retryIntervalMs: defaultWorkflowLlmRetryIntervalMs,
+        WorkflowSettingKeys.errorStrategy:
+            WorkflowErrorStrategy.terminate.storageValue,
+        WorkflowSettingKeys.errorDefaultValues: <String, Object?>{},
       },
       WorkflowNodeKind.httpRequest => <String, Object?>{
         WorkflowSettingKeys.url: '',
@@ -2368,7 +2374,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             timeout > maxWorkflowCodeTimeoutSeconds) {
           return '代码执行节点的超时时间必须在 $minWorkflowCodeTimeoutSeconds–$maxWorkflowCodeTimeoutSeconds 秒之间。';
         }
-        if (node.boolSetting(WorkflowSettingKeys.retryEnabled)) {
+        if (node.retryEnabled()) {
           final retryCount = node.intSetting(
             WorkflowSettingKeys.retryCount,
             defaultWorkflowCodeRetryCount,
@@ -2467,6 +2473,50 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         if (node.stringSetting(WorkflowSettingKeys.prompt).trim().isEmpty) {
           return '请填写 LLM 节点提示词。';
         }
+        if (node.retryEnabled()) {
+          final retryCount = node.intSetting(
+            WorkflowSettingKeys.retryCount,
+            defaultWorkflowLlmRetryCount,
+          );
+          final retryInterval = node.intSetting(
+            WorkflowSettingKeys.retryIntervalMs,
+            defaultWorkflowLlmRetryIntervalMs,
+          );
+          if (retryCount < minWorkflowLlmRetryCount ||
+              retryCount > maxWorkflowLlmRetryCount) {
+            return 'LLM 最大重试次数必须在 $minWorkflowLlmRetryCount–$maxWorkflowLlmRetryCount 次之间。';
+          }
+          if (retryInterval < minWorkflowLlmRetryIntervalMs ||
+              retryInterval > maxWorkflowLlmRetryIntervalMs) {
+            return 'LLM 重试间隔必须在 $minWorkflowLlmRetryIntervalMs–$maxWorkflowLlmRetryIntervalMs 毫秒之间。';
+          }
+        }
+        try {
+          if (node.boolSetting(WorkflowSettingKeys.structuredOutput)) {
+            WorkflowStructuredOutputParser.validateFields(
+              node.outputFields(),
+              label: 'LLM 输出参数',
+            );
+          }
+          if (WorkflowErrorStrategy.fromStorage(
+                node.settings[WorkflowSettingKeys.errorStrategy],
+              ) ==
+              WorkflowErrorStrategy.defaultValue) {
+            final defaults = node.errorDefaultValues();
+            WorkflowStructuredOutputParser.resolveValues(
+              node.llmResponseFields(),
+              <String, Object?>{
+                for (final field in node.llmResponseFields())
+                  field.name.trim():
+                      defaults[field.id] ??
+                      defaultWorkflowErrorValue(field.type),
+              },
+              label: 'LLM 异常默认值',
+            );
+          }
+        } catch (error) {
+          return '$error';
+        }
       }
       if (node.kind == WorkflowNodeKind.httpRequest &&
           node.stringSetting(WorkflowSettingKeys.url).trim().isEmpty) {
@@ -2518,7 +2568,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             writeTimeout > maxWorkflowHttpWriteTimeoutSeconds) {
           return 'HTTP 写入超时必须在 $minWorkflowHttpTimeoutSeconds–$maxWorkflowHttpWriteTimeoutSeconds 秒之间。';
         }
-        if (node.boolSetting(WorkflowSettingKeys.retryEnabled)) {
+        if (node.retryEnabled()) {
           final retryCount = node.intSetting(
             WorkflowSettingKeys.retryCount,
             defaultWorkflowHttpRetryCount,
@@ -3689,6 +3739,7 @@ bool _workflowNodeHasBranches(WorkflowNode node) =>
     _isWorkflowBranchingKind(node.kind) ||
     const <WorkflowNodeKind>{
           WorkflowNodeKind.codeExecution,
+          WorkflowNodeKind.llm,
           WorkflowNodeKind.httpRequest,
         }.contains(node.kind) &&
         WorkflowErrorStrategy.fromStorage(
@@ -3713,6 +3764,13 @@ List<({String id, String label})> _workflowNodeBranches(WorkflowNode node) =>
         (id: workflowHumanTimeoutHandleId, label: '超时'),
       ],
       WorkflowNodeKind.codeExecution =>
+        _workflowNodeHasBranches(node)
+            ? const <({String id, String label})>[
+                (id: workflowSuccessHandleId, label: '成功'),
+                (id: workflowFailureHandleId, label: '异常'),
+              ]
+            : const <({String id, String label})>[],
+      WorkflowNodeKind.llm =>
         _workflowNodeHasBranches(node)
             ? const <({String id, String label})>[
                 (id: workflowSuccessHandleId, label: '成功'),

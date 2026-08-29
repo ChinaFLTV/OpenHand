@@ -31,8 +31,6 @@ import 'workflow_code_executor.dart';
 const int _maxWorkflowHttpResponseBytes = 4 * 1024 * 1024;
 const int _maxWorkflowPromptCharacters = 256 * 1024;
 const int _maxWorkflowResourceCharacters = 96 * 1024;
-const int _maxWorkflowRetries = 10;
-const int _maxWorkflowRetryIntervalMs = 60 * 1000;
 const int _maxWorkflowMcpTools = 64;
 const Duration _humanInterventionTimeoutGrace = Duration(seconds: 1);
 const int _maxWorkflowToolRounds = 8;
@@ -371,7 +369,7 @@ class WorkflowNodeExecutor {
     final errorStrategy = WorkflowErrorStrategy.fromStorage(
       node.settings[WorkflowSettingKeys.errorStrategy],
     );
-    final retryCount = node.boolSetting(WorkflowSettingKeys.retryEnabled)
+    final retryCount = node.retryEnabled()
         ? node
               .intSetting(
                 WorkflowSettingKeys.retryCount,
@@ -565,7 +563,19 @@ class WorkflowNodeExecutor {
     );
     final outputFields = node.outputFields();
     final structured = node.boolSetting(WorkflowSettingKeys.structuredOutput);
-    if (structured) WorkflowStructuredOutputParser.validateFields(outputFields);
+    final responseFields = node.llmResponseFields();
+    if (structured) {
+      WorkflowStructuredOutputParser.validateFields(
+        outputFields,
+        label: 'LLM 输出参数',
+      );
+    }
+    final reasoningFormat = WorkflowLlmReasoningFormat.fromStorage(
+      node.settings[WorkflowSettingKeys.reasoningFormat],
+    );
+    final errorStrategy = WorkflowErrorStrategy.fromStorage(
+      node.settings[WorkflowSettingKeys.errorStrategy],
+    );
     final systemPrompt = <String>[
       bundle.systemInstructions.trim(),
       bundle.developerInstructions.trim(),
@@ -578,8 +588,22 @@ class WorkflowNodeExecutor {
     ].where((part) => part.isNotEmpty).join('\n\n');
     final mcpBindings = _resolveMcpBindings(node, resources);
 
-    final retries = _boundedRetryCount(node);
-    final interval = _boundedRetryInterval(node);
+    final retries = node.retryEnabled()
+        ? node
+              .intSetting(
+                WorkflowSettingKeys.retryCount,
+                defaultWorkflowLlmRetryCount,
+              )
+              .clamp(minWorkflowLlmRetryCount, maxWorkflowLlmRetryCount)
+        : 0;
+    final interval = Duration(
+      milliseconds: node
+          .intSetting(
+            WorkflowSettingKeys.retryIntervalMs,
+            defaultWorkflowLlmRetryIntervalMs,
+          )
+          .clamp(minWorkflowLlmRetryIntervalMs, maxWorkflowLlmRetryIntervalMs),
+    );
     final startedAt = DateTime.now().toUtc();
     final conversationId = startedAt.microsecondsSinceEpoch;
     final stopwatch = Stopwatch()..start();
@@ -630,19 +654,30 @@ class WorkflowNodeExecutor {
           bindings: mcpBindings,
           invoker: resources.mcpToolInvoker,
           conversationMessages: messages,
+          reasoningFormat: reasoningFormat,
           onConversationChanged: publishRunning,
         );
         final raw = completion.reply.trim();
         if (raw.isEmpty) {
           throw const WorkflowNodeExecutionException('模型返回内容为空。');
         }
+        final separated = _separateLlmReasoning(raw, reasoningFormat);
+        final reasoning = <String>[
+          completion.reasoningContent?.trim() ?? '',
+          separated.reasoning,
+        ].where((item) => item.isNotEmpty).toSet().join('\n\n');
         final output = structured
             ? WorkflowStructuredOutputParser.parse(
-                raw,
+                separated.text,
                 outputFields,
                 variables: variables,
               )
-            : raw;
+            : <String, Object?>{
+                workflowLlmTextOutputName: separated.text,
+                workflowLlmReasoningOutputName: reasoning,
+                workflowLlmUsageOutputName:
+                    completion.usage?.toJson() ?? <String, Object?>{},
+              };
         stopwatch.stop();
         final endedAt = DateTime.now().toUtc();
         final conversation = snapshot(
@@ -656,6 +691,9 @@ class WorkflowNodeExecutor {
           attempts: attempts,
           duration: stopwatch.elapsed,
           conversation: conversation,
+          selectedBranchId: errorStrategy == WorkflowErrorStrategy.failBranch
+              ? workflowSuccessHandleId
+              : null,
         );
       } catch (error) {
         lastError = error;
@@ -665,24 +703,60 @@ class WorkflowNodeExecutor {
     }
     stopwatch.stop();
     final message = 'LLM 节点执行失败：${_executionErrorText(lastError)}';
-    resources.onLlmConversation?.call(
-      WorkflowLlmConversation(
-        nodeId: node.id,
-        modelConfigId: modelConfigId,
-        modelId: modelId,
-        modelLabel: provider.providerLabel,
-        startedAt: startedAt,
-        endedAt: DateTime.now().toUtc(),
-        duration: stopwatch.elapsed,
-        attempts: attempts,
-        status: WorkflowLlmConversationStatus.failed,
-        messages: List<WorkflowLlmConversationMessage>.unmodifiable(
-          lastMessages,
-        ),
-        error: message,
-      ),
+    final failedConversation = WorkflowLlmConversation(
+      nodeId: node.id,
+      modelConfigId: modelConfigId,
+      modelId: modelId,
+      modelLabel: provider.providerLabel,
+      startedAt: startedAt,
+      endedAt: DateTime.now().toUtc(),
+      duration: stopwatch.elapsed,
+      attempts: attempts,
+      status: WorkflowLlmConversationStatus.failed,
+      messages: List<WorkflowLlmConversationMessage>.unmodifiable(lastMessages),
+      error: message,
     );
-    throw WorkflowNodeExecutionException(message, cause: lastError);
+    resources.onLlmConversation?.call(failedConversation);
+    final failure = WorkflowNodeExecutionException(message, cause: lastError);
+    if (errorStrategy == WorkflowErrorStrategy.terminate) throw failure;
+    if (errorStrategy == WorkflowErrorStrategy.defaultValue) {
+      try {
+        final defaults = node.errorDefaultValues();
+        final output = WorkflowStructuredOutputParser.resolveValues(
+          responseFields,
+          <String, Object?>{
+            for (final field in responseFields)
+              field.name.trim():
+                  defaults[field.id] ?? defaultWorkflowErrorValue(field.type),
+          },
+          label: 'LLM 异常默认值',
+        );
+        return WorkflowNodeExecutionResult(
+          output: output,
+          rawOutput: jsonEncode(output),
+          attempts: attempts,
+          duration: stopwatch.elapsed,
+          conversation: failedConversation,
+        );
+      } on WorkflowNodeExecutionException catch (error) {
+        throw WorkflowNodeExecutionException(
+          'LLM 异常默认值无效：${error.message}',
+          cause: error,
+        );
+      }
+    }
+    final output = <String, Object?>{
+      workflowErrorTypeOutputName: _llmErrorType(lastError),
+      workflowErrorMessageOutputName: failure.message,
+    };
+    return WorkflowNodeExecutionResult(
+      output: Map<String, Object?>.unmodifiable(output),
+      rawOutput: jsonEncode(output),
+      attempts: attempts,
+      duration: stopwatch.elapsed,
+      conversation: failedConversation,
+      selectedBranchId: workflowFailureHandleId,
+    );
   }
 
   Future<AiChatCompletion> _sendLlmWithTools({
@@ -692,6 +766,7 @@ class WorkflowNodeExecutor {
     required List<_WorkflowMcpBinding> bindings,
     required WorkflowMcpToolInvoker? invoker,
     required List<WorkflowLlmConversationMessage> conversationMessages,
+    required WorkflowLlmReasoningFormat reasoningFormat,
     required void Function() onConversationChanged,
   }) async {
     final messages = <AiChatTurn>[
@@ -720,7 +795,11 @@ class WorkflowNodeExecutor {
         tools: tools,
         timeout: const Duration(seconds: 120),
       );
-      _appendLlmCompletionMessages(conversationMessages, completion);
+      _appendLlmCompletionMessages(
+        conversationMessages,
+        completion,
+        reasoningFormat,
+      );
       onConversationChanged();
       if (completion.toolCalls.isEmpty) return completion;
       if (invoker == null || bindings.isEmpty) {
@@ -786,6 +865,7 @@ class WorkflowNodeExecutor {
   void _appendLlmCompletionMessages(
     List<WorkflowLlmConversationMessage> messages,
     AiChatCompletion completion,
+    WorkflowLlmReasoningFormat reasoningFormat,
   ) {
     void add(
       WorkflowLlmMessageKind kind,
@@ -808,8 +888,15 @@ class WorkflowNodeExecutor {
       );
     }
 
-    add(WorkflowLlmMessageKind.reasoning, completion.reasoningContent);
-    add(WorkflowLlmMessageKind.assistant, completion.reply);
+    final separated = _separateLlmReasoning(completion.reply, reasoningFormat);
+    final reasoning = <String>{
+      completion.reasoningContent?.trim() ?? '',
+      separated.reasoning,
+    }..remove('');
+    for (final content in reasoning) {
+      add(WorkflowLlmMessageKind.reasoning, content);
+    }
+    add(WorkflowLlmMessageKind.assistant, separated.text);
     for (final call in completion.toolCalls) {
       add(
         WorkflowLlmMessageKind.toolCall,
@@ -1014,7 +1101,7 @@ class WorkflowNodeExecutor {
       node.settings[WorkflowSettingKeys.errorStrategy],
     );
     _validateHttpRequestBody(node, variables);
-    final retries = node.boolSetting(WorkflowSettingKeys.retryEnabled)
+    final retries = node.retryEnabled()
         ? node
               .intSetting(
                 WorkflowSettingKeys.retryCount,
@@ -2111,16 +2198,6 @@ class WorkflowNodeExecutor {
     }
     return '$left'.toLowerCase().compareTo('$right'.toLowerCase());
   }
-
-  int _boundedRetryCount(WorkflowNode node) => node
-      .intSetting(WorkflowSettingKeys.retryCount, 0)
-      .clamp(0, _maxWorkflowRetries);
-
-  Duration _boundedRetryInterval(WorkflowNode node) => Duration(
-    milliseconds: node
-        .intSetting(WorkflowSettingKeys.retryIntervalMs, 1000)
-        .clamp(0, _maxWorkflowRetryIntervalMs),
-  );
 }
 
 abstract final class WorkflowStructuredOutputParser {
@@ -2596,6 +2673,32 @@ String _httpErrorType(Object error) {
         : 'HTTPResponseError';
   }
   return 'HTTPExecutionError';
+}
+
+String _llmErrorType(Object? error) {
+  if (error is TimeoutException) return 'LLMTimeoutError';
+  if (error is IOException) return 'LLMConnectionError';
+  if (error is WorkflowNodeExecutionException) return 'LLMResponseError';
+  return 'LLMExecutionError';
+}
+
+({String text, String reasoning}) _separateLlmReasoning(
+  String text,
+  WorkflowLlmReasoningFormat format,
+) {
+  if (format != WorkflowLlmReasoningFormat.separated) {
+    return (text: text, reasoning: '');
+  }
+  final pattern = RegExp(
+    r'<think\b[^>]*>([\s\S]*?)<\/think\s*>',
+    caseSensitive: false,
+  );
+  final reasoning = pattern
+      .allMatches(text)
+      .map((match) => match.group(1)?.trim() ?? '')
+      .where((item) => item.isNotEmpty)
+      .join('\n\n');
+  return (text: text.replaceAll(pattern, '').trim(), reasoning: reasoning);
 }
 
 String _executionErrorText(Object? error) {

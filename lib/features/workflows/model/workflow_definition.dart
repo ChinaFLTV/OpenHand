@@ -133,6 +133,23 @@ enum WorkflowErrorStrategy {
   }
 }
 
+enum WorkflowLlmReasoningFormat {
+  tagged('tagged'),
+  separated('separated');
+
+  const WorkflowLlmReasoningFormat(this.storageValue);
+
+  final String storageValue;
+
+  static WorkflowLlmReasoningFormat fromStorage(Object? value) {
+    final normalized = '${value ?? ''}'.trim();
+    return values.firstWhere(
+      (format) => format.storageValue == normalized,
+      orElse: () => WorkflowLlmReasoningFormat.tagged,
+    );
+  }
+}
+
 String defaultWorkflowCode(WorkflowCodeLanguage language) => switch (language) {
   WorkflowCodeLanguage.python3 =>
     '''def main():
@@ -568,6 +585,20 @@ const int minWorkflowHttpRetryCount = 1;
 const int maxWorkflowHttpRetryCount = 10;
 const int minWorkflowHttpRetryIntervalMs = 100;
 const int maxWorkflowHttpRetryIntervalMs = 5000;
+const int defaultWorkflowLlmRetryCount = 3;
+const int minWorkflowLlmRetryCount = 1;
+const int maxWorkflowLlmRetryCount = 10;
+const int defaultWorkflowLlmRetryIntervalMs = 1000;
+const int minWorkflowLlmRetryIntervalMs = 100;
+const int maxWorkflowLlmRetryIntervalMs = 5000;
+const String workflowLlmTextOutputName = 'text';
+const String workflowLlmReasoningOutputName = 'reasoning_content';
+const String workflowLlmUsageOutputName = 'usage';
+const Set<String> workflowLlmFixedOutputNames = <String>{
+  workflowLlmTextOutputName,
+  workflowLlmReasoningOutputName,
+  workflowLlmUsageOutputName,
+};
 const String workflowHttpBodyOutputName = 'body';
 const String workflowHttpStatusCodeOutputName = 'status_code';
 const String workflowHttpHeadersOutputName = 'headers';
@@ -645,6 +676,7 @@ abstract final class WorkflowSettingKeys {
   static const String modelConfigId = 'model_config_id';
   static const String modelId = 'model_id';
   static const String reasoningEffort = 'reasoning_effort';
+  static const String reasoningFormat = 'reasoning_format';
   static const String templateId = 'template_id';
   static const String prompt = 'prompt';
   static const String inputContent = 'input_content';
@@ -1121,6 +1153,11 @@ class WorkflowNode {
     return value is bool ? value : fallback;
   }
 
+  bool retryEnabled() => boolSetting(
+    WorkflowSettingKeys.retryEnabled,
+    intSetting(WorkflowSettingKeys.retryCount, 0) > 0,
+  );
+
   Set<String> stringSetSetting(String key) {
     final value = settings[key];
     if (value is! List) return <String>{};
@@ -1241,6 +1278,24 @@ class WorkflowNode {
         ),
       ],
     ],
+    WorkflowNodeKind.llm => <WorkflowOutputField>[
+      ...llmResponseFields(),
+      if (WorkflowErrorStrategy.fromStorage(
+            settings[WorkflowSettingKeys.errorStrategy],
+          ) ==
+          WorkflowErrorStrategy.failBranch) ...<WorkflowOutputField>[
+        WorkflowOutputField(
+          id: '$id-llm-error-type',
+          name: workflowErrorTypeOutputName,
+          description: 'LLM 执行异常类型',
+        ),
+        WorkflowOutputField(
+          id: '$id-llm-error-message',
+          name: workflowErrorMessageOutputName,
+          description: 'LLM 执行异常信息',
+        ),
+      ],
+    ],
     WorkflowNodeKind.httpRequest => <WorkflowOutputField>[
       ...httpResponseFields(),
       if (WorkflowErrorStrategy.fromStorage(
@@ -1279,6 +1334,28 @@ class WorkflowNode {
     ],
     _ => outputFields(),
   };
+
+  List<WorkflowOutputField> llmResponseFields() =>
+      boolSetting(WorkflowSettingKeys.structuredOutput)
+      ? outputFields()
+      : <WorkflowOutputField>[
+          WorkflowOutputField(
+            id: '$id-llm-text',
+            name: workflowLlmTextOutputName,
+            description: '模型最终回复',
+          ),
+          WorkflowOutputField(
+            id: '$id-llm-reasoning',
+            name: workflowLlmReasoningOutputName,
+            description: '模型推理内容',
+          ),
+          WorkflowOutputField(
+            id: '$id-llm-usage',
+            name: workflowLlmUsageOutputName,
+            description: '模型令牌用量',
+            type: WorkflowOutputType.object,
+          ),
+        ];
 
   List<WorkflowOutputField> httpResponseFields() =>
       boolSetting(WorkflowSettingKeys.structuredOutput)
@@ -1351,6 +1428,16 @@ String? validateWorkflowParameterNames(List<WorkflowNode> nodes) {
         return '节点“${node.title}”使用了 HTTP 系统保留参数名称“${conflict.first.name.trim()}”。';
       }
     }
+    if (node.kind == WorkflowNodeKind.llm) {
+      final conflict = node.outputFields().where(
+        (field) =>
+            workflowErrorSystemOutputNames.contains(field.name.trim()) ||
+            workflowLlmFixedOutputNames.contains(field.name.trim()),
+      );
+      if (conflict.isNotEmpty) {
+        return '节点“${node.title}”使用了 LLM 系统保留参数名称“${conflict.first.name.trim()}”。';
+      }
+    }
     if (node.kind == WorkflowNodeKind.humanIntervention) {
       final conflict = node.humanInputFields().where(
         (field) => workflowHumanSystemOutputNames.contains(field.name.trim()),
@@ -1373,12 +1460,20 @@ String? validateWorkflowParameterNames(List<WorkflowNode> nodes) {
           workflowErrorSystemOutputNames.contains(name) &&
           const <WorkflowNodeKind>{
             WorkflowNodeKind.codeExecution,
+            WorkflowNodeKind.llm,
             WorkflowNodeKind.httpRequest,
           }.contains(node.kind) &&
           const <WorkflowNodeKind>{
             WorkflowNodeKind.codeExecution,
+            WorkflowNodeKind.llm,
             WorkflowNodeKind.httpRequest,
           }.contains(previous?.kind);
+      final sharedLlmFixedOutput =
+          workflowLlmFixedOutputNames.contains(name) &&
+          node.kind == WorkflowNodeKind.llm &&
+          previous?.kind == WorkflowNodeKind.llm &&
+          !node.boolSetting(WorkflowSettingKeys.structuredOutput) &&
+          !previous!.boolSetting(WorkflowSettingKeys.structuredOutput);
       final sharedHttpFixedOutput =
           workflowHttpFixedOutputNames.contains(name) &&
           node.kind == WorkflowNodeKind.httpRequest &&
@@ -1388,6 +1483,7 @@ String? validateWorkflowParameterNames(List<WorkflowNode> nodes) {
       if (previous != null &&
           !sharedHumanSystemOutput &&
           !sharedErrorOutput &&
+          !sharedLlmFixedOutput &&
           !sharedHttpFixedOutput) {
         return '参数名称“$name”在节点“${previous.title}”和“${node.title}”中重复。';
       }

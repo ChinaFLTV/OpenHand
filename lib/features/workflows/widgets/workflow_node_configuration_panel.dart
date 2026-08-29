@@ -533,7 +533,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     required int minIntervalMs,
     required int maxIntervalMs,
   }) {
-    final enabled = node.boolSetting(WorkflowSettingKeys.retryEnabled);
+    final enabled = node.retryEnabled();
     return _FormSection(
       title: '失败时重试',
       icon: Icons.replay_circle_filled_outlined,
@@ -1084,6 +1084,23 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                 ),
               ),
               kOpenHandGap12,
+              _SwitchSetting(
+                title: '启用推理标签分离',
+                description: '启用后，从 <think> 标签提取推理内容，最终回复不再包含标签与推理文本。',
+                value:
+                    WorkflowLlmReasoningFormat.fromStorage(
+                      node.settings[WorkflowSettingKeys.reasoningFormat],
+                    ) ==
+                    WorkflowLlmReasoningFormat.separated,
+                onChanged: (value) => _set(
+                  WorkflowSettingKeys.reasoningFormat,
+                  (value
+                          ? WorkflowLlmReasoningFormat.separated
+                          : WorkflowLlmReasoningFormat.tagged)
+                      .storageValue,
+                ),
+              ),
+              kOpenHandGap12,
               _LabeledField(
                 label: '提示词模板',
                 child: AnimatedDropdownButtonFormField<String>(
@@ -1217,9 +1234,24 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
               _setStringSet(WorkflowSettingKeys.mcpServerNames, value),
         ),
         kOpenHandGap14,
-        _buildOutputSection(context),
+        _buildLlmOutputSection(context),
         kOpenHandGap14,
-        _buildRetrySection(context),
+        _buildRetryPolicySection(
+          context,
+          subject: 'LLM',
+          defaultCount: defaultWorkflowLlmRetryCount,
+          minCount: minWorkflowLlmRetryCount,
+          maxCount: maxWorkflowLlmRetryCount,
+          defaultIntervalMs: defaultWorkflowLlmRetryIntervalMs,
+          minIntervalMs: minWorkflowLlmRetryIntervalMs,
+          maxIntervalMs: maxWorkflowLlmRetryIntervalMs,
+        ),
+        kOpenHandGap14,
+        _buildErrorSection(
+          context,
+          fields: node.llmResponseFields(),
+          subject: 'LLM',
+        ),
         kOpenHandGap16,
         _buildTestButton(),
       ],
@@ -2203,50 +2235,25 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     });
   }
 
-  Widget _buildRetrySection(BuildContext context) {
-    return _FormSection(
-      title: '失败重试',
-      icon: Icons.replay_circle_filled_outlined,
-      child: _retryFields(),
-    );
-  }
-
-  Widget _retryFields() {
-    return _NumberFieldRow(
-      leftLabel: '重试次数',
-      leftValue: node.intSetting(WorkflowSettingKeys.retryCount, 0),
-      leftMin: 0,
-      leftMax: 10,
-      onLeftChanged: (value) => _set(WorkflowSettingKeys.retryCount, value),
-      rightLabel: '重试间隔（毫秒）',
-      rightValue: node.intSetting(WorkflowSettingKeys.retryIntervalMs, 1000),
-      rightMin: 0,
-      rightMax: 60000,
-      onRightChanged: (value) =>
-          _set(WorkflowSettingKeys.retryIntervalMs, value),
-    );
-  }
-
-  Widget _buildOutputSection(BuildContext context) {
+  Widget _buildLlmOutputSection(BuildContext context) {
     final enabled = node.boolSetting(WorkflowSettingKeys.structuredOutput);
     final fields = node.outputFields();
+    final reservedNames = <String, String>{
+      ...reservedParameterNames,
+      for (final name in workflowLlmFixedOutputNames) name: 'LLM 固定输出',
+      for (final name in workflowErrorSystemOutputNames) name: '异常分支输出',
+    };
     return _FormSection(
-      title: '响应输出',
+      title: '输出参数',
       icon: Icons.data_object_rounded,
-      trailing: Switch(
-        value: enabled,
-        onChanged: (value) => _setValues(<String, Object?>{
-          WorkflowSettingKeys.structuredOutput: value,
-          if (!value) WorkflowSettingKeys.outputFields: <Object?>[],
-        }),
-      ),
+      trailing: Switch(value: enabled, onChanged: _setLlmStructuredOutput),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             enabled
-                ? '按参数定义生成并校验结构化结果；解析失败会使节点执行失败。'
-                : '关闭时返回原始响应，并清空已配置的输出参数。',
+                ? '按参数定义生成并校验结构化结果；解析失败会触发重试或异常处理。'
+                : '关闭结构化解析时，节点固定输出最终回复、推理内容和令牌用量。',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -2254,24 +2261,20 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           AnimatedSize(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
             curve: Curves.easeOutCubic,
-            child: enabled
-                ? Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: _OutputFieldEditor(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: enabled
+                  ? _OutputFieldEditor(
                       fields: fields,
                       addLabel: '添加输出参数',
-                      idPrefix: 'output',
+                      idPrefix: 'llm-output',
                       availableReferences: availableReferences,
-                      reservedParameterNames: reservedParameterNames,
-                      onChanged: (value) => _set(
-                        WorkflowSettingKeys.outputFields,
-                        value
-                            .map((item) => item.toJson())
-                            .toList(growable: false),
-                      ),
-                    ),
-                  )
-                : const SizedBox.shrink(),
+                      reservedParameterNames: reservedNames,
+                      onChanged: _setLlmOutputFields,
+                    )
+                  : _OutputPreview(fields: node.llmResponseFields()),
+            ),
           ),
         ],
       ),
@@ -2405,6 +2408,45 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     _setValues(<String, Object?>{
       WorkflowSettingKeys.structuredOutput: enabled,
       if (!enabled) WorkflowSettingKeys.outputFields: <Object?>[],
+      if (strategy == WorkflowErrorStrategy.defaultValue)
+        WorkflowSettingKeys.errorDefaultValues: _normalizedErrorDefaults(
+          fields,
+        ),
+    });
+  }
+
+  void _setLlmStructuredOutput(bool enabled) {
+    final fields = enabled
+        ? node.outputFields()
+        : node
+              .copyWith(
+                settings: <String, Object?>{
+                  ...node.settings,
+                  WorkflowSettingKeys.structuredOutput: false,
+                },
+              )
+              .llmResponseFields();
+    final strategy = WorkflowErrorStrategy.fromStorage(
+      node.settings[WorkflowSettingKeys.errorStrategy],
+    );
+    _setValues(<String, Object?>{
+      WorkflowSettingKeys.structuredOutput: enabled,
+      if (!enabled) WorkflowSettingKeys.outputFields: <Object?>[],
+      if (strategy == WorkflowErrorStrategy.defaultValue)
+        WorkflowSettingKeys.errorDefaultValues: _normalizedErrorDefaults(
+          fields,
+        ),
+    });
+  }
+
+  void _setLlmOutputFields(List<WorkflowOutputField> fields) {
+    final strategy = WorkflowErrorStrategy.fromStorage(
+      node.settings[WorkflowSettingKeys.errorStrategy],
+    );
+    _setValues(<String, Object?>{
+      WorkflowSettingKeys.outputFields: fields
+          .map((item) => item.toJson())
+          .toList(growable: false),
       if (strategy == WorkflowErrorStrategy.defaultValue)
         WorkflowSettingKeys.errorDefaultValues: _normalizedErrorDefaults(
           fields,
