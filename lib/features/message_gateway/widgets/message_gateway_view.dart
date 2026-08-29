@@ -23382,7 +23382,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
     final normalizedEffort = reasoningEffort.toLowerCase();
     final reasoningClosed =
         responseModel?.resolvedThinkingEnabled != true ||
-        const <String>{'none', 'off', 'disabled'}.contains(normalizedEffort);
+        AiReasoningEffortOption.isOffValue(normalizedEffort);
     final reasoningOption = allReasoningOptions
         .where((option) => option.value.toLowerCase() == normalizedEffort)
         .firstOrNull;

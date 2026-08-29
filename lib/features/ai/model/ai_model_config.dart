@@ -110,13 +110,13 @@ class AiReasoningEffortOption {
 
   static const _none = AiReasoningEffortOption(
     value: 'none',
-    label: '无',
-    labelZhHans: '无',
-    labelZhHant: '無',
-    labelEn: 'None',
-    labelFr: 'Aucun',
-    labelDe: 'Keine',
-    labelJa: 'なし',
+    label: '关闭',
+    labelZhHans: '关闭',
+    labelZhHant: '關閉',
+    labelEn: 'Off',
+    labelFr: 'Désactivé',
+    labelDe: 'Aus',
+    labelJa: 'オフ',
   );
   static const _minimal = AiReasoningEffortOption(
     value: 'minimal',
@@ -275,7 +275,23 @@ class AiReasoningEffortOption {
   bool get isValid => nullIfBlank(value) != null;
   bool get isSelectable => enabled && isValid;
 
+  static bool isOffValue(String? value) {
+    return const <String>{
+      'none',
+      'off',
+      'disabled',
+    }.contains(value?.trim().toLowerCase());
+  }
+
+  static String offLabelForLocaleName(String localeName) =>
+      _none._localizedLabelForLocaleName(localeName);
+
   String labelForLocaleName(String localeName) {
+    if (isOffValue(value)) return offLabelForLocaleName(localeName);
+    return _localizedLabelForLocaleName(localeName);
+  }
+
+  String _localizedLabelForLocaleName(String localeName) {
     final localeParts = localeName
         .replaceAll('_', '-')
         .split('-')
@@ -2217,6 +2233,9 @@ class AiModelConfig {
   String? reasoningEffortLabelForLocaleName(String localeName) {
     final effort = resolvedReasoningEffort;
     if (effort == null) return null;
+    if (AiReasoningEffortOption.isOffValue(effort)) {
+      return AiReasoningEffortOption.offLabelForLocaleName(localeName);
+    }
     for (final option in resolvedReasoningEffortOptions) {
       if (option.value == effort) {
         return option.labelForLocaleName(localeName);

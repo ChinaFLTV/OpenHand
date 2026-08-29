@@ -20,6 +20,7 @@ const double _kReasoningPopupGap = 8;
 const double _kThumbSize = 22;
 const double _kTrackHeight = 32;
 const Duration _kLabelSwitchDuration = kOpenHandMotion280;
+
 /// 主岸线碎裂前导 / 飞沫漫出（再乘 softScale）。
 const double _kTideSoftLead = 0.07;
 const double _kTideSoftSpill = 0.04;
@@ -27,6 +28,7 @@ const double _kTideWaveAmp = 0.048;
 const double _kTideSprayAmp = 0.028;
 const double _kTideFoamAmp = 0.016;
 const double _kTideUnderlaySoft = 0.1;
+
 /// 滑块到达末档：满轨实填、关闭潮汐过渡。
 const double _kLastTierProgress = 0.995;
 
@@ -66,7 +68,8 @@ double _effortTidePresence({
   final foam = math.sin(
     column * 11.3 + row * 1.7 + base * 9.1 + elapsed * 0.0009,
   );
-  final shore = maskFrac -
+  final shore =
+      maskFrac -
       lead * 0.4 +
       tide * _kTideWaveAmp * softScale +
       spray * _kTideSprayAmp * softScale +
@@ -118,14 +121,22 @@ abstract final class _EffortPalettes {
     final clamped = t.clamp(0.0, 0.999);
     final scaled = clamped * (tones.length - 1);
     final i = scaled.floor();
-    return Color.lerp(tones[i], tones[math.min(i + 1, tones.length - 1)], scaled - i)!;
+    return Color.lerp(
+      tones[i],
+      tones[math.min(i + 1, tones.length - 1)],
+      scaled - i,
+    )!;
   }
 
   static Color resolveFill(double progress, {required bool dark}) {
     final lowBlend = _smoothstep(0.0, 0.55, progress);
     final maxBlend = _smoothstep(0.55, 1.0, progress);
     final left = Color.lerp(
-      Color.lerp(dark ? darkGreenLeft : greenLeft, dark ? darkBlueLeft : blueLeft, lowBlend),
+      Color.lerp(
+        dark ? darkGreenLeft : greenLeft,
+        dark ? darkBlueLeft : blueLeft,
+        lowBlend,
+      ),
       dark ? darkPurpleLeft : purpleLeft,
       maxBlend,
     )!;
@@ -172,35 +183,13 @@ double _progressFromIndex(int index, int count) {
   return index / (count - 1);
 }
 
-/// 档位刻度标签：首档/末档走本地化，中间档用模型自带多语言标签。
+/// 刻度与实际保存值一一对应，禁止把最低可用档误报为关闭。
 String _effortTickLabel(
-  BuildContext context, {
-  required List<AiReasoningEffortOption> options,
-  required int index,
-  required String localeName,
-}) {
-  if (index <= 0) {
-    return openHandLocalizedText(
-      context,
-      zh: '关闭',
-      en: 'Off',
-      zhHant: '關閉',
-      ja: 'オフ',
-      fr: 'Off',
-      de: 'Aus',
-    );
-  }
-  if (index >= options.length - 1) {
-    return openHandLocalizedText(
-      context,
-      zh: '最大',
-      en: 'Max',
-      zhHant: '最大',
-      ja: '最大',
-      fr: 'Max',
-      de: 'Max',
-    );
-  }
+  List<AiReasoningEffortOption> options,
+  int index,
+  String localeName,
+) {
+  if (index < 0 || index >= options.length) return '';
   return options[index].labelForLocaleName(localeName);
 }
 
@@ -245,9 +234,7 @@ Future<void> showReasoningEffortSelector({
     constraints: BoxConstraints(minWidth: popupWidth, maxWidth: popupWidth),
     shape: RoundedRectangleBorder(
       borderRadius: kOpenHandBorderRadius16,
-      side: BorderSide(
-        color: colors.outline.withValues(alpha: 0.55),
-      ),
+      side: BorderSide(color: colors.outline.withValues(alpha: 0.55)),
     ),
     color: colors.surfaceContainer,
     items: <PopupMenuEntry<String>>[
@@ -292,6 +279,7 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
   String? _pendingValue;
   bool _saving = false;
   int _lastHapticIndex = -1;
+
   /// 单调时钟：禁止用 AnimationController.value 作时间源（repeat 归零会重播显现）。
   final Stopwatch _fxWatch = Stopwatch();
   late final AnimationController _fxClock = AnimationController(
@@ -325,8 +313,7 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
 
   void _syncFx() {
     final progress = (_slider100 / 100).clamp(0.0, 1.0);
-    final want =
-        progress > 0.02 && openHandTickerMotionEnabled(context);
+    final want = progress > 0.02 && openHandTickerMotionEnabled(context);
     if (want) {
       if (!_fxWatch.isRunning) _fxWatch.start();
       if (!_fxClock.isAnimating) _fxClock.repeat();
@@ -415,8 +402,10 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
       return SizedBox(width: widget.width, height: _kReasoningPopupEntryHeight);
     }
     final progress = (_slider100 / 100).clamp(0.0, 1.0);
-    final displayIndex = _indexFromProgress(progress, widget.options.length)
-        .clamp(0, widget.options.length - 1);
+    final displayIndex = _indexFromProgress(
+      progress,
+      widget.options.length,
+    ).clamp(0, widget.options.length - 1);
     final option = widget.options[displayIndex];
     final maxBlend = _smoothstep(0.55, 1.0, progress);
     final pixelBlend = _smoothstep(0.18, 0.55, progress);
@@ -428,11 +417,7 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
       colorScheme.onSurfaceVariant,
       Color.lerp(
         const Color(0xFF2EA86C),
-        Color.lerp(
-          const Color(0xFF3B5BD8),
-          const Color(0xFF9660CD),
-          maxBlend,
-        ),
+        Color.lerp(const Color(0xFF3B5BD8), const Color(0xFF9660CD), maxBlend),
         _smoothstep(0.0, 0.7, progress),
       ),
       0.82,
@@ -528,12 +513,7 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
                         0,
                       ),
                       child: Text(
-                        _effortTickLabel(
-                          context,
-                          options: widget.options,
-                          index: i,
-                          localeName: localeName,
-                        ),
+                        _effortTickLabel(widget.options, i, localeName),
                         style: theme.textTheme.labelSmall?.copyWith(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
@@ -662,10 +642,10 @@ class _EffortTrackPainter extends CustomPainter {
     // 末档整轨实填、关闭潮汐；非末档右缘跟随拇指。
     final solidTrack = _isEffortLastTier(progress);
     final fillRight = solidTrack ? size.width : thumbX.clamp(0.0, size.width);
-    final maskFrac =
-        solidTrack ? 1.0 : (thumbX / size.width).clamp(0.0, 1.0);
-    final softScale =
-        solidTrack ? 0.0 : _effortTideSoftScale(maskFrac, maxBlend);
+    final maskFrac = solidTrack ? 1.0 : (thumbX / size.width).clamp(0.0, 1.0);
+    final softScale = solidTrack
+        ? 0.0
+        : _effortTideSoftScale(maskFrac, maxBlend);
     final accent = _EffortPalettes.resolveFill(progress, dark: dark);
     final cy = size.height / 2;
 
@@ -674,24 +654,29 @@ class _EffortTrackPainter extends CustomPainter {
       canvas.clipRRect(track);
       final maxEnd = solidTrack || softScale < 0.05
           ? fillRight
-          : math.max(0.0, fillRight - size.width * _kTideUnderlaySoft * softScale * 0.35);
+          : math.max(
+              0.0,
+              fillRight - size.width * _kTideUnderlaySoft * softScale * 0.35,
+            );
       if (maxEnd > 1) {
         canvas.drawRect(
           Rect.fromLTRB(0, trackTop, maxEnd, trackTop + _kTrackHeight),
           Paint()
-            ..shader = LinearGradient(
-              colors: <Color>[
-                ..._EffortPalettes.trackMaxGradient(dark: dark).map(
-                  (c) => c.withValues(alpha: 0.35 + maxBlend * 0.65),
+            ..shader =
+                LinearGradient(
+                  colors: <Color>[
+                    ..._EffortPalettes.trackMaxGradient(
+                      dark: dark,
+                    ).map((c) => c.withValues(alpha: 0.35 + maxBlend * 0.65)),
+                    if (!solidTrack && softScale >= 0.05)
+                      const Color(0x00000000),
+                  ],
+                  stops: solidTrack || softScale < 0.05
+                      ? null
+                      : const <double>[0, 0.28, 0.52, 0.74, 1],
+                ).createShader(
+                  Rect.fromLTRB(0, trackTop, maxEnd, trackTop + _kTrackHeight),
                 ),
-                if (!solidTrack && softScale >= 0.05) const Color(0x00000000),
-              ],
-              stops: solidTrack || softScale < 0.05
-                  ? null
-                  : const <double>[0, 0.28, 0.52, 0.74, 1],
-            ).createShader(
-              Rect.fromLTRB(0, trackTop, maxEnd, trackTop + _kTrackHeight),
-            ),
         );
       }
       canvas.restore();
@@ -706,19 +691,23 @@ class _EffortTrackPainter extends CustomPainter {
       canvas.drawRect(
         Rect.fromLTRB(0, trackTop, streamEnd, trackTop + _kTrackHeight),
         Paint()
-          ..shader = LinearGradient(
-            colors: <Color>[
-              accent.withValues(alpha: 0.14),
-              accent.withValues(alpha: 0.52 + progress * 0.28),
-              accent.withValues(alpha: solidTrack || softScale < 0.05 ? 0.42 : 0.12),
-              if (!solidTrack && softScale >= 0.05) accent.withValues(alpha: 0),
-            ],
-            stops: solidTrack || softScale < 0.05
-                ? const <double>[0, 0.55, 1]
-                : const <double>[0, 0.48, 0.78, 1],
-          ).createShader(
-            Rect.fromLTRB(0, trackTop, streamEnd, trackTop + _kTrackHeight),
-          )
+          ..shader =
+              LinearGradient(
+                colors: <Color>[
+                  accent.withValues(alpha: 0.14),
+                  accent.withValues(alpha: 0.52 + progress * 0.28),
+                  accent.withValues(
+                    alpha: solidTrack || softScale < 0.05 ? 0.42 : 0.12,
+                  ),
+                  if (!solidTrack && softScale >= 0.05)
+                    accent.withValues(alpha: 0),
+                ],
+                stops: solidTrack || softScale < 0.05
+                    ? const <double>[0, 0.55, 1]
+                    : const <double>[0, 0.48, 0.78, 1],
+              ).createShader(
+                Rect.fromLTRB(0, trackTop, streamEnd, trackTop + _kTrackHeight),
+              )
           ..color = Colors.white.withValues(alpha: 1 - pixelBlend),
       );
       if (!reducedMotion) {
@@ -767,18 +756,22 @@ class _EffortTrackPainter extends CustomPainter {
       Offset(thumbX, cy),
       _kThumbSize / 2,
       Paint()
-        ..shader = RadialGradient(
-          colors: <Color>[
-            Color.lerp(Colors.white, accent, 0.12)!,
-            Color.lerp(
-              dark ? const Color(0xFFE8E0F4) : const Color(0xFFF4F6FC),
-              accent,
-              0.28,
-            )!,
-          ],
-        ).createShader(
-          Rect.fromCircle(center: Offset(thumbX, cy), radius: _kThumbSize / 2),
-        ),
+        ..shader =
+            RadialGradient(
+              colors: <Color>[
+                Color.lerp(Colors.white, accent, 0.12)!,
+                Color.lerp(
+                  dark ? const Color(0xFFE8E0F4) : const Color(0xFFF4F6FC),
+                  accent,
+                  0.28,
+                )!,
+              ],
+            ).createShader(
+              Rect.fromCircle(
+                center: Offset(thumbX, cy),
+                radius: _kThumbSize / 2,
+              ),
+            ),
     );
     canvas.drawCircle(
       Offset(thumbX, cy),
@@ -795,7 +788,12 @@ class _EffortTrackPainter extends CustomPainter {
     );
   }
 
-  void _paintStreamSparks(Canvas canvas, Size size, double fillRight, Color accent) {
+  void _paintStreamSparks(
+    Canvas canvas,
+    Size size,
+    double fillRight,
+    Color accent,
+  ) {
     final t = timeMs / 1000;
     final cy = size.height / 2;
     for (var i = 0; i < 14; i++) {
@@ -833,8 +831,10 @@ class _EffortTrackPainter extends CustomPainter {
         final x = column * cell;
         final y = row * cell;
         final nX = (x + cell * 0.5) / size.width;
-        final base = (math.sin(column * 12.9898 + row * 78.233) * 43758.5453).abs() % 1;
-        final phase = (math.sin(column * 31.17 + row * 11.93) * 28437.123).abs() % 1;
+        final base =
+            (math.sin(column * 12.9898 + row * 78.233) * 43758.5453).abs() % 1;
+        final phase =
+            (math.sin(column * 31.17 + row * 11.93) * 28437.123).abs() % 1;
         final tidePresence = _effortTidePresence(
           nX: nX,
           maskFrac: maskFrac,
@@ -848,18 +848,29 @@ class _EffortTrackPainter extends CustomPainter {
         );
         if (tidePresence <= 0.02) continue;
 
-        final tempo = (math.sin(column * 7.13 + row * 19.41) * 19341.731).abs() % 1;
+        final tempo =
+            (math.sin(column * 7.13 + row * 19.41) * 19341.731).abs() % 1;
         final period = 500 + tempo * 1500;
         final localTime = elapsed + phase * period;
         final cycle = (localTime / period).floor();
         final cycleProgress = (localTime % period) / period;
         final cycleHash =
-            (math.sin(column * 17.17 + row * 41.73 + cycle * 13.11) * 24634.6345).abs() % 1;
+            (math.sin(column * 17.17 + row * 41.73 + cycle * 13.11) *
+                    24634.6345)
+                .abs() %
+            1;
         final pulseCenter = 0.2 + cycleHash * 0.55;
         const pulseWidth = 0.12;
         final pulseDistance = (cycleProgress - pulseCenter) / pulseWidth;
-        final flicker = math.exp(-pulseDistance * pulseDistance * 1.45) * (cycleHash > 0.12 ? 1 : 0.26);
-        final wave = math.pow(0.5 + 0.5 * math.cos((nX + flow + row * 0.06) * math.pi * 2), 5).toDouble();
+        final flicker =
+            math.exp(-pulseDistance * pulseDistance * 1.45) *
+            (cycleHash > 0.12 ? 1 : 0.26);
+        final wave = math
+            .pow(
+              0.5 + 0.5 * math.cos((nX + flow + row * 0.06) * math.pi * 2),
+              5,
+            )
+            .toDouble();
         final light = math.max(flicker * 0.7, wave * 0.45);
 
         final green = _EffortPalettes.toneAt(_EffortPalettes.greenTones, nX);
@@ -872,7 +883,8 @@ class _EffortTrackPainter extends CustomPainter {
         )!;
         final highlight = Color.lerp(color, Colors.white, light * 0.55)!;
         // 覆盖由拇指/潮汐决定，不做从右向左扫过显现（避免周期重播与剧烈跳变）。
-        final alpha = tidePresence *
+        final alpha =
+            tidePresence *
             _mix(0.82, 0.7 + base * 0.2, maxBlend) *
             (0.75 + light * 0.25);
         if (alpha < 0.02) continue;

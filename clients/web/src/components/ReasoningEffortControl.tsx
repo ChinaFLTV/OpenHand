@@ -69,16 +69,6 @@ function slider100ToIndex(slider100: number, optionCount: number): number {
   return clamp(Math.round((slider100 / 100) * (optionCount - 1)), 0, optionCount - 1);
 }
 
-function shortLevelLabel(
-  option: ApiReasoningEffortOption,
-  index: number,
-  total: number,
-): string {
-  if (index === 0) return t('composer.reasoning.level.off', '关闭');
-  if (index === total - 1) return t('composer.reasoning.level.max', '最大');
-  return option.label;
-}
-
 function ReasoningEffortPanel({
   options,
   currentValue,
@@ -297,6 +287,7 @@ function ReasoningEffortPanel({
         </div>
 
         <div class="oh-reasoning-effort-levels" aria-hidden="true">
+          {/* 刻度必须显示真实 option，禁止把最低可用档误报为关闭。 */}
           {options.map((option, index) => {
             const last = Math.max(options.length - 1, 1);
             const at = index / last;
@@ -311,7 +302,7 @@ function ReasoningEffortPanel({
                 }`}
                 style={{ left: `${at * 100}%` }}
               >
-                {shortLevelLabel(option, index, options.length)}
+                {option.label}
               </span>
             );
           })}
