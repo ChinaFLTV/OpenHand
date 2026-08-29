@@ -59,6 +59,7 @@ class SettingsStore {
   static const String _legacyMigrationKey = 'legacy_settings_toml_v1';
   static const String _emptySettingsJsonMessage = '设置 JSON 为空。';
   static const String _invalidSettingsRootMessage = '设置 JSON 根节点必须是对象。';
+  static const String _retiredBuiltinToolKindPrefix = 'agent';
   static const int _currentSchemaVersion = 5;
 
   /// 保留该路径以兼容仍对外暴露路径的控制器。
@@ -85,7 +86,9 @@ class SettingsStore {
           if (decoded is! Map) {
             throw const FormatException(_invalidSettingsRootMessage);
           }
-          final snapshot = _snapshotFromJson(stringKeyedMapFromValue(decoded));
+          final source = stringKeyedMapFromValue(decoded);
+          final removedRetiredTools = _removeRetiredBuiltinToolConfigs(source);
+          final snapshot = _snapshotFromJson(source);
           try {
             await markLegacyTargetPresentIfAbsent(
               _db,
@@ -93,6 +96,13 @@ class SettingsStore {
             );
           } catch (error, stack) {
             silentLog('settings_store', '标记旧版设置迁移', error, stack);
+          }
+          if (removedRetiredTools) {
+            try {
+              await save(snapshot);
+            } catch (error, stack) {
+              silentLog('settings_store', '清理已下线内置工具配置', error, stack);
+            }
           }
           return SettingsLoadResult(snapshot: snapshot, canPersist: true);
         } catch (error, stack) {
@@ -128,6 +138,30 @@ class SettingsStore {
       'key': _dbSettingsKey,
       'value': jsonStr,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  bool _removeRetiredBuiltinToolConfigs(Map<String, Object?> source) {
+    final rawConfigs = source['builtin_tool_configs'];
+    if (rawConfigs is! List) return false;
+    final filtered = <Object?>[];
+    var removed = false;
+    for (final item in rawConfigs) {
+      final config = optionalStringKeyedMapFromValueOrJsonText(item);
+      final kind = config == null ? '' : stringFromValue(config['kind']);
+      const suffixIndex = _retiredBuiltinToolKindPrefix.length;
+      final isRetired =
+          kind.startsWith(_retiredBuiltinToolKindPrefix) &&
+          kind.length > suffixIndex &&
+          kind.codeUnitAt(suffixIndex) >= 0x41 &&
+          kind.codeUnitAt(suffixIndex) <= 0x5A;
+      if (isRetired) {
+        removed = true;
+      } else {
+        filtered.add(item);
+      }
+    }
+    if (removed) source['builtin_tool_configs'] = filtered;
+    return removed;
   }
 
   Future<SettingsLoadResult> _initializeMissingSettings() async {

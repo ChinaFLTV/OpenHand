@@ -49,6 +49,8 @@ enum CronScriptType {
 
   final String storageValue;
 
+  static const String legacyManagedStorageValue = 'agent';
+
   String label(AppLocalizations l10n) {
     return switch (this) {
       CronScriptType.command => l10n.cronScriptTypeCommand,
@@ -58,7 +60,7 @@ enum CronScriptType {
   }
 
   static CronScriptType? fromStorage(String? value) {
-    if (value == 'agent') return CronScriptType.managed;
+    if (value == legacyManagedStorageValue) return CronScriptType.managed;
     return enumByStorageValue(values, value, (type) => type.storageValue);
   }
 }

@@ -170,6 +170,12 @@ class CronsStore {
       'environment_snapshot',
       "TEXT NOT NULL DEFAULT ''",
     );
+    await _db.update(
+      _tableName,
+      <String, Object?>{'script_type': CronScriptType.managed.storageValue},
+      where: 'script_type = ?',
+      whereArgs: <Object?>[CronScriptType.legacyManagedStorageValue],
+    );
   }
 
   // 定时任务读写。
@@ -210,12 +216,7 @@ class CronsStore {
       id: id,
       name: name,
       description: _text(row, 'description'),
-      scriptType: _enumValue(
-        row,
-        'script_type',
-        CronScriptType.values,
-        (value) => value.storageValue,
-      ),
+      scriptType: _scriptType(row),
       scriptPath: _optionalText(row, 'script_path'),
       scriptContent: _optionalText(row, 'script_content'),
       cronExpression: cronExpression,
@@ -345,6 +346,14 @@ class CronsStore {
     final value = enumByStorageValue(values, _text(row, key), storageValue);
     if (value == null) {
       throw FormatException('定时任务字段 $key 包含未知值。');
+    }
+    return value;
+  }
+
+  CronScriptType _scriptType(Map<String, Object?> row) {
+    final value = CronScriptType.fromStorage(_text(row, 'script_type'));
+    if (value == null) {
+      throw const FormatException('定时任务字段 script_type 包含未知值。');
     }
     return value;
   }
