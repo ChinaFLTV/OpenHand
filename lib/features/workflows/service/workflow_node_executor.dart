@@ -48,6 +48,9 @@ typedef WorkflowMcpToolInvoker =
 typedef WorkflowLlmConversationListener =
     void Function(WorkflowLlmConversation conversation);
 
+typedef WorkflowNodeExecutionListener =
+    void Function(WorkflowNodeExecutionEvent event);
+
 typedef WorkflowHumanInterventionHandler =
     Future<WorkflowHumanInterventionResponse> Function(
       WorkflowHumanInterventionRequest request,
@@ -86,6 +89,31 @@ class WorkflowHumanInterventionResponse {
 }
 
 enum WorkflowLlmConversationStatus { running, succeeded, failed }
+
+enum WorkflowNodeExecutionPhase {
+  pending,
+  running,
+  succeeded,
+  warning,
+  failed,
+  skipped,
+}
+
+class WorkflowNodeExecutionEvent {
+  const WorkflowNodeExecutionEvent({
+    required this.nodeId,
+    required this.phase,
+    this.duration = Duration.zero,
+    this.attempts = 0,
+    this.error,
+  });
+
+  final String nodeId;
+  final WorkflowNodeExecutionPhase phase;
+  final Duration duration;
+  final int attempts;
+  final String? error;
+}
 
 enum WorkflowLlmMessageKind { user, reasoning, assistant, toolCall, toolResult }
 
@@ -177,6 +205,7 @@ class WorkflowExecutionResources {
     this.mcpToolInvoker,
     this.onLlmConversation,
     this.onHumanIntervention,
+    this.onNodeExecution,
   });
 
   final List<AiModelConfig> models;
@@ -191,6 +220,25 @@ class WorkflowExecutionResources {
   final WorkflowMcpToolInvoker? mcpToolInvoker;
   final WorkflowLlmConversationListener? onLlmConversation;
   final WorkflowHumanInterventionHandler? onHumanIntervention;
+  final WorkflowNodeExecutionListener? onNodeExecution;
+
+  WorkflowExecutionResources withNodeExecutionListener(
+    WorkflowNodeExecutionListener listener,
+  ) => WorkflowExecutionResources(
+    models: models,
+    templateRepository: templateRepository,
+    skills: skills,
+    memories: memories,
+    instructions: instructions,
+    knowledgeBaseController: knowledgeBaseController,
+    mcpServers: mcpServers,
+    mcpTools: mcpTools,
+    codeRuntimes: codeRuntimes,
+    mcpToolInvoker: mcpToolInvoker,
+    onLlmConversation: onLlmConversation,
+    onHumanIntervention: onHumanIntervention,
+    onNodeExecution: listener,
+  );
 }
 
 class WorkflowNodeExecutionResult {
@@ -201,6 +249,7 @@ class WorkflowNodeExecutionResult {
     this.rawOutput = '',
     this.conversation,
     this.selectedBranchId,
+    this.recoveredFromError = false,
   });
 
   final Object? output;
@@ -209,6 +258,23 @@ class WorkflowNodeExecutionResult {
   final Duration duration;
   final WorkflowLlmConversation? conversation;
   final String? selectedBranchId;
+  final bool recoveredFromError;
+}
+
+class WorkflowExecutionResult {
+  const WorkflowExecutionResult({
+    required this.output,
+    required this.variables,
+    required this.duration,
+    required this.executedSteps,
+    required this.warningSteps,
+  });
+
+  final Object? output;
+  final Map<String, Object?> variables;
+  final Duration duration;
+  final int executedSteps;
+  final int warningSteps;
 }
 
 class WorkflowNodeExecutor {
@@ -226,62 +292,215 @@ class WorkflowNodeExecutor {
     Map<String, Object?> variables = const <String, Object?>{},
     List<WorkflowNode> workflowNodes = const <WorkflowNode>[],
     List<WorkflowConnection> workflowConnections = const <WorkflowConnection>[],
-  }) {
-    return switch (node.kind) {
-      WorkflowNodeKind.start => Future<WorkflowNodeExecutionResult>.value(
-        _executeParameterNode(
-          fields: node.inputFields(),
-          variables: variables,
-          label: '输入参数',
+  }) async {
+    final stopwatch = Stopwatch()..start();
+    resources.onNodeExecution?.call(
+      WorkflowNodeExecutionEvent(
+        nodeId: node.id,
+        phase: WorkflowNodeExecutionPhase.running,
+      ),
+    );
+    try {
+      final result = await switch (node.kind) {
+        WorkflowNodeKind.start => Future<WorkflowNodeExecutionResult>.value(
+          _executeParameterNode(
+            fields: node.inputFields(),
+            variables: variables,
+            label: '输入参数',
+          ),
         ),
-      ),
-      WorkflowNodeKind.llm => _executeLlm(node, resources, variables),
-      WorkflowNodeKind.httpRequest => _executeHttp(node, variables),
-      WorkflowNodeKind.condition => _executeCondition(node, variables),
-      WorkflowNodeKind.loop => _executeLoop(
-        node,
-        resources,
-        variables,
-        workflowNodes,
-        workflowConnections,
-      ),
-      WorkflowNodeKind.iteration => _executeIteration(
-        node,
-        resources,
-        variables,
-        workflowNodes,
-        workflowConnections,
-      ),
-      WorkflowNodeKind.parameterAssignment =>
-        Future<WorkflowNodeExecutionResult>.value(
+        WorkflowNodeKind.llm => _executeLlm(node, resources, variables),
+        WorkflowNodeKind.httpRequest => _executeHttp(node, variables),
+        WorkflowNodeKind.condition => _executeCondition(node, variables),
+        WorkflowNodeKind.loop => _executeLoop(
+          node,
+          resources,
+          variables,
+          workflowNodes,
+          workflowConnections,
+        ),
+        WorkflowNodeKind.iteration => _executeIteration(
+          node,
+          resources,
+          variables,
+          workflowNodes,
+          workflowConnections,
+        ),
+        WorkflowNodeKind.parameterAssignment =>
+          Future<WorkflowNodeExecutionResult>.value(
+            _executeParameterNode(
+              fields: node.outputFields(),
+              variables: variables,
+              label: '赋值参数',
+            ),
+          ),
+        WorkflowNodeKind.listOperation => _executeListOperation(
+          node,
+          variables,
+        ),
+        WorkflowNodeKind.codeExecution => _executeCode(
+          node,
+          resources,
+          variables,
+        ),
+        WorkflowNodeKind.humanIntervention => _executeHumanIntervention(
+          node,
+          resources,
+          variables,
+        ),
+        WorkflowNodeKind.loopExit => Future<WorkflowNodeExecutionResult>.error(
+          const _WorkflowLoopExitSignal(),
+        ),
+        WorkflowNodeKind.end => Future<WorkflowNodeExecutionResult>.value(
           _executeParameterNode(
             fields: node.outputFields(),
             variables: variables,
-            label: '赋值参数',
+            label: '输出参数',
           ),
         ),
-      WorkflowNodeKind.listOperation => _executeListOperation(node, variables),
-      WorkflowNodeKind.codeExecution => _executeCode(
-        node,
-        resources,
-        variables,
-      ),
-      WorkflowNodeKind.humanIntervention => _executeHumanIntervention(
-        node,
-        resources,
-        variables,
-      ),
-      WorkflowNodeKind.loopExit => Future<WorkflowNodeExecutionResult>.error(
-        const _WorkflowLoopExitSignal(),
-      ),
-      WorkflowNodeKind.end => Future<WorkflowNodeExecutionResult>.value(
-        _executeParameterNode(
-          fields: node.outputFields(),
-          variables: variables,
-          label: '输出参数',
+      };
+      resources.onNodeExecution?.call(
+        WorkflowNodeExecutionEvent(
+          nodeId: node.id,
+          phase: result.recoveredFromError
+              ? WorkflowNodeExecutionPhase.warning
+              : WorkflowNodeExecutionPhase.succeeded,
+          duration: result.duration,
+          attempts: result.attempts,
         ),
-      ),
+      );
+      return result;
+    } catch (error) {
+      resources.onNodeExecution?.call(
+        WorkflowNodeExecutionEvent(
+          nodeId: node.id,
+          phase: WorkflowNodeExecutionPhase.failed,
+          duration: stopwatch.elapsed,
+          error: _executionErrorText(error),
+        ),
+      );
+      rethrow;
+    }
+  }
+
+  Future<WorkflowExecutionResult> executeWorkflow({
+    required List<WorkflowNode> nodes,
+    required List<WorkflowConnection> connections,
+    required WorkflowExecutionResources resources,
+    Map<String, Object?> inputs = const <String, Object?>{},
+  }) async {
+    final topLevelNodes = nodes
+        .where((node) => node.parentNodeId == null)
+        .toList(growable: false);
+    final starts = topLevelNodes
+        .where((node) => node.kind == WorkflowNodeKind.start)
+        .toList(growable: false);
+    final ends = topLevelNodes
+        .where((node) => node.kind == WorkflowNodeKind.end)
+        .toList(growable: false);
+    if (starts.length != 1 || ends.length != 1) {
+      throw const WorkflowNodeExecutionException('工作流必须且只能包含一个开始节点和一个结束节点。');
+    }
+    final nodesById = <String, WorkflowNode>{
+      for (final node in topLevelNodes) node.id: node,
     };
+    final edges = connections
+        .where(
+          (edge) =>
+              nodesById.containsKey(edge.sourceNodeId) &&
+              nodesById.containsKey(edge.targetNodeId) &&
+              edge.sourceHandleId != workflowContainerStartHandleId,
+        )
+        .toList(growable: false);
+    final reachable = <String>{};
+    final pending = <String>[starts.single.id];
+    while (pending.isNotEmpty) {
+      final nodeId = pending.removeLast();
+      if (!reachable.add(nodeId)) continue;
+      for (final edge in edges) {
+        if (edge.sourceNodeId == nodeId) pending.add(edge.targetNodeId);
+      }
+    }
+    if (reachable.length != topLevelNodes.length) {
+      throw const WorkflowNodeExecutionException('工作流包含无法从开始节点到达的节点。');
+    }
+    final incoming = <String, int>{
+      for (final node in topLevelNodes) node.id: 0,
+    };
+    for (final edge in edges) {
+      incoming[edge.targetNodeId] = incoming[edge.targetNodeId]! + 1;
+    }
+    final ready = ListQueue<String>.from(
+      topLevelNodes
+          .where((node) => incoming[node.id] == 0)
+          .map((node) => node.id),
+    );
+    final order = <String>[];
+    while (ready.isNotEmpty) {
+      final nodeId = ready.removeFirst();
+      order.add(nodeId);
+      for (final edge in edges) {
+        if (edge.sourceNodeId != nodeId) continue;
+        final remaining = incoming[edge.targetNodeId]! - 1;
+        incoming[edge.targetNodeId] = remaining;
+        if (remaining == 0) ready.add(edge.targetNodeId);
+      }
+    }
+    if (order.length != topLevelNodes.length) {
+      throw const WorkflowNodeExecutionException('工作流包含循环连线，无法开始测试。');
+    }
+
+    var executedSteps = 0;
+    var warningSteps = 0;
+    final observedResources = resources.withNodeExecutionListener((event) {
+      if (event.phase == WorkflowNodeExecutionPhase.running) {
+        executedSteps += 1;
+      } else if (event.phase == WorkflowNodeExecutionPhase.warning) {
+        warningSteps += 1;
+      }
+      resources.onNodeExecution?.call(event);
+    });
+    final variables = <String, Object?>{...inputs};
+    final activeNodeIds = <String>{starts.single.id};
+    Object? output;
+    var reachedEnd = false;
+    final stopwatch = Stopwatch()..start();
+    for (final nodeId in order) {
+      if (!activeNodeIds.contains(nodeId)) continue;
+      final node = nodesById[nodeId];
+      if (node == null) continue;
+      final result = await execute(
+        node: node,
+        resources: observedResources,
+        variables: variables,
+        workflowNodes: nodes,
+        workflowConnections: connections,
+      );
+      _mergeNodeOutput(node, result.output, variables);
+      if (node.kind == WorkflowNodeKind.end) {
+        output = result.output;
+        reachedEnd = true;
+      }
+      for (final edge in edges) {
+        if (edge.sourceNodeId != node.id) continue;
+        if (result.selectedBranchId != null &&
+            edge.sourceHandleId != result.selectedBranchId) {
+          continue;
+        }
+        activeNodeIds.add(edge.targetNodeId);
+      }
+    }
+    stopwatch.stop();
+    if (!reachedEnd) {
+      throw const WorkflowNodeExecutionException('当前执行分支未到达结束节点。');
+    }
+    return WorkflowExecutionResult(
+      output: output,
+      variables: Map<String, Object?>.unmodifiable(variables),
+      duration: stopwatch.elapsed,
+      executedSteps: executedSteps,
+      warningSteps: warningSteps,
+    );
   }
 
   void dispose() {
@@ -467,6 +686,7 @@ class WorkflowNodeExecutor {
           rawOutput: jsonEncode(output),
           attempts: attempts,
           duration: stopwatch.elapsed,
+          recoveredFromError: true,
         );
       } on WorkflowNodeExecutionException catch (error) {
         throw WorkflowNodeExecutionException(
@@ -485,6 +705,7 @@ class WorkflowNodeExecutor {
       attempts: attempts,
       duration: stopwatch.elapsed,
       selectedBranchId: workflowFailureHandleId,
+      recoveredFromError: true,
     );
   }
 
@@ -737,6 +958,7 @@ class WorkflowNodeExecutor {
           attempts: attempts,
           duration: stopwatch.elapsed,
           conversation: failedConversation,
+          recoveredFromError: true,
         );
       } on WorkflowNodeExecutionException catch (error) {
         throw WorkflowNodeExecutionException(
@@ -756,6 +978,7 @@ class WorkflowNodeExecutor {
       duration: stopwatch.elapsed,
       conversation: failedConversation,
       selectedBranchId: workflowFailureHandleId,
+      recoveredFromError: true,
     );
   }
 
@@ -1191,6 +1414,7 @@ class WorkflowNodeExecutor {
           rawOutput: jsonEncode(output),
           attempts: attempts,
           duration: stopwatch.elapsed,
+          recoveredFromError: true,
         );
       } on WorkflowNodeExecutionException catch (error) {
         throw WorkflowNodeExecutionException(
@@ -1209,6 +1433,7 @@ class WorkflowNodeExecutor {
       attempts: attempts,
       duration: stopwatch.elapsed,
       selectedBranchId: workflowFailureHandleId,
+      recoveredFromError: true,
     );
   }
 
@@ -2093,6 +2318,19 @@ class WorkflowNodeExecutor {
       final child = childrenById[nodeId];
       if (child == null) continue;
       if (child.kind == WorkflowNodeKind.loopExit) {
+        resources.onNodeExecution?.call(
+          WorkflowNodeExecutionEvent(
+            nodeId: child.id,
+            phase: WorkflowNodeExecutionPhase.running,
+          ),
+        );
+        resources.onNodeExecution?.call(
+          WorkflowNodeExecutionEvent(
+            nodeId: child.id,
+            phase: WorkflowNodeExecutionPhase.succeeded,
+            attempts: 1,
+          ),
+        );
         throw _WorkflowLoopExitSignal(
           Map<String, Object?>.unmodifiable(resolvedVariables),
         );
@@ -2104,16 +2342,7 @@ class WorkflowNodeExecutor {
         workflowNodes: workflowNodes,
         workflowConnections: workflowConnections,
       );
-      if (result.output case final Map output) {
-        for (final entry in output.entries) {
-          resolvedVariables['${entry.key}'] = entry.value;
-        }
-      } else {
-        final fields = child.declaredParameterFields();
-        if (fields.length == 1) {
-          resolvedVariables[fields.first.name.trim()] = result.output;
-        }
-      }
+      _mergeNodeOutput(child, result.output, resolvedVariables);
       final selectedBranch = result.selectedBranchId;
       for (final edge in childEdges) {
         if (edge.sourceNodeId != child.id) continue;
@@ -2124,6 +2353,23 @@ class WorkflowNodeExecutor {
       }
     }
     return Map<String, Object?>.unmodifiable(resolvedVariables);
+  }
+
+  void _mergeNodeOutput(
+    WorkflowNode node,
+    Object? output,
+    Map<String, Object?> variables,
+  ) {
+    if (output case final Map values) {
+      for (final entry in values.entries) {
+        variables['${entry.key}'] = entry.value;
+      }
+      return;
+    }
+    final fields = node.declaredParameterFields();
+    if (fields.length == 1) {
+      variables[fields.first.name.trim()] = output;
+    }
   }
 
   bool _matchesConditions(

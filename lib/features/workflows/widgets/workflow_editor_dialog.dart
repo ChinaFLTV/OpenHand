@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/state/settings_controller.dart';
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -28,6 +29,7 @@ import '../service/workflow_code_executor.dart';
 import '../service/workflow_node_executor.dart';
 import 'workflow_human_intervention_dialog.dart';
 import 'workflow_node_configuration_panel.dart';
+import 'workflow_test_dialog.dart';
 
 const double _canvasWidth = 2400;
 const double _canvasHeight = 1600;
@@ -176,11 +178,14 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   String? _selectedNodeId;
   String? _selectedConnectionId;
   bool _testing = false;
+  bool _workflowTesting = false;
   String? _testResult;
   String? _testError;
   WorkflowNodeTestStatus? _testStatus;
   final Map<String, WorkflowLlmConversation> _llmConversations =
       <String, WorkflowLlmConversation>{};
+  final Map<String, WorkflowNodeExecutionEvent> _nodeExecutions =
+      <String, WorkflowNodeExecutionEvent>{};
   String? _conversationNodeId;
   String? _connectingSourceNodeId;
   String? _connectingSourceHandleId;
@@ -249,61 +254,68 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                   _configurationWidth,
                   math.max(340.0, constraints.maxWidth * 0.38),
                 );
-                return Row(
-                  children: [
-                    Expanded(child: _buildCanvas(context)),
-                    AnimatedContainer(
-                      duration: openHandMotionDuration(
-                        context,
-                        kOpenHandMotion260,
-                      ),
-                      curve: Curves.easeOutCubic,
-                      width: _selectedNode == null ? 0 : panelWidth,
-                      clipBehavior: Clip.hardEdge,
-                      decoration: const BoxDecoration(),
-                      child: _selectedNode == null
-                          ? const SizedBox.shrink()
-                          : OverflowBox(
-                              alignment: Alignment.centerLeft,
-                              minWidth: panelWidth,
-                              maxWidth: panelWidth,
-                              child: WorkflowNodeConfigurationPanel(
-                                node: _selectedNode!,
-                                catalog: widget.catalog,
-                                availableReferences: _availableReferencesFor(
-                                  _selectedNode!,
+                return AbsorbPointer(
+                  absorbing: _workflowTesting,
+                  child: Row(
+                    children: [
+                      Expanded(child: _buildCanvas(context)),
+                      AnimatedContainer(
+                        duration: openHandMotionDuration(
+                          context,
+                          kOpenHandMotion260,
+                        ),
+                        curve: Curves.easeOutCubic,
+                        width: _selectedNode == null ? 0 : panelWidth,
+                        clipBehavior: Clip.hardEdge,
+                        decoration: const BoxDecoration(),
+                        child: _selectedNode == null
+                            ? const SizedBox.shrink()
+                            : OverflowBox(
+                                alignment: Alignment.centerLeft,
+                                minWidth: panelWidth,
+                                maxWidth: panelWidth,
+                                child: WorkflowNodeConfigurationPanel(
+                                  node: _selectedNode!,
+                                  catalog: widget.catalog,
+                                  availableReferences: _availableReferencesFor(
+                                    _selectedNode!,
+                                  ),
+                                  nestedOutputReferences:
+                                      _nestedOutputReferencesFor(
+                                        _selectedNode!,
+                                      ),
+                                  reservedParameterNames:
+                                      _reservedParameterNamesFor(
+                                        _selectedNode!,
+                                      ),
+                                  onChanged: _updateNode,
+                                  onClose: () => setState(() {
+                                    _selectedNodeId = null;
+                                  }),
+                                  onDelete: _deleteSelectedNode,
+                                  onTest: _testSelectedNode,
+                                  testing: _testing,
+                                  testResult: _testResult,
+                                  testError: _testError,
+                                  testStatus: _testStatus,
+                                  conversation:
+                                      _llmConversations[_selectedNode!.id],
+                                  showConversation:
+                                      _conversationNodeId == _selectedNode!.id,
+                                  onConversationModeChanged: (show) {
+                                    setState(() {
+                                      _conversationNodeId = show
+                                          ? _selectedNode!.id
+                                          : null;
+                                    });
+                                  },
+                                  ttsPlaybackService: _ttsPlaybackService,
+                                  translationService: _translationService,
                                 ),
-                                nestedOutputReferences:
-                                    _nestedOutputReferencesFor(_selectedNode!),
-                                reservedParameterNames:
-                                    _reservedParameterNamesFor(_selectedNode!),
-                                onChanged: _updateNode,
-                                onClose: () => setState(() {
-                                  _selectedNodeId = null;
-                                }),
-                                onDelete: _deleteSelectedNode,
-                                onTest: _testSelectedNode,
-                                testing: _testing,
-                                testResult: _testResult,
-                                testError: _testError,
-                                testStatus: _testStatus,
-                                conversation:
-                                    _llmConversations[_selectedNode!.id],
-                                showConversation:
-                                    _conversationNodeId == _selectedNode!.id,
-                                onConversationModeChanged: (show) {
-                                  setState(() {
-                                    _conversationNodeId = show
-                                        ? _selectedNode!.id
-                                        : null;
-                                  });
-                                },
-                                ttsPlaybackService: _ttsPlaybackService,
-                                translationService: _translationService,
                               ),
-                            ),
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 );
               },
             ),
@@ -371,15 +383,36 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             ),
           ),
           IconButton.filledTonal(
+            tooltip: _workflowTesting ? '正在测试工作流' : '测试工作流',
+            onPressed: _testing || _workflowTesting ? null : _testWorkflow,
+            style: actionStyle,
+            icon: AnimatedSwitcher(
+              duration: openHandMotionDuration(context, kOpenHandMotion180),
+              child: _workflowTesting
+                  ? const SizedBox.square(
+                      key: ValueKey<String>('workflow-testing'),
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(
+                      Icons.play_arrow_rounded,
+                      key: ValueKey<String>('workflow-idle'),
+                    ),
+            ),
+          ),
+          kOpenHandHGap8,
+          IconButton.filledTonal(
             tooltip: '保存工作流',
-            onPressed: _save,
+            onPressed: _testing || _workflowTesting ? null : _save,
             style: actionStyle,
             icon: const Icon(Icons.save_rounded),
           ),
           kOpenHandHGap8,
           IconButton.filledTonal(
             tooltip: '关闭',
-            onPressed: _closeConfirmationOpen ? null : _requestClose,
+            onPressed: _closeConfirmationOpen || _workflowTesting
+                ? null
+                : _requestClose,
             style: actionStyle,
             icon: const Icon(Icons.close_rounded),
           ),
@@ -389,6 +422,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   }
 
   Future<void> _requestClose() async {
+    if (_workflowTesting) return;
     if (!_hasUnsavedChanges) {
       _popEditor();
       return;
@@ -528,6 +562,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         connectionTarget && _connectionTargetError == null;
     final theme = Theme.of(context);
     final descriptor = workflowNodeDescriptor(node.kind, theme.colorScheme);
+    final execution = _nodeExecutions[node.id];
+    final executionColor = _workflowExecutionColor(
+      execution?.phase,
+      theme.colorScheme,
+    );
     final nodeHeight = _nodeHeightFor(node);
     final controlFlowNode = const <WorkflowNodeKind>{
       WorkflowNodeKind.condition,
@@ -576,6 +615,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                               : theme.colorScheme.errorContainer.withValues(
                                   alpha: 0.34,
                                 ))
+                        : executionColor != null
+                        ? Color.alphaBlend(
+                            executionColor.withValues(alpha: 0.11),
+                            idleColor,
+                          )
                         : selected
                         ? theme.colorScheme.primaryContainer.withValues(
                             alpha: 0.38,
@@ -587,12 +631,16 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                           ? (connectionTargetValid
                                 ? theme.colorScheme.primary
                                 : theme.colorScheme.error)
-                          : selected
-                          ? descriptor.color
-                          : controlFlowNode
-                          ? descriptor.color.withValues(alpha: 0.42)
-                          : theme.colorScheme.outlineVariant,
-                      width: connectionTarget || selected ? 2 : 1,
+                          : executionColor ??
+                                (selected
+                                    ? descriptor.color
+                                    : controlFlowNode
+                                    ? descriptor.color.withValues(alpha: 0.42)
+                                    : theme.colorScheme.outlineVariant),
+                      width:
+                          connectionTarget || selected || executionColor != null
+                          ? 2
+                          : 1,
                     ),
                     boxShadow: <BoxShadow>[
                       BoxShadow(
@@ -601,7 +649,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                                     ? (connectionTargetValid
                                           ? theme.colorScheme.primary
                                           : theme.colorScheme.error)
-                                    : theme.colorScheme.shadow)
+                                    : executionColor ??
+                                          theme.colorScheme.shadow)
                                 .withValues(
                                   alpha: connectionTarget
                                       ? 0.2
@@ -614,7 +663,12 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                       ),
                     ],
                   ),
-                  child: _buildNodeCardContent(context, node, descriptor),
+                  child: _buildNodeCardContent(
+                    context,
+                    node,
+                    descriptor,
+                    execution,
+                  ),
                 ),
               ),
             ),
@@ -670,6 +724,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   Widget _buildContainerNodeCard(BuildContext context, WorkflowNode node) {
     final theme = Theme.of(context);
     final descriptor = workflowNodeDescriptor(node.kind, theme.colorScheme);
+    final execution = _nodeExecutions[node.id];
+    final executionColor = _workflowExecutionColor(
+      execution?.phase,
+      theme.colorScheme,
+    );
     final selected = node.id == _selectedNodeId;
     final connectionTarget = node.id == _connectionTargetNodeId;
     final connectionTargetValid =
@@ -683,9 +742,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         ? connectionTargetValid
               ? theme.colorScheme.primary
               : theme.colorScheme.error
-        : selected
-        ? descriptor.color
-        : descriptor.color.withValues(alpha: 0.5);
+        : executionColor ??
+              (selected
+                  ? descriptor.color
+                  : descriptor.color.withValues(alpha: 0.5));
     return Positioned(
       left: node.x,
       top: node.y,
@@ -840,11 +900,14 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                                     ],
                                   ),
                                 ),
-                                Icon(
-                                  Icons.drag_indicator_rounded,
-                                  size: 18,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
+                                if (execution != null)
+                                  _WorkflowNodeStatusBadge(event: execution)
+                                else
+                                  Icon(
+                                    Icons.drag_indicator_rounded,
+                                    size: 18,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
                               ],
                             ),
                           ),
@@ -939,6 +1002,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     BuildContext context,
     WorkflowNode node,
     ({String label, String description, IconData icon, Color color}) descriptor,
+    WorkflowNodeExecutionEvent? execution,
   ) {
     final theme = Theme.of(context);
     return Column(
@@ -968,11 +1032,14 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                 ),
               ),
             ),
-            Icon(
-              Icons.drag_indicator_rounded,
-              size: 18,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            if (execution != null)
+              _WorkflowNodeStatusBadge(event: execution)
+            else
+              Icon(
+                Icons.drag_indicator_rounded,
+                size: 18,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
           ],
         ),
         if (_workflowNodeHasBranches(node)) ...[
@@ -2002,6 +2069,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   }
 
   void _recordHistory(String label, {String? mergeKey}) {
+    _nodeExecutions.clear();
     final now = DateTime.now();
     if (_historyIndex + 1 < _history.length) {
       _history.removeRange(_historyIndex + 1, _history.length);
@@ -2030,10 +2098,12 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   }
 
   void _undo() {
+    if (_workflowTesting) return;
     if (_canUndo) _restoreHistory(_historyIndex - 1);
   }
 
   void _redo() {
+    if (_workflowTesting) return;
     if (_canRedo) _restoreHistory(_historyIndex + 1);
   }
 
@@ -2050,6 +2120,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       _testResult = null;
       _testError = null;
       _testStatus = null;
+      _nodeExecutions.clear();
     });
     _canvasFocusNode.requestFocus();
   }
@@ -2125,6 +2196,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
 
   KeyEventResult _handleCanvasKeyEvent(FocusNode _, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (_workflowTesting) return KeyEventResult.handled;
     final keyboard = HardwareKeyboard.instance;
     final commandPressed = keyboard.isMetaPressed || keyboard.isControlPressed;
     if (commandPressed && event.logicalKey == LogicalKeyboardKey.keyZ) {
@@ -2159,7 +2231,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
 
   Future<void> _testSelectedNode() async {
     final node = _selectedNode;
-    if (node == null || _testing) return;
+    if (node == null || _testing || _workflowTesting) return;
     setState(() {
       _testing = true;
       _testResult = null;
@@ -2167,57 +2239,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       _testStatus = null;
     });
     try {
-      final mcpController = widget.mcpController;
-      final mcpTools = <String, List<McpTool>>{
-        if (mcpController != null)
-          for (final server in widget.catalog.mcpServers)
-            server.name: mcpController.toolCatalogFor(server.name).tools,
-      };
       final result = await _executor.execute(
         node: node,
         workflowNodes: _nodes,
         workflowConnections: _connections,
-        resources: WorkflowExecutionResources(
-          models: widget.catalog.models,
-          templateRepository: widget.templateRepository,
-          skills: widget.catalog.skills,
-          memories: widget.catalog.memories,
-          instructions: widget.catalog.instructions,
-          knowledgeBaseController: widget.knowledgeBaseController,
-          mcpServers: widget.catalog.mcpServers,
-          mcpTools: mcpTools,
-          codeRuntimes: widget.catalog.codeRuntimes,
-          mcpToolInvoker: mcpController == null
-              ? null
-              : ({
-                  required serverName,
-                  required toolName,
-                  required arguments,
-                  required toolCallId,
-                }) async {
-                  final result = await mcpController.callTool(
-                    serverName: serverName,
-                    toolName: toolName,
-                    arguments: arguments,
-                    toolCallId: toolCallId,
-                  );
-                  return WorkflowMcpToolInvocationResult(
-                    output: result.outputText,
-                    isError: result.isError,
-                  );
-                },
-          onLlmConversation: (conversation) {
-            if (!mounted ||
-                !_nodes.any((node) => node.id == conversation.nodeId)) {
-              return;
-            }
-            setState(() {
-              _llmConversations[conversation.nodeId] = conversation;
-            });
-          },
-          onHumanIntervention: (request) =>
-              showWorkflowHumanInterventionDialog(context, request),
-        ),
+        resources: _buildExecutionResources(),
         variables: _testVariablesFor(node),
       );
       if (!mounted) return;
@@ -2236,6 +2262,172 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     } finally {
       if (mounted) setState(() => _testing = false);
     }
+  }
+
+  Future<void> _testWorkflow() async {
+    if (_testing || _workflowTesting) return;
+    final validationError = _validateNodes();
+    if (validationError != null) {
+      showOpenHandInfoSnack(context, validationError);
+      return;
+    }
+    final start = _nodes
+        .where(
+          (node) =>
+              node.parentNodeId == null && node.kind == WorkflowNodeKind.start,
+        )
+        .single;
+    final inputs = await showWorkflowTestInputDialog(context, start);
+    if (!mounted || inputs == null) return;
+
+    var observedSteps = 0;
+    var observedWarnings = 0;
+    final warningNodeIds = <String>{};
+    setState(() {
+      _workflowTesting = true;
+      _testResult = null;
+      _testError = null;
+      _testStatus = null;
+      _nodeExecutions
+        ..clear()
+        ..addEntries(
+          _nodes.map(
+            (node) => MapEntry<String, WorkflowNodeExecutionEvent>(
+              node.id,
+              WorkflowNodeExecutionEvent(
+                nodeId: node.id,
+                phase: WorkflowNodeExecutionPhase.pending,
+              ),
+            ),
+          ),
+        );
+    });
+    final stopwatch = Stopwatch()..start();
+    WorkflowExecutionResult? result;
+    Object? failure;
+    try {
+      result = await _executor.executeWorkflow(
+        nodes: _nodes,
+        connections: _connections,
+        inputs: inputs,
+        resources: _buildExecutionResources(
+          onNodeExecution: (event) {
+            if (event.phase == WorkflowNodeExecutionPhase.running) {
+              observedSteps += 1;
+            } else if (event.phase == WorkflowNodeExecutionPhase.warning) {
+              observedWarnings += 1;
+            }
+            if (event.phase == WorkflowNodeExecutionPhase.warning ||
+                event.phase == WorkflowNodeExecutionPhase.failed) {
+              warningNodeIds.add(event.nodeId);
+            }
+            if (!mounted || !_workflowTesting) return;
+            final displayEvent =
+                event.phase == WorkflowNodeExecutionPhase.succeeded &&
+                    warningNodeIds.contains(event.nodeId)
+                ? WorkflowNodeExecutionEvent(
+                    nodeId: event.nodeId,
+                    phase: WorkflowNodeExecutionPhase.warning,
+                    duration: event.duration,
+                    attempts: event.attempts,
+                  )
+                : event;
+            setState(() => _nodeExecutions[event.nodeId] = displayEvent);
+          },
+        ),
+      );
+    } catch (error) {
+      failure = error;
+    } finally {
+      stopwatch.stop();
+    }
+    if (!mounted) return;
+    setState(() {
+      _workflowTesting = false;
+      _nodeExecutions.updateAll(
+        (nodeId, event) => event.phase == WorkflowNodeExecutionPhase.pending
+            ? WorkflowNodeExecutionEvent(
+                nodeId: nodeId,
+                phase: WorkflowNodeExecutionPhase.skipped,
+              )
+            : event,
+      );
+    });
+    final phases = _nodeExecutions.values.map((event) => event.phase);
+    final report = WorkflowTestReport(
+      succeeded: failure == null,
+      hasWarnings:
+          failure == null &&
+          (observedWarnings > 0 ||
+              warningNodeIds.isNotEmpty ||
+              (result?.warningSteps ?? 0) > 0),
+      duration: result?.duration ?? stopwatch.elapsed,
+      executedSteps: result?.executedSteps ?? observedSteps,
+      succeededNodes: phases
+          .where((phase) => phase == WorkflowNodeExecutionPhase.succeeded)
+          .length,
+      warningNodes: phases
+          .where((phase) => phase == WorkflowNodeExecutionPhase.warning)
+          .length,
+      failedNodes: phases
+          .where((phase) => phase == WorkflowNodeExecutionPhase.failed)
+          .length,
+      skippedNodes: phases
+          .where((phase) => phase == WorkflowNodeExecutionPhase.skipped)
+          .length,
+      output: result?.output,
+      error: failure == null ? null : '$failure',
+    );
+    await showWorkflowTestResultDialog(context, report);
+  }
+
+  WorkflowExecutionResources _buildExecutionResources({
+    WorkflowNodeExecutionListener? onNodeExecution,
+  }) {
+    final mcpController = widget.mcpController;
+    return WorkflowExecutionResources(
+      models: widget.catalog.models,
+      templateRepository: widget.templateRepository,
+      skills: widget.catalog.skills,
+      memories: widget.catalog.memories,
+      instructions: widget.catalog.instructions,
+      knowledgeBaseController: widget.knowledgeBaseController,
+      mcpServers: widget.catalog.mcpServers,
+      mcpTools: <String, List<McpTool>>{
+        if (mcpController != null)
+          for (final server in widget.catalog.mcpServers)
+            server.name: mcpController.toolCatalogFor(server.name).tools,
+      },
+      codeRuntimes: widget.catalog.codeRuntimes,
+      mcpToolInvoker: mcpController == null
+          ? null
+          : ({
+              required serverName,
+              required toolName,
+              required arguments,
+              required toolCallId,
+            }) async {
+              final result = await mcpController.callTool(
+                serverName: serverName,
+                toolName: toolName,
+                arguments: arguments,
+                toolCallId: toolCallId,
+              );
+              return WorkflowMcpToolInvocationResult(
+                output: result.outputText,
+                isError: result.isError,
+              );
+            },
+      onLlmConversation: (conversation) {
+        if (!mounted || !_nodes.any((node) => node.id == conversation.nodeId)) {
+          return;
+        }
+        setState(() => _llmConversations[conversation.nodeId] = conversation);
+      },
+      onHumanIntervention: (request) =>
+          showWorkflowHumanInterventionDialog(context, request),
+      onNodeExecution: onNodeExecution,
+    );
   }
 
   Future<void> _save() async {
@@ -2752,7 +2944,85 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         return '分支节点“${source.title}”存在未指定分支的连线，请重新连接。';
       }
     }
+    final graphError = _validateTopLevelGraph();
+    if (graphError != null) return graphError;
     return validateWorkflowParameterNames(_nodes);
+  }
+
+  String? _validateTopLevelGraph() {
+    final nodes = _nodes
+        .where((node) => node.parentNodeId == null)
+        .toList(growable: false);
+    final starts = nodes
+        .where((node) => node.kind == WorkflowNodeKind.start)
+        .toList(growable: false);
+    final ends = nodes
+        .where((node) => node.kind == WorkflowNodeKind.end)
+        .toList(growable: false);
+    if (starts.length != 1) return '工作流必须且只能包含一个开始节点。';
+    if (ends.length != 1) return '工作流必须且只能包含一个结束节点。';
+    final nodeIds = nodes.map((node) => node.id).toSet();
+    final edges = _connections
+        .where(
+          (edge) =>
+              nodeIds.contains(edge.sourceNodeId) &&
+              nodeIds.contains(edge.targetNodeId) &&
+              edge.sourceHandleId != workflowContainerStartHandleId,
+        )
+        .toList(growable: false);
+    for (final node in nodes) {
+      final outgoing = edges
+          .where((edge) => edge.sourceNodeId == node.id)
+          .toList(growable: false);
+      if (node.kind == WorkflowNodeKind.end) {
+        if (outgoing.isNotEmpty) return '结束节点不能连接后续节点。';
+        continue;
+      }
+      if (_workflowNodeHasBranches(node)) {
+        for (final branch in _workflowNodeBranches(node)) {
+          if (!outgoing.any((edge) => edge.sourceHandleId == branch.id)) {
+            return '节点“${node.title}”的“${branch.label}”分支尚未连接后续节点。';
+          }
+        }
+      } else if (outgoing.isEmpty) {
+        return '节点“${node.title}”尚未连接后续节点。';
+      }
+    }
+
+    final reachable = <String>{};
+    final pending = <String>[starts.single.id];
+    while (pending.isNotEmpty) {
+      final nodeId = pending.removeLast();
+      if (!reachable.add(nodeId)) continue;
+      for (final edge in edges) {
+        if (edge.sourceNodeId == nodeId) pending.add(edge.targetNodeId);
+      }
+    }
+    final unreachable = nodes.where((node) => !reachable.contains(node.id));
+    if (unreachable.isNotEmpty) {
+      return '节点“${unreachable.first.title}”无法从开始节点到达。';
+    }
+
+    final incoming = <String, int>{for (final node in nodes) node.id: 0};
+    for (final edge in edges) {
+      incoming[edge.targetNodeId] = incoming[edge.targetNodeId]! + 1;
+    }
+    final ready = nodes
+        .where((node) => incoming[node.id] == 0)
+        .map((node) => node.id)
+        .toList(growable: true);
+    var sortedCount = 0;
+    while (ready.isNotEmpty) {
+      final nodeId = ready.removeLast();
+      sortedCount += 1;
+      for (final edge in edges) {
+        if (edge.sourceNodeId != nodeId) continue;
+        final remaining = incoming[edge.targetNodeId]! - 1;
+        incoming[edge.targetNodeId] = remaining;
+        if (remaining == 0) ready.add(edge.targetNodeId);
+      }
+    }
+    return sortedCount == nodes.length ? null : '工作流不能包含循环连线。';
   }
 
   String? _validateContainerGraph(WorkflowNode container) {
@@ -3305,6 +3575,72 @@ class _WorkflowNameDialog extends StatefulWidget {
   @override
   State<_WorkflowNameDialog> createState() => _WorkflowNameDialogState();
 }
+
+class _WorkflowNodeStatusBadge extends StatelessWidget {
+  const _WorkflowNodeStatusBadge({required this.event});
+
+  final WorkflowNodeExecutionEvent event;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final color = _workflowExecutionColor(event.phase, colors)!;
+    final (label, icon) = switch (event.phase) {
+      WorkflowNodeExecutionPhase.pending => ('等待', Icons.schedule_rounded),
+      WorkflowNodeExecutionPhase.running => ('运行', Icons.sync_rounded),
+      WorkflowNodeExecutionPhase.succeeded => (
+        '成功',
+        Icons.check_circle_outline_rounded,
+      ),
+      WorkflowNodeExecutionPhase.warning => ('异常', Icons.warning_amber_rounded),
+      WorkflowNodeExecutionPhase.failed => ('失败', Icons.error_outline_rounded),
+      WorkflowNodeExecutionPhase.skipped => ('跳过', Icons.skip_next_rounded),
+    };
+    return AnimatedContainer(
+      duration: openHandMotionDuration(context, kOpenHandMotion180),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(kOpenHandRadius8),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (event.phase == WorkflowNodeExecutionPhase.running)
+            SizedBox.square(
+              dimension: 12,
+              child: CircularProgressIndicator(strokeWidth: 1.8, color: color),
+            )
+          else
+            Icon(icon, size: 13, color: color),
+          kOpenHandHGap4,
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Color? _workflowExecutionColor(
+  WorkflowNodeExecutionPhase? phase,
+  ColorScheme colors,
+) => switch (phase) {
+  null => null,
+  WorkflowNodeExecutionPhase.pending => colors.outline,
+  WorkflowNodeExecutionPhase.running => OpenHandStatusColors.info,
+  WorkflowNodeExecutionPhase.succeeded => OpenHandStatusColors.success,
+  WorkflowNodeExecutionPhase.warning => OpenHandStatusColors.warning,
+  WorkflowNodeExecutionPhase.failed => OpenHandStatusColors.error,
+  WorkflowNodeExecutionPhase.skipped => colors.outlineVariant,
+};
 
 class _WorkflowNameDialogState extends State<_WorkflowNameDialog> {
   late final TextEditingController _controller = TextEditingController(
