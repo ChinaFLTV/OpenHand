@@ -20,7 +20,11 @@ import '../../skills/index.dart' show LocalSkill;
 import '../model/workflow_definition.dart';
 
 const double _formControlHeight = 52;
+const double _configurationActionSize = 44;
 const Set<String> _httpMethodsWithoutBody = <String>{'GET', 'HEAD'};
+const RoundedRectangleBorder _workflowButtonShape = RoundedRectangleBorder(
+  borderRadius: kOpenHandBorderRadius12,
+);
 
 enum WorkflowNodeTestStatus { success, warning, failure }
 
@@ -121,6 +125,12 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
   Widget _buildHeader(BuildContext context) {
     final theme = Theme.of(context);
     final descriptor = workflowNodeDescriptor(node.kind, theme.colorScheme);
+    final actionStyle = IconButton.styleFrom(
+      fixedSize: const Size.square(_configurationActionSize),
+      padding: EdgeInsets.zero,
+      shape: _workflowButtonShape,
+      shadowColor: Colors.transparent,
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 14, 10, 12),
       child: Row(
@@ -159,12 +169,14 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           IconButton(
             tooltip: '删除节点',
             onPressed: onDelete,
+            style: actionStyle,
             icon: const Icon(Icons.delete_outline_rounded),
           ),
           kOpenHandHGap6,
           IconButton(
             tooltip: '关闭配置',
             onPressed: onClose,
+            style: actionStyle,
             icon: const Icon(Icons.close_rounded),
           ),
         ],
@@ -799,6 +811,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
   Widget _buildTestButton() {
     return FilledButton.tonalIcon(
       onPressed: testing ? null : onTest,
+      style: FilledButton.styleFrom(shape: _workflowButtonShape),
       icon: testing
           ? const SizedBox.square(
               dimension: 16,
@@ -1039,6 +1052,7 @@ class _ResourceSection extends StatelessWidget {
                             ),
                             selected: validSelected.contains(option.id),
                             showCheckmark: false,
+                            shape: _workflowButtonShape,
                             onSelected: (enabled) {
                               final next = <String>{...validSelected};
                               enabled
@@ -1089,6 +1103,7 @@ class _KeyValueEditor extends StatelessWidget {
               ]),
               icon: const Icon(Icons.add_rounded, size: 17),
               label: Text(addLabel),
+              style: TextButton.styleFrom(shape: _workflowButtonShape),
             ),
           ],
         ),
@@ -1131,11 +1146,7 @@ class _KeyValueEditor extends StatelessWidget {
                       style: IconButton.styleFrom(
                         fixedSize: const Size.square(_formControlHeight),
                         padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            kOpenHandRadius12,
-                          ),
-                        ),
+                        shape: _workflowButtonShape,
                         shadowColor: Colors.transparent,
                       ),
                       icon: const Icon(Icons.close_rounded, size: 18),
@@ -1196,6 +1207,7 @@ class _OutputFieldEditor extends StatelessWidget {
           ]),
           icon: const Icon(Icons.add_rounded),
           label: const Text('添加输出参数'),
+          style: OutlinedButton.styleFrom(shape: _workflowButtonShape),
         ),
       ],
     );
@@ -1261,9 +1273,7 @@ class _OutputFieldCard extends StatelessWidget {
                   style: IconButton.styleFrom(
                     fixedSize: const Size.square(_formControlHeight),
                     padding: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(kOpenHandRadius12),
-                    ),
+                    shape: _workflowButtonShape,
                     shadowColor: Colors.transparent,
                   ),
                   icon: const Icon(Icons.delete_outline_rounded, size: 20),
@@ -1318,11 +1328,7 @@ class _OutputFieldCard extends StatelessWidget {
                               ? theme.colorScheme.primary.withValues(alpha: 0.5)
                               : theme.colorScheme.outlineVariant,
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            kOpenHandRadius12,
-                          ),
-                        ),
+                        shape: _workflowButtonShape,
                       ),
                       child: const Text('必需'),
                     ),

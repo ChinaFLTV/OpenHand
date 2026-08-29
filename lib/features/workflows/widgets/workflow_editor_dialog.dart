@@ -31,6 +31,9 @@ const double _nodeHeight = 130;
 const double _paletteWidth = 92;
 const double _configurationWidth = 440;
 const double _headerActionSize = 44;
+const RoundedRectangleBorder _workflowButtonShape = RoundedRectangleBorder(
+  borderRadius: kOpenHandBorderRadius12,
+);
 
 Future<WorkflowDefinition?> showWorkflowEditorDialog(
   BuildContext context, {
@@ -207,7 +210,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     final actionStyle = IconButton.styleFrom(
       fixedSize: const Size.square(_headerActionSize),
       padding: EdgeInsets.zero,
-      shape: const CircleBorder(),
+      shape: _workflowButtonShape,
       shadowColor: Colors.transparent,
     );
     return Padding(
@@ -971,6 +974,7 @@ class _CanvasEmptyState extends StatelessWidget {
           kOpenHandGap16,
           FilledButton.icon(
             onPressed: onAddLlm,
+            style: FilledButton.styleFrom(shape: _workflowButtonShape),
             icon: const Icon(Icons.auto_awesome_rounded),
             label: const Text('添加 LLM 节点'),
           ),
@@ -1179,12 +1183,14 @@ class _WorkflowNameDialogState extends State<_WorkflowNameDialog> {
                 OpenHandDialogActionButton.secondary(
                   label: '取消',
                   onPressed: () => Navigator.of(context).pop(),
+                  shape: _workflowButtonShape,
                 ),
                 kOpenHandHGap12,
                 OpenHandDialogActionButton.primary(
                   label: '确认保存',
                   onPressed: _canSave ? _confirm : null,
                   icon: Icons.save_rounded,
+                  shape: _workflowButtonShape,
                 ),
               ],
             ),
@@ -1219,8 +1225,9 @@ class _ToolbarButton extends StatelessWidget {
           backgroundColor: selected
               ? Theme.of(context).colorScheme.primaryContainer
               : Colors.transparent,
-          minimumSize: const Size.square(36),
+          fixedSize: const Size.square(36),
           padding: EdgeInsets.zero,
+          shape: _workflowButtonShape,
         ),
       ),
     );

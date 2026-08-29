@@ -127,6 +127,7 @@ class OpenHandDialogActionButton extends StatelessWidget {
     required this.onPressed,
     this.icon,
     this.busy = false,
+    this.shape,
   }) : _variant = _OpenHandDialogActionButtonVariant.primary;
 
   const OpenHandDialogActionButton.destructive({
@@ -135,6 +136,7 @@ class OpenHandDialogActionButton extends StatelessWidget {
     required this.onPressed,
     this.icon,
     this.busy = false,
+    this.shape,
   }) : _variant = _OpenHandDialogActionButtonVariant.destructive;
 
   const OpenHandDialogActionButton.secondary({
@@ -143,12 +145,14 @@ class OpenHandDialogActionButton extends StatelessWidget {
     required this.onPressed,
     this.icon,
     this.busy = false,
+    this.shape,
   }) : _variant = _OpenHandDialogActionButtonVariant.secondary;
 
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
   final bool busy;
+  final OutlinedBorder? shape;
   final _OpenHandDialogActionButtonVariant _variant;
 
   @override
@@ -166,6 +170,9 @@ class OpenHandDialogActionButton extends StatelessWidget {
       ),
       visualDensity: const VisualDensity(horizontal: -1, vertical: -1),
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      shape: shape == null
+          ? null
+          : WidgetStatePropertyAll<OutlinedBorder>(shape!),
     );
     final label = _OpenHandDialogActionButtonLabel(label: this.label);
     Widget child = label;
