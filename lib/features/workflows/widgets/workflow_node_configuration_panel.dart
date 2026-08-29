@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../app/model/app_settings_snapshot.dart'
     show RecentModelSelection;
@@ -26,6 +27,7 @@ const Set<String> _httpMethodsWithoutBody = <String>{'GET', 'HEAD'};
 const RoundedRectangleBorder _workflowButtonShape = RoundedRectangleBorder(
   borderRadius: kOpenHandBorderRadius12,
 );
+const Uuid _workflowConfigurationUuid = Uuid();
 
 enum WorkflowNodeTestStatus { success, warning, failure }
 
@@ -721,22 +723,22 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
   }
 
   Widget _buildCondition(BuildContext context) {
+    final configuredCases = node.conditionCases();
+    final cases = configuredCases.isEmpty
+        ? _legacyConditionCases(node)
+        : configuredCases;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _FormSection(
           title: '分支条件',
           icon: Icons.call_split_rounded,
-          child: _LabeledField(
-            label: '条件表达式',
-            required: true,
-            helper: '支持 ==、!=、>、<、>=、<=、contains，输入 / 引用参数。',
-            child: WorkflowParameterReferenceField(
-              key: ValueKey('condition-${node.id}'),
-              value: node.stringSetting(WorkflowSettingKeys.expression),
-              references: availableReferences,
-              decoration: _inputDecoration('{{status}} == success'),
-              onChanged: (value) => _set(WorkflowSettingKeys.expression, value),
+          child: _ConditionCasesEditor(
+            cases: cases,
+            availableReferences: availableReferences,
+            onChanged: (value) => _set(
+              WorkflowSettingKeys.conditionCases,
+              value.map((item) => item.toJson()).toList(growable: false),
             ),
           ),
         ),
@@ -747,21 +749,79 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
   }
 
   Widget _buildLoop(BuildContext context) {
+    final variables = node.loopVariables();
+    final breakConditions = node.loopBreakConditions();
+    final conditionLogic = WorkflowConditionLogic.fromStorage(
+      node.settings[WorkflowSettingKeys.loopConditionLogic],
+    );
+    final loopReferences = <WorkflowParameterReference>[
+      ...availableReferences,
+      ...variables
+          .where(
+            (variable) =>
+                workflowParameterNamePattern.hasMatch(variable.name.trim()),
+          )
+          .map(
+            (variable) => WorkflowParameterReference(
+              nodeId: node.id,
+              nodeTitle: '当前循环',
+              field: WorkflowOutputField(
+                id: variable.id,
+                name: variable.name.trim(),
+                description: '循环变量',
+                type: variable.type,
+              ),
+            ),
+          ),
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _FormSection(
-          title: '循环设置',
-          icon: Icons.loop_rounded,
+          title: '循环变量',
+          icon: Icons.data_array_rounded,
+          child: _LoopVariableEditor(
+            variables: variables,
+            availableReferences: availableReferences,
+            reservedParameterNames: reservedParameterNames,
+            onChanged: (value) => _set(
+              WorkflowSettingKeys.loopVariables,
+              value.map((item) => item.toJson()).toList(growable: false),
+            ),
+          ),
+        ),
+        kOpenHandGap14,
+        _FormSection(
+          title: '退出条件',
+          icon: Icons.output_rounded,
+          child: _ConditionGroupEditor(
+            conditions: breakConditions,
+            logic: conditionLogic,
+            availableReferences: loopReferences,
+            emptyHint: '未配置退出条件时，将在达到最大循环次数后结束。',
+            onConditionsChanged: (value) => _set(
+              WorkflowSettingKeys.loopBreakConditions,
+              value.map((item) => item.toJson()).toList(growable: false),
+            ),
+            onLogicChanged: (value) => _set(
+              WorkflowSettingKeys.loopConditionLogic,
+              value.storageValue,
+            ),
+          ),
+        ),
+        kOpenHandGap14,
+        _FormSection(
+          title: '循环上限',
+          icon: Icons.repeat_on_rounded,
           child: _LabeledField(
             label: '最大循环次数',
-            helper: '限制为 1–1000 次，避免无限循环。',
+            helper: '限制为 1–1000 次，达到退出条件时会提前结束。',
             child: TextFormField(
-              key: ValueKey('loop-${node.id}'),
+              key: ValueKey('loop-count-${node.id}'),
               initialValue:
                   '${node.intSetting(WorkflowSettingKeys.maxIterations, 10)}',
               keyboardType: TextInputType.number,
-              decoration: _inputDecoration('10'),
+              decoration: _inputDecoration('1–1000'),
               onChanged: (value) {
                 final parsed = int.tryParse(value);
                 if (parsed != null) {
@@ -781,24 +841,187 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
   }
 
   Widget _buildIteration(BuildContext context) {
+    final parallel = node.boolSetting(WorkflowSettingKeys.iterationParallel);
+    final errorMode = WorkflowIterationErrorMode.fromStorage(
+      node.settings[WorkflowSettingKeys.iterationErrorMode],
+    );
+    final outputName = node.stringSetting(
+      WorkflowSettingKeys.iterationOutputName,
+      'iteration_result',
+    );
+    final normalizedOutputName = outputName.trim();
+    final outputNameOwner = reservedParameterNames[normalizedOutputName];
+    final outputNameError = normalizedOutputName.isEmpty
+        ? '请输入输出参数名称。'
+        : !workflowParameterNamePattern.hasMatch(normalizedOutputName)
+        ? '名称须以英文字母或下划线开头，仅包含字母、数字和下划线。'
+        : outputNameOwner == null
+        ? null
+        : '参数已由节点“$outputNameOwner”使用。';
+    final iterationReferences = <WorkflowParameterReference>[
+      ...availableReferences,
+      WorkflowParameterReference(
+        nodeId: node.id,
+        nodeTitle: '当前迭代',
+        field: const WorkflowOutputField(
+          id: 'iteration-item',
+          name: 'item',
+          description: '当前数组项',
+          type: WorkflowOutputType.object,
+        ),
+      ),
+      WorkflowParameterReference(
+        nodeId: node.id,
+        nodeTitle: '当前迭代',
+        field: const WorkflowOutputField(
+          id: 'iteration-index',
+          name: 'index',
+          description: '当前索引',
+          type: WorkflowOutputType.integer,
+        ),
+      ),
+      WorkflowParameterReference(
+        nodeId: node.id,
+        nodeTitle: '当前迭代',
+        field: const WorkflowOutputField(
+          id: 'iteration-length',
+          name: 'length',
+          description: '数组长度',
+          type: WorkflowOutputType.integer,
+        ),
+      ),
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _FormSection(
-          title: '迭代设置',
+          title: '迭代输入与输出',
           icon: Icons.view_week_outlined,
-          child: _LabeledField(
-            label: '数组输入',
-            required: true,
-            helper: '输入 / 引用数组参数，最多处理前 1000 项。',
-            child: WorkflowParameterReferenceField(
-              key: ValueKey('iteration-${node.id}'),
-              value: node.stringSetting(WorkflowSettingKeys.iterationInput),
-              references: availableReferences,
-              decoration: _inputDecoration('输入数组变量名或引用上游参数'),
-              onChanged: (value) =>
-                  _set(WorkflowSettingKeys.iterationInput, value),
-            ),
+          child: Column(
+            children: [
+              _LabeledField(
+                label: '数组输入',
+                required: true,
+                helper: '输入 / 引用数组参数，最多处理前 1000 项。',
+                child: WorkflowParameterReferenceField(
+                  key: ValueKey('iteration-input-${node.id}'),
+                  value: node.stringSetting(WorkflowSettingKeys.iterationInput),
+                  references: availableReferences,
+                  decoration: _inputDecoration('引用上游数组参数'),
+                  onChanged: (value) =>
+                      _set(WorkflowSettingKeys.iterationInput, value),
+                ),
+              ),
+              kOpenHandGap12,
+              _LabeledField(
+                label: '输出参数名称',
+                required: true,
+                helper: '用于后续节点引用迭代结果数组，工作流内不可重名。',
+                child: TextFormField(
+                  key: ValueKey('iteration-output-name-${node.id}'),
+                  initialValue: outputName,
+                  decoration: _inputDecoration(
+                    'iteration_result',
+                  ).copyWith(errorText: outputNameError),
+                  onChanged: (value) =>
+                      _set(WorkflowSettingKeys.iterationOutputName, value),
+                ),
+              ),
+              kOpenHandGap12,
+              _LabeledField(
+                label: '输出映射',
+                required: true,
+                helper: '可使用 {{item}}、{{index}}、{{length}} 生成每项输出。',
+                child: WorkflowParameterReferenceField(
+                  key: ValueKey('iteration-output-${node.id}'),
+                  value: node.stringSetting(
+                    WorkflowSettingKeys.iterationOutput,
+                    '{{item}}',
+                  ),
+                  references: iterationReferences,
+                  decoration: _inputDecoration('{{item}}'),
+                  onChanged: (value) =>
+                      _set(WorkflowSettingKeys.iterationOutput, value),
+                ),
+              ),
+            ],
+          ),
+        ),
+        kOpenHandGap14,
+        _FormSection(
+          title: '执行策略',
+          icon: Icons.tune_rounded,
+          child: Column(
+            children: [
+              _SwitchSetting(
+                title: '并行模式',
+                description: '并发处理数组项，适用于相互独立的迭代任务。',
+                value: parallel,
+                onChanged: (value) =>
+                    _set(WorkflowSettingKeys.iterationParallel, value),
+              ),
+              OpenHandVerticalRevealSwitcher(
+                child: parallel
+                    ? Padding(
+                        key: const ValueKey('iteration-parallelism'),
+                        padding: const EdgeInsets.only(top: 12),
+                        child: _LabeledField(
+                          label: '最大并行度',
+                          helper: '限制为 1–10，避免瞬时占用过多资源。',
+                          child: TextFormField(
+                            key: ValueKey('parallelism-${node.id}'),
+                            initialValue:
+                                '${node.intSetting(WorkflowSettingKeys.iterationParallelism, 10)}',
+                            keyboardType: TextInputType.number,
+                            decoration: _inputDecoration('1–10'),
+                            onChanged: (value) {
+                              final parsed = int.tryParse(value);
+                              if (parsed != null) {
+                                _set(
+                                  WorkflowSettingKeys.iterationParallelism,
+                                  parsed.clamp(1, 10),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                      )
+                    : null,
+              ),
+              kOpenHandGap12,
+              _LabeledField(
+                label: '异常处理',
+                child:
+                    AnimatedDropdownButtonFormField<WorkflowIterationErrorMode>(
+                      initialValue: errorMode,
+                      decoration: _inputDecoration('选择异常处理方式'),
+                      items: WorkflowIterationErrorMode.values
+                          .map(
+                            (mode) =>
+                                DropdownMenuItem<WorkflowIterationErrorMode>(
+                                  value: mode,
+                                  child: Text(_iterationErrorModeLabel(mode)),
+                                ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (value) => _set(
+                        WorkflowSettingKeys.iterationErrorMode,
+                        (value ?? WorkflowIterationErrorMode.stop).storageValue,
+                      ),
+                    ),
+              ),
+              kOpenHandGap12,
+              _SwitchSetting(
+                title: '扁平化输出',
+                description: '当每项输出均为数组时，合并为单层数组。',
+                value: node.boolSetting(
+                  WorkflowSettingKeys.iterationFlattenOutput,
+                  true,
+                ),
+                onChanged: (value) =>
+                    _set(WorkflowSettingKeys.iterationFlattenOutput, value),
+              ),
+            ],
           ),
         ),
         kOpenHandGap16,
@@ -1143,6 +1366,614 @@ class _ResourceSection extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ConditionCasesEditor extends StatelessWidget {
+  const _ConditionCasesEditor({
+    required this.cases,
+    required this.availableReferences,
+    required this.onChanged,
+  });
+
+  final List<WorkflowConditionCase> cases;
+  final List<WorkflowParameterReference> availableReferences;
+  final ValueChanged<List<WorkflowConditionCase>> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ...cases.indexed.map((entry) {
+          final (index, item) = entry;
+          return Padding(
+            key: ValueKey(item.id),
+            padding: EdgeInsets.only(
+              bottom: index == cases.length - 1 ? 0 : 10,
+            ),
+            child: _EntryCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.tertiaryContainer,
+                          borderRadius: BorderRadius.circular(kOpenHandRadius8),
+                        ),
+                        child: Text(
+                          index == 0 ? 'IF' : 'ELIF $index',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: theme.colorScheme.onTertiaryContainer,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      if (cases.length > 1) ...[
+                        IconButton(
+                          tooltip: '上移分支',
+                          onPressed: index == 0
+                              ? null
+                              : () => _move(index, index - 1),
+                          style: IconButton.styleFrom(
+                            fixedSize: const Size.square(34),
+                            padding: EdgeInsets.zero,
+                            shape: _workflowButtonShape,
+                          ),
+                          icon: const Icon(
+                            Icons.arrow_upward_rounded,
+                            size: 17,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: '下移分支',
+                          onPressed: index == cases.length - 1
+                              ? null
+                              : () => _move(index, index + 1),
+                          style: IconButton.styleFrom(
+                            fixedSize: const Size.square(34),
+                            padding: EdgeInsets.zero,
+                            shape: _workflowButtonShape,
+                          ),
+                          icon: const Icon(
+                            Icons.arrow_downward_rounded,
+                            size: 17,
+                          ),
+                        ),
+                      ],
+                      if (index > 0)
+                        IconButton(
+                          tooltip: '删除分支',
+                          onPressed: () => onChanged(
+                            cases
+                                .where((candidate) => candidate.id != item.id)
+                                .toList(growable: false),
+                          ),
+                          style: IconButton.styleFrom(
+                            fixedSize: const Size.square(36),
+                            padding: EdgeInsets.zero,
+                            shape: _workflowButtonShape,
+                          ),
+                          icon: const Icon(
+                            Icons.delete_outline_rounded,
+                            size: 19,
+                          ),
+                        ),
+                    ],
+                  ),
+                  kOpenHandGap10,
+                  _ConditionGroupEditor(
+                    conditions: item.conditions,
+                    logic: item.logic,
+                    availableReferences: availableReferences,
+                    onConditionsChanged: (value) =>
+                        _replace(item.copyWith(conditions: value)),
+                    onLogicChanged: (value) =>
+                        _replace(item.copyWith(logic: value)),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+        kOpenHandGap10,
+        OutlinedButton.icon(
+          onPressed: () => onChanged(<WorkflowConditionCase>[
+            ...cases,
+            WorkflowConditionCase(
+              id: _workflowConfigurationUuid.v4(),
+              conditions: <WorkflowConditionClause>[
+                WorkflowConditionClause(id: _workflowConfigurationUuid.v4()),
+              ],
+            ),
+          ]),
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('添加 ELIF 分支'),
+          style: OutlinedButton.styleFrom(shape: _workflowButtonShape),
+        ),
+        kOpenHandGap10,
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(kOpenHandRadius12),
+            border: Border.all(color: theme.colorScheme.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.alt_route_rounded,
+                size: 18,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              kOpenHandHGap8,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ELSE',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      '当前面的分支均不匹配时进入此分支。',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _replace(WorkflowConditionCase updated) {
+    onChanged(
+      cases
+          .map((item) => item.id == updated.id ? updated : item)
+          .toList(growable: false),
+    );
+  }
+
+  void _move(int from, int to) {
+    final reordered = List<WorkflowConditionCase>.from(cases);
+    final item = reordered.removeAt(from);
+    reordered.insert(to, item);
+    onChanged(reordered);
+  }
+}
+
+class _ConditionGroupEditor extends StatelessWidget {
+  const _ConditionGroupEditor({
+    required this.conditions,
+    required this.logic,
+    required this.availableReferences,
+    required this.onConditionsChanged,
+    required this.onLogicChanged,
+    this.emptyHint = '至少添加一个条件。',
+  });
+
+  final List<WorkflowConditionClause> conditions;
+  final WorkflowConditionLogic logic;
+  final List<WorkflowParameterReference> availableReferences;
+  final ValueChanged<List<WorkflowConditionClause>> onConditionsChanged;
+  final ValueChanged<WorkflowConditionLogic> onLogicChanged;
+  final String emptyHint;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (conditions.length > 1) ...[
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '条件关系',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 128,
+                child: AnimatedDropdownButtonFormField<WorkflowConditionLogic>(
+                  initialValue: logic,
+                  decoration: _inputDecoration('条件关系'),
+                  items: WorkflowConditionLogic.values
+                      .map(
+                        (item) => DropdownMenuItem<WorkflowConditionLogic>(
+                          value: item,
+                          child: Text(_conditionLogicLabel(item)),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: (value) =>
+                      onLogicChanged(value ?? WorkflowConditionLogic.all),
+                ),
+              ),
+            ],
+          ),
+          kOpenHandGap10,
+        ],
+        if (conditions.isEmpty)
+          Text(
+            emptyHint,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          )
+        else
+          ...conditions.indexed.map((entry) {
+            final (index, condition) = entry;
+            return Padding(
+              key: ValueKey(condition.id),
+              padding: EdgeInsets.only(
+                bottom: index == conditions.length - 1 ? 0 : 8,
+              ),
+              child: Column(
+                children: [
+                  _ConditionClauseCard(
+                    condition: condition,
+                    availableReferences: availableReferences,
+                    onChanged: (updated) => onConditionsChanged(
+                      conditions
+                          .map((item) => item.id == updated.id ? updated : item)
+                          .toList(growable: false),
+                    ),
+                    onDelete: () => onConditionsChanged(
+                      conditions
+                          .where((item) => item.id != condition.id)
+                          .toList(growable: false),
+                    ),
+                  ),
+                  if (index < conditions.length - 1)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        _conditionLogicLabel(logic),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          }),
+        kOpenHandGap10,
+        TextButton.icon(
+          onPressed: () => onConditionsChanged(<WorkflowConditionClause>[
+            ...conditions,
+            WorkflowConditionClause(id: _workflowConfigurationUuid.v4()),
+          ]),
+          icon: const Icon(Icons.add_rounded, size: 18),
+          label: const Text('添加条件'),
+          style: TextButton.styleFrom(shape: _workflowButtonShape),
+        ),
+      ],
+    );
+  }
+}
+
+class _ConditionClauseCard extends StatelessWidget {
+  const _ConditionClauseCard({
+    required this.condition,
+    required this.availableReferences,
+    required this.onChanged,
+    required this.onDelete,
+  });
+
+  final WorkflowConditionClause condition;
+  final List<WorkflowParameterReference> availableReferences;
+  final ValueChanged<WorkflowConditionClause> onChanged;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(kOpenHandRadius12),
+      ),
+      child: Column(
+        children: [
+          WorkflowParameterReferenceField(
+            key: ValueKey('${condition.id}-variable'),
+            value: condition.variable,
+            references: availableReferences,
+            decoration: _inputDecoration('变量或参数引用'),
+            onChanged: (value) =>
+                onChanged(condition.copyWith(variable: value)),
+          ),
+          kOpenHandGap8,
+          SizedBox(
+            height: _formControlHeight,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child:
+                      AnimatedDropdownButtonFormField<
+                        WorkflowConditionOperator
+                      >(
+                        initialValue: condition.operator,
+                        decoration: _inputDecoration('比较方式'),
+                        items: WorkflowConditionOperator.values
+                            .map(
+                              (operator) =>
+                                  DropdownMenuItem<WorkflowConditionOperator>(
+                                    value: operator,
+                                    child: Text(
+                                      _conditionOperatorLabel(operator),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                            )
+                            .toList(growable: false),
+                        onChanged: (value) => onChanged(
+                          condition.copyWith(
+                            operator: value ?? WorkflowConditionOperator.equals,
+                          ),
+                        ),
+                      ),
+                ),
+                kOpenHandHGap8,
+                IconButton.filledTonal(
+                  tooltip: '删除条件',
+                  onPressed: onDelete,
+                  style: IconButton.styleFrom(
+                    fixedSize: const Size.square(_formControlHeight),
+                    padding: EdgeInsets.zero,
+                    shape: _workflowButtonShape,
+                    shadowColor: Colors.transparent,
+                  ),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                ),
+              ],
+            ),
+          ),
+          OpenHandVerticalRevealSwitcher(
+            child: condition.operator.requiresValue
+                ? Padding(
+                    key: ValueKey('${condition.id}-value'),
+                    padding: const EdgeInsets.only(top: 8),
+                    child: WorkflowParameterReferenceField(
+                      value: condition.value,
+                      references: availableReferences,
+                      decoration: _inputDecoration('比较值'),
+                      onChanged: (value) =>
+                          onChanged(condition.copyWith(value: value)),
+                    ),
+                  )
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoopVariableEditor extends StatelessWidget {
+  const _LoopVariableEditor({
+    required this.variables,
+    required this.availableReferences,
+    required this.reservedParameterNames,
+    required this.onChanged,
+  });
+
+  final List<WorkflowLoopVariable> variables;
+  final List<WorkflowParameterReference> availableReferences;
+  final Map<String, String> reservedParameterNames;
+  final ValueChanged<List<WorkflowLoopVariable>> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (variables.isEmpty)
+          Text(
+            '添加循环内可读写的局部变量。',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          )
+        else
+          ...variables.map(
+            (variable) => Padding(
+              key: ValueKey(variable.id),
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _EntryCard(
+                child: Column(
+                  children: [
+                    SizedBox(
+                      height: _formControlHeight,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              initialValue: variable.name,
+                              decoration: _loopVariableNameDecoration(
+                                context,
+                                variable,
+                              ),
+                              onChanged: (value) =>
+                                  _replace(variable.copyWith(name: value)),
+                            ),
+                          ),
+                          kOpenHandHGap8,
+                          SizedBox(
+                            width: 116,
+                            child:
+                                AnimatedDropdownButtonFormField<
+                                  WorkflowOutputType
+                                >(
+                                  initialValue: variable.type,
+                                  decoration: _inputDecoration('类型'),
+                                  items: WorkflowOutputType.values
+                                      .map(
+                                        (type) =>
+                                            DropdownMenuItem<
+                                              WorkflowOutputType
+                                            >(
+                                              value: type,
+                                              child: Text(type.storageValue),
+                                            ),
+                                      )
+                                      .toList(growable: false),
+                                  onChanged: (value) => _replace(
+                                    variable.copyWith(
+                                      type: value ?? WorkflowOutputType.string,
+                                    ),
+                                  ),
+                                ),
+                          ),
+                          kOpenHandHGap8,
+                          IconButton.filledTonal(
+                            tooltip: '删除循环变量',
+                            onPressed: () => onChanged(
+                              variables
+                                  .where((item) => item.id != variable.id)
+                                  .toList(growable: false),
+                            ),
+                            style: IconButton.styleFrom(
+                              fixedSize: const Size.square(_formControlHeight),
+                              padding: EdgeInsets.zero,
+                              shape: _workflowButtonShape,
+                              shadowColor: Colors.transparent,
+                            ),
+                            icon: const Icon(
+                              Icons.delete_outline_rounded,
+                              size: 20,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    kOpenHandGap8,
+                    WorkflowParameterReferenceField(
+                      key: ValueKey('${variable.id}-initial-value'),
+                      value: variable.initialValue,
+                      references: availableReferences,
+                      decoration: _inputDecoration('初始值（必填）'),
+                      onChanged: (value) =>
+                          _replace(variable.copyWith(initialValue: value)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        OutlinedButton.icon(
+          onPressed: () => onChanged(<WorkflowLoopVariable>[
+            ...variables,
+            WorkflowLoopVariable(id: _workflowConfigurationUuid.v4()),
+          ]),
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('添加循环变量'),
+          style: OutlinedButton.styleFrom(shape: _workflowButtonShape),
+        ),
+      ],
+    );
+  }
+
+  InputDecoration _loopVariableNameDecoration(
+    BuildContext context,
+    WorkflowLoopVariable variable,
+  ) {
+    final name = variable.name.trim();
+    final duplicate =
+        variables.where((item) => item.name.trim() == name).length > 1;
+    final invalid =
+        name.isNotEmpty &&
+        (!workflowParameterNamePattern.hasMatch(name) ||
+            duplicate ||
+            reservedParameterNames.containsKey(name));
+    if (!invalid) return _inputDecoration('变量名称');
+    final color = Theme.of(context).colorScheme.error;
+    return _inputDecoration('变量名称').copyWith(
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(kOpenHandRadius12),
+        borderSide: BorderSide(color: color),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(kOpenHandRadius12),
+        borderSide: BorderSide(color: color, width: 2),
+      ),
+    );
+  }
+
+  void _replace(WorkflowLoopVariable updated) {
+    onChanged(
+      variables
+          .map((item) => item.id == updated.id ? updated : item)
+          .toList(growable: false),
+    );
+  }
+}
+
+class _SwitchSetting extends StatelessWidget {
+  const _SwitchSetting({
+    required this.title,
+    required this.description,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String description;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Text(
+                description,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        kOpenHandHGap10,
+        Switch(value: value, onChanged: onChanged),
+      ],
     );
   }
 }
@@ -1710,6 +2541,65 @@ String _bodyFormatLabel(WorkflowHttpBodyFormat format) => switch (format) {
   WorkflowHttpBodyFormat.formUrlEncoded => 'x-www-form-urlencoded',
   WorkflowHttpBodyFormat.formData => 'form-data',
 };
+
+String _conditionLogicLabel(WorkflowConditionLogic logic) => switch (logic) {
+  WorkflowConditionLogic.all => 'AND',
+  WorkflowConditionLogic.any => 'OR',
+};
+
+String _conditionOperatorLabel(WorkflowConditionOperator operator) =>
+    switch (operator) {
+      WorkflowConditionOperator.equals => '等于',
+      WorkflowConditionOperator.notEquals => '不等于',
+      WorkflowConditionOperator.contains => '包含',
+      WorkflowConditionOperator.notContains => '不包含',
+      WorkflowConditionOperator.startsWith => '开头是',
+      WorkflowConditionOperator.endsWith => '结尾是',
+      WorkflowConditionOperator.greaterThan => '大于',
+      WorkflowConditionOperator.lessThan => '小于',
+      WorkflowConditionOperator.greaterThanOrEqual => '大于等于',
+      WorkflowConditionOperator.lessThanOrEqual => '小于等于',
+      WorkflowConditionOperator.isEmpty => '为空',
+      WorkflowConditionOperator.isNotEmpty => '不为空',
+      WorkflowConditionOperator.isNull => '为 null',
+      WorkflowConditionOperator.isNotNull => '不为 null',
+    };
+
+String _iterationErrorModeLabel(WorkflowIterationErrorMode mode) =>
+    switch (mode) {
+      WorkflowIterationErrorMode.stop => '异常时终止',
+      WorkflowIterationErrorMode.continueOnError => '记录异常并继续',
+      WorkflowIterationErrorMode.removeFailed => '移除异常输出并继续',
+    };
+
+List<WorkflowConditionCase> _legacyConditionCases(WorkflowNode node) {
+  final expression = node.stringSetting(WorkflowSettingKeys.expression).trim();
+  final match = RegExp(
+    r'^(.+?)\s*(==|!=|>=|<=|>|<|contains)\s*(.+)$',
+  ).firstMatch(expression);
+  final operator = switch (match?.group(2)) {
+    '!=' => WorkflowConditionOperator.notEquals,
+    '>' => WorkflowConditionOperator.greaterThan,
+    '<' => WorkflowConditionOperator.lessThan,
+    '>=' => WorkflowConditionOperator.greaterThanOrEqual,
+    '<=' => WorkflowConditionOperator.lessThanOrEqual,
+    'contains' => WorkflowConditionOperator.contains,
+    _ => WorkflowConditionOperator.equals,
+  };
+  return <WorkflowConditionCase>[
+    WorkflowConditionCase(
+      id: '${node.id}-if',
+      conditions: <WorkflowConditionClause>[
+        WorkflowConditionClause(
+          id: '${node.id}-condition',
+          variable: match?.group(1)?.trim() ?? '',
+          operator: operator,
+          value: match?.group(3)?.trim() ?? '',
+        ),
+      ],
+    ),
+  ];
+}
 
 ({String label, String description, IconData icon, Color color})
 workflowNodeDescriptor(WorkflowNodeKind kind, ColorScheme colors) {

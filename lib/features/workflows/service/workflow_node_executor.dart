@@ -124,7 +124,7 @@ class WorkflowNodeExecutor {
       WorkflowNodeKind.llm => _executeLlm(node, resources, variables),
       WorkflowNodeKind.httpRequest => _executeHttp(node, variables),
       WorkflowNodeKind.condition => _executeCondition(node, variables),
-      WorkflowNodeKind.loop => _executeLoop(node),
+      WorkflowNodeKind.loop => _executeLoop(node, variables),
       WorkflowNodeKind.iteration => _executeIteration(node, variables),
       WorkflowNodeKind.end => Future<WorkflowNodeExecutionResult>.value(
         _executeParameterNode(
@@ -781,6 +781,37 @@ class WorkflowNodeExecutor {
     WorkflowNode node,
     Map<String, Object?> variables,
   ) async {
+    final cases = node.conditionCases();
+    if (cases.isNotEmpty) {
+      final validationError = validateWorkflowConditionCases(cases);
+      if (validationError != null) {
+        throw WorkflowNodeExecutionException(validationError);
+      }
+      WorkflowConditionCase? matched;
+      for (final item in cases) {
+        if (_matchesConditions(item.conditions, item.logic, variables)) {
+          matched = item;
+          break;
+        }
+      }
+      final branchId = matched?.id ?? 'else';
+      final output = <String, Object?>{
+        'matched': matched != null,
+        'branch_id': branchId,
+        'branch': matched == null
+            ? 'ELSE'
+            : cases.indexOf(matched) == 0
+            ? 'IF'
+            : 'ELIF ${cases.indexOf(matched)}',
+      };
+      return WorkflowNodeExecutionResult(
+        output: output,
+        rawOutput: jsonEncode(output),
+        attempts: 1,
+        duration: Duration.zero,
+      );
+    }
+
     final expression = renderWorkflowTemplate(
       node.stringSetting(WorkflowSettingKeys.expression),
       variables,
@@ -815,13 +846,59 @@ class WorkflowNodeExecutor {
     );
   }
 
-  Future<WorkflowNodeExecutionResult> _executeLoop(WorkflowNode node) async {
+  Future<WorkflowNodeExecutionResult> _executeLoop(
+    WorkflowNode node,
+    Map<String, Object?> variables,
+  ) async {
     final count = node
         .intSetting(WorkflowSettingKeys.maxIterations, 10)
         .clamp(1, 1000);
+    final loopVariables = node.loopVariables();
+    final variableError = validateWorkflowLoopVariables(loopVariables);
+    if (variableError != null) {
+      throw WorkflowNodeExecutionException(variableError);
+    }
+    final resolvedVariables = WorkflowStructuredOutputParser.resolveValues(
+      loopVariables
+          .map(
+            (variable) => WorkflowOutputField(
+              id: variable.id,
+              name: variable.name,
+              type: variable.type,
+              required: true,
+              defaultValue: variable.initialValue,
+            ),
+          )
+          .toList(growable: false),
+      variables,
+      label: '循环变量',
+    );
+    final breakConditions = node.loopBreakConditions();
+    final conditionError = validateWorkflowConditionClauses(
+      breakConditions,
+      label: '退出条件',
+      allowEmpty: true,
+    );
+    if (conditionError != null) {
+      throw WorkflowNodeExecutionException(conditionError);
+    }
+    final conditionLogic = WorkflowConditionLogic.fromStorage(
+      node.settings[WorkflowSettingKeys.loopConditionLogic],
+    );
+    final shouldBreak =
+        breakConditions.isNotEmpty &&
+        _matchesConditions(breakConditions, conditionLogic, <String, Object?>{
+          ...variables,
+          ...resolvedVariables,
+        });
+    final output = <String, Object?>{
+      'max_iterations': count,
+      'variables': resolvedVariables,
+      'should_break': shouldBreak,
+    };
     return WorkflowNodeExecutionResult(
-      output: <String, Object?>{'max_iterations': count},
-      rawOutput: '$count',
+      output: output,
+      rawOutput: jsonEncode(output),
       attempts: 1,
       duration: Duration.zero,
     );
@@ -837,19 +914,119 @@ class WorkflowNodeExecutor {
         ? variables[input]
         : rendered;
     final items = raw is List
-        ? raw
+        ? List<Object?>.from(raw)
         : raw is String
         ? _tryDecodeList(raw)
-        : const <Object?>[];
-    if (items.isEmpty) {
-      throw const WorkflowNodeExecutionException('迭代输入必须是非空数组。');
+        : null;
+    if (items == null) {
+      throw const WorkflowNodeExecutionException('迭代输入必须是数组。');
     }
+    final outputTemplate = node
+        .stringSetting(WorkflowSettingKeys.iterationOutput, '{{item}}')
+        .trim();
+    if (outputTemplate.isEmpty) {
+      throw const WorkflowNodeExecutionException('迭代输出不能为空。');
+    }
+    final outputName = node
+        .stringSetting(
+          WorkflowSettingKeys.iterationOutputName,
+          'iteration_result',
+        )
+        .trim();
+    if (!workflowParameterNamePattern.hasMatch(outputName)) {
+      throw const WorkflowNodeExecutionException('迭代输出参数名称无效。');
+    }
+    final parallel = node.boolSetting(WorkflowSettingKeys.iterationParallel);
+    final parallelism = node.intSetting(
+      WorkflowSettingKeys.iterationParallelism,
+      10,
+    );
+    if (parallel && (parallelism < 1 || parallelism > 10)) {
+      throw const WorkflowNodeExecutionException('迭代并行度必须在 1–10 之间。');
+    }
+    final errorMode = WorkflowIterationErrorMode.fromStorage(
+      node.settings[WorkflowSettingKeys.iterationErrorMode],
+    );
+    final output = <Object?>[];
+    final boundedItems = items.take(1000).toList(growable: false);
+    for (var index = 0; index < boundedItems.length; index++) {
+      try {
+        output.add(
+          resolveWorkflowTemplateValue(outputTemplate, <String, Object?>{
+            ...variables,
+            'item': boundedItems[index],
+            'index': index,
+            'length': boundedItems.length,
+          }),
+        );
+      } catch (error) {
+        switch (errorMode) {
+          case WorkflowIterationErrorMode.stop:
+            throw WorkflowNodeExecutionException(
+              '迭代第 ${index + 1} 项处理失败：${_executionErrorText(error)}',
+              cause: error,
+            );
+          case WorkflowIterationErrorMode.continueOnError:
+            output.add(<String, Object?>{
+              'index': index,
+              'error': _executionErrorText(error),
+            });
+          case WorkflowIterationErrorMode.removeFailed:
+            continue;
+        }
+      }
+    }
+    final flatten = node.boolSetting(
+      WorkflowSettingKeys.iterationFlattenOutput,
+      true,
+    );
+    final normalizedOutput = flatten && output.every((item) => item is List)
+        ? output.expand((item) => item! as List).toList(growable: false)
+        : output;
+    final result = <String, Object?>{
+      outputName: List<Object?>.unmodifiable(normalizedOutput),
+    };
     return WorkflowNodeExecutionResult(
-      output: List<Object?>.unmodifiable(items.take(1000)),
-      rawOutput: jsonEncode(items.take(1000).toList(growable: false)),
+      output: Map<String, Object?>.unmodifiable(result),
+      rawOutput: jsonEncode(result),
       attempts: 1,
       duration: Duration.zero,
     );
+  }
+
+  bool _matchesConditions(
+    List<WorkflowConditionClause> conditions,
+    WorkflowConditionLogic logic,
+    Map<String, Object?> variables,
+  ) {
+    bool matches(WorkflowConditionClause condition) {
+      final left = _configuredValue(condition.variable, variables);
+      final right = condition.operator.requiresValue
+          ? _configuredValue(condition.value, variables, literal: true)
+          : null;
+      try {
+        return _compareWorkflowValues(left, condition.operator, right);
+      } on FormatException {
+        throw const WorkflowNodeExecutionException('条件中的数值比较参数无效。');
+      }
+    }
+
+    return logic == WorkflowConditionLogic.all
+        ? conditions.every(matches)
+        : conditions.any(matches);
+  }
+
+  Object? _configuredValue(
+    String source,
+    Map<String, Object?> variables, {
+    bool literal = false,
+  }) {
+    final value = source.trim();
+    final resolved = resolveWorkflowTemplateValue(value, variables);
+    if (resolved != value) return resolved;
+    if (literal) return _literalValue(value);
+    final lookup = _lookupWorkflowVariable(value, variables);
+    return lookup.found ? lookup.value : resolved;
   }
 
   int _boundedRetryCount(WorkflowNode node) => node
@@ -1245,11 +1422,50 @@ num _number(Object? value) {
   return num.parse('$value'.trim());
 }
 
-List<Object?> _tryDecodeList(String value) {
+bool _compareWorkflowValues(
+  Object? left,
+  WorkflowConditionOperator operator,
+  Object? right,
+) {
+  final empty =
+      left == null ||
+      left is String && left.isEmpty ||
+      left is Iterable && left.isEmpty ||
+      left is Map && left.isEmpty;
+  return switch (operator) {
+    WorkflowConditionOperator.isEmpty => empty,
+    WorkflowConditionOperator.isNotEmpty => !empty,
+    WorkflowConditionOperator.isNull => left == null,
+    WorkflowConditionOperator.isNotNull => left != null,
+    WorkflowConditionOperator.equals => left == right || '$left' == '$right',
+    WorkflowConditionOperator.notEquals => left != right && '$left' != '$right',
+    WorkflowConditionOperator.contains => switch (left) {
+      String value => value.contains('$right'),
+      Iterable value => value.contains(right),
+      Map value => value.containsKey(right) || value.containsValue(right),
+      _ => '$left'.contains('$right'),
+    },
+    WorkflowConditionOperator.notContains => !_compareWorkflowValues(
+      left,
+      WorkflowConditionOperator.contains,
+      right,
+    ),
+    WorkflowConditionOperator.startsWith => '$left'.startsWith('$right'),
+    WorkflowConditionOperator.endsWith => '$left'.endsWith('$right'),
+    WorkflowConditionOperator.greaterThan => _number(left) > _number(right),
+    WorkflowConditionOperator.lessThan => _number(left) < _number(right),
+    WorkflowConditionOperator.greaterThanOrEqual =>
+      _number(left) >= _number(right),
+    WorkflowConditionOperator.lessThanOrEqual =>
+      _number(left) <= _number(right),
+  };
+}
+
+List<Object?>? _tryDecodeList(String value) {
   try {
     final decoded = jsonDecode(value);
-    return decoded is List ? decoded : const <Object?>[];
+    return decoded is List ? List<Object?>.from(decoded) : null;
   } on FormatException {
-    return const <Object?>[];
+    return null;
   }
 }
