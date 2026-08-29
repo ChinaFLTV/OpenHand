@@ -1791,33 +1791,13 @@ class _BubbleHtmlInteractiveScope extends InheritedWidget {
       oldWidget.state != state;
 }
 
-const double _messageActionChipHeight = 34;
-const double _messageActionChipHorizontalPadding = 10;
-const double _messageActionChipVerticalPadding = 6;
 const double _responseVariantChipHeight = 26;
 const double _responseVariantArrowWidth = 20;
 const double _responseVariantLabelMinWidth = 28;
-const double _messageActionIconSize = 16;
 const double _userAttachmentThumbnailExtent = 156;
 const double _userAttachmentGap = 8;
 const double _userAttachmentBottomSpacing = 10;
 const double _userAttachmentPillMaxWidth = 340;
-
-ButtonStyle _messageActionChipStyle(BuildContext context) {
-  final theme = Theme.of(context);
-  return OutlinedButton.styleFrom(
-    minimumSize: const Size(0, _messageActionChipHeight),
-    padding: const EdgeInsets.symmetric(
-      horizontal: _messageActionChipHorizontalPadding,
-      vertical: _messageActionChipVerticalPadding,
-    ),
-    textStyle: theme.textTheme.labelMedium?.copyWith(
-      fontWeight: FontWeight.w700,
-    ),
-    visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
-    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-  );
-}
 
 class _MessageActionSpec {
   const _MessageActionSpec({
@@ -2099,23 +2079,7 @@ class _MessageActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final baseStyle = _messageActionChipStyle(context);
-    final effectiveStyle = selected
-        ? baseStyle.copyWith(
-            backgroundColor: WidgetStatePropertyAll(
-              colorScheme.primaryContainer.withValues(alpha: 0.72),
-            ),
-            foregroundColor: WidgetStatePropertyAll(
-              colorScheme.onPrimaryContainer,
-            ),
-            iconColor: WidgetStatePropertyAll(colorScheme.onPrimaryContainer),
-            side: WidgetStatePropertyAll(
-              BorderSide(color: colorScheme.primary.withValues(alpha: 0.62)),
-            ),
-          )
-        : baseStyle;
-    return OutlinedButton.icon(
+    return OpenHandMessageActionChip(
       onPressed: onPressed == null
           ? null
           : () {
@@ -2124,14 +2088,9 @@ class _MessageActionButton extends StatelessWidget {
               )?.markInteractiveTap();
               unawaited(onPressed!());
             },
-      style: effectiveStyle,
-      icon: Icon(icon, size: _messageActionIconSize),
-      label: Text(
-        label,
-        maxLines: 1,
-        softWrap: false,
-        overflow: TextOverflow.fade,
-      ),
+      icon: icon,
+      label: label,
+      selected: selected,
     );
   }
 }
@@ -6816,7 +6775,7 @@ class _ResponseVariantSwitcherState extends State<_ResponseVariantSwitcher> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final style = _messageActionChipStyle(context);
+    final style = openHandMessageActionChipStyle(context);
     const states = <WidgetState>{};
     final side =
         style.side?.resolve(states) ??
@@ -6932,7 +6891,11 @@ class _ResponseVariantArrowButton extends StatelessWidget {
       child: SizedBox(
         width: _responseVariantArrowWidth,
         height: _responseVariantChipHeight,
-        child: Icon(icon, size: _messageActionIconSize, color: effectiveColor),
+        child: Icon(
+          icon,
+          size: kOpenHandMessageActionIconSize,
+          color: effectiveColor,
+        ),
       ),
     );
   }
@@ -6957,7 +6920,7 @@ class _MessageContextCapsule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = _messageActionChipStyle(context);
+    final style = openHandMessageActionChipStyle(context);
     final iconColor = style.iconColor?.resolve(const <WidgetState>{});
     final labelWidget = maxLabelWidth == null
         ? Text(label, maxLines: 1, softWrap: false, overflow: TextOverflow.fade)
@@ -6977,7 +6940,8 @@ class _MessageContextCapsule extends StatelessWidget {
       },
       style: style,
       icon:
-          leading ?? Icon(icon, size: _messageActionIconSize, color: iconColor),
+          leading ??
+          Icon(icon, size: kOpenHandMessageActionIconSize, color: iconColor),
       label: labelWidget,
     );
     if (onPressed != null) {

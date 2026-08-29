@@ -6,10 +6,12 @@ import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
+import '../../../shared/ui/openhand_message_action_chip.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
@@ -22,9 +24,10 @@ import '../../ai/index.dart';
 import '../service/workflow_node_executor.dart';
 
 const double _messageAvatarSize = 28;
-const double _messageActionSize = 30;
-const double _messageMaxWidthFactor = 0.9;
+const double _messageMaxWidthFactor = 0.75;
 const double _autoFollowThreshold = 72;
+
+enum _WorkflowMessageFeedback { liked, needsImprovement }
 
 class WorkflowLlmConversationView extends StatefulWidget {
   const WorkflowLlmConversationView({
@@ -50,12 +53,20 @@ class _WorkflowLlmConversationViewState
   late final ScrollController _scrollController = ScrollController(
     debugLabel: 'workflow-llm-conversation',
   );
+  String? _selectedMessageId;
 
   @override
   void didUpdateWidget(covariant WorkflowLlmConversationView oldWidget) {
     super.didUpdateWidget(oldWidget);
     final previous = oldWidget.conversation;
     final current = widget.conversation;
+    if (previous?.startedAt != current?.startedAt ||
+        (current != null &&
+            !current.messages.any(
+              (message) => message.id == _selectedMessageId,
+            ))) {
+      _selectedMessageId = null;
+    }
     if (previous?.startedAt == current?.startedAt &&
         previous?.messages.length == current?.messages.length &&
         previous?.status == current?.status) {
@@ -145,6 +156,13 @@ class _WorkflowLlmConversationViewState
               '${conversation.startedAt.microsecondsSinceEpoch}-${message.id}',
             ),
             message: message,
+            selected: message.id == _selectedMessageId,
+            onSelected: () => setState(() {
+              _selectedMessageId = _selectedMessageId == message.id
+                  ? null
+                  : message.id;
+            }),
+            modelLabel: conversation.modelId,
             availableModels: settings.aiModels,
             fallbackModel: fallbackModel,
             ttsSettings: settings.aiTtsSettings,
@@ -346,6 +364,9 @@ class _ConversationMessageCard extends StatefulWidget {
   const _ConversationMessageCard({
     super.key,
     required this.message,
+    required this.selected,
+    required this.onSelected,
+    required this.modelLabel,
     required this.availableModels,
     required this.fallbackModel,
     required this.ttsSettings,
@@ -355,6 +376,9 @@ class _ConversationMessageCard extends StatefulWidget {
   });
 
   final WorkflowLlmConversationMessage message;
+  final bool selected;
+  final VoidCallback onSelected;
+  final String modelLabel;
   final List<AiModelConfig> availableModels;
   final AiModelConfig? fallbackModel;
   final AiTtsSettings ttsSettings;
@@ -377,6 +401,8 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
   bool _translationVisible = false;
   bool _translationLoading = false;
   String? _translation;
+  bool _showRawContent = false;
+  _WorkflowMessageFeedback? _feedback;
 
   @override
   void didUpdateWidget(covariant _ConversationMessageCard oldWidget) {
@@ -385,6 +411,8 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
     _translationVisible = false;
     _translationLoading = false;
     _translation = null;
+    _showRawContent = false;
+    _feedback = null;
   }
 
   @override
@@ -422,75 +450,63 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
         message.isError ? colors.error : OpenHandStatusColors.success,
       ),
     };
-    final collapsible =
-        message.kind == WorkflowLlmMessageKind.reasoning ||
-        message.kind == WorkflowLlmMessageKind.toolCall ||
-        message.kind == WorkflowLlmMessageKind.toolResult;
     final background = user
         ? colors.primaryContainer.withValues(alpha: 0.58)
         : colors.surfaceContainer;
-    final card = Container(
+    final card = AnimatedContainer(
+      duration: openHandMotionDuration(context, kOpenHandMotion180),
+      curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
         color: background,
         borderRadius: kOpenHandBorderRadius12,
         border: Border.all(
-          color: user
+          color: widget.selected
+              ? accent
+              : user
               ? colors.primary.withValues(alpha: 0.28)
               : colors.outlineVariant,
+          width: widget.selected ? 1.6 : 1,
         ),
+        boxShadow: widget.selected
+            ? <BoxShadow>[
+                BoxShadow(
+                  color: accent.withValues(alpha: 0.13),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
+                ),
+              ]
+            : const <BoxShadow>[],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InkWell(
-            borderRadius: kOpenHandBorderRadius12,
-            onTap: collapsible
-                ? () => setState(() => _expanded = !_expanded)
-                : null,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
-              child: Row(
-                children: [
-                  Container(
-                    width: _messageAvatarSize,
-                    height: _messageAvatarSize,
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.14),
-                      borderRadius: kOpenHandBorderRadius8,
-                    ),
-                    child: Icon(icon, size: 16, color: accent),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: _messageAvatarSize,
+                  height: _messageAvatarSize,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.14),
+                    borderRadius: kOpenHandBorderRadius8,
                   ),
-                  kOpenHandHGap8,
-                  Expanded(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                  child: Icon(icon, size: 16, color: accent),
+                ),
+                kOpenHandHGap8,
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  Text(
-                    formatHourMinuteSecondLocal(message.createdAt),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                  kOpenHandHGap4,
-                  _buildActions(context),
-                  if (collapsible) ...[
-                    kOpenHandHGap2,
-                    Icon(
-                      _expanded
-                          ? Icons.keyboard_arrow_up_rounded
-                          : Icons.keyboard_arrow_down_rounded,
-                      size: 18,
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ],
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           OpenHandVerticalRevealSwitcher(
@@ -502,55 +518,63 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
                   )
                 : null,
           ),
-          OpenHandVerticalRevealSwitcher(
-            child: _translationVisible && _translation != null
-                ? Container(
-                    key: const ValueKey<String>('message-translation'),
-                    margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: colors.secondaryContainer.withValues(alpha: 0.48),
-                      borderRadius: kOpenHandBorderRadius10,
-                      border: Border.all(
-                        color: colors.secondary.withValues(alpha: 0.22),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '译文',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: colors.secondary,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        kOpenHandGap6,
-                        _MarkdownMessageBody(data: _translation!),
-                      ],
-                    ),
-                  )
-                : null,
-          ),
         ],
       ),
     );
-    return Align(
-      alignment: user ? Alignment.centerRight : Alignment.centerLeft,
-      child: FractionallySizedBox(
-        widthFactor: user ? _messageMaxWidthFactor : 1,
-        child: card,
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final alignment = user ? Alignment.centerRight : Alignment.centerLeft;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Align(
+              alignment: alignment,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: constraints.maxWidth * _messageMaxWidthFactor,
+                ),
+                child: IntrinsicWidth(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: widget.onSelected,
+                    child: AnimatedSize(
+                      duration: openHandMotionDuration(
+                        context,
+                        kOpenHandMotion220,
+                      ),
+                      curve: kOpenHandSwitchInCurve,
+                      alignment: user ? Alignment.topRight : Alignment.topLeft,
+                      child: card,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            OpenHandVerticalRevealSwitcher(
+              presentKey: ValueKey<String>('actions-${message.id}'),
+              slideBeginOffsetY: -0.05,
+              child: widget.selected
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: _buildActionPanel(
+                        context,
+                        user: user,
+                        alignment: alignment,
+                      ),
+                    )
+                  : null,
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildContent(BuildContext context) {
-    final kind = widget.message.kind;
-    if (kind == WorkflowLlmMessageKind.toolCall ||
-        kind == WorkflowLlmMessageKind.toolResult) {
+    if (_showRawContent) {
       final theme = Theme.of(context);
       return Container(
-        width: double.infinity,
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerHighest.withValues(
@@ -567,10 +591,39 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
         ),
       );
     }
-    return _MarkdownMessageBody(data: widget.message.content);
+    final kind = widget.message.kind;
+    if (kind == WorkflowLlmMessageKind.toolCall ||
+        kind == WorkflowLlmMessageKind.toolResult) {
+      final theme = Theme.of(context);
+      return Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.62,
+          ),
+          borderRadius: kOpenHandBorderRadius8,
+        ),
+        child: SelectableText(
+          widget.message.content,
+          style: openHandCodeBodyTextStyle(
+            theme,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
+      );
+    }
+    return _MarkdownMessageBody(
+      data: _translationVisible && _translation != null
+          ? _translation!
+          : widget.message.content,
+    );
   }
 
-  Widget _buildActions(BuildContext context) {
+  Widget _buildActionPanel(
+    BuildContext context, {
+    required bool user,
+    required Alignment alignment,
+  }) {
     final canTransform = switch (widget.message.kind) {
       WorkflowLlmMessageKind.user ||
       WorkflowLlmMessageKind.reasoning ||
@@ -578,52 +631,214 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
       WorkflowLlmMessageKind.toolCall ||
       WorkflowLlmMessageKind.toolResult => false,
     };
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _MessageActionButton(
-          tooltip: '复制',
-          icon: Icons.content_copy_rounded,
-          onPressed: () => unawaited(
-            copyOpenHandTextToClipboard(
-              context: context,
-              text: widget.message.content,
-              logTag: 'workflow_llm_conversation',
-            ),
+    final aiSide = !user;
+    final toolActivity =
+        widget.message.kind == WorkflowLlmMessageKind.toolCall ||
+        widget.message.kind == WorkflowLlmMessageKind.toolResult;
+    final collapsible =
+        widget.message.kind == WorkflowLlmMessageKind.reasoning || toolActivity;
+    final canShowRaw =
+        widget.message.kind == WorkflowLlmMessageKind.reasoning ||
+        widget.message.kind == WorkflowLlmMessageKind.assistant;
+    return Align(
+      alignment: alignment,
+      child: Column(
+        crossAxisAlignment: user
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            alignment: user ? WrapAlignment.end : WrapAlignment.start,
+            children: [
+              if (!toolActivity)
+                OpenHandMessageActionChip(
+                  label: '复制',
+                  icon: Icons.content_copy_outlined,
+                  onPressed: () => unawaited(
+                    copyOpenHandTextToClipboard(
+                      context: context,
+                      text: widget.message.content,
+                      logTag: 'workflow_llm_conversation',
+                    ),
+                  ),
+                ),
+              if (canTransform && widget.ttsSettings.enabled)
+                ValueListenableBuilder<AiTtsPlaybackSnapshot>(
+                  valueListenable: widget.ttsPlaybackService.state,
+                  builder: (context, playback, _) {
+                    final playing =
+                        playback.playing &&
+                        playback.messageId == widget.message.id;
+                    return OpenHandMessageActionChip(
+                      label: playing ? '停止' : '朗读',
+                      icon: playing
+                          ? Icons.stop_circle_outlined
+                          : Icons.record_voice_over_outlined,
+                      selected: playing,
+                      onPressed: () => unawaited(_toggleSpeech(context)),
+                    );
+                  },
+                ),
+              if (canTransform && widget.translationSettings.enabled)
+                OpenHandMessageActionChip(
+                  label: _translationLoading
+                      ? '翻译中'
+                      : _translationVisible
+                      ? '查看原始'
+                      : '翻译',
+                  icon: _translationLoading
+                      ? Icons.hourglass_top_rounded
+                      : _translationVisible
+                      ? Icons.visibility_outlined
+                      : Icons.translate_rounded,
+                  selected: _translationVisible,
+                  onPressed: _translationLoading
+                      ? null
+                      : () => unawaited(_toggleTranslation(context)),
+                ),
+              if (aiSide)
+                OpenHandMessageActionChip(
+                  label: '点赞',
+                  icon: _feedback == _WorkflowMessageFeedback.liked
+                      ? Icons.thumb_up_alt_rounded
+                      : Icons.thumb_up_alt_outlined,
+                  selected: _feedback == _WorkflowMessageFeedback.liked,
+                  onPressed: () => setState(() {
+                    _feedback = _feedback == _WorkflowMessageFeedback.liked
+                        ? null
+                        : _WorkflowMessageFeedback.liked;
+                  }),
+                ),
+              if (aiSide)
+                OpenHandMessageActionChip(
+                  label: '需要改进',
+                  icon: _feedback == _WorkflowMessageFeedback.needsImprovement
+                      ? Icons.thumb_down_alt_rounded
+                      : Icons.thumb_down_alt_outlined,
+                  selected:
+                      _feedback == _WorkflowMessageFeedback.needsImprovement,
+                  onPressed: () => setState(() {
+                    _feedback =
+                        _feedback == _WorkflowMessageFeedback.needsImprovement
+                        ? null
+                        : _WorkflowMessageFeedback.needsImprovement;
+                  }),
+                ),
+              OpenHandMessageActionChip(
+                label: '审计',
+                icon: Icons.fact_check_outlined,
+                onPressed: () => unawaited(_showMessageAudit(context)),
+              ),
+              if (collapsible)
+                OpenHandMessageActionChip(
+                  label: _expanded ? '收起' : '展开',
+                  icon: _expanded
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  selected: _expanded,
+                  onPressed: () => setState(() => _expanded = !_expanded),
+                ),
+              if (canShowRaw)
+                OpenHandMessageActionChip(
+                  label: _showRawContent ? '显示渲染' : '显示原始',
+                  icon: _showRawContent
+                      ? Icons.code_off_outlined
+                      : Icons.code_outlined,
+                  selected: _showRawContent,
+                  onPressed: () =>
+                      setState(() => _showRawContent = !_showRawContent),
+                ),
+            ],
+          ),
+          kOpenHandGap6,
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            alignment: user ? WrapAlignment.end : WrapAlignment.start,
+            children: [
+              if (!user && widget.modelLabel.trim().isNotEmpty)
+                _MessageContextCapsule(
+                  icon: Icons.memory_rounded,
+                  label: widget.modelLabel.trim(),
+                ),
+              _MessageContextCapsule(
+                icon: Icons.schedule_rounded,
+                label: formatYearMonthDayHmLocal(widget.message.createdAt),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showMessageAudit(BuildContext context) {
+    final message = widget.message;
+    return showOpenHandInfoDialog(
+      context: context,
+      title: '消息审计',
+      maxWidth: 520,
+      icon: const Icon(Icons.fact_check_outlined),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 460),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _AuditField(label: '消息 ID', value: message.id),
+              _AuditField(label: '消息类型', value: _messageKindLabel(message)),
+              _AuditField(
+                label: '创建时间',
+                value: formatListDateTime(message.createdAt),
+              ),
+              if (message.toolName?.trim().isNotEmpty == true)
+                _AuditField(label: '工具', value: message.toolName!.trim()),
+              if (message.toolCallId?.trim().isNotEmpty == true)
+                _AuditField(
+                  label: '工具调用 ID',
+                  value: message.toolCallId!.trim(),
+                ),
+              _AuditField(label: '字符数', value: '${message.content.length}'),
+              _AuditField(label: '执行状态', value: message.isError ? '失败' : '正常'),
+              kOpenHandGap10,
+              Text(
+                '原始内容',
+                style: Theme.of(
+                  context,
+                ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              kOpenHandGap6,
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: kOpenHandBorderRadius10,
+                ),
+                child: SelectableText(
+                  message.content,
+                  style: openHandCodeBodyTextStyle(
+                    Theme.of(context),
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        if (canTransform && widget.ttsSettings.enabled) ...[
-          kOpenHandHGap4,
-          ValueListenableBuilder<AiTtsPlaybackSnapshot>(
-            valueListenable: widget.ttsPlaybackService.state,
-            builder: (context, playback, _) {
-              final playing =
-                  playback.playing && playback.messageId == widget.message.id;
-              return _MessageActionButton(
-                tooltip: playing ? '停止朗读' : '朗读',
-                icon: playing
-                    ? Icons.stop_circle_outlined
-                    : Icons.volume_up_outlined,
-                selected: playing,
-                onPressed: () => unawaited(_toggleSpeech(context)),
-              );
-            },
-          ),
-        ],
-        if (canTransform && widget.translationSettings.enabled) ...[
-          kOpenHandHGap4,
-          _MessageActionButton(
-            tooltip: _translationVisible ? '收起译文' : '翻译',
-            icon: Icons.translate_rounded,
-            selected: _translationVisible,
-            loading: _translationLoading,
-            onPressed: _translationLoading
-                ? null
-                : () => unawaited(_toggleTranslation(context)),
-          ),
-        ],
-      ],
+      ),
     );
+  }
+
+  String _messageKindLabel(WorkflowLlmConversationMessage message) {
+    return switch (message.kind) {
+      WorkflowLlmMessageKind.user => '用户',
+      WorkflowLlmMessageKind.reasoning => '思考过程',
+      WorkflowLlmMessageKind.assistant => '助手',
+      WorkflowLlmMessageKind.toolCall => '工具调用',
+      WorkflowLlmMessageKind.toolResult => '工具返回',
+    };
   }
 
   Future<void> _toggleSpeech(BuildContext context) async {
@@ -672,47 +887,53 @@ class _ConversationMessageCardState extends State<_ConversationMessageCard> {
   }
 }
 
-class _MessageActionButton extends StatelessWidget {
-  const _MessageActionButton({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
-    this.selected = false,
-    this.loading = false,
-  });
+class _MessageContextCapsule extends StatelessWidget {
+  const _MessageContextCapsule({required this.icon, required this.label});
 
-  final String tooltip;
   final IconData icon;
-  final VoidCallback? onPressed;
-  final bool selected;
-  final bool loading;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Tooltip(
-      message: tooltip,
-      child: SizedBox.square(
-        dimension: _messageActionSize,
-        child: IconButton(
-          onPressed: onPressed,
-          padding: EdgeInsets.zero,
-          style: IconButton.styleFrom(
-            backgroundColor: selected
-                ? colors.primaryContainer
-                : colors.surfaceContainerHighest.withValues(alpha: 0.72),
-            foregroundColor: selected
-                ? colors.onPrimaryContainer
-                : colors.onSurfaceVariant,
-            shape: const CircleBorder(),
+    return IgnorePointer(
+      child: OpenHandMessageActionChip(
+        onPressed: () {},
+        icon: icon,
+        label: label,
+      ),
+    );
+  }
+}
+
+class _AuditField extends StatelessWidget {
+  const _AuditField({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 86,
+            child: Text(
+              label,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
-          icon: loading
-              ? const SizedBox.square(
-                  dimension: 13,
-                  child: CircularProgressIndicator(strokeWidth: 1.8),
-                )
-              : Icon(icon, size: 15),
-        ),
+          kOpenHandHGap8,
+          Expanded(
+            child: SelectableText(value, style: theme.textTheme.bodySmall),
+          ),
+        ],
       ),
     );
   }
