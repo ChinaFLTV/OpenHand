@@ -99,7 +99,6 @@ class WorkflowKeyValueEntry {
     required this.id,
     this.key = '',
     this.value = '',
-    this.enabled = true,
   });
 
   factory WorkflowKeyValueEntry.fromJson(Map<String, Object?> json) {
@@ -107,21 +106,18 @@ class WorkflowKeyValueEntry {
       id: '${json['id'] ?? ''}'.trim(),
       key: '${json['key'] ?? ''}',
       value: '${json['value'] ?? ''}',
-      enabled: json['enabled'] != false,
     );
   }
 
   final String id;
   final String key;
   final String value;
-  final bool enabled;
 
-  WorkflowKeyValueEntry copyWith({String? key, String? value, bool? enabled}) {
+  WorkflowKeyValueEntry copyWith({String? key, String? value}) {
     return WorkflowKeyValueEntry(
       id: id,
       key: key ?? this.key,
       value: value ?? this.value,
-      enabled: enabled ?? this.enabled,
     );
   }
 
@@ -129,8 +125,46 @@ class WorkflowKeyValueEntry {
     'id': id,
     'key': key,
     'value': value,
-    'enabled': enabled,
   };
+}
+
+final RegExp _workflowHttpHeaderNamePattern = RegExp(
+  r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$",
+);
+
+String? validateWorkflowKeyValueEntries(
+  List<WorkflowKeyValueEntry> entries, {
+  required String label,
+  bool httpHeaders = false,
+}) {
+  final keys = <String>{};
+  for (var index = 0; index < entries.length; index++) {
+    final entry = entries[index];
+    final key = entry.key.trim();
+    final value = entry.value;
+    if (key.isEmpty || value.trim().isEmpty) {
+      return '$label第 ${index + 1} 项的键和值都不能为空。';
+    }
+    if (httpHeaders && !_workflowHttpHeaderNamePattern.hasMatch(key)) {
+      return '$label第 ${index + 1} 项的键不是有效的 HTTP 请求头名称。';
+    }
+    if (httpHeaders && !_isValidWorkflowHttpHeaderValue(value)) {
+      return '$label第 ${index + 1} 项的值包含无效字符。';
+    }
+    final normalizedKey = httpHeaders ? key.toLowerCase() : key;
+    if (!keys.add(normalizedKey)) {
+      return '$label中存在重复的键“$key”。';
+    }
+  }
+  return null;
+}
+
+bool _isValidWorkflowHttpHeaderValue(String value) {
+  for (final codeUnit in value.codeUnits) {
+    if (codeUnit == 0x09) continue;
+    if (codeUnit > 0xFF || codeUnit < 0x20 || codeUnit == 0x7F) return false;
+  }
+  return true;
 }
 
 @immutable

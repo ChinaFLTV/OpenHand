@@ -1055,44 +1055,50 @@ class _KeyValueEditor extends StatelessWidget {
             return Padding(
               key: ValueKey(entry.id),
               padding: EdgeInsets.only(top: index == 0 ? 12 : 8),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 34,
-                    child: Checkbox(
-                      value: entry.enabled,
-                      onChanged: (value) =>
-                          _replaceEntry(entry.copyWith(enabled: value ?? true)),
+              child: SizedBox(
+                height: _formControlHeight,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        initialValue: entry.key,
+                        decoration: _inputDecoration('键（必填）'),
+                        onChanged: (value) =>
+                            _replaceEntry(entry.copyWith(key: value)),
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: TextFormField(
-                      initialValue: entry.key,
-                      decoration: _inputDecoration('键'),
-                      onChanged: (value) =>
-                          _replaceEntry(entry.copyWith(key: value)),
+                    kOpenHandHGap8,
+                    Expanded(
+                      child: TextFormField(
+                        initialValue: entry.value,
+                        decoration: _inputDecoration('值（必填）'),
+                        onChanged: (value) =>
+                            _replaceEntry(entry.copyWith(value: value)),
+                      ),
                     ),
-                  ),
-                  kOpenHandHGap8,
-                  Expanded(
-                    child: TextFormField(
-                      initialValue: entry.value,
-                      decoration: _inputDecoration('值'),
-                      onChanged: (value) =>
-                          _replaceEntry(entry.copyWith(value: value)),
+                    kOpenHandHGap8,
+                    IconButton.filledTonal(
+                      tooltip: '移除',
+                      onPressed: () => onChanged(
+                        entries
+                            .where((item) => item.id != entry.id)
+                            .toList(growable: false),
+                      ),
+                      style: IconButton.styleFrom(
+                        fixedSize: const Size.square(_formControlHeight),
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            kOpenHandRadius12,
+                          ),
+                        ),
+                        shadowColor: Colors.transparent,
+                      ),
+                      icon: const Icon(Icons.close_rounded, size: 18),
                     ),
-                  ),
-                  kOpenHandHGap4,
-                  IconButton(
-                    tooltip: '移除',
-                    onPressed: () => onChanged(
-                      entries
-                          .where((item) => item.id != entry.id)
-                          .toList(growable: false),
-                    ),
-                    icon: const Icon(Icons.close_rounded, size: 18),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           }),

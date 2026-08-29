@@ -762,6 +762,32 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
           node.stringSetting(WorkflowSettingKeys.url).trim().isEmpty) {
         return '请填写 HTTP 节点请求 URL。';
       }
+      if (node.kind == WorkflowNodeKind.httpRequest) {
+        final headersError = validateWorkflowKeyValueEntries(
+          node.keyValueSetting(WorkflowSettingKeys.headers),
+          label: '请求头',
+          httpHeaders: true,
+        );
+        if (headersError != null) return headersError;
+        final queryError = validateWorkflowKeyValueEntries(
+          node.keyValueSetting(WorkflowSettingKeys.queryParameters),
+          label: '请求参数',
+        );
+        if (queryError != null) return queryError;
+        final bodyFormat = WorkflowHttpBodyFormat.fromStorage(
+          node.stringSetting(WorkflowSettingKeys.bodyFormat),
+        );
+        if (const <WorkflowHttpBodyFormat>{
+          WorkflowHttpBodyFormat.formData,
+          WorkflowHttpBodyFormat.formUrlEncoded,
+        }.contains(bodyFormat)) {
+          final bodyError = validateWorkflowKeyValueEntries(
+            node.keyValueSetting(WorkflowSettingKeys.bodyEntries),
+            label: '请求体字段',
+          );
+          if (bodyError != null) return bodyError;
+        }
+      }
       if (node.boolSetting(WorkflowSettingKeys.structuredOutput)) {
         try {
           WorkflowStructuredOutputParser.validateFields(node.outputFields());
@@ -1129,7 +1155,6 @@ class _WorkflowNameDialogState extends State<_WorkflowNameDialog> {
               decoration: InputDecoration(
                 labelText: '工作流名称',
                 hintText: '例如：内容审核与发布',
-                prefixIcon: const Icon(Icons.account_tree_outlined),
                 filled: true,
                 fillColor: theme.colorScheme.surfaceContainerLow,
                 border: OutlineInputBorder(

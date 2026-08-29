@@ -477,14 +477,20 @@ class WorkflowNodeExecutor {
         parsedUrl.host.isEmpty) {
       throw const WorkflowNodeExecutionException('请输入有效的 HTTP 或 HTTPS 地址。');
     }
-    final params = <String, String>{...parsedUrl.queryParameters};
-    for (final item in node.keyValueSetting(
-      WorkflowSettingKeys.queryParameters,
-    )) {
-      final key = renderWorkflowTemplate(item.key, variables).trim();
-      if (!item.enabled || key.isEmpty) continue;
-      params[key] = renderWorkflowTemplate(item.value, variables);
-    }
+    final params = <String, String>{
+      ...parsedUrl.queryParameters,
+      ..._resolvedKeyValues(
+        node.keyValueSetting(WorkflowSettingKeys.queryParameters),
+        variables,
+        label: '请求参数',
+      ),
+    };
+    final headers = _resolvedKeyValues(
+      node.keyValueSetting(WorkflowSettingKeys.headers),
+      variables,
+      label: '请求头',
+      httpHeaders: true,
+    );
     final uri = parsedUrl.replace(
       queryParameters: params.isEmpty ? null : params,
     );
@@ -514,6 +520,7 @@ class WorkflowNodeExecutor {
           node: node,
           method: method,
           uri: uri,
+          headers: headers,
           variables: variables,
         );
         final structured = node.boolSetting(
@@ -551,6 +558,7 @@ class WorkflowNodeExecutor {
     required WorkflowNode node,
     required String method,
     required Uri uri,
+    required Map<String, String> headers,
     required Map<String, Object?> variables,
   }) async {
     final connectSeconds = node
@@ -570,10 +578,8 @@ class WorkflowNodeExecutor {
             Duration(seconds: connectSeconds),
             onTimeout: () => throw TimeoutException('HTTP 连接超时。'),
           );
-      for (final item in node.keyValueSetting(WorkflowSettingKeys.headers)) {
-        final key = renderWorkflowTemplate(item.key, variables).trim();
-        if (!item.enabled || key.isEmpty) continue;
-        request.headers.set(key, renderWorkflowTemplate(item.value, variables));
+      for (final entry in headers.entries) {
+        request.headers.set(entry.key, entry.value);
       }
       if (!const <String>{'GET', 'HEAD'}.contains(method)) {
         _writeHttpBody(request, node, variables);
@@ -678,14 +684,37 @@ class WorkflowNodeExecutor {
     WorkflowNode node,
     Map<String, Object?> variables,
   ) {
-    final values = <String, String>{};
-    for (final item in node.keyValueSetting(WorkflowSettingKeys.bodyEntries)) {
-      final key = renderWorkflowTemplate(item.key, variables).trim();
-      if (item.enabled && key.isNotEmpty) {
-        values[key] = renderWorkflowTemplate(item.value, variables);
-      }
-    }
-    return values;
+    return _resolvedKeyValues(
+      node.keyValueSetting(WorkflowSettingKeys.bodyEntries),
+      variables,
+      label: '请求体字段',
+    );
+  }
+
+  Map<String, String> _resolvedKeyValues(
+    List<WorkflowKeyValueEntry> entries,
+    Map<String, Object?> variables, {
+    required String label,
+    bool httpHeaders = false,
+  }) {
+    final resolved = entries
+        .map(
+          (entry) => WorkflowKeyValueEntry(
+            id: entry.id,
+            key: renderWorkflowTemplate(entry.key, variables).trim(),
+            value: renderWorkflowTemplate(entry.value, variables),
+          ),
+        )
+        .toList(growable: false);
+    final error = validateWorkflowKeyValueEntries(
+      resolved,
+      label: label,
+      httpHeaders: httpHeaders,
+    );
+    if (error != null) throw WorkflowNodeExecutionException(error);
+    return <String, String>{
+      for (final entry in resolved) entry.key: entry.value,
+    };
   }
 
   String _escapeMultipartName(String value) =>
