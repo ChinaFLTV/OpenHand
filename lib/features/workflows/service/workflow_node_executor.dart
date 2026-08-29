@@ -25,6 +25,7 @@ import '../../mcp/index.dart' show McpServer, McpTool;
 import '../../memory/index.dart' show UserMemoryEntry;
 import '../../skills/index.dart' show LocalSkill;
 import '../model/workflow_definition.dart';
+import 'workflow_code_executor.dart';
 
 const int _maxWorkflowHttpResponseBytes = 4 * 1024 * 1024;
 const int _maxWorkflowPromptCharacters = 256 * 1024;
@@ -135,6 +136,7 @@ class WorkflowExecutionResources {
     this.knowledgeBaseController,
     this.mcpServers = const <McpServer>[],
     this.mcpTools = const <String, List<McpTool>>{},
+    this.codeRuntimes = const <WorkflowCodeLanguage, WorkflowCodeRuntime>{},
     this.mcpToolInvoker,
     this.onLlmConversation,
   });
@@ -147,6 +149,7 @@ class WorkflowExecutionResources {
   final KnowledgeBaseController? knowledgeBaseController;
   final List<McpServer> mcpServers;
   final Map<String, List<McpTool>> mcpTools;
+  final Map<WorkflowCodeLanguage, WorkflowCodeRuntime> codeRuntimes;
   final WorkflowMcpToolInvoker? mcpToolInvoker;
   final WorkflowLlmConversationListener? onLlmConversation;
 }
@@ -174,6 +177,7 @@ class WorkflowNodeExecutor {
 
   final AiChatClient _chatClient;
   final bool _ownsChatClient;
+  static const WorkflowCodeExecutor _codeExecutor = WorkflowCodeExecutor();
 
   Future<WorkflowNodeExecutionResult> execute({
     required WorkflowNode node,
@@ -216,6 +220,11 @@ class WorkflowNodeExecutor {
           ),
         ),
       WorkflowNodeKind.listOperation => _executeListOperation(node, variables),
+      WorkflowNodeKind.codeExecution => _executeCode(
+        node,
+        resources,
+        variables,
+      ),
       WorkflowNodeKind.loopExit => Future<WorkflowNodeExecutionResult>.error(
         const _WorkflowLoopExitSignal(),
       ),
@@ -255,6 +264,99 @@ class WorkflowNodeExecutor {
       attempts: 1,
       duration: Duration.zero,
     );
+  }
+
+  Future<WorkflowNodeExecutionResult> _executeCode(
+    WorkflowNode node,
+    WorkflowExecutionResources resources,
+    Map<String, Object?> variables,
+  ) async {
+    final language = WorkflowCodeLanguage.fromStorage(
+      node.settings[WorkflowSettingKeys.codeLanguage],
+    );
+    final runtime = resources.codeRuntimes[language];
+    if (runtime == null || !runtime.isAvailable) {
+      throw WorkflowNodeExecutionException(
+        runtime?.unavailableReason ?? '${language.label} 运行时不可用，请先在插件板块安装并启用。',
+      );
+    }
+    final inputFields = node.codeInputFields();
+    WorkflowStructuredOutputParser.validateFields(
+      inputFields,
+      label: '代码输入变量',
+      allowEmpty: true,
+    );
+    final configuredInputs = <String, Object?>{...variables};
+    for (final field in inputFields) {
+      final name = field.name.trim();
+      if (field.defaultValue.trim().isEmpty) {
+        throw WorkflowNodeExecutionException('代码输入变量“$name”缺少取值。');
+      }
+      if (field.valueSource == WorkflowValueSource.variable) {
+        for (final match in workflowTemplatePlaceholderPattern.allMatches(
+          field.defaultValue,
+        )) {
+          if (!_lookupWorkflowVariable(match.group(1)!, variables).found) {
+            throw WorkflowNodeExecutionException(
+              '代码输入变量“$name”引用的参数“${match.group(1)}”不可用。',
+            );
+          }
+        }
+        configuredInputs[name] = resolveWorkflowTemplateValue(
+          field.defaultValue,
+          variables,
+        );
+      } else {
+        configuredInputs[name] = field.defaultValue;
+      }
+    }
+    final inputs = WorkflowStructuredOutputParser.resolveValues(
+      inputFields,
+      configuredInputs,
+      label: '代码输入变量',
+    );
+    final outputFields = node.outputFields();
+    WorkflowStructuredOutputParser.validateFields(
+      outputFields,
+      label: '代码输出变量',
+    );
+    try {
+      final result = await _codeExecutor.execute(
+        runtime: runtime,
+        code: node.stringSetting(WorkflowSettingKeys.code),
+        inputs: inputs,
+        timeout: Duration(
+          seconds: node
+              .intSetting(
+                WorkflowSettingKeys.codeExecutionTimeoutSeconds,
+                defaultWorkflowCodeTimeoutSeconds,
+              )
+              .clamp(
+                minWorkflowCodeTimeoutSeconds,
+                maxWorkflowCodeTimeoutSeconds,
+              ),
+        ),
+      );
+      for (final field in outputFields) {
+        final name = field.name.trim();
+        if (!result.output.containsKey(name)) {
+          throw WorkflowNodeExecutionException('代码返回结果缺少输出变量：$name');
+        }
+      }
+      final output = WorkflowStructuredOutputParser.resolveValues(
+        outputFields,
+        result.output,
+        label: '代码输出变量',
+      );
+      return WorkflowNodeExecutionResult(
+        output: output,
+        rawOutput: jsonEncode(output),
+        attempts: 1,
+        duration: result.duration,
+      );
+    } on WorkflowCodeExecutionException catch (error) {
+      throw WorkflowNodeExecutionException(error.message, cause: error.cause);
+    }
   }
 
   Future<WorkflowNodeExecutionResult> _executeLlm(

@@ -11,6 +11,7 @@ import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_typography.dart';
 import '../../ai/index.dart'
     show
         AiModelConfig,
@@ -24,6 +25,7 @@ import '../../mcp/index.dart' show McpServer;
 import '../../memory/index.dart' show UserMemoryEntry;
 import '../../skills/index.dart' show LocalSkill;
 import '../model/workflow_definition.dart';
+import '../service/workflow_code_executor.dart';
 import '../service/workflow_node_executor.dart';
 import 'workflow_llm_conversation_view.dart';
 import 'workflow_parameter_reference_field.dart';
@@ -50,6 +52,7 @@ class WorkflowEditorCatalog {
     required this.instructions,
     required this.knowledgeSources,
     required this.mcpServers,
+    required this.codeRuntimes,
   });
 
   final List<AiModelConfig> models;
@@ -60,6 +63,7 @@ class WorkflowEditorCatalog {
   final List<UserInstructionEntry> instructions;
   final List<KnowledgeSource> knowledgeSources;
   final List<McpServer> mcpServers;
+  final Map<WorkflowCodeLanguage, WorkflowCodeRuntime> codeRuntimes;
 }
 
 class WorkflowNodeConfigurationPanel extends StatelessWidget {
@@ -154,6 +158,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           WorkflowNodeKind.iteration => _buildIteration(context),
           WorkflowNodeKind.parameterAssignment => _buildParameterAssignment(),
           WorkflowNodeKind.listOperation => _buildListOperation(context),
+          WorkflowNodeKind.codeExecution => _buildCodeExecution(context),
           WorkflowNodeKind.loopExit => _buildLoopExit(context),
           WorkflowNodeKind.end => _buildEnd(),
         },
@@ -330,6 +335,216 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
         kOpenHandGap16,
         _buildTestButton(),
       ],
+    );
+  }
+
+  Widget _buildCodeExecution(BuildContext context) {
+    final language = WorkflowCodeLanguage.fromStorage(
+      node.settings[WorkflowSettingKeys.codeLanguage],
+    );
+    final runtime = catalog.codeRuntimes[language];
+    final code = node.stringSetting(
+      WorkflowSettingKeys.code,
+      defaultWorkflowCode(language),
+    );
+    final inputFields = node.codeInputFields();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _FormSection(
+          title: '运行环境',
+          icon: Icons.terminal_rounded,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _LabeledField(
+                label: '代码语言',
+                required: true,
+                child: AnimatedDropdownButtonFormField<WorkflowCodeLanguage>(
+                  isExpanded: true,
+                  initialValue: language,
+                  decoration: _inputDecoration('选择代码语言'),
+                  items: WorkflowCodeLanguage.values
+                      .map(
+                        (item) => DropdownMenuItem<WorkflowCodeLanguage>(
+                          value: item,
+                          child: Text(item.label),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: (value) {
+                    if (value != null && value != language) {
+                      _setCodeLanguage(language, value, code);
+                    }
+                  },
+                ),
+              ),
+              kOpenHandGap12,
+              _CodeRuntimeStatus(runtime: runtime, language: language),
+              kOpenHandGap8,
+              Text(
+                '代码通过插件板块纳管的本机运行时执行，并继承当前用户权限。仅运行可信代码。',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        kOpenHandGap14,
+        _FormSection(
+          title: '输入变量',
+          icon: Icons.input_rounded,
+          trailing: TextButton.icon(
+            onPressed: () => _syncCodeInputsFromSignature(language, code),
+            icon: const Icon(Icons.sync_rounded, size: 17),
+            label: const Text('从代码同步'),
+          ),
+          child: _OutputFieldEditor(
+            fields: inputFields,
+            addLabel: '添加输入变量',
+            idPrefix: 'code-input',
+            availableReferences: availableReferences,
+            reservedParameterNames: const <String, String>{},
+            inputMode: true,
+            emptyMessage: '当前 main 函数不接收输入变量。',
+            onChanged: (fields) => _setValues(<String, Object?>{
+              WorkflowSettingKeys.codeInputFields: fields
+                  .map((item) => item.toJson())
+                  .toList(growable: false),
+              WorkflowSettingKeys.code: workflowCodeWithInputSignature(
+                code,
+                language,
+                fields,
+              ),
+            }),
+          ),
+        ),
+        kOpenHandGap14,
+        _FormSection(
+          title: '代码',
+          icon: Icons.code_rounded,
+          child: _WorkflowCodeEditor(
+            value: code,
+            language: language,
+            onChanged: (value) => _set(WorkflowSettingKeys.code, value),
+          ),
+        ),
+        kOpenHandGap14,
+        _FormSection(
+          title: '输出变量',
+          icon: Icons.output_rounded,
+          trailing: TextButton.icon(
+            onPressed: () => _syncCodeOutputsFromReturn(code),
+            icon: const Icon(Icons.sync_rounded, size: 17),
+            label: const Text('从代码同步'),
+          ),
+          child: _OutputFieldEditor(
+            fields: node.outputFields(),
+            addLabel: '添加输出变量',
+            idPrefix: 'code-output',
+            availableReferences: const <WorkflowParameterReference>[],
+            reservedParameterNames: reservedParameterNames,
+            definitionOnly: true,
+            onChanged: (value) => _set(
+              WorkflowSettingKeys.outputFields,
+              value.map((item) => item.toJson()).toList(growable: false),
+            ),
+          ),
+        ),
+        kOpenHandGap14,
+        _FormSection(
+          title: '执行限制',
+          icon: Icons.timer_outlined,
+          child: _LabeledField(
+            label: '超时时间（秒）',
+            required: true,
+            helper:
+                '范围 $minWorkflowCodeTimeoutSeconds–$maxWorkflowCodeTimeoutSeconds 秒；超时会终止完整进程树。',
+            child: TextFormField(
+              key: ValueKey('code-timeout-${node.id}'),
+              initialValue:
+                  '${node.intSetting(WorkflowSettingKeys.codeExecutionTimeoutSeconds, defaultWorkflowCodeTimeoutSeconds)}',
+              keyboardType: TextInputType.number,
+              decoration: _inputDecoration(
+                '$defaultWorkflowCodeTimeoutSeconds',
+              ),
+              onChanged: (value) {
+                final parsed = int.tryParse(value);
+                if (parsed != null) {
+                  _set(WorkflowSettingKeys.codeExecutionTimeoutSeconds, parsed);
+                }
+              },
+            ),
+          ),
+        ),
+        kOpenHandGap16,
+        _buildTestButton(),
+      ],
+    );
+  }
+
+  void _setCodeLanguage(
+    WorkflowCodeLanguage previous,
+    WorkflowCodeLanguage next,
+    String code,
+  ) {
+    final replaceTemplate =
+        code.trim().isEmpty ||
+        code.trim() == defaultWorkflowCode(previous).trim();
+    final nextCode = replaceTemplate ? defaultWorkflowCode(next) : code;
+    _setValues(<String, Object?>{
+      WorkflowSettingKeys.codeLanguage: next.storageValue,
+      WorkflowSettingKeys.code: workflowCodeWithInputSignature(
+        nextCode,
+        next,
+        node.codeInputFields(),
+      ),
+    });
+  }
+
+  void _syncCodeInputsFromSignature(
+    WorkflowCodeLanguage language,
+    String code,
+  ) {
+    final current = <String, WorkflowOutputField>{
+      for (final field in node.codeInputFields()) field.name.trim(): field,
+    };
+    final fields = workflowCodeFunctionParameters(code, language)
+        .map(
+          (name) =>
+              current[name] ??
+              WorkflowOutputField(
+                id: _workflowConfigurationUuid.v4(),
+                name: name,
+                required: true,
+                valueSource: WorkflowValueSource.variable,
+              ),
+        )
+        .toList(growable: false);
+    _set(
+      WorkflowSettingKeys.codeInputFields,
+      fields.map((item) => item.toJson()).toList(growable: false),
+    );
+  }
+
+  void _syncCodeOutputsFromReturn(String code) {
+    final current = <String, WorkflowOutputField>{
+      for (final field in node.outputFields()) field.name.trim(): field,
+    };
+    final fields = workflowCodeReturnNames(code)
+        .map(
+          (name) =>
+              current[name] ??
+              WorkflowOutputField(
+                id: _workflowConfigurationUuid.v4(),
+                name: name,
+              ),
+        )
+        .toList(growable: false);
+    _set(
+      WorkflowSettingKeys.outputFields,
+      fields.map((item) => item.toJson()).toList(growable: false),
     );
   }
 
@@ -2776,6 +2991,185 @@ class _ListOutputFieldEditor extends StatelessWidget {
   }
 }
 
+class _CodeRuntimeStatus extends StatelessWidget {
+  const _CodeRuntimeStatus({required this.runtime, required this.language});
+
+  final WorkflowCodeRuntime? runtime;
+  final WorkflowCodeLanguage language;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final available = runtime?.isAvailable == true;
+    final color = available
+        ? OpenHandStatusColors.success
+        : OpenHandStatusColors.warning;
+    final version = runtime?.version?.trim() ?? '';
+    final executable = runtime?.executable?.trim() ?? '';
+    return AnimatedContainer(
+      duration: openHandMotionDuration(context, kOpenHandMotion180),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(kOpenHandRadius12),
+        border: Border.all(color: color.withValues(alpha: 0.36)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(kOpenHandRadius10),
+            ),
+            child: Icon(
+              available ? Icons.check_rounded : Icons.priority_high_rounded,
+              color: color,
+              size: 20,
+            ),
+          ),
+          kOpenHandHGap10,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  available
+                      ? '${language.label}${version.isEmpty ? '' : ' · $version'}'
+                      : '${language.label} 暂不可用',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                kOpenHandGap4,
+                Text(
+                  available
+                      ? executable
+                      : runtime?.unavailableReason ?? '请先在插件板块安装并启用运行时。',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontFamily: available ? kOpenHandMonospaceFontFamily : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkflowCodeEditor extends StatefulWidget {
+  const _WorkflowCodeEditor({
+    required this.value,
+    required this.language,
+    required this.onChanged,
+  });
+
+  final String value;
+  final WorkflowCodeLanguage language;
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<_WorkflowCodeEditor> createState() => _WorkflowCodeEditorState();
+}
+
+class _WorkflowCodeEditorState extends State<_WorkflowCodeEditor> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.value,
+  );
+
+  @override
+  void didUpdateWidget(covariant _WorkflowCodeEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_controller.text == widget.value) return;
+    _controller.value = TextEditingValue(
+      text: widget.value,
+      selection: TextSelection.collapsed(offset: widget.value.length),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(kOpenHandRadius14),
+      child: ColoredBox(
+        color: theme.colorScheme.surfaceContainerLowest,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              color: theme.colorScheme.surfaceContainerHigh,
+              child: Row(
+                children: [
+                  Icon(
+                    widget.language == WorkflowCodeLanguage.python3
+                        ? Icons.data_object_rounded
+                        : Icons.javascript_rounded,
+                    size: 18,
+                    color: theme.colorScheme.primary,
+                  ),
+                  kOpenHandHGap8,
+                  Text(
+                    'main.${widget.language.fileExtension}',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${_controller.text.length} 字符',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 330,
+              child: TextField(
+                controller: _controller,
+                expands: true,
+                maxLines: null,
+                textAlignVertical: TextAlignVertical.top,
+                keyboardType: TextInputType.multiline,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontFamily: kOpenHandMonospaceFontFamily,
+                  height: 1.5,
+                ),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.all(14),
+                ),
+                onChanged: (value) {
+                  widget.onChanged(value);
+                  setState(() {});
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _OutputFieldEditor extends StatelessWidget {
   const _OutputFieldEditor({
     required this.fields,
@@ -2784,6 +3178,9 @@ class _OutputFieldEditor extends StatelessWidget {
     required this.availableReferences,
     required this.reservedParameterNames,
     required this.onChanged,
+    this.definitionOnly = false,
+    this.inputMode = false,
+    this.emptyMessage,
   });
 
   final List<WorkflowOutputField> fields;
@@ -2792,6 +3189,9 @@ class _OutputFieldEditor extends StatelessWidget {
   final List<WorkflowParameterReference> availableReferences;
   final Map<String, String> reservedParameterNames;
   final ValueChanged<List<WorkflowOutputField>> onChanged;
+  final bool definitionOnly;
+  final bool inputMode;
+  final String? emptyMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -2803,7 +3203,20 @@ class _OutputFieldEditor extends StatelessWidget {
           curve: Curves.easeOutCubic,
           alignment: Alignment.topCenter,
           child: fields.isEmpty
-              ? const SizedBox.shrink()
+              ? emptyMessage == null
+                    ? const SizedBox.shrink()
+                    : Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Text(
+                          emptyMessage!,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      )
               : Column(
                   children: fields
                       .map(
@@ -2811,6 +3224,8 @@ class _OutputFieldEditor extends StatelessWidget {
                           key: ValueKey(field.id),
                           field: field,
                           availableReferences: availableReferences,
+                          definitionOnly: definitionOnly,
+                          inputMode: inputMode,
                           nameError: _nameError(field),
                           onChanged: (updated) => onChanged(
                             fields
@@ -2836,6 +3251,10 @@ class _OutputFieldEditor extends StatelessWidget {
             ...fields,
             WorkflowOutputField(
               id: '$idPrefix-${DateTime.now().microsecondsSinceEpoch}',
+              required: inputMode,
+              valueSource: inputMode
+                  ? WorkflowValueSource.variable
+                  : WorkflowValueSource.constant,
             ),
           ]),
           icon: const Icon(Icons.add_rounded),
@@ -2855,6 +3274,7 @@ class _OutputFieldEditor extends StatelessWidget {
     if (fields.where((item) => item.name.trim() == name).length > 1) {
       return '当前节点中已存在参数“$name”。';
     }
+    if (inputMode) return null;
     final owner = reservedParameterNames[name];
     return owner == null ? null : '参数“$name”已由节点“$owner”使用。';
   }
@@ -2868,6 +3288,8 @@ class _OutputFieldCard extends StatelessWidget {
     required this.nameError,
     required this.onChanged,
     required this.onDelete,
+    required this.definitionOnly,
+    required this.inputMode,
   });
 
   final WorkflowOutputField field;
@@ -2875,13 +3297,16 @@ class _OutputFieldCard extends StatelessWidget {
   final String? nameError;
   final ValueChanged<WorkflowOutputField> onChanged;
   final VoidCallback onDelete;
+  final bool definitionOnly;
+  final bool inputMode;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final nameHint = inputMode ? '变量名称' : '参数名称';
     final nameDecoration = nameError == null
-        ? _inputDecoration('参数名称')
-        : _inputDecoration('参数名称').copyWith(
+        ? _inputDecoration(nameHint)
+        : _inputDecoration(nameHint).copyWith(
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(kOpenHandRadius12),
               borderSide: BorderSide(color: theme.colorScheme.error),
@@ -2905,8 +3330,9 @@ class _OutputFieldCard extends StatelessWidget {
                     child: TextFormField(
                       initialValue: field.name,
                       decoration: nameDecoration,
-                      onChanged: (value) =>
-                          onChanged(field.copyWith(name: value)),
+                      onChanged: (value) => onChanged(
+                        field.copyWith(name: value, required: inputMode),
+                      ),
                     ),
                   ),
                   kOpenHandHGap8,
@@ -2927,13 +3353,14 @@ class _OutputFieldCard extends StatelessWidget {
                       onChanged: (value) => onChanged(
                         field.copyWith(
                           type: value ?? WorkflowOutputType.string,
+                          required: inputMode,
                         ),
                       ),
                     ),
                   ),
                   kOpenHandHGap8,
                   IconButton.filledTonal(
-                    tooltip: '删除参数',
+                    tooltip: inputMode ? '删除输入变量' : '删除参数',
                     onPressed: onDelete,
                     style: IconButton.styleFrom(
                       fixedSize: const Size.square(_formControlHeight),
@@ -2964,77 +3391,111 @@ class _OutputFieldCard extends StatelessWidget {
                       ),
                     ),
             ),
-            kOpenHandGap8,
-            SizedBox(
-              height: _formControlHeight,
-              child: TextFormField(
-                initialValue: field.description,
-                decoration: _inputDecoration('参数介绍'),
-                onChanged: (value) =>
-                    onChanged(field.copyWith(description: value)),
-              ),
-            ),
-            kOpenHandGap8,
-            SizedBox(
-              height: _formControlHeight,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(
-                    width: _valueSourceControlWidth,
-                    child: _ValueSourceDropdown(
-                      value: field.valueSource,
-                      onChanged: (value) =>
-                          onChanged(field.copyWith(valueSource: value)),
-                    ),
-                  ),
-                  kOpenHandHGap8,
-                  Expanded(
-                    child: _WorkflowTypedValueField(
-                      value: field.defaultValue,
-                      type: field.type,
-                      source: field.valueSource,
-                      references: availableReferences,
-                      label: '默认值（可选）',
-                      onChanged: (value) =>
-                          onChanged(field.copyWith(defaultValue: value)),
-                    ),
-                  ),
-                  kOpenHandHGap8,
-                  SizedBox(
-                    width: 82,
-                    child: Semantics(
-                      selected: field.required,
-                      child: OutlinedButton(
-                        onPressed: () => onChanged(
-                          field.copyWith(required: !field.required),
+            if (inputMode) ...[
+              kOpenHandGap8,
+              SizedBox(
+                height: _formControlHeight,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      width: _valueSourceControlWidth,
+                      child: _ValueSourceDropdown(
+                        value: field.valueSource,
+                        onChanged: (value) => onChanged(
+                          field.copyWith(valueSource: value, required: true),
                         ),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: Size.zero,
-                          padding: EdgeInsets.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          backgroundColor: field.required
-                              ? theme.colorScheme.primaryContainer
-                              : theme.colorScheme.surfaceContainerLow,
-                          foregroundColor: field.required
-                              ? theme.colorScheme.onPrimaryContainer
-                              : theme.colorScheme.onSurface,
-                          side: BorderSide(
-                            color: field.required
-                                ? theme.colorScheme.primary.withValues(
-                                    alpha: 0.5,
-                                  )
-                                : theme.colorScheme.outlineVariant,
-                          ),
-                          shape: _workflowButtonShape,
-                        ),
-                        child: const Text('必需'),
                       ),
                     ),
-                  ),
-                ],
+                    kOpenHandHGap8,
+                    Expanded(
+                      child: _WorkflowTypedValueField(
+                        value: field.defaultValue,
+                        type: field.type,
+                        source: field.valueSource,
+                        references: availableReferences,
+                        label: '变量取值',
+                        onChanged: (value) => onChanged(
+                          field.copyWith(defaultValue: value, required: true),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ] else if (!definitionOnly) ...[
+              kOpenHandGap8,
+              SizedBox(
+                height: _formControlHeight,
+                child: TextFormField(
+                  initialValue: field.description,
+                  decoration: _inputDecoration('参数介绍'),
+                  onChanged: (value) =>
+                      onChanged(field.copyWith(description: value)),
+                ),
+              ),
+              kOpenHandGap8,
+              SizedBox(
+                height: _formControlHeight,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      width: _valueSourceControlWidth,
+                      child: _ValueSourceDropdown(
+                        value: field.valueSource,
+                        onChanged: (value) =>
+                            onChanged(field.copyWith(valueSource: value)),
+                      ),
+                    ),
+                    kOpenHandHGap8,
+                    Expanded(
+                      child: _WorkflowTypedValueField(
+                        value: field.defaultValue,
+                        type: field.type,
+                        source: field.valueSource,
+                        references: availableReferences,
+                        label: '默认值（可选）',
+                        onChanged: (value) =>
+                            onChanged(field.copyWith(defaultValue: value)),
+                      ),
+                    ),
+                    kOpenHandHGap8,
+                    SizedBox(
+                      width: 82,
+                      child: Semantics(
+                        selected: field.required,
+                        child: OutlinedButton(
+                          onPressed: () => onChanged(
+                            field.copyWith(required: !field.required),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: Size.zero,
+                            padding: EdgeInsets.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            backgroundColor: field.required
+                                ? theme.colorScheme.primaryContainer
+                                : theme.colorScheme.surfaceContainerLow,
+                            foregroundColor: field.required
+                                ? theme.colorScheme.onPrimaryContainer
+                                : theme.colorScheme.onSurface,
+                            side: BorderSide(
+                              color: field.required
+                                  ? theme.colorScheme.primary.withValues(
+                                      alpha: 0.5,
+                                    )
+                                  : theme.colorScheme.outlineVariant,
+                            ),
+                            shape: _workflowButtonShape,
+                          ),
+                          child: const Text('必需'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -3423,6 +3884,12 @@ workflowNodeDescriptor(WorkflowNodeKind kind, ColorScheme colors) {
       description: '筛选、截取、排序并限制数组',
       icon: Icons.filter_list_rounded,
       color: colors.tertiary,
+    ),
+    WorkflowNodeKind.codeExecution => (
+      label: '代码执行',
+      description: '运行 Python 3 或 JavaScript 代码',
+      icon: Icons.code_rounded,
+      color: colors.primary,
     ),
     WorkflowNodeKind.loopExit => (
       label: '退出循环',

@@ -21,8 +21,10 @@ import '../../instructions/index.dart';
 import '../../knowledge_base/index.dart';
 import '../../mcp/index.dart';
 import '../../memory/index.dart';
+import '../../plugin_service/index.dart';
 import '../../skills/index.dart';
 import '../model/workflow_definition.dart';
+import '../service/workflow_code_executor.dart';
 import '../service/workflow_node_executor.dart';
 import 'workflow_node_configuration_panel.dart';
 
@@ -84,6 +86,7 @@ Future<WorkflowDefinition?> showWorkflowEditorDialog(
   final instructions = context.read<InstructionsController>();
   final knowledge = context.read<KnowledgeBaseController>();
   final mcp = context.read<McpController>();
+  final plugins = context.read<PluginServiceController>();
   final catalog = WorkflowEditorCatalog(
     models: settings.aiModels,
     recentModelSelections: settings.recentModelSelections,
@@ -93,6 +96,16 @@ Future<WorkflowDefinition?> showWorkflowEditorDialog(
     instructions: instructions.entries,
     knowledgeSources: knowledge.sources,
     mcpServers: mcp.runtimeServers,
+    codeRuntimes: <WorkflowCodeLanguage, WorkflowCodeRuntime>{
+      WorkflowCodeLanguage.python3: _workflowCodeRuntime(
+        WorkflowCodeLanguage.python3,
+        plugins.pluginById(PluginCatalogIds.python),
+      ),
+      WorkflowCodeLanguage.javascript: _workflowCodeRuntime(
+        WorkflowCodeLanguage.javascript,
+        plugins.pluginById(PluginCatalogIds.nodejs),
+      ),
+    },
   );
   return showAnimatedDialog<WorkflowDefinition>(
     context: context,
@@ -1144,6 +1157,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                       kind == WorkflowNodeKind.httpRequest ||
                       kind == WorkflowNodeKind.parameterAssignment ||
                       kind == WorkflowNodeKind.listOperation ||
+                      kind == WorkflowNodeKind.codeExecution ||
                       kind == WorkflowNodeKind.loopExit &&
                           nestedParent?.kind == WorkflowNodeKind.loop,
           )
@@ -1663,6 +1677,23 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
           ).toJson(),
         ],
       },
+      WorkflowNodeKind.codeExecution => <String, Object?>{
+        WorkflowSettingKeys.codeLanguage:
+            WorkflowCodeLanguage.python3.storageValue,
+        WorkflowSettingKeys.code: defaultWorkflowCode(
+          WorkflowCodeLanguage.python3,
+        ),
+        WorkflowSettingKeys.codeInputFields: <Object?>[],
+        WorkflowSettingKeys.outputFields: <Object?>[
+          WorkflowOutputField(
+            id: _uuid.v4(),
+            name: _uniqueParameterName('result'),
+            description: '代码执行结果',
+          ).toJson(),
+        ],
+        WorkflowSettingKeys.codeExecutionTimeoutSeconds:
+            defaultWorkflowCodeTimeoutSeconds,
+      },
       WorkflowNodeKind.loopExit => const <String, Object?>{},
       WorkflowNodeKind.llm => <String, Object?>{
         WorkflowSettingKeys.modelConfigId:
@@ -2080,6 +2111,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
           knowledgeBaseController: widget.knowledgeBaseController,
           mcpServers: widget.catalog.mcpServers,
           mcpTools: mcpTools,
+          codeRuntimes: widget.catalog.codeRuntimes,
           mcpToolInvoker: mcpController == null
               ? null
               : ({
@@ -2236,6 +2268,49 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
           WorkflowStructuredOutputParser.validateFields(
             node.outputFields(),
             label: '列表输出参数',
+          );
+        } catch (error) {
+          return '$error';
+        }
+      }
+      if (node.kind == WorkflowNodeKind.codeExecution) {
+        final language = WorkflowCodeLanguage.fromStorage(
+          node.settings[WorkflowSettingKeys.codeLanguage],
+        );
+        final runtime = widget.catalog.codeRuntimes[language];
+        if (runtime == null || !runtime.isAvailable) {
+          return runtime?.unavailableReason ??
+              '${language.label} 运行时不可用，请先在插件板块安装并启用。';
+        }
+        if (node.stringSetting(WorkflowSettingKeys.code).trim().isEmpty) {
+          return '代码执行节点的代码不能为空。';
+        }
+        if (utf8.encode(node.stringSetting(WorkflowSettingKeys.code)).length >
+            maxWorkflowCodeBytes) {
+          return '代码执行节点的代码不能超过 512 KiB。';
+        }
+        final timeout = node.intSetting(
+          WorkflowSettingKeys.codeExecutionTimeoutSeconds,
+          defaultWorkflowCodeTimeoutSeconds,
+        );
+        if (timeout < minWorkflowCodeTimeoutSeconds ||
+            timeout > maxWorkflowCodeTimeoutSeconds) {
+          return '代码执行节点的超时时间必须在 $minWorkflowCodeTimeoutSeconds–$maxWorkflowCodeTimeoutSeconds 秒之间。';
+        }
+        try {
+          WorkflowStructuredOutputParser.validateFields(
+            node.codeInputFields(),
+            label: '代码输入变量',
+            allowEmpty: true,
+          );
+          for (final field in node.codeInputFields()) {
+            if (field.defaultValue.trim().isEmpty) {
+              return '代码输入变量“${field.name.trim()}”缺少取值。';
+            }
+          }
+          WorkflowStructuredOutputParser.validateFields(
+            node.outputFields(),
+            label: '代码输出变量',
           );
         } catch (error) {
           return '$error';
@@ -2677,6 +2752,30 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     _transformationController.value = Matrix4.identity();
     setState(() {});
   }
+}
+
+WorkflowCodeRuntime _workflowCodeRuntime(
+  WorkflowCodeLanguage language,
+  PluginInfo? plugin,
+) {
+  final executable = plugin?.installPath?.trim() ?? '';
+  final available =
+      plugin?.isInstalled == true &&
+      plugin?.enabled == true &&
+      executable.isNotEmpty;
+  final reason = plugin == null || !plugin.isInstalled
+      ? '${language.label} 运行时未安装，请先在插件板块安装。'
+      : !plugin.enabled
+      ? '${language.label} 运行时已停用，请先在插件板块启用。'
+      : executable.isEmpty
+      ? '${language.label} 运行时路径无效，请在插件板块重新扫描。'
+      : null;
+  return WorkflowCodeRuntime(
+    language: language,
+    executable: available ? executable : null,
+    version: plugin?.installedVersion,
+    unavailableReason: reason,
+  );
 }
 
 class _CanvasEmptyState extends StatelessWidget {
@@ -3491,6 +3590,8 @@ String _nodeSummary(WorkflowNode node) {
           : '${node.outputFields().length} 个赋值参数',
     WorkflowNodeKind.listOperation =>
       '${node.boolSetting(WorkflowSettingKeys.listFilterEnabled) ? '筛选 · ' : ''}${node.boolSetting(WorkflowSettingKeys.listOrderEnabled) ? '排序 · ' : ''}${node.boolSetting(WorkflowSettingKeys.listLimitEnabled) ? '限量' : '输出列表'}',
+    WorkflowNodeKind.codeExecution =>
+      '${WorkflowCodeLanguage.fromStorage(node.settings[WorkflowSettingKeys.codeLanguage]).label} · ${node.codeInputFields().length} 入 / ${node.outputFields().length} 出',
     WorkflowNodeKind.loopExit => '立即结束当前循环',
     WorkflowNodeKind.end =>
       node.outputFields().isEmpty

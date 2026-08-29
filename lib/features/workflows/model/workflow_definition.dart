@@ -9,6 +9,7 @@ enum WorkflowNodeKind {
   iteration('iteration'),
   parameterAssignment('parameter_assignment'),
   listOperation('list_operation'),
+  codeExecution('code_execution'),
   loopExit('loop_exit'),
   llm('llm'),
   httpRequest('http_request'),
@@ -26,6 +27,187 @@ enum WorkflowNodeKind {
     return null;
   }
 }
+
+enum WorkflowCodeLanguage {
+  python3('python3'),
+  javascript('javascript');
+
+  const WorkflowCodeLanguage(this.storageValue);
+
+  final String storageValue;
+
+  String get label => switch (this) {
+    WorkflowCodeLanguage.python3 => 'Python 3',
+    WorkflowCodeLanguage.javascript => 'JavaScript',
+  };
+
+  String get fileExtension => switch (this) {
+    WorkflowCodeLanguage.python3 => 'py',
+    WorkflowCodeLanguage.javascript => 'js',
+  };
+
+  static WorkflowCodeLanguage fromStorage(Object? value) {
+    final normalized = '${value ?? ''}'.trim();
+    return values.firstWhere(
+      (language) => language.storageValue == normalized,
+      orElse: () => WorkflowCodeLanguage.python3,
+    );
+  }
+}
+
+String defaultWorkflowCode(WorkflowCodeLanguage language) => switch (language) {
+  WorkflowCodeLanguage.python3 =>
+    '''def main():
+    return {
+        "result": "Hello, OpenHand"
+    }''',
+  WorkflowCodeLanguage.javascript =>
+    '''function main() {
+  return {
+    result: "Hello, OpenHand"
+  }
+}''',
+};
+
+List<String> workflowCodeFunctionParameters(
+  String code,
+  WorkflowCodeLanguage language,
+) {
+  final match = switch (language) {
+    WorkflowCodeLanguage.python3 => RegExp(
+      r'def\s+main\s*\(([\s\S]*?)\)\s*(?:->[^:]*)?:',
+    ).firstMatch(code),
+    WorkflowCodeLanguage.javascript => RegExp(
+      r'function\s+main\s*\(([\s\S]*?)\)\s*\{',
+    ).firstMatch(code),
+  };
+  var declaration = match?.group(1)?.trim() ?? '';
+  if (language == WorkflowCodeLanguage.javascript &&
+      declaration.startsWith('{') &&
+      declaration.endsWith('}')) {
+    declaration = declaration.substring(1, declaration.length - 1);
+  }
+  final names = <String>{};
+  for (final part in declaration.split(',')) {
+    var name = part.trim();
+    if (name.isEmpty || name.startsWith('...')) continue;
+    name = name.split('=').first.trim();
+    if (language == WorkflowCodeLanguage.python3) {
+      name = name.replaceFirst(RegExp(r'^\*{1,2}'), '').split(':').first.trim();
+    } else {
+      name = name.split(':').first.trim();
+    }
+    if (workflowParameterNamePattern.hasMatch(name)) names.add(name);
+  }
+  return List<String>.unmodifiable(names);
+}
+
+List<String> workflowCodeReturnNames(String code) {
+  final returnMatch = RegExp(r'\breturn\b').firstMatch(code);
+  if (returnMatch == null) return const <String>[];
+  final start = code.indexOf('{', returnMatch.end);
+  if (start < 0) return const <String>[];
+  final names = <String>{};
+  var depth = 0;
+  var entryStart = start + 1;
+  String? quote;
+  var escaped = false;
+  for (var index = start; index < code.length; index++) {
+    final character = code[index];
+    if (quote != null) {
+      if (escaped) {
+        escaped = false;
+      } else if (character == r'\') {
+        escaped = true;
+      } else if (character == quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (character == '"' || character == "'") {
+      quote = character;
+      continue;
+    }
+    if (character == '{') {
+      depth += 1;
+      continue;
+    }
+    if (character == '}') {
+      if (depth == 1) {
+        _addWorkflowCodeReturnName(code, entryStart, index, names);
+      }
+      depth -= 1;
+      if (depth == 0) break;
+      continue;
+    }
+    if (character == ',' && depth == 1) {
+      _addWorkflowCodeReturnName(code, entryStart, index, names);
+      entryStart = index + 1;
+    }
+  }
+  return List<String>.unmodifiable(names);
+}
+
+void _addWorkflowCodeReturnName(
+  String code,
+  int start,
+  int end,
+  Set<String> names,
+) {
+  if (start >= end) return;
+  final match = RegExp(
+    r'''^\s*(?:["']([A-Za-z_][A-Za-z0-9_]*)["']|([A-Za-z_][A-Za-z0-9_]*))\s*:''',
+  ).firstMatch(code.substring(start, end));
+  final name = match?.group(1) ?? match?.group(2);
+  if (name != null && workflowParameterNamePattern.hasMatch(name)) {
+    names.add(name);
+  }
+}
+
+String workflowCodeWithInputSignature(
+  String code,
+  WorkflowCodeLanguage language,
+  List<WorkflowOutputField> fields,
+) {
+  final parameters = fields
+      .map((field) => field.name.trim())
+      .where(workflowParameterNamePattern.hasMatch)
+      .toList(growable: false);
+  switch (language) {
+    case WorkflowCodeLanguage.python3:
+      final pattern = RegExp(r'def\s+main\s*\(([\s\S]*?)\)\s*(?:->[^:]*)?:');
+      if (!pattern.hasMatch(code)) return code;
+      final typed = fields
+          .where(
+            (field) => workflowParameterNamePattern.hasMatch(field.name.trim()),
+          )
+          .map(
+            (field) => '${field.name.trim()}: ${_pythonCodeType(field.type)}',
+          )
+          .join(', ');
+      return code.replaceFirst(pattern, 'def main($typed):');
+    case WorkflowCodeLanguage.javascript:
+      final pattern = RegExp(r'function\s+main\s*\(([\s\S]*?)\)\s*\{');
+      if (!pattern.hasMatch(code)) return code;
+      final signature = parameters.isEmpty
+          ? ''
+          : '{ ${parameters.join(', ')} }';
+      return code.replaceFirst(pattern, 'function main($signature) {');
+  }
+}
+
+String _pythonCodeType(WorkflowOutputType type) => switch (type) {
+  WorkflowOutputType.string => 'str',
+  WorkflowOutputType.integer => 'int',
+  WorkflowOutputType.number => 'float',
+  WorkflowOutputType.boolean => 'bool',
+  WorkflowOutputType.object => 'dict',
+  WorkflowOutputType.array => 'list',
+  WorkflowOutputType.arrayString => 'list[str]',
+  WorkflowOutputType.arrayNumber => 'list[float]',
+  WorkflowOutputType.arrayObject => 'list[dict]',
+  WorkflowOutputType.arrayBoolean => 'list[bool]',
+};
 
 enum WorkflowOutputType {
   string('string'),
@@ -302,6 +484,11 @@ abstract final class WorkflowSettingKeys {
   static const String listOrder = 'list_order';
   static const String listLimitEnabled = 'list_limit_enabled';
   static const String listLimitSize = 'list_limit_size';
+  static const String codeLanguage = 'code_language';
+  static const String code = 'code';
+  static const String codeInputFields = 'code_input_fields';
+  static const String codeExecutionTimeoutSeconds =
+      'code_execution_timeout_seconds';
   static const String containerWidth = 'container_width';
   static const String containerHeight = 'container_height';
   static const String modelConfigId = 'model_config_id';
@@ -766,6 +953,9 @@ class WorkflowNode {
 
   List<WorkflowOutputField> outputFields() =>
       _fieldsSetting(WorkflowSettingKeys.outputFields);
+
+  List<WorkflowOutputField> codeInputFields() =>
+      _fieldsSetting(WorkflowSettingKeys.codeInputFields);
 
   List<WorkflowConditionCase> conditionCases() {
     final value = settings[WorkflowSettingKeys.conditionCases];
