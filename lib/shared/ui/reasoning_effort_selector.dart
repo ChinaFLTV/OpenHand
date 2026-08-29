@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -20,6 +19,15 @@ const double _kReasoningPopupGap = 8;
 const double _kThumbSize = 28;
 const double _kTrackHeight = 32;
 const Duration _kLabelSwitchDuration = kOpenHandMotion280;
+
+/// MAX 状态字流光色带（首尾同色，便于无缝循环）。
+const List<Color> _kMaxStatusFlowColors = <Color>[
+  Color(0xFFB39AD6),
+  Color(0xFF9D86E0),
+  Color(0xFF8BB0FF),
+  Color(0xFFA88FE8),
+  Color(0xFFB39AD6),
+];
 
 /// Codex 风格色板：Low 绿 → High 蓝 → MAX 紫（派生自 dsh-effort-slider）。
 abstract final class _EffortPalettes {
@@ -305,12 +313,17 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
     final colorScheme = theme.colorScheme;
     final dark = colorScheme.brightness == Brightness.dark;
     final localeName = Localizations.localeOf(context).toLanguageTag();
+    if (widget.options.isEmpty) {
+      return SizedBox(width: widget.width, height: _kReasoningPopupEntryHeight);
+    }
     final progress = (_slider100 / 100).clamp(0.0, 1.0);
-    final displayIndex = _indexFromProgress(progress, widget.options.length);
+    final displayIndex = _indexFromProgress(progress, widget.options.length)
+        .clamp(0, widget.options.length - 1);
     final option = widget.options[displayIndex];
     final maxBlend = _smoothstep(0.55, 1.0, progress);
     final pixelBlend = _smoothstep(0.18, 0.55, progress);
-    final isMax = displayIndex == widget.options.length - 1 && widget.options.length > 1;
+    final isMax =
+        displayIndex == widget.options.length - 1 && widget.options.length > 1;
 
     final panel = Container(
       width: widget.width,
@@ -381,47 +394,16 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
                       ),
                     );
                   },
-                  child: Text(
-                    option.labelForLocaleName(localeName),
+                  child: _EffortStatusLabel(
                     key: ValueKey<String>(option.value),
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontFamily: 'Georgia',
-                      fontStyle: FontStyle.italic,
-                      fontWeight: FontWeight.w700,
-                      foreground: isMax
-                          ? (Paint()
-                              ..shader = ui.Gradient.linear(
-                                Offset.zero,
-                                const Offset(120, 0),
-                                const <Color>[
-                                  Color(0xFFB39AD6),
-                                  Color(0xFF9D86E0),
-                                  Color(0xFF8BB0FF),
-                                  Color(0xFFA88FE8),
-                                ],
-                              ))
-                          : null,
-                      color: isMax
-                          ? null
-                          : Color.lerp(
-                              const Color(0xBF58BC8A),
-                              dark
-                                  ? const Color(0xFFC084FC)
-                                  : const Color(0xFF3B5BD8),
-                              progress,
-                            ),
-                      shadows: maxBlend > 0.2 && !isMax
-                          ? <Shadow>[
-                              Shadow(
-                                color: (dark
-                                        ? const Color(0xFFC084FC)
-                                        : const Color(0xFF3B5BD8))
-                                    .withValues(alpha: 0.35 * maxBlend),
-                                blurRadius: 10,
-                              ),
-                            ]
-                          : null,
-                    ),
+                    label: option.labelForLocaleName(localeName),
+                    isMax: isMax,
+                    progress: progress,
+                    maxBlend: maxBlend,
+                    dark: dark,
+                    baseStyle: theme.textTheme.titleSmall,
+                    flowClock: _fxClock,
+                    reducedMotion: !openHandTickerMotionEnabled(context),
                   ),
                 ),
               ),
@@ -583,6 +565,88 @@ class _ReasoningEffortPopupEntryState extends State<_ReasoningEffortPopupEntry>
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 推理强度状态字：中低档主题色过渡，MAX 档用 ShaderMask 流光（避免 ui.Gradient.linear 色停限制）。
+class _EffortStatusLabel extends StatelessWidget {
+  const _EffortStatusLabel({
+    super.key,
+    required this.label,
+    required this.isMax,
+    required this.progress,
+    required this.maxBlend,
+    required this.dark,
+    required this.baseStyle,
+    required this.flowClock,
+    required this.reducedMotion,
+  });
+
+  final String label;
+  final bool isMax;
+  final double progress;
+  final double maxBlend;
+  final bool dark;
+  final TextStyle? baseStyle;
+  final Animation<double> flowClock;
+  final bool reducedMotion;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = baseStyle?.copyWith(
+      fontFamily: 'Georgia',
+      fontStyle: FontStyle.italic,
+      fontWeight: FontWeight.w700,
+      color: isMax
+          ? Colors.white
+          : Color.lerp(
+              const Color(0xBF58BC8A),
+              dark ? const Color(0xFFC084FC) : const Color(0xFF3B5BD8),
+              progress,
+            ),
+      shadows: maxBlend > 0.2 && !isMax
+          ? <Shadow>[
+              Shadow(
+                color: (dark ? const Color(0xFFC084FC) : const Color(0xFF3B5BD8))
+                    .withValues(alpha: 0.35 * maxBlend),
+                blurRadius: 10,
+              ),
+            ]
+          : null,
+    );
+    final text = Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: style,
+    );
+    if (!isMax) return text;
+
+    return AnimatedBuilder(
+      animation: flowClock,
+      builder: (context, child) {
+        final shift = reducedMotion ? 0.0 : flowClock.value;
+        return ShaderMask(
+          blendMode: BlendMode.srcIn,
+          shaderCallback: (bounds) {
+            if (bounds.isEmpty) {
+              return const LinearGradient(
+                colors: <Color>[Color(0xFFB39AD6), Color(0xFF8BB0FF)],
+              ).createShader(const Rect.fromLTWH(0, 0, 1, 1));
+            }
+            // 双倍色带宽度 + 平移，形成无缝流光。
+            final width = math.max(bounds.width, 1.0);
+            return LinearGradient(
+              colors: _kMaxStatusFlowColors,
+              begin: Alignment(-1.0 + shift * 2, 0),
+              end: Alignment(1.0 + shift * 2, 0),
+            ).createShader(Rect.fromLTWH(-width * shift, 0, width * 2, bounds.height));
+          },
+          child: child,
+        );
+      },
+      child: text,
     );
   }
 }
