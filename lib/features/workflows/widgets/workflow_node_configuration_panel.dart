@@ -1663,14 +1663,14 @@ class _ConditionGroupEditor extends StatelessWidget {
             );
           }),
         kOpenHandGap10,
-        TextButton.icon(
+        OutlinedButton.icon(
           onPressed: () => onConditionsChanged(<WorkflowConditionClause>[
             ...conditions,
             WorkflowConditionClause(id: _workflowConfigurationUuid.v4()),
           ]),
-          icon: const Icon(Icons.add_rounded, size: 18),
+          icon: const Icon(Icons.add_rounded),
           label: const Text('添加条件'),
-          style: TextButton.styleFrom(shape: _workflowButtonShape),
+          style: OutlinedButton.styleFrom(shape: _workflowButtonShape),
         ),
       ],
     );
