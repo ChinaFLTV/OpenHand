@@ -1165,55 +1165,74 @@ class _KeyValueEditor extends StatelessWidget {
             ),
           ],
         ),
-        if (entries.isNotEmpty)
-          ...entries.map((entry) {
-            final index = entries.indexOf(entry);
-            return Padding(
-              key: ValueKey(entry.id),
-              padding: EdgeInsets.only(top: index == 0 ? 12 : 8),
-              child: SizedBox(
-                height: _formControlHeight,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        initialValue: entry.key,
-                        decoration: _inputDecoration('键（必填）'),
-                        onChanged: (value) =>
-                            _replaceEntry(entry.copyWith(key: value)),
-                      ),
-                    ),
-                    kOpenHandHGap8,
-                    Expanded(
-                      child: TextFormField(
-                        initialValue: entry.value,
-                        decoration: _inputDecoration('值（必填）'),
-                        onChanged: (value) =>
-                            _replaceEntry(entry.copyWith(value: value)),
-                      ),
-                    ),
-                    kOpenHandHGap8,
-                    IconButton.filledTonal(
-                      tooltip: '移除',
-                      onPressed: () => onChanged(
-                        entries
-                            .where((item) => item.id != entry.id)
-                            .toList(growable: false),
-                      ),
-                      style: IconButton.styleFrom(
-                        fixedSize: const Size.square(_formControlHeight),
-                        padding: EdgeInsets.zero,
-                        shape: _workflowButtonShape,
-                        shadowColor: Colors.transparent,
-                      ),
-                      icon: const Icon(Icons.close_rounded, size: 18),
-                    ),
-                  ],
+        AnimatedSize(
+          duration: openHandMotionDuration(context, kOpenHandMotion220),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: entries.isEmpty
+              ? const SizedBox.shrink()
+              : Column(
+                  children: entries
+                      .map((entry) {
+                        final index = entries.indexOf(entry);
+                        return Padding(
+                          key: ValueKey(entry.id),
+                          padding: EdgeInsets.only(top: index == 0 ? 12 : 8),
+                          child: _EntryCard(
+                            child: SizedBox(
+                              height: _formControlHeight,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      initialValue: entry.key,
+                                      decoration: _inputDecoration('键（必填）'),
+                                      onChanged: (value) => _replaceEntry(
+                                        entry.copyWith(key: value),
+                                      ),
+                                    ),
+                                  ),
+                                  kOpenHandHGap8,
+                                  Expanded(
+                                    child: TextFormField(
+                                      initialValue: entry.value,
+                                      decoration: _inputDecoration('值（必填）'),
+                                      onChanged: (value) => _replaceEntry(
+                                        entry.copyWith(value: value),
+                                      ),
+                                    ),
+                                  ),
+                                  kOpenHandHGap8,
+                                  IconButton.filledTonal(
+                                    tooltip: '移除',
+                                    onPressed: () => onChanged(
+                                      entries
+                                          .where((item) => item.id != entry.id)
+                                          .toList(growable: false),
+                                    ),
+                                    style: IconButton.styleFrom(
+                                      fixedSize: const Size.square(
+                                        _formControlHeight,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      shape: _workflowButtonShape,
+                                      shadowColor: Colors.transparent,
+                                    ),
+                                    icon: const Icon(
+                                      Icons.close_rounded,
+                                      size: 18,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      })
+                      .toList(growable: false),
                 ),
-              ),
-            );
-          }),
+        ),
       ],
     );
   }
@@ -1245,23 +1264,36 @@ class _OutputFieldEditor extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (fields.isNotEmpty)
-          ...fields.map(
-            (field) => _OutputFieldCard(
-              key: ValueKey(field.id),
-              field: field,
-              onChanged: (updated) => onChanged(
-                fields
-                    .map((item) => item.id == updated.id ? updated : item)
-                    .toList(growable: false),
-              ),
-              onDelete: () => onChanged(
-                fields
-                    .where((item) => item.id != field.id)
-                    .toList(growable: false),
-              ),
-            ),
-          ),
+        AnimatedSize(
+          duration: openHandMotionDuration(context, kOpenHandMotion220),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: fields.isEmpty
+              ? const SizedBox.shrink()
+              : Column(
+                  children: fields
+                      .map(
+                        (field) => _OutputFieldCard(
+                          key: ValueKey(field.id),
+                          field: field,
+                          onChanged: (updated) => onChanged(
+                            fields
+                                .map(
+                                  (item) =>
+                                      item.id == updated.id ? updated : item,
+                                )
+                                .toList(growable: false),
+                          ),
+                          onDelete: () => onChanged(
+                            fields
+                                .where((item) => item.id != field.id)
+                                .toList(growable: false),
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+        ),
         kOpenHandGap10,
         OutlinedButton.icon(
           onPressed: () => onChanged(<WorkflowOutputField>[
@@ -1296,114 +1328,141 @@ class _OutputFieldCard extends StatelessWidget {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        children: [
-          SizedBox(
-            height: _formControlHeight,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    initialValue: field.name,
-                    decoration: _inputDecoration('参数名称'),
-                    onChanged: (value) =>
-                        onChanged(field.copyWith(name: value)),
-                  ),
-                ),
-                kOpenHandHGap8,
-                SizedBox(
-                  width: 122,
-                  child: AnimatedDropdownButtonFormField<WorkflowOutputType>(
-                    isExpanded: true,
-                    initialValue: field.type,
-                    decoration: _inputDecoration('类型'),
-                    items: WorkflowOutputType.values
-                        .map(
-                          (type) => DropdownMenuItem<WorkflowOutputType>(
-                            value: type,
-                            child: Text(type.storageValue),
-                          ),
-                        )
-                        .toList(growable: false),
-                    onChanged: (value) => onChanged(
-                      field.copyWith(type: value ?? WorkflowOutputType.string),
+      child: _EntryCard(
+        child: Column(
+          children: [
+            SizedBox(
+              height: _formControlHeight,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      initialValue: field.name,
+                      decoration: _inputDecoration('参数名称'),
+                      onChanged: (value) =>
+                          onChanged(field.copyWith(name: value)),
                     ),
                   ),
-                ),
-                kOpenHandHGap8,
-                IconButton.filledTonal(
-                  tooltip: '删除参数',
-                  onPressed: onDelete,
-                  style: IconButton.styleFrom(
-                    fixedSize: const Size.square(_formControlHeight),
-                    padding: EdgeInsets.zero,
-                    shape: _workflowButtonShape,
-                    shadowColor: Colors.transparent,
-                  ),
-                  icon: const Icon(Icons.delete_outline_rounded, size: 20),
-                ),
-              ],
-            ),
-          ),
-          kOpenHandGap8,
-          SizedBox(
-            height: _formControlHeight,
-            child: TextFormField(
-              initialValue: field.description,
-              decoration: _inputDecoration('参数介绍'),
-              onChanged: (value) =>
-                  onChanged(field.copyWith(description: value)),
-            ),
-          ),
-          kOpenHandGap8,
-          SizedBox(
-            height: _formControlHeight,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    initialValue: field.defaultValue,
-                    decoration: _inputDecoration('默认值（可选）'),
-                    onChanged: (value) =>
-                        onChanged(field.copyWith(defaultValue: value)),
-                  ),
-                ),
-                kOpenHandHGap8,
-                SizedBox(
-                  width: 82,
-                  child: Semantics(
-                    selected: field.required,
-                    child: OutlinedButton(
-                      onPressed: () =>
-                          onChanged(field.copyWith(required: !field.required)),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: Size.zero,
-                        padding: EdgeInsets.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        backgroundColor: field.required
-                            ? theme.colorScheme.primaryContainer
-                            : theme.colorScheme.surfaceContainerLow,
-                        foregroundColor: field.required
-                            ? theme.colorScheme.onPrimaryContainer
-                            : theme.colorScheme.onSurface,
-                        side: BorderSide(
-                          color: field.required
-                              ? theme.colorScheme.primary.withValues(alpha: 0.5)
-                              : theme.colorScheme.outlineVariant,
+                  kOpenHandHGap8,
+                  SizedBox(
+                    width: 122,
+                    child: AnimatedDropdownButtonFormField<WorkflowOutputType>(
+                      isExpanded: true,
+                      initialValue: field.type,
+                      decoration: _inputDecoration('类型'),
+                      items: WorkflowOutputType.values
+                          .map(
+                            (type) => DropdownMenuItem<WorkflowOutputType>(
+                              value: type,
+                              child: Text(type.storageValue),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (value) => onChanged(
+                        field.copyWith(
+                          type: value ?? WorkflowOutputType.string,
                         ),
-                        shape: _workflowButtonShape,
                       ),
-                      child: const Text('必需'),
                     ),
                   ),
-                ),
-              ],
+                  kOpenHandHGap8,
+                  IconButton.filledTonal(
+                    tooltip: '删除参数',
+                    onPressed: onDelete,
+                    style: IconButton.styleFrom(
+                      fixedSize: const Size.square(_formControlHeight),
+                      padding: EdgeInsets.zero,
+                      shape: _workflowButtonShape,
+                      shadowColor: Colors.transparent,
+                    ),
+                    icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            kOpenHandGap8,
+            SizedBox(
+              height: _formControlHeight,
+              child: TextFormField(
+                initialValue: field.description,
+                decoration: _inputDecoration('参数介绍'),
+                onChanged: (value) =>
+                    onChanged(field.copyWith(description: value)),
+              ),
+            ),
+            kOpenHandGap8,
+            SizedBox(
+              height: _formControlHeight,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      initialValue: field.defaultValue,
+                      decoration: _inputDecoration('默认值（可选）'),
+                      onChanged: (value) =>
+                          onChanged(field.copyWith(defaultValue: value)),
+                    ),
+                  ),
+                  kOpenHandHGap8,
+                  SizedBox(
+                    width: 82,
+                    child: Semantics(
+                      selected: field.required,
+                      child: OutlinedButton(
+                        onPressed: () => onChanged(
+                          field.copyWith(required: !field.required),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: Size.zero,
+                          padding: EdgeInsets.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          backgroundColor: field.required
+                              ? theme.colorScheme.primaryContainer
+                              : theme.colorScheme.surfaceContainerLow,
+                          foregroundColor: field.required
+                              ? theme.colorScheme.onPrimaryContainer
+                              : theme.colorScheme.onSurface,
+                          side: BorderSide(
+                            color: field.required
+                                ? theme.colorScheme.primary.withValues(
+                                    alpha: 0.5,
+                                  )
+                                : theme.colorScheme.outlineVariant,
+                          ),
+                          shape: _workflowButtonShape,
+                        ),
+                        child: const Text('必需'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _EntryCard extends StatelessWidget {
+  const _EntryCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(kOpenHandRadius14),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: child,
     );
   }
 }
