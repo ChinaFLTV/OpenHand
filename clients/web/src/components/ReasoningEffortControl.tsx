@@ -8,7 +8,7 @@ import {
   attachEffortStreamField,
   clamp,
   EFFORT_MAX_TIER_PROGRESS,
-  EFFORT_TIDE_SOFT_WIDTH,
+  EFFORT_TIDE_UNDERLAY_SOFT,
   isDarkEffortTheme,
   resolveEffortFxBlends,
   type EffortPixelFieldHandle,
@@ -232,11 +232,11 @@ function ReasoningEffortPanel({
         ? `color-mix(in srgb, #2ea86c ${Math.round((1 - blends.lowBlend) * 100)}%, #3b5bd8)`
         : '#3b5bd8';
   const fillPct = isMaxTier ? 100 : slider100;
-  // 非末档：宽柔边潮水掩膜；末档：不透明满轨。
-  const tideSoftPct = EFFORT_TIDE_SOFT_WIDTH * 100;
+  // 底轨/流光：更早收束、更宽消散，把交界留给像素潮汐碎裂。
+  const underlaySoftPct = EFFORT_TIDE_UNDERLAY_SOFT * 100;
   const tideMask = isMaxTier
     ? 'none'
-    : `linear-gradient(to right, #000 0%, #000 calc(${slider100}% - ${tideSoftPct * 0.85}%), rgba(0,0,0,0.55) calc(${slider100}% - 4%), transparent calc(${slider100}% + ${tideSoftPct * 0.55}%))`;
+    : `linear-gradient(to right, #000 0%, #000 calc(${slider100}% - ${underlaySoftPct}%), rgba(0,0,0,0.35) calc(${slider100}% - ${underlaySoftPct * 0.45}%), transparent calc(${slider100}% - 2%))`;
 
   return (
     <div
@@ -298,7 +298,7 @@ function ReasoningEffortPanel({
                 opacity: String(0.35 + blends.maxBlend * 0.65),
                 clipPath: isMaxTier
                   ? 'none'
-                  : `inset(0 ${Math.max(0, 100 - fillPct)}% 0 0)`,
+                  : `inset(0 ${Math.max(0, 100 - fillPct + underlaySoftPct * 0.35)}% 0 0)`,
                 maskImage: tideMask,
                 WebkitMaskImage: tideMask,
               }}

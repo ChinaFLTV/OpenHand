@@ -23,8 +23,51 @@ const Duration _kLabelSwitchDuration = kOpenHandMotion280;
 /// 末档判定：进度或紫段混合足够高时视为满轨。
 const double _kMaxTierProgress = 0.995;
 const double _kMaxTierBlend = 0.9;
-/// 非末档潮水前沿相对拇指的柔边宽度（归一化轨长）。
-const double _kTideSoftWidth = 0.18;
+/// 非末档：主岸线左侧开始碎裂 / 右侧飞沫漫出（归一化轨长）。
+const double _kTideSoftLead = 0.16;
+const double _kTideSoftSpill = 0.11;
+const double _kTideWaveAmp = 0.09;
+const double _kTideSprayAmp = 0.05;
+const double _kTideFoamAmp = 0.028;
+/// 底轨/流光比像素潮汐更早收束，避免矩形软切抢戏。
+const double _kTideUnderlaySoft = 0.22;
+
+/// 潮汐前沿占位：起伏岸线 + 随机空洞/飞沫（与 Web effortTidePresence 对齐）。
+double _effortTidePresence({
+  required double nX,
+  required double maskFrac,
+  required bool isMaxTier,
+  required int row,
+  required int column,
+  required double base,
+  required double phase,
+  required double elapsed,
+}) {
+  if (isMaxTier) return 1;
+  final tide = math.sin(nX * 21 + row * 2.15 + elapsed * 0.0017 + base * 6.283);
+  final spray = math.sin(
+    column * 2.61 + row * 5.07 + elapsed * 0.0026 + phase * math.pi * 2,
+  );
+  final foam = math.sin(
+    column * 9.17 + row * 1.41 + base * 13.7 + elapsed * 0.0011,
+  );
+  final shore = maskFrac -
+      _kTideSoftLead +
+      tide * _kTideWaveAmp +
+      spray * _kTideSprayAmp +
+      foam * _kTideFoamAmp;
+  const span = _kTideSoftLead + _kTideSoftSpill;
+  final t = (nX - shore) / span;
+  if (t <= 0) return 1;
+  if (t >= 1.2) return 0;
+  final density = math.pow(1 - t.clamp(0.0, 1.0), 1.75).toDouble();
+  final gate =
+      base * 0.52 + phase * 0.33 + ((column * 17 + row * 31) % 97) / 97 * 0.15;
+  if (gate > density * 0.98) return 0;
+  if (t > 0.55 && gate > density * 0.62) return 0;
+  if (t > 0.82 && gate > density * 0.38) return 0;
+  return (density * (0.5 + 0.5 * (0.5 + 0.5 * tide))).clamp(0.08, 1.0);
+}
 
 /// Codex 风格色板：Low 绿 → High 蓝 → MAX 紫（派生自 dsh-effort-slider）。
 abstract final class _EffortPalettes {
@@ -603,26 +646,29 @@ class _EffortTrackPainter extends CustomPainter {
     if (maxBlend > 0.02 && fillRight > 0) {
       canvas.save();
       canvas.clipRRect(track);
+      // 非末档底轨提前收束，把交界留给像素潮汐碎裂。
       final maxEnd = isMaxTier
           ? size.width
-          : math.min(size.width, fillRight + size.width * 0.08);
-      canvas.drawRect(
-        Rect.fromLTRB(0, trackTop, maxEnd, trackTop + _kTrackHeight),
-        Paint()
-          ..shader = LinearGradient(
-            colors: <Color>[
-              ..._EffortPalettes.trackMaxGradient(dark: dark).map(
-                (c) => c.withValues(alpha: 0.35 + maxBlend * 0.65),
-              ),
-              if (!isMaxTier) const Color(0x00000000),
-            ],
-            stops: isMaxTier
-                ? null
-                : <double>[0, 0.35, 0.62, 0.82, 1],
-          ).createShader(
-            Rect.fromLTRB(0, trackTop, maxEnd, trackTop + _kTrackHeight),
-          ),
-      );
+          : math.max(0.0, fillRight - size.width * _kTideUnderlaySoft * 0.35);
+      if (maxEnd > 1) {
+        canvas.drawRect(
+          Rect.fromLTRB(0, trackTop, maxEnd, trackTop + _kTrackHeight),
+          Paint()
+            ..shader = LinearGradient(
+              colors: <Color>[
+                ..._EffortPalettes.trackMaxGradient(dark: dark).map(
+                  (c) => c.withValues(alpha: 0.35 + maxBlend * 0.65),
+                ),
+                if (!isMaxTier) const Color(0x00000000),
+              ],
+              stops: isMaxTier
+                  ? null
+                  : const <double>[0, 0.28, 0.52, 0.74, 1],
+            ).createShader(
+              Rect.fromLTRB(0, trackTop, maxEnd, trackTop + _kTrackHeight),
+            ),
+        );
+      }
       canvas.restore();
     }
 
@@ -631,7 +677,7 @@ class _EffortTrackPainter extends CustomPainter {
       canvas.clipRRect(track);
       final streamEnd = isMaxTier
           ? size.width
-          : math.min(size.width, fillRight + size.width * _kTideSoftWidth);
+          : math.max(0.0, fillRight - size.width * 0.02);
       canvas.drawRect(
         Rect.fromLTRB(0, trackTop, streamEnd, trackTop + _kTrackHeight),
         Paint()
@@ -639,12 +685,12 @@ class _EffortTrackPainter extends CustomPainter {
             colors: <Color>[
               accent.withValues(alpha: 0.14),
               accent.withValues(alpha: 0.52 + progress * 0.28),
-              accent.withValues(alpha: isMaxTier ? 0.42 : 0.18),
+              accent.withValues(alpha: isMaxTier ? 0.42 : 0.12),
               if (!isMaxTier) accent.withValues(alpha: 0),
             ],
             stops: isMaxTier
                 ? const <double>[0, 0.55, 1]
-                : const <double>[0, 0.55, 0.82, 1],
+                : const <double>[0, 0.48, 0.78, 1],
           ).createShader(
             Rect.fromLTRB(0, trackTop, streamEnd, trackTop + _kTrackHeight),
           )
@@ -758,7 +804,6 @@ class _EffortTrackPainter extends CustomPainter {
     final columns = (size.width / cell).ceil();
     final rows = (size.height / cell).ceil();
     final flow = reducedMotion ? 0.0 : elapsed / 4000;
-    final soft = isMaxTier ? 0.0 : _kTideSoftWidth;
 
     for (var row = 0; row < rows; row++) {
       for (var column = 0; column < columns; column++) {
@@ -767,16 +812,17 @@ class _EffortTrackPainter extends CustomPainter {
         final nX = (x + cell * 0.5) / size.width;
         final base = (math.sin(column * 12.9898 + row * 78.233) * 43758.5453).abs() % 1;
         final phase = (math.sin(column * 31.17 + row * 11.93) * 28437.123).abs() % 1;
-        // 潮水前沿：按行起伏，并向拇指右侧轻柔漫出。
-        final tide =
-            math.sin(nX * 26 + row * 1.85 + elapsed * 0.0021 + base * 6.283);
-        final spray = math.sin(
-          column * 3.17 + row * 5.41 + elapsed * 0.0033 + phase * math.pi * 2,
+        final tidePresence = _effortTidePresence(
+          nX: nX,
+          maskFrac: maskFrac,
+          isMaxTier: isMaxTier,
+          row: row,
+          column: column,
+          base: base,
+          phase: phase,
+          elapsed: elapsed,
         );
-        final tideEdge = isMaxTier
-            ? 1.08
-            : maskFrac + 0.015 + tide * 0.05 + spray * 0.028;
-        if (nX > tideEdge + soft * 0.35) continue;
+        if (tidePresence <= 0.02) continue;
 
         final revealAlpha = _smoothstep(
           frontier - 0.1 * maskFrac,
@@ -808,12 +854,8 @@ class _EffortTrackPainter extends CustomPainter {
           maxBlend,
         )!;
         final highlight = Color.lerp(color, Colors.white, light * 0.55)!;
-        final edgeFade = isMaxTier
-            ? 1.0
-            : (1.0 - _smoothstep(tideEdge - soft, tideEdge, nX)) *
-                (0.62 + 0.38 * (0.5 + 0.5 * tide));
         final alpha = revealAlpha *
-            edgeFade *
+            tidePresence *
             _mix(0.82, 0.7 + base * 0.2, maxBlend) *
             (0.75 + light * 0.25);
         if (alpha < 0.02) continue;

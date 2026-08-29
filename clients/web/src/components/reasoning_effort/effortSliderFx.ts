@@ -74,9 +74,16 @@ const DARK_PURPLE_LEFT: Rgb = [24, 19, 40];
 export const EFFORT_COMMIT_THROTTLE_MS = 16;
 export const EFFORT_PIXEL_FRAME_MS = 33;
 export const EFFORT_STREAM_FRAME_MS = 33;
-/** 非末档潮水柔边宽度（相对轨长）。 */
-export const EFFORT_TIDE_SOFT_WIDTH = 0.18;
+/** 非末档：主岸线左侧开始碎裂的相对宽度。 */
+export const EFFORT_TIDE_SOFT_LEAD = 0.16;
+/** 非末档：主岸线右侧飞沫可漫出的相对宽度。 */
+export const EFFORT_TIDE_SOFT_SPILL = 0.11;
+/** 底轨/流光掩膜柔边（比像素潮汐更宽，避免矩形软切抢戏）。 */
+export const EFFORT_TIDE_UNDERLAY_SOFT = 0.22;
 export const EFFORT_MAX_TIER_PROGRESS = 0.995;
+const EFFORT_TIDE_WAVE_AMP = 0.09;
+const EFFORT_TIDE_SPRAY_AMP = 0.05;
+const EFFORT_TIDE_FOAM_AMP = 0.028;
 
 export function clamp(value: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, value));
@@ -89,6 +96,47 @@ export function smoothstep(edge0: number, edge1: number, value: number): number 
 
 export function mix(a: number, b: number, t: number): number {
   return a + (b - a) * t;
+}
+
+/**
+ * 潮汐前沿占位：起伏岸线 + 随机空洞/飞沫，避免均匀渐隐的一刀切。
+ * 返回 0 表示不绘制该格；末档恒为 1。
+ */
+export function effortTidePresence(input: {
+  nX: number;
+  maskFrac: number;
+  isMaxTier: boolean;
+  row: number;
+  column: number;
+  base: number;
+  phase: number;
+  elapsed: number;
+}): number {
+  if (input.isMaxTier) return 1;
+  const { nX, maskFrac, row, column, base, phase, elapsed } = input;
+  const tide = Math.sin(nX * 21 + row * 2.15 + elapsed * 0.0017 + base * 6.283);
+  const spray = Math.sin(
+    column * 2.61 + row * 5.07 + elapsed * 0.0026 + phase * Math.PI * 2,
+  );
+  const foam = Math.sin(column * 9.17 + row * 1.41 + base * 13.7 + elapsed * 0.0011);
+  const shore =
+    maskFrac -
+    EFFORT_TIDE_SOFT_LEAD +
+    tide * EFFORT_TIDE_WAVE_AMP +
+    spray * EFFORT_TIDE_SPRAY_AMP +
+    foam * EFFORT_TIDE_FOAM_AMP;
+  const span = EFFORT_TIDE_SOFT_LEAD + EFFORT_TIDE_SOFT_SPILL;
+  const t = (nX - shore) / Math.max(span, 0.001);
+  if (t <= 0) return 1;
+  if (t >= 1.2) return 0;
+
+  // 越靠近右侧越稀；用格子哈希做空洞/岛礁，形成图一那种星座式碎裂。
+  const density = Math.pow(1 - clamp(t, 0, 1), 1.75);
+  const gate = base * 0.52 + phase * 0.33 + ((column * 17 + row * 31) % 97) / 97 * 0.15;
+  if (gate > density * 0.98) return 0;
+  if (t > 0.55 && gate > density * 0.62) return 0;
+  if (t > 0.82 && gate > density * 0.38) return 0;
+  return clamp(density * (0.5 + 0.5 * (0.5 + 0.5 * tide)), 0.08, 1);
 }
 
 function mixRgb(a: Rgb, b: Rgb, t: number): Rgb {
@@ -286,7 +334,6 @@ export function attachEffortPixelField(
     const bandIn = 0.1 * maskFrac;
     const bandOut = 0.07 * maskFrac;
     const gap = 0.2 + (gapBase - 0.2) * maxBlend;
-    const soft = isMaxTier ? 0 : EFFORT_TIDE_SOFT_WIDTH;
     const elapsed = reduced ? 0 : Math.max(0, time - startedAt);
 
     const greenPal: EffortPalette = {
@@ -323,14 +370,17 @@ export function attachEffortPixelField(
     ctx.clip();
 
     for (const c of grid) {
-      const tide = Math.sin(c.nX * 26 + c.row * 1.85 + elapsed * 0.0021 + c.base * 6.283);
-      const spray = Math.sin(
-        c.column * 3.17 + c.row * 5.41 + elapsed * 0.0033 + c.phase * Math.PI * 2,
-      );
-      const tideEdge = isMaxTier
-        ? 1.08
-        : maskFrac + 0.015 + tide * 0.05 + spray * 0.028;
-      if (c.nX > tideEdge + soft * 0.35) continue;
+      const tidePresence = effortTidePresence({
+        nX: c.nX,
+        maskFrac,
+        isMaxTier,
+        row: c.row,
+        column: c.column,
+        base: c.base,
+        phase: c.phase,
+        elapsed,
+      });
+      if (tidePresence <= 0.02) continue;
       const nLocal = c.nX / Math.max(maskFrac, 0.001);
       const effIntensity = mix(1, c.intensity, maxBlend);
       const revealAlpha = smoothstep(frontier - bandIn, frontier + bandOut, c.nX);
@@ -416,17 +466,13 @@ export function attachEffortPixelField(
         : mixRgb(blendedColor, pal.highlight, highlightAmount);
 
       const baseOpacity = mix(0.82 + c.base * 0.08, 0.7 + c.base * 0.2, maxBlend);
-      const edgeFade = isMaxTier
-        ? 1
-        : (1 - smoothstep(tideEdge - soft, tideEdge, c.nX)) *
-          (0.62 + 0.38 * (0.5 + 0.5 * tide));
       const cellAlpha =
         (peakHighlight || hottestHighlight
           ? revealAlpha * effIntensity
           : revealAlpha *
             effIntensity *
             clamp(baseOpacity + lightAmount * 0.12, 0, 1)) *
-        edgeFade *
+        tidePresence *
         pal.boost;
       if (cellAlpha < 0.02) continue;
       ctx.globalAlpha = cellAlpha;
