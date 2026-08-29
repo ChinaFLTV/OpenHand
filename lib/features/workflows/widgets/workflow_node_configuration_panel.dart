@@ -17,6 +17,8 @@ import '../../memory/index.dart' show UserMemoryEntry;
 import '../../skills/index.dart' show LocalSkill;
 import '../model/workflow_definition.dart';
 
+const double _formControlHeight = 52;
+
 class WorkflowEditorCatalog {
   const WorkflowEditorCatalog({
     required this.models,
@@ -217,6 +219,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                 labelZh: '模型',
                 helperZh: '选择此节点实际调用的模型。',
                 helperEn: 'Choose the model used by this node.',
+                borderRadius: kOpenHandBorderRadius12,
                 onSelected: _setModelSelection,
               ),
               kOpenHandGap12,
@@ -433,7 +436,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                     width: 120,
                     child: _LabeledField(
                       label: '方式',
-                      child: DropdownButtonFormField<String>(
+                      child: AnimatedDropdownButtonFormField<String>(
                         isExpanded: true,
                         initialValue: method,
                         decoration: _inputDecoration('方式'),
@@ -507,7 +510,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                             _LabeledField(
                               label: '请求体格式',
                               child:
-                                  DropdownButtonFormField<
+                                  AnimatedDropdownButtonFormField<
                                     WorkflowHttpBodyFormat
                                   >(
                                     isExpanded: true,
@@ -929,76 +932,83 @@ class _ResourceSection extends StatelessWidget {
     final validSelected = selected
         .where((id) => options.any((item) => item.id == id))
         .toSet();
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(kOpenHandRadius14),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
+    return Theme(
+      data: theme.copyWith(
+        splashFactory: NoSplash.splashFactory,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
       ),
-      child: ExpansionTile(
-        shape: const Border(),
-        collapsedShape: const Border(),
-        tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-        leading: Icon(icon, size: 19, color: theme.colorScheme.primary),
-        title: Text(
-          title,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(kOpenHandRadius14),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
         ),
-        subtitle: Text(
-          options.isEmpty
-              ? '暂无可用项'
-              : '已选择 ${validSelected.length} / ${options.length}',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+        child: ExpansionTile(
+          shape: const Border(),
+          collapsedShape: const Border(),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+          leading: Icon(icon, size: 19, color: theme.colorScheme.primary),
+          title: Text(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
           ),
-        ),
-        children: [
-          if (options.isEmpty)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '请先在对应板块添加资源。',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+          subtitle: Text(
+            options.isEmpty
+                ? '暂无可用项'
+                : '已选择 ${validSelected.length} / ${options.length}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          children: [
+            if (options.isEmpty)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '请先在对应板块添加资源。',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              )
+            else
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: options
+                      .map(
+                        (option) => Tooltip(
+                          message: option.description.trim().isEmpty
+                              ? option.label
+                              : option.description,
+                          child: FilterChip(
+                            label: Text(
+                              option.label,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            selected: validSelected.contains(option.id),
+                            showCheckmark: false,
+                            onSelected: (enabled) {
+                              final next = <String>{...validSelected};
+                              enabled
+                                  ? next.add(option.id)
+                                  : next.remove(option.id);
+                              onChanged(next);
+                            },
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
                 ),
               ),
-            )
-          else
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: options
-                    .map(
-                      (option) => Tooltip(
-                        message: option.description.trim().isEmpty
-                            ? option.label
-                            : option.description,
-                        child: FilterChip(
-                          label: Text(
-                            option.label,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          selected: validSelected.contains(option.id),
-                          showCheckmark: false,
-                          onSelected: (enabled) {
-                            final next = <String>{...validSelected};
-                            enabled
-                                ? next.add(option.id)
-                                : next.remove(option.id);
-                            onChanged(next);
-                          },
-                        ),
-                      ),
-                    )
-                    .toList(growable: false),
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1037,14 +1047,12 @@ class _KeyValueEditor extends StatelessWidget {
             ),
           ],
         ),
-        if (entries.isEmpty)
-          const _InlineEmpty(text: '尚未配置')
-        else
+        if (entries.isNotEmpty)
           ...entries.map((entry) {
             final index = entries.indexOf(entry);
             return Padding(
               key: ValueKey(entry.id),
-              padding: EdgeInsets.only(top: index == 0 ? 6 : 8),
+              padding: EdgeInsets.only(top: index == 0 ? 12 : 8),
               child: Row(
                 children: [
                   SizedBox(
@@ -1110,9 +1118,7 @@ class _OutputFieldEditor extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (fields.isEmpty)
-          const _InlineEmpty(text: '添加参数后将自动生成 JSON Schema。')
-        else
+        if (fields.isNotEmpty)
           ...fields.map(
             (field) => _OutputFieldCard(
               key: ValueKey(field.id),
@@ -1159,90 +1165,98 @@ class _OutputFieldCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(kOpenHandRadius12),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
       child: Column(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  initialValue: field.name,
-                  decoration: _inputDecoration('参数名称'),
-                  onChanged: (value) => onChanged(field.copyWith(name: value)),
-                ),
-              ),
-              kOpenHandHGap8,
-              SizedBox(
-                width: 122,
-                child: DropdownButtonFormField<WorkflowOutputType>(
-                  isExpanded: true,
-                  initialValue: field.type,
-                  decoration: _inputDecoration('类型'),
-                  items: WorkflowOutputType.values
-                      .map(
-                        (type) => DropdownMenuItem<WorkflowOutputType>(
-                          value: type,
-                          child: Text(type.storageValue),
-                        ),
-                      )
-                      .toList(growable: false),
-                  onChanged: (value) => onChanged(
-                    field.copyWith(type: value ?? WorkflowOutputType.string),
+          SizedBox(
+            height: _formControlHeight,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    initialValue: field.name,
+                    decoration: _inputDecoration('参数名称'),
+                    onChanged: (value) =>
+                        onChanged(field.copyWith(name: value)),
                   ),
                 ),
-              ),
-              kOpenHandHGap4,
-              IconButton(
-                tooltip: '删除参数',
-                onPressed: onDelete,
-                style: IconButton.styleFrom(
-                  fixedSize: const Size.square(42),
-                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                kOpenHandHGap8,
+                SizedBox(
+                  width: 122,
+                  child: AnimatedDropdownButtonFormField<WorkflowOutputType>(
+                    isExpanded: true,
+                    initialValue: field.type,
+                    decoration: _inputDecoration('类型'),
+                    items: WorkflowOutputType.values
+                        .map(
+                          (type) => DropdownMenuItem<WorkflowOutputType>(
+                            value: type,
+                            child: Text(type.storageValue),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: (value) => onChanged(
+                      field.copyWith(type: value ?? WorkflowOutputType.string),
+                    ),
+                  ),
+                ),
+                kOpenHandHGap8,
+                IconButton.filledTonal(
+                  tooltip: '删除参数',
+                  onPressed: onDelete,
+                  style: IconButton.styleFrom(
+                    fixedSize: const Size.square(_formControlHeight),
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(kOpenHandRadius12),
+                    ),
+                    shadowColor: Colors.transparent,
+                  ),
+                  icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                ),
+              ],
+            ),
+          ),
+          kOpenHandGap8,
+          SizedBox(
+            height: _formControlHeight,
+            child: TextFormField(
+              initialValue: field.description,
+              decoration: _inputDecoration('参数介绍'),
+              onChanged: (value) =>
+                  onChanged(field.copyWith(description: value)),
+            ),
+          ),
+          kOpenHandGap8,
+          SizedBox(
+            height: _formControlHeight,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    initialValue: field.defaultValue,
+                    decoration: _inputDecoration('默认值（可选）'),
+                    onChanged: (value) =>
+                        onChanged(field.copyWith(defaultValue: value)),
+                  ),
+                ),
+                kOpenHandHGap8,
+                FilterChip(
+                  label: const Text('必需'),
+                  selected: field.required,
+                  showCheckmark: false,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(kOpenHandRadius10),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius12),
                   ),
+                  onSelected: (value) =>
+                      onChanged(field.copyWith(required: value)),
                 ),
-                icon: const Icon(Icons.delete_outline_rounded, size: 19),
-              ),
-            ],
-          ),
-          kOpenHandGap8,
-          TextFormField(
-            initialValue: field.description,
-            decoration: _inputDecoration('参数介绍'),
-            onChanged: (value) => onChanged(field.copyWith(description: value)),
-          ),
-          kOpenHandGap8,
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  initialValue: field.defaultValue,
-                  decoration: _inputDecoration('默认值（可选）'),
-                  onChanged: (value) =>
-                      onChanged(field.copyWith(defaultValue: value)),
-                ),
-              ),
-              kOpenHandHGap8,
-              FilterChip(
-                label: const Text('必需'),
-                selected: field.required,
-                showCheckmark: false,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(kOpenHandRadius10),
-                ),
-                onSelected: (value) =>
-                    onChanged(field.copyWith(required: value)),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -1320,31 +1334,6 @@ class _NumberFieldRow extends StatelessWidget {
   }
 }
 
-class _InlineEmpty extends StatelessWidget {
-  const _InlineEmpty({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(kOpenHandRadius10),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Text(
-        text,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-      ),
-    );
-  }
-}
-
 class _ExecutionResultCard extends StatelessWidget {
   const _ExecutionResultCard({this.result, this.error});
 
@@ -1402,14 +1391,15 @@ InputDecoration _inputDecoration(String hint) {
   return InputDecoration(
     hintText: hint,
     isDense: true,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
     border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(kOpenHandRadius10),
+      borderRadius: BorderRadius.circular(kOpenHandRadius12),
     ),
     enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(kOpenHandRadius10),
+      borderRadius: BorderRadius.circular(kOpenHandRadius12),
     ),
     focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(kOpenHandRadius10),
+      borderRadius: BorderRadius.circular(kOpenHandRadius12),
     ),
   );
 }

@@ -73,6 +73,7 @@ class OpenHandModelSelectorField extends StatefulWidget {
     this.helperDe,
     this.helperJa,
     this.modelFilter,
+    this.borderRadius,
   });
 
   final List<AiModelConfig> models;
@@ -94,6 +95,7 @@ class OpenHandModelSelectorField extends StatefulWidget {
   final String? helperDe;
   final String? helperJa;
   final bool Function(AiModelConfig config, String modelId)? modelFilter;
+  final BorderRadius? borderRadius;
 
   @override
   State<OpenHandModelSelectorField> createState() =>
@@ -166,6 +168,7 @@ class _OpenHandModelSelectorFieldState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final borderRadius = widget.borderRadius;
     final usesDefaultLabel =
         widget.labelZh == '使用模型' && widget.labelEn == 'Model';
     final labelZhHant = widget.labelZhHant ?? widget.labelZh;
@@ -242,7 +245,15 @@ class _OpenHandModelSelectorFieldState
           child: InputDecorator(
             decoration: InputDecoration(
               labelText: label,
-              border: const OutlineInputBorder(),
+              border: borderRadius == null
+                  ? const OutlineInputBorder()
+                  : OutlineInputBorder(borderRadius: borderRadius),
+              enabledBorder: borderRadius == null
+                  ? null
+                  : OutlineInputBorder(borderRadius: borderRadius),
+              focusedBorder: borderRadius == null
+                  ? null
+                  : OutlineInputBorder(borderRadius: borderRadius),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
                 vertical: 8,
