@@ -1233,19 +1233,7 @@ class _LabeledField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(child: OpenHandFormLabel(label)),
-            if (required)
-              Text(
-                ' *',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-          ],
-        ),
+        OpenHandFormLabel(label, required: required),
         kOpenHandGap7,
         child,
         if (helper != null) ...[

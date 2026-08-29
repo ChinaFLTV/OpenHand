@@ -180,12 +180,12 @@ class _OpenHandModelSelectorFieldState
         widget.labelJa ?? (usesDefaultLabel ? 'モデル' : widget.labelEn);
     final label = openHandLocalizedText(
       context,
-      zh: widget.required ? '${widget.labelZh} *' : widget.labelZh,
-      en: widget.required ? '${widget.labelEn} *' : widget.labelEn,
-      zhHant: widget.required ? '$labelZhHant *' : labelZhHant,
-      fr: widget.required ? '$labelFr *' : labelFr,
-      de: widget.required ? '$labelDe *' : labelDe,
-      ja: widget.required ? '$labelJa *' : labelJa,
+      zh: widget.labelZh,
+      en: widget.labelEn,
+      zhHant: labelZhHant,
+      fr: labelFr,
+      de: labelDe,
+      ja: labelJa,
     );
     final displayLabel = _selectedDisplayLabel();
     final placeholder = openHandLocalizedText(
@@ -244,7 +244,20 @@ class _OpenHandModelSelectorFieldState
           onTap: _hasModels ? _showModelMenu : null,
           child: InputDecorator(
             decoration: InputDecoration(
-              labelText: label,
+              label: Text.rich(
+                TextSpan(
+                  children: [
+                    if (widget.required)
+                      TextSpan(
+                        text: '* ',
+                        style: TextStyle(color: cs.error),
+                      ),
+                    TextSpan(text: label),
+                  ],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               border: borderRadius == null
                   ? const OutlineInputBorder()
                   : OutlineInputBorder(borderRadius: borderRadius),

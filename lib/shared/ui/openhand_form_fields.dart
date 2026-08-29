@@ -39,15 +39,27 @@ void syncTextControllerText(
 }
 
 class OpenHandFormLabel extends StatelessWidget {
-  const OpenHandFormLabel(this.text, {super.key});
+  const OpenHandFormLabel(this.text, {super.key, this.required = false});
 
   final String text;
+  final bool required;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Text(
-      text,
+    return Text.rich(
+      TextSpan(
+        children: [
+          if (required)
+            TextSpan(
+              text: '* ',
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+          TextSpan(text: text),
+        ],
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
       style: theme.textTheme.labelLarge?.copyWith(
         fontWeight: FontWeight.w700,
         color: theme.colorScheme.onSurfaceVariant,
