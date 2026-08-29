@@ -169,8 +169,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                       decoration: const BoxDecoration(),
                       child: _selectedNode == null
                           ? const SizedBox.shrink()
-                          : SizedBox(
-                              width: panelWidth,
+                          : OverflowBox(
+                              alignment: Alignment.centerLeft,
+                              minWidth: panelWidth,
+                              maxWidth: panelWidth,
                               child: WorkflowNodeConfigurationPanel(
                                 node: _selectedNode!,
                                 catalog: widget.catalog,

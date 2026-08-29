@@ -876,7 +876,7 @@ class _LabeledField extends StatelessWidget {
       children: [
         Row(
           children: [
-            OpenHandFormLabel(label),
+            Expanded(child: OpenHandFormLabel(label)),
             if (required)
               Text(
                 ' *',
