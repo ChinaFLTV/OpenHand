@@ -288,19 +288,23 @@ class _WorkflowCard extends StatelessWidget {
 }
 
 String _kindLabel(WorkflowNodeKind kind) => switch (kind) {
+  WorkflowNodeKind.start => '开始',
   WorkflowNodeKind.condition => '条件分支',
   WorkflowNodeKind.loop => '循环',
   WorkflowNodeKind.iteration => '迭代',
   WorkflowNodeKind.llm => 'LLM',
   WorkflowNodeKind.httpRequest => 'HTTP',
+  WorkflowNodeKind.end => '结束',
 };
 
 IconData _kindIcon(WorkflowNodeKind kind) => switch (kind) {
+  WorkflowNodeKind.start => Icons.play_arrow_rounded,
   WorkflowNodeKind.condition => Icons.call_split_rounded,
   WorkflowNodeKind.loop => Icons.loop_rounded,
   WorkflowNodeKind.iteration => Icons.view_week_outlined,
   WorkflowNodeKind.llm => Icons.auto_awesome_rounded,
   WorkflowNodeKind.httpRequest => Icons.language_rounded,
+  WorkflowNodeKind.end => Icons.stop_rounded,
 };
 
 String _timeText(DateTime value) {

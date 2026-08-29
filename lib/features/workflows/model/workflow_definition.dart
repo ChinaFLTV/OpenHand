@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 enum WorkflowNodeKind {
+  start('start'),
   condition('condition'),
   loop('loop'),
   iteration('iteration'),
   llm('llm'),
-  httpRequest('http_request');
+  httpRequest('http_request'),
+  end('end');
 
   const WorkflowNodeKind(this.storageValue);
 
@@ -79,6 +81,7 @@ abstract final class WorkflowSettingKeys {
   static const String templateId = 'template_id';
   static const String prompt = 'prompt';
   static const String inputContent = 'input_content';
+  static const String inputFields = 'input_fields';
   static const String multimodalCapabilities = 'multimodal_capabilities';
   static const String skillNames = 'skill_names';
   static const String memoryIds = 'memory_ids';
@@ -318,8 +321,14 @@ class WorkflowNode {
         .toList(growable: false);
   }
 
-  List<WorkflowOutputField> outputFields() {
-    final value = settings[WorkflowSettingKeys.outputFields];
+  List<WorkflowOutputField> inputFields() =>
+      _fieldsSetting(WorkflowSettingKeys.inputFields);
+
+  List<WorkflowOutputField> outputFields() =>
+      _fieldsSetting(WorkflowSettingKeys.outputFields);
+
+  List<WorkflowOutputField> _fieldsSetting(String key) {
+    final value = settings[key];
     if (value is! List) return const <WorkflowOutputField>[];
     return value
         .whereType<Map>()

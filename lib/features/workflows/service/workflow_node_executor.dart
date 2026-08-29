@@ -114,16 +114,54 @@ class WorkflowNodeExecutor {
     Map<String, Object?> variables = const <String, Object?>{},
   }) {
     return switch (node.kind) {
+      WorkflowNodeKind.start => Future<WorkflowNodeExecutionResult>.value(
+        _executeParameterNode(
+          fields: node.inputFields(),
+          variables: variables,
+          label: '输入参数',
+        ),
+      ),
       WorkflowNodeKind.llm => _executeLlm(node, resources, variables),
       WorkflowNodeKind.httpRequest => _executeHttp(node, variables),
       WorkflowNodeKind.condition => _executeCondition(node, variables),
       WorkflowNodeKind.loop => _executeLoop(node),
       WorkflowNodeKind.iteration => _executeIteration(node, variables),
+      WorkflowNodeKind.end => Future<WorkflowNodeExecutionResult>.value(
+        _executeParameterNode(
+          fields: node.outputFields(),
+          variables: variables,
+          label: '输出参数',
+        ),
+      ),
     };
   }
 
   void dispose() {
     if (_ownsChatClient) _chatClient.dispose();
+  }
+
+  WorkflowNodeExecutionResult _executeParameterNode({
+    required List<WorkflowOutputField> fields,
+    required Map<String, Object?> variables,
+    required String label,
+  }) {
+    final output = WorkflowStructuredOutputParser.resolveValues(
+      fields,
+      variables,
+      label: label,
+    );
+    String rawOutput;
+    try {
+      rawOutput = jsonEncode(output);
+    } on JsonUnsupportedObjectError catch (error) {
+      throw WorkflowNodeExecutionException('$label包含无法序列化的值。', cause: error);
+    }
+    return WorkflowNodeExecutionResult(
+      output: output,
+      rawOutput: rawOutput,
+      attempts: 1,
+      duration: Duration.zero,
+    );
   }
 
   Future<WorkflowNodeExecutionResult> _executeLlm(
@@ -811,23 +849,50 @@ class WorkflowNodeExecutor {
 }
 
 abstract final class WorkflowStructuredOutputParser {
-  static void validateFields(List<WorkflowOutputField> fields) {
-    if (fields.isEmpty) {
-      throw const WorkflowNodeExecutionException('结构化输出至少需要一个参数。');
+  static void validateFields(
+    List<WorkflowOutputField> fields, {
+    String label = '输出参数',
+    bool allowEmpty = false,
+  }) {
+    if (fields.isEmpty && !allowEmpty) {
+      throw WorkflowNodeExecutionException('$label至少需要一个参数。');
     }
     final names = <String>{};
     for (final field in fields) {
       final name = field.name.trim();
       if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_]{0,63}$').hasMatch(name)) {
-        throw WorkflowNodeExecutionException('输出参数名称无效：${field.name}');
+        throw WorkflowNodeExecutionException('$label名称无效：${field.name}');
       }
       if (!names.add(name)) {
-        throw WorkflowNodeExecutionException('输出参数名称重复：$name');
+        throw WorkflowNodeExecutionException('$label名称重复：$name');
       }
       if (field.defaultValue.trim().isNotEmpty) {
         _coerce(field.defaultValue, field.type, fieldName: name);
       }
     }
+  }
+
+  static Map<String, Object?> resolveValues(
+    List<WorkflowOutputField> fields,
+    Map<String, Object?> values, {
+    required String label,
+  }) {
+    validateFields(fields, label: label, allowEmpty: true);
+    final result = <String, Object?>{};
+    for (final field in fields) {
+      final name = field.name.trim();
+      final hasValue = values.containsKey(name) && values[name] != null;
+      if (hasValue) {
+        result[name] = _coerce(values[name], field.type, fieldName: name);
+      } else if (field.defaultValue.trim().isNotEmpty) {
+        result[name] = _coerce(field.defaultValue, field.type, fieldName: name);
+      } else if (field.required) {
+        throw WorkflowNodeExecutionException('$label缺少必需参数：$name');
+      } else {
+        result[name] = null;
+      }
+    }
+    return Map<String, Object?>.unmodifiable(result);
   }
 
   static Map<String, Object?> parse(
@@ -974,8 +1039,7 @@ $schema''';
               : value is num && value == value.roundToDouble()
               ? value.toInt()
               : int.parse('$value'.trim()),
-        WorkflowOutputType.number =>
-          value is num ? value : num.parse('$value'.trim()),
+        WorkflowOutputType.number => _numberValue(value),
         WorkflowOutputType.boolean => _boolValue(value),
         WorkflowOutputType.object => _objectValue(value),
         WorkflowOutputType.array => _arrayValue(value),
@@ -997,6 +1061,12 @@ $schema''';
       return false;
     }
     throw const FormatException();
+  }
+
+  static num _numberValue(Object? value) {
+    final parsed = value is num ? value : num.parse('$value'.trim());
+    if (!parsed.isFinite) throw const FormatException();
+    return parsed;
   }
 
   static Map<String, Object?> _objectValue(Object? value) {

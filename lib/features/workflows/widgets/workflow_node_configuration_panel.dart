@@ -89,18 +89,23 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 24),
               children: [
-                _buildCommonTitle(context),
-                kOpenHandGap14,
+                if (node.kind != WorkflowNodeKind.start &&
+                    node.kind != WorkflowNodeKind.end) ...[
+                  _buildCommonTitle(context),
+                  kOpenHandGap14,
+                ],
                 if (node.kind == WorkflowNodeKind.llm) ...[
                   _buildLlmInput(),
                   kOpenHandGap14,
                 ],
                 switch (node.kind) {
+                  WorkflowNodeKind.start => _buildStart(),
                   WorkflowNodeKind.llm => _buildLlm(context),
                   WorkflowNodeKind.httpRequest => _buildHttp(context),
                   WorkflowNodeKind.condition => _buildCondition(context),
                   WorkflowNodeKind.loop => _buildLoop(context),
                   WorkflowNodeKind.iteration => _buildIteration(context),
+                  WorkflowNodeKind.end => _buildEnd(),
                 },
                 OpenHandVerticalRevealSwitcher(
                   reverseDuration: kOpenHandVerticalRevealReverseDuration,
@@ -201,6 +206,38 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           buildCounter: openHandHiddenTextFieldCounter,
           decoration: _inputDecoration('输入便于识别的节点名称'),
           onChanged: (value) => onChanged(node.copyWith(title: value)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStart() {
+    return _FormSection(
+      title: '输入内容',
+      icon: Icons.input_rounded,
+      child: _OutputFieldEditor(
+        fields: node.inputFields(),
+        addLabel: '添加输入参数',
+        idPrefix: 'input',
+        onChanged: (value) => _set(
+          WorkflowSettingKeys.inputFields,
+          value.map((item) => item.toJson()).toList(growable: false),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEnd() {
+    return _FormSection(
+      title: '输出参数',
+      icon: Icons.output_rounded,
+      child: _OutputFieldEditor(
+        fields: node.outputFields(),
+        addLabel: '添加输出参数',
+        idPrefix: 'output',
+        onChanged: (value) => _set(
+          WorkflowSettingKeys.outputFields,
+          value.map((item) => item.toJson()).toList(growable: false),
         ),
       ),
     );
@@ -812,6 +849,8 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 12),
                     child: _OutputFieldEditor(
                       fields: fields,
+                      addLabel: '添加输出参数',
+                      idPrefix: 'output',
                       onChanged: (value) => _set(
                         WorkflowSettingKeys.outputFields,
                         value
@@ -1189,9 +1228,16 @@ class _KeyValueEditor extends StatelessWidget {
 }
 
 class _OutputFieldEditor extends StatelessWidget {
-  const _OutputFieldEditor({required this.fields, required this.onChanged});
+  const _OutputFieldEditor({
+    required this.fields,
+    required this.addLabel,
+    required this.idPrefix,
+    required this.onChanged,
+  });
 
   final List<WorkflowOutputField> fields;
+  final String addLabel;
+  final String idPrefix;
   final ValueChanged<List<WorkflowOutputField>> onChanged;
 
   @override
@@ -1221,11 +1267,11 @@ class _OutputFieldEditor extends StatelessWidget {
           onPressed: () => onChanged(<WorkflowOutputField>[
             ...fields,
             WorkflowOutputField(
-              id: 'output-${DateTime.now().microsecondsSinceEpoch}',
+              id: '$idPrefix-${DateTime.now().microsecondsSinceEpoch}',
             ),
           ]),
           icon: const Icon(Icons.add_rounded),
-          label: const Text('添加输出参数'),
+          label: Text(addLabel),
           style: OutlinedButton.styleFrom(shape: _workflowButtonShape),
         ),
       ],
@@ -1532,6 +1578,12 @@ String _bodyFormatLabel(WorkflowHttpBodyFormat format) => switch (format) {
 ({String label, String description, IconData icon, Color color})
 workflowNodeDescriptor(WorkflowNodeKind kind, ColorScheme colors) {
   return switch (kind) {
+    WorkflowNodeKind.start => (
+      label: '开始',
+      description: '定义工作流的输入参数',
+      icon: Icons.play_arrow_rounded,
+      color: colors.primary,
+    ),
     WorkflowNodeKind.condition => (
       label: '条件分支',
       description: '依据表达式选择后续路径',
@@ -1561,6 +1613,12 @@ workflowNodeDescriptor(WorkflowNodeKind kind, ColorScheme colors) {
       description: '调用外部 HTTP API',
       icon: Icons.language_rounded,
       color: colors.secondary,
+    ),
+    WorkflowNodeKind.end => (
+      label: '结束',
+      description: '定义工作流的输出参数',
+      icon: Icons.stop_rounded,
+      color: colors.tertiary,
     ),
   };
 }

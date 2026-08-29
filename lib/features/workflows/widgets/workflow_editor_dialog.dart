@@ -311,7 +311,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         if (_nodes.isEmpty)
           Center(
             child: _CanvasEmptyState(
-              onAddLlm: () => _addNode(WorkflowNodeKind.llm),
+              onAddStart: () => _addNode(WorkflowNodeKind.start),
             ),
           ),
         if (_connectionSourceId != null)
@@ -329,7 +329,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
           bottom: 16,
           child: _CanvasToolbar(
             scale: _transformationController.value.getMaxScaleOnAxis(),
-            canConnect: _selectedNode != null,
+            canConnect:
+                _selectedNode != null &&
+                _selectedNode!.kind != WorkflowNodeKind.end,
             connecting: _connectionSourceId != null,
             onZoomIn: () => _changeZoom(0.15),
             onZoomOut: () => _changeZoom(-0.15),
@@ -459,14 +461,15 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
               const Spacer(),
               Row(
                 children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: theme.colorScheme.outline,
+                  if (node.kind != WorkflowNodeKind.start)
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: theme.colorScheme.outline,
+                      ),
                     ),
-                  ),
                   const Spacer(),
                   Text(
                     descriptor.label,
@@ -476,14 +479,15 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                     ),
                   ),
                   kOpenHandHGap6,
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: descriptor.color,
+                  if (node.kind != WorkflowNodeKind.end)
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: descriptor.color,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ],
@@ -494,6 +498,15 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   }
 
   void _addNode(WorkflowNodeKind kind) {
+    final hasStart = _nodes.any((node) => node.kind == WorkflowNodeKind.start);
+    if (!hasStart && kind != WorkflowNodeKind.start) {
+      showOpenHandInfoSnack(context, '请先添加开始节点。');
+      return;
+    }
+    if (hasStart && kind == WorkflowNodeKind.start) {
+      showOpenHandInfoSnack(context, '工作流只能包含一个开始节点。');
+      return;
+    }
     final descriptor = workflowNodeDescriptor(
       kind,
       Theme.of(context).colorScheme,
@@ -519,6 +532,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
 
   Map<String, Object?> _defaultSettings(WorkflowNodeKind kind) {
     return switch (kind) {
+      WorkflowNodeKind.start => <String, Object?>{
+        WorkflowSettingKeys.inputFields: <Object?>[],
+      },
       WorkflowNodeKind.condition => <String, Object?>{
         WorkflowSettingKeys.expression: '{{status}} == success',
       },
@@ -571,6 +587,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         WorkflowSettingKeys.retryCount: 0,
         WorkflowSettingKeys.retryIntervalMs: 1000,
       },
+      WorkflowNodeKind.end => <String, Object?>{
+        WorkflowSettingKeys.outputFields: <Object?>[],
+      },
     };
   }
 
@@ -589,8 +608,13 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   }
 
   void _deleteSelectedNode() {
-    final id = _selectedNodeId;
-    if (id == null) return;
+    final selectedNode = _selectedNode;
+    if (selectedNode == null) return;
+    if (selectedNode.kind == WorkflowNodeKind.start && _nodes.length > 1) {
+      showOpenHandInfoSnack(context, '请先删除其他节点，再删除开始节点。');
+      return;
+    }
+    final id = selectedNode.id;
     setState(() {
       _nodes = _nodes.where((node) => node.id != id).toList(growable: false);
       _connections = _connections
@@ -605,14 +629,30 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   }
 
   void _startConnection() {
-    final id = _selectedNodeId;
-    if (id == null) return;
+    final node = _selectedNode;
+    if (node == null || node.kind == WorkflowNodeKind.end) return;
+    final id = node.id;
     setState(() => _connectionSourceId = _connectionSourceId == id ? null : id);
   }
 
   void _finishConnection(String targetNodeId) {
     final sourceNodeId = _connectionSourceId;
     if (sourceNodeId == null || sourceNodeId == targetNodeId) return;
+    final sourceNode = _nodes
+        .where((node) => node.id == sourceNodeId)
+        .firstOrNull;
+    final targetNode = _nodes
+        .where((node) => node.id == targetNodeId)
+        .firstOrNull;
+    if (sourceNode == null || targetNode == null) return;
+    if (sourceNode.kind == WorkflowNodeKind.end) {
+      showOpenHandInfoSnack(context, '结束节点不能连接后续节点。');
+      return;
+    }
+    if (targetNode.kind == WorkflowNodeKind.start) {
+      showOpenHandInfoSnack(context, '开始节点不能作为连接目标。');
+      return;
+    }
     final duplicate = _connections.any(
       (edge) =>
           edge.sourceNodeId == sourceNodeId &&
@@ -738,6 +778,24 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     if (_nodes.isEmpty) return '请至少添加一个节点。';
     for (final node in _nodes) {
       if (node.title.trim().isEmpty) return '节点名称不能为空。';
+      if (node.kind == WorkflowNodeKind.start &&
+          node.inputFields().isNotEmpty) {
+        try {
+          WorkflowStructuredOutputParser.validateFields(
+            node.inputFields(),
+            label: '输入参数',
+          );
+        } catch (error) {
+          return '$error';
+        }
+      }
+      if (node.kind == WorkflowNodeKind.end && node.outputFields().isNotEmpty) {
+        try {
+          WorkflowStructuredOutputParser.validateFields(node.outputFields());
+        } catch (error) {
+          return '$error';
+        }
+      }
       if (node.kind == WorkflowNodeKind.llm) {
         final modelConfigId = node
             .stringSetting(WorkflowSettingKeys.modelConfigId)
@@ -927,9 +985,9 @@ class _PaletteItem extends StatelessWidget {
 }
 
 class _CanvasEmptyState extends StatelessWidget {
-  const _CanvasEmptyState({required this.onAddLlm});
+  const _CanvasEmptyState({required this.onAddStart});
 
-  final VoidCallback onAddLlm;
+  final VoidCallback onAddStart;
 
   @override
   Widget build(BuildContext context) {
@@ -966,7 +1024,7 @@ class _CanvasEmptyState extends StatelessWidget {
           ),
           kOpenHandGap7,
           Text(
-            '从左侧选择节点，拖动卡片调整位置，再通过工具栏连接执行路径。',
+            '工作流必须从开始节点进入。添加后可继续配置处理节点与结束节点。',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
@@ -974,10 +1032,10 @@ class _CanvasEmptyState extends StatelessWidget {
           ),
           kOpenHandGap16,
           FilledButton.icon(
-            onPressed: onAddLlm,
+            onPressed: onAddStart,
             style: FilledButton.styleFrom(shape: _workflowButtonShape),
-            icon: const Icon(Icons.auto_awesome_rounded),
-            label: const Text('添加 LLM 节点'),
+            icon: const Icon(Icons.play_arrow_rounded),
+            label: const Text('添加开始节点'),
           ),
         ],
       ),
@@ -1382,6 +1440,10 @@ class _WorkflowConnectionPainter extends CustomPainter {
 
 String _nodeSummary(WorkflowNode node) {
   return switch (node.kind) {
+    WorkflowNodeKind.start =>
+      node.inputFields().isEmpty
+          ? '暂无输入参数'
+          : '${node.inputFields().length} 个输入参数',
     WorkflowNodeKind.llm =>
       node.stringSetting(WorkflowSettingKeys.prompt).trim().isEmpty
           ? '选择模型并编写提示词'
@@ -1397,6 +1459,10 @@ String _nodeSummary(WorkflowNode node) {
       '最多循环 ${node.intSetting(WorkflowSettingKeys.maxIterations, 10)} 次',
     WorkflowNodeKind.iteration =>
       '迭代数组变量 ${node.stringSetting(WorkflowSettingKeys.iterationInput, 'items')}',
+    WorkflowNodeKind.end =>
+      node.outputFields().isEmpty
+          ? '暂无输出参数'
+          : '${node.outputFields().length} 个输出参数',
   };
 }
 
