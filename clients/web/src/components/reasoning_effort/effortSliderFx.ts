@@ -74,16 +74,16 @@ const DARK_PURPLE_LEFT: Rgb = [24, 19, 40];
 export const EFFORT_COMMIT_THROTTLE_MS = 16;
 export const EFFORT_PIXEL_FRAME_MS = 33;
 export const EFFORT_STREAM_FRAME_MS = 33;
-/** 非末档：主岸线左侧开始碎裂的相对宽度。 */
-export const EFFORT_TIDE_SOFT_LEAD = 0.16;
+/** 非末档：主岸线左侧开始碎裂的相对宽度（贴拇指，避免过渡带过宽）。 */
+export const EFFORT_TIDE_SOFT_LEAD = 0.09;
 /** 非末档：主岸线右侧飞沫可漫出的相对宽度。 */
-export const EFFORT_TIDE_SOFT_SPILL = 0.11;
-/** 底轨/流光掩膜柔边（比像素潮汐更宽，避免矩形软切抢戏）。 */
-export const EFFORT_TIDE_UNDERLAY_SOFT = 0.22;
+export const EFFORT_TIDE_SOFT_SPILL = 0.055;
+/** 底轨/流光掩膜柔边（略宽于像素潮汐，避免矩形软切抢戏）。 */
+export const EFFORT_TIDE_UNDERLAY_SOFT = 0.13;
 export const EFFORT_MAX_TIER_PROGRESS = 0.995;
-const EFFORT_TIDE_WAVE_AMP = 0.09;
-const EFFORT_TIDE_SPRAY_AMP = 0.05;
-const EFFORT_TIDE_FOAM_AMP = 0.028;
+const EFFORT_TIDE_WAVE_AMP = 0.055;
+const EFFORT_TIDE_SPRAY_AMP = 0.032;
+const EFFORT_TIDE_FOAM_AMP = 0.018;
 
 export function clamp(value: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, value));
@@ -130,13 +130,14 @@ export function effortTidePresence(input: {
   if (t <= 0) return 1;
   if (t >= 1.2) return 0;
 
-  // 越靠近右侧越稀；用格子哈希做空洞/岛礁，形成图一那种星座式碎裂。
-  const density = Math.pow(1 - clamp(t, 0, 1), 1.75);
+  // 前半仍较实，后段才急速碎裂成飞沫，过渡带紧凑贴拇指。
+  const density = Math.pow(1 - clamp(t, 0, 1), 2.35);
   const gate = base * 0.52 + phase * 0.33 + ((column * 17 + row * 31) % 97) / 97 * 0.15;
+  if (t < 0.28) return clamp(0.82 + density * 0.18, 0.08, 1);
   if (gate > density * 0.98) return 0;
-  if (t > 0.55 && gate > density * 0.62) return 0;
-  if (t > 0.82 && gate > density * 0.38) return 0;
-  return clamp(density * (0.5 + 0.5 * (0.5 + 0.5 * tide)), 0.08, 1);
+  if (t > 0.52 && gate > density * 0.58) return 0;
+  if (t > 0.78 && gate > density * 0.34) return 0;
+  return clamp(density * (0.55 + 0.45 * (0.5 + 0.5 * tide)), 0.08, 1);
 }
 
 function mixRgb(a: Rgb, b: Rgb, t: number): Rgb {

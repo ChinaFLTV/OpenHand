@@ -23,14 +23,14 @@ const Duration _kLabelSwitchDuration = kOpenHandMotion280;
 /// 末档判定：进度或紫段混合足够高时视为满轨。
 const double _kMaxTierProgress = 0.995;
 const double _kMaxTierBlend = 0.9;
-/// 非末档：主岸线左侧开始碎裂 / 右侧飞沫漫出（归一化轨长）。
-const double _kTideSoftLead = 0.16;
-const double _kTideSoftSpill = 0.11;
-const double _kTideWaveAmp = 0.09;
-const double _kTideSprayAmp = 0.05;
-const double _kTideFoamAmp = 0.028;
-/// 底轨/流光比像素潮汐更早收束，避免矩形软切抢戏。
-const double _kTideUnderlaySoft = 0.22;
+/// 非末档：主岸线左侧开始碎裂 / 右侧飞沫漫出（贴拇指，避免过渡带过宽）。
+const double _kTideSoftLead = 0.09;
+const double _kTideSoftSpill = 0.055;
+const double _kTideWaveAmp = 0.055;
+const double _kTideSprayAmp = 0.032;
+const double _kTideFoamAmp = 0.018;
+/// 底轨/流光比像素潮汐略宽收束，避免矩形软切抢戏。
+const double _kTideUnderlaySoft = 0.13;
 
 /// 潮汐前沿占位：起伏岸线 + 随机空洞/飞沫（与 Web effortTidePresence 对齐）。
 double _effortTidePresence({
@@ -60,13 +60,15 @@ double _effortTidePresence({
   final t = (nX - shore) / span;
   if (t <= 0) return 1;
   if (t >= 1.2) return 0;
-  final density = math.pow(1 - t.clamp(0.0, 1.0), 1.75).toDouble();
+  // 前半仍较实，后段才急速碎裂成飞沫，过渡带紧凑贴拇指。
+  final density = math.pow(1 - t.clamp(0.0, 1.0), 2.35).toDouble();
   final gate =
       base * 0.52 + phase * 0.33 + ((column * 17 + row * 31) % 97) / 97 * 0.15;
+  if (t < 0.28) return (0.82 + density * 0.18).clamp(0.08, 1.0);
   if (gate > density * 0.98) return 0;
-  if (t > 0.55 && gate > density * 0.62) return 0;
-  if (t > 0.82 && gate > density * 0.38) return 0;
-  return (density * (0.5 + 0.5 * (0.5 + 0.5 * tide))).clamp(0.08, 1.0);
+  if (t > 0.52 && gate > density * 0.58) return 0;
+  if (t > 0.78 && gate > density * 0.34) return 0;
+  return (density * (0.55 + 0.45 * (0.5 + 0.5 * tide))).clamp(0.08, 1.0);
 }
 
 /// Codex 风格色板：Low 绿 → High 蓝 → MAX 紫（派生自 dsh-effort-slider）。
