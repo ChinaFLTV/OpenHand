@@ -48,6 +48,39 @@ typedef WorkflowMcpToolInvoker =
 typedef WorkflowLlmConversationListener =
     void Function(WorkflowLlmConversation conversation);
 
+typedef WorkflowHumanInterventionHandler =
+    Future<WorkflowHumanInterventionResponse> Function(
+      WorkflowHumanInterventionRequest request,
+    );
+
+class WorkflowHumanInterventionRequest {
+  const WorkflowHumanInterventionRequest({
+    required this.nodeId,
+    required this.nodeTitle,
+    required this.content,
+    required this.fields,
+    required this.initialValues,
+    required this.actions,
+  });
+
+  final String nodeId;
+  final String nodeTitle;
+  final String content;
+  final List<WorkflowOutputField> fields;
+  final Map<String, Object?> initialValues;
+  final List<WorkflowHumanAction> actions;
+}
+
+class WorkflowHumanInterventionResponse {
+  const WorkflowHumanInterventionResponse({
+    required this.actionId,
+    this.inputs = const <String, Object?>{},
+  });
+
+  final String actionId;
+  final Map<String, Object?> inputs;
+}
+
 enum WorkflowLlmConversationStatus { running, succeeded, failed }
 
 enum WorkflowLlmMessageKind { user, reasoning, assistant, toolCall, toolResult }
@@ -139,6 +172,7 @@ class WorkflowExecutionResources {
     this.codeRuntimes = const <WorkflowCodeLanguage, WorkflowCodeRuntime>{},
     this.mcpToolInvoker,
     this.onLlmConversation,
+    this.onHumanIntervention,
   });
 
   final List<AiModelConfig> models;
@@ -152,6 +186,7 @@ class WorkflowExecutionResources {
   final Map<WorkflowCodeLanguage, WorkflowCodeRuntime> codeRuntimes;
   final WorkflowMcpToolInvoker? mcpToolInvoker;
   final WorkflowLlmConversationListener? onLlmConversation;
+  final WorkflowHumanInterventionHandler? onHumanIntervention;
 }
 
 class WorkflowNodeExecutionResult {
@@ -161,6 +196,7 @@ class WorkflowNodeExecutionResult {
     required this.duration,
     this.rawOutput = '',
     this.conversation,
+    this.selectedBranchId,
   });
 
   final Object? output;
@@ -168,6 +204,7 @@ class WorkflowNodeExecutionResult {
   final int attempts;
   final Duration duration;
   final WorkflowLlmConversation? conversation;
+  final String? selectedBranchId;
 }
 
 class WorkflowNodeExecutor {
@@ -221,6 +258,11 @@ class WorkflowNodeExecutor {
         ),
       WorkflowNodeKind.listOperation => _executeListOperation(node, variables),
       WorkflowNodeKind.codeExecution => _executeCode(
+        node,
+        resources,
+        variables,
+      ),
+      WorkflowNodeKind.humanIntervention => _executeHumanIntervention(
         node,
         resources,
         variables,
@@ -1122,6 +1164,7 @@ class WorkflowNodeExecutor {
         rawOutput: jsonEncode(output),
         attempts: 1,
         duration: Duration.zero,
+        selectedBranchId: branchId,
       );
     }
 
@@ -1156,6 +1199,90 @@ class WorkflowNodeExecutor {
       rawOutput: '$result',
       attempts: 1,
       duration: Duration.zero,
+      selectedBranchId: result ? 'legacy-if' : 'else',
+    );
+  }
+
+  Future<WorkflowNodeExecutionResult> _executeHumanIntervention(
+    WorkflowNode node,
+    WorkflowExecutionResources resources,
+    Map<String, Object?> variables,
+  ) async {
+    final handler = resources.onHumanIntervention;
+    if (handler == null) {
+      throw const WorkflowNodeExecutionException('当前执行环境不支持应用内人工介入。');
+    }
+    if (node.stringSetting(
+          WorkflowSettingKeys.humanDeliveryMethod,
+          workflowHumanDeliveryMethodInAppDialog,
+        ) !=
+        workflowHumanDeliveryMethodInAppDialog) {
+      throw const WorkflowNodeExecutionException('人工介入节点的提交方式不受支持。');
+    }
+    final actions = node.humanActions();
+    final actionError = validateWorkflowHumanActions(actions);
+    if (actionError != null) throw WorkflowNodeExecutionException(actionError);
+    final fields = node.humanInputFields();
+    WorkflowStructuredOutputParser.validateFields(
+      fields,
+      label: '人工输入参数',
+      allowEmpty: true,
+    );
+    if (fields.any(
+      (field) => workflowHumanSystemOutputNames.contains(field.name.trim()),
+    )) {
+      throw const WorkflowNodeExecutionException('人工输入参数使用了系统保留名称。');
+    }
+    final content = renderWorkflowTemplate(
+      node.stringSetting(WorkflowSettingKeys.humanPrompt),
+      variables,
+    ).trim();
+    if (content.isEmpty) {
+      throw const WorkflowNodeExecutionException('人工介入内容不能为空。');
+    }
+    final initialValues = <String, Object?>{};
+    for (final field in fields) {
+      if (field.defaultValue.trim().isEmpty) continue;
+      initialValues[field.name.trim()] = _configuredValue(
+        field.defaultValue,
+        variables,
+        valueSource: field.valueSource,
+      );
+    }
+    final stopwatch = Stopwatch()..start();
+    final response = await handler(
+      WorkflowHumanInterventionRequest(
+        nodeId: node.id,
+        nodeTitle: node.title,
+        content: content,
+        fields: List<WorkflowOutputField>.unmodifiable(fields),
+        initialValues: Map<String, Object?>.unmodifiable(initialValues),
+        actions: List<WorkflowHumanAction>.unmodifiable(actions),
+      ),
+    );
+    final action = actions
+        .where((item) => item.id == response.actionId)
+        .firstOrNull;
+    if (action == null) {
+      throw const WorkflowNodeExecutionException('人工介入返回了无效的用户动作。');
+    }
+    final inputs = WorkflowStructuredOutputParser.resolveValues(
+      fields,
+      <String, Object?>{...variables, ...response.inputs},
+      label: '人工输入参数',
+    );
+    final output = <String, Object?>{
+      ...inputs,
+      workflowHumanActionIdOutputName: action.id,
+      workflowHumanActionValueOutputName: action.title.trim(),
+      workflowHumanRenderedContentOutputName: content,
+    };
+    return WorkflowNodeExecutionResult(
+      output: Map<String, Object?>.unmodifiable(output),
+      rawOutput: jsonEncode(output),
+      attempts: 1,
+      duration: stopwatch.elapsed,
+      selectedBranchId: action.id,
     );
   }
 
@@ -1613,13 +1740,7 @@ class WorkflowNodeExecutor {
           resolvedVariables[fields.first.name.trim()] = result.output;
         }
       }
-      final selectedBranch = child.kind != WorkflowNodeKind.condition
-          ? null
-          : result.output is Map
-          ? '${(result.output! as Map)['branch_id'] ?? ''}'
-          : result.output == true
-          ? 'legacy-if'
-          : 'else';
+      final selectedBranch = result.selectedBranchId;
       for (final edge in childEdges) {
         if (edge.sourceNodeId != child.id) continue;
         if (selectedBranch != null && edge.sourceHandleId != selectedBranch) {

@@ -159,6 +159,9 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           WorkflowNodeKind.parameterAssignment => _buildParameterAssignment(),
           WorkflowNodeKind.listOperation => _buildListOperation(context),
           WorkflowNodeKind.codeExecution => _buildCodeExecution(context),
+          WorkflowNodeKind.humanIntervention => _buildHumanIntervention(
+            context,
+          ),
           WorkflowNodeKind.loopExit => _buildLoopExit(context),
           WorkflowNodeKind.end => _buildEnd(),
         },
@@ -477,6 +480,133 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
               },
             ),
           ),
+        ),
+        kOpenHandGap16,
+        _buildTestButton(),
+      ],
+    );
+  }
+
+  Widget _buildHumanIntervention(BuildContext context) {
+    final theme = Theme.of(context);
+    final actions = node.humanActions();
+    final systemNames = <String, String>{
+      ...reservedParameterNames,
+      for (final name in workflowHumanSystemOutputNames) name: '人工介入系统输出',
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _FormSection(
+          title: '提交方式',
+          icon: Icons.send_to_mobile_outlined,
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(kOpenHandRadius12),
+              border: Border.all(
+                color: theme.colorScheme.primary.withValues(alpha: 0.28),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(kOpenHandRadius10),
+                  ),
+                  child: Icon(
+                    Icons.web_asset_rounded,
+                    color: theme.colorScheme.primary,
+                    size: 20,
+                  ),
+                ),
+                kOpenHandHGap10,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '应用内确认弹窗',
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      Text(
+                        '执行到此节点时暂停工作流，等待当前用户完成选择。',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.check_circle_rounded,
+                  color: theme.colorScheme.primary,
+                  size: 20,
+                ),
+              ],
+            ),
+          ),
+        ),
+        kOpenHandGap14,
+        _FormSection(
+          title: '介入内容',
+          icon: Icons.article_outlined,
+          child: _LabeledField(
+            label: '请求说明',
+            required: true,
+            helper: '支持 Markdown；输入 / 可引用上游节点参数。',
+            child: WorkflowParameterReferenceField(
+              key: ValueKey('human-prompt-${node.id}'),
+              value: node.stringSetting(WorkflowSettingKeys.humanPrompt),
+              references: availableReferences,
+              minLines: 5,
+              maxLines: 12,
+              decoration: _inputDecoration('说明当前状态、风险与需要用户做出的决定'),
+              onChanged: (value) =>
+                  _set(WorkflowSettingKeys.humanPrompt, value),
+            ),
+          ),
+        ),
+        kOpenHandGap14,
+        _FormSection(
+          title: '人工输入',
+          icon: Icons.dynamic_form_outlined,
+          child: _OutputFieldEditor(
+            fields: node.humanInputFields(),
+            addLabel: '添加输入字段',
+            idPrefix: 'human-input',
+            availableReferences: availableReferences,
+            reservedParameterNames: systemNames,
+            emptyMessage: '无需补充信息时可保持为空。',
+            onChanged: (value) => _set(
+              WorkflowSettingKeys.humanInputFields,
+              value.map((item) => item.toJson()).toList(growable: false),
+            ),
+          ),
+        ),
+        kOpenHandGap14,
+        _FormSection(
+          title: '用户动作',
+          icon: Icons.alt_route_rounded,
+          child: _HumanActionEditor(
+            actions: actions,
+            onChanged: (value) => _set(
+              WorkflowSettingKeys.humanActions,
+              value.map((item) => item.toJson()).toList(growable: false),
+            ),
+          ),
+        ),
+        kOpenHandGap14,
+        _FormSection(
+          title: '节点输出',
+          icon: Icons.output_rounded,
+          child: _HumanOutputPreview(fields: node.declaredParameterFields()),
         ),
         kOpenHandGap16,
         _buildTestButton(),
@@ -3280,6 +3410,229 @@ class _OutputFieldEditor extends StatelessWidget {
   }
 }
 
+class _HumanActionEditor extends StatelessWidget {
+  const _HumanActionEditor({required this.actions, required this.onChanged});
+
+  final List<WorkflowHumanAction> actions;
+  final ValueChanged<List<WorkflowHumanAction>> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (actions.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Text(
+              '至少添加一个动作，每个动作对应节点的一条后续分支。',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          )
+        else
+          ...actions.indexed.map((entry) {
+            final (index, action) = entry;
+            final idError = _idError(action);
+            return Padding(
+              key: ValueKey<String>('human-action-${actions.length}-$index'),
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _EntryCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            initialValue: action.id,
+                            maxLength: 20,
+                            buildCounter: openHandHiddenTextFieldCounter,
+                            decoration: _inputDecoration(
+                              '动作标识，例如 approve',
+                            ).copyWith(errorText: idError),
+                            onChanged: (value) =>
+                                _replace(action, action.copyWith(id: value)),
+                          ),
+                        ),
+                        kOpenHandHGap8,
+                        IconButton.filledTonal(
+                          tooltip: '删除动作',
+                          onPressed: () => onChanged(
+                            actions
+                                .where((item) => !identical(item, action))
+                                .toList(growable: false),
+                          ),
+                          style: IconButton.styleFrom(
+                            fixedSize: const Size.square(_formControlHeight),
+                            padding: EdgeInsets.zero,
+                            shape: _workflowButtonShape,
+                          ),
+                          icon: const Icon(
+                            Icons.delete_outline_rounded,
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    ),
+                    kOpenHandGap8,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            initialValue: action.title,
+                            maxLength: maxWorkflowHumanActionTitleLength,
+                            buildCounter: openHandHiddenTextFieldCounter,
+                            decoration: _inputDecoration('按钮文字，例如 通过').copyWith(
+                              errorText: action.title.trim().isEmpty
+                                  ? '请输入按钮文字。'
+                                  : null,
+                            ),
+                            onChanged: (value) =>
+                                _replace(action, action.copyWith(title: value)),
+                          ),
+                        ),
+                        kOpenHandHGap8,
+                        SizedBox(
+                          width: 116,
+                          child:
+                              AnimatedDropdownButtonFormField<
+                                WorkflowHumanActionStyle
+                              >(
+                                initialValue: action.style,
+                                decoration: _inputDecoration('样式'),
+                                items: WorkflowHumanActionStyle.values
+                                    .map(
+                                      (style) =>
+                                          DropdownMenuItem<
+                                            WorkflowHumanActionStyle
+                                          >(
+                                            value: style,
+                                            child: Text(style.label),
+                                          ),
+                                    )
+                                    .toList(growable: false),
+                                onChanged: (value) => _replace(
+                                  action,
+                                  action.copyWith(
+                                    style:
+                                        value ??
+                                        WorkflowHumanActionStyle.defaultStyle,
+                                  ),
+                                ),
+                              ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        OutlinedButton.icon(
+          onPressed: actions.length >= maxWorkflowHumanActionCount
+              ? null
+              : () {
+                  final used = actions.map((item) => item.id).toSet();
+                  var suffix = actions.length + 1;
+                  while (used.contains('action_$suffix')) {
+                    suffix += 1;
+                  }
+                  onChanged(<WorkflowHumanAction>[
+                    ...actions,
+                    WorkflowHumanAction(
+                      id: 'action_$suffix',
+                      title: '操作 $suffix',
+                    ),
+                  ]);
+                },
+          icon: const Icon(Icons.add_rounded),
+          label: Text('添加用户动作（${actions.length}/$maxWorkflowHumanActionCount）'),
+          style: OutlinedButton.styleFrom(shape: _workflowButtonShape),
+        ),
+      ],
+    );
+  }
+
+  String? _idError(WorkflowHumanAction action) {
+    if (action.id.isEmpty) return '请输入动作标识。';
+    if (!workflowHumanActionIdPattern.hasMatch(action.id)) {
+      return '以字母或下划线开头，仅包含字母、数字和下划线。';
+    }
+    if (actions.where((item) => item.id == action.id).length > 1) {
+      return '动作标识不能重复。';
+    }
+    return null;
+  }
+
+  void _replace(WorkflowHumanAction previous, WorkflowHumanAction updated) {
+    onChanged(
+      actions
+          .map((item) => identical(item, previous) ? updated : item)
+          .toList(growable: false),
+    );
+  }
+}
+
+class _HumanOutputPreview extends StatelessWidget {
+  const _HumanOutputPreview({required this.fields});
+
+  final List<WorkflowOutputField> fields;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      children: fields.indexed
+          .map((entry) {
+            final (index, field) = entry;
+            return Container(
+              margin: EdgeInsets.only(
+                bottom: index == fields.length - 1 ? 0 : 7,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(kOpenHandRadius10),
+                border: Border.all(color: theme.colorScheme.outlineVariant),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    field.name.startsWith('__')
+                        ? Icons.lock_outline_rounded
+                        : Icons.data_object_rounded,
+                    size: 16,
+                    color: theme.colorScheme.primary,
+                  ),
+                  kOpenHandHGap8,
+                  Expanded(
+                    child: Text(
+                      field.name,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontFamily: kOpenHandMonospaceFontFamily,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    field.type.label,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          })
+          .toList(growable: false),
+    );
+  }
+}
+
 class _OutputFieldCard extends StatelessWidget {
   const _OutputFieldCard({
     super.key,
@@ -3890,6 +4243,12 @@ workflowNodeDescriptor(WorkflowNodeKind kind, ColorScheme colors) {
       description: '运行 Python 3 或 JavaScript 代码',
       icon: Icons.code_rounded,
       color: colors.primary,
+    ),
+    WorkflowNodeKind.humanIntervention => (
+      label: '人工介入',
+      description: '暂停工作流并等待用户确认',
+      icon: Icons.front_hand_outlined,
+      color: colors.tertiary,
     ),
     WorkflowNodeKind.loopExit => (
       label: '退出循环',

@@ -26,6 +26,7 @@ import '../../skills/index.dart';
 import '../model/workflow_definition.dart';
 import '../service/workflow_code_executor.dart';
 import '../service/workflow_node_executor.dart';
+import 'workflow_human_intervention_dialog.dart';
 import 'workflow_node_configuration_panel.dart';
 
 const double _canvasWidth = 2400;
@@ -532,6 +533,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       WorkflowNodeKind.condition,
       WorkflowNodeKind.loop,
       WorkflowNodeKind.iteration,
+      WorkflowNodeKind.humanIntervention,
       WorkflowNodeKind.loopExit,
     }.contains(node.kind);
     final idleColor = controlFlowNode
@@ -639,8 +641,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                 ),
               ),
             ),
-          if (node.kind == WorkflowNodeKind.condition)
-            for (final branch in _conditionBranches(node).indexed)
+          if (_isWorkflowBranchingKind(node.kind))
+            for (final branch in _workflowNodeBranches(node).indexed)
               Positioned(
                 left: _nodeWidth - _nodeAddButtonHitSize / 2,
                 top:
@@ -973,9 +975,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             ),
           ],
         ),
-        if (node.kind == WorkflowNodeKind.condition) ...[
+        if (_isWorkflowBranchingKind(node.kind)) ...[
           kOpenHandGap8,
-          ..._conditionBranches(node).map(
+          ..._workflowNodeBranches(node).map(
             (branch) => SizedBox(
               height: _conditionBranchSpacing,
               child: Row(
@@ -1016,7 +1018,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
           ),
           const Spacer(),
         ],
-        if (node.kind != WorkflowNodeKind.condition)
+        if (!_isWorkflowBranchingKind(node.kind))
           Row(
             children: [
               const Spacer(),
@@ -1158,6 +1160,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                       kind == WorkflowNodeKind.parameterAssignment ||
                       kind == WorkflowNodeKind.listOperation ||
                       kind == WorkflowNodeKind.codeExecution ||
+                      kind == WorkflowNodeKind.humanIntervention ||
                       kind == WorkflowNodeKind.loopExit &&
                           nestedParent?.kind == WorkflowNodeKind.loop,
           )
@@ -1372,11 +1375,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         (!source.isContainer || target.parentNodeId != source.id)) {
       return '内部起点只能连接当前容器内的节点。';
     }
-    if (source.kind == WorkflowNodeKind.condition &&
-        !_conditionBranches(
+    if (_isWorkflowBranchingKind(source.kind) &&
+        !_workflowNodeBranches(
           source,
         ).any((branch) => branch.id == sourceHandleId)) {
-      return '请从条件节点的具体分支发起连接。';
+      return '请从节点的具体分支发起连接。';
     }
     if (target.kind == WorkflowNodeKind.start) return '开始节点不能作为后续节点。';
     if (_connections.any(
@@ -1521,7 +1524,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   ) {
     final parent = _nodes.where((node) => node.id == parentNodeId).firstOrNull;
     if (parent == null) return Offset(source.x, source.y);
-    final targetHeight = targetKind == WorkflowNodeKind.condition
+    final targetHeight = _isWorkflowBranchingKind(targetKind)
         ? _conditionBranchStart + _conditionBranchSpacing + 32
         : _nodeHeight;
     final fromStart = source.id == parent.id;
@@ -1574,7 +1577,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         : _nodeWidth;
     final targetHeight = isWorkflowContainerKind(targetKind)
         ? _containerMinHeight
-        : targetKind == WorkflowNodeKind.condition
+        : _isWorkflowBranchingKind(targetKind)
         ? _conditionBranchStart + _conditionBranchSpacing + 32
         : _nodeHeight;
     final maxX = _canvasWidth - targetWidth - 16;
@@ -1694,6 +1697,20 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         WorkflowSettingKeys.codeExecutionTimeoutSeconds:
             defaultWorkflowCodeTimeoutSeconds,
       },
+      WorkflowNodeKind.humanIntervention => <String, Object?>{
+        WorkflowSettingKeys.humanDeliveryMethod:
+            workflowHumanDeliveryMethodInAppDialog,
+        WorkflowSettingKeys.humanPrompt: '请确认是否继续执行当前工作流。',
+        WorkflowSettingKeys.humanInputFields: <Object?>[],
+        WorkflowSettingKeys.humanActions: <Object?>[
+          const WorkflowHumanAction(
+            id: 'approve',
+            title: '通过',
+            style: WorkflowHumanActionStyle.primary,
+          ).toJson(),
+          const WorkflowHumanAction(id: 'reject', title: '驳回').toJson(),
+        ],
+      },
       WorkflowNodeKind.loopExit => const <String, Object?>{},
       WorkflowNodeKind.llm => <String, Object?>{
         WorkflowSettingKeys.modelConfigId:
@@ -1764,27 +1781,52 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   }) {
     if (!mounted) return;
     setState(() {
+      final previous = _nodes
+          .where((node) => node.id == updated.id)
+          .firstOrNull;
       _nodes = _fitContainerSizes(
         _nodes
             .map((node) => node.id == updated.id ? updated : node)
             .toList(growable: false),
       );
-      if (updated.kind == WorkflowNodeKind.condition) {
-        final branches = _conditionBranches(updated);
+      if (_isWorkflowBranchingKind(updated.kind)) {
+        final branches = _workflowNodeBranches(updated);
         final branchIds = branches.map((branch) => branch.id).toSet();
+        final renamedHandles = <String, String>{};
+        if (updated.kind == WorkflowNodeKind.humanIntervention &&
+            previous != null) {
+          final before = previous.humanActions();
+          final after = updated.humanActions();
+          if (before.length == after.length) {
+            for (var index = 0; index < before.length; index++) {
+              if (before[index].id != after[index].id) {
+                renamedHandles[before[index].id] = after[index].id;
+              }
+            }
+          }
+        }
         _connections = _connections
-            .map(
-              (connection) =>
-                  connection.sourceNodeId == updated.id &&
-                      connection.sourceHandleId == null
-                  ? WorkflowConnection(
-                      id: connection.id,
-                      sourceNodeId: connection.sourceNodeId,
-                      targetNodeId: connection.targetNodeId,
-                      sourceHandleId: branches.first.id,
-                    )
-                  : connection,
-            )
+            .map((connection) {
+              if (connection.sourceNodeId != updated.id) return connection;
+              final nextHandle = renamedHandles[connection.sourceHandleId];
+              if (nextHandle != null) {
+                return WorkflowConnection(
+                  id: connection.id,
+                  sourceNodeId: connection.sourceNodeId,
+                  targetNodeId: connection.targetNodeId,
+                  sourceHandleId: nextHandle,
+                );
+              }
+              if (connection.sourceHandleId != null || branches.isEmpty) {
+                return connection;
+              }
+              return WorkflowConnection(
+                id: connection.id,
+                sourceNodeId: connection.sourceNodeId,
+                targetNodeId: connection.targetNodeId,
+                sourceHandleId: branches.first.id,
+              );
+            })
             .where(
               (connection) =>
                   connection.sourceNodeId != updated.id ||
@@ -2140,6 +2182,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
               _llmConversations[conversation.nodeId] = conversation;
             });
           },
+          onHumanIntervention: (request) =>
+              showWorkflowHumanInterventionDialog(context, request),
         ),
         variables: _testVariablesFor(node),
       );
@@ -2403,6 +2447,38 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
           return '条件分支至少需要一个 IF 分支。';
         }
       }
+      if (node.kind == WorkflowNodeKind.humanIntervention) {
+        if (node.stringSetting(
+              WorkflowSettingKeys.humanDeliveryMethod,
+              workflowHumanDeliveryMethodInAppDialog,
+            ) !=
+            workflowHumanDeliveryMethodInAppDialog) {
+          return '人工介入节点的提交方式不受支持。';
+        }
+        if (node
+            .stringSetting(WorkflowSettingKeys.humanPrompt)
+            .trim()
+            .isEmpty) {
+          return '请填写人工介入节点的请求说明。';
+        }
+        final actionError = validateWorkflowHumanActions(node.humanActions());
+        if (actionError != null) return actionError;
+        try {
+          WorkflowStructuredOutputParser.validateFields(
+            node.humanInputFields(),
+            label: '人工输入参数',
+            allowEmpty: true,
+          );
+        } catch (error) {
+          return '$error';
+        }
+        final conflict = node.humanInputFields().where(
+          (field) => workflowHumanSystemOutputNames.contains(field.name.trim()),
+        );
+        if (conflict.isNotEmpty) {
+          return '人工输入参数不能使用系统名称“${conflict.first.name.trim()}”。';
+        }
+      }
       if (node.kind == WorkflowNodeKind.loop) {
         final graphError = _validateContainerGraph(node);
         if (graphError != null) return graphError;
@@ -2483,15 +2559,14 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       if (!internalStart && !sameNestedScope && !topLevel) {
         return '节点“${source.title}”存在跨工作流作用域的连线。';
       }
-      if (source.kind != WorkflowNodeKind.condition ||
-          source.conditionCases().isEmpty) {
+      if (!_isWorkflowBranchingKind(source.kind)) {
         continue;
       }
-      final branchIds = _conditionBranches(
+      final branchIds = _workflowNodeBranches(
         source,
       ).map((branch) => branch.id).toSet();
       if (!branchIds.contains(connection.sourceHandleId)) {
-        return '条件节点“${source.title}”存在未指定分支的连线，请重新连接。';
+        return '分支节点“${source.title}”存在未指定分支的连线，请重新连接。';
       }
     }
     return validateWorkflowParameterNames(_nodes);
@@ -3419,8 +3494,8 @@ Offset _workflowConnectionStart(
           ),
     );
   }
-  if (source.kind == WorkflowNodeKind.condition && sourceHandleId != null) {
-    final index = _conditionBranches(
+  if (_isWorkflowBranchingKind(source.kind) && sourceHandleId != null) {
+    final index = _workflowNodeBranches(
       source,
     ).indexWhere((branch) => branch.id == sourceHandleId);
     if (index >= 0) {
@@ -3473,17 +3548,27 @@ Path _workflowConnectionPathBetween(Offset start, Offset end) {
     );
 }
 
-List<({String id, String label})> _conditionBranches(WorkflowNode node) {
-  final cases = node.conditionCases();
-  return <({String id, String label})>[
-    if (cases.isEmpty)
-      (id: 'legacy-if', label: 'IF')
-    else
-      for (final item in cases.indexed)
-        (id: item.$2.id, label: item.$1 == 0 ? 'IF' : 'ELIF ${item.$1}'),
-    (id: 'else', label: 'ELSE'),
-  ];
-}
+bool _isWorkflowBranchingKind(WorkflowNodeKind kind) =>
+    kind == WorkflowNodeKind.condition ||
+    kind == WorkflowNodeKind.humanIntervention;
+
+List<({String id, String label})> _workflowNodeBranches(WorkflowNode node) =>
+    switch (node.kind) {
+      WorkflowNodeKind.condition => <({String id, String label})>[
+        if (node.conditionCases().isEmpty)
+          (id: 'legacy-if', label: 'IF')
+        else
+          for (final item in node.conditionCases().indexed)
+            (id: item.$2.id, label: item.$1 == 0 ? 'IF' : 'ELIF ${item.$1}'),
+        (id: 'else', label: 'ELSE'),
+      ],
+      WorkflowNodeKind.humanIntervention =>
+        node
+            .humanActions()
+            .map((action) => (id: action.id, label: action.title.trim()))
+            .toList(growable: false),
+      _ => const <({String id, String label})>[],
+    };
 
 List<WorkflowNode> _fitContainerSizes(List<WorkflowNode> nodes) {
   final childrenByParent = <String, List<WorkflowNode>>{};
@@ -3544,8 +3629,8 @@ double _nodeHeightFor(WorkflowNode node) {
       ),
     );
   }
-  if (node.kind != WorkflowNodeKind.condition) return _nodeHeight;
-  final branchCount = _conditionBranches(node).length;
+  if (!_isWorkflowBranchingKind(node.kind)) return _nodeHeight;
+  final branchCount = _workflowNodeBranches(node).length;
   return math.max(
     _nodeHeight,
     _conditionBranchStart + (branchCount - 1) * _conditionBranchSpacing + 32,
@@ -3592,6 +3677,8 @@ String _nodeSummary(WorkflowNode node) {
       '${node.boolSetting(WorkflowSettingKeys.listFilterEnabled) ? '筛选 · ' : ''}${node.boolSetting(WorkflowSettingKeys.listOrderEnabled) ? '排序 · ' : ''}${node.boolSetting(WorkflowSettingKeys.listLimitEnabled) ? '限量' : '输出列表'}',
     WorkflowNodeKind.codeExecution =>
       '${WorkflowCodeLanguage.fromStorage(node.settings[WorkflowSettingKeys.codeLanguage]).label} · ${node.codeInputFields().length} 入 / ${node.outputFields().length} 出',
+    WorkflowNodeKind.humanIntervention =>
+      '${node.humanInputFields().length} 个输入 · ${node.humanActions().length} 个动作',
     WorkflowNodeKind.loopExit => '立即结束当前循环',
     WorkflowNodeKind.end =>
       node.outputFields().isEmpty

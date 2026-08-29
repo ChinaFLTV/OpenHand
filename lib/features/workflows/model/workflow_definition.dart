@@ -10,6 +10,7 @@ enum WorkflowNodeKind {
   parameterAssignment('parameter_assignment'),
   listOperation('list_operation'),
   codeExecution('code_execution'),
+  humanIntervention('human_intervention'),
   loopExit('loop_exit'),
   llm('llm'),
   httpRequest('http_request'),
@@ -25,6 +26,32 @@ enum WorkflowNodeKind {
       if (kind.storageValue == normalized) return kind;
     }
     return null;
+  }
+}
+
+enum WorkflowHumanActionStyle {
+  primary('primary'),
+  defaultStyle('default'),
+  accent('accent'),
+  ghost('ghost');
+
+  const WorkflowHumanActionStyle(this.storageValue);
+
+  final String storageValue;
+
+  String get label => switch (this) {
+    WorkflowHumanActionStyle.primary => '主要',
+    WorkflowHumanActionStyle.defaultStyle => '默认',
+    WorkflowHumanActionStyle.accent => '强调',
+    WorkflowHumanActionStyle.ghost => '轻量',
+  };
+
+  static WorkflowHumanActionStyle fromStorage(Object? value) {
+    final normalized = '${value ?? ''}'.trim();
+    return values.firstWhere(
+      (style) => style.storageValue == normalized,
+      orElse: () => WorkflowHumanActionStyle.defaultStyle,
+    );
   }
 }
 
@@ -428,6 +455,9 @@ enum WorkflowListOrder {
 final RegExp workflowParameterNamePattern = RegExp(
   r'^[A-Za-z_][A-Za-z0-9_]{0,63}$',
 );
+final RegExp workflowHumanActionIdPattern = RegExp(
+  r'^[A-Za-z_][A-Za-z0-9_]{0,19}$',
+);
 final RegExp workflowTemplatePlaceholderPattern = RegExp(
   r'\{\{\s*([A-Za-z_][A-Za-z0-9_.-]*)\s*\}\}',
 );
@@ -450,6 +480,17 @@ const String workflowContainerStartHandleId = 'container_start';
 const int maxWorkflowNestedNodeCount = 128;
 const int maxWorkflowListItemCount = 10000;
 const int maxWorkflowListLimit = 20;
+const int maxWorkflowHumanActionCount = 8;
+const int maxWorkflowHumanActionTitleLength = 100;
+const String workflowHumanDeliveryMethodInAppDialog = 'in_app_dialog';
+const String workflowHumanActionIdOutputName = '__action_id';
+const String workflowHumanActionValueOutputName = '__action_value';
+const String workflowHumanRenderedContentOutputName = '__rendered_content';
+const Set<String> workflowHumanSystemOutputNames = <String>{
+  workflowHumanActionIdOutputName,
+  workflowHumanActionValueOutputName,
+  workflowHumanRenderedContentOutputName,
+};
 
 bool isWorkflowContainerKind(WorkflowNodeKind kind) =>
     kind == WorkflowNodeKind.loop || kind == WorkflowNodeKind.iteration;
@@ -489,6 +530,10 @@ abstract final class WorkflowSettingKeys {
   static const String codeInputFields = 'code_input_fields';
   static const String codeExecutionTimeoutSeconds =
       'code_execution_timeout_seconds';
+  static const String humanDeliveryMethod = 'human_delivery_method';
+  static const String humanPrompt = 'human_prompt';
+  static const String humanInputFields = 'human_input_fields';
+  static const String humanActions = 'human_actions';
   static const String containerWidth = 'container_width';
   static const String containerHeight = 'container_height';
   static const String modelConfigId = 'model_config_id';
@@ -613,6 +658,45 @@ class WorkflowConditionCase {
     'conditions': conditions
         .map((condition) => condition.toJson())
         .toList(growable: false),
+  };
+}
+
+@immutable
+class WorkflowHumanAction {
+  const WorkflowHumanAction({
+    required this.id,
+    required this.title,
+    this.style = WorkflowHumanActionStyle.defaultStyle,
+  });
+
+  factory WorkflowHumanAction.fromJson(Map<String, Object?> json) {
+    return WorkflowHumanAction(
+      id: '${json['id'] ?? ''}'.trim(),
+      title: '${json['title'] ?? ''}',
+      style: WorkflowHumanActionStyle.fromStorage(json['button_style']),
+    );
+  }
+
+  final String id;
+  final String title;
+  final WorkflowHumanActionStyle style;
+
+  WorkflowHumanAction copyWith({
+    String? id,
+    String? title,
+    WorkflowHumanActionStyle? style,
+  }) {
+    return WorkflowHumanAction(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      style: style ?? this.style,
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'id': id,
+    'title': title,
+    'button_style': style.storageValue,
   };
 }
 
@@ -957,6 +1041,18 @@ class WorkflowNode {
   List<WorkflowOutputField> codeInputFields() =>
       _fieldsSetting(WorkflowSettingKeys.codeInputFields);
 
+  List<WorkflowOutputField> humanInputFields() =>
+      _fieldsSetting(WorkflowSettingKeys.humanInputFields);
+
+  List<WorkflowHumanAction> humanActions() {
+    final value = settings[WorkflowSettingKeys.humanActions];
+    if (value is! List) return const <WorkflowHumanAction>[];
+    return value
+        .whereType<Map>()
+        .map((item) => WorkflowHumanAction.fromJson(_stringMap(item)))
+        .toList(growable: false);
+  }
+
   List<WorkflowConditionCase> conditionCases() {
     final value = settings[WorkflowSettingKeys.conditionCases];
     if (value is! List) return const <WorkflowConditionCase>[];
@@ -1011,6 +1107,24 @@ class WorkflowNode {
             ),
           )
           .toList(growable: false),
+    WorkflowNodeKind.humanIntervention => <WorkflowOutputField>[
+      ...humanInputFields(),
+      WorkflowOutputField(
+        id: '$id-human-action-id',
+        name: workflowHumanActionIdOutputName,
+        description: '用户触发的动作标识',
+      ),
+      WorkflowOutputField(
+        id: '$id-human-action-value',
+        name: workflowHumanActionValueOutputName,
+        description: '用户触发的动作文本',
+      ),
+      WorkflowOutputField(
+        id: '$id-human-rendered-content',
+        name: workflowHumanRenderedContentOutputName,
+        description: '展示给用户的内容',
+      ),
+    ],
     _ => outputFields(),
   };
 
@@ -1038,16 +1152,49 @@ class WorkflowNode {
 String? validateWorkflowParameterNames(List<WorkflowNode> nodes) {
   final owners = <String, WorkflowNode>{};
   for (final node in nodes) {
+    if (node.kind == WorkflowNodeKind.humanIntervention) {
+      final conflict = node.humanInputFields().where(
+        (field) => workflowHumanSystemOutputNames.contains(field.name.trim()),
+      );
+      if (conflict.isNotEmpty) {
+        return '节点“${node.title}”使用了系统保留参数名称“${conflict.first.name.trim()}”。';
+      }
+    }
     for (final field in node.declaredParameterFields()) {
       final name = field.name.trim();
       if (!workflowParameterNamePattern.hasMatch(name)) {
         return '节点“${node.title}”包含无效参数名称“${field.name}”。';
       }
       final previous = owners[name];
-      if (previous != null) {
+      final sharedHumanSystemOutput =
+          workflowHumanSystemOutputNames.contains(name) &&
+          node.kind == WorkflowNodeKind.humanIntervention &&
+          previous?.kind == WorkflowNodeKind.humanIntervention;
+      if (previous != null && !sharedHumanSystemOutput) {
         return '参数名称“$name”在节点“${previous.title}”和“${node.title}”中重复。';
       }
       owners[name] = node;
+    }
+  }
+  return null;
+}
+
+String? validateWorkflowHumanActions(List<WorkflowHumanAction> actions) {
+  if (actions.isEmpty) return '人工介入节点至少需要一个用户动作。';
+  if (actions.length > maxWorkflowHumanActionCount) {
+    return '人工介入节点最多支持 $maxWorkflowHumanActionCount 个用户动作。';
+  }
+  final ids = <String>{};
+  for (var index = 0; index < actions.length; index++) {
+    final action = actions[index];
+    if (!workflowHumanActionIdPattern.hasMatch(action.id)) {
+      return '用户动作第 ${index + 1} 项的标识无效。';
+    }
+    if (!ids.add(action.id)) return '用户动作标识重复：${action.id}。';
+    final title = action.title.trim();
+    if (title.isEmpty) return '用户动作第 ${index + 1} 项的按钮文字不能为空。';
+    if (title.length > maxWorkflowHumanActionTitleLength) {
+      return '用户动作“${action.id}”的按钮文字过长。';
     }
   }
   return null;
