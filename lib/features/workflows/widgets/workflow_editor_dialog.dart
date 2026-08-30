@@ -99,16 +99,7 @@ Future<WorkflowDefinition?> showWorkflowEditorDialog(
     instructions: instructions.entries,
     knowledgeSources: knowledge.sources,
     mcpServers: mcp.runtimeServers,
-    codeRuntimes: <WorkflowCodeLanguage, WorkflowCodeRuntime>{
-      WorkflowCodeLanguage.python3: _workflowCodeRuntime(
-        WorkflowCodeLanguage.python3,
-        plugins.pluginById(PluginCatalogIds.python),
-      ),
-      WorkflowCodeLanguage.javascript: _workflowCodeRuntime(
-        WorkflowCodeLanguage.javascript,
-        plugins.pluginById(PluginCatalogIds.nodejs),
-      ),
-    },
+    codeRuntimes: _workflowCodeRuntimes(plugins),
   );
   return showAnimatedDialog<WorkflowDefinition>(
     context: context,
@@ -129,6 +120,7 @@ Future<WorkflowDefinition?> showWorkflowEditorDialog(
           templateRepository: sessions.templateRepository,
           knowledgeBaseController: knowledge,
           mcpController: mcp,
+          pluginController: plugins,
         ),
       );
     },
@@ -140,6 +132,7 @@ class WorkflowEditorDialog extends StatefulWidget {
     super.key,
     required this.catalog,
     required this.templateRepository,
+    required this.pluginController,
     this.workflow,
     this.knowledgeBaseController,
     this.mcpController,
@@ -148,6 +141,7 @@ class WorkflowEditorDialog extends StatefulWidget {
   final WorkflowDefinition? workflow;
   final WorkflowEditorCatalog catalog;
   final AiPromptTemplateRepository templateRepository;
+  final PluginServiceController pluginController;
   final KnowledgeBaseController? knowledgeBaseController;
   final McpController? mcpController;
 
@@ -161,6 +155,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   late final WorkflowNodeExecutor _executor = WorkflowNodeExecutor();
   late final AiTtsPlaybackService _ttsPlaybackService = AiTtsPlaybackService();
   late final AiTranslationService _translationService = AiTranslationService();
+  late WorkflowEditorCatalog _catalog = widget.catalog;
   late final TransformationController _transformationController =
       TransformationController();
   late final FocusNode _canvasFocusNode = FocusNode(
@@ -179,6 +174,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   String? _selectedConnectionId;
   bool _testing = false;
   bool _workflowTesting = false;
+  bool _refreshingCodeRuntimes = false;
   String? _testResult;
   String? _testError;
   WorkflowNodeTestStatus? _testStatus;
@@ -276,7 +272,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                                 maxWidth: panelWidth,
                                 child: WorkflowNodeConfigurationPanel(
                                   node: _selectedNode!,
-                                  catalog: widget.catalog,
+                                  catalog: _catalog,
                                   availableReferences: _availableReferencesFor(
                                     _selectedNode!,
                                   ),
@@ -288,6 +284,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                                       _reservedParameterNamesFor(
                                         _selectedNode!,
                                       ),
+                                  onRefreshCodeRuntimes: () =>
+                                      unawaited(_refreshCodeRuntimes()),
+                                  refreshingCodeRuntimes:
+                                      _refreshingCodeRuntimes,
                                   onChanged: _updateNode,
                                   onClose: () => setState(() {
                                     _selectedNodeId = null;
@@ -1799,19 +1799,18 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       WorkflowNodeKind.loopExit => const <String, Object?>{},
       WorkflowNodeKind.llm => <String, Object?>{
         WorkflowSettingKeys.modelConfigId:
-            widget.catalog.models.firstOrNull?.id ?? '',
-        WorkflowSettingKeys.modelId:
-            widget.catalog.models.firstOrNull?.modelId ?? '',
+            _catalog.models.firstOrNull?.id ?? '',
+        WorkflowSettingKeys.modelId: _catalog.models.firstOrNull?.modelId ?? '',
         WorkflowSettingKeys.reasoningEffort:
-            widget.catalog.models.firstOrNull?.resolvedReasoningEffort ?? '',
+            _catalog.models.firstOrNull?.resolvedReasoningEffort ?? '',
         WorkflowSettingKeys.reasoningFormat:
             WorkflowLlmReasoningFormat.tagged.storageValue,
         WorkflowSettingKeys.templateId:
-            widget.catalog.templates
+            _catalog.templates
                 .where((item) => item.id == 'default')
                 .firstOrNull
                 ?.id ??
-            widget.catalog.templates.firstOrNull?.id ??
+            _catalog.templates.firstOrNull?.id ??
             '',
         WorkflowSettingKeys.prompt: '',
         WorkflowSettingKeys.inputContent: '',
@@ -2238,6 +2237,37 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     return KeyEventResult.ignored;
   }
 
+  Future<void> _refreshCodeRuntimes() async {
+    if (_refreshingCodeRuntimes) return;
+    final pluginController = widget.pluginController;
+    if (pluginController.isOperating ||
+        pluginController.checkingPluginId != null) {
+      showOpenHandInfoSnack(context, '插件板块正在执行其他操作，请稍后再检测环境。');
+      return;
+    }
+    setState(() => _refreshingCodeRuntimes = true);
+    try {
+      await pluginController.rescan();
+      if (!mounted) return;
+      setState(() {
+        _catalog = _catalog.copyWith(
+          codeRuntimes: _workflowCodeRuntimes(pluginController),
+        );
+      });
+      final error = pluginController.errorMessage;
+      if (error == null) {
+        showOpenHandSuccessSnack(
+          context,
+          '运行环境检测完成，已同步 Python 3 与 JavaScript 状态。',
+        );
+      } else {
+        showOpenHandErrorSnack(context, error);
+      }
+    } finally {
+      if (mounted) setState(() => _refreshingCodeRuntimes = false);
+    }
+  }
+
   Future<void> _testSelectedNode() async {
     final node = _selectedNode;
     if (node == null || _testing || _workflowTesting) return;
@@ -2395,19 +2425,19 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   }) {
     final mcpController = widget.mcpController;
     return WorkflowExecutionResources(
-      models: widget.catalog.models,
+      models: _catalog.models,
       templateRepository: widget.templateRepository,
-      skills: widget.catalog.skills,
-      memories: widget.catalog.memories,
-      instructions: widget.catalog.instructions,
+      skills: _catalog.skills,
+      memories: _catalog.memories,
+      instructions: _catalog.instructions,
       knowledgeBaseController: widget.knowledgeBaseController,
-      mcpServers: widget.catalog.mcpServers,
+      mcpServers: _catalog.mcpServers,
       mcpTools: <String, List<McpTool>>{
         if (mcpController != null)
-          for (final server in widget.catalog.mcpServers)
+          for (final server in _catalog.mcpServers)
             server.name: mcpController.toolCatalogFor(server.name).tools,
       },
-      codeRuntimes: widget.catalog.codeRuntimes,
+      codeRuntimes: _catalog.codeRuntimes,
       mcpToolInvoker: mcpController == null
           ? null
           : ({
@@ -2555,7 +2585,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         final language = WorkflowCodeLanguage.fromStorage(
           node.settings[WorkflowSettingKeys.codeLanguage],
         );
-        final runtime = widget.catalog.codeRuntimes[language];
+        final runtime = _catalog.codeRuntimes[language];
         if (runtime == null || !runtime.isAvailable) {
           return runtime?.unavailableReason ??
               '${language.label} 运行时不可用，请先在插件板块安装并启用。';
@@ -2637,7 +2667,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         final modelConfigId = node
             .stringSetting(WorkflowSettingKeys.modelConfigId)
             .trim();
-        final provider = widget.catalog.models
+        final provider = _catalog.models
             .where((item) => item.id == modelConfigId)
             .firstOrNull;
         if (provider == null) {
@@ -3309,6 +3339,19 @@ WorkflowCodeRuntime _workflowCodeRuntime(
     unavailableReason: reason,
   );
 }
+
+Map<WorkflowCodeLanguage, WorkflowCodeRuntime> _workflowCodeRuntimes(
+  PluginServiceController plugins,
+) => <WorkflowCodeLanguage, WorkflowCodeRuntime>{
+  WorkflowCodeLanguage.python3: _workflowCodeRuntime(
+    WorkflowCodeLanguage.python3,
+    plugins.pluginById(PluginCatalogIds.python),
+  ),
+  WorkflowCodeLanguage.javascript: _workflowCodeRuntime(
+    WorkflowCodeLanguage.javascript,
+    plugins.pluginById(PluginCatalogIds.nodejs),
+  ),
+};
 
 class _CanvasEmptyState extends StatelessWidget {
   const _CanvasEmptyState({required this.onAddStart});

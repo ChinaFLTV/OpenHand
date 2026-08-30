@@ -70,6 +70,20 @@ class WorkflowEditorCatalog {
   final List<KnowledgeSource> knowledgeSources;
   final List<McpServer> mcpServers;
   final Map<WorkflowCodeLanguage, WorkflowCodeRuntime> codeRuntimes;
+
+  WorkflowEditorCatalog copyWith({
+    Map<WorkflowCodeLanguage, WorkflowCodeRuntime>? codeRuntimes,
+  }) => WorkflowEditorCatalog(
+    models: models,
+    recentModelSelections: recentModelSelections,
+    templates: templates,
+    skills: skills,
+    memories: memories,
+    instructions: instructions,
+    knowledgeSources: knowledgeSources,
+    mcpServers: mcpServers,
+    codeRuntimes: codeRuntimes ?? this.codeRuntimes,
+  );
 }
 
 class WorkflowNodeConfigurationPanel extends StatelessWidget {
@@ -85,6 +99,8 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     required this.availableReferences,
     required this.nestedOutputReferences,
     required this.reservedParameterNames,
+    required this.onRefreshCodeRuntimes,
+    required this.refreshingCodeRuntimes,
     required this.showConversation,
     required this.onConversationModeChanged,
     required this.ttsPlaybackService,
@@ -105,6 +121,8 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
   final List<WorkflowParameterReference> availableReferences;
   final List<WorkflowParameterReference> nestedOutputReferences;
   final Map<String, String> reservedParameterNames;
+  final VoidCallback onRefreshCodeRuntimes;
+  final bool refreshingCodeRuntimes;
   final bool showConversation;
   final ValueChanged<bool> onConversationModeChanged;
   final AiTtsPlaybackService ttsPlaybackService;
@@ -409,6 +427,30 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
+              ),
+              kOpenHandGap12,
+              OutlinedButton.icon(
+                onPressed: refreshingCodeRuntimes
+                    ? null
+                    : onRefreshCodeRuntimes,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(_formControlHeight),
+                  shape: _workflowButtonShape,
+                ),
+                icon: AnimatedSwitcher(
+                  duration: openHandMotionDuration(context, kOpenHandMotion180),
+                  child: refreshingCodeRuntimes
+                      ? const SizedBox.square(
+                          key: ValueKey<String>('checking-code-runtime'),
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(
+                          Icons.manage_search_rounded,
+                          key: ValueKey<String>('check-code-runtime'),
+                        ),
+                ),
+                label: Text(refreshingCodeRuntimes ? '正在检测环境' : '检测环境'),
               ),
             ],
           ),
