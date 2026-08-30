@@ -50,6 +50,15 @@ class WorkflowsController extends ManagedChangeNotifier {
         notifyListeners();
         return false;
       }
+      final referenceError = validateWorkflowParameterReferences(
+        workflow.nodes,
+        workflow.connections,
+      );
+      if (referenceError != null) {
+        _errorMessage = referenceError;
+        notifyListeners();
+        return false;
+      }
       final now = DateTime.now().toUtc();
       final nextWorkflow = workflow.copyWith(
         name: normalizedName,

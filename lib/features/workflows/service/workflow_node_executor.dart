@@ -406,6 +406,13 @@ class WorkflowNodeExecutor {
     if (parameterError != null) {
       throw WorkflowNodeExecutionException(parameterError);
     }
+    final referenceError = validateWorkflowParameterReferences(
+      nodes,
+      connections,
+    );
+    if (referenceError != null) {
+      throw WorkflowNodeExecutionException(referenceError);
+    }
     final topLevelNodes = nodes
         .where((node) => node.parentNodeId == null)
         .toList(growable: false);

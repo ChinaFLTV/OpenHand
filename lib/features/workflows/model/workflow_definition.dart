@@ -2169,6 +2169,7 @@ class _WorkflowParameterScope {
   bool dominates(String sourceId, String targetId, {bool allowSame = false}) {
     if ((!allowSame && sourceId == targetId) ||
         entryNodeIds.isEmpty ||
+        !entryNodeIds.any((entryId) => canReach(entryId, targetId)) ||
         !canReach(sourceId, targetId)) {
       return false;
     }
@@ -2270,6 +2271,9 @@ _WorkflowParameterAvailability _workflowParameterAvailability({
   if (source.parentNodeId == target.parentNodeId) {
     final scope = scopes[target.parentNodeId];
     if (scope == null) return _WorkflowParameterAvailability.invalidScope;
+    if (source.id == target.id) {
+      return _WorkflowParameterAvailability.notUpstream;
+    }
     if (!scope.canReach(source.id, target.id)) {
       return _WorkflowParameterAvailability.notUpstream;
     }
