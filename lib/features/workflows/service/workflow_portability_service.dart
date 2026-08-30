@@ -164,6 +164,11 @@ WorkflowDefinition decodeWorkflowYaml(String source) {
   }
 }
 
+/// 在隔离区解析 YAML，避免把 Flutter 页面状态或渲染对象带入后台任务。
+Future<WorkflowDefinition> decodeWorkflowYamlInIsolate(String source) {
+  return Isolate.run<WorkflowDefinition>(() => decodeWorkflowYaml(source));
+}
+
 String encodeWorkflowYaml(WorkflowDefinition workflow) {
   final buffer = StringBuffer()
     ..writeln('format: $_kWorkflowFormat')

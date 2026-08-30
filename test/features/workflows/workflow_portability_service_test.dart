@@ -61,6 +61,14 @@ void main() {
     );
   });
 
+  test('YAML 隔离区解析只传递字符串并保留工作流结构', () async {
+    final decoded = await decodeWorkflowYamlInIsolate(
+      encodeWorkflowYaml(_workflow),
+    );
+
+    expect(decoded.toJson(), _workflow.toJson());
+  });
+
   test('YAML 导入拒绝空内容、未知格式和超量画布元素', () {
     expect(
       () => decodeWorkflowYaml(''),

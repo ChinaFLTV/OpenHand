@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:isolate';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +15,7 @@ import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
+import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
@@ -195,9 +195,7 @@ class _WorkflowsViewState extends State<WorkflowsView> {
         File(selected.path),
         maxBytes: kMaxWorkflowImportBytes,
       );
-      final imported = await Isolate.run<WorkflowDefinition>(
-        () => decodeWorkflowYaml(source),
-      );
+      final imported = await decodeWorkflowYamlInIsolate(source);
       await loadingDialog.dismiss(logTag: '工作流导入', logAction: '关闭工作流导入加载弹窗');
       loadingDialog = null;
       if (!mounted) return;
@@ -390,29 +388,54 @@ class _WorkflowsViewState extends State<WorkflowsView> {
     final detail = error is WorkflowPortabilityException
         ? error.message
         : '$error';
-    return showOpenHandInfoDialog(
+    return showAnimatedDialog<void>(
       context: context,
-      title: exporting ? '导出工作流失败' : '导入工作流失败',
-      icon: Icon(
-        Icons.error_outline_rounded,
-        color: Theme.of(context).colorScheme.error,
-      ),
-      maxWidth: kOpenHandDialogWidthCompact,
-      content: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.errorContainer,
-          borderRadius: kOpenHandBorderRadius14,
-        ),
-        child: SelectableText(
-          detail,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onErrorContainer,
-            height: 1.45,
+      builder: (dialogContext) {
+        final theme = Theme.of(dialogContext);
+        final colors = theme.colorScheme;
+        return buildOpenHandAlertDialog(
+          icon: Icon(Icons.error_outline_rounded, color: colors.error),
+          title: Text(exporting ? '导出工作流失败' : '导入工作流失败'),
+          content: buildOpenHandDialogConstrainedContent(
+            maxWidth: kOpenHandDialogWidthCompact,
+            maxHeight: 560,
+            child: SingleChildScrollView(
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: colors.errorContainer,
+                  borderRadius: kOpenHandBorderRadius14,
+                ),
+                child: SelectableText(
+                  detail,
+                  style: TextStyle(
+                    color: colors.onErrorContainer,
+                    height: 1.45,
+                  ),
+                ),
+              ),
+            ),
           ),
-        ),
-      ),
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              icon: Icons.copy_all_outlined,
+              label: '复制报错信息',
+              onPressed: () => copyOpenHandTextToClipboard(
+                context: dialogContext,
+                text: detail,
+                logTag: '工作流导入导出',
+                logAction: exporting ? '复制工作流导出错误' : '复制工作流导入错误',
+                successMessage: '报错信息已复制。',
+              ),
+            ),
+            OpenHandDialogActionButton.primary(
+              label: '关闭',
+              onPressed: () => Navigator.of(dialogContext).pop(),
+            ),
+          ],
+        );
+      },
     );
   }
 
