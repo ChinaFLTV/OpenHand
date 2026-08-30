@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../model/workflow_definition.dart';
 import '../service/workflow_auto_layout.dart';
+import 'workflow_annotation_style.dart';
 
 const double _contentPadding = 10;
 
@@ -251,12 +252,15 @@ class _WorkflowMiniMapGraphPainter extends CustomPainter {
           annotation.height,
         ),
       );
-      final accent = _annotationColor(annotation.theme, colors);
+      final background = workflowAnnotationBackgroundColor(
+        annotation.theme,
+        colors,
+      );
       final selected = annotation.id == selectedAnnotationId;
       final radius = Radius.circular(math.min(3.5, rect.shortestSide / 3));
       canvas.drawRRect(
         RRect.fromRectAndRadius(rect, radius),
-        Paint()..color = accent.withValues(alpha: 0.86),
+        Paint()..color = background,
       );
       if (selected) {
         canvas.drawRRect(
@@ -502,8 +506,3 @@ Color _nodeColor(WorkflowNodeKind kind, ColorScheme colors) => switch (kind) {
   WorkflowNodeKind.listOperation ||
   WorkflowNodeKind.codeExecution => colors.primary,
 };
-
-Color _annotationColor(WorkflowAnnotationTheme theme, ColorScheme colors) =>
-    theme == WorkflowAnnotationTheme.blue
-    ? colors.primary
-    : Color(theme.accentColorValue);

@@ -7,6 +7,7 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../model/workflow_definition.dart';
+import 'workflow_annotation_style.dart';
 
 class WorkflowAnnotationCard extends StatefulWidget {
   const WorkflowAnnotationCard({
@@ -179,7 +180,10 @@ class _WorkflowAnnotationCardState extends State<WorkflowAnnotationCard> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final accent = _workflowAnnotationAccent(widget.annotation.theme, colors);
+    final accent = workflowAnnotationAccentColor(
+      widget.annotation.theme,
+      colors,
+    );
     final selectionStyle = _selectionStyle();
     final textStyle = Theme.of(context).textTheme.bodyLarge?.copyWith(
       color: colors.onSurface,
@@ -191,9 +195,9 @@ class _WorkflowAnnotationCardState extends State<WorkflowAnnotationCard> {
           : TextDecoration.none,
       height: 1.45,
     );
-    final background = Color.alphaBlend(
-      accent.withValues(alpha: 0.13),
-      colors.surfaceContainerLow,
+    final background = workflowAnnotationBackgroundColor(
+      widget.annotation.theme,
+      colors,
     );
     return AnimatedScale(
       scale: _visible ? (widget.selected ? 1.012 : 1) : 0.94,
@@ -653,7 +657,7 @@ class _AnnotationToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final accent = _workflowAnnotationAccent(annotation.theme, colors);
+    final accent = workflowAnnotationAccentColor(annotation.theme, colors);
     return Material(
       color: colors.surfaceContainerHigh,
       elevation: 7,
@@ -697,7 +701,10 @@ class _AnnotationToolbar extends StatelessWidget {
                             width: 18,
                             height: 18,
                             decoration: BoxDecoration(
-                              color: _workflowAnnotationAccent(theme, colors),
+                              color: workflowAnnotationAccentColor(
+                                theme,
+                                colors,
+                              ),
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -876,10 +883,3 @@ ButtonStyle get _toolbarButtonStyle => IconButton.styleFrom(
   backgroundColor: Colors.transparent,
   shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius10),
 );
-
-Color _workflowAnnotationAccent(
-  WorkflowAnnotationTheme theme,
-  ColorScheme colors,
-) => theme == WorkflowAnnotationTheme.blue
-    ? colors.primary
-    : Color(theme.accentColorValue);

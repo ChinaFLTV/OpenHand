@@ -2,9 +2,28 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/workflows/model/workflow_definition.dart';
+import 'package:openhand/features/workflows/widgets/workflow_annotation_style.dart';
 import 'package:openhand/features/workflows/widgets/workflow_minimap.dart';
 
 void main() {
+  test('注释节点背景色复用注释卡片的浅色配色', () {
+    final colors = ColorScheme.fromSeed(seedColor: Colors.indigo);
+    final accent = workflowAnnotationAccentColor(
+      WorkflowAnnotationTheme.violet,
+      colors,
+    );
+    final expected = Color.alphaBlend(
+      accent.withValues(alpha: kWorkflowAnnotationBackgroundAlpha),
+      colors.surfaceContainerLow,
+    );
+
+    expect(
+      workflowAnnotationBackgroundColor(WorkflowAnnotationTheme.violet, colors),
+      expected,
+    );
+    expect(expected, isNot(accent));
+  });
+
   testWidgets('空工作流缩略图安全展示空状态', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
