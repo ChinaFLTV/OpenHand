@@ -440,6 +440,52 @@ Size _nodeSize(WorkflowNode node) {
   );
 }
 
+({Offset control1, Offset control2}) _connectionControls(
+  Offset start,
+  Offset end,
+) {
+  final distance = math.max(48, (end.dx - start.dx).abs() * 0.46).toDouble();
+  return (
+    control1: Offset(start.dx + distance, start.dy),
+    control2: Offset(end.dx - distance, end.dy),
+  );
+}
+
+Path _connectionPath(Offset start, Offset end) {
+  final controls = _connectionControls(start, end);
+  return Path()
+    ..moveTo(start.dx, start.dy)
+    ..cubicTo(
+      controls.control1.dx,
+      controls.control1.dy,
+      controls.control2.dx,
+      controls.control2.dy,
+      end.dx,
+      end.dy,
+    );
+}
+
+({Offset left, Offset right}) _connectionArrowBase(
+  Offset end,
+  Offset control2,
+  double length,
+  double halfWidth,
+) {
+  final tangent = end - control2;
+  final magnitude = math.sqrt(
+    tangent.dx * tangent.dx + tangent.dy * tangent.dy,
+  );
+  final direction = magnitude > 0.0001
+      ? Offset(tangent.dx / magnitude, tangent.dy / magnitude)
+      : const Offset(1, 0);
+  final perpendicular = Offset(-direction.dy, direction.dx);
+  final baseCenter = end - direction * length;
+  return (
+    left: baseCenter + perpendicular * halfWidth,
+    right: baseCenter - perpendicular * halfWidth,
+  );
+}
+
 ({Color accent, Color soft, String shortLabel}) _nodeStyle(
   WorkflowNodeKind kind,
 ) => switch (kind) {
@@ -620,25 +666,19 @@ Future<ui.Image> _renderRaster(
     final end = layout.position(
       Offset(target.x, target.y + targetSize.height / 2),
     );
-    final distance = math.max(
-      48 * layout.scale,
-      (end.dx - start.dx).abs() * 0.46,
-    );
-    final path = Path()
-      ..moveTo(start.dx, start.dy)
-      ..cubicTo(
-        start.dx + distance,
-        start.dy,
-        end.dx - distance,
-        end.dy,
-        end.dx,
-        end.dy,
-      );
+    final path = _connectionPath(start, end);
     canvas.drawPath(path, linePaint);
+    final controls = _connectionControls(start, end);
+    final arrowBase = _connectionArrowBase(
+      end,
+      controls.control2,
+      10 * layout.scale,
+      6 * layout.scale,
+    );
     final arrow = Path()
       ..moveTo(end.dx, end.dy)
-      ..lineTo(end.dx - 10 * layout.scale, end.dy - 6 * layout.scale)
-      ..lineTo(end.dx - 10 * layout.scale, end.dy + 6 * layout.scale)
+      ..lineTo(arrowBase.left.dx, arrowBase.left.dy)
+      ..lineTo(arrowBase.right.dx, arrowBase.right.dy)
       ..close();
     canvas.drawPath(arrow, Paint()..color = const Color(0xFF667085));
   }
@@ -831,24 +871,27 @@ String _renderSvg(WorkflowDefinition workflow, _WorkflowExportLayout layout) {
     final end = layout.position(
       Offset(target.x, target.y + targetSize.height / 2),
     );
-    final distance = math.max(
-      48 * layout.scale,
-      (end.dx - start.dx).abs() * 0.46,
-    );
+    final controls = _connectionControls(start, end);
     final path =
         'M ${start.dx.toStringAsFixed(2)} ${start.dy.toStringAsFixed(2)} '
-        'C ${(start.dx + distance).toStringAsFixed(2)} ${start.dy.toStringAsFixed(2)}, '
-        '${(end.dx - distance).toStringAsFixed(2)} ${end.dy.toStringAsFixed(2)}, '
+        'C ${controls.control1.dx.toStringAsFixed(2)} ${controls.control1.dy.toStringAsFixed(2)}, '
+        '${controls.control2.dx.toStringAsFixed(2)} ${controls.control2.dy.toStringAsFixed(2)}, '
         '${end.dx.toStringAsFixed(2)} ${end.dy.toStringAsFixed(2)}';
+    final arrowBase = _connectionArrowBase(
+      end,
+      controls.control2,
+      10 * layout.scale,
+      6 * layout.scale,
+    );
     buffer
       ..writeln(
         '<path d="$path" fill="none" stroke="#667085" '
         'stroke-width="${(2.4 * layout.scale).toStringAsFixed(2)}" stroke-linecap="round"/>',
       )
       ..writeln(
-        '<path d="M ${end.dx} ${end.dy} L ${end.dx - 10 * layout.scale} '
-        '${end.dy - 6 * layout.scale} L ${end.dx - 10 * layout.scale} '
-        '${end.dy + 6 * layout.scale} Z" fill="#667085"/>',
+        '<path d="M ${end.dx} ${end.dy} L ${arrowBase.left.dx} '
+        '${arrowBase.left.dy} L ${arrowBase.right.dx} '
+        '${arrowBase.right.dy} Z" fill="#667085"/>',
       );
   }
   for (final node in workflow.nodes) {

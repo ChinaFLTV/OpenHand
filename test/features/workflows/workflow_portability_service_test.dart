@@ -48,6 +48,36 @@ final _workflow = WorkflowDefinition(
   ],
 );
 
+final _diagonalWorkflow = WorkflowDefinition(
+  id: 'workflow-diagonal',
+  name: '斜向连线',
+  createdAt: DateTime.utc(2026, 8, 30, 10),
+  updatedAt: DateTime.utc(2026, 8, 30, 11),
+  nodes: const <WorkflowNode>[
+    WorkflowNode(
+      id: 'start',
+      kind: WorkflowNodeKind.start,
+      title: '开始',
+      x: 20,
+      y: 40,
+    ),
+    WorkflowNode(
+      id: 'end',
+      kind: WorkflowNodeKind.end,
+      title: '结束',
+      x: 420,
+      y: 260,
+    ),
+  ],
+  connections: const <WorkflowConnection>[
+    WorkflowConnection(
+      id: 'edge-1',
+      sourceNodeId: 'start',
+      targetNodeId: 'end',
+    ),
+  ],
+);
+
 void main() {
   test('YAML 导出导入完整保留工作流结构和特殊文本', () {
     final encoded = encodeWorkflowYaml(_workflow);
@@ -211,5 +241,23 @@ void main() {
     expect(svg.height, greaterThan(0));
     expect(svg.width, png.width);
     expect(svg.height, png.height);
+  });
+
+  testWidgets('斜向连线的箭头跟随曲线末端方向', (tester) async {
+    final svg = await tester.runAsync(
+      () => buildWorkflowExportArtifact(
+        _diagonalWorkflow,
+        WorkflowExportFormat.svg,
+      ),
+    );
+    final arrowLine = utf8
+        .decode(svg!.bytes)
+        .split('\n')
+        .singleWhere((line) => line.contains('fill="#667085"/>'));
+    final match = RegExp(
+      r'M ([0-9.]+) ([0-9.]+) L ([0-9.]+) ([0-9.]+) L ([0-9.]+) ([0-9.]+) Z',
+    ).firstMatch(arrowLine);
+    expect(match, isNotNull);
+    expect(match!.group(4), isNot(equals(match.group(6))));
   });
 }
