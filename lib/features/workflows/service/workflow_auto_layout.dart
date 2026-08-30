@@ -13,7 +13,9 @@ const double kWorkflowContainerChildTop = 96;
 const double kWorkflowContainerPadding = 34;
 const double _workflowAnnotationCanvasPadding = 16;
 const double _workflowAnnotationLayoutGap = 24;
+const double _workflowConnectionStrokeClearance = 4;
 const int _workflowAnnotationPlacementAttempts = 32;
+const int _workflowConnectionCurveSegments = 24;
 
 typedef WorkflowNodeSizeResolver =
     ({double width, double height}) Function(WorkflowNode node);
@@ -205,8 +207,8 @@ WorkflowAutoLayoutResult arrangeWorkflowNodes({
       .toList(growable: false);
   final annotationLayout = _arrangeWorkflowAnnotations(
     annotations: annotations,
-    beforeNodes: nodes,
     arrangedNodes: arranged,
+    connections: connections,
     sizeOf: sizeOf,
     config: config,
   );
@@ -270,18 +272,15 @@ WorkflowAutoLayoutResult arrangeWorkflowNodes({
 ({List<WorkflowAnnotation> annotations, bool fits})
 _arrangeWorkflowAnnotations({
   required List<WorkflowAnnotation> annotations,
-  required List<WorkflowNode> beforeNodes,
   required List<WorkflowNode> arrangedNodes,
+  required List<WorkflowConnection> connections,
   required WorkflowNodeSizeResolver sizeOf,
   required WorkflowAutoLayoutConfig config,
 }) {
-  if (annotations.isEmpty || beforeNodes.isEmpty) {
+  if (annotations.isEmpty) {
     return (annotations: annotations, fits: true);
   }
-  final arrangedById = <String, WorkflowNode>{
-    for (final node in arrangedNodes) node.id: node,
-  };
-  final occupied = <_WorkflowLayoutRect>[
+  final nodeBounds = <_WorkflowLayoutRect>[
     for (final node in arrangedNodes)
       _WorkflowLayoutRect(
         x: node.x,
@@ -290,16 +289,52 @@ _arrangeWorkflowAnnotations({
         height: sizeOf(node).height,
       ),
   ];
+  final occupied = List<_WorkflowLayoutRect>.of(nodeBounds);
+  final connectionsToAvoid = _workflowConnectionSegments(
+    connections,
+    arrangedNodes,
+    sizeOf,
+  );
+  final preserved = <String, WorkflowAnnotation>{};
+  for (final annotation in annotations) {
+    final position = _clampAnnotationPosition(
+      annotation,
+      annotation.x,
+      annotation.y,
+      config,
+    );
+    final bounds = _WorkflowLayoutRect(
+      x: position.x,
+      y: position.y,
+      width: annotation.width,
+      height: annotation.height,
+    );
+    if (_firstStaticAnnotationObstacle(
+          bounds,
+          nodeBounds,
+          connectionsToAvoid,
+        ) !=
+        null) {
+      continue;
+    }
+    final unchanged = annotation.copyWith(x: position.x, y: position.y);
+    preserved[annotation.id] = unchanged;
+    occupied.add(bounds);
+  }
+
   final arrangedAnnotations = <WorkflowAnnotation>[];
   for (final annotation in annotations) {
-    final anchor = _nearestAnnotationAnchor(annotation, beforeNodes, sizeOf);
-    final arrangedAnchor = arrangedById[anchor.id];
-    if (arrangedAnchor == null) return (annotations: annotations, fits: false);
+    final unchanged = preserved[annotation.id];
+    if (unchanged != null) {
+      arrangedAnnotations.add(unchanged);
+      continue;
+    }
     final position = _findAvailableAnnotationPosition(
       annotation: annotation,
-      x: annotation.x + arrangedAnchor.x - anchor.x,
-      y: annotation.y + arrangedAnchor.y - anchor.y,
+      x: annotation.x,
+      y: annotation.y,
       occupied: occupied,
+      connections: connectionsToAvoid,
       config: config,
     );
     if (position == null) return (annotations: annotations, fits: false);
@@ -322,6 +357,7 @@ _arrangeWorkflowAnnotations({
   required double x,
   required double y,
   required List<_WorkflowLayoutRect> occupied,
+  required List<_WorkflowConnectionSegment> connections,
   required WorkflowAutoLayoutConfig config,
 }) {
   final preferred = _clampAnnotationPosition(annotation, x, y, config);
@@ -338,7 +374,7 @@ _arrangeWorkflowAnnotations({
       width: annotation.width,
       height: annotation.height,
     );
-    final obstacle = _firstOverlappingBounds(bounds, occupied);
+    final obstacle = _firstAnnotationObstacle(bounds, occupied, connections);
     if (obstacle == null) return candidate;
     final alternatives = <({double x, double y})>[
       (
@@ -410,12 +446,38 @@ _arrangeWorkflowAnnotations({
   ),
 );
 
-_WorkflowLayoutRect? _firstOverlappingBounds(
+_WorkflowLayoutRect? _firstStaticAnnotationObstacle(
   _WorkflowLayoutRect bounds,
   List<_WorkflowLayoutRect> occupied,
+  List<_WorkflowConnectionSegment> connections,
+) {
+  for (final item in occupied) {
+    if (bounds.overlaps(item, gap: 0)) return item;
+  }
+  for (final connection in connections) {
+    final obstacle = connection.obstacleFor(
+      bounds,
+      clearance: _workflowConnectionStrokeClearance,
+    );
+    if (obstacle != null) return obstacle;
+  }
+  return null;
+}
+
+_WorkflowLayoutRect? _firstAnnotationObstacle(
+  _WorkflowLayoutRect bounds,
+  List<_WorkflowLayoutRect> occupied,
+  List<_WorkflowConnectionSegment> connections,
 ) {
   for (final item in occupied) {
     if (bounds.overlaps(item, gap: _workflowAnnotationLayoutGap)) return item;
+  }
+  for (final connection in connections) {
+    final obstacle = connection.obstacleFor(
+      bounds,
+      clearance: _workflowAnnotationLayoutGap,
+    );
+    if (obstacle != null) return obstacle;
   }
   return null;
 }
@@ -431,54 +493,6 @@ double _annotationPositionDistanceSquared(
 
 String _annotationPositionKey(({double x, double y}) position) =>
     '${position.x.round()}:${position.y.round()}';
-
-WorkflowNode _nearestAnnotationAnchor(
-  WorkflowAnnotation annotation,
-  List<WorkflowNode> nodes,
-  WorkflowNodeSizeResolver sizeOf,
-) {
-  var nearest = nodes.first;
-  var nearestDistance = _annotationNodeDistanceSquared(
-    annotation,
-    nearest,
-    sizeOf(nearest),
-  );
-  for (final node in nodes.skip(1)) {
-    final distance = _annotationNodeDistanceSquared(
-      annotation,
-      node,
-      sizeOf(node),
-    );
-    if (distance < nearestDistance ||
-        (distance == nearestDistance && node.id.compareTo(nearest.id) < 0)) {
-      nearest = node;
-      nearestDistance = distance;
-    }
-  }
-  return nearest;
-}
-
-double _annotationNodeDistanceSquared(
-  WorkflowAnnotation annotation,
-  WorkflowNode node,
-  ({double width, double height}) size,
-) {
-  final annotationRight = annotation.x + annotation.width;
-  final annotationBottom = annotation.y + annotation.height;
-  final nodeRight = node.x + size.width;
-  final nodeBottom = node.y + size.height;
-  final horizontal = annotation.x > nodeRight
-      ? annotation.x - nodeRight
-      : node.x > annotationRight
-      ? node.x - annotationRight
-      : 0.0;
-  final vertical = annotation.y > nodeBottom
-      ? annotation.y - nodeBottom
-      : node.y > annotationBottom
-      ? node.y - annotationBottom
-      : 0.0;
-  return horizontal * horizontal + vertical * vertical;
-}
 
 double _clampAnnotationCoordinate(
   double value,
@@ -513,6 +527,182 @@ class _WorkflowLayoutRect {
       right + gap > other.x &&
       y - gap < other.bottom &&
       bottom + gap > other.y;
+}
+
+List<_WorkflowConnectionSegment> _workflowConnectionSegments(
+  List<WorkflowConnection> connections,
+  List<WorkflowNode> nodes,
+  WorkflowNodeSizeResolver sizeOf,
+) {
+  final nodesById = <String, WorkflowNode>{
+    for (final node in nodes) node.id: node,
+  };
+  final segments = <_WorkflowConnectionSegment>[];
+  for (final connection in connections) {
+    final source = nodesById[connection.sourceNodeId];
+    final target = nodesById[connection.targetNodeId];
+    if (source == null || target == null) continue;
+    final sourceSize = sizeOf(source);
+    final targetSize = sizeOf(target);
+    final start = (
+      x: source.x + sourceSize.width,
+      y: source.y + sourceSize.height / 2,
+    );
+    final end = (x: target.x, y: target.y + targetSize.height / 2);
+    final distance = math.max(70, (end.x - start.x).abs() * 0.46);
+    var previous = start;
+    for (var index = 1; index <= _workflowConnectionCurveSegments; index++) {
+      final point = _cubicConnectionPoint(
+        start: start,
+        firstControl: (x: start.x + distance, y: start.y),
+        secondControl: (x: end.x - distance, y: end.y),
+        end: end,
+        t: index / _workflowConnectionCurveSegments,
+      );
+      segments.add(
+        _WorkflowConnectionSegment(
+          startX: previous.x,
+          startY: previous.y,
+          endX: point.x,
+          endY: point.y,
+        ),
+      );
+      previous = point;
+    }
+  }
+  return segments;
+}
+
+({double x, double y}) _cubicConnectionPoint({
+  required ({double x, double y}) start,
+  required ({double x, double y}) firstControl,
+  required ({double x, double y}) secondControl,
+  required ({double x, double y}) end,
+  required double t,
+}) {
+  final inverse = 1 - t;
+  return (
+    x:
+        inverse * inverse * inverse * start.x +
+        3 * inverse * inverse * t * firstControl.x +
+        3 * inverse * t * t * secondControl.x +
+        t * t * t * end.x,
+    y:
+        inverse * inverse * inverse * start.y +
+        3 * inverse * inverse * t * firstControl.y +
+        3 * inverse * t * t * secondControl.y +
+        t * t * t * end.y,
+  );
+}
+
+class _WorkflowConnectionSegment {
+  const _WorkflowConnectionSegment({
+    required this.startX,
+    required this.startY,
+    required this.endX,
+    required this.endY,
+  });
+
+  final double startX;
+  final double startY;
+  final double endX;
+  final double endY;
+
+  _WorkflowLayoutRect? obstacleFor(
+    _WorkflowLayoutRect bounds, {
+    required double clearance,
+  }) {
+    final expanded = _WorkflowLayoutRect(
+      x: bounds.x - clearance,
+      y: bounds.y - clearance,
+      width: bounds.width + clearance * 2,
+      height: bounds.height + clearance * 2,
+    );
+    if (!_intersects(expanded)) return null;
+    return _WorkflowLayoutRect(
+      x: math.min(startX, endX),
+      y: math.min(startY, endY),
+      width: (startX - endX).abs(),
+      height: (startY - endY).abs(),
+    );
+  }
+
+  bool _intersects(_WorkflowLayoutRect bounds) {
+    if (_contains(bounds, startX, startY) || _contains(bounds, endX, endY)) {
+      return true;
+    }
+    return _segmentsIntersect(
+          startX,
+          startY,
+          endX,
+          endY,
+          bounds.x,
+          bounds.y,
+          bounds.right,
+          bounds.y,
+        ) ||
+        _segmentsIntersect(
+          startX,
+          startY,
+          endX,
+          endY,
+          bounds.right,
+          bounds.y,
+          bounds.right,
+          bounds.bottom,
+        ) ||
+        _segmentsIntersect(
+          startX,
+          startY,
+          endX,
+          endY,
+          bounds.right,
+          bounds.bottom,
+          bounds.x,
+          bounds.bottom,
+        ) ||
+        _segmentsIntersect(
+          startX,
+          startY,
+          endX,
+          endY,
+          bounds.x,
+          bounds.bottom,
+          bounds.x,
+          bounds.y,
+        );
+  }
+}
+
+bool _contains(_WorkflowLayoutRect bounds, double x, double y) =>
+    x >= bounds.x && x <= bounds.right && y >= bounds.y && y <= bounds.bottom;
+
+bool _segmentsIntersect(
+  double firstStartX,
+  double firstStartY,
+  double firstEndX,
+  double firstEndY,
+  double secondStartX,
+  double secondStartY,
+  double secondEndX,
+  double secondEndY,
+) {
+  final firstDeltaX = firstEndX - firstStartX;
+  final firstDeltaY = firstEndY - firstStartY;
+  final secondDeltaX = secondEndX - secondStartX;
+  final secondDeltaY = secondEndY - secondStartY;
+  final denominator = firstDeltaX * secondDeltaY - firstDeltaY * secondDeltaX;
+  if (denominator.abs() < 0.000001) return false;
+  final deltaX = secondStartX - firstStartX;
+  final deltaY = secondStartY - firstStartY;
+  final firstFactor =
+      (deltaX * secondDeltaY - deltaY * secondDeltaX) / denominator;
+  final secondFactor =
+      (deltaX * firstDeltaY - deltaY * firstDeltaX) / denominator;
+  return firstFactor >= 0 &&
+      firstFactor <= 1 &&
+      secondFactor >= 0 &&
+      secondFactor <= 1;
 }
 
 class _ScopeLayout {

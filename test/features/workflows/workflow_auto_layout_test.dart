@@ -3,7 +3,7 @@ import 'package:openhand/features/workflows/model/workflow_definition.dart';
 import 'package:openhand/features/workflows/service/workflow_auto_layout.dart';
 
 void main() {
-  test('整理节点时同步移动注释并保持相对位置', () {
+  test('整理时保留未被遮挡注释的原位置', () {
     const nodes = <WorkflowNode>[
       WorkflowNode(
         id: 'start',
@@ -28,7 +28,7 @@ void main() {
       ),
     ];
     const annotations = <WorkflowAnnotation>[
-      WorkflowAnnotation(id: 'note', text: '代码说明', x: 880, y: 440),
+      WorkflowAnnotation(id: 'note', text: '代码说明', x: 880, y: 1000),
     ];
     const connections = <WorkflowConnection>[
       WorkflowConnection(
@@ -49,16 +49,11 @@ void main() {
       annotations: annotations,
       sizeOf: _fixedNodeSize,
     );
-    final arranged = <String, WorkflowNode>{
-      for (final node in result.nodes) node.id: node,
-    };
-    final code = arranged['code']!;
     final note = result.annotations.single;
 
     expect(result.changed, isTrue);
-    expect(note.x, closeTo(annotations.single.x + code.x - 900, 0.01));
-    expect(note.y, closeTo(annotations.single.y + code.y - 300, 0.01));
-    expect(note.y, greaterThanOrEqualTo(code.y + 60));
+    expect(note.x, annotations.single.x);
+    expect(note.y, annotations.single.y);
     expect(result.left, lessThanOrEqualTo(note.x));
     expect(result.top, lessThanOrEqualTo(note.y));
     expect(result.right, greaterThanOrEqualTo(note.x + note.width));
@@ -100,7 +95,7 @@ void main() {
       ),
     ];
     const annotations = <WorkflowAnnotation>[
-      WorkflowAnnotation(id: 'note', text: '代码说明', x: 1042, y: 300),
+      WorkflowAnnotation(id: 'note', text: '代码说明', x: 270, y: 48),
     ];
     const connections = <WorkflowConnection>[
       WorkflowConnection(
@@ -124,6 +119,11 @@ void main() {
     final annotation = result.annotations.single;
 
     expect(result.fitsCanvas, isTrue);
+    expect(
+      annotation.x != annotations.single.x ||
+          annotation.y != annotations.single.y,
+      isTrue,
+    );
     for (final node in result.nodes) {
       expect(
         _overlaps(
@@ -139,6 +139,66 @@ void main() {
         isFalse,
       );
     }
+  });
+
+  test('整理会避开穿过注释的连线', () {
+    const nodes = <WorkflowNode>[
+      WorkflowNode(
+        id: 'start',
+        kind: WorkflowNodeKind.start,
+        title: '开始',
+        x: 560,
+        y: 120,
+      ),
+      WorkflowNode(
+        id: 'end',
+        kind: WorkflowNodeKind.end,
+        title: '结束',
+        x: 900,
+        y: 120,
+      ),
+    ];
+    const annotations = <WorkflowAnnotation>[
+      WorkflowAnnotation(
+        id: 'note',
+        text: '连线说明',
+        x: 180,
+        y: 68,
+        width: 20,
+        height: 20,
+      ),
+    ];
+    const connections = <WorkflowConnection>[
+      WorkflowConnection(
+        id: 'start-end',
+        sourceNodeId: 'start',
+        targetNodeId: 'end',
+      ),
+    ];
+
+    final result = arrangeWorkflowNodes(
+      nodes: nodes,
+      connections: connections,
+      annotations: annotations,
+      sizeOf: _fixedNodeSize,
+    );
+    final annotation = result.annotations.single;
+
+    expect(result.fitsCanvas, isTrue);
+    expect(
+      annotation.x != annotations.single.x ||
+          annotation.y != annotations.single.y,
+      isTrue,
+    );
+    final arranged = <String, WorkflowNode>{
+      for (final node in result.nodes) node.id: node,
+    };
+    final start = arranged['start']!;
+    final end = arranged['end']!;
+    expect(
+      _horizontalLineIntersects(annotation, start.x + 100, start.y + 30, end.x),
+      isFalse,
+    );
   });
 }
 
@@ -159,3 +219,14 @@ bool _overlaps(
     left + width > otherLeft &&
     top < otherTop + otherHeight &&
     top + height > otherTop;
+
+bool _horizontalLineIntersects(
+  WorkflowAnnotation annotation,
+  double startX,
+  double y,
+  double endX,
+) =>
+    y >= annotation.y &&
+    y <= annotation.y + annotation.height &&
+    startX <= annotation.x + annotation.width &&
+    endX >= annotation.x;
