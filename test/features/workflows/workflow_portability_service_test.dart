@@ -61,6 +61,27 @@ void main() {
     );
   });
 
+  test('YAML 导出导入保留注释局部字体样式', () {
+    const annotation = WorkflowAnnotation(
+      id: 'styled-note',
+      text: '普通加粗',
+      x: 0,
+      y: 0,
+      styleRanges: <WorkflowAnnotationTextStyleRange>[
+        WorkflowAnnotationTextStyleRange(
+          start: 2,
+          end: 4,
+          bold: true,
+          italic: true,
+          fontSize: 24,
+        ),
+      ],
+    );
+    final decoded = WorkflowAnnotation.fromJson(annotation.toJson());
+
+    expect(decoded.toJson(), annotation.toJson());
+  });
+
   test('YAML 隔离区解析只传递字符串并保留工作流结构', () async {
     final decoded = await decodeWorkflowYamlInIsolate(
       encodeWorkflowYaml(_workflow),

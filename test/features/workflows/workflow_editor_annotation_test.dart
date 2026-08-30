@@ -166,6 +166,75 @@ void main() {
     expect(cardFinder, findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('注释字体工具只修改选中的文本范围', (tester) async {
+    WorkflowAnnotation? latest;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 360,
+            height: 220,
+            child: StatefulBuilder(
+              builder: (context, setState) => WorkflowAnnotationCard(
+                annotation:
+                    latest ??
+                    const WorkflowAnnotation(
+                      id: 'range-note',
+                      text: '四个字文本',
+                      x: 0,
+                      y: 0,
+                    ),
+                selected: true,
+                onSelect: _noop,
+                onChanged: (value) => setState(() => latest = value),
+                onMove: (_) {},
+                onResize: (_) {},
+                onDuplicate: _noop,
+                onDelete: _noop,
+                onEditingChanged: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final input = tester.widget<TextField>(
+      find.byKey(
+        const ValueKey<String>('workflow-annotation-input-range-note'),
+      ),
+    );
+    input.controller!.selection = const TextSelection(
+      baseOffset: 1,
+      extentOffset: 3,
+    );
+    await tester.tap(find.byTooltip('粗体'));
+    await tester.pump();
+
+    expect(latest?.bold, isFalse);
+    expect(latest?.styleRanges, hasLength(1));
+    expect(latest?.styleRanges.single.start, 1);
+    expect(latest?.styleRanges.single.end, 3);
+    expect(latest?.styleRanges.single.bold, isTrue);
+
+    final span = input.controller!.buildTextSpan(
+      context: tester.element(
+        find.byKey(
+          const ValueKey<String>('workflow-annotation-input-range-note'),
+        ),
+      ),
+      style: input.style,
+      withComposing: false,
+    );
+    final children = span.children!.whereType<TextSpan>().toList();
+    expect(children.map((child) => child.text).join(), '四个字文本');
+    expect(children, hasLength(3));
+    expect(children[0].style?.fontWeight, isNot(FontWeight.w800));
+    expect(children[1].style?.fontWeight, FontWeight.w800);
+    expect(children[2].style?.fontWeight, isNot(FontWeight.w800));
+  });
 }
 
 void _noop() {}

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../shared/ui/animated_menu.dart';
@@ -35,15 +37,21 @@ class WorkflowAnnotationCard extends StatefulWidget {
 }
 
 class _WorkflowAnnotationCardState extends State<WorkflowAnnotationCard> {
-  late final TextEditingController _controller = TextEditingController(
-    text: widget.annotation.text,
-  );
+  late final _WorkflowAnnotationTextController _controller =
+      _WorkflowAnnotationTextController(
+        text: widget.annotation.text,
+        annotation: widget.annotation,
+      );
   final FocusNode _focusNode = FocusNode(debugLabel: 'workflow-annotation');
   bool _visible = false;
+  bool _syncingController = false;
+  String _lastText = '';
 
   @override
   void initState() {
     super.initState();
+    _lastText = _controller.text;
+    _controller.addListener(_handleControllerChanged);
     _focusNode.addListener(_handleFocusChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -55,15 +63,22 @@ class _WorkflowAnnotationCardState extends State<WorkflowAnnotationCard> {
   @override
   void didUpdateWidget(covariant WorkflowAnnotationCard oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _controller.annotation = widget.annotation;
     if (_controller.text != widget.annotation.text) {
       final offset = _controller.selection.extentOffset.clamp(
         0,
         widget.annotation.text.length,
       );
-      _controller.value = TextEditingValue(
-        text: widget.annotation.text,
-        selection: TextSelection.collapsed(offset: offset),
-      );
+      _syncingController = true;
+      try {
+        _controller.value = TextEditingValue(
+          text: widget.annotation.text,
+          selection: TextSelection.collapsed(offset: offset),
+        );
+      } finally {
+        _syncingController = false;
+      }
+      _lastText = widget.annotation.text;
     }
     if (!oldWidget.selected && widget.selected) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -79,15 +94,65 @@ class _WorkflowAnnotationCardState extends State<WorkflowAnnotationCard> {
     _focusNode
       ..removeListener(_handleFocusChanged)
       ..dispose();
+    _controller.removeListener(_handleControllerChanged);
     _controller.dispose();
     super.dispose();
   }
 
   void _handleFocusChanged() => widget.onEditingChanged(_focusNode.hasFocus);
 
+  void _handleControllerChanged() {
+    if (!mounted || _syncingController) return;
+    setState(() {});
+  }
+
   void _updateText(String value) {
     if (value.runes.length > kWorkflowAnnotationMaxCharacters) return;
-    widget.onChanged(widget.annotation.copyWith(text: value));
+    final ranges = _adjustStyleRangesForTextChange(
+      widget.annotation.styleRanges,
+      _lastText,
+      value,
+    );
+    _lastText = value;
+    widget.onChanged(
+      widget.annotation.copyWith(text: value, styleRanges: ranges),
+    );
+  }
+
+  void _applyTextStyle({
+    double? fontSize,
+    bool? bold,
+    bool? italic,
+    bool? strikethrough,
+  }) {
+    final selection = _controller.selection;
+    final textLength = _controller.text.length;
+    final start = selection.start.clamp(0, textLength).toInt();
+    final end = selection.end.clamp(0, textLength).toInt();
+    final rangeStart = math.min(start, end);
+    final rangeEnd = math.max(start, end);
+    final nextRanges = _applyStyleToSelection(
+      annotation: widget.annotation,
+      start: rangeStart,
+      end: rangeEnd,
+      fontSize: fontSize,
+      bold: bold,
+      italic: italic,
+      strikethrough: strikethrough,
+    );
+    widget.onChanged(widget.annotation.copyWith(styleRanges: nextRanges));
+    _controller.annotation = widget.annotation.copyWith(
+      styleRanges: nextRanges,
+    );
+    _focusNode.requestFocus();
+  }
+
+  _AnnotationResolvedStyle _selectionStyle() {
+    final textLength = _controller.text.length;
+    final selection = _controller.selection;
+    final start = selection.start.clamp(0, textLength).toInt();
+    final end = selection.end.clamp(0, textLength).toInt();
+    return _resolveAnnotationStyleAt(widget.annotation, math.min(start, end));
   }
 
   void _toggleBullets() {
@@ -115,6 +180,17 @@ class _WorkflowAnnotationCardState extends State<WorkflowAnnotationCard> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final accent = _workflowAnnotationAccent(widget.annotation.theme, colors);
+    final selectionStyle = _selectionStyle();
+    final textStyle = Theme.of(context).textTheme.bodyLarge?.copyWith(
+      color: colors.onSurface,
+      fontSize: selectionStyle.fontSize,
+      fontWeight: selectionStyle.bold ? FontWeight.w800 : FontWeight.w500,
+      fontStyle: selectionStyle.italic ? FontStyle.italic : FontStyle.normal,
+      decoration: selectionStyle.strikethrough
+          ? TextDecoration.lineThrough
+          : TextDecoration.none,
+      height: 1.45,
+    );
     final background = Color.alphaBlend(
       accent.withValues(alpha: 0.13),
       colors.surfaceContainerLow,
@@ -185,7 +261,11 @@ class _WorkflowAnnotationCardState extends State<WorkflowAnnotationCard> {
                               alignment: Alignment.centerLeft,
                               child: _AnnotationToolbar(
                                 annotation: widget.annotation,
-                                onChanged: widget.onChanged,
+                                selectionStyle: selectionStyle,
+                                onApplyTextStyle: _applyTextStyle,
+                                onThemeChanged: (theme) => widget.onChanged(
+                                  widget.annotation.copyWith(theme: theme),
+                                ),
                                 onToggleBullets: _toggleBullets,
                                 onDuplicate: widget.onDuplicate,
                                 onDelete: widget.onDelete,
@@ -214,20 +294,7 @@ class _WorkflowAnnotationCardState extends State<WorkflowAnnotationCard> {
                           }) => null,
                       onTap: widget.onSelect,
                       onChanged: _updateText,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: colors.onSurface,
-                        fontSize: widget.annotation.fontSize,
-                        fontWeight: widget.annotation.bold
-                            ? FontWeight.w800
-                            : FontWeight.w500,
-                        fontStyle: widget.annotation.italic
-                            ? FontStyle.italic
-                            : FontStyle.normal,
-                        decoration: widget.annotation.strikethrough
-                            ? TextDecoration.lineThrough
-                            : TextDecoration.none,
-                        height: 1.45,
-                      ),
+                      style: textStyle,
                       decoration: InputDecoration(
                         hintText: '写下说明、约束或协作提示…',
                         hintStyle: TextStyle(
@@ -279,17 +346,306 @@ class _WorkflowAnnotationCardState extends State<WorkflowAnnotationCard> {
   }
 }
 
+class _WorkflowAnnotationTextController extends TextEditingController {
+  _WorkflowAnnotationTextController({
+    required super.text,
+    required this.annotation,
+  });
+
+  WorkflowAnnotation annotation;
+
+  @override
+  TextSpan buildTextSpan({
+    required BuildContext context,
+    TextStyle? style,
+    required bool withComposing,
+  }) {
+    if (text.isEmpty) return TextSpan(text: text, style: style);
+    final boundaries = <int>{0, text.length};
+    for (final range in annotation.styleRanges) {
+      boundaries
+        ..add(range.start.clamp(0, text.length).toInt())
+        ..add(range.end.clamp(0, text.length).toInt());
+    }
+    final composing = value.composing;
+    if (withComposing && composing.isValid) {
+      boundaries
+        ..add(composing.start.clamp(0, text.length).toInt())
+        ..add(composing.end.clamp(0, text.length).toInt());
+    }
+    final points = boundaries.toList()..sort();
+    return TextSpan(
+      style: style,
+      children: <InlineSpan>[
+        for (var index = 0; index < points.length - 1; index++)
+          _buildStyledSpan(
+            start: points[index],
+            end: points[index + 1],
+            style: style,
+            composing: withComposing ? composing : TextRange.empty,
+          ),
+      ],
+    );
+  }
+
+  TextSpan _buildStyledSpan({
+    required int start,
+    required int end,
+    required TextStyle? style,
+    required TextRange composing,
+  }) {
+    final resolved = _resolveAnnotationStyleAt(annotation, start);
+    final overlapsComposing =
+        composing.isValid && start < composing.end && end > composing.start;
+    return TextSpan(
+      text: text.substring(start, end),
+      style: (style ?? const TextStyle()).copyWith(
+        fontSize: resolved.fontSize,
+        fontWeight: resolved.bold ? FontWeight.w800 : FontWeight.w500,
+        fontStyle: resolved.italic ? FontStyle.italic : FontStyle.normal,
+        decoration: overlapsComposing
+            ? TextDecoration.combine(<TextDecoration>[
+                if (resolved.strikethrough) TextDecoration.lineThrough,
+                TextDecoration.underline,
+              ])
+            : resolved.strikethrough
+            ? TextDecoration.lineThrough
+            : TextDecoration.none,
+      ),
+    );
+  }
+}
+
+class _AnnotationResolvedStyle {
+  const _AnnotationResolvedStyle({
+    required this.fontSize,
+    required this.bold,
+    required this.italic,
+    required this.strikethrough,
+  });
+
+  final double fontSize;
+  final bool bold;
+  final bool italic;
+  final bool strikethrough;
+
+  _AnnotationResolvedStyle copyWith({
+    double? fontSize,
+    bool? bold,
+    bool? italic,
+    bool? strikethrough,
+  }) => _AnnotationResolvedStyle(
+    fontSize: fontSize ?? this.fontSize,
+    bold: bold ?? this.bold,
+    italic: italic ?? this.italic,
+    strikethrough: strikethrough ?? this.strikethrough,
+  );
+}
+
+_AnnotationResolvedStyle _resolveAnnotationStyleAt(
+  WorkflowAnnotation annotation,
+  int offset,
+) {
+  var style = _AnnotationResolvedStyle(
+    fontSize: annotation.fontSize,
+    bold: annotation.bold,
+    italic: annotation.italic,
+    strikethrough: annotation.strikethrough,
+  );
+  for (final range in annotation.styleRanges) {
+    final contains = range.start == range.end
+        ? offset == range.start
+        : offset >= range.start && offset < range.end;
+    if (!contains) continue;
+    style = style.copyWith(
+      fontSize: range.fontSize,
+      bold: range.bold,
+      italic: range.italic,
+      strikethrough: range.strikethrough,
+    );
+  }
+  return style;
+}
+
+List<WorkflowAnnotationTextStyleRange> _applyStyleToSelection({
+  required WorkflowAnnotation annotation,
+  required int start,
+  required int end,
+  double? fontSize,
+  bool? bold,
+  bool? italic,
+  bool? strikethrough,
+}) {
+  final ranges = <WorkflowAnnotationTextStyleRange>[];
+  final selected = start != end;
+  for (final range in annotation.styleRanges) {
+    final overlaps = selected
+        ? (range.start == range.end
+              ? range.start >= start && range.start <= end
+              : range.start < end && range.end > start)
+        : range.start == start && range.end == start;
+    if (!overlaps) {
+      ranges.add(range);
+      continue;
+    }
+    if (range.start < start) ranges.add(range.copyWith(end: start));
+    if (range.end > end) ranges.add(range.copyWith(start: end));
+  }
+
+  if (!selected) {
+    ranges.add(
+      _styleRange(
+        start: start,
+        end: end,
+        style: _resolveAnnotationStyleAt(annotation, start).copyWith(
+          fontSize: fontSize,
+          bold: bold,
+          italic: italic,
+          strikethrough: strikethrough,
+        ),
+      ),
+    );
+    return _mergeStyleRanges(ranges);
+  }
+
+  final boundaries = <int>{start, end};
+  for (final range in annotation.styleRanges) {
+    if (range.start > start && range.start < end) boundaries.add(range.start);
+    if (range.end > start && range.end < end) boundaries.add(range.end);
+  }
+  final points = boundaries.toList()..sort();
+  for (var index = 0; index < points.length - 1; index++) {
+    ranges.add(
+      _styleRange(
+        start: points[index],
+        end: points[index + 1],
+        style: _resolveAnnotationStyleAt(annotation, points[index]).copyWith(
+          fontSize: fontSize,
+          bold: bold,
+          italic: italic,
+          strikethrough: strikethrough,
+        ),
+      ),
+    );
+  }
+  return _mergeStyleRanges(ranges);
+}
+
+WorkflowAnnotationTextStyleRange _styleRange({
+  required int start,
+  required int end,
+  required _AnnotationResolvedStyle style,
+}) => WorkflowAnnotationTextStyleRange(
+  start: start,
+  end: end,
+  fontSize: style.fontSize,
+  bold: style.bold,
+  italic: style.italic,
+  strikethrough: style.strikethrough,
+);
+
+List<WorkflowAnnotationTextStyleRange> _adjustStyleRangesForTextChange(
+  Iterable<WorkflowAnnotationTextStyleRange> ranges,
+  String previous,
+  String next,
+) {
+  if (previous == next) {
+    return List<WorkflowAnnotationTextStyleRange>.of(ranges);
+  }
+  var prefix = 0;
+  final prefixLimit = math.min(previous.length, next.length);
+  while (prefix < prefixLimit &&
+      previous.codeUnitAt(prefix) == next.codeUnitAt(prefix)) {
+    prefix++;
+  }
+  var suffix = 0;
+  final suffixLimit = math.min(previous.length - prefix, next.length - prefix);
+  while (suffix < suffixLimit &&
+      previous.codeUnitAt(previous.length - suffix - 1) ==
+          next.codeUnitAt(next.length - suffix - 1)) {
+    suffix++;
+  }
+  final previousEnd = previous.length - suffix;
+  final nextEnd = next.length - suffix;
+  final delta = next.length - previous.length;
+  final insertion = previousEnd == prefix && nextEnd > prefix;
+  final adjusted = <WorkflowAnnotationTextStyleRange>[];
+
+  for (final range in ranges) {
+    if (range.start == range.end && range.start == prefix && insertion) {
+      adjusted.add(range.copyWith(end: nextEnd));
+      continue;
+    }
+    if (range.end <= prefix) {
+      adjusted.add(range);
+      continue;
+    }
+    if (range.start >= previousEnd) {
+      adjusted.add(
+        range.copyWith(start: range.start + delta, end: range.end + delta),
+      );
+      continue;
+    }
+    if (insertion && range.start < prefix && range.end > prefix) {
+      adjusted.add(range.copyWith(end: range.end + delta));
+      continue;
+    }
+    if (range.start < prefix) {
+      adjusted.add(range.copyWith(end: prefix));
+    }
+    if (range.end > previousEnd) {
+      adjusted.add(range.copyWith(start: nextEnd, end: range.end + delta));
+    }
+  }
+  return _mergeStyleRanges(adjusted);
+}
+
+List<WorkflowAnnotationTextStyleRange> _mergeStyleRanges(
+  Iterable<WorkflowAnnotationTextStyleRange> ranges,
+) {
+  final sorted = ranges.toList()
+    ..sort((a, b) {
+      final startOrder = a.start.compareTo(b.start);
+      return startOrder != 0 ? startOrder : a.end.compareTo(b.end);
+    });
+  final merged = <WorkflowAnnotationTextStyleRange>[];
+  for (final range in sorted) {
+    final previous = merged.isEmpty ? null : merged.last;
+    if (previous != null &&
+        previous.end == range.start &&
+        previous.fontSize == range.fontSize &&
+        previous.bold == range.bold &&
+        previous.italic == range.italic &&
+        previous.strikethrough == range.strikethrough) {
+      merged[merged.length - 1] = previous.copyWith(end: range.end);
+    } else {
+      merged.add(range);
+    }
+  }
+  return merged;
+}
+
 class _AnnotationToolbar extends StatelessWidget {
   const _AnnotationToolbar({
     required this.annotation,
-    required this.onChanged,
+    required this.selectionStyle,
+    required this.onApplyTextStyle,
+    required this.onThemeChanged,
     required this.onToggleBullets,
     required this.onDuplicate,
     required this.onDelete,
   });
 
   final WorkflowAnnotation annotation;
-  final ValueChanged<WorkflowAnnotation> onChanged;
+  final _AnnotationResolvedStyle selectionStyle;
+  final void Function({
+    double? fontSize,
+    bool? bold,
+    bool? italic,
+    bool? strikethrough,
+  })
+  onApplyTextStyle;
+  final ValueChanged<WorkflowAnnotationTheme> onThemeChanged;
   final VoidCallback onToggleBullets;
   final VoidCallback onDuplicate;
   final VoidCallback onDelete;
@@ -329,8 +685,7 @@ class _AnnotationToolbar extends StatelessWidget {
               shape: const RoundedRectangleBorder(
                 borderRadius: kOpenHandBorderRadius12,
               ),
-              onSelected: (theme) =>
-                  onChanged(annotation.copyWith(theme: theme)),
+              onSelected: onThemeChanged,
               itemBuilder: (_) => WorkflowAnnotationTheme.values
                   .map(
                     (theme) => PopupMenuItem<WorkflowAnnotationTheme>(
@@ -378,8 +733,7 @@ class _AnnotationToolbar extends StatelessWidget {
               shape: const RoundedRectangleBorder(
                 borderRadius: kOpenHandBorderRadius12,
               ),
-              onSelected: (size) =>
-                  onChanged(annotation.copyWith(fontSize: size)),
+              onSelected: (size) => onApplyTextStyle(fontSize: size),
               itemBuilder: (_) =>
                   const <(double, String)>[
                         (14, '小号'),
@@ -402,23 +756,21 @@ class _AnnotationToolbar extends StatelessWidget {
             _AnnotationToolbarButton(
               tooltip: '粗体',
               icon: Icons.format_bold_rounded,
-              selected: annotation.bold,
-              onPressed: () =>
-                  onChanged(annotation.copyWith(bold: !annotation.bold)),
+              selected: selectionStyle.bold,
+              onPressed: () => onApplyTextStyle(bold: !selectionStyle.bold),
             ),
             _AnnotationToolbarButton(
               tooltip: '斜体',
               icon: Icons.format_italic_rounded,
-              selected: annotation.italic,
-              onPressed: () =>
-                  onChanged(annotation.copyWith(italic: !annotation.italic)),
+              selected: selectionStyle.italic,
+              onPressed: () => onApplyTextStyle(italic: !selectionStyle.italic),
             ),
             _AnnotationToolbarButton(
               tooltip: '删除线',
               icon: Icons.format_strikethrough_rounded,
-              selected: annotation.strikethrough,
-              onPressed: () => onChanged(
-                annotation.copyWith(strikethrough: !annotation.strikethrough),
+              selected: selectionStyle.strikethrough,
+              onPressed: () => onApplyTextStyle(
+                strikethrough: !selectionStyle.strikethrough,
               ),
             ),
             _AnnotationToolbarButton(

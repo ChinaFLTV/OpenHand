@@ -87,6 +87,73 @@ const double kWorkflowAnnotationDefaultFontSize = 18;
 const double kWorkflowAnnotationMinFontSize = 13;
 const double kWorkflowAnnotationMaxFontSize = 30;
 const int kWorkflowAnnotationMaxCharacters = 12000;
+const int kWorkflowAnnotationMaxStyleRanges = 2048;
+
+@immutable
+class WorkflowAnnotationTextStyleRange {
+  const WorkflowAnnotationTextStyleRange({
+    required this.start,
+    required this.end,
+    this.fontSize,
+    this.bold,
+    this.italic,
+    this.strikethrough,
+  });
+
+  factory WorkflowAnnotationTextStyleRange.fromJson(Map<String, Object?> json) {
+    final start = _nonNegativeInt(json['start']);
+    final end = _nonNegativeInt(json['end']);
+    if (start == null || end == null || end < start) {
+      throw const FormatException('工作流注释文本样式范围无效。');
+    }
+    final rawFontSize = _finiteDouble(json['font_size']);
+    return WorkflowAnnotationTextStyleRange(
+      start: start,
+      end: end,
+      fontSize: rawFontSize?.clamp(
+        kWorkflowAnnotationMinFontSize,
+        kWorkflowAnnotationMaxFontSize,
+      ),
+      bold: json['bold'] is bool ? json['bold'] as bool : null,
+      italic: json['italic'] is bool ? json['italic'] as bool : null,
+      strikethrough: json['strikethrough'] is bool
+          ? json['strikethrough'] as bool
+          : null,
+    );
+  }
+
+  final int start;
+  final int end;
+  final double? fontSize;
+  final bool? bold;
+  final bool? italic;
+  final bool? strikethrough;
+
+  WorkflowAnnotationTextStyleRange copyWith({
+    int? start,
+    int? end,
+    double? fontSize,
+    bool? bold,
+    bool? italic,
+    bool? strikethrough,
+  }) => WorkflowAnnotationTextStyleRange(
+    start: start ?? this.start,
+    end: end ?? this.end,
+    fontSize: fontSize ?? this.fontSize,
+    bold: bold ?? this.bold,
+    italic: italic ?? this.italic,
+    strikethrough: strikethrough ?? this.strikethrough,
+  );
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'start': start,
+    'end': end,
+    if (fontSize != null) 'font_size': fontSize,
+    if (bold != null) 'bold': bold,
+    if (italic != null) 'italic': italic,
+    if (strikethrough != null) 'strikethrough': strikethrough,
+  };
+}
 
 enum WorkflowHumanActionStyle {
   primary('primary'),
@@ -1613,6 +1680,7 @@ class WorkflowAnnotation {
     this.bold = false,
     this.italic = false,
     this.strikethrough = false,
+    this.styleRanges = const <WorkflowAnnotationTextStyleRange>[],
   });
 
   factory WorkflowAnnotation.fromJson(Map<String, Object?> json) {
@@ -1636,6 +1704,18 @@ class WorkflowAnnotation {
         _finiteDouble(json['height']) ?? kWorkflowAnnotationDefaultHeight;
     final fontSize =
         _finiteDouble(json['font_size']) ?? kWorkflowAnnotationDefaultFontSize;
+    final rawRanges = _mapList(json['style_ranges']);
+    if (rawRanges.length > kWorkflowAnnotationMaxStyleRanges) {
+      throw const FormatException('工作流注释文本样式范围过多。');
+    }
+    final styleRanges = <WorkflowAnnotationTextStyleRange>[];
+    for (final rangeJson in rawRanges) {
+      try {
+        styleRanges.add(WorkflowAnnotationTextStyleRange.fromJson(rangeJson));
+      } on FormatException {
+        // 忽略单个无效范围，保留注释正文可用。
+      }
+    }
     return WorkflowAnnotation(
       id: id,
       text: text,
@@ -1657,6 +1737,10 @@ class WorkflowAnnotation {
       bold: json['bold'] == true,
       italic: json['italic'] == true,
       strikethrough: json['strikethrough'] == true,
+      styleRanges: _normalizeWorkflowAnnotationStyleRanges(
+        styleRanges,
+        text.length,
+      ),
     );
   }
 
@@ -1671,6 +1755,7 @@ class WorkflowAnnotation {
   final bool bold;
   final bool italic;
   final bool strikethrough;
+  final List<WorkflowAnnotationTextStyleRange> styleRanges;
 
   WorkflowAnnotation copyWith({
     String? text,
@@ -1683,10 +1768,12 @@ class WorkflowAnnotation {
     bool? bold,
     bool? italic,
     bool? strikethrough,
+    List<WorkflowAnnotationTextStyleRange>? styleRanges,
   }) {
+    final nextText = text ?? this.text;
     return WorkflowAnnotation(
       id: id,
-      text: text ?? this.text,
+      text: nextText,
       x: x ?? this.x,
       y: y ?? this.y,
       width: width ?? this.width,
@@ -1696,6 +1783,10 @@ class WorkflowAnnotation {
       bold: bold ?? this.bold,
       italic: italic ?? this.italic,
       strikethrough: strikethrough ?? this.strikethrough,
+      styleRanges: _normalizeWorkflowAnnotationStyleRanges(
+        styleRanges ?? this.styleRanges,
+        nextText.length,
+      ),
     );
   }
 
@@ -1711,7 +1802,36 @@ class WorkflowAnnotation {
     'bold': bold,
     'italic': italic,
     'strikethrough': strikethrough,
+    if (styleRanges.isNotEmpty)
+      'style_ranges': styleRanges.map((range) => range.toJson()).toList(),
   };
+}
+
+List<WorkflowAnnotationTextStyleRange> _normalizeWorkflowAnnotationStyleRanges(
+  Iterable<WorkflowAnnotationTextStyleRange> ranges,
+  int textLength,
+) {
+  final normalized = <WorkflowAnnotationTextStyleRange>[];
+  for (final range in ranges) {
+    final start = range.start.clamp(0, textLength);
+    final end = range.end.clamp(start, textLength);
+    if (start == end && range.start != range.end) continue;
+    normalized.add(
+      range.copyWith(
+        start: start,
+        end: end,
+        fontSize: range.fontSize?.clamp(
+          kWorkflowAnnotationMinFontSize,
+          kWorkflowAnnotationMaxFontSize,
+        ),
+      ),
+    );
+  }
+  normalized.sort((a, b) {
+    final startOrder = a.start.compareTo(b.start);
+    return startOrder != 0 ? startOrder : a.end.compareTo(b.end);
+  });
+  return List<WorkflowAnnotationTextStyleRange>.unmodifiable(normalized);
 }
 
 List<WorkflowNode> normalizeWorkflowSystemOutputNames(
@@ -2191,4 +2311,9 @@ List<Map<String, Object?>> _mapList(Object? value) {
 double? _finiteDouble(Object? value) {
   final parsed = value is num ? value.toDouble() : double.tryParse('$value');
   return parsed?.isFinite == true ? parsed : null;
+}
+
+int? _nonNegativeInt(Object? value) {
+  final parsed = value is int ? value : int.tryParse('$value');
+  return parsed != null && parsed >= 0 ? parsed : null;
 }

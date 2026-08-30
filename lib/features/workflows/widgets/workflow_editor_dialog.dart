@@ -940,6 +940,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
       bold: source.bold,
       italic: source.italic,
       strikethrough: source.strikethrough,
+      styleRanges: source.styleRanges,
     );
     setState(() {
       _annotations = <WorkflowAnnotation>[..._annotations, duplicate];
