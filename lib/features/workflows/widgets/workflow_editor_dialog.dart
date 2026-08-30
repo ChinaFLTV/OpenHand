@@ -2906,6 +2906,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
           _synchronizeDevelopmentStartParameters(parameters: parameters),
       referencesFor: _developmentReferencesFor,
       ownerLabelFor: _developmentParameterOwnerLabel,
+      parameterTargets: _developmentParameterTargets(),
+      availableParameters: _developmentParameterCandidates(),
     );
     if (!mounted || parameters == null) return;
     setState(() => _developmentParameters = parameters);
@@ -2977,7 +2979,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   String _developmentParameterOwnerLabel(
     WorkflowDevelopmentParameter parameter,
   ) {
-    if (parameter.source == WorkflowDevelopmentParameterSource.manual) {
+    if (parameter.ownerNodeId == null) {
       return '临时参数';
     }
     final owner = _nodes
@@ -2986,6 +2988,43 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     final title = owner?.title.trim();
     final nodeTitle = title == null || title.isEmpty ? '未命名节点' : title;
     return nodeTitle;
+  }
+
+  List<WorkflowDevelopmentParameterTarget> _developmentParameterTargets() {
+    final targets = <WorkflowDevelopmentParameterTarget>[];
+    for (final node in _nodes) {
+      final title = node.title.trim().isEmpty ? '未命名节点' : node.title.trim();
+      if (node.inputParameterFields().isNotEmpty) {
+        targets.add(
+          WorkflowDevelopmentParameterTarget(
+            nodeId: node.id,
+            nodeLabel: title,
+            direction: WorkflowParameterDirection.input,
+          ),
+        );
+      }
+      if (node.outputParameterFields().isNotEmpty) {
+        targets.add(
+          WorkflowDevelopmentParameterTarget(
+            nodeId: node.id,
+            nodeLabel: title,
+            direction: WorkflowParameterDirection.output,
+          ),
+        );
+      }
+    }
+    return List<WorkflowDevelopmentParameterTarget>.unmodifiable(targets);
+  }
+
+  List<WorkflowParameterReference> _developmentParameterCandidates() {
+    final names = <String>{};
+    final references = <WorkflowParameterReference>[];
+    for (final node in _nodes) {
+      references.addAll(
+        collectWorkflowParameterReferences(node, usedNames: names),
+      );
+    }
+    return List<WorkflowParameterReference>.unmodifiable(references);
   }
 
   Map<String, Object?> _developmentVariables() {
@@ -3019,6 +3058,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         field: field,
         source: WorkflowDevelopmentParameterSource.nodeOutput,
         ownerNodeId: node.id,
+        direction: WorkflowParameterDirection.output,
         value: workflowDevelopmentParameterValueText(values[name]),
       );
       final existing = existingByName[name];

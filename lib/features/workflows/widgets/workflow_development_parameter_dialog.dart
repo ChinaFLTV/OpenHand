@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
@@ -13,11 +15,26 @@ import '../model/workflow_definition.dart';
 import '../service/workflow_development_parameters.dart';
 import 'workflow_parameter_reference_field.dart';
 
-const double _developmentParameterActionSize = 42;
+const double _developmentParameterActionSize = 44;
 const double _developmentParameterFieldHeight = 52;
 const double _developmentParameterListMaxHeight = 480;
 const RoundedRectangleBorder _developmentParameterButtonShape =
     RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius12);
+
+@immutable
+class WorkflowDevelopmentParameterTarget {
+  const WorkflowDevelopmentParameterTarget({
+    required this.nodeId,
+    required this.nodeLabel,
+    required this.direction,
+  });
+
+  final String nodeId;
+  final String nodeLabel;
+  final WorkflowParameterDirection direction;
+
+  String get label => '$nodeLabel - ${direction.label}';
+}
 
 Future<List<WorkflowDevelopmentParameter>?>
 showWorkflowDevelopmentParameterDialog(
@@ -33,6 +50,8 @@ showWorkflowDevelopmentParameterDialog(
   referencesFor,
   required String Function(WorkflowDevelopmentParameter parameter)
   ownerLabelFor,
+  List<WorkflowDevelopmentParameterTarget> parameterTargets = const [],
+  List<WorkflowParameterReference> availableParameters = const [],
 }) => showAnimatedDialog<List<WorkflowDevelopmentParameter>>(
   context: context,
   barrierDismissible: false,
@@ -42,6 +61,8 @@ showWorkflowDevelopmentParameterDialog(
     onRefresh: onRefresh,
     referencesFor: referencesFor,
     ownerLabelFor: ownerLabelFor,
+    parameterTargets: parameterTargets,
+    availableParameters: availableParameters,
   ),
 );
 
@@ -51,6 +72,8 @@ class _WorkflowDevelopmentParameterDialog extends StatefulWidget {
     required this.onRefresh,
     required this.referencesFor,
     required this.ownerLabelFor,
+    required this.parameterTargets,
+    required this.availableParameters,
   });
 
   final List<WorkflowDevelopmentParameter> parameters;
@@ -63,6 +86,8 @@ class _WorkflowDevelopmentParameterDialog extends StatefulWidget {
   )
   referencesFor;
   final String Function(WorkflowDevelopmentParameter parameter) ownerLabelFor;
+  final List<WorkflowDevelopmentParameterTarget> parameterTargets;
+  final List<WorkflowParameterReference> availableParameters;
 
   @override
   State<_WorkflowDevelopmentParameterDialog> createState() =>
@@ -71,10 +96,18 @@ class _WorkflowDevelopmentParameterDialog extends StatefulWidget {
 
 class _WorkflowDevelopmentParameterDialogState
     extends State<_WorkflowDevelopmentParameterDialog> {
+  late final List<WorkflowDevelopmentParameter> _initialParameters = List.of(
+    widget.parameters,
+  );
   late List<WorkflowDevelopmentParameter> _parameters = List.of(
     widget.parameters,
   );
   bool _refreshing = false;
+  bool _closeConfirmationOpen = false;
+  bool _validationRequested = false;
+
+  bool get _isDirty =>
+      !_sameDevelopmentParameters(_initialParameters, _parameters);
 
   Future<void> _refresh() async {
     if (_refreshing) return;
@@ -88,21 +121,21 @@ class _WorkflowDevelopmentParameterDialogState
   }
 
   Future<void> _addParameter() async {
-    final field = await _showCreateParameterDialog(
+    final target = await _showCreateParameterDialog(
       context,
-      usedNames: _parameters
-          .map((parameter) => parameter.name)
-          .where((name) => name.isNotEmpty)
-          .toSet(),
+      targets: widget.parameterTargets,
     );
-    if (!mounted || field == null) return;
+    if (!mounted || target == null) return;
+    final id = 'manual-${DateTime.now().microsecondsSinceEpoch}';
     setState(() {
       _parameters = <WorkflowDevelopmentParameter>[
         ..._parameters,
         WorkflowDevelopmentParameter(
-          id: 'manual-${DateTime.now().microsecondsSinceEpoch}',
-          field: field,
+          id: id,
+          field: WorkflowOutputField(id: id),
           source: WorkflowDevelopmentParameterSource.manual,
+          ownerNodeId: target.nodeId,
+          direction: target.direction,
         ),
       ];
     });
@@ -125,7 +158,69 @@ class _WorkflowDevelopmentParameterDialogState
     });
   }
 
-  void _close() => Navigator.of(context).pop(_parameters);
+  List<WorkflowParameterReference> _candidatesFor(
+    WorkflowDevelopmentParameter parameter,
+  ) {
+    final usedNames = _parameters
+        .where((item) => item.id != parameter.id)
+        .map((item) => item.name)
+        .where((name) => name.isNotEmpty)
+        .toSet();
+    return widget.availableParameters
+        .where((reference) => !usedNames.contains(reference.name))
+        .toList(growable: false);
+  }
+
+  String? _nameErrorFor(WorkflowDevelopmentParameter parameter) {
+    if (!parameter.isWorkflowDefined && parameter.name.isEmpty) {
+      return '请输入参数名称';
+    }
+    if (!workflowParameterNamePattern.hasMatch(parameter.name)) {
+      return '名称只能包含字母、数字和下划线，且不能以数字开头';
+    }
+    final duplicates = _parameters
+        .where((item) => item.name == parameter.name)
+        .length;
+    if (duplicates > 1) return '参数名称重复';
+    return null;
+  }
+
+  bool _hasValidationErrors() =>
+      _parameters.any((parameter) => _nameErrorFor(parameter) != null);
+
+  void _save() {
+    if (_hasValidationErrors()) {
+      setState(() => _validationRequested = true);
+      return;
+    }
+    Navigator.of(
+      context,
+    ).pop(List<WorkflowDevelopmentParameter>.of(_parameters));
+  }
+
+  Future<void> _close() async {
+    if (!_isDirty || _closeConfirmationOpen) {
+      if (!_isDirty) Navigator.of(context).pop();
+      return;
+    }
+    setState(() => _closeConfirmationOpen = true);
+    final discard = await showOpenHandConfirmDialog(
+      context: context,
+      title: '放弃未保存的参数修改？',
+      message: '参数列表中的修改尚未保存，关闭后将无法恢复。',
+      cancelLabel: '继续编辑',
+      confirmLabel: '放弃修改',
+      icon: Icon(
+        Icons.warning_amber_rounded,
+        color: Theme.of(context).colorScheme.error,
+      ),
+      destructive: true,
+      barrierDismissible: false,
+    );
+    if (!mounted) return;
+    setState(() => _closeConfirmationOpen = false);
+    if (discard) Navigator.of(context).pop();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -140,9 +235,7 @@ class _WorkflowDevelopmentParameterDialogState
       fixedSize: const Size.square(_developmentParameterActionSize),
       padding: EdgeInsets.zero,
       shape: _developmentParameterButtonShape,
-      backgroundColor: colors.surface,
-      foregroundColor: colors.onSurfaceVariant,
-      side: BorderSide(color: colors.outlineVariant),
+      shadowColor: Colors.transparent,
     );
     return buildOpenHandDialog(
       width: math.min(kOpenHandDialogWidthPanel, viewport.width - 36),
@@ -198,14 +291,16 @@ class _WorkflowDevelopmentParameterDialogState
                     ],
                   ),
                 ),
-                IconButton(
+                IconButton.filledTonal(
                   tooltip: '新增参数',
-                  onPressed: _addParameter,
+                  onPressed: widget.parameterTargets.isEmpty
+                      ? null
+                      : _addParameter,
                   style: actionStyle,
                   icon: const Icon(Icons.add_rounded),
                 ),
                 kOpenHandHGap8,
-                IconButton(
+                IconButton.filledTonal(
                   tooltip: '刷新参数列表',
                   onPressed: _refreshing ? null : _refresh,
                   style: actionStyle,
@@ -227,7 +322,14 @@ class _WorkflowDevelopmentParameterDialogState
                   ),
                 ),
                 kOpenHandHGap8,
-                IconButton(
+                IconButton.filledTonal(
+                  tooltip: '保存参数列表',
+                  onPressed: _isDirty ? _save : null,
+                  style: actionStyle,
+                  icon: const Icon(Icons.save_rounded),
+                ),
+                kOpenHandHGap8,
+                IconButton.filledTonal(
                   tooltip: '关闭',
                   onPressed: _close,
                   style: actionStyle,
@@ -255,23 +357,27 @@ class _WorkflowDevelopmentParameterDialogState
                           inputParameters: group.parameters
                               .where(
                                 (parameter) =>
-                                    parameter.source !=
-                                    WorkflowDevelopmentParameterSource
-                                        .nodeOutput,
+                                    parameter.direction ==
+                                    WorkflowParameterDirection.input,
                               )
                               .toList(growable: false),
                           outputParameters: group.parameters
                               .where(
                                 (parameter) =>
-                                    parameter.source ==
-                                    WorkflowDevelopmentParameterSource
-                                        .nodeOutput,
+                                    parameter.direction ==
+                                    WorkflowParameterDirection.output,
                               )
                               .toList(growable: false),
                           referencesFor: widget.referencesFor,
                           onValueChanged: (parameter, value) =>
                               _replace(parameter.copyWith(value: value)),
+                          onFieldChanged: (parameter, field) =>
+                              _replace(parameter.copyWith(field: field)),
                           onDelete: _delete,
+                          candidatesFor: _candidatesFor,
+                          nameErrorFor: _validationRequested
+                              ? _nameErrorFor
+                              : (_) => null,
                         );
                       },
                     ),
@@ -288,9 +394,7 @@ class _WorkflowDevelopmentParameterDialogState
   get _parameterGroups {
     final grouped = <String, List<WorkflowDevelopmentParameter>>{};
     for (final parameter in _parameters) {
-      final key = parameter.source == WorkflowDevelopmentParameterSource.manual
-          ? 'manual'
-          : parameter.ownerNodeId ?? parameter.id;
+      final key = parameter.ownerNodeId ?? parameter.id;
       grouped.putIfAbsent(key, () => []).add(parameter);
     }
     return grouped.entries
@@ -357,7 +461,10 @@ class _DevelopmentParameterNodeGroup extends StatelessWidget {
     required this.outputParameters,
     required this.referencesFor,
     required this.onValueChanged,
+    required this.onFieldChanged,
     required this.onDelete,
+    required this.candidatesFor,
+    required this.nameErrorFor,
   });
 
   final String nodeLabel;
@@ -369,7 +476,17 @@ class _DevelopmentParameterNodeGroup extends StatelessWidget {
   referencesFor;
   final void Function(WorkflowDevelopmentParameter parameter, String value)
   onValueChanged;
+  final void Function(
+    WorkflowDevelopmentParameter parameter,
+    WorkflowOutputField field,
+  )
+  onFieldChanged;
   final void Function(WorkflowDevelopmentParameter parameter) onDelete;
+  final List<WorkflowParameterReference> Function(
+    WorkflowDevelopmentParameter parameter,
+  )
+  candidatesFor;
+  final String? Function(WorkflowDevelopmentParameter parameter) nameErrorFor;
 
   @override
   Widget build(BuildContext context) {
@@ -425,7 +542,10 @@ class _DevelopmentParameterNodeGroup extends StatelessWidget {
               parameters: inputParameters,
               referencesFor: referencesFor,
               onValueChanged: onValueChanged,
+              onFieldChanged: onFieldChanged,
               onDelete: onDelete,
+              candidatesFor: candidatesFor,
+              nameErrorFor: nameErrorFor,
             ),
           ],
           if (outputParameters.isNotEmpty) ...[
@@ -436,7 +556,10 @@ class _DevelopmentParameterNodeGroup extends StatelessWidget {
               parameters: outputParameters,
               referencesFor: referencesFor,
               onValueChanged: onValueChanged,
+              onFieldChanged: onFieldChanged,
               onDelete: onDelete,
+              candidatesFor: candidatesFor,
+              nameErrorFor: nameErrorFor,
             ),
           ],
         ],
@@ -452,7 +575,10 @@ class _DevelopmentParameterSection extends StatelessWidget {
     required this.parameters,
     required this.referencesFor,
     required this.onValueChanged,
+    required this.onFieldChanged,
     required this.onDelete,
+    required this.candidatesFor,
+    required this.nameErrorFor,
   });
 
   final String title;
@@ -464,7 +590,17 @@ class _DevelopmentParameterSection extends StatelessWidget {
   referencesFor;
   final void Function(WorkflowDevelopmentParameter parameter, String value)
   onValueChanged;
+  final void Function(
+    WorkflowDevelopmentParameter parameter,
+    WorkflowOutputField field,
+  )
+  onFieldChanged;
   final void Function(WorkflowDevelopmentParameter parameter) onDelete;
+  final List<WorkflowParameterReference> Function(
+    WorkflowDevelopmentParameter parameter,
+  )
+  candidatesFor;
+  final String? Function(WorkflowDevelopmentParameter parameter) nameErrorFor;
 
   @override
   Widget build(BuildContext context) {
@@ -507,15 +643,16 @@ class _DevelopmentParameterSection extends StatelessWidget {
                 bottom: entry.$1 == parameters.length - 1 ? 0 : 8,
               ),
               child: _DevelopmentParameterItem(
-                key: ValueKey<String>(
-                  '${parameter.id}:${parameter.name}:${parameter.field.type.storageValue}:${parameter.field.description}',
-                ),
+                key: ValueKey<String>('development-parameter-${parameter.id}'),
                 parameter: parameter,
                 references: referencesFor(parameter),
                 onValueChanged: (value) => onValueChanged(parameter, value),
+                onFieldChanged: (field) => onFieldChanged(parameter, field),
                 onDelete: parameter.canDelete
                     ? () => onDelete(parameter)
                     : null,
+                candidates: candidatesFor(parameter),
+                nameError: nameErrorFor(parameter),
               ),
             );
           }),
@@ -531,12 +668,18 @@ class _DevelopmentParameterItem extends StatelessWidget {
     required this.parameter,
     required this.references,
     required this.onValueChanged,
+    required this.onFieldChanged,
+    required this.candidates,
+    required this.nameError,
     this.onDelete,
   });
 
   final WorkflowDevelopmentParameter parameter;
   final List<WorkflowParameterReference> references;
   final ValueChanged<String> onValueChanged;
+  final ValueChanged<WorkflowOutputField> onFieldChanged;
+  final List<WorkflowParameterReference> candidates;
+  final String? nameError;
   final VoidCallback? onDelete;
 
   @override
@@ -544,7 +687,14 @@ class _DevelopmentParameterItem extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final field = parameter.field;
-    final decoration = _developmentParameterInputDecoration(context);
+    final decoration = _developmentParameterInputDecoration(
+      context,
+      enabled: !parameter.isWorkflowDefined,
+    );
+    final readOnlyDecoration = _developmentParameterInputDecoration(
+      context,
+      enabled: false,
+    );
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -562,35 +712,69 @@ class _DevelopmentParameterItem extends StatelessWidget {
               fixedSize: const Size.square(_developmentParameterFieldHeight),
               padding: EdgeInsets.zero,
               shape: _developmentParameterButtonShape,
+              disabledBackgroundColor: colors.surfaceContainerHighest,
+              disabledForegroundColor: colors.onSurface.withValues(alpha: 0.32),
             ),
             icon: const Icon(Icons.delete_outline_rounded, size: 20),
           );
-          final nameField = TextFormField(
-            initialValue: field.name,
-            enabled: false,
-            decoration: decoration.copyWith(labelText: '参数名称'),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontFamily: kOpenHandMonospaceFontFamily,
-              fontWeight: FontWeight.w800,
+          final nameField = _DevelopmentParameterNameField(
+            parameter: parameter,
+            candidates: candidates,
+            enabled: !parameter.isWorkflowDefined,
+            errorText: nameError,
+            onChanged: (name) => onFieldChanged(field.copyWith(name: name)),
+            onSelected: (reference) => onFieldChanged(
+              field.copyWith(
+                name: reference.name,
+                type: reference.field.type,
+                description: reference.field.description,
+              ),
             ),
           );
-          final typeField = TextFormField(
-            initialValue: field.type.storageValue,
-            enabled: false,
-            decoration: decoration.copyWith(labelText: '类型'),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontFamily: kOpenHandMonospaceFontFamily,
-            ),
-          );
+          final typeField = parameter.isWorkflowDefined
+              ? TextFormField(
+                  initialValue: field.type.storageValue,
+                  enabled: false,
+                  decoration: readOnlyDecoration.copyWith(labelText: '类型'),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontFamily: kOpenHandMonospaceFontFamily,
+                    fontWeight: FontWeight.w800,
+                  ),
+                )
+              : DropdownButtonFormField<WorkflowOutputType>(
+                  initialValue: field.type,
+                  isExpanded: true,
+                  decoration: decoration.copyWith(labelText: '类型'),
+                  items: WorkflowOutputType.values
+                      .map(
+                        (type) => DropdownMenuItem<WorkflowOutputType>(
+                          value: type,
+                          child: Text(type.storageValue),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: (type) {
+                    if (type != null) {
+                      onFieldChanged(field.copyWith(type: type));
+                    }
+                  },
+                );
           final descriptionField = TextFormField(
             initialValue: field.description,
-            enabled: false,
-            decoration: decoration.copyWith(labelText: '参数介绍'),
+            enabled: !parameter.isWorkflowDefined,
+            onChanged: (description) =>
+                onFieldChanged(field.copyWith(description: description)),
+            decoration:
+                (parameter.isWorkflowDefined ? readOnlyDecoration : decoration)
+                    .copyWith(labelText: '参数介绍'),
           );
           final requiredField = _DevelopmentParameterMeta(
             label: '必需',
             selected: field.required,
             width: 82,
+            enabled: !parameter.isWorkflowDefined,
+            onChanged: (selected) =>
+                onFieldChanged(field.copyWith(required: selected)),
           );
           final sourceField = _DevelopmentParameterMeta(
             label: field.valueSource == WorkflowValueSource.constant
@@ -598,6 +782,14 @@ class _DevelopmentParameterItem extends StatelessWidget {
                 : '变量',
             selected: field.valueSource == WorkflowValueSource.constant,
             width: 82,
+            enabled: !parameter.isWorkflowDefined,
+            onChanged: (selected) => onFieldChanged(
+              field.copyWith(
+                valueSource: selected
+                    ? WorkflowValueSource.constant
+                    : WorkflowValueSource.variable,
+              ),
+            ),
           );
           final descriptionRow = Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -690,11 +882,15 @@ class _DevelopmentParameterMeta extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.width,
+    required this.enabled,
+    required this.onChanged,
   });
 
   final String label;
   final bool selected;
   final double width;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -706,20 +902,24 @@ class _DevelopmentParameterMeta extends StatelessWidget {
       width: width,
       height: _developmentParameterFieldHeight,
       child: OutlinedButton(
-        onPressed: null,
+        onPressed: enabled ? () => onChanged(!selected) : null,
         style: OutlinedButton.styleFrom(
           minimumSize: Size.zero,
           padding: EdgeInsets.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           foregroundColor: foreground,
-          disabledForegroundColor: foreground,
+          disabledForegroundColor: colors.onSurface.withValues(alpha: 0.38),
           backgroundColor: selected
-              ? colors.primaryContainer
-              : colors.surfaceContainerLow,
+              ? (enabled
+                    ? colors.primaryContainer
+                    : colors.surfaceContainerHighest)
+              : (enabled
+                    ? colors.surfaceContainerLow
+                    : colors.surfaceContainerHighest),
           side: BorderSide(
-            color: selected
+            color: enabled && selected
                 ? colors.primary.withValues(alpha: 0.5)
-                : colors.outlineVariant,
+                : colors.outlineVariant.withValues(alpha: enabled ? 1 : 0.6),
           ),
           shape: _developmentParameterButtonShape,
         ),
@@ -729,28 +929,198 @@ class _DevelopmentParameterMeta extends StatelessWidget {
   }
 }
 
-InputDecoration _developmentParameterInputDecoration(BuildContext context) =>
-    InputDecoration(
-      isDense: true,
-      filled: true,
-      fillColor: Theme.of(context).colorScheme.surface,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(kOpenHandRadius12),
+InputDecoration _developmentParameterInputDecoration(
+  BuildContext context, {
+  bool enabled = true,
+}) {
+  final colors = Theme.of(context).colorScheme;
+  return InputDecoration(
+    isDense: true,
+    filled: true,
+    fillColor: enabled ? colors.surface : colors.surfaceContainerHighest,
+    labelStyle: enabled
+        ? null
+        : TextStyle(color: colors.onSurface.withValues(alpha: 0.52)),
+    floatingLabelStyle: enabled
+        ? null
+        : TextStyle(color: colors.onSurface.withValues(alpha: 0.52)),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(kOpenHandRadius12),
+    ),
+  );
+}
+
+class _DevelopmentParameterNameField extends StatelessWidget {
+  const _DevelopmentParameterNameField({
+    required this.parameter,
+    required this.candidates,
+    required this.enabled,
+    required this.errorText,
+    required this.onChanged,
+    required this.onSelected,
+  });
+
+  final WorkflowDevelopmentParameter parameter;
+  final List<WorkflowParameterReference> candidates;
+  final bool enabled;
+  final String? errorText;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<WorkflowParameterReference> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final decoration = _developmentParameterInputDecoration(
+      context,
+      enabled: enabled,
+    ).copyWith(labelText: '参数名称', errorText: errorText);
+    if (!enabled) {
+      return TextFormField(
+        initialValue: parameter.name,
+        enabled: false,
+        decoration: decoration,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          fontFamily: kOpenHandMonospaceFontFamily,
+          fontWeight: FontWeight.w800,
+        ),
+      );
+    }
+    return Autocomplete<WorkflowParameterReference>(
+      displayStringForOption: (reference) => reference.name,
+      optionsBuilder: (value) {
+        final query = value.text.trim().toLowerCase();
+        return candidates.where(
+          (reference) =>
+              query.isEmpty || reference.name.toLowerCase().contains(query),
+        );
+      },
+      onSelected: onSelected,
+      fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
+        if (controller.text != parameter.name) {
+          controller.value = TextEditingValue(
+            text: parameter.name,
+            selection: TextSelection.collapsed(offset: parameter.name.length),
+          );
+        }
+        return TextFormField(
+          controller: controller,
+          focusNode: focusNode,
+          maxLength: 64,
+          buildCounter: openHandHiddenTextFieldCounter,
+          onChanged: onChanged,
+          decoration: decoration,
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) => Align(
+        alignment: Alignment.topLeft,
+        child: Material(
+          elevation: 8,
+          borderRadius: BorderRadius.circular(kOpenHandRadius12),
+          clipBehavior: Clip.antiAlias,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 280, minWidth: 360),
+            child: ListView.builder(
+              padding: const EdgeInsets.all(6),
+              shrinkWrap: true,
+              itemCount: options.length,
+              itemBuilder: (context, index) {
+                final reference = options.elementAt(index);
+                final accent = Theme.of(context).colorScheme.primary;
+                return InkWell(
+                  onTap: () => onSelected(reference),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius9),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                reference.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              Wrap(
+                                spacing: 4,
+                                runSpacing: 3,
+                                children: [
+                                  _ReferenceTag(label: reference.nodeTitle),
+                                  _ReferenceTag(
+                                    label: reference.direction.label,
+                                    accent: accent,
+                                  ),
+                                  _ReferenceTag(
+                                    label: reference.field.type.storageValue,
+                                  ),
+                                  if (reference.field.description
+                                      .trim()
+                                      .isNotEmpty)
+                                    _ReferenceTag(
+                                      label: reference.field.description.trim(),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
       ),
     );
+  }
+}
 
-Future<WorkflowOutputField?> _showCreateParameterDialog(
+class _ReferenceTag extends StatelessWidget {
+  const _ReferenceTag({required this.label, this.accent});
+
+  final String label;
+  final Color? accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final color = accent ?? colors.onSurfaceVariant;
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 180),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: kOpenHandPillBorderRadius,
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
+      ),
+    );
+  }
+}
+
+Future<WorkflowDevelopmentParameterTarget?> _showCreateParameterDialog(
   BuildContext context, {
-  required Set<String> usedNames,
-}) => showAnimatedDialog<WorkflowOutputField>(
+  required List<WorkflowDevelopmentParameterTarget> targets,
+}) => showAnimatedDialog<WorkflowDevelopmentParameterTarget>(
   context: context,
-  builder: (_) => _CreateDevelopmentParameterDialog(usedNames: usedNames),
+  builder: (_) => _CreateDevelopmentParameterDialog(targets: targets),
 );
 
 class _CreateDevelopmentParameterDialog extends StatefulWidget {
-  const _CreateDevelopmentParameterDialog({required this.usedNames});
+  const _CreateDevelopmentParameterDialog({required this.targets});
 
-  final Set<String> usedNames;
+  final List<WorkflowDevelopmentParameterTarget> targets;
 
   @override
   State<_CreateDevelopmentParameterDialog> createState() =>
@@ -759,46 +1129,19 @@ class _CreateDevelopmentParameterDialog extends StatefulWidget {
 
 class _CreateDevelopmentParameterDialogState
     extends State<_CreateDevelopmentParameterDialog> {
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
-  WorkflowOutputType _type = WorkflowOutputType.string;
-  bool _required = false;
-  String? _error;
+  WorkflowDevelopmentParameterTarget? _target;
 
   @override
-  void dispose() {
-    _nameController.dispose();
-    _descriptionController.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final name = _nameController.text.trim();
-    if (!workflowParameterNamePattern.hasMatch(name)) {
-      setState(() => _error = '参数名称须以英文字母或下划线开头，仅包含字母、数字和下划线。');
-      return;
-    }
-    if (widget.usedNames.contains(name)) {
-      setState(() => _error = '参数“$name”已存在。');
-      return;
-    }
-    Navigator.of(context).pop(
-      WorkflowOutputField(
-        id: 'manual-${DateTime.now().microsecondsSinceEpoch}',
-        name: name,
-        description: _descriptionController.text.trim(),
-        type: _type,
-        required: _required,
-      ),
-    );
+  void initState() {
+    super.initState();
+    _target = widget.targets.firstOrNull;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = theme.colorScheme;
     return buildOpenHandDialog(
-      width: 620,
+      width: 520,
       insetPadding: const EdgeInsets.all(24),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
@@ -806,130 +1149,41 @@ class _CreateDevelopmentParameterDialogState
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: colors.primaryContainer,
-                    borderRadius: BorderRadius.circular(kOpenHandRadius12),
-                  ),
-                  child: Icon(
-                    Icons.add_chart_rounded,
-                    color: colors.onPrimaryContainer,
-                  ),
-                ),
-                kOpenHandHGap12,
-                Expanded(
-                  child: Text(
-                    '新增临时参数',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: '关闭',
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: IconButton.styleFrom(
-                    fixedSize: const Size.square(
-                      _developmentParameterActionSize,
-                    ),
-                    padding: EdgeInsets.zero,
-                    shape: _developmentParameterButtonShape,
-                  ),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
+            Text(
+              '新增参数',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
             ),
             kOpenHandGap18,
-            TextField(
-              controller: _nameController,
-              autofocus: true,
-              maxLength: 64,
-              buildCounter: openHandHiddenTextFieldCounter,
-              onChanged: (_) {
-                if (_error != null) setState(() => _error = null);
-              },
-              decoration: _developmentParameterInputDecoration(context)
-                  .copyWith(
-                    labelText: '参数名称',
-                    hintText: '例如：test_token',
-                    errorText: _error,
-                  ),
-            ),
-            kOpenHandGap10,
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final compact = constraints.maxWidth < 460;
-                final typeField = DropdownButtonFormField<WorkflowOutputType>(
-                  initialValue: _type,
-                  isExpanded: true,
-                  decoration: _developmentParameterInputDecoration(
-                    context,
-                  ).copyWith(labelText: '类型'),
-                  items: WorkflowOutputType.values
-                      .map(
-                        (type) => DropdownMenuItem<WorkflowOutputType>(
-                          value: type,
-                          child: Text(type.storageValue),
-                        ),
-                      )
-                      .toList(growable: false),
-                  onChanged: (type) =>
-                      setState(() => _type = type ?? WorkflowOutputType.string),
-                );
-                final requiredField = SwitchListTile.adaptive(
-                  value: _required,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-                  title: const Text('必需参数'),
-                  onChanged: (value) => setState(() => _required = value),
-                  shape: RoundedRectangleBorder(
-                    side: BorderSide(color: colors.outlineVariant),
-                    borderRadius: BorderRadius.circular(kOpenHandRadius12),
-                  ),
-                );
-                return compact
-                    ? Column(
-                        children: [typeField, kOpenHandGap8, requiredField],
-                      )
-                    : Row(
-                        children: [
-                          Expanded(child: typeField),
-                          kOpenHandHGap10,
-                          Expanded(child: requiredField),
-                        ],
-                      );
-              },
-            ),
-            kOpenHandGap10,
-            TextField(
-              controller: _descriptionController,
-              maxLength: 120,
-              buildCounter: openHandHiddenTextFieldCounter,
+            DropdownButtonFormField<WorkflowDevelopmentParameterTarget>(
+              initialValue: _target,
+              isExpanded: true,
               decoration: _developmentParameterInputDecoration(
                 context,
-              ).copyWith(labelText: '参数介绍', hintText: '可选，说明参数的用途'),
+              ).copyWith(labelText: '添加到'),
+              items: widget.targets
+                  .map(
+                    (target) => DropdownMenuItem(
+                      value: target,
+                      child: Text(target.label),
+                    ),
+                  )
+                  .toList(growable: false),
+              onChanged: (target) => setState(() => _target = target),
             ),
             kOpenHandGap18,
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                OutlinedButton(
+            buildOpenHandDialogActionsBar(
+              actions: [
+                OpenHandDialogActionButton.secondary(
+                  label: '取消',
                   onPressed: () => Navigator.of(context).pop(),
-                  style: OutlinedButton.styleFrom(
-                    shape: _developmentParameterButtonShape,
-                  ),
-                  child: const Text('取消'),
                 ),
-                kOpenHandHGap10,
-                FilledButton(
-                  onPressed: _submit,
-                  style: FilledButton.styleFrom(
-                    shape: _developmentParameterButtonShape,
-                  ),
-                  child: const Text('添加参数'),
+                OpenHandDialogActionButton.primary(
+                  label: '确认添加',
+                  onPressed: _target == null
+                      ? null
+                      : () => Navigator.of(context).pop(_target),
                 ),
               ],
             ),
@@ -938,4 +1192,31 @@ class _CreateDevelopmentParameterDialogState
       ),
     );
   }
+}
+
+bool _sameDevelopmentParameters(
+  List<WorkflowDevelopmentParameter> left,
+  List<WorkflowDevelopmentParameter> right,
+) {
+  if (left.length != right.length) return false;
+  for (var index = 0; index < left.length; index++) {
+    final a = left[index];
+    final b = right[index];
+    if (a.id != b.id ||
+        a.ownerNodeId != b.ownerNodeId ||
+        a.source != b.source ||
+        a.direction != b.direction ||
+        a.value != b.value ||
+        a.field.name != b.field.name ||
+        a.field.description != b.field.description ||
+        a.field.type != b.field.type ||
+        a.field.required != b.field.required ||
+        a.field.value != b.field.value ||
+        a.field.valueMode != b.field.valueMode ||
+        a.field.defaultValue != b.field.defaultValue ||
+        a.field.valueSource != b.field.valueSource) {
+      return false;
+    }
+  }
+  return true;
 }

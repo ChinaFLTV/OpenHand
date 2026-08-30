@@ -14,6 +14,7 @@ class WorkflowDevelopmentParameter {
     required this.field,
     required this.source,
     this.ownerNodeId,
+    this.direction = WorkflowParameterDirection.input,
     this.value = '',
   });
 
@@ -21,19 +22,24 @@ class WorkflowDevelopmentParameter {
   final WorkflowOutputField field;
   final WorkflowDevelopmentParameterSource source;
   final String? ownerNodeId;
+  final WorkflowParameterDirection direction;
   final String value;
 
   String get name => field.name.trim();
+  bool get isWorkflowDefined =>
+      source != WorkflowDevelopmentParameterSource.manual;
   bool get canDelete => source != WorkflowDevelopmentParameterSource.startInput;
 
   WorkflowDevelopmentParameter copyWith({
     WorkflowOutputField? field,
+    WorkflowParameterDirection? direction,
     String? value,
   }) => WorkflowDevelopmentParameter(
     id: id,
     field: field ?? this.field,
     source: source,
     ownerNodeId: ownerNodeId,
+    direction: direction ?? this.direction,
     value: value ?? this.value,
   );
 }
@@ -50,7 +56,12 @@ synchronizeWorkflowDevelopmentStartParameters({
   };
   final startParameters = startNode.inputFields().map((field) {
     final existing = existingInputs[_developmentParameterFieldKey(field)];
-    if (existing != null) return existing.copyWith(field: field);
+    if (existing != null) {
+      return existing.copyWith(
+        field: field,
+        direction: WorkflowParameterDirection.input,
+      );
+    }
     return WorkflowDevelopmentParameter(
       id: 'start-${_developmentParameterFieldKey(field)}',
       field: field,
