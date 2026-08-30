@@ -17,7 +17,7 @@ const int _lastReferenceMarker = 0xF8FF;
 const double _referenceMenuGap = 8;
 const double _referenceMenuMargin = 12;
 const double _referenceMenuHeaderExtent = 32;
-const double _referenceMenuItemExtent = 44;
+const double _referenceMenuItemExtent = 52;
 
 class WorkflowParameterReferenceField extends StatefulWidget {
   const WorkflowParameterReferenceField({
@@ -859,7 +859,8 @@ class _WorkflowReferenceMenuItem extends StatelessWidget {
         button: true,
         selected: selected,
         label:
-            '${reference.nodeTitle}，${reference.name}，${reference.field.type.label}',
+            '${reference.nodeTitle}，${reference.name}，${reference.field.type.label}'
+            '${description.isEmpty ? '' : '，$description'}',
         child: AnimatedContainer(
           duration: openHandMotionDuration(context, kOpenHandMotion160),
           curve: Curves.easeOutCubic,
@@ -877,58 +878,80 @@ class _WorkflowReferenceMenuItem extends StatelessWidget {
                 if (hovering) onHover();
               },
               borderRadius: BorderRadius.circular(kOpenHandRadius9),
-              child: Tooltip(
-                message: description.isEmpty
-                    ? '${reference.nodeTitle} · ${reference.name}'
-                    : '${reference.nodeTitle} · ${reference.name}\n$description',
-                waitDuration: const Duration(milliseconds: 650),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 9),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 25,
-                        height: 25,
-                        decoration: BoxDecoration(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 9),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(kOpenHandRadius7),
+                        border: Border.all(
                           color: theme.colorScheme.primary.withValues(
-                            alpha: 0.1,
+                            alpha: 0.18,
                           ),
-                          borderRadius: BorderRadius.circular(kOpenHandRadius7),
-                          border: Border.all(
-                            color: theme.colorScheme.primary.withValues(
-                              alpha: 0.18,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.data_object_rounded,
+                        size: 16,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                    kOpenHandHGap8,
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            reference.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              height: 1.1,
                             ),
                           ),
-                        ),
-                        child: Icon(
-                          Icons.data_object_rounded,
-                          size: 15,
-                          color: theme.colorScheme.primary,
-                        ),
+                          if (description.isNotEmpty)
+                            Text(
+                              description,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                height: 1.15,
+                              ),
+                            ),
+                        ],
                       ),
-                      kOpenHandHGap8,
-                      Expanded(
-                        child: Text(
-                          reference.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                    ),
+                    kOpenHandHGap8,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 3,
                       ),
-                      kOpenHandHGap10,
-                      Text(
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.secondaryContainer.withValues(
+                          alpha: 0.58,
+                        ),
+                        borderRadius: kOpenHandPillBorderRadius,
+                      ),
+                      child: Text(
                         reference.field.type.label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSecondaryContainer,
+                          fontWeight: FontWeight.w700,
+                          height: 1.1,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),

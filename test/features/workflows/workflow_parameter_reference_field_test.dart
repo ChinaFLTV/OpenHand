@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -76,6 +77,23 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text('上游节点'), findsNothing);
+  });
+
+  testWidgets('悬停参数项时不创建冲突的嵌套浮层', (tester) async {
+    await _pumpReferenceField(tester);
+    await tester.enterText(find.byType(TextField).first, '/');
+    await tester.pump();
+    expect(find.text('执行结果'), findsOneWidget);
+    expect(find.byType(Tooltip), findsNothing);
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(find.text('result')));
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
   });
 }
 
