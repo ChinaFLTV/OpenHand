@@ -2034,7 +2034,7 @@ abstract interface class _OpenHandEscapeLayer {
 
 /// 在应用启动时挂上键盘通道，避免首个弹窗出现前原生 ESC 无人接收。
 void ensureOpenHandEscapeHandlingInitialized() {
-  _OpenHandEscapeDispatcher.instance;
+  _OpenHandEscapeDispatcher.instance._syncNativeCapture();
 }
 
 /// 统一调度 Flutter 与 macOS 原生 ESC 事件，只关闭最顶层弹窗或浮层。

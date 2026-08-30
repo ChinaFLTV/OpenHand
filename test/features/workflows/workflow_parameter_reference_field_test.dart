@@ -22,7 +22,6 @@ const _outputReference = WorkflowParameterReference(
     name: 'result',
     description: '执行结果',
   ),
-  direction: WorkflowParameterDirection.output,
 );
 
 void main() {

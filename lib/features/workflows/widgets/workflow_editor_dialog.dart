@@ -28,9 +28,11 @@ import '../../skills/index.dart';
 import '../model/workflow_definition.dart';
 import '../service/workflow_auto_layout.dart';
 import '../service/workflow_code_executor.dart';
+import '../service/workflow_development_parameters.dart';
 import '../service/workflow_node_executor.dart';
 import '../workflow_node_presentation.dart';
 import 'workflow_annotation_card.dart';
+import 'workflow_development_parameter_dialog.dart';
 import 'workflow_human_intervention_dialog.dart';
 import 'workflow_minimap.dart';
 import 'workflow_node_configuration_panel.dart';
@@ -189,6 +191,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
       _normalizeWorkflowAnnotationsForCanvas(
         widget.workflow?.annotations ?? const <WorkflowAnnotation>[],
       );
+  late List<WorkflowDevelopmentParameter> _developmentParameters;
   String? _selectedNodeId;
   String? _selectedConnectionId;
   String? _selectedAnnotationId;
@@ -245,6 +248,18 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         ),
       ),
     );
+    final startNode = _nodes
+        .where(
+          (node) =>
+              node.parentNodeId == null && node.kind == WorkflowNodeKind.start,
+        )
+        .firstOrNull;
+    _developmentParameters = startNode == null
+        ? <WorkflowDevelopmentParameter>[]
+        : synchronizeWorkflowDevelopmentStartParameters(
+            parameters: const <WorkflowDevelopmentParameter>[],
+            startNode: startNode,
+          );
     _initialDraftFingerprint = _currentDraftFingerprint();
     _history = <_WorkflowHistoryEntry>[
       _WorkflowHistoryEntry(
@@ -327,6 +342,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                                     _selectedNodeId = null;
                                   }),
                                   onDelete: _deleteSelectedNode,
+                                  onRun: _testSelectedNode,
                                   onTest: _testSelectedNode,
                                   testing: _testing,
                                   testResult: _testResult,
@@ -433,6 +449,13 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                       key: ValueKey<String>('workflow-idle'),
                     ),
             ),
+          ),
+          kOpenHandHGap8,
+          IconButton.filledTonal(
+            tooltip: '参数列表',
+            onPressed: _workflowTesting ? null : _showDevelopmentParameters,
+            style: actionStyle,
+            icon: const Icon(Icons.tune_rounded),
           ),
           if (widget.workflow != null && widget.onRename != null) ...[
             kOpenHandHGap8,
@@ -2872,9 +2895,147 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     }
   }
 
+  Future<void> _showDevelopmentParameters() async {
+    if (_workflowTesting) return;
+    _synchronizeDevelopmentStartParameters();
+    final parameters = await showWorkflowDevelopmentParameterDialog(
+      context,
+      parameters: _developmentParameters,
+      onRefresh: (parameters) =>
+          _synchronizeDevelopmentStartParameters(parameters: parameters),
+      referencesFor: _developmentReferencesFor,
+      ownerLabelFor: _developmentParameterOwnerLabel,
+    );
+    if (!mounted || parameters == null) return;
+    setState(() => _developmentParameters = parameters);
+  }
+
+  List<WorkflowDevelopmentParameter> _synchronizeDevelopmentStartParameters({
+    List<WorkflowDevelopmentParameter>? parameters,
+  }) {
+    final current = parameters ?? _developmentParameters;
+    final startNode = _nodes
+        .where(
+          (node) =>
+              node.parentNodeId == null && node.kind == WorkflowNodeKind.start,
+        )
+        .firstOrNull;
+    final synchronized = startNode == null
+        ? current
+              .where(
+                (parameter) =>
+                    parameter.source !=
+                    WorkflowDevelopmentParameterSource.startInput,
+              )
+              .toList(growable: false)
+        : synchronizeWorkflowDevelopmentStartParameters(
+            parameters: current,
+            startNode: startNode,
+          );
+    final nodeIds = _nodes.map((node) => node.id).toSet();
+    final currentFields = <String, Set<String>>{
+      for (final node in _nodes)
+        node.id: node
+            .outputParameterFields()
+            .map((field) => field.name.trim())
+            .where((name) => name.isNotEmpty)
+            .toSet(),
+    };
+    final valid = synchronized
+        .where((parameter) {
+          if (parameter.source !=
+              WorkflowDevelopmentParameterSource.nodeOutput) {
+            return true;
+          }
+          final ownerId = parameter.ownerNodeId;
+          return ownerId != null &&
+              nodeIds.contains(ownerId) &&
+              currentFields[ownerId]!.contains(parameter.name);
+        })
+        .toList(growable: false);
+    if (parameters == null) {
+      setState(() => _developmentParameters = valid);
+    }
+    return valid;
+  }
+
+  List<WorkflowParameterReference> _developmentReferencesFor(
+    WorkflowDevelopmentParameter parameter,
+  ) {
+    final ownerNodeId = parameter.ownerNodeId;
+    if (ownerNodeId == null ||
+        parameter.source == WorkflowDevelopmentParameterSource.startInput) {
+      return const <WorkflowParameterReference>[];
+    }
+    final owner = _nodes.where((node) => node.id == ownerNodeId).firstOrNull;
+    return owner == null
+        ? const <WorkflowParameterReference>[]
+        : _availableReferencesFor(owner);
+  }
+
+  String _developmentParameterOwnerLabel(
+    WorkflowDevelopmentParameter parameter,
+  ) {
+    if (parameter.source == WorkflowDevelopmentParameterSource.manual) {
+      return '临时参数';
+    }
+    final owner = _nodes
+        .where((node) => node.id == parameter.ownerNodeId)
+        .firstOrNull;
+    final title = owner?.title.trim();
+    final nodeTitle = title == null || title.isEmpty ? '未命名节点' : title;
+    return parameter.source == WorkflowDevelopmentParameterSource.startInput
+        ? '$nodeTitle 输入'
+        : '$nodeTitle 输出';
+  }
+
+  Map<String, Object?> _developmentVariables() {
+    return resolveWorkflowDevelopmentParameterValues(_developmentParameters);
+  }
+
+  void _mergeDevelopmentNodeOutput(
+    WorkflowNode node,
+    WorkflowNodeExecutionResult result,
+  ) {
+    final outputFields = node.outputParameterFields();
+    if (outputFields.isEmpty) return;
+    final values = <String, Object?>{};
+    if (result.output case final Map output) {
+      for (final entry in output.entries) {
+        values['${entry.key}'] = entry.value;
+      }
+    } else if (outputFields.length == 1) {
+      values[outputFields.single.name.trim()] = result.output;
+    }
+    if (values.isEmpty) return;
+    final existingByName = <String, WorkflowDevelopmentParameter>{
+      for (final parameter in _developmentParameters) parameter.name: parameter,
+    };
+    final next = List<WorkflowDevelopmentParameter>.of(_developmentParameters);
+    for (final field in outputFields) {
+      final name = field.name.trim();
+      if (name.isEmpty || !values.containsKey(name)) continue;
+      final parameter = WorkflowDevelopmentParameter(
+        id: 'output-${node.id}-${field.id}',
+        field: field,
+        source: WorkflowDevelopmentParameterSource.nodeOutput,
+        ownerNodeId: node.id,
+        value: workflowDevelopmentParameterValueText(values[name]),
+      );
+      final existing = existingByName[name];
+      if (existing == null) {
+        next.add(parameter);
+      } else {
+        next[next.indexWhere((item) => item.id == existing.id)] = parameter;
+      }
+    }
+    _developmentParameters = next;
+  }
+
   Future<void> _testSelectedNode() async {
     final node = _selectedNode;
     if (node == null || _testing || _workflowTesting) return;
+    _synchronizeDevelopmentStartParameters();
     setState(() {
       _testing = true;
       _testResult = null;
@@ -2887,10 +3048,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         workflowNodes: _nodes,
         workflowConnections: _connections,
         resources: _buildExecutionResources(),
-        variables: _testVariablesFor(node),
+        variables: _developmentVariables(),
       );
       if (!mounted) return;
       setState(() {
+        _mergeDevelopmentNodeOutput(node, result);
         _testResult = _formatExecutionResult(result);
         _testError = null;
         _testStatus = _workflowTestResultStatus(result);
@@ -3922,41 +4084,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     return _nodes
         .where((node) => node.parentNodeId == container.id)
         .expand(
-          (node) => collectWorkflowParameterReferences(
-            node,
-            usedNames: names,
-          ),
+          (node) => collectWorkflowParameterReferences(node, usedNames: names),
         )
         .toList(growable: false);
-  }
-
-  Map<String, Object?> _testVariablesFor(WorkflowNode node) {
-    final values = <String, Object?>{
-      'input': '测试输入',
-      'status': 'success',
-      'value': 'demo',
-      'items': <Object?>['第一项', '第二项'],
-    };
-    for (final reference in _availableReferencesFor(node)) {
-      values.putIfAbsent(
-        reference.name,
-        () => switch (reference.field.type) {
-          WorkflowOutputType.string => '测试值',
-          WorkflowOutputType.integer => 1,
-          WorkflowOutputType.number => 1.5,
-          WorkflowOutputType.boolean => true,
-          WorkflowOutputType.object => <String, Object?>{'key': 'value'},
-          WorkflowOutputType.array => <Object?>['第一项', '第二项'],
-          WorkflowOutputType.arrayString => <String>['第一项', '第二项'],
-          WorkflowOutputType.arrayNumber => <num>[1, 2],
-          WorkflowOutputType.arrayObject => <Map<String, Object?>>[
-            <String, Object?>{'key': 'value'},
-          ],
-          WorkflowOutputType.arrayBoolean => <bool>[true, false],
-        },
-      );
-    }
-    return values;
   }
 
   void _changeZoom(double delta, Size viewportSize) {

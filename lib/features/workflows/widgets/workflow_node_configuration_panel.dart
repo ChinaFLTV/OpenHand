@@ -97,6 +97,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     required this.onChanged,
     required this.onClose,
     required this.onDelete,
+    required this.onRun,
     required this.onTest,
     required this.testing,
     required this.availableReferences,
@@ -119,6 +120,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
   final ValueChanged<WorkflowNode> onChanged;
   final VoidCallback onClose;
   final VoidCallback onDelete;
+  final VoidCallback onRun;
   final VoidCallback onTest;
   final bool testing;
   final List<WorkflowParameterReference> availableReferences;
@@ -277,6 +279,16 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
               onPressed: () => _importCurl(context),
               style: actionStyle,
               icon: const Icon(Icons.file_download_outlined),
+            ),
+            kOpenHandHGap6,
+          ],
+          if (node.kind != WorkflowNodeKind.start &&
+              node.kind != WorkflowNodeKind.end) ...[
+            IconButton(
+              tooltip: '运行节点',
+              onPressed: testing ? null : onRun,
+              style: actionStyle,
+              icon: const Icon(Icons.play_arrow_rounded),
             ),
             kOpenHandHGap6,
           ],
@@ -4796,4 +4808,3 @@ List<WorkflowConditionCase> _legacyConditionCases(WorkflowNode node) {
     ),
   ];
 }
-
