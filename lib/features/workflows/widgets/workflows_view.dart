@@ -25,12 +25,15 @@ import '../service/workflow_portability_service.dart';
 import '../workflows_controller.dart';
 import 'workflow_editor_dialog.dart';
 import 'workflow_export_progress_dialog.dart';
+import 'workflow_minimap.dart';
 
 const XTypeGroup _workflowYamlTypeGroup = XTypeGroup(
   label: 'OpenHand 工作流 YAML',
   extensions: <String>['yaml', 'yml'],
 );
 const Uuid _workflowUuid = Uuid();
+const double _workflowGridSpacing = 14;
+const double _workflowTwoColumnMinWidth = 920;
 
 class WorkflowsView extends StatefulWidget {
   const WorkflowsView({super.key});
@@ -121,23 +124,45 @@ class _WorkflowsViewState extends State<WorkflowsView> {
                 body: l10n.workflowsEmptyBody,
               ),
             )
-          : ListView.separated(
-              key: const ValueKey<String>('workflows-list'),
-              padding: const EdgeInsets.fromLTRB(0, 2, 0, 16),
-              itemCount: snapshot.workflows.length,
-              separatorBuilder: (_, _) => kOpenHandGap14,
-              itemBuilder: (context, index) {
-                final workflow = snapshot.workflows[index];
-                return AppearOnce(
-                  child: RepaintBoundary(
-                    child: _WorkflowCard(
-                      workflow: workflow,
-                      onOpen: () =>
-                          _openEditor(context, controller, workflow: workflow),
-                      onDelete: () =>
-                          _deleteWorkflow(context, controller, workflow),
-                      onExport: (format) => _exportWorkflow(workflow, format),
-                    ),
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final columns =
+                    constraints.maxWidth >= _workflowTwoColumnMinWidth ? 2 : 1;
+                final cardWidth =
+                    (constraints.maxWidth -
+                        _workflowGridSpacing * (columns - 1)) /
+                    columns;
+                return SingleChildScrollView(
+                  key: const ValueKey<String>('workflows-list'),
+                  padding: const EdgeInsets.fromLTRB(0, 2, 0, 16),
+                  child: Wrap(
+                    spacing: _workflowGridSpacing,
+                    runSpacing: _workflowGridSpacing,
+                    children: [
+                      for (final workflow in snapshot.workflows)
+                        SizedBox(
+                          width: cardWidth,
+                          child: AppearOnce(
+                            child: RepaintBoundary(
+                              child: _WorkflowCard(
+                                workflow: workflow,
+                                onOpen: () => _openEditor(
+                                  context,
+                                  controller,
+                                  workflow: workflow,
+                                ),
+                                onDelete: () => _deleteWorkflow(
+                                  context,
+                                  controller,
+                                  workflow,
+                                ),
+                                onExport: (format) =>
+                                    _exportWorkflow(workflow, format),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 );
               },
@@ -441,7 +466,6 @@ class _WorkflowCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final nodeKinds = workflow.nodes.map((node) => node.kind).toSet();
     final actionButtonStyle = IconButton.styleFrom(
       minimumSize: const Size.square(48),
       maximumSize: const Size.square(48),
@@ -542,20 +566,13 @@ class _WorkflowCard extends StatelessWidget {
                 ],
               ),
               kOpenHandGap16,
-              Wrap(
-                spacing: 7,
-                runSpacing: 7,
-                children: nodeKinds.isEmpty
-                    ? <Widget>[const Chip(label: Text('空工作流'))]
-                    : nodeKinds
-                          .map(
-                            (kind) => Chip(
-                              avatar: Icon(_kindIcon(kind), size: 16),
-                              label: Text(_kindLabel(kind)),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          )
-                          .toList(growable: false),
+              SizedBox(
+                key: ValueKey<String>('workflow-minimap-${workflow.id}'),
+                height: 128,
+                child: WorkflowMiniMap(
+                  nodes: workflow.nodes,
+                  connections: workflow.connections,
+                ),
               ),
               kOpenHandGap14,
               Row(
@@ -634,36 +651,6 @@ String _ensureExportExtension(String filePath, String extension) {
   if (path.extension(filePath).toLowerCase() == expected) return filePath;
   return path.setExtension(filePath, expected);
 }
-
-String _kindLabel(WorkflowNodeKind kind) => switch (kind) {
-  WorkflowNodeKind.start => '开始',
-  WorkflowNodeKind.condition => '条件分支',
-  WorkflowNodeKind.loop => '循环',
-  WorkflowNodeKind.iteration => '迭代',
-  WorkflowNodeKind.parameterAssignment => '参数赋值',
-  WorkflowNodeKind.listOperation => '列表操作',
-  WorkflowNodeKind.codeExecution => '代码执行',
-  WorkflowNodeKind.humanIntervention => '人工介入',
-  WorkflowNodeKind.loopExit => '退出循环',
-  WorkflowNodeKind.llm => 'LLM',
-  WorkflowNodeKind.httpRequest => 'HTTP',
-  WorkflowNodeKind.end => '结束',
-};
-
-IconData _kindIcon(WorkflowNodeKind kind) => switch (kind) {
-  WorkflowNodeKind.start => Icons.play_arrow_rounded,
-  WorkflowNodeKind.condition => Icons.call_split_rounded,
-  WorkflowNodeKind.loop => Icons.loop_rounded,
-  WorkflowNodeKind.iteration => Icons.view_week_outlined,
-  WorkflowNodeKind.parameterAssignment => Icons.assignment_turned_in_outlined,
-  WorkflowNodeKind.listOperation => Icons.filter_list_rounded,
-  WorkflowNodeKind.codeExecution => Icons.code_rounded,
-  WorkflowNodeKind.humanIntervention => Icons.front_hand_outlined,
-  WorkflowNodeKind.loopExit => Icons.exit_to_app_rounded,
-  WorkflowNodeKind.llm => Icons.auto_awesome_rounded,
-  WorkflowNodeKind.httpRequest => Icons.language_rounded,
-  WorkflowNodeKind.end => Icons.stop_rounded,
-};
 
 String _timeText(DateTime value) {
   final local = value.toLocal();
