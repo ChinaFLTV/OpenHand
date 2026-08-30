@@ -4525,7 +4525,6 @@ class _WorkflowNameDialogState extends State<_WorkflowNameDialog> {
                 OpenHandDialogActionButton.primary(
                   label: '确认保存',
                   onPressed: _canSave ? _confirm : null,
-                  icon: Icons.save_rounded,
                   shape: _workflowButtonShape,
                 ),
               ],

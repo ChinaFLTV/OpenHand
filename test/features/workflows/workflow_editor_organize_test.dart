@@ -120,6 +120,13 @@ void main() {
     await tester.tap(find.byTooltip('重命名工作流'));
     await tester.pumpAndSettle();
     expect(find.text('为工作流命名'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.text('确认保存'),
+        matching: find.byIcon(Icons.save_rounded),
+      ),
+      findsNothing,
+    );
 
     final field = find.byType(TextField);
     await tester.enterText(field, '重命名后的工作流');
