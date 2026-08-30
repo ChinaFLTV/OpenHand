@@ -7,6 +7,81 @@ import 'package:openhand/features/workflows/widgets/workflow_editor_dialog.dart'
 import 'package:openhand/features/workflows/widgets/workflow_node_configuration_panel.dart';
 
 void main() {
+  testWidgets('新建工作流保存时仍需先输入名称', (tester) async {
+    final plugins = PluginServiceController();
+    addTearDown(plugins.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: WorkflowEditorDialog(
+            catalog: const WorkflowEditorCatalog(
+              models: [],
+              recentModelSelections: [],
+              templates: [],
+              skills: [],
+              memories: [],
+              instructions: [],
+              knowledgeSources: [],
+              mcpServers: [],
+              codeRuntimes: {},
+            ),
+            templateRepository: AiPromptTemplateRepository(
+              loader: (_) async => '',
+            ),
+            pluginController: plugins,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('保存工作流'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('为工作流命名'), findsOneWidget);
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('编辑工作流保存沿用已有名称且不弹出命名框', (tester) async {
+    final plugins = PluginServiceController();
+    addTearDown(plugins.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: WorkflowEditorDialog(
+            workflow: _workflow,
+            catalog: const WorkflowEditorCatalog(
+              models: [],
+              recentModelSelections: [],
+              templates: [],
+              skills: [],
+              memories: [],
+              instructions: [],
+              knowledgeSources: [],
+              mcpServers: [],
+              codeRuntimes: {},
+            ),
+            templateRepository: AiPromptTemplateRepository(
+              loader: (_) async => '',
+            ),
+            pluginController: plugins,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('保存工作流'));
+    await tester.pump();
+
+    expect(find.text('为工作流命名'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('工具条整理按钮执行布局、写入历史并支持撤销', (tester) async {
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1;

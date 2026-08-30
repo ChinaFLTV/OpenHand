@@ -3052,13 +3052,20 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   }
 
   Future<void> _save() async {
-    final name = await showAnimatedDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _WorkflowNameDialog(initialName: _workflowName),
-    );
+    final String? name = widget.workflow == null
+        ? await showAnimatedDialog<String>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => _WorkflowNameDialog(initialName: _workflowName),
+          )
+        : _workflowName.trim();
     if (name == null || !mounted) return;
-    _workflowName = name;
+    final normalizedName = name.trim();
+    if (normalizedName.isEmpty) {
+      showOpenHandInfoSnack(context, '工作流名称不能为空。');
+      return;
+    }
+    _workflowName = normalizedName;
     final error = _validateNodes();
     if (error != null) {
       showOpenHandInfoSnack(context, error);
@@ -3067,7 +3074,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     _popEditor(
       WorkflowDefinition(
         id: _workflowId,
-        name: name,
+        name: normalizedName,
         createdAt: _createdAt,
         updatedAt: DateTime.now().toUtc(),
         nodes: List<WorkflowNode>.unmodifiable(_nodes),
