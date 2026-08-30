@@ -98,7 +98,6 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     required this.onClose,
     required this.onDelete,
     required this.onRun,
-    required this.onTest,
     required this.testing,
     required this.availableReferences,
     required this.nestedOutputReferences,
@@ -121,7 +120,6 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback onDelete;
   final VoidCallback onRun;
-  final VoidCallback onTest;
   final bool testing;
   final List<WorkflowParameterReference> availableReferences;
   final List<WorkflowParameterReference> nestedOutputReferences;
@@ -285,10 +283,18 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           if (node.kind != WorkflowNodeKind.start &&
               node.kind != WorkflowNodeKind.end) ...[
             IconButton(
-              tooltip: '运行节点',
-              onPressed: testing ? null : onRun,
+              tooltip: testing ? '停止测试' : '测试节点',
+              onPressed: onRun,
               style: actionStyle,
-              icon: const Icon(Icons.play_arrow_rounded),
+              icon: AnimatedSwitcher(
+                duration: openHandMotionDuration(context, kOpenHandMotion180),
+                switchInCurve: kOpenHandSwitchInCurve,
+                switchOutCurve: kOpenHandSwitchOutCurve,
+                child: Icon(
+                  testing ? Icons.stop_rounded : Icons.play_arrow_rounded,
+                  key: ValueKey<bool>(testing),
+                ),
+              ),
             ),
             kOpenHandHGap6,
           ],
@@ -385,8 +391,6 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
             ),
           ),
         ),
-        kOpenHandGap16,
-        _buildTestButton(),
       ],
     );
   }
@@ -584,8 +588,6 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
         ),
         kOpenHandGap14,
         _buildErrorSection(context, fields: node.outputFields(), subject: '代码'),
-        kOpenHandGap16,
-        _buildTestButton(),
       ],
     );
   }
@@ -955,8 +957,6 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           icon: Icons.output_rounded,
           child: _OutputPreview(fields: node.declaredParameterFields()),
         ),
-        kOpenHandGap16,
-        _buildTestButton(),
       ],
     );
   }
@@ -1343,8 +1343,6 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           fields: node.llmResponseFields(),
           subject: 'LLM',
         ),
-        kOpenHandGap16,
-        _buildTestButton(),
       ],
     );
   }
@@ -1618,8 +1616,6 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           fields: node.httpResponseFields(),
           subject: 'HTTP',
         ),
-        kOpenHandGap16,
-        _buildTestButton(),
       ],
     );
   }
@@ -1644,8 +1640,6 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
             ),
           ),
         ),
-        kOpenHandGap16,
-        _buildTestButton(),
       ],
     );
   }
@@ -1737,8 +1731,6 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
             ),
           ),
         ),
-        kOpenHandGap16,
-        _buildTestButton(),
       ],
     );
   }
@@ -1928,8 +1920,6 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
             ],
           ),
         ),
-        kOpenHandGap16,
-        _buildTestButton(),
       ],
     );
   }
@@ -2252,8 +2242,6 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
             ),
           ),
         ),
-        kOpenHandGap16,
-        _buildTestButton(),
       ],
     );
   }
@@ -2426,20 +2414,6 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildTestButton() {
-    return FilledButton.tonalIcon(
-      onPressed: testing ? null : onTest,
-      style: FilledButton.styleFrom(shape: _workflowButtonShape),
-      icon: testing
-          ? const SizedBox.square(
-              dimension: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : const Icon(Icons.play_arrow_rounded),
-      label: Text(testing ? '正在测试' : '测试当前节点'),
     );
   }
 

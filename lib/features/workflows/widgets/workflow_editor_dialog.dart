@@ -197,6 +197,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   String? _selectedAnnotationId;
   String? _editingAnnotationId;
   bool _testing = false;
+  WorkflowExecutionCancellationToken? _nodeTestCancellation;
   bool _workflowTesting = false;
   bool _renaming = false;
   bool _refreshingCodeRuntimes = false;
@@ -275,6 +276,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     _nodeLayoutAnimationTimer?.cancel();
     _viewportAnimationController?.dispose();
     _viewportAnimationController = null;
+    _nodeTestCancellation?.cancel();
     _executor.dispose();
     unawaited(_ttsPlaybackService.dispose());
     _translationService.dispose();
@@ -343,7 +345,6 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                                   }),
                                   onDelete: _deleteSelectedNode,
                                   onRun: _testSelectedNode,
-                                  onTest: _testSelectedNode,
                                   testing: _testing,
                                   testResult: _testResult,
                                   testError: _testError,
@@ -3032,10 +3033,16 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
 
   Future<void> _testSelectedNode() async {
     final node = _selectedNode;
-    if (node == null || _testing || _workflowTesting) return;
+    if (_testing) {
+      _nodeTestCancellation?.cancel();
+      return;
+    }
+    if (node == null || _workflowTesting) return;
+    final cancellation = WorkflowExecutionCancellationToken();
     _synchronizeDevelopmentStartParameters();
     setState(() {
       _testing = true;
+      _nodeTestCancellation = cancellation;
       _testResult = null;
       _testError = null;
       _testStatus = null;
@@ -3045,25 +3052,32 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         node: node,
         workflowNodes: _nodes,
         workflowConnections: _connections,
-        resources: _buildExecutionResources(),
+        resources: _buildExecutionResources(cancellation: cancellation),
         variables: _developmentVariables(),
       );
-      if (!mounted) return;
+      if (!mounted || !identical(_nodeTestCancellation, cancellation)) return;
       setState(() {
         _mergeDevelopmentNodeOutput(node, result);
         _testResult = _formatExecutionResult(result);
         _testError = null;
         _testStatus = _workflowTestResultStatus(result);
       });
+    } on WorkflowNodeExecutionCancelledException {
+      return;
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || !identical(_nodeTestCancellation, cancellation)) return;
       setState(() {
         _testResult = null;
         _testError = '$error';
         _testStatus = _workflowTestErrorStatus(error);
       });
     } finally {
-      if (mounted) setState(() => _testing = false);
+      if (mounted && identical(_nodeTestCancellation, cancellation)) {
+        setState(() {
+          _testing = false;
+          _nodeTestCancellation = null;
+        });
+      }
     }
   }
 
@@ -3212,6 +3226,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
 
   WorkflowExecutionResources _buildExecutionResources({
     WorkflowNodeExecutionListener? onNodeExecution,
+    WorkflowExecutionCancellationToken? cancellation,
   }) {
     final mcpController = widget.mcpController;
     return WorkflowExecutionResources(
@@ -3241,6 +3256,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                 toolName: toolName,
                 arguments: arguments,
                 toolCallId: toolCallId,
+                cancelSignal: cancellation?.whenCancelled,
               );
               return WorkflowMcpToolInvocationResult(
                 output: result.outputText,
@@ -3256,6 +3272,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
       onHumanIntervention: (request) =>
           showWorkflowHumanInterventionDialog(context, request),
       onNodeExecution: onNodeExecution,
+      cancellation: cancellation,
     );
   }
 

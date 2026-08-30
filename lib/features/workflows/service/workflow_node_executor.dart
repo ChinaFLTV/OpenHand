@@ -65,6 +65,7 @@ class WorkflowHumanInterventionRequest {
     required this.initialValues,
     required this.actions,
     required this.timeout,
+    this.cancelSignal,
   });
 
   final String nodeId;
@@ -74,6 +75,7 @@ class WorkflowHumanInterventionRequest {
   final Map<String, Object?> initialValues;
   final List<WorkflowHumanAction> actions;
   final Duration timeout;
+  final Future<void>? cancelSignal;
 }
 
 class WorkflowHumanInterventionResponse {
@@ -189,6 +191,63 @@ class WorkflowNodeExecutionException implements Exception {
   String toString() => message;
 }
 
+class WorkflowNodeExecutionCancelledException implements Exception {
+  const WorkflowNodeExecutionCancelledException();
+
+  @override
+  String toString() => '节点测试已停止。';
+}
+
+class WorkflowExecutionCancellationToken {
+  final Completer<void> _completer = Completer<void>();
+
+  bool get isCancelled => _completer.isCompleted;
+  Future<void> get whenCancelled => _completer.future;
+
+  void cancel() {
+    if (!_completer.isCompleted) _completer.complete();
+  }
+
+  void throwIfCancelled() {
+    if (isCancelled) throw const WorkflowNodeExecutionCancelledException();
+  }
+
+  Future<T> race<T>(Future<T> operation) async {
+    throwIfCancelled();
+    final result = await Future.any<T>(<Future<T>>[
+      operation,
+      whenCancelled.then<T>(
+        (_) => throw const WorkflowNodeExecutionCancelledException(),
+      ),
+    ]);
+    throwIfCancelled();
+    return result;
+  }
+
+  Future<void> delay(Duration duration) async {
+    throwIfCancelled();
+    if (duration <= Duration.zero) return;
+    final cancelled = await Future.any<bool>(<Future<bool>>[
+      Future<bool>.delayed(duration, () => false),
+      whenCancelled.then<bool>((_) => true),
+    ]);
+    if (cancelled) throw const WorkflowNodeExecutionCancelledException();
+  }
+}
+
+Future<T> _awaitWorkflowOperation<T>(
+  WorkflowExecutionCancellationToken? cancellation,
+  Future<T> Function() operation,
+) {
+  if (cancellation == null) return operation();
+  return cancellation.race(Future<T>.sync(operation));
+}
+
+Future<void> _waitForWorkflowRetry(
+  Duration interval,
+  WorkflowExecutionCancellationToken? cancellation,
+) => cancellation?.delay(interval) ?? Future<void>.delayed(interval);
+
 class _WorkflowLoopExitSignal implements Exception {
   const _WorkflowLoopExitSignal([this.variables = const <String, Object?>{}]);
 
@@ -210,6 +269,7 @@ class WorkflowExecutionResources {
     this.onLlmConversation,
     this.onHumanIntervention,
     this.onNodeExecution,
+    this.cancellation,
   });
 
   final List<AiModelConfig> models;
@@ -225,6 +285,7 @@ class WorkflowExecutionResources {
   final WorkflowLlmConversationListener? onLlmConversation;
   final WorkflowHumanInterventionHandler? onHumanIntervention;
   final WorkflowNodeExecutionListener? onNodeExecution;
+  final WorkflowExecutionCancellationToken? cancellation;
 
   WorkflowExecutionResources withNodeExecutionListener(
     WorkflowNodeExecutionListener listener,
@@ -242,6 +303,7 @@ class WorkflowExecutionResources {
     onLlmConversation: onLlmConversation,
     onHumanIntervention: onHumanIntervention,
     onNodeExecution: listener,
+    cancellation: cancellation,
   );
 }
 
@@ -299,6 +361,7 @@ class WorkflowNodeExecutor {
     List<WorkflowNode> workflowNodes = const <WorkflowNode>[],
     List<WorkflowConnection> workflowConnections = const <WorkflowConnection>[],
   }) async {
+    resources.cancellation?.throwIfCancelled();
     final stopwatch = Stopwatch()..start();
     resources.onNodeExecution?.call(
       WorkflowNodeExecutionEvent(
@@ -307,65 +370,70 @@ class WorkflowNodeExecutor {
       ),
     );
     try {
-      final result = await switch (node.kind) {
-        WorkflowNodeKind.start => Future<WorkflowNodeExecutionResult>.value(
-          _executeParameterNode(
-            fields: node.inputFields(),
-            variables: variables,
-            label: '输入参数',
+      final result = await _awaitWorkflowOperation(
+        resources.cancellation,
+        () => switch (node.kind) {
+          WorkflowNodeKind.start => Future<WorkflowNodeExecutionResult>.value(
+            _executeParameterNode(
+              fields: node.inputFields(),
+              variables: variables,
+              label: '输入参数',
+            ),
           ),
-        ),
-        WorkflowNodeKind.llm => _executeLlm(node, resources, variables),
-        WorkflowNodeKind.httpRequest => _executeHttp(
-          node,
-          resources,
-          variables,
-        ),
-        WorkflowNodeKind.condition => _executeCondition(node, variables),
-        WorkflowNodeKind.loop => _executeLoop(
-          node,
-          resources,
-          variables,
-          workflowNodes,
-          workflowConnections,
-        ),
-        WorkflowNodeKind.iteration => _executeIteration(
-          node,
-          resources,
-          variables,
-          workflowNodes,
-          workflowConnections,
-        ),
-        WorkflowNodeKind.parameterAssignment => _executeConfiguredParameterNode(
-          fields: node.outputFields(),
-          resources: resources,
-          variables: variables,
-          label: '赋值参数',
-        ),
-        WorkflowNodeKind.listOperation => _executeListOperation(
-          node,
-          variables,
-        ),
-        WorkflowNodeKind.codeExecution => _executeCode(
-          node,
-          resources,
-          variables,
-        ),
-        WorkflowNodeKind.humanIntervention => _executeHumanIntervention(
-          node,
-          resources,
-          variables,
-        ),
-        WorkflowNodeKind.loopExit => Future<WorkflowNodeExecutionResult>.error(
-          const _WorkflowLoopExitSignal(),
-        ),
-        WorkflowNodeKind.end => _executeConfiguredParameterNode(
-          fields: node.outputFields(),
-          resources: resources,
-          variables: variables,
-          label: '输出参数',
-        ),
-      };
+          WorkflowNodeKind.llm => _executeLlm(node, resources, variables),
+          WorkflowNodeKind.httpRequest => _executeHttp(
+            node,
+            resources,
+            variables,
+          ),
+          WorkflowNodeKind.condition => _executeCondition(node, variables),
+          WorkflowNodeKind.loop => _executeLoop(
+            node,
+            resources,
+            variables,
+            workflowNodes,
+            workflowConnections,
+          ),
+          WorkflowNodeKind.iteration => _executeIteration(
+            node,
+            resources,
+            variables,
+            workflowNodes,
+            workflowConnections,
+          ),
+          WorkflowNodeKind.parameterAssignment =>
+            _executeConfiguredParameterNode(
+              fields: node.outputFields(),
+              resources: resources,
+              variables: variables,
+              label: '赋值参数',
+            ),
+          WorkflowNodeKind.listOperation => _executeListOperation(
+            node,
+            variables,
+          ),
+          WorkflowNodeKind.codeExecution => _executeCode(
+            node,
+            resources,
+            variables,
+          ),
+          WorkflowNodeKind.humanIntervention => _executeHumanIntervention(
+            node,
+            resources,
+            variables,
+          ),
+          WorkflowNodeKind.loopExit =>
+            Future<WorkflowNodeExecutionResult>.error(
+              const _WorkflowLoopExitSignal(),
+            ),
+          WorkflowNodeKind.end => _executeConfiguredParameterNode(
+            fields: node.outputFields(),
+            resources: resources,
+            variables: variables,
+            label: '输出参数',
+          ),
+        },
+      );
       resources.onNodeExecution?.call(
         WorkflowNodeExecutionEvent(
           nodeId: node.id,
@@ -402,6 +470,7 @@ class WorkflowNodeExecutor {
     required WorkflowExecutionResources resources,
     Map<String, Object?> inputs = const <String, Object?>{},
   }) async {
+    resources.cancellation?.throwIfCancelled();
     final parameterError = validateWorkflowParameterNames(nodes);
     if (parameterError != null) {
       throw WorkflowNodeExecutionException(parameterError);
@@ -490,6 +559,7 @@ class WorkflowNodeExecutor {
     var reachedEnd = false;
     final stopwatch = Stopwatch()..start();
     for (final nodeId in order) {
+      resources.cancellation?.throwIfCancelled();
       if (!activeNodeIds.contains(nodeId)) continue;
       final node = nodesById[nodeId];
       if (node == null) continue;
@@ -584,6 +654,7 @@ class WorkflowNodeExecutor {
     WorkflowExecutionResources resources,
     Map<String, Object?> variables,
   ) async {
+    resources.cancellation?.throwIfCancelled();
     final language = WorkflowCodeLanguage.fromStorage(
       node.settings[WorkflowSettingKeys.codeLanguage],
     );
@@ -605,6 +676,7 @@ class WorkflowNodeExecutor {
       variables: variables,
       label: '代码输入参数',
     );
+    resources.cancellation?.throwIfCancelled();
     final outputFields = node.outputFields();
     WorkflowStructuredOutputParser.validateFields(
       outputFields,
@@ -644,6 +716,7 @@ class WorkflowNodeExecutor {
     var latestErrorType = 'WorkflowCodeExecutionException';
     var attempts = 0;
     for (var attempt = 0; attempt <= retryCount; attempt++) {
+      resources.cancellation?.throwIfCancelled();
       attempts = attempt + 1;
       try {
         final result = await _codeExecutor.execute(
@@ -651,7 +724,9 @@ class WorkflowNodeExecutor {
           code: node.stringSetting(WorkflowSettingKeys.code),
           inputs: inputs,
           timeout: timeout,
+          cancelSignal: resources.cancellation?.whenCancelled,
         );
+        resources.cancellation?.throwIfCancelled();
         final output = WorkflowStructuredOutputParser.resolveValues(
           outputFields,
           result.output,
@@ -669,6 +744,9 @@ class WorkflowNodeExecutor {
               : null,
         );
       } catch (error) {
+        if (resources.cancellation?.isCancelled == true) {
+          throw const WorkflowNodeExecutionCancelledException();
+        }
         if (error is WorkflowCodeExecutionException) {
           latestErrorType = 'WorkflowCodeExecutionException';
           latestError = WorkflowNodeExecutionException(
@@ -683,7 +761,7 @@ class WorkflowNodeExecutor {
         }
       }
       if (attempt < retryCount) {
-        await Future<void>.delayed(retryInterval);
+        await _waitForWorkflowRetry(retryInterval, resources.cancellation);
       }
     }
 
@@ -737,6 +815,7 @@ class WorkflowNodeExecutor {
     WorkflowExecutionResources resources,
     Map<String, Object?> variables,
   ) async {
+    resources.cancellation?.throwIfCancelled();
     final modelConfigId = node
         .stringSetting(WorkflowSettingKeys.modelConfigId)
         .trim();
@@ -797,13 +876,19 @@ class WorkflowNodeExecutor {
     final templateId = node
         .stringSetting(WorkflowSettingKeys.templateId)
         .trim();
-    final bundle = await resources.templateRepository.loadBundle(
-      templateId.isEmpty ? 'default' : templateId,
+    final bundle = await _awaitWorkflowOperation(
+      resources.cancellation,
+      () => resources.templateRepository.loadBundle(
+        templateId.isEmpty ? 'default' : templateId,
+      ),
     );
-    final resourcePrompt = await _buildResourcePrompt(
-      node: node,
-      resources: resources,
-      query: userPrompt,
+    final resourcePrompt = await _awaitWorkflowOperation(
+      resources.cancellation,
+      () => _buildResourcePrompt(
+        node: node,
+        resources: resources,
+        query: userPrompt,
+      ),
     );
     final outputFields = node.outputFields();
     final structured = node.boolSetting(WorkflowSettingKeys.structuredOutput);
@@ -855,6 +940,7 @@ class WorkflowNodeExecutor {
     Object? lastError;
     var lastMessages = const <WorkflowLlmConversationMessage>[];
     while (attempts <= retries) {
+      resources.cancellation?.throwIfCancelled();
       attempts += 1;
       final messages = <WorkflowLlmConversationMessage>[
         WorkflowLlmConversationMessage(
@@ -900,7 +986,9 @@ class WorkflowNodeExecutor {
           conversationMessages: messages,
           reasoningFormat: reasoningFormat,
           onConversationChanged: publishRunning,
+          cancellation: resources.cancellation,
         );
+        resources.cancellation?.throwIfCancelled();
         final raw = completion.reply.trim();
         if (raw.isEmpty) {
           throw const WorkflowNodeExecutionException('模型返回内容为空。');
@@ -942,9 +1030,12 @@ class WorkflowNodeExecutor {
               : null,
         );
       } catch (error) {
+        if (resources.cancellation?.isCancelled == true) {
+          throw const WorkflowNodeExecutionCancelledException();
+        }
         lastError = error;
         if (attempts > retries) break;
-        await Future<void>.delayed(interval);
+        await _waitForWorkflowRetry(interval, resources.cancellation);
       }
     }
     stopwatch.stop();
@@ -1018,6 +1109,7 @@ class WorkflowNodeExecutor {
     required List<WorkflowLlmConversationMessage> conversationMessages,
     required WorkflowLlmReasoningFormat reasoningFormat,
     required void Function() onConversationChanged,
+    required WorkflowExecutionCancellationToken? cancellation,
   }) async {
     final messages = <AiChatTurn>[
       AiChatTurn(role: AiChatRole.system, content: systemPrompt),
@@ -1039,12 +1131,15 @@ class WorkflowNodeExecutor {
     };
     var totalToolCalls = 0;
     for (var round = 0; round <= _maxWorkflowToolRounds; round++) {
+      cancellation?.throwIfCancelled();
       final completion = await _chatClient.sendMessage(
         model: model,
         messages: messages,
         tools: tools,
         timeout: const Duration(seconds: 120),
+        cancelSignal: cancellation?.whenCancelled,
       );
+      cancellation?.throwIfCancelled();
       _appendLlmCompletionMessages(
         conversationMessages,
         completion,
@@ -1076,16 +1171,19 @@ class WorkflowNodeExecutor {
           throw WorkflowNodeExecutionException('模型请求了未授权工具：${call.name}');
         }
         final arguments = _decodeToolArguments(call.arguments, call.name);
-        final result =
-            await invoker(
-              serverName: binding.server.name,
-              toolName: binding.tool.id,
-              arguments: arguments,
-              toolCallId: call.id,
-            ).timeout(
-              const Duration(seconds: 120),
-              onTimeout: () => throw TimeoutException('MCP 工具调用超时。'),
-            );
+        final result = await _awaitWorkflowOperation(
+          cancellation,
+          () =>
+              invoker(
+                serverName: binding.server.name,
+                toolName: binding.tool.id,
+                arguments: arguments,
+                toolCallId: call.id,
+              ).timeout(
+                const Duration(seconds: 120),
+                onTimeout: () => throw TimeoutException('MCP 工具调用超时。'),
+              ),
+        );
         final output = _boundedToolOutput(result.output);
         messages.add(
           AiChatTurn(
@@ -1190,6 +1288,7 @@ class WorkflowNodeExecutor {
     required WorkflowExecutionResources resources,
     required String query,
   }) async {
+    resources.cancellation?.throwIfCancelled();
     final sections = <String>[];
     final skillNames = node.stringSetSetting(WorkflowSettingKeys.skillNames);
     final skills = resources.skills.where(
@@ -1255,11 +1354,15 @@ class WorkflowNodeExecutor {
     final knowledge = resources.knowledgeBaseController;
     if (knowledge != null && knowledgeIds.isNotEmpty) {
       try {
-        final retrieved = await knowledge.retrieveForTool(
-          query: query,
-          topK: 20,
-          models: resources.models,
+        final retrieved = await _awaitWorkflowOperation(
+          resources.cancellation,
+          () => knowledge.retrieveForTool(
+            query: query,
+            topK: 20,
+            models: resources.models,
+          ),
         );
+        resources.cancellation?.throwIfCancelled();
         if (retrieved != null) {
           final hits = retrieved.result.hits
               .where((hit) => knowledgeIds.contains(hit.source.id))
@@ -1269,6 +1372,9 @@ class WorkflowNodeExecutor {
           if (context.isNotEmpty) sections.add(context);
         }
       } catch (_) {
+        if (resources.cancellation?.isCancelled == true) {
+          throw const WorkflowNodeExecutionCancelledException();
+        }
         throw const WorkflowNodeExecutionException('检索所选知识库失败。');
       }
     }
@@ -1298,6 +1404,7 @@ class WorkflowNodeExecutor {
     WorkflowExecutionResources resources,
     Map<String, Object?> variables,
   ) async {
+    resources.cancellation?.throwIfCancelled();
     final rawUrl = renderWorkflowTemplate(
       node.stringSetting(WorkflowSettingKeys.url),
       variables,
@@ -1376,6 +1483,7 @@ class WorkflowNodeExecutor {
     var lastErrorType = 'HTTPExecutionError';
     var attempts = 0;
     while (attempts <= retries) {
+      resources.cancellation?.throwIfCancelled();
       attempts += 1;
       try {
         final response = await _sendHttpRequest(
@@ -1384,7 +1492,9 @@ class WorkflowNodeExecutor {
           uri: uri,
           headers: headers,
           variables: variables,
+          cancellation: resources.cancellation,
         );
+        resources.cancellation?.throwIfCancelled();
         final output = structured
             ? await _resolveHttpResponseFields(
                 response: response,
@@ -1413,6 +1523,9 @@ class WorkflowNodeExecutor {
               : null,
         );
       } catch (error) {
+        if (resources.cancellation?.isCancelled == true) {
+          throw const WorkflowNodeExecutionCancelledException();
+        }
         if (error is! WorkflowNodeExecutionException &&
             error is! TimeoutException &&
             error is! IOException) {
@@ -1421,7 +1534,7 @@ class WorkflowNodeExecutor {
         lastError = error;
         lastErrorType = _httpErrorType(error);
         if (attempts > retries) break;
-        await Future<void>.delayed(interval);
+        await _waitForWorkflowRetry(interval, resources.cancellation);
       }
     }
     stopwatch.stop();
@@ -1476,6 +1589,7 @@ class WorkflowNodeExecutor {
     required Uri uri,
     required Map<String, String> headers,
     required Map<String, Object?> variables,
+    required WorkflowExecutionCancellationToken? cancellation,
   }) async {
     final connectSeconds = node
         .intSetting(
@@ -1511,12 +1625,30 @@ class WorkflowNodeExecutor {
     if (!node.boolSetting(WorkflowSettingKeys.verifySsl, true)) {
       client.badCertificateCallback = (_, _, _) => true;
     }
+    HttpClientRequest? activeRequest;
+    void abortRequest() {
+      final request = activeRequest;
+      if (request != null) {
+        abortHttpClientRequest(
+          request,
+          reason: const WorkflowNodeExecutionCancelledException(),
+        );
+      }
+      client.close(force: true);
+    }
+
+    if (cancellation != null) {
+      unawaited(cancellation.whenCancelled.then<void>((_) => abortRequest()));
+    }
     try {
+      cancellation?.throwIfCancelled();
       final request = await openHttpClientRequestBounded(
         () => client.openUrl(method, uri),
         timeout: Duration(seconds: connectSeconds),
         timeoutMessage: 'HTTP 连接超时。',
       );
+      activeRequest = request;
+      cancellation?.throwIfCancelled();
       for (final entry in headers.entries) {
         request.headers.set(entry.key, entry.value);
       }
@@ -1529,16 +1661,19 @@ class WorkflowNodeExecutor {
             throw TimeoutException('HTTP 请求体写入超时。');
           },
         );
+        cancellation?.throwIfCancelled();
       }
       final response = await closeHttpClientRequestBounded(
         request,
         timeout: Duration(seconds: responseSeconds),
         timeoutMessage: 'HTTP 响应超时。',
       );
+      cancellation?.throwIfCancelled();
       final bytes = BytesBuilder(copy: false);
       await for (final chunk in response.timeout(
         Duration(seconds: responseSeconds),
       )) {
+        cancellation?.throwIfCancelled();
         if (bytes.length + chunk.length > _maxWorkflowHttpResponseBytes) {
           throw const WorkflowNodeExecutionException('HTTP 响应超过 4 MiB 上限。');
         }
@@ -1811,6 +1946,7 @@ class WorkflowNodeExecutor {
     WorkflowExecutionResources resources,
     Map<String, Object?> variables,
   ) async {
+    resources.cancellation?.throwIfCancelled();
     final handler = resources.onHumanIntervention;
     if (handler == null) {
       throw const WorkflowNodeExecutionException('当前执行环境不支持应用内人工介入。');
@@ -1873,6 +2009,7 @@ class WorkflowNodeExecutor {
             initialValues: Map<String, Object?>.unmodifiable(initialValues),
             actions: List<WorkflowHumanAction>.unmodifiable(actions),
             timeout: timeout,
+            cancelSignal: resources.cancellation?.whenCancelled,
           ),
         ).timeout(
           timeout + _humanInterventionTimeoutGrace,
@@ -1880,6 +2017,7 @@ class WorkflowNodeExecutor {
             actionId: workflowHumanTimeoutHandleId,
           ),
         );
+    resources.cancellation?.throwIfCancelled();
     if (response.timedOut) {
       final output = <String, Object?>{
         node.systemOutputName(workflowHumanActionIdOutputName):
@@ -2097,6 +2235,7 @@ class WorkflowNodeExecutor {
     var didBreak = false;
     var iterations = 0;
     for (var index = 0; index < count; index++) {
+      resources.cancellation?.throwIfCancelled();
       late final Map<String, Object?> graphVariables;
       try {
         graphVariables = await _executeNestedGraph(
@@ -2199,6 +2338,7 @@ class WorkflowNodeExecutor {
     final output = <Object?>[];
     final boundedItems = items.take(1000).toList(growable: false);
     Future<({bool include, Object? value})> process(int index) async {
+      resources.cancellation?.throwIfCancelled();
       try {
         final graphVariables = await _executeNestedGraph(
           parent: node,
@@ -2244,6 +2384,7 @@ class WorkflowNodeExecutor {
         offset < boundedItems.length;
         offset += parallelism
       ) {
+        resources.cancellation?.throwIfCancelled();
         final end = math.min(offset + parallelism, boundedItems.length);
         final batch = await Future.wait(
           <Future<({bool include, Object? value})>>[
@@ -2256,6 +2397,7 @@ class WorkflowNodeExecutor {
       }
     } else {
       for (var index = 0; index < boundedItems.length; index++) {
+        resources.cancellation?.throwIfCancelled();
         final item = await process(index);
         if (item.include) output.add(item.value);
       }
@@ -2349,6 +2491,7 @@ class WorkflowNodeExecutor {
     }
     final resolvedVariables = <String, Object?>{...variables};
     for (final nodeId in executionOrder) {
+      resources.cancellation?.throwIfCancelled();
       if (!activeNodeIds.contains(nodeId)) continue;
       final child = childrenById[nodeId];
       if (child == null) continue;
@@ -2483,6 +2626,7 @@ class WorkflowNodeExecutor {
     }
 
     for (final entry in expressions.entries) {
+      resources.cancellation?.throwIfCancelled();
       final runtime = resources.codeRuntimes[entry.key];
       if (runtime == null || !runtime.isAvailable) {
         throw WorkflowNodeExecutionException(
@@ -2494,7 +2638,9 @@ class WorkflowNodeExecutor {
           runtime: runtime,
           expressions: entry.value,
           variables: expressionVariables[entry.key]!,
+          cancelSignal: resources.cancellation?.whenCancelled,
         );
+        resources.cancellation?.throwIfCancelled();
         for (final field in fields.where(
           (field) => field.valueMode.language == entry.key,
         )) {

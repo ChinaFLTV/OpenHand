@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -63,6 +64,10 @@ class _WorkflowHumanInterventionDialogState
       delay: widget.request.timeout,
       maxDelay: widget.request.timeout,
     )..schedule(_handleTimeout);
+    final cancelSignal = widget.request.cancelSignal;
+    if (cancelSignal != null) {
+      unawaited(cancelSignal.then<void>((_) => _cancel()));
+    }
   }
 
   @override
@@ -369,6 +374,13 @@ class _WorkflowHumanInterventionDialogState
         actionId: workflowHumanTimeoutHandleId,
       ),
     );
+  }
+
+  void _cancel() {
+    if (!mounted || _completed) return;
+    _completed = true;
+    _timeout.cancel();
+    Navigator.of(context).pop();
   }
 
   void _complete(WorkflowHumanInterventionResponse response) {

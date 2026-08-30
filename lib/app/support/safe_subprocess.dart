@@ -1196,6 +1196,7 @@ Future<ProcessResult?> runProcessWithTimeout(
   List<String> arguments, {
   List<int> stdinBytes = const <int>[],
   Duration timeout = const Duration(seconds: 4),
+  Future<void>? cancelSignal,
   String tag = 'safe_subprocess',
   String? workingDirectory,
   Map<String, String>? environment,
@@ -1307,7 +1308,35 @@ Future<ProcessResult?> runProcessWithTimeout(
           );
     late final _TrackedProcessLaunch launch;
     try {
-      launch = await launchFuture.timeout(processStartTimeout);
+      final launched = await awaitWithCancelSignal(
+        launchFuture,
+        cancelSignal: cancelSignal,
+      ).timeout(processStartTimeout);
+      if (launched == null) {
+        timedOut = true;
+        unawaited(
+          launchFuture.then<void>(
+            (lateLaunch) async {
+              try {
+                await _terminateTrackedProcessTree(
+                  lateLaunch.process,
+                  gracefulTimeout: Duration(milliseconds: effectiveGracefulMs),
+                  knownProcessGroupLeader: lateLaunch.isProcessGroupLeader,
+                );
+              } catch (error, stack) {
+                silentLog(tag, '终止延迟启动进程 $executable', error, stack);
+              }
+            },
+            onError: (Object error, StackTrace stack) {
+              if (!_isMissingExecutableProcessException(error)) {
+                silentLog(tag, '延迟启动进程 $executable', error, stack);
+              }
+            },
+          ),
+        );
+        return timeoutResultBuilder?.call(-1, '', '');
+      }
+      launch = launched;
     } on TimeoutException {
       timedOut = true;
       unawaited(
@@ -1334,6 +1363,15 @@ Future<ProcessResult?> runProcessWithTimeout(
     }
     process = launch.process;
     isProcessGroupLeader = launch.isProcessGroupLeader;
+    if (await isCancelSignalCompleted(cancelSignal)) {
+      timedOut = true;
+      await _terminateTrackedProcessTree(
+        process,
+        gracefulTimeout: Duration(milliseconds: effectiveGracefulMs),
+        knownProcessGroupLeader: isProcessGroupLeader,
+      );
+      return timeoutResultBuilder?.call(process.pid, '', '');
+    }
     if (normalizedToolCallId != null) {
       final spawned = process;
       final spawnedAsGroupLeader = isProcessGroupLeader;
@@ -1388,23 +1426,42 @@ Future<ProcessResult?> runProcessWithTimeout(
     }
 
     final remainingTimeout = effectiveTimeout - executionStopwatch.elapsed;
-    final exitCode =
-        await (() async {
-          await closeStdin();
-          return process!.exitCode;
-        })().timeout(
-          remainingTimeout > Duration.zero ? remainingTimeout : Duration.zero,
-          onTimeout: () async {
-            timedOut = true;
-            // Crucial: terminate the complete command tree before returning.
-            await _terminateTrackedProcessTree(
-              process!,
-              gracefulTimeout: Duration(milliseconds: effectiveGracefulMs),
-              knownProcessGroupLeader: isProcessGroupLeader,
-            );
-            return -1;
-          },
+    final exitFuture = (() async {
+      await closeStdin();
+      return process!.exitCode;
+    })();
+    final timeout = Completer<({int? exitCode, bool interrupted})>();
+    final timeoutTimer = startSafeTimer(
+      remainingTimeout > Duration.zero ? remainingTimeout : Duration.zero,
+      () => timeout.complete((exitCode: null, interrupted: true)),
+    );
+    late final ({int? exitCode, bool interrupted}) exit;
+    try {
+      final waits = <Future<({int? exitCode, bool interrupted})>>[
+        exitFuture.then((exitCode) => (exitCode: exitCode, interrupted: false)),
+        timeout.future,
+      ];
+      if (cancelSignal != null) {
+        waits.add(
+          cancelSignal.then(
+            (_) => (exitCode: null, interrupted: true),
+            onError: (_, _) => (exitCode: null, interrupted: true),
+          ),
         );
+      }
+      exit = await Future.any(waits);
+    } finally {
+      timeoutTimer.cancel();
+    }
+    if (exit.interrupted) {
+      timedOut = true;
+      await _terminateTrackedProcessTree(
+        process,
+        gracefulTimeout: Duration(milliseconds: effectiveGracefulMs),
+        knownProcessGroupLeader: isProcessGroupLeader,
+      );
+    }
+    final exitCode = exit.exitCode ?? -1;
     final streamsFinished = await waitForStreams();
     if (!streamsFinished && !timedOut) {
       await _terminateTrackedProcessTree(

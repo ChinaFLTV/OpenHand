@@ -73,6 +73,7 @@ class WorkflowCodeExecutor {
     required WorkflowCodeRuntime runtime,
     required Map<String, String> expressions,
     required Map<String, Object?> variables,
+    Future<void>? cancelSignal,
   }) async {
     if (expressions.isEmpty) return const <String, Object?>{};
     final result = await execute(
@@ -80,6 +81,7 @@ class WorkflowCodeExecutor {
       code: _expressionCode(runtime.language, expressions),
       inputs: variables,
       timeout: workflowValueExpressionTimeout,
+      cancelSignal: cancelSignal,
     );
     return result.output;
   }
@@ -89,6 +91,7 @@ class WorkflowCodeExecutor {
     required String code,
     required Map<String, Object?> inputs,
     required Duration timeout,
+    Future<void>? cancelSignal,
   }) async {
     final executable = runtime.executable?.trim() ?? '';
     if (executable.isEmpty) {
@@ -144,6 +147,7 @@ class WorkflowCodeExecutor {
         _arguments(runtime.language, scriptFile.path, resultFile.path),
         stdinBytes: inputBytes,
         timeout: boundedTimeout,
+        cancelSignal: cancelSignal,
         workingDirectory: temporaryDirectory.path,
         maxStderrBytes: maxWorkflowCodeLogBytes,
         tag: 'workflow.code_execution',
