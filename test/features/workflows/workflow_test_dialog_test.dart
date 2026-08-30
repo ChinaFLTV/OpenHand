@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/workflows/model/workflow_definition.dart';
+import 'package:openhand/features/workflows/service/workflow_node_executor.dart';
 import 'package:openhand/features/workflows/widgets/workflow_test_dialog.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
 
@@ -78,6 +79,16 @@ void main() {
         textField.decoration!.focusedBorder! as OutlineInputBorder;
     expect(enabledBorder.borderRadius, kOpenHandBorderRadius12);
     expect(focusedBorder.borderRadius, kOpenHandBorderRadius12);
+    expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
+    final actionRow = find.byKey(
+      const ValueKey<String>('workflow-test-input-actions'),
+    );
+    expect(
+      (tester.getCenter(find.text('取消')).dx +
+              tester.getCenter(find.text('开始测试')).dx) /
+          2,
+      closeTo(tester.getCenter(actionRow).dx, 0.01),
+    );
     _expectRoundedSquareCloseButton(tester);
 
     await tester.tap(find.byIcon(Icons.close_rounded));
@@ -115,6 +126,7 @@ void main() {
           'news': '鞠婧祎 fell in love with 李冠达',
           'count': 2,
         },
+        outputDescriptions: <String, String>{'news': '最终发布的新闻标题'},
       ),
     );
     await tester.pumpAndSettle();
@@ -153,10 +165,18 @@ void main() {
     );
 
     expect(find.text('news'), findsOneWidget);
+    expect(find.text('最终发布的新闻标题'), findsOneWidget);
     expect(find.text('鞠婧祎 fell in love with 李冠达'), findsOneWidget);
     expect(find.text('count'), findsOneWidget);
     expect(find.text('2'), findsOneWidget);
     expect(find.textContaining('"news"'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('workflow-test-result-finish')),
+        matching: find.byIcon(Icons.done_rounded),
+      ),
+      findsNothing,
+    );
 
     await tester.tap(find.byTooltip('复制参数 news'));
     await tester.pump();
@@ -170,6 +190,60 @@ void main() {
     );
     expect(finishCenter.dx, closeTo(dialogCenter.dx, 0.01));
 
+    await tester.tap(
+      find.byKey(const ValueKey<String>('workflow-test-result-finish')),
+    );
+    await tester.pumpAndSettle();
+    await result;
+  });
+
+  testWidgets('状态卡片可打开节点执行详情', (tester) async {
+    final context = await _pumpDialogHost(tester);
+    final result = showWorkflowTestResultDialog(
+      context,
+      const WorkflowTestReport(
+        succeeded: true,
+        hasWarnings: false,
+        duration: Duration(milliseconds: 20),
+        executedSteps: 1,
+        succeededNodes: 1,
+        warningNodes: 0,
+        failedNodes: 0,
+        skippedNodes: 0,
+        nodeReports: <WorkflowTestNodeReport>[
+          WorkflowTestNodeReport(
+            node: WorkflowNode(
+              id: 'start',
+              kind: WorkflowNodeKind.start,
+              title: '开始节点',
+              x: 0,
+              y: 0,
+            ),
+            event: WorkflowNodeExecutionEvent(
+              nodeId: 'start',
+              phase: WorkflowNodeExecutionPhase.succeeded,
+              duration: Duration(milliseconds: 12),
+              resolvedInputs: <String, Object?>{'name': 'OpenHand'},
+              output: <String, Object?>{'greeting': '你好'},
+            ),
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('workflow-test-metric-success')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('开始节点'), findsOneWidget);
+    expect(find.text('节点入参'), findsOneWidget);
+    expect(find.text('返回值'), findsOneWidget);
+    expect(find.textContaining('OpenHand'), findsOneWidget);
+    expect(find.textContaining('你好'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('关闭').last);
+    await tester.pumpAndSettle();
     await tester.tap(
       find.byKey(const ValueKey<String>('workflow-test-result-finish')),
     );

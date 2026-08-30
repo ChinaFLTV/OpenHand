@@ -105,6 +105,8 @@ class WorkflowNodeExecutionEvent {
     required this.phase,
     this.duration = Duration.zero,
     this.attempts = 0,
+    this.resolvedInputs = const <String, Object?>{},
+    this.output,
     this.error,
   });
 
@@ -112,6 +114,8 @@ class WorkflowNodeExecutionEvent {
   final WorkflowNodeExecutionPhase phase;
   final Duration duration;
   final int attempts;
+  final Map<String, Object?> resolvedInputs;
+  final Object? output;
   final String? error;
 }
 
@@ -370,6 +374,12 @@ class WorkflowNodeExecutor {
               : WorkflowNodeExecutionPhase.succeeded,
           duration: result.duration,
           attempts: result.attempts,
+          resolvedInputs: Map<String, Object?>.unmodifiable(
+            result.resolvedInputs.isNotEmpty
+                ? result.resolvedInputs
+                : variables,
+          ),
+          output: result.output,
         ),
       );
       return result;

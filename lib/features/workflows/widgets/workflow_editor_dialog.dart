@@ -2925,6 +2925,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                     phase: WorkflowNodeExecutionPhase.warning,
                     duration: event.duration,
                     attempts: event.attempts,
+                    resolvedInputs: event.resolvedInputs,
+                    output: event.output,
+                    error: event.error,
                   )
                 : event;
             setState(() => _nodeExecutions[event.nodeId] = displayEvent);
@@ -2972,6 +2975,29 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
           .length,
       output: result?.output,
       error: failure == null ? null : '$failure',
+      nodeReports: List<WorkflowTestNodeReport>.unmodifiable(
+        _nodes
+            .map(
+              (node) => WorkflowTestNodeReport(
+                node: node,
+                event:
+                    _nodeExecutions[node.id] ??
+                    WorkflowNodeExecutionEvent(
+                      nodeId: node.id,
+                      phase: WorkflowNodeExecutionPhase.pending,
+                    ),
+              ),
+            )
+            .toList(growable: false),
+      ),
+      outputDescriptions: <String, String>{
+        for (final field
+            in _nodes
+                .where((node) => node.kind == WorkflowNodeKind.end)
+                .expand((node) => node.outputFields()))
+          if (field.description.trim().isNotEmpty)
+            field.name.trim(): field.description.trim(),
+      },
     );
     await showWorkflowTestResultDialog(context, report);
   }
