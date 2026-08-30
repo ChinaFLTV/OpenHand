@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
@@ -40,7 +41,7 @@ class AnimatedOverlayEntryController {
       session.visibility.value = true;
     }
     if (rebuild) {
-      session.entry.markNeedsBuild();
+      _markSessionNeedsBuild(session);
     }
     return true;
   }
@@ -61,7 +62,7 @@ class AnimatedOverlayEntryController {
       current.onRemoved = onRemoved;
       reopen();
       if (rebuildIfPresent) {
-        current.entry.markNeedsBuild();
+        _markSessionNeedsBuild(current);
       }
       return true;
     }
@@ -92,7 +93,38 @@ class AnimatedOverlayEntryController {
   }
 
   /// 重建当前条目，不改变可见性。
-  void markNeedsBuild() => _session?.entry.markNeedsBuild();
+  ///
+  /// 构建阶段的请求会合并到帧尾，避免跨树同步标脏；迟到回调只作用于
+  /// 发起请求时仍然有效的会话。
+  void markNeedsBuild() {
+    final session = _session;
+    if (session != null) _markSessionNeedsBuild(session);
+  }
+
+  void _markSessionNeedsBuild(_AnimatedOverlayEntrySession session) {
+    if (_disposed ||
+        !identical(_session, session) ||
+        session.generation != _generation) {
+      return;
+    }
+    final scheduler = SchedulerBinding.instance;
+    if (scheduler.schedulerPhase != SchedulerPhase.persistentCallbacks) {
+      session.entry.markNeedsBuild();
+      return;
+    }
+    if (session.rebuildScheduled) return;
+    session.rebuildScheduled = true;
+    scheduler.addPostFrameCallback((_) {
+      session.rebuildScheduled = false;
+      if (_disposed ||
+          !identical(_session, session) ||
+          session.generation != _generation) {
+        return;
+      }
+      session.entry.markNeedsBuild();
+    }, debugLabel: '动画浮层重建');
+    scheduler.ensureVisualUpdate();
+  }
 
   /// 启动退场动画；[immediately] 为 true 时同步移除。可安全重复调用。
   void close({bool immediately = false}) {
@@ -155,6 +187,7 @@ class _AnimatedOverlayEntrySession {
   VoidCallback? onRemoved;
   late final OverlayEntry entry;
   late final VoidCallback onExitCompleted;
+  bool rebuildScheduled = false;
 }
 
 /// 为悬停浮窗、工具提示和自动补全面板等浮层提供进退场动画。
