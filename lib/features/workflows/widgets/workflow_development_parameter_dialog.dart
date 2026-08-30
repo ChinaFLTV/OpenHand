@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
@@ -756,7 +757,7 @@ class _DevelopmentParameterItem extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 )
-              : DropdownButtonFormField<WorkflowOutputType>(
+              : AnimatedDropdownButtonFormField<WorkflowOutputType>(
                   initialValue: field.type,
                   isExpanded: true,
                   decoration: decoration.copyWith(labelText: '类型'),
@@ -1171,7 +1172,7 @@ class _CreateDevelopmentParameterDialogState
               ),
             ),
             kOpenHandGap18,
-            DropdownButtonFormField<WorkflowDevelopmentParameterTarget>(
+            AnimatedDropdownButtonFormField<WorkflowDevelopmentParameterTarget>(
               initialValue: _target,
               isExpanded: true,
               decoration: _developmentParameterInputDecoration(
@@ -1179,10 +1180,11 @@ class _CreateDevelopmentParameterDialogState
               ).copyWith(labelText: '添加到'),
               items: widget.targets
                   .map(
-                    (target) => DropdownMenuItem(
-                      value: target,
-                      child: Text(target.label),
-                    ),
+                    (target) =>
+                        DropdownMenuItem<WorkflowDevelopmentParameterTarget>(
+                          value: target,
+                          child: Text(target.label),
+                        ),
                   )
                   .toList(growable: false),
               onChanged: (target) => setState(() => _target = target),
