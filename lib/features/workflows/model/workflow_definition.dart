@@ -859,6 +859,7 @@ bool isWorkflowTerminalNodeKind(WorkflowNodeKind kind) =>
     kind == WorkflowNodeKind.end || kind == WorkflowNodeKind.loopExit;
 
 abstract final class WorkflowSettingKeys {
+  static const String description = 'description';
   static const String expression = 'expression';
   static const String conditionCases = 'condition_cases';
   static const String maxIterations = 'max_iterations';

@@ -17,7 +17,7 @@ const int _kMaxWorkflowAnnotations = 500;
 const int _kMaxYamlDepth = 64;
 const int _kMaxYamlValues = 100000;
 const double _kNodeWidth = 246;
-const double _kNodeHeight = 130;
+const double _kNodeHeight = 156;
 const double _kExportPadding = 72;
 const double _kGridSpacing = 24;
 const double _kGridDotRadius = 0.8;
@@ -498,60 +498,102 @@ Path _connectionPath(Offset start, Offset end, {double minimumDistance = 48}) {
   );
 }
 
-({Color accent, Color soft, String shortLabel}) _nodeStyle(
+({Color accent, Color soft, String typeLabel, String description}) _nodeStyle(
   WorkflowNodeKind kind,
 ) => switch (kind) {
   WorkflowNodeKind.start => (
     accent: const Color(0xFF2E7D32),
     soft: const Color(0xFFE4F3E5),
-    shortLabel: 'START',
+    typeLabel: '开始',
+    description: '定义工作流的输入参数',
   ),
   WorkflowNodeKind.condition => (
     accent: const Color(0xFF1565C0),
     soft: const Color(0xFFE1EEFC),
-    shortLabel: 'IF',
+    typeLabel: '条件分支',
+    description: '依据表达式选择后续路径',
   ),
   WorkflowNodeKind.loop || WorkflowNodeKind.iteration => (
     accent: const Color(0xFF6A1B9A),
     soft: const Color(0xFFF0E4F6),
-    shortLabel: 'LOOP',
+    typeLabel: kind == WorkflowNodeKind.loop ? '循环' : '迭代',
+    description: kind == WorkflowNodeKind.loop ? '按上限重复执行节点组' : '逐项处理数组输入',
   ),
   WorkflowNodeKind.parameterAssignment || WorkflowNodeKind.listOperation => (
     accent: const Color(0xFF00695C),
     soft: const Color(0xFFDFF1EE),
-    shortLabel: 'DATA',
+    typeLabel: kind == WorkflowNodeKind.parameterAssignment ? '参数赋值' : '列表操作',
+    description: kind == WorkflowNodeKind.parameterAssignment
+        ? '生成可供后续节点引用的参数'
+        : '筛选、截取、排序并限制数组',
   ),
   WorkflowNodeKind.codeExecution => (
     accent: const Color(0xFFEF6C00),
     soft: const Color(0xFFFFEBD9),
-    shortLabel: 'CODE',
+    typeLabel: '代码执行',
+    description: '运行 Python 3 或 JavaScript 代码',
   ),
   WorkflowNodeKind.humanIntervention => (
     accent: const Color(0xFF00838F),
     soft: const Color(0xFFDDF3F5),
-    shortLabel: 'HUMAN',
+    typeLabel: '人工介入',
+    description: '暂停工作流并等待用户确认',
   ),
   WorkflowNodeKind.loopExit => (
     accent: const Color(0xFF5D4037),
     soft: const Color(0xFFEDE6E3),
-    shortLabel: 'EXIT',
+    typeLabel: '退出循环',
+    description: '立即结束当前循环',
   ),
   WorkflowNodeKind.llm => (
     accent: const Color(0xFFC2185B),
     soft: const Color(0xFFF8E1EA),
-    shortLabel: 'LLM',
+    typeLabel: 'LLM',
+    description: '调用模型完成推理与生成',
   ),
   WorkflowNodeKind.httpRequest => (
     accent: const Color(0xFF0277BD),
     soft: const Color(0xFFDFF0FA),
-    shortLabel: 'HTTP',
+    typeLabel: 'HTTP 请求',
+    description: '调用外部 HTTP API',
   ),
   WorkflowNodeKind.end => (
     accent: const Color(0xFFC62828),
     soft: const Color(0xFFF8E2E2),
-    shortLabel: 'END',
+    typeLabel: '结束',
+    description: '定义工作流的输出参数',
   ),
 };
+
+class _WorkflowExportNodeContent {
+  const _WorkflowExportNodeContent({
+    required this.typeLabel,
+    required this.title,
+    required this.description,
+    required this.parameterSummary,
+  });
+
+  final String typeLabel;
+  final String title;
+  final String description;
+  final String parameterSummary;
+}
+
+_WorkflowExportNodeContent _nodeContent(WorkflowNode node) {
+  final style = _nodeStyle(node.kind);
+  final title = node.title.trim();
+  final description = node
+      .stringSetting(WorkflowSettingKeys.description)
+      .trim();
+  final inputCount = node.inputParameterFields().length;
+  final outputCount = node.outputParameterFields().length;
+  return _WorkflowExportNodeContent(
+    typeLabel: style.typeLabel,
+    title: title.isEmpty ? style.typeLabel : title,
+    description: description.isEmpty ? style.description : description,
+    parameterSummary: '$inputCount 输入 · $outputCount 输出',
+  );
+}
 
 ({Color accent, Color soft}) _annotationStyle(WorkflowAnnotationTheme theme) =>
     (accent: Color(theme.accentColorValue), soft: Color(theme.softColorValue));
@@ -710,6 +752,7 @@ Future<ui.Image> _renderRaster(
       size.height * layout.scale,
     );
     final style = _nodeStyle(node.kind);
+    final content = _nodeContent(node);
     final radius = Radius.circular(18 * layout.scale);
     canvas.drawRRect(
       RRect.fromRectAndRadius(rect, radius),
@@ -722,11 +765,10 @@ Future<ui.Image> _renderRaster(
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.4 * layout.scale,
     );
-    final badgeRect = Rect.fromLTWH(
-      rect.left + 16 * layout.scale,
-      rect.top + 16 * layout.scale,
-      58 * layout.scale,
-      34 * layout.scale,
+    final badgeRect = Rect.fromCenter(
+      center: Offset(rect.center.dx, rect.top + 30 * layout.scale),
+      width: 108 * layout.scale,
+      height: 34 * layout.scale,
     );
     canvas.drawRRect(
       RRect.fromRectAndRadius(badgeRect, Radius.circular(10 * layout.scale)),
@@ -734,12 +776,10 @@ Future<ui.Image> _renderRaster(
     );
     _paintText(
       canvas,
-      style.shortLabel,
-      Offset(
-        badgeRect.left + 10 * layout.scale,
-        badgeRect.top + 8 * layout.scale,
-      ),
-      maxWidth: badgeRect.width - 20 * layout.scale,
+      content.typeLabel,
+      Offset(badgeRect.left, badgeRect.top + 8 * layout.scale),
+      maxWidth: badgeRect.width,
+      textAlign: TextAlign.center,
       style: TextStyle(
         color: style.accent,
         fontSize: 11 * layout.scale,
@@ -748,9 +788,10 @@ Future<ui.Image> _renderRaster(
     );
     _paintText(
       canvas,
-      node.title.trim().isEmpty ? node.kind.storageValue : node.title.trim(),
-      Offset(rect.left + 16 * layout.scale, rect.top + 64 * layout.scale),
+      content.title,
+      Offset(rect.left + 16 * layout.scale, rect.top + 58 * layout.scale),
       maxWidth: rect.width - 32 * layout.scale,
+      textAlign: TextAlign.center,
       style: TextStyle(
         color: const Color(0xFF20242C),
         fontSize: 18 * layout.scale,
@@ -759,12 +800,25 @@ Future<ui.Image> _renderRaster(
     );
     _paintText(
       canvas,
-      node.kind.storageValue,
-      Offset(rect.left + 16 * layout.scale, rect.top + 94 * layout.scale),
+      content.description,
+      Offset(rect.left + 16 * layout.scale, rect.top + 88 * layout.scale),
       maxWidth: rect.width - 32 * layout.scale,
+      textAlign: TextAlign.center,
       style: TextStyle(
         color: const Color(0xFF667085),
-        fontSize: 12 * layout.scale,
+        fontSize: 11 * layout.scale,
+      ),
+    );
+    _paintText(
+      canvas,
+      content.parameterSummary,
+      Offset(rect.left + 16 * layout.scale, rect.top + 114 * layout.scale),
+      maxWidth: rect.width - 32 * layout.scale,
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        color: const Color(0xFF667085),
+        fontSize: 11 * layout.scale,
+        fontWeight: FontWeight.w700,
       ),
     );
   }
@@ -794,10 +848,12 @@ void _paintText(
   required double maxWidth,
   required TextStyle style,
   int maxLines = 1,
+  TextAlign textAlign = TextAlign.left,
 }) {
   final painter = TextPainter(
     text: TextSpan(text: text, style: style),
     textDirection: TextDirection.ltr,
+    textAlign: textAlign,
     maxLines: maxLines,
     ellipsis: '…',
   )..layout(maxWidth: math.max(1, maxWidth));
@@ -921,11 +977,12 @@ String _renderSvg(WorkflowDefinition workflow, _WorkflowExportLayout layout) {
     final width = size.width * layout.scale;
     final height = size.height * layout.scale;
     final style = _nodeStyle(node.kind);
+    final content = _nodeContent(node);
     final accent = _colorHex(style.accent);
     final soft = _colorHex(style.soft);
-    final title = node.title.trim().isEmpty
-        ? node.kind.storageValue
-        : node.title.trim();
+    final badgeWidth = 108 * layout.scale;
+    final badgeLeft = origin.dx + (width - badgeWidth) / 2;
+    final centerX = origin.dx + width / 2;
     buffer
       ..writeln(
         '<rect x="${origin.dx}" y="${origin.dy}" width="$width" height="$height" '
@@ -933,23 +990,28 @@ String _renderSvg(WorkflowDefinition workflow, _WorkflowExportLayout layout) {
         'stroke-width="${1.4 * layout.scale}"/>',
       )
       ..writeln(
-        '<rect x="${origin.dx + 16 * layout.scale}" y="${origin.dy + 16 * layout.scale}" '
-        'width="${58 * layout.scale}" height="${34 * layout.scale}" rx="${10 * layout.scale}" fill="$soft"/>',
+        '<rect x="$badgeLeft" y="${origin.dy + 13 * layout.scale}" '
+        'width="$badgeWidth" height="${34 * layout.scale}" rx="${10 * layout.scale}" fill="$soft"/>',
       )
       ..writeln(
-        '<text x="${origin.dx + 26 * layout.scale}" y="${origin.dy + 38 * layout.scale}" '
+        '<text x="$centerX" y="${origin.dy + 35 * layout.scale}" text-anchor="middle" '
         'font-family="sans-serif" font-size="${11 * layout.scale}" font-weight="800" fill="$accent">'
-        '${style.shortLabel}</text>',
+        '${_escapeXml(content.typeLabel)}</text>',
       )
       ..writeln(
-        '<text x="${origin.dx + 16 * layout.scale}" y="${origin.dy + 83 * layout.scale}" '
+        '<text x="$centerX" y="${origin.dy + 78 * layout.scale}" text-anchor="middle" '
         'font-family="sans-serif" font-size="${18 * layout.scale}" font-weight="700" fill="#20242C">'
-        '${_escapeXml(_clipSvgText(title))}</text>',
+        '${_escapeXml(_clipSvgText(content.title))}</text>',
       )
       ..writeln(
-        '<text x="${origin.dx + 16 * layout.scale}" y="${origin.dy + 111 * layout.scale}" '
-        'font-family="sans-serif" font-size="${12 * layout.scale}" fill="#667085">'
-        '${_escapeXml(node.kind.storageValue)}</text>',
+        '<text x="$centerX" y="${origin.dy + 101 * layout.scale}" text-anchor="middle" '
+        'font-family="sans-serif" font-size="${11 * layout.scale}" fill="#667085">'
+        '${_escapeXml(_clipSvgText(content.description))}</text>',
+      )
+      ..writeln(
+        '<text x="$centerX" y="${origin.dy + 127 * layout.scale}" text-anchor="middle" '
+        'font-family="sans-serif" font-size="${11 * layout.scale}" font-weight="700" fill="#667085">'
+        '${_escapeXml(content.parameterSummary)}</text>',
       );
   }
   buffer.writeln('</svg>');

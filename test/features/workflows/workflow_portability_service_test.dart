@@ -16,22 +16,48 @@ final _workflow = WorkflowDefinition(
       title: '开始',
       x: 20,
       y: 40,
-      settings: <String, Object?>{'description': '第一行\n第二行: value'},
+      settings: <String, Object?>{
+        WorkflowSettingKeys.description: '第一行\n第二行: value',
+        WorkflowSettingKeys.inputFields: <Object?>[
+          <String, Object?>{'id': 'topic', 'name': 'topic'},
+        ],
+      },
+    ),
+    WorkflowNode(
+      id: 'code',
+      kind: WorkflowNodeKind.codeExecution,
+      title: '代码执行',
+      x: 420,
+      y: 120,
+      settings: <String, Object?>{
+        WorkflowSettingKeys.codeInputFields: <Object?>[
+          <String, Object?>{'id': 'code-input', 'name': 'topic'},
+        ],
+        WorkflowSettingKeys.outputFields: <Object?>[
+          <String, Object?>{'id': 'code-output', 'name': 'result'},
+        ],
+      },
     ),
     WorkflowNode(
       id: 'end',
       kind: WorkflowNodeKind.end,
       title: '结束',
-      x: 420,
+      x: 820,
       y: 40,
+      settings: <String, Object?>{
+        WorkflowSettingKeys.outputFields: <Object?>[
+          <String, Object?>{'id': 'result', 'name': 'result'},
+        ],
+      },
     ),
   ],
   connections: const <WorkflowConnection>[
     WorkflowConnection(
       id: 'edge-1',
       sourceNodeId: 'start',
-      targetNodeId: 'end',
+      targetNodeId: 'code',
     ),
+    WorkflowConnection(id: 'edge-2', sourceNodeId: 'code', targetNodeId: 'end'),
   ],
   annotations: const <WorkflowAnnotation>[
     WorkflowAnnotation(
@@ -231,6 +257,16 @@ void main() {
     final svgContent = utf8.decode(svg.bytes);
     expect(svgContent, contains('<svg'));
     expect(svgContent, contains('先审核，再发布。'));
+    expect(svgContent, contains('开始'));
+    expect(svgContent, contains('代码执行'));
+    expect(svgContent, contains('结束'));
+    expect(svgContent, contains('第一行\n第二行: value'));
+    expect(svgContent, contains('1 输入 · 0 输出'));
+    expect(svgContent, contains('1 输入 · 1 输出'));
+    expect(svgContent, contains('0 输入 · 1 输出'));
+    expect(svgContent, isNot(contains('code_execution')));
+    expect(svgContent, isNot(contains('>start</text>')));
+    expect(svgContent, isNot(contains('>end</text>')));
     expect(svgContent, isNot(contains('feDropShadow')));
     expect(svgContent, isNot(contains('filter="url(#shadow)"')));
     expect(png.width, greaterThan(1000));
