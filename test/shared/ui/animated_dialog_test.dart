@@ -123,4 +123,22 @@ void main() {
     await tester.pumpAndSettle();
     expect(await result, isFalse);
   });
+
+  testWidgets('自定义浮层 Scope 的 ESC 只触发自身关闭回调', (tester) async {
+    var dismissed = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: OpenHandEscapeDismissScope(
+          onDismiss: () => dismissed = true,
+          child: const Scaffold(body: Text('底层页面')),
+        ),
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+
+    expect(dismissed, isTrue);
+    expect(find.text('底层页面'), findsOneWidget);
+  });
 }

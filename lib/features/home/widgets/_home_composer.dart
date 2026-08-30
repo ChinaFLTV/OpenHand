@@ -3355,8 +3355,10 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel> {
       preferredWidth: 460,
       preferredHeight: 340,
     );
-    return Stack(
-      children: [
+    return OpenHandEscapeDismissScope(
+      onDismiss: widget.onDismiss,
+      child: Stack(
+        children: [
         Positioned.fill(
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
@@ -3635,7 +3637,8 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel> {
             ),
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -3892,8 +3895,10 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel> {
       ),
     );
 
-    return Stack(
-      children: [
+    return OpenHandEscapeDismissScope(
+      onDismiss: widget.onDismiss,
+      child: Stack(
+        children: [
         Positioned.fill(
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
@@ -3922,7 +3927,8 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel> {
             ),
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 }

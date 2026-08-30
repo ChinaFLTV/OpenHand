@@ -2091,12 +2091,16 @@ class OpenHandEscapeDismissScope extends StatefulWidget {
     super.key,
     required this.child,
     this.enabled = true,
+    this.onDismiss,
   });
 
   final Widget child;
 
   /// 为 false 时消费 Escape 但不关闭当前路由。
   final bool enabled;
+
+  /// 自定义浮层的关闭回调。传入后 ESC 只关闭该浮层，不弹出底层路由。
+  final VoidCallback? onDismiss;
 
   @override
   State<OpenHandEscapeDismissScope> createState() =>
@@ -2140,6 +2144,17 @@ class _OpenHandEscapeDismissScopeState extends State<OpenHandEscapeDismissScope>
 
   @override
   bool requestDismiss() {
+    final dismiss = widget.onDismiss;
+    if (dismiss != null) {
+      if (_dismissRequested) return true;
+      _dismissRequested = true;
+      scheduleMicrotask(() {
+        if (!mounted || !_dismissRequested) return;
+        _dismissRequested = false;
+        dismiss();
+      });
+      return true;
+    }
     final route = _route;
     if (route == null || !route.isCurrent) return false;
     if (_dismissRequested) return true;

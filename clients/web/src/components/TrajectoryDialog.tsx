@@ -847,6 +847,10 @@ function TrajectoryTimeline({
         tabIndex={0}
         onKeyDown={(event) => {
           if (event.key !== 'Escape') return;
+          const hasTimelineAdjustment =
+            viewport.start !== 0 || viewport.end !== 1 || range != null;
+          if (!hasTimelineAdjustment) return;
+          event.preventDefault();
           setViewport({ start: 0, end: 1 });
           onRangeChange(null);
         }}

@@ -137,6 +137,7 @@ import { useBrowserFullscreen } from '../../../hooks/useBrowserFullscreen';
 import { useDelayedFalse } from '../../../hooks/useDelayedFalse';
 import { useDialogExitMotion } from '../../../hooks/useDialogExitMotion';
 import { useDelayedVisibility } from '../../../hooks/useDelayedVisibility';
+import { useDismissibleOverlay } from '../../../hooks/useDismissibleOverlay';
 import { useEventCallback } from '../../../hooks/useEventCallback';
 import { useTimeoutController } from '../../../hooks/useTimeoutController';
 import { ConfirmDialog } from '../../../components/ConfirmDialog';
@@ -3711,8 +3712,16 @@ export function SessionDetailPage() {
   const composerFileInputRef = useRef<HTMLInputElement | null>(null);
   const slashDismissalRef = useRef<ComposerTriggerDismissal | null>(null);
   const skillPickerOverlayRef = useRef<HTMLDivElement | null>(null);
+  const skillPickerDismissTargets = useMemo(
+    () => [composerTextareaRef, skillPickerOverlayRef],
+    [],
+  );
   const slashTriggerOffsetRef = useRef<number | null>(null);
   const atMentionFilePickerOverlayRef = useRef<HTMLDivElement | null>(null);
+  const atMentionFilePickerDismissTargets = useMemo(
+    () => [composerTextareaRef, atMentionFilePickerOverlayRef],
+    [],
+  );
   const atMentionDismissalRef = useRef<ComposerTriggerDismissal | null>(null);
   const atMentionTriggerOffsetRef = useRef<number | null>(null);
   const imageEditorResolverRef = useRef<((result: ImageEditorResult | null) => void) | null>(null);
@@ -6242,38 +6251,6 @@ export function SessionDetailPage() {
     };
   }, [atMentionFilePickerVisible, recomputeAtMentionFilePickerAnchor]);
 
-  useEffect(() => {
-    if (!skillPickerVisible || typeof document === 'undefined') return;
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      const textarea = composerTextareaRef.current;
-      const overlay = skillPickerOverlayRef.current;
-      if (!(target instanceof Node)) return;
-      if (textarea?.contains(target) || overlay?.contains(target)) return;
-      dismissSkillPicker(true);
-    };
-    document.addEventListener('pointerdown', handlePointerDown, true);
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown, true);
-    };
-  }, [skillPickerVisible]);
-
-  useEffect(() => {
-    if (!atMentionFilePickerVisible || typeof document === 'undefined') return;
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      const textarea = composerTextareaRef.current;
-      const overlay = atMentionFilePickerOverlayRef.current;
-      if (!(target instanceof Node)) return;
-      if (textarea?.contains(target) || overlay?.contains(target)) return;
-      dismissAtMentionFilePicker(true);
-    };
-    document.addEventListener('pointerdown', handlePointerDown, true);
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown, true);
-    };
-  }, [atMentionFilePickerVisible]);
-
   async function ensureSkillsLoadedForPicker(): Promise<void> {
     if (skillsLoadedRef.current || skillPickerLoading) return;
     setSkillPickerLoading(true);
@@ -6563,6 +6540,23 @@ export function SessionDetailPage() {
     setAtMentionFilePickerOpen(false);
     if (!remember) setAtMentionFilePickerQuery('');
   }
+
+  const dismissSkillPickerOverlay = useEventCallback(() => dismissSkillPicker(true));
+  const dismissAtMentionFilePickerOverlay = useEventCallback(() => dismissAtMentionFilePicker(true));
+
+  useDismissibleOverlay({
+    active: skillPickerVisible && !skillPickerClosing,
+    targets: skillPickerDismissTargets,
+    onDismiss: dismissSkillPickerOverlay,
+    onEscape: dismissSkillPickerOverlay,
+  });
+
+  useDismissibleOverlay({
+    active: atMentionFilePickerVisible && !atMentionFilePickerClosing,
+    targets: atMentionFilePickerDismissTargets,
+    onDismiss: dismissAtMentionFilePickerOverlay,
+    onEscape: dismissAtMentionFilePickerOverlay,
+  });
 
   function handleComposerKeyDown(e: KeyboardEvent): void {
     if (atMentionFilePickerOpen) {

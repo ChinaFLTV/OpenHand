@@ -6,18 +6,25 @@ interface OverlayEscapeLayer {
 let layers: OverlayEscapeLayer[] = [];
 let listenerAttached = false;
 
-function handleEscape(event: KeyboardEvent): void {
-  if (
-    event.key !== 'Escape'
-    && event.key !== 'Esc'
-    && event.code !== 'Escape'
-  ) return;
+function isEscapeEvent(event: KeyboardEvent): boolean {
+  return event.key === 'Escape'
+    || event.key === 'Esc'
+    || event.code === 'Escape';
+}
+
+function dispatchEscape(event: KeyboardEvent): void {
+  // 让目标控件和其它业务监听器先完成自己的 ESC 处理，避免统一浮层栈抢先关闭外层。
+  if (event.defaultPrevented || event.cancelBubble) return;
   const layer = layers[layers.length - 1];
   if (!layer) return;
   event.preventDefault();
-  event.stopPropagation();
-  event.stopImmediatePropagation();
   if (layer.canClose()) layer.requestClose();
+}
+
+function handleEscape(event: KeyboardEvent): void {
+  if (!isEscapeEvent(event)) return;
+  // 捕获阶段只登记事件；微任务会在当前事件完整传播后执行。
+  queueMicrotask(() => dispatchEscape(event));
 }
 
 function attachListener(): void {
