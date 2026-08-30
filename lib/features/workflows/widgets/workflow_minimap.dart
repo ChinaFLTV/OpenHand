@@ -9,6 +9,23 @@ import '../service/workflow_auto_layout.dart';
 
 const double _contentPadding = 10;
 
+const double kWorkflowCanvasOverlayElevation = 7;
+const double kWorkflowCanvasOverlayShadowAlpha = 0.18;
+const double kWorkflowCanvasOverlayBackgroundAlpha = 0.96;
+
+Color workflowCanvasOverlayColor(ColorScheme colors) {
+  return colors.surfaceContainerHigh.withValues(
+    alpha: kWorkflowCanvasOverlayBackgroundAlpha,
+  );
+}
+
+ShapeBorder workflowCanvasOverlayShape(ColorScheme colors) {
+  return RoundedRectangleBorder(
+    borderRadius: kOpenHandBorderRadius14,
+    side: BorderSide(color: colors.outlineVariant),
+  );
+}
+
 class WorkflowMiniMap extends StatefulWidget {
   const WorkflowMiniMap({
     super.key,
@@ -21,6 +38,7 @@ class WorkflowMiniMap extends StatefulWidget {
     this.selectedAnnotationId,
     this.onNavigate,
     this.onZoomFactor,
+    this.useCanvasOverlayStyle = false,
   });
 
   final List<WorkflowNode> nodes;
@@ -32,6 +50,7 @@ class WorkflowMiniMap extends StatefulWidget {
   final String? selectedAnnotationId;
   final ValueChanged<Offset>? onNavigate;
   final ValueChanged<double>? onZoomFactor;
+  final bool useCanvasOverlayStyle;
 
   @override
   State<WorkflowMiniMap> createState() => _WorkflowMiniMapState();
@@ -52,23 +71,25 @@ class _WorkflowMiniMapState extends State<WorkflowMiniMap> {
       widget.annotations,
       widget.canvasSize,
     );
+    final overlayStyle = widget.useCanvasOverlayStyle;
+    final shape = overlayStyle
+        ? workflowCanvasOverlayShape(colors)
+        : RoundedRectangleBorder(
+            borderRadius: kOpenHandBorderRadius14,
+            side: BorderSide(color: colors.outlineVariant),
+          );
     return Semantics(
       label: _interactive ? '工作流缩略导航图' : '工作流全貌缩略图',
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colors.surfaceContainerLow,
-          borderRadius: kOpenHandBorderRadius14,
-          border: Border.all(color: colors.outlineVariant),
-          boxShadow: _interactive
-              ? <BoxShadow>[
-                  BoxShadow(
-                    color: colors.shadow.withValues(alpha: 0.12),
-                    blurRadius: 18,
-                    offset: const Offset(0, 7),
-                  ),
-                ]
-              : null,
+      child: Material(
+        color: overlayStyle
+            ? workflowCanvasOverlayColor(colors)
+            : colors.surfaceContainerLow,
+        elevation: overlayStyle ? kWorkflowCanvasOverlayElevation : 0,
+        shadowColor: colors.shadow.withValues(
+          alpha: overlayStyle ? kWorkflowCanvasOverlayShadowAlpha : 0.12,
         ),
+        shape: shape,
+        clipBehavior: Clip.antiAlias,
         child: ClipRRect(
           borderRadius: kOpenHandBorderRadius14,
           child: LayoutBuilder(

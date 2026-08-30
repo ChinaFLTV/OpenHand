@@ -117,4 +117,34 @@ void main() {
     expect(find.text('尚未添加节点'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('画布缩略图复用工具条浮层样式', (tester) async {
+    const key = ValueKey<String>('canvas-style-minimap');
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            key: key,
+            width: 220,
+            height: 120,
+            child: WorkflowMiniMap(
+              nodes: [],
+              connections: [],
+              useCanvasOverlayStyle: true,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final minimap = find.byKey(key);
+    final material = tester.widget<Material>(
+      find.descendant(of: minimap, matching: find.byType(Material)),
+    );
+    final colors = Theme.of(tester.element(minimap)).colorScheme;
+    expect(material.color, workflowCanvasOverlayColor(colors));
+    expect(material.elevation, kWorkflowCanvasOverlayElevation);
+    expect(material.shape, workflowCanvasOverlayShape(colors));
+    expect(tester.takeException(), isNull);
+  });
 }

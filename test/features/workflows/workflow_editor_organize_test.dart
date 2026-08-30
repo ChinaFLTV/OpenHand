@@ -41,6 +41,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final toolbar = tester.widget<Material>(
+      find.byKey(const ValueKey<String>('workflow-canvas-toolbar')),
+    );
+    final minimap = tester.widget<Material>(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('workflow-editor-minimap')),
+        matching: find.byType(Material),
+      ),
+    );
+    expect(minimap.color, toolbar.color);
+    expect(minimap.elevation, toolbar.elevation);
+    expect(minimap.shape, toolbar.shape);
+
     final organize = find.byKey(
       const ValueKey<String>('workflow-organize-nodes'),
     );

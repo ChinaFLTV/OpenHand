@@ -664,6 +664,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                                           selectedNodeId: _selectedNodeId,
                                           selectedAnnotationId:
                                               _selectedAnnotationId,
+                                          useCanvasOverlayStyle: true,
                                           onNavigate: (center) =>
                                               _applyViewportTransform(
                                                 center,
@@ -4057,10 +4058,13 @@ class _CanvasToolbar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.96),
-      elevation: 7,
-      shadowColor: theme.colorScheme.shadow.withValues(alpha: 0.18),
-      borderRadius: BorderRadius.circular(kOpenHandRadius14),
+      key: const ValueKey<String>('workflow-canvas-toolbar'),
+      color: workflowCanvasOverlayColor(theme.colorScheme),
+      elevation: kWorkflowCanvasOverlayElevation,
+      shadowColor: theme.colorScheme.shadow.withValues(
+        alpha: kWorkflowCanvasOverlayShadowAlpha,
+      ),
+      shape: workflowCanvasOverlayShape(theme.colorScheme),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
         child: Row(
