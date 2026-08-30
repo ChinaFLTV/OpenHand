@@ -14,18 +14,22 @@ class WorkflowMiniMap extends StatefulWidget {
     super.key,
     required this.nodes,
     required this.connections,
+    this.annotations = const <WorkflowAnnotation>[],
     this.canvasSize,
     this.viewportRect,
     this.selectedNodeId,
+    this.selectedAnnotationId,
     this.onNavigate,
     this.onZoomFactor,
   });
 
   final List<WorkflowNode> nodes;
   final List<WorkflowConnection> connections;
+  final List<WorkflowAnnotation> annotations;
   final Size? canvasSize;
   final Rect? viewportRect;
   final String? selectedNodeId;
+  final String? selectedAnnotationId;
   final ValueChanged<Offset>? onNavigate;
   final ValueChanged<double>? onZoomFactor;
 
@@ -43,7 +47,11 @@ class _WorkflowMiniMapState extends State<WorkflowMiniMap> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final worldBounds = _worldBounds(widget.nodes, widget.canvasSize);
+    final worldBounds = _worldBounds(
+      widget.nodes,
+      widget.annotations,
+      widget.canvasSize,
+    );
     return Semantics(
       label: _interactive ? '工作流缩略导航图' : '工作流全貌缩略图',
       child: DecoratedBox(
@@ -75,7 +83,9 @@ class _WorkflowMiniMapState extends State<WorkflowMiniMap> {
                       painter: _WorkflowMiniMapGraphPainter(
                         nodes: widget.nodes,
                         connections: widget.connections,
+                        annotations: widget.annotations,
                         selectedNodeId: widget.selectedNodeId,
+                        selectedAnnotationId: widget.selectedAnnotationId,
                         geometry: geometry,
                         colors: colors,
                       ),
@@ -91,7 +101,7 @@ class _WorkflowMiniMapState extends State<WorkflowMiniMap> {
                         ),
                       ),
                     ),
-                  if (widget.nodes.isEmpty)
+                  if (widget.nodes.isEmpty && widget.annotations.isEmpty)
                     Center(
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -185,20 +195,24 @@ class _WorkflowMiniMapGraphPainter extends CustomPainter {
   const _WorkflowMiniMapGraphPainter({
     required this.nodes,
     required this.connections,
+    required this.annotations,
     required this.selectedNodeId,
+    required this.selectedAnnotationId,
     required this.geometry,
     required this.colors,
   });
 
   final List<WorkflowNode> nodes;
   final List<WorkflowConnection> connections;
+  final List<WorkflowAnnotation> annotations;
   final String? selectedNodeId;
+  final String? selectedAnnotationId;
   final _MiniMapGeometry geometry;
   final ColorScheme colors;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (nodes.isEmpty) return;
+    if (nodes.isEmpty && annotations.isEmpty) return;
     final nodesById = <String, WorkflowNode>{
       for (final node in nodes) node.id: node,
     };
@@ -207,6 +221,31 @@ class _WorkflowMiniMapGraphPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.35
       ..strokeCap = StrokeCap.round;
+    for (final annotation in annotations) {
+      final rect = geometry.canvasRectToLocal(
+        Rect.fromLTWH(
+          annotation.x,
+          annotation.y,
+          annotation.width,
+          annotation.height,
+        ),
+      );
+      final accent = _annotationColor(annotation.theme, colors);
+      final radius = Radius.circular(math.min(3.5, rect.shortestSide / 3));
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, radius),
+        Paint()..color = accent.withValues(alpha: 0.2),
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, radius),
+        Paint()
+          ..color = annotation.id == selectedAnnotationId
+              ? colors.primary
+              : accent.withValues(alpha: 0.75)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = annotation.id == selectedAnnotationId ? 2 : 1,
+      );
+    }
     for (final connection in connections) {
       final source = nodesById[connection.sourceNodeId];
       final target = nodesById[connection.targetNodeId];
@@ -275,7 +314,9 @@ class _WorkflowMiniMapGraphPainter extends CustomPainter {
   bool shouldRepaint(covariant _WorkflowMiniMapGraphPainter oldDelegate) =>
       oldDelegate.nodes != nodes ||
       oldDelegate.connections != connections ||
+      oldDelegate.annotations != annotations ||
       oldDelegate.selectedNodeId != selectedNodeId ||
+      oldDelegate.selectedAnnotationId != selectedAnnotationId ||
       oldDelegate.geometry != geometry ||
       oldDelegate.colors != colors;
 }
@@ -367,7 +408,11 @@ class _MiniMapGeometry {
   int get hashCode => Object.hash(size, worldBounds);
 }
 
-Rect _worldBounds(List<WorkflowNode> nodes, Size? canvasSize) {
+Rect _worldBounds(
+  List<WorkflowNode> nodes,
+  List<WorkflowAnnotation> annotations,
+  Size? canvasSize,
+) {
   if (canvasSize != null &&
       canvasSize.width.isFinite &&
       canvasSize.height.isFinite &&
@@ -375,13 +420,28 @@ Rect _worldBounds(List<WorkflowNode> nodes, Size? canvasSize) {
       canvasSize.height > 0) {
     return Offset.zero & canvasSize;
   }
-  if (nodes.isEmpty) return const Rect.fromLTWH(0, 0, 1, 1);
-  var bounds = _nodeBounds(nodes.first);
-  for (final node in nodes.skip(1)) {
-    bounds = bounds.expandToInclude(_nodeBounds(node));
+  if (nodes.isEmpty && annotations.isEmpty) {
+    return const Rect.fromLTWH(0, 0, 1, 1);
   }
-  final padding = math.max(56.0, math.max(bounds.width, bounds.height) * 0.08);
-  return bounds.inflate(padding);
+  Rect? bounds;
+  for (final node in nodes) {
+    bounds = bounds?.expandToInclude(_nodeBounds(node)) ?? _nodeBounds(node);
+  }
+  for (final annotation in annotations) {
+    final annotationBounds = Rect.fromLTWH(
+      annotation.x,
+      annotation.y,
+      annotation.width,
+      annotation.height,
+    );
+    bounds = bounds?.expandToInclude(annotationBounds) ?? annotationBounds;
+  }
+  final resolved = bounds!;
+  final padding = math.max(
+    56.0,
+    math.max(resolved.width, resolved.height) * 0.08,
+  );
+  return resolved.inflate(padding);
 }
 
 Rect _nodeBounds(WorkflowNode node) => Rect.fromLTWH(
@@ -420,3 +480,8 @@ Color _nodeColor(WorkflowNodeKind kind, ColorScheme colors) => switch (kind) {
   WorkflowNodeKind.listOperation ||
   WorkflowNodeKind.codeExecution => colors.primary,
 };
+
+Color _annotationColor(WorkflowAnnotationTheme theme, ColorScheme colors) =>
+    theme == WorkflowAnnotationTheme.blue
+    ? colors.primary
+    : Color(theme.accentColorValue);

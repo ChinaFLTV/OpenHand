@@ -91,4 +91,30 @@ void main() {
     expect(zoomFactor, greaterThan(1));
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('仅包含注释时缩略图仍展示有效内容', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 220,
+              height: 120,
+              child: WorkflowMiniMap(
+                nodes: [],
+                connections: [],
+                annotations: <WorkflowAnnotation>[
+                  WorkflowAnnotation(id: 'note', text: '流程说明', x: 100, y: 80),
+                ],
+                selectedAnnotationId: 'note',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('尚未添加节点'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }

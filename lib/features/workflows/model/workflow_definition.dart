@@ -29,6 +29,65 @@ enum WorkflowNodeKind {
   }
 }
 
+enum WorkflowAnnotationTheme {
+  blue('blue'),
+  cyan('cyan'),
+  green('green'),
+  yellow('yellow'),
+  pink('pink'),
+  violet('violet');
+
+  const WorkflowAnnotationTheme(this.storageValue);
+
+  final String storageValue;
+
+  String get label => switch (this) {
+    WorkflowAnnotationTheme.blue => '蓝色',
+    WorkflowAnnotationTheme.cyan => '青色',
+    WorkflowAnnotationTheme.green => '绿色',
+    WorkflowAnnotationTheme.yellow => '黄色',
+    WorkflowAnnotationTheme.pink => '粉色',
+    WorkflowAnnotationTheme.violet => '紫色',
+  };
+
+  int get accentColorValue => switch (this) {
+    WorkflowAnnotationTheme.blue => 0xFF2563EB,
+    WorkflowAnnotationTheme.cyan => 0xFF0891B2,
+    WorkflowAnnotationTheme.green => 0xFF16A34A,
+    WorkflowAnnotationTheme.yellow => 0xFFD97706,
+    WorkflowAnnotationTheme.pink => 0xFFDB2777,
+    WorkflowAnnotationTheme.violet => 0xFF7C3AED,
+  };
+
+  int get softColorValue => switch (this) {
+    WorkflowAnnotationTheme.blue => 0xFFE8F0FE,
+    WorkflowAnnotationTheme.cyan => 0xFFE0F7FA,
+    WorkflowAnnotationTheme.green => 0xFFE6F6EA,
+    WorkflowAnnotationTheme.yellow => 0xFFFFF4D6,
+    WorkflowAnnotationTheme.pink => 0xFFFCE7F3,
+    WorkflowAnnotationTheme.violet => 0xFFF0E8FF,
+  };
+
+  static WorkflowAnnotationTheme fromStorage(Object? value) {
+    final normalized = '${value ?? ''}'.trim();
+    return values.firstWhere(
+      (theme) => theme.storageValue == normalized,
+      orElse: () => WorkflowAnnotationTheme.blue,
+    );
+  }
+}
+
+const double kWorkflowAnnotationDefaultWidth = 320;
+const double kWorkflowAnnotationDefaultHeight = 190;
+const double kWorkflowAnnotationMinWidth = 240;
+const double kWorkflowAnnotationMinHeight = 140;
+const double kWorkflowAnnotationMaxWidth = 720;
+const double kWorkflowAnnotationMaxHeight = 520;
+const double kWorkflowAnnotationDefaultFontSize = 18;
+const double kWorkflowAnnotationMinFontSize = 13;
+const double kWorkflowAnnotationMaxFontSize = 30;
+const int kWorkflowAnnotationMaxCharacters = 12000;
+
 enum WorkflowHumanActionStyle {
   primary('primary'),
   defaultStyle('default'),
@@ -1540,6 +1599,121 @@ class WorkflowNode {
   };
 }
 
+@immutable
+class WorkflowAnnotation {
+  const WorkflowAnnotation({
+    required this.id,
+    required this.text,
+    required this.x,
+    required this.y,
+    this.width = kWorkflowAnnotationDefaultWidth,
+    this.height = kWorkflowAnnotationDefaultHeight,
+    this.theme = WorkflowAnnotationTheme.blue,
+    this.fontSize = kWorkflowAnnotationDefaultFontSize,
+    this.bold = false,
+    this.italic = false,
+    this.strikethrough = false,
+  });
+
+  factory WorkflowAnnotation.fromJson(Map<String, Object?> json) {
+    final id = '${json['id'] ?? ''}'.trim();
+    final textValue = json['text'];
+    if (textValue != null && textValue is! String) {
+      throw const FormatException('工作流注释文本格式无效。');
+    }
+    final text = textValue as String? ?? '';
+    final x = _finiteDouble(json['x']);
+    final y = _finiteDouble(json['y']);
+    if (id.isEmpty || x == null || y == null) {
+      throw const FormatException('工作流注释数据不完整。');
+    }
+    if (text.runes.length > kWorkflowAnnotationMaxCharacters) {
+      throw const FormatException('工作流注释内容过长。');
+    }
+    final width =
+        _finiteDouble(json['width']) ?? kWorkflowAnnotationDefaultWidth;
+    final height =
+        _finiteDouble(json['height']) ?? kWorkflowAnnotationDefaultHeight;
+    final fontSize =
+        _finiteDouble(json['font_size']) ?? kWorkflowAnnotationDefaultFontSize;
+    return WorkflowAnnotation(
+      id: id,
+      text: text,
+      x: x,
+      y: y,
+      width: width.clamp(
+        kWorkflowAnnotationMinWidth,
+        kWorkflowAnnotationMaxWidth,
+      ),
+      height: height.clamp(
+        kWorkflowAnnotationMinHeight,
+        kWorkflowAnnotationMaxHeight,
+      ),
+      theme: WorkflowAnnotationTheme.fromStorage(json['theme']),
+      fontSize: fontSize.clamp(
+        kWorkflowAnnotationMinFontSize,
+        kWorkflowAnnotationMaxFontSize,
+      ),
+      bold: json['bold'] == true,
+      italic: json['italic'] == true,
+      strikethrough: json['strikethrough'] == true,
+    );
+  }
+
+  final String id;
+  final String text;
+  final double x;
+  final double y;
+  final double width;
+  final double height;
+  final WorkflowAnnotationTheme theme;
+  final double fontSize;
+  final bool bold;
+  final bool italic;
+  final bool strikethrough;
+
+  WorkflowAnnotation copyWith({
+    String? text,
+    double? x,
+    double? y,
+    double? width,
+    double? height,
+    WorkflowAnnotationTheme? theme,
+    double? fontSize,
+    bool? bold,
+    bool? italic,
+    bool? strikethrough,
+  }) {
+    return WorkflowAnnotation(
+      id: id,
+      text: text ?? this.text,
+      x: x ?? this.x,
+      y: y ?? this.y,
+      width: width ?? this.width,
+      height: height ?? this.height,
+      theme: theme ?? this.theme,
+      fontSize: fontSize ?? this.fontSize,
+      bold: bold ?? this.bold,
+      italic: italic ?? this.italic,
+      strikethrough: strikethrough ?? this.strikethrough,
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'id': id,
+    'text': text,
+    'x': x,
+    'y': y,
+    'width': width,
+    'height': height,
+    'theme': theme.storageValue,
+    'font_size': fontSize,
+    'bold': bold,
+    'italic': italic,
+    'strikethrough': strikethrough,
+  };
+}
+
 List<WorkflowNode> normalizeWorkflowSystemOutputNames(
   List<WorkflowNode> nodes,
 ) {
@@ -1855,6 +2029,7 @@ class WorkflowDefinition {
     required this.updatedAt,
     this.nodes = const <WorkflowNode>[],
     this.connections = const <WorkflowConnection>[],
+    this.annotations = const <WorkflowAnnotation>[],
   });
 
   factory WorkflowDefinition.fromJson(Map<String, Object?> json) {
@@ -1877,6 +2052,24 @@ class WorkflowDefinition {
     final nodesById = <String, WorkflowNode>{
       for (final node in nodes) node.id: node,
     };
+    final annotationsValue = json['annotations'];
+    if (annotationsValue != null && annotationsValue is! List) {
+      throw const FormatException('工作流注释列表格式无效。');
+    }
+    if (annotationsValue is List &&
+        annotationsValue.any((annotation) => annotation is! Map)) {
+      throw const FormatException('工作流包含无效注释。');
+    }
+    final annotations = _mapList(
+      annotationsValue,
+    ).map(WorkflowAnnotation.fromJson).toList(growable: false);
+    final annotationIds = annotations
+        .map((annotation) => annotation.id)
+        .toSet();
+    if (annotationIds.length != annotations.length ||
+        annotationIds.any(nodeIds.contains)) {
+      throw const FormatException('工作流包含重复注释。');
+    }
     for (final node in nodes.where((item) => item.isNested)) {
       final parent = nodesById[node.parentNodeId];
       if (parent == null || !parent.isContainer) {
@@ -1935,6 +2128,7 @@ class WorkflowDefinition {
       updatedAt: updatedAt,
       nodes: List<WorkflowNode>.unmodifiable(nodes),
       connections: List<WorkflowConnection>.unmodifiable(connections),
+      annotations: List<WorkflowAnnotation>.unmodifiable(annotations),
     );
   }
 
@@ -1944,12 +2138,14 @@ class WorkflowDefinition {
   final DateTime updatedAt;
   final List<WorkflowNode> nodes;
   final List<WorkflowConnection> connections;
+  final List<WorkflowAnnotation> annotations;
 
   WorkflowDefinition copyWith({
     String? name,
     DateTime? updatedAt,
     List<WorkflowNode>? nodes,
     List<WorkflowConnection>? connections,
+    List<WorkflowAnnotation>? annotations,
   }) {
     return WorkflowDefinition(
       id: id,
@@ -1958,6 +2154,7 @@ class WorkflowDefinition {
       updatedAt: updatedAt ?? this.updatedAt,
       nodes: nodes ?? this.nodes,
       connections: connections ?? this.connections,
+      annotations: annotations ?? this.annotations,
     );
   }
 
@@ -1970,6 +2167,9 @@ class WorkflowDefinition {
     'nodes': nodes.map((node) => node.toJson()).toList(growable: false),
     'connections': connections
         .map((edge) => edge.toJson())
+        .toList(growable: false),
+    'annotations': annotations
+        .map((annotation) => annotation.toJson())
         .toList(growable: false),
   };
 

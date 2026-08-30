@@ -572,6 +572,7 @@ class _WorkflowCard extends StatelessWidget {
                 child: WorkflowMiniMap(
                   nodes: workflow.nodes,
                   connections: workflow.connections,
+                  annotations: workflow.annotations,
                 ),
               ),
               kOpenHandGap14,

@@ -13,6 +13,7 @@ import '../model/workflow_definition.dart';
 const int kMaxWorkflowImportBytes = 4 * 1024 * 1024;
 const int _kMaxWorkflowNodes = 1000;
 const int _kMaxWorkflowConnections = 5000;
+const int _kMaxWorkflowAnnotations = 500;
 const int _kMaxYamlDepth = 64;
 const int _kMaxYamlValues = 100000;
 const double _kNodeWidth = 246;
@@ -118,6 +119,7 @@ WorkflowDefinition decodeWorkflowYaml(String source) {
   }
   final nodes = workflow['nodes'];
   final connections = workflow['connections'];
+  final annotations = workflow['annotations'];
   if (nodes is List && nodes.length > _kMaxWorkflowNodes) {
     throw const WorkflowPortabilityException(
       '工作流节点数量超过 $_kMaxWorkflowNodes 个安全上限。',
@@ -128,6 +130,11 @@ WorkflowDefinition decodeWorkflowYaml(String source) {
       '工作流连线数量超过 $_kMaxWorkflowConnections 条安全上限。',
     );
   }
+  if (annotations is List && annotations.length > _kMaxWorkflowAnnotations) {
+    throw const WorkflowPortabilityException(
+      '工作流注释数量超过 $_kMaxWorkflowAnnotations 个安全上限。',
+    );
+  }
   try {
     final definition = WorkflowDefinition.fromJson(workflow);
     if (nodes is List && definition.nodes.length != nodes.length) {
@@ -136,6 +143,10 @@ WorkflowDefinition decodeWorkflowYaml(String source) {
     if (connections is List &&
         definition.connections.length != connections.length) {
       throw const WorkflowPortabilityException('工作流包含无效或断开的连线。');
+    }
+    if (annotations is List &&
+        definition.annotations.length != annotations.length) {
+      throw const WorkflowPortabilityException('工作流包含无法识别的注释数据。');
     }
     if (definition.name.runes.length > 120) {
       throw const WorkflowPortabilityException('工作流名称不能超过 120 个字符。');
@@ -183,7 +194,8 @@ Future<WorkflowExportArtifact> buildWorkflowExportArtifact(
 }) async {
   onProgress?.call(0.12, '正在检查工作流结构…');
   if (workflow.nodes.length > _kMaxWorkflowNodes ||
-      workflow.connections.length > _kMaxWorkflowConnections) {
+      workflow.connections.length > _kMaxWorkflowConnections ||
+      workflow.annotations.length > _kMaxWorkflowAnnotations) {
     throw const WorkflowPortabilityException('工作流规模超过导出安全上限。');
   }
   if (format == WorkflowExportFormat.yaml) {
@@ -213,7 +225,7 @@ Future<WorkflowExportArtifact> buildWorkflowExportArtifact(
     );
   }
 
-  onProgress?.call(0.54, '正在绘制全部节点和连线…');
+  onProgress?.call(0.54, '正在绘制全部节点、注释和连线…');
   final raster = await _renderRaster(workflow, layout);
   if (format == WorkflowExportFormat.png) {
     onProgress?.call(0.76, '正在编码 PNG 图片…');
@@ -336,7 +348,7 @@ class _WorkflowExportLayout {
   });
 
   factory _WorkflowExportLayout.from(WorkflowDefinition workflow) {
-    if (workflow.nodes.isEmpty) {
+    if (workflow.nodes.isEmpty && workflow.annotations.isEmpty) {
       return const _WorkflowExportLayout(
         bounds: Rect.fromLTWH(0, 0, 816, 396),
         scale: 1,
@@ -354,6 +366,12 @@ class _WorkflowExportLayout {
       top = math.min(top, node.y);
       right = math.max(right, node.x + size.width);
       bottom = math.max(bottom, node.y + size.height);
+    }
+    for (final annotation in workflow.annotations) {
+      left = math.min(left, annotation.x);
+      top = math.min(top, annotation.y);
+      right = math.max(right, annotation.x + annotation.width);
+      bottom = math.max(bottom, annotation.y + annotation.height);
     }
     final contentWidth = right - left;
     final contentHeight = bottom - top;
@@ -467,6 +485,9 @@ Size _nodeSize(WorkflowNode node) {
   ),
 };
 
+({Color accent, Color soft}) _annotationStyle(WorkflowAnnotationTheme theme) =>
+    (accent: Color(theme.accentColorValue), soft: Color(theme.softColorValue));
+
 Future<ui.Image> _renderRaster(
   WorkflowDefinition workflow,
   _WorkflowExportLayout layout,
@@ -486,7 +507,7 @@ Future<ui.Image> _renderRaster(
       canvas.drawCircle(Offset(x, y), 0.8, gridPaint);
     }
   }
-  if (workflow.nodes.isEmpty) {
+  if (workflow.nodes.isEmpty && workflow.annotations.isEmpty) {
     _paintText(
       canvas,
       '空工作流',
@@ -509,6 +530,61 @@ Future<ui.Image> _renderRaster(
       recorder.endRecording(),
       layout.outputWidth,
       layout.outputHeight,
+    );
+  }
+
+  for (final annotation in workflow.annotations) {
+    final origin = layout.position(Offset(annotation.x, annotation.y));
+    final rect = Rect.fromLTWH(
+      origin.dx,
+      origin.dy,
+      annotation.width * layout.scale,
+      annotation.height * layout.scale,
+    );
+    final style = _annotationStyle(annotation.theme);
+    final radius = Radius.circular(14 * layout.scale);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect.translate(0, 4 * layout.scale), radius),
+      Paint()..color = const Color(0xFF111827).withValues(alpha: 0.09),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, radius),
+      Paint()..color = style.soft,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, radius),
+      Paint()
+        ..color = style.accent.withValues(alpha: 0.42)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2 * layout.scale,
+    );
+    canvas.save();
+    canvas.clipRRect(RRect.fromRectAndRadius(rect, radius));
+    canvas.drawRect(
+      Rect.fromLTWH(rect.left, rect.top, rect.width, 12 * layout.scale),
+      Paint()..color = style.accent.withValues(alpha: 0.24),
+    );
+    canvas.restore();
+    _paintText(
+      canvas,
+      annotation.text.trim().isEmpty ? '工作流注释' : annotation.text.trim(),
+      Offset(rect.left + 18 * layout.scale, rect.top + 28 * layout.scale),
+      maxWidth: rect.width - 36 * layout.scale,
+      maxLines: math.max(
+        1,
+        ((annotation.height - 48) / math.max(1, annotation.fontSize * 1.4))
+            .floor(),
+      ),
+      style: TextStyle(
+        color: const Color(0xFF20242C),
+        fontSize: annotation.fontSize * layout.scale,
+        fontWeight: annotation.bold ? FontWeight.w800 : FontWeight.w500,
+        fontStyle: annotation.italic ? FontStyle.italic : FontStyle.normal,
+        decoration: annotation.strikethrough
+            ? TextDecoration.lineThrough
+            : TextDecoration.none,
+        height: 1.4,
+      ),
     );
   }
 
@@ -659,11 +735,12 @@ void _paintText(
   Offset offset, {
   required double maxWidth,
   required TextStyle style,
+  int maxLines = 1,
 }) {
   final painter = TextPainter(
     text: TextSpan(text: text, style: style),
     textDirection: TextDirection.ltr,
-    maxLines: 1,
+    maxLines: maxLines,
     ellipsis: '…',
   )..layout(maxWidth: math.max(1, maxWidth));
   painter.paint(canvas, offset);
@@ -685,7 +762,7 @@ String _renderSvg(WorkflowDefinition workflow, _WorkflowExportLayout layout) {
       '</filter></defs>',
     )
     ..writeln('<rect width="100%" height="100%" fill="url(#grid)"/>');
-  if (workflow.nodes.isEmpty) {
+  if (workflow.nodes.isEmpty && workflow.annotations.isEmpty) {
     buffer
       ..writeln(
         '<text x="72" y="105" font-family="sans-serif" font-size="34" '
@@ -697,6 +774,45 @@ String _renderSvg(WorkflowDefinition workflow, _WorkflowExportLayout layout) {
       )
       ..writeln('</svg>');
     return buffer.toString();
+  }
+  for (final annotation in workflow.annotations) {
+    final origin = layout.position(Offset(annotation.x, annotation.y));
+    final width = annotation.width * layout.scale;
+    final height = annotation.height * layout.scale;
+    final style = _annotationStyle(annotation.theme);
+    final accent = _colorHex(style.accent);
+    final soft = _colorHex(style.soft);
+    final fontSize = annotation.fontSize * layout.scale;
+    final lines = _annotationSvgLines(annotation);
+    buffer
+      ..writeln('<g filter="url(#shadow)">')
+      ..writeln(
+        '<rect x="${origin.dx}" y="${origin.dy}" width="$width" height="$height" '
+        'rx="${14 * layout.scale}" fill="$soft" stroke="$accent" stroke-opacity="0.42" '
+        'stroke-width="${1.2 * layout.scale}"/>',
+      )
+      ..writeln('</g>')
+      ..writeln(
+        '<rect x="${origin.dx}" y="${origin.dy}" width="$width" '
+        'height="${12 * layout.scale}" rx="${8 * layout.scale}" '
+        'fill="$accent" fill-opacity="0.24"/>',
+      )
+      ..writeln(
+        '<text x="${origin.dx + 18 * layout.scale}" '
+        'y="${origin.dy + 30 * layout.scale}" font-family="sans-serif" '
+        'font-size="$fontSize" font-weight="${annotation.bold ? 800 : 500}" '
+        'font-style="${annotation.italic ? 'italic' : 'normal'}" '
+        'text-decoration="${annotation.strikethrough ? 'line-through' : 'none'}" '
+        'fill="#20242C">',
+      );
+    for (final line in lines.indexed) {
+      buffer.writeln(
+        '<tspan x="${origin.dx + 18 * layout.scale}" '
+        'dy="${line.$1 == 0 ? 0 : fontSize * 1.4}">'
+        '${_escapeXml(line.$2)}</tspan>',
+      );
+    }
+    buffer.writeln('</text>');
   }
   final nodesById = <String, WorkflowNode>{
     for (final node in workflow.nodes) node.id: node,
@@ -784,6 +900,39 @@ String _clipSvgText(String text) {
   final characters = text.runes.toList(growable: false);
   if (characters.length <= 24) return text;
   return '${String.fromCharCodes(characters.take(23))}…';
+}
+
+List<String> _annotationSvgLines(WorkflowAnnotation annotation) {
+  final source = annotation.text.trim().isEmpty
+      ? '工作流注释'
+      : annotation.text.trim();
+  final charactersPerLine = math.max(
+    4,
+    (annotation.width / math.max(1, annotation.fontSize * 0.9)).floor(),
+  );
+  final maxLines = math.max(
+    1,
+    ((annotation.height - 48) / math.max(1, annotation.fontSize * 1.4)).floor(),
+  );
+  final lines = <String>[];
+  for (final paragraph in source.split('\n')) {
+    final runes = paragraph.runes.toList(growable: false);
+    if (runes.isEmpty) {
+      lines.add('');
+      continue;
+    }
+    for (var offset = 0; offset < runes.length; offset += charactersPerLine) {
+      lines.add(
+        String.fromCharCodes(runes.skip(offset).take(charactersPerLine)),
+      );
+    }
+  }
+  if (lines.length <= maxLines) return lines;
+  final visible = lines.take(maxLines).toList(growable: true);
+  final last = visible.last.runes.toList(growable: false);
+  visible[visible.length - 1] =
+      '${String.fromCharCodes(last.take(math.max(1, last.length - 1)))}…';
+  return visible;
 }
 
 String _escapeXml(String value) => value

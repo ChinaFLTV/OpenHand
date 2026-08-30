@@ -29,6 +29,7 @@ import '../model/workflow_definition.dart';
 import '../service/workflow_auto_layout.dart';
 import '../service/workflow_code_executor.dart';
 import '../service/workflow_node_executor.dart';
+import 'workflow_annotation_card.dart';
 import 'workflow_human_intervention_dialog.dart';
 import 'workflow_minimap.dart';
 import 'workflow_node_configuration_panel.dart';
@@ -61,10 +62,12 @@ class _WorkflowGraphSnapshot {
   const _WorkflowGraphSnapshot({
     required this.nodes,
     required this.connections,
+    required this.annotations,
   });
 
   final List<WorkflowNode> nodes;
   final List<WorkflowConnection> connections;
+  final List<WorkflowAnnotation> annotations;
 }
 
 class _WorkflowHistoryEntry {
@@ -174,8 +177,14 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   late List<WorkflowConnection> _connections = List<WorkflowConnection>.from(
     widget.workflow?.connections ?? const <WorkflowConnection>[],
   );
+  late List<WorkflowAnnotation> _annotations =
+      _normalizeWorkflowAnnotationsForCanvas(
+        widget.workflow?.annotations ?? const <WorkflowAnnotation>[],
+      );
   String? _selectedNodeId;
   String? _selectedConnectionId;
+  String? _selectedAnnotationId;
+  String? _editingAnnotationId;
   bool _testing = false;
   bool _workflowTesting = false;
   bool _refreshingCodeRuntimes = false;
@@ -360,6 +369,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     'connections': _connections
         .map((connection) => connection.toJson())
         .toList(growable: false),
+    'annotations': _annotations
+        .map((annotation) => annotation.toJson())
+        .toList(growable: false),
   });
 
   Widget _buildHeader(BuildContext context) {
@@ -535,6 +547,37 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                             ),
                           ),
                         ),
+                        for (final annotation in _annotations)
+                          Positioned(
+                            key: ValueKey<String>(
+                              'workflow-annotation-${annotation.id}',
+                            ),
+                            left: annotation.x,
+                            top: annotation.y,
+                            width: annotation.width,
+                            height: annotation.height,
+                            child: WorkflowAnnotationCard(
+                              annotation: annotation,
+                              selected: annotation.id == _selectedAnnotationId,
+                              onSelect: () => _selectAnnotation(annotation.id),
+                              onChanged: _updateAnnotation,
+                              onMove: (delta) =>
+                                  _moveAnnotation(annotation.id, delta),
+                              onResize: (delta) =>
+                                  _resizeAnnotation(annotation.id, delta),
+                              onDuplicate: () =>
+                                  _duplicateAnnotation(annotation.id),
+                              onDelete: () => _deleteAnnotation(annotation.id),
+                              onEditingChanged: (editing) {
+                                if (editing) {
+                                  _editingAnnotationId = annotation.id;
+                                } else if (_editingAnnotationId ==
+                                    annotation.id) {
+                                  _editingAnnotationId = null;
+                                }
+                              },
+                            ),
+                          ),
                         for (final node in _nodes.where(
                           (item) => item.isContainer,
                         ))
@@ -610,6 +653,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                                         child: WorkflowMiniMap(
                                           nodes: _nodes,
                                           connections: _connections,
+                                          annotations: _annotations,
                                           canvasSize: const Size(
                                             _canvasWidth,
                                             _canvasHeight,
@@ -618,6 +662,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                                             viewportSize,
                                           ),
                                           selectedNodeId: _selectedNodeId,
+                                          selectedAnnotationId:
+                                              _selectedAnnotationId,
                                           onNavigate: (center) =>
                                               _applyViewportTransform(
                                                 center,
@@ -649,12 +695,14 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                                 .getMaxScaleOnAxis(),
                             showMiniMap: _showMiniMap,
                             canOrganize: _nodes.isNotEmpty && !_organizingNodes,
+                            onAddAnnotation: () => _addAnnotation(viewportSize),
                             onOrganize: () => _organizeNodes(viewportSize),
                             onToggleMiniMap: () =>
                                 setState(() => _showMiniMap = !_showMiniMap),
                             canDelete:
                                 _selectedNodeId != null ||
-                                _selectedConnectionId != null,
+                                _selectedConnectionId != null ||
+                                _selectedAnnotationId != null,
                             onZoomIn: () => _changeZoom(0.15, viewportSize),
                             onZoomOut: () => _changeZoom(-0.15, viewportSize),
                             onReset: _resetViewport,
@@ -767,6 +815,148 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
       current * factor,
       viewportSize,
     );
+  }
+
+  void _addAnnotation(Size viewportSize) {
+    final offset = (_annotations.length % 6) * 18.0;
+    final center =
+        _visibleCanvasRect(viewportSize).center + Offset(offset, offset);
+    final annotation = WorkflowAnnotation(
+      id: _uuid.v4(),
+      text: '',
+      x: (center.dx - kWorkflowAnnotationDefaultWidth / 2).clamp(
+        16,
+        _canvasWidth - kWorkflowAnnotationDefaultWidth - 16,
+      ),
+      y: (center.dy - kWorkflowAnnotationDefaultHeight / 2).clamp(
+        58,
+        _canvasHeight - kWorkflowAnnotationDefaultHeight - 16,
+      ),
+    );
+    setState(() {
+      _annotations = <WorkflowAnnotation>[..._annotations, annotation];
+      _selectedNodeId = null;
+      _selectedConnectionId = null;
+      _selectedAnnotationId = annotation.id;
+      _recordHistory('添加工作流注释');
+    });
+  }
+
+  void _updateAnnotation(WorkflowAnnotation updated) {
+    if (!_annotations.any((annotation) => annotation.id == updated.id)) return;
+    setState(() {
+      _annotations = _annotations
+          .map(
+            (annotation) => annotation.id == updated.id ? updated : annotation,
+          )
+          .toList(growable: false);
+      _recordHistory('编辑工作流注释', mergeKey: 'edit-note:${updated.id}');
+    });
+  }
+
+  void _moveAnnotation(String id, Offset screenDelta) {
+    final annotation = _annotations.where((item) => item.id == id).firstOrNull;
+    if (annotation == null) return;
+    final scale = math.max(
+      0.35,
+      _transformationController.value.getMaxScaleOnAxis(),
+    );
+    final delta = screenDelta / scale;
+    final moved = annotation.copyWith(
+      x: (annotation.x + delta.dx).clamp(
+        16,
+        _canvasWidth - annotation.width - 16,
+      ),
+      y: (annotation.y + delta.dy).clamp(
+        58,
+        _canvasHeight - annotation.height - 16,
+      ),
+    );
+    setState(() {
+      _annotations = _annotations
+          .map((item) => item.id == id ? moved : item)
+          .toList(growable: false);
+      _selectedNodeId = null;
+      _selectedConnectionId = null;
+      _selectedAnnotationId = id;
+      _recordHistory('移动工作流注释', mergeKey: 'move-note:$id');
+    });
+  }
+
+  void _resizeAnnotation(String id, Offset screenDelta) {
+    final annotation = _annotations.where((item) => item.id == id).firstOrNull;
+    if (annotation == null) return;
+    final scale = math.max(
+      0.35,
+      _transformationController.value.getMaxScaleOnAxis(),
+    );
+    final delta = screenDelta / scale;
+    final resized = annotation.copyWith(
+      width: (annotation.width + delta.dx).clamp(
+        kWorkflowAnnotationMinWidth,
+        math.max(
+          kWorkflowAnnotationMinWidth,
+          math.min(
+            kWorkflowAnnotationMaxWidth,
+            _canvasWidth - annotation.x - 16,
+          ),
+        ),
+      ),
+      height: (annotation.height + delta.dy).clamp(
+        kWorkflowAnnotationMinHeight,
+        math.max(
+          kWorkflowAnnotationMinHeight,
+          math.min(
+            kWorkflowAnnotationMaxHeight,
+            _canvasHeight - annotation.y - 16,
+          ),
+        ),
+      ),
+    );
+    setState(() {
+      _annotations = _annotations
+          .map((item) => item.id == id ? resized : item)
+          .toList(growable: false);
+      _recordHistory('调整工作流注释尺寸', mergeKey: 'resize-note:$id');
+    });
+  }
+
+  void _duplicateAnnotation(String id) {
+    final source = _annotations
+        .where((annotation) => annotation.id == id)
+        .firstOrNull;
+    if (source == null) return;
+    final duplicate = WorkflowAnnotation(
+      id: _uuid.v4(),
+      text: source.text,
+      x: (source.x + 28).clamp(16, _canvasWidth - source.width - 16),
+      y: (source.y + 28).clamp(58, _canvasHeight - source.height - 16),
+      width: source.width,
+      height: source.height,
+      theme: source.theme,
+      fontSize: source.fontSize,
+      bold: source.bold,
+      italic: source.italic,
+      strikethrough: source.strikethrough,
+    );
+    setState(() {
+      _annotations = <WorkflowAnnotation>[..._annotations, duplicate];
+      _selectedAnnotationId = duplicate.id;
+      _recordHistory('复制工作流注释');
+    });
+  }
+
+  void _deleteAnnotation(String id) {
+    if (!_annotations.any((annotation) => annotation.id == id)) return;
+    setState(() {
+      _annotations = _annotations
+          .where((annotation) => annotation.id != id)
+          .toList(growable: false);
+      if (_selectedAnnotationId == id) _selectedAnnotationId = null;
+      if (_editingAnnotationId == id) _editingAnnotationId = null;
+      _recordHistory('删除工作流注释');
+    });
+    _canvasFocusNode.requestFocus();
   }
 
   void _organizeNodes(Size viewportSize) {
@@ -1594,6 +1784,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
       _connectionTargetNodeId = null;
       _connectionTargetError = null;
       _selectedConnectionId = null;
+      _selectedAnnotationId = null;
     });
   }
 
@@ -1654,6 +1845,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
       _connections = <WorkflowConnection>[..._connections, connection];
       _selectedNodeId = null;
       _selectedConnectionId = connection.id;
+      _selectedAnnotationId = null;
       _testResult = null;
       _testError = null;
       _testStatus = null;
@@ -1812,6 +2004,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
       _nodes = nextNodes;
       _selectedNodeId = node.id;
       _selectedConnectionId = null;
+      _selectedAnnotationId = null;
       _testResult = null;
       _testError = null;
       _testStatus = null;
@@ -1872,6 +2065,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
       ];
       _selectedNodeId = node.id;
       _selectedConnectionId = null;
+      _selectedAnnotationId = null;
       _testResult = null;
       _testError = null;
       _testStatus = null;
@@ -2348,6 +2542,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
           .toList(growable: false);
       _selectedNodeId = null;
       _selectedConnectionId = null;
+      _selectedAnnotationId = null;
       _testResult = null;
       _testError = null;
       _testStatus = null;
@@ -2362,6 +2557,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   }
 
   void _deleteSelection() {
+    if (_selectedAnnotationId != null) {
+      _deleteAnnotation(_selectedAnnotationId!);
+      return;
+    }
     if (_selectedNodeId != null) {
       _deleteSelectedNode();
       return;
@@ -2381,6 +2580,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     return _WorkflowGraphSnapshot(
       nodes: List<WorkflowNode>.unmodifiable(_nodes),
       connections: List<WorkflowConnection>.unmodifiable(_connections),
+      annotations: List<WorkflowAnnotation>.unmodifiable(_annotations),
     );
   }
 
@@ -2435,8 +2635,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         ),
       );
       _connections = List<WorkflowConnection>.from(snapshot.connections);
+      _annotations = List<WorkflowAnnotation>.from(snapshot.annotations);
       _selectedNodeId = null;
       _selectedConnectionId = null;
+      _selectedAnnotationId = null;
+      _editingAnnotationId = null;
       _testResult = null;
       _testError = null;
       _testStatus = null;
@@ -2449,6 +2652,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     setState(() {
       _selectedNodeId = nodeId;
       _selectedConnectionId = null;
+      _selectedAnnotationId = null;
       _testResult = null;
       _testError = null;
       _testStatus = null;
@@ -2460,6 +2664,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     setState(() {
       _selectedNodeId = null;
       _selectedConnectionId = connectionId;
+      _selectedAnnotationId = null;
       _testResult = null;
       _testError = null;
       _testStatus = null;
@@ -2472,11 +2677,31 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     setState(() {
       _selectedNodeId = null;
       _selectedConnectionId = connectionId;
+      _selectedAnnotationId = null;
       _testResult = null;
       _testError = null;
       _testStatus = null;
     });
     _canvasFocusNode.requestFocus();
+  }
+
+  void _selectAnnotation(String annotationId) {
+    if (!_annotations.any((annotation) => annotation.id == annotationId)) {
+      return;
+    }
+    if (_selectedAnnotationId == annotationId &&
+        _selectedNodeId == null &&
+        _selectedConnectionId == null) {
+      return;
+    }
+    setState(() {
+      _selectedNodeId = null;
+      _selectedConnectionId = null;
+      _selectedAnnotationId = annotationId;
+      _testResult = null;
+      _testError = null;
+      _testStatus = null;
+    });
   }
 
   String? _hitTestConnection(Offset position) {
@@ -2517,6 +2742,18 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   KeyEventResult _handleCanvasKeyEvent(FocusNode _, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     if (_workflowTesting) return KeyEventResult.handled;
+    if (_editingAnnotationId != null) {
+      if (event.logicalKey != LogicalKeyboardKey.escape) {
+        return KeyEventResult.ignored;
+      }
+      FocusManager.instance.primaryFocus?.unfocus();
+      setState(() {
+        _editingAnnotationId = null;
+        _selectedAnnotationId = null;
+      });
+      _canvasFocusNode.requestFocus();
+      return KeyEventResult.handled;
+    }
     final keyboard = HardwareKeyboard.instance;
     final commandPressed = keyboard.isMetaPressed || keyboard.isControlPressed;
     if (commandPressed && event.logicalKey == LogicalKeyboardKey.keyZ) {
@@ -2529,7 +2766,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     }
     if (event.logicalKey == LogicalKeyboardKey.delete ||
         event.logicalKey == LogicalKeyboardKey.backspace) {
-      if (_selectedNodeId == null && _selectedConnectionId == null) {
+      if (_selectedNodeId == null &&
+          _selectedConnectionId == null &&
+          _selectedAnnotationId == null) {
         return KeyEventResult.ignored;
       }
       _deleteSelection();
@@ -2538,11 +2777,13 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     if (event.logicalKey == LogicalKeyboardKey.escape &&
         (_connectingSourceNodeId != null ||
             _selectedNodeId != null ||
-            _selectedConnectionId != null)) {
+            _selectedConnectionId != null ||
+            _selectedAnnotationId != null)) {
       setState(() {
         _clearConnectionDragState();
         _selectedNodeId = null;
         _selectedConnectionId = null;
+        _selectedAnnotationId = null;
       });
       return KeyEventResult.handled;
     }
@@ -2802,6 +3043,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         updatedAt: DateTime.now().toUtc(),
         nodes: List<WorkflowNode>.unmodifiable(_nodes),
         connections: List<WorkflowConnection>.unmodifiable(_connections),
+        annotations: List<WorkflowAnnotation>.unmodifiable(_annotations),
       ),
     );
   }
@@ -3783,6 +4025,7 @@ class _CanvasToolbar extends StatelessWidget {
     required this.onZoomIn,
     required this.onZoomOut,
     required this.onReset,
+    required this.onAddAnnotation,
     required this.onOrganize,
     required this.onToggleMiniMap,
     required this.onDelete,
@@ -3802,6 +4045,7 @@ class _CanvasToolbar extends StatelessWidget {
   final VoidCallback onZoomIn;
   final VoidCallback onZoomOut;
   final VoidCallback onReset;
+  final VoidCallback onAddAnnotation;
   final VoidCallback onOrganize;
   final VoidCallback onToggleMiniMap;
   final VoidCallback onDelete;
@@ -3848,6 +4092,12 @@ class _CanvasToolbar extends StatelessWidget {
               onPressed: onReset,
             ),
             _ToolbarButton(
+              key: const ValueKey<String>('workflow-add-annotation'),
+              tooltip: '添加工作流注释',
+              icon: Icons.note_add_outlined,
+              onPressed: onAddAnnotation,
+            ),
+            _ToolbarButton(
               key: const ValueKey<String>('workflow-organize-nodes'),
               tooltip: '整理节点布局',
               icon: Icons.auto_fix_high_rounded,
@@ -3865,7 +4115,7 @@ class _CanvasToolbar extends StatelessWidget {
               color: theme.colorScheme.outlineVariant,
             ),
             _ToolbarButton(
-              tooltip: '删除所选节点或连线',
+              tooltip: '删除所选节点、连线或注释',
               icon: Icons.delete_outline_rounded,
               onPressed: canDelete ? onDelete : null,
             ),
@@ -4547,6 +4797,52 @@ List<({String id, String label})> _workflowNodeBranches(WorkflowNode node) =>
             : const <({String id, String label})>[],
       _ => const <({String id, String label})>[],
     };
+
+List<WorkflowAnnotation> _normalizeWorkflowAnnotationsForCanvas(
+  Iterable<WorkflowAnnotation> annotations,
+) => annotations
+    .map((annotation) {
+      final width =
+          (annotation.width.isFinite
+                  ? annotation.width
+                  : kWorkflowAnnotationDefaultWidth)
+              .clamp(kWorkflowAnnotationMinWidth, kWorkflowAnnotationMaxWidth);
+      final height =
+          (annotation.height.isFinite
+                  ? annotation.height
+                  : kWorkflowAnnotationDefaultHeight)
+              .clamp(
+                kWorkflowAnnotationMinHeight,
+                kWorkflowAnnotationMaxHeight,
+              );
+      final x = (annotation.x.isFinite ? annotation.x : 16.0)
+          .clamp(16, math.max(16, _canvasWidth - width - 16))
+          .toDouble();
+      final y = (annotation.y.isFinite ? annotation.y : 58.0)
+          .clamp(58, math.max(58, _canvasHeight - height - 16))
+          .toDouble();
+      final fontSize =
+          (annotation.fontSize.isFinite
+                  ? annotation.fontSize
+                  : kWorkflowAnnotationDefaultFontSize)
+              .clamp(
+                kWorkflowAnnotationMinFontSize,
+                kWorkflowAnnotationMaxFontSize,
+              );
+      final runes = annotation.text.runes;
+      final text = runes.length <= kWorkflowAnnotationMaxCharacters
+          ? annotation.text
+          : String.fromCharCodes(runes.take(kWorkflowAnnotationMaxCharacters));
+      return annotation.copyWith(
+        text: text,
+        x: x,
+        y: y,
+        width: width,
+        height: height,
+        fontSize: fontSize,
+      );
+    })
+    .toList(growable: false);
 
 List<WorkflowNode> _fitContainerSizes(List<WorkflowNode> nodes) {
   final childrenByParent = <String, List<WorkflowNode>>{};

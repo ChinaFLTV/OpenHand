@@ -33,6 +33,19 @@ final _workflow = WorkflowDefinition(
       targetNodeId: 'end',
     ),
   ],
+  annotations: const <WorkflowAnnotation>[
+    WorkflowAnnotation(
+      id: 'note-1',
+      text: '先审核，再发布。',
+      x: 180,
+      y: 240,
+      width: 300,
+      height: 160,
+      theme: WorkflowAnnotationTheme.green,
+      fontSize: 22,
+      bold: true,
+    ),
+  ],
 );
 
 void main() {
@@ -48,7 +61,7 @@ void main() {
     );
   });
 
-  test('YAML 导入拒绝空内容、未知格式和超量节点', () {
+  test('YAML 导入拒绝空内容、未知格式和超量画布元素', () {
     expect(
       () => decodeWorkflowYaml(''),
       throwsA(
@@ -87,6 +100,48 @@ void main() {
         ),
       ),
     );
+    final oversizedAnnotations = jsonEncode(<String, Object?>{
+      'format': 'openhand-workflow',
+      'version': 1,
+      'workflow': <String, Object?>{
+        'nodes': const <Object?>[],
+        'connections': const <Object?>[],
+        'annotations': List<Object?>.filled(501, const <String, Object?>{}),
+      },
+    });
+    expect(
+      () => decodeWorkflowYaml(oversizedAnnotations),
+      throwsA(
+        isA<WorkflowPortabilityException>().having(
+          (error) => error.message,
+          'message',
+          contains('注释数量超过'),
+        ),
+      ),
+    );
+    final invalidAnnotations = jsonEncode(<String, Object?>{
+      'format': 'openhand-workflow',
+      'version': 1,
+      'workflow': <String, Object?>{
+        'id': 'invalid-annotations',
+        'name': '无效注释',
+        'created_at': '2026-08-30T00:00:00Z',
+        'updated_at': '2026-08-30T00:00:00Z',
+        'nodes': const <Object?>[],
+        'connections': const <Object?>[],
+        'annotations': const <String, Object?>{},
+      },
+    });
+    expect(
+      () => decodeWorkflowYaml(invalidAnnotations),
+      throwsA(
+        isA<WorkflowPortabilityException>().having(
+          (error) => error.message,
+          'message',
+          contains('注释列表格式无效'),
+        ),
+      ),
+    );
   });
 
   testWidgets('四种导出格式均生成有效文件内容', (tester) async {
@@ -115,6 +170,7 @@ void main() {
     expect(png.bytes.take(8), <int>[137, 80, 78, 71, 13, 10, 26, 10]);
     expect(jpeg.bytes.take(2), <int>[255, 216]);
     expect(utf8.decode(svg.bytes), contains('<svg'));
+    expect(utf8.decode(svg.bytes), contains('先审核，再发布。'));
     expect(svg.width, greaterThan(0));
     expect(svg.height, greaterThan(0));
   });
