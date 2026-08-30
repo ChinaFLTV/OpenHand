@@ -325,6 +325,10 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
           : Clip.antiAlias,
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLowest,
+        borderRadius: widget.borderRadius,
+      ),
+      // 前景边框覆盖子内容，确保顶部圆角和四周边框始终可见。
+      foregroundDecoration: BoxDecoration(
         border: Border.all(color: colorScheme.outlineVariant),
         borderRadius: widget.borderRadius,
       ),
