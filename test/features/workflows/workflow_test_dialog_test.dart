@@ -239,6 +239,10 @@ void main() {
     expect(find.text('开始节点'), findsOneWidget);
     expect(find.text('节点入参'), findsOneWidget);
     expect(find.text('返回值'), findsOneWidget);
+    expect(find.text('参数名称'), findsNWidgets(2));
+    expect(find.text('类型'), findsNWidgets(2));
+    expect(find.text('内容'), findsNWidgets(2));
+    expect(find.textContaining('"name"'), findsNothing);
     expect(find.textContaining('OpenHand'), findsOneWidget);
     expect(find.textContaining('你好'), findsOneWidget);
 

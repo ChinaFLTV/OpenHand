@@ -864,14 +864,17 @@ class _WorkflowTestNodeRecord extends StatelessWidget {
     final node = report.node;
     final event = report.event;
     final meta = _workflowTestNodeMeta(node.kind);
-    final inputValue = event.resolvedInputs.isEmpty
-        ? '无可展示入参'
-        : _serializeOutputValue(event.resolvedInputs);
+    final inputDescriptions = _workflowFieldDescriptions(
+      node.inputParameterFields(),
+    );
+    final outputDescriptions = _workflowFieldDescriptions(
+      node.outputParameterFields(),
+    );
     final returnValue = event.phase == WorkflowNodeExecutionPhase.failed
         ? (event.error?.trim().isNotEmpty == true
               ? event.error!.trim()
               : '执行失败')
-        : _displayOutputValue(event.output);
+        : event.output;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -922,9 +925,23 @@ class _WorkflowTestNodeRecord extends StatelessWidget {
             ),
           ],
           kOpenHandGap10,
-          _WorkflowTestDetailBlock(label: '节点入参', value: inputValue),
+          _WorkflowTestDetailBlock(
+            label: '节点入参',
+            value: event.resolvedInputs,
+            descriptions: inputDescriptions,
+            copyTooltipPrefix: '复制入参',
+            emptyLabel: '无可展示入参',
+          ),
           kOpenHandGap8,
-          _WorkflowTestDetailBlock(label: '返回值', value: returnValue),
+          _WorkflowTestDetailBlock(
+            label: '返回值',
+            value: returnValue,
+            descriptions: outputDescriptions,
+            copyTooltipPrefix: '复制返回值',
+            emptyLabel: event.phase == WorkflowNodeExecutionPhase.failed
+                ? '无可展示失败详情'
+                : '无可展示返回值',
+          ),
         ],
       ),
     );
@@ -1001,37 +1018,327 @@ class _WorkflowTestMetaText extends StatelessWidget {
 }
 
 class _WorkflowTestDetailBlock extends StatelessWidget {
-  const _WorkflowTestDetailBlock({required this.label, required this.value});
+  const _WorkflowTestDetailBlock({
+    required this.label,
+    required this.value,
+    required this.descriptions,
+    required this.copyTooltipPrefix,
+    required this.emptyLabel,
+  });
 
   final String label;
-  final String value;
+  final Object? value;
+  final Map<String, String> descriptions;
+  final String copyTooltipPrefix;
+  final String emptyLabel;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          label,
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: colors.onSurfaceVariant,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        kOpenHandGap4,
-        SelectableText(
-          value,
-          style: theme.textTheme.bodySmall?.copyWith(
-            fontFamily: kOpenHandMonospaceFontFamily,
-            height: 1.4,
-          ),
+        _WorkflowTestSectionTitle(label: label),
+        kOpenHandGap6,
+        _WorkflowTestStructuredTable(
+          value: value,
+          descriptions: descriptions,
+          copyTooltipPrefix: copyTooltipPrefix,
+          emptyLabel: emptyLabel,
         ),
       ],
     );
   }
 }
+
+class _WorkflowTestSectionTitle extends StatelessWidget {
+  const _WorkflowTestSectionTitle({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Text(
+      label,
+      style: theme.textTheme.labelMedium?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+}
+
+class _WorkflowTestStructuredTable extends StatelessWidget {
+  const _WorkflowTestStructuredTable({
+    required this.value,
+    required this.descriptions,
+    required this.copyTooltipPrefix,
+    required this.emptyLabel,
+    this.scalarCopyName,
+  });
+
+  final Object? value;
+  final Map<String, String> descriptions;
+  final String copyTooltipPrefix;
+  final String emptyLabel;
+  final String? scalarCopyName;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final rows = _structuredValueEntries(value, descriptions, scalarName: '值');
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(kOpenHandRadius12),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: rows.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+              child: Text(
+                emptyLabel,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const _WorkflowTestStructuredTableHeader(),
+                for (final (index, row) in rows.indexed) ...[
+                  if (index > 0)
+                    Divider(height: 1, color: colors.outlineVariant),
+                  _WorkflowTestStructuredTableRow(
+                    row: row,
+                    copyName: scalarCopyName != null && row.name == '值'
+                        ? scalarCopyName!
+                        : row.name,
+                    copyTooltip:
+                        '$copyTooltipPrefix '
+                        '${scalarCopyName != null && row.name == '值' ? scalarCopyName : row.name}',
+                  ),
+                ],
+              ],
+            ),
+    );
+  }
+}
+
+class _WorkflowTestStructuredTableHeader extends StatelessWidget {
+  const _WorkflowTestStructuredTableHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      color: colors.surfaceContainerLow,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      child: const Row(
+        children: [
+          Expanded(flex: 3, child: Text('参数名称')),
+          SizedBox(width: 70, child: Text('类型')),
+          Expanded(flex: 5, child: Text('内容')),
+          SizedBox(width: 36),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkflowTestStructuredTableRow extends StatelessWidget {
+  const _WorkflowTestStructuredTableRow({
+    required this.row,
+    required this.copyName,
+    required this.copyTooltip,
+  });
+
+  final _WorkflowTestOutputEntry row;
+  final String copyName;
+  final String copyTooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final description = row.description?.trim() ?? '';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  row.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (description.isNotEmpty) ...[
+                  kOpenHandGap2,
+                  Text(
+                    description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          SizedBox(
+            width: 70,
+            child: _WorkflowTestValueTypeBadge(value: row.value),
+          ),
+          Expanded(
+            flex: 5,
+            child: SelectableText(
+              _structuredValueText(row.value),
+              style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
+            ),
+          ),
+          IconButton(
+            tooltip: copyTooltip,
+            onPressed: () => unawaited(
+              copyOpenHandTextToClipboard(
+                context: context,
+                text: _serializeOutputValue(row.value),
+                logTag: 'workflow_test_result',
+                logAction: '复制结构化参数',
+                successMessage: '已复制参数“$copyName”',
+                replaceCurrentSnack: true,
+              ),
+            ),
+            style: IconButton.styleFrom(
+              fixedSize: const Size.square(32),
+              padding: EdgeInsets.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              foregroundColor: colors.primary,
+              backgroundColor: colors.primaryContainer.withValues(alpha: 0.5),
+              shape: const RoundedRectangleBorder(
+                borderRadius: kOpenHandBorderRadius8,
+              ),
+            ),
+            icon: const Icon(Icons.content_copy_rounded, size: 16),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkflowTestValueTypeBadge extends StatelessWidget {
+  const _WorkflowTestValueTypeBadge({required this.value});
+
+  final Object? value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: colors.primaryContainer.withValues(alpha: 0.58),
+          borderRadius: BorderRadius.circular(kOpenHandRadius6),
+        ),
+        child: Text(
+          _structuredValueTypeLabel(value),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: colors.onPrimaryContainer,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Map<String, String> _workflowFieldDescriptions(
+  Iterable<WorkflowOutputField> fields,
+) => <String, String>{
+  for (final field in fields)
+    if (field.name.trim().isNotEmpty && field.description.trim().isNotEmpty)
+      field.name.trim(): field.description.trim(),
+};
+
+List<_WorkflowTestOutputEntry> _structuredValueEntries(
+  Object? value,
+  Map<String, String> descriptions, {
+  required String scalarName,
+}) {
+  if (value is Map) {
+    var index = 0;
+    return value.entries
+        .map((entry) {
+          index += 1;
+          final name = '${entry.key}'.trim();
+          final normalizedName = name.isEmpty ? '参数 $index' : name;
+          return (
+            name: normalizedName,
+            value: entry.value,
+            description: descriptions[normalizedName],
+          );
+        })
+        .toList(growable: false);
+  }
+  if (value is Iterable) {
+    return value
+        .toList(growable: false)
+        .indexed
+        .map(
+          (item) => (
+            name: '[${item.$1}]',
+            value: item.$2,
+            description: descriptions['[${item.$1}]'],
+          ),
+        )
+        .toList(growable: false);
+  }
+  if (value == null && scalarName.isEmpty) {
+    return const <_WorkflowTestOutputEntry>[];
+  }
+  return <_WorkflowTestOutputEntry>[
+    (name: scalarName, value: value, description: descriptions[scalarName]),
+  ];
+}
+
+String _structuredValueTypeLabel(Object? value) => switch (value) {
+  null => '空值',
+  String() => '文本',
+  bool() => '布尔',
+  int() => '整数',
+  num() => '数字',
+  Map() => '对象',
+  Iterable() => '数组',
+  _ => '值',
+};
+
+String _structuredValueText(Object? value) => switch (value) {
+  null => '空值',
+  String() when value.isEmpty => '空字符串',
+  String() => value,
+  bool() => value ? '是' : '否',
+  int() || num() => '$value',
+  Map() => '对象 · ${value.length} 个字段',
+  Iterable() => '数组 · ${value.length} 项',
+  _ => '$value',
+};
 
 ({String label, String description}) _workflowTestNodeMeta(
   WorkflowNodeKind kind,
@@ -1149,7 +1456,6 @@ class _ResultOutputCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final displayValue = _displayOutputValue(value);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -1203,41 +1509,15 @@ class _ResultOutputCard extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton(
-                tooltip: '复制参数 $name',
-                onPressed: () => unawaited(
-                  copyOpenHandTextToClipboard(
-                    context: context,
-                    text: _serializeOutputValue(value),
-                    logTag: 'workflow_test_result',
-                    logAction: '复制输出参数',
-                    successMessage: '已复制参数“$name”',
-                    replaceCurrentSnack: true,
-                  ),
-                ),
-                style: IconButton.styleFrom(
-                  fixedSize: const Size.square(38),
-                  padding: EdgeInsets.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  foregroundColor: colors.primary,
-                  backgroundColor: colors.primaryContainer.withValues(
-                    alpha: 0.5,
-                  ),
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: kOpenHandBorderRadius10,
-                  ),
-                ),
-                icon: const Icon(Icons.content_copy_rounded, size: 18),
-              ),
             ],
           ),
           kOpenHandGap10,
-          SelectableText(
-            displayValue,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontFamily: value is String ? null : kOpenHandMonospaceFontFamily,
-              height: 1.45,
-            ),
+          _WorkflowTestStructuredTable(
+            value: value,
+            descriptions: const <String, String>{},
+            copyTooltipPrefix: '复制参数',
+            emptyLabel: '空值',
+            scalarCopyName: name,
           ),
         ],
       ),
@@ -1313,10 +1593,4 @@ String _serializeOutputValue(Object? value) {
   } on JsonUnsupportedObjectError {
     return '$value';
   }
-}
-
-String _displayOutputValue(Object? value) {
-  if (value == null) return '空值';
-  if (value is String && value.isEmpty) return '空字符串';
-  return _serializeOutputValue(value);
 }
