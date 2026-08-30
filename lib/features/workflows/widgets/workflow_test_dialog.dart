@@ -23,6 +23,7 @@ const double _workflowTestMetricGap = 10;
 const double _workflowTestMetricFourColumnWidth = 620;
 const double _workflowTestMetricTwoColumnWidth = 320;
 const double _workflowTestCopyButtonSize = 40;
+const double _workflowTestSurfaceBorderWidth = 1;
 
 typedef _WorkflowTestOutputEntry = ({
   String name,
@@ -876,55 +877,54 @@ class _WorkflowTestNodeRecord extends StatelessWidget {
               ? event.error!.trim()
               : '执行失败')
         : event.output;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(kOpenHandRadius14),
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  node.title.trim().isEmpty ? meta.label : node.title.trim(),
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
+    return _WorkflowTestOutlinedSurface(
+      backgroundColor: colors.surfaceContainerLow,
+      borderColor: colors.outlineVariant,
+      borderRadius: kOpenHandRadius14,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    node.title.trim().isEmpty ? meta.label : node.title.trim(),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
-              ),
-              _WorkflowTestPhaseBadge(event: event),
-            ],
-          ),
-          kOpenHandGap8,
-          _WorkflowTestExecutionSummary(
-            duration: event.duration,
-            attempts: event.attempts,
-            description: meta.description,
-          ),
-          kOpenHandGap10,
-          _WorkflowTestDetailBlock(
-            label: '节点入参',
-            value: event.resolvedInputs,
-            descriptions: inputDescriptions,
-            copyTooltipPrefix: '复制入参',
-            emptyLabel: '无可展示入参',
-          ),
-          kOpenHandGap8,
-          _WorkflowTestDetailBlock(
-            label: '返回值',
-            value: returnValue,
-            descriptions: outputDescriptions,
-            copyTooltipPrefix: '复制返回值',
-            emptyLabel: event.phase == WorkflowNodeExecutionPhase.failed
-                ? '无可展示失败详情'
-                : '无可展示返回值',
-          ),
-        ],
+                _WorkflowTestPhaseBadge(event: event),
+              ],
+            ),
+            kOpenHandGap8,
+            _WorkflowTestExecutionSummary(
+              duration: event.duration,
+              attempts: event.attempts,
+              description: meta.description,
+            ),
+            kOpenHandGap10,
+            _WorkflowTestDetailBlock(
+              label: '节点入参',
+              value: event.resolvedInputs,
+              descriptions: inputDescriptions,
+              copyTooltipPrefix: '复制入参',
+              emptyLabel: '无可展示入参',
+            ),
+            kOpenHandGap8,
+            _WorkflowTestDetailBlock(
+              label: '返回值',
+              value: returnValue,
+              descriptions: outputDescriptions,
+              copyTooltipPrefix: '复制返回值',
+              emptyLabel: event.phase == WorkflowNodeExecutionPhase.failed
+                  ? '无可展示失败详情'
+                  : '无可展示返回值',
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1160,13 +1160,10 @@ class _WorkflowTestStructuredTable extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final rows = _structuredValueEntries(value, descriptions, scalarName: '值');
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(kOpenHandRadius12),
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      clipBehavior: Clip.antiAlias,
+    return _WorkflowTestOutlinedSurface(
+      backgroundColor: colors.surfaceContainerLowest,
+      borderColor: colors.outlineVariant,
+      borderRadius: kOpenHandRadius12,
       child: rows.isEmpty
           ? Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
@@ -1527,74 +1524,108 @@ class _ResultOutputCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(kOpenHandRadius14),
-        border: Border.all(color: accentColor.withValues(alpha: 0.28)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(kOpenHandRadius10),
+    return _WorkflowTestOutlinedSurface(
+      backgroundColor: colors.surfaceContainerLowest,
+      borderColor: accentColor.withValues(alpha: 0.28),
+      borderRadius: kOpenHandRadius14,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius10),
+                  ),
+                  child: Icon(
+                    Icons.output_rounded,
+                    size: 18,
+                    color: accentColor,
+                  ),
                 ),
-                child: Icon(Icons.output_rounded, size: 18, color: accentColor),
-              ),
-              kOpenHandHGap10,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    Text(
-                      _outputTypeLabel(value),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (description?.trim().isNotEmpty == true)
+                kOpenHandHGap10,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        description!.trim(),
-                        maxLines: 2,
+                        name,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colors.onSurfaceVariant,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
-                  ],
+                      Text(
+                        _outputTypeLabel(value),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (description?.trim().isNotEmpty == true)
+                        Text(
+                          description!.trim(),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          kOpenHandGap10,
-          _WorkflowTestStructuredTable(
-            value: value,
-            descriptions: const <String, String>{},
-            copyTooltipPrefix: '复制参数',
-            emptyLabel: '空值',
-            scalarCopyName: name,
-          ),
-        ],
+              ],
+            ),
+            kOpenHandGap10,
+            _WorkflowTestStructuredTable(
+              value: value,
+              descriptions: const <String, String>{},
+              copyTooltipPrefix: '复制参数',
+              emptyLabel: '空值',
+              scalarCopyName: name,
+            ),
+          ],
+        ),
       ),
     );
   }
+}
+
+class _WorkflowTestOutlinedSurface extends StatelessWidget {
+  const _WorkflowTestOutlinedSurface({
+    required this.backgroundColor,
+    required this.borderColor,
+    required this.borderRadius,
+    required this.child,
+  });
+
+  final Color backgroundColor;
+  final Color borderColor;
+  final double borderRadius;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: borderColor,
+      borderRadius: BorderRadius.circular(borderRadius),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(_workflowTestSurfaceBorderWidth),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(
+          borderRadius - _workflowTestSurfaceBorderWidth,
+        ),
+        child: ColoredBox(color: backgroundColor, child: child),
+      ),
+    ),
+  );
 }
 
 String _formatDuration(Duration duration) {
