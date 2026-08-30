@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_overlay.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -18,6 +19,7 @@ const int _lastReferenceMarker = 0xF8FF;
 const double _referenceMenuGap = 8;
 const double _referenceMenuMargin = 12;
 const double _referenceMenuHeaderExtent = 32;
+const double _referenceMenuSubheaderExtent = 30;
 const double _referenceMenuItemExtent = 52;
 
 class WorkflowParameterReferenceField extends StatefulWidget {
@@ -227,6 +229,7 @@ class _WorkflowParameterReferenceFieldState
             reference.name.toLowerCase(),
             reference.field.type.label.toLowerCase(),
             reference.field.description.toLowerCase(),
+            reference.direction.label.toLowerCase(),
           ].join(' ');
           return terms.every(searchable.contains);
         })
@@ -728,23 +731,33 @@ class _WorkflowReferenceMenuState extends State<_WorkflowReferenceMenu> {
                                         itemCount: rows.length,
                                         itemBuilder: (context, index) {
                                           final row = rows[index];
-                                          if (row.reference == null) {
-                                            return _WorkflowReferenceGroupHeader(
-                                              title: row.headerTitle!,
-                                            );
-                                          }
-                                          return _WorkflowReferenceMenuItem(
-                                            reference: row.reference!,
-                                            selected:
-                                                row.referenceIndex ==
-                                                widget.selectedIndex,
-                                            onTap: () => widget.onSelected(
-                                              row.reference!,
-                                            ),
-                                            onHover: () => widget.onHighlighted(
-                                              row.referenceIndex,
-                                            ),
-                                          );
+                                          return switch (row.kind) {
+                                            _WorkflowReferenceMenuRowKind
+                                                .nodeHeader =>
+                                              _WorkflowReferenceGroupHeader(
+                                                title: row.headerTitle!,
+                                              ),
+                                            _WorkflowReferenceMenuRowKind
+                                                .ioHeader =>
+                                              _WorkflowReferenceIoHeader(
+                                                direction: row.direction!,
+                                              ),
+                                            _WorkflowReferenceMenuRowKind
+                                                .item =>
+                                              _WorkflowReferenceMenuItem(
+                                                reference: row.reference!,
+                                                selected:
+                                                    row.referenceIndex ==
+                                                    widget.selectedIndex,
+                                                onTap: () => widget.onSelected(
+                                                  row.reference!,
+                                                ),
+                                                onHover: () =>
+                                                    widget.onHighlighted(
+                                                      row.referenceIndex,
+                                                    ),
+                                              ),
+                                          };
                                         },
                                       ),
                                     ),
@@ -770,7 +783,8 @@ class _WorkflowReferenceMenuState extends State<_WorkflowReferenceMenu> {
     if (left.length != right.length) return false;
     for (var index = 0; index < left.length; index++) {
       if (left[index].nodeId != right[index].nodeId ||
-          left[index].name != right[index].name) {
+          left[index].name != right[index].name ||
+          left[index].direction != right[index].direction) {
         return false;
       }
     }
@@ -778,17 +792,32 @@ class _WorkflowReferenceMenuState extends State<_WorkflowReferenceMenu> {
   }
 }
 
+enum _WorkflowReferenceMenuRowKind { nodeHeader, ioHeader, item }
+
 class _WorkflowReferenceMenuRow {
-  const _WorkflowReferenceMenuRow.header(this.headerTitle)
-    : reference = null,
+  const _WorkflowReferenceMenuRow.nodeHeader(this.headerTitle)
+    : kind = _WorkflowReferenceMenuRowKind.nodeHeader,
+      direction = null,
+      reference = null,
       referenceIndex = -1,
       extent = _referenceMenuHeaderExtent;
 
+  const _WorkflowReferenceMenuRow.ioHeader(this.direction)
+    : kind = _WorkflowReferenceMenuRowKind.ioHeader,
+      headerTitle = null,
+      reference = null,
+      referenceIndex = -1,
+      extent = _referenceMenuSubheaderExtent;
+
   const _WorkflowReferenceMenuRow.item(this.reference, this.referenceIndex)
-    : headerTitle = null,
+    : kind = _WorkflowReferenceMenuRowKind.item,
+      headerTitle = null,
+      direction = null,
       extent = _referenceMenuItemExtent;
 
+  final _WorkflowReferenceMenuRowKind kind;
   final String? headerTitle;
+  final WorkflowParameterDirection? direction;
   final WorkflowParameterReference? reference;
   final int referenceIndex;
   final double extent;
@@ -806,13 +835,41 @@ List<_WorkflowReferenceMenuRow> _referenceMenuRows(
             <({int index, WorkflowParameterReference ref})>[])
         .add((index: index, ref: reference));
   }
-  return <_WorkflowReferenceMenuRow>[
-    for (final group in grouped.entries) ...[
-      _WorkflowReferenceMenuRow.header(titles[group.key] ?? '未命名节点'),
-      for (final item in group.value)
-        _WorkflowReferenceMenuRow.item(item.ref, item.index),
-    ],
-  ];
+  final rows = <_WorkflowReferenceMenuRow>[];
+  for (final group in grouped.entries) {
+    rows.add(
+      _WorkflowReferenceMenuRow.nodeHeader(titles[group.key] ?? '未命名节点'),
+    );
+    final inputs = group.value
+        .where((item) => item.ref.direction == WorkflowParameterDirection.input)
+        .toList(growable: false);
+    final outputs = group.value
+        .where(
+          (item) => item.ref.direction == WorkflowParameterDirection.output,
+        )
+        .toList(growable: false);
+    if (inputs.isNotEmpty) {
+      rows.add(
+        const _WorkflowReferenceMenuRow.ioHeader(
+          WorkflowParameterDirection.input,
+        ),
+      );
+      for (final item in inputs) {
+        rows.add(_WorkflowReferenceMenuRow.item(item.ref, item.index));
+      }
+    }
+    if (outputs.isNotEmpty) {
+      rows.add(
+        const _WorkflowReferenceMenuRow.ioHeader(
+          WorkflowParameterDirection.output,
+        ),
+      );
+      for (final item in outputs) {
+        rows.add(_WorkflowReferenceMenuRow.item(item.ref, item.index));
+      }
+    }
+  }
+  return rows;
 }
 
 class _WorkflowReferenceGroupHeader extends StatelessWidget {
@@ -842,6 +899,65 @@ class _WorkflowReferenceGroupHeader extends StatelessWidget {
   }
 }
 
+class _WorkflowReferenceIoHeader extends StatelessWidget {
+  const _WorkflowReferenceIoHeader({required this.direction});
+
+  final WorkflowParameterDirection direction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = switch (direction) {
+      WorkflowParameterDirection.input => OpenHandStatusColors.info,
+      WorkflowParameterDirection.output => theme.colorScheme.primary,
+    };
+    final icon = switch (direction) {
+      WorkflowParameterDirection.input => Icons.login_rounded,
+      WorkflowParameterDirection.output => Icons.output_rounded,
+    };
+    return SizedBox(
+      height: _referenceMenuSubheaderExtent,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 4, 10, 2),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(kOpenHandRadius8),
+                border: Border.all(color: accent.withValues(alpha: 0.28)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 13, color: accent),
+                  kOpenHandHGap4,
+                  Text(
+                    direction.label,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: accent,
+                      fontWeight: FontWeight.w900,
+                      height: 1.1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            kOpenHandHGap8,
+            Expanded(
+              child: Container(
+                height: 1,
+                color: accent.withValues(alpha: 0.16),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _WorkflowReferenceMenuItem extends StatelessWidget {
   const _WorkflowReferenceMenuItem({
     required this.reference,
@@ -859,20 +975,29 @@ class _WorkflowReferenceMenuItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final description = reference.field.description.trim();
+    final accent = switch (reference.direction) {
+      WorkflowParameterDirection.input => OpenHandStatusColors.info,
+      WorkflowParameterDirection.output => theme.colorScheme.primary,
+    };
+    final icon = switch (reference.direction) {
+      WorkflowParameterDirection.input => Icons.login_rounded,
+      WorkflowParameterDirection.output => Icons.output_rounded,
+    };
     return SizedBox(
       height: _referenceMenuItemExtent,
       child: Semantics(
         button: true,
         selected: selected,
         label:
-            '${reference.nodeTitle}，${reference.name}，${reference.field.type.label}'
+            '${reference.nodeTitle}，${reference.direction.label}，${reference.name}，'
+            '${reference.field.type.label}'
             '${description.isEmpty ? '' : '，$description'}',
         child: AnimatedContainer(
           duration: openHandMotionDuration(context, kOpenHandMotion160),
           curve: Curves.easeOutCubic,
           decoration: BoxDecoration(
             color: selected
-                ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
+                ? accent.withValues(alpha: 0.14)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(kOpenHandRadius9),
           ),
@@ -892,19 +1017,13 @@ class _WorkflowReferenceMenuItem extends StatelessWidget {
                       width: 28,
                       height: 28,
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                        color: accent.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(kOpenHandRadius7),
                         border: Border.all(
-                          color: theme.colorScheme.primary.withValues(
-                            alpha: 0.18,
-                          ),
+                          color: accent.withValues(alpha: 0.22),
                         ),
                       ),
-                      child: Icon(
-                        Icons.data_object_rounded,
-                        size: 16,
-                        color: theme.colorScheme.primary,
-                      ),
+                      child: Icon(icon, size: 16, color: accent),
                     ),
                     kOpenHandHGap8,
                     Expanded(

@@ -1295,19 +1295,65 @@ class WorkflowOutputField {
   };
 }
 
+enum WorkflowParameterDirection {
+  input,
+  output;
+
+  String get label => switch (this) {
+    WorkflowParameterDirection.input => '输入参数',
+    WorkflowParameterDirection.output => '输出参数',
+  };
+}
+
 @immutable
 class WorkflowParameterReference {
   const WorkflowParameterReference({
     required this.nodeId,
     required this.nodeTitle,
     required this.field,
+    this.direction = WorkflowParameterDirection.output,
   });
 
   final String nodeId;
   final String nodeTitle;
   final WorkflowOutputField field;
+  final WorkflowParameterDirection direction;
 
   String get name => field.name.trim();
+}
+
+/// 按输入→输出顺序收集节点可引用参数，并通过 [usedNames] 全局去重。
+List<WorkflowParameterReference> collectWorkflowParameterReferences(
+  WorkflowNode node, {
+  required Set<String> usedNames,
+  String? nodeTitleOverride,
+}) {
+  final title = nodeTitleOverride ??
+      (node.title.trim().isEmpty ? '未命名节点' : node.title.trim());
+  final references = <WorkflowParameterReference>[];
+  void append(
+    List<WorkflowOutputField> fields,
+    WorkflowParameterDirection direction,
+  ) {
+    for (final field in fields) {
+      final name = field.name.trim();
+      if (!workflowParameterNamePattern.hasMatch(name) || !usedNames.add(name)) {
+        continue;
+      }
+      references.add(
+        WorkflowParameterReference(
+          nodeId: node.id,
+          nodeTitle: title,
+          field: field,
+          direction: direction,
+        ),
+      );
+    }
+  }
+
+  append(node.inputParameterFields(), WorkflowParameterDirection.input);
+  append(node.outputParameterFields(), WorkflowParameterDirection.output);
+  return references;
 }
 
 @immutable

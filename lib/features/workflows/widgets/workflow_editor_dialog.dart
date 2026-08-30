@@ -3831,20 +3831,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
               (parent == null || node.id != parent.id),
         )
         .expand(
-          (node) => node
-              .declaredParameterFields()
-              .where((field) {
-                final name = field.name.trim();
-                return workflowParameterNamePattern.hasMatch(name) &&
-                    names.add(name);
-              })
-              .map(
-                (field) => WorkflowParameterReference(
-                  nodeId: node.id,
-                  nodeTitle: node.title.trim().isEmpty ? '未命名节点' : node.title,
-                  field: field,
-                ),
-              ),
+          (node) => collectWorkflowParameterReferences(
+            node,
+            usedNames: names,
+          ),
         )
         .toList(growable: true);
     if (parent?.kind == WorkflowNodeKind.iteration) {
@@ -3879,24 +3869,27 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         }
       }
     } else if (parent?.kind == WorkflowNodeKind.loop) {
-      for (final field in <WorkflowOutputField>[
-        ...parent!.declaredParameterFields(),
-        const WorkflowOutputField(
-          id: 'loop-index',
-          name: 'loop_index',
-          description: '当前循环索引',
-          type: WorkflowOutputType.integer,
+      references.addAll(
+        collectWorkflowParameterReferences(
+          parent!,
+          usedNames: names,
+          nodeTitleOverride: '当前循环',
         ),
-      ]) {
-        if (names.add(field.name)) {
-          references.add(
-            WorkflowParameterReference(
-              nodeId: parent.id,
-              nodeTitle: '当前循环',
-              field: field,
-            ),
-          );
-        }
+      );
+      const loopIndex = WorkflowOutputField(
+        id: 'loop-index',
+        name: 'loop_index',
+        description: '当前循环索引',
+        type: WorkflowOutputType.integer,
+      );
+      if (names.add(loopIndex.name)) {
+        references.add(
+          WorkflowParameterReference(
+            nodeId: parent.id,
+            nodeTitle: '当前循环',
+            field: loopIndex,
+          ),
+        );
       }
     }
     return List<WorkflowParameterReference>.unmodifiable(references);
@@ -3924,20 +3917,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     return _nodes
         .where((node) => node.parentNodeId == container.id)
         .expand(
-          (node) => node
-              .declaredParameterFields()
-              .where((field) {
-                final name = field.name.trim();
-                return workflowParameterNamePattern.hasMatch(name) &&
-                    names.add(name);
-              })
-              .map(
-                (field) => WorkflowParameterReference(
-                  nodeId: node.id,
-                  nodeTitle: node.title.trim().isEmpty ? '未命名节点' : node.title,
-                  field: field,
-                ),
-              ),
+          (node) => collectWorkflowParameterReferences(
+            node,
+            usedNames: names,
+          ),
         )
         .toList(growable: false);
   }
