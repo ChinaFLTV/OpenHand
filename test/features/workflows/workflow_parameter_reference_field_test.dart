@@ -98,8 +98,12 @@ void main() {
 
     final inputLabel = tester.widget<Text>(find.text('输入参数'));
     final outputLabel = tester.widget<Text>(find.text('输出参数'));
-    expect(inputLabel.style?.color, colorScheme.secondary);
     expect(outputLabel.style?.color, colorScheme.primary);
+    expect(
+      inputLabel.style?.color,
+      Color.lerp(colorScheme.primary, colorScheme.onSurface, 0.38),
+    );
+    expect(inputLabel.style?.color, isNot(colorScheme.secondary));
   });
 
   test('collectWorkflowParameterReferences 按方向归类并去重', () {

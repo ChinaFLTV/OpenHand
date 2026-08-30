@@ -20,12 +20,16 @@ const double _referenceMenuMargin = 12;
 const double _referenceMenuHeaderExtent = 32;
 const double _referenceMenuSubheaderExtent = 30;
 const double _referenceMenuItemExtent = 52;
+const double _referenceInputAccentBlend = 0.38;
 
 Color _parameterDirectionAccent(
   ColorScheme colors,
   WorkflowParameterDirection direction,
 ) => switch (direction) {
-  WorkflowParameterDirection.input => colors.secondary,
+  // 输入用 primary 与 onSurface 调和，避免 M3 secondary 在绿主题下跑偏成紫红。
+  WorkflowParameterDirection.input =>
+    Color.lerp(colors.primary, colors.onSurface, _referenceInputAccentBlend) ??
+        colors.primary,
   WorkflowParameterDirection.output => colors.primary,
 };
 
