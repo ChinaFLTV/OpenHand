@@ -14,8 +14,7 @@ type ConfirmCloseReason =
   | 'cancel'
   | 'confirm'
   | 'confirmed'
-  | 'dismiss'
-  | 'escape';
+  | 'dismiss';
 
 function ConfirmIcon({ danger }: { danger: boolean }) {
   const common = svgIconProps({ size: 20 });
@@ -40,7 +39,7 @@ interface ConfirmDialogProps {
   closeOnConfirm?: boolean;
   /** 先执行异步确认，成功后再播放退场动画。返回 false 时保持弹窗。 */
   confirmBeforeClose?: boolean;
-  /** 是否允许使用 Esc 关闭弹窗；写命令确认等审批弹窗应显式设为 false。 */
+  /** 是否允许使用 Esc 关闭弹窗；确认、审批、复核类默认禁用。 */
   closeOnEscape?: boolean;
   /** 异步确认成功且退场完成后的收尾回调。 */
   onConfirmSuccess?: () => void;
@@ -63,7 +62,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
     disableBackdropClose = false,
     closeOnConfirm = !hasExternalBusy,
     confirmBeforeClose = false,
-    closeOnEscape = true,
+    closeOnEscape = false,
     onConfirmSuccess,
     onCancel,
     onConfirm,
@@ -93,7 +92,6 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
       onCancel();
     },
     {
-      closeOnEscape,
       onBeforeClose: () => {
         closeRequestedRef.current = true;
       },
@@ -139,6 +137,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
       closing={closing}
       onRequestClose={requestDismiss}
       closeOnBackdrop={!effectiveBusy && !closing && !disableBackdropClose}
+      closeOnEscape={closeOnEscape && !effectiveBusy}
       {...createStandardDialogFrameAppearance({
         overlayClassName: classNames(
           'oh-confirm-dialog-overlay',

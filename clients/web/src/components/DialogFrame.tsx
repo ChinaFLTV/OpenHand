@@ -1,5 +1,7 @@
 import type { ComponentChildren, JSX } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
+import { useEventCallback } from '../hooks/useEventCallback';
+import { registerOverlayEscapeLayer } from '../shared/ui/overlay_escape_stack';
 import { classNames } from '../shared/util/class_names';
 import { clampNumber, normalizeInteger } from '../shared/util/number';
 import { strictStringFromUnknown } from '../shared/util/value';
@@ -109,6 +111,7 @@ interface DialogFrameProps {
   closing: boolean;
   onRequestClose?: () => void;
   closeOnBackdrop?: boolean;
+  closeOnEscape?: boolean;
   overlayClassName?: string;
   panelClassName?: string;
   overlayStyle?: JSX.CSSProperties;
@@ -683,6 +686,7 @@ export function DialogFrame({
   closing,
   onRequestClose,
   closeOnBackdrop = true,
+  closeOnEscape = true,
   overlayClassName = DIALOG_OVERLAY_CENTER_CLASS,
   panelClassName = '',
   overlayStyle = DIALOG_OVERLAY_DEFAULT_STYLE,
@@ -694,6 +698,14 @@ export function DialogFrame({
   const panelRef = useRef<HTMLElement | null>(null);
   useEffect(() => acquireDialogScrollLock(), []);
   useEffect(() => registerDialogFocus(() => panelRef.current), []);
+  const canCloseOnEscape = useEventCallback(
+    () => !closing && closeOnEscape && onRequestClose != null,
+  );
+  const requestEscapeClose = useEventCallback(() => onRequestClose?.());
+  useEffect(() => registerOverlayEscapeLayer({
+    canClose: canCloseOnEscape,
+    requestClose: requestEscapeClose,
+  }), [canCloseOnEscape, requestEscapeClose]);
 
   const overlayMotionClass = closing ? 'oh-dialog-fade-out' : 'oh-dialog-fade-in';
   const panelClass = panelMotionClass(panelAnimation, closing);

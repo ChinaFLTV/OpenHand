@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import { registerOverlayEscapeLayer } from '../shared/ui/overlay_escape_stack';
+import { useCallback, useRef, useState } from 'preact/hooks';
 import { useEventCallback } from './useEventCallback';
 import { normalizeDialogExitDurationMs } from './useDialogMotionSettings';
 import { useReducedMotion } from './useReducedMotion';
@@ -7,8 +6,6 @@ import { useTimeoutController } from './useTimeoutController';
 
 interface DialogExitMotionOptions {
   exitMs?: number;
-  closeOnEscape?: boolean;
-  active?: boolean;
   onBeforeClose?: (reason?: string) => void;
 }
 
@@ -42,8 +39,6 @@ export function useDialogExitMotion<Reason extends string = string>(
   const { clearTimer, scheduleTimer } = useTimeoutController();
   const exitMs =
     typeof optionsOrExitMs === 'number' ? optionsOrExitMs : options?.exitMs;
-  const closeOnEscape = options?.closeOnEscape !== false;
-  const active = options?.active !== false;
   const onBeforeClose = options?.onBeforeClose as
     | ((reason?: Reason) => void)
     | undefined;
@@ -68,8 +63,6 @@ export function useDialogExitMotion<Reason extends string = string>(
       scheduleTimer(finishClose, durationMs);
     }
   });
-  const canCloseOnEscape = useEventCallback(() => closeOnEscape);
-
   const requestClose = useCallback(() => {
     requestCloseWithReason();
   }, [requestCloseWithReason]);
@@ -80,16 +73,6 @@ export function useDialogExitMotion<Reason extends string = string>(
     closeReasonRef.current = undefined;
     setClosing(false);
   }, [clearTimer]);
-
-  useEffect(() => {
-    if (!active || typeof window === 'undefined') return undefined;
-    return registerOverlayEscapeLayer({
-      canClose: canCloseOnEscape,
-      requestClose: () => {
-        requestCloseWithReason('escape' as Reason);
-      },
-    });
-  }, [active, canCloseOnEscape, requestCloseWithReason]);
 
   return { closing, requestClose, requestCloseWithReason, resetClosing };
 }

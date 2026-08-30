@@ -49,9 +49,10 @@ class MainFlutterWindow: NSWindow {
   override func sendEvent(_ event: NSEvent) {
     if event.type == .keyDown,
        event.keyCode == Self.escapeKeyCode,
-       !event.isARepeat {
+       !event.isARepeat,
+       escapeCaptureEnabled {
       keyboardChannel?.invokeMethod(Self.escapePressedMethod, arguments: nil)
-      if escapeCaptureEnabled { return }
+      return
     }
     super.sendEvent(event)
   }

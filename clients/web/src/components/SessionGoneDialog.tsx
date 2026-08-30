@@ -34,7 +34,6 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
   const { closing, requestClose, resetClosing } = useDialogExitMotion(
     () => location.route('/threads'),
     {
-      active: open,
       onBeforeClose: () => {
         setNavigating(true);
         void runBeforeNavigate(onBeforeNavigate);
@@ -67,6 +66,7 @@ export function SessionGoneDialog({ open, onBeforeNavigate }: SessionGoneDialogP
   return (
     <DialogFrame
       closing={frameClosing}
+      onRequestClose={handleBack}
       closeOnBackdrop={false}
       {...createStandardDialogFrameAppearance({
         overlayClassName: DIALOG_OVERLAY_CENTER_COMPACT_CLASS,

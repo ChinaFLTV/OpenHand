@@ -26,7 +26,6 @@ export function BusyWaitDialog({
   const [dismissed, setDismissed] = useState(false);
   const { closing: exitClosing, requestClose } = useDialogExitMotion(
     () => setDismissed(true),
-    { active: open && !dismissed },
   );
 
   useEffect(() => {

@@ -337,7 +337,7 @@ Future<bool> showOpenHandConfirmDialog({
   double? maxWidth,
   bool destructive = false,
   bool barrierDismissible = true,
-  bool dismissOnEscape = true,
+  bool dismissOnEscape = false,
 }) async {
   final dialogContent = content ?? (message == null ? null : Text(message));
   final confirmed = await showAnimatedDialog<bool>(
@@ -890,7 +890,6 @@ Future<T?> showAnimatedDialog<T>({
   dismissOpenHandTooltipsSafely(debugLabel: '显示弹窗前收起工具提示');
   final themedBuilder = _wrapDialogBuilderWithTheme(
     builder,
-    dismissOnEscape: dismissOnEscape,
     alignment: alignment,
   );
   final effectiveSettings = _resolveDialogMotionSettings(
@@ -904,6 +903,7 @@ Future<T?> showAnimatedDialog<T>({
     settings: effectiveSettings,
     transitionProfile: transitionProfile,
     barrierDismissible: barrierDismissible,
+    dismissOnEscape: dismissOnEscape,
     barrierLabel: barrierLabel,
     barrierColor: barrierColor,
     routeSettings: routeSettings,
@@ -932,7 +932,6 @@ Future<T?> showAnimatedDialogOnNavigator<T>({
   dismissOpenHandTooltipsSafely(debugLabel: '通过导航器显示弹窗前收起工具提示');
   final themedBuilder = _wrapDialogBuilderWithTheme(
     builder,
-    dismissOnEscape: dismissOnEscape,
     alignment: alignment,
   );
   final effectiveSettings = _resolveDialogMotionSettings(
@@ -946,6 +945,7 @@ Future<T?> showAnimatedDialogOnNavigator<T>({
     settings: effectiveSettings,
     transitionProfile: transitionProfile,
     barrierDismissible: barrierDismissible,
+    dismissOnEscape: dismissOnEscape,
     barrierLabel: barrierLabel,
     barrierColor: barrierColor,
     routeSettings: routeSettings,
@@ -959,6 +959,7 @@ Future<T?> _pushOpenHandDialogRoute<T>({
   required DialogAnimationSettings settings,
   required OpenHandAnimationTransitionProfile transitionProfile,
   required bool barrierDismissible,
+  required bool dismissOnEscape,
   required String? barrierLabel,
   required Color? barrierColor,
   required RouteSettings? routeSettings,
@@ -991,6 +992,7 @@ Future<T?> _pushOpenHandDialogRoute<T>({
     entranceBarrierCurve: settings.curve.curve,
     exitBarrierCurve: settings.curve.reverseCurve,
     barrierDismissible: barrierDismissible,
+    dismissOnEscape: dismissOnEscape,
     barrierLabel: resolvedBarrierLabel,
     barrierColor: resolveAnimatedDialogBarrierColor(
       sourceContext,
@@ -1049,7 +1051,8 @@ Future<T?> pushOpenHandTransitionRoute<T>(
   }
 }
 
-class _OpenHandRawDialogRoute<T> extends RawDialogRoute<T> {
+class _OpenHandRawDialogRoute<T> extends RawDialogRoute<T>
+    implements _OpenHandEscapeLayer {
   _OpenHandRawDialogRoute({
     required super.pageBuilder,
     required RouteTransitionsBuilder transitionBuilder,
@@ -1057,22 +1060,67 @@ class _OpenHandRawDialogRoute<T> extends RawDialogRoute<T> {
     required Duration exitDuration,
     required Curve entranceBarrierCurve,
     required Curve exitBarrierCurve,
-    required super.barrierDismissible,
+    required bool barrierDismissible,
+    required this.dismissOnEscape,
     required super.barrierLabel,
     required super.barrierColor,
     required super.settings,
-  }) : _exitDuration = exitDuration,
+  }) : _barrierDismissible = barrierDismissible,
+       _exitDuration = exitDuration,
        _entranceBarrierCurve = entranceBarrierCurve,
        _exitBarrierCurve = exitBarrierCurve,
        super(
          transitionBuilder: transitionBuilder,
          transitionDuration: entranceDuration,
          requestFocus: true,
+         barrierDismissible: false,
        );
 
+  final bool _barrierDismissible;
   final Duration _exitDuration;
   final Curve _entranceBarrierCurve;
   final Curve _exitBarrierCurve;
+  final bool dismissOnEscape;
+  bool _escapeDismissRequested = false;
+
+  @override
+  ModalRoute<Object?> get escapeRoute => this;
+
+  @override
+  bool get escapeEnabled => dismissOnEscape;
+
+  @override
+  void install() {
+    super.install();
+    _OpenHandEscapeDispatcher.instance.register(this);
+  }
+
+  @override
+  void dispose() {
+    _OpenHandEscapeDispatcher.instance.unregister(this);
+    super.dispose();
+  }
+
+  @override
+  bool requestDismiss() {
+    if (!isCurrent || _escapeDismissRequested) return isCurrent;
+    final routeNavigator = navigator;
+    if (routeNavigator == null) return false;
+    _escapeDismissRequested = true;
+    scheduleMicrotask(() {
+      if (!isActive || !isCurrent || navigator != routeNavigator) {
+        _escapeDismissRequested = false;
+        return;
+      }
+      try {
+        routeNavigator.pop();
+      } catch (error, stackTrace) {
+        _escapeDismissRequested = false;
+        silentLog('dialog', '关闭弹窗时导航器状态异常', error, stackTrace);
+      }
+    });
+    return true;
+  }
 
   @override
   Duration get reverseTransitionDuration => _exitDuration;
@@ -1082,9 +1130,10 @@ class _OpenHandRawDialogRoute<T> extends RawDialogRoute<T> {
     final color = barrierColor;
     if (color == null || color.a == 0 || offstage) {
       return ModalBarrier(
-        dismissible: barrierDismissible,
+        dismissible: _barrierDismissible,
+        onDismiss: _barrierDismissible ? requestDismiss : null,
         semanticsLabel: barrierLabel,
-        barrierSemanticsDismissible: semanticsDismissible,
+        barrierSemanticsDismissible: _barrierDismissible,
       );
     }
     final curvedAnimation = OpenHandBoundedDoubleAnimation(
@@ -1098,9 +1147,10 @@ class _OpenHandRawDialogRoute<T> extends RawDialogRoute<T> {
       color: curvedAnimation.drive(
         ColorTween(begin: color.withValues(alpha: 0), end: color),
       ),
-      dismissible: barrierDismissible,
+      dismissible: _barrierDismissible,
+      onDismiss: _barrierDismissible ? requestDismiss : null,
       semanticsLabel: barrierLabel,
-      barrierSemanticsDismissible: semanticsDismissible,
+      barrierSemanticsDismissible: _barrierDismissible,
     );
   }
 }
@@ -1760,7 +1810,6 @@ Future<T?> showAnimatedModalSheet<T>({
 
 WidgetBuilder _wrapDialogBuilderWithTheme(
   WidgetBuilder builder, {
-  required bool dismissOnEscape,
   required AlignmentGeometry alignment,
 }) {
   return (dialogContext) {
@@ -1784,12 +1833,36 @@ WidgetBuilder _wrapDialogBuilderWithTheme(
     // 在窄屏 / 浮动小窗模式下不会贴边或溢出。
     // 只设置上限，不强行撑满小弹窗。
     final clamped = _ViewportClamp(alignment: alignment, child: themed);
-    final stableHitTest = _DialogInitialHitTestShield(child: clamped);
-    return OpenHandEscapeDismissScope(
-      enabled: dismissOnEscape,
-      child: stableHitTest,
+    return _OpenHandEscapeShortcutBoundary(
+      child: _DialogInitialHitTestShield(child: clamped),
     );
   };
+}
+
+class _OpenHandEscapeShortcutBoundary extends StatelessWidget {
+  const _OpenHandEscapeShortcutBoundary({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Shortcuts(
+      shortcuts: const <ShortcutActivator, Intent>{
+        SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          DismissIntent: CallbackAction<DismissIntent>(
+            onInvoke: (_) {
+              _OpenHandEscapeDispatcher.instance.dismissTopmost();
+              return null;
+            },
+          ),
+        },
+        child: child,
+      ),
+    );
+  }
 }
 
 class _DialogInitialHitTestShield extends StatefulWidget {
@@ -1928,12 +2001,16 @@ class _ModalSheetDragHandle extends StatelessWidget {
 const String _openHandKeyboardChannelName = 'openhand/keyboard';
 const String _openHandEscapePressedMethod = 'escapePressed';
 const String _openHandSetEscapeCaptureEnabledMethod = 'setEscapeCaptureEnabled';
-const Duration _openHandEscapeDeduplicationWindow = Duration(milliseconds: 120);
+
+abstract interface class _OpenHandEscapeLayer {
+  ModalRoute<Object?>? get escapeRoute;
+  bool get escapeEnabled;
+  bool requestDismiss();
+}
 
 /// 统一调度 Flutter 与 macOS 原生 ESC 事件，只关闭最顶层弹窗。
 class _OpenHandEscapeDispatcher {
   _OpenHandEscapeDispatcher._() {
-    HardwareKeyboard.instance.addHandler(_handleKey);
     const MethodChannel(
       _openHandKeyboardChannelName,
     ).setMethodCallHandler(_handleMethodCall);
@@ -1946,16 +2023,21 @@ class _OpenHandEscapeDispatcher {
     _openHandKeyboardChannelName,
   );
 
-  final List<_OpenHandEscapeDismissScopeState> _scopes = [];
-  DateTime? _lastEscapeAt;
+  final List<_OpenHandEscapeLayer> _layers = [];
 
-  void register(_OpenHandEscapeDismissScopeState scope) {
-    _scopes.add(scope);
+  void register(_OpenHandEscapeLayer layer) {
+    if (_layers.isEmpty) {
+      HardwareKeyboard.instance.addHandler(_handleKey);
+    }
+    _layers.add(layer);
     _syncNativeCapture();
   }
 
-  void unregister(_OpenHandEscapeDismissScopeState scope) {
-    _scopes.remove(scope);
+  void unregister(_OpenHandEscapeLayer layer) {
+    _layers.remove(layer);
+    if (_layers.isEmpty) {
+      HardwareKeyboard.instance.removeHandler(_handleKey);
+    }
     _syncNativeCapture();
   }
 
@@ -1965,7 +2047,7 @@ class _OpenHandEscapeDispatcher {
       _keyboardChannel
           .invokeMethod<void>(
             _openHandSetEscapeCaptureEnabledMethod,
-            _scopes.isNotEmpty,
+            _layers.isNotEmpty,
           )
           .catchError((Object _) {}),
     );
@@ -1984,17 +2066,9 @@ class _OpenHandEscapeDispatcher {
   }
 
   bool dismissTopmost() {
-    final now = DateTime.now();
-    final lastEscapeAt = _lastEscapeAt;
-    if (lastEscapeAt != null &&
-        now.difference(lastEscapeAt) < _openHandEscapeDeduplicationWindow) {
-      return true;
-    }
-
-    _scopes.removeWhere((scope) => !scope.mounted);
     ModalRoute<Object?>? topRoute;
-    for (final scope in _scopes.reversed) {
-      final route = scope.route;
+    for (final layer in _layers.reversed) {
+      final route = layer.escapeRoute;
       if (route?.isCurrent == true) {
         topRoute = route;
         break;
@@ -2002,11 +2076,10 @@ class _OpenHandEscapeDispatcher {
     }
     if (topRoute == null) return false;
 
-    _lastEscapeAt = now;
-    final routeScopes = _scopes.where((scope) => scope.route == topRoute);
-    if (routeScopes.any((scope) => !scope.widget.enabled)) return true;
-    for (final scope in routeScopes.toList().reversed) {
-      if (scope.dismiss()) return true;
+    final routeLayers = _layers.where((layer) => layer.escapeRoute == topRoute);
+    if (routeLayers.any((layer) => !layer.escapeEnabled)) return true;
+    for (final layer in routeLayers.toList().reversed) {
+      if (layer.requestDismiss()) return true;
     }
     return true;
   }
@@ -2030,12 +2103,16 @@ class OpenHandEscapeDismissScope extends StatefulWidget {
       _OpenHandEscapeDismissScopeState();
 }
 
-class _OpenHandEscapeDismissScopeState
-    extends State<OpenHandEscapeDismissScope> {
+class _OpenHandEscapeDismissScopeState extends State<OpenHandEscapeDismissScope>
+    implements _OpenHandEscapeLayer {
   ModalRoute<Object?>? _route;
   bool _dismissRequested = false;
 
-  ModalRoute<Object?>? get route => _route;
+  @override
+  ModalRoute<Object?>? get escapeRoute => _route;
+
+  @override
+  bool get escapeEnabled => widget.enabled;
 
   @override
   void didUpdateWidget(covariant OpenHandEscapeDismissScope oldWidget) {
@@ -2061,7 +2138,8 @@ class _OpenHandEscapeDismissScopeState
     super.dispose();
   }
 
-  bool dismiss() {
+  @override
+  bool requestDismiss() {
     final route = _route;
     if (route == null || !route.isCurrent) return false;
     if (_dismissRequested) return true;

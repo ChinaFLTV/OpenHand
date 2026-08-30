@@ -7,7 +7,11 @@ let layers: OverlayEscapeLayer[] = [];
 let listenerAttached = false;
 
 function handleEscape(event: KeyboardEvent): void {
-  if (event.defaultPrevented || event.key !== 'Escape') return;
+  if (
+    event.key !== 'Escape'
+    && event.key !== 'Esc'
+    && event.code !== 'Escape'
+  ) return;
   const layer = layers[layers.length - 1];
   if (!layer) return;
   event.preventDefault();

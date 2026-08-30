@@ -46,6 +46,7 @@ import {
   useStreamingStagedText,
 } from '../hooks/useStreamingReveal';
 import { useDialogExitMotion } from '../hooks/useDialogExitMotion';
+import { useEventCallback } from '../hooks/useEventCallback';
 import {
   getDialogEnterDurationMs,
   getDialogExitDurationMs,
@@ -87,6 +88,7 @@ import {
 } from '../shared/ui/transcript_scroll_activity';
 import { STREAMING_TURN_IDLE_DEBOUNCE_MS } from '../shared/ui/streaming_turn_timing';
 import { messageBubbleMaxWidth } from '../shared/ui/layout';
+import { registerOverlayEscapeLayer } from '../shared/ui/overlay_escape_stack';
 import { MediaKindIcon } from './MediaKindIcon';
 import { svgIconProps } from '../shared/ui/svg_icon';
 import { formatLocalDateTimeMinute } from '../shared/util/date_time';
@@ -3397,9 +3399,7 @@ function KnowledgeBaseRetrievalDialog({
   onClose: () => void;
 }) {
   const [selectedHit, setSelectedHit] = useState<Record<string, unknown> | null>(null);
-  const { closing, requestClose } = useDialogExitMotion(onClose, {
-    active: selectedHit == null,
-  });
+  const { closing, requestClose } = useDialogExitMotion(onClose);
   const results = knowledgeBaseResults(metadata);
   const embedding = recordOrNullFromUnknown(metadata['embedding']);
   const retrieval = recordOrNullFromUnknown(metadata['retrieval']);
@@ -3769,9 +3769,18 @@ function KnowledgeVectorDistributionScene({
     closing: pointPopoverClosing,
     requestClose: requestPointPopoverClose,
     resetClosing: resetPointPopoverClosing,
-  } = useDialogExitMotion(() => setSelectedId(null), {
-    active: selectedId != null,
-  });
+  } = useDialogExitMotion(() => setSelectedId(null));
+  const canClosePointPopover = useEventCallback(
+    () => selectedId != null && !pointPopoverClosing,
+  );
+
+  useEffect(() => {
+    if (selectedId == null) return undefined;
+    return registerOverlayEscapeLayer({
+      canClose: canClosePointPopover,
+      requestClose: requestPointPopoverClose,
+    });
+  }, [canClosePointPopover, requestPointPopoverClose, selectedId]);
 
   const selectPoint = useCallback((pointId: string | null) => {
     if (pointId == null) {
