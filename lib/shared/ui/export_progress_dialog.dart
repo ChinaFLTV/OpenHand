@@ -74,6 +74,9 @@ class ExportProgressDialog extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     return PopScope(
       canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) controller.requestCancel();
+      },
       child: buildOpenHandAlertDialog(
         title: Text(title),
         content: AnimatedBuilder(

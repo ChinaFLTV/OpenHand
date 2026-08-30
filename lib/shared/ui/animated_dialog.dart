@@ -871,7 +871,9 @@ OpenHandDialogSession<T> _trackAnimatedDialogPresentation<T extends Object?>({
 /// 使用默认配置。
 ///
 /// [dismissOnEscape] 与 [barrierDismissible] 独立：默认即使禁止点击外部，ESC
-/// 仍可关闭弹窗；仅显式审批类弹窗应通过 `dismissOnEscape: false` 禁用。
+/// 仍可关闭弹窗。写命令、执行审批、人工复核等必须显式确认的弹窗应传
+/// `dismissOnEscape: false`。ESC 走 [Navigator.maybePop]，忙碌或未保存的
+/// [PopScope] 仍可拦截。
 Future<T?> showAnimatedDialog<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -1102,6 +1104,12 @@ class _OpenHandRawDialogRoute<T> extends RawDialogRoute<T>
   }
 
   @override
+  NavigatorState? get escapeNavigator => navigator;
+
+  @override
+  bool get hasCustomDismiss => false;
+
+  @override
   bool requestDismiss() {
     if (!isCurrent || _escapeDismissRequested) return isCurrent;
     final routeNavigator = navigator;
@@ -1113,7 +1121,9 @@ class _OpenHandRawDialogRoute<T> extends RawDialogRoute<T>
         return;
       }
       try {
-        routeNavigator.pop();
+        if (!_popOpenHandEscapeRoute(routeNavigator, this)) {
+          _escapeDismissRequested = false;
+        }
       } catch (error, stackTrace) {
         _escapeDismissRequested = false;
         silentLog('dialog', '关闭弹窗时导航器状态异常', error, stackTrace);
@@ -2002,13 +2012,32 @@ const String _openHandKeyboardChannelName = 'openhand/keyboard';
 const String _openHandEscapePressedMethod = 'escapePressed';
 const String _openHandSetEscapeCaptureEnabledMethod = 'setEscapeCaptureEnabled';
 
+bool _popOpenHandEscapeRoute(NavigatorState navigator, Route<dynamic> route) {
+  if (!navigator.mounted || !route.isActive || route.navigator != navigator) {
+    return false;
+  }
+  if (route.popDisposition == RoutePopDisposition.doNotPop) {
+    route.onPopInvokedWithResult(false, null);
+    return false;
+  }
+  navigator.pop();
+  return true;
+}
+
 abstract interface class _OpenHandEscapeLayer {
   ModalRoute<Object?>? get escapeRoute;
+  NavigatorState? get escapeNavigator;
   bool get escapeEnabled;
+  bool get hasCustomDismiss;
   bool requestDismiss();
 }
 
-/// 统一调度 Flutter 与 macOS 原生 ESC 事件，只关闭最顶层弹窗。
+/// 在应用启动时挂上键盘通道，避免首个弹窗出现前原生 ESC 无人接收。
+void ensureOpenHandEscapeHandlingInitialized() {
+  _OpenHandEscapeDispatcher.instance;
+}
+
+/// 统一调度 Flutter 与 macOS 原生 ESC 事件，只关闭最顶层弹窗或浮层。
 class _OpenHandEscapeDispatcher {
   _OpenHandEscapeDispatcher._() {
     const MethodChannel(
@@ -2024,11 +2053,12 @@ class _OpenHandEscapeDispatcher {
   );
 
   final List<_OpenHandEscapeLayer> _layers = [];
+  bool _escapeDispatching = false;
 
   void register(_OpenHandEscapeLayer layer) {
-    if (_layers.isEmpty) {
-      HardwareKeyboard.instance.addHandler(_handleKey);
-    }
+    HardwareKeyboard.instance
+      ..removeHandler(_handleKey)
+      ..addHandler(_handleKey);
     _layers.add(layer);
     _syncNativeCapture();
   }
@@ -2058,6 +2088,7 @@ class _OpenHandEscapeDispatcher {
         event.logicalKey != LogicalKeyboardKey.escape) {
       return false;
     }
+    if (_layers.isEmpty) return false;
     return dismissTopmost();
   }
 
@@ -2066,20 +2097,61 @@ class _OpenHandEscapeDispatcher {
   }
 
   bool dismissTopmost() {
-    ModalRoute<Object?>? topRoute;
+    if (_escapeDispatching) return true;
+    _escapeDispatching = true;
+    scheduleMicrotask(() => _escapeDispatching = false);
+
+    ModalRoute<Object?>? currentRoute;
     for (final layer in _layers.reversed) {
-      final route = layer.escapeRoute;
-      if (route?.isCurrent == true) {
-        topRoute = route;
+      if (layer.escapeRoute?.isCurrent == true) {
+        currentRoute = layer.escapeRoute;
         break;
       }
     }
-    if (topRoute == null) return false;
+    if (currentRoute != null) {
+      final routeLayers = _layers
+          .where((layer) => layer.escapeRoute == currentRoute)
+          .toList(growable: false);
+      if (_dismissLayers(routeLayers)) return true;
+    }
 
-    final routeLayers = _layers.where((layer) => layer.escapeRoute == topRoute);
-    if (routeLayers.any((layer) => !layer.escapeEnabled)) return true;
-    for (final layer in routeLayers.toList().reversed) {
+    for (final layer in _layers.reversed) {
+      if (!layer.hasCustomDismiss || !layer.escapeEnabled) continue;
       if (layer.requestDismiss()) return true;
+    }
+
+    for (final layer in _layers.reversed) {
+      if (!layer.escapeEnabled && !layer.hasCustomDismiss) continue;
+      final navigator = layer.escapeNavigator;
+      if (navigator == null || !navigator.mounted) continue;
+      scheduleMicrotask(() {
+        if (!navigator.mounted || !navigator.canPop()) return;
+        try {
+          navigator.pop();
+        } catch (error, stackTrace) {
+          silentLog('dialog', '关闭弹窗时导航器状态异常', error, stackTrace);
+        }
+      });
+      return true;
+    }
+
+    return _layers.isNotEmpty;
+  }
+
+  bool _dismissLayers(List<_OpenHandEscapeLayer> layers) {
+    if (layers.isEmpty) return false;
+    for (final layer in layers.reversed) {
+      if (layer.hasCustomDismiss && layer.escapeEnabled) {
+        if (layer.requestDismiss()) return true;
+      }
+    }
+    if (layers.any(
+      (layer) => !layer.escapeEnabled && !layer.hasCustomDismiss,
+    )) {
+      return true;
+    }
+    for (final layer in layers.reversed) {
+      if (layer.escapeEnabled && layer.requestDismiss()) return true;
     }
     return true;
   }
@@ -2116,7 +2188,13 @@ class _OpenHandEscapeDismissScopeState extends State<OpenHandEscapeDismissScope>
   ModalRoute<Object?>? get escapeRoute => _route;
 
   @override
+  NavigatorState? get escapeNavigator => _route?.navigator;
+
+  @override
   bool get escapeEnabled => widget.enabled;
+
+  @override
+  bool get hasCustomDismiss => widget.onDismiss != null;
 
   @override
   void didUpdateWidget(covariant OpenHandEscapeDismissScope oldWidget) {
@@ -2178,9 +2256,9 @@ class _OpenHandEscapeDismissScopeState extends State<OpenHandEscapeDismissScope>
         _dismissRequested = false;
         return;
       }
-      // 直接弹出当前路由，绕过弹窗内部的 PopScope.canPop 限制；ESC 关闭仍
-      // 只作用于当前弹窗，不影响审批弹窗（审批弹窗不会挂载本作用域）。
-      navigator.pop();
+      if (!_popOpenHandEscapeRoute(navigator, route)) {
+        _dismissRequested = false;
+      }
     } catch (error, stackTrace) {
       _dismissRequested = false;
       silentLog('dialog', '关闭弹窗时导航器状态异常', error, stackTrace);

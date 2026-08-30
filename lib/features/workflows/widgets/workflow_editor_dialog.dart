@@ -362,11 +362,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) unawaited(_requestClose());
       },
-      child: CallbackShortcuts(
-        bindings: <ShortcutActivator, VoidCallback>{
-          const SingleActivator(LogicalKeyboardKey.escape): () =>
-              unawaited(_requestClose()),
-        },
+      child: OpenHandEscapeDismissScope(
+        onDismiss: _handleEscapeDismiss,
         child: content,
       ),
     );
@@ -467,6 +464,32 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         ],
       ),
     );
+  }
+
+  void _handleEscapeDismiss() {
+    if (_workflowTesting || _closeConfirmationOpen) return;
+    if (_editingAnnotationId != null) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      setState(() {
+        _editingAnnotationId = null;
+        _selectedAnnotationId = null;
+      });
+      _canvasFocusNode.requestFocus();
+      return;
+    }
+    if (_connectingSourceNodeId != null ||
+        _selectedNodeId != null ||
+        _selectedConnectionId != null ||
+        _selectedAnnotationId != null) {
+      setState(() {
+        _clearConnectionDragState();
+        _selectedNodeId = null;
+        _selectedConnectionId = null;
+        _selectedAnnotationId = null;
+      });
+      return;
+    }
+    unawaited(_requestClose());
   }
 
   Future<void> _requestClose() async {
@@ -2791,16 +2814,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     if (_workflowTesting) return KeyEventResult.handled;
     if (_editingAnnotationId != null) {
-      if (event.logicalKey != LogicalKeyboardKey.escape) {
-        return KeyEventResult.ignored;
-      }
-      FocusManager.instance.primaryFocus?.unfocus();
-      setState(() {
-        _editingAnnotationId = null;
-        _selectedAnnotationId = null;
-      });
-      _canvasFocusNode.requestFocus();
-      return KeyEventResult.handled;
+      return KeyEventResult.ignored;
     }
     final keyboard = HardwareKeyboard.instance;
     final commandPressed = keyboard.isMetaPressed || keyboard.isControlPressed;
@@ -2820,19 +2834,6 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         return KeyEventResult.ignored;
       }
       _deleteSelection();
-      return KeyEventResult.handled;
-    }
-    if (event.logicalKey == LogicalKeyboardKey.escape &&
-        (_connectingSourceNodeId != null ||
-            _selectedNodeId != null ||
-            _selectedConnectionId != null ||
-            _selectedAnnotationId != null)) {
-      setState(() {
-        _clearConnectionDragState();
-        _selectedNodeId = null;
-        _selectedConnectionId = null;
-        _selectedAnnotationId = null;
-      });
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;

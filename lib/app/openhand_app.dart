@@ -49,6 +49,7 @@ class _OpenHandAppState extends State<OpenHandApp> {
   @override
   void initState() {
     super.initState();
+    ensureOpenHandEscapeHandlingInitialized();
     // IMK 输入死锁防御网（与 main.dart 的 SIGTERM/SIGINT
     // 互补）：在 Cmd+Q / 窗口关闭等"正常"退出路径上同步清掉所有登记
     // 在册的子进程，避免 osascript / mitmdump / npm 等遗孤继续向系统
@@ -473,4 +474,3 @@ class _OverlayPortalStabilityBoundary extends StatelessWidget {
     );
   }
 }
-

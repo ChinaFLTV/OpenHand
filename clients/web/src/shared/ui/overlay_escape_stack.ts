@@ -12,19 +12,18 @@ function isEscapeEvent(event: KeyboardEvent): boolean {
     || event.code === 'Escape';
 }
 
-function dispatchEscape(event: KeyboardEvent): void {
-  // 让目标控件和其它业务监听器先完成自己的 ESC 处理，避免统一浮层栈抢先关闭外层。
-  if (event.defaultPrevented || event.cancelBubble) return;
-  const layer = layers[layers.length - 1];
-  if (!layer) return;
-  event.preventDefault();
-  if (layer.canClose()) layer.requestClose();
-}
-
 function handleEscape(event: KeyboardEvent): void {
   if (!isEscapeEvent(event)) return;
-  // 捕获阶段只登记事件；微任务会在当前事件完整传播后执行。
-  queueMicrotask(() => dispatchEscape(event));
+  const target = layers[layers.length - 1];
+  if (!target) return;
+  // 捕获阶段先钉住当前顶层。输入框 preventDefault 不再误伤弹窗关闭；
+  // 若冒泡阶段已有登记浮层自行关闭，微任务发现目标已不在栈顶则不再关外层。
+  event.preventDefault();
+  queueMicrotask(() => {
+    if (layers[layers.length - 1] !== target) return;
+    if (!layers.includes(target)) return;
+    if (target.canClose()) target.requestClose();
+  });
 }
 
 function attachListener(): void {
@@ -41,7 +40,7 @@ function detachListenerIfIdle(): void {
   listenerAttached = false;
 }
 
-/// 按展示顺序登记浮层；Escape 始终只交给最后登记的活动浮层。
+/// 按展示顺序登记浮层；Escape 始终只交给登记时的最顶层。
 export function registerOverlayEscapeLayer(
   layer: OverlayEscapeLayer,
 ): () => void {

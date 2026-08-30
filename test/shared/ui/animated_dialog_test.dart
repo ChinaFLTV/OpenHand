@@ -124,6 +124,57 @@ void main() {
     expect(await result, isFalse);
   });
 
+  testWidgets('路由禁用 ESC 时仍分发给自定义浮层关闭回调', (tester) async {
+    var overlayClosed = false;
+    final context = await _pumpDialogHost(tester);
+    final result = showAnimatedDialog<void>(
+      context: context,
+      settings: OpenHandMotionDefaults.disabled,
+      barrierDismissible: false,
+      dismissOnEscape: false,
+      builder: (_) => OpenHandEscapeDismissScope(
+        onDismiss: () => overlayClosed = true,
+        child: const AlertDialog(title: Text('工作流编辑')),
+      ),
+    );
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+
+    expect(overlayClosed, isTrue);
+    expect(find.text('工作流编辑'), findsOneWidget);
+    Navigator.of(tester.element(find.text('工作流编辑'))).pop();
+    await tester.pumpAndSettle();
+    await result;
+  });
+
+  testWidgets('ESC 经 maybePop 通知不可关闭的 PopScope', (tester) async {
+    var popInvoked = false;
+    final context = await _pumpDialogHost(tester);
+    final result = showAnimatedDialog<void>(
+      context: context,
+      settings: OpenHandMotionDefaults.disabled,
+      builder: (_) => PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          popInvoked = true;
+        },
+        child: const AlertDialog(title: Text('保存中')),
+      ),
+    );
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+
+    expect(popInvoked, isTrue);
+    expect(find.text('保存中'), findsOneWidget);
+    Navigator.of(tester.element(find.text('保存中'))).pop();
+    await tester.pumpAndSettle();
+    await result;
+  });
+
   testWidgets('自定义浮层 Scope 的 ESC 只触发自身关闭回调', (tester) async {
     var dismissed = false;
     await tester.pumpWidget(

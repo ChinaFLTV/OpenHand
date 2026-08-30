@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_overlay.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
@@ -565,195 +566,200 @@ class _WorkflowReferenceMenuState extends State<_WorkflowReferenceMenu> {
     final layout = _resolveMenuLayout(context, widget.anchorKey);
     final theme = Theme.of(context);
     final rows = _referenceMenuRows(widget.references);
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: widget.onDismiss,
+    return OpenHandEscapeDismissScope(
+      onDismiss: widget.onDismiss,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: widget.onDismiss,
+            ),
           ),
-        ),
-        CompositedTransformFollower(
-          link: widget.link,
-          showWhenUnlinked: false,
-          targetAnchor: layout.targetAnchor,
-          followerAnchor: layout.followerAnchor,
-          offset: layout.offset,
-          child: TextFieldTapRegion(
-            child: SizedBox(
-              width: layout.width,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: layout.maxHeight),
-                child: AnimatedOverlayContent(
-                  visibility: widget.visibility,
-                  onExitCompleted: widget.onExitCompleted,
-                  alignment: layout.followerAnchor,
-                  child: Material(
-                    elevation: 8,
-                    color: theme.colorScheme.surfaceContainerHigh,
-                    shadowColor: theme.colorScheme.shadow.withValues(
-                      alpha: 0.22,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(kOpenHandRadius14),
-                      side: BorderSide(
-                        color: theme.colorScheme.outlineVariant.withValues(
-                          alpha: 0.82,
+          CompositedTransformFollower(
+            link: widget.link,
+            showWhenUnlinked: false,
+            targetAnchor: layout.targetAnchor,
+            followerAnchor: layout.followerAnchor,
+            offset: layout.offset,
+            child: TextFieldTapRegion(
+              child: SizedBox(
+                width: layout.width,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: layout.maxHeight),
+                  child: AnimatedOverlayContent(
+                    visibility: widget.visibility,
+                    onExitCompleted: widget.onExitCompleted,
+                    alignment: layout.followerAnchor,
+                    child: Material(
+                      elevation: 8,
+                      color: theme.colorScheme.surfaceContainerHigh,
+                      shadowColor: theme.colorScheme.shadow.withValues(
+                        alpha: 0.22,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(kOpenHandRadius14),
+                        side: BorderSide(
+                          color: theme.colorScheme.outlineVariant.withValues(
+                            alpha: 0.82,
+                          ),
                         ),
                       ),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(10),
-                          child: Focus(
-                            onKeyEvent: widget.onSearchKeyEvent,
-                            child: TextField(
-                              controller: _searchController,
-                              focusNode: widget.searchFocusNode,
-                              textInputAction: TextInputAction.search,
-                              style: theme.textTheme.bodyMedium,
-                              decoration: InputDecoration(
-                                hintText: '搜索参数、节点或类型',
-                                prefixIcon: const Icon(
-                                  Icons.search_rounded,
-                                  size: 19,
-                                ),
-                                suffixIcon: _searchController.text.isEmpty
-                                    ? null
-                                    : IconButton(
-                                        tooltip: '清空搜索',
-                                        onPressed: () {
-                                          _searchController.clear();
-                                          widget.searchFocusNode.requestFocus();
-                                        },
-                                        icon: const Icon(
-                                          Icons.cancel_rounded,
-                                          size: 17,
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Focus(
+                              onKeyEvent: widget.onSearchKeyEvent,
+                              child: TextField(
+                                controller: _searchController,
+                                focusNode: widget.searchFocusNode,
+                                textInputAction: TextInputAction.search,
+                                style: theme.textTheme.bodyMedium,
+                                decoration: InputDecoration(
+                                  hintText: '搜索参数、节点或类型',
+                                  prefixIcon: const Icon(
+                                    Icons.search_rounded,
+                                    size: 19,
+                                  ),
+                                  suffixIcon: _searchController.text.isEmpty
+                                      ? null
+                                      : IconButton(
+                                          tooltip: '清空搜索',
+                                          onPressed: () {
+                                            _searchController.clear();
+                                            widget.searchFocusNode
+                                                .requestFocus();
+                                          },
+                                          icon: const Icon(
+                                            Icons.cancel_rounded,
+                                            size: 17,
+                                          ),
                                         ),
-                                      ),
-                                isDense: true,
-                                filled: true,
-                                fillColor:
-                                    theme.colorScheme.surfaceContainerHighest,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 11,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    kOpenHandRadius12,
+                                  isDense: true,
+                                  filled: true,
+                                  fillColor:
+                                      theme.colorScheme.surfaceContainerHighest,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 11,
                                   ),
-                                  borderSide: BorderSide(
-                                    color: theme.colorScheme.outlineVariant,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(
+                                      kOpenHandRadius12,
+                                    ),
+                                    borderSide: BorderSide(
+                                      color: theme.colorScheme.outlineVariant,
+                                    ),
                                   ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    kOpenHandRadius12,
-                                  ),
-                                  borderSide: BorderSide(
-                                    color: theme.colorScheme.outlineVariant,
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(
+                                      kOpenHandRadius12,
+                                    ),
+                                    borderSide: BorderSide(
+                                      color: theme.colorScheme.outlineVariant,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                        Divider(
-                          height: 1,
-                          color: theme.colorScheme.outlineVariant.withValues(
-                            alpha: 0.7,
+                          Divider(
+                            height: 1,
+                            color: theme.colorScheme.outlineVariant.withValues(
+                              alpha: 0.7,
+                            ),
                           ),
-                        ),
-                        Flexible(
-                          child: rows.isEmpty
-                              ? SizedBox(
-                                  height: 96,
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.search_off_rounded,
-                                          size: 24,
-                                          color: theme
-                                              .colorScheme
-                                              .onSurfaceVariant,
-                                        ),
-                                        kOpenHandGap6,
-                                        Text(
-                                          '没有匹配的参数',
-                                          style: theme.textTheme.bodySmall
-                                              ?.copyWith(
-                                                color: theme
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
-                                              ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                )
-                              : OpenHandSafeScrollbar(
-                                  controller: _scrollController,
-                                  thumbVisibility: true,
-                                  interactive: true,
-                                  thickness: 5,
-                                  radius: kOpenHandPillRadius,
-                                  notificationPredicate: (notification) =>
-                                      notification.metrics.axis ==
-                                      Axis.vertical,
-                                  child: ScrollConfiguration(
-                                    behavior: ScrollConfiguration.of(
-                                      context,
-                                    ).copyWith(scrollbars: false),
-                                    child: ListView.builder(
-                                      controller: _scrollController,
-                                      primary: false,
-                                      shrinkWrap: true,
-                                      padding: const EdgeInsets.fromLTRB(
-                                        6,
-                                        4,
-                                        6,
-                                        6,
-                                      ),
-                                      itemCount: rows.length,
-                                      itemBuilder: (context, index) {
-                                        final row = rows[index];
-                                        if (row.reference == null) {
-                                          return _WorkflowReferenceGroupHeader(
-                                            title: row.headerTitle!,
-                                          );
-                                        }
-                                        return _WorkflowReferenceMenuItem(
-                                          reference: row.reference!,
-                                          selected:
-                                              row.referenceIndex ==
-                                              widget.selectedIndex,
-                                          onTap: () =>
-                                              widget.onSelected(row.reference!),
-                                          onHover: () => widget.onHighlighted(
-                                            row.referenceIndex,
+                          Flexible(
+                            child: rows.isEmpty
+                                ? SizedBox(
+                                    height: 96,
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.search_off_rounded,
+                                            size: 24,
+                                            color: theme
+                                                .colorScheme
+                                                .onSurfaceVariant,
                                           ),
-                                        );
-                                      },
+                                          kOpenHandGap6,
+                                          Text(
+                                            '没有匹配的参数',
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                                  color: theme
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                : OpenHandSafeScrollbar(
+                                    controller: _scrollController,
+                                    thumbVisibility: true,
+                                    interactive: true,
+                                    thickness: 5,
+                                    radius: kOpenHandPillRadius,
+                                    notificationPredicate: (notification) =>
+                                        notification.metrics.axis ==
+                                        Axis.vertical,
+                                    child: ScrollConfiguration(
+                                      behavior: ScrollConfiguration.of(
+                                        context,
+                                      ).copyWith(scrollbars: false),
+                                      child: ListView.builder(
+                                        controller: _scrollController,
+                                        primary: false,
+                                        shrinkWrap: true,
+                                        padding: const EdgeInsets.fromLTRB(
+                                          6,
+                                          4,
+                                          6,
+                                          6,
+                                        ),
+                                        itemCount: rows.length,
+                                        itemBuilder: (context, index) {
+                                          final row = rows[index];
+                                          if (row.reference == null) {
+                                            return _WorkflowReferenceGroupHeader(
+                                              title: row.headerTitle!,
+                                            );
+                                          }
+                                          return _WorkflowReferenceMenuItem(
+                                            reference: row.reference!,
+                                            selected:
+                                                row.referenceIndex ==
+                                                widget.selectedIndex,
+                                            onTap: () => widget.onSelected(
+                                              row.reference!,
+                                            ),
+                                            onHover: () => widget.onHighlighted(
+                                              row.referenceIndex,
+                                            ),
+                                          );
+                                        },
+                                      ),
                                     ),
                                   ),
-                                ),
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
