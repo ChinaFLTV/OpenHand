@@ -1,19 +1,46 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'dart:io';
+import 'dart:isolate';
 
+import 'package:file_selector/file_selector.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:path/path.dart' as path;
+import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
+
+import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import '../model/workflow_definition.dart';
+import '../service/workflow_portability_service.dart';
 import '../workflows_controller.dart';
 import 'workflow_editor_dialog.dart';
+import 'workflow_export_progress_dialog.dart';
 
-class WorkflowsView extends StatelessWidget {
+const XTypeGroup _workflowYamlTypeGroup = XTypeGroup(
+  label: 'OpenHand 工作流 YAML',
+  extensions: <String>['yaml', 'yml'],
+);
+const Uuid _workflowUuid = Uuid();
+
+class WorkflowsView extends StatefulWidget {
   const WorkflowsView({super.key});
+
+  @override
+  State<WorkflowsView> createState() => _WorkflowsViewState();
+}
+
+class _WorkflowsViewState extends State<WorkflowsView> {
+  bool _importing = false;
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +72,19 @@ class WorkflowsView extends StatelessWidget {
               icon: const Icon(Icons.refresh_rounded),
               label: Text(l10n.commonRetry),
             ),
+          FilledButton.tonalIcon(
+            key: const ValueKey<String>('workflow-import-button'),
+            onPressed: snapshot.loading || snapshot.error != null || _importing
+                ? null
+                : () => _importWorkflow(controller),
+            icon: _importing
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2.2),
+                  )
+                : const Icon(Icons.file_upload_outlined),
+            label: const Text('导入工作流'),
+          ),
           FilledButton.icon(
             onPressed: snapshot.loading || snapshot.error != null
                 ? null
@@ -96,11 +136,254 @@ class WorkflowsView extends StatelessWidget {
                           _openEditor(context, controller, workflow: workflow),
                       onDelete: () =>
                           _deleteWorkflow(context, controller, workflow),
+                      onExport: (format) => _exportWorkflow(workflow, format),
                     ),
                   ),
                 );
               },
             ),
+    );
+  }
+
+  Future<void> _importWorkflow(WorkflowsController controller) async {
+    if (_importing) return;
+    setState(() => _importing = true);
+    OpenHandDialogSession<void>? loadingDialog;
+    try {
+      final selected = await openFile(
+        acceptedTypeGroups: const <XTypeGroup>[_workflowYamlTypeGroup],
+      );
+      if (selected == null || !mounted) return;
+      final extension = path.extension(selected.path).toLowerCase();
+      if (extension != '.yaml' && extension != '.yml') {
+        throw const WorkflowPortabilityException('请选择 .yaml 或 .yml 配置文件。');
+      }
+      loadingDialog = showOpenHandTrackedLoadingDialog(
+        context: context,
+        message: '正在读取并验证工作流配置…',
+      );
+      final source = await readBoundedFileString(
+        File(selected.path),
+        maxBytes: kMaxWorkflowImportBytes,
+      );
+      final imported = await Isolate.run<WorkflowDefinition>(
+        () => decodeWorkflowYaml(source),
+      );
+      await loadingDialog.dismiss(logTag: '工作流导入', logAction: '关闭工作流导入加载弹窗');
+      loadingDialog = null;
+      if (!mounted) return;
+
+      var name = imported.name.trim();
+      if (_workflowNameExists(controller, name)) {
+        final renamed = await _showImportRenameDialog(
+          context,
+          controller,
+          name,
+        );
+        if (renamed == null || !mounted) return;
+        name = renamed;
+      }
+      final now = DateTime.now().toUtc();
+      final candidate = WorkflowDefinition(
+        id: _workflowUuid.v4(),
+        name: name,
+        createdAt: now,
+        updatedAt: now,
+        nodes: imported.nodes,
+        connections: imported.connections,
+      );
+      final saved = await controller.save(candidate);
+      if (!mounted) return;
+      if (!saved) {
+        throw WorkflowPortabilityException(
+          controller.errorMessage ?? '工作流写入本地数据库失败。',
+        );
+      }
+      showOpenHandSuccessSnack(context, '工作流“$name”已成功导入。');
+    } catch (error, stack) {
+      silentLog('工作流导入', '导入工作流', error, stack);
+      await loadingDialog?.dismiss(
+        logTag: '工作流导入',
+        logAction: '关闭失败的工作流导入加载弹窗',
+      );
+      if (mounted) await _showImportErrorDialog(context, error);
+    } finally {
+      if (mounted) setState(() => _importing = false);
+    }
+  }
+
+  Future<void> _exportWorkflow(
+    WorkflowDefinition workflow,
+    WorkflowExportFormat format,
+  ) async {
+    FileSaveLocation? location;
+    try {
+      location = await getSaveLocation(
+        suggestedName: workflowExportFileName(workflow, format),
+        acceptedTypeGroups: <XTypeGroup>[
+          XTypeGroup(
+            label: format.typeLabel,
+            extensions: <String>[format.extension],
+          ),
+        ],
+      );
+    } catch (error, stack) {
+      silentLog('工作流导出', '选择工作流导出位置', error, stack);
+      if (mounted) {
+        await _showImportErrorDialog(context, error, exporting: true);
+      }
+      return;
+    }
+    if (location == null || !mounted) return;
+    final outputPath = _ensureExportExtension(location.path, format.extension);
+    await showWorkflowExportProgressDialog(
+      context: context,
+      formatLabel: format.label,
+      task: (onProgress) async {
+        final artifact = await buildWorkflowExportArtifact(
+          workflow,
+          format,
+          onProgress: onProgress,
+        );
+        await writeBytesFileAtomically(File(outputPath), artifact.bytes);
+        onProgress(1, '文件写入完成。');
+        return outputPath;
+      },
+    );
+  }
+
+  bool _workflowNameExists(WorkflowsController controller, String candidate) {
+    final normalized = candidate.trim().toLowerCase();
+    return controller.workflows.any(
+      (workflow) => workflow.name.trim().toLowerCase() == normalized,
+    );
+  }
+
+  Future<String?> _showImportRenameDialog(
+    BuildContext context,
+    WorkflowsController controller,
+    String initialName,
+  ) async {
+    final nameController = TextEditingController(text: initialName);
+    String? errorText;
+    try {
+      return await showOpenHandStatefulDialog<String>(
+        context: context,
+        builder: (dialogContext, setDialogState) => buildOpenHandAlertDialog(
+          icon: const Icon(Icons.drive_file_rename_outline_rounded),
+          title: const Text('工作流名称已存在'),
+          content: SizedBox(
+            width: 460,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '请输入一个新的工作流名称。原配置名称已为你保留在输入框中。',
+                  style: Theme.of(dialogContext).textTheme.bodyMedium,
+                ),
+                kOpenHandGap16,
+                TextField(
+                  key: const ValueKey<String>('workflow-import-name-field'),
+                  controller: nameController,
+                  autofocus: true,
+                  inputFormatters: <TextInputFormatter>[
+                    LengthLimitingTextInputFormatter(120),
+                  ],
+                  textInputAction: TextInputAction.done,
+                  decoration: InputDecoration(
+                    labelText: '工作流名称',
+                    errorText: errorText,
+                    filled: true,
+                    border: const OutlineInputBorder(
+                      borderRadius: kOpenHandBorderRadius12,
+                    ),
+                  ),
+                  onSubmitted: (_) => _submitImportedName(
+                    dialogContext,
+                    setDialogState,
+                    nameController,
+                    controller,
+                    (value) => errorText = value,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              label: '取消',
+              onPressed: () => Navigator.of(dialogContext).pop(),
+            ),
+            OpenHandDialogActionButton.primary(
+              label: '确认导入',
+              onPressed: () => _submitImportedName(
+                dialogContext,
+                setDialogState,
+                nameController,
+                controller,
+                (value) => errorText = value,
+              ),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      nameController.dispose();
+    }
+  }
+
+  void _submitImportedName(
+    BuildContext dialogContext,
+    StateSetter setDialogState,
+    TextEditingController nameController,
+    WorkflowsController controller,
+    ValueChanged<String?> setError,
+  ) {
+    final name = nameController.text.trim();
+    final error = name.isEmpty
+        ? '工作流名称不能为空。'
+        : _workflowNameExists(controller, name)
+        ? '该名称仍然存在，请换一个名称。'
+        : null;
+    if (error != null) {
+      setDialogState(() => setError(error));
+      return;
+    }
+    Navigator.of(dialogContext).pop(name);
+  }
+
+  Future<void> _showImportErrorDialog(
+    BuildContext context,
+    Object error, {
+    bool exporting = false,
+  }) {
+    final detail = error is WorkflowPortabilityException
+        ? error.message
+        : '$error';
+    return showOpenHandInfoDialog(
+      context: context,
+      title: exporting ? '导出工作流失败' : '导入工作流失败',
+      icon: Icon(
+        Icons.error_outline_rounded,
+        color: Theme.of(context).colorScheme.error,
+      ),
+      maxWidth: kOpenHandDialogWidthCompact,
+      content: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.errorContainer,
+          borderRadius: kOpenHandBorderRadius14,
+        ),
+        child: SelectableText(
+          detail,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onErrorContainer,
+            height: 1.45,
+          ),
+        ),
+      ),
     );
   }
 
@@ -146,18 +429,26 @@ class _WorkflowCard extends StatelessWidget {
     required this.workflow,
     required this.onOpen,
     required this.onDelete,
+    required this.onExport,
   });
 
   final WorkflowDefinition workflow;
   final VoidCallback onOpen;
   final VoidCallback onDelete;
+  final ValueChanged<WorkflowExportFormat> onExport;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final nodeKinds = workflow.nodes.map((node) => node.kind).toSet();
-    final actionButtonStyle = IconButton.styleFrom(shape: const CircleBorder());
+    final actionButtonStyle = IconButton.styleFrom(
+      minimumSize: const Size.square(48),
+      maximumSize: const Size.square(48),
+      backgroundColor: colors.secondaryContainer,
+      foregroundColor: colors.onSecondaryContainer,
+      shape: const CircleBorder(),
+    );
     return Card(
       key: ValueKey<String>('workflow-card-${workflow.id}'),
       margin: EdgeInsets.zero,
@@ -210,15 +501,38 @@ class _WorkflowCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  IconButton.filledTonal(
-                    key: ValueKey<String>('workflow-open-${workflow.id}'),
-                    tooltip: '打开画布',
+                  AnimatedPopupMenuButton<WorkflowExportFormat>(
+                    key: ValueKey<String>('workflow-export-${workflow.id}'),
+                    tooltip: '导出工作流',
+                    position: PopupMenuPosition.under,
                     style: actionButtonStyle,
-                    onPressed: onOpen,
-                    icon: const Icon(Icons.open_in_new_rounded),
+                    buttonConstraints: const BoxConstraints.tightFor(
+                      width: 48,
+                      height: 48,
+                    ),
+                    icon: const Icon(Icons.file_download_outlined),
+                    onSelected: onExport,
+                    itemBuilder: (context) => [
+                      for (final format in WorkflowExportFormat.values)
+                        PopupMenuItem<WorkflowExportFormat>(
+                          key: ValueKey<String>(
+                            'workflow-export-option-${format.extension}',
+                          ),
+                          value: format,
+                          child: _WorkflowExportMenuItem(format: format),
+                        ),
+                    ],
                   ),
                   kOpenHandHGap8,
-                  IconButton.filledTonal(
+                  IconButton(
+                    key: ValueKey<String>('workflow-open-${workflow.id}'),
+                    tooltip: '编辑工作流',
+                    style: actionButtonStyle,
+                    onPressed: onOpen,
+                    icon: const Icon(Icons.edit_rounded),
+                  ),
+                  kOpenHandHGap8,
+                  IconButton(
                     key: ValueKey<String>('workflow-delete-${workflow.id}'),
                     tooltip: '删除工作流',
                     style: actionButtonStyle,
@@ -268,6 +582,57 @@ class _WorkflowCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _WorkflowExportMenuItem extends StatelessWidget {
+  const _WorkflowExportMenuItem({required this.format});
+
+  final WorkflowExportFormat format;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final icon = switch (format) {
+      WorkflowExportFormat.yaml => Icons.data_object_rounded,
+      WorkflowExportFormat.png => Icons.image_outlined,
+      WorkflowExportFormat.jpeg => Icons.photo_outlined,
+      WorkflowExportFormat.svg => Icons.polyline_rounded,
+    };
+    return Row(
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: colors.primaryContainer,
+            borderRadius: kOpenHandBorderRadius10,
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon, size: 19, color: colors.onPrimaryContainer),
+        ),
+        kOpenHandHGap12,
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(format.label),
+            Text(
+              '.${format.extension}',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+String _ensureExportExtension(String filePath, String extension) {
+  final expected = '.$extension';
+  if (path.extension(filePath).toLowerCase() == expected) return filePath;
+  return path.setExtension(filePath, expected);
 }
 
 String _kindLabel(WorkflowNodeKind kind) => switch (kind) {
