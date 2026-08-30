@@ -74,6 +74,13 @@ void main() {
     await tester.pump();
     expect(find.text('导出完成'), findsOneWidget);
     expect(find.text('/tmp/demo.png'), findsOneWidget);
+    final progressLeft = tester
+        .getRect(find.byType(LinearProgressIndicator))
+        .left;
+    expect(
+      tester.getRect(find.text('/tmp/demo.png')).left,
+      closeTo(progressLeft, 1),
+    );
     expect(
       find.byKey(const ValueKey<String>('workflow-export-succeeded')),
       findsOneWidget,
