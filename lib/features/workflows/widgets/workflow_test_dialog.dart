@@ -901,31 +901,11 @@ class _WorkflowTestNodeRecord extends StatelessWidget {
             ],
           ),
           kOpenHandGap8,
-          Wrap(
-            spacing: 14,
-            runSpacing: 5,
-            children: [
-              _WorkflowTestMetaText(label: '节点类型', value: meta.label),
-              _WorkflowTestMetaText(
-                label: '节点耗时',
-                value: _formatDuration(event.duration),
-              ),
-              if (event.attempts > 0)
-                _WorkflowTestMetaText(
-                  label: '执行次数',
-                  value: '${event.attempts}',
-                ),
-            ],
+          _WorkflowTestExecutionSummary(
+            duration: event.duration,
+            attempts: event.attempts,
+            description: meta.description,
           ),
-          if (meta.description.isNotEmpty) ...[
-            kOpenHandGap6,
-            Text(
-              meta.description,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onSurfaceVariant,
-              ),
-            ),
-          ],
           kOpenHandGap10,
           _WorkflowTestDetailBlock(
             label: '节点入参',
@@ -992,31 +972,121 @@ class _WorkflowTestPhaseBadge extends StatelessWidget {
   }
 }
 
-class _WorkflowTestMetaText extends StatelessWidget {
-  const _WorkflowTestMetaText({required this.label, required this.value});
+class _WorkflowTestExecutionSummary extends StatelessWidget {
+  const _WorkflowTestExecutionSummary({
+    required this.duration,
+    required this.attempts,
+    required this.description,
+  });
 
+  final Duration duration;
+  final int attempts;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 18,
+          runSpacing: 8,
+          children: [
+            _WorkflowTestExecutionMetric(
+              icon: Icons.timer_outlined,
+              label: '执行耗时',
+              value: _formatDuration(duration),
+            ),
+            if (attempts > 0)
+              _WorkflowTestExecutionMetric(
+                icon: Icons.repeat_rounded,
+                label: '执行次数',
+                value: '$attempts 次',
+              ),
+          ],
+        ),
+        if (description.isNotEmpty) ...[
+          kOpenHandGap8,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.info_outline_rounded,
+                size: 16,
+                color: colors.onSurfaceVariant,
+              ),
+              kOpenHandHGap6,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '节点说明',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    kOpenHandGap2,
+                    Text(
+                      description,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _WorkflowTestExecutionMetric extends StatelessWidget {
+  const _WorkflowTestExecutionMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
   final String label;
   final String value;
 
   @override
-  Widget build(BuildContext context) => Text.rich(
-    TextSpan(
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        TextSpan(
-          text: '$label：',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        TextSpan(
-          text: value,
-          style: Theme.of(
-            context,
-          ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w800),
+        Icon(icon, size: 16, color: colors.primary),
+        kOpenHandHGap6,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+            Text(
+              value,
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
         ),
       ],
-    ),
-  );
+    );
+  }
 }
 
 class _WorkflowTestDetailBlock extends StatelessWidget {

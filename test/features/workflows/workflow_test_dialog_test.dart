@@ -231,6 +231,7 @@ void main() {
               nodeId: 'start',
               phase: WorkflowNodeExecutionPhase.succeeded,
               duration: Duration(milliseconds: 12),
+              attempts: 1,
               resolvedInputs: <String, Object?>{'name': 'OpenHand'},
               output: <String, Object?>{'greeting': '你好'},
             ),
@@ -247,6 +248,11 @@ void main() {
     expect(find.text('开始节点'), findsOneWidget);
     expect(find.text('节点入参'), findsOneWidget);
     expect(find.text('返回值'), findsOneWidget);
+    expect(find.text('节点类型'), findsNothing);
+    expect(find.text('执行耗时'), findsOneWidget);
+    expect(find.text('执行次数'), findsOneWidget);
+    expect(find.text('节点说明'), findsOneWidget);
+    expect(find.text('定义工作流的输入参数'), findsOneWidget);
     expect(find.text('参数名称'), findsNWidgets(2));
     expect(find.text('类型'), findsNWidgets(2));
     expect(find.text('内容'), findsNWidgets(2));
