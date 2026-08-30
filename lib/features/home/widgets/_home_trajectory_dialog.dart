@@ -1645,8 +1645,10 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
           _kTrajectoryTableMinWidth,
           constraints.maxWidth,
         );
-        return Scrollbar(
+        return OpenHandSafeScrollbar(
           controller: _ledgerHorizontalController,
+          thumbVisibility: true,
+          interactive: true,
           notificationPredicate: (notification) => notification.depth == 1,
           child: SingleChildScrollView(
             controller: _ledgerHorizontalController,
@@ -1654,8 +1656,10 @@ class _TrajectoryDialogState extends State<_TrajectoryDialog> {
             child: SizedBox(
               width: tableWidth,
               height: constraints.maxHeight,
-              child: Scrollbar(
+              child: OpenHandSafeScrollbar(
                 controller: _ledgerScrollController,
+                thumbVisibility: true,
+                interactive: true,
                 child: ListView.builder(
                   controller: _ledgerScrollController,
                   physics: openHandDialogAwareScrollPhysics(context),

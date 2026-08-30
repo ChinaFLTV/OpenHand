@@ -9,6 +9,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
+import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../model/workflow_definition.dart';
@@ -102,12 +103,19 @@ class _WorkflowDevelopmentParameterDialogState
   late List<WorkflowDevelopmentParameter> _parameters = List.of(
     widget.parameters,
   );
+  late final ScrollController _scrollController = ScrollController();
   bool _refreshing = false;
   bool _closeConfirmationOpen = false;
   bool _validationRequested = false;
 
   bool get _isDirty =>
       !_sameDevelopmentParameters(_initialParameters, _parameters);
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   Future<void> _refresh() async {
     if (_refreshing) return;
@@ -342,8 +350,14 @@ class _WorkflowDevelopmentParameterDialogState
             height: listHeight,
             child: _parameters.isEmpty
                 ? const _DevelopmentParameterEmptyState()
-                : Scrollbar(
+                : OpenHandSafeScrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: true,
+                    interactive: true,
+                    thickness: 6,
                     child: ListView.separated(
+                      controller: _scrollController,
+                      primary: false,
                       padding: const EdgeInsets.fromLTRB(22, 18, 22, 22),
                       itemCount: _parameterGroups.length,
                       separatorBuilder: (_, _) => kOpenHandGap10,
