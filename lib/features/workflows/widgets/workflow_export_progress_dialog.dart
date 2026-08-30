@@ -229,33 +229,35 @@ class _WorkflowExportProgressDialogState
     final failed = _status == _ExportStatus.failed;
     final tone = failed ? colors.error : OpenHandStatusColors.success;
     final detail = failed ? _error ?? '未知错误。' : _outputPath ?? '';
-    return Container(
+    return Column(
       key: ValueKey<String>(
         failed ? 'workflow-export-failed' : 'workflow-export-succeeded',
       ),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: tone.withValues(alpha: 0.1),
-        borderRadius: kOpenHandBorderRadius14,
-        border: Border.all(color: tone.withValues(alpha: 0.38)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            failed ? '错误详情' : '文件位置',
-            style: theme.textTheme.labelLarge?.copyWith(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              failed ? Icons.error_outline_rounded : Icons.folder_open_rounded,
+              size: 18,
               color: tone,
-              fontWeight: FontWeight.w800,
             ),
-          ),
-          kOpenHandGap8,
-          SelectableText(
-            detail,
-            style: theme.textTheme.bodyMedium?.copyWith(height: 1.45),
-          ),
-        ],
-      ),
+            kOpenHandHGap8,
+            Text(
+              failed ? '错误详情' : '文件位置',
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: tone,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+        kOpenHandGap8,
+        SelectableText(
+          detail,
+          style: theme.textTheme.bodyMedium?.copyWith(height: 1.45),
+        ),
+      ],
     );
   }
 }

@@ -45,6 +45,10 @@ void main() {
       14,
     );
     expect(
+      tester.getTopLeft(firstCard).dy - tester.getTopLeft(listFinder).dy,
+      lessThan(20),
+    );
+    expect(
       find.byKey(const ValueKey<String>('workflow-minimap-$firstId')),
       findsOneWidget,
     );
@@ -52,6 +56,7 @@ void main() {
 
     expect(tester.getSize(openFinder), tester.getSize(deleteFinder));
     expect(tester.getSize(exportFinder), tester.getSize(openFinder));
+    expect(tester.getSize(openFinder), const Size.square(40));
     expect(
       tester.getTopLeft(openFinder).dx - tester.getTopRight(exportFinder).dx,
       8,

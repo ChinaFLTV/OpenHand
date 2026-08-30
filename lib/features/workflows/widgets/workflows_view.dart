@@ -124,48 +124,52 @@ class _WorkflowsViewState extends State<WorkflowsView> {
                 body: l10n.workflowsEmptyBody,
               ),
             )
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                final columns =
-                    constraints.maxWidth >= _workflowTwoColumnMinWidth ? 2 : 1;
-                final cardWidth =
-                    (constraints.maxWidth -
-                        _workflowGridSpacing * (columns - 1)) /
-                    columns;
-                return SingleChildScrollView(
-                  key: const ValueKey<String>('workflows-list'),
-                  padding: const EdgeInsets.fromLTRB(0, 2, 0, 16),
-                  child: Wrap(
-                    spacing: _workflowGridSpacing,
-                    runSpacing: _workflowGridSpacing,
-                    children: [
-                      for (final workflow in snapshot.workflows)
-                        SizedBox(
-                          width: cardWidth,
-                          child: AppearOnce(
-                            child: RepaintBoundary(
-                              child: _WorkflowCard(
-                                workflow: workflow,
-                                onOpen: () => _openEditor(
-                                  context,
-                                  controller,
+          : SizedBox.expand(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final columns =
+                      constraints.maxWidth >= _workflowTwoColumnMinWidth
+                      ? 2
+                      : 1;
+                  final cardWidth =
+                      (constraints.maxWidth -
+                          _workflowGridSpacing * (columns - 1)) /
+                      columns;
+                  return SingleChildScrollView(
+                    key: const ValueKey<String>('workflows-list'),
+                    padding: const EdgeInsets.fromLTRB(0, 2, 0, 16),
+                    child: Wrap(
+                      spacing: _workflowGridSpacing,
+                      runSpacing: _workflowGridSpacing,
+                      children: [
+                        for (final workflow in snapshot.workflows)
+                          SizedBox(
+                            width: cardWidth,
+                            child: AppearOnce(
+                              child: RepaintBoundary(
+                                child: _WorkflowCard(
                                   workflow: workflow,
+                                  onOpen: () => _openEditor(
+                                    context,
+                                    controller,
+                                    workflow: workflow,
+                                  ),
+                                  onDelete: () => _deleteWorkflow(
+                                    context,
+                                    controller,
+                                    workflow,
+                                  ),
+                                  onExport: (format) =>
+                                      _exportWorkflow(workflow, format),
                                 ),
-                                onDelete: () => _deleteWorkflow(
-                                  context,
-                                  controller,
-                                  workflow,
-                                ),
-                                onExport: (format) =>
-                                    _exportWorkflow(workflow, format),
                               ),
                             ),
                           ),
-                        ),
-                    ],
-                  ),
-                );
-              },
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
     );
   }
@@ -466,13 +470,7 @@ class _WorkflowCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final actionButtonStyle = IconButton.styleFrom(
-      minimumSize: const Size.square(48),
-      maximumSize: const Size.square(48),
-      backgroundColor: colors.secondaryContainer,
-      foregroundColor: colors.onSecondaryContainer,
-      shape: const CircleBorder(),
-    );
+    final actionButtonStyle = _workflowCardActionButtonStyle(theme);
     return Card(
       key: ValueKey<String>('workflow-card-${workflow.id}'),
       margin: EdgeInsets.zero,
@@ -489,6 +487,7 @@ class _WorkflowCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
                     width: 44,
@@ -531,8 +530,8 @@ class _WorkflowCard extends StatelessWidget {
                     position: PopupMenuPosition.under,
                     style: actionButtonStyle,
                     buttonConstraints: const BoxConstraints.tightFor(
-                      width: 48,
-                      height: 48,
+                      width: _workflowCardActionSize,
+                      height: _workflowCardActionSize,
                     ),
                     icon: const Icon(Icons.file_download_outlined),
                     onSelected: onExport,
@@ -548,7 +547,7 @@ class _WorkflowCard extends StatelessWidget {
                     ],
                   ),
                   kOpenHandHGap8,
-                  IconButton(
+                  IconButton.filledTonal(
                     key: ValueKey<String>('workflow-open-${workflow.id}'),
                     tooltip: '编辑工作流',
                     style: actionButtonStyle,
@@ -556,7 +555,7 @@ class _WorkflowCard extends StatelessWidget {
                     icon: const Icon(Icons.edit_rounded),
                   ),
                   kOpenHandHGap8,
-                  IconButton(
+                  IconButton.filledTonal(
                     key: ValueKey<String>('workflow-delete-${workflow.id}'),
                     tooltip: '删除工作流',
                     style: actionButtonStyle,
@@ -600,6 +599,23 @@ class _WorkflowCard extends StatelessWidget {
       ),
     );
   }
+}
+
+const double _workflowCardActionSize = 40;
+const double _workflowCardActionEnabledAlpha = 0.74;
+
+ButtonStyle _workflowCardActionButtonStyle(ThemeData theme) {
+  return IconButton.styleFrom(
+    shape: const CircleBorder(),
+    padding: EdgeInsets.zero,
+    minimumSize: const Size.square(_workflowCardActionSize),
+    fixedSize: const Size.square(_workflowCardActionSize),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    backgroundColor: theme.colorScheme.surfaceContainerHighest.withValues(
+      alpha: _workflowCardActionEnabledAlpha,
+    ),
+    foregroundColor: theme.colorScheme.onSurfaceVariant,
+  );
 }
 
 class _WorkflowExportMenuItem extends StatelessWidget {

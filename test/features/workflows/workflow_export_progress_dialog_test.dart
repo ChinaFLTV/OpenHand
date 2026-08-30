@@ -73,6 +73,13 @@ void main() {
       find.byKey(const ValueKey<String>('workflow-export-succeeded')),
       findsOneWidget,
     );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('workflow-export-succeeded')),
+        matching: find.byType(Container),
+      ),
+      findsNothing,
+    );
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump();
