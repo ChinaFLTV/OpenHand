@@ -415,19 +415,18 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
         ),
         kOpenHandGap14,
         _FormSection(
-          title: '输入变量',
+          title: '输入参数',
           icon: Icons.input_rounded,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _OutputFieldEditor(
                 fields: inputFields,
-                addLabel: '添加输入变量',
+                addLabel: '添加输入参数',
                 idPrefix: 'code-input',
                 availableReferences: availableReferences,
                 reservedParameterNames: const <String, String>{},
-                inputMode: true,
-                emptyMessage: '当前 main 函数不接收输入变量。',
+                emptyMessage: '当前 main 函数不接收输入参数。',
                 onChanged: (fields) => _setValues(<String, Object?>{
                   WorkflowSettingKeys.codeInputFields: fields
                       .map((item) => item.toJson())
@@ -461,15 +460,14 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
         ),
         kOpenHandGap14,
         _FormSection(
-          title: '输出变量',
+          title: '输出参数',
           icon: Icons.output_rounded,
           child: _OutputFieldEditor(
             fields: node.outputFields(),
-            addLabel: '添加输出变量',
+            addLabel: '添加输出参数',
             idPrefix: 'code-output',
-            availableReferences: const <WorkflowParameterReference>[],
+            availableReferences: availableReferences,
             reservedParameterNames: codeReservedParameterNames,
-            definitionOnly: true,
             onChanged: _setCodeOutputFields,
           ),
         ),
@@ -3739,8 +3737,6 @@ class _OutputFieldEditor extends StatelessWidget {
     required this.availableReferences,
     required this.reservedParameterNames,
     required this.onChanged,
-    this.definitionOnly = false,
-    this.inputMode = false,
     this.emptyMessage,
   });
 
@@ -3750,8 +3746,6 @@ class _OutputFieldEditor extends StatelessWidget {
   final List<WorkflowParameterReference> availableReferences;
   final Map<String, String> reservedParameterNames;
   final ValueChanged<List<WorkflowOutputField>> onChanged;
-  final bool definitionOnly;
-  final bool inputMode;
   final String? emptyMessage;
 
   @override
@@ -3785,8 +3779,6 @@ class _OutputFieldEditor extends StatelessWidget {
                           key: ValueKey(field.id),
                           field: field,
                           availableReferences: availableReferences,
-                          definitionOnly: definitionOnly,
-                          inputMode: inputMode,
                           nameError: _nameError(field),
                           onChanged: (updated) => onChanged(
                             fields
@@ -3812,10 +3804,6 @@ class _OutputFieldEditor extends StatelessWidget {
             ...fields,
             WorkflowOutputField(
               id: '$idPrefix-${DateTime.now().microsecondsSinceEpoch}',
-              required: inputMode,
-              valueSource: inputMode
-                  ? WorkflowValueSource.variable
-                  : WorkflowValueSource.constant,
             ),
           ]),
           icon: const Icon(Icons.add_rounded),
@@ -3835,7 +3823,6 @@ class _OutputFieldEditor extends StatelessWidget {
     if (fields.where((item) => item.name.trim() == name).length > 1) {
       return '当前节点中已存在参数“$name”。';
     }
-    if (inputMode) return null;
     final owner = reservedParameterNames[name];
     return owner == null ? null : '参数“$name”已由节点“$owner”使用。';
   }
@@ -4072,8 +4059,6 @@ class _OutputFieldCard extends StatelessWidget {
     required this.nameError,
     required this.onChanged,
     required this.onDelete,
-    required this.definitionOnly,
-    required this.inputMode,
   });
 
   final WorkflowOutputField field;
@@ -4081,13 +4066,11 @@ class _OutputFieldCard extends StatelessWidget {
   final String? nameError;
   final ValueChanged<WorkflowOutputField> onChanged;
   final VoidCallback onDelete;
-  final bool definitionOnly;
-  final bool inputMode;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final nameHint = inputMode ? '变量名称' : '参数名称';
+    const nameHint = '参数名称';
     final nameDecoration = nameError == null
         ? _inputDecoration(nameHint)
         : _inputDecoration(nameHint).copyWith(
@@ -4114,9 +4097,8 @@ class _OutputFieldCard extends StatelessWidget {
                     child: TextFormField(
                       initialValue: field.name,
                       decoration: nameDecoration,
-                      onChanged: (value) => onChanged(
-                        field.copyWith(name: value, required: inputMode),
-                      ),
+                      onChanged: (value) =>
+                          onChanged(field.copyWith(name: value)),
                     ),
                   ),
                   kOpenHandHGap8,
@@ -4137,14 +4119,13 @@ class _OutputFieldCard extends StatelessWidget {
                       onChanged: (value) => onChanged(
                         field.copyWith(
                           type: value ?? WorkflowOutputType.string,
-                          required: inputMode,
                         ),
                       ),
                     ),
                   ),
                   kOpenHandHGap8,
                   IconButton.filledTonal(
-                    tooltip: inputMode ? '删除输入变量' : '删除参数',
+                    tooltip: '删除参数',
                     onPressed: onDelete,
                     style: IconButton.styleFrom(
                       fixedSize: const Size.square(_formControlHeight),
@@ -4175,111 +4156,77 @@ class _OutputFieldCard extends StatelessWidget {
                       ),
                     ),
             ),
-            if (inputMode) ...[
-              kOpenHandGap8,
-              SizedBox(
-                height: _formControlHeight,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SizedBox(
-                      width: _valueSourceControlWidth,
-                      child: _ValueSourceDropdown(
-                        value: field.valueSource,
-                        onChanged: (value) => onChanged(
-                          field.copyWith(valueSource: value, required: true),
-                        ),
-                      ),
-                    ),
-                    kOpenHandHGap8,
-                    Expanded(
-                      child: _WorkflowTypedValueField(
-                        value: field.defaultValue,
-                        type: field.type,
-                        source: field.valueSource,
-                        references: availableReferences,
-                        label: '变量取值',
-                        onChanged: (value) => onChanged(
-                          field.copyWith(defaultValue: value, required: true),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+            kOpenHandGap8,
+            SizedBox(
+              height: _formControlHeight,
+              child: TextFormField(
+                initialValue: field.description,
+                decoration: _inputDecoration('参数介绍'),
+                onChanged: (value) =>
+                    onChanged(field.copyWith(description: value)),
               ),
-            ] else if (!definitionOnly) ...[
-              kOpenHandGap8,
-              SizedBox(
-                height: _formControlHeight,
-                child: TextFormField(
-                  initialValue: field.description,
-                  decoration: _inputDecoration('参数介绍'),
-                  onChanged: (value) =>
-                      onChanged(field.copyWith(description: value)),
-                ),
-              ),
-              kOpenHandGap8,
-              SizedBox(
-                height: _formControlHeight,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SizedBox(
-                      width: _valueSourceControlWidth,
-                      child: _ValueSourceDropdown(
-                        value: field.valueSource,
-                        onChanged: (value) =>
-                            onChanged(field.copyWith(valueSource: value)),
-                      ),
+            ),
+            kOpenHandGap8,
+            SizedBox(
+              height: _formControlHeight,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    width: _valueSourceControlWidth,
+                    child: _ValueSourceDropdown(
+                      value: field.valueSource,
+                      onChanged: (value) =>
+                          onChanged(field.copyWith(valueSource: value)),
                     ),
-                    kOpenHandHGap8,
-                    Expanded(
-                      child: _WorkflowTypedValueField(
-                        value: field.defaultValue,
-                        type: field.type,
-                        source: field.valueSource,
-                        references: availableReferences,
-                        label: '默认值（可选）',
-                        onChanged: (value) =>
-                            onChanged(field.copyWith(defaultValue: value)),
-                      ),
+                  ),
+                  kOpenHandHGap8,
+                  Expanded(
+                    child: _WorkflowTypedValueField(
+                      value: field.defaultValue,
+                      type: field.type,
+                      source: field.valueSource,
+                      references: availableReferences,
+                      label: '默认值（可选）',
+                      onChanged: (value) =>
+                          onChanged(field.copyWith(defaultValue: value)),
                     ),
-                    kOpenHandHGap8,
-                    SizedBox(
-                      width: 82,
-                      child: Semantics(
-                        selected: field.required,
-                        child: OutlinedButton(
-                          onPressed: () => onChanged(
-                            field.copyWith(required: !field.required),
+                  ),
+                  kOpenHandHGap8,
+                  SizedBox(
+                    width: 82,
+                    child: Semantics(
+                      selected: field.required,
+                      child: OutlinedButton(
+                        onPressed: () => onChanged(
+                          field.copyWith(required: !field.required),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: Size.zero,
+                          padding: EdgeInsets.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          backgroundColor: field.required
+                              ? theme.colorScheme.primaryContainer
+                              : theme.colorScheme.surfaceContainerLow,
+                          foregroundColor: field.required
+                              ? theme.colorScheme.onPrimaryContainer
+                              : theme.colorScheme.onSurface,
+                          side: BorderSide(
+                            color: field.required
+                                ? theme.colorScheme.primary.withValues(
+                                    alpha: 0.5,
+                                  )
+                                : theme.colorScheme.outlineVariant,
                           ),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: Size.zero,
-                            padding: EdgeInsets.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            backgroundColor: field.required
-                                ? theme.colorScheme.primaryContainer
-                                : theme.colorScheme.surfaceContainerLow,
-                            foregroundColor: field.required
-                                ? theme.colorScheme.onPrimaryContainer
-                                : theme.colorScheme.onSurface,
-                            side: BorderSide(
-                              color: field.required
-                                  ? theme.colorScheme.primary.withValues(
-                                      alpha: 0.5,
-                                    )
-                                  : theme.colorScheme.outlineVariant,
-                            ),
-                            shape: _workflowButtonShape,
-                          ),
-                          child: const Text('必需'),
+                          shape: _workflowButtonShape,
                         ),
+                        child: const Text('必需'),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ],
         ),
       ),

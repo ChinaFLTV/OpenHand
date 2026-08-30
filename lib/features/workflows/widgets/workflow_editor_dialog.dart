@@ -2596,17 +2596,12 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         try {
           WorkflowStructuredOutputParser.validateFields(
             node.codeInputFields(),
-            label: '代码输入变量',
+            label: '代码输入参数',
             allowEmpty: true,
           );
-          for (final field in node.codeInputFields()) {
-            if (field.defaultValue.trim().isEmpty) {
-              return '代码输入变量“${field.name.trim()}”缺少取值。';
-            }
-          }
           WorkflowStructuredOutputParser.validateFields(
             node.outputFields(),
-            label: '代码输出变量',
+            label: '代码输出参数',
           );
           if (WorkflowErrorStrategy.fromStorage(
                 node.settings[WorkflowSettingKeys.errorStrategy],

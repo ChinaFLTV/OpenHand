@@ -548,42 +548,18 @@ class WorkflowNodeExecutor {
     final inputFields = node.codeInputFields();
     WorkflowStructuredOutputParser.validateFields(
       inputFields,
-      label: '代码输入变量',
+      label: '代码输入参数',
       allowEmpty: true,
     );
-    final configuredInputs = <String, Object?>{...variables};
-    for (final field in inputFields) {
-      final name = field.name.trim();
-      if (field.defaultValue.trim().isEmpty) {
-        throw WorkflowNodeExecutionException('代码输入变量“$name”缺少取值。');
-      }
-      if (field.valueSource == WorkflowValueSource.variable) {
-        for (final match in workflowTemplatePlaceholderPattern.allMatches(
-          field.defaultValue,
-        )) {
-          if (!_lookupWorkflowVariable(match.group(1)!, variables).found) {
-            throw WorkflowNodeExecutionException(
-              '代码输入变量“$name”引用的参数“${match.group(1)}”不可用。',
-            );
-          }
-        }
-        configuredInputs[name] = resolveWorkflowTemplateValue(
-          field.defaultValue,
-          variables,
-        );
-      } else {
-        configuredInputs[name] = field.defaultValue;
-      }
-    }
     final inputs = WorkflowStructuredOutputParser.resolveValues(
       inputFields,
-      configuredInputs,
-      label: '代码输入变量',
+      variables,
+      label: '代码输入参数',
     );
     final outputFields = node.outputFields();
     WorkflowStructuredOutputParser.validateFields(
       outputFields,
-      label: '代码输出变量',
+      label: '代码输出参数',
     );
     final errorStrategy = WorkflowErrorStrategy.fromStorage(
       node.settings[WorkflowSettingKeys.errorStrategy],
@@ -627,16 +603,11 @@ class WorkflowNodeExecutor {
           inputs: inputs,
           timeout: timeout,
         );
-        for (final field in outputFields) {
-          final name = field.name.trim();
-          if (!result.output.containsKey(name)) {
-            throw WorkflowNodeExecutionException('代码返回结果缺少输出变量：$name');
-          }
-        }
         final output = WorkflowStructuredOutputParser.resolveValues(
           outputFields,
           result.output,
-          label: '代码输出变量',
+          label: '代码输出参数',
+          defaultVariables: variables,
         );
         return WorkflowNodeExecutionResult(
           output: output,
@@ -2484,9 +2455,11 @@ abstract final class WorkflowStructuredOutputParser {
     List<WorkflowOutputField> fields,
     Map<String, Object?> values, {
     required String label,
+    Map<String, Object?>? defaultVariables,
   }) {
     validateFields(fields, label: label, allowEmpty: true);
     final result = <String, Object?>{};
+    final fallbackVariables = defaultVariables ?? values;
     for (final field in fields) {
       final name = field.name.trim();
       final hasValue = values.containsKey(name) && values[name] != null;
@@ -2494,7 +2467,7 @@ abstract final class WorkflowStructuredOutputParser {
         result[name] = _coerce(values[name], field.type, fieldName: name);
       } else if (field.defaultValue.trim().isNotEmpty) {
         result[name] = _coerce(
-          _resolveSourcedValue(field, values),
+          _resolveSourcedValue(field, fallbackVariables),
           field.type,
           fieldName: name,
         );
@@ -2742,9 +2715,20 @@ $schema''';
     WorkflowOutputField field,
     Map<String, Object?> variables,
   ) {
-    return field.valueSource == WorkflowValueSource.variable
-        ? resolveWorkflowTemplateValue(field.defaultValue, variables)
-        : field.defaultValue;
+    if (field.valueSource == WorkflowValueSource.constant) {
+      return field.defaultValue;
+    }
+    for (final match in workflowTemplatePlaceholderPattern.allMatches(
+      field.defaultValue,
+    )) {
+      final reference = match.group(1)!;
+      if (!_lookupWorkflowVariable(reference, variables).found) {
+        throw WorkflowNodeExecutionException(
+          '参数 ${field.name.trim()} 引用的参数“$reference”不可用。',
+        );
+      }
+    }
+    return resolveWorkflowTemplateValue(field.defaultValue, variables);
   }
 }
 
