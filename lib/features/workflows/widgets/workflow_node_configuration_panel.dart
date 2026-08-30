@@ -441,7 +441,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
               ),
               kOpenHandGap8,
               OutlinedButton.icon(
-                onPressed: () => _syncCodeInputsFromSignature(language, code),
+                onPressed: () => _syncCodeFieldsFromCode(language, code),
                 icon: const Icon(Icons.sync_rounded),
                 label: const Text('从代码同步'),
                 style: OutlinedButton.styleFrom(shape: _workflowButtonShape),
@@ -463,11 +463,6 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
         _FormSection(
           title: '输出变量',
           icon: Icons.output_rounded,
-          trailing: TextButton.icon(
-            onPressed: () => _syncCodeOutputsFromReturn(code),
-            icon: const Icon(Icons.sync_rounded, size: 17),
-            label: const Text('从代码同步'),
-          ),
           child: _OutputFieldEditor(
             fields: node.outputFields(),
             addLabel: '添加输出变量',
@@ -909,17 +904,14 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     });
   }
 
-  void _syncCodeInputsFromSignature(
-    WorkflowCodeLanguage language,
-    String code,
-  ) {
-    final current = <String, WorkflowOutputField>{
+  void _syncCodeFieldsFromCode(WorkflowCodeLanguage language, String code) {
+    final inputCurrent = <String, WorkflowOutputField>{
       for (final field in node.codeInputFields()) field.name.trim(): field,
     };
-    final fields = workflowCodeFunctionParameters(code, language)
+    final inputFields = workflowCodeFunctionParameters(code, language)
         .map(
           (name) =>
-              current[name] ??
+              inputCurrent[name] ??
               WorkflowOutputField(
                 id: _workflowConfigurationUuid.v4(),
                 name: name,
@@ -928,27 +920,34 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
               ),
         )
         .toList(growable: false);
-    _set(
-      WorkflowSettingKeys.codeInputFields,
-      fields.map((item) => item.toJson()).toList(growable: false),
-    );
-  }
-
-  void _syncCodeOutputsFromReturn(String code) {
-    final current = <String, WorkflowOutputField>{
+    final outputCurrent = <String, WorkflowOutputField>{
       for (final field in node.outputFields()) field.name.trim(): field,
     };
-    final fields = workflowCodeReturnNames(code)
+    final outputFields = workflowCodeReturnNames(code)
         .map(
           (name) =>
-              current[name] ??
+              outputCurrent[name] ??
               WorkflowOutputField(
                 id: _workflowConfigurationUuid.v4(),
                 name: name,
               ),
         )
         .toList(growable: false);
-    _setCodeOutputFields(fields);
+    final strategy = WorkflowErrorStrategy.fromStorage(
+      node.settings[WorkflowSettingKeys.errorStrategy],
+    );
+    _setValues(<String, Object?>{
+      WorkflowSettingKeys.codeInputFields: inputFields
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      WorkflowSettingKeys.outputFields: outputFields
+          .map((item) => item.toJson())
+          .toList(growable: false),
+      if (strategy == WorkflowErrorStrategy.defaultValue)
+        WorkflowSettingKeys.errorDefaultValues: _normalizedErrorDefaults(
+          outputFields,
+        ),
+    });
   }
 
   void _setCodeOutputFields(List<WorkflowOutputField> fields) {
@@ -3723,6 +3722,7 @@ class _WorkflowCodeEditor extends StatelessWidget {
           : 'javascript',
       fileName: 'main.${language.fileExtension}',
       codeTheme: codeTheme,
+      borderRadius: kOpenHandBorderRadius14,
       icon: language == WorkflowCodeLanguage.python3
           ? Icons.data_object_rounded
           : Icons.javascript_rounded,

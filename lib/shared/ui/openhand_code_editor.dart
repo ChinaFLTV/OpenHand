@@ -3,6 +3,7 @@ import 'package:highlight/highlight.dart' as highlight;
 
 import '../../app/model/editor_code_theme.dart';
 import 'openhand_safe_scrollbar.dart';
+import 'openhand_spacing.dart';
 import 'openhand_typography.dart';
 
 /// 编程专家与工作流共用的语法高亮器。
@@ -252,6 +253,7 @@ class OpenHandCodeEditor extends StatefulWidget {
     required this.onChanged,
     this.icon = Icons.code_rounded,
     this.height = 360,
+    this.borderRadius = BorderRadius.zero,
   });
 
   final String value;
@@ -261,6 +263,7 @@ class OpenHandCodeEditor extends StatefulWidget {
   final ValueChanged<String> onChanged;
   final IconData icon;
   final double height;
+  final BorderRadius borderRadius;
 
   @override
   State<OpenHandCodeEditor> createState() => _OpenHandCodeEditorState();
@@ -317,9 +320,13 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     );
     return Container(
       height: widget.height,
+      clipBehavior: widget.borderRadius == BorderRadius.zero
+          ? Clip.none
+          : Clip.antiAlias,
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLowest,
         border: Border.all(color: colorScheme.outlineVariant),
+        borderRadius: widget.borderRadius,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -365,6 +372,7 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
                         icon: const Icon(Icons.undo_rounded, size: 18),
                         visualDensity: VisualDensity.compact,
                       ),
+                      kOpenHandHGap6,
                       IconButton(
                         tooltip: '重做',
                         onPressed: value.canRedo ? _undoController.redo : null,
