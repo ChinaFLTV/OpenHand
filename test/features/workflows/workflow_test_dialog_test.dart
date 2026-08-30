@@ -170,6 +170,13 @@ void main() {
     expect(find.text('count'), findsOneWidget);
     expect(find.text('2'), findsOneWidget);
     expect(find.textContaining('"news"'), findsNothing);
+    final outputRow = find
+        .ancestor(of: find.text('值'), matching: find.byType(Row))
+        .last;
+    expect(
+      tester.widget<Row>(outputRow).crossAxisAlignment,
+      CrossAxisAlignment.center,
+    );
     expect(tester.getSize(find.byTooltip('复制参数 news')), const Size.square(40));
     expect(
       find.descendant(

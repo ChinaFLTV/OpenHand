@@ -1170,7 +1170,6 @@ class _WorkflowTestStructuredTableRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             flex: 3,
