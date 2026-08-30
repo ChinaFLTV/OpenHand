@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_overlay.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -21,6 +20,14 @@ const double _referenceMenuMargin = 12;
 const double _referenceMenuHeaderExtent = 32;
 const double _referenceMenuSubheaderExtent = 30;
 const double _referenceMenuItemExtent = 52;
+
+Color _parameterDirectionAccent(
+  ColorScheme colors,
+  WorkflowParameterDirection direction,
+) => switch (direction) {
+  WorkflowParameterDirection.input => colors.secondary,
+  WorkflowParameterDirection.output => colors.primary,
+};
 
 class WorkflowParameterReferenceField extends StatefulWidget {
   const WorkflowParameterReferenceField({
@@ -907,10 +914,7 @@ class _WorkflowReferenceIoHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final accent = switch (direction) {
-      WorkflowParameterDirection.input => OpenHandStatusColors.info,
-      WorkflowParameterDirection.output => theme.colorScheme.primary,
-    };
+    final accent = _parameterDirectionAccent(theme.colorScheme, direction);
     final icon = switch (direction) {
       WorkflowParameterDirection.input => Icons.login_rounded,
       WorkflowParameterDirection.output => Icons.output_rounded,
@@ -975,10 +979,10 @@ class _WorkflowReferenceMenuItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final description = reference.field.description.trim();
-    final accent = switch (reference.direction) {
-      WorkflowParameterDirection.input => OpenHandStatusColors.info,
-      WorkflowParameterDirection.output => theme.colorScheme.primary,
-    };
+    final accent = _parameterDirectionAccent(
+      theme.colorScheme,
+      reference.direction,
+    );
     final icon = switch (reference.direction) {
       WorkflowParameterDirection.input => Icons.login_rounded,
       WorkflowParameterDirection.output => Icons.output_rounded,

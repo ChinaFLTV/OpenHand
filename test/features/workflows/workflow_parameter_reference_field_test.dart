@@ -60,9 +60,11 @@ void main() {
     );
   });
 
-  testWidgets('候选浮窗按输入输出子组区分参数', (tester) async {
+  testWidgets('候选浮窗按输入输出子组区分参数并跟随主题色', (tester) async {
+    final colorScheme = ColorScheme.fromSeed(seedColor: const Color(0xFF4F7B6A));
     await tester.pumpWidget(
       MaterialApp(
+        theme: ThemeData(colorScheme: colorScheme),
         home: Scaffold(
           body: WorkflowParameterReferenceField(
             value: '',
@@ -93,6 +95,11 @@ void main() {
     expect(inputHeaderOffset.dy, lessThan(argOffset.dy));
     expect(argOffset.dy, lessThan(outputHeaderOffset.dy));
     expect(outputHeaderOffset.dy, lessThan(resultOffset.dy));
+
+    final inputLabel = tester.widget<Text>(find.text('输入参数'));
+    final outputLabel = tester.widget<Text>(find.text('输出参数'));
+    expect(inputLabel.style?.color, colorScheme.secondary);
+    expect(outputLabel.style?.color, colorScheme.primary);
   });
 
   test('collectWorkflowParameterReferences 按方向归类并去重', () {
