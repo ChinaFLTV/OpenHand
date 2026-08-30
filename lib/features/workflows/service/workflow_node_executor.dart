@@ -246,6 +246,7 @@ class WorkflowNodeExecutionResult {
     required this.output,
     required this.attempts,
     required this.duration,
+    this.resolvedInputs = const <String, Object?>{},
     this.rawOutput = '',
     this.conversation,
     this.selectedBranchId,
@@ -253,6 +254,7 @@ class WorkflowNodeExecutionResult {
   });
 
   final Object? output;
+  final Map<String, Object?> resolvedInputs;
   final String rawOutput;
   final int attempts;
   final Duration duration;
@@ -390,6 +392,10 @@ class WorkflowNodeExecutor {
     required WorkflowExecutionResources resources,
     Map<String, Object?> inputs = const <String, Object?>{},
   }) async {
+    final parameterError = validateWorkflowParameterNames(nodes);
+    if (parameterError != null) {
+      throw WorkflowNodeExecutionException(parameterError);
+    }
     final topLevelNodes = nodes
         .where((node) => node.parentNodeId == null)
         .toList(growable: false);
@@ -477,7 +483,7 @@ class WorkflowNodeExecutor {
         workflowNodes: nodes,
         workflowConnections: connections,
       );
-      _mergeNodeOutput(node, result.output, variables);
+      _mergeNodeOutput(node, result, variables);
       if (node.kind == WorkflowNodeKind.end) {
         output = result.output;
         reachedEnd = true;
@@ -637,6 +643,7 @@ class WorkflowNodeExecutor {
         );
         return WorkflowNodeExecutionResult(
           output: output,
+          resolvedInputs: inputs,
           rawOutput: jsonEncode(output),
           attempts: attempts,
           duration: stopwatch.elapsed,
@@ -680,6 +687,7 @@ class WorkflowNodeExecutor {
         );
         return WorkflowNodeExecutionResult(
           output: output,
+          resolvedInputs: inputs,
           rawOutput: jsonEncode(output),
           attempts: attempts,
           duration: stopwatch.elapsed,
@@ -693,11 +701,12 @@ class WorkflowNodeExecutor {
       }
     }
     final output = <String, Object?>{
-      workflowErrorTypeOutputName: latestErrorType,
-      workflowErrorMessageOutputName: failure.message,
+      node.systemOutputName(workflowErrorTypeOutputName): latestErrorType,
+      node.systemOutputName(workflowErrorMessageOutputName): failure.message,
     };
     return WorkflowNodeExecutionResult(
       output: Map<String, Object?>.unmodifiable(output),
+      resolvedInputs: inputs,
       rawOutput: jsonEncode(output),
       attempts: attempts,
       duration: stopwatch.elapsed,
@@ -891,9 +900,11 @@ class WorkflowNodeExecutor {
                 variables: variables,
               )
             : <String, Object?>{
-                workflowLlmTextOutputName: separated.text,
-                workflowLlmReasoningOutputName: reasoning,
-                workflowLlmUsageOutputName:
+                node.systemOutputName(workflowLlmTextOutputName):
+                    separated.text,
+                node.systemOutputName(workflowLlmReasoningOutputName):
+                    reasoning,
+                node.systemOutputName(workflowLlmUsageOutputName):
                     completion.usage?.toJson() ?? <String, Object?>{},
               };
         stopwatch.stop();
@@ -965,8 +976,10 @@ class WorkflowNodeExecutor {
       }
     }
     final output = <String, Object?>{
-      workflowErrorTypeOutputName: _llmErrorType(lastError),
-      workflowErrorMessageOutputName: failure.message,
+      node.systemOutputName(workflowErrorTypeOutputName): _llmErrorType(
+        lastError,
+      ),
+      node.systemOutputName(workflowErrorMessageOutputName): failure.message,
     };
     return WorkflowNodeExecutionResult(
       output: Map<String, Object?>.unmodifiable(output),
@@ -1363,10 +1376,14 @@ class WorkflowNodeExecutor {
                 variables: variables,
               )
             : <String, Object?>{
-                workflowHttpBodyOutputName: response.body,
-                workflowHttpStatusCodeOutputName: response.statusCode,
-                workflowHttpHeadersOutputName: response.headers,
-                workflowHttpFilesOutputName: response.files,
+                node.systemOutputName(workflowHttpBodyOutputName):
+                    response.body,
+                node.systemOutputName(workflowHttpStatusCodeOutputName):
+                    response.statusCode,
+                node.systemOutputName(workflowHttpHeadersOutputName):
+                    response.headers,
+                node.systemOutputName(workflowHttpFilesOutputName):
+                    response.files,
               };
         stopwatch.stop();
         return WorkflowNodeExecutionResult(
@@ -1423,8 +1440,8 @@ class WorkflowNodeExecutor {
       }
     }
     final output = <String, Object?>{
-      workflowErrorTypeOutputName: lastErrorType,
-      workflowErrorMessageOutputName: failure.message,
+      node.systemOutputName(workflowErrorTypeOutputName): lastErrorType,
+      node.systemOutputName(workflowErrorMessageOutputName): failure.message,
     };
     return WorkflowNodeExecutionResult(
       output: Map<String, Object?>.unmodifiable(output),
@@ -1848,9 +1865,10 @@ class WorkflowNodeExecutor {
         );
     if (response.timedOut) {
       final output = <String, Object?>{
-        workflowHumanActionIdOutputName: workflowHumanTimeoutHandleId,
-        workflowHumanActionValueOutputName: '超时',
-        workflowHumanRenderedContentOutputName: content,
+        node.systemOutputName(workflowHumanActionIdOutputName):
+            workflowHumanTimeoutHandleId,
+        node.systemOutputName(workflowHumanActionValueOutputName): '超时',
+        node.systemOutputName(workflowHumanRenderedContentOutputName): content,
       };
       return WorkflowNodeExecutionResult(
         output: Map<String, Object?>.unmodifiable(output),
@@ -1873,9 +1891,10 @@ class WorkflowNodeExecutor {
     );
     final output = <String, Object?>{
       ...inputs,
-      workflowHumanActionIdOutputName: action.id,
-      workflowHumanActionValueOutputName: action.title.trim(),
-      workflowHumanRenderedContentOutputName: content,
+      node.systemOutputName(workflowHumanActionIdOutputName): action.id,
+      node.systemOutputName(workflowHumanActionValueOutputName): action.title
+          .trim(),
+      node.systemOutputName(workflowHumanRenderedContentOutputName): content,
     };
     return WorkflowNodeExecutionResult(
       output: Map<String, Object?>.unmodifiable(output),
@@ -2341,7 +2360,7 @@ class WorkflowNodeExecutor {
         workflowNodes: workflowNodes,
         workflowConnections: workflowConnections,
       );
-      _mergeNodeOutput(child, result.output, resolvedVariables);
+      _mergeNodeOutput(child, result, resolvedVariables);
       final selectedBranch = result.selectedBranchId;
       for (final edge in childEdges) {
         if (edge.sourceNodeId != child.id) continue;
@@ -2356,9 +2375,11 @@ class WorkflowNodeExecutor {
 
   void _mergeNodeOutput(
     WorkflowNode node,
-    Object? output,
+    WorkflowNodeExecutionResult result,
     Map<String, Object?> variables,
   ) {
+    variables.addAll(result.resolvedInputs);
+    final output = result.output;
     if (output case final Map values) {
       for (final entry in values.entries) {
         variables['${entry.key}'] = entry.value;

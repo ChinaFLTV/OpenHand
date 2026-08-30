@@ -386,9 +386,23 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
       defaultWorkflowCode(language),
     );
     final inputFields = node.codeInputFields();
-    final codeReservedParameterNames = <String, String>{
+    final inputReservedParameterNames = <String, String>{
       ...reservedParameterNames,
+      for (final field in node.outputFields())
+        if (field.name.trim().isNotEmpty)
+          field.name.trim(): node.title.trim().isEmpty ? '当前节点' : node.title,
       for (final name in workflowErrorSystemOutputNames) name: '代码异常分支',
+      for (final name in workflowErrorSystemOutputNames)
+        node.systemOutputName(name): '代码异常分支',
+    };
+    final outputReservedParameterNames = <String, String>{
+      ...reservedParameterNames,
+      for (final field in inputFields)
+        if (field.name.trim().isNotEmpty)
+          field.name.trim(): node.title.trim().isEmpty ? '当前节点' : node.title,
+      for (final name in workflowErrorSystemOutputNames) name: '代码异常分支',
+      for (final name in workflowErrorSystemOutputNames)
+        node.systemOutputName(name): '代码异常分支',
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -470,7 +484,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                 idPrefix: 'code-input',
                 configureValue: true,
                 availableReferences: availableReferences,
-                reservedParameterNames: const <String, String>{},
+                reservedParameterNames: inputReservedParameterNames,
                 emptyMessage: '当前 main 函数不接收输入参数。',
                 onChanged: (fields) => _setValues(<String, Object?>{
                   WorkflowSettingKeys.codeInputFields: fields
@@ -512,7 +526,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
             addLabel: '添加输出参数',
             idPrefix: 'code-output',
             availableReferences: availableReferences,
-            reservedParameterNames: codeReservedParameterNames,
+            reservedParameterNames: outputReservedParameterNames,
             onChanged: _setCodeOutputFields,
           ),
         ),
@@ -731,7 +745,9 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                       kOpenHandHGap10,
                       Expanded(
                         child: Text(
-                          '$subject节点将提供“成功”和“异常”两条分支；异常分支可读取 error_type 与 error_message。',
+                          '$subject节点将提供“成功”和“异常”两条分支；异常分支可读取 '
+                          '${node.systemOutputName(workflowErrorTypeOutputName)} 与 '
+                          '${node.systemOutputName(workflowErrorMessageOutputName)}。',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                             height: 1.45,
@@ -758,6 +774,8 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     final systemNames = <String, String>{
       ...reservedParameterNames,
       for (final name in workflowHumanSystemOutputNames) name: '人工介入系统输出',
+      for (final name in workflowHumanSystemOutputNames)
+        node.systemOutputName(name): '人工介入系统输出',
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -933,10 +951,26 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     WorkflowCodeLanguage next,
     String code,
   ) {
+    final inputNames = node
+        .codeInputFields()
+        .map((field) => field.name.trim())
+        .toList(growable: false);
+    final outputName = node.outputFields().firstOrNull?.name.trim() ?? 'result';
     final replaceTemplate =
         code.trim().isEmpty ||
-        code.trim() == defaultWorkflowCode(previous).trim();
-    final nextCode = replaceTemplate ? defaultWorkflowCode(next) : code;
+        code.trim() ==
+            defaultWorkflowCode(
+              previous,
+              inputNames: inputNames,
+              outputName: outputName,
+            ).trim();
+    final nextCode = replaceTemplate
+        ? defaultWorkflowCode(
+            next,
+            inputNames: inputNames,
+            outputName: outputName,
+          )
+        : code;
     _setValues(<String, Object?>{
       WorkflowSettingKeys.codeLanguage: next.storageValue,
       WorkflowSettingKeys.code: workflowCodeWithInputSignature(
@@ -2284,6 +2318,11 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
       ...reservedParameterNames,
       for (final name in workflowLlmFixedOutputNames) name: 'LLM 固定输出',
       for (final name in workflowErrorSystemOutputNames) name: '异常分支输出',
+      for (final name in <String>{
+        ...workflowLlmFixedOutputNames,
+        ...workflowErrorSystemOutputNames,
+      })
+        node.systemOutputName(name): '当前节点系统输出',
     };
     return _FormSection(
       title: '输出参数',
@@ -2330,6 +2369,11 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
       ...reservedParameterNames,
       for (final name in workflowHttpFixedOutputNames) name: 'HTTP 固定输出',
       for (final name in workflowErrorSystemOutputNames) name: '异常分支输出',
+      for (final name in <String>{
+        ...workflowHttpFixedOutputNames,
+        ...workflowErrorSystemOutputNames,
+      })
+        node.systemOutputName(name): '当前节点系统输出',
     };
     return _FormSection(
       title: '输出参数',

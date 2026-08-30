@@ -212,7 +212,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   void initState() {
     super.initState();
     _nodes = _fitContainerSizes(
-      List<WorkflowNode>.from(widget.workflow?.nodes ?? const <WorkflowNode>[]),
+      normalizeWorkflowSystemOutputNames(
+        List<WorkflowNode>.from(
+          widget.workflow?.nodes ?? const <WorkflowNode>[],
+        ),
+      ),
     );
     _initialDraftFingerprint = _currentDraftFingerprint();
     _history = <_WorkflowHistoryEntry>[
@@ -1509,7 +1513,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       Theme.of(context).colorScheme,
     );
     final index = _nodes.length;
-    final node = WorkflowNode(
+    final createdNode = WorkflowNode(
       id: _uuid.v4(),
       kind: kind,
       title: descriptor.label,
@@ -1517,8 +1521,13 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       y: 180 + (index ~/ 4) * 185,
       settings: _defaultSettings(kind),
     );
+    final nextNodes = normalizeWorkflowSystemOutputNames(<WorkflowNode>[
+      ..._nodes,
+      createdNode,
+    ]);
+    final node = nextNodes.last;
     setState(() {
-      _nodes = <WorkflowNode>[..._nodes, node];
+      _nodes = nextNodes;
       _selectedNodeId = node.id;
       _selectedConnectionId = null;
       _testResult = null;
@@ -1554,7 +1563,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     final position = parentNodeId == null
         ? _nextNodePosition(source, kind)
         : _nextNestedNodePosition(source, parentNodeId, kind);
-    final node = WorkflowNode(
+    final createdNode = WorkflowNode(
       id: _uuid.v4(),
       kind: kind,
       title: descriptor.label,
@@ -1563,8 +1572,13 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       parentNodeId: parentNodeId,
       settings: _defaultSettings(kind),
     );
+    final nextNodes = normalizeWorkflowSystemOutputNames(<WorkflowNode>[
+      ..._nodes,
+      createdNode,
+    ]);
+    final node = nextNodes.last;
     setState(() {
-      _nodes = _fitContainerSizes(<WorkflowNode>[..._nodes, node]);
+      _nodes = _fitContainerSizes(nextNodes);
       _connections = <WorkflowConnection>[
         ..._connections,
         WorkflowConnection(
@@ -1747,38 +1761,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
           ).toJson(),
         ],
       },
-      WorkflowNodeKind.codeExecution => <String, Object?>{
-        WorkflowSettingKeys.codeLanguage:
-            WorkflowCodeLanguage.python3.storageValue,
-        WorkflowSettingKeys.code: defaultWorkflowCode(
-          WorkflowCodeLanguage.python3,
-        ),
-        WorkflowSettingKeys.codeInputFields: defaultWorkflowCodeInputNames
-            .map(
-              (name) => WorkflowOutputField(
-                id: _uuid.v4(),
-                name: name,
-                required: true,
-                valueSource: WorkflowValueSource.variable,
-              ).toJson(),
-            )
-            .toList(growable: false),
-        WorkflowSettingKeys.outputFields: <Object?>[
-          WorkflowOutputField(
-            id: _uuid.v4(),
-            name: _uniqueParameterName('result'),
-            description: '代码执行结果',
-          ).toJson(),
-        ],
-        WorkflowSettingKeys.codeExecutionTimeoutSeconds:
-            defaultWorkflowCodeTimeoutSeconds,
-        WorkflowSettingKeys.retryEnabled: false,
-        WorkflowSettingKeys.retryCount: defaultWorkflowCodeRetryCount,
-        WorkflowSettingKeys.retryIntervalMs: defaultWorkflowCodeRetryIntervalMs,
-        WorkflowSettingKeys.errorStrategy:
-            WorkflowErrorStrategy.terminate.storageValue,
-        WorkflowSettingKeys.errorDefaultValues: <String, Object?>{},
-      },
+      WorkflowNodeKind.codeExecution => _defaultCodeSettings(),
       WorkflowNodeKind.humanIntervention => <String, Object?>{
         WorkflowSettingKeys.humanDeliveryMethod:
             workflowHumanDeliveryMethodInAppDialog,
@@ -1860,6 +1843,47 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     };
   }
 
+  Map<String, Object?> _defaultCodeSettings() {
+    const language = WorkflowCodeLanguage.python3;
+    final inputFields = defaultWorkflowCodeInputNames
+        .map(
+          (name) => WorkflowOutputField(
+            id: _uuid.v4(),
+            name: _uniqueParameterName(name),
+            required: true,
+            valueSource: WorkflowValueSource.variable,
+          ),
+        )
+        .toList(growable: false);
+    final outputName = _uniqueParameterName('result');
+    return <String, Object?>{
+      WorkflowSettingKeys.codeLanguage: language.storageValue,
+      WorkflowSettingKeys.code: defaultWorkflowCode(
+        language,
+        inputNames: inputFields.map((field) => field.name).toList(),
+        outputName: outputName,
+      ),
+      WorkflowSettingKeys.codeInputFields: inputFields
+          .map((field) => field.toJson())
+          .toList(growable: false),
+      WorkflowSettingKeys.outputFields: <Object?>[
+        WorkflowOutputField(
+          id: _uuid.v4(),
+          name: outputName,
+          description: '代码执行结果',
+        ).toJson(),
+      ],
+      WorkflowSettingKeys.codeExecutionTimeoutSeconds:
+          defaultWorkflowCodeTimeoutSeconds,
+      WorkflowSettingKeys.retryEnabled: false,
+      WorkflowSettingKeys.retryCount: defaultWorkflowCodeRetryCount,
+      WorkflowSettingKeys.retryIntervalMs: defaultWorkflowCodeRetryIntervalMs,
+      WorkflowSettingKeys.errorStrategy:
+          WorkflowErrorStrategy.terminate.storageValue,
+      WorkflowSettingKeys.errorDefaultValues: <String, Object?>{},
+    };
+  }
+
   String _uniqueParameterName(String base) {
     final names = _nodes
         .expand((node) => node.declaredParameterFields())
@@ -1884,9 +1908,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
           .where((node) => node.id == updated.id)
           .firstOrNull;
       _nodes = _fitContainerSizes(
-        _nodes
-            .map((node) => node.id == updated.id ? updated : node)
-            .toList(growable: false),
+        normalizeWorkflowSystemOutputNames(
+          _nodes
+              .map((node) => node.id == updated.id ? updated : node)
+              .toList(growable: false),
+        ),
       );
       if (_workflowNodeHasBranches(updated) ||
           (previous != null && _workflowNodeHasBranches(previous))) {
@@ -2121,7 +2147,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     setState(() {
       _clearConnectionDragState();
       _historyIndex = index;
-      _nodes = _fitContainerSizes(List<WorkflowNode>.from(snapshot.nodes));
+      _nodes = _fitContainerSizes(
+        normalizeWorkflowSystemOutputNames(
+          List<WorkflowNode>.from(snapshot.nodes),
+        ),
+      );
       _connections = List<WorkflowConnection>.from(snapshot.connections);
       _selectedNodeId = null;
       _selectedConnectionId = null;

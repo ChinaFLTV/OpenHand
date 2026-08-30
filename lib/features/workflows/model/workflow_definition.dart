@@ -150,19 +150,27 @@ enum WorkflowLlmReasoningFormat {
   }
 }
 
-String defaultWorkflowCode(WorkflowCodeLanguage language) => switch (language) {
-  WorkflowCodeLanguage.python3 =>
-    '''def main(arg1: str, arg2: str):
+String defaultWorkflowCode(
+  WorkflowCodeLanguage language, {
+  List<String> inputNames = defaultWorkflowCodeInputNames,
+  String outputName = 'result',
+}) {
+  final firstInput = inputNames.isEmpty ? 'arg1' : inputNames.first;
+  final secondInput = inputNames.length < 2 ? firstInput : inputNames[1];
+  return switch (language) {
+    WorkflowCodeLanguage.python3 =>
+      '''def main($firstInput: str, $secondInput: str):
     return {
-        "result": arg1 + arg2,
+        "$outputName": $firstInput + $secondInput,
     }''',
-  WorkflowCodeLanguage.javascript =>
-    '''function main({arg1, arg2}) {
+    WorkflowCodeLanguage.javascript =>
+      '''function main({$firstInput, $secondInput}) {
   return {
-    result: arg1 + arg2
+    $outputName: $firstInput + $secondInput
   }
 }''',
-};
+  };
+}
 
 const List<String> defaultWorkflowCodeInputNames = <String>['arg1', 'arg2'];
 
@@ -783,6 +791,7 @@ abstract final class WorkflowSettingKeys {
   static const String mcpServerNames = 'mcp_server_names';
   static const String structuredOutput = 'structured_output';
   static const String outputFields = 'output_fields';
+  static const String systemOutputNames = 'system_output_names';
   static const String retryCount = 'retry_count';
   static const String retryIntervalMs = 'retry_interval_ms';
   static const String url = 'url';
@@ -1303,6 +1312,13 @@ class WorkflowNode {
   List<WorkflowOutputField> humanInputFields() =>
       _fieldsSetting(WorkflowSettingKeys.humanInputFields);
 
+  String systemOutputName(String name) {
+    final aliases = settings[WorkflowSettingKeys.systemOutputNames];
+    if (aliases is! Map) return name;
+    final alias = '${aliases[name] ?? ''}'.trim();
+    return workflowParameterNamePattern.hasMatch(alias) ? alias : name;
+  }
+
   List<WorkflowHumanAction> humanActions() {
     final value = settings[WorkflowSettingKeys.humanActions];
     if (value is! List) return const <WorkflowHumanAction>[];
@@ -1342,8 +1358,15 @@ class WorkflowNode {
         .toList(growable: false);
   }
 
-  List<WorkflowOutputField> declaredParameterFields() => switch (kind) {
+  List<WorkflowOutputField> inputParameterFields() => switch (kind) {
     WorkflowNodeKind.start => inputFields(),
+    WorkflowNodeKind.codeExecution => codeInputFields(),
+    WorkflowNodeKind.humanIntervention => humanInputFields(),
+    _ => const <WorkflowOutputField>[],
+  };
+
+  List<WorkflowOutputField> outputParameterFields() => switch (kind) {
+    WorkflowNodeKind.start => const <WorkflowOutputField>[],
     WorkflowNodeKind.iteration => <WorkflowOutputField>[
       WorkflowOutputField(
         id: '$id-iteration-output',
@@ -1374,12 +1397,12 @@ class WorkflowNode {
           WorkflowErrorStrategy.failBranch) ...<WorkflowOutputField>[
         WorkflowOutputField(
           id: '$id-code-error-type',
-          name: workflowErrorTypeOutputName,
+          name: systemOutputName(workflowErrorTypeOutputName),
           description: '代码执行异常类型',
         ),
         WorkflowOutputField(
           id: '$id-code-error-message',
-          name: workflowErrorMessageOutputName,
+          name: systemOutputName(workflowErrorMessageOutputName),
           description: '代码执行异常信息',
         ),
       ],
@@ -1392,12 +1415,12 @@ class WorkflowNode {
           WorkflowErrorStrategy.failBranch) ...<WorkflowOutputField>[
         WorkflowOutputField(
           id: '$id-llm-error-type',
-          name: workflowErrorTypeOutputName,
+          name: systemOutputName(workflowErrorTypeOutputName),
           description: 'LLM 执行异常类型',
         ),
         WorkflowOutputField(
           id: '$id-llm-error-message',
-          name: workflowErrorMessageOutputName,
+          name: systemOutputName(workflowErrorMessageOutputName),
           description: 'LLM 执行异常信息',
         ),
       ],
@@ -1410,36 +1433,40 @@ class WorkflowNode {
           WorkflowErrorStrategy.failBranch) ...<WorkflowOutputField>[
         WorkflowOutputField(
           id: '$id-http-error-type',
-          name: workflowErrorTypeOutputName,
+          name: systemOutputName(workflowErrorTypeOutputName),
           description: 'HTTP 请求异常类型',
         ),
         WorkflowOutputField(
           id: '$id-http-error-message',
-          name: workflowErrorMessageOutputName,
+          name: systemOutputName(workflowErrorMessageOutputName),
           description: 'HTTP 请求异常信息',
         ),
       ],
     ],
     WorkflowNodeKind.humanIntervention => <WorkflowOutputField>[
-      ...humanInputFields(),
       WorkflowOutputField(
         id: '$id-human-action-id',
-        name: workflowHumanActionIdOutputName,
+        name: systemOutputName(workflowHumanActionIdOutputName),
         description: '用户触发的动作标识',
       ),
       WorkflowOutputField(
         id: '$id-human-action-value',
-        name: workflowHumanActionValueOutputName,
+        name: systemOutputName(workflowHumanActionValueOutputName),
         description: '用户触发的动作文本',
       ),
       WorkflowOutputField(
         id: '$id-human-rendered-content',
-        name: workflowHumanRenderedContentOutputName,
+        name: systemOutputName(workflowHumanRenderedContentOutputName),
         description: '展示给用户的内容',
       ),
     ],
     _ => outputFields(),
   };
+
+  List<WorkflowOutputField> declaredParameterFields() => <WorkflowOutputField>[
+    ...inputParameterFields(),
+    ...outputParameterFields(),
+  ];
 
   List<WorkflowOutputField> llmResponseFields() =>
       boolSetting(WorkflowSettingKeys.structuredOutput)
@@ -1447,17 +1474,17 @@ class WorkflowNode {
       : <WorkflowOutputField>[
           WorkflowOutputField(
             id: '$id-llm-text',
-            name: workflowLlmTextOutputName,
+            name: systemOutputName(workflowLlmTextOutputName),
             description: '模型最终回复',
           ),
           WorkflowOutputField(
             id: '$id-llm-reasoning',
-            name: workflowLlmReasoningOutputName,
+            name: systemOutputName(workflowLlmReasoningOutputName),
             description: '模型推理内容',
           ),
           WorkflowOutputField(
             id: '$id-llm-usage',
-            name: workflowLlmUsageOutputName,
+            name: systemOutputName(workflowLlmUsageOutputName),
             description: '模型令牌用量',
             type: WorkflowOutputType.object,
           ),
@@ -1469,24 +1496,24 @@ class WorkflowNode {
       : <WorkflowOutputField>[
           WorkflowOutputField(
             id: '$id-http-body',
-            name: workflowHttpBodyOutputName,
+            name: systemOutputName(workflowHttpBodyOutputName),
             description: 'HTTP 响应正文',
           ),
           WorkflowOutputField(
             id: '$id-http-status-code',
-            name: workflowHttpStatusCodeOutputName,
+            name: systemOutputName(workflowHttpStatusCodeOutputName),
             description: 'HTTP 响应状态码',
             type: WorkflowOutputType.integer,
           ),
           WorkflowOutputField(
             id: '$id-http-headers',
-            name: workflowHttpHeadersOutputName,
+            name: systemOutputName(workflowHttpHeadersOutputName),
             description: 'HTTP 响应头',
             type: WorkflowOutputType.object,
           ),
           WorkflowOutputField(
             id: '$id-http-files',
-            name: workflowHttpFilesOutputName,
+            name: systemOutputName(workflowHttpFilesOutputName),
             description: 'HTTP 响应文件',
             type: WorkflowOutputType.arrayObject,
           ),
@@ -1513,13 +1540,104 @@ class WorkflowNode {
   };
 }
 
+List<WorkflowNode> normalizeWorkflowSystemOutputNames(
+  List<WorkflowNode> nodes,
+) {
+  final usedNames = <String>{};
+  for (final node in nodes) {
+    final fields = switch (node.kind) {
+      WorkflowNodeKind.start => node.inputFields(),
+      WorkflowNodeKind.iteration ||
+      WorkflowNodeKind.loop => node.outputParameterFields(),
+      WorkflowNodeKind.codeExecution => <WorkflowOutputField>[
+        ...node.codeInputFields(),
+        ...node.outputFields(),
+      ],
+      WorkflowNodeKind.llm
+          when node.boolSetting(WorkflowSettingKeys.structuredOutput) =>
+        node.outputFields(),
+      WorkflowNodeKind.httpRequest
+          when node.boolSetting(WorkflowSettingKeys.structuredOutput) =>
+        node.outputFields(),
+      WorkflowNodeKind.humanIntervention => node.humanInputFields(),
+      _ => node.outputFields(),
+    };
+    usedNames.addAll(
+      fields
+          .map((field) => field.name.trim())
+          .where(workflowParameterNamePattern.hasMatch),
+    );
+  }
+
+  return nodes
+      .map((node) {
+        final systemNames = <String>[
+          if (node.kind == WorkflowNodeKind.llm &&
+              !node.boolSetting(WorkflowSettingKeys.structuredOutput))
+            ...workflowLlmFixedOutputNames,
+          if (node.kind == WorkflowNodeKind.httpRequest &&
+              !node.boolSetting(WorkflowSettingKeys.structuredOutput))
+            ...workflowHttpFixedOutputNames,
+          if (node.kind == WorkflowNodeKind.humanIntervention)
+            ...workflowHumanSystemOutputNames,
+          if (const <WorkflowNodeKind>{
+                WorkflowNodeKind.codeExecution,
+                WorkflowNodeKind.llm,
+                WorkflowNodeKind.httpRequest,
+              }.contains(node.kind) &&
+              WorkflowErrorStrategy.fromStorage(
+                    node.settings[WorkflowSettingKeys.errorStrategy],
+                  ) ==
+                  WorkflowErrorStrategy.failBranch)
+            ...workflowErrorSystemOutputNames,
+        ];
+        if (systemNames.isEmpty) return node;
+
+        final stored = node.settings[WorkflowSettingKeys.systemOutputNames];
+        final aliases = <String, Object?>{
+          if (stored is Map)
+            for (final entry in stored.entries) '${entry.key}': entry.value,
+        };
+        var changed = false;
+        for (final base in systemNames) {
+          var candidate = '${aliases[base] ?? base}'.trim();
+          if (!workflowParameterNamePattern.hasMatch(candidate) ||
+              usedNames.contains(candidate)) {
+            candidate = base;
+            var suffix = 2;
+            while (usedNames.contains(candidate)) {
+              candidate = '${base}_${suffix++}';
+            }
+          }
+          usedNames.add(candidate);
+          if (aliases[base] != candidate) {
+            aliases[base] = candidate;
+            changed = true;
+          }
+        }
+        if (!changed && stored is Map) return node;
+        return node.copyWith(
+          settings: <String, Object?>{
+            ...node.settings,
+            WorkflowSettingKeys.systemOutputNames: aliases,
+          },
+        );
+      })
+      .toList(growable: false);
+}
+
 String? validateWorkflowParameterNames(List<WorkflowNode> nodes) {
   final owners = <String, WorkflowNode>{};
   for (final node in nodes) {
     if (node.kind == WorkflowNodeKind.codeExecution) {
-      final conflict = node.outputFields().where(
-        (field) => workflowErrorSystemOutputNames.contains(field.name.trim()),
-      );
+      final conflict =
+          <WorkflowOutputField>[
+            ...node.codeInputFields(),
+            ...node.outputFields(),
+          ].where(
+            (field) =>
+                workflowErrorSystemOutputNames.contains(field.name.trim()),
+          );
       if (conflict.isNotEmpty) {
         return '节点“${node.title}”使用了系统保留参数名称“${conflict.first.name.trim()}”。';
       }
@@ -1558,39 +1676,7 @@ String? validateWorkflowParameterNames(List<WorkflowNode> nodes) {
         return '节点“${node.title}”包含无效参数名称“${field.name}”。';
       }
       final previous = owners[name];
-      final sharedHumanSystemOutput =
-          workflowHumanSystemOutputNames.contains(name) &&
-          node.kind == WorkflowNodeKind.humanIntervention &&
-          previous?.kind == WorkflowNodeKind.humanIntervention;
-      final sharedErrorOutput =
-          workflowErrorSystemOutputNames.contains(name) &&
-          const <WorkflowNodeKind>{
-            WorkflowNodeKind.codeExecution,
-            WorkflowNodeKind.llm,
-            WorkflowNodeKind.httpRequest,
-          }.contains(node.kind) &&
-          const <WorkflowNodeKind>{
-            WorkflowNodeKind.codeExecution,
-            WorkflowNodeKind.llm,
-            WorkflowNodeKind.httpRequest,
-          }.contains(previous?.kind);
-      final sharedLlmFixedOutput =
-          workflowLlmFixedOutputNames.contains(name) &&
-          node.kind == WorkflowNodeKind.llm &&
-          previous?.kind == WorkflowNodeKind.llm &&
-          !node.boolSetting(WorkflowSettingKeys.structuredOutput) &&
-          !previous!.boolSetting(WorkflowSettingKeys.structuredOutput);
-      final sharedHttpFixedOutput =
-          workflowHttpFixedOutputNames.contains(name) &&
-          node.kind == WorkflowNodeKind.httpRequest &&
-          previous?.kind == WorkflowNodeKind.httpRequest &&
-          !node.boolSetting(WorkflowSettingKeys.structuredOutput) &&
-          !previous!.boolSetting(WorkflowSettingKeys.structuredOutput);
-      if (previous != null &&
-          !sharedHumanSystemOutput &&
-          !sharedErrorOutput &&
-          !sharedLlmFixedOutput &&
-          !sharedHttpFixedOutput) {
+      if (previous != null) {
         return '参数名称“$name”在节点“${previous.title}”和“${node.title}”中重复。';
       }
       owners[name] = node;
@@ -1779,9 +1865,11 @@ class WorkflowDefinition {
     if (id.isEmpty || name.isEmpty || createdAt == null || updatedAt == null) {
       throw const FormatException('工作流数据不完整。');
     }
-    final nodes = _mapList(
-      json['nodes'],
-    ).map(WorkflowNode.fromJson).toList(growable: false);
+    final nodes = normalizeWorkflowSystemOutputNames(
+      _mapList(
+        json['nodes'],
+      ).map(WorkflowNode.fromJson).toList(growable: false),
+    );
     final nodeIds = nodes.map((node) => node.id).toSet();
     if (nodeIds.length != nodes.length) {
       throw const FormatException('工作流包含重复节点。');
