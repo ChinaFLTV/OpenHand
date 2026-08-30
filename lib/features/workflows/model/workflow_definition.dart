@@ -152,17 +152,19 @@ enum WorkflowLlmReasoningFormat {
 
 String defaultWorkflowCode(WorkflowCodeLanguage language) => switch (language) {
   WorkflowCodeLanguage.python3 =>
-    '''def main():
+    '''def main(arg1: str, arg2: str):
     return {
-        "result": "Hello, OpenHand"
+        "result": arg1 + arg2,
     }''',
   WorkflowCodeLanguage.javascript =>
-    '''function main() {
+    '''function main({arg1, arg2}) {
   return {
-    result: "Hello, OpenHand"
+    result: arg1 + arg2
   }
 }''',
 };
+
+const List<String> defaultWorkflowCodeInputNames = <String>['arg1', 'arg2'];
 
 List<String> workflowCodeFunctionParameters(
   String code,

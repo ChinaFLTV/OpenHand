@@ -1753,7 +1753,16 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
         WorkflowSettingKeys.code: defaultWorkflowCode(
           WorkflowCodeLanguage.python3,
         ),
-        WorkflowSettingKeys.codeInputFields: <Object?>[],
+        WorkflowSettingKeys.codeInputFields: defaultWorkflowCodeInputNames
+            .map(
+              (name) => WorkflowOutputField(
+                id: _uuid.v4(),
+                name: name,
+                required: true,
+                valueSource: WorkflowValueSource.variable,
+              ).toJson(),
+            )
+            .toList(growable: false),
         WorkflowSettingKeys.outputFields: <Object?>[
           WorkflowOutputField(
             id: _uuid.v4(),
