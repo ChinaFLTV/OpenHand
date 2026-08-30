@@ -82,6 +82,51 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('编辑工作流可单独重命名且不会关闭编辑弹窗', (tester) async {
+    final plugins = PluginServiceController();
+    addTearDown(plugins.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: WorkflowEditorDialog(
+            workflow: _workflow,
+            catalog: const WorkflowEditorCatalog(
+              models: [],
+              recentModelSelections: [],
+              templates: [],
+              skills: [],
+              memories: [],
+              instructions: [],
+              knowledgeSources: [],
+              mcpServers: [],
+              codeRuntimes: {},
+            ),
+            templateRepository: AiPromptTemplateRepository(
+              loader: (_) async => '',
+            ),
+            pluginController: plugins,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('重命名工作流'));
+    await tester.pumpAndSettle();
+    expect(find.text('为工作流命名'), findsOneWidget);
+
+    final field = find.byType(TextField);
+    await tester.enterText(field, '重命名后的工作流');
+    await tester.tap(find.text('确认保存'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('为工作流命名'), findsNothing);
+    expect(find.text('编辑工作流'), findsOneWidget);
+    expect(find.byTooltip('重命名工作流'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('工具条整理按钮执行布局、写入历史并支持撤销', (tester) async {
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1;

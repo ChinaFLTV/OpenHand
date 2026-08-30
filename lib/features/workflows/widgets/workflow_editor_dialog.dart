@@ -429,6 +429,15 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                     ),
             ),
           ),
+          if (widget.workflow != null) ...[
+            kOpenHandHGap8,
+            IconButton.filledTonal(
+              tooltip: '重命名工作流',
+              onPressed: _testing || _workflowTesting ? null : _renameWorkflow,
+              style: actionStyle,
+              icon: const Icon(Icons.drive_file_rename_outline_rounded),
+            ),
+          ],
           kOpenHandHGap8,
           IconButton.filledTonal(
             tooltip: '保存工作流',
@@ -474,6 +483,21 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     if (!mounted) return;
     setState(() => _closeConfirmationOpen = false);
     if (discard) _popEditor();
+  }
+
+  Future<void> _renameWorkflow() async {
+    if (widget.workflow == null || _testing || _workflowTesting) return;
+    final name = await showAnimatedDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _WorkflowNameDialog(initialName: _workflowName),
+    );
+    if (!mounted || name == null) return;
+    final normalizedName = name.trim();
+    if (normalizedName.isEmpty || normalizedName == _workflowName.trim()) {
+      return;
+    }
+    setState(() => _workflowName = normalizedName);
   }
 
   void _popEditor([WorkflowDefinition? result]) {
