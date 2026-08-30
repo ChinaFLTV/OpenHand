@@ -8,7 +8,10 @@ import 'package:flutter/material.dart';
 import 'package:image/image.dart' as image;
 import 'package:yaml/yaml.dart';
 
+import '../../../app/theme/openhand_theme_preset.dart';
 import '../model/workflow_definition.dart';
+import '../workflow_node_presentation.dart';
+import 'workflow_auto_layout.dart';
 
 const int kMaxWorkflowImportBytes = 4 * 1024 * 1024;
 const int _kMaxWorkflowNodes = 1000;
@@ -16,11 +19,20 @@ const int _kMaxWorkflowConnections = 5000;
 const int _kMaxWorkflowAnnotations = 500;
 const int _kMaxYamlDepth = 64;
 const int _kMaxYamlValues = 100000;
-const double _kNodeWidth = 246;
-const double _kNodeHeight = 156;
+const double _kNodeWidth = kWorkflowNodeWidth;
+const double _kNodeHeight = kWorkflowNodeHeight;
 const double _kExportPadding = 72;
 const double _kGridSpacing = 24;
+const double _kGridMajorSpacing = 120;
 const double _kGridDotRadius = 0.8;
+const double _kGridMajorDotRadius = 1.45;
+const double _kNodePadding = 14;
+const double _kNodeIconSize = 34;
+const double _kNodeIconRadius = 10;
+const double _kNodeCornerRadius = 18;
+const double _kNodePortRadius = 4;
+const double _kConnectionStroke = 2.4;
+const double _kConnectionHalo = 7;
 
 /// 普通画布按 3 倍逻辑尺寸导出；超大画布仍受边长与像素上限保护。
 const double _kPreferredExportScale = 3.0;
@@ -498,100 +510,44 @@ Path _connectionPath(Offset start, Offset end, {double minimumDistance = 48}) {
   );
 }
 
-({Color accent, Color soft, String typeLabel, String description}) _nodeStyle(
-  WorkflowNodeKind kind,
-) => switch (kind) {
-  WorkflowNodeKind.start => (
-    accent: const Color(0xFF2E7D32),
-    soft: const Color(0xFFE4F3E5),
-    typeLabel: '开始',
-    description: '定义工作流的输入参数',
-  ),
-  WorkflowNodeKind.condition => (
-    accent: const Color(0xFF1565C0),
-    soft: const Color(0xFFE1EEFC),
-    typeLabel: '条件分支',
-    description: '依据表达式选择后续路径',
-  ),
-  WorkflowNodeKind.loop || WorkflowNodeKind.iteration => (
-    accent: const Color(0xFF6A1B9A),
-    soft: const Color(0xFFF0E4F6),
-    typeLabel: kind == WorkflowNodeKind.loop ? '循环' : '迭代',
-    description: kind == WorkflowNodeKind.loop ? '按上限重复执行节点组' : '逐项处理数组输入',
-  ),
-  WorkflowNodeKind.parameterAssignment || WorkflowNodeKind.listOperation => (
-    accent: const Color(0xFF00695C),
-    soft: const Color(0xFFDFF1EE),
-    typeLabel: kind == WorkflowNodeKind.parameterAssignment ? '参数赋值' : '列表操作',
-    description: kind == WorkflowNodeKind.parameterAssignment
-        ? '生成可供后续节点引用的参数'
-        : '筛选、截取、排序并限制数组',
-  ),
-  WorkflowNodeKind.codeExecution => (
-    accent: const Color(0xFFEF6C00),
-    soft: const Color(0xFFFFEBD9),
-    typeLabel: '代码执行',
-    description: '运行 Python 3 或 JavaScript 代码',
-  ),
-  WorkflowNodeKind.humanIntervention => (
-    accent: const Color(0xFF00838F),
-    soft: const Color(0xFFDDF3F5),
-    typeLabel: '人工介入',
-    description: '暂停工作流并等待用户确认',
-  ),
-  WorkflowNodeKind.loopExit => (
-    accent: const Color(0xFF5D4037),
-    soft: const Color(0xFFEDE6E3),
-    typeLabel: '退出循环',
-    description: '立即结束当前循环',
-  ),
-  WorkflowNodeKind.llm => (
-    accent: const Color(0xFFC2185B),
-    soft: const Color(0xFFF8E1EA),
-    typeLabel: 'LLM',
-    description: '调用模型完成推理与生成',
-  ),
-  WorkflowNodeKind.httpRequest => (
-    accent: const Color(0xFF0277BD),
-    soft: const Color(0xFFDFF0FA),
-    typeLabel: 'HTTP 请求',
-    description: '调用外部 HTTP API',
-  ),
-  WorkflowNodeKind.end => (
-    accent: const Color(0xFFC62828),
-    soft: const Color(0xFFF8E2E2),
-    typeLabel: '结束',
-    description: '定义工作流的输出参数',
-  ),
-};
+/// 导出图使用默认主题 seed，保证与编辑器语义色一致且不依赖运行时 Theme。
+final ColorScheme kWorkflowExportColorScheme = ColorScheme.fromSeed(
+  seedColor: OpenHandThemePreset.duskMountainGreen.seedColor,
+  dynamicSchemeVariant: DynamicSchemeVariant.expressive,
+  contrastLevel: 0.12,
+);
 
 class _WorkflowExportNodeContent {
   const _WorkflowExportNodeContent({
     required this.typeLabel,
     required this.title,
-    required this.description,
-    required this.parameterSummary,
+    required this.summary,
+    required this.accent,
+    required this.icon,
+    required this.controlFlow,
   });
 
   final String typeLabel;
   final String title;
-  final String description;
-  final String parameterSummary;
+  final String summary;
+  final Color accent;
+  final IconData icon;
+  final bool controlFlow;
 }
 
-_WorkflowExportNodeContent _nodeContent(WorkflowNode node) {
-  final style = _nodeStyle(node.kind);
+_WorkflowExportNodeContent _nodeContent(
+  WorkflowNode node,
+  ColorScheme colors,
+) {
+  final descriptor = workflowNodeDescriptor(node.kind, colors);
   final title = node.title.trim();
-  final description = node
-      .stringSetting(WorkflowSettingKeys.description)
-      .trim();
-  final inputCount = node.inputParameterFields().length;
-  final outputCount = node.outputParameterFields().length;
   return _WorkflowExportNodeContent(
-    typeLabel: style.typeLabel,
-    title: title.isEmpty ? style.typeLabel : title,
-    description: description.isEmpty ? style.description : description,
-    parameterSummary: '$inputCount 输入 · $outputCount 输出',
+    typeLabel: descriptor.label,
+    title: title.isEmpty ? descriptor.label : title,
+    summary: workflowNodeSummary(node),
+    accent: descriptor.color,
+    icon: descriptor.icon,
+    controlFlow: isWorkflowControlFlowKind(node.kind),
   );
 }
 
@@ -604,24 +560,14 @@ Future<ui.Image> _renderRaster(
 ) async {
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
+  final colors = kWorkflowExportColorScheme;
   final surface = Rect.fromLTWH(
     0,
     0,
     layout.outputWidth.toDouble(),
     layout.outputHeight.toDouble(),
   );
-  canvas.drawRect(surface, Paint()..color = const Color(0xFFF7F8FC));
-  final gridPaint = Paint()..color = const Color(0xFFDDE1EA);
-  final gridSpacing = _kGridSpacing * layout.scale;
-  for (var x = gridSpacing; x < surface.width; x += gridSpacing) {
-    for (var y = gridSpacing; y < surface.height; y += gridSpacing) {
-      canvas.drawCircle(
-        Offset(x, y),
-        _kGridDotRadius * layout.scale,
-        gridPaint,
-      );
-    }
-  }
+  _paintExportBackground(canvas, surface, layout.scale, colors);
   if (workflow.nodes.isEmpty && workflow.annotations.isEmpty) {
     final scale = layout.scale;
     _paintText(
@@ -630,7 +576,7 @@ Future<ui.Image> _renderRaster(
       Offset(72 * scale, 72 * scale),
       maxWidth: surface.width - 144 * scale,
       style: TextStyle(
-        color: const Color(0xFF20242C),
+        color: colors.onSurface,
         fontSize: 34 * scale,
         fontWeight: FontWeight.w800,
       ),
@@ -640,7 +586,10 @@ Future<ui.Image> _renderRaster(
       workflow.name,
       Offset(72 * scale, 126 * scale),
       maxWidth: surface.width - 144 * scale,
-      style: TextStyle(color: const Color(0xFF667085), fontSize: 20 * scale),
+      style: TextStyle(
+        color: colors.onSurfaceVariant,
+        fontSize: 20 * scale,
+      ),
     );
     return _pictureToImage(
       recorder.endRecording(),
@@ -688,7 +637,7 @@ Future<ui.Image> _renderRaster(
             .floor(),
       ),
       style: TextStyle(
-        color: const Color(0xFF20242C),
+        color: colors.onSurface,
         fontSize: annotation.fontSize * layout.scale,
         fontWeight: annotation.bold ? FontWeight.w800 : FontWeight.w500,
         fontStyle: annotation.italic ? FontStyle.italic : FontStyle.normal,
@@ -703,10 +652,16 @@ Future<ui.Image> _renderRaster(
   final nodesById = <String, WorkflowNode>{
     for (final node in workflow.nodes) node.id: node,
   };
-  final linePaint = Paint()
-    ..color = const Color(0xFF667085)
+  final connectionColor = colors.primary;
+  final haloPaint = Paint()
+    ..color = colors.outline.withValues(alpha: 0.16)
     ..style = PaintingStyle.stroke
-    ..strokeWidth = 2.4 * layout.scale
+    ..strokeWidth = _kConnectionHalo * layout.scale
+    ..strokeCap = StrokeCap.round;
+  final linePaint = Paint()
+    ..color = connectionColor.withValues(alpha: 0.72)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = _kConnectionStroke * layout.scale
     ..strokeCap = StrokeCap.round;
   for (final connection in workflow.connections) {
     final source = nodesById[connection.sourceNodeId];
@@ -722,6 +677,7 @@ Future<ui.Image> _renderRaster(
     );
     final minimumDistance = 48 * layout.scale;
     final path = _connectionPath(start, end, minimumDistance: minimumDistance);
+    canvas.drawPath(path, haloPaint);
     canvas.drawPath(path, linePaint);
     final controls = _connectionControls(
       start,
@@ -739,94 +695,186 @@ Future<ui.Image> _renderRaster(
       ..lineTo(arrowBase.left.dx, arrowBase.left.dy)
       ..lineTo(arrowBase.right.dx, arrowBase.right.dy)
       ..close();
-    canvas.drawPath(arrow, Paint()..color = const Color(0xFF667085));
+    canvas.drawPath(
+      arrow,
+      Paint()..color = connectionColor.withValues(alpha: 0.88),
+    );
   }
 
   for (final node in workflow.nodes) {
-    final size = _nodeSize(node);
-    final origin = layout.position(Offset(node.x, node.y));
-    final rect = Rect.fromLTWH(
-      origin.dx,
-      origin.dy,
-      size.width * layout.scale,
-      size.height * layout.scale,
-    );
-    final style = _nodeStyle(node.kind);
-    final content = _nodeContent(node);
-    final radius = Radius.circular(18 * layout.scale);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(rect, radius),
-      Paint()..color = const Color(0xFFFFFFFF),
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(rect, radius),
-      Paint()
-        ..color = style.accent.withValues(alpha: 0.36)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.4 * layout.scale,
-    );
-    final badgeRect = Rect.fromCenter(
-      center: Offset(rect.center.dx, rect.top + 30 * layout.scale),
-      width: 108 * layout.scale,
-      height: 34 * layout.scale,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(badgeRect, Radius.circular(10 * layout.scale)),
-      Paint()..color = style.soft,
-    );
-    _paintText(
-      canvas,
-      content.typeLabel,
-      Offset(badgeRect.left, badgeRect.top + 8 * layout.scale),
-      maxWidth: badgeRect.width,
-      textAlign: TextAlign.center,
-      style: TextStyle(
-        color: style.accent,
-        fontSize: 11 * layout.scale,
-        fontWeight: FontWeight.w800,
-      ),
-    );
-    _paintText(
-      canvas,
-      content.title,
-      Offset(rect.left + 16 * layout.scale, rect.top + 58 * layout.scale),
-      maxWidth: rect.width - 32 * layout.scale,
-      textAlign: TextAlign.center,
-      style: TextStyle(
-        color: const Color(0xFF20242C),
-        fontSize: 18 * layout.scale,
-        fontWeight: FontWeight.w700,
-      ),
-    );
-    _paintText(
-      canvas,
-      content.description,
-      Offset(rect.left + 16 * layout.scale, rect.top + 88 * layout.scale),
-      maxWidth: rect.width - 32 * layout.scale,
-      textAlign: TextAlign.center,
-      style: TextStyle(
-        color: const Color(0xFF667085),
-        fontSize: 11 * layout.scale,
-      ),
-    );
-    _paintText(
-      canvas,
-      content.parameterSummary,
-      Offset(rect.left + 16 * layout.scale, rect.top + 114 * layout.scale),
-      maxWidth: rect.width - 32 * layout.scale,
-      textAlign: TextAlign.center,
-      style: TextStyle(
-        color: const Color(0xFF667085),
-        fontSize: 11 * layout.scale,
-        fontWeight: FontWeight.w700,
-      ),
-    );
+    _paintExportNode(canvas, node, layout, colors);
   }
   return _pictureToImage(
     recorder.endRecording(),
     layout.outputWidth,
     layout.outputHeight,
   );
+}
+
+void _paintExportBackground(
+  Canvas canvas,
+  Rect surface,
+  double scale,
+  ColorScheme colors,
+) {
+  canvas.drawRect(surface, Paint()..color = colors.surface);
+  final minorPaint = Paint()
+    ..color = colors.outlineVariant.withValues(alpha: 0.46);
+  final majorPaint = Paint()..color = colors.outline.withValues(alpha: 0.35);
+  final minor = _kGridSpacing * scale;
+  final majorStep = math.max(1, (_kGridMajorSpacing / _kGridSpacing).round());
+  for (var column = 0; ; column++) {
+    final x = column * minor;
+    if (x > surface.width) break;
+    for (var row = 0; ; row++) {
+      final y = row * minor;
+      if (y > surface.height) break;
+      final isMajor = column % majorStep == 0 && row % majorStep == 0;
+      canvas.drawCircle(
+        Offset(x, y),
+        (isMajor ? _kGridMajorDotRadius : _kGridDotRadius) * scale,
+        isMajor ? majorPaint : minorPaint,
+      );
+    }
+  }
+}
+
+void _paintExportNode(
+  Canvas canvas,
+  WorkflowNode node,
+  _WorkflowExportLayout layout,
+  ColorScheme colors,
+) {
+  final size = _nodeSize(node);
+  final scale = layout.scale;
+  final origin = layout.position(Offset(node.x, node.y));
+  final rect = Rect.fromLTWH(
+    origin.dx,
+    origin.dy,
+    size.width * scale,
+    size.height * scale,
+  );
+  final content = _nodeContent(node, colors);
+  final fill = content.controlFlow
+      ? Color.alphaBlend(
+          content.accent.withValues(alpha: 0.07),
+          colors.surfaceContainerHigh,
+        )
+      : colors.surfaceContainerHigh;
+  final border = content.controlFlow
+      ? content.accent.withValues(alpha: 0.42)
+      : colors.outlineVariant;
+  final radius = Radius.circular(_kNodeCornerRadius * scale);
+  final shape = RRect.fromRectAndRadius(rect, radius);
+  canvas.drawShadow(
+    Path()..addRRect(shape),
+    colors.shadow.withValues(alpha: 0.55),
+    10 * scale,
+    false,
+  );
+  canvas.drawRRect(shape, Paint()..color = fill);
+  canvas.drawRRect(
+    shape,
+    Paint()
+      ..color = border
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1 * scale,
+  );
+
+  final padding = _kNodePadding * scale;
+  final iconSize = _kNodeIconSize * scale;
+  final iconRect = RRect.fromRectAndRadius(
+    Rect.fromLTWH(rect.left + padding, rect.top + padding, iconSize, iconSize),
+    Radius.circular(_kNodeIconRadius * scale),
+  );
+  canvas.drawRRect(
+    iconRect,
+    Paint()..color = content.accent.withValues(alpha: 0.15),
+  );
+  _paintIcon(
+    canvas,
+    content.icon,
+    iconRect.outerRect.center,
+    19 * scale,
+    content.accent,
+  );
+
+  final titleLeft = rect.left + padding + iconSize + 9 * scale;
+  _paintText(
+    canvas,
+    content.title,
+    Offset(titleLeft, rect.top + padding + 7 * scale),
+    maxWidth: rect.right - padding - titleLeft,
+    style: TextStyle(
+      color: colors.onSurface,
+      fontSize: 14 * scale,
+      fontWeight: FontWeight.w900,
+      height: 1.2,
+    ),
+  );
+
+  final summaryTop = rect.top + padding + iconSize + 12 * scale;
+  _paintText(
+    canvas,
+    content.summary,
+    Offset(rect.left + padding, summaryTop),
+    maxWidth: rect.width - padding * 2,
+    maxLines: 2,
+    style: TextStyle(
+      color: colors.onSurfaceVariant,
+      fontSize: 12 * scale,
+      height: 1.4,
+      fontWeight: FontWeight.w500,
+    ),
+  );
+
+  final labelPainter = TextPainter(
+    text: TextSpan(
+      text: content.typeLabel,
+      style: TextStyle(
+        color: content.accent,
+        fontSize: 11 * scale,
+        fontWeight: FontWeight.w800,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+    maxLines: 1,
+    ellipsis: '…',
+  )..layout(maxWidth: rect.width * 0.55);
+  final showOutPort = !isWorkflowTerminalNodeKind(node.kind);
+  final portRadius = _kNodePortRadius * scale;
+  final labelBottom = rect.bottom - padding - 2 * scale;
+  final labelRight = showOutPort
+      ? rect.right - padding - portRadius * 2 - 6 * scale
+      : rect.right - padding;
+  labelPainter.paint(
+    canvas,
+    Offset(labelRight - labelPainter.width, labelBottom - labelPainter.height),
+  );
+  if (showOutPort) {
+    canvas.drawCircle(
+      Offset(rect.right - padding / 2, rect.center.dy),
+      portRadius,
+      Paint()..color = content.accent,
+    );
+  }
+  if (node.kind != WorkflowNodeKind.start) {
+    canvas.drawCircle(
+      Offset(rect.left, rect.center.dy),
+      portRadius,
+      Paint()
+        ..color = colors.outline
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawCircle(
+      Offset(rect.left, rect.center.dy),
+      portRadius,
+      Paint()
+        ..color = colors.surface
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5 * scale,
+    );
+  }
 }
 
 Future<ui.Image> _pictureToImage(
@@ -839,6 +887,32 @@ Future<ui.Image> _pictureToImage(
   } finally {
     picture.dispose();
   }
+}
+
+void _paintIcon(
+  Canvas canvas,
+  IconData icon,
+  Offset center,
+  double size,
+  Color color,
+) {
+  final painter = TextPainter(
+    text: TextSpan(
+      text: String.fromCharCode(icon.codePoint),
+      style: TextStyle(
+        fontSize: size,
+        fontFamily: icon.fontFamily,
+        package: icon.fontPackage,
+        color: color,
+        height: 1,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  painter.paint(
+    canvas,
+    Offset(center.dx - painter.width / 2, center.dy - painter.height / 2),
+  );
 }
 
 void _paintText(
@@ -861,68 +935,86 @@ void _paintText(
 }
 
 String _renderSvg(WorkflowDefinition workflow, _WorkflowExportLayout layout) {
-  final gridSpacing = _kGridSpacing * layout.scale;
-  final gridDotRadius = _kGridDotRadius * layout.scale;
+  final colors = kWorkflowExportColorScheme;
+  final scale = layout.scale;
+  final gridSpacing = _kGridSpacing * scale;
+  final majorSpacing = _kGridMajorSpacing * scale;
+  final surfaceHex = _colorHex(colors.surface);
+  final onSurfaceHex = _colorHex(colors.onSurface);
+  final onVariantHex = _colorHex(colors.onSurfaceVariant);
+  final outlineHex = _colorHex(colors.outline);
+  final outlineVariantHex = _colorHex(colors.outlineVariant);
+  final primaryHex = _colorHex(colors.primary);
+  final surfaceHighHex = _colorHex(colors.surfaceContainerHigh);
   final buffer = StringBuffer()
     ..writeln('<?xml version="1.0" encoding="UTF-8"?>')
     ..writeln(
       '<svg xmlns="http://www.w3.org/2000/svg" width="${layout.outputWidth}" '
       'height="${layout.outputHeight}" viewBox="0 0 ${layout.outputWidth} ${layout.outputHeight}">',
     )
-    ..writeln('<rect width="100%" height="100%" fill="#F7F8FC"/>')
+    ..writeln('<rect width="100%" height="100%" fill="$surfaceHex"/>')
     ..writeln(
-      '<defs><pattern id="grid" width="$gridSpacing" height="$gridSpacing" '
-      'patternUnits="userSpaceOnUse"><circle cx="${layout.scale}" cy="${layout.scale}" '
-      'r="$gridDotRadius" fill="#DDE1EA"/></pattern></defs>',
+      '<defs>'
+      '<pattern id="grid-minor" width="$gridSpacing" height="$gridSpacing" '
+      'patternUnits="userSpaceOnUse">'
+      '<circle cx="$scale" cy="$scale" r="${_kGridDotRadius * scale}" '
+      'fill="$outlineVariantHex" fill-opacity="0.46"/>'
+      '</pattern>'
+      '<pattern id="grid-major" width="$majorSpacing" height="$majorSpacing" '
+      'patternUnits="userSpaceOnUse">'
+      '<circle cx="$scale" cy="$scale" r="${_kGridMajorDotRadius * scale}" '
+      'fill="$outlineHex" fill-opacity="0.35"/>'
+      '</pattern>'
+      '</defs>',
     )
-    ..writeln('<rect width="100%" height="100%" fill="url(#grid)"/>');
+    ..writeln('<rect width="100%" height="100%" fill="url(#grid-minor)"/>')
+    ..writeln('<rect width="100%" height="100%" fill="url(#grid-major)"/>');
   if (workflow.nodes.isEmpty && workflow.annotations.isEmpty) {
-    final scale = layout.scale;
     buffer
       ..writeln(
         '<text x="${72 * scale}" y="${105 * scale}" font-family="sans-serif" '
         'font-size="${34 * scale}" '
-        'font-weight="800" fill="#20242C">空工作流</text>',
+        'font-weight="800" fill="$onSurfaceHex">空工作流</text>',
       )
       ..writeln(
         '<text x="${72 * scale}" y="${150 * scale}" font-family="sans-serif" '
         'font-size="${20 * scale}" '
-        'fill="#667085">${_escapeXml(workflow.name)}</text>',
+        'fill="$onVariantHex">${_escapeXml(workflow.name)}</text>',
       )
       ..writeln('</svg>');
     return buffer.toString();
   }
   for (final annotation in workflow.annotations) {
     final origin = layout.position(Offset(annotation.x, annotation.y));
-    final width = annotation.width * layout.scale;
-    final height = annotation.height * layout.scale;
+    final width = annotation.width * scale;
+    final height = annotation.height * scale;
     final style = _annotationStyle(annotation.theme);
     final accent = _colorHex(style.accent);
     final soft = _colorHex(style.soft);
-    final fontSize = annotation.fontSize * layout.scale;
+    final fontSize = annotation.fontSize * scale;
     final lines = _annotationSvgLines(annotation);
     buffer
       ..writeln(
         '<rect x="${origin.dx}" y="${origin.dy}" width="$width" height="$height" '
-        'rx="${14 * layout.scale}" fill="$soft" stroke="$accent" stroke-opacity="0.42" '
-        'stroke-width="${1.2 * layout.scale}"/>',
+        'rx="${14 * scale}" fill="$soft" stroke="$accent" stroke-opacity="0.42" '
+        'stroke-width="${1.2 * scale}"/>',
       )
       ..writeln(
         '<rect x="${origin.dx}" y="${origin.dy}" width="$width" '
-        'height="${12 * layout.scale}" rx="${8 * layout.scale}" '
+        'height="${12 * scale}" rx="${8 * scale}" '
         'fill="$accent" fill-opacity="0.24"/>',
       )
       ..writeln(
-        '<text x="${origin.dx + 18 * layout.scale}" '
-        'y="${origin.dy + 30 * layout.scale}" font-family="sans-serif" '
+        '<text x="${origin.dx + 18 * scale}" '
+        'y="${origin.dy + 30 * scale}" font-family="sans-serif" '
         'font-size="$fontSize" font-weight="${annotation.bold ? 800 : 500}" '
         'font-style="${annotation.italic ? 'italic' : 'normal'}" '
         'text-decoration="${annotation.strikethrough ? 'line-through' : 'none'}" '
-        'fill="#20242C">',
+        'fill="$onSurfaceHex">',
       );
     for (final line in lines.indexed) {
       buffer.writeln(
-        '<tspan x="${origin.dx + 18 * layout.scale}" '
+        '<tspan x="${origin.dx + 18 * scale}" '
         'dy="${line.$1 == 0 ? 0 : fontSize * 1.4}">'
         '${_escapeXml(line.$2)}</tspan>',
       );
@@ -947,7 +1039,7 @@ String _renderSvg(WorkflowDefinition workflow, _WorkflowExportLayout layout) {
     final controls = _connectionControls(
       start,
       end,
-      minimumDistance: 48 * layout.scale,
+      minimumDistance: 48 * scale,
     );
     final path =
         'M ${start.dx.toStringAsFixed(2)} ${start.dy.toStringAsFixed(2)} '
@@ -957,71 +1049,141 @@ String _renderSvg(WorkflowDefinition workflow, _WorkflowExportLayout layout) {
     final arrowBase = _connectionArrowBase(
       end,
       controls.control2,
-      10 * layout.scale,
-      6 * layout.scale,
+      10 * scale,
+      6 * scale,
     );
     buffer
       ..writeln(
-        '<path d="$path" fill="none" stroke="#667085" '
-        'stroke-width="${(2.4 * layout.scale).toStringAsFixed(2)}" stroke-linecap="round"/>',
+        '<path d="$path" fill="none" stroke="$outlineHex" stroke-opacity="0.16" '
+        'stroke-width="${(_kConnectionHalo * scale).toStringAsFixed(2)}" stroke-linecap="round"/>',
+      )
+      ..writeln(
+        '<path d="$path" fill="none" stroke="$primaryHex" stroke-opacity="0.72" '
+        'stroke-width="${(_kConnectionStroke * scale).toStringAsFixed(2)}" stroke-linecap="round"/>',
       )
       ..writeln(
         '<path d="M ${end.dx} ${end.dy} L ${arrowBase.left.dx} '
         '${arrowBase.left.dy} L ${arrowBase.right.dx} '
-        '${arrowBase.right.dy} Z" fill="#667085"/>',
+        '${arrowBase.right.dy} Z" fill="$primaryHex" fill-opacity="0.88"/>',
       );
   }
   for (final node in workflow.nodes) {
-    final origin = layout.position(Offset(node.x, node.y));
-    final size = _nodeSize(node);
-    final width = size.width * layout.scale;
-    final height = size.height * layout.scale;
-    final style = _nodeStyle(node.kind);
-    final content = _nodeContent(node);
-    final accent = _colorHex(style.accent);
-    final soft = _colorHex(style.soft);
-    final badgeWidth = 108 * layout.scale;
-    final badgeLeft = origin.dx + (width - badgeWidth) / 2;
-    final centerX = origin.dx + width / 2;
-    buffer
-      ..writeln(
-        '<rect x="${origin.dx}" y="${origin.dy}" width="$width" height="$height" '
-        'rx="${18 * layout.scale}" fill="#FFFFFF" stroke="$accent" stroke-opacity="0.36" '
-        'stroke-width="${1.4 * layout.scale}"/>',
-      )
-      ..writeln(
-        '<rect x="$badgeLeft" y="${origin.dy + 13 * layout.scale}" '
-        'width="$badgeWidth" height="${34 * layout.scale}" rx="${10 * layout.scale}" fill="$soft"/>',
-      )
-      ..writeln(
-        '<text x="$centerX" y="${origin.dy + 35 * layout.scale}" text-anchor="middle" '
-        'font-family="sans-serif" font-size="${11 * layout.scale}" font-weight="800" fill="$accent">'
-        '${_escapeXml(content.typeLabel)}</text>',
-      )
-      ..writeln(
-        '<text x="$centerX" y="${origin.dy + 78 * layout.scale}" text-anchor="middle" '
-        'font-family="sans-serif" font-size="${18 * layout.scale}" font-weight="700" fill="#20242C">'
-        '${_escapeXml(_clipSvgText(content.title))}</text>',
-      )
-      ..writeln(
-        '<text x="$centerX" y="${origin.dy + 101 * layout.scale}" text-anchor="middle" '
-        'font-family="sans-serif" font-size="${11 * layout.scale}" fill="#667085">'
-        '${_escapeXml(_clipSvgText(content.description))}</text>',
-      )
-      ..writeln(
-        '<text x="$centerX" y="${origin.dy + 127 * layout.scale}" text-anchor="middle" '
-        'font-family="sans-serif" font-size="${11 * layout.scale}" font-weight="700" fill="#667085">'
-        '${_escapeXml(content.parameterSummary)}</text>',
-      );
+    _appendExportNodeSvg(buffer, node, layout, colors, surfaceHighHex);
   }
   buffer.writeln('</svg>');
   return buffer.toString();
 }
 
-String _clipSvgText(String text) {
+void _appendExportNodeSvg(
+  StringBuffer buffer,
+  WorkflowNode node,
+  _WorkflowExportLayout layout,
+  ColorScheme colors,
+  String surfaceHighHex,
+) {
+  final scale = layout.scale;
+  final origin = layout.position(Offset(node.x, node.y));
+  final size = _nodeSize(node);
+  final width = size.width * scale;
+  final height = size.height * scale;
+  final content = _nodeContent(node, colors);
+  final accent = _colorHex(content.accent);
+  final fill = content.controlFlow
+      ? _colorHex(
+          Color.alphaBlend(
+            content.accent.withValues(alpha: 0.07),
+            colors.surfaceContainerHigh,
+          ),
+        )
+      : surfaceHighHex;
+  final borderHex = content.controlFlow
+      ? accent
+      : _colorHex(colors.outlineVariant);
+  final borderOpacity = content.controlFlow ? 0.42 : 1.0;
+  final padding = _kNodePadding * scale;
+  final iconSize = _kNodeIconSize * scale;
+  final title = _clipSvgText(content.title);
+  final summary = _clipSvgText(content.summary, maxChars: 36);
+  final showOutPort = !isWorkflowTerminalNodeKind(node.kind);
+  final portRadius = _kNodePortRadius * scale;
+  buffer
+    ..writeln(
+      '<rect x="${origin.dx + 1 * scale}" y="${origin.dy + 7 * scale}" '
+      'width="$width" height="$height" rx="${_kNodeCornerRadius * scale}" '
+      'fill="${_colorHex(colors.shadow)}" fill-opacity="0.08"/>',
+    )
+    ..writeln(
+      '<rect x="${origin.dx}" y="${origin.dy}" width="$width" height="$height" '
+      'rx="${_kNodeCornerRadius * scale}" fill="$fill" stroke="$borderHex" '
+      'stroke-opacity="$borderOpacity" stroke-width="${1 * scale}"/>',
+    )
+    ..writeln(
+      '<rect x="${origin.dx + padding}" y="${origin.dy + padding}" '
+      'width="$iconSize" height="$iconSize" rx="${_kNodeIconRadius * scale}" '
+      'fill="$accent" fill-opacity="0.15"/>',
+    )
+    ..writeln(
+      '<text x="${origin.dx + padding + iconSize / 2}" '
+      'y="${origin.dy + padding + iconSize * 0.68}" text-anchor="middle" '
+      'font-family="sans-serif" font-size="${13 * scale}" font-weight="800" '
+      'fill="$accent">${_escapeXml(_exportIconGlyph(node.kind))}</text>',
+    )
+    ..writeln(
+      '<text x="${origin.dx + padding + iconSize + 9 * scale}" '
+      'y="${origin.dy + padding + 22 * scale}" font-family="sans-serif" '
+      'font-size="${14 * scale}" font-weight="900" fill="${_colorHex(colors.onSurface)}">'
+      '${_escapeXml(title)}</text>',
+    )
+    ..writeln(
+      '<text x="${origin.dx + padding}" '
+      'y="${origin.dy + padding + iconSize + 24 * scale}" font-family="sans-serif" '
+      'font-size="${12 * scale}" fill="${_colorHex(colors.onSurfaceVariant)}">'
+      '${_escapeXml(summary)}</text>',
+    )
+    ..writeln(
+      '<text x="${origin.dx + width - padding - (showOutPort ? portRadius * 2 + 6 * scale : 0)}" '
+      'y="${origin.dy + height - padding - 2 * scale}" text-anchor="end" '
+      'font-family="sans-serif" font-size="${11 * scale}" font-weight="800" fill="$accent">'
+      '${_escapeXml(content.typeLabel)}</text>',
+    );
+  if (showOutPort) {
+    buffer.writeln(
+      '<circle cx="${origin.dx + width - padding / 2}" cy="${origin.dy + height / 2}" '
+      'r="$portRadius" fill="$accent"/>',
+    );
+  }
+  if (node.kind != WorkflowNodeKind.start) {
+    buffer
+      ..writeln(
+        '<circle cx="${origin.dx}" cy="${origin.dy + height / 2}" '
+        'r="$portRadius" fill="${_colorHex(colors.outline)}"/>',
+      )
+      ..writeln(
+        '<circle cx="${origin.dx}" cy="${origin.dy + height / 2}" '
+        'r="$portRadius" fill="none" stroke="${_colorHex(colors.surface)}" '
+        'stroke-width="${1.5 * scale}"/>',
+      );
+  }
+}
+
+String _exportIconGlyph(WorkflowNodeKind kind) => switch (kind) {
+  WorkflowNodeKind.start => '▶',
+  WorkflowNodeKind.end => '■',
+  WorkflowNodeKind.codeExecution => '{}',
+  WorkflowNodeKind.condition => '⑂',
+  WorkflowNodeKind.loop || WorkflowNodeKind.iteration => '↻',
+  WorkflowNodeKind.llm => '✦',
+  WorkflowNodeKind.httpRequest => '◎',
+  WorkflowNodeKind.humanIntervention => '◆',
+  WorkflowNodeKind.loopExit => '↩',
+  WorkflowNodeKind.parameterAssignment => '≡',
+  WorkflowNodeKind.listOperation => '☰',
+};
+
+String _clipSvgText(String text, {int maxChars = 24}) {
   final characters = text.runes.toList(growable: false);
-  if (characters.length <= 24) return text;
-  return '${String.fromCharCodes(characters.take(23))}…';
+  if (characters.length <= maxChars) return text;
+  return '${String.fromCharCodes(characters.take(maxChars - 1))}…';
 }
 
 List<String> _annotationSvgLines(WorkflowAnnotation annotation) {

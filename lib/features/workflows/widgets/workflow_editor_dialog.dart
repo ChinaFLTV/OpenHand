@@ -29,6 +29,7 @@ import '../model/workflow_definition.dart';
 import '../service/workflow_auto_layout.dart';
 import '../service/workflow_code_executor.dart';
 import '../service/workflow_node_executor.dart';
+import '../workflow_node_presentation.dart';
 import 'workflow_annotation_card.dart';
 import 'workflow_human_intervention_dialog.dart';
 import 'workflow_minimap.dart';
@@ -1085,13 +1086,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
       theme.colorScheme,
     );
     final nodeHeight = _nodeHeightFor(node);
-    final controlFlowNode = const <WorkflowNodeKind>{
-      WorkflowNodeKind.condition,
-      WorkflowNodeKind.loop,
-      WorkflowNodeKind.iteration,
-      WorkflowNodeKind.humanIntervention,
-      WorkflowNodeKind.loopExit,
-    }.contains(node.kind);
+    final controlFlowNode = isWorkflowControlFlowKind(node.kind);
     final idleColor = controlFlowNode
         ? Color.alphaBlend(
             descriptor.color.withValues(alpha: 0.07),
@@ -1416,7 +1411,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                                             ),
                                       ),
                                       Text(
-                                        '$childCount 个内部节点 · ${_nodeSummary(node)}',
+                                        '$childCount 个内部节点 · ${workflowNodeSummary(node)}',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: theme.textTheme.bodySmall
@@ -1604,7 +1599,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         ] else ...[
           kOpenHandGap12,
           Text(
-            _nodeSummary(node),
+            workflowNodeSummary(node),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall?.copyWith(
@@ -5008,46 +5003,6 @@ double _nodeWidthFor(WorkflowNode node) => node.isContainer
         ),
       )
     : _nodeWidth;
-
-String _nodeSummary(WorkflowNode node) {
-  return switch (node.kind) {
-    WorkflowNodeKind.start =>
-      node.inputFields().isEmpty
-          ? '暂无输入参数'
-          : '${node.inputFields().length} 个输入参数',
-    WorkflowNodeKind.llm =>
-      node.stringSetting(WorkflowSettingKeys.prompt).trim().isEmpty
-          ? '选择模型并编写提示词'
-          : node.stringSetting(WorkflowSettingKeys.prompt).trim(),
-    WorkflowNodeKind.httpRequest =>
-      node.stringSetting(WorkflowSettingKeys.url).trim().isEmpty
-          ? '配置请求方式、URL 与响应输出'
-          : '${node.stringSetting(WorkflowSettingKeys.method, 'GET')}  ${node.stringSetting(WorkflowSettingKeys.url)}',
-    WorkflowNodeKind.condition =>
-      node.conditionCases().isEmpty
-          ? node.stringSetting(WorkflowSettingKeys.expression)
-          : '${node.conditionCases().length} 个条件分支 · ELSE',
-    WorkflowNodeKind.loop =>
-      '${node.loopVariables().length} 个循环变量 · 最多 ${node.intSetting(WorkflowSettingKeys.maxIterations, 10)} 次',
-    WorkflowNodeKind.iteration =>
-      '${node.boolSetting(WorkflowSettingKeys.iterationParallel) ? '并行' : '串行'}迭代 · ${node.stringSetting(WorkflowSettingKeys.iterationOutputName, 'iteration_result')}',
-    WorkflowNodeKind.parameterAssignment =>
-      node.outputFields().isEmpty
-          ? '添加需要赋值的输出参数'
-          : '${node.outputFields().length} 个赋值参数',
-    WorkflowNodeKind.listOperation =>
-      '${node.boolSetting(WorkflowSettingKeys.listFilterEnabled) ? '筛选 · ' : ''}${node.boolSetting(WorkflowSettingKeys.listOrderEnabled) ? '排序 · ' : ''}${node.boolSetting(WorkflowSettingKeys.listLimitEnabled) ? '限量' : '输出列表'}',
-    WorkflowNodeKind.codeExecution =>
-      '${WorkflowCodeLanguage.fromStorage(node.settings[WorkflowSettingKeys.codeLanguage]).label} · ${node.codeInputFields().length} 入 / ${node.outputFields().length} 出',
-    WorkflowNodeKind.humanIntervention =>
-      '${node.humanInputFields().length} 个输入 · ${node.humanActions().length} 个动作',
-    WorkflowNodeKind.loopExit => '立即结束当前循环',
-    WorkflowNodeKind.end =>
-      node.outputFields().isEmpty
-          ? '暂无输出参数'
-          : '${node.outputFields().length} 个输出参数',
-  };
-}
 
 String _formatExecutionResult(WorkflowNodeExecutionResult result) {
   final output = result.output;

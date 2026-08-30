@@ -32,9 +32,12 @@ import '../model/workflow_definition.dart';
 import '../service/workflow_code_executor.dart';
 import '../service/workflow_curl_parser.dart';
 import '../service/workflow_node_executor.dart';
+import '../workflow_node_presentation.dart';
 import 'workflow_curl_import_dialog.dart';
 import 'workflow_llm_conversation_view.dart';
 import 'workflow_parameter_reference_field.dart';
+
+export '../workflow_node_presentation.dart' show workflowNodeDescriptor;
 
 const double _formControlHeight = 52;
 const double _configurationActionSize = 44;
@@ -4794,80 +4797,3 @@ List<WorkflowConditionCase> _legacyConditionCases(WorkflowNode node) {
   ];
 }
 
-({String label, String description, IconData icon, Color color})
-workflowNodeDescriptor(WorkflowNodeKind kind, ColorScheme colors) {
-  return switch (kind) {
-    WorkflowNodeKind.start => (
-      label: '开始',
-      description: '定义工作流的输入参数',
-      icon: Icons.play_arrow_rounded,
-      color: colors.primary,
-    ),
-    WorkflowNodeKind.condition => (
-      label: '条件分支',
-      description: '依据表达式选择后续路径',
-      icon: Icons.call_split_rounded,
-      color: colors.tertiary,
-    ),
-    WorkflowNodeKind.loop => (
-      label: '循环',
-      description: '按上限重复执行节点组',
-      icon: Icons.loop_rounded,
-      color: colors.secondary,
-    ),
-    WorkflowNodeKind.iteration => (
-      label: '迭代',
-      description: '逐项处理数组输入',
-      icon: Icons.view_week_outlined,
-      color: colors.primary,
-    ),
-    WorkflowNodeKind.parameterAssignment => (
-      label: '参数赋值',
-      description: '生成可供后续节点引用的参数',
-      icon: Icons.assignment_turned_in_outlined,
-      color: colors.secondary,
-    ),
-    WorkflowNodeKind.listOperation => (
-      label: '列表操作',
-      description: '筛选、截取、排序并限制数组',
-      icon: Icons.filter_list_rounded,
-      color: colors.tertiary,
-    ),
-    WorkflowNodeKind.codeExecution => (
-      label: '代码执行',
-      description: '运行 Python 3 或 JavaScript 代码',
-      icon: Icons.code_rounded,
-      color: colors.primary,
-    ),
-    WorkflowNodeKind.humanIntervention => (
-      label: '人工介入',
-      description: '暂停工作流并等待用户确认',
-      icon: Icons.front_hand_outlined,
-      color: colors.tertiary,
-    ),
-    WorkflowNodeKind.loopExit => (
-      label: '退出循环',
-      description: '立即结束当前循环',
-      icon: Icons.exit_to_app_rounded,
-      color: colors.error,
-    ),
-    WorkflowNodeKind.llm => (
-      label: 'LLM',
-      description: '调用模型完成推理与生成',
-      icon: Icons.auto_awesome_rounded,
-      color: colors.primary,
-    ),
-    WorkflowNodeKind.httpRequest => (
-      label: 'HTTP 请求',
-      description: '调用外部 HTTP API',
-      icon: Icons.language_rounded,
-      color: colors.secondary,
-    ),
-    WorkflowNodeKind.end => (
-      label: '结束',
-      description: '定义工作流的输出参数',
-      icon: Icons.stop_rounded,
-      color: colors.tertiary,
-    ),
-  };
-}

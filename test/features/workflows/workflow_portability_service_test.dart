@@ -1,8 +1,12 @@
 import 'dart:convert';
+import 'dart:ui' show Color;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/workflows/model/workflow_definition.dart';
 import 'package:openhand/features/workflows/service/workflow_portability_service.dart';
+
+String _colorHex(Color color) =>
+    '#${color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
 
 final _workflow = WorkflowDefinition(
   id: 'workflow-special',
@@ -260,15 +264,16 @@ void main() {
     expect(svgContent, contains('开始'));
     expect(svgContent, contains('代码执行'));
     expect(svgContent, contains('结束'));
-    expect(svgContent, contains('第一行\n第二行: value'));
-    expect(svgContent, contains('1 输入 · 0 输出'));
-    expect(svgContent, contains('1 输入 · 1 输出'));
-    expect(svgContent, contains('0 输入 · 1 输出'));
+    expect(svgContent, contains('1 个输入参数'));
+    expect(svgContent, contains('Python 3 · 1 入 / 1 出'));
+    expect(svgContent, contains('1 个输出参数'));
+    expect(svgContent, contains(_colorHex(kWorkflowExportColorScheme.primary)));
     expect(svgContent, isNot(contains('code_execution')));
     expect(svgContent, isNot(contains('>start</text>')));
     expect(svgContent, isNot(contains('>end</text>')));
     expect(svgContent, isNot(contains('feDropShadow')));
     expect(svgContent, isNot(contains('filter="url(#shadow)"')));
+    expect(svgContent, isNot(contains('1 输入 · 0 输出')));
     expect(png.width, greaterThan(1000));
     expect(png.height, greaterThan(400));
     expect(jpeg.width, png.width);
@@ -286,10 +291,16 @@ void main() {
         WorkflowExportFormat.svg,
       ),
     );
+    final primaryHex = _colorHex(kWorkflowExportColorScheme.primary);
     final arrowLine = utf8
         .decode(svg!.bytes)
         .split('\n')
-        .singleWhere((line) => line.contains('fill="#667085"/>'));
+        .singleWhere(
+          (line) =>
+              line.contains('fill="$primaryHex" fill-opacity="0.88"') &&
+              line.contains(' L ') &&
+              line.contains(' Z"'),
+        );
     final match = RegExp(
       r'M ([0-9.]+) ([0-9.]+) L ([0-9.]+) ([0-9.]+) L ([0-9.]+) ([0-9.]+) Z',
     ).firstMatch(arrowLine);
