@@ -17,6 +17,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
 import '../../instructions/index.dart';
 import '../../knowledge_base/index.dart';
@@ -25,6 +26,7 @@ import '../../memory/index.dart';
 import '../../plugin_service/index.dart';
 import '../../skills/index.dart';
 import '../model/workflow_definition.dart';
+import '../service/workflow_auto_layout.dart';
 import '../service/workflow_code_executor.dart';
 import '../service/workflow_node_executor.dart';
 import 'workflow_human_intervention_dialog.dart';
@@ -32,21 +34,21 @@ import 'workflow_minimap.dart';
 import 'workflow_node_configuration_panel.dart';
 import 'workflow_test_dialog.dart';
 
-const double _canvasWidth = 2400;
-const double _canvasHeight = 1600;
-const double _nodeWidth = 246;
-const double _nodeHeight = 130;
+const double _canvasWidth = kWorkflowCanvasWidth;
+const double _canvasHeight = kWorkflowCanvasHeight;
+const double _nodeWidth = kWorkflowNodeWidth;
+const double _nodeHeight = kWorkflowNodeHeight;
 const double _nodeAddButtonSize = 26;
 const double _nodeAddButtonHitSize = 38;
 const double _conditionBranchStart = 70;
 const double _conditionBranchSpacing = 28;
-const double _containerMinWidth = 360;
-const double _containerMinHeight = 196;
+const double _containerMinWidth = kWorkflowContainerMinWidth;
+const double _containerMinHeight = kWorkflowContainerMinHeight;
 const double _containerHeaderHeight = 66;
-const double _containerChildLeft = 132;
-const double _containerChildTop = 96;
+const double _containerChildLeft = kWorkflowContainerChildLeft;
+const double _containerChildTop = kWorkflowContainerChildTop;
 const double _containerStartNodeSize = 44;
-const double _containerPadding = 34;
+const double _containerPadding = kWorkflowContainerPadding;
 const double _configurationWidth = 440;
 const double _headerActionSize = 44;
 const int _maxWorkflowHistoryEntries = 80;
@@ -150,7 +152,8 @@ class WorkflowEditorDialog extends StatefulWidget {
   State<WorkflowEditorDialog> createState() => _WorkflowEditorDialogState();
 }
 
-class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
+class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
+    with SingleTickerProviderStateMixin {
   static const Uuid _uuid = Uuid();
 
   late final WorkflowNodeExecutor _executor = WorkflowNodeExecutor();
@@ -195,6 +198,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   bool _closeConfirmationOpen = false;
   bool _allowPop = false;
   bool _showMiniMap = true;
+  bool _organizingNodes = false;
+  Timer? _nodeLayoutAnimationTimer;
+  AnimationController? _viewportAnimationController;
+  Animation<Matrix4>? _viewportAnimation;
 
   WorkflowNode? get _selectedNode {
     final id = _selectedNodeId;
@@ -232,6 +239,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
 
   @override
   void dispose() {
+    _nodeLayoutAnimationTimer?.cancel();
+    _viewportAnimationController?.dispose();
+    _viewportAnimationController = null;
     _executor.dispose();
     unawaited(_ttsPlaybackService.dispose());
     _translationService.dispose();
@@ -483,6 +493,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                   minScale: 0.35,
                   maxScale: 2.2,
                   boundaryMargin: const EdgeInsets.all(320),
+                  onInteractionStart: (_) => _stopViewportAnimation(),
                   child: SizedBox(
                     key: _canvasSurfaceKey,
                     width: _canvasWidth,
@@ -548,98 +559,117 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                 bottom: 16,
                 child: AnimatedBuilder(
                   animation: _transformationController,
-                  builder: (context, _) => Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      AnimatedSize(
-                        duration: openHandMotionDuration(
-                          context,
-                          kOpenHandMotion180,
-                        ),
-                        curve: Curves.easeOutCubic,
-                        child: AnimatedSwitcher(
+                  builder: (context, _) => ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: math.max(1, viewportSize.width - 32),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        AnimatedSize(
                           duration: openHandMotionDuration(
                             context,
                             kOpenHandMotion180,
                           ),
-                          switchInCurve: Curves.easeOutBack,
-                          switchOutCurve: Curves.easeInCubic,
-                          transitionBuilder: (child, animation) =>
-                              FadeTransition(
-                                opacity: animation,
-                                child: ScaleTransition(
-                                  scale: Tween<double>(
-                                    begin: 0.94,
-                                    end: 1,
-                                  ).animate(animation),
-                                  alignment: Alignment.bottomRight,
-                                  child: child,
-                                ),
-                              ),
-                          child: _showMiniMap
-                              ? Padding(
-                                  key: const ValueKey<String>(
-                                    'workflow-minimap-visible',
+                          curve: Curves.easeOutCubic,
+                          child: AnimatedSwitcher(
+                            duration: openHandMotionDuration(
+                              context,
+                              kOpenHandMotion180,
+                            ),
+                            switchInCurve: Curves.easeOutBack,
+                            switchOutCurve: Curves.easeInCubic,
+                            transitionBuilder: (child, animation) =>
+                                FadeTransition(
+                                  opacity: animation,
+                                  child: ScaleTransition(
+                                    scale: Tween<double>(
+                                      begin: 0.94,
+                                      end: 1,
+                                    ).animate(animation),
+                                    alignment: Alignment.bottomRight,
+                                    child: child,
                                   ),
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: SizedBox(
+                                ),
+                            child: _showMiniMap
+                                ? Padding(
                                     key: const ValueKey<String>(
-                                      'workflow-editor-minimap',
+                                      'workflow-minimap-visible',
                                     ),
-                                    width: 156,
-                                    height: 104,
-                                    child: WorkflowMiniMap(
-                                      nodes: _nodes,
-                                      connections: _connections,
-                                      canvasSize: const Size(
-                                        _canvasWidth,
-                                        _canvasHeight,
+                                    padding: const EdgeInsets.only(bottom: 10),
+                                    child: SizedBox(
+                                      key: const ValueKey<String>(
+                                        'workflow-editor-minimap',
                                       ),
-                                      viewportRect: _visibleCanvasRect(
-                                        viewportSize,
+                                      width: math.min(
+                                        156,
+                                        math.max(1, viewportSize.width - 32),
                                       ),
-                                      selectedNodeId: _selectedNodeId,
-                                      onNavigate: (center) =>
-                                          _applyViewportTransform(
-                                            center,
-                                            _transformationController.value
-                                                .getMaxScaleOnAxis(),
+                                      child: AspectRatio(
+                                        aspectRatio: 1.5,
+                                        child: WorkflowMiniMap(
+                                          nodes: _nodes,
+                                          connections: _connections,
+                                          canvasSize: const Size(
+                                            _canvasWidth,
+                                            _canvasHeight,
+                                          ),
+                                          viewportRect: _visibleCanvasRect(
                                             viewportSize,
                                           ),
-                                      onZoomFactor: (factor) =>
-                                          _zoomByFactor(factor, viewportSize),
+                                          selectedNodeId: _selectedNodeId,
+                                          onNavigate: (center) =>
+                                              _applyViewportTransform(
+                                                center,
+                                                _transformationController.value
+                                                    .getMaxScaleOnAxis(),
+                                                viewportSize,
+                                              ),
+                                          onZoomFactor: (factor) =>
+                                              _zoomByFactor(
+                                                factor,
+                                                viewportSize,
+                                              ),
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : const SizedBox(
+                                    key: ValueKey<String>(
+                                      'workflow-minimap-hidden',
                                     ),
                                   ),
-                                )
-                              : const SizedBox(
-                                  key: ValueKey<String>(
-                                    'workflow-minimap-hidden',
-                                  ),
-                                ),
+                          ),
                         ),
-                      ),
-                      _CanvasToolbar(
-                        scale: _transformationController.value
-                            .getMaxScaleOnAxis(),
-                        showMiniMap: _showMiniMap,
-                        onToggleMiniMap: () =>
-                            setState(() => _showMiniMap = !_showMiniMap),
-                        canDelete:
-                            _selectedNodeId != null ||
-                            _selectedConnectionId != null,
-                        onZoomIn: () => _changeZoom(0.15, viewportSize),
-                        onZoomOut: () => _changeZoom(-0.15, viewportSize),
-                        onReset: _resetViewport,
-                        onDelete: _deleteSelection,
-                        canUndo: _canUndo,
-                        canRedo: _canRedo,
-                        history: _history,
-                        historyIndex: _historyIndex,
-                        onUndo: _undo,
-                        onRedo: _redo,
-                        onHistorySelected: _restoreHistory,
-                      ),
-                    ],
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: _CanvasToolbar(
+                            scale: _transformationController.value
+                                .getMaxScaleOnAxis(),
+                            showMiniMap: _showMiniMap,
+                            canOrganize: _nodes.isNotEmpty && !_organizingNodes,
+                            onOrganize: () => _organizeNodes(viewportSize),
+                            onToggleMiniMap: () =>
+                                setState(() => _showMiniMap = !_showMiniMap),
+                            canDelete:
+                                _selectedNodeId != null ||
+                                _selectedConnectionId != null,
+                            onZoomIn: () => _changeZoom(0.15, viewportSize),
+                            onZoomOut: () => _changeZoom(-0.15, viewportSize),
+                            onReset: _resetViewport,
+                            onDelete: _deleteSelection,
+                            canUndo: _canUndo,
+                            canRedo: _canRedo,
+                            history: _history,
+                            historyIndex: _historyIndex,
+                            onUndo: _undo,
+                            onRedo: _redo,
+                            onHistorySelected: _restoreHistory,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -661,23 +691,72 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     double requestedScale,
     Size viewportSize,
   ) {
+    final matrix = _viewportMatrix(center, requestedScale, viewportSize);
+    if (matrix == null) return;
+    _stopViewportAnimation();
+    _transformationController.value = matrix;
+  }
+
+  Matrix4? _viewportMatrix(
+    Offset center,
+    double requestedScale,
+    Size viewportSize,
+  ) {
     if (!center.dx.isFinite ||
         !center.dy.isFinite ||
         !requestedScale.isFinite ||
         viewportSize.isEmpty) {
-      return;
+      return null;
     }
     final scale = requestedScale.clamp(0.35, 2.2);
     final boundedCenter = Offset(
       center.dx.clamp(0, _canvasWidth),
       center.dy.clamp(0, _canvasHeight),
     );
-    final matrix = Matrix4.identity()
+    return Matrix4.identity()
       ..setEntry(0, 0, scale)
       ..setEntry(1, 1, scale)
       ..setEntry(0, 3, viewportSize.width / 2 - boundedCenter.dx * scale)
       ..setEntry(1, 3, viewportSize.height / 2 - boundedCenter.dy * scale);
-    _transformationController.value = matrix;
+  }
+
+  AnimationController _ensureViewportAnimationController() {
+    return _viewportAnimationController ??= AnimationController(vsync: this)
+      ..addListener(() {
+        final animation = _viewportAnimation;
+        if (animation != null) {
+          _transformationController.value = animation.value;
+        }
+      });
+  }
+
+  void _stopViewportAnimation() {
+    _viewportAnimationController?.stop();
+    _viewportAnimation = null;
+  }
+
+  void _animateViewportTransform(
+    Offset center,
+    double requestedScale,
+    Size viewportSize,
+    Duration duration,
+  ) {
+    final target = _viewportMatrix(center, requestedScale, viewportSize);
+    if (target == null) return;
+    final effectiveDuration = openHandMotionDuration(context, duration);
+    if (effectiveDuration == Duration.zero) {
+      _stopViewportAnimation();
+      _transformationController.value = target;
+      return;
+    }
+    final controller = _ensureViewportAnimationController();
+    controller.stop();
+    controller.duration = effectiveDuration;
+    _viewportAnimation = Matrix4Tween(
+      begin: _transformationController.value.clone(),
+      end: target,
+    ).animate(CurvedAnimation(parent: controller, curve: Curves.easeOutCubic));
+    controller.forward(from: 0);
   }
 
   void _zoomByFactor(double factor, Size viewportSize) {
@@ -688,6 +767,65 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
       current * factor,
       viewportSize,
     );
+  }
+
+  void _organizeNodes(Size viewportSize) {
+    if (_nodes.isEmpty || _organizingNodes) return;
+    final result = arrangeWorkflowNodes(
+      nodes: _nodes,
+      connections: _connections,
+      sizeOf: (node) =>
+          (width: _nodeWidthFor(node), height: _nodeHeightFor(node)),
+    );
+    if (!result.fitsCanvas) {
+      showOpenHandInfoSnack(context, '当前节点过多，无法在画布内无重叠地完成整理。');
+      return;
+    }
+    final bounds = Rect.fromLTRB(
+      result.left,
+      result.top,
+      result.right,
+      result.bottom,
+    );
+    final scale = math
+        .min(
+          math.max(1, viewportSize.width - 80) / math.max(1, bounds.width),
+          math.max(1, viewportSize.height - 80) / math.max(1, bounds.height),
+        )
+        .clamp(0.35, 1.0);
+    if (!result.changed) {
+      _animateViewportTransform(
+        bounds.center,
+        scale,
+        viewportSize,
+        kOpenHandMotion180,
+      );
+      showOpenHandInfoSnack(context, '节点已处于整齐布局。');
+      return;
+    }
+    final duration = openHandMotionDuration(context, kOpenHandMotion260);
+    _nodeLayoutAnimationTimer?.cancel();
+    setState(() {
+      _organizingNodes = duration > Duration.zero;
+      _nodes = result.nodes;
+      _selectedConnectionId = null;
+      _testResult = null;
+      _testError = null;
+      _testStatus = null;
+      _recordHistory('整理节点布局');
+    });
+    _animateViewportTransform(
+      bounds.center,
+      scale,
+      viewportSize,
+      kOpenHandMotion260,
+    );
+    if (duration > Duration.zero) {
+      _nodeLayoutAnimationTimer = startSafeTimer(duration, () {
+        if (mounted) setState(() => _organizingNodes = false);
+      });
+    }
+    _canvasFocusNode.requestFocus();
   }
 
   Widget _buildNodeCard(BuildContext context, WorkflowNode node) {
@@ -717,7 +855,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             theme.colorScheme.surfaceContainerHigh,
           )
         : theme.colorScheme.surfaceContainerHigh;
-    return Positioned(
+    return AnimatedPositioned(
+      duration: _organizingNodes
+          ? openHandMotionDuration(context, kOpenHandMotion260)
+          : Duration.zero,
+      curve: Curves.easeOutBack,
       left: node.x,
       top: node.y,
       width: _nodeWidth + _nodeAddButtonHitSize / 2,
@@ -733,7 +875,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () => _selectNode(node.id),
-              onPanUpdate: (details) => _moveNode(node, details.delta),
+              onPanUpdate: _organizingNodes
+                  ? null
+                  : (details) => _moveNode(node, details.delta),
               child: AnimatedScale(
                 scale: connectionTarget ? 1.015 : 1,
                 duration: openHandMotionDuration(context, kOpenHandMotion180),
@@ -882,7 +1026,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
               (selected
                   ? descriptor.color
                   : descriptor.color.withValues(alpha: 0.5));
-    return Positioned(
+    return AnimatedPositioned(
+      duration: _organizingNodes
+          ? openHandMotionDuration(context, kOpenHandMotion260)
+          : Duration.zero,
+      curve: Curves.easeOutBack,
       left: node.x,
       top: node.y,
       child: TweenAnimationBuilder<Offset>(
@@ -920,7 +1068,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
                           ? _selectNode(node.id)
                           : _selectConnection(connectionId);
                     },
-                    onPanUpdate: (details) => _moveNode(node, details.delta),
+                    onPanUpdate: _organizingNodes
+                        ? null
+                        : (details) => _moveNode(node, details.delta),
                     child: AnimatedContainer(
                       duration: openHandMotionDuration(
                         context,
@@ -3498,15 +3648,29 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
   void _changeZoom(double delta, Size viewportSize) {
     final current = _transformationController.value.getMaxScaleOnAxis();
     final next = (current + delta).clamp(0.35, 2.2);
-    _applyViewportTransform(
+    _animateViewportTransform(
       _visibleCanvasRect(viewportSize).center,
       next,
       viewportSize,
+      kOpenHandMotion180,
     );
   }
 
   void _resetViewport() {
-    _transformationController.value = Matrix4.identity();
+    final duration = openHandMotionDuration(context, kOpenHandMotion180);
+    if (duration == Duration.zero) {
+      _stopViewportAnimation();
+      _transformationController.value = Matrix4.identity();
+      return;
+    }
+    final controller = _ensureViewportAnimationController();
+    controller.stop();
+    controller.duration = duration;
+    _viewportAnimation = Matrix4Tween(
+      begin: _transformationController.value.clone(),
+      end: Matrix4.identity(),
+    ).animate(CurvedAnimation(parent: controller, curve: Curves.easeOutCubic));
+    controller.forward(from: 0);
   }
 }
 
@@ -3610,6 +3774,7 @@ class _CanvasToolbar extends StatelessWidget {
   const _CanvasToolbar({
     required this.scale,
     required this.showMiniMap,
+    required this.canOrganize,
     required this.canDelete,
     required this.canUndo,
     required this.canRedo,
@@ -3618,6 +3783,7 @@ class _CanvasToolbar extends StatelessWidget {
     required this.onZoomIn,
     required this.onZoomOut,
     required this.onReset,
+    required this.onOrganize,
     required this.onToggleMiniMap,
     required this.onDelete,
     required this.onUndo,
@@ -3627,6 +3793,7 @@ class _CanvasToolbar extends StatelessWidget {
 
   final double scale;
   final bool showMiniMap;
+  final bool canOrganize;
   final bool canDelete;
   final bool canUndo;
   final bool canRedo;
@@ -3635,6 +3802,7 @@ class _CanvasToolbar extends StatelessWidget {
   final VoidCallback onZoomIn;
   final VoidCallback onZoomOut;
   final VoidCallback onReset;
+  final VoidCallback onOrganize;
   final VoidCallback onToggleMiniMap;
   final VoidCallback onDelete;
   final VoidCallback onUndo;
@@ -3678,6 +3846,12 @@ class _CanvasToolbar extends StatelessWidget {
               tooltip: '重置视图',
               icon: Icons.center_focus_strong_rounded,
               onPressed: onReset,
+            ),
+            _ToolbarButton(
+              key: const ValueKey<String>('workflow-organize-nodes'),
+              tooltip: '整理节点布局',
+              icon: Icons.auto_fix_high_rounded,
+              onPressed: canOrganize ? onOrganize : null,
             ),
             _ToolbarButton(
               tooltip: showMiniMap ? '隐藏缩略导航图' : '显示缩略导航图',
@@ -4026,6 +4200,7 @@ class _WorkflowNameDialogState extends State<_WorkflowNameDialog> {
 
 class _ToolbarButton extends StatelessWidget {
   const _ToolbarButton({
+    super.key,
     required this.tooltip,
     required this.icon,
     required this.onPressed,

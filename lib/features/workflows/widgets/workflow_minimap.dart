@@ -5,11 +5,8 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/ui/openhand_spacing.dart';
 import '../model/workflow_definition.dart';
+import '../service/workflow_auto_layout.dart';
 
-const double _nodeWidth = 246;
-const double _nodeHeight = 130;
-const double _containerMinWidth = 360;
-const double _containerMinHeight = 196;
 const double _contentPadding = 10;
 
 class WorkflowMiniMap extends StatefulWidget {
@@ -392,22 +389,22 @@ Rect _nodeBounds(WorkflowNode node) => Rect.fromLTWH(
   node.y,
   node.isContainer
       ? math.max(
-          _containerMinWidth,
+          kWorkflowContainerMinWidth,
           node.doubleSetting(
             WorkflowSettingKeys.containerWidth,
-            _containerMinWidth,
+            kWorkflowContainerMinWidth,
           ),
         )
-      : _nodeWidth,
+      : kWorkflowNodeWidth,
   node.isContainer
       ? math.max(
-          _containerMinHeight,
+          kWorkflowContainerMinHeight,
           node.doubleSetting(
             WorkflowSettingKeys.containerHeight,
-            _containerMinHeight,
+            kWorkflowContainerMinHeight,
           ),
         )
-      : _nodeHeight,
+      : kWorkflowNodeHeight,
 );
 
 Color _nodeColor(WorkflowNodeKind kind, ColorScheme colors) => switch (kind) {

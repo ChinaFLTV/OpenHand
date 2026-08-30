@@ -1,0 +1,447 @@
+import 'dart:math' as math;
+
+import '../model/workflow_definition.dart';
+
+const double kWorkflowCanvasWidth = 2400;
+const double kWorkflowCanvasHeight = 1600;
+const double kWorkflowNodeWidth = 246;
+const double kWorkflowNodeHeight = 130;
+const double kWorkflowContainerMinWidth = 360;
+const double kWorkflowContainerMinHeight = 196;
+const double kWorkflowContainerChildLeft = 132;
+const double kWorkflowContainerChildTop = 96;
+const double kWorkflowContainerPadding = 34;
+
+typedef WorkflowNodeSizeResolver =
+    ({double width, double height}) Function(WorkflowNode node);
+
+class WorkflowAutoLayoutConfig {
+  const WorkflowAutoLayoutConfig({
+    this.canvasWidth = kWorkflowCanvasWidth,
+    this.canvasHeight = kWorkflowCanvasHeight,
+    this.canvasPadding = 48,
+    this.horizontalGap = 110,
+    this.verticalGap = 64,
+    this.minimumHorizontalGap = 42,
+    this.minimumVerticalGap = 28,
+    this.containerChildLeft = kWorkflowContainerChildLeft,
+    this.containerChildTop = kWorkflowContainerChildTop,
+    this.containerPadding = kWorkflowContainerPadding,
+    this.containerMinWidth = kWorkflowContainerMinWidth,
+    this.containerMinHeight = kWorkflowContainerMinHeight,
+  });
+
+  final double canvasWidth;
+  final double canvasHeight;
+  final double canvasPadding;
+  final double horizontalGap;
+  final double verticalGap;
+  final double minimumHorizontalGap;
+  final double minimumVerticalGap;
+  final double containerChildLeft;
+  final double containerChildTop;
+  final double containerPadding;
+  final double containerMinWidth;
+  final double containerMinHeight;
+}
+
+class WorkflowAutoLayoutResult {
+  const WorkflowAutoLayoutResult({
+    required this.nodes,
+    required this.fitsCanvas,
+    required this.changed,
+    required this.left,
+    required this.top,
+    required this.right,
+    required this.bottom,
+  });
+
+  final List<WorkflowNode> nodes;
+  final bool fitsCanvas;
+  final bool changed;
+  final double left;
+  final double top;
+  final double right;
+  final double bottom;
+}
+
+WorkflowAutoLayoutResult arrangeWorkflowNodes({
+  required List<WorkflowNode> nodes,
+  required List<WorkflowConnection> connections,
+  required WorkflowNodeSizeResolver sizeOf,
+  WorkflowAutoLayoutConfig config = const WorkflowAutoLayoutConfig(),
+}) {
+  if (nodes.isEmpty) {
+    return const WorkflowAutoLayoutResult(
+      nodes: <WorkflowNode>[],
+      fitsCanvas: true,
+      changed: false,
+      left: 0,
+      top: 0,
+      right: 0,
+      bottom: 0,
+    );
+  }
+
+  final working = <String, WorkflowNode>{
+    for (final node in nodes) node.id: node,
+  };
+  final childLayouts = <String, _ScopeLayout>{};
+  var fitsCanvas = true;
+  for (final container in nodes.where((node) => node.isContainer)) {
+    final children = nodes
+        .where((node) => node.parentNodeId == container.id)
+        .toList(growable: false);
+    if (children.isEmpty) continue;
+    final childIds = children.map((node) => node.id).toSet();
+    final childEdges = connections
+        .where(
+          (edge) =>
+              childIds.contains(edge.sourceNodeId) &&
+              childIds.contains(edge.targetNodeId),
+        )
+        .toList(growable: false);
+    final preferredRoots = connections
+        .where(
+          (edge) =>
+              edge.sourceNodeId == container.id &&
+              edge.sourceHandleId == workflowContainerStartHandleId &&
+              childIds.contains(edge.targetNodeId),
+        )
+        .map((edge) => edge.targetNodeId)
+        .toList(growable: false);
+    final layout = _layoutScope(
+      children,
+      childEdges,
+      sizeOf,
+      preferredRoots: preferredRoots,
+      availableWidth:
+          config.canvasWidth -
+          config.canvasPadding * 2 -
+          config.containerChildLeft -
+          config.containerPadding,
+      availableHeight:
+          config.canvasHeight -
+          config.canvasPadding * 2 -
+          config.containerChildTop -
+          config.containerPadding,
+      config: config,
+    );
+    childLayouts[container.id] = layout;
+    fitsCanvas = fitsCanvas && layout.fits;
+    final width = math.max(
+      config.containerMinWidth,
+      config.containerChildLeft + layout.width + config.containerPadding,
+    );
+    final height = math.max(
+      config.containerMinHeight,
+      config.containerChildTop + layout.height + config.containerPadding,
+    );
+    working[container.id] = container.copyWith(
+      settings: Map<String, Object?>.unmodifiable(<String, Object?>{
+        ...container.settings,
+        WorkflowSettingKeys.containerWidth: width,
+        WorkflowSettingKeys.containerHeight: height,
+      }),
+    );
+  }
+
+  final rootNodes = nodes
+      .where((node) => node.parentNodeId == null)
+      .map((node) => working[node.id]!)
+      .toList(growable: false);
+  final rootIds = rootNodes.map((node) => node.id).toSet();
+  final rootEdges = connections
+      .where(
+        (edge) =>
+            rootIds.contains(edge.sourceNodeId) &&
+            rootIds.contains(edge.targetNodeId) &&
+            edge.sourceHandleId != workflowContainerStartHandleId,
+      )
+      .toList(growable: false);
+  final preferredRoots = <String>[
+    ...rootNodes
+        .where((node) => node.kind == WorkflowNodeKind.start)
+        .map((node) => node.id),
+  ];
+  final rootLayout = _layoutScope(
+    rootNodes,
+    rootEdges,
+    sizeOf,
+    preferredRoots: preferredRoots,
+    availableWidth: config.canvasWidth - config.canvasPadding * 2,
+    availableHeight: config.canvasHeight - config.canvasPadding * 2,
+    config: config,
+  );
+  fitsCanvas = fitsCanvas && rootLayout.fits;
+
+  for (final node in rootNodes) {
+    final position = rootLayout.positions[node.id]!;
+    working[node.id] = node.copyWith(
+      x: config.canvasPadding + position.x,
+      y: config.canvasPadding + position.y,
+    );
+  }
+  for (final entry in childLayouts.entries) {
+    final parent = working[entry.key]!;
+    for (final position in entry.value.positions.entries) {
+      final child = working[position.key]!;
+      working[position.key] = child.copyWith(
+        x: parent.x + config.containerChildLeft + position.value.x,
+        y: parent.y + config.containerChildTop + position.value.y,
+      );
+    }
+  }
+
+  final arranged = nodes
+      .map((node) => working[node.id]!)
+      .toList(growable: false);
+  var changed = false;
+  for (var index = 0; index < nodes.length; index++) {
+    final before = nodes[index];
+    final after = arranged[index];
+    if ((before.x - after.x).abs() > 0.01 ||
+        (before.y - after.y).abs() > 0.01 ||
+        before.settings[WorkflowSettingKeys.containerWidth] !=
+            after.settings[WorkflowSettingKeys.containerWidth] ||
+        before.settings[WorkflowSettingKeys.containerHeight] !=
+            after.settings[WorkflowSettingKeys.containerHeight]) {
+      changed = true;
+      break;
+    }
+  }
+
+  final left = config.canvasPadding;
+  final top = config.canvasPadding;
+  final right = left + rootLayout.width;
+  final bottom = top + rootLayout.height;
+  fitsCanvas =
+      fitsCanvas &&
+      right <= config.canvasWidth - config.canvasPadding + 0.01 &&
+      bottom <= config.canvasHeight - config.canvasPadding + 0.01;
+  return WorkflowAutoLayoutResult(
+    nodes: List<WorkflowNode>.unmodifiable(arranged),
+    fitsCanvas: fitsCanvas,
+    changed: changed,
+    left: left,
+    top: top,
+    right: right,
+    bottom: bottom,
+  );
+}
+
+class _ScopeLayout {
+  const _ScopeLayout({
+    required this.positions,
+    required this.width,
+    required this.height,
+    required this.fits,
+  });
+
+  final Map<String, ({double x, double y})> positions;
+  final double width;
+  final double height;
+  final bool fits;
+}
+
+_ScopeLayout _layoutScope(
+  List<WorkflowNode> nodes,
+  List<WorkflowConnection> edges,
+  WorkflowNodeSizeResolver sizeOf, {
+  required List<String> preferredRoots,
+  required double availableWidth,
+  required double availableHeight,
+  required WorkflowAutoLayoutConfig config,
+}) {
+  if (nodes.isEmpty) {
+    return const _ScopeLayout(
+      positions: <String, ({double x, double y})>{},
+      width: 0,
+      height: 0,
+      fits: true,
+    );
+  }
+  final nodesById = <String, WorkflowNode>{
+    for (final node in nodes) node.id: node,
+  };
+  final validEdges = edges
+      .where(
+        (edge) =>
+            nodesById.containsKey(edge.sourceNodeId) &&
+            nodesById.containsKey(edge.targetNodeId) &&
+            edge.sourceNodeId != edge.targetNodeId,
+      )
+      .toList(growable: false);
+  final outgoing = <String, List<WorkflowConnection>>{
+    for (final node in nodes) node.id: <WorkflowConnection>[],
+  };
+  final incoming = <String, int>{for (final node in nodes) node.id: 0};
+  for (final edge in validEdges) {
+    outgoing[edge.sourceNodeId]!.add(edge);
+    incoming[edge.targetNodeId] = incoming[edge.targetNodeId]! + 1;
+  }
+  for (final entry in outgoing.entries) {
+    final source = nodesById[entry.key]!;
+    final indexed = entry.value.indexed.toList(growable: false);
+    indexed.sort((left, right) {
+      final priority = _branchPriority(
+        source,
+        left.$2.sourceHandleId,
+      ).compareTo(_branchPriority(source, right.$2.sourceHandleId));
+      return priority != 0 ? priority : left.$1.compareTo(right.$1);
+    });
+    outgoing[entry.key] = indexed
+        .map((item) => item.$2)
+        .toList(growable: false);
+  }
+
+  final spatialOrder = nodes.toList(growable: false)
+    ..sort((left, right) {
+      final y = left.y.compareTo(right.y);
+      if (y != 0) return y;
+      final x = left.x.compareTo(right.x);
+      return x != 0 ? x : left.id.compareTo(right.id);
+    });
+  final traversalOrder = <String>[];
+  final visited = <String>{};
+  void visit(String nodeId) {
+    if (!nodesById.containsKey(nodeId) || !visited.add(nodeId)) return;
+    traversalOrder.add(nodeId);
+    for (final edge in outgoing[nodeId]!) {
+      visit(edge.targetNodeId);
+    }
+  }
+
+  for (final id in preferredRoots) {
+    visit(id);
+  }
+  for (final node in spatialOrder.where((node) => incoming[node.id] == 0)) {
+    visit(node.id);
+  }
+  for (final node in spatialOrder) {
+    visit(node.id);
+  }
+  final rank = <String, int>{
+    for (final entry in traversalOrder.indexed) entry.$2: entry.$1,
+  };
+
+  final remainingIncoming = Map<String, int>.of(incoming);
+  final ready =
+      nodes
+          .where((node) => remainingIncoming[node.id] == 0)
+          .map((node) => node.id)
+          .toList(growable: true)
+        ..sort((left, right) => rank[left]!.compareTo(rank[right]!));
+  final layers = <String, int>{for (final id in ready) id: 0};
+  final sorted = <String>[];
+  while (ready.isNotEmpty) {
+    final nodeId = ready.removeAt(0);
+    sorted.add(nodeId);
+    for (final edge in outgoing[nodeId]!) {
+      final targetId = edge.targetNodeId;
+      layers[targetId] = math.max(layers[targetId] ?? 0, layers[nodeId]! + 1);
+      final count = remainingIncoming[targetId]! - 1;
+      remainingIncoming[targetId] = count;
+      if (count == 0) {
+        ready.add(targetId);
+        ready.sort((left, right) => rank[left]!.compareTo(rank[right]!));
+      }
+    }
+  }
+  var fallbackLayer = layers.values.fold<int>(0, math.max) + 1;
+  final sortedIds = sorted.toSet();
+  for (final id in traversalOrder.where((id) => !sortedIds.contains(id))) {
+    layers[id] = fallbackLayer++;
+  }
+
+  final nodesByLayer = <int, List<WorkflowNode>>{};
+  for (final node in nodes) {
+    (nodesByLayer[layers[node.id] ?? 0] ??= <WorkflowNode>[]).add(node);
+  }
+  final orderedLayers = nodesByLayer.keys.toList(growable: false)..sort();
+  for (final layer in orderedLayers) {
+    nodesByLayer[layer]!.sort(
+      (left, right) => rank[left.id]!.compareTo(rank[right.id]!),
+    );
+  }
+  final layerWidths = <int, double>{
+    for (final layer in orderedLayers)
+      layer: nodesByLayer[layer]!
+          .map((node) => sizeOf(node).width)
+          .fold<double>(0, math.max),
+  };
+  final summedWidth = layerWidths.values.fold<double>(
+    0,
+    (sum, width) => sum + width,
+  );
+  final horizontalGap = orderedLayers.length < 2
+      ? 0.0
+      : math.max(
+          config.minimumHorizontalGap,
+          math.min(
+            config.horizontalGap,
+            (availableWidth - summedWidth) / (orderedLayers.length - 1),
+          ),
+        );
+  var verticalGap = config.verticalGap;
+  for (final layer in orderedLayers) {
+    final layerNodes = nodesByLayer[layer]!;
+    if (layerNodes.length < 2) continue;
+    final summedHeight = layerNodes
+        .map((node) => sizeOf(node).height)
+        .fold<double>(0, (sum, height) => sum + height);
+    verticalGap = math.min(
+      verticalGap,
+      math.max(
+        config.minimumVerticalGap,
+        (availableHeight - summedHeight) / (layerNodes.length - 1),
+      ),
+    );
+  }
+  final layerHeights = <int, double>{
+    for (final layer in orderedLayers)
+      layer: nodesByLayer[layer]!.fold<double>(
+        verticalGap * (nodesByLayer[layer]!.length - 1),
+        (sum, node) => sum + sizeOf(node).height,
+      ),
+  };
+  final height = layerHeights.values.fold<double>(0, math.max);
+  final positions = <String, ({double x, double y})>{};
+  var x = 0.0;
+  for (final layer in orderedLayers) {
+    var y = (height - layerHeights[layer]!) / 2;
+    for (final node in nodesByLayer[layer]!) {
+      positions[node.id] = (x: x, y: y);
+      y += sizeOf(node).height + verticalGap;
+    }
+    x += layerWidths[layer]! + horizontalGap;
+  }
+  final width = x - horizontalGap;
+  return _ScopeLayout(
+    positions: Map<String, ({double x, double y})>.unmodifiable(positions),
+    width: width,
+    height: height,
+    fits: width <= availableWidth + 0.01 && height <= availableHeight + 0.01,
+  );
+}
+
+int _branchPriority(WorkflowNode node, String? handleId) {
+  if (handleId == null || handleId == workflowContainerStartHandleId) return 0;
+  if (node.kind == WorkflowNodeKind.condition) {
+    final cases = node.conditionCases();
+    final index = cases.indexWhere((item) => item.id == handleId);
+    if (index >= 0) return index;
+    return handleId == 'else' ? cases.length + 1 : cases.length + 2;
+  }
+  if (node.kind == WorkflowNodeKind.humanIntervention) {
+    final actions = node.humanActions();
+    final index = actions.indexWhere((item) => item.id == handleId);
+    if (index >= 0) return index;
+    return handleId == workflowHumanTimeoutHandleId
+        ? actions.length + 1
+        : actions.length + 2;
+  }
+  if (handleId == workflowSuccessHandleId) return 0;
+  if (handleId == workflowFailureHandleId) return 1;
+  return 2;
+}
