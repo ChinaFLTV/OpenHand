@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_spacing.dart';
@@ -17,6 +19,11 @@ import '../service/workflow_node_executor.dart';
 const RoundedRectangleBorder _workflowTestButtonShape = RoundedRectangleBorder(
   borderRadius: kOpenHandBorderRadius12,
 );
+const double _workflowTestMetricGap = 10;
+const double _workflowTestMetricFourColumnWidth = 620;
+const double _workflowTestMetricTwoColumnWidth = 320;
+
+typedef _WorkflowTestOutputEntry = ({String name, Object? value});
 
 class WorkflowTestReport {
   const WorkflowTestReport({
@@ -42,6 +49,29 @@ class WorkflowTestReport {
   final int skippedNodes;
   final Object? output;
   final String? error;
+}
+
+class _WorkflowTestCloseButton extends StatelessWidget {
+  const _WorkflowTestCloseButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return IconButton(
+      tooltip: '关闭',
+      onPressed: () => Navigator.of(context).pop(),
+      style: IconButton.styleFrom(
+        fixedSize: const Size.square(42),
+        padding: EdgeInsets.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        foregroundColor: colors.onSurfaceVariant,
+        backgroundColor: colors.surface.withValues(alpha: 0.74),
+        side: BorderSide(color: colors.outlineVariant),
+        shape: _workflowTestButtonShape,
+      ),
+      icon: const Icon(Icons.close_rounded),
+    );
+  }
 }
 
 Future<Map<String, Object?>?> showWorkflowTestInputDialog(
@@ -132,17 +162,19 @@ class _WorkflowTestInputDialogState extends State<_WorkflowTestInputDialog> {
       maxHeight: MediaQuery.sizeOf(context).height * 0.86,
       insetPadding: const EdgeInsets.all(24),
       child: Column(
+        key: const ValueKey<String>('workflow-test-input-dialog'),
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
+            key: const ValueKey<String>('workflow-test-input-header'),
             padding: const EdgeInsets.fromLTRB(22, 18, 18, 16),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: <Color>[
-                  colors.primaryContainer.withValues(alpha: 0.92),
-                  colors.tertiaryContainer.withValues(alpha: 0.58),
-                ],
+              color: colors.primaryContainer.withValues(alpha: 0.72),
+              border: Border(
+                bottom: BorderSide(
+                  color: colors.primary.withValues(alpha: 0.2),
+                ),
               ),
             ),
             child: Row(
@@ -184,11 +216,7 @@ class _WorkflowTestInputDialogState extends State<_WorkflowTestInputDialog> {
                     ],
                   ),
                 ),
-                IconButton(
-                  tooltip: '关闭',
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
+                const _WorkflowTestCloseButton(),
               ],
             ),
           ),
@@ -314,13 +342,20 @@ class _WorkflowTestInputField extends StatelessWidget {
     final colors = theme.colorScheme;
     final complex =
         field.type == WorkflowOutputType.object || field.type.isArray;
+    final enabledBorder = OutlineInputBorder(
+      borderRadius: kOpenHandBorderRadius12,
+      borderSide: BorderSide(color: colors.outlineVariant),
+    );
     final decoration = InputDecoration(
       hintText: _hint(field.type),
       filled: true,
       fillColor: colors.surfaceContainerLowest,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(kOpenHandRadius14),
+      border: enabledBorder,
+      enabledBorder: enabledBorder,
+      focusedBorder: enabledBorder.copyWith(
+        borderSide: BorderSide(color: colors.primary, width: 1.8),
       ),
+      disabledBorder: enabledBorder,
     );
     return Container(
       padding: const EdgeInsets.all(14),
@@ -448,25 +483,56 @@ class _WorkflowTestResultDialog extends StatelessWidget {
         : report.hasWarnings
         ? '工作流测试完成（含异常）'
         : '工作流测试成功';
-    final detail = report.error?.trim().isNotEmpty == true
-        ? report.error!.trim()
-        : _formatOutput(report.output);
+    final outputEntries = report.succeeded
+        ? _workflowTestOutputEntries(report.output)
+        : _workflowTestFailureEntries(report);
+    final metrics =
+        <({String id, String label, int value, IconData icon, Color color})>[
+          (
+            id: 'success',
+            label: '成功节点',
+            value: report.succeededNodes,
+            icon: Icons.check_circle_outline_rounded,
+            color: OpenHandStatusColors.success,
+          ),
+          (
+            id: 'warning',
+            label: '异常节点',
+            value: report.warningNodes,
+            icon: Icons.warning_amber_rounded,
+            color: OpenHandStatusColors.warning,
+          ),
+          (
+            id: 'failure',
+            label: '失败节点',
+            value: report.failedNodes,
+            icon: Icons.error_outline_rounded,
+            color: OpenHandStatusColors.error,
+          ),
+          (
+            id: 'skipped',
+            label: '跳过节点',
+            value: report.skippedNodes,
+            icon: Icons.skip_next_rounded,
+            color: colors.outline,
+          ),
+        ];
     return buildOpenHandDialog(
       width: 760,
       maxHeight: MediaQuery.sizeOf(context).height * 0.86,
       insetPadding: const EdgeInsets.all(24),
       child: Column(
+        key: const ValueKey<String>('workflow-test-result-dialog'),
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
+            key: const ValueKey<String>('workflow-test-result-header'),
             padding: const EdgeInsets.fromLTRB(22, 19, 18, 17),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: <Color>[
-                  statusColor.withValues(alpha: 0.2),
-                  colors.tertiaryContainer.withValues(alpha: 0.54),
-                ],
+              color: statusColor.withValues(alpha: 0.12),
+              border: Border(
+                bottom: BorderSide(color: statusColor.withValues(alpha: 0.24)),
               ),
             ),
             child: Row(
@@ -510,11 +576,7 @@ class _WorkflowTestResultDialog extends StatelessWidget {
                     ],
                   ),
                 ),
-                IconButton(
-                  tooltip: '关闭',
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded),
-                ),
+                const _WorkflowTestCloseButton(),
               ],
             ),
           ),
@@ -524,35 +586,41 @@ class _WorkflowTestResultDialog extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      _ResultMetric(
-                        label: '成功节点',
-                        value: report.succeededNodes,
-                        icon: Icons.check_circle_outline_rounded,
-                        color: OpenHandStatusColors.success,
-                      ),
-                      _ResultMetric(
-                        label: '异常节点',
-                        value: report.warningNodes,
-                        icon: Icons.warning_amber_rounded,
-                        color: OpenHandStatusColors.warning,
-                      ),
-                      _ResultMetric(
-                        label: '失败节点',
-                        value: report.failedNodes,
-                        icon: Icons.error_outline_rounded,
-                        color: OpenHandStatusColors.error,
-                      ),
-                      _ResultMetric(
-                        label: '跳过节点',
-                        value: report.skippedNodes,
-                        icon: Icons.skip_next_rounded,
-                        color: colors.outline,
-                      ),
-                    ],
+                  LayoutBuilder(
+                    key: const ValueKey<String>('workflow-test-result-metrics'),
+                    builder: (context, constraints) {
+                      final columns =
+                          constraints.maxWidth >=
+                              _workflowTestMetricFourColumnWidth
+                          ? 4
+                          : constraints.maxWidth >=
+                                _workflowTestMetricTwoColumnWidth
+                          ? 2
+                          : 1;
+                      final itemWidth =
+                          (constraints.maxWidth -
+                              _workflowTestMetricGap * (columns - 1)) /
+                          columns;
+                      return Wrap(
+                        spacing: _workflowTestMetricGap,
+                        runSpacing: _workflowTestMetricGap,
+                        children: [
+                          for (final metric in metrics)
+                            SizedBox(
+                              width: itemWidth,
+                              child: _ResultMetric(
+                                key: ValueKey<String>(
+                                  'workflow-test-metric-${metric.id}',
+                                ),
+                                label: metric.label,
+                                value: metric.value,
+                                icon: metric.icon,
+                                color: metric.color,
+                              ),
+                            ),
+                        ],
+                      );
+                    },
                   ),
                   kOpenHandGap18,
                   Text(
@@ -562,24 +630,39 @@ class _WorkflowTestResultDialog extends StatelessWidget {
                     ),
                   ),
                   kOpenHandGap8,
-                  Container(
-                    constraints: const BoxConstraints(minHeight: 90),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: colors.surfaceContainerLowest,
-                      borderRadius: BorderRadius.circular(kOpenHandRadius14),
-                      border: Border.all(
-                        color: statusColor.withValues(alpha: 0.3),
+                  if (outputEntries.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(kOpenHandRadius14),
+                        border: Border.all(color: colors.outlineVariant),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.inventory_2_outlined,
+                            color: colors.onSurfaceVariant,
+                          ),
+                          kOpenHandGap8,
+                          Text(
+                            report.succeeded ? '暂无输出参数' : '未提供失败详情',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colors.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    child: SelectableText(
-                      detail.isEmpty ? '无输出内容' : detail,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontFamily: kOpenHandMonospaceFontFamily,
-                        height: 1.45,
-                      ),
+                  for (final (index, entry) in outputEntries.indexed) ...[
+                    _ResultOutputCard(
+                      name: entry.name,
+                      value: entry.value,
+                      accentColor: statusColor,
                     ),
-                  ),
+                    if (index < outputEntries.length - 1) kOpenHandGap10,
+                  ],
                 ],
               ),
             ),
@@ -587,8 +670,8 @@ class _WorkflowTestResultDialog extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(22, 12, 22, 20),
             child: Align(
-              alignment: Alignment.centerRight,
               child: OpenHandDialogActionButton.primary(
+                key: const ValueKey<String>('workflow-test-result-finish'),
                 label: '完成',
                 onPressed: () => Navigator.of(context).pop(),
                 icon: Icons.done_rounded,
@@ -604,6 +687,7 @@ class _WorkflowTestResultDialog extends StatelessWidget {
 
 class _ResultMetric extends StatelessWidget {
   const _ResultMetric({
+    super.key,
     required this.label,
     required this.value,
     required this.icon,
@@ -619,7 +703,6 @@ class _ResultMetric extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      width: 162,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
@@ -655,6 +738,108 @@ class _ResultMetric extends StatelessWidget {
   }
 }
 
+class _ResultOutputCard extends StatelessWidget {
+  const _ResultOutputCard({
+    required this.name,
+    required this.value,
+    required this.accentColor,
+  });
+
+  final String name;
+  final Object? value;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final displayValue = _displayOutputValue(value);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(kOpenHandRadius14),
+        border: Border.all(color: accentColor.withValues(alpha: 0.28)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius10),
+                ),
+                child: Icon(Icons.output_rounded, size: 18, color: accentColor),
+              ),
+              kOpenHandHGap10,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      _outputTypeLabel(value),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: '复制参数 $name',
+                onPressed: () => unawaited(
+                  copyOpenHandTextToClipboard(
+                    context: context,
+                    text: _serializeOutputValue(value),
+                    logTag: 'workflow_test_result',
+                    logAction: '复制输出参数',
+                    successMessage: '已复制参数“$name”',
+                    replaceCurrentSnack: true,
+                  ),
+                ),
+                style: IconButton.styleFrom(
+                  fixedSize: const Size.square(38),
+                  padding: EdgeInsets.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  foregroundColor: colors.primary,
+                  backgroundColor: colors.primaryContainer.withValues(
+                    alpha: 0.5,
+                  ),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: kOpenHandBorderRadius10,
+                  ),
+                ),
+                icon: const Icon(Icons.content_copy_rounded, size: 18),
+              ),
+            ],
+          ),
+          kOpenHandGap10,
+          SelectableText(
+            displayValue,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontFamily: value is String ? null : kOpenHandMonospaceFontFamily,
+              height: 1.45,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 String _formatDuration(Duration duration) {
   if (duration.inMinutes > 0) {
     return '${duration.inMinutes} 分 ${duration.inSeconds.remainder(60)} 秒';
@@ -665,12 +850,58 @@ String _formatDuration(Duration duration) {
   return '${duration.inMilliseconds} 毫秒';
 }
 
-String _formatOutput(Object? output) {
-  if (output == null) return '';
-  if (output is String) return output;
-  try {
-    return const JsonEncoder.withIndent('  ').convert(output);
-  } on JsonUnsupportedObjectError {
-    return '$output';
+List<_WorkflowTestOutputEntry> _workflowTestOutputEntries(Object? output) {
+  if (output == null) return const <_WorkflowTestOutputEntry>[];
+  if (output is Map) {
+    var index = 0;
+    return output.entries
+        .map((entry) {
+          final name = '${entry.key}'.trim();
+          index += 1;
+          return (
+            name: name.isEmpty ? '输出参数 $index' : name,
+            value: entry.value,
+          );
+        })
+        .toList(growable: false);
   }
+  return <_WorkflowTestOutputEntry>[(name: '输出结果', value: output)];
+}
+
+List<_WorkflowTestOutputEntry> _workflowTestFailureEntries(
+  WorkflowTestReport report,
+) {
+  final error = report.error?.trim() ?? '';
+  if (error.isNotEmpty) {
+    return <_WorkflowTestOutputEntry>[(name: '错误详情', value: error)];
+  }
+  if (report.output == null) return const <_WorkflowTestOutputEntry>[];
+  return <_WorkflowTestOutputEntry>[(name: '失败详情', value: report.output)];
+}
+
+String _outputTypeLabel(Object? value) => switch (value) {
+  null => 'Null',
+  String() => 'String',
+  bool() => 'Boolean',
+  int() => 'Integer',
+  num() => 'Number',
+  Map() => 'Object',
+  Iterable() => 'Array',
+  _ => 'Value',
+};
+
+String _serializeOutputValue(Object? value) {
+  if (value == null) return 'null';
+  if (value is String) return value;
+  try {
+    return const JsonEncoder.withIndent('  ').convert(value);
+  } on JsonUnsupportedObjectError {
+    return '$value';
+  }
+}
+
+String _displayOutputValue(Object? value) {
+  if (value == null) return '空值';
+  if (value is String && value.isEmpty) return '空字符串';
+  return _serializeOutputValue(value);
 }
