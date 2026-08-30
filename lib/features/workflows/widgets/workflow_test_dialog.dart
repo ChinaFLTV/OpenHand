@@ -882,6 +882,7 @@ class _WorkflowTestNodeRecord extends StatelessWidget {
         borderRadius: BorderRadius.circular(kOpenHandRadius14),
         border: Border.all(color: colors.outlineVariant),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1463,6 +1464,7 @@ class _ResultOutputCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(kOpenHandRadius14),
         border: Border.all(color: accentColor.withValues(alpha: 0.28)),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
