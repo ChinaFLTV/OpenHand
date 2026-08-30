@@ -96,7 +96,7 @@ void main() {
     expect(await result, isNull);
   });
 
-  testWidgets('测试结果等宽铺满并按参数结构展示和复制输出', (tester) async {
+  testWidgets('测试结果以表格展示最终输出并支持复制', (tester) async {
     final context = await _pumpDialogHost(tester);
     final messenger = tester.binding.defaultBinaryMessenger;
     String? copiedText;
@@ -165,13 +165,19 @@ void main() {
     );
 
     expect(find.text('news'), findsOneWidget);
+    expect(find.text('参数介绍'), findsOneWidget);
+    expect(find.text('string'), findsOneWidget);
     expect(find.text('最终发布的新闻标题'), findsOneWidget);
     expect(find.text('鞠婧祎 fell in love with 李冠达'), findsOneWidget);
     expect(find.text('count'), findsOneWidget);
+    expect(find.text('integer'), findsOneWidget);
+    expect(find.text('-'), findsOneWidget);
     expect(find.text('2'), findsOneWidget);
     expect(find.textContaining('"news"'), findsNothing);
+    expect(find.text('值'), findsNothing);
+    expect(find.text('String'), findsNothing);
     final outputRow = find
-        .ancestor(of: find.text('值'), matching: find.byType(Row))
+        .ancestor(of: find.text('news'), matching: find.byType(Row))
         .last;
     expect(
       tester.widget<Row>(outputRow).crossAxisAlignment,

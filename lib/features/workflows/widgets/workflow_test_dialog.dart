@@ -24,6 +24,11 @@ const double _workflowTestMetricFourColumnWidth = 620;
 const double _workflowTestMetricTwoColumnWidth = 320;
 const double _workflowTestCopyButtonSize = 40;
 const double _workflowTestSurfaceBorderWidth = 1;
+const double _workflowTestExecutionMetricIconSize = 36;
+const double _workflowTestExecutionMetricGap = 10;
+const Color _workflowTestDurationAccent = OpenHandStatusColors.info;
+const Color _workflowTestAttemptsAccent = OpenHandStatusColors.warning;
+const Color _workflowTestDescriptionAccent = Color(0xFF8B5CF6);
 
 typedef _WorkflowTestOutputEntry = ({
   String name,
@@ -673,15 +678,11 @@ class _WorkflowTestResultDialog extends StatelessWidget {
                         ],
                       ),
                     ),
-                  for (final (index, entry) in outputEntries.indexed) ...[
-                    _ResultOutputCard(
-                      name: entry.name,
-                      value: entry.value,
-                      description: entry.description,
-                      accentColor: statusColor,
+                  if (outputEntries.isNotEmpty)
+                    _WorkflowTestFinalOutputTable(
+                      entries: outputEntries,
+                      borderColor: statusColor.withValues(alpha: 0.28),
                     ),
-                    if (index < outputEntries.length - 1) kOpenHandGap10,
-                  ],
                 ],
               ),
             ),
@@ -985,106 +986,210 @@ class _WorkflowTestExecutionSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final trimmedDescription = description.trim();
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Wrap(
-          spacing: 18,
-          runSpacing: 8,
-          children: [
-            _WorkflowTestExecutionMetric(
-              icon: Icons.timer_outlined,
-              label: '执行耗时',
-              value: _formatDuration(duration),
-            ),
-            if (attempts > 0)
-              _WorkflowTestExecutionMetric(
-                icon: Icons.repeat_rounded,
-                label: '执行次数',
-                value: '$attempts 次',
-              ),
-          ],
-        ),
-        if (description.isNotEmpty) ...[
-          kOpenHandGap8,
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Icon(
-                Icons.info_outline_rounded,
-                size: 16,
-                color: colors.onSurfaceVariant,
-              ),
-              kOpenHandHGap6,
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '节点说明',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    kOpenHandGap2,
-                    Text(
-                      description,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+                child: _WorkflowTestExecutionMetricCard(
+                  icon: Icons.timer_outlined,
+                  label: '执行耗时',
+                  value: _formatDuration(duration),
+                  accent: _workflowTestDurationAccent,
                 ),
               ),
+              if (attempts > 0) ...[
+                const SizedBox(width: _workflowTestExecutionMetricGap),
+                Expanded(
+                  child: _WorkflowTestExecutionMetricCard(
+                    icon: Icons.repeat_rounded,
+                    label: '执行次数',
+                    value: '$attempts 次',
+                    accent: _workflowTestAttemptsAccent,
+                  ),
+                ),
+              ],
             ],
           ),
+        ),
+        if (trimmedDescription.isNotEmpty) ...[
+          kOpenHandGap8,
+          _WorkflowTestNodeDescriptionCard(description: trimmedDescription),
         ],
       ],
     );
   }
 }
 
-class _WorkflowTestExecutionMetric extends StatelessWidget {
-  const _WorkflowTestExecutionMetric({
+class _WorkflowTestExecutionMetricCard extends StatelessWidget {
+  const _WorkflowTestExecutionMetricCard({
     required this.icon,
     required this.label,
     required this.value,
+    required this.accent,
   });
 
   final IconData icon;
   final String label;
   final String value;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: colors.primary),
-        kOpenHandHGap6,
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: colors.onSurfaceVariant,
-              ),
+    return _WorkflowTestTintedInfoSurface(
+      accent: accent,
+      child: Row(
+        children: [
+          _WorkflowTestAccentIconBadge(icon: icon, accent: accent),
+          kOpenHandHGap10,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: accent.withValues(alpha: 0.92),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                kOpenHandGap2,
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    height: 1.15,
+                  ),
+                ),
+              ],
             ),
-            Text(
-              value,
-              style: theme.textTheme.labelMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkflowTestNodeDescriptionCard extends StatelessWidget {
+  const _WorkflowTestNodeDescriptionCard({required this.description});
+
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    const accent = _workflowTestDescriptionAccent;
+    return _WorkflowTestTintedInfoSurface(
+      accent: accent,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _WorkflowTestAccentIconBadge(
+            icon: Icons.auto_awesome_rounded,
+            accent: accent,
+          ),
+          kOpenHandHGap10,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius8),
+                    border: Border.all(color: accent.withValues(alpha: 0.28)),
+                  ),
+                  child: Text(
+                    '节点说明',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: accent,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                kOpenHandGap6,
+                Text(
+                  description,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    height: 1.45,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkflowTestAccentIconBadge extends StatelessWidget {
+  const _WorkflowTestAccentIconBadge({
+    required this.icon,
+    required this.accent,
+  });
+
+  final IconData icon;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: _workflowTestExecutionMetricIconSize,
+    height: _workflowTestExecutionMetricIconSize,
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: <Color>[
+          accent.withValues(alpha: 0.22),
+          accent.withValues(alpha: 0.1),
+        ],
+      ),
+      borderRadius: BorderRadius.circular(kOpenHandRadius10),
+      border: Border.all(color: accent.withValues(alpha: 0.3)),
+    ),
+    child: Icon(icon, size: 18, color: accent),
+  );
+}
+
+class _WorkflowTestTintedInfoSurface extends StatelessWidget {
+  const _WorkflowTestTintedInfoSurface({
+    required this.accent,
+    required this.child,
+  });
+
+  final Color accent;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return _WorkflowTestOutlinedSurface(
+      backgroundColor: Color.alphaBlend(
+        accent.withValues(alpha: 0.08),
+        colors.surfaceContainerLowest,
+      ),
+      borderColor: accent.withValues(alpha: 0.26),
+      borderRadius: kOpenHandRadius12,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        child: child,
+      ),
     );
   }
 }
@@ -1146,14 +1251,12 @@ class _WorkflowTestStructuredTable extends StatelessWidget {
     required this.descriptions,
     required this.copyTooltipPrefix,
     required this.emptyLabel,
-    this.scalarCopyName,
   });
 
   final Object? value;
   final Map<String, String> descriptions;
   final String copyTooltipPrefix;
   final String emptyLabel;
-  final String? scalarCopyName;
 
   @override
   Widget build(BuildContext context) {
@@ -1183,12 +1286,8 @@ class _WorkflowTestStructuredTable extends StatelessWidget {
                     Divider(height: 1, color: colors.outlineVariant),
                   _WorkflowTestStructuredTableRow(
                     row: row,
-                    copyName: scalarCopyName != null && row.name == '值'
-                        ? scalarCopyName!
-                        : row.name,
-                    copyTooltip:
-                        '$copyTooltipPrefix '
-                        '${scalarCopyName != null && row.name == '值' ? scalarCopyName : row.name}',
+                    copyName: row.name,
+                    copyTooltip: '$copyTooltipPrefix ${row.name}',
                   ),
                 ],
               ],
@@ -1285,6 +1384,142 @@ class _WorkflowTestStructuredTableRow extends StatelessWidget {
                 logTag: 'workflow_test_result',
                 logAction: '复制结构化参数',
                 successMessage: '已复制参数“$copyName”',
+                replaceCurrentSnack: true,
+              ),
+            ),
+            style: IconButton.styleFrom(
+              fixedSize: const Size.square(_workflowTestCopyButtonSize),
+              padding: EdgeInsets.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              foregroundColor: colors.primary,
+              backgroundColor: colors.primaryContainer.withValues(alpha: 0.5),
+              shape: const RoundedRectangleBorder(
+                borderRadius: kOpenHandBorderRadius8,
+              ),
+            ),
+            icon: const Icon(Icons.content_copy_rounded, size: 16),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkflowTestFinalOutputTable extends StatelessWidget {
+  const _WorkflowTestFinalOutputTable({
+    required this.entries,
+    required this.borderColor,
+  });
+
+  final List<_WorkflowTestOutputEntry> entries;
+  final Color borderColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return _WorkflowTestOutlinedSurface(
+      backgroundColor: colors.surfaceContainerLowest,
+      borderColor: borderColor,
+      borderRadius: kOpenHandRadius14,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const _WorkflowTestFinalOutputTableHeader(),
+          for (final (index, entry) in entries.indexed) ...[
+            if (index > 0) Divider(height: 1, color: colors.outlineVariant),
+            _WorkflowTestFinalOutputTableRow(entry: entry),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkflowTestFinalOutputTableHeader extends StatelessWidget {
+  const _WorkflowTestFinalOutputTableHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      color: colors.surfaceContainerLow,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      child: const Row(
+        children: [
+          Expanded(flex: 3, child: Text('参数名称')),
+          SizedBox(width: 74, child: Text('类型')),
+          Expanded(flex: 4, child: Text('参数介绍')),
+          Expanded(flex: 5, child: Text('内容')),
+          SizedBox(width: _workflowTestCopyButtonSize),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkflowTestFinalOutputTableRow extends StatelessWidget {
+  const _WorkflowTestFinalOutputTableRow({required this.entry});
+
+  final _WorkflowTestOutputEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final description = entry.description?.trim();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Text(
+              entry.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 74,
+            child: Text(
+              _outputValueTypeText(entry.value),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall,
+            ),
+          ),
+          Expanded(
+            flex: 4,
+            child: Text(
+              description?.isNotEmpty == true ? description! : '-',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: description?.isNotEmpty == true
+                    ? colors.onSurface
+                    : colors.onSurfaceVariant,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 5,
+            child: SelectableText(
+              _structuredValueText(entry.value),
+              style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
+            ),
+          ),
+          IconButton(
+            tooltip: '复制参数 ${entry.name}',
+            onPressed: () => unawaited(
+              copyOpenHandTextToClipboard(
+                context: context,
+                text: _serializeOutputValue(entry.value),
+                logTag: 'workflow_test_result',
+                logAction: '复制最终输出参数',
+                successMessage: '已复制参数“${entry.name}”',
                 replaceCurrentSnack: true,
               ),
             ),
@@ -1507,96 +1742,6 @@ class _ResultMetric extends StatelessWidget {
   }
 }
 
-class _ResultOutputCard extends StatelessWidget {
-  const _ResultOutputCard({
-    required this.name,
-    required this.value,
-    required this.description,
-    required this.accentColor,
-  });
-
-  final String name;
-  final Object? value;
-  final String? description;
-  final Color accentColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return _WorkflowTestOutlinedSurface(
-      backgroundColor: colors.surfaceContainerLowest,
-      borderColor: accentColor.withValues(alpha: 0.28),
-      borderRadius: kOpenHandRadius14,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: accentColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(kOpenHandRadius10),
-                  ),
-                  child: Icon(
-                    Icons.output_rounded,
-                    size: 18,
-                    color: accentColor,
-                  ),
-                ),
-                kOpenHandHGap10,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      Text(
-                        _outputTypeLabel(value),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      if (description?.trim().isNotEmpty == true)
-                        Text(
-                          description!.trim(),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colors.onSurfaceVariant,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            kOpenHandGap10,
-            _WorkflowTestStructuredTable(
-              value: value,
-              descriptions: const <String, String>{},
-              copyTooltipPrefix: '复制参数',
-              emptyLabel: '空值',
-              scalarCopyName: name,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _WorkflowTestOutlinedSurface extends StatelessWidget {
   const _WorkflowTestOutlinedSurface({
     required this.backgroundColor,
@@ -1649,10 +1794,11 @@ List<_WorkflowTestOutputEntry> _workflowTestOutputEntries(
         .map((entry) {
           final name = '${entry.key}'.trim();
           index += 1;
+          final normalizedName = name.isEmpty ? '输出参数 $index' : name;
           return (
-            name: name.isEmpty ? '输出参数 $index' : name,
+            name: normalizedName,
             value: entry.value,
-            description: descriptions[name],
+            description: descriptions[normalizedName],
           );
         })
         .toList(growable: false);
@@ -1677,15 +1823,15 @@ List<_WorkflowTestOutputEntry> _workflowTestFailureEntries(
   ];
 }
 
-String _outputTypeLabel(Object? value) => switch (value) {
-  null => 'Null',
-  String() => 'String',
-  bool() => 'Boolean',
-  int() => 'Integer',
-  num() => 'Number',
-  Map() => 'Object',
-  Iterable() => 'Array',
-  _ => 'Value',
+String _outputValueTypeText(Object? value) => switch (value) {
+  null => 'null',
+  String() => 'string',
+  bool() => 'boolean',
+  int() => 'integer',
+  num() => 'number',
+  Map() => 'object',
+  Iterable() => 'array',
+  _ => 'value',
 };
 
 String _serializeOutputValue(Object? value) {
