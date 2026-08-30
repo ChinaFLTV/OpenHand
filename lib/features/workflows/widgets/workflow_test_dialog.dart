@@ -22,6 +22,7 @@ const RoundedRectangleBorder _workflowTestButtonShape = RoundedRectangleBorder(
 const double _workflowTestMetricGap = 10;
 const double _workflowTestMetricFourColumnWidth = 620;
 const double _workflowTestMetricTwoColumnWidth = 320;
+const double _workflowTestCopyButtonSize = 40;
 
 typedef _WorkflowTestOutputEntry = ({
   String name,
@@ -1143,7 +1144,7 @@ class _WorkflowTestStructuredTableHeader extends StatelessWidget {
           Expanded(flex: 3, child: Text('参数名称')),
           SizedBox(width: 70, child: Text('类型')),
           Expanded(flex: 5, child: Text('内容')),
-          SizedBox(width: 36),
+          SizedBox(width: _workflowTestCopyButtonSize),
         ],
       ),
     );
@@ -1222,7 +1223,7 @@ class _WorkflowTestStructuredTableRow extends StatelessWidget {
               ),
             ),
             style: IconButton.styleFrom(
-              fixedSize: const Size.square(32),
+              fixedSize: const Size.square(_workflowTestCopyButtonSize),
               padding: EdgeInsets.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               foregroundColor: colors.primary,

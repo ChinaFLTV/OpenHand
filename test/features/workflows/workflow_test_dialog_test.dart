@@ -170,6 +170,7 @@ void main() {
     expect(find.text('count'), findsOneWidget);
     expect(find.text('2'), findsOneWidget);
     expect(find.textContaining('"news"'), findsNothing);
+    expect(tester.getSize(find.byTooltip('复制参数 news')), const Size.square(40));
     expect(
       find.descendant(
         of: find.byKey(const ValueKey<String>('workflow-test-result-finish')),
