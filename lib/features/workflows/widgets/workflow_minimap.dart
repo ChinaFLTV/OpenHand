@@ -252,20 +252,21 @@ class _WorkflowMiniMapGraphPainter extends CustomPainter {
         ),
       );
       final accent = _annotationColor(annotation.theme, colors);
+      final selected = annotation.id == selectedAnnotationId;
       final radius = Radius.circular(math.min(3.5, rect.shortestSide / 3));
       canvas.drawRRect(
         RRect.fromRectAndRadius(rect, radius),
-        Paint()..color = accent.withValues(alpha: 0.2),
+        Paint()..color = accent.withValues(alpha: 0.86),
       );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, radius),
-        Paint()
-          ..color = annotation.id == selectedAnnotationId
-              ? colors.primary
-              : accent.withValues(alpha: 0.75)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = annotation.id == selectedAnnotationId ? 2 : 1,
-      );
+      if (selected) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(rect, radius),
+          Paint()
+            ..color = colors.primary
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2,
+        );
+      }
     }
     for (final connection in connections) {
       final source = nodesById[connection.sourceNodeId];
