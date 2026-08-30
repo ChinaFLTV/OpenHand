@@ -12,6 +12,8 @@ const double kWorkflowContainerChildLeft = 132;
 const double kWorkflowContainerChildTop = 96;
 const double kWorkflowContainerPadding = 34;
 const double _workflowAnnotationCanvasPadding = 16;
+const double _workflowAnnotationLayoutGap = 24;
+const int _workflowAnnotationPlacementAttempts = 32;
 
 typedef WorkflowNodeSizeResolver =
     ({double width, double height}) Function(WorkflowNode node);
@@ -201,13 +203,15 @@ WorkflowAutoLayoutResult arrangeWorkflowNodes({
   final arranged = nodes
       .map((node) => working[node.id]!)
       .toList(growable: false);
-  final arrangedAnnotations = _arrangeWorkflowAnnotations(
+  final annotationLayout = _arrangeWorkflowAnnotations(
     annotations: annotations,
     beforeNodes: nodes,
     arrangedNodes: arranged,
     sizeOf: sizeOf,
     config: config,
   );
+  final arrangedAnnotations = annotationLayout.annotations;
+  fitsCanvas = fitsCanvas && annotationLayout.fits;
   var changed = false;
   for (var index = 0; index < nodes.length; index++) {
     final before = nodes[index];
@@ -263,40 +267,170 @@ WorkflowAutoLayoutResult arrangeWorkflowNodes({
   );
 }
 
-List<WorkflowAnnotation> _arrangeWorkflowAnnotations({
+({List<WorkflowAnnotation> annotations, bool fits})
+_arrangeWorkflowAnnotations({
   required List<WorkflowAnnotation> annotations,
   required List<WorkflowNode> beforeNodes,
   required List<WorkflowNode> arrangedNodes,
   required WorkflowNodeSizeResolver sizeOf,
   required WorkflowAutoLayoutConfig config,
 }) {
-  if (annotations.isEmpty || beforeNodes.isEmpty) return annotations;
+  if (annotations.isEmpty || beforeNodes.isEmpty) {
+    return (annotations: annotations, fits: true);
+  }
   final arrangedById = <String, WorkflowNode>{
     for (final node in arrangedNodes) node.id: node,
   };
-  return annotations
-      .map((annotation) {
-        final anchor = _nearestAnnotationAnchor(
-          annotation,
-          beforeNodes,
-          sizeOf,
-        );
-        final arrangedAnchor = arrangedById[anchor.id];
-        if (arrangedAnchor == null) return annotation;
-        final x = _clampAnnotationCoordinate(
-          annotation.x + arrangedAnchor.x - anchor.x,
-          annotation.width,
-          config.canvasWidth,
-        );
-        final y = _clampAnnotationCoordinate(
-          annotation.y + arrangedAnchor.y - anchor.y,
-          annotation.height,
-          config.canvasHeight,
-        );
-        return annotation.copyWith(x: x, y: y);
-      })
-      .toList(growable: false);
+  final occupied = <_WorkflowLayoutRect>[
+    for (final node in arrangedNodes)
+      _WorkflowLayoutRect(
+        x: node.x,
+        y: node.y,
+        width: sizeOf(node).width,
+        height: sizeOf(node).height,
+      ),
+  ];
+  final arrangedAnnotations = <WorkflowAnnotation>[];
+  for (final annotation in annotations) {
+    final anchor = _nearestAnnotationAnchor(annotation, beforeNodes, sizeOf);
+    final arrangedAnchor = arrangedById[anchor.id];
+    if (arrangedAnchor == null) return (annotations: annotations, fits: false);
+    final position = _findAvailableAnnotationPosition(
+      annotation: annotation,
+      x: annotation.x + arrangedAnchor.x - anchor.x,
+      y: annotation.y + arrangedAnchor.y - anchor.y,
+      occupied: occupied,
+      config: config,
+    );
+    if (position == null) return (annotations: annotations, fits: false);
+    final arranged = annotation.copyWith(x: position.x, y: position.y);
+    arrangedAnnotations.add(arranged);
+    occupied.add(
+      _WorkflowLayoutRect(
+        x: arranged.x,
+        y: arranged.y,
+        width: arranged.width,
+        height: arranged.height,
+      ),
+    );
+  }
+  return (annotations: arrangedAnnotations, fits: true);
 }
+
+({double x, double y})? _findAvailableAnnotationPosition({
+  required WorkflowAnnotation annotation,
+  required double x,
+  required double y,
+  required List<_WorkflowLayoutRect> occupied,
+  required WorkflowAutoLayoutConfig config,
+}) {
+  final preferred = _clampAnnotationPosition(annotation, x, y, config);
+  var candidate = preferred;
+  final visited = <String>{_annotationPositionKey(candidate)};
+  for (
+    var attempt = 0;
+    attempt < _workflowAnnotationPlacementAttempts;
+    attempt++
+  ) {
+    final bounds = _WorkflowLayoutRect(
+      x: candidate.x,
+      y: candidate.y,
+      width: annotation.width,
+      height: annotation.height,
+    );
+    final obstacle = _firstOverlappingBounds(bounds, occupied);
+    if (obstacle == null) return candidate;
+    final alternatives = <({double x, double y})>[
+      (
+        x: candidate.x,
+        y: obstacle.y - annotation.height - _workflowAnnotationLayoutGap,
+      ),
+      (x: candidate.x, y: obstacle.bottom + _workflowAnnotationLayoutGap),
+      (
+        x: obstacle.x - annotation.width - _workflowAnnotationLayoutGap,
+        y: candidate.y,
+      ),
+      (x: obstacle.right + _workflowAnnotationLayoutGap, y: candidate.y),
+      (
+        x: obstacle.x - annotation.width - _workflowAnnotationLayoutGap,
+        y: obstacle.y - annotation.height - _workflowAnnotationLayoutGap,
+      ),
+      (
+        x: obstacle.right + _workflowAnnotationLayoutGap,
+        y: obstacle.y - annotation.height - _workflowAnnotationLayoutGap,
+      ),
+      (
+        x: obstacle.x - annotation.width - _workflowAnnotationLayoutGap,
+        y: obstacle.bottom + _workflowAnnotationLayoutGap,
+      ),
+      (
+        x: obstacle.right + _workflowAnnotationLayoutGap,
+        y: obstacle.bottom + _workflowAnnotationLayoutGap,
+      ),
+    ];
+    final considered = <String>{};
+    ({double x, double y})? next;
+    for (final alternative in alternatives) {
+      final clamped = _clampAnnotationPosition(
+        annotation,
+        alternative.x,
+        alternative.y,
+        config,
+      );
+      final key = _annotationPositionKey(clamped);
+      if (visited.contains(key) || !considered.add(key)) continue;
+      if (next == null ||
+          _annotationPositionDistanceSquared(clamped, preferred) <
+              _annotationPositionDistanceSquared(next, preferred)) {
+        next = clamped;
+      }
+    }
+    if (next == null) return null;
+    candidate = next;
+    visited.add(_annotationPositionKey(candidate));
+  }
+  return null;
+}
+
+({double x, double y}) _clampAnnotationPosition(
+  WorkflowAnnotation annotation,
+  double x,
+  double y,
+  WorkflowAutoLayoutConfig config,
+) => (
+  x: _clampAnnotationCoordinate(
+    x.isFinite ? x : _workflowAnnotationCanvasPadding,
+    annotation.width,
+    config.canvasWidth,
+  ),
+  y: _clampAnnotationCoordinate(
+    y.isFinite ? y : _workflowAnnotationCanvasPadding,
+    annotation.height,
+    config.canvasHeight,
+  ),
+);
+
+_WorkflowLayoutRect? _firstOverlappingBounds(
+  _WorkflowLayoutRect bounds,
+  List<_WorkflowLayoutRect> occupied,
+) {
+  for (final item in occupied) {
+    if (bounds.overlaps(item, gap: _workflowAnnotationLayoutGap)) return item;
+  }
+  return null;
+}
+
+double _annotationPositionDistanceSquared(
+  ({double x, double y}) left,
+  ({double x, double y}) right,
+) {
+  final horizontal = left.x - right.x;
+  final vertical = left.y - right.y;
+  return horizontal * horizontal + vertical * vertical;
+}
+
+String _annotationPositionKey(({double x, double y}) position) =>
+    '${position.x.round()}:${position.y.round()}';
 
 WorkflowNode _nearestAnnotationAnchor(
   WorkflowAnnotation annotation,
@@ -356,6 +490,29 @@ double _clampAnnotationCoordinate(
     canvasSize - size - _workflowAnnotationCanvasPadding,
   );
   return value.clamp(_workflowAnnotationCanvasPadding, maximum).toDouble();
+}
+
+class _WorkflowLayoutRect {
+  const _WorkflowLayoutRect({
+    required this.x,
+    required this.y,
+    required this.width,
+    required this.height,
+  });
+
+  final double x;
+  final double y;
+  final double width;
+  final double height;
+
+  double get right => x + width;
+  double get bottom => y + height;
+
+  bool overlaps(_WorkflowLayoutRect other, {required double gap}) =>
+      x - gap < other.right &&
+      right + gap > other.x &&
+      y - gap < other.bottom &&
+      bottom + gap > other.y;
 }
 
 class _ScopeLayout {

@@ -74,7 +74,88 @@ void main() {
     expect(repeated.annotations.single.x, note.x);
     expect(repeated.annotations.single.y, note.y);
   });
+
+  test('整理会将遮挡节点的注释放入相邻空白区域', () {
+    const nodes = <WorkflowNode>[
+      WorkflowNode(
+        id: 'start',
+        kind: WorkflowNodeKind.start,
+        title: '开始',
+        x: 560,
+        y: 120,
+      ),
+      WorkflowNode(
+        id: 'code',
+        kind: WorkflowNodeKind.codeExecution,
+        title: '代码执行',
+        x: 900,
+        y: 300,
+      ),
+      WorkflowNode(
+        id: 'end',
+        kind: WorkflowNodeKind.end,
+        title: '结束',
+        x: 180,
+        y: 700,
+      ),
+    ];
+    const annotations = <WorkflowAnnotation>[
+      WorkflowAnnotation(id: 'note', text: '代码说明', x: 1042, y: 300),
+    ];
+    const connections = <WorkflowConnection>[
+      WorkflowConnection(
+        id: 'start-code',
+        sourceNodeId: 'start',
+        targetNodeId: 'code',
+      ),
+      WorkflowConnection(
+        id: 'code-end',
+        sourceNodeId: 'code',
+        targetNodeId: 'end',
+      ),
+    ];
+
+    final result = arrangeWorkflowNodes(
+      nodes: nodes,
+      connections: connections,
+      annotations: annotations,
+      sizeOf: _fixedNodeSize,
+    );
+    final annotation = result.annotations.single;
+
+    expect(result.fitsCanvas, isTrue);
+    for (final node in result.nodes) {
+      expect(
+        _overlaps(
+          annotation.x,
+          annotation.y,
+          annotation.width,
+          annotation.height,
+          node.x,
+          node.y,
+          100,
+          60,
+        ),
+        isFalse,
+      );
+    }
+  });
 }
 
 ({double width, double height}) _fixedNodeSize(WorkflowNode _) =>
     (width: 100, height: 60);
+
+bool _overlaps(
+  double left,
+  double top,
+  double width,
+  double height,
+  double otherLeft,
+  double otherTop,
+  double otherWidth,
+  double otherHeight,
+) =>
+    left < otherLeft + otherWidth &&
+    left + width > otherLeft &&
+    top < otherTop + otherHeight &&
+    top + height > otherTop;
