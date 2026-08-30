@@ -442,17 +442,29 @@ Size _nodeSize(WorkflowNode node) {
 
 ({Offset control1, Offset control2}) _connectionControls(
   Offset start,
-  Offset end,
-) {
-  final distance = math.max(48, (end.dx - start.dx).abs() * 0.46).toDouble();
+  Offset end, {
+  double minimumDistance = 48,
+}) {
+  final distance = math
+      .max(minimumDistance, (end.dx - start.dx).abs() * 0.46)
+      .toDouble();
+  final delta = end - start;
+  final magnitude = math.sqrt(delta.dx * delta.dx + delta.dy * delta.dy);
+  final direction = magnitude > 0.0001
+      ? Offset(delta.dx / magnitude, delta.dy / magnitude)
+      : const Offset(1, 0);
   return (
     control1: Offset(start.dx + distance, start.dy),
-    control2: Offset(end.dx - distance, end.dy),
+    control2: end - direction * distance,
   );
 }
 
-Path _connectionPath(Offset start, Offset end) {
-  final controls = _connectionControls(start, end);
+Path _connectionPath(Offset start, Offset end, {double minimumDistance = 48}) {
+  final controls = _connectionControls(
+    start,
+    end,
+    minimumDistance: minimumDistance,
+  );
   return Path()
     ..moveTo(start.dx, start.dy)
     ..cubicTo(
@@ -666,9 +678,14 @@ Future<ui.Image> _renderRaster(
     final end = layout.position(
       Offset(target.x, target.y + targetSize.height / 2),
     );
-    final path = _connectionPath(start, end);
+    final minimumDistance = 48 * layout.scale;
+    final path = _connectionPath(start, end, minimumDistance: minimumDistance);
     canvas.drawPath(path, linePaint);
-    final controls = _connectionControls(start, end);
+    final controls = _connectionControls(
+      start,
+      end,
+      minimumDistance: minimumDistance,
+    );
     final arrowBase = _connectionArrowBase(
       end,
       controls.control2,
@@ -871,7 +888,11 @@ String _renderSvg(WorkflowDefinition workflow, _WorkflowExportLayout layout) {
     final end = layout.position(
       Offset(target.x, target.y + targetSize.height / 2),
     );
-    final controls = _connectionControls(start, end);
+    final controls = _connectionControls(
+      start,
+      end,
+      minimumDistance: 48 * layout.scale,
+    );
     final path =
         'M ${start.dx.toStringAsFixed(2)} ${start.dy.toStringAsFixed(2)} '
         'C ${controls.control1.dx.toStringAsFixed(2)} ${controls.control1.dy.toStringAsFixed(2)}, '

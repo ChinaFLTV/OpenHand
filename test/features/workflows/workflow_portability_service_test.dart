@@ -258,6 +258,13 @@ void main() {
       r'M ([0-9.]+) ([0-9.]+) L ([0-9.]+) ([0-9.]+) L ([0-9.]+) ([0-9.]+) Z',
     ).firstMatch(arrowLine);
     expect(match, isNotNull);
-    expect(match!.group(4), isNot(equals(match.group(6))));
+    final tipX = double.parse(match!.group(1)!);
+    final tipY = double.parse(match.group(2)!);
+    final baseCenterX =
+        (double.parse(match.group(3)!) + double.parse(match.group(5)!)) / 2;
+    final baseCenterY =
+        (double.parse(match.group(4)!) + double.parse(match.group(6)!)) / 2;
+    expect(baseCenterX, lessThan(tipX));
+    expect(baseCenterY, lessThan(tipY));
   });
 }
