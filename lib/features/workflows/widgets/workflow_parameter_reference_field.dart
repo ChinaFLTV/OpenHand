@@ -941,7 +941,7 @@ class _WorkflowReferenceMenuItem extends StatelessWidget {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.secondaryContainer.withValues(
+                        color: theme.colorScheme.primaryContainer.withValues(
                           alpha: 0.58,
                         ),
                         borderRadius: kOpenHandPillBorderRadius,
@@ -951,7 +951,7 @@ class _WorkflowReferenceMenuItem extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSecondaryContainer,
+                          color: theme.colorScheme.onPrimaryContainer,
                           fontWeight: FontWeight.w700,
                           height: 1.1,
                         ),
