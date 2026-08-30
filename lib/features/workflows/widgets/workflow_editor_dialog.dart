@@ -402,7 +402,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
           kOpenHandHGap12,
           Expanded(
             child: Text(
-              '新建工作流',
+              widget.workflow == null ? '新建工作流' : '编辑工作流',
+              key: const ValueKey<String>('workflow-editor-title'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.titleLarge?.copyWith(

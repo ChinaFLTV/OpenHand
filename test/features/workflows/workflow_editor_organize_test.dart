@@ -41,6 +41,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(
+      find.byKey(const ValueKey<String>('workflow-editor-title')),
+      findsOneWidget,
+    );
+    expect(find.text('编辑工作流'), findsOneWidget);
+    expect(find.text('新建工作流'), findsNothing);
+
     final toolbar = tester.widget<Material>(
       find.byKey(const ValueKey<String>('workflow-canvas-toolbar')),
     );
