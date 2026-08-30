@@ -198,9 +198,18 @@ void main() {
     expect(utf8.decode(yaml.bytes), contains('openhand-workflow'));
     expect(png.bytes.take(8), <int>[137, 80, 78, 71, 13, 10, 26, 10]);
     expect(jpeg.bytes.take(2), <int>[255, 216]);
-    expect(utf8.decode(svg.bytes), contains('<svg'));
-    expect(utf8.decode(svg.bytes), contains('先审核，再发布。'));
+    final svgContent = utf8.decode(svg.bytes);
+    expect(svgContent, contains('<svg'));
+    expect(svgContent, contains('先审核，再发布。'));
+    expect(svgContent, isNot(contains('feDropShadow')));
+    expect(svgContent, isNot(contains('filter="url(#shadow)"')));
+    expect(png.width, greaterThan(1000));
+    expect(png.height, greaterThan(400));
+    expect(jpeg.width, png.width);
+    expect(jpeg.height, png.height);
     expect(svg.width, greaterThan(0));
     expect(svg.height, greaterThan(0));
+    expect(svg.width, png.width);
+    expect(svg.height, png.height);
   });
 }

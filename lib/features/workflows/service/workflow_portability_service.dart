@@ -19,8 +19,13 @@ const int _kMaxYamlValues = 100000;
 const double _kNodeWidth = 246;
 const double _kNodeHeight = 130;
 const double _kExportPadding = 72;
-const double _kMaxRasterSide = 4096;
-const int _kMaxRasterPixels = 8 * 1024 * 1024;
+const double _kGridSpacing = 24;
+const double _kGridDotRadius = 0.8;
+
+/// 普通画布按 3 倍逻辑尺寸导出；超大画布仍受边长与像素上限保护。
+const double _kPreferredExportScale = 3.0;
+const double _kMaxRasterSide = 8192;
+const int _kMaxRasterPixels = 16 * 1024 * 1024;
 const double _kMaxLogicalSpan = 100000;
 const String _kWorkflowFormat = 'openhand-workflow';
 const int _kWorkflowFormatVersion = 1;
@@ -272,7 +277,7 @@ Future<WorkflowExportArtifact> buildWorkflowExportArtifact(
       numChannels: 4,
       order: image.ChannelOrder.rgba,
     );
-    return Uint8List.fromList(image.encodeJpg(decoded, quality: 92));
+    return Uint8List.fromList(image.encodeJpg(decoded));
   });
   onProgress?.call(0.84, '图片已生成，正在写入磁盘…');
   return WorkflowExportArtifact(
@@ -356,9 +361,9 @@ class _WorkflowExportLayout {
     if (workflow.nodes.isEmpty && workflow.annotations.isEmpty) {
       return const _WorkflowExportLayout(
         bounds: Rect.fromLTWH(0, 0, 816, 396),
-        scale: 1,
-        outputWidth: 960,
-        outputHeight: 540,
+        scale: _kPreferredExportScale,
+        outputWidth: 1920,
+        outputHeight: 1080,
       );
     }
     var left = double.infinity;
@@ -390,7 +395,7 @@ class _WorkflowExportLayout {
     final logicalHeight = math.max(240, contentHeight + _kExportPadding * 2);
     var scale = math
         .min(
-          1.0,
+          _kPreferredExportScale,
           math.min(
             _kMaxRasterSide / logicalWidth,
             _kMaxRasterSide / logicalHeight,
@@ -507,29 +512,35 @@ Future<ui.Image> _renderRaster(
   );
   canvas.drawRect(surface, Paint()..color = const Color(0xFFF7F8FC));
   final gridPaint = Paint()..color = const Color(0xFFDDE1EA);
-  for (var x = 24.0; x < surface.width; x += 24) {
-    for (var y = 24.0; y < surface.height; y += 24) {
-      canvas.drawCircle(Offset(x, y), 0.8, gridPaint);
+  final gridSpacing = _kGridSpacing * layout.scale;
+  for (var x = gridSpacing; x < surface.width; x += gridSpacing) {
+    for (var y = gridSpacing; y < surface.height; y += gridSpacing) {
+      canvas.drawCircle(
+        Offset(x, y),
+        _kGridDotRadius * layout.scale,
+        gridPaint,
+      );
     }
   }
   if (workflow.nodes.isEmpty && workflow.annotations.isEmpty) {
+    final scale = layout.scale;
     _paintText(
       canvas,
       '空工作流',
-      const Offset(72, 72),
-      maxWidth: surface.width - 144,
-      style: const TextStyle(
-        color: Color(0xFF20242C),
-        fontSize: 34,
+      Offset(72 * scale, 72 * scale),
+      maxWidth: surface.width - 144 * scale,
+      style: TextStyle(
+        color: const Color(0xFF20242C),
+        fontSize: 34 * scale,
         fontWeight: FontWeight.w800,
       ),
     );
     _paintText(
       canvas,
       workflow.name,
-      const Offset(72, 126),
-      maxWidth: surface.width - 144,
-      style: const TextStyle(color: Color(0xFF667085), fontSize: 20),
+      Offset(72 * scale, 126 * scale),
+      maxWidth: surface.width - 144 * scale,
+      style: TextStyle(color: const Color(0xFF667085), fontSize: 20 * scale),
     );
     return _pictureToImage(
       recorder.endRecording(),
@@ -548,10 +559,6 @@ Future<ui.Image> _renderRaster(
     );
     final style = _annotationStyle(annotation.theme);
     final radius = Radius.circular(14 * layout.scale);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(rect.translate(0, 4 * layout.scale), radius),
-      Paint()..color = const Color(0xFF111827).withValues(alpha: 0.09),
-    );
     canvas.drawRRect(
       RRect.fromRectAndRadius(rect, radius),
       Paint()..color = style.soft,
@@ -627,13 +634,6 @@ Future<ui.Image> _renderRaster(
         end.dx,
         end.dy,
       );
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = const Color(0xFF667085).withValues(alpha: 0.12)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 8 * layout.scale,
-    );
     canvas.drawPath(path, linePaint);
     final arrow = Path()
       ..moveTo(end.dx, end.dy)
@@ -654,10 +654,6 @@ Future<ui.Image> _renderRaster(
     );
     final style = _nodeStyle(node.kind);
     final radius = Radius.circular(18 * layout.scale);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(rect.translate(0, 4 * layout.scale), radius),
-      Paint()..color = const Color(0xFF111827).withValues(alpha: 0.1),
-    );
     canvas.drawRRect(
       RRect.fromRectAndRadius(rect, radius),
       Paint()..color = const Color(0xFFFFFFFF),
@@ -752,6 +748,8 @@ void _paintText(
 }
 
 String _renderSvg(WorkflowDefinition workflow, _WorkflowExportLayout layout) {
+  final gridSpacing = _kGridSpacing * layout.scale;
+  final gridDotRadius = _kGridDotRadius * layout.scale;
   final buffer = StringBuffer()
     ..writeln('<?xml version="1.0" encoding="UTF-8"?>')
     ..writeln(
@@ -760,21 +758,22 @@ String _renderSvg(WorkflowDefinition workflow, _WorkflowExportLayout layout) {
     )
     ..writeln('<rect width="100%" height="100%" fill="#F7F8FC"/>')
     ..writeln(
-      '<defs><pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">'
-      '<circle cx="1" cy="1" r="0.8" fill="#DDE1EA"/></pattern>'
-      '<filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">'
-      '<feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#111827" flood-opacity="0.12"/>'
-      '</filter></defs>',
+      '<defs><pattern id="grid" width="$gridSpacing" height="$gridSpacing" '
+      'patternUnits="userSpaceOnUse"><circle cx="${layout.scale}" cy="${layout.scale}" '
+      'r="$gridDotRadius" fill="#DDE1EA"/></pattern></defs>',
     )
     ..writeln('<rect width="100%" height="100%" fill="url(#grid)"/>');
   if (workflow.nodes.isEmpty && workflow.annotations.isEmpty) {
+    final scale = layout.scale;
     buffer
       ..writeln(
-        '<text x="72" y="105" font-family="sans-serif" font-size="34" '
+        '<text x="${72 * scale}" y="${105 * scale}" font-family="sans-serif" '
+        'font-size="${34 * scale}" '
         'font-weight="800" fill="#20242C">空工作流</text>',
       )
       ..writeln(
-        '<text x="72" y="150" font-family="sans-serif" font-size="20" '
+        '<text x="${72 * scale}" y="${150 * scale}" font-family="sans-serif" '
+        'font-size="${20 * scale}" '
         'fill="#667085">${_escapeXml(workflow.name)}</text>',
       )
       ..writeln('</svg>');
@@ -790,13 +789,11 @@ String _renderSvg(WorkflowDefinition workflow, _WorkflowExportLayout layout) {
     final fontSize = annotation.fontSize * layout.scale;
     final lines = _annotationSvgLines(annotation);
     buffer
-      ..writeln('<g filter="url(#shadow)">')
       ..writeln(
         '<rect x="${origin.dx}" y="${origin.dy}" width="$width" height="$height" '
         'rx="${14 * layout.scale}" fill="$soft" stroke="$accent" stroke-opacity="0.42" '
         'stroke-width="${1.2 * layout.scale}"/>',
       )
-      ..writeln('</g>')
       ..writeln(
         '<rect x="${origin.dx}" y="${origin.dy}" width="$width" '
         'height="${12 * layout.scale}" rx="${8 * layout.scale}" '
@@ -845,10 +842,6 @@ String _renderSvg(WorkflowDefinition workflow, _WorkflowExportLayout layout) {
         '${end.dx.toStringAsFixed(2)} ${end.dy.toStringAsFixed(2)}';
     buffer
       ..writeln(
-        '<path d="$path" fill="none" stroke="#667085" stroke-opacity="0.12" '
-        'stroke-width="${(8 * layout.scale).toStringAsFixed(2)}" stroke-linecap="round"/>',
-      )
-      ..writeln(
         '<path d="$path" fill="none" stroke="#667085" '
         'stroke-width="${(2.4 * layout.scale).toStringAsFixed(2)}" stroke-linecap="round"/>',
       )
@@ -870,13 +863,11 @@ String _renderSvg(WorkflowDefinition workflow, _WorkflowExportLayout layout) {
         ? node.kind.storageValue
         : node.title.trim();
     buffer
-      ..writeln('<g filter="url(#shadow)">')
       ..writeln(
         '<rect x="${origin.dx}" y="${origin.dy}" width="$width" height="$height" '
         'rx="${18 * layout.scale}" fill="#FFFFFF" stroke="$accent" stroke-opacity="0.36" '
         'stroke-width="${1.4 * layout.scale}"/>',
       )
-      ..writeln('</g>')
       ..writeln(
         '<rect x="${origin.dx + 16 * layout.scale}" y="${origin.dy + 16 * layout.scale}" '
         'width="${58 * layout.scale}" height="${34 * layout.scale}" rx="${10 * layout.scale}" fill="$soft"/>',
