@@ -2498,6 +2498,19 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     if (_nodes.isEmpty) return '请至少添加一个节点。';
     for (final node in _nodes) {
       if (node.title.trim().isEmpty) return '节点名称不能为空。';
+      final configuredFields = switch (node.kind) {
+        WorkflowNodeKind.end ||
+        WorkflowNodeKind.parameterAssignment => node.outputFields(),
+        WorkflowNodeKind.codeExecution => node.codeInputFields(),
+        WorkflowNodeKind.httpRequest
+            when node.boolSetting(WorkflowSettingKeys.structuredOutput) =>
+          node.outputFields(),
+        _ => const <WorkflowOutputField>[],
+      };
+      final expressionRuntimeError = _validateExpressionRuntimes(
+        configuredFields,
+      );
+      if (expressionRuntimeError != null) return expressionRuntimeError;
       if (node.kind == WorkflowNodeKind.start &&
           node.inputFields().isNotEmpty) {
         try {
@@ -2818,6 +2831,13 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
               node.outputFields(),
               label: 'HTTP 输出参数',
             );
+            for (final field in node.outputFields()) {
+              if (field.valueMode == WorkflowValueMode.literal &&
+                  field.value.trim().isNotEmpty &&
+                  parseWorkflowJsonPath(field.value) == null) {
+                return 'HTTP 输出参数“${field.name.trim()}”的响应路径无效。';
+              }
+            }
           }
           if (WorkflowErrorStrategy.fromStorage(
                 node.settings[WorkflowSettingKeys.errorStrategy],
@@ -2981,6 +3001,19 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog> {
     final graphError = _validateTopLevelGraph();
     if (graphError != null) return graphError;
     return validateWorkflowParameterNames(_nodes);
+  }
+
+  String? _validateExpressionRuntimes(List<WorkflowOutputField> fields) {
+    for (final field in fields) {
+      final language = field.valueMode.language;
+      if (language == null || field.value.trim().isEmpty) continue;
+      final runtime = _catalog.codeRuntimes[language];
+      if (runtime == null || !runtime.isAvailable) {
+        return runtime?.unavailableReason ??
+            '${language.label} 运行时不可用，无法评估参数表达式。';
+      }
+    }
+    return null;
   }
 
   String? _validateTopLevelGraph() {

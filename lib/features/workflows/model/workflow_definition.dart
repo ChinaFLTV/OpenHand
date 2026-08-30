@@ -419,6 +419,98 @@ enum WorkflowValueSource {
   }
 }
 
+enum WorkflowValueMode {
+  literal('literal'),
+  pythonExpression('python_expression'),
+  javascriptExpression('javascript_expression');
+
+  const WorkflowValueMode(this.storageValue);
+
+  final String storageValue;
+
+  String get label => switch (this) {
+    WorkflowValueMode.literal => '字面量拼接',
+    WorkflowValueMode.pythonExpression => 'Python 表达式',
+    WorkflowValueMode.javascriptExpression => 'JavaScript 表达式',
+  };
+
+  WorkflowCodeLanguage? get language => switch (this) {
+    WorkflowValueMode.literal => null,
+    WorkflowValueMode.pythonExpression => WorkflowCodeLanguage.python3,
+    WorkflowValueMode.javascriptExpression => WorkflowCodeLanguage.javascript,
+  };
+
+  static WorkflowValueMode fromStorage(Object? value) {
+    final normalized = '${value ?? ''}'.trim();
+    return values.firstWhere(
+      (mode) => mode.storageValue == normalized,
+      orElse: () => WorkflowValueMode.literal,
+    );
+  }
+}
+
+bool workflowLiteralValueRequiresString(String value) {
+  final matches = workflowTemplatePlaceholderPattern.allMatches(value).toList();
+  return matches.isNotEmpty &&
+      !(matches.length == 1 &&
+          matches.first.start == 0 &&
+          matches.first.end == value.length);
+}
+
+final RegExp _workflowJsonPathPropertyPattern = RegExp(
+  r'^[A-Za-z_][A-Za-z0-9_-]*$',
+);
+
+List<Object>? parseWorkflowJsonPath(String path) {
+  final source = path.trim();
+  if (source.isEmpty || !source.startsWith(r'$')) return null;
+  final segments = <Object>[];
+  var offset = 1;
+  while (offset < source.length) {
+    if (source[offset] == '.') {
+      final start = ++offset;
+      while (offset < source.length &&
+          source[offset] != '.' &&
+          source[offset] != '[') {
+        offset += 1;
+      }
+      if (offset == start) return null;
+      final key = source.substring(start, offset);
+      if (!_workflowJsonPathPropertyPattern.hasMatch(key)) return null;
+      segments.add(key);
+      continue;
+    }
+    if (source[offset] != '[') return null;
+    final close = source.indexOf(']', offset + 1);
+    if (close < 0) return null;
+    final token = source.substring(offset + 1, close).trim();
+    final index = int.tryParse(token);
+    if (index != null && index >= 0) {
+      segments.add(index);
+    } else if (token.length >= 2 &&
+        token.startsWith('"') &&
+        token.endsWith('"')) {
+      try {
+        final key = jsonDecode(token);
+        if (key is! String || key.isEmpty) return null;
+        segments.add(key);
+      } on FormatException {
+        return null;
+      }
+    } else if (token.length >= 2 &&
+        token.startsWith("'") &&
+        token.endsWith("'")) {
+      final key = token.substring(1, token.length - 1);
+      if (key.isEmpty || key.contains("'")) return null;
+      segments.add(key);
+    } else {
+      return null;
+    }
+    offset = close + 1;
+  }
+  return List<Object>.unmodifiable(segments);
+}
+
 enum WorkflowHttpBodyFormat {
   none('none'),
   json('json'),
@@ -997,6 +1089,8 @@ class WorkflowOutputField {
     this.description = '',
     this.type = WorkflowOutputType.string,
     this.required = false,
+    this.value = '',
+    this.valueMode = WorkflowValueMode.literal,
     this.defaultValue = '',
     this.valueSource = WorkflowValueSource.constant,
   });
@@ -1009,6 +1103,8 @@ class WorkflowOutputField {
       description: '${json['description'] ?? ''}',
       type: WorkflowOutputType.fromStorage(json['type']),
       required: json['required'] == true,
+      value: '${json['value'] ?? ''}',
+      valueMode: WorkflowValueMode.fromStorage(json['value_mode']),
       defaultValue: defaultValue,
       valueSource: WorkflowValueSource.fromStorage(
         json['value_source'],
@@ -1022,6 +1118,8 @@ class WorkflowOutputField {
   final String description;
   final WorkflowOutputType type;
   final bool required;
+  final String value;
+  final WorkflowValueMode valueMode;
   final String defaultValue;
   final WorkflowValueSource valueSource;
 
@@ -1030,6 +1128,8 @@ class WorkflowOutputField {
     String? description,
     WorkflowOutputType? type,
     bool? required,
+    String? value,
+    WorkflowValueMode? valueMode,
     String? defaultValue,
     WorkflowValueSource? valueSource,
   }) {
@@ -1039,6 +1139,8 @@ class WorkflowOutputField {
       description: description ?? this.description,
       type: type ?? this.type,
       required: required ?? this.required,
+      value: value ?? this.value,
+      valueMode: valueMode ?? this.valueMode,
       defaultValue: defaultValue ?? this.defaultValue,
       valueSource: valueSource ?? this.valueSource,
     );
@@ -1050,6 +1152,8 @@ class WorkflowOutputField {
     'description': description,
     'type': type.storageValue,
     'required': required,
+    'value': value,
+    'value_mode': valueMode.storageValue,
     'default_value': defaultValue,
     'value_source': valueSource.storageValue,
   };

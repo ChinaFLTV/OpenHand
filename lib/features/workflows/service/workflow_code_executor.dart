@@ -17,6 +17,7 @@ const int maxWorkflowCodeLogBytes = 1024 * 1024;
 const int minWorkflowCodeTimeoutSeconds = 1;
 const int maxWorkflowCodeTimeoutSeconds = 120;
 const int defaultWorkflowCodeTimeoutSeconds = 30;
+const Duration workflowValueExpressionTimeout = Duration(seconds: 10);
 
 class WorkflowCodeRuntime {
   const WorkflowCodeRuntime({
@@ -67,6 +68,21 @@ class WorkflowCodeExecutor {
     operationTimeout: Duration(seconds: 2),
     totalTimeout: Duration(seconds: 5),
   );
+
+  Future<Map<String, Object?>> evaluateExpressions({
+    required WorkflowCodeRuntime runtime,
+    required Map<String, String> expressions,
+    required Map<String, Object?> variables,
+  }) async {
+    if (expressions.isEmpty) return const <String, Object?>{};
+    final result = await execute(
+      runtime: runtime,
+      code: _expressionCode(runtime.language, expressions),
+      inputs: variables,
+      timeout: workflowValueExpressionTimeout,
+    );
+    return result.output;
+  }
 
   Future<WorkflowCodeExecutionResult> execute({
     required WorkflowCodeRuntime runtime,
@@ -234,6 +250,38 @@ class WorkflowCodeExecutor {
     }
     throw const WorkflowCodeExecutionException('代码返回结果不是有效 JSON。');
   }
+
+  String _expressionCode(
+    WorkflowCodeLanguage language,
+    Map<String, String> expressions,
+  ) => switch (language) {
+    WorkflowCodeLanguage.python3 =>
+      '''def main(**__openhand_variables):
+    __openhand_scope = {
+        "len": len,
+        "min": min,
+        "max": max,
+        "sum": sum,
+        "round": round,
+        "abs": abs,
+        "sorted": sorted,
+        "str": str,
+        "int": int,
+        "float": float,
+        "bool": bool,
+    }
+    __openhand_scope.update(__openhand_variables)
+    return {
+${expressions.entries.map((entry) => '        ${jsonEncode(entry.key)}: eval(${jsonEncode(entry.value)}, {"__builtins__": {}}, __openhand_scope),').join('\n')}
+    }''',
+    WorkflowCodeLanguage.javascript =>
+      '''function main(__openhandVariables) {
+  const evaluate = expression => Function("__openhandScope", `with (__openhandScope) { return (\${expression}); }`)(__openhandVariables);
+  return {
+${expressions.entries.map((entry) => '    ${jsonEncode(entry.key)}: evaluate(${jsonEncode(entry.value)}),').join('\n')}
+  };
+}''',
+  };
 
   String _wrappedCode(WorkflowCodeLanguage language, String code) =>
       switch (language) {

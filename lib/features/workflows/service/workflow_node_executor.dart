@@ -310,7 +310,11 @@ class WorkflowNodeExecutor {
           ),
         ),
         WorkflowNodeKind.llm => _executeLlm(node, resources, variables),
-        WorkflowNodeKind.httpRequest => _executeHttp(node, variables),
+        WorkflowNodeKind.httpRequest => _executeHttp(
+          node,
+          resources,
+          variables,
+        ),
         WorkflowNodeKind.condition => _executeCondition(node, variables),
         WorkflowNodeKind.loop => _executeLoop(
           node,
@@ -326,14 +330,12 @@ class WorkflowNodeExecutor {
           workflowNodes,
           workflowConnections,
         ),
-        WorkflowNodeKind.parameterAssignment =>
-          Future<WorkflowNodeExecutionResult>.value(
-            _executeParameterNode(
-              fields: node.outputFields(),
-              variables: variables,
-              label: '赋值参数',
-            ),
-          ),
+        WorkflowNodeKind.parameterAssignment => _executeConfiguredParameterNode(
+          fields: node.outputFields(),
+          resources: resources,
+          variables: variables,
+          label: '赋值参数',
+        ),
         WorkflowNodeKind.listOperation => _executeListOperation(
           node,
           variables,
@@ -351,12 +353,11 @@ class WorkflowNodeExecutor {
         WorkflowNodeKind.loopExit => Future<WorkflowNodeExecutionResult>.error(
           const _WorkflowLoopExitSignal(),
         ),
-        WorkflowNodeKind.end => Future<WorkflowNodeExecutionResult>.value(
-          _executeParameterNode(
-            fields: node.outputFields(),
-            variables: variables,
-            label: '输出参数',
-          ),
+        WorkflowNodeKind.end => _executeConfiguredParameterNode(
+          fields: node.outputFields(),
+          resources: resources,
+          variables: variables,
+          label: '输出参数',
         ),
       };
       resources.onNodeExecution?.call(
@@ -531,6 +532,30 @@ class WorkflowNodeExecutor {
     );
   }
 
+  Future<WorkflowNodeExecutionResult> _executeConfiguredParameterNode({
+    required List<WorkflowOutputField> fields,
+    required WorkflowExecutionResources resources,
+    required Map<String, Object?> variables,
+    required String label,
+  }) async {
+    final output = await _resolveConfiguredFieldValues(
+      fields: fields,
+      resources: resources,
+      variables: variables,
+      label: label,
+    );
+    try {
+      return WorkflowNodeExecutionResult(
+        output: output,
+        rawOutput: jsonEncode(output),
+        attempts: 1,
+        duration: Duration.zero,
+      );
+    } on JsonUnsupportedObjectError catch (error) {
+      throw WorkflowNodeExecutionException('$label包含无法序列化的值。', cause: error);
+    }
+  }
+
   Future<WorkflowNodeExecutionResult> _executeCode(
     WorkflowNode node,
     WorkflowExecutionResources resources,
@@ -551,9 +576,10 @@ class WorkflowNodeExecutor {
       label: '代码输入参数',
       allowEmpty: true,
     );
-    final inputs = WorkflowStructuredOutputParser.resolveValues(
-      inputFields,
-      variables,
+    final inputs = await _resolveConfiguredFieldValues(
+      fields: inputFields,
+      resources: resources,
+      variables: variables,
       label: '代码输入参数',
     );
     final outputFields = node.outputFields();
@@ -1239,6 +1265,7 @@ class WorkflowNodeExecutor {
 
   Future<WorkflowNodeExecutionResult> _executeHttp(
     WorkflowNode node,
+    WorkflowExecutionResources resources,
     Map<String, Object?> variables,
   ) async {
     final rawUrl = renderWorkflowTemplate(
@@ -1329,9 +1356,10 @@ class WorkflowNodeExecutor {
           variables: variables,
         );
         final output = structured
-            ? WorkflowStructuredOutputParser.parse(
-                response.body,
-                responseFields,
+            ? await _resolveHttpResponseFields(
+                response: response,
+                fields: responseFields,
+                resources: resources,
                 variables: variables,
               )
             : <String, Object?>{
@@ -2343,6 +2371,189 @@ class WorkflowNodeExecutor {
     }
   }
 
+  Future<Map<String, Object?>> _resolveConfiguredFieldValues({
+    required List<WorkflowOutputField> fields,
+    required WorkflowExecutionResources resources,
+    required Map<String, Object?> variables,
+    required String label,
+    Map<String, Object?> initialValues = const <String, Object?>{},
+  }) async {
+    WorkflowStructuredOutputParser.validateFields(
+      fields,
+      label: label,
+      allowEmpty: true,
+    );
+    final values = <String, Object?>{...variables, ...initialValues};
+    final preservedValues = <String, Object?>{};
+    final expressions = <WorkflowCodeLanguage, Map<String, String>>{};
+    final expressionVariables = <WorkflowCodeLanguage, Map<String, Object?>>{};
+    var aliasIndex = 0;
+
+    for (final field in fields) {
+      final configured = field.value;
+      if (configured.trim().isEmpty) continue;
+      final name = field.name.trim();
+      if (field.valueMode == WorkflowValueMode.literal) {
+        for (final match in workflowTemplatePlaceholderPattern.allMatches(
+          configured,
+        )) {
+          final reference = match.group(1)!;
+          if (!_lookupWorkflowVariable(reference, variables).found) {
+            throw WorkflowNodeExecutionException(
+              '$label“$name”引用的参数“$reference”不可用。',
+            );
+          }
+        }
+        final resolved = resolveWorkflowTemplateValue(configured, variables);
+        values[name] = resolved;
+        final match = workflowTemplatePlaceholderPattern.firstMatch(configured);
+        if (match != null &&
+            match.start == 0 &&
+            match.end == configured.length &&
+            resolved != null) {
+          preservedValues[name] = resolved;
+        }
+        continue;
+      }
+
+      final language = field.valueMode.language!;
+      final scope = expressionVariables.putIfAbsent(
+        language,
+        () => <String, Object?>{...variables},
+      );
+      final buffer = StringBuffer();
+      var offset = 0;
+      for (final match in workflowTemplatePlaceholderPattern.allMatches(
+        configured,
+      )) {
+        buffer.write(configured.substring(offset, match.start));
+        final reference = match.group(1)!;
+        final resolved = _lookupWorkflowVariable(reference, variables);
+        if (!resolved.found) {
+          throw WorkflowNodeExecutionException(
+            '$label“$name”引用的参数“$reference”不可用。',
+          );
+        }
+        final alias = '__openhand_reference_${aliasIndex++}';
+        scope[alias] = resolved.value;
+        buffer.write(alias);
+        offset = match.end;
+      }
+      buffer.write(configured.substring(offset));
+      (expressions[language] ??= <String, String>{})[field.id] = buffer
+          .toString();
+    }
+
+    for (final entry in expressions.entries) {
+      final runtime = resources.codeRuntimes[entry.key];
+      if (runtime == null || !runtime.isAvailable) {
+        throw WorkflowNodeExecutionException(
+          runtime?.unavailableReason ?? '${entry.key.label} 运行时不可用，无法评估参数表达式。',
+        );
+      }
+      try {
+        final evaluated = await _codeExecutor.evaluateExpressions(
+          runtime: runtime,
+          expressions: entry.value,
+          variables: expressionVariables[entry.key]!,
+        );
+        for (final field in fields.where(
+          (field) => field.valueMode.language == entry.key,
+        )) {
+          final value = evaluated[field.id];
+          values[field.name.trim()] = value;
+          if (value != null) preservedValues[field.name.trim()] = value;
+        }
+      } on WorkflowCodeExecutionException catch (error) {
+        throw WorkflowNodeExecutionException(
+          '$label的${entry.key.label}表达式评估失败：${error.message}',
+          cause: error,
+        );
+      }
+    }
+
+    final resolved = WorkflowStructuredOutputParser.resolveValues(
+      fields
+          .where((field) => !preservedValues.containsKey(field.name.trim()))
+          .toList(growable: false),
+      values,
+      label: label,
+      defaultVariables: variables,
+    );
+    return Map<String, Object?>.unmodifiable(<String, Object?>{
+      for (final field in fields)
+        field.name.trim():
+            preservedValues[field.name.trim()] ?? resolved[field.name.trim()],
+    });
+  }
+
+  Future<Map<String, Object?>> _resolveHttpResponseFields({
+    required _WorkflowHttpResponse response,
+    required List<WorkflowOutputField> fields,
+    required WorkflowExecutionResources resources,
+    required Map<String, Object?> variables,
+  }) async {
+    Object? decodedBody;
+    try {
+      decodedBody = jsonDecode(response.body);
+    } on FormatException {
+      decodedBody = response.body;
+    }
+    final context = <String, Object?>{
+      ...variables,
+      'response': decodedBody,
+      workflowHttpBodyOutputName: response.body,
+      workflowHttpStatusCodeOutputName: response.statusCode,
+      workflowHttpHeadersOutputName: response.headers,
+      workflowHttpFilesOutputName: response.files,
+    };
+    final values = <String, Object?>{};
+    final normalizedFields = <WorkflowOutputField>[];
+    for (final field in fields) {
+      if (field.valueMode != WorkflowValueMode.literal) {
+        normalizedFields.add(field);
+        continue;
+      }
+      final path = field.value.trim();
+      if (path.isEmpty) {
+        if (decodedBody is Map && decodedBody.containsKey(field.name.trim())) {
+          values[field.name.trim()] = decodedBody[field.name.trim()];
+        }
+        normalizedFields.add(field);
+        continue;
+      }
+      final segments = parseWorkflowJsonPath(path);
+      if (segments == null) {
+        throw WorkflowNodeExecutionException(
+          'HTTP 输出参数“${field.name.trim()}”的响应路径无效。',
+        );
+      }
+      Object? current = decodedBody;
+      for (final segment in segments) {
+        if (segment is String &&
+            current is Map &&
+            current.containsKey(segment)) {
+          current = current[segment];
+        } else if (segment is int &&
+            current is List &&
+            segment < current.length) {
+          current = current[segment];
+        } else {
+          throw WorkflowNodeExecutionException('HTTP 响应中不存在路径“$path”。');
+        }
+      }
+      values[field.name.trim()] = current;
+      normalizedFields.add(field.copyWith(value: ''));
+    }
+    return _resolveConfiguredFieldValues(
+      fields: normalizedFields,
+      resources: resources,
+      variables: context,
+      initialValues: values,
+      label: 'HTTP 输出参数',
+    );
+  }
+
   bool _matchesConditions(
     List<WorkflowConditionClause> conditions,
     WorkflowConditionLogic logic,
@@ -2434,6 +2645,17 @@ abstract final class WorkflowStructuredOutputParser {
       }
       if (!names.add(name)) {
         throw WorkflowNodeExecutionException('$label名称重复：$name');
+      }
+      if (field.valueMode != WorkflowValueMode.literal &&
+          field.value.trim().isEmpty) {
+        throw WorkflowNodeExecutionException('$label“$name”缺少表达式。');
+      }
+      if (field.valueMode == WorkflowValueMode.literal &&
+          workflowLiteralValueRequiresString(field.value) &&
+          field.type != WorkflowOutputType.string) {
+        throw WorkflowNodeExecutionException(
+          '$label“$name”混合了参数引用与文本，类型必须为 String。',
+        );
       }
       if (field.defaultValue.trim().isNotEmpty) {
         final sourceError = validateWorkflowSourcedValue(

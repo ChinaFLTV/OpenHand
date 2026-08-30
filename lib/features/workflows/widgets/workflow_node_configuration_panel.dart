@@ -339,6 +339,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
         fields: node.outputFields(),
         addLabel: '添加输出参数',
         idPrefix: 'output',
+        configureValue: true,
         availableReferences: availableReferences,
         reservedParameterNames: reservedParameterNames,
         onChanged: (value) => _set(
@@ -360,6 +361,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
             fields: node.outputFields(),
             addLabel: '添加赋值参数',
             idPrefix: 'assignment',
+            configureValue: true,
             availableReferences: availableReferences,
             reservedParameterNames: reservedParameterNames,
             onChanged: (value) => _set(
@@ -466,6 +468,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                 fields: inputFields,
                 addLabel: '添加输入参数',
                 idPrefix: 'code-input',
+                configureValue: true,
                 availableReferences: availableReferences,
                 reservedParameterNames: const <String, String>{},
                 emptyMessage: '当前 main 函数不接收输入参数。',
@@ -2352,6 +2355,9 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                       fields: fields,
                       addLabel: '添加输出参数',
                       idPrefix: 'http-output',
+                      configureValue: true,
+                      responsePathValue: true,
+                      newFieldValue: r'$',
                       availableReferences: availableReferences,
                       reservedParameterNames: reservedNames,
                       onChanged: _setHttpOutputFields,
@@ -3779,6 +3785,9 @@ class _OutputFieldEditor extends StatelessWidget {
     required this.availableReferences,
     required this.reservedParameterNames,
     required this.onChanged,
+    this.configureValue = false,
+    this.responsePathValue = false,
+    this.newFieldValue = '',
     this.emptyMessage,
   });
 
@@ -3788,6 +3797,9 @@ class _OutputFieldEditor extends StatelessWidget {
   final List<WorkflowParameterReference> availableReferences;
   final Map<String, String> reservedParameterNames;
   final ValueChanged<List<WorkflowOutputField>> onChanged;
+  final bool configureValue;
+  final bool responsePathValue;
+  final String newFieldValue;
   final String? emptyMessage;
 
   @override
@@ -3821,6 +3833,8 @@ class _OutputFieldEditor extends StatelessWidget {
                           key: ValueKey(field.id),
                           field: field,
                           availableReferences: availableReferences,
+                          configureValue: configureValue,
+                          responsePathValue: responsePathValue,
                           nameError: _nameError(field),
                           onChanged: (updated) => onChanged(
                             fields
@@ -3846,6 +3860,7 @@ class _OutputFieldEditor extends StatelessWidget {
             ...fields,
             WorkflowOutputField(
               id: '$idPrefix-${DateTime.now().microsecondsSinceEpoch}',
+              value: newFieldValue,
             ),
           ]),
           icon: const Icon(Icons.add_rounded),
@@ -4098,6 +4113,8 @@ class _OutputFieldCard extends StatelessWidget {
     super.key,
     required this.field,
     required this.availableReferences,
+    required this.configureValue,
+    required this.responsePathValue,
     required this.nameError,
     required this.onChanged,
     required this.onDelete,
@@ -4105,6 +4122,8 @@ class _OutputFieldCard extends StatelessWidget {
 
   final WorkflowOutputField field;
   final List<WorkflowParameterReference> availableReferences;
+  final bool configureValue;
+  final bool responsePathValue;
   final String? nameError;
   final ValueChanged<WorkflowOutputField> onChanged;
   final VoidCallback onDelete;
@@ -4112,6 +4131,25 @@ class _OutputFieldCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final forceString =
+        field.valueMode == WorkflowValueMode.literal &&
+        workflowLiteralValueRequiresString(field.value);
+    WorkflowOutputType literalValueType(String value) {
+      if (workflowLiteralValueRequiresString(value)) {
+        return WorkflowOutputType.string;
+      }
+      final match = workflowTemplatePlaceholderPattern.firstMatch(value);
+      if (match == null || match.start != 0 || match.end != value.length) {
+        return field.type;
+      }
+      return availableReferences
+              .where((reference) => reference.name == match.group(1))
+              .firstOrNull
+              ?.field
+              .type ??
+          field.type;
+    }
+
     const nameHint = '参数名称';
     final nameDecoration = nameError == null
         ? _inputDecoration(nameHint)
@@ -4160,7 +4198,9 @@ class _OutputFieldCard extends StatelessWidget {
                           .toList(growable: false),
                       onChanged: (value) => onChanged(
                         field.copyWith(
-                          type: value ?? WorkflowOutputType.string,
+                          type: forceString
+                              ? WorkflowOutputType.string
+                              : value ?? WorkflowOutputType.string,
                         ),
                       ),
                     ),
@@ -4208,6 +4248,70 @@ class _OutputFieldCard extends StatelessWidget {
                     onChanged(field.copyWith(description: value)),
               ),
             ),
+            if (configureValue) ...[
+              kOpenHandGap10,
+              _LabeledField(
+                label: responsePathValue ? '响应内容取值' : '参数内容取值',
+                required: field.required,
+                helper: responsePathValue
+                    ? r'字面量模式使用 $ 或 $.data.score 提取响应；表达式模式可使用 response、body、status_code、headers、files。输入 / 可引用上游参数。'
+                    : '字面量模式支持纯文本与参数引用拼接；Python、JavaScript 模式会执行表达式并保留结果类型。输入 / 可引用上游参数。',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      height: _formControlHeight,
+                      child: _ValueModeDropdown(
+                        value: field.valueMode,
+                        onChanged: (mode) => onChanged(
+                          field.copyWith(
+                            valueMode: mode,
+                            type: mode == WorkflowValueMode.literal
+                                ? literalValueType(field.value)
+                                : field.type,
+                          ),
+                        ),
+                      ),
+                    ),
+                    kOpenHandGap8,
+                    WorkflowParameterReferenceField(
+                      key: ValueKey(
+                        '${field.id}-value-${field.valueMode.storageValue}',
+                      ),
+                      value: field.value,
+                      references: availableReferences,
+                      decoration: _inputDecoration(
+                        responsePathValue &&
+                                field.valueMode == WorkflowValueMode.literal
+                            ? r'$ 或 $.data.score'
+                            : field.valueMode == WorkflowValueMode.literal
+                            ? '输入文本，或按 / 引用参数'
+                            : '输入表达式，或按 / 引用参数',
+                      ),
+                      maxLines: 4,
+                      onChanged: (value) => onChanged(
+                        field.copyWith(
+                          value: value,
+                          type: field.valueMode == WorkflowValueMode.literal
+                              ? literalValueType(value)
+                              : field.type,
+                        ),
+                      ),
+                    ),
+                    if (forceString)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          '引用参数与额外文本混合时，参数类型已固定为 String。',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
             kOpenHandGap8,
             SizedBox(
               height: _formControlHeight,
@@ -4297,6 +4401,31 @@ class _ValueSourceDropdown extends StatelessWidget {
           )
           .toList(growable: false),
       onChanged: (source) => onChanged(source ?? WorkflowValueSource.constant),
+    );
+  }
+}
+
+class _ValueModeDropdown extends StatelessWidget {
+  const _ValueModeDropdown({required this.value, required this.onChanged});
+
+  final WorkflowValueMode value;
+  final ValueChanged<WorkflowValueMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedDropdownButtonFormField<WorkflowValueMode>(
+      isExpanded: true,
+      initialValue: value,
+      decoration: _inputDecoration('内容取值模式'),
+      items: WorkflowValueMode.values
+          .map(
+            (mode) => DropdownMenuItem<WorkflowValueMode>(
+              value: mode,
+              child: Text(mode.label, overflow: TextOverflow.ellipsis),
+            ),
+          )
+          .toList(growable: false),
+      onChanged: (mode) => onChanged(mode ?? WorkflowValueMode.literal),
     );
   }
 }
