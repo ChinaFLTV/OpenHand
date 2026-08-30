@@ -2984,9 +2984,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         .firstOrNull;
     final title = owner?.title.trim();
     final nodeTitle = title == null || title.isEmpty ? '未命名节点' : title;
-    return parameter.source == WorkflowDevelopmentParameterSource.startInput
-        ? '$nodeTitle 输入'
-        : '$nodeTitle 输出';
+    return nodeTitle;
   }
 
   Map<String, Object?> _developmentVariables() {

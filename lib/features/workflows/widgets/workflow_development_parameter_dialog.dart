@@ -14,6 +14,7 @@ import '../service/workflow_development_parameters.dart';
 import 'workflow_parameter_reference_field.dart';
 
 const double _developmentParameterActionSize = 42;
+const double _developmentParameterFieldHeight = 52;
 const double _developmentParameterListMaxHeight = 480;
 const RoundedRectangleBorder _developmentParameterButtonShape =
     RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius12);
@@ -198,6 +199,13 @@ class _WorkflowDevelopmentParameterDialogState
                   ),
                 ),
                 IconButton(
+                  tooltip: '新增参数',
+                  onPressed: _addParameter,
+                  style: actionStyle,
+                  icon: const Icon(Icons.add_rounded),
+                ),
+                kOpenHandHGap8,
+                IconButton(
                   tooltip: '刷新参数列表',
                   onPressed: _refreshing ? null : _refresh,
                   style: actionStyle,
@@ -228,52 +236,42 @@ class _WorkflowDevelopmentParameterDialogState
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 18, 22, 10),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '当前参数',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-                OutlinedButton.icon(
-                  onPressed: _addParameter,
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('新增参数'),
-                  style: OutlinedButton.styleFrom(
-                    shape: _developmentParameterButtonShape,
-                  ),
-                ),
-              ],
-            ),
-          ),
           SizedBox(
             height: listHeight,
             child: _parameters.isEmpty
-                ? _DevelopmentParameterEmptyState(onAdd: _addParameter)
+                ? const _DevelopmentParameterEmptyState()
                 : Scrollbar(
                     child: ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
-                      itemCount: _parameters.length,
+                      padding: const EdgeInsets.fromLTRB(22, 18, 22, 22),
+                      itemCount: _parameterGroups.length,
                       separatorBuilder: (_, _) => kOpenHandGap10,
                       itemBuilder: (context, index) {
-                        final parameter = _parameters[index];
-                        return _DevelopmentParameterItem(
+                        final group = _parameterGroups[index];
+                        return _DevelopmentParameterNodeGroup(
                           key: ValueKey<String>(
-                            '${parameter.id}:${parameter.name}:${parameter.field.type.storageValue}:${parameter.field.description}',
+                            'development-node-${group.key}',
                           ),
-                          parameter: parameter,
-                          ownerLabel: widget.ownerLabelFor(parameter),
-                          references: widget.referencesFor(parameter),
-                          onValueChanged: (value) =>
+                          nodeLabel: group.name,
+                          inputParameters: group.parameters
+                              .where(
+                                (parameter) =>
+                                    parameter.source !=
+                                    WorkflowDevelopmentParameterSource
+                                        .nodeOutput,
+                              )
+                              .toList(growable: false),
+                          outputParameters: group.parameters
+                              .where(
+                                (parameter) =>
+                                    parameter.source ==
+                                    WorkflowDevelopmentParameterSource
+                                        .nodeOutput,
+                              )
+                              .toList(growable: false),
+                          referencesFor: widget.referencesFor,
+                          onValueChanged: (parameter, value) =>
                               _replace(parameter.copyWith(value: value)),
-                          onDelete: parameter.canDelete
-                              ? () => _delete(parameter)
-                              : null,
+                          onDelete: _delete,
                         );
                       },
                     ),
@@ -283,12 +281,34 @@ class _WorkflowDevelopmentParameterDialogState
       ),
     );
   }
+
+  List<
+    ({String key, String name, List<WorkflowDevelopmentParameter> parameters})
+  >
+  get _parameterGroups {
+    final grouped = <String, List<WorkflowDevelopmentParameter>>{};
+    for (final parameter in _parameters) {
+      final key = parameter.source == WorkflowDevelopmentParameterSource.manual
+          ? 'manual'
+          : parameter.ownerNodeId ?? parameter.id;
+      grouped.putIfAbsent(key, () => []).add(parameter);
+    }
+    return grouped.entries
+        .map(
+          (entry) => (
+            key: entry.key,
+            name: widget.ownerLabelFor(entry.value.first).trim().isEmpty
+                ? '未命名节点'
+                : widget.ownerLabelFor(entry.value.first).trim(),
+            parameters: entry.value,
+          ),
+        )
+        .toList(growable: false);
+  }
 }
 
 class _DevelopmentParameterEmptyState extends StatelessWidget {
-  const _DevelopmentParameterEmptyState({required this.onAdd});
-
-  final VoidCallback onAdd;
+  const _DevelopmentParameterEmptyState();
 
   @override
   Widget build(BuildContext context) {
@@ -322,17 +342,184 @@ class _DevelopmentParameterEmptyState extends StatelessWidget {
                 context,
               ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
             ),
-            kOpenHandGap14,
-            OutlinedButton.icon(
-              onPressed: onAdd,
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('新增参数'),
-              style: OutlinedButton.styleFrom(
-                shape: _developmentParameterButtonShape,
-              ),
-            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _DevelopmentParameterNodeGroup extends StatelessWidget {
+  const _DevelopmentParameterNodeGroup({
+    super.key,
+    required this.nodeLabel,
+    required this.inputParameters,
+    required this.outputParameters,
+    required this.referencesFor,
+    required this.onValueChanged,
+    required this.onDelete,
+  });
+
+  final String nodeLabel;
+  final List<WorkflowDevelopmentParameter> inputParameters;
+  final List<WorkflowDevelopmentParameter> outputParameters;
+  final List<WorkflowParameterReference> Function(
+    WorkflowDevelopmentParameter parameter,
+  )
+  referencesFor;
+  final void Function(WorkflowDevelopmentParameter parameter, String value)
+  onValueChanged;
+  final void Function(WorkflowDevelopmentParameter parameter) onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(kOpenHandRadius16),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer,
+                  borderRadius: BorderRadius.circular(kOpenHandRadius10),
+                ),
+                child: Icon(
+                  Icons.account_tree_rounded,
+                  size: 18,
+                  color: colors.onPrimaryContainer,
+                ),
+              ),
+              kOpenHandHGap10,
+              Expanded(
+                child: Text(
+                  nodeLabel,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              Text(
+                '${inputParameters.length + outputParameters.length} 个参数',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          if (inputParameters.isNotEmpty) ...[
+            kOpenHandGap12,
+            _DevelopmentParameterSection(
+              title: '输入参数',
+              icon: Icons.input_rounded,
+              parameters: inputParameters,
+              referencesFor: referencesFor,
+              onValueChanged: onValueChanged,
+              onDelete: onDelete,
+            ),
+          ],
+          if (outputParameters.isNotEmpty) ...[
+            kOpenHandGap12,
+            _DevelopmentParameterSection(
+              title: '输出参数',
+              icon: Icons.output_rounded,
+              parameters: outputParameters,
+              referencesFor: referencesFor,
+              onValueChanged: onValueChanged,
+              onDelete: onDelete,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DevelopmentParameterSection extends StatelessWidget {
+  const _DevelopmentParameterSection({
+    required this.title,
+    required this.icon,
+    required this.parameters,
+    required this.referencesFor,
+    required this.onValueChanged,
+    required this.onDelete,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<WorkflowDevelopmentParameter> parameters;
+  final List<WorkflowParameterReference> Function(
+    WorkflowDevelopmentParameter parameter,
+  )
+  referencesFor;
+  final void Function(WorkflowDevelopmentParameter parameter, String value)
+  onValueChanged;
+  final void Function(WorkflowDevelopmentParameter parameter) onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(kOpenHandRadius14),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: colors.primary),
+              kOpenHandHGap8,
+              Text(
+                title,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              kOpenHandHGap6,
+              Text(
+                '${parameters.length}',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          kOpenHandGap8,
+          ...parameters.indexed.map((entry) {
+            final parameter = entry.$2;
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: entry.$1 == parameters.length - 1 ? 0 : 8,
+              ),
+              child: _DevelopmentParameterItem(
+                key: ValueKey<String>(
+                  '${parameter.id}:${parameter.name}:${parameter.field.type.storageValue}:${parameter.field.description}',
+                ),
+                parameter: parameter,
+                references: referencesFor(parameter),
+                onValueChanged: (value) => onValueChanged(parameter, value),
+                onDelete: parameter.canDelete
+                    ? () => onDelete(parameter)
+                    : null,
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
@@ -342,14 +529,12 @@ class _DevelopmentParameterItem extends StatelessWidget {
   const _DevelopmentParameterItem({
     super.key,
     required this.parameter,
-    required this.ownerLabel,
     required this.references,
     required this.onValueChanged,
     this.onDelete,
   });
 
   final WorkflowDevelopmentParameter parameter;
-  final String ownerLabel;
   final List<WorkflowParameterReference> references;
   final ValueChanged<String> onValueChanged;
   final VoidCallback? onDelete;
@@ -361,20 +546,20 @@ class _DevelopmentParameterItem extends StatelessWidget {
     final field = parameter.field;
     final decoration = _developmentParameterInputDecoration(context);
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(kOpenHandRadius14),
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(kOpenHandRadius12),
         border: Border.all(color: colors.outlineVariant),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final compact = constraints.maxWidth < 760;
+          final compact = constraints.maxWidth < 680;
           final deleteButton = IconButton.filledTonal(
             tooltip: parameter.canDelete ? '删除参数' : '开始节点参数不可删除',
             onPressed: onDelete,
             style: IconButton.styleFrom(
-              fixedSize: const Size.square(44),
+              fixedSize: const Size.square(_developmentParameterFieldHeight),
               padding: EdgeInsets.zero,
               shape: _developmentParameterButtonShape,
             ),
@@ -402,83 +587,92 @@ class _DevelopmentParameterItem extends StatelessWidget {
             enabled: false,
             decoration: decoration.copyWith(labelText: '参数介绍'),
           );
+          final requiredField = _DevelopmentParameterMeta(
+            label: '必需',
+            selected: field.required,
+            width: 82,
+          );
+          final sourceField = _DevelopmentParameterMeta(
+            label: field.valueSource == WorkflowValueSource.constant
+                ? '常量'
+                : '变量',
+            selected: field.valueSource == WorkflowValueSource.constant,
+            width: 82,
+          );
+          final descriptionRow = Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: _developmentParameterFieldHeight,
+                  child: descriptionField,
+                ),
+              ),
+              kOpenHandHGap8,
+              requiredField,
+              kOpenHandHGap8,
+              sourceField,
+            ],
+          );
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colors.primaryContainer.withValues(alpha: 0.72),
-                      borderRadius: BorderRadius.circular(kOpenHandRadius8),
-                    ),
-                    child: Text(
-                      ownerLabel,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colors.onPrimaryContainer,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  _DevelopmentParameterMeta(
-                    label: field.required ? '必需' : '可选',
-                  ),
-                  kOpenHandHGap6,
-                  _DevelopmentParameterMeta(
-                    label: field.valueSource == WorkflowValueSource.constant
-                        ? '常量'
-                        : '变量',
-                  ),
-                ],
-              ),
-              kOpenHandGap10,
               if (compact) ...[
-                SizedBox(height: 52, child: nameField),
+                SizedBox(
+                  height: _developmentParameterFieldHeight,
+                  child: nameField,
+                ),
                 kOpenHandGap8,
                 Row(
                   children: [
-                    Expanded(child: SizedBox(height: 52, child: typeField)),
+                    Expanded(
+                      child: SizedBox(
+                        height: _developmentParameterFieldHeight,
+                        child: typeField,
+                      ),
+                    ),
                     kOpenHandHGap8,
                     deleteButton,
                   ],
                 ),
                 kOpenHandGap8,
-                SizedBox(height: 52, child: descriptionField),
+                SizedBox(
+                  height: _developmentParameterFieldHeight,
+                  child: descriptionField,
+                ),
+                kOpenHandGap8,
+                Row(children: [requiredField, kOpenHandHGap8, sourceField]),
               ] else ...[
                 Row(
                   children: [
                     Expanded(
                       flex: 3,
-                      child: SizedBox(height: 52, child: nameField),
+                      child: SizedBox(
+                        height: _developmentParameterFieldHeight,
+                        child: nameField,
+                      ),
                     ),
                     kOpenHandHGap8,
-                    SizedBox(width: 154, height: 52, child: typeField),
+                    SizedBox(
+                      width: 154,
+                      height: _developmentParameterFieldHeight,
+                      child: typeField,
+                    ),
                     kOpenHandHGap8,
                     deleteButton,
                   ],
                 ),
                 kOpenHandGap8,
-                SizedBox(height: 52, child: descriptionField),
+                descriptionRow,
               ],
               kOpenHandGap10,
-              Text(
-                '参数值',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              kOpenHandGap6,
               WorkflowParameterReferenceField(
                 key: ValueKey<String>('development-value-${parameter.id}'),
                 value: parameter.value,
                 references: references,
                 maxLines: 4,
                 decoration: decoration.copyWith(
+                  labelText: '参数值',
                   hintText: references.isEmpty ? '输入参数值' : '输入参数值，按 / 引用可用参数',
                 ),
                 onChanged: onValueChanged,
@@ -492,21 +686,47 @@ class _DevelopmentParameterItem extends StatelessWidget {
 }
 
 class _DevelopmentParameterMeta extends StatelessWidget {
-  const _DevelopmentParameterMeta({required this.label});
+  const _DevelopmentParameterMeta({
+    required this.label,
+    required this.selected,
+    required this.width,
+  });
 
   final String label;
+  final bool selected;
+  final double width;
 
   @override
-  Widget build(BuildContext context) => OutlinedButton(
-    onPressed: null,
-    style: OutlinedButton.styleFrom(
-      minimumSize: Size.zero,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      shape: _developmentParameterButtonShape,
-    ),
-    child: Text(label),
-  );
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final foreground = selected
+        ? colors.onPrimaryContainer
+        : colors.onSurfaceVariant;
+    return SizedBox(
+      width: width,
+      height: _developmentParameterFieldHeight,
+      child: OutlinedButton(
+        onPressed: null,
+        style: OutlinedButton.styleFrom(
+          minimumSize: Size.zero,
+          padding: EdgeInsets.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          foregroundColor: foreground,
+          disabledForegroundColor: foreground,
+          backgroundColor: selected
+              ? colors.primaryContainer
+              : colors.surfaceContainerLow,
+          side: BorderSide(
+            color: selected
+                ? colors.primary.withValues(alpha: 0.5)
+                : colors.outlineVariant,
+          ),
+          shape: _developmentParameterButtonShape,
+        ),
+        child: Text(label),
+      ),
+    );
+  }
 }
 
 InputDecoration _developmentParameterInputDecoration(BuildContext context) =>
