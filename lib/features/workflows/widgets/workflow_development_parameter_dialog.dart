@@ -55,6 +55,7 @@ showWorkflowDevelopmentParameterDialog(
   List<WorkflowParameterReference> availableParameters = const [],
 }) => showAnimatedDialog<List<WorkflowDevelopmentParameter>>(
   context: context,
+  transitionProfile: kOpenHandLayoutSafeTransitionProfile,
   barrierDismissible: false,
   dismissOnEscape: false,
   builder: (_) => _WorkflowDevelopmentParameterDialog(
