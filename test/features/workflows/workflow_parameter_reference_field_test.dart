@@ -134,4 +134,48 @@ void main() {
     expect(references.last.name, 'result');
     expect(references.last.direction, WorkflowParameterDirection.output);
   });
+
+  test('workflowUpstreamHopDistances 返回由近到远的最小跳数', () {
+    const connections = <WorkflowConnection>[
+      WorkflowConnection(
+        id: 'e1',
+        sourceNodeId: 'start',
+        targetNodeId: 'code',
+      ),
+      WorkflowConnection(
+        id: 'e2',
+        sourceNodeId: 'code',
+        targetNodeId: 'end',
+      ),
+      WorkflowConnection(
+        id: 'e3',
+        sourceNodeId: 'llm',
+        targetNodeId: 'end',
+      ),
+      WorkflowConnection(
+        id: 'e4',
+        sourceNodeId: 'start',
+        targetNodeId: 'llm',
+      ),
+    ];
+    final distances = workflowUpstreamHopDistances(
+      targetNodeId: 'end',
+      connections: connections,
+    );
+    expect(distances['code'], 1);
+    expect(distances['llm'], 1);
+    expect(distances['start'], 2);
+    expect(distances.containsKey('end'), isFalse);
+
+    final ordered = distances.entries.toList()
+      ..sort((left, right) {
+        final hopCompare = left.value.compareTo(right.value);
+        if (hopCompare != 0) return hopCompare;
+        return left.key.compareTo(right.key);
+      });
+    expect(
+      ordered.map((entry) => entry.key).toList(),
+      <String>['code', 'llm', 'start'],
+    );
+  });
 }

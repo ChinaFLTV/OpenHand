@@ -3638,7 +3638,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     }
     final graphError = _validateTopLevelGraph();
     if (graphError != null) return graphError;
-    return validateWorkflowParameterNames(_nodes);
+    final parameterError = validateWorkflowParameterNames(_nodes);
+    return parameterError ??
+        validateWorkflowParameterReferences(_nodes, _connections);
   }
 
   String? _validateExpressionRuntimes(List<WorkflowOutputField> fields) {
@@ -3806,37 +3808,17 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     if (target.kind == WorkflowNodeKind.start) {
       return const <WorkflowParameterReference>[];
     }
-    final upstreamIds = <String>{};
-    final pending = <String>[target.id];
-    while (pending.isNotEmpty) {
-      final targetId = pending.removeLast();
-      for (final connection in _connections) {
-        if (connection.targetNodeId != targetId ||
-            connection.sourceNodeId == target.id ||
-            !upstreamIds.add(connection.sourceNodeId)) {
-          continue;
-        }
-        pending.add(connection.sourceNodeId);
-      }
-    }
-
+    final hopDistances = workflowUpstreamHopDistances(
+      targetNodeId: target.id,
+      connections: _connections,
+    );
     final names = <String>{};
     final parent = target.parentNodeId == null
         ? null
         : _nodes.where((node) => node.id == target.parentNodeId).firstOrNull;
-    final references = _nodes
-        .where(
-          (node) =>
-              upstreamIds.contains(node.id) &&
-              (parent == null || node.id != parent.id),
-        )
-        .expand(
-          (node) => collectWorkflowParameterReferences(
-            node,
-            usedNames: names,
-          ),
-        )
-        .toList(growable: true);
+    final references = <WorkflowParameterReference>[];
+
+    // 作用域内参数最近，优先展示。
     if (parent?.kind == WorkflowNodeKind.iteration) {
       for (final field in const <WorkflowOutputField>[
         WorkflowOutputField(
@@ -3891,6 +3873,29 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
           ),
         );
       }
+    }
+
+    final upstreamNodes =
+        _nodes
+            .where(
+              (node) =>
+                  hopDistances.containsKey(node.id) &&
+                  (parent == null || node.id != parent.id),
+            )
+            .toList(growable: false)
+          ..sort((left, right) {
+            final hopCompare = hopDistances[left.id]!.compareTo(
+              hopDistances[right.id]!,
+            );
+            if (hopCompare != 0) return hopCompare;
+            final titleCompare = left.title.compareTo(right.title);
+            if (titleCompare != 0) return titleCompare;
+            return left.id.compareTo(right.id);
+          });
+    for (final node in upstreamNodes) {
+      references.addAll(
+        collectWorkflowParameterReferences(node, usedNames: names),
+      );
     }
     return List<WorkflowParameterReference>.unmodifiable(references);
   }

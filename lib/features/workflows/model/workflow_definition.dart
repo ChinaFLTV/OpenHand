@@ -770,6 +770,9 @@ final RegExp workflowHumanActionIdPattern = RegExp(
 final RegExp workflowTemplatePlaceholderPattern = RegExp(
   r'\{\{\s*([A-Za-z_][A-Za-z0-9_.-]*)\s*\}\}',
 );
+final RegExp _workflowDirectReferencePattern = RegExp(
+  r'^[A-Za-z_][A-Za-z0-9_.-]*$',
+);
 
 String workflowParameterPlaceholder(String name) => '{{${name.trim()}}}';
 
@@ -1354,6 +1357,34 @@ List<WorkflowParameterReference> collectWorkflowParameterReferences(
   append(node.inputParameterFields(), WorkflowParameterDirection.input);
   append(node.outputParameterFields(), WorkflowParameterDirection.output);
   return references;
+}
+
+/// 从 [targetNodeId] 沿入边回溯，返回上游节点到目标的最小跳数（直接上游为 1）。
+Map<String, int> workflowUpstreamHopDistances({
+  required String targetNodeId,
+  required List<WorkflowConnection> connections,
+}) {
+  if (targetNodeId.isEmpty) return const <String, int>{};
+  final distances = <String, int>{targetNodeId: 0};
+  final pending = <String>[targetNodeId];
+  var cursor = 0;
+  while (cursor < pending.length) {
+    final current = pending[cursor++];
+    final nextDistance = distances[current]! + 1;
+    for (final connection in connections) {
+      if (connection.targetNodeId != current) continue;
+      final sourceId = connection.sourceNodeId;
+      if (sourceId.isEmpty ||
+          sourceId == targetNodeId ||
+          distances.containsKey(sourceId)) {
+        continue;
+      }
+      distances[sourceId] = nextDistance;
+      pending.add(sourceId);
+    }
+  }
+  distances.remove(targetNodeId);
+  return distances;
 }
 
 @immutable
@@ -2025,6 +2056,435 @@ String? validateWorkflowParameterNames(List<WorkflowNode> nodes) {
   }
   return null;
 }
+
+/// 校验参数引用的来源、执行顺序与作用域，避免保存后在运行时才发现失效引用。
+String? validateWorkflowParameterReferences(
+  List<WorkflowNode> nodes,
+  List<WorkflowConnection> connections,
+) {
+  final nameError = validateWorkflowParameterNames(nodes);
+  if (nameError != null) return nameError;
+  final nodesById = <String, WorkflowNode>{
+    for (final node in nodes) node.id: node,
+  };
+  final scopes = _workflowParameterScopes(nodes, connections);
+  final owners = <String, WorkflowNode>{
+    for (final node in nodes)
+      for (final field in node.declaredParameterFields())
+        if (workflowParameterNamePattern.hasMatch(field.name.trim()))
+          field.name.trim(): node,
+  };
+  for (final target in nodes) {
+    if (!scopes.containsKey(target.parentNodeId)) {
+      return '节点“${_workflowNodeName(target)}”所属的工作流作用域无效，请将其移至有效容器。';
+    }
+    final localNames = _workflowLocalParameterNames(target, nodesById);
+    for (final usage in _workflowParameterUsages(target)) {
+      for (final reference in _workflowReferenceNames(usage)) {
+        final name = reference.split('.').first;
+        if (localNames.contains(name) || usage.localNames.contains(name)) {
+          continue;
+        }
+        final source = owners[name];
+        if (source == null) {
+          return '节点“${_workflowNodeName(target)}”的${usage.label}引用了不存在的参数“$reference”。请改用可用参数，或在必经上游节点添加该参数。';
+        }
+        final availability = _workflowParameterAvailability(
+          source: source,
+          target: target,
+          afterNestedScope: usage.afterNestedScope,
+          nodesById: nodesById,
+          scopes: scopes,
+        );
+        if (availability == _WorkflowParameterAvailability.available) {
+          continue;
+        }
+        final sourceName = _workflowNodeName(source);
+        return switch (availability) {
+          _WorkflowParameterAvailability.notUpstream =>
+            '节点“${_workflowNodeName(target)}”的${usage.label}引用了参数“$reference”，但来源节点“$sourceName”无法推进到当前节点。请恢复有效连线，或改用当前节点的上游参数。',
+          _WorkflowParameterAvailability.notGuaranteed =>
+            '节点“${_workflowNodeName(target)}”的${usage.label}引用了参数“$reference”，但来源节点“$sourceName”不是当前节点的必经上游，部分分支可能不会生成该参数。请将来源置于所有路径的共同上游，或在每个分支提供该参数。',
+          _WorkflowParameterAvailability.invalidScope =>
+            '节点“${_workflowNodeName(target)}”的${usage.label}引用了参数“$reference”，但来源节点“$sourceName”位于不可见的嵌套作用域。请改用当前作用域或其上游提供的参数。',
+          _WorkflowParameterAvailability.available => '',
+        };
+      }
+    }
+  }
+  return null;
+}
+
+enum _WorkflowParameterAvailability {
+  available,
+  notUpstream,
+  notGuaranteed,
+  invalidScope,
+}
+
+class _WorkflowParameterUsage {
+  const _WorkflowParameterUsage({
+    required this.value,
+    required this.label,
+    this.allowDirectReference = false,
+    this.afterNestedScope = false,
+    this.localNames = const <String>{},
+  });
+
+  final String value;
+  final String label;
+  final bool allowDirectReference;
+  final bool afterNestedScope;
+  final Set<String> localNames;
+}
+
+class _WorkflowParameterScope {
+  _WorkflowParameterScope({
+    required Iterable<String> nodeIds,
+    required Iterable<String> entryNodeIds,
+    required Iterable<WorkflowConnection> connections,
+  }) : nodeIds = Set<String>.unmodifiable(nodeIds),
+       entryNodeIds = Set<String>.unmodifiable(entryNodeIds),
+       _outgoing = _buildOutgoing(connections);
+
+  final Set<String> nodeIds;
+  final Set<String> entryNodeIds;
+  final Map<String, List<String>> _outgoing;
+
+  bool canReach(String sourceId, String targetId) {
+    if (!nodeIds.contains(sourceId) || !nodeIds.contains(targetId)) {
+      return false;
+    }
+    final pending = <String>[sourceId];
+    final visited = <String>{};
+    while (pending.isNotEmpty) {
+      final current = pending.removeLast();
+      if (!visited.add(current)) continue;
+      if (current == targetId) return true;
+      pending.addAll(_outgoing[current] ?? const <String>[]);
+    }
+    return false;
+  }
+
+  bool dominates(String sourceId, String targetId, {bool allowSame = false}) {
+    if ((!allowSame && sourceId == targetId) ||
+        entryNodeIds.isEmpty ||
+        !canReach(sourceId, targetId)) {
+      return false;
+    }
+    final pending = <String>[
+      for (final entry in entryNodeIds)
+        if (entry != sourceId) entry,
+    ];
+    final visited = <String>{};
+    while (pending.isNotEmpty) {
+      final current = pending.removeLast();
+      if (!visited.add(current)) continue;
+      if (current == targetId) return false;
+      for (final next in _outgoing[current] ?? const <String>[]) {
+        if (next != sourceId) pending.add(next);
+      }
+    }
+    return true;
+  }
+
+  bool dominatesEveryExit(String sourceId) {
+    final exits = nodeIds
+        .where((nodeId) => (_outgoing[nodeId] ?? const <String>[]).isEmpty)
+        .toList(growable: false);
+    return exits.isNotEmpty &&
+        exits.every(
+          (targetId) => dominates(sourceId, targetId, allowSame: true),
+        );
+  }
+
+  static Map<String, List<String>> _buildOutgoing(
+    Iterable<WorkflowConnection> connections,
+  ) {
+    final outgoing = <String, List<String>>{};
+    for (final connection in connections) {
+      (outgoing[connection.sourceNodeId] ??= <String>[]).add(
+        connection.targetNodeId,
+      );
+    }
+    return Map<String, List<String>>.unmodifiable(<String, List<String>>{
+      for (final entry in outgoing.entries)
+        entry.key: List<String>.unmodifiable(entry.value),
+    });
+  }
+}
+
+Map<String?, _WorkflowParameterScope> _workflowParameterScopes(
+  List<WorkflowNode> nodes,
+  List<WorkflowConnection> connections,
+) {
+  final scopes = <String?, _WorkflowParameterScope>{};
+  final topLevel = nodes
+      .where((node) => node.parentNodeId == null)
+      .toList(growable: false);
+  final topLevelIds = topLevel.map((node) => node.id).toSet();
+  scopes[null] = _WorkflowParameterScope(
+    nodeIds: topLevelIds,
+    entryNodeIds: topLevel
+        .where((node) => node.kind == WorkflowNodeKind.start)
+        .map((node) => node.id),
+    connections: connections.where(
+      (connection) =>
+          topLevelIds.contains(connection.sourceNodeId) &&
+          topLevelIds.contains(connection.targetNodeId) &&
+          connection.sourceHandleId != workflowContainerStartHandleId,
+    ),
+  );
+  for (final container in nodes.where((node) => node.isContainer)) {
+    final children = nodes
+        .where((node) => node.parentNodeId == container.id)
+        .toList(growable: false);
+    final childIds = children.map((node) => node.id).toSet();
+    scopes[container.id] = _WorkflowParameterScope(
+      nodeIds: childIds,
+      entryNodeIds: connections
+          .where(
+            (connection) =>
+                connection.sourceNodeId == container.id &&
+                connection.sourceHandleId == workflowContainerStartHandleId &&
+                childIds.contains(connection.targetNodeId),
+          )
+          .map((connection) => connection.targetNodeId),
+      connections: connections.where(
+        (connection) =>
+            childIds.contains(connection.sourceNodeId) &&
+            childIds.contains(connection.targetNodeId),
+      ),
+    );
+  }
+  return Map<String?, _WorkflowParameterScope>.unmodifiable(scopes);
+}
+
+_WorkflowParameterAvailability _workflowParameterAvailability({
+  required WorkflowNode source,
+  required WorkflowNode target,
+  required bool afterNestedScope,
+  required Map<String, WorkflowNode> nodesById,
+  required Map<String?, _WorkflowParameterScope> scopes,
+}) {
+  if (source.parentNodeId == target.parentNodeId) {
+    final scope = scopes[target.parentNodeId];
+    if (scope == null) return _WorkflowParameterAvailability.invalidScope;
+    if (!scope.canReach(source.id, target.id)) {
+      return _WorkflowParameterAvailability.notUpstream;
+    }
+    return scope.dominates(source.id, target.id)
+        ? _WorkflowParameterAvailability.available
+        : _WorkflowParameterAvailability.notGuaranteed;
+  }
+  if (afterNestedScope &&
+      target.isContainer &&
+      source.parentNodeId == target.id) {
+    final scope = scopes[target.id];
+    if (scope == null || !scope.canReach(source.id, source.id)) {
+      return _WorkflowParameterAvailability.notUpstream;
+    }
+    return scope.dominatesEveryExit(source.id)
+        ? _WorkflowParameterAvailability.available
+        : _WorkflowParameterAvailability.notGuaranteed;
+  }
+  if (source.parentNodeId == null && target.parentNodeId != null) {
+    final parent = nodesById[target.parentNodeId];
+    final topLevel = scopes[null];
+    if (parent == null || topLevel == null) {
+      return _WorkflowParameterAvailability.invalidScope;
+    }
+    if (!topLevel.canReach(source.id, parent.id)) {
+      return _WorkflowParameterAvailability.notUpstream;
+    }
+    return topLevel.dominates(source.id, parent.id)
+        ? _WorkflowParameterAvailability.available
+        : _WorkflowParameterAvailability.notGuaranteed;
+  }
+  return _WorkflowParameterAvailability.invalidScope;
+}
+
+Set<String> _workflowLocalParameterNames(
+  WorkflowNode target,
+  Map<String, WorkflowNode> nodesById,
+) {
+  final parent = target.parentNodeId == null
+      ? null
+      : nodesById[target.parentNodeId];
+  if (parent?.kind == WorkflowNodeKind.iteration) {
+    return const <String>{'item', 'index', 'length'};
+  }
+  if (parent?.kind == WorkflowNodeKind.loop) {
+    return <String>{
+      'loop_index',
+      ...parent!.loopVariables().map((variable) => variable.name.trim()),
+    };
+  }
+  return const <String>{};
+}
+
+List<_WorkflowParameterUsage> _workflowParameterUsages(WorkflowNode node) {
+  final usages = <_WorkflowParameterUsage>[];
+  void add(
+    String value,
+    String label, {
+    bool allowDirectReference = false,
+    bool afterNestedScope = false,
+    Set<String> localNames = const <String>{},
+  }) {
+    if (value.trim().isEmpty) return;
+    usages.add(
+      _WorkflowParameterUsage(
+        value: value,
+        label: label,
+        allowDirectReference: allowDirectReference,
+        afterNestedScope: afterNestedScope,
+        localNames: localNames,
+      ),
+    );
+  }
+
+  void addFields(List<WorkflowOutputField> fields, String fieldLabel) {
+    for (final field in fields) {
+      final name = field.name.trim();
+      final label = name.isEmpty ? fieldLabel : '$fieldLabel“$name”';
+      add(field.value, label);
+      if (field.valueSource == WorkflowValueSource.variable) {
+        add(field.defaultValue, label, allowDirectReference: true);
+      }
+    }
+  }
+
+  addFields(node.inputFields(), '输入参数');
+  addFields(node.codeInputFields(), '代码输入参数');
+  addFields(node.humanInputFields(), '人工输入参数');
+  addFields(node.outputFields(), '输出参数');
+  switch (node.kind) {
+    case WorkflowNodeKind.llm:
+      add(node.stringSetting(WorkflowSettingKeys.prompt), '提示词');
+      add(node.stringSetting(WorkflowSettingKeys.inputContent), '输入内容');
+    case WorkflowNodeKind.httpRequest:
+      add(node.stringSetting(WorkflowSettingKeys.url), '请求地址');
+      for (final entry in <WorkflowKeyValueEntry>[
+        ...node.keyValueSetting(WorkflowSettingKeys.headers),
+        ...node.keyValueSetting(WorkflowSettingKeys.queryParameters),
+        ...node.keyValueSetting(WorkflowSettingKeys.bodyEntries),
+      ]) {
+        if (entry.valueSource == WorkflowValueSource.variable) {
+          add(entry.value, '请求参数“${entry.key.trim()}”', allowDirectReference: true);
+        }
+      }
+      final format = WorkflowHttpBodyFormat.fromStorage(
+        node.settings[WorkflowSettingKeys.bodyFormat],
+      );
+      if (format != WorkflowHttpBodyFormat.none && !format.usesFields) {
+        add(node.stringSetting(WorkflowSettingKeys.body), '请求体');
+      }
+    case WorkflowNodeKind.condition:
+      final cases = node.conditionCases();
+      if (cases.isEmpty) {
+        add(node.stringSetting(WorkflowSettingKeys.expression), '条件表达式');
+      }
+      for (final item in cases) {
+        for (final condition in item.conditions) {
+          add(condition.variable, '分支条件变量', allowDirectReference: true);
+          if (condition.operator.requiresValue &&
+              condition.valueSource == WorkflowValueSource.variable) {
+            add(condition.value, '分支条件比较值', allowDirectReference: true);
+          }
+        }
+      }
+    case WorkflowNodeKind.listOperation:
+      add(
+        node.stringSetting(WorkflowSettingKeys.listInput),
+        '数组输入',
+        allowDirectReference: true,
+      );
+      if (node.boolSetting(WorkflowSettingKeys.listFilterEnabled) &&
+          WorkflowValueSource.fromStorage(
+                node.settings[WorkflowSettingKeys.listFilterValueSource],
+                legacyValue: node.stringSetting(
+                  WorkflowSettingKeys.listFilterValue,
+                ),
+              ) ==
+              WorkflowValueSource.variable) {
+        add(
+          node.stringSetting(WorkflowSettingKeys.listFilterValue),
+          '列表筛选比较值',
+          allowDirectReference: true,
+        );
+      }
+      if (node.boolSetting(WorkflowSettingKeys.listExtractEnabled)) {
+        add(node.stringSetting(WorkflowSettingKeys.listExtractSerial), '提取序号');
+      }
+    case WorkflowNodeKind.loop:
+      for (final variable in node.loopVariables()) {
+        if (variable.valueSource == WorkflowValueSource.variable) {
+          add(variable.initialValue, '循环变量“${variable.name.trim()}”');
+        }
+      }
+      final localNames = <String>{
+        'loop_index',
+        ...node.loopVariables().map((variable) => variable.name.trim()),
+      };
+      for (final condition in node.loopBreakConditions()) {
+        add(
+          condition.variable,
+          '循环退出条件变量',
+          allowDirectReference: true,
+          afterNestedScope: true,
+          localNames: localNames,
+        );
+        if (condition.operator.requiresValue &&
+            condition.valueSource == WorkflowValueSource.variable) {
+          add(
+            condition.value,
+            '循环退出条件比较值',
+            allowDirectReference: true,
+            afterNestedScope: true,
+            localNames: localNames,
+          );
+        }
+      }
+    case WorkflowNodeKind.iteration:
+      add(
+        node.stringSetting(WorkflowSettingKeys.iterationInput),
+        '数组输入',
+        allowDirectReference: true,
+      );
+      add(
+        node.stringSetting(WorkflowSettingKeys.iterationOutput),
+        '输出映射',
+        afterNestedScope: true,
+        localNames: const <String>{'item', 'index', 'length'},
+      );
+    case WorkflowNodeKind.humanIntervention:
+      add(node.stringSetting(WorkflowSettingKeys.humanPrompt), '请求说明');
+    case WorkflowNodeKind.start ||
+        WorkflowNodeKind.parameterAssignment ||
+        WorkflowNodeKind.codeExecution ||
+        WorkflowNodeKind.loopExit ||
+        WorkflowNodeKind.end:
+      break;
+  }
+  return List<_WorkflowParameterUsage>.unmodifiable(usages);
+}
+
+Iterable<String> _workflowReferenceNames(_WorkflowParameterUsage usage) sync* {
+  var foundTemplate = false;
+  for (final match in workflowTemplatePlaceholderPattern.allMatches(usage.value)) {
+    foundTemplate = true;
+    yield match.group(1)!;
+  }
+  if (!foundTemplate &&
+      usage.allowDirectReference &&
+      _workflowDirectReferencePattern.hasMatch(usage.value.trim())) {
+    yield usage.value.trim();
+  }
+}
+
+String _workflowNodeName(WorkflowNode node) =>
+    node.title.trim().isEmpty ? '未命名节点' : node.title.trim();
 
 String? validateWorkflowHumanActions(List<WorkflowHumanAction> actions) {
   if (actions.isEmpty) return '人工介入节点至少需要一个用户动作。';
