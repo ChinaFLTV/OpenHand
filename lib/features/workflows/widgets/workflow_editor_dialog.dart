@@ -1041,6 +1041,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     final result = arrangeWorkflowNodes(
       nodes: _nodes,
       connections: _connections,
+      annotations: _annotations,
       sizeOf: (node) =>
           (width: _nodeWidthFor(node), height: _nodeHeightFor(node)),
     );
@@ -1075,6 +1076,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     setState(() {
       _organizingNodes = duration > Duration.zero;
       _nodes = result.nodes;
+      _annotations = result.annotations;
       _selectedConnectionId = null;
       _testResult = null;
       _testError = null;

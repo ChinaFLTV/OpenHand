@@ -11,6 +11,7 @@ const double kWorkflowContainerMinHeight = 196;
 const double kWorkflowContainerChildLeft = 132;
 const double kWorkflowContainerChildTop = 96;
 const double kWorkflowContainerPadding = 34;
+const double _workflowAnnotationCanvasPadding = 16;
 
 typedef WorkflowNodeSizeResolver =
     ({double width, double height}) Function(WorkflowNode node);
@@ -48,6 +49,7 @@ class WorkflowAutoLayoutConfig {
 class WorkflowAutoLayoutResult {
   const WorkflowAutoLayoutResult({
     required this.nodes,
+    required this.annotations,
     required this.fitsCanvas,
     required this.changed,
     required this.left,
@@ -57,6 +59,7 @@ class WorkflowAutoLayoutResult {
   });
 
   final List<WorkflowNode> nodes;
+  final List<WorkflowAnnotation> annotations;
   final bool fitsCanvas;
   final bool changed;
   final double left;
@@ -69,11 +72,13 @@ WorkflowAutoLayoutResult arrangeWorkflowNodes({
   required List<WorkflowNode> nodes,
   required List<WorkflowConnection> connections,
   required WorkflowNodeSizeResolver sizeOf,
+  List<WorkflowAnnotation> annotations = const <WorkflowAnnotation>[],
   WorkflowAutoLayoutConfig config = const WorkflowAutoLayoutConfig(),
 }) {
   if (nodes.isEmpty) {
-    return const WorkflowAutoLayoutResult(
+    return WorkflowAutoLayoutResult(
       nodes: <WorkflowNode>[],
+      annotations: List<WorkflowAnnotation>.unmodifiable(annotations),
       fitsCanvas: true,
       changed: false,
       left: 0,
@@ -196,6 +201,13 @@ WorkflowAutoLayoutResult arrangeWorkflowNodes({
   final arranged = nodes
       .map((node) => working[node.id]!)
       .toList(growable: false);
+  final arrangedAnnotations = _arrangeWorkflowAnnotations(
+    annotations: annotations,
+    beforeNodes: nodes,
+    arrangedNodes: arranged,
+    sizeOf: sizeOf,
+    config: config,
+  );
   var changed = false;
   for (var index = 0; index < nodes.length; index++) {
     final before = nodes[index];
@@ -211,16 +223,37 @@ WorkflowAutoLayoutResult arrangeWorkflowNodes({
     }
   }
 
-  final left = config.canvasPadding;
-  final top = config.canvasPadding;
-  final right = left + rootLayout.width;
-  final bottom = top + rootLayout.height;
+  if (!changed) {
+    for (var index = 0; index < annotations.length; index++) {
+      final before = annotations[index];
+      final after = arrangedAnnotations[index];
+      if ((before.x - after.x).abs() > 0.01 ||
+          (before.y - after.y).abs() > 0.01) {
+        changed = true;
+        break;
+      }
+    }
+  }
+
+  var left = config.canvasPadding;
+  var top = config.canvasPadding;
+  var right = left + rootLayout.width;
+  var bottom = top + rootLayout.height;
+  for (final annotation in arrangedAnnotations) {
+    left = math.min(left, annotation.x);
+    top = math.min(top, annotation.y);
+    right = math.max(right, annotation.x + annotation.width);
+    bottom = math.max(bottom, annotation.y + annotation.height);
+  }
   fitsCanvas =
       fitsCanvas &&
-      right <= config.canvasWidth - config.canvasPadding + 0.01 &&
-      bottom <= config.canvasHeight - config.canvasPadding + 0.01;
+      left >= -0.01 &&
+      top >= -0.01 &&
+      right <= config.canvasWidth + 0.01 &&
+      bottom <= config.canvasHeight + 0.01;
   return WorkflowAutoLayoutResult(
     nodes: List<WorkflowNode>.unmodifiable(arranged),
+    annotations: List<WorkflowAnnotation>.unmodifiable(arrangedAnnotations),
     fitsCanvas: fitsCanvas,
     changed: changed,
     left: left,
@@ -228,6 +261,101 @@ WorkflowAutoLayoutResult arrangeWorkflowNodes({
     right: right,
     bottom: bottom,
   );
+}
+
+List<WorkflowAnnotation> _arrangeWorkflowAnnotations({
+  required List<WorkflowAnnotation> annotations,
+  required List<WorkflowNode> beforeNodes,
+  required List<WorkflowNode> arrangedNodes,
+  required WorkflowNodeSizeResolver sizeOf,
+  required WorkflowAutoLayoutConfig config,
+}) {
+  if (annotations.isEmpty || beforeNodes.isEmpty) return annotations;
+  final arrangedById = <String, WorkflowNode>{
+    for (final node in arrangedNodes) node.id: node,
+  };
+  return annotations
+      .map((annotation) {
+        final anchor = _nearestAnnotationAnchor(
+          annotation,
+          beforeNodes,
+          sizeOf,
+        );
+        final arrangedAnchor = arrangedById[anchor.id];
+        if (arrangedAnchor == null) return annotation;
+        final x = _clampAnnotationCoordinate(
+          annotation.x + arrangedAnchor.x - anchor.x,
+          annotation.width,
+          config.canvasWidth,
+        );
+        final y = _clampAnnotationCoordinate(
+          annotation.y + arrangedAnchor.y - anchor.y,
+          annotation.height,
+          config.canvasHeight,
+        );
+        return annotation.copyWith(x: x, y: y);
+      })
+      .toList(growable: false);
+}
+
+WorkflowNode _nearestAnnotationAnchor(
+  WorkflowAnnotation annotation,
+  List<WorkflowNode> nodes,
+  WorkflowNodeSizeResolver sizeOf,
+) {
+  var nearest = nodes.first;
+  var nearestDistance = _annotationNodeDistanceSquared(
+    annotation,
+    nearest,
+    sizeOf(nearest),
+  );
+  for (final node in nodes.skip(1)) {
+    final distance = _annotationNodeDistanceSquared(
+      annotation,
+      node,
+      sizeOf(node),
+    );
+    if (distance < nearestDistance ||
+        (distance == nearestDistance && node.id.compareTo(nearest.id) < 0)) {
+      nearest = node;
+      nearestDistance = distance;
+    }
+  }
+  return nearest;
+}
+
+double _annotationNodeDistanceSquared(
+  WorkflowAnnotation annotation,
+  WorkflowNode node,
+  ({double width, double height}) size,
+) {
+  final annotationRight = annotation.x + annotation.width;
+  final annotationBottom = annotation.y + annotation.height;
+  final nodeRight = node.x + size.width;
+  final nodeBottom = node.y + size.height;
+  final horizontal = annotation.x > nodeRight
+      ? annotation.x - nodeRight
+      : node.x > annotationRight
+      ? node.x - annotationRight
+      : 0.0;
+  final vertical = annotation.y > nodeBottom
+      ? annotation.y - nodeBottom
+      : node.y > annotationBottom
+      ? node.y - annotationBottom
+      : 0.0;
+  return horizontal * horizontal + vertical * vertical;
+}
+
+double _clampAnnotationCoordinate(
+  double value,
+  double size,
+  double canvasSize,
+) {
+  final maximum = math.max(
+    _workflowAnnotationCanvasPadding,
+    canvasSize - size - _workflowAnnotationCanvasPadding,
+  );
+  return value.clamp(_workflowAnnotationCanvasPadding, maximum).toDouble();
 }
 
 class _ScopeLayout {
