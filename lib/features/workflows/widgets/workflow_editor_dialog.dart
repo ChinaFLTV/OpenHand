@@ -58,6 +58,9 @@ const RoundedRectangleBorder _workflowButtonShape = RoundedRectangleBorder(
   borderRadius: kOpenHandBorderRadius12,
 );
 
+typedef WorkflowRenameCallback =
+    Future<bool> Function(WorkflowDefinition workflow);
+
 class _WorkflowGraphSnapshot {
   const _WorkflowGraphSnapshot({
     required this.nodes,
@@ -87,6 +90,7 @@ class _WorkflowHistoryEntry {
 Future<WorkflowDefinition?> showWorkflowEditorDialog(
   BuildContext context, {
   WorkflowDefinition? workflow,
+  WorkflowRenameCallback? onRename,
 }) {
   final settings = context.read<SettingsController>();
   final sessions = context.read<AiSessionController>();
@@ -127,6 +131,7 @@ Future<WorkflowDefinition?> showWorkflowEditorDialog(
           knowledgeBaseController: knowledge,
           mcpController: mcp,
           pluginController: plugins,
+          onRename: onRename,
         ),
       );
     },
@@ -142,6 +147,7 @@ class WorkflowEditorDialog extends StatefulWidget {
     this.workflow,
     this.knowledgeBaseController,
     this.mcpController,
+    this.onRename,
   });
 
   final WorkflowDefinition? workflow;
@@ -150,6 +156,7 @@ class WorkflowEditorDialog extends StatefulWidget {
   final PluginServiceController pluginController;
   final KnowledgeBaseController? knowledgeBaseController;
   final McpController? mcpController;
+  final WorkflowRenameCallback? onRename;
 
   @override
   State<WorkflowEditorDialog> createState() => _WorkflowEditorDialogState();
@@ -187,6 +194,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   String? _editingAnnotationId;
   bool _testing = false;
   bool _workflowTesting = false;
+  bool _renaming = false;
   bool _refreshingCodeRuntimes = false;
   String? _testResult;
   String? _testError;
@@ -364,7 +372,6 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   }
 
   String _currentDraftFingerprint() => jsonEncode(<String, Object?>{
-    'name': _workflowName,
     'nodes': _nodes.map((node) => node.toJson()).toList(growable: false),
     'connections': _connections
         .map((connection) => connection.toJson())
@@ -429,11 +436,13 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                     ),
             ),
           ),
-          if (widget.workflow != null) ...[
+          if (widget.workflow != null && widget.onRename != null) ...[
             kOpenHandHGap8,
             IconButton.filledTonal(
               tooltip: '重命名工作流',
-              onPressed: _testing || _workflowTesting ? null : _renameWorkflow,
+              onPressed: _testing || _workflowTesting || _renaming
+                  ? null
+                  : _renameWorkflow,
               style: actionStyle,
               icon: const Icon(Icons.drive_file_rename_outline_rounded),
             ),
@@ -486,7 +495,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   }
 
   Future<void> _renameWorkflow() async {
-    if (widget.workflow == null || _testing || _workflowTesting) return;
+    final workflow = widget.workflow;
+    final onRename = widget.onRename;
+    if (workflow == null || onRename == null || _testing || _workflowTesting) {
+      return;
+    }
     final name = await showAnimatedDialog<String>(
       context: context,
       barrierDismissible: false,
@@ -497,7 +510,20 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     if (normalizedName.isEmpty || normalizedName == _workflowName.trim()) {
       return;
     }
-    setState(() => _workflowName = normalizedName);
+    final previousName = _workflowName;
+    setState(() {
+      _workflowName = normalizedName;
+      _renaming = true;
+    });
+    final renamed = await onRename(workflow.copyWith(name: normalizedName));
+    if (!mounted) return;
+    setState(() {
+      _renaming = false;
+      if (!renamed) _workflowName = previousName;
+    });
+    if (!renamed && mounted) {
+      showOpenHandInfoSnack(context, '重命名工作流失败，请稍后重试。');
+    }
   }
 
   void _popEditor([WorkflowDefinition? result]) {

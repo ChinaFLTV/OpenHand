@@ -444,7 +444,11 @@ class _WorkflowsViewState extends State<WorkflowsView> {
     WorkflowsController controller, {
     WorkflowDefinition? workflow,
   }) async {
-    final result = await showWorkflowEditorDialog(context, workflow: workflow);
+    final result = await showWorkflowEditorDialog(
+      context,
+      workflow: workflow,
+      onRename: workflow == null ? null : controller.save,
+    );
     if (result == null || !context.mounted) return;
     final saved = await controller.save(result);
     if (!context.mounted) return;

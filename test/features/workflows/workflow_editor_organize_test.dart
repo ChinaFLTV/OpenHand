@@ -85,6 +85,7 @@ void main() {
   testWidgets('编辑工作流可单独重命名且不会关闭编辑弹窗', (tester) async {
     final plugins = PluginServiceController();
     addTearDown(plugins.dispose);
+    WorkflowDefinition? renamedWorkflow;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -106,6 +107,10 @@ void main() {
               loader: (_) async => '',
             ),
             pluginController: plugins,
+            onRename: (workflow) async {
+              renamedWorkflow = workflow;
+              return true;
+            },
           ),
         ),
       ),
@@ -124,6 +129,8 @@ void main() {
     expect(find.text('为工作流命名'), findsNothing);
     expect(find.text('编辑工作流'), findsOneWidget);
     expect(find.byTooltip('重命名工作流'), findsOneWidget);
+    expect(renamedWorkflow?.name, '重命名后的工作流');
+    expect(renamedWorkflow?.nodes, _workflow.nodes);
     expect(tester.takeException(), isNull);
   });
 
