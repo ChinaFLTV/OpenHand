@@ -20,6 +20,7 @@ import 'workflow_parameter_reference_field.dart';
 const double _developmentParameterActionSize = 44;
 const double _developmentParameterFieldHeight = 52;
 const double _developmentParameterListMaxHeight = 480;
+const double _developmentParameterCompactWidth = 680;
 const RoundedRectangleBorder _developmentParameterButtonShape =
     RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius12);
 
@@ -535,6 +536,7 @@ class _DevelopmentParameterNodeGroup extends StatelessWidget {
         border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
@@ -649,6 +651,7 @@ class _DevelopmentParameterSection extends StatelessWidget {
         border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
@@ -739,7 +742,8 @@ class _DevelopmentParameterItem extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final compact = constraints.maxWidth < 680;
+          final compact =
+              constraints.maxWidth < _developmentParameterCompactWidth;
           final deleteButton = IconButton.filledTonal(
             tooltip: parameter.canDelete ? '删除参数' : '开始节点参数不可删除',
             onPressed: onDelete,
@@ -826,27 +830,28 @@ class _DevelopmentParameterItem extends StatelessWidget {
               ),
             ),
           );
-          final descriptionRow = Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: _developmentParameterFieldHeight,
-                  child: descriptionField,
-                ),
-              ),
-              kOpenHandHGap8,
-              requiredField,
-              kOpenHandHGap8,
-              sourceField,
-            ],
+          final descriptionRow = SizedBox(
+            height: _developmentParameterFieldHeight,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: descriptionField),
+                kOpenHandHGap8,
+                requiredField,
+                kOpenHandHGap8,
+                sourceField,
+              ],
+            ),
           );
           return Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (compact) ...[
                 SizedBox(
-                  height: _developmentParameterFieldHeight,
+                  height: nameError == null
+                      ? _developmentParameterFieldHeight
+                      : null,
                   child: nameField,
                 ),
                 kOpenHandGap8,
@@ -875,7 +880,9 @@ class _DevelopmentParameterItem extends StatelessWidget {
                     Expanded(
                       flex: 3,
                       child: SizedBox(
-                        height: _developmentParameterFieldHeight,
+                        height: nameError == null
+                            ? _developmentParameterFieldHeight
+                            : null,
                         child: nameField,
                       ),
                     ),
@@ -1149,6 +1156,7 @@ Future<WorkflowDevelopmentParameterTarget?> _showCreateParameterDialog(
   required List<WorkflowDevelopmentParameterTarget> targets,
 }) => showAnimatedDialog<WorkflowDevelopmentParameterTarget>(
   context: context,
+  transitionProfile: kOpenHandLayoutSafeTransitionProfile,
   builder: (_) => _CreateDevelopmentParameterDialog(targets: targets),
 );
 
