@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import '../../../workflows/index.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
+import '../../service/usage/ai_usage_tracker.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
@@ -18,6 +19,7 @@ const String workflowDefinitionsProviderMetadataKey =
     'workflow_definitions_provider';
 const String workflowResourcesProviderMetadataKey =
     'workflow_resources_provider';
+const String workflowCallSourceMetadataKey = 'workflow_call_source';
 
 /// 工作流执行记录中心。记录数量和生命周期均有界，避免后台会话长期运行时
 /// 内存无限增长；执行完成后仍保留一段时间供模型查询结果。
@@ -48,6 +50,15 @@ class WorkflowExecutionCoordinator {
       workflowName: workflow.name,
       totalSteps: workflow.nodes.length,
       startedAt: DateTime.now().toUtc(),
+      source: _executionSource(context),
+      inputs: Map<String, Object?>.unmodifiable(inputs),
+      environment: <String, Object?>{
+        'model_id': context.model.modelId,
+        'provider': context.model.providerLabel,
+        'protocol': context.model.protocolType.storageValue,
+        if (context.metadata['working_directory'] is String)
+          'working_directory': context.metadata['working_directory'],
+      },
     );
     _records[executionId] = record;
     unawaited(
@@ -81,19 +92,30 @@ class WorkflowExecutionCoordinator {
       }
       final executor = WorkflowNodeExecutor();
       try {
-        final result = await executor.executeWorkflow(
-          nodes: workflow.nodes,
-          connections: workflow.connections,
-          resources: resources.withNodeExecutionListener((event) {
-            if (event.phase == WorkflowNodeExecutionPhase.succeeded ||
-                event.phase == WorkflowNodeExecutionPhase.warning) {
-              record.executedSteps = (record.executedSteps + 1).clamp(
-                0,
-                record.totalSteps,
-              );
-            }
-          }),
-          inputs: inputs,
+        final result = await AiUsageTraceContext.runDerived(
+          source: record.source,
+          operation: 'workflow',
+          sessionId: context.sessionId,
+          metadata: <String, Object?>{
+            'workflow_id': workflow.id,
+            'workflow_name': workflow.name,
+            'workflow_execution_id': record.id,
+          },
+          body: () => executor.executeWorkflow(
+            nodes: workflow.nodes,
+            connections: workflow.connections,
+            resources: resources.withNodeExecutionListener((event) {
+              record.captureNodeEvent(event);
+              if (event.phase == WorkflowNodeExecutionPhase.succeeded ||
+                  event.phase == WorkflowNodeExecutionPhase.warning) {
+                record.executedSteps = (record.executedSteps + 1).clamp(
+                  0,
+                  record.totalSteps,
+                );
+              }
+            }),
+            inputs: inputs,
+          ),
         );
         record.status = 'succeeded';
         record.result = <String, Object?>{
@@ -112,6 +134,15 @@ class WorkflowExecutionCoordinator {
     } finally {
       record.finishedAt = DateTime.now().toUtc();
     }
+  }
+
+  String _executionSource(AiToolExecutionContext context) {
+    final explicit = '${context.metadata[workflowCallSourceMetadataKey] ?? ''}'
+        .trim();
+    if (explicit.isNotEmpty) return explicit;
+    return '${context.metadata['created_via'] ?? ''}' == 'dingtalk_gateway'
+        ? 'dingtalk'
+        : 'thread';
   }
 
   void _prune() {
@@ -137,6 +168,9 @@ class _WorkflowExecutionRecord {
     required this.workflowName,
     required this.totalSteps,
     required this.startedAt,
+    required this.source,
+    required this.inputs,
+    required this.environment,
   });
 
   final String id;
@@ -144,16 +178,38 @@ class _WorkflowExecutionRecord {
   final String workflowName;
   final int totalSteps;
   final DateTime startedAt;
+  final String source;
+  final Map<String, Object?> inputs;
+  final Map<String, Object?> environment;
   String status = 'running';
   int executedSteps = 0;
   DateTime? finishedAt;
   Map<String, Object?>? result;
   String? error;
+  final List<Map<String, Object?>> nodeExecutions = <Map<String, Object?>>[];
+
+  void captureNodeEvent(WorkflowNodeExecutionEvent event) {
+    if (nodeExecutions.length >= 256) return;
+    nodeExecutions.add(<String, Object?>{
+      'node_id': event.nodeId,
+      'phase': event.phase.name,
+      'duration_ms': event.duration.inMilliseconds,
+      'attempts': event.attempts,
+      if (event.resolvedInputs.isNotEmpty)
+        'inputs': _boundedJsonValue(event.resolvedInputs),
+      if (event.output != null) 'output': _boundedJsonValue(event.output),
+      if (event.error != null && event.error!.trim().isNotEmpty)
+        'error': _clip(event.error!),
+    });
+  }
 
   Map<String, Object?> snapshot() => <String, Object?>{
     'execution_id': id,
     'workflow_id': workflowId,
     'workflow_name': workflowName,
+    'source': source,
+    'inputs': inputs,
+    'environment': environment,
     'status': status,
     'progress': <String, Object?>{
       'executed_steps': executedSteps,
@@ -163,7 +219,25 @@ class _WorkflowExecutionRecord {
     if (finishedAt != null) 'finished_at': finishedAt!.toIso8601String(),
     if (result != null) 'result': result,
     if (error != null) 'error': error,
+    'node_executions': List<Map<String, Object?>>.unmodifiable(nodeExecutions),
   };
+}
+
+String _clip(String value, [int max = 1200]) {
+  final normalized = value.trim();
+  return normalized.length <= max
+      ? normalized
+      : '${normalized.substring(0, max - 1)}…';
+}
+
+Object _boundedJsonValue(Object? value) {
+  try {
+    final encoded = jsonEncode(value);
+    final clipped = _clip(encoded);
+    return clipped == encoded ? value ?? '' : clipped;
+  } catch (_) {
+    return _clip('$value');
+  }
 }
 
 abstract class _WorkflowTool extends AiTool {
@@ -203,17 +277,27 @@ abstract class _WorkflowTool extends AiTool {
     }).firstOrNull;
   }
 
+  String _workflowSource(AiToolExecutionContext context) {
+    final explicit = '${context.metadata[workflowCallSourceMetadataKey] ?? ''}'
+        .trim();
+    if (explicit.isNotEmpty) return explicit;
+    return '${context.metadata['created_via'] ?? ''}' == 'dingtalk_gateway'
+        ? 'dingtalk'
+        : 'thread';
+  }
+
   AiToolExecutionResult jsonSuccess(
     String command,
     Object value,
-    Stopwatch sw,
-  ) {
+    Stopwatch sw, {
+    Map<String, Object?> metadata = const <String, Object?>{},
+  }) {
     final output = const JsonEncoder.withIndent('  ').convert(value);
     return AiToolUtils.simpleSuccessResult(
       command: command,
       output: output,
       durationMs: sw.elapsedMilliseconds,
-      metadata: const <String, Object?>{'tool_source': 'workflow'},
+      metadata: <String, Object?>{'tool_source': 'workflow', ...metadata},
     );
   }
 }
@@ -264,7 +348,15 @@ class AiWorkflowDetailTool extends _WorkflowTool {
     if (workflow == null) {
       return AiToolUtils.invalidResult('WorkflowDetail', '未找到处于启用状态的工作流。');
     }
-    return jsonSuccess('WorkflowDetail', workflow.toJson(), sw);
+    return jsonSuccess(
+      'WorkflowDetail',
+      workflow.toJson(),
+      sw,
+      metadata: <String, Object?>{
+        'workflow_id': workflow.id,
+        'workflow_name': workflow.name,
+      },
+    );
   }
 }
 
@@ -303,7 +395,18 @@ class AiWorkflowExecuteTool extends _WorkflowTool {
       resourcesProvider: provider,
       inputs: inputs,
     );
-    return jsonSuccess('WorkflowExecute', snapshot, sw);
+    return jsonSuccess(
+      'WorkflowExecute',
+      snapshot,
+      sw,
+      metadata: <String, Object?>{
+        'workflow_id': workflow.id,
+        'workflow_name': workflow.name,
+        'execution_id': snapshot['execution_id'],
+        'workflow_status': snapshot['status'],
+        'workflow_source': _workflowSource(context),
+      },
+    );
   }
 }
 
@@ -336,6 +439,17 @@ class AiWorkflowExecutionStatusTool extends _WorkflowTool {
         '未找到该工作流执行记录。',
       );
     }
-    return jsonSuccess('WorkflowExecutionStatus', snapshot, sw);
+    return jsonSuccess(
+      'WorkflowExecutionStatus',
+      snapshot,
+      sw,
+      metadata: <String, Object?>{
+        'workflow_id': snapshot['workflow_id'],
+        'workflow_name': snapshot['workflow_name'],
+        'execution_id': snapshot['execution_id'],
+        'workflow_status': snapshot['status'],
+        'workflow_source': _workflowSource(context),
+      },
+    );
   }
 }

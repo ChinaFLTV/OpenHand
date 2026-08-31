@@ -83,6 +83,15 @@ String resourceUsageKindLabel(BuildContext context, AiResourceUsageKind kind) {
       ja: 'メモリ',
     ),
     AiResourceUsageKind.mcp => 'MCP',
+    AiResourceUsageKind.workflow => openHandLocalizedText(
+      context,
+      zh: '工作流',
+      zhHant: '工作流',
+      en: 'Workflow',
+      fr: 'Workflow',
+      de: 'Workflow',
+      ja: 'ワークフロー',
+    ),
   };
 }
 
@@ -391,12 +400,12 @@ class _ResourceUsageStatisticsDialogState
         _AnalyticsPanel(
           title: openHandLocalizedText(
             context,
-            zh: '最近调用记录',
-            zhHant: '最近呼叫記錄',
-            en: 'Recent calls',
-            fr: 'Appels récents',
-            de: 'Letzte Aufrufe',
-            ja: '最近の呼び出し',
+            zh: '调用记录',
+            zhHant: '呼叫記錄',
+            en: 'Call records',
+            fr: 'Enregistrements des appels',
+            de: 'Aufrufprotokoll',
+            ja: '呼び出し記録',
           ),
           subtitle: openHandLocalizedText(
             context,
@@ -1391,13 +1400,22 @@ class _MetricPill extends StatelessWidget {
   }
 }
 
-class _RecentUsageEvents extends StatelessWidget {
+class _RecentUsageEvents extends StatefulWidget {
   const _RecentUsageEvents({required this.events});
 
   final List<AiResourceUsageEvent> events;
 
   @override
+  State<_RecentUsageEvents> createState() => _RecentUsageEventsState();
+}
+
+class _RecentUsageEventsState extends State<_RecentUsageEvents> {
+  int _page = 1;
+  int _pageSize = kOpenHandTableDefaultPageSize;
+
+  @override
   Widget build(BuildContext context) {
+    final events = widget.events;
     if (events.isEmpty) {
       return _EmptyAnalytics(
         icon: Icons.history_rounded,
@@ -1412,11 +1430,41 @@ class _RecentUsageEvents extends StatelessWidget {
         ),
       );
     }
+    final window = OpenHandPageWindow.normalize(
+      page: _page,
+      pageSize: _pageSize,
+      total: events.length,
+    );
+    if (window.page != _page || window.pageSize != _pageSize) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _page = window.page;
+            _pageSize = window.pageSize;
+          });
+        }
+      });
+    }
+    final pageEvents = window.slice(events);
     return Column(
       children: [
-        for (var index = 0; index < events.length; index++) ...[
-          _UsageEventCard(event: events[index]),
-          if (index != events.length - 1) kOpenHandGap9,
+        for (var index = 0; index < pageEvents.length; index++) ...[
+          _UsageEventCard(event: pageEvents[index]),
+          if (index != pageEvents.length - 1) kOpenHandGap9,
+        ],
+        if (events.length > 1) ...[
+          kOpenHandGap12,
+          OpenHandTablePagination(
+            total: events.length,
+            page: window.page,
+            pageSize: window.pageSize,
+            bar: true,
+            onPageChanged: (page) => setState(() => _page = page),
+            onPageSizeChanged: (size) => setState(() {
+              _pageSize = size;
+              _page = 1;
+            }),
+          ),
         ],
       ],
     );
@@ -1518,6 +1566,19 @@ class _UsageEventCard extends StatelessWidget {
                 ja: '結果',
               ),
               value: event.resultSummary,
+            ),
+          if (event.metadataJson != '{}' && event.metadataJson.isNotEmpty)
+            _EventSummaryLine(
+              label: openHandLocalizedText(
+                context,
+                zh: '元数据',
+                zhHant: '元資料',
+                en: 'Metadata',
+                fr: 'Métadonnées',
+                de: 'Metadaten',
+                ja: 'メタデータ',
+              ),
+              value: event.metadataJson,
             ),
         ],
       ),

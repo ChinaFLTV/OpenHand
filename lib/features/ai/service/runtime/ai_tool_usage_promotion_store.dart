@@ -24,7 +24,8 @@ enum AiResourceUsageKind {
   hook('hook'),
   knowledge('knowledge'),
   memory('memory'),
-  mcp('mcp');
+  mcp('mcp'),
+  workflow('workflow');
 
   const AiResourceUsageKind(this.storageValue);
 
@@ -137,6 +138,7 @@ final class AiResourceUsageEvent {
     required this.resultSummary,
     required this.errorSummary,
     required this.source,
+    this.metadataJson = '{}',
   });
 
   final String eventId;
@@ -153,6 +155,7 @@ final class AiResourceUsageEvent {
   final String resultSummary;
   final String errorSummary;
   final String source;
+  final String metadataJson;
 
   bool get succeeded => status == 'success';
 
@@ -172,6 +175,7 @@ final class AiResourceUsageEvent {
     'result_summary': resultSummary,
     'error_summary': errorSummary,
     'source': source,
+    'metadata_json': metadataJson,
   };
 }
 
@@ -336,10 +340,11 @@ final class AiToolUsagePromotionStore {
   static const int _maxCount = 0x3fffffff;
   static const int _sessionTrendLimit = 24;
   static const int _maxRecentEvents = 384;
-  static const int _maxRecentEventsPerLevel = 80;
+  static const int _maxRecentEventsPerLevel = _maxRecentEvents;
   static const int _maxSubResourcesPerResource = 256;
-  static const int _maxSummaryLength = 720;
+  static const int _maxSummaryLength = 4096;
   static const int _maxErrorSummaryLength = 480;
+  static const int _maxMetadataLength = 4096;
   static const int _periodTrimBatchSize = 8;
   static const List<String> _nestedSessionMarkers = <String>[
     '::parallel-',
@@ -399,6 +404,15 @@ final class AiToolUsagePromotionStore {
     };
 
     final source = _string(resultMetadata['tool_source']);
+    final workflowId = _firstString(<Object?>[
+      resultMetadata['workflow_id'],
+      resultMetadata['workflow_name'],
+      if (source == 'workflow') logicalToolId,
+    ]);
+    final isWorkflowInvocation = source == 'workflow' || workflowId.isNotEmpty;
+    if (isWorkflowInvocation) {
+      _addResource(resources, AiResourceUsageKind.workflow, workflowId);
+    }
     if (source == 'skill' ||
         resolvedTool?.source == AiRuntimeToolSource.skill ||
         _string(resultMetadata['skill_name']).isNotEmpty ||
@@ -453,10 +467,20 @@ final class AiToolUsagePromotionStore {
         logicalToolId,
     ]);
     final defaultSubResourceId = _firstString(<Object?>[
+      if (isWorkflowInvocation) resultMetadata['execution_id'],
       if (source == 'mcp' || resolvedTool?.source == AiRuntimeToolSource.mcp)
         mcpToolId,
       logicalToolId,
     ]);
+    final usageSource = isWorkflowInvocation
+        ? _firstString(<Object?>[resultMetadata['workflow_source'], source])
+        : source;
+    final workflowStatus = _string(resultMetadata['workflow_status']);
+    final usageStatus =
+        isWorkflowInvocation &&
+            (workflowStatus == 'failed' || workflowStatus == 'error')
+        ? workflowStatus
+        : result.status.storageValue;
 
     return _recordBatch(
       sessionId: sessionId,
@@ -466,14 +490,17 @@ final class AiToolUsagePromotionStore {
       subResourceId: defaultSubResourceId,
       toolCallId: toolCall.id,
       toolName: logicalToolId,
-      status: result.status.storageValue,
+      status: usageStatus,
       durationMs: result.durationMs,
       argumentsSummary: _summarizeArguments(toolCall.arguments),
       resultSummary: _boundedSummary(result.resultText, _maxSummaryLength),
       errorSummary: _boundedSummary(result.stderr, _maxErrorSummaryLength),
-      source: source.isEmpty
+      source: usageSource.isEmpty
           ? (resolvedTool?.source.name ?? 'unknown')
-          : source,
+          : usageSource,
+      metadataJson: isWorkflowInvocation
+          ? _encodeMetadata(resultMetadata)
+          : '{}',
     );
   }
 
@@ -507,6 +534,7 @@ final class AiToolUsagePromotionStore {
     String resultSummary = '',
     String errorSummary = '',
     String source = 'runtime',
+    String metadataJson = '{}',
   }) async {
     final normalized = <AiResourceUsageKind, Set<String>>{};
     for (final entry in resources.entries) {
@@ -530,6 +558,7 @@ final class AiToolUsagePromotionStore {
       resultSummary: resultSummary,
       errorSummary: errorSummary,
       source: source,
+      metadataJson: metadataJson,
     );
   }
 
@@ -547,6 +576,7 @@ final class AiToolUsagePromotionStore {
     String resultSummary = '',
     String errorSummary = '',
     String source = 'runtime',
+    String metadataJson = '{}',
   }) {
     if (_shuttingDown) {
       return Future<AiToolUsageRecord>.value(const AiToolUsageRecord.ignored());
@@ -634,6 +664,7 @@ final class AiToolUsagePromotionStore {
                 _maxErrorSummaryLength,
               ),
               source: normalizedSource,
+              metadataJson: _boundedSummary(metadataJson, _maxMetadataLength),
             ),
           );
         }
@@ -971,6 +1002,10 @@ final class AiToolUsagePromotionStore {
             _maxErrorSummaryLength,
           ),
           source: _validIdentifier('${raw['source'] ?? ''}') ?? 'runtime',
+          metadataJson: _boundedSummary(
+            '${raw['metadata_json'] ?? '{}'}',
+            _maxMetadataLength,
+          ),
         ),
       );
     }
@@ -1341,6 +1376,17 @@ final class AiToolUsagePromotionStore {
       );
     } catch (_) {
       return _boundedSummary(normalized, _maxSummaryLength);
+    }
+  }
+
+  static String _encodeMetadata(Map<String, Object?> metadata) {
+    try {
+      return _boundedSummary(
+        jsonEncode(_redactSummaryValue(metadata)),
+        _maxMetadataLength,
+      );
+    } catch (_) {
+      return '{}';
     }
   }
 

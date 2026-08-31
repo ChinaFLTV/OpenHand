@@ -23,6 +23,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../ai/index.dart';
 import '../model/workflow_definition.dart';
 import '../service/workflow_portability_service.dart';
 import '../workflows_controller.dart';
@@ -73,6 +74,19 @@ class _WorkflowsViewState extends State<WorkflowsView> {
         runSpacing: 10,
         alignment: WrapAlignment.end,
         children: [
+          resourceUsageStatisticsButton(
+            context,
+            onPressed: () => showResourceUsageStatisticsDialog(
+              context,
+              kind: AiResourceUsageKind.workflow,
+              resourceLabels: <String, String>{
+                for (final workflow in snapshot.workflows.where(
+                  (workflow) => workflow.enabled,
+                ))
+                  workflow.id: workflow.name,
+              },
+            ),
+          ),
           if (snapshot.error != null)
             FilledButton.tonalIcon(
               onPressed: snapshot.loading ? null : controller.refresh,

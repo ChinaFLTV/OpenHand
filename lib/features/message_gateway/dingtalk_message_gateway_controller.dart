@@ -4513,6 +4513,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           'dingtalk_working_directory_boundary': _settings.workingDirectory,
           'dingtalk_allowed_knowledge_source_ids': selectedKnowledgeSourceIds,
           'workflow_definitions_provider': () => _workflowsController.workflows,
+          workflowCallSourceMetadataKey: 'dingtalk',
           'workflow_resources_provider':
               (
                 WorkflowDefinition workflow,

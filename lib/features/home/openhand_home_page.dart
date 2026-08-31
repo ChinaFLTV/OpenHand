@@ -5774,6 +5774,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       skippedInstructionIds: skippedInstructionIds,
       toolExecutionMetadata: <String, Object?>{
         'workflow_definitions_provider': () => workflowsController.workflows,
+        workflowCallSourceMetadataKey: 'thread',
         'workflow_resources_provider':
             (
               WorkflowDefinition workflow,
