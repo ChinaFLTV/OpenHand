@@ -1,11 +1,15 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:highlight/highlight.dart' as highlight;
 
 import '../../app/model/editor_code_theme.dart';
+import '../util/bounded_xfile_io.dart';
 import 'openhand_safe_scrollbar.dart';
+import 'openhand_snack_bar.dart';
 import 'openhand_spacing.dart';
 import 'openhand_typography.dart';
 
@@ -273,6 +277,7 @@ class OpenHandCodeEditor extends StatefulWidget {
 }
 
 class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
+  static const int _maxImportedCodeBytes = 512 * 1024;
   static const double _minEditorHeight = 180;
   static const double _maxEditorHeight = 720;
   static const double _minFontSize = 10;
@@ -281,6 +286,45 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
   static const double _editorPadding = 14;
   static const double _resizeHandleHeight = 18;
   static const int _maxLineNumberItems = 20000;
+  static const Map<String, List<String>> _codeFileExtensions =
+      <String, List<String>>{
+        'python': <String>['py'],
+        'python3': <String>['py'],
+        'py': <String>['py'],
+        'javascript': <String>['js', 'mjs', 'cjs'],
+        'js': <String>['js', 'mjs', 'cjs'],
+        'node': <String>['js', 'mjs', 'cjs'],
+        'nodejs': <String>['js', 'mjs', 'cjs'],
+        'shell': <String>['sh', 'bash', 'zsh'],
+        'bash': <String>['sh', 'bash', 'zsh'],
+        'sh': <String>['sh', 'bash', 'zsh'],
+        'zsh': <String>['sh', 'bash', 'zsh'],
+        'linuxshell': <String>['sh', 'bash', 'zsh'],
+        'powershell': <String>['ps1', 'psm1', 'psd1'],
+        'pwsh': <String>['ps1', 'psm1', 'psd1'],
+        'ps': <String>['ps1', 'psm1', 'psd1'],
+        'ps1': <String>['ps1', 'psm1', 'psd1'],
+        'windowspowershell': <String>['ps1', 'psm1', 'psd1'],
+      };
+  static const Map<String, String> _codeLanguageLabels = <String, String>{
+    'python': 'Python',
+    'python3': 'Python',
+    'py': 'Python',
+    'javascript': 'JavaScript',
+    'js': 'JavaScript',
+    'node': 'JavaScript',
+    'nodejs': 'JavaScript',
+    'shell': 'Linux Shell',
+    'bash': 'Linux Shell',
+    'sh': 'Linux Shell',
+    'zsh': 'Linux Shell',
+    'linuxshell': 'Linux Shell',
+    'powershell': 'Windows PowerShell',
+    'pwsh': 'Windows PowerShell',
+    'ps': 'Windows PowerShell',
+    'ps1': 'Windows PowerShell',
+    'windowspowershell': 'Windows PowerShell',
+  };
 
   late final _HighlightingCodeController _controller =
       _HighlightingCodeController(
@@ -296,6 +340,7 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
   late double _editorHeight = _boundedEditorHeight(widget.height);
   late double _defaultEditorHeight = _editorHeight;
   late double _fontSize = 14;
+  bool _isImportingCodeFile = false;
   final Map<int, Offset> _activePointers = <int, Offset>{};
   double? _pinchStartDistance;
   double? _pinchStartFontSize;
@@ -529,41 +574,64 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
           top: BorderSide(color: theme.colorScheme.outlineVariant),
         ),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: ValueListenableBuilder<UndoHistoryValue>(
-          valueListenable: _undoController,
-          builder: (context, value, _) => Row(
-            children: [
-              _editorActionButton(
-                context,
-                label: '撤销',
-                icon: Icons.undo_rounded,
-                onPressed: value.canUndo ? _undo : null,
-              ),
-              kOpenHandHGap6,
-              _editorActionButton(
-                context,
-                label: '重做',
-                icon: Icons.redo_rounded,
-                onPressed: value.canRedo ? _redo : null,
-              ),
-              kOpenHandHGap6,
-              _editorActionButton(
-                context,
-                label: '格式化',
-                icon: Icons.auto_fix_high_rounded,
-                onPressed: _formatCode,
-              ),
-              kOpenHandHGap6,
-              _editorActionButton(
-                context,
-                label: '重置窗口',
-                icon: Icons.fit_screen_rounded,
-                onPressed: _resetEditorViewport,
-              ),
-            ],
-          ),
+      child: ValueListenableBuilder<UndoHistoryValue>(
+        valueListenable: _undoController,
+        builder: (context, value, _) => Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _editorActionButton(
+                    context,
+                    label: '撤销',
+                    icon: Icons.undo_rounded,
+                    onPressed: value.canUndo ? _undo : null,
+                  ),
+                ),
+                kOpenHandHGap6,
+                Expanded(
+                  child: _editorActionButton(
+                    context,
+                    label: '重做',
+                    icon: Icons.redo_rounded,
+                    onPressed: value.canRedo ? _redo : null,
+                  ),
+                ),
+                kOpenHandHGap6,
+                Expanded(
+                  child: _editorActionButton(
+                    context,
+                    label: '格式化',
+                    icon: Icons.auto_fix_high_rounded,
+                    onPressed: _formatCode,
+                  ),
+                ),
+              ],
+            ),
+            kOpenHandGap6,
+            Row(
+              children: [
+                Expanded(
+                  child: _editorActionButton(
+                    context,
+                    label: '重置窗口',
+                    icon: Icons.fit_screen_rounded,
+                    onPressed: _resetEditorViewport,
+                  ),
+                ),
+                kOpenHandHGap6,
+                Expanded(
+                  flex: 2,
+                  child: _editorActionButton(
+                    context,
+                    label: _isImportingCodeFile ? '导入中...' : '从代码文件导入',
+                    icon: Icons.file_open_rounded,
+                    onPressed: _isImportingCodeFile ? null : _importCodeFile,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -578,9 +646,9 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     return FilledButton.tonalIcon(
       onPressed: onPressed,
       icon: Icon(icon, size: 17),
-      label: Text(label),
+      label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
       style: FilledButton.styleFrom(
-        minimumSize: const Size(0, 36),
+        minimumSize: const Size.fromHeight(36),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         visualDensity: VisualDensity.compact,
         shape: RoundedRectangleBorder(
@@ -589,6 +657,59 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
         shadowColor: Colors.transparent,
       ),
     );
+  }
+
+  Future<void> _importCodeFile() async {
+    if (_isImportingCodeFile) return;
+    setState(() => _isImportingCodeFile = true);
+    try {
+      final file = await openFile(
+        acceptedTypeGroups: <XTypeGroup>[_codeFileTypeGroup()],
+      );
+      if (file == null || !mounted) return;
+
+      final bytes = await readBoundedXFileBytes(
+        file,
+        maxBytes: _maxImportedCodeBytes,
+      );
+      var importedCode = utf8.decode(bytes);
+      if (importedCode.startsWith('\uFEFF')) {
+        importedCode = importedCode.substring(1);
+      }
+
+      _controller.value = TextEditingValue(
+        text: importedCode,
+        selection: TextSelection.collapsed(offset: importedCode.length),
+      );
+      widget.onChanged(importedCode);
+      if (!mounted) return;
+      setState(() {});
+      showOpenHandSuccessSnack(context, '已导入代码文件：${file.name}');
+    } on BoundedXFileSizeException {
+      if (mounted) {
+        showOpenHandErrorSnack(context, '代码文件不能超过 512 KiB。');
+      }
+    } on FormatException {
+      if (mounted) {
+        showOpenHandErrorSnack(context, '代码文件不是有效的 UTF-8 文本。');
+      }
+    } catch (_) {
+      if (mounted) {
+        showOpenHandErrorSnack(context, '读取代码文件失败，请检查文件是否可访问。');
+      }
+    } finally {
+      if (mounted) setState(() => _isImportingCodeFile = false);
+    }
+  }
+
+  XTypeGroup _codeFileTypeGroup() {
+    final languageKey = widget.language.trim().toLowerCase().replaceAll(
+      RegExp(r'[\s_-]+'),
+      '',
+    );
+    final extensions = _codeFileExtensions[languageKey] ?? <String>['txt'];
+    final label = _codeLanguageLabels[languageKey] ?? '代码';
+    return XTypeGroup(label: '$label代码文件', extensions: extensions);
   }
 
   void _handlePointerDown(PointerDownEvent event) {
