@@ -1967,14 +1967,6 @@ class _RenderDialogInitialHitTestGate extends RenderProxyBox {
     result.add(BoxHitTestEntry(this, position));
     return true;
   }
-
-  @override
-  void paint(PaintingContext context, Offset offset) {
-    // 与命中测试相同，避免在 sliver 尚未完成布局时进入视口绘制。
-    // 布局管线完成后会自动触发后续帧重绘，不影响弹窗动画。
-    if (_containsUnlaidOutViewport(child)) return;
-    super.paint(context, offset);
-  }
 }
 
 bool _containsUnlaidOutViewport(RenderObject? root) {

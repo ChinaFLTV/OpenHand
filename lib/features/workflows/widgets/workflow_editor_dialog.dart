@@ -199,6 +199,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   bool _testing = false;
   WorkflowExecutionCancellationToken? _nodeTestCancellation;
   bool _workflowTesting = false;
+  bool _openingDevelopmentParameters = false;
   bool _renaming = false;
   bool _refreshingCodeRuntimes = false;
   String? _testResult;
@@ -2897,20 +2898,29 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   }
 
   Future<void> _showDevelopmentParameters() async {
-    if (_workflowTesting) return;
-    _synchronizeDevelopmentStartParameters();
-    final parameters = await showWorkflowDevelopmentParameterDialog(
-      context,
-      parameters: _developmentParameters,
-      onRefresh: (parameters) =>
-          _synchronizeDevelopmentStartParameters(parameters: parameters),
-      referencesFor: _developmentReferencesFor,
-      ownerLabelFor: _developmentParameterOwnerLabel,
-      parameterTargets: _developmentParameterTargets(),
-      availableParameters: _developmentParameterCandidates(),
-    );
-    if (!mounted || parameters == null) return;
-    setState(() => _developmentParameters = parameters);
+    if (_workflowTesting || _openingDevelopmentParameters) return;
+    _openingDevelopmentParameters = true;
+    try {
+      _synchronizeDevelopmentStartParameters();
+      // 同步开始节点参数会更新编辑器状态；等待该帧布局完成后再推入弹窗，
+      // 避免父树重排与参数列表视口首次布局交错导致 sliver 几何信息为空。
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted || _workflowTesting) return;
+      final parameters = await showWorkflowDevelopmentParameterDialog(
+        context,
+        parameters: _developmentParameters,
+        onRefresh: (parameters) =>
+            _synchronizeDevelopmentStartParameters(parameters: parameters),
+        referencesFor: _developmentReferencesFor,
+        ownerLabelFor: _developmentParameterOwnerLabel,
+        parameterTargets: _developmentParameterTargets(),
+        availableParameters: _developmentParameterCandidates(),
+      );
+      if (!mounted || parameters == null) return;
+      setState(() => _developmentParameters = parameters);
+    } finally {
+      _openingDevelopmentParameters = false;
+    }
   }
 
   List<WorkflowDevelopmentParameter> _synchronizeDevelopmentStartParameters({

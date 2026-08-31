@@ -109,9 +109,23 @@ class _WorkflowDevelopmentParameterDialogState
   bool _refreshing = false;
   bool _closeConfirmationOpen = false;
   bool _validationRequested = false;
+  bool _listReady = false;
 
   bool get _isDirty =>
       !_sameDevelopmentParameters(_initialParameters, _parameters);
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_waitForInitialLayout());
+  }
+
+  Future<void> _waitForInitialLayout() async {
+    final binding = WidgetsBinding.instance;
+    await binding.endOfFrame;
+    await binding.endOfFrame;
+    if (mounted) setState(() => _listReady = true);
+  }
 
   @override
   void dispose() {
@@ -352,6 +366,8 @@ class _WorkflowDevelopmentParameterDialogState
             height: listHeight,
             child: _parameters.isEmpty
                 ? const _DevelopmentParameterEmptyState()
+                : !_listReady
+                ? const SizedBox.expand()
                 : OpenHandSafeScrollbar(
                     controller: _scrollController,
                     thumbVisibility: true,
@@ -360,6 +376,9 @@ class _WorkflowDevelopmentParameterDialogState
                     child: ListView.separated(
                       controller: _scrollController,
                       primary: false,
+                      // 弹窗转场期间避免列表项的独立 layer 脱离后参与布局，
+                      // 参数列表高度受限且可见项很少，关闭分层不会造成性能负担。
+                      addRepaintBoundaries: false,
                       padding: const EdgeInsets.fromLTRB(22, 18, 22, 22),
                       itemCount: _parameterGroups.length,
                       separatorBuilder: (_, _) => kOpenHandGap10,
