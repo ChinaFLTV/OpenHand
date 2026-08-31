@@ -1162,8 +1162,19 @@ class _DevelopmentParameterNameField extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelLarge?.copyWith(
                             fontWeight: FontWeight.w800,
+                            height: 1.15,
                           ),
                         ),
+                        if (description.isNotEmpty)
+                          Text(
+                            description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colors.onSurfaceVariant,
+                              height: 1.25,
+                            ),
+                          ),
                         kOpenHandGap4,
                         Wrap(
                           spacing: 4,
@@ -1179,18 +1190,6 @@ class _DevelopmentParameterNameField extends StatelessWidget {
                             ),
                           ],
                         ),
-                        if (description.isNotEmpty) ...[
-                          kOpenHandGap4,
-                          Text(
-                            description,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colors.onSurfaceVariant,
-                              height: 1.25,
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),
