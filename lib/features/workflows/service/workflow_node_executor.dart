@@ -360,6 +360,7 @@ class WorkflowNodeExecutor {
     Map<String, Object?> variables = const <String, Object?>{},
     List<WorkflowNode> workflowNodes = const <WorkflowNode>[],
     List<WorkflowConnection> workflowConnections = const <WorkflowConnection>[],
+    bool preferProvidedInputValues = false,
   }) async {
     resources.cancellation?.throwIfCancelled();
     final stopwatch = Stopwatch()..start();
@@ -416,6 +417,7 @@ class WorkflowNodeExecutor {
             node,
             resources,
             variables,
+            preferProvidedInputValues: preferProvidedInputValues,
           ),
           WorkflowNodeKind.humanIntervention => _executeHumanIntervention(
             node,
@@ -652,8 +654,9 @@ class WorkflowNodeExecutor {
   Future<WorkflowNodeExecutionResult> _executeCode(
     WorkflowNode node,
     WorkflowExecutionResources resources,
-    Map<String, Object?> variables,
-  ) async {
+    Map<String, Object?> variables, {
+    bool preferProvidedInputValues = false,
+  }) async {
     resources.cancellation?.throwIfCancelled();
     final language = WorkflowCodeLanguage.fromStorage(
       node.settings[WorkflowSettingKeys.codeLanguage],
@@ -675,6 +678,7 @@ class WorkflowNodeExecutor {
       resources: resources,
       variables: variables,
       label: '代码输入参数',
+      preferProvidedInputValues: preferProvidedInputValues,
     );
     resources.cancellation?.throwIfCancelled();
     final outputFields = node.outputFields();
@@ -2558,6 +2562,7 @@ class WorkflowNodeExecutor {
     required Map<String, Object?> variables,
     required String label,
     Map<String, Object?> initialValues = const <String, Object?>{},
+    bool preferProvidedInputValues = false,
   }) async {
     WorkflowStructuredOutputParser.validateFields(
       fields,
@@ -2571,9 +2576,19 @@ class WorkflowNodeExecutor {
     var aliasIndex = 0;
 
     for (final field in fields) {
+      final name = field.name.trim();
+      final providedValue = variables[name];
+      final hasProvidedValue =
+          preferProvidedInputValues &&
+          variables.containsKey(name) &&
+          providedValue != null &&
+          (providedValue is! String || providedValue.trim().isNotEmpty);
+      if (hasProvidedValue) {
+        values[name] = providedValue;
+        continue;
+      }
       final configured = field.value;
       if (configured.trim().isEmpty) continue;
-      final name = field.name.trim();
       if (field.valueMode == WorkflowValueMode.literal) {
         for (final match in workflowTemplatePlaceholderPattern.allMatches(
           configured,

@@ -3158,6 +3158,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         workflowConnections: _connections,
         resources: _buildExecutionResources(cancellation: cancellation),
         variables: _developmentVariables(),
+        preferProvidedInputValues: true,
       );
       if (!mounted || !identical(_nodeTestCancellation, cancellation)) return;
       setState(() {
