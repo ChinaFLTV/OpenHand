@@ -19,7 +19,7 @@ import 'workflow_parameter_reference_field.dart';
 
 const double _developmentParameterActionSize = 44;
 const double _developmentParameterFieldHeight = 52;
-const double _developmentParameterListMaxHeight = 480;
+const double _developmentParameterListMaxHeight = 640;
 const double _developmentParameterCompactWidth = 680;
 const RoundedRectangleBorder _developmentParameterButtonShape =
     RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius12);
@@ -254,13 +254,17 @@ class _WorkflowDevelopmentParameterDialogState
     final viewport = MediaQuery.sizeOf(context);
     final listHeight = math.min(
       _developmentParameterListMaxHeight,
-      viewport.height * 0.52,
+      viewport.height * 0.64,
     );
     final actionStyle = IconButton.styleFrom(
       fixedSize: const Size.square(_developmentParameterActionSize),
       padding: EdgeInsets.zero,
       shape: _developmentParameterButtonShape,
       shadowColor: Colors.transparent,
+      disabledBackgroundColor: colors.surfaceContainerHighest.withValues(
+        alpha: 0.72,
+      ),
+      disabledForegroundColor: colors.onSurface.withValues(alpha: 0.32),
     );
     return buildOpenHandDialog(
       width: math.min(kOpenHandDialogWidthPanel, viewport.width - 36),
