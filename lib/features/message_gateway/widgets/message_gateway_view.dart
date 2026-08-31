@@ -88,6 +88,7 @@ import '../service/web_message_platform_service.dart';
 const int _dingtalkTranslationCacheMaxEntries = 64;
 const int _dingtalkClipboardImageMaxBytes = 64 * kBytesPerMiB;
 const Duration _dingtalkMediaClipboardTimeout = Duration(seconds: 15);
+const double _dingtalkResourceIntroMaxHeight = 180;
 int _dingtalkTemporaryFileSerial = 0;
 
 enum _DingTalkMediaClipboardContent { image, files }
@@ -24064,6 +24065,8 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                               subtitle: item.description,
                               icon: Icons.account_tree_rounded,
                               detailDescription: item.description,
+                              detailDescriptionTitle: '简要介绍',
+                              detailLongDescription: item.details,
                               detailFields: <String, String>{
                                 '资源类型': '工作流',
                                 '启用状态': item.enabled ? '已启用' : '已停用',
@@ -25081,6 +25084,8 @@ class _DingTalkResourceOption {
     this.groupKey,
     this.groupTitle,
     this.detailDescription = '',
+    this.detailDescriptionTitle = '详细介绍',
+    this.detailLongDescription,
     this.detailFields = const <String, String>{},
     this.detailSections = const <String, String>{},
     this.detailParameters = const <_DingTalkResourceParameterDetail>[],
@@ -25094,6 +25099,8 @@ class _DingTalkResourceOption {
   final String? groupKey;
   final String? groupTitle;
   final String detailDescription;
+  final String detailDescriptionTitle;
+  final String? detailLongDescription;
   final Map<String, String> detailFields;
   final Map<String, String> detailSections;
   final List<_DingTalkResourceParameterDetail> detailParameters;
@@ -25113,7 +25120,10 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
         ? option.detailDescription.trim()
         : option.subtitle.trim().isNotEmpty
         ? option.subtitle.trim()
+        : option.detailDescriptionTitle == '简要介绍'
+        ? '暂无简要介绍。'
         : '暂无详细介绍。';
+    final longDescription = option.detailLongDescription?.trim();
     final fields = option.detailFields.entries
         .where((entry) => entry.value.trim().isNotEmpty)
         .toList(growable: false);
@@ -25198,9 +25208,22 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
                   _buildDetailSection(
                     context,
                     icon: Icons.subject_rounded,
-                    title: '详细介绍',
+                    title: option.detailDescriptionTitle,
                     content: description,
+                    maxContentHeight: _dingtalkResourceIntroMaxHeight,
                   ),
+                  if (option.detailLongDescription != null) ...[
+                    kOpenHandGap12,
+                    _buildDetailSection(
+                      context,
+                      icon: Icons.notes_rounded,
+                      title: '详细介绍',
+                      content: longDescription?.isNotEmpty == true
+                          ? longDescription!
+                          : '暂无详细介绍。',
+                      maxContentHeight: _dingtalkResourceIntroMaxHeight,
+                    ),
+                  ],
                   if (fields.isNotEmpty) ...[
                     kOpenHandGap12,
                     Text(
@@ -25291,6 +25314,7 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
     required IconData icon,
     required String title,
     required String content,
+    double? maxContentHeight,
   }) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
@@ -25317,10 +25341,21 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
             ],
           ),
           kOpenHandGap9,
-          SelectableText(
-            content,
-            style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
-          ),
+          if (maxContentHeight == null)
+            SelectableText(
+              content,
+              style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
+            )
+          else
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxContentHeight),
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  content,
+                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
+                ),
+              ),
+            ),
         ],
       ),
     );
