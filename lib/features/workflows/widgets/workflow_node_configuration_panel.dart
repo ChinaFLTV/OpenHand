@@ -474,7 +474,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                       .toList(growable: false),
                   onChanged: (value) {
                     if (value != null && value != language) {
-                      _setCodeLanguage(language, value, code);
+                      _setCodeLanguage(value);
                     }
                   },
                 ),
@@ -992,36 +992,17 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     );
   }
 
-  void _setCodeLanguage(
-    WorkflowCodeLanguage previous,
-    WorkflowCodeLanguage next,
-    String code,
-  ) {
+  void _setCodeLanguage(WorkflowCodeLanguage next) {
     final inputNames = node
         .codeInputFields()
         .map((field) => field.name.trim())
         .toList(growable: false);
     final outputName = node.outputFields().firstOrNull?.name.trim() ?? 'result';
-    final previousTemplate = workflowCodeWithInputSignature(
-      defaultWorkflowCode(
-        previous,
-        inputNames: inputNames,
-        outputName: outputName,
-      ),
-      previous,
-      node.codeInputFields(),
+    final nextCode = defaultWorkflowCode(
+      next,
+      inputNames: inputNames,
+      outputName: outputName,
     );
-    final replaceTemplate =
-        code.trim().isEmpty ||
-        _normalizeCodeForComparison(code) ==
-            _normalizeCodeForComparison(previousTemplate);
-    final nextCode = replaceTemplate
-        ? defaultWorkflowCode(
-            next,
-            inputNames: inputNames,
-            outputName: outputName,
-          )
-        : code;
     _setValues(<String, Object?>{
       WorkflowSettingKeys.codeLanguage: next.storageValue,
       WorkflowSettingKeys.code: workflowCodeWithInputSignature(
@@ -1031,9 +1012,6 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
       ),
     });
   }
-
-  String _normalizeCodeForComparison(String code) =>
-      code.replaceAll('\r\n', '\n').trim().replaceAll(RegExp(r'\s+'), '');
 
   void _syncCodeFieldsFromCode(WorkflowCodeLanguage language, String code) {
     final inputCurrent = <String, WorkflowOutputField>{
