@@ -787,6 +787,8 @@ class _DevelopmentParameterItem extends StatelessWidget {
                 name: reference.name,
                 type: reference.field.type,
                 description: reference.field.description,
+                required: reference.field.required,
+                valueSource: reference.field.valueSource,
               ),
             ),
           );
