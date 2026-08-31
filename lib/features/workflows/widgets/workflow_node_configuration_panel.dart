@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
@@ -403,6 +404,20 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
       WorkflowSettingKeys.code,
       defaultWorkflowCode(language),
     );
+    final availableLanguages = WorkflowCodeLanguage.values
+        .where((item) {
+          if (item == WorkflowCodeLanguage.windowsPowerShell) {
+            return !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+          }
+          if (item == WorkflowCodeLanguage.linuxShell) {
+            return !kIsWeb && defaultTargetPlatform != TargetPlatform.windows;
+          }
+          return true;
+        })
+        .toList(growable: true);
+    if (!availableLanguages.contains(language)) {
+      availableLanguages.insert(0, language);
+    }
     final inputFields = node.codeInputFields();
     final inputReservedParameterNames = <String, String>{
       ...reservedParameterNames,
@@ -438,7 +453,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                   isExpanded: true,
                   initialValue: language,
                   decoration: _inputDecoration('选择代码语言'),
-                  items: WorkflowCodeLanguage.values
+                  items: availableLanguages
                       .map(
                         (item) => DropdownMenuItem<WorkflowCodeLanguage>(
                           value: item,
@@ -3795,15 +3810,21 @@ class _WorkflowCodeEditor extends StatelessWidget {
     );
     return OpenHandCodeEditor(
       value: value,
-      language: language == WorkflowCodeLanguage.python3
-          ? 'python'
-          : 'javascript',
+      language: switch (language) {
+        WorkflowCodeLanguage.python3 => 'python',
+        WorkflowCodeLanguage.javascript => 'javascript',
+        WorkflowCodeLanguage.linuxShell => 'shell',
+        WorkflowCodeLanguage.windowsPowerShell => 'powershell',
+      },
       fileName: 'main.${language.fileExtension}',
       codeTheme: codeTheme,
       borderRadius: kOpenHandBorderRadius14,
-      icon: language == WorkflowCodeLanguage.python3
-          ? Icons.data_object_rounded
-          : Icons.javascript_rounded,
+      icon: switch (language) {
+        WorkflowCodeLanguage.python3 => Icons.data_object_rounded,
+        WorkflowCodeLanguage.javascript => Icons.javascript_rounded,
+        WorkflowCodeLanguage.linuxShell ||
+        WorkflowCodeLanguage.windowsPowerShell => Icons.terminal_rounded,
+      },
       onChanged: onChanged,
     );
   }
@@ -4287,7 +4308,7 @@ class _OutputFieldCard extends StatelessWidget {
                 required: field.required,
                 helper: responsePathValue
                     ? r'字面量模式使用 $ 或 $.data.score 提取响应；表达式模式可使用 response、body、status_code、headers、files。输入 / 可引用上游参数。'
-                    : '字面量模式支持纯文本与参数引用拼接；Python、JavaScript 模式会执行表达式并保留结果类型。输入 / 可引用上游参数。',
+                    : '字面量模式支持纯文本与参数引用拼接；Python、JavaScript、Shell 模式会执行表达式并保留结果类型。输入 / 可引用上游参数。',
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -4318,7 +4339,7 @@ class _OutputFieldCard extends StatelessWidget {
                             ? r'$ 或 $.data.score'
                             : field.valueMode == WorkflowValueMode.literal
                             ? '输入文本，或按 / 引用参数'
-                            : '输入表达式，或按 / 引用参数',
+                            : '输入表达式，或按 / 引用参数；Shell 表达式需输出 JSON 值',
                       ),
                       maxLines: 4,
                       onChanged: (value) => onChanged(
@@ -4445,11 +4466,23 @@ class _ValueModeDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final modes = WorkflowValueMode.values
+        .where((mode) {
+          if (mode == WorkflowValueMode.windowsPowerShellExpression) {
+            return !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+          }
+          if (mode == WorkflowValueMode.linuxShellExpression) {
+            return !kIsWeb && defaultTargetPlatform != TargetPlatform.windows;
+          }
+          return true;
+        })
+        .toList(growable: true);
+    if (!modes.contains(value)) modes.insert(0, value);
     return AnimatedDropdownButtonFormField<WorkflowValueMode>(
       isExpanded: true,
       initialValue: value,
       decoration: _inputDecoration('内容取值模式'),
-      items: WorkflowValueMode.values
+      items: modes
           .map(
             (mode) => DropdownMenuItem<WorkflowValueMode>(
               value: mode,

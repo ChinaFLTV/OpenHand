@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -2939,10 +2940,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
       });
       final error = pluginController.errorMessage;
       if (error == null) {
-        showOpenHandSuccessSnack(
-          context,
-          '运行环境检测完成，已同步 Python 3 与 JavaScript 状态。',
-        );
+        showOpenHandSuccessSnack(context, '运行环境检测完成，已同步当前平台支持的代码运行时状态。');
       } else {
         showOpenHandErrorSnack(context, error);
       }
@@ -4242,16 +4240,33 @@ WorkflowCodeRuntime _workflowCodeRuntime(
 
 Map<WorkflowCodeLanguage, WorkflowCodeRuntime> _workflowCodeRuntimes(
   PluginServiceController plugins,
-) => <WorkflowCodeLanguage, WorkflowCodeRuntime>{
-  WorkflowCodeLanguage.python3: _workflowCodeRuntime(
-    WorkflowCodeLanguage.python3,
-    plugins.pluginById(PluginCatalogIds.python),
-  ),
-  WorkflowCodeLanguage.javascript: _workflowCodeRuntime(
-    WorkflowCodeLanguage.javascript,
-    plugins.pluginById(PluginCatalogIds.nodejs),
-  ),
-};
+) {
+  final runtimes = <WorkflowCodeLanguage, WorkflowCodeRuntime>{
+    WorkflowCodeLanguage.python3: _workflowCodeRuntime(
+      WorkflowCodeLanguage.python3,
+      plugins.pluginById(PluginCatalogIds.python),
+    ),
+    WorkflowCodeLanguage.javascript: _workflowCodeRuntime(
+      WorkflowCodeLanguage.javascript,
+      plugins.pluginById(PluginCatalogIds.nodejs),
+    ),
+  };
+  if (Platform.isWindows) {
+    runtimes[WorkflowCodeLanguage.windowsPowerShell] =
+        const WorkflowCodeRuntime(
+          language: WorkflowCodeLanguage.windowsPowerShell,
+          executable: 'powershell.exe',
+          version: '系统运行时',
+        );
+  } else {
+    runtimes[WorkflowCodeLanguage.linuxShell] = const WorkflowCodeRuntime(
+      language: WorkflowCodeLanguage.linuxShell,
+      executable: '/bin/sh',
+      version: '系统运行时',
+    );
+  }
+  return runtimes;
+}
 
 class _CanvasEmptyState extends StatelessWidget {
   const _CanvasEmptyState({required this.onAddStart});

@@ -35,6 +35,38 @@ class WorkflowCodeRuntime {
   bool get isAvailable => executable?.trim().isNotEmpty == true;
 }
 
+WorkflowCodeRuntime workflowSystemCodeRuntime(WorkflowCodeLanguage language) {
+  final isPowerShell = language == WorkflowCodeLanguage.windowsPowerShell;
+  final supported = isPowerShell == Platform.isWindows;
+  return WorkflowCodeRuntime(
+    language: language,
+    executable: supported
+        ? (isPowerShell ? 'powershell.exe' : '/bin/sh')
+        : null,
+    version: supported ? '系统运行时' : null,
+    unavailableReason: supported ? null : '${language.label} 仅支持当前平台对应的系统环境。',
+  );
+}
+
+Map<WorkflowCodeLanguage, WorkflowCodeRuntime> workflowSystemCodeRuntimes() {
+  final language = Platform.isWindows
+      ? WorkflowCodeLanguage.windowsPowerShell
+      : WorkflowCodeLanguage.linuxShell;
+  return <WorkflowCodeLanguage, WorkflowCodeRuntime>{
+    WorkflowCodeLanguage.python3: WorkflowCodeRuntime(
+      language: WorkflowCodeLanguage.python3,
+      executable: Platform.isWindows ? 'python.exe' : 'python3',
+      version: '系统 PATH',
+    ),
+    WorkflowCodeLanguage.javascript: WorkflowCodeRuntime(
+      language: WorkflowCodeLanguage.javascript,
+      executable: Platform.isWindows ? 'node.exe' : 'node',
+      version: '系统 PATH',
+    ),
+    language: workflowSystemCodeRuntime(language),
+  };
+}
+
 class WorkflowCodeExecutionResult {
   const WorkflowCodeExecutionResult({
     required this.output,
@@ -146,6 +178,7 @@ class WorkflowCodeExecutor {
         executable,
         _arguments(runtime.language, scriptFile.path, resultFile.path),
         stdinBytes: inputBytes,
+        environment: _inputEnvironment(inputs),
         timeout: boundedTimeout,
         cancelSignal: cancelSignal,
         workingDirectory: temporaryDirectory.path,
@@ -227,6 +260,20 @@ class WorkflowCodeExecutor {
     }
   }
 
+  Map<String, String> _inputEnvironment(Map<String, Object?> inputs) {
+    final environment = <String, String>{};
+    for (final entry in inputs.entries) {
+      final name = entry.key.trim();
+      if (!RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$').hasMatch(name)) continue;
+      try {
+        environment[name] = jsonEncode(entry.value);
+      } catch (_) {
+        environment[name] = '${entry.value ?? ''}';
+      }
+    }
+    return environment;
+  }
+
   List<String> _arguments(
     WorkflowCodeLanguage language,
     String scriptPath,
@@ -236,6 +283,16 @@ class WorkflowCodeExecutor {
     WorkflowCodeLanguage.javascript => <String>[
       '--max-old-space-size=256',
       '--unhandled-rejections=strict',
+      scriptPath,
+      resultPath,
+    ],
+    WorkflowCodeLanguage.linuxShell => <String>['-eu', scriptPath, resultPath],
+    WorkflowCodeLanguage.windowsPowerShell => <String>[
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
       scriptPath,
       resultPath,
     ],
@@ -285,7 +342,59 @@ ${expressions.entries.map((entry) => '        ${jsonEncode(entry.key)}: eval(${j
 ${expressions.entries.map((entry) => '    ${jsonEncode(entry.key)}: evaluate(${jsonEncode(entry.value)}),').join('\n')}
   };
 }''',
+    WorkflowCodeLanguage.linuxShell => _linuxShellExpressionCode(expressions),
+    WorkflowCodeLanguage.windowsPowerShell => _powerShellExpressionCode(
+      expressions,
+    ),
   };
+
+  String _linuxShellExpressionCode(Map<String, String> expressions) {
+    final buffer = StringBuffer()
+      ..writeln('#!/bin/sh')
+      ..writeln('set -eu')
+      ..writeln('__openhand_result_path="\${2}"')
+      ..writeln('__openhand_input="\$(cat)"')
+      ..writeln('export OPENHAND_INPUT_JSON="\$__openhand_input"')
+      ..writeln("printf '{'");
+    var index = 0;
+    for (final entry in expressions.entries) {
+      if (index > 0) buffer.writeln("printf ','");
+      buffer.writeln(
+        'printf \'${jsonEncode(entry.key)}:%s\' "\$(eval ${_shellQuote(entry.value)})"',
+      );
+      index += 1;
+    }
+    buffer
+      ..writeln("printf '}' > \"\$__openhand_result_path\"")
+      ..write('');
+    return buffer.toString();
+  }
+
+  String _powerShellExpressionCode(Map<String, String> expressions) {
+    final buffer = StringBuffer()
+      ..writeln('param([string]\$ResultPath)')
+      ..writeln('\$inputJson = [Console]::In.ReadToEnd()')
+      ..writeln('\$inputObject = \$inputJson | ConvertFrom-Json')
+      ..writeln(
+        'if (\$inputObject -is [pscustomobject]) { \$inputObject.psobject.Properties | ForEach-Object { Set-Variable -Name \$_.Name -Value \$_.Value } }',
+      )
+      ..writeln('\$env:OPENHAND_INPUT_JSON = \$inputJson')
+      ..writeln('\$result = [ordered]@{}');
+    for (final entry in expressions.entries) {
+      buffer.writeln(
+        '\$result[${jsonEncode(entry.key)}] = & { ${entry.value} }',
+      );
+    }
+    buffer.writeln(
+      '\$result | ConvertTo-Json -Compress -Depth 32 | Set-Content -Encoding utf8 \$ResultPath',
+    );
+    return buffer.toString();
+  }
+
+  String _shellQuote(String value) {
+    final escaped = value.replaceAll("'", "'\"'\"'");
+    return "'$escaped'";
+  }
 
   String _wrappedCode(WorkflowCodeLanguage language, String code) =>
       switch (language) {
@@ -354,6 +463,33 @@ function __openhandWrite(payload) {
     __openhandWrite({ ok: false, error: String(error && error.message ? error.message : error).slice(0, 32768) });
   }
 })();
+''',
+        WorkflowCodeLanguage.linuxShell =>
+          '''#!/bin/sh
+set -eu
+__openhand_result_path="\${2}"
+__openhand_input="\$(cat)"
+export OPENHAND_INPUT_JSON="\$__openhand_input"
+__openhand_stdout="\$(
+$code
+)"
+if [ -z "\$__openhand_stdout" ]; then __openhand_stdout='{}'; fi
+printf '{"ok":true,"result":%s}' "\$__openhand_stdout" > "\$__openhand_result_path"
+''',
+        WorkflowCodeLanguage.windowsPowerShell =>
+          '''param([string]\$ResultPath)
+\$inputJson = [Console]::In.ReadToEnd()
+\$inputObject = \$inputJson | ConvertFrom-Json
+if (\$inputObject -is [pscustomobject]) { \$inputObject.psobject.Properties | ForEach-Object { Set-Variable -Name \$_.Name -Value \$_.Value } }
+\$env:OPENHAND_INPUT_JSON = \$inputJson
+try {
+$code
+  if (\$null -eq \$result) { \$result = @{} }
+  @{ ok = \$true; result = \$result } | ConvertTo-Json -Compress -Depth 32 | Set-Content -Encoding utf8 \$ResultPath
+} catch {
+  @{ ok = \$false; error = \$_.Exception.Message } | ConvertTo-Json -Compress | Set-Content -Encoding utf8 \$ResultPath
+  exit 1
+}
 ''',
       };
 }

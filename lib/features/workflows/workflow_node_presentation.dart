@@ -44,7 +44,7 @@ workflowNodeDescriptor(WorkflowNodeKind kind, ColorScheme colors) {
     ),
     WorkflowNodeKind.codeExecution => (
       label: '代码执行',
-      description: '运行 Python 3 或 JavaScript 代码',
+      description: '运行 Python、JavaScript 或当前平台 Shell 代码',
       icon: Icons.code_rounded,
       color: colors.primary,
     ),

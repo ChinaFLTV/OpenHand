@@ -214,7 +214,9 @@ enum WorkflowHumanTimeoutUnit {
 
 enum WorkflowCodeLanguage {
   python3('python3'),
-  javascript('javascript');
+  javascript('javascript'),
+  linuxShell('linux_shell'),
+  windowsPowerShell('windows_powershell');
 
   const WorkflowCodeLanguage(this.storageValue);
 
@@ -223,11 +225,15 @@ enum WorkflowCodeLanguage {
   String get label => switch (this) {
     WorkflowCodeLanguage.python3 => 'Python 3',
     WorkflowCodeLanguage.javascript => 'JavaScript',
+    WorkflowCodeLanguage.linuxShell => 'Linux Shell',
+    WorkflowCodeLanguage.windowsPowerShell => 'Windows PowerShell',
   };
 
   String get fileExtension => switch (this) {
     WorkflowCodeLanguage.python3 => 'py',
     WorkflowCodeLanguage.javascript => 'js',
+    WorkflowCodeLanguage.linuxShell => 'sh',
+    WorkflowCodeLanguage.windowsPowerShell => 'ps1',
   };
 
   static WorkflowCodeLanguage fromStorage(Object? value) {
@@ -299,6 +305,9 @@ String defaultWorkflowCode(
     $outputName: $firstInput + $secondInput
   }
 }''',
+    WorkflowCodeLanguage.linuxShell => '#!/bin/sh\nprintf \'{"result":""}\'',
+    WorkflowCodeLanguage.windowsPowerShell =>
+      'param([string]\$ResultPath)\n@{ result = "" } | ConvertTo-Json -Compress | Set-Content -Encoding utf8 \$ResultPath',
   };
 }
 
@@ -315,6 +324,8 @@ List<String> workflowCodeFunctionParameters(
     WorkflowCodeLanguage.javascript => RegExp(
       r'function\s+main\s*\(([\s\S]*?)\)\s*\{',
     ).firstMatch(code),
+    WorkflowCodeLanguage.linuxShell ||
+    WorkflowCodeLanguage.windowsPowerShell => null,
   };
   var declaration = match?.group(1)?.trim() ?? '';
   if (language == WorkflowCodeLanguage.javascript &&
@@ -428,6 +439,9 @@ String workflowCodeWithInputSignature(
           ? ''
           : '{ ${parameters.join(', ')} }';
       return code.replaceFirst(pattern, 'function main($signature) {');
+    case WorkflowCodeLanguage.linuxShell:
+    case WorkflowCodeLanguage.windowsPowerShell:
+      return code;
   }
 }
 
@@ -560,7 +574,9 @@ enum WorkflowValueSource {
 enum WorkflowValueMode {
   literal('literal'),
   pythonExpression('python_expression'),
-  javascriptExpression('javascript_expression');
+  javascriptExpression('javascript_expression'),
+  linuxShellExpression('linux_shell_expression'),
+  windowsPowerShellExpression('windows_powershell_expression');
 
   const WorkflowValueMode(this.storageValue);
 
@@ -570,12 +586,17 @@ enum WorkflowValueMode {
     WorkflowValueMode.literal => '字面量拼接',
     WorkflowValueMode.pythonExpression => 'Python 表达式',
     WorkflowValueMode.javascriptExpression => 'JavaScript 表达式',
+    WorkflowValueMode.linuxShellExpression => 'Linux Shell 表达式',
+    WorkflowValueMode.windowsPowerShellExpression => 'Windows PowerShell 表达式',
   };
 
   WorkflowCodeLanguage? get language => switch (this) {
     WorkflowValueMode.literal => null,
     WorkflowValueMode.pythonExpression => WorkflowCodeLanguage.python3,
     WorkflowValueMode.javascriptExpression => WorkflowCodeLanguage.javascript,
+    WorkflowValueMode.linuxShellExpression => WorkflowCodeLanguage.linuxShell,
+    WorkflowValueMode.windowsPowerShellExpression =>
+      WorkflowCodeLanguage.windowsPowerShell,
   };
 
   static WorkflowValueMode fromStorage(Object? value) {

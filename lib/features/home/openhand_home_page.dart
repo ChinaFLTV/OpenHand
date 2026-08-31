@@ -5797,6 +5797,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                         .toolCatalogFor(server.name)
                         .tools,
                 },
+                codeRuntimes: workflowSystemCodeRuntimes(),
                 cancellation: toolContext.cancelSignal == null
                     ? null
                     : WorkflowExecutionCancellationToken(),

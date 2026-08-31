@@ -4535,6 +4535,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
                           .toolCatalogFor(server.name)
                           .tools,
                   },
+                  codeRuntimes: workflowSystemCodeRuntimes(),
                 );
               },
           'dingtalk_dws_executor': _executeDwsCommandForAi,
