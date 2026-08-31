@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
@@ -36,6 +37,7 @@ import '../service/workflow_node_executor.dart';
 import '../workflow_node_presentation.dart';
 import 'workflow_curl_import_dialog.dart';
 import 'workflow_llm_conversation_view.dart';
+import 'workflow_numeric_input.dart';
 import 'workflow_parameter_reference_field.dart';
 
 export '../workflow_node_presentation.dart' show workflowNodeDescriptor;
@@ -577,6 +579,9 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
               initialValue:
                   '${node.intSetting(WorkflowSettingKeys.codeExecutionTimeoutSeconds, defaultWorkflowCodeTimeoutSeconds)}',
               keyboardType: TextInputType.number,
+              inputFormatters: const <TextInputFormatter>[
+                WorkflowIntegerInputFormatter(),
+              ],
               decoration: _inputDecoration(
                 '$defaultWorkflowCodeTimeoutSeconds',
               ),
@@ -933,6 +938,9 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                     initialValue:
                         '${node.intSetting(WorkflowSettingKeys.humanTimeout, defaultWorkflowHumanTimeout)}',
                     keyboardType: TextInputType.number,
+                    inputFormatters: const <TextInputFormatter>[
+                      WorkflowIntegerInputFormatter(),
+                    ],
                     decoration: _inputDecoration('大于等于 1'),
                     onChanged: (value) => _set(
                       WorkflowSettingKeys.humanTimeout,
@@ -1599,6 +1607,9 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                   initialValue:
                       '${node.intSetting(WorkflowSettingKeys.writeTimeoutSeconds, defaultWorkflowHttpWriteTimeoutSeconds)}',
                   keyboardType: TextInputType.number,
+                  inputFormatters: const <TextInputFormatter>[
+                    WorkflowIntegerInputFormatter(),
+                  ],
                   decoration: _inputDecoration(
                     '$minWorkflowHttpTimeoutSeconds–$maxWorkflowHttpWriteTimeoutSeconds',
                   ),
@@ -1732,6 +1743,9 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
               initialValue:
                   '${node.intSetting(WorkflowSettingKeys.maxIterations, 10)}',
               keyboardType: TextInputType.number,
+              inputFormatters: const <TextInputFormatter>[
+                WorkflowIntegerInputFormatter(),
+              ],
               decoration: _inputDecoration('1–1000'),
               onChanged: (value) {
                 final parsed = int.tryParse(value);
@@ -1883,6 +1897,9 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                             initialValue:
                                 '${node.intSetting(WorkflowSettingKeys.iterationParallelism, 10)}',
                             keyboardType: TextInputType.number,
+                            inputFormatters: const <TextInputFormatter>[
+                              WorkflowIntegerInputFormatter(),
+                            ],
                             decoration: _inputDecoration('1–10'),
                             onChanged: (value) {
                               final parsed = int.tryParse(value);
@@ -2230,6 +2247,9 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                             initialValue:
                                 '${node.intSetting(WorkflowSettingKeys.listLimitSize, 10)}',
                             keyboardType: TextInputType.number,
+                            inputFormatters: const <TextInputFormatter>[
+                              WorkflowIntegerInputFormatter(),
+                            ],
                             decoration: _inputDecoration('大于等于 1'),
                             onChanged: (value) => _set(
                               WorkflowSettingKeys.listLimitSize,
@@ -4562,6 +4582,11 @@ class _WorkflowTypedValueField extends StatelessWidget {
               type == WorkflowOutputType.number
           ? const TextInputType.numberWithOptions(decimal: true, signed: true)
           : TextInputType.text,
+      inputFormatters: type == WorkflowOutputType.integer
+          ? const <TextInputFormatter>[WorkflowIntegerInputFormatter()]
+          : type == WorkflowOutputType.number
+          ? const <TextInputFormatter>[WorkflowDecimalInputFormatter()]
+          : const <TextInputFormatter>[],
       decoration: _inputDecoration(label),
       onChanged: onChanged,
     );
@@ -4625,6 +4650,9 @@ class _NumberFieldRow extends StatelessWidget {
               key: ValueKey('$leftLabel-$leftValue'),
               initialValue: '$leftValue',
               keyboardType: TextInputType.number,
+              inputFormatters: const <TextInputFormatter>[
+                WorkflowIntegerInputFormatter(),
+              ],
               decoration: _inputDecoration('$leftMin–$leftMax'),
               onChanged: (value) {
                 final parsed = int.tryParse(value);
@@ -4643,6 +4671,9 @@ class _NumberFieldRow extends StatelessWidget {
               key: ValueKey('$rightLabel-$rightValue'),
               initialValue: '$rightValue',
               keyboardType: TextInputType.number,
+              inputFormatters: const <TextInputFormatter>[
+                WorkflowIntegerInputFormatter(),
+              ],
               decoration: _inputDecoration('$rightMin–$rightMax'),
               onChanged: (value) {
                 final parsed = int.tryParse(value);

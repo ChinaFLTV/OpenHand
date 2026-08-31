@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
@@ -15,6 +16,7 @@ import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../model/workflow_definition.dart';
 import '../service/workflow_node_executor.dart';
+import 'workflow_numeric_input.dart';
 
 const RoundedRectangleBorder _workflowTestButtonShape = RoundedRectangleBorder(
   borderRadius: kOpenHandBorderRadius12,
@@ -454,6 +456,11 @@ class _WorkflowTestInputField extends StatelessWidget {
                   : complex
                   ? TextInputType.multiline
                   : TextInputType.text,
+              inputFormatters: field.type == WorkflowOutputType.integer
+                  ? const <TextInputFormatter>[WorkflowIntegerInputFormatter()]
+                  : field.type == WorkflowOutputType.number
+                  ? const <TextInputFormatter>[WorkflowDecimalInputFormatter()]
+                  : const <TextInputFormatter>[],
               style: complex
                   ? theme.textTheme.bodyMedium?.copyWith(
                       fontFamily: kOpenHandMonospaceFontFamily,

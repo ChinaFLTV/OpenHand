@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
@@ -15,6 +16,7 @@ import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/workflow_definition.dart';
 import '../service/workflow_node_executor.dart';
+import 'workflow_numeric_input.dart';
 
 Future<WorkflowHumanInterventionResponse> showWorkflowHumanInterventionDialog(
   BuildContext context,
@@ -260,6 +262,16 @@ class _WorkflowHumanInterventionDialogState
                                     ),
                                   ),
                                 ),
+                                inputFormatters:
+                                    field.type == WorkflowOutputType.integer
+                                    ? const <TextInputFormatter>[
+                                        WorkflowIntegerInputFormatter(),
+                                      ]
+                                    : field.type == WorkflowOutputType.number
+                                    ? const <TextInputFormatter>[
+                                        WorkflowDecimalInputFormatter(),
+                                      ]
+                                    : const <TextInputFormatter>[],
                                 onChanged: (_) {
                                   if (_error != null) {
                                     setState(() => _error = null);
