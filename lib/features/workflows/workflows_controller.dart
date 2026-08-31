@@ -85,6 +85,31 @@ class WorkflowsController extends ManagedChangeNotifier {
     });
   }
 
+  Future<bool> setEnabled(String id, bool enabled) {
+    final normalizedId = id.trim();
+    if (normalizedId.isEmpty) return Future<bool>.value(false);
+    return enqueueOperation(() async {
+      if (!await _ensureTrustedSnapshotLocked()) return false;
+      final current = _workflows
+          .where((item) => item.id == normalizedId)
+          .firstOrNull;
+      if (current == null || current.enabled == enabled) return true;
+      final nextWorkflow = current.copyWith(
+        enabled: enabled,
+        updatedAt: DateTime.now().toUtc(),
+      );
+      final next = <WorkflowDefinition>[
+        nextWorkflow,
+        ..._workflows.where((item) => item.id != normalizedId),
+      ];
+      return _commit(
+        enabled ? '启用工作流' : '停用工作流',
+        next,
+        () => _store.save(nextWorkflow),
+      );
+    });
+  }
+
   Future<bool> _commit(
     String action,
     List<WorkflowDefinition> next,

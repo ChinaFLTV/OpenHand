@@ -2725,6 +2725,7 @@ class WorkflowDefinition {
     this.description = '',
     this.details = '',
     this.tags = const <String>[],
+    this.enabled = true,
   });
 
   factory WorkflowDefinition.fromJson(Map<String, Object?> json) {
@@ -2739,6 +2740,10 @@ class WorkflowDefinition {
       maxCharacters: kWorkflowDetailsMaxCharacters,
     );
     final tags = _normalizeWorkflowTags(json['tags']);
+    final enabled = switch (json['enabled']) {
+      bool value => value,
+      _ => true,
+    };
     final createdAt = DateTime.tryParse('${json['created_at'] ?? ''}')?.toUtc();
     final updatedAt = DateTime.tryParse('${json['updated_at'] ?? ''}')?.toUtc();
     if (id.isEmpty || name.isEmpty || createdAt == null || updatedAt == null) {
@@ -2836,6 +2841,7 @@ class WorkflowDefinition {
       description: description,
       details: details,
       tags: tags,
+      enabled: enabled,
     );
   }
 
@@ -2849,12 +2855,14 @@ class WorkflowDefinition {
   final String description;
   final String details;
   final List<String> tags;
+  final bool enabled;
 
   WorkflowDefinition copyWith({
     String? name,
     String? description,
     String? details,
     List<String>? tags,
+    bool? enabled,
     DateTime? updatedAt,
     List<WorkflowNode>? nodes,
     List<WorkflowConnection>? connections,
@@ -2866,6 +2874,7 @@ class WorkflowDefinition {
       description: description ?? this.description,
       details: details ?? this.details,
       tags: tags ?? this.tags,
+      enabled: enabled ?? this.enabled,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       nodes: nodes ?? this.nodes,
@@ -2881,6 +2890,7 @@ class WorkflowDefinition {
     'description': description,
     'details': details,
     'tags': tags,
+    'enabled': enabled,
     'created_at': createdAt.toUtc().toIso8601String(),
     'updated_at': updatedAt.toUtc().toIso8601String(),
     'nodes': nodes.map((node) => node.toJson()).toList(growable: false),

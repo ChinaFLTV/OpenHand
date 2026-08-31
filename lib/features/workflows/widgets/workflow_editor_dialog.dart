@@ -3420,6 +3420,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         description: _workflowDescription,
         details: _workflowDetails,
         tags: List<String>.unmodifiable(_workflowTags),
+        enabled: widget.workflow?.enabled ?? true,
       ),
     );
   }

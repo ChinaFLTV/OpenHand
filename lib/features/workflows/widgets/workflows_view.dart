@@ -15,6 +15,8 @@ import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
+import '../../../shared/ui/motion_durations.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -44,6 +46,7 @@ class WorkflowsView extends StatefulWidget {
 
 class _WorkflowsViewState extends State<WorkflowsView> {
   bool _importing = false;
+  final Set<String> _togglingWorkflowIds = <String>{};
 
   @override
   Widget build(BuildContext context) {
@@ -159,6 +162,13 @@ class _WorkflowsViewState extends State<WorkflowsView> {
                                     controller,
                                     workflow,
                                   ),
+                                  toggling: _togglingWorkflowIds.contains(
+                                    workflow.id,
+                                  ),
+                                  onToggleEnabled: () => _toggleWorkflowEnabled(
+                                    controller,
+                                    workflow,
+                                  ),
                                   onExport: (format) =>
                                       _exportWorkflow(workflow, format),
                                 ),
@@ -172,6 +182,24 @@ class _WorkflowsViewState extends State<WorkflowsView> {
               ),
             ),
     );
+  }
+
+  Future<void> _toggleWorkflowEnabled(
+    WorkflowsController controller,
+    WorkflowDefinition workflow,
+  ) async {
+    if (_togglingWorkflowIds.contains(workflow.id)) return;
+    setState(() => _togglingWorkflowIds.add(workflow.id));
+    final enabled = !workflow.enabled;
+    final saved = await controller.setEnabled(workflow.id, enabled);
+    if (!mounted) return;
+    setState(() => _togglingWorkflowIds.remove(workflow.id));
+    if (!saved) {
+      showOpenHandInfoSnack(
+        context,
+        controller.errorMessage ?? (enabled ? '启用工作流失败。' : '停用工作流失败。'),
+      );
+    }
   }
 
   Future<void> _importWorkflow(WorkflowsController controller) async {
@@ -222,6 +250,7 @@ class _WorkflowsViewState extends State<WorkflowsView> {
         description: imported.description,
         details: imported.details,
         tags: imported.tags,
+        enabled: imported.enabled,
       );
       final saved = await controller.save(candidate);
       if (!mounted) return;
@@ -490,12 +519,16 @@ class _WorkflowCard extends StatelessWidget {
     required this.onOpen,
     required this.onDelete,
     required this.onExport,
+    required this.onToggleEnabled,
+    this.toggling = false,
   });
 
   final WorkflowDefinition workflow;
   final VoidCallback onOpen;
   final VoidCallback onDelete;
   final ValueChanged<WorkflowExportFormat> onExport;
+  final VoidCallback onToggleEnabled;
+  final bool toggling;
 
   @override
   Widget build(BuildContext context) {
@@ -583,6 +616,39 @@ class _WorkflowCard extends StatelessWidget {
                       ],
                     ),
                   ),
+                  kOpenHandHGap8,
+                  IconButton.filledTonal(
+                    key: ValueKey<String>('workflow-enabled-${workflow.id}'),
+                    tooltip: toggling
+                        ? '正在更新工作流状态'
+                        : workflow.enabled
+                        ? '停用工作流'
+                        : '启用工作流',
+                    onPressed: toggling ? null : onToggleEnabled,
+                    style: _workflowCardEnabledButtonStyle(
+                      theme,
+                      enabled: workflow.enabled,
+                    ),
+                    icon: AnimatedSwitcher(
+                      duration: openHandMotionDuration(
+                        context,
+                        kOpenHandMotion180,
+                      ),
+                      child: toggling
+                          ? const SizedBox.square(
+                              key: ValueKey<String>('workflow-enabled-busy'),
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              workflow.enabled
+                                  ? Icons.power_settings_new_rounded
+                                  : Icons.power_off_rounded,
+                              key: ValueKey<bool>(workflow.enabled),
+                            ),
+                    ),
+                  ),
+                  kOpenHandHGap8,
                   AnimatedPopupMenuButton<WorkflowExportFormat>(
                     key: ValueKey<String>('workflow-export-${workflow.id}'),
                     tooltip: '导出工作流',
@@ -704,6 +770,28 @@ ButtonStyle _workflowCardActionButtonStyle(ThemeData theme) {
       alpha: _workflowCardActionEnabledAlpha,
     ),
     foregroundColor: theme.colorScheme.onSurfaceVariant,
+  );
+}
+
+ButtonStyle _workflowCardEnabledButtonStyle(
+  ThemeData theme, {
+  required bool enabled,
+}) {
+  final colors = theme.colorScheme;
+  return IconButton.styleFrom(
+    shape: const CircleBorder(),
+    padding: EdgeInsets.zero,
+    minimumSize: const Size.square(_workflowCardActionSize),
+    fixedSize: const Size.square(_workflowCardActionSize),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    backgroundColor: enabled
+        ? colors.primaryContainer
+        : colors.surfaceContainerHighest.withValues(
+            alpha: _workflowCardActionEnabledAlpha,
+          ),
+    foregroundColor: enabled
+        ? colors.onPrimaryContainer
+        : colors.onSurfaceVariant,
   );
 }
 
