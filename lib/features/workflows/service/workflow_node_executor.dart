@@ -348,11 +348,22 @@ class WorkflowExecutionResult {
 class WorkflowNodeExecutor {
   WorkflowNodeExecutor({AiChatClient? chatClient})
     : _chatClient = chatClient ?? AiChatService(),
-      _ownsChatClient = chatClient == null;
+      _ownsChatClient = chatClient == null,
+      _proxyRevision = SystemProxyResolver.instance.revision.value;
 
-  final AiChatClient _chatClient;
+  AiChatClient _chatClient;
   final bool _ownsChatClient;
+  int _proxyRevision;
   static const WorkflowCodeExecutor _codeExecutor = WorkflowCodeExecutor();
+
+  void _refreshProxyAwareChatClient() {
+    if (!_ownsChatClient) return;
+    final revision = SystemProxyResolver.instance.revision.value;
+    if (revision == _proxyRevision) return;
+    _chatClient.dispose();
+    _chatClient = AiChatService();
+    _proxyRevision = revision;
+  }
 
   Future<WorkflowNodeExecutionResult> execute({
     required WorkflowNode node,
@@ -820,6 +831,7 @@ class WorkflowNodeExecutor {
     Map<String, Object?> variables,
   ) async {
     resources.cancellation?.throwIfCancelled();
+    _refreshProxyAwareChatClient();
     final modelConfigId = node
         .stringSetting(WorkflowSettingKeys.modelConfigId)
         .trim();
