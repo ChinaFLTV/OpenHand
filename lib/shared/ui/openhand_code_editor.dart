@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:highlight/highlight.dart' as highlight;
 
@@ -270,16 +273,44 @@ class OpenHandCodeEditor extends StatefulWidget {
 }
 
 class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
+  static const double _minEditorHeight = 180;
+  static const double _maxEditorHeight = 720;
+  static const double _minFontSize = 10;
+  static const double _maxFontSize = 28;
+  static const double _lineNumberGutterWidth = 48;
+  static const double _editorPadding = 14;
+  static const double _resizeHandleHeight = 18;
+  static const int _maxLineNumberItems = 20000;
+
   late final _HighlightingCodeController _controller =
       _HighlightingCodeController(
         text: widget.value,
         language: widget.language,
       );
   late final ScrollController _scrollController = ScrollController();
+  late final ScrollController _lineNumberScrollController = ScrollController();
   late final FocusNode _focusNode = FocusNode(
     debugLabel: 'openhand-code-editor',
   );
   late final UndoHistoryController _undoController = UndoHistoryController();
+  late double _editorHeight = _boundedEditorHeight(widget.height);
+  late double _defaultEditorHeight = _editorHeight;
+  late double _fontSize = 14;
+  final Map<int, Offset> _activePointers = <int, Offset>{};
+  double? _pinchStartDistance;
+  double? _pinchStartFontSize;
+
+  double _boundedEditorHeight(double value) =>
+      value.clamp(_minEditorHeight, _maxEditorHeight).toDouble();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_syncLineNumberScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncLineNumberScroll();
+    });
+  }
 
   @override
   void didUpdateWidget(covariant OpenHandCodeEditor oldWidget) {
@@ -293,12 +324,17 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     if (oldWidget.language != widget.language) {
       _controller.language = widget.language;
     }
+    if (oldWidget.height != widget.height) {
+      _defaultEditorHeight = _boundedEditorHeight(widget.height);
+      _editorHeight = _boundedEditorHeight(widget.height);
+    }
   }
 
   @override
   void dispose() {
     _undoController.dispose();
     _focusNode.dispose();
+    _lineNumberScrollController.dispose();
     _scrollController.dispose();
     _controller.dispose();
     super.dispose();
@@ -311,6 +347,7 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     final editorStyle = theme.textTheme.bodyMedium?.copyWith(
       color: colorScheme.onSurface,
       fontFamily: kOpenHandMonospaceFontFamily,
+      fontSize: _fontSize,
       height: 1.5,
     );
     _controller.highlighter = OpenHandCodeSyntaxHighlighter(
@@ -318,8 +355,12 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
       darkSurface: theme.brightness == Brightness.dark,
       codeTheme: widget.codeTheme,
     );
+    final lineHeight = (_fontSize * 1.5).clamp(1, double.infinity).toDouble();
+    final lineCount = math.min(
+      _lineCount(_controller.text),
+      _maxLineNumberItems,
+    );
     return Container(
-      height: widget.height,
       clipBehavior: widget.borderRadius == BorderRadius.zero
           ? Clip.none
           : Clip.antiAlias,
@@ -364,53 +405,304 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
                     color: colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(width: 4),
-                ValueListenableBuilder<UndoHistoryValue>(
-                  valueListenable: _undoController,
-                  builder: (context, value, _) => Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: '撤销',
-                        onPressed: value.canUndo ? _undoController.undo : null,
-                        icon: const Icon(Icons.undo_rounded, size: 18),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      kOpenHandHGap6,
-                      IconButton(
-                        tooltip: '重做',
-                        onPressed: value.canRedo ? _undoController.redo : null,
-                        icon: const Icon(Icons.redo_rounded, size: 18),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
-          Expanded(
-            child: OpenHandSafeScrollbar(
-              controller: _scrollController,
-              thumbVisibility: true,
-              thickness: 8,
-              radius: const Radius.circular(8),
-              child: OpenHandCodeTextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                scrollController: _scrollController,
-                undoController: _undoController,
-                style: editorStyle,
-                onChanged: (value) {
-                  widget.onChanged(value);
-                  setState(() {});
-                },
+          Listener(
+            onPointerDown: _handlePointerDown,
+            onPointerMove: _handlePointerMove,
+            onPointerUp: _handlePointerUp,
+            onPointerCancel: _handlePointerUp,
+            onPointerPanZoomStart: _handlePanZoomStart,
+            onPointerPanZoomUpdate: _handlePanZoomUpdate,
+            onPointerPanZoomEnd: _handlePanZoomEnd,
+            child: SizedBox(
+              height: _editorHeight,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildLineNumberGutter(
+                    context,
+                    lineCount: lineCount,
+                    lineHeight: lineHeight,
+                  ),
+                  Expanded(
+                    child: OpenHandSafeScrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      thickness: 8,
+                      radius: const Radius.circular(8),
+                      child: OpenHandCodeTextField(
+                        controller: _controller,
+                        focusNode: _focusNode,
+                        scrollController: _scrollController,
+                        undoController: _undoController,
+                        style: editorStyle,
+                        onChanged: (value) {
+                          widget.onChanged(value);
+                          setState(() {});
+                        },
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
+          _buildResizeHandle(context),
+          _buildActionBar(context),
         ],
       ),
     );
+  }
+
+  Widget _buildLineNumberGutter(
+    BuildContext context, {
+    required int lineCount,
+    required double lineHeight,
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    final style = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: colors.onSurfaceVariant,
+      fontFamily: kOpenHandMonospaceFontFamily,
+      fontSize: _fontSize,
+      height: 1.5,
+    );
+    return Container(
+      width: _lineNumberGutterWidth,
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHigh,
+        border: Border(right: BorderSide(color: colors.outlineVariant)),
+      ),
+      child: ListView.builder(
+        controller: _lineNumberScrollController,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(
+          top: _editorPadding,
+          bottom: _editorPadding,
+        ),
+        itemExtent: lineHeight,
+        itemCount: lineCount,
+        itemBuilder: (context, index) => Align(
+          alignment: Alignment.topRight,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 9),
+            child: Text('${index + 1}', style: style),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResizeHandle(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: '拖动调整代码显示区域',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onVerticalDragUpdate: (details) {
+          final next = _boundedEditorHeight(_editorHeight + details.delta.dy);
+          if (next == _editorHeight) return;
+          setState(() => _editorHeight = next);
+        },
+        child: SizedBox(
+          height: _resizeHandleHeight,
+          child: Center(
+            child: Icon(
+              Icons.drag_handle_rounded,
+              size: 18,
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionBar(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        border: Border(
+          top: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: ValueListenableBuilder<UndoHistoryValue>(
+          valueListenable: _undoController,
+          builder: (context, value, _) => Row(
+            children: [
+              _editorActionButton(
+                context,
+                label: '撤销',
+                icon: Icons.undo_rounded,
+                onPressed: value.canUndo ? _undo : null,
+              ),
+              kOpenHandHGap6,
+              _editorActionButton(
+                context,
+                label: '重做',
+                icon: Icons.redo_rounded,
+                onPressed: value.canRedo ? _redo : null,
+              ),
+              kOpenHandHGap6,
+              _editorActionButton(
+                context,
+                label: '格式化',
+                icon: Icons.auto_fix_high_rounded,
+                onPressed: _formatCode,
+              ),
+              kOpenHandHGap6,
+              _editorActionButton(
+                context,
+                label: '重置窗口',
+                icon: Icons.fit_screen_rounded,
+                onPressed: _resetEditorViewport,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _editorActionButton(
+    BuildContext context, {
+    required String label,
+    required IconData icon,
+    required VoidCallback? onPressed,
+  }) {
+    return FilledButton.tonalIcon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 17),
+      label: Text(label),
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(0, 36),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        visualDensity: VisualDensity.compact,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kOpenHandRadius10),
+        ),
+        shadowColor: Colors.transparent,
+      ),
+    );
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    _activePointers[event.pointer] = event.position;
+    if (_activePointers.length == 2) {
+      final points = _activePointers.values.toList(growable: false);
+      _pinchStartDistance = (points[0] - points[1]).distance;
+      _pinchStartFontSize = _fontSize;
+    }
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    if (!_activePointers.containsKey(event.pointer)) return;
+    _activePointers[event.pointer] = event.position;
+    if (_activePointers.length < 2 ||
+        _pinchStartDistance == null ||
+        _pinchStartFontSize == null) {
+      return;
+    }
+    final points = _activePointers.values.toList(growable: false);
+    final distance = (points[0] - points[1]).distance;
+    if (distance <= 0 || _pinchStartDistance! <= 0) return;
+    final next = (_pinchStartFontSize! * distance / _pinchStartDistance!)
+        .clamp(_minFontSize, _maxFontSize)
+        .toDouble();
+    if ((next - _fontSize).abs() < 0.1) return;
+    setState(() => _fontSize = next);
+  }
+
+  void _handlePointerUp(PointerEvent event) {
+    _activePointers.remove(event.pointer);
+    if (_activePointers.length < 2) {
+      _pinchStartDistance = null;
+      _pinchStartFontSize = null;
+    }
+  }
+
+  void _handlePanZoomStart(PointerPanZoomStartEvent event) {
+    _pinchStartFontSize = _fontSize;
+  }
+
+  void _handlePanZoomUpdate(PointerPanZoomUpdateEvent event) {
+    final base = _pinchStartFontSize ?? _fontSize;
+    final next = (base * event.scale)
+        .clamp(_minFontSize, _maxFontSize)
+        .toDouble();
+    if ((next - _fontSize).abs() < 0.1) return;
+    setState(() => _fontSize = next);
+  }
+
+  void _handlePanZoomEnd(PointerPanZoomEndEvent event) {
+    _pinchStartFontSize = null;
+  }
+
+  void _syncLineNumberScroll() {
+    if (!_scrollController.hasClients ||
+        !_lineNumberScrollController.hasClients) {
+      return;
+    }
+    final target = _scrollController.offset.clamp(
+      0.0,
+      _lineNumberScrollController.position.maxScrollExtent,
+    );
+    if ((_lineNumberScrollController.offset - target).abs() > 0.1) {
+      _lineNumberScrollController.jumpTo(target);
+    }
+  }
+
+  int _lineCount(String text) {
+    var count = 1;
+    for (final codeUnit in text.codeUnits) {
+      if (codeUnit == 10) count += 1;
+    }
+    return count;
+  }
+
+  void _formatCode() {
+    final normalized = _controller.text
+        .replaceAll('\r\n', '\n')
+        .split('\n')
+        .map((line) => line.trimRight())
+        .join('\n')
+        .trimRight();
+    final formatted = normalized.isEmpty ? '' : '$normalized\n';
+    if (formatted == _controller.text) return;
+    _controller.value = TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+    widget.onChanged(formatted);
+    setState(() {});
+  }
+
+  void _undo() {
+    _undoController.undo();
+    widget.onChanged(_controller.text);
+    setState(() {});
+  }
+
+  void _redo() {
+    _undoController.redo();
+    widget.onChanged(_controller.text);
+    setState(() {});
+  }
+
+  void _resetEditorViewport() {
+    setState(() {
+      _editorHeight = _defaultEditorHeight;
+      _fontSize = 14;
+    });
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
+    if (_lineNumberScrollController.hasClients) {
+      _lineNumberScrollController.jumpTo(0);
+    }
   }
 }
 
