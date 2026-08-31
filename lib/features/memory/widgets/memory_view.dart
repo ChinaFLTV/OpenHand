@@ -83,7 +83,7 @@ class MemoryView extends StatelessWidget {
             },
           ),
         ),
-        OutlinedButton.icon(
+        FilledButton.icon(
           onPressed: () => _openDirectory(context),
           icon: const Icon(Icons.folder_open_rounded),
           label: Text(l10n.memoryOpenDirectory),

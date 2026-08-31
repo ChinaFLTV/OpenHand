@@ -40,7 +40,7 @@ Widget resourceUsageStatisticsButton(
   BuildContext context, {
   required VoidCallback onPressed,
 }) {
-  return OutlinedButton.icon(
+  return FilledButton.icon(
     onPressed: onPressed,
     icon: const Icon(Icons.insights_rounded),
     label: Text(resourceUsageStatisticsLabel(context)),
