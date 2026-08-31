@@ -23,6 +23,9 @@ const double _developmentParameterFieldHeight = 52;
 const double _developmentParameterListMaxHeight = 640;
 const double _developmentParameterCompactWidth = 680;
 const double _developmentParameterTargetItemHeight = 52;
+
+/// 需容纳最长类型文案（如 array[boolean]）与下拉箭头。
+const double _developmentParameterTypeFieldWidth = 220;
 const RoundedRectangleBorder _developmentParameterButtonShape =
     RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius12);
 
@@ -802,11 +805,20 @@ class _DevelopmentParameterItem extends StatelessWidget {
                   initialValue: field.type,
                   isExpanded: true,
                   decoration: decoration.copyWith(labelText: '类型'),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontFamily: kOpenHandMonospaceFontFamily,
+                    fontWeight: FontWeight.w800,
+                  ),
                   items: WorkflowOutputType.values
                       .map(
                         (type) => DropdownMenuItem<WorkflowOutputType>(
                           value: type,
-                          child: Text(type.storageValue),
+                          child: Text(
+                            type.storageValue,
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       )
                       .toList(growable: false),
@@ -911,7 +923,7 @@ class _DevelopmentParameterItem extends StatelessWidget {
                     ),
                     kOpenHandHGap8,
                     SizedBox(
-                      width: 154,
+                      width: _developmentParameterTypeFieldWidth,
                       height: _developmentParameterFieldHeight,
                       child: typeField,
                     ),
@@ -1127,7 +1139,10 @@ class _DevelopmentParameterNameField extends StatelessWidget {
               itemCount: options.length,
               itemBuilder: (context, index) {
                 final reference = options.elementAt(index);
-                final accent = Theme.of(context).colorScheme.primary;
+                final theme = Theme.of(context);
+                final colors = theme.colorScheme;
+                final accent = colors.primary;
+                final description = reference.field.description.trim();
                 return InkWell(
                   onTap: () => onSelected(reference),
                   borderRadius: BorderRadius.circular(kOpenHandRadius9),
@@ -1136,41 +1151,44 @@ class _DevelopmentParameterNameField extends StatelessWidget {
                       horizontal: 10,
                       vertical: 8,
                     ),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                reference.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              Wrap(
-                                spacing: 4,
-                                runSpacing: 3,
-                                children: [
-                                  _ReferenceTag(label: reference.nodeTitle),
-                                  _ReferenceTag(
-                                    label: reference.direction.label,
-                                    accent: accent,
-                                  ),
-                                  _ReferenceTag(
-                                    label: reference.field.type.storageValue,
-                                  ),
-                                  if (reference.field.description
-                                      .trim()
-                                      .isNotEmpty)
-                                    _ReferenceTag(
-                                      label: reference.field.description.trim(),
-                                    ),
-                                ],
-                              ),
-                            ],
+                        Text(
+                          reference.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
+                        kOpenHandGap4,
+                        Wrap(
+                          spacing: 4,
+                          runSpacing: 3,
+                          children: [
+                            _ReferenceTag(label: reference.nodeTitle),
+                            _ReferenceTag(
+                              label: reference.direction.label,
+                              accent: accent,
+                            ),
+                            _ReferenceTag(
+                              label: reference.field.type.storageValue,
+                            ),
+                          ],
+                        ),
+                        if (description.isNotEmpty) ...[
+                          kOpenHandGap4,
+                          Text(
+                            description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colors.onSurfaceVariant,
+                              height: 1.25,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
