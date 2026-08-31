@@ -4792,7 +4792,7 @@ class _WorkflowMetadataDialogState extends State<_WorkflowMetadataDialog> {
       },
       builder: (context, candidateData, rejectedData) {
         final highlighted = candidateData.isNotEmpty || _hoverIndex == index;
-        return LongPressDraggable<int>(
+        return Draggable<int>(
           data: index,
           onDragStarted: () => setState(() => _dragIndex = index),
           onDragEnd: (_) => setState(() {
