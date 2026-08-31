@@ -778,6 +778,7 @@ class _DevelopmentParameterItem extends StatelessWidget {
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontFamily: kOpenHandMonospaceFontFamily,
                     fontWeight: FontWeight.w800,
+                    color: colors.onSurface.withValues(alpha: 0.56),
                   ),
                 )
               : AnimatedDropdownButtonFormField<WorkflowOutputType>(
@@ -806,6 +807,11 @@ class _DevelopmentParameterItem extends StatelessWidget {
             decoration:
                 (parameter.isWorkflowDefined ? readOnlyDecoration : decoration)
                     .copyWith(labelText: '参数介绍'),
+            style: parameter.isWorkflowDefined
+                ? theme.textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurface.withValues(alpha: 0.56),
+                  )
+                : null,
           );
           final requiredField = _DevelopmentParameterMeta(
             label: '必需',
@@ -976,18 +982,53 @@ InputDecoration _developmentParameterInputDecoration(
   bool enabled = true,
 }) {
   final colors = Theme.of(context).colorScheme;
+  final radius = BorderRadius.circular(kOpenHandRadius12);
+  final enabledBorder = OutlineInputBorder(
+    borderRadius: radius,
+    borderSide: BorderSide(color: colors.outlineVariant),
+  );
+  final focusedBorder = OutlineInputBorder(
+    borderRadius: radius,
+    borderSide: BorderSide(color: colors.primary, width: 1.6),
+  );
+  final disabledBorder = OutlineInputBorder(
+    borderRadius: radius,
+    borderSide: BorderSide(
+      color: colors.outlineVariant.withValues(alpha: 0.52),
+    ),
+  );
   return InputDecoration(
     isDense: true,
     filled: true,
-    fillColor: enabled ? colors.surface : colors.surfaceContainerHighest,
+    fillColor: enabled
+        ? colors.surface
+        : colors.surfaceContainerHighest.withValues(alpha: 0.72),
     labelStyle: enabled
         ? null
-        : TextStyle(color: colors.onSurface.withValues(alpha: 0.52)),
+        : TextStyle(
+            color: colors.onSurfaceVariant.withValues(alpha: 0.58),
+            fontWeight: FontWeight.w600,
+          ),
     floatingLabelStyle: enabled
         ? null
-        : TextStyle(color: colors.onSurface.withValues(alpha: 0.52)),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(kOpenHandRadius12),
+        : TextStyle(
+            color: colors.onSurfaceVariant.withValues(alpha: 0.58),
+            fontWeight: FontWeight.w600,
+          ),
+    hintStyle: enabled
+        ? null
+        : TextStyle(color: colors.onSurfaceVariant.withValues(alpha: 0.5)),
+    border: enabled ? enabledBorder : disabledBorder,
+    enabledBorder: enabled ? enabledBorder : disabledBorder,
+    focusedBorder: enabled ? focusedBorder : disabledBorder,
+    disabledBorder: disabledBorder,
+    errorBorder: OutlineInputBorder(
+      borderRadius: radius,
+      borderSide: BorderSide(color: colors.error),
+    ),
+    focusedErrorBorder: OutlineInputBorder(
+      borderRadius: radius,
+      borderSide: BorderSide(color: colors.error, width: 1.6),
     ),
   );
 }
@@ -1023,6 +1064,9 @@ class _DevelopmentParameterNameField extends StatelessWidget {
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
           fontFamily: kOpenHandMonospaceFontFamily,
           fontWeight: FontWeight.w800,
+          color: Theme.of(
+            context,
+          ).colorScheme.onSurface.withValues(alpha: 0.56),
         ),
       );
     }
