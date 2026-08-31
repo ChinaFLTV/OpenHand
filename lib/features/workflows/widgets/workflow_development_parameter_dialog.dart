@@ -27,13 +27,9 @@ const double _developmentParameterTargetItemHeight = 52;
 /// 需容纳最长类型文案（如 array[boolean]）与下拉箭头。
 const double _developmentParameterTypeFieldWidth = 220;
 
-/// 配合固定行高 52，避免浮动标签 + 默认内边距裁切字形下沉部分。
-const EdgeInsets _developmentParameterFieldContentPadding = EdgeInsets.fromLTRB(
-  12,
-  10,
-  10,
-  10,
-);
+/// 仅用于类型字段：在固定行高 52 内避免字形下沉部分被裁切。
+const EdgeInsets _developmentParameterTypeFieldContentPadding =
+    EdgeInsets.fromLTRB(12, 10, 10, 10);
 const RoundedRectangleBorder _developmentParameterButtonShape =
     RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius12);
 
@@ -806,11 +802,18 @@ class _DevelopmentParameterItem extends StatelessWidget {
             height: 1.0,
             leadingDistribution: TextLeadingDistribution.even,
           );
+          final typeDecoration =
+              (parameter.isWorkflowDefined ? readOnlyDecoration : decoration)
+                  .copyWith(
+                    labelText: '类型',
+                    contentPadding:
+                        _developmentParameterTypeFieldContentPadding,
+                  );
           final typeField = parameter.isWorkflowDefined
               ? TextFormField(
                   initialValue: field.type.storageValue,
                   enabled: false,
-                  decoration: readOnlyDecoration.copyWith(labelText: '类型'),
+                  decoration: typeDecoration,
                   style: typeTextStyle?.copyWith(
                     color: colors.onSurface.withValues(alpha: 0.56),
                   ),
@@ -819,7 +822,7 @@ class _DevelopmentParameterItem extends StatelessWidget {
                   initialValue: field.type,
                   isExpanded: true,
                   alignment: Alignment.centerLeft,
-                  decoration: decoration.copyWith(labelText: '类型'),
+                  decoration: typeDecoration,
                   style: typeTextStyle,
                   selectedItemBuilder: (context) => WorkflowOutputType.values
                       .map(
@@ -1055,7 +1058,6 @@ InputDecoration _developmentParameterInputDecoration(
   return InputDecoration(
     isDense: true,
     filled: true,
-    contentPadding: _developmentParameterFieldContentPadding,
     fillColor: enabled
         ? colors.surface
         : colors.surfaceContainerHighest.withValues(alpha: 0.72),
