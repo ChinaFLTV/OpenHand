@@ -232,7 +232,6 @@ class _WorkflowsViewState extends State<WorkflowsView> {
       context,
       workflow: workflow,
       usageStore: usageStore,
-      preferredSessionId: aiController.currentSessionId,
     );
   }
 

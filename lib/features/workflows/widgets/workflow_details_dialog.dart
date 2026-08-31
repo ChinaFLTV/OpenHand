@@ -23,15 +23,11 @@ Future<void> showWorkflowDetailsDialog(
   BuildContext context, {
   required WorkflowDefinition workflow,
   required AiToolUsagePromotionStore usageStore,
-  String? preferredSessionId,
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => _WorkflowDetailsDialog(
-      workflow: workflow,
-      usageStore: usageStore,
-      preferredSessionId: preferredSessionId,
-    ),
+    builder: (_) =>
+        _WorkflowDetailsDialog(workflow: workflow, usageStore: usageStore),
   );
 }
 
@@ -39,12 +35,10 @@ class _WorkflowDetailsDialog extends StatelessWidget {
   const _WorkflowDetailsDialog({
     required this.workflow,
     required this.usageStore,
-    required this.preferredSessionId,
   });
 
   final WorkflowDefinition workflow;
   final AiToolUsagePromotionStore usageStore;
-  final String? preferredSessionId;
 
   @override
   Widget build(BuildContext context) {
