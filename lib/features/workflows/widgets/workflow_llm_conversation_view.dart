@@ -208,12 +208,12 @@ class _ConversationSummary extends StatelessWidget {
     final (statusLabel, statusColor, statusIcon) = switch (status) {
       WorkflowLlmConversationStatus.running => (
         '进行中',
-        OpenHandStatusColors.info,
+        colors.primary,
         Icons.autorenew_rounded,
       ),
       WorkflowLlmConversationStatus.succeeded => (
         '已完成',
-        OpenHandStatusColors.success,
+        colors.primary,
         Icons.check_circle_outline_rounded,
       ),
       WorkflowLlmConversationStatus.failed => (
@@ -221,7 +221,11 @@ class _ConversationSummary extends StatelessWidget {
         colors.error,
         Icons.error_outline_rounded,
       ),
-      null => ('等待执行', colors.onSurfaceVariant, Icons.schedule_rounded),
+      null => (
+        testing ? '准备中' : '等待执行',
+        testing ? colors.primary : colors.onSurfaceVariant,
+        testing ? Icons.hourglass_top_rounded : Icons.schedule_rounded,
+      ),
     };
     return Container(
       margin: const EdgeInsets.all(14),
@@ -279,7 +283,7 @@ class _ConversationSummary extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  testing && status == null ? '准备中' : statusLabel,
+                  statusLabel,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: statusColor,
                     fontWeight: FontWeight.w800,
@@ -311,12 +315,16 @@ class _ConversationSummary extends StatelessWidget {
           ],
           OpenHandVerticalRevealSwitcher(
             child: status == WorkflowLlmConversationStatus.running
-                ? const Padding(
-                    key: ValueKey<String>('conversation-progress'),
-                    padding: EdgeInsets.only(top: 10),
+                ? Padding(
+                    key: const ValueKey<String>('conversation-progress'),
+                    padding: const EdgeInsets.only(top: 10),
                     child: ClipRRect(
                       borderRadius: kOpenHandBorderRadius20,
-                      child: LinearProgressIndicator(minHeight: 3),
+                      child: LinearProgressIndicator(
+                        minHeight: 3,
+                        color: colors.primary,
+                        backgroundColor: colors.primary.withValues(alpha: 0.14),
+                      ),
                     ),
                   )
                 : null,
