@@ -959,6 +959,27 @@ class _DevelopmentParameterItem extends StatelessWidget {
                 descriptionRow,
               ],
               kOpenHandGap10,
+              SizedBox(
+                height: _developmentParameterFieldHeight,
+                child: AnimatedDropdownButtonFormField<WorkflowValueMode>(
+                  initialValue: WorkflowValueMode.literal,
+                  isExpanded: true,
+                  decoration: readOnlyDecoration.copyWith(labelText: '参数内容取值'),
+                  items: WorkflowValueMode.values
+                      .map(
+                        (mode) => DropdownMenuItem<WorkflowValueMode>(
+                          value: mode,
+                          child: Text(
+                            mode.label,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: null,
+                ),
+              ),
+              kOpenHandGap8,
               WorkflowParameterReferenceField(
                 key: ValueKey<String>('development-value-${parameter.id}'),
                 value: parameter.value,
