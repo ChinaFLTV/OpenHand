@@ -280,8 +280,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
             ),
             kOpenHandHGap6,
           ],
-          if (node.kind != WorkflowNodeKind.start &&
-              node.kind != WorkflowNodeKind.end) ...[
+          if (node.kind != WorkflowNodeKind.start) ...[
             IconButton(
               tooltip: testing ? '停止测试' : '测试节点',
               onPressed: onRun,
