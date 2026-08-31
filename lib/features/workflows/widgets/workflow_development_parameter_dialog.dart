@@ -745,10 +745,7 @@ class _DevelopmentParameterItem extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final field = parameter.field;
-    final decoration = _developmentParameterInputDecoration(
-      context,
-      enabled: !parameter.isWorkflowDefined,
-    );
+    final decoration = _developmentParameterInputDecoration(context);
     final readOnlyDecoration = _developmentParameterInputDecoration(
       context,
       enabled: false,
