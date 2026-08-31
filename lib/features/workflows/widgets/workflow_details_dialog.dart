@@ -182,8 +182,7 @@ class _WorkflowDetailsDialog extends StatelessWidget {
         _buildRecentCalls(context, recentCalls),
         if (workflow.tags.isNotEmpty) ...[kOpenHandGap16, _buildTags(context)],
         kOpenHandGap18,
-        Align(
-          alignment: Alignment.centerRight,
+        Center(
           child: OpenHandDialogActionButton.primary(
             label: '关闭',
             onPressed: () => Navigator.of(context).pop(),
