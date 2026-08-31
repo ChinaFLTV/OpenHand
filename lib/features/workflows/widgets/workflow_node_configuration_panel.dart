@@ -166,7 +166,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
   }
 
   Widget _buildConfigurationContent(BuildContext context) {
-    return ListView(
+    final content = ListView(
       key: ValueKey<String>('configuration-${node.id}'),
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 24),
       children: [
@@ -210,6 +210,11 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                 ),
         ),
       ],
+    );
+    if (node.kind != WorkflowNodeKind.codeExecution) return content;
+    return ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+      child: content,
     );
   }
 
