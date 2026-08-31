@@ -280,6 +280,7 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
   static const int _maxImportedCodeBytes = 512 * 1024;
   static const int _formatterIndentWidth = 4;
   static const int _compactFormatterIndentWidth = 2;
+  static const double _actionButtonHeight = 52;
   static const double _minEditorHeight = 180;
   static const double _maxEditorHeight = 720;
   static const double _minFontSize = 10;
@@ -639,18 +640,21 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     required String label,
     required VoidCallback? onPressed,
   }) {
-    return FilledButton.tonal(
-      onPressed: onPressed,
-      style: FilledButton.styleFrom(
-        minimumSize: const Size.fromHeight(36),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        visualDensity: VisualDensity.compact,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(kOpenHandRadius10),
+    return SizedBox(
+      height: _actionButtonHeight,
+      child: FilledButton.tonal(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(0, _actionButtonHeight),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          visualDensity: VisualDensity.standard,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(kOpenHandRadius10),
+          ),
+          shadowColor: Colors.transparent,
         ),
-        shadowColor: Colors.transparent,
+        child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
       ),
-      child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
     );
   }
 
