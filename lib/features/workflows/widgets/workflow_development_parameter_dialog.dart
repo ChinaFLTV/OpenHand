@@ -15,12 +15,14 @@ import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../model/workflow_definition.dart';
 import '../service/workflow_development_parameters.dart';
+import '../workflow_node_presentation.dart';
 import 'workflow_parameter_reference_field.dart';
 
 const double _developmentParameterActionSize = 44;
 const double _developmentParameterFieldHeight = 52;
 const double _developmentParameterListMaxHeight = 640;
 const double _developmentParameterCompactWidth = 680;
+const double _developmentParameterTargetItemHeight = 52;
 const RoundedRectangleBorder _developmentParameterButtonShape =
     RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius12);
 
@@ -36,7 +38,21 @@ class WorkflowDevelopmentParameterTarget {
   final String nodeLabel;
   final WorkflowParameterDirection direction;
 
-  String get label => '$nodeLabel - ${direction.label}';
+  String get displayNodeLabel {
+    final label = nodeLabel.trim();
+    return label.isEmpty ? '未命名节点' : label;
+  }
+
+  String get label => '$displayNodeLabel - ${direction.label}';
+
+  @override
+  bool operator ==(Object other) =>
+      other is WorkflowDevelopmentParameterTarget &&
+      nodeId == other.nodeId &&
+      direction == other.direction;
+
+  @override
+  int get hashCode => Object.hash(nodeId, direction);
 }
 
 Future<List<WorkflowDevelopmentParameter>?>
@@ -1208,6 +1224,83 @@ Future<WorkflowDevelopmentParameterTarget?> _showCreateParameterDialog(
   builder: (_) => _CreateDevelopmentParameterDialog(targets: targets),
 );
 
+class _DevelopmentParameterTargetOption extends StatelessWidget {
+  const _DevelopmentParameterTargetOption({
+    required this.target,
+    this.dense = false,
+  });
+
+  final WorkflowDevelopmentParameterTarget target;
+  final bool dense;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final accent = workflowParameterDirectionAccent(colors, target.direction);
+    final icon = workflowParameterDirectionIcon(target.direction);
+    final chip = Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: dense ? 7 : 8,
+        vertical: dense ? 3 : 4,
+      ),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.12),
+        borderRadius: kOpenHandPillBorderRadius,
+        border: Border.all(color: accent.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: dense ? 12 : 13, color: accent),
+          if (dense) const SizedBox(width: 3) else kOpenHandHGap4,
+          Text(
+            target.direction.shortLabel,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: accent,
+              fontWeight: FontWeight.w900,
+              height: 1.1,
+            ),
+          ),
+        ],
+      ),
+    );
+    return Semantics(
+      label: target.label,
+      child: Row(
+        children: [
+          if (!dense) ...[
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(kOpenHandRadius7),
+                border: Border.all(color: accent.withValues(alpha: 0.22)),
+              ),
+              child: Icon(icon, size: 16, color: accent),
+            ),
+            kOpenHandHGap8,
+          ],
+          Expanded(
+            child: Text(
+              target.displayNodeLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+                height: 1.15,
+              ),
+            ),
+          ),
+          kOpenHandHGap8,
+          chip,
+        ],
+      ),
+    );
+  }
+}
+
 class _CreateDevelopmentParameterDialog extends StatefulWidget {
   const _CreateDevelopmentParameterDialog({required this.targets});
 
@@ -1250,19 +1343,33 @@ class _CreateDevelopmentParameterDialogState
             AnimatedDropdownButtonFormField<WorkflowDevelopmentParameterTarget>(
               initialValue: _target,
               isExpanded: true,
+              itemHeight: _developmentParameterTargetItemHeight,
+              borderRadius: BorderRadius.circular(kOpenHandRadius14),
               decoration: _developmentParameterInputDecoration(
                 context,
               ).copyWith(labelText: '添加到'),
+              selectedItemBuilder: (context) => widget.targets
+                  .map(
+                    (target) => _DevelopmentParameterTargetOption(
+                      target: target,
+                      dense: true,
+                    ),
+                  )
+                  .toList(growable: false),
               items: widget.targets
                   .map(
                     (target) =>
                         DropdownMenuItem<WorkflowDevelopmentParameterTarget>(
                           value: target,
-                          child: Text(target.label),
+                          child: _DevelopmentParameterTargetOption(
+                            target: target,
+                          ),
                         ),
                   )
                   .toList(growable: false),
-              onChanged: (target) => setState(() => _target = target),
+              onChanged: widget.targets.isEmpty
+                  ? null
+                  : (target) => setState(() => _target = target),
             ),
             kOpenHandGap18,
             buildOpenHandDialogActionsBar(

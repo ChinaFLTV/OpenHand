@@ -1306,6 +1306,11 @@ enum WorkflowParameterDirection {
     WorkflowParameterDirection.input => '输入参数',
     WorkflowParameterDirection.output => '输出参数',
   };
+
+  String get shortLabel => switch (this) {
+    WorkflowParameterDirection.input => '输入',
+    WorkflowParameterDirection.output => '输出',
+  };
 }
 
 @immutable
@@ -1331,7 +1336,8 @@ List<WorkflowParameterReference> collectWorkflowParameterReferences(
   required Set<String> usedNames,
   String? nodeTitleOverride,
 }) {
-  final title = nodeTitleOverride ??
+  final title =
+      nodeTitleOverride ??
       (node.title.trim().isEmpty ? '未命名节点' : node.title.trim());
   final references = <WorkflowParameterReference>[];
   void append(
@@ -1340,7 +1346,8 @@ List<WorkflowParameterReference> collectWorkflowParameterReferences(
   ) {
     for (final field in fields) {
       final name = field.name.trim();
-      if (!workflowParameterNamePattern.hasMatch(name) || !usedNames.add(name)) {
+      if (!workflowParameterNamePattern.hasMatch(name) ||
+          !usedNames.add(name)) {
         continue;
       }
       references.add(
@@ -2375,7 +2382,11 @@ List<_WorkflowParameterUsage> _workflowParameterUsages(WorkflowNode node) {
         ...node.keyValueSetting(WorkflowSettingKeys.bodyEntries),
       ]) {
         if (entry.valueSource == WorkflowValueSource.variable) {
-          add(entry.value, '请求参数“${entry.key.trim()}”', allowDirectReference: true);
+          add(
+            entry.value,
+            '请求参数“${entry.key.trim()}”',
+            allowDirectReference: true,
+          );
         }
       }
       final format = WorkflowHttpBodyFormat.fromStorage(
@@ -2476,7 +2487,9 @@ List<_WorkflowParameterUsage> _workflowParameterUsages(WorkflowNode node) {
 
 Iterable<String> _workflowReferenceNames(_WorkflowParameterUsage usage) sync* {
   var foundTemplate = false;
-  for (final match in workflowTemplatePlaceholderPattern.allMatches(usage.value)) {
+  for (final match in workflowTemplatePlaceholderPattern.allMatches(
+    usage.value,
+  )) {
     foundTemplate = true;
     yield match.group(1)!;
   }

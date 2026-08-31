@@ -93,9 +93,10 @@ bool isWorkflowControlFlowKind(WorkflowNodeKind kind) =>
 /// 与编辑器节点卡片一致的摘要文案。
 String workflowNodeSummary(WorkflowNode node) {
   return switch (node.kind) {
-    WorkflowNodeKind.start => node.inputFields().isEmpty
-        ? '暂无输入参数'
-        : '${node.inputFields().length} 个输入参数',
+    WorkflowNodeKind.start =>
+      node.inputFields().isEmpty
+          ? '暂无输入参数'
+          : '${node.inputFields().length} 个输入参数',
     WorkflowNodeKind.llm =>
       node.stringSetting(WorkflowSettingKeys.prompt).trim().isEmpty
           ? '选择模型并编写提示词'
@@ -104,16 +105,18 @@ String workflowNodeSummary(WorkflowNode node) {
       node.stringSetting(WorkflowSettingKeys.url).trim().isEmpty
           ? '配置请求方式、URL 与响应输出'
           : '${node.stringSetting(WorkflowSettingKeys.method, 'GET')}  ${node.stringSetting(WorkflowSettingKeys.url)}',
-    WorkflowNodeKind.condition => node.conditionCases().isEmpty
-        ? node.stringSetting(WorkflowSettingKeys.expression)
-        : '${node.conditionCases().length} 个条件分支 · ELSE',
+    WorkflowNodeKind.condition =>
+      node.conditionCases().isEmpty
+          ? node.stringSetting(WorkflowSettingKeys.expression)
+          : '${node.conditionCases().length} 个条件分支 · ELSE',
     WorkflowNodeKind.loop =>
       '${node.loopVariables().length} 个循环变量 · 最多 ${node.intSetting(WorkflowSettingKeys.maxIterations, 10)} 次',
     WorkflowNodeKind.iteration =>
       '${node.boolSetting(WorkflowSettingKeys.iterationParallel) ? '并行' : '串行'}迭代 · ${node.stringSetting(WorkflowSettingKeys.iterationOutputName, 'iteration_result')}',
-    WorkflowNodeKind.parameterAssignment => node.outputFields().isEmpty
-        ? '添加需要赋值的输出参数'
-        : '${node.outputFields().length} 个赋值参数',
+    WorkflowNodeKind.parameterAssignment =>
+      node.outputFields().isEmpty
+          ? '添加需要赋值的输出参数'
+          : '${node.outputFields().length} 个赋值参数',
     WorkflowNodeKind.listOperation =>
       '${node.boolSetting(WorkflowSettingKeys.listFilterEnabled) ? '筛选 · ' : ''}${node.boolSetting(WorkflowSettingKeys.listOrderEnabled) ? '排序 · ' : ''}${node.boolSetting(WorkflowSettingKeys.listLimitEnabled) ? '限量' : '输出列表'}',
     WorkflowNodeKind.codeExecution =>
@@ -121,8 +124,32 @@ String workflowNodeSummary(WorkflowNode node) {
     WorkflowNodeKind.humanIntervention =>
       '${node.humanInputFields().length} 个输入 · ${node.humanActions().length} 个动作',
     WorkflowNodeKind.loopExit => '立即结束当前循环',
-    WorkflowNodeKind.end => node.outputFields().isEmpty
-        ? '暂无输出参数'
-        : '${node.outputFields().length} 个输出参数',
+    WorkflowNodeKind.end =>
+      node.outputFields().isEmpty
+          ? '暂无输出参数'
+          : '${node.outputFields().length} 个输出参数',
   };
 }
+
+/// 输入方向用 primary 与 onSurface 调和，避免 M3 secondary 在绿主题下偏紫红。
+const double kWorkflowParameterInputAccentBlend = 0.38;
+
+Color workflowParameterDirectionAccent(
+  ColorScheme colors,
+  WorkflowParameterDirection direction,
+) => switch (direction) {
+  WorkflowParameterDirection.input =>
+    Color.lerp(
+          colors.primary,
+          colors.onSurface,
+          kWorkflowParameterInputAccentBlend,
+        ) ??
+        colors.primary,
+  WorkflowParameterDirection.output => colors.primary,
+};
+
+IconData workflowParameterDirectionIcon(WorkflowParameterDirection direction) =>
+    switch (direction) {
+      WorkflowParameterDirection.input => Icons.login_rounded,
+      WorkflowParameterDirection.output => Icons.output_rounded,
+    };

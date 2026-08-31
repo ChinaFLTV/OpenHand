@@ -12,6 +12,7 @@ import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../model/workflow_definition.dart';
+import '../workflow_node_presentation.dart';
 
 const int _firstReferenceMarker = 0xE000;
 const int _lastReferenceMarker = 0xF8FF;
@@ -20,18 +21,6 @@ const double _referenceMenuMargin = 12;
 const double _referenceMenuHeaderExtent = 32;
 const double _referenceMenuSubheaderExtent = 30;
 const double _referenceMenuItemExtent = 52;
-const double _referenceInputAccentBlend = 0.38;
-
-Color _parameterDirectionAccent(
-  ColorScheme colors,
-  WorkflowParameterDirection direction,
-) => switch (direction) {
-  // 输入用 primary 与 onSurface 调和，避免 M3 secondary 在绿主题下跑偏成紫红。
-  WorkflowParameterDirection.input =>
-    Color.lerp(colors.primary, colors.onSurface, _referenceInputAccentBlend) ??
-        colors.primary,
-  WorkflowParameterDirection.output => colors.primary,
-};
 
 class WorkflowParameterReferenceField extends StatefulWidget {
   const WorkflowParameterReferenceField({
@@ -918,11 +907,11 @@ class _WorkflowReferenceIoHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final accent = _parameterDirectionAccent(theme.colorScheme, direction);
-    final icon = switch (direction) {
-      WorkflowParameterDirection.input => Icons.login_rounded,
-      WorkflowParameterDirection.output => Icons.output_rounded,
-    };
+    final accent = workflowParameterDirectionAccent(
+      theme.colorScheme,
+      direction,
+    );
+    final icon = workflowParameterDirectionIcon(direction);
     return SizedBox(
       height: _referenceMenuSubheaderExtent,
       child: Padding(
@@ -983,14 +972,11 @@ class _WorkflowReferenceMenuItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final description = reference.field.description.trim();
-    final accent = _parameterDirectionAccent(
+    final accent = workflowParameterDirectionAccent(
       theme.colorScheme,
       reference.direction,
     );
-    final icon = switch (reference.direction) {
-      WorkflowParameterDirection.input => Icons.login_rounded,
-      WorkflowParameterDirection.output => Icons.output_rounded,
-    };
+    final icon = workflowParameterDirectionIcon(reference.direction);
     return SizedBox(
       height: _referenceMenuItemExtent,
       child: Semantics(
