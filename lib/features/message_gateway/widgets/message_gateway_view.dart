@@ -23342,7 +23342,8 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
       List<DingTalkConversationTarget>.from(
         widget.controller.settings.allowedContactTargets,
       );
-  bool _refreshingResources = false;
+  final Set<DingTalkGatewayResourceCatalog> _refreshingResourceCatalogs =
+      <DingTalkGatewayResourceCatalog>{};
   List<AiDingTalkDwsCommand> _dwsCatalog = const <AiDingTalkDwsCommand>[];
   bool _dwsCatalogLoading = false;
   String? _dwsCatalogError;
@@ -23800,8 +23801,12 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                     title: '可用的 MCP',
                     selectedCount: _mcpServers.length,
                     totalCount: widget.controller.mcpServers.length,
-                    refreshing: _refreshingResources,
-                    onRefresh: _refreshResources,
+                    refreshing: _isRefreshingResourceCatalog(
+                      DingTalkGatewayResourceCatalog.mcp,
+                    ),
+                    onRefresh: () => _refreshResourceCatalog(
+                      DingTalkGatewayResourceCatalog.mcp,
+                    ),
                     onTap: () => _selectResources(
                       title: '选择 MCP Server',
                       icon: Icons.hub_rounded,
@@ -23881,8 +23886,12 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                     title: '技能',
                     selectedCount: _skills.length,
                     totalCount: widget.controller.skills.length,
-                    refreshing: _refreshingResources,
-                    onRefresh: _refreshResources,
+                    refreshing: _isRefreshingResourceCatalog(
+                      DingTalkGatewayResourceCatalog.skills,
+                    ),
+                    onRefresh: () => _refreshResourceCatalog(
+                      DingTalkGatewayResourceCatalog.skills,
+                    ),
                     onTap: () => _selectResources(
                       title: '选择技能',
                       icon: Icons.auto_fix_high_rounded,
@@ -23920,8 +23929,12 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                     title: '记忆',
                     selectedCount: _memories.length,
                     totalCount: widget.controller.memories.length,
-                    refreshing: _refreshingResources,
-                    onRefresh: _refreshResources,
+                    refreshing: _isRefreshingResourceCatalog(
+                      DingTalkGatewayResourceCatalog.memories,
+                    ),
+                    onRefresh: () => _refreshResourceCatalog(
+                      DingTalkGatewayResourceCatalog.memories,
+                    ),
                     onTap: () => _selectResources(
                       title: '选择记忆',
                       icon: Icons.psychology_alt_rounded,
@@ -23959,8 +23972,12 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                     title: '指令',
                     selectedCount: _instructions.length,
                     totalCount: widget.controller.instructions.length,
-                    refreshing: _refreshingResources,
-                    onRefresh: _refreshResources,
+                    refreshing: _isRefreshingResourceCatalog(
+                      DingTalkGatewayResourceCatalog.instructions,
+                    ),
+                    onRefresh: () => _refreshResourceCatalog(
+                      DingTalkGatewayResourceCatalog.instructions,
+                    ),
                     onTap: () => _selectResources(
                       title: '选择指令',
                       icon: Icons.rule_rounded,
@@ -24001,8 +24018,12 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                     title: '知识库',
                     selectedCount: _knowledgeSources.length,
                     totalCount: widget.controller.knowledgeSources.length,
-                    refreshing: _refreshingResources,
-                    onRefresh: _refreshResources,
+                    refreshing: _isRefreshingResourceCatalog(
+                      DingTalkGatewayResourceCatalog.knowledgeBase,
+                    ),
+                    onRefresh: () => _refreshResourceCatalog(
+                      DingTalkGatewayResourceCatalog.knowledgeBase,
+                    ),
                     onTap: () => _selectResources(
                       title: '选择知识库',
                       icon: Icons.menu_book_rounded,
@@ -24053,8 +24074,12 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                     title: '工作流',
                     selectedCount: _workflows.length,
                     totalCount: widget.controller.workflows.length,
-                    refreshing: _refreshingResources,
-                    onRefresh: _refreshResources,
+                    refreshing: _isRefreshingResourceCatalog(
+                      DingTalkGatewayResourceCatalog.workflows,
+                    ),
+                    onRefresh: () => _refreshResourceCatalog(
+                      DingTalkGatewayResourceCatalog.workflows,
+                    ),
                     onTap: () => _selectResources(
                       title: '选择工作流',
                       icon: Icons.account_tree_rounded,
@@ -24174,43 +24199,51 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
     }
   }
 
-  Future<void> _refreshResources() async {
-    if (_refreshingResources) return;
-    setState(() => _refreshingResources = true);
+  bool _isRefreshingResourceCatalog(DingTalkGatewayResourceCatalog catalog) =>
+      _refreshingResourceCatalogs.contains(catalog);
+
+  Future<void> _refreshResourceCatalog(
+    DingTalkGatewayResourceCatalog catalog,
+  ) async {
+    if (_isRefreshingResourceCatalog(catalog)) return;
+    setState(() => _refreshingResourceCatalogs.add(catalog));
     try {
-      await widget.controller.refreshResourceCatalogs();
+      await widget.controller.refreshResourceCatalog(catalog);
       if (!mounted) return;
-      final availableMcp = widget.controller.mcpServers
-          .map((item) => item.name)
-          .toSet();
-      final availableSkills = widget.controller.skills
-          .map((item) => item.name)
-          .toSet();
-      final availableMemories = widget.controller.memories
-          .map((item) => item.id)
-          .toSet();
-      final availableInstructions = widget.controller.instructions
-          .map((item) => item.id)
-          .toSet();
-      final availableKnowledge = widget.controller.knowledgeSources
-          .map((item) => item.id)
-          .toSet();
-      final availableWorkflows = widget.controller.workflows
-          .map((item) => item.id)
-          .toSet();
       setState(() {
-        _mcpServers.retainAll(availableMcp);
-        _skills.retainAll(availableSkills);
-        _memories.retainAll(availableMemories);
-        _instructions.retainAll(availableInstructions);
-        _knowledgeSources.retainAll(availableKnowledge);
-        _workflows.retainAll(availableWorkflows);
+        switch (catalog) {
+          case DingTalkGatewayResourceCatalog.mcp:
+            _mcpServers.retainAll(
+              widget.controller.mcpServers.map((item) => item.name),
+            );
+          case DingTalkGatewayResourceCatalog.skills:
+            _skills.retainAll(
+              widget.controller.skills.map((item) => item.name),
+            );
+          case DingTalkGatewayResourceCatalog.memories:
+            _memories.retainAll(
+              widget.controller.memories.map((item) => item.id),
+            );
+          case DingTalkGatewayResourceCatalog.instructions:
+            _instructions.retainAll(
+              widget.controller.instructions.map((item) => item.id),
+            );
+          case DingTalkGatewayResourceCatalog.knowledgeBase:
+            _knowledgeSources.retainAll(
+              widget.controller.knowledgeSources.map((item) => item.id),
+            );
+          case DingTalkGatewayResourceCatalog.workflows:
+            _workflows.retainAll(
+              widget.controller.workflows.map((item) => item.id),
+            );
+        }
       });
-      await _loadDwsCatalog(forceRefresh: true);
     } catch (error) {
       if (mounted) showOpenHandErrorSnack(context, '刷新资源失败：$error');
     } finally {
-      if (mounted) setState(() => _refreshingResources = false);
+      if (mounted) {
+        setState(() => _refreshingResourceCatalogs.remove(catalog));
+      }
     }
   }
 

@@ -21,7 +21,6 @@ import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/physical_path_safety.dart';
-import '../../shared/util/stable_hash.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/text_normalization.dart';
 import '../../shared/util/timer_safety.dart';
@@ -157,6 +156,15 @@ enum DingTalkConversationResponseState {
   active,
   awaitingApproval,
   failed,
+}
+
+enum DingTalkGatewayResourceCatalog {
+  mcp,
+  skills,
+  memories,
+  instructions,
+  knowledgeBase,
+  workflows,
 }
 
 typedef DingTalkWriteApprovalHandler =
@@ -2141,31 +2149,26 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _notify();
   }
 
-  /// 刷新设置弹窗使用的资源目录。资源控制器各自负责并发与持久化，
-  /// 这里仅预热 MCP 工具目录并清理已删除资源的历史选择。
-  Future<void> refreshResourceCatalogs() async {
-    final refreshTasks = <Future<void>>[
-      _skillsController.refresh(),
-      _memoryController.refresh(),
-      _instructionsController.refresh(),
-      if (_knowledgeBaseController != null)
-        _knowledgeBaseController.initialize(),
-      _workflowsController.refresh(),
-    ];
-    try {
-      await Future.wait<void>(refreshTasks).timeout(const Duration(seconds: 8));
-    } on TimeoutException {
-      // 资源目录刷新有界等待，已完成的控制器快照仍可继续使用。
-    }
-    await _mcpController.ensureRuntimeToolCatalogs(
-      maxWait: const Duration(seconds: 6),
-    );
-    final normalized = _normalizeSettings(_settings);
-    if (!stableJsonEquals(normalized.toJson(), _settings.toJson())) {
-      _settings = normalized;
-      _queuePersist();
-      final task = _persistInFlight;
-      if (task != null) await task;
+  /// 刷新设置弹窗中的指定资源目录，避免影响其他资源的加载状态与选择。
+  Future<void> refreshResourceCatalog(
+    DingTalkGatewayResourceCatalog catalog,
+  ) async {
+    switch (catalog) {
+      case DingTalkGatewayResourceCatalog.mcp:
+        await _mcpController.refresh();
+        await _mcpController.ensureRuntimeToolCatalogs(
+          maxWait: const Duration(seconds: 6),
+        );
+      case DingTalkGatewayResourceCatalog.skills:
+        await _skillsController.refresh();
+      case DingTalkGatewayResourceCatalog.memories:
+        await _memoryController.refresh();
+      case DingTalkGatewayResourceCatalog.instructions:
+        await _instructionsController.refresh();
+      case DingTalkGatewayResourceCatalog.knowledgeBase:
+        await _knowledgeBaseController?.initialize();
+      case DingTalkGatewayResourceCatalog.workflows:
+        await _workflowsController.refresh();
     }
     _notify();
   }
