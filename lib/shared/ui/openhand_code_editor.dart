@@ -278,6 +278,8 @@ class OpenHandCodeEditor extends StatefulWidget {
 
 class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
   static const int _maxImportedCodeBytes = 512 * 1024;
+  static const int _formatterIndentWidth = 4;
+  static const int _compactFormatterIndentWidth = 2;
   static const double _minEditorHeight = 180;
   static const double _maxEditorHeight = 720;
   static const double _minFontSize = 10;
@@ -780,20 +782,191 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
   }
 
   void _formatCode() {
-    final normalized = _controller.text
-        .replaceAll('\r\n', '\n')
-        .split('\n')
-        .map((line) => line.trimRight())
-        .join('\n')
-        .trimRight();
-    final formatted = normalized.isEmpty ? '' : '$normalized\n';
-    if (formatted == _controller.text) return;
+    final source = _controller.text;
+    final formatted = _formatSourceCode(source, widget.language);
+    if (formatted == source) {
+      showOpenHandInfoSnack(context, '代码已经是格式化状态。');
+      return;
+    }
     _controller.value = TextEditingValue(
       text: formatted,
       selection: TextSelection.collapsed(offset: formatted.length),
     );
     widget.onChanged(formatted);
     setState(() {});
+    showOpenHandSuccessSnack(context, '代码已格式化。');
+  }
+
+  String _formatSourceCode(String source, String language) {
+    final normalized = source.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    final lines = normalized.split('\n');
+    while (lines.isNotEmpty && lines.first.trim().isEmpty) {
+      lines.removeAt(0);
+    }
+    while (lines.isNotEmpty && lines.last.trim().isEmpty) {
+      lines.removeLast();
+    }
+    if (lines.isEmpty) return '';
+
+    final languageKey = language.trim().toLowerCase().replaceAll(
+      RegExp(r'[\s_-]+'),
+      '',
+    );
+    final isPython = languageKey == 'python' || languageKey == 'python3';
+    final isShell =
+        languageKey == 'shell' ||
+        languageKey == 'bash' ||
+        languageKey == 'sh' ||
+        languageKey == 'zsh' ||
+        languageKey == 'linuxshell';
+    final isPowerShell =
+        languageKey == 'powershell' ||
+        languageKey == 'pwsh' ||
+        languageKey == 'ps' ||
+        languageKey == 'ps1' ||
+        languageKey == 'windowspowershell';
+    final indentWidth = isPython || isPowerShell
+        ? _formatterIndentWidth
+        : _compactFormatterIndentWidth;
+    var blockDepth = 0;
+    var delimiterDepth = 0;
+    var previousContent = '';
+    int? previousRawIndent;
+    final formattedLines = <String>[];
+
+    for (final rawLine in lines) {
+      final content = rawLine.trim();
+      if (content.isEmpty) {
+        if (formattedLines.isNotEmpty && formattedLines.last.isNotEmpty) {
+          formattedLines.add('');
+        }
+        previousContent = '';
+        continue;
+      }
+
+      final rawIndent = _leadingWhitespaceLength(rawLine);
+      var lineBlockDepth = blockDepth;
+      if (isPython && _isPythonDedentLine(content)) {
+        lineBlockDepth = math.max(0, lineBlockDepth - 1);
+      } else if (isShell && _isShellDedentLine(content)) {
+        lineBlockDepth = math.max(0, lineBlockDepth - 1);
+      }
+      final isContinuation = _continuesPreviousLine(previousContent);
+      if (isPython &&
+          delimiterDepth == 0 &&
+          !isContinuation &&
+          previousRawIndent != null &&
+          rawIndent < previousRawIndent) {
+        lineBlockDepth = math.min(
+          lineBlockDepth,
+          rawIndent ~/ _formatterIndentWidth,
+        );
+      }
+      final leadingClosers = _leadingClosingDelimiterCount(content);
+      final lineIndentDepth = math.max(
+        0,
+        lineBlockDepth + delimiterDepth - leadingClosers,
+      );
+      final continuationIndent = delimiterDepth == 0 && isContinuation ? 1 : 0;
+      formattedLines.add(
+        '${' ' * ((lineIndentDepth + continuationIndent) * indentWidth)}$content',
+      );
+
+      delimiterDepth = math.max(0, delimiterDepth + _delimiterDelta(content));
+      blockDepth = lineBlockDepth;
+      if (isPython && _isPythonBlockOpeningLine(content)) {
+        blockDepth += 1;
+      } else if (isShell && _isShellBlockOpeningLine(content)) {
+        blockDepth += 1;
+      }
+      previousContent = content;
+      previousRawIndent = rawIndent;
+    }
+
+    while (formattedLines.isNotEmpty && formattedLines.last.isEmpty) {
+      formattedLines.removeLast();
+    }
+    return formattedLines.isEmpty ? '' : '${formattedLines.join('\n')}\n';
+  }
+
+  bool _isPythonDedentLine(String line) =>
+      RegExp(r'^(?:elif|else|except|finally)\b').hasMatch(line);
+
+  bool _isPythonBlockOpeningLine(String line) {
+    if (!line.endsWith(':')) return false;
+    return RegExp(
+      r'^(?:async\s+)?(?:def|class|if|elif|else|for|while|try|except|finally|with|match|case)\b',
+    ).hasMatch(line);
+  }
+
+  bool _isShellDedentLine(String line) =>
+      RegExp(r'^(?:fi|done|esac|elif|else)\b|^\}').hasMatch(line);
+
+  bool _isShellBlockOpeningLine(String line) =>
+      RegExp(r'(?:\bthen|\bdo)\s*(?:#.*)?$').hasMatch(line) ||
+      RegExp(r'^case\b.*\bin\s*$').hasMatch(line) ||
+      RegExp(r'^(?:else|elif)\b').hasMatch(line);
+
+  int _leadingClosingDelimiterCount(String line) {
+    var count = 0;
+    for (final character in line.split('')) {
+      if (!')]}'.contains(character)) break;
+      count += 1;
+    }
+    return count;
+  }
+
+  int _leadingWhitespaceLength(String line) {
+    var width = 0;
+    for (var index = 0; index < line.length; index++) {
+      final character = line[index];
+      if (character == ' ') {
+        width += 1;
+      } else if (character == '\t') {
+        width += _formatterIndentWidth;
+      } else {
+        break;
+      }
+    }
+    return width;
+  }
+
+  int _delimiterDelta(String line) {
+    var delta = 0;
+    String? quote;
+    var escaped = false;
+    for (var index = 0; index < line.length; index++) {
+      final character = line[index];
+      if (quote != null) {
+        if (escaped) {
+          escaped = false;
+        } else if (character == r'\') {
+          escaped = true;
+        } else if (character == quote) {
+          quote = null;
+        }
+        continue;
+      }
+      if (character == '#' ||
+          (character == '/' &&
+              index + 1 < line.length &&
+              line[index + 1] == '/')) {
+        break;
+      }
+      if (character == "'" || character == '"' || character == '`') {
+        quote = character;
+      } else if ('([{'.contains(character)) {
+        delta += 1;
+      } else if (')]}'.contains(character)) {
+        delta -= 1;
+      }
+    }
+    return delta;
+  }
+
+  bool _continuesPreviousLine(String line) {
+    if (line.isEmpty) return false;
+    return RegExp(r'(?:[+\-*/%=&|.,]|\\)$').hasMatch(line);
   }
 
   void _undo() {
