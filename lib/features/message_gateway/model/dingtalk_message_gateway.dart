@@ -1336,6 +1336,7 @@ class DingTalkGatewaySettings {
     this.allowedMemoryIds = const <String>[],
     this.allowedInstructionIds = const <String>[],
     this.allowedKnowledgeBaseSourceIds = const <String>[],
+    this.allowedWorkflowIds = const <String>[],
     this.allowedDingTalkDwsCommandIds = const <String>[],
     this.enabledMultimodalCapabilities =
         const <AiDingTalkMultimodalCapability>{},
@@ -1377,6 +1378,7 @@ class DingTalkGatewaySettings {
       allowedKnowledgeBaseSourceIds: _stringList(
         json['allowed_knowledge_base_source_ids'],
       ),
+      allowedWorkflowIds: _stringList(json['allowed_workflow_ids']),
       allowedDingTalkDwsCommandIds: _stringList(
         json['allowed_dingtalk_dws_command_ids'],
         limit: 1024,
@@ -1420,6 +1422,7 @@ class DingTalkGatewaySettings {
   final List<String> allowedMemoryIds;
   final List<String> allowedInstructionIds;
   final List<String> allowedKnowledgeBaseSourceIds;
+  final List<String> allowedWorkflowIds;
   final List<String> allowedDingTalkDwsCommandIds;
   final Set<AiDingTalkMultimodalCapability> enabledMultimodalCapabilities;
   final String imageGenerationModelKey;
@@ -1466,6 +1469,7 @@ class DingTalkGatewaySettings {
     Iterable<String>? availableMemoryIds,
     Iterable<String>? availableInstructionIds,
     Iterable<String>? availableKnowledgeBaseSourceIds,
+    Iterable<String>? availableWorkflowIds,
     Iterable<String>? availableDingTalkDwsCommandIds,
   }) => DingTalkGatewaySettings(
     pollIntervalSeconds: normalizePollIntervalSeconds(pollIntervalSeconds),
@@ -1498,6 +1502,10 @@ class DingTalkGatewaySettings {
     allowedKnowledgeBaseSourceIds: _normalizeSelection(
       allowedKnowledgeBaseSourceIds,
       availableKnowledgeBaseSourceIds,
+    ),
+    allowedWorkflowIds: _normalizeSelection(
+      allowedWorkflowIds,
+      availableWorkflowIds,
     ),
     allowedDingTalkDwsCommandIds: _normalizeSelection(
       allowedDingTalkDwsCommandIds,
@@ -1535,6 +1543,7 @@ class DingTalkGatewaySettings {
     List<String>? allowedMemoryIds,
     List<String>? allowedInstructionIds,
     List<String>? allowedKnowledgeBaseSourceIds,
+    List<String>? allowedWorkflowIds,
     List<String>? allowedDingTalkDwsCommandIds,
     Set<AiDingTalkMultimodalCapability>? enabledMultimodalCapabilities,
     String? imageGenerationModelKey,
@@ -1563,6 +1572,7 @@ class DingTalkGatewaySettings {
     allowedInstructionIds: allowedInstructionIds ?? this.allowedInstructionIds,
     allowedKnowledgeBaseSourceIds:
         allowedKnowledgeBaseSourceIds ?? this.allowedKnowledgeBaseSourceIds,
+    allowedWorkflowIds: allowedWorkflowIds ?? this.allowedWorkflowIds,
     allowedDingTalkDwsCommandIds:
         allowedDingTalkDwsCommandIds ?? this.allowedDingTalkDwsCommandIds,
     enabledMultimodalCapabilities:
@@ -1593,6 +1603,7 @@ class DingTalkGatewaySettings {
     'allowed_memory_ids': allowedMemoryIds,
     'allowed_instruction_ids': allowedInstructionIds,
     'allowed_knowledge_base_source_ids': allowedKnowledgeBaseSourceIds,
+    'allowed_workflow_ids': allowedWorkflowIds,
     'allowed_dingtalk_dws_command_ids': allowedDingTalkDwsCommandIds,
     'enabled_multimodal_capabilities': enabledMultimodalCapabilities
         .map((item) => item.storageValue)

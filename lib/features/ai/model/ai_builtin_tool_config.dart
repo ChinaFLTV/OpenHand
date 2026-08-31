@@ -23,6 +23,9 @@ const Set<AiBuiltinToolKind> kAiReadOnlyBuiltinToolKinds = <AiBuiltinToolKind>{
   AiBuiltinToolKind.codebaseSearch,
   AiBuiltinToolKind.git,
   AiBuiltinToolKind.readLints,
+  AiBuiltinToolKind.workflowList,
+  AiBuiltinToolKind.workflowDetail,
+  AiBuiltinToolKind.workflowExecutionStatus,
 };
 
 String builtinToolCanonicalName(AiBuiltinToolKind kind) {
@@ -509,6 +512,10 @@ class AiBuiltinToolConfig {
       AiBuiltinToolKind.webSearch || AiBuiltinToolKind.webFetch => 60,
       AiBuiltinToolKind.knowledgeSearch ||
       AiBuiltinToolKind.knowledgeRead => 65,
+      AiBuiltinToolKind.workflowList ||
+      AiBuiltinToolKind.workflowDetail ||
+      AiBuiltinToolKind.workflowExecute ||
+      AiBuiltinToolKind.workflowExecutionStatus => 66,
       AiBuiltinToolKind.skillManager || AiBuiltinToolKind.memory => 70,
       AiBuiltinToolKind.taskOutput || AiBuiltinToolKind.taskStop => 85,
       AiBuiltinToolKind.bash => 90,
@@ -553,6 +560,10 @@ class AiBuiltinToolConfig {
       AiBuiltinToolKind.webFetch => 61,
       AiBuiltinToolKind.knowledgeSearch => 70,
       AiBuiltinToolKind.knowledgeRead => 71,
+      AiBuiltinToolKind.workflowList => 74,
+      AiBuiltinToolKind.workflowDetail => 75,
+      AiBuiltinToolKind.workflowExecute => 76,
+      AiBuiltinToolKind.workflowExecutionStatus => 77,
       AiBuiltinToolKind.skillManager => 72,
       AiBuiltinToolKind.memory => 73,
       AiBuiltinToolKind.taskOutput => 80,
@@ -588,6 +599,10 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.dingtalkAudioGeneration:
       case AiBuiltinToolKind.knowledgeSearch:
       case AiBuiltinToolKind.knowledgeRead:
+      case AiBuiltinToolKind.workflowList:
+      case AiBuiltinToolKind.workflowDetail:
+      case AiBuiltinToolKind.workflowExecute:
+      case AiBuiltinToolKind.workflowExecutionStatus:
       case AiBuiltinToolKind.machineTerminalRead:
       case AiBuiltinToolKind.machineTerminalWrite:
       case AiBuiltinToolKind.machineTerminalExec:

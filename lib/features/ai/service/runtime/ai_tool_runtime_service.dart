@@ -235,6 +235,10 @@ enum AiBuiltinToolKind {
   memory,
   knowledgeSearch,
   knowledgeRead,
+  workflowList,
+  workflowDetail,
+  workflowExecute,
+  workflowExecutionStatus,
   machineTerminalRead,
   machineTerminalWrite,
   machineTerminalExec,
@@ -438,6 +442,7 @@ class AiToolRuntimeService {
         AiBuiltinToolKind.notebookEdit,
         AiBuiltinToolKind.deleteFile,
         AiBuiltinToolKind.skillManager,
+        AiBuiltinToolKind.workflowExecute,
       };
   static final RegExp _unsafeToolOutputStorageCharsPattern = RegExp(
     r'[^A-Za-z0-9_.-]+',
@@ -2587,6 +2592,10 @@ class AiToolRuntimeService {
       AiBuiltinToolKind.memory => 'Memory',
       AiBuiltinToolKind.knowledgeSearch => 'KnowledgeSearch',
       AiBuiltinToolKind.knowledgeRead => 'KnowledgeRead',
+      AiBuiltinToolKind.workflowList => 'WorkflowList',
+      AiBuiltinToolKind.workflowDetail => 'WorkflowDetail',
+      AiBuiltinToolKind.workflowExecute => 'WorkflowExecute',
+      AiBuiltinToolKind.workflowExecutionStatus => 'WorkflowExecutionStatus',
       _ => tool.name,
     };
   }
@@ -4454,6 +4463,79 @@ class AiToolRuntimeService {
             'required': <String>['around_chunk_id'],
           },
         ],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.workflowList,
+      name: 'WorkflowList',
+      description:
+          '列出当前会话可用且处于启用状态的工作流，仅返回 ID、名称、简介和标签。需要完整定义时使用 WorkflowDetail。',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{},
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.workflowDetail,
+      name: 'WorkflowDetail',
+      description:
+          '查询一个处于启用状态的工作流完整定义。可按 workflow_id、name 或 query 查询；仅在确有需要时读取详细介绍、节点和连线。',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'workflow_id': <String, Object?>{'type': 'string'},
+          'name': <String, Object?>{'type': 'string'},
+          'query': <String, Object?>{
+            'type': 'string',
+            'description': '按 ID、名称、简介或标签进行模糊匹配。',
+          },
+        },
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.workflowExecute,
+      name: 'WorkflowExecute',
+      description:
+          '异步执行一个处于启用状态的工作流并返回 execution_id。执行前先用 WorkflowDetail 确认输入契约；使用 WorkflowExecutionStatus 查询进展与结果。',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'workflow_id': <String, Object?>{'type': 'string'},
+          'name': <String, Object?>{'type': 'string'},
+          'query': <String, Object?>{'type': 'string'},
+          'inputs': <String, Object?>{
+            'type': 'object',
+            'additionalProperties': true,
+            'description': '开始节点所需的输入参数。',
+          },
+        },
+        'anyOf': <Object?>[
+          <String, Object?>{
+            'required': <String>['workflow_id'],
+          },
+          <String, Object?>{
+            'required': <String>['name'],
+          },
+          <String, Object?>{
+            'required': <String>['query'],
+          },
+        ],
+        'additionalProperties': false,
+      },
+    ),
+    _builtinTool(
+      kind: AiBuiltinToolKind.workflowExecutionStatus,
+      name: 'WorkflowExecutionStatus',
+      description: '按 execution_id 查询工作流执行状态、进度、结果或错误。',
+      parameters: const <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'execution_id': <String, Object?>{'type': 'string'},
+        },
+        'required': <String>['execution_id'],
         'additionalProperties': false,
       },
     ),

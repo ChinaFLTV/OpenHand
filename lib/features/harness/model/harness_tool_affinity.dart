@@ -50,7 +50,9 @@ HarnessToolCategory? builtinToolCategory(AiBuiltinToolKind kind) {
     AiBuiltinToolKind.grep ||
     AiBuiltinToolKind.codebaseSearch ||
     AiBuiltinToolKind.knowledgeSearch ||
-    AiBuiltinToolKind.knowledgeRead => HarnessToolCategory.search,
+    AiBuiltinToolKind.knowledgeRead ||
+    AiBuiltinToolKind.workflowList ||
+    AiBuiltinToolKind.workflowDetail => HarnessToolCategory.search,
     AiBuiltinToolKind.bash ||
     AiBuiltinToolKind.bashBackground ||
     AiBuiltinToolKind.taskOutput ||
@@ -80,6 +82,8 @@ HarnessToolCategory? builtinToolCategory(AiBuiltinToolKind kind) {
     AiBuiltinToolKind.dingtalkAudioGeneration => null,
     // Memory 仅供自主学习链路使用。
     AiBuiltinToolKind.memory => null,
+    AiBuiltinToolKind.workflowExecute ||
+    AiBuiltinToolKind.workflowExecutionStatus => null,
   };
 }
 

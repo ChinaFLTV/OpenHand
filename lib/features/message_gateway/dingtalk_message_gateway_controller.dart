@@ -31,6 +31,7 @@ import '../knowledge_base/index.dart';
 import '../mcp/index.dart';
 import '../memory/index.dart';
 import '../skills/index.dart';
+import '../workflows/index.dart';
 import 'data/dingtalk_message_gateway_store.dart';
 import 'dingtalk_markdown_compat.dart';
 import 'message_gateway_dependencies.dart';
@@ -238,6 +239,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
        _memoryController = dependencies.memoryController,
        _instructionsController = dependencies.instructionsController,
        _knowledgeBaseController = dependencies.knowledgeBaseController,
+       _workflowsController = dependencies.workflowsController,
        _appInfo = dependencies.appInfo,
        _store = store ?? DingTalkMessageGatewayStore(),
        _service = service ?? DingTalkMessageGatewayService(),
@@ -311,6 +313,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   final MemoryController _memoryController;
   final InstructionsController _instructionsController;
   final KnowledgeBaseController? _knowledgeBaseController;
+  final WorkflowsController _workflowsController;
   final AppInfo _appInfo;
   final DingTalkMessageGatewayStore _store;
   final DingTalkMessageGatewayService _service;
@@ -492,6 +495,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       List<KnowledgeSource>.unmodifiable(
         _knowledgeBaseController?.sources ?? const <KnowledgeSource>[],
       );
+  List<WorkflowDefinition> get workflows => _workflowsController.workflows
+      .where((item) => item.enabled)
+      .toList(growable: false);
   Future<List<AiDingTalkDwsCommand>> loadDwsCommandCatalog({
     bool forceRefresh = false,
   }) => _service.loadDwsCommandCatalog(forceRefresh: forceRefresh);
@@ -2144,6 +2150,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       _instructionsController.refresh(),
       if (_knowledgeBaseController != null)
         _knowledgeBaseController.initialize(),
+      _workflowsController.refresh(),
     ];
     try {
       await Future.wait<void>(refreshTasks).timeout(const Duration(seconds: 8));
@@ -4437,6 +4444,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final selectedSkills = _skillsController.skills
           .where((skill) => _settings.allowedSkillNames.contains(skill.name))
           .toList(growable: false);
+      final selectedWorkflows = _workflowsController.workflows
+          .where(
+            (workflow) =>
+                workflow.enabled &&
+                (_settings.allowedWorkflowIds.isEmpty ||
+                    _settings.allowedWorkflowIds.contains(workflow.id)),
+          )
+          .toList(growable: false);
       final selectedMemory =
           (preparedResources[1] as List<UserMemoryEntry>? ??
                   const <UserMemoryEntry>[])
@@ -4477,6 +4492,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         memoryEntries: selectedMemory,
         allowCommandRules: _settingsController.aiAllowCommandRules,
         availableSkills: selectedSkills,
+        availableWorkflows: selectedWorkflows,
         availableMcpServers: selectedMcp,
         availableDingTalkDwsCommands: dwsCatalog,
         mcpToolCatalogsByServerName: <String, McpToolCatalog>{
@@ -4496,6 +4512,30 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
               .toList(growable: false),
           'dingtalk_working_directory_boundary': _settings.workingDirectory,
           'dingtalk_allowed_knowledge_source_ids': selectedKnowledgeSourceIds,
+          'workflow_definitions_provider': () => _workflowsController.workflows,
+          'workflow_resources_provider':
+              (
+                WorkflowDefinition workflow,
+                AiToolExecutionContext toolContext,
+              ) async {
+                final models = _settingsController.aiModels;
+                if (models.isEmpty) return null;
+                return WorkflowExecutionResources(
+                  models: models,
+                  templateRepository: _sessionController.templateRepository,
+                  skills: selectedSkills,
+                  memories: selectedMemory,
+                  instructions: selectedInstructions,
+                  knowledgeBaseController: _knowledgeBaseController,
+                  mcpServers: selectedMcp,
+                  mcpTools: <String, List<McpTool>>{
+                    for (final server in selectedMcp)
+                      server.name: _mcpController
+                          .toolCatalogFor(server.name)
+                          .tools,
+                  },
+                );
+              },
           'dingtalk_dws_executor': _executeDwsCommandForAi,
           'dingtalk_dws_selected_command_count': dwsCatalog.length,
           'dingtalk_multimodal_capabilities': enabledMultimodalCapabilities,
@@ -6460,6 +6500,9 @@ ${_markdownStructuredFields(response)}''';
               _knowledgeBaseController.sources.isEmpty
           ? null
           : _knowledgeBaseController.sources.map((source) => source.id),
+      availableWorkflowIds: _workflowsController.workflows
+          .where((workflow) => workflow.enabled)
+          .map((workflow) => workflow.id),
     );
   }
 

@@ -9,6 +9,7 @@ import '../machine_terminal/index.dart';
 import '../mcp/index.dart';
 import '../memory/index.dart';
 import '../skills/index.dart';
+import '../workflows/index.dart' show WorkflowsController;
 
 /// 消息网关运行所需的全部外部依赖。
 ///
@@ -28,6 +29,7 @@ class MessageGatewayDependencies {
     required this.instructionsController,
     required this.machineTerminalService,
     required this.appInfo,
+    required this.workflowsController,
     this.knowledgeBaseController,
   });
 
@@ -41,6 +43,7 @@ class MessageGatewayDependencies {
   final InstructionsController instructionsController;
   final MachineTerminalService machineTerminalService;
   final AppInfo appInfo;
+  final WorkflowsController workflowsController;
 
   /// 知识库为可选能力：未启用时网关照常工作，只是不提供检索类接口。
   final KnowledgeBaseController? knowledgeBaseController;

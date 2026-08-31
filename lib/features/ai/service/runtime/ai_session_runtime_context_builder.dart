@@ -7,6 +7,7 @@ import '../../../instructions/index.dart';
 import '../../../mcp/index.dart';
 import '../../../memory/index.dart';
 import '../../../skills/index.dart';
+import '../../../workflows/index.dart' show WorkflowDefinition;
 import '../../model/ai_allow_command_rule.dart';
 import '../../model/ai_builtin_tool_config.dart';
 import '../../model/ai_dingtalk_dws_command.dart';
@@ -29,6 +30,7 @@ AiSessionRuntimeContext buildAiSessionRuntimeContext({
   required List<UserMemoryEntry> memoryEntries,
   required List<AiAllowCommandRule> allowCommandRules,
   required List<LocalSkill> availableSkills,
+  List<WorkflowDefinition> availableWorkflows = const <WorkflowDefinition>[],
   required List<McpServer> availableMcpServers,
   List<AiDingTalkDwsCommand> availableDingTalkDwsCommands =
       const <AiDingTalkDwsCommand>[],
@@ -146,6 +148,7 @@ AiSessionRuntimeContext buildAiSessionRuntimeContext({
     allowCommandRules: allowCommandRules,
     sandboxSettings: settingsController.aiSandboxSettings,
     availableSkills: availableSkills,
+    availableWorkflows: availableWorkflows,
     availableMcpServers: availableMcpServers,
     availableDingTalkDwsCommands: availableDingTalkDwsCommands,
     mcpToolCatalogsByServerName: mcpToolCatalogsByServerName,

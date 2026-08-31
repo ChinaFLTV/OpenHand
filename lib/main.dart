@@ -416,6 +416,7 @@ Future<void> _bootstrap() async {
       hooksController: hooks.controller,
       instructionsController: instructions.controller,
       knowledgeBaseController: knowledgeBase.controller,
+      workflowsController: workflows.controller,
       machineTerminalService: machineTerminalService,
       appInfo: appInfo,
     ),

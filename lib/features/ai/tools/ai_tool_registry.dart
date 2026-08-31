@@ -44,6 +44,7 @@ import 'skill/ai_skill_manager_tool.dart';
 import 'terminal/ai_machine_terminal_tools.dart';
 import 'web/ai_web_fetch_tool.dart';
 import 'web/ai_web_search_tool.dart';
+import 'workflow/ai_workflow_tools.dart';
 
 export 'ai_tool.dart';
 export 'ai_tool_execution_context.dart';
@@ -62,6 +63,7 @@ class AiToolRegistry {
     KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
     List<AiModelConfig> Function()? aiModelsProvider,
   }) {
+    final workflowCoordinator = WorkflowExecutionCoordinator();
     return AiToolRegistry._()
       ..register(AiLsTool())
       ..register(AiGlobTool())
@@ -104,7 +106,13 @@ class AiToolRegistry {
           AiDingTalkMultimodalCapability.audioGeneration,
         ),
       )
-      ..register(AiAskUserChoiceTool());
+      ..register(AiAskUserChoiceTool())
+      ..register(AiWorkflowListTool(coordinator: workflowCoordinator))
+      ..register(AiWorkflowDetailTool(coordinator: workflowCoordinator))
+      ..register(AiWorkflowExecuteTool(coordinator: workflowCoordinator))
+      ..register(
+        AiWorkflowExecutionStatusTool(coordinator: workflowCoordinator),
+      );
   }
 
   // 工厂：注册所有工具（含外部服务依赖，供 AiToolRuntimeService 使用）
@@ -126,6 +134,15 @@ class AiToolRegistry {
       knowledgeBaseControllerProvider: knowledgeBaseControllerProvider,
       aiModelsProvider: aiModelsProvider,
     );
+
+    final workflowCoordinator = WorkflowExecutionCoordinator();
+    registry
+      ..register(AiWorkflowListTool(coordinator: workflowCoordinator))
+      ..register(AiWorkflowDetailTool(coordinator: workflowCoordinator))
+      ..register(AiWorkflowExecuteTool(coordinator: workflowCoordinator))
+      ..register(
+        AiWorkflowExecutionStatusTool(coordinator: workflowCoordinator),
+      );
 
     // Bash 需要 AiBashToolService 和 AiClaudeHookService（权限钩子）。
     registry.register(

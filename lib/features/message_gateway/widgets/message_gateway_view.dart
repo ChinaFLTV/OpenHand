@@ -23314,6 +23314,8 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
       .settings
       .allowedKnowledgeBaseSourceIds
       .toSet();
+  late Set<String> _workflows = widget.controller.settings.allowedWorkflowIds
+      .toSet();
   late Set<String> _dwsCommands = widget
       .controller
       .settings
@@ -24043,6 +24045,39 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                       apply: (value) => _knowledgeSources = value,
                     ),
                   ),
+                  kOpenHandGap10,
+                  _DingTalkResourceField(
+                    icon: Icons.account_tree_rounded,
+                    title: '工作流',
+                    selectedCount: _workflows.length,
+                    totalCount: widget.controller.workflows.length,
+                    refreshing: _refreshingResources,
+                    onRefresh: _refreshResources,
+                    onTap: () => _selectResources(
+                      title: '选择工作流',
+                      icon: Icons.account_tree_rounded,
+                      options: widget.controller.workflows
+                          .map(
+                            (item) => _DingTalkResourceOption(
+                              id: item.id,
+                              title: item.name,
+                              subtitle: item.description,
+                              icon: Icons.account_tree_rounded,
+                              detailDescription: item.description,
+                              detailFields: <String, String>{
+                                '资源类型': '工作流',
+                                '启用状态': item.enabled ? '已启用' : '已停用',
+                                '标签': item.tags.isEmpty
+                                    ? '无'
+                                    : item.tags.join('、'),
+                              },
+                            ),
+                          )
+                          .toList(growable: false),
+                      selected: _workflows,
+                      apply: (value) => _workflows = value,
+                    ),
+                  ),
                   kOpenHandGap14,
                   _DingTalkSettingsCard(
                     icon: Icons.auto_awesome_rounded,
@@ -24155,12 +24190,16 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
       final availableKnowledge = widget.controller.knowledgeSources
           .map((item) => item.id)
           .toSet();
+      final availableWorkflows = widget.controller.workflows
+          .map((item) => item.id)
+          .toSet();
       setState(() {
         _mcpServers.retainAll(availableMcp);
         _skills.retainAll(availableSkills);
         _memories.retainAll(availableMemories);
         _instructions.retainAll(availableInstructions);
         _knowledgeSources.retainAll(availableKnowledge);
+        _workflows.retainAll(availableWorkflows);
       });
       await _loadDwsCatalog(forceRefresh: true);
     } catch (error) {
@@ -24439,6 +24478,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
           allowedKnowledgeBaseSourceIds: _knowledgeSources.toList(
             growable: false,
           ),
+          allowedWorkflowIds: _workflows.toList(growable: false),
           allowedDingTalkDwsCommandIds: _dwsCommands.toList(growable: false),
           enabledMultimodalCapabilities: _multimodalCapabilities,
           imageGenerationModelKey: _imageGenerationModelKey,

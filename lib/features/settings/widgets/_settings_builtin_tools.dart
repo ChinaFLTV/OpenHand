@@ -243,6 +243,10 @@ class _BuiltinToolTile extends StatelessWidget {
       AiBuiltinToolKind.dingtalkAudioGeneration => Icons.audiotrack_rounded,
       AiBuiltinToolKind.memory => Icons.psychology_rounded,
       AiBuiltinToolKind.knowledgeSearch => Icons.library_books_outlined,
+      AiBuiltinToolKind.workflowList => Icons.account_tree_rounded,
+      AiBuiltinToolKind.workflowDetail => Icons.account_tree_rounded,
+      AiBuiltinToolKind.workflowExecute => Icons.play_arrow_rounded,
+      AiBuiltinToolKind.workflowExecutionStatus => Icons.query_stats_rounded,
       AiBuiltinToolKind.knowledgeRead => Icons.menu_book_outlined,
       AiBuiltinToolKind.machineTerminalRead => Icons.terminal_rounded,
       AiBuiltinToolKind.machineTerminalWrite =>

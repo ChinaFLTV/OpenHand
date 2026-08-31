@@ -5,6 +5,7 @@ import '../../instructions/index.dart';
 import '../../mcp/index.dart';
 import '../../memory/index.dart';
 import '../../skills/index.dart';
+import '../../workflows/index.dart' show WorkflowDefinition;
 import 'ai_allow_command_rule.dart';
 import 'ai_auto_title_fetch_mode.dart';
 import 'ai_builtin_tool_config.dart';
@@ -167,6 +168,7 @@ class AiSessionRuntimeContext {
     this.allowCommandRules = const <AiAllowCommandRule>[],
     AiSandboxSettings? sandboxSettings,
     this.availableSkills = const <LocalSkill>[],
+    this.availableWorkflows = const <WorkflowDefinition>[],
     this.availableMcpServers = const <McpServer>[],
     this.availableDingTalkDwsCommands = const <AiDingTalkDwsCommand>[],
     this.mcpToolCatalogsByServerName = const <String, McpToolCatalog>{},
@@ -545,6 +547,7 @@ class AiSessionRuntimeContext {
   final List<AiAllowCommandRule> allowCommandRules;
   final AiSandboxSettings sandboxSettings;
   final List<LocalSkill> availableSkills;
+  final List<WorkflowDefinition> availableWorkflows;
   final List<McpServer> availableMcpServers;
   final List<AiDingTalkDwsCommand> availableDingTalkDwsCommands;
   final Map<String, McpToolCatalog> mcpToolCatalogsByServerName;
@@ -651,6 +654,11 @@ class AiSessionRuntimeContext {
       'memory_entry_count': memoryEntries.length,
       'available_skill_count': availableSkills.length,
       'available_skill_names': availableSkills
+          .map((item) => item.name)
+          .toList(growable: false),
+      'available_workflow_count': availableWorkflows.length,
+      'available_workflow_names': availableWorkflows
+          .where((item) => item.enabled)
           .map((item) => item.name)
           .toList(growable: false),
       'allow_command_rule_count': allowCommandRules.length,

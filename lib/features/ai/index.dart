@@ -109,6 +109,7 @@ export 'tools/dingtalk/ai_dingtalk_media_generation_tool.dart';
 export 'tools/planning/ai_ask_user_choice_tool.dart';
 export 'tools/search/ai_dingtalk_tool_search_tool.dart';
 export 'tools/search/ai_tool_search_tool.dart';
+export 'tools/workflow/ai_workflow_tools.dart';
 
 // 工具函数
 export 'widgets/resource_usage_statistics_dialog.dart'

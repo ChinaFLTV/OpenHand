@@ -5686,6 +5686,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final skillsController = context.read<SkillsController>();
     final mcpController = context.read<McpController>();
     final instructionsController = context.read<InstructionsController>();
+    final workflowsController = context.read<WorkflowsController>();
     final appInfo = context.read<AppInfo>();
     final sessionController = context.read<AiSessionController>();
     final effectiveBrightness = _resolveEffectiveBrightness(context);
@@ -5761,6 +5762,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       memoryEntries: memoryEntries,
       allowCommandRules: settingsController.aiAllowCommandRules,
       availableSkills: skillsController.skills,
+      availableWorkflows: workflowsController.workflows
+          .where((workflow) => workflow.enabled)
+          .toList(growable: false),
       availableMcpServers: availableMcpServers,
       mcpToolCatalogsByServerName: mcpToolCatalogsByServerName,
       builtinToolConfigs: settingsController.builtinToolConfigs,
@@ -5768,6 +5772,36 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       workspaceInstructionDocuments: workspaceInstructionDocuments,
       userInstructions: instructionsController.entries,
       skippedInstructionIds: skippedInstructionIds,
+      toolExecutionMetadata: <String, Object?>{
+        'workflow_definitions_provider': () => workflowsController.workflows,
+        'workflow_resources_provider':
+            (
+              WorkflowDefinition workflow,
+              AiToolExecutionContext toolContext,
+            ) async {
+              final modelList = settingsController.aiModels;
+              if (modelList.isEmpty) return null;
+              return WorkflowExecutionResources(
+                models: modelList,
+                templateRepository: sessionController.templateRepository,
+                skills: skillsController.skills,
+                memories: memoryEntries,
+                instructions: instructionsController.entries,
+                knowledgeBaseController: context
+                    .read<KnowledgeBaseController>(),
+                mcpServers: availableMcpServers,
+                mcpTools: <String, List<McpTool>>{
+                  for (final server in availableMcpServers)
+                    server.name: mcpController
+                        .toolCatalogFor(server.name)
+                        .tools,
+                },
+                cancellation: toolContext.cancelSignal == null
+                    ? null
+                    : WorkflowExecutionCancellationToken(),
+              );
+            },
+      },
     );
   }
 
@@ -5789,6 +5823,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final allowCommandRules = settingsController.aiAllowCommandRules;
     final builtinToolConfigs = settingsController.builtinToolConfigs;
     final availableSkills = skillsController.skills;
+    final workflowsController = context.read<WorkflowsController>();
+    final availableWorkflows = workflowsController.workflows
+        .where((workflow) => workflow.enabled)
+        .toList(growable: false);
     final baseMcpServers = mcpController.runtimeServers;
     final webReverseCdpMcpSnapshot = _webReverseCdpMcpBridge.cachedSnapshot(
       enabled: _webReverseCdpMcpEnabledForSession(session),
@@ -5886,6 +5924,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       builtinToolConfigs.length,
       _identityHashAll(availableSkills),
       availableSkills.length,
+      _identityHashAll(availableWorkflows),
+      availableWorkflows.length,
       // 必须按元素身份哈希：availableMcpServers 是每次调用现拼的新 List，
       // 用 identityHashCode 取整个 List 的身份会导致缓存键每帧都变、
       // previewRuntimeToolCatalog 在每次 build 同步重算整个工具目录。
@@ -5908,6 +5948,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       now: now,
       allowCommandRules: allowCommandRules,
       availableSkills: availableSkills,
+      availableWorkflows: availableWorkflows,
       availableMcpServers: availableMcpServers,
       builtinToolConfigs: builtinToolConfigs,
     );
@@ -5935,6 +5976,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     required DateTime now,
     List<AiAllowCommandRule>? allowCommandRules,
     List<LocalSkill>? availableSkills,
+    List<WorkflowDefinition>? availableWorkflows,
     List<McpServer>? availableMcpServers,
     List<AiBuiltinToolConfig>? builtinToolConfigs,
   }) {
@@ -5950,6 +5992,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       allowCommandRules:
           allowCommandRules ?? settingsController.aiAllowCommandRules,
       availableSkills: availableSkills ?? skillsController.skills,
+      availableWorkflows:
+          availableWorkflows ??
+          context
+              .read<WorkflowsController>()
+              .workflows
+              .where((workflow) => workflow.enabled)
+              .toList(growable: false),
       availableMcpServers: servers,
       mcpToolCatalogsByServerName: <String, McpToolCatalog>{
         for (final server in servers)

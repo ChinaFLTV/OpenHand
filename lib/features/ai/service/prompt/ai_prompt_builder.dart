@@ -563,6 +563,8 @@ class AiPromptBuilder {
           'The blocks below are user-defined reusable prompt fragments. Treat them as authoritative project guidance — follow them unless they directly conflict with higher-priority system or developer instructions above. If `skipped_user_instruction_ids` appears under [3d] Dynamic Session State, the instructions whose ids match that list MUST be ignored for this turn only.\n\n'
           '$userInstructionsBody',
         ),
+      if (_renderAvailableWorkflows(runtimeContext).isNotEmpty)
+        _systemSectionTurn('可用工作流', _renderAvailableWorkflows(runtimeContext)),
       _systemSectionTurn(
         AiPromptSectionHeaders.conversationContext,
         _renderCompressionSummary(session, latestCompressionPoint),
@@ -1895,6 +1897,25 @@ class AiPromptBuilder {
       if ((evaluation.error ?? '').trim().isNotEmpty)
         'error': clipTextWithEllipsis(evaluation.error!.trim(), 240),
     };
+  }
+
+  String _renderAvailableWorkflows(AiSessionRuntimeContext runtimeContext) {
+    final workflows = runtimeContext.availableWorkflows
+        .where(
+          (workflow) => workflow.enabled && workflow.name.trim().isNotEmpty,
+        )
+        .toList(growable: false);
+    if (workflows.isEmpty) return '';
+    final lines = <String>[
+      '以下工作流已启用。这里只展示名称和简介；需要节点、输入或详细说明时，先调用 WorkflowDetail。',
+    ];
+    for (final workflow in workflows) {
+      final description = workflow.description.trim();
+      lines.add(
+        '- ${workflow.name.trim()}${description.isEmpty ? '' : '：$description'}',
+      );
+    }
+    return lines.join('\n');
   }
 
   String _renderRuntimeToolCatalog(
