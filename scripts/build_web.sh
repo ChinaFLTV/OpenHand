@@ -290,12 +290,9 @@ prepare_web_output
 # ---- 构建 -------------------------------------------------------------------
 build_web_client
 
-# pubspec.yaml 声明了 assets/web/chunks/ 与 assets/web/assets/；两者被
-# .gitignore 忽略且由 Vite 动态生成。构建失败或某些配置未产出对应目录时，
-# 仍保持目录存在，避免 flutter analyze 出现 asset_directory_does_not_exist。
+# pubspec.yaml 声明了 assets/web/chunks/ 与 assets/web/assets/；构建未产出
+# 对应目录时仍创建空目录，避免 Flutter 报资源目录不存在。
 mkdir -p "$OUT_DIR/chunks" "$OUT_DIR/assets"
-[[ -f "$OUT_DIR/chunks/.gitkeep" ]] || : > "$OUT_DIR/chunks/.gitkeep"
-[[ -f "$OUT_DIR/assets/.gitkeep" ]] || : > "$OUT_DIR/assets/.gitkeep"
 
 # ---- 校验关键产物已生成 -----------------------------------------------------
 missing=()

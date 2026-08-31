@@ -1,5 +1,18 @@
 part of '../openhand_home_page.dart';
 
+int _compareFileSystemEntitiesDirectoryFirst(
+  FileSystemEntity left,
+  FileSystemEntity right,
+) {
+  final leftIsDirectory = left is Directory;
+  final rightIsDirectory = right is Directory;
+  if (leftIsDirectory != rightIsDirectory) return leftIsDirectory ? -1 : 1;
+  return p
+      .basename(left.path)
+      .toLowerCase()
+      .compareTo(p.basename(right.path).toLowerCase());
+}
+
 class _ComposerDraftState {
   const _ComposerDraftState({
     required this.text,
@@ -718,9 +731,7 @@ class _TitleGenerationProgressDialog extends StatelessWidget {
   }
 }
 
-/// Modal bottom sheet that lets users tweak [AiCreationOptions] for the
-/// currently active creation mode. Returns the updated options or null if the
-/// user dismissed without confirming.
+/// 编辑当前生成模式的 [AiCreationOptions]；用户取消时返回空值。
 class _CreationOptionsSheet extends StatefulWidget {
   const _CreationOptionsSheet({
     required this.mode,
@@ -767,9 +778,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
     text: _initialAudioVoice(),
   );
 
-  // Mode-specific aspect ratio presets with matching pixel sizes. The 1024
-  // baseline is used for image generation; video keeps the aspect strings
-  // only (pixel sizes are provider-dependent).
+  // 图片使用 1024 基准像素尺寸；视频只保留宽高比，实际尺寸由服务商决定。
   static const List<({String ratio, String size})> _imageRatios = [
     (ratio: '1:1', size: '1024x1024'),
     (ratio: '16:9', size: '1792x1024'),

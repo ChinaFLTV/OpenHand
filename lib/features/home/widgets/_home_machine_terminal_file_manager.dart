@@ -65,17 +65,11 @@ class _MachineTerminalOperationStatus {
   final DateTime startedAt;
   final DateTime sampledAt;
 
-  double? get progress {
-    final value = total;
-    if (value == null) {
-      return unit == MachineTerminalFileProgressUnit.entries && processed == 0
-          ? 0
-          : null;
-    }
-    if (value < 0) return null;
-    if (value == 0) return 1;
-    return (processed / value).clamp(0, 1);
-  }
+  double? get progress => machineTerminalFileProgressRatio(
+    processed: processed,
+    total: total,
+    unit: unit,
+  );
 
   Duration get elapsed {
     final value = DateTime.now().difference(startedAt);

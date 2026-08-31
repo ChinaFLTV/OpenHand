@@ -1167,7 +1167,7 @@ class AiLspClientService {
       silentLog(
         'lsp_client_service',
         '查询 LSP 命令路径超时',
-        'executable=$normalizedExecutable',
+        '可执行文件=$normalizedExecutable',
       );
       return null;
     }

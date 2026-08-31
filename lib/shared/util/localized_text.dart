@@ -211,55 +211,6 @@ String openHandLocalizedTextForLocale(
   }
 }
 
-/// 按 `zh_CN`、`zh-Hant`、`fr` 等平台语言名称返回文本。
-String openHandLocalizedTextForLocaleName(
-  String localeName, {
-  required String zh,
-  required String en,
-  String? zhHans,
-  String? zhHant,
-  String? fr,
-  String? de,
-  String? ja,
-}) {
-  return openHandLocalizedTextForLocale(
-    _openHandLocaleFromName(localeName),
-    zh: zh,
-    en: en,
-    zhHans: zhHans,
-    zhHant: zhHant,
-    fr: fr,
-    de: de,
-    ja: ja,
-  );
-}
-
-Locale _openHandLocaleFromName(String localeName) {
-  final normalized = localeName.trim().replaceAll('_', '-');
-  if (normalized.isEmpty) {
-    return const Locale('en');
-  }
-  final parts = normalized.split('-').where((part) => part.isNotEmpty).toList();
-  if (parts.isEmpty) {
-    return const Locale('en');
-  }
-  final languageCode = parts.first.toLowerCase();
-  String? scriptCode;
-  String? countryCode;
-  for (final part in parts.skip(1)) {
-    if (part.length == 4 && scriptCode == null) {
-      scriptCode = part[0].toUpperCase() + part.substring(1).toLowerCase();
-    } else {
-      countryCode ??= part.toUpperCase();
-    }
-  }
-  return Locale.fromSubtags(
-    languageCode: languageCode,
-    scriptCode: scriptCode,
-    countryCode: countryCode,
-  );
-}
-
 String? _openHandInlineCatalogText(String languageCode, String en) {
   return _openHandInlineTextCatalog[en.trim()]?[languageCode];
 }

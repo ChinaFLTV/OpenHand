@@ -1,5 +1,12 @@
-import { defineConfig } from 'vite';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 import preact from '@preact/preset-vite';
+import { defineConfig } from 'vite';
+
+const OPENHAND_LOGO_PATH = fileURLToPath(
+  new URL('../../assets/branding/openhand_logo.png', import.meta.url),
+);
 
 const MERMAID_VENDOR_PATTERNS = [
   'mermaid',
@@ -73,7 +80,19 @@ function featureChunkNameFor(id: string): string | undefined {
 // 暴露；拆分 chunk 与派生 assets 使用内容 hash，避免旧 Service Worker / 浏览器缓存
 // 把新 app.js 和旧 vendor chunk 混用导致 ESM export 错配。
 export default defineConfig({
-  plugins: [preact()],
+  plugins: [
+    preact(),
+    {
+      name: 'openhand-branding-asset',
+      generateBundle() {
+        this.emitFile({
+          type: 'asset',
+          fileName: 'openhand_logo.png',
+          source: readFileSync(OPENHAND_LOGO_PATH),
+        });
+      },
+    },
+  ],
   base: '/',
   build: {
     outDir: '../../assets/web',

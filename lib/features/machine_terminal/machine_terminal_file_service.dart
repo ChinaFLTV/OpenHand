@@ -71,6 +71,21 @@ enum MachineTerminalTransferStatus {
 
 enum MachineTerminalFileProgressUnit { bytes, entries, steps }
 
+double? machineTerminalFileProgressRatio({
+  required int processed,
+  required int? total,
+  required MachineTerminalFileProgressUnit unit,
+}) {
+  if (total == null) {
+    return unit == MachineTerminalFileProgressUnit.entries && processed == 0
+        ? 0
+        : null;
+  }
+  if (total < 0) return null;
+  if (total == 0) return 1;
+  return (processed / total).clamp(0, 1);
+}
+
 typedef MachineTerminalFileProgressCallback =
     void Function(MachineTerminalFileProgress progress);
 
@@ -88,17 +103,11 @@ class MachineTerminalFileProgress {
   final int? total;
   final MachineTerminalFileProgressUnit unit;
 
-  double? get progress {
-    final value = total;
-    if (value == null) {
-      return unit == MachineTerminalFileProgressUnit.entries && processed == 0
-          ? 0
-          : null;
-    }
-    if (value < 0) return null;
-    if (value == 0) return 1;
-    return (processed / value).clamp(0, 1);
-  }
+  double? get progress => machineTerminalFileProgressRatio(
+    processed: processed,
+    total: total,
+    unit: unit,
+  );
 }
 
 @immutable

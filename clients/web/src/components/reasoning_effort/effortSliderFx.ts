@@ -7,11 +7,11 @@
  * 像素场与色板派生自 dsh-effort-slider / DSH-Claude-Style-Reasoning-Slider（MIT / BSD-3-Clause）。
  */
 
-export type Rgb = readonly [number, number, number];
+type Rgb = readonly [number, number, number];
 
-export type RgbRange = readonly [number, number];
+type RgbRange = readonly [number, number];
 
-export interface EffortPalette {
+interface EffortPalette {
   left: Rgb;
   tones: Rgb[];
   highlight: Rgb;
@@ -22,7 +22,7 @@ export interface EffortPalette {
   boost: number;
 }
 
-export const EFFORT_PURPLE_PALETTE: EffortPalette = {
+const EFFORT_PURPLE_PALETTE: EffortPalette = {
   left: [210, 206, 214],
   tones: [
     [150, 96, 205], [150, 96, 205], [156, 118, 200], [156, 118, 200],
@@ -37,7 +37,7 @@ export const EFFORT_PURPLE_PALETTE: EffortPalette = {
   boost: 1,
 };
 
-export const EFFORT_BLUE_PALETTE: EffortPalette = {
+const EFFORT_BLUE_PALETTE: EffortPalette = {
   left: [212, 218, 226],
   tones: [
     [72, 126, 238], [72, 126, 238], [86, 138, 240], [86, 138, 240],
@@ -52,7 +52,7 @@ export const EFFORT_BLUE_PALETTE: EffortPalette = {
   boost: 1,
 };
 
-export const EFFORT_GREEN_PALETTE: EffortPalette = {
+const EFFORT_GREEN_PALETTE: EffortPalette = {
   left: [214, 224, 212],
   tones: [
     [46, 168, 108], [46, 168, 108], [64, 178, 122], [64, 178, 122],
@@ -71,16 +71,16 @@ const DARK_GREEN_LEFT: Rgb = [22, 38, 28];
 const DARK_BLUE_LEFT: Rgb = [26, 24, 44];
 const DARK_PURPLE_LEFT: Rgb = [24, 19, 40];
 
-export const EFFORT_PIXEL_FRAME_MS = 33;
-export const EFFORT_STREAM_FRAME_MS = 33;
+const EFFORT_PIXEL_FRAME_MS = 33;
+const EFFORT_STREAM_FRAME_MS = 33;
 /** 主岸线左侧碎裂前导（相对轨长，再乘 softScale）。 */
-export const EFFORT_TIDE_SOFT_LEAD = 0.07;
+const EFFORT_TIDE_SOFT_LEAD = 0.07;
 /** 主岸线右侧飞沫漫出。 */
-export const EFFORT_TIDE_SOFT_SPILL = 0.04;
+const EFFORT_TIDE_SOFT_SPILL = 0.04;
 /** 底轨/流光掩膜柔边。 */
 export const EFFORT_TIDE_UNDERLAY_SOFT = 0.1;
 /** 滑块到达末档（满轨实填、关闭潮汐过渡）。 */
-export const EFFORT_LAST_TIER_SLIDER = 99.5;
+const EFFORT_LAST_TIER_SLIDER = 99.5;
 const EFFORT_TIDE_WAVE_AMP = 0.048;
 const EFFORT_TIDE_SPRAY_AMP = 0.028;
 const EFFORT_TIDE_FOAM_AMP = 0.016;
@@ -93,12 +93,12 @@ export function clamp(value: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, value));
 }
 
-export function smoothstep(edge0: number, edge1: number, value: number): number {
+function smoothstep(edge0: number, edge1: number, value: number): number {
   const x = clamp((value - edge0) / (edge1 - edge0), 0, 1);
   return x * x * (3 - 2 * x);
 }
 
-export function mix(a: number, b: number, t: number): number {
+function mix(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
@@ -113,7 +113,7 @@ export function effortTideSoftScale(maskFrac: number, maxBlend: number): number 
  * 潮汐前沿：锯齿岸线 + 二元空洞/飞沫。
  * 末档 solidTrack 时整轨实填，不做过渡碎裂。
  */
-export function effortTidePresence(input: {
+function effortTidePresence(input: {
   nX: number;
   maskFrac: number;
   maxBlend: number;

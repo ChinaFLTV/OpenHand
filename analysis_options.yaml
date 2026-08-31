@@ -41,16 +41,10 @@ linter:
     collection_methods_unrelated_type: true
     avoid_returning_null_for_void: true
 
-    # 以下规则已评估，不适用于当前异步错误与资源清理约定。
-    # unnecessary_async：本项目的约定是「返回 Future 的函数，其错误一律经由
-    #   Future 送达」，调用方只需处理一条错误路径。去掉 async 会让参数校验的
-    #   throw 变成同步抛出——例如 skill_market_client 里
-    #   `fetchSkillVersions(slug).then(..., onError: ...)`，同步抛出发生在
-    #   onError 挂载之前，降级分支根本不会执行，整次拉取直接失败。
-    # cancel_subscriptions / close_sinks：本项目走带超时与错误上报的
-    #   cancelStreamSubscriptionBounded，lint 跟不进辅助函数，32 条全是误报。
-    # avoid_futureor_void：`FutureOr<void> Function()` 回调是刻意设计（同步与
-    #   异步回调都收，调用处统一 await），不是该 lint 针对的歧义写法。
+    # 下列规则与项目的异步错误和资源清理约定冲突，保持关闭：
+    # unnecessary_async 会把参数校验错误改为同步抛出，绕过 Future 错误处理；
+    # cancel_subscriptions / close_sinks 无法识别带超时的统一清理入口；
+    # avoid_futureor_void 会排斥项目统一等待的同步或异步回调。
 
     unnecessary_null_checks: true
 

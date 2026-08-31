@@ -194,47 +194,13 @@ class AutoFollowScrollGuard {
     Duration animationDuration = const Duration(milliseconds: 180),
     Curve curve = kOpenHandSwitchInCurve,
   }) {
-    _followToEdge(
-      controller,
-      target: (position) => position.maxScrollExtent,
-      animated: animated,
-      animationDuration: animationDuration,
-      curve: curve,
-    );
-  }
-
-  /// 尝试把反向列表移到最新内容所在的起点。
-  ///
-  /// 日志等持续追加的倒序列表把最新一行放在 [minScrollExtent]，
-  /// 这样新增内容不会触发跨越整段历史的滚动动画。
-  void followToStart(
-    ScrollController controller, {
-    bool animated = false,
-    Duration animationDuration = const Duration(milliseconds: 180),
-    Curve curve = kOpenHandSwitchInCurve,
-  }) {
-    _followToEdge(
-      controller,
-      target: (position) => position.minScrollExtent,
-      animated: animated,
-      animationDuration: animationDuration,
-      curve: curve,
-    );
-  }
-
-  void _followToEdge(
-    ScrollController controller, {
-    required double Function(ScrollPosition position) target,
-    required bool animated,
-    required Duration animationDuration,
-    required Curve curve,
-  }) {
     if (_userScrolling) return;
     if (!controller.hasClients) return;
     final position = controller.position;
-    final targetOffset = target(
-      position,
-    ).clamp(position.minScrollExtent, position.maxScrollExtent);
+    final targetOffset = position.maxScrollExtent.clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
     if ((targetOffset - position.pixels).abs() < 0.5) return;
     if (!animated) {
       _programmaticScroll.begin();

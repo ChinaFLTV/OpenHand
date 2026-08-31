@@ -10,8 +10,6 @@ import '../../shared/util/user_failure_message.dart';
 import 'data/instructions_store.dart';
 import 'model/user_instruction_entry.dart';
 
-typedef InstructionsControllerProvider = InstructionsController? Function();
-
 class InstructionsController extends ManagedChangeNotifier {
   InstructionsController._({
     required InstructionsStore store,

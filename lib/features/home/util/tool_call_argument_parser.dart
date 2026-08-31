@@ -37,20 +37,12 @@ String _readToolArgumentValue(
     }
     return '';
   } catch (_) {
-    // Single jsonDecode failed. Try concatenated-objects recovery before
-    // logging anything: some upstream tool_call accumulators merge two
-    // distinct tool_calls' arguments into one buffer (e.g. `{...}{...}`)
-    // which is recoverable but would otherwise spam the console on every
-    // widget rebuild.
+    // 上游可能把多个 tool_call 参数拼成 `{...}{...}`，先尝试恢复再记录异常。
     final concatMerged = _mergeConcatenatedJsonObjects(trimmed);
     if (concatMerged != null) {
       return _readPreferredArgumentValue(concatMerged, preferredKeys);
     } else {
-      // Suppress the silent-log spam when the buffer looks like a still-
-      // streaming partial object: the parser is invoked on every widget
-      // rebuild while tool-call arguments are being assembled chunk by
-      // chunk, so unbalanced braces / unterminated strings are expected
-      // (and will resolve naturally once the stream completes).
+      // 流式参数未闭合属于预期中间态，不重复输出日志。
       final looksIncomplete =
           trimmed.codeUnitAt(0) == 0x7B &&
           _findBalancedObjectEnd(trimmed, 0) < 0;
@@ -58,7 +50,7 @@ String _readToolArgumentValue(
         silentLog(
           'tool_call_argument_parser',
           '解码工具参数 JSON',
-          'unrecoverable: ${_truncateForLog(trimmed)}',
+          '无法恢复：${_truncateForLog(trimmed)}',
         );
       }
     }
@@ -80,10 +72,7 @@ String _readPreferredArgumentValue(
   return '';
 }
 
-/// Splits a string that looks like several balanced JSON objects glued
-/// together (e.g. `{"a":1}{"b":2}`) into individually-decoded maps and
-/// merges them left-to-right. Returns `null` if the input is not actually
-/// a sequence of balanced top-level objects.
+/// 拆分并合并连续的完整 JSON 对象；格式不匹配时返回空值。
 Map<String, Object?>? _mergeConcatenatedJsonObjects(String source) {
   if (source.isEmpty || source.codeUnitAt(0) != 0x7B) {
     return null;
@@ -98,7 +87,7 @@ Map<String, Object?>? _mergeConcatenatedJsonObjects(String source) {
     }
     if (cursor >= source.length) break;
     if (source.codeUnitAt(cursor) != 0x7B) {
-      // Trailing garbage — refuse to claim recovery.
+      // 尾部存在非对象内容，不能按连续对象恢复。
       return null;
     }
     final end = _findBalancedObjectEnd(source, cursor);
@@ -122,10 +111,7 @@ Map<String, Object?>? _mergeConcatenatedJsonObjects(String source) {
   return foundAny ? merged : null;
 }
 
-/// Returns the index of the `}` that closes the JSON object starting at
-/// [start] (which must point at `{`), respecting nested objects, arrays,
-/// and double-quoted strings (with backslash escapes). Returns -1 if no
-/// matching closer is found.
+/// 返回 [start] 对应 JSON 对象的闭合位置；未闭合时返回 -1。
 int _findBalancedObjectEnd(String source, int start) {
   var depth = 0;
   var inString = false;

@@ -519,15 +519,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
       if (_isAtMentionSearchStale(scope)) {
         return;
       }
-      entries.sort((a, b) {
-        final aIsDir = a is Directory;
-        final bIsDir = b is Directory;
-        if (aIsDir != bIsDir) return aIsDir ? -1 : 1;
-        return p
-            .basename(a.path)
-            .toLowerCase()
-            .compareTo(p.basename(b.path).toLowerCase());
-      });
+      entries.sort(_compareFileSystemEntitiesDirectoryFirst);
       for (final entry in entries) {
         if (_isAtMentionSearchStale(scope)) {
           return;

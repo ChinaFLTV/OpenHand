@@ -63,7 +63,15 @@ flutter:
   uses-material-design: true
   generate: true
   assets:
-    - assets/prompts/_shared/
+    - assets/prompts/_shared/identity.md
+    - assets/prompts/_shared/refusal.md
+    - assets/prompts/_shared/tone.md
+    - assets/prompts/_shared/workflow.md
+    - assets/prompts/_shared/output_format_gpt_chat_rules.md
+    - assets/prompts/_shared/output_format_html_balanced.md
+    - assets/prompts/_shared/output_format_html_rich.md
+    - assets/prompts/_shared/output_format_html_vivid.md
+    - assets/prompts/_shared/output_format_plaintext.md
     - assets/prompts/common/
     - assets/prompts/default/
     - assets/prompts/harness_engineering/

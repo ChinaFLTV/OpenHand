@@ -3518,7 +3518,6 @@ class _GeneratedMediaSource {
   final String? filePath;
   final Uri? originalUri;
 
-  bool get isLocalFile => filePath != null;
   Uri get displayUri => originalUri ?? uri;
 }
 

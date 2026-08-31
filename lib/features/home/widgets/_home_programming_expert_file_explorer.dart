@@ -312,15 +312,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
         ),
       );
       final entries = listing.entries.toList(growable: false);
-      entries.sort((a, b) {
-        final aIsDir = a is Directory;
-        final bIsDir = b is Directory;
-        if (aIsDir != bIsDir) return aIsDir ? -1 : 1;
-        return p
-            .basename(a.path)
-            .toLowerCase()
-            .compareTo(p.basename(b.path).toLowerCase());
-      });
+      entries.sort(_compareFileSystemEntitiesDirectoryFirst);
       for (final entry in entries) {
         if (!mounted || generation != _searchGeneration) return;
         if (!budget.consume()) return;
@@ -410,15 +402,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
           dir,
           maxEntries: _kFileExplorerDirectoryEntryLimit,
         )).entries.toList(growable: false);
-        entries.sort((a, b) {
-          final aIsDir = a is Directory;
-          final bIsDir = b is Directory;
-          if (aIsDir != bIsDir) return aIsDir ? -1 : 1;
-          return p
-              .basename(a.path)
-              .toLowerCase()
-              .compareTo(p.basename(b.path).toLowerCase());
-        });
+        entries.sort(_compareFileSystemEntitiesDirectoryFirst);
         final children = <_FileNode>[];
         for (final entry in entries) {
           final name = p.basename(entry.path);
@@ -12155,15 +12139,7 @@ class _BreadcrumbSegment extends StatelessWidget {
       } catch (_) {
         return;
       }
-      entries.sort((a, b) {
-        final aIsDir = a is Directory;
-        final bIsDir = b is Directory;
-        if (aIsDir != bIsDir) return aIsDir ? -1 : 1;
-        return p
-            .basename(a.path)
-            .toLowerCase()
-            .compareTo(p.basename(b.path).toLowerCase());
-      });
+      entries.sort(_compareFileSystemEntitiesDirectoryFirst);
       final filtered = entries
           .where((e) => !p.basename(e.path).startsWith('.'))
           .take(80)

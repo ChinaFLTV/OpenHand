@@ -662,9 +662,3 @@ class _HePhaseMetaRow extends StatelessWidget {
     );
   }
 }
-
-// _HeLogSection — smart log panel
-// • Running phase  → live monospace tail (last 50 lines, auto-scroll)
-// • Done phase     → "Smart" view (default): extracted command chip +
-//                    full Markdown-rendered content
-//                    "Raw" toggle: classic coloured monospace

@@ -1646,7 +1646,7 @@ class AiToolUtils {
                 silentLog(
                   'ai_tool_utils',
                   '设置内置 rg 的执行权限',
-                  'exit ${chmodResult.exitCode}: ${chmodResult.stderr}',
+                  '退出码 ${chmodResult.exitCode}：${chmodResult.stderr}',
                 );
                 continue;
               }

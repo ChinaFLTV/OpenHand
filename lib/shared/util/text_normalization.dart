@@ -2,7 +2,6 @@
 /// 若干位于输入框监听、逐行解析这类高频路径上，每次重新编译纯属浪费。
 final RegExp kInlineWhitespacePattern = RegExp(r'\s+');
 final RegExp _asciiLookupTokenSeparatorPattern = RegExp(r'[^a-z0-9]+');
-final RegExp _snakeStorageKeySeparatorPattern = RegExp(r'[\s-]+');
 
 /// 统一匹配 HTML/XML 标签，供错误页、TTS 和文档解析复用。
 final RegExp kHtmlTagPattern = RegExp(r'<[^>]*>');
@@ -81,17 +80,6 @@ bool isAsciiWhitespaceCodeUnit(int codeUnit) {
       codeUnit == 0x0D;
 }
 
-List<String> dedupeNonEmptyStrings(Iterable<String> values) {
-  final seen = <String>{};
-  final result = <String>[];
-  for (final raw in values) {
-    final value = raw.trim();
-    if (value.isEmpty) continue;
-    if (seen.add(value.toLowerCase())) result.add(value);
-  }
-  return result;
-}
-
 /// 仅保留 ASCII 字母数字并转为小写，用于宽松查找。
 String normalizeAsciiLookupKey(String value) {
   final buffer = StringBuffer();
@@ -111,13 +99,6 @@ String normalizeAsciiSlugKey(String value) {
   return value.trim().toLowerCase().replaceAll(
     _asciiLookupTokenSeparatorPattern,
     '-',
-  );
-}
-
-String normalizeSnakeStorageKey(String value) {
-  return value.trim().toLowerCase().replaceAll(
-    _snakeStorageKeySeparatorPattern,
-    '_',
   );
 }
 

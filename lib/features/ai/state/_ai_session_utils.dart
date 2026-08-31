@@ -296,18 +296,11 @@ String _sanitizeVisibleModelContent(String value) {
   return finalize(sanitized);
 }
 
-/// Strip raw `<tool_call>…</tool_call>` and `<tool_result>…</tool_result>`
-/// markup that some models echo verbatim in their text output alongside
-/// native API tool-call events.  Without this filter the tags appear as ugly
-/// raw XML in the chat bubble.
-///
-/// Also strips internal "Tool call: ToolName" labels that some
-/// models output as reasoning artifacts. These are prompt-history notation
-/// and should not appear in user-facing content.
+/// 移除模型回显的工具调用标签和内部脚手架，避免其进入用户可见消息。
 String _stripRawToolCallMarkup(String value) {
   var stripped = value;
 
-  // 1. Strip XML-style tool_call / tool_calls / tool_result / tool_use blocks.
+  // 移除工具调用 XML 块及残留标签。
   if (_rawToolCallPresencePattern.hasMatch(stripped)) {
     stripped = stripped
         .replaceAll(_rawToolCallsBlockPattern, '')
@@ -317,12 +310,10 @@ String _stripRawToolCallMarkup(String value) {
         .replaceAll(_rawToolCallLooseTagPattern, '');
   }
 
-  // 2. Strip "Tool call: ToolName" internal label lines.
-  // This catches lines like "Tool call: Bash" or "[tool_call]" that
-  // some models emit as reasoning artifacts.
+  // 移除模型推理中回显的工具调用标签行。
   stripped = stripped.replaceAll(_internalToolCallLabelLinePattern, '');
 
-  // Collapse excessive blank lines left behind after stripping.
+  // 收敛清理标签后留下的多余空行。
   stripped = stripped.replaceAll(kExcessiveNewlinesPattern, '\n\n').trim();
   return stripped;
 }
@@ -335,10 +326,7 @@ final RegExp _rawToolCallBlockPattern = RegExp(
   r'<\s*tool_call\b[^>]*>[\s\S]*?<\s*/\s*tool_call\s*>',
   caseSensitive: false,
 );
-// Also strip the plural `<tool_calls>…</tool_calls>` wrapper that
-// some reasoning models echo as a scaffold (e.g. DeepSeek Reasoner) — this
-// previously leaked into the visible reasoning bubble because the stripper
-// only recognized the singular `<tool_call>` variant.
+// 兼容模型回显的复数 `<tool_calls>` 包装。
 final RegExp _rawToolCallsBlockPattern = RegExp(
   r'<\s*tool_calls\b[^>]*>[\s\S]*?<\s*/\s*tool_calls\s*>',
   caseSensitive: false,
@@ -356,14 +344,7 @@ final RegExp _rawToolCallLooseTagPattern = RegExp(
   caseSensitive: false,
 );
 
-/// Pattern to match internal "Tool call: ToolName" label lines.
-/// Matches lines like:
-///   - "Tool call: Bash"
-///   - "Tool call: Read -> /path/file"
-///   - "Tool call: Write (payload omitted from prompt history)"
-///   - "[tool_call]"
-///
-/// These are prompt-history notation that some models echo back in text output.
+/// 匹配模型回显的内部工具调用标签行。
 final RegExp _internalToolCallLabelLinePattern = RegExp(
   r'^[ \t]*(?:Tool call:\s+\w+.*|\[tool_call\])[ \t]*$',
   multiLine: true,

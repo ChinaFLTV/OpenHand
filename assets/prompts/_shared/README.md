@@ -14,6 +14,9 @@
 | `tone.md` | 表达风格 / 格式化纪律 |
 | `workflow.md` | 四阶段 Research → Synthesis → Implementation → Verification 循环 |
 
+输出格式片段由 `AiOutputFormatPrompts` 按所选消息格式独立加载，不参与上述
+顶层标签装配。
+
 ## 当前装配规则
 
 所有线程模板统一走同一套 system prompt 装配流程：
@@ -27,28 +30,3 @@
 与 `compression_summary_instructions.md` 通过
 `AiPromptTemplatePolicy.promptAssetFileOverrides` 继承 `default`，避免复制同
 一份 prompt。
-
-## 后续 manifest 工作
-
-若未来引入 `assets/prompts/manifest.yaml`：
-```yaml
-presets:
-  default:
-    sections:
-      - _shared/identity.md
-      - _shared/refusal.md
-      - _shared/tone.md
-      - _shared/workflow.md
-      - default/_tool_use.md          # preset 专属段
-      - default/_compression.md
-  machine_expert:
-    sections:
-      - _shared/identity.md
-      - _shared/refusal.md
-      - _shared/tone.md
-      - machine_expert/_terminal_role.md
-      - machine_expert/_terminal_discipline.md
-```
-
-构建时由 Dart 端的 `PromptTemplateRepository` 按 manifest 顺序拼装并缓存。
-本阶段（P5）仅落骨架；实际 manifest 与 repository 改造留待后续会话。
