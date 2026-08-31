@@ -379,6 +379,32 @@ final class AiToolUsagePromotionStore {
 
   ValueListenable<int> get changes => _revision;
 
+  /// 返回指定资源最近的调用记录，结果按发生时间倒序排列。
+  List<AiResourceUsageEvent> recentEventsFor({
+    required AiResourceUsageKind kind,
+    String? resourceId,
+    int limit = 20,
+  }) {
+    final normalizedResourceId = resourceId?.trim();
+    if (limit <= 0) return const <AiResourceUsageEvent>[];
+    final boundedLimit = limit > _maxRecentEvents ? _maxRecentEvents : limit;
+    final events =
+        _recentEvents
+            .where(
+              (event) =>
+                  event.kind == kind &&
+                  (normalizedResourceId == null ||
+                      normalizedResourceId.isEmpty ||
+                      event.resourceId == normalizedResourceId),
+            )
+            .toList(growable: false)
+          ..sort((left, right) => right.occurredAt.compareTo(left.occurredAt));
+    if (events.length <= boundedLimit) {
+      return List<AiResourceUsageEvent>.unmodifiable(events);
+    }
+    return List<AiResourceUsageEvent>.unmodifiable(events.take(boundedLimit));
+  }
+
   Future<void> initialize() {
     if (_shuttingDown) return Future<void>.value();
     return _operations.enqueue(_initializeLocked);

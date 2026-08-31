@@ -27,6 +27,7 @@ import '../../ai/index.dart';
 import '../model/workflow_definition.dart';
 import '../service/workflow_portability_service.dart';
 import '../workflows_controller.dart';
+import 'workflow_details_dialog.dart';
 import 'workflow_editor_dialog.dart';
 import 'workflow_export_progress_dialog.dart';
 import 'workflow_minimap.dart';
@@ -172,6 +173,8 @@ class _WorkflowsViewState extends State<WorkflowsView> {
                                     controller,
                                     workflow: workflow,
                                   ),
+                                  onDetails: () =>
+                                      _showWorkflowDetails(context, workflow),
                                   onDelete: () => _deleteWorkflow(
                                     context,
                                     controller,
@@ -215,6 +218,22 @@ class _WorkflowsViewState extends State<WorkflowsView> {
         controller.errorMessage ?? (enabled ? '启用工作流失败。' : '停用工作流失败。'),
       );
     }
+  }
+
+  Future<void> _showWorkflowDetails(
+    BuildContext context,
+    WorkflowDefinition workflow,
+  ) async {
+    final aiController = context.read<AiSessionController>();
+    final usageStore = aiController.toolUsagePromotionStore;
+    await usageStore.initialize();
+    if (!context.mounted) return;
+    await showWorkflowDetailsDialog(
+      context,
+      workflow: workflow,
+      usageStore: usageStore,
+      preferredSessionId: aiController.currentSessionId,
+    );
   }
 
   Future<void> _importWorkflow(WorkflowsController controller) async {
@@ -532,6 +551,7 @@ class _WorkflowCard extends StatelessWidget {
   const _WorkflowCard({
     required this.workflow,
     required this.onOpen,
+    required this.onDetails,
     required this.onDelete,
     required this.onExport,
     required this.onToggleEnabled,
@@ -540,6 +560,7 @@ class _WorkflowCard extends StatelessWidget {
 
   final WorkflowDefinition workflow;
   final VoidCallback onOpen;
+  final VoidCallback onDetails;
   final VoidCallback onDelete;
   final ValueChanged<WorkflowExportFormat> onExport;
   final VoidCallback onToggleEnabled;
@@ -662,6 +683,14 @@ class _WorkflowCard extends StatelessWidget {
                               key: ValueKey<bool>(workflow.enabled),
                             ),
                     ),
+                  ),
+                  kOpenHandHGap8,
+                  IconButton.filledTonal(
+                    key: ValueKey<String>('workflow-details-${workflow.id}'),
+                    tooltip: '查看工作流详情',
+                    style: actionButtonStyle,
+                    onPressed: onDetails,
+                    icon: const Icon(Icons.info_outline_rounded),
                   ),
                   kOpenHandHGap8,
                   AnimatedPopupMenuButton<WorkflowExportFormat>(
