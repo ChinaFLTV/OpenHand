@@ -71,7 +71,6 @@ const DARK_GREEN_LEFT: Rgb = [22, 38, 28];
 const DARK_BLUE_LEFT: Rgb = [26, 24, 44];
 const DARK_PURPLE_LEFT: Rgb = [24, 19, 40];
 
-export const EFFORT_COMMIT_THROTTLE_MS = 16;
 export const EFFORT_PIXEL_FRAME_MS = 33;
 export const EFFORT_STREAM_FRAME_MS = 33;
 /** 主岸线左侧碎裂前导（相对轨长，再乘 softScale）。 */
