@@ -77,6 +77,7 @@ import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
 import '../../knowledge_base/index.dart';
 import '../../mcp/index.dart';
+import '../../workflows/index.dart';
 import '../dingtalk_markdown_compat.dart';
 import '../dingtalk_message_gateway_controller.dart';
 import '../message_gateway_controller.dart';
@@ -24064,6 +24065,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                               title: item.name,
                               subtitle: item.description,
                               icon: Icons.account_tree_rounded,
+                              workflow: item,
                               detailDescription: item.description,
                               detailDescriptionTitle: '简要介绍',
                               detailLongDescription: item.details,
@@ -25083,6 +25085,7 @@ class _DingTalkResourceOption {
     required this.icon,
     this.groupKey,
     this.groupTitle,
+    this.workflow,
     this.detailDescription = '',
     this.detailDescriptionTitle = '详细介绍',
     this.detailLongDescription,
@@ -25098,6 +25101,7 @@ class _DingTalkResourceOption {
   final IconData icon;
   final String? groupKey;
   final String? groupTitle;
+  final WorkflowDefinition? workflow;
   final String detailDescription;
   final String detailDescriptionTitle;
   final String? detailLongDescription;
@@ -25644,6 +25648,19 @@ class _DingTalkResourcePickerDialogState
     BuildContext context,
     _DingTalkResourceOption option,
   ) async {
+    final workflow = option.workflow;
+    if (workflow != null) {
+      final aiController = context.read<AiSessionController>();
+      final usageStore = aiController.toolUsagePromotionStore;
+      await usageStore.initialize();
+      if (!context.mounted) return;
+      await showWorkflowDetailsDialog(
+        context,
+        workflow: workflow,
+        usageStore: usageStore,
+      );
+      return;
+    }
     await showAnimatedDialog<void>(
       context: context,
       builder: (_) => buildOpenHandDialog(
