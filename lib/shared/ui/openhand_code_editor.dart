@@ -584,7 +584,6 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
                   child: _editorActionButton(
                     context,
                     label: '撤销',
-                    icon: Icons.undo_rounded,
                     onPressed: value.canUndo ? _undo : null,
                   ),
                 ),
@@ -593,7 +592,6 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
                   child: _editorActionButton(
                     context,
                     label: '重做',
-                    icon: Icons.redo_rounded,
                     onPressed: value.canRedo ? _redo : null,
                   ),
                 ),
@@ -602,7 +600,6 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
                   child: _editorActionButton(
                     context,
                     label: '格式化',
-                    icon: Icons.auto_fix_high_rounded,
                     onPressed: _formatCode,
                   ),
                 ),
@@ -615,7 +612,6 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
                   child: _editorActionButton(
                     context,
                     label: '重置窗口',
-                    icon: Icons.fit_screen_rounded,
                     onPressed: _resetEditorViewport,
                   ),
                 ),
@@ -625,7 +621,6 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
                   child: _editorActionButton(
                     context,
                     label: _isImportingCodeFile ? '导入中...' : '从代码文件导入',
-                    icon: Icons.file_open_rounded,
                     onPressed: _isImportingCodeFile ? null : _importCodeFile,
                   ),
                 ),
@@ -640,13 +635,10 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
   Widget _editorActionButton(
     BuildContext context, {
     required String label,
-    required IconData icon,
     required VoidCallback? onPressed,
   }) {
-    return FilledButton.tonalIcon(
+    return FilledButton.tonal(
       onPressed: onPressed,
-      icon: Icon(icon, size: 17),
-      label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
       style: FilledButton.styleFrom(
         minimumSize: const Size.fromHeight(36),
         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -656,6 +648,7 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
         ),
         shadowColor: Colors.transparent,
       ),
+      child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
     );
   }
 
