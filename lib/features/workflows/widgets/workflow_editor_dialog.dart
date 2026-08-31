@@ -61,8 +61,23 @@ const RoundedRectangleBorder _workflowButtonShape = RoundedRectangleBorder(
   borderRadius: kOpenHandBorderRadius12,
 );
 
-typedef WorkflowRenameCallback =
+typedef WorkflowMetadataSaveCallback =
     Future<bool> Function(WorkflowDefinition workflow);
+
+@immutable
+class _WorkflowMetadataDraft {
+  const _WorkflowMetadataDraft({
+    required this.name,
+    required this.description,
+    required this.details,
+    required this.tags,
+  });
+
+  final String name;
+  final String description;
+  final String details;
+  final List<String> tags;
+}
 
 class _WorkflowGraphSnapshot {
   const _WorkflowGraphSnapshot({
@@ -93,7 +108,7 @@ class _WorkflowHistoryEntry {
 Future<WorkflowDefinition?> showWorkflowEditorDialog(
   BuildContext context, {
   WorkflowDefinition? workflow,
-  WorkflowRenameCallback? onRename,
+  WorkflowMetadataSaveCallback? onMetadataSave,
 }) {
   final settings = context.read<SettingsController>();
   final sessions = context.read<AiSessionController>();
@@ -134,7 +149,7 @@ Future<WorkflowDefinition?> showWorkflowEditorDialog(
           knowledgeBaseController: knowledge,
           mcpController: mcp,
           pluginController: plugins,
-          onRename: onRename,
+          onMetadataSave: onMetadataSave,
         ),
       );
     },
@@ -150,7 +165,7 @@ class WorkflowEditorDialog extends StatefulWidget {
     this.workflow,
     this.knowledgeBaseController,
     this.mcpController,
-    this.onRename,
+    this.onMetadataSave,
   });
 
   final WorkflowDefinition? workflow;
@@ -159,7 +174,7 @@ class WorkflowEditorDialog extends StatefulWidget {
   final PluginServiceController pluginController;
   final KnowledgeBaseController? knowledgeBaseController;
   final McpController? mcpController;
-  final WorkflowRenameCallback? onRename;
+  final WorkflowMetadataSaveCallback? onMetadataSave;
 
   @override
   State<WorkflowEditorDialog> createState() => _WorkflowEditorDialogState();
@@ -180,6 +195,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   );
   final GlobalKey _canvasSurfaceKey = GlobalKey();
   late String _workflowName = widget.workflow?.name ?? '';
+  late String _workflowDescription = widget.workflow?.description ?? '';
+  late String _workflowDetails = widget.workflow?.details ?? '';
+  late List<String> _workflowTags = List<String>.from(
+    widget.workflow?.tags ?? const <String>[],
+  );
   late final String _workflowId = widget.workflow?.id ?? _uuid.v4();
   late final DateTime _createdAt =
       widget.workflow?.createdAt ?? DateTime.now().toUtc();
@@ -216,7 +236,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   String? _connectionTargetError;
   Offset? _connectionDragPosition;
   late final List<_WorkflowHistoryEntry> _history;
-  late final String _initialDraftFingerprint;
+  late String _initialDraftFingerprint;
   int _historyIndex = 0;
   bool _closeConfirmationOpen = false;
   bool _allowPop = false;
@@ -388,6 +408,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   }
 
   String _currentDraftFingerprint() => jsonEncode(<String, Object?>{
+    'name': _workflowName,
+    'description': _workflowDescription,
+    'details': _workflowDetails,
+    'tags': _workflowTags,
     'nodes': _nodes.map((node) => node.toJson()).toList(growable: false),
     'connections': _connections
         .map((connection) => connection.toJson())
@@ -459,15 +483,15 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
             style: actionStyle,
             icon: const Icon(Icons.tune_rounded),
           ),
-          if (widget.workflow != null && widget.onRename != null) ...[
+          if (widget.workflow != null) ...[
             kOpenHandHGap8,
             IconButton.filledTonal(
-              tooltip: '重命名工作流',
+              tooltip: '编辑工作流元数据',
               onPressed: _testing || _workflowTesting || _renaming
                   ? null
-                  : _renameWorkflow,
+                  : _editWorkflowMetadata,
               style: actionStyle,
-              icon: const Icon(Icons.drive_file_rename_outline_rounded),
+              icon: const Icon(Icons.edit_note_rounded),
             ),
           ],
           kOpenHandHGap8,
@@ -543,35 +567,65 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     if (discard) _popEditor();
   }
 
-  Future<void> _renameWorkflow() async {
-    final workflow = widget.workflow;
-    final onRename = widget.onRename;
-    if (workflow == null || onRename == null || _testing || _workflowTesting) {
-      return;
-    }
-    final name = await showAnimatedDialog<String>(
+  Future<void> _editWorkflowMetadata() async {
+    if (_testing || _workflowTesting || _renaming) return;
+    final draft = await showAnimatedDialog<_WorkflowMetadataDraft>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _WorkflowNameDialog(initialName: _workflowName),
+      builder: (_) => _WorkflowMetadataDialog(
+        initialName: _workflowName,
+        initialDescription: _workflowDescription,
+        initialDetails: _workflowDetails,
+        initialTags: _workflowTags,
+      ),
     );
-    if (!mounted || name == null) return;
-    final normalizedName = name.trim();
-    if (normalizedName.isEmpty || normalizedName == _workflowName.trim()) {
-      return;
-    }
+    if (!mounted || draft == null) return;
     final previousName = _workflowName;
+    final previousDescription = _workflowDescription;
+    final previousDetails = _workflowDetails;
+    final previousTags = List<String>.from(_workflowTags);
     setState(() {
-      _workflowName = normalizedName;
+      _workflowName = draft.name;
+      _workflowDescription = draft.description;
+      _workflowDetails = draft.details;
+      _workflowTags = List<String>.from(draft.tags);
       _renaming = true;
     });
-    final renamed = await onRename(workflow.copyWith(name: normalizedName));
+    final workflow = widget.workflow;
+    final onMetadataSave = widget.onMetadataSave;
+    var renamed = true;
+    if (onMetadataSave != null && workflow != null) {
+      try {
+        renamed = await onMetadataSave(
+          workflow.copyWith(
+            name: _workflowName,
+            description: _workflowDescription,
+            details: _workflowDetails,
+            tags: List<String>.unmodifiable(_workflowTags),
+            nodes: List<WorkflowNode>.unmodifiable(_nodes),
+            connections: List<WorkflowConnection>.unmodifiable(_connections),
+            annotations: List<WorkflowAnnotation>.unmodifiable(_annotations),
+          ),
+        );
+      } catch (_) {
+        renamed = false;
+      }
+    }
     if (!mounted) return;
     setState(() {
       _renaming = false;
-      if (!renamed) _workflowName = previousName;
+      if (!renamed) {
+        _workflowName = previousName;
+        _workflowDescription = previousDescription;
+        _workflowDetails = previousDetails;
+        _workflowTags = previousTags;
+      }
     });
+    if (renamed && onMetadataSave != null) {
+      _initialDraftFingerprint = _currentDraftFingerprint();
+    }
     if (!renamed && mounted) {
-      showOpenHandInfoSnack(context, '重命名工作流失败，请稍后重试。');
+      showOpenHandInfoSnack(context, '工作流元数据保存失败，请稍后重试。');
     }
   }
 
@@ -3327,20 +3381,28 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   }
 
   Future<void> _save() async {
-    final String? name = widget.workflow == null
-        ? await showAnimatedDialog<String>(
+    final _WorkflowMetadataDraft? metadata = widget.workflow == null
+        ? await showAnimatedDialog<_WorkflowMetadataDraft>(
             context: context,
             barrierDismissible: false,
-            builder: (_) => _WorkflowNameDialog(initialName: _workflowName),
+            builder: (_) => _WorkflowMetadataDialog(
+              initialName: _workflowName,
+              initialDescription: _workflowDescription,
+              initialDetails: _workflowDetails,
+              initialTags: _workflowTags,
+            ),
           )
-        : _workflowName.trim();
-    if (name == null || !mounted) return;
-    final normalizedName = name.trim();
-    if (normalizedName.isEmpty) {
-      showOpenHandInfoSnack(context, '工作流名称不能为空。');
-      return;
-    }
-    _workflowName = normalizedName;
+        : _WorkflowMetadataDraft(
+            name: _workflowName,
+            description: _workflowDescription,
+            details: _workflowDetails,
+            tags: _workflowTags,
+          );
+    if (!mounted || metadata == null) return;
+    _workflowName = metadata.name;
+    _workflowDescription = metadata.description;
+    _workflowDetails = metadata.details;
+    _workflowTags = List<String>.from(metadata.tags);
     final error = _validateNodes();
     if (error != null) {
       showOpenHandInfoSnack(context, error);
@@ -3349,12 +3411,15 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     _popEditor(
       WorkflowDefinition(
         id: _workflowId,
-        name: normalizedName,
+        name: _workflowName,
         createdAt: _createdAt,
         updatedAt: DateTime.now().toUtc(),
         nodes: List<WorkflowNode>.unmodifiable(_nodes),
         connections: List<WorkflowConnection>.unmodifiable(_connections),
         annotations: List<WorkflowAnnotation>.unmodifiable(_annotations),
+        description: _workflowDescription,
+        details: _workflowDetails,
+        tags: List<String>.unmodifiable(_workflowTags),
       ),
     );
   }
@@ -4511,13 +4576,22 @@ String _historyTimeText(DateTime value) {
   return '${two(local.hour)}:${two(local.minute)}:${two(local.second)}';
 }
 
-class _WorkflowNameDialog extends StatefulWidget {
-  const _WorkflowNameDialog({required this.initialName});
+class _WorkflowMetadataDialog extends StatefulWidget {
+  const _WorkflowMetadataDialog({
+    required this.initialName,
+    required this.initialDescription,
+    required this.initialDetails,
+    required this.initialTags,
+  });
 
   final String initialName;
+  final String initialDescription;
+  final String initialDetails;
+  final List<String> initialTags;
 
   @override
-  State<_WorkflowNameDialog> createState() => _WorkflowNameDialogState();
+  State<_WorkflowMetadataDialog> createState() =>
+      _WorkflowMetadataDialogState();
 }
 
 class _WorkflowNodeStatusBadge extends StatelessWidget {
@@ -4586,24 +4660,36 @@ Color? _workflowExecutionColor(
   WorkflowNodeExecutionPhase.skipped => colors.outlineVariant,
 };
 
-class _WorkflowNameDialogState extends State<_WorkflowNameDialog> {
-  late final TextEditingController _controller = TextEditingController(
+class _WorkflowMetadataDialogState extends State<_WorkflowMetadataDialog> {
+  static const double _controlHeight = 52;
+  late final TextEditingController _nameController = TextEditingController(
     text: widget.initialName,
   );
-  final FocusNode _focusNode = FocusNode();
+  late final TextEditingController _descriptionController =
+      TextEditingController(text: widget.initialDescription);
+  late final TextEditingController _detailsController = TextEditingController(
+    text: widget.initialDetails,
+  );
+  late final TextEditingController _tagController = TextEditingController();
+  final FocusNode _nameFocusNode = FocusNode();
+  final FocusNode _tagFocusNode = FocusNode();
+  late final List<String> _tags = List<String>.from(widget.initialTags);
 
-  bool get _canSave => _controller.text.trim().isNotEmpty;
+  bool get _canSave => _nameController.text.trim().isNotEmpty;
+  bool get _canAddTag =>
+      _tagController.text.trim().isNotEmpty && _tags.length < kWorkflowMaxTags;
 
   @override
   void initState() {
     super.initState();
-    _controller.addListener(_handleChanged);
+    _nameController.addListener(_handleChanged);
+    _tagController.addListener(_handleChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _focusNode.requestFocus();
-        _controller.selection = TextSelection(
+        _nameFocusNode.requestFocus();
+        _nameController.selection = TextSelection(
           baseOffset: 0,
-          extentOffset: _controller.text.length,
+          extentOffset: _nameController.text.length,
         );
       }
     });
@@ -4611,106 +4697,293 @@ class _WorkflowNameDialogState extends State<_WorkflowNameDialog> {
 
   @override
   void dispose() {
-    _controller
+    _nameController
       ..removeListener(_handleChanged)
       ..dispose();
-    _focusNode.dispose();
+    _tagController
+      ..removeListener(_handleChanged)
+      ..dispose();
+    _descriptionController.dispose();
+    _detailsController.dispose();
+    _nameFocusNode.dispose();
+    _tagFocusNode.dispose();
     super.dispose();
   }
 
   void _handleChanged() => setState(() {});
 
+  void _addTag() {
+    final tag = _tagController.text.trim();
+    if (tag.isEmpty || _tags.length >= kWorkflowMaxTags) return;
+    if (tag.runes.length > kWorkflowTagMaxCharacters) return;
+    if (_tags.any((item) => item.toLowerCase() == tag.toLowerCase())) return;
+    setState(() => _tags.add(tag));
+    _tagController.clear();
+    _tagFocusNode.requestFocus();
+  }
+
+  void _removeTag(int index) {
+    if (index < 0 || index >= _tags.length) return;
+    setState(() => _tags.removeAt(index));
+  }
+
+  void _reorderTag(int from, int to) {
+    if (from < 0 || from >= _tags.length || to < 0 || to >= _tags.length) {
+      return;
+    }
+    if (from == to) return;
+    setState(() {
+      final tag = _tags.removeAt(from);
+      _tags.insert(to, tag);
+    });
+  }
+
   void _confirm() {
-    final name = _controller.text.trim();
-    if (name.isNotEmpty) Navigator.of(context).pop(name);
+    final name = _nameController.text.trim();
+    if (name.isEmpty) return;
+    Navigator.of(context).pop(
+      _WorkflowMetadataDraft(
+        name: name,
+        description: _descriptionController.text.trim(),
+        details: _detailsController.text.trim(),
+        tags: List<String>.unmodifiable(_tags),
+      ),
+    );
+  }
+
+  InputDecoration _decoration({required String label, String? hintText}) {
+    final colors = Theme.of(context).colorScheme;
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(kOpenHandRadius14),
+      borderSide: BorderSide(color: colors.outlineVariant),
+    );
+    return InputDecoration(
+      labelText: label,
+      hintText: hintText,
+      filled: true,
+      fillColor: colors.surfaceContainerLow,
+      border: border,
+      enabledBorder: border,
+      focusedBorder: border.copyWith(
+        borderSide: BorderSide(color: colors.primary, width: 1.5),
+      ),
+    );
+  }
+
+  Widget _tagChip(BuildContext context, int index) {
+    final colors = Theme.of(context).colorScheme;
+    final tag = _tags[index];
+    return DragTarget<int>(
+      key: ValueKey<String>('workflow-metadata-tag-target-$tag'),
+      onWillAcceptWithDetails: (_) => true,
+      onAcceptWithDetails: (details) => _reorderTag(details.data, index),
+      builder: (context, candidateData, rejectedData) {
+        final highlighted = candidateData.isNotEmpty;
+        return LongPressDraggable<int>(
+          data: index,
+          feedback: Material(
+            color: Colors.transparent,
+            child: _buildInputChip(tag, colors),
+          ),
+          childWhenDragging: Opacity(
+            opacity: 0.35,
+            child: _buildInputChip(tag, colors),
+          ),
+          child: AnimatedContainer(
+            duration: openHandMotionDuration(context, kOpenHandMotion160),
+            padding: highlighted ? const EdgeInsets.all(2) : EdgeInsets.zero,
+            decoration: highlighted
+                ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(kOpenHandRadius14),
+                    border: Border.all(color: colors.primary, width: 1.5),
+                  )
+                : null,
+            child: _buildInputChip(tag, colors),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildInputChip(String tag, ColorScheme colors) {
+    return InputChip(
+      label: Text(tag, overflow: TextOverflow.ellipsis),
+      deleteIcon: const Icon(Icons.close_rounded, size: 16),
+      deleteButtonTooltipMessage: '删除标签',
+      onDeleted: () => _removeTag(_tags.indexOf(tag)),
+      backgroundColor: colors.secondaryContainer,
+      side: BorderSide(color: colors.secondary.withValues(alpha: 0.28)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kOpenHandRadius14),
+      ),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: const VisualDensity(horizontal: -1, vertical: -1),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final maxHeight = math.min(
+      kOpenHandDialogHeightTall,
+      MediaQuery.sizeOf(context).height * 0.9,
+    );
     return buildOpenHandDialog(
-      maxWidth: 500,
+      maxWidth: 640,
+      maxHeight: maxHeight,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 22, 24, 18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(kOpenHandRadius12),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(kOpenHandRadius12),
+                    ),
+                    child: Icon(
+                      Icons.edit_note_rounded,
+                      color: theme.colorScheme.onPrimaryContainer,
+                    ),
                   ),
-                  child: Icon(
-                    Icons.edit_note_rounded,
-                    color: theme.colorScheme.onPrimaryContainer,
-                  ),
-                ),
-                kOpenHandHGap12,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '为工作流命名',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800,
+                  kOpenHandHGap12,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '编辑工作流元数据',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                      ),
-                      kOpenHandGap2,
-                      Text(
-                        '输入一个清晰、便于识别的名称。',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                        kOpenHandGap2,
+                        Text(
+                          '完善名称、简介、详细介绍和标签信息。',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            kOpenHandGap20,
-            TextField(
-              controller: _controller,
-              focusNode: _focusNode,
-              maxLength: 80,
-              buildCounter: openHandHiddenTextFieldCounter,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) {
-                if (_canSave) _confirm();
-              },
-              decoration: InputDecoration(
-                labelText: '工作流名称',
-                hintText: '例如：内容审核与发布',
-                filled: true,
-                fillColor: theme.colorScheme.surfaceContainerLow,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(kOpenHandRadius14),
+                ],
+              ),
+              kOpenHandGap20,
+              SizedBox(
+                height: _controlHeight,
+                child: TextField(
+                  controller: _nameController,
+                  focusNode: _nameFocusNode,
+                  maxLength: 120,
+                  buildCounter: openHandHiddenTextFieldCounter,
+                  textInputAction: TextInputAction.next,
+                  decoration: _decoration(
+                    label: '工作流名称',
+                    hintText: '例如：内容审核与发布',
+                  ),
                 ),
               ),
-            ),
-            kOpenHandGap18,
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                OpenHandDialogActionButton.secondary(
-                  label: '取消',
-                  onPressed: () => Navigator.of(context).pop(),
-                  shape: _workflowButtonShape,
+              kOpenHandGap14,
+              TextField(
+                controller: _descriptionController,
+                maxLength: kWorkflowDescriptionMaxCharacters,
+                buildCounter: openHandHiddenTextFieldCounter,
+                maxLines: 2,
+                minLines: 2,
+                decoration: _decoration(
+                  label: '工作流简介',
+                  hintText: '用一句话说明这个工作流的用途。',
                 ),
-                kOpenHandHGap12,
-                OpenHandDialogActionButton.primary(
-                  label: '确认保存',
-                  onPressed: _canSave ? _confirm : null,
-                  shape: _workflowButtonShape,
+              ),
+              kOpenHandGap14,
+              TextField(
+                controller: _detailsController,
+                maxLength: kWorkflowDetailsMaxCharacters,
+                buildCounter: openHandHiddenTextFieldCounter,
+                maxLines: 5,
+                minLines: 4,
+                decoration: _decoration(
+                  label: '工作流详细介绍',
+                  hintText: '补充流程背景、使用条件和注意事项。',
+                ),
+              ),
+              kOpenHandGap14,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: _controlHeight,
+                      child: TextField(
+                        controller: _tagController,
+                        focusNode: _tagFocusNode,
+                        maxLength: kWorkflowTagMaxCharacters,
+                        buildCounter: openHandHiddenTextFieldCounter,
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) => _addTag(),
+                        decoration: _decoration(
+                          label: '工作流标签',
+                          hintText: '输入标签后点击添加',
+                        ),
+                      ),
+                    ),
+                  ),
+                  kOpenHandHGap10,
+                  SizedBox(
+                    height: _controlHeight,
+                    child: OutlinedButton.icon(
+                      onPressed: _canAddTag ? _addTag : null,
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('添加'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            kOpenHandRadius14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (_tags.isNotEmpty) ...[
+                kOpenHandGap10,
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (var index = 0; index < _tags.length; index++)
+                      _tagChip(context, index),
+                  ],
                 ),
               ],
-            ),
-          ],
+              kOpenHandGap20,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  OpenHandDialogActionButton.secondary(
+                    label: '取消',
+                    onPressed: () => Navigator.of(context).pop(),
+                    shape: _workflowButtonShape,
+                  ),
+                  kOpenHandHGap12,
+                  OpenHandDialogActionButton.primary(
+                    label: '保存元数据',
+                    onPressed: _canSave ? _confirm : null,
+                    shape: _workflowButtonShape,
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

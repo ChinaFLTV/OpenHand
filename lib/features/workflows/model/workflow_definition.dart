@@ -88,6 +88,10 @@ const double kWorkflowAnnotationMinFontSize = 13;
 const double kWorkflowAnnotationMaxFontSize = 30;
 const int kWorkflowAnnotationMaxCharacters = 12000;
 const int kWorkflowAnnotationMaxStyleRanges = 2048;
+const int kWorkflowDescriptionMaxCharacters = 240;
+const int kWorkflowDetailsMaxCharacters = 4000;
+const int kWorkflowMaxTags = 24;
+const int kWorkflowTagMaxCharacters = 40;
 
 @immutable
 class WorkflowAnnotationTextStyleRange {
@@ -2718,11 +2722,23 @@ class WorkflowDefinition {
     this.nodes = const <WorkflowNode>[],
     this.connections = const <WorkflowConnection>[],
     this.annotations = const <WorkflowAnnotation>[],
+    this.description = '',
+    this.details = '',
+    this.tags = const <String>[],
   });
 
   factory WorkflowDefinition.fromJson(Map<String, Object?> json) {
     final id = '${json['id'] ?? ''}'.trim();
     final name = '${json['name'] ?? ''}'.trim();
+    final description = _normalizeWorkflowMetadataText(
+      json['description'],
+      maxCharacters: kWorkflowDescriptionMaxCharacters,
+    );
+    final details = _normalizeWorkflowMetadataText(
+      json['details'],
+      maxCharacters: kWorkflowDetailsMaxCharacters,
+    );
+    final tags = _normalizeWorkflowTags(json['tags']);
     final createdAt = DateTime.tryParse('${json['created_at'] ?? ''}')?.toUtc();
     final updatedAt = DateTime.tryParse('${json['updated_at'] ?? ''}')?.toUtc();
     if (id.isEmpty || name.isEmpty || createdAt == null || updatedAt == null) {
@@ -2817,6 +2833,9 @@ class WorkflowDefinition {
       nodes: List<WorkflowNode>.unmodifiable(nodes),
       connections: List<WorkflowConnection>.unmodifiable(connections),
       annotations: List<WorkflowAnnotation>.unmodifiable(annotations),
+      description: description,
+      details: details,
+      tags: tags,
     );
   }
 
@@ -2827,9 +2846,15 @@ class WorkflowDefinition {
   final List<WorkflowNode> nodes;
   final List<WorkflowConnection> connections;
   final List<WorkflowAnnotation> annotations;
+  final String description;
+  final String details;
+  final List<String> tags;
 
   WorkflowDefinition copyWith({
     String? name,
+    String? description,
+    String? details,
+    List<String>? tags,
     DateTime? updatedAt,
     List<WorkflowNode>? nodes,
     List<WorkflowConnection>? connections,
@@ -2838,6 +2863,9 @@ class WorkflowDefinition {
     return WorkflowDefinition(
       id: id,
       name: name ?? this.name,
+      description: description ?? this.description,
+      details: details ?? this.details,
+      tags: tags ?? this.tags,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       nodes: nodes ?? this.nodes,
@@ -2850,6 +2878,9 @@ class WorkflowDefinition {
     'version': 1,
     'id': id,
     'name': name,
+    'description': description,
+    'details': details,
+    'tags': tags,
     'created_at': createdAt.toUtc().toIso8601String(),
     'updated_at': updatedAt.toUtc().toIso8601String(),
     'nodes': nodes.map((node) => node.toJson()).toList(growable: false),
@@ -2874,6 +2905,33 @@ Map<String, Object?> _stringMap(Object? value) {
 List<Map<String, Object?>> _mapList(Object? value) {
   if (value is! List) return const <Map<String, Object?>>[];
   return value.whereType<Map>().map(_stringMap).toList(growable: false);
+}
+
+String _normalizeWorkflowMetadataText(
+  Object? value, {
+  required int maxCharacters,
+}) {
+  final text = value is String ? value.trim() : '';
+  if (text.runes.length <= maxCharacters) return text;
+  return String.fromCharCodes(text.runes.take(maxCharacters));
+}
+
+List<String> _normalizeWorkflowTags(Object? value) {
+  if (value is! List) return const <String>[];
+  final normalized = <String>[];
+  final seen = <String>{};
+  for (final item in value) {
+    if (item is! String) continue;
+    final tag = item.trim();
+    if (tag.isEmpty || tag.runes.length > kWorkflowTagMaxCharacters) {
+      continue;
+    }
+    final key = tag.toLowerCase();
+    if (!seen.add(key)) continue;
+    normalized.add(tag);
+    if (normalized.length >= kWorkflowMaxTags) break;
+  }
+  return List<String>.unmodifiable(normalized);
 }
 
 double? _finiteDouble(Object? value) {

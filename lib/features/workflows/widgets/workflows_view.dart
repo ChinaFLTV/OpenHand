@@ -218,6 +218,10 @@ class _WorkflowsViewState extends State<WorkflowsView> {
         updatedAt: now,
         nodes: imported.nodes,
         connections: imported.connections,
+        annotations: imported.annotations,
+        description: imported.description,
+        details: imported.details,
+        tags: imported.tags,
       );
       final saved = await controller.save(candidate);
       if (!mounted) return;
@@ -447,7 +451,7 @@ class _WorkflowsViewState extends State<WorkflowsView> {
     final result = await showWorkflowEditorDialog(
       context,
       workflow: workflow,
-      onRename: workflow == null ? null : controller.save,
+      onMetadataSave: workflow == null ? null : controller.save,
     );
     if (result == null || !context.mounted) return;
     final saved = await controller.save(result);
@@ -548,6 +552,34 @@ class _WorkflowCard extends StatelessWidget {
                             color: colors.onSurfaceVariant,
                           ),
                         ),
+                        if (workflow.description.trim().isNotEmpty) ...[
+                          kOpenHandGap6,
+                          Text(
+                            workflow.description.trim(),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colors.onSurface,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                        if (workflow.tags.isNotEmpty) ...[
+                          kOpenHandGap8,
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
+                              for (final tag in workflow.tags.take(5))
+                                _WorkflowTagChip(label: tag),
+                              if (workflow.tags.length > 5)
+                                _WorkflowTagChip(
+                                  label: '+${workflow.tags.length - 5}',
+                                  compact: true,
+                                ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -622,6 +654,36 @@ class _WorkflowCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkflowTagChip extends StatelessWidget {
+  const _WorkflowTagChip({required this.label, this.compact = false});
+
+  final String label;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 132),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 7 : 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: colors.secondaryContainer.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(kOpenHandRadius10),
+        border: Border.all(color: colors.secondary.withValues(alpha: 0.2)),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colors.onSecondaryContainer,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
