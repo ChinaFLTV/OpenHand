@@ -1,11 +1,12 @@
+import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/util/duration_bounds.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 
 const String mcpOpsDefaultListenHost = '127.0.0.1';
 const int mcpOpsDefaultListenPort = 8765;
-const int mcpOpsMinListenPort = 1;
-const int mcpOpsMaxListenPort = 65535;
+const int mcpOpsMinListenPort = kTcpPortMin;
+const int mcpOpsMaxListenPort = kTcpPortMax;
 const int mcpOpsDefaultRpmLimit = 120;
 const int mcpOpsMaxRpmLimit = 6000;
 const int mcpOpsDefaultCallThreshold = 0;
@@ -21,7 +22,7 @@ const int mcpOpsMaxMetricDistributionKeys = 256;
 const int mcpOpsMetricKeyMaxChars = 160;
 const String mcpOpsMetricOverflowKey = 'other';
 
-/// Number of minute-level buckets retained for traffic/latency trend charts.
+/// 流量与延迟趋势图保留的分钟级时间桶数量。
 const int mcpOpsTrafficWindowMinutes = 12;
 
 enum McpOpsLifecycleState {

@@ -136,7 +136,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
           )
           .join(';');
       buf.writeln(
-        _csvRow([
+        encodeCsvRow([
           c.timestampMs,
           iso,
           c.query,

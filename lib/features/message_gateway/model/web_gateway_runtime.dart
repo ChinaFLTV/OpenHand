@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:openhand/shared/util/text_normalization.dart';
 
+import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 
@@ -935,7 +936,7 @@ bool webGatewayShouldCollectRequestMetrics({
 String webGatewayFormatRemoteEndpoint(String address, int? port) {
   final host = address.trim();
   if (host.isEmpty) return 'unknown';
-  if (!isValidPort(port)) return host;
+  if (!isValidTcpPort(port)) return host;
   return '${_webGatewayFormatRemoteHost(host)}:$port';
 }
 

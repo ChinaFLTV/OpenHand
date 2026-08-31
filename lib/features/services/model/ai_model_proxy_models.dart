@@ -1,12 +1,13 @@
 import 'dart:math' as math;
 
+import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart';
 
 const String aiModelProxyDefaultListenHost = '127.0.0.1';
 const int aiModelProxyDefaultListenPort = 6699;
-const int aiModelProxyMinListenPort = 1;
-const int aiModelProxyMaxListenPort = 65535;
+const int aiModelProxyMinListenPort = kTcpPortMin;
+const int aiModelProxyMaxListenPort = kTcpPortMax;
 const String aiModelProxyStatusPath = '/status.html';
 const String aiModelProxyStatusAliasPath = '/status';
 const String aiModelProxyStatusJsonPath = '/status.json';

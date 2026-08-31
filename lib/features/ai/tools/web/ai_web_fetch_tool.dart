@@ -82,9 +82,12 @@ class AiWebFetchTool extends AiTool {
         },
       );
     }
-    final blockedReason = await _blockedReason(uri);
+    final blockedReason = await _uriBlockReason(uri);
     if (blockedReason != null) {
-      return AiToolUtils.invalidResult('WebFetch', blockedReason);
+      return AiToolUtils.invalidResult(
+        'WebFetch',
+        'WebFetch 拒绝访问 ${uri.host}: $blockedReason。',
+      );
     }
 
     final command = 'WebFetch $rawUrl';
@@ -231,7 +234,7 @@ class AiWebFetchTool extends AiTool {
       httpClient: _httpClient,
       availableModels: availableModels,
       scraplingBridge: _scraplingBridge,
-      uriBlockReason: _blockedReason,
+      uriBlockReason: _uriBlockReason,
     );
 
     final WebFetchOrchestrationResult orchestrationResult;
@@ -487,12 +490,8 @@ class AiWebFetchTool extends AiTool {
     return active.map((e) => e.kind.name).join(',');
   }
 
-  Future<String?> _blockedReason(Uri uri) async {
-    final reason = await agentFetchBlockReasonForResolvedUri(
-      uri,
-      hostLookup: _hostLookup,
-    );
-    return reason == null ? null : 'WebFetch 拒绝访问 ${uri.host}: $reason。';
+  Future<String?> _uriBlockReason(Uri uri) {
+    return agentFetchBlockReasonForResolvedUri(uri, hostLookup: _hostLookup);
   }
 
   final WebEngineHealthAlertTracker _healthAlertTracker =

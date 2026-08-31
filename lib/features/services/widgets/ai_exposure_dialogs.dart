@@ -19,6 +19,7 @@ import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/util/csv_encoding.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../plugin_service/index.dart';
@@ -4952,15 +4953,7 @@ String _resultsCsv(List<AiExposureResult> results) {
         result.createdAt.toIso8601String(),
       ],
   ];
-  return rows.map((row) => row.map(_csvCell).join(',')).join('\r\n');
-}
-
-String _csvCell(Object? value) {
-  var text = value?.toString() ?? '';
-  if (text.isNotEmpty && const <String>{'=', '+', '-', '@'}.contains(text[0])) {
-    text = "'$text";
-  }
-  return '"${text.replaceAll('"', '""')}"';
+  return encodeCsvRows(rows, alwaysQuote: true);
 }
 
 List<String> _lines(String value) => value

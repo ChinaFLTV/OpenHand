@@ -27,12 +27,12 @@ def _probe():
             return {
                 "ok": False,
                 "error": "scrapling_not_installed",
-                "detail": "Install with: pip install 'scrapling[fetchers]'",
+                "detail": "请执行：pip install 'scrapling[fetchers]'",
             }
         return {
             "ok": False,
             "error": "scrapling_fetchers_missing",
-            "detail": f"Missing Python module: {name}. Install with: pip install 'scrapling[fetchers]'",
+            "detail": f"缺少 Python 模块：{name}。请执行：pip install 'scrapling[fetchers]'",
         }
     except Exception as error:
         return {
@@ -55,7 +55,7 @@ def _handle_fetch(request):
         return {
             "ok": False,
             "error": "missing_url",
-            "detail": "url is required",
+            "detail": "URL 不能为空",
         }
 
     timeout_seconds = int(request.get("timeout_seconds") or 30)
@@ -68,7 +68,7 @@ def _handle_fetch(request):
     response = Fetcher.get(
         url,
         timeout=timeout_seconds,
-        follow_redirects=True,
+        follow_redirects=False,
         verify=True,
         stealthy_headers=True,
     )
@@ -117,7 +117,7 @@ def main():
         try:
             request = json.loads(raw)
             if not isinstance(request, dict):
-                raise ValueError("request must be a JSON object")
+                raise ValueError("请求必须是 JSON 对象")
             request_id = request.get("id")
             command = _normalize_text(request.get("command")).strip().lower()
             if command == "ping":
@@ -133,7 +133,7 @@ def main():
                 "id": request_id,
                 "ok": False,
                 "error": "unsupported_command",
-                "detail": f"Unsupported command: {command}",
+                "detail": f"不支持的命令：{command}",
             })
         except ModuleNotFoundError as error:
             name = getattr(error, "name", "") or ""
@@ -142,7 +142,7 @@ def main():
                 "id": request_id,
                 "ok": False,
                 "error": code,
-                "detail": f"Missing Python module: {name}",
+                "detail": f"缺少 Python 模块：{name}",
             })
         except Exception as error:
             _emit({

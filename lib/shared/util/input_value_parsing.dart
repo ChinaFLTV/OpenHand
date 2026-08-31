@@ -991,14 +991,6 @@ String _effectiveKeyValueSeparator(String separator) {
       : (lower: safeMax, upper: safeMin);
 }
 
-/// TCP/UDP 端口合法范围（1–65535）。
-const int kMinPort = 1;
-const int kMaxPort = 65535;
-
-/// 判断 [port] 是否在合法端口范围内（1–65535）。
-bool isValidPort(int? port) =>
-    port != null && port >= kMinPort && port <= kMaxPort;
-
 /// 紧凑计数格式化：1000→1.0K, 1000000→1.0M, 1000000000→1.0B。
 String formatCompactCount(num value, {int fractionDigits = 1}) {
   if (!value.isFinite) return '--';

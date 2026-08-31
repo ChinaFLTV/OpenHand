@@ -2599,10 +2599,7 @@ fi
 
   int? _networkProxyPort() {
     final value = optionalIntFromValue(_networkProxyPortCtrl.text);
-    if (value == null || value < _kMinTcpPort || value > _kMaxTcpPort) {
-      return null;
-    }
-    return value;
+    return validTcpPort(value);
   }
 
   String? _networkProxyHost() {
@@ -4866,7 +4863,7 @@ fi
   Future<void> _addForward() async {
     final local = optionalIntFromValue(_forwardLocalCtrl.text);
     final remote = optionalIntFromValue(_forwardRemoteCtrl.text);
-    if (!_isValidTcpPort(local) || !_isValidTcpPort(remote)) {
+    if (!isValidTcpPort(local) || !isValidTcpPort(remote)) {
       _setDeviceActionMessage(
         zh: '端口转发失败：本地端口和设备端口必须在 $_kMinTcpPort-$_kMaxTcpPort 范围内。',
         zhHant: '連接埠轉發失敗：本機連接埠和裝置連接埠必須在 $_kMinTcpPort-$_kMaxTcpPort 範圍內。',
@@ -4894,7 +4891,7 @@ fi
   Future<void> _addReverse() async {
     final devicePort = optionalIntFromValue(_reverseDeviceCtrl.text);
     final hostPort = optionalIntFromValue(_reverseHostCtrl.text);
-    if (!_isValidTcpPort(devicePort) || !_isValidTcpPort(hostPort)) {
+    if (!isValidTcpPort(devicePort) || !isValidTcpPort(hostPort)) {
       _setDeviceActionMessage(
         zh: '反向映射失败：设备端口和主机端口必须在 $_kMinTcpPort-$_kMaxTcpPort 范围内。',
         zhHant: '反向映射失敗：裝置連接埠和主機連接埠必須在 $_kMinTcpPort-$_kMaxTcpPort 範圍內。',
@@ -5149,9 +5146,6 @@ fi
         await _runDeviceAction(() => _ctrl.disconnect(device.serial));
     }
   }
-
-  bool _isValidTcpPort(int? port) =>
-      port != null && port >= _kMinTcpPort && port <= _kMaxTcpPort;
 
   void _setDeviceActionMessage({
     required String zh,

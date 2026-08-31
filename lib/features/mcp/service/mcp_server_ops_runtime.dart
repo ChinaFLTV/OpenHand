@@ -14,6 +14,7 @@ import '../../../shared/net/bounded_http_request.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
+import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/byte_size_format.dart';
@@ -2069,7 +2070,7 @@ class McpServerOpsRuntime {
   }
 
   int? _validPort(int? value) {
-    if (!isValidPort(value)) return null;
+    if (!isValidTcpPort(value)) return null;
     return value;
   }
 

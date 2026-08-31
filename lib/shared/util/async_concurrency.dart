@@ -258,6 +258,7 @@ class OpenHandAsyncSemaphore {
   final int maxPermits;
   final int maxWaiters;
   int _available;
+  int _waiterCancellationGeneration = 0;
   final Queue<_OpenHandAsyncSemaphoreWaiter> _waiters =
       Queue<_OpenHandAsyncSemaphoreWaiter>();
 
@@ -293,9 +294,11 @@ class OpenHandAsyncSemaphore {
   }
 
   Future<bool> _acquire({Future<void>? cancelSignal}) async {
+    final cancellationGeneration = _waiterCancellationGeneration;
     if (cancelSignal != null && await isCancelSignalCompleted(cancelSignal)) {
       return false;
     }
+    if (cancellationGeneration != _waiterCancellationGeneration) return false;
     if (_available > 0) {
       _available -= 1;
       return true;
@@ -324,6 +327,7 @@ class OpenHandAsyncSemaphore {
 
   /// 取消全部排队任务，不影响已持有的许可。
   void cancelWaiters() {
+    _waiterCancellationGeneration += 1;
     while (_waiters.isNotEmpty) {
       final waiter = _waiters.removeFirst();
       if (waiter.settled) continue;

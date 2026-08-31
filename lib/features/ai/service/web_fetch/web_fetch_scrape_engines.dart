@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../../../app/support/url_validation.dart';
 import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_fetch_settings.dart';
@@ -82,6 +83,7 @@ class WebFetchScraplingEngine extends WebFetchEngine {
 
   final WebFetchScraplingBridge scraplingBridge;
   final AiWebFetchScraplingSettings scraplingSettings;
+  static const int _maxRedirects = 5;
 
   @override
   bool get isReady => true;
@@ -92,12 +94,39 @@ class WebFetchScraplingEngine extends WebFetchEngine {
 
   @override
   Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
-    final result = await scraplingBridge.fetch(
-      url: req.url,
-      maxChars: req.maxChars,
-      settings: scraplingSettings,
-      cancelSignal: req.cancelSignal,
-    );
+    final uriBlockReason =
+        req.uriBlockReason ?? agentFetchBlockReasonForResolvedUri;
+    var current = Uri.parse(req.url);
+    var redirectCount = 0;
+    late WebFetchScraplingBridgeResult result;
+    while (true) {
+      final blockedReason = await uriBlockReason(current);
+      if (blockedReason != null) {
+        throw WebEngineHttpException(
+          '${kind.name} 拒绝访问 ${current.host}: $blockedReason',
+        );
+      }
+      result = await scraplingBridge.fetch(
+        url: current.toString(),
+        maxChars: req.maxChars,
+        settings: scraplingSettings,
+        cancelSignal: req.cancelSignal,
+      );
+      final statusCode = result.statusCode;
+      if (statusCode == null || !isRedirectStatusCode(statusCode)) break;
+      if (redirectCount >= _maxRedirects) {
+        throw WebEngineHttpException('${kind.name} 重定向次数过多');
+      }
+      final location = readResponseHeader(
+        result.responseHeaders,
+        kLocationHeaderName,
+      );
+      if (location.isEmpty) {
+        throw WebEngineHttpException('${kind.name} 重定向缺少 Location');
+      }
+      current = current.resolve(location);
+      redirectCount += 1;
+    }
     if (nullIfBlank(result.content) == null) {
       return const <WebFetchEngineContent>[];
     }

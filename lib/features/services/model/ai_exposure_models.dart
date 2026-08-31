@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 
+import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 
 enum AiExposureServiceLifecycle { stopped, starting, running, stopping, error }
@@ -1339,7 +1340,7 @@ class AiExposureProxyEndpoint {
               : 'http://$value'
         : () {
             final port = int.tryParse(compactMatch.group(2)!);
-            if (!isValidPort(port)) {
+            if (!isValidTcpPort(port)) {
               throw const FormatException('代理端口无效。');
             }
             final username = compactMatch.group(3)!;
@@ -1352,8 +1353,7 @@ class AiExposureProxyEndpoint {
         !const <String>{'http', 'https'}.contains(uri.scheme.toLowerCase()) ||
         uri.host.isEmpty ||
         !uri.hasPort ||
-        uri.port < 1 ||
-        uri.port > 65535 ||
+        !isValidTcpPort(uri.port) ||
         (uri.path.isNotEmpty && uri.path != '/') ||
         uri.hasQuery ||
         uri.hasFragment) {

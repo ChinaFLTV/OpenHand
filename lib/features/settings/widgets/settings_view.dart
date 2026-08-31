@@ -83,6 +83,7 @@ import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/bounded_xfile_io.dart';
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/csv_encoding.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -261,17 +262,6 @@ Future<void> _exportToolTelemetry<T>({
 
 String _encodeJsonList(Iterable<Object?> values) {
   return prettyPrintJson(values.toList(growable: false));
-}
-
-String _csvCell(Object? value) {
-  final s = value?.toString() ?? '';
-  return (s.contains(',') || s.contains('"') || s.contains('\n'))
-      ? '"${s.replaceAll('"', '""')}"'
-      : s;
-}
-
-String _csvRow(Iterable<Object?> values) {
-  return values.map(_csvCell).join(',');
 }
 
 List<Widget> _buildToolTelemetryHeader({

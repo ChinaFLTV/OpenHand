@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:io';
 
+import '../../shared/net/network_limits.dart';
+import '../../shared/net/tcp_port_utils.dart';
+import '../../shared/util/argument_guards.dart';
 import '../../shared/util/input_value_parsing.dart';
 
 final RegExp _httpUrlWhitespacePattern = RegExp(r'\s');
 final RegExp _httpUrlTokenPattern = RegExp(
-  r'''https?://[^\s<>"'`\)\]\}）】》〉」』]+''',
+  r'''https?://[^\s<>"'`\)\]\}，。；：！？、）】》〉」』＂＇“”‘’]+''',
   caseSensitive: false,
 );
 
@@ -65,6 +68,7 @@ Uri? normalizeValidHttpUri(Uri? uri, {bool allowUserInfo = false}) {
   if (host == null ||
       _httpUrlWhitespacePattern.hasMatch(host) ||
       host.contains('%') ||
+      (uri.hasPort && !isValidTcpPort(uri.port)) ||
       (!allowUserInfo && nullIfBlank(uri.userInfo) != null)) {
     return null;
   }
@@ -136,6 +140,11 @@ Future<String?> agentFetchBlockReasonForResolvedUri(
   AgentFetchHostLookup? hostLookup,
   Duration dnsTimeout = _agentFetchDnsResolutionTimeout,
 }) async {
+  requirePositiveDurationAtMost(
+    dnsTimeout,
+    kOpenHandMaxNetworkOperationTimeout,
+    'dnsTimeout',
+  );
   final normalized = normalizeValidHttpUri(uri);
   if (normalized == null) return '无效的 HTTP 地址';
   final directReason = agentFetchBlockReasonForUri(normalized);
@@ -145,6 +154,7 @@ Future<String?> agentFetchBlockReasonForResolvedUri(
     final addresses = await (hostLookup ?? InternetAddress.lookup)(
       normalized.host,
     ).timeout(dnsTimeout);
+    if (addresses.isEmpty) return 'DNS 未解析到可用地址';
     for (final address in addresses) {
       final addressReason = agentFetchBlockReasonForAddress(address);
       if (addressReason != null) {
@@ -152,22 +162,27 @@ Future<String?> agentFetchBlockReasonForResolvedUri(
       }
     }
   } on SocketException {
-    return null;
+    return 'DNS 解析失败';
   } on TimeoutException {
     return 'DNS 解析超时';
   } catch (_) {
-    return null;
+    return 'DNS 解析失败';
   }
   return null;
 }
 
 String? agentFetchBlockReasonForHost(String rawHost) {
-  final host = lowercaseStringFromValue(rawHost);
+  final normalized = lowercaseStringFromValue(rawHost);
+  final host = normalized.endsWith('.')
+      ? normalized.substring(0, normalized.length - 1)
+      : normalized;
   if (host.isEmpty) {
-    return 'missing or invalid host';
+    return '主机缺失或无效';
   }
-  if (host == 'localhost' || host.endsWith('.localhost')) {
-    return 'localhost targets';
+  if (host == 'localhost' ||
+      host == 'localhost.localdomain' ||
+      host.endsWith('.localhost')) {
+    return '本机地址';
   }
   final address = InternetAddress.tryParse(host);
   if (address == null) {
@@ -179,19 +194,19 @@ String? agentFetchBlockReasonForHost(String rawHost) {
 String? agentFetchBlockReasonForAddress(InternetAddress address) {
   final normalizedAddress = _normalizeMappedInternetAddress(address);
   if (_isUnspecifiedInternetAddress(normalizedAddress)) {
-    return 'unspecified addresses';
+    return '未指定地址';
   }
   if (normalizedAddress.isLoopback) {
-    return 'loopback addresses';
+    return '回环地址';
   }
   if (normalizedAddress.isLinkLocal) {
-    return 'link-local addresses';
+    return '链路本地地址';
   }
   if (normalizedAddress.isMulticast) {
-    return 'multicast addresses';
+    return '组播地址';
   }
   if (_isPrivateOrReservedInternetAddress(normalizedAddress)) {
-    return 'private or reserved network addresses';
+    return '私有或保留网络地址';
   }
   return null;
 }

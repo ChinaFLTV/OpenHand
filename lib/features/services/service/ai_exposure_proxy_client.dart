@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../../../shared/net/tcp_port_utils.dart';
 import '../model/ai_exposure_models.dart';
 
 /// 为 HttpClient 配置 HTTP/HTTPS 正向代理与基础认证。
@@ -7,7 +8,7 @@ void configureAiExposureProxyHttpClient(HttpClient client, Uri proxy) {
   final scheme = proxy.scheme.toLowerCase();
   if (!const <String>{'http', 'https'}.contains(scheme) ||
       proxy.host.isEmpty ||
-      proxy.port <= 0) {
+      !isValidTcpPort(proxy.port)) {
     throw const FormatException('中转代理地址无效。');
   }
 

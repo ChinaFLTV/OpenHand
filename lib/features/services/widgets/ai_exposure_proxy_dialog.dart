@@ -11,6 +11,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/list_removal_transition.dart';
@@ -5650,7 +5651,7 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                     ),
                     validator: (value) {
                       final port = int.tryParse(value?.trim() ?? '');
-                      return port == null || port < 1 || port > 65535
+                      return !isValidTcpPort(port)
                           ? text(zh: '端口无效', en: 'Invalid port')
                           : null;
                     },

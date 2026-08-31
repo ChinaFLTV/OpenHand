@@ -55,6 +55,7 @@ import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/csv_encoding.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -1049,20 +1050,20 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
         );
       for (final e in entries) {
         buffer.writeln(
-          [
-            _csvFieldString(e['name']),
-            _csvFieldString(e['type']),
-            _csvFieldString(e['enabled']),
-            _csvFieldString(e['status']),
-            _csvFieldString(e['consecutiveFailures']),
-            _csvFieldString(e['lastSuccessAt']),
-            _csvFieldString(e['latencyMs']),
-            _csvFieldString(e['recentProbes']),
-            _csvFieldString(e['recentSuccesses']),
-            _csvFieldString(e['recentFailures']),
-            _csvFieldString(e['toolCount']),
-            _csvFieldString(e['toolCatalogError']),
-          ].join(','),
+          encodeCsvRow(<Object?>[
+            e['name'],
+            e['type'],
+            e['enabled'],
+            e['status'],
+            e['consecutiveFailures'],
+            e['lastSuccessAt'],
+            e['latencyMs'],
+            e['recentProbes'],
+            e['recentSuccesses'],
+            e['recentFailures'],
+            e['toolCount'],
+            e['toolCatalogError'],
+          ]),
         );
       }
       text = buffer.toString();
@@ -1084,15 +1085,6 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
       ),
       logAction: '导出服务快照',
     );
-  }
-
-  String _csvFieldString(Object? value) {
-    if (value == null) return '';
-    final raw = value.toString();
-    final needsQuote =
-        raw.contains(',') || raw.contains('"') || raw.contains('\n');
-    if (!needsQuote) return raw;
-    return '"${raw.replaceAll('"', '""')}"';
   }
 
   Future<void> _updateServerEnabled(
@@ -11726,23 +11718,15 @@ class _McpHealthHistorySheet extends StatelessWidget {
                 .replaceAll('\n', ' ')
                 .trim();
       buffer.writeln(
-        '${_csvCell(probe.timestamp.toIso8601String())},${_csvCell(status)},${_csvCell(latency)},${_csvCell(error)}',
+        encodeCsvRow(<Object?>[
+          probe.timestamp.toIso8601String(),
+          status,
+          latency,
+          error,
+        ]),
       );
     }
     return buffer.toString();
-  }
-
-  String _csvCell(String raw) {
-    if (raw.isEmpty) {
-      return '';
-    }
-    final needsQuote =
-        raw.contains(',') || raw.contains('"') || raw.contains('\n');
-    if (!needsQuote) {
-      return raw;
-    }
-    final escaped = raw.replaceAll('"', '""');
-    return '"$escaped"';
   }
 }
 

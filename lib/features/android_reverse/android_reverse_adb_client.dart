@@ -700,7 +700,7 @@ class AndroidReverseAdbClient {
   }
 
   Future<AdbCommandResult> forwardPortDetailed(int localPort, int remotePort) {
-    if (!_isValidTcpPort(localPort) || !_isValidTcpPort(remotePort)) {
+    if (!isValidTcpPort(localPort) || !isValidTcpPort(remotePort)) {
       return _invalidPortResult('forward', localPort, remotePort);
     }
     return _runDeviceDetailed(<String>[
@@ -711,7 +711,7 @@ class AndroidReverseAdbClient {
   }
 
   Future<AdbCommandResult> removeForwardDetailed(int localPort) {
-    if (!_isValidTcpPort(localPort)) {
+    if (!isValidTcpPort(localPort)) {
       return _invalidPortResult('forward --remove', localPort, null);
     }
     return _runDeviceDetailed(<String>[
@@ -740,7 +740,7 @@ class AndroidReverseAdbClient {
   }
 
   Future<AdbCommandResult> reversePortDetailed(int devicePort, int hostPort) {
-    if (!_isValidTcpPort(devicePort) || !_isValidTcpPort(hostPort)) {
+    if (!isValidTcpPort(devicePort) || !isValidTcpPort(hostPort)) {
       return _invalidPortResult('reverse', devicePort, hostPort);
     }
     return _runDeviceDetailed(<String>[
@@ -751,7 +751,7 @@ class AndroidReverseAdbClient {
   }
 
   Future<AdbCommandResult> removeReverseDetailed(int devicePort) {
-    if (!_isValidTcpPort(devicePort)) {
+    if (!isValidTcpPort(devicePort)) {
       return _invalidPortResult('reverse --remove', devicePort, null);
     }
     return _runDeviceDetailed(<String>[
@@ -952,9 +952,6 @@ class AndroidReverseAdbClient {
       ),
     );
   }
-
-  bool _isValidTcpPort(int value) =>
-      value >= _kMinTcpPort && value <= _kMaxTcpPort;
 
   Future<AdbCommandResult> _invalidPortResult(
     String command,

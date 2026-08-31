@@ -297,7 +297,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
           )
           .join(';');
       buf.writeln(
-        _csvRow([
+        encodeCsvRow([
           c.timestampMs,
           iso,
           c.url,

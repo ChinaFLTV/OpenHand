@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
 import '../../../app/support/system_proxy.dart';
+import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
 import '../ai_model_proxy_controller.dart';
@@ -1298,7 +1299,7 @@ class AiModelProxyDispatcher {
     }
     final endpoint = route.selected;
     final uri = endpoint == null ? null : Uri.tryParse(endpoint.url);
-    if (uri == null || uri.host.isEmpty || uri.port <= 0) {
+    if (uri == null || uri.host.isEmpty || !isValidTcpPort(uri.port)) {
       throw const AiModelProxyException(502, '中转代理地址无效，无法建立后备模型连接。');
     }
     final raw = HttpClient()

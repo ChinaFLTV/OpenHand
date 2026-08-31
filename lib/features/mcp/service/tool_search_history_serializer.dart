@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../../shared/util/csv_encoding.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart';
 
@@ -12,6 +13,7 @@ import '../../ai/index.dart';
 ///   - 第一行固定 header `timestamp,source,query,added_count,total_deferred,added_names`
 ///   - `added_names` 列内用 `;` 拼接
 ///   - 单元格在出现 `,` `"` `\r` `\n` 任一字符时整体加双引号，并把 `"` → `""`
+///   - 可能被表格软件解释为公式的字符串统一转为纯文本
 ///
 /// Markdown 协议：
 ///   - 5 列表头 + 分隔行 `| --- | --- | --- | --- | --- |`
@@ -27,18 +29,16 @@ class ToolSearchHistorySerializer {
         'timestamp,source,query,added_count,total_deferred,added_names',
       );
     for (final e in entries) {
-      buf
-        ..write(_csvEscape(e.timestamp.toIso8601String()))
-        ..write(',')
-        ..write(_csvEscape(e.source.name))
-        ..write(',')
-        ..write(_csvEscape(e.query))
-        ..write(',')
-        ..write(e.addedCount)
-        ..write(',')
-        ..write(e.totalDeferred)
-        ..write(',')
-        ..writeln(_csvEscape(e.addedNames.join(';')));
+      buf.writeln(
+        encodeCsvRow(<Object?>[
+          e.timestamp.toIso8601String(),
+          e.source.name,
+          e.query,
+          e.addedCount,
+          e.totalDeferred,
+          e.addedNames.join(';'),
+        ]),
+      );
     }
     return buf.toString();
   }
@@ -61,17 +61,6 @@ class ToolSearchHistorySerializer {
         ..writeln('${_mdEscape(e.addedNames.join(', '))} |');
     }
     return buf.toString();
-  }
-
-  static String _csvEscape(String raw) {
-    if (raw.isEmpty) return '';
-    final needsQuote =
-        raw.contains(',') ||
-        raw.contains('"') ||
-        raw.contains('\n') ||
-        raw.contains('\r');
-    if (!needsQuote) return raw;
-    return '"${raw.replaceAll('"', '""')}"';
   }
 
   static String _mdEscape(String raw) =>
