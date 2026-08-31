@@ -314,15 +314,21 @@ String defaultWorkflowCode(
       '''#!/bin/sh
 set -eu
 
-# 获取输入参数：环境变量内容为 JSON 文本。
+# 获取输入参数：每个环境变量都是 JSON 文本，可直接作为 JSON 值使用。
 $firstInputJson="\${$firstInput:-null}"
 $secondInputJson="\${$secondInput:-null}"
 
 # 在这里编写业务逻辑；可使用上面的参数变量。
-result_json="$firstInputJson"
+result_value="$firstInputJson"
 
-# 返回值必须是 JSON 对象。
-printf '{$outputKey:%s}\\n' "\$result_json"''',
+# 返回值模板：保持为 JSON 对象，可按需新增或调整输出字段。
+result_json=\$(cat <<EOF
+{
+  $outputKey: \$result_value
+}
+EOF
+)
+printf '%s\\n' "\$result_json"''',
     WorkflowCodeLanguage.windowsPowerShell =>
       '''# 获取输入参数。
 $firstInputVariable = \$inputObject.$firstInput
