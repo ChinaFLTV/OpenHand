@@ -2075,6 +2075,10 @@ String? validateWorkflowParameterReferences(
     for (final node in nodes) node.id: node,
   };
   final scopes = _workflowParameterScopes(nodes, connections);
+  final conditionalNodeIds = nodes
+      .where(_workflowNodeHasConditionalBranches)
+      .map((node) => node.id)
+      .toSet();
   final owners = <String, WorkflowNode>{
     for (final node in nodes)
       for (final field in node.declaredParameterFields())
@@ -2102,6 +2106,7 @@ String? validateWorkflowParameterReferences(
           afterNestedScope: usage.afterNestedScope,
           nodesById: nodesById,
           scopes: scopes,
+          conditionalNodeIds: conditionalNodeIds,
         );
         if (availability == _WorkflowParameterAvailability.available) {
           continue;
@@ -2157,6 +2162,23 @@ class _WorkflowParameterScope {
   final Set<String> nodeIds;
   final Set<String> entryNodeIds;
   final Map<String, List<String>> _outgoing;
+
+  /// 普通节点会激活全部出边，条件节点才会按结果选择单条分支。
+  bool isGuaranteed(String targetId, Set<String> conditionalNodeIds) {
+    if (!nodeIds.contains(targetId) || entryNodeIds.isEmpty) return false;
+    final pending = <String>[...entryNodeIds];
+    final visited = <String>{};
+    while (pending.isNotEmpty) {
+      final current = pending.removeLast();
+      if (!visited.add(current)) continue;
+      if (current == targetId) {
+        return !conditionalNodeIds.contains(current);
+      }
+      if (conditionalNodeIds.contains(current)) continue;
+      pending.addAll(_outgoing[current] ?? const <String>[]);
+    }
+    return false;
+  }
 
   bool canReach(String sourceId, String targetId) {
     if (!nodeIds.contains(sourceId) || !nodeIds.contains(targetId)) {
@@ -2274,6 +2296,7 @@ _WorkflowParameterAvailability _workflowParameterAvailability({
   required bool afterNestedScope,
   required Map<String, WorkflowNode> nodesById,
   required Map<String?, _WorkflowParameterScope> scopes,
+  required Set<String> conditionalNodeIds,
 }) {
   if (source.parentNodeId == target.parentNodeId) {
     final scope = scopes[target.parentNodeId];
@@ -2284,7 +2307,8 @@ _WorkflowParameterAvailability _workflowParameterAvailability({
     if (!scope.canReach(source.id, target.id)) {
       return _WorkflowParameterAvailability.notUpstream;
     }
-    return scope.dominates(source.id, target.id)
+    return (scope.isGuaranteed(source.id, conditionalNodeIds) ||
+            scope.dominates(source.id, target.id))
         ? _WorkflowParameterAvailability.available
         : _WorkflowParameterAvailability.notGuaranteed;
   }
@@ -2295,7 +2319,8 @@ _WorkflowParameterAvailability _workflowParameterAvailability({
     if (scope == null || !scope.canReach(source.id, source.id)) {
       return _WorkflowParameterAvailability.notUpstream;
     }
-    return scope.dominatesEveryExit(source.id)
+    return (scope.isGuaranteed(source.id, conditionalNodeIds) ||
+            scope.dominatesEveryExit(source.id))
         ? _WorkflowParameterAvailability.available
         : _WorkflowParameterAvailability.notGuaranteed;
   }
@@ -2308,7 +2333,8 @@ _WorkflowParameterAvailability _workflowParameterAvailability({
     if (!topLevel.canReach(source.id, parent.id)) {
       return _WorkflowParameterAvailability.notUpstream;
     }
-    return topLevel.dominates(source.id, parent.id)
+    return (topLevel.isGuaranteed(source.id, conditionalNodeIds) ||
+            topLevel.dominates(source.id, parent.id))
         ? _WorkflowParameterAvailability.available
         : _WorkflowParameterAvailability.notGuaranteed;
   }
@@ -2502,6 +2528,24 @@ Iterable<String> _workflowReferenceNames(_WorkflowParameterUsage usage) sync* {
 
 String _workflowNodeName(WorkflowNode node) =>
     node.title.trim().isEmpty ? '未命名节点' : node.title.trim();
+
+bool _workflowNodeHasConditionalBranches(WorkflowNode node) {
+  if (node.kind == WorkflowNodeKind.condition ||
+      node.kind == WorkflowNodeKind.humanIntervention) {
+    return true;
+  }
+  if (const <WorkflowNodeKind>{
+    WorkflowNodeKind.codeExecution,
+    WorkflowNodeKind.llm,
+    WorkflowNodeKind.httpRequest,
+  }.contains(node.kind)) {
+    return WorkflowErrorStrategy.fromStorage(
+          node.settings[WorkflowSettingKeys.errorStrategy],
+        ) ==
+        WorkflowErrorStrategy.failBranch;
+  }
+  return false;
+}
 
 String? validateWorkflowHumanActions(List<WorkflowHumanAction> actions) {
   if (actions.isEmpty) return '人工介入节点至少需要一个用户动作。';
