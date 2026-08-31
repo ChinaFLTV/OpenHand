@@ -4675,6 +4675,8 @@ class _WorkflowMetadataDialogState extends State<_WorkflowMetadataDialog> {
   final FocusNode _nameFocusNode = FocusNode();
   final FocusNode _tagFocusNode = FocusNode();
   late final List<String> _tags = List<String>.from(widget.initialTags);
+  int? _dragIndex;
+  int? _hoverIndex;
 
   bool get _canSave => _nameController.text.trim().isNotEmpty;
   bool get _canAddTag =>
@@ -4776,30 +4778,65 @@ class _WorkflowMetadataDialogState extends State<_WorkflowMetadataDialog> {
     final tag = _tags[index];
     return DragTarget<int>(
       key: ValueKey<String>('workflow-metadata-tag-target-$tag'),
-      onWillAcceptWithDetails: (_) => true,
-      onAcceptWithDetails: (details) => _reorderTag(details.data, index),
+      onWillAcceptWithDetails: (details) {
+        if (details.data == index) return false;
+        if (_hoverIndex != index) setState(() => _hoverIndex = index);
+        return true;
+      },
+      onLeave: (_) {
+        if (_hoverIndex == index) setState(() => _hoverIndex = null);
+      },
+      onAcceptWithDetails: (details) {
+        setState(() => _hoverIndex = null);
+        _reorderTag(details.data, index);
+      },
       builder: (context, candidateData, rejectedData) {
-        final highlighted = candidateData.isNotEmpty;
+        final highlighted = candidateData.isNotEmpty || _hoverIndex == index;
         return LongPressDraggable<int>(
           data: index,
+          onDragStarted: () => setState(() => _dragIndex = index),
+          onDragEnd: (_) => setState(() {
+            _dragIndex = null;
+            _hoverIndex = null;
+          }),
           feedback: Material(
-            color: Colors.transparent,
-            child: _buildInputChip(tag, colors),
+            elevation: 6,
+            borderRadius: BorderRadius.circular(kOpenHandRadius14),
+            child: Opacity(opacity: 0.86, child: _buildInputChip(tag, colors)),
           ),
           childWhenDragging: Opacity(
-            opacity: 0.35,
+            opacity: 0.22,
             child: _buildInputChip(tag, colors),
           ),
           child: AnimatedContainer(
-            duration: openHandMotionDuration(context, kOpenHandMotion160),
-            padding: highlighted ? const EdgeInsets.all(2) : EdgeInsets.zero,
-            decoration: highlighted
-                ? BoxDecoration(
-                    borderRadius: BorderRadius.circular(kOpenHandRadius14),
-                    border: Border.all(color: colors.primary, width: 1.5),
-                  )
-                : null,
-            child: _buildInputChip(tag, colors),
+            duration: openHandMotionDuration(context, kOpenHandMotion220),
+            curve: kOpenHandSwitchInCurve,
+            transform: highlighted
+                ? (Matrix4.identity()..scaleByDouble(1.03, 1.03, 1, 1))
+                : Matrix4.identity(),
+            transformAlignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(kOpenHandRadius14),
+              border: Border.all(
+                width: highlighted ? 1.4 : 0,
+                color: highlighted
+                    ? colors.primary.withValues(alpha: 0.58)
+                    : Colors.transparent,
+              ),
+              boxShadow: highlighted
+                  ? [
+                      BoxShadow(
+                        color: colors.primary.withValues(alpha: 0.2),
+                        blurRadius: 10,
+                        spreadRadius: 1,
+                      ),
+                    ]
+                  : const [],
+            ),
+            child: Opacity(
+              opacity: _dragIndex == index ? 0.3 : 1,
+              child: _buildInputChip(tag, colors),
+            ),
           ),
         );
       },
@@ -4812,8 +4849,13 @@ class _WorkflowMetadataDialogState extends State<_WorkflowMetadataDialog> {
       deleteIcon: const Icon(Icons.close_rounded, size: 16),
       deleteButtonTooltipMessage: '删除标签',
       onDeleted: () => _removeTag(_tags.indexOf(tag)),
-      backgroundColor: colors.secondaryContainer,
-      side: BorderSide(color: colors.secondary.withValues(alpha: 0.28)),
+      backgroundColor: colors.primaryContainer,
+      selectedColor: colors.primaryContainer,
+      labelStyle: TextStyle(
+        color: colors.onPrimaryContainer,
+        fontWeight: FontWeight.w700,
+      ),
+      side: BorderSide(color: colors.primary.withValues(alpha: 0.28)),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(kOpenHandRadius14),
       ),
@@ -4955,17 +4997,40 @@ class _WorkflowMetadataDialogState extends State<_WorkflowMetadataDialog> {
                   ),
                 ],
               ),
-              if (_tags.isNotEmpty) ...[
-                kOpenHandGap10,
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (var index = 0; index < _tags.length; index++)
-                      _tagChip(context, index),
-                  ],
-                ),
-              ],
+              AnimatedSize(
+                duration: openHandMotionDuration(context, kOpenHandMotion220),
+                curve: kOpenHandSwitchInCurve,
+                child: _tags.isEmpty
+                    ? const SizedBox.shrink()
+                    : Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: AnimatedSwitcher(
+                          duration: openHandMotionDuration(
+                            context,
+                            kOpenHandMotion220,
+                          ),
+                          switchInCurve: kOpenHandSwitchInCurve,
+                          switchOutCurve: Curves.easeInCubic,
+                          layoutBuilder: (currentChild, previousChildren) =>
+                              Stack(
+                                alignment: Alignment.topLeft,
+                                children: <Widget>[
+                                  ...previousChildren,
+                                  if (currentChild != null) currentChild,
+                                ],
+                              ),
+                          child: Wrap(
+                            key: ValueKey<String>(_tags.join('\u0000')),
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (var index = 0; index < _tags.length; index++)
+                                _tagChip(context, index),
+                            ],
+                          ),
+                        ),
+                      ),
+              ),
               kOpenHandGap20,
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,

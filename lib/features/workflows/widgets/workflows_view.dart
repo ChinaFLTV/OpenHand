@@ -739,16 +739,16 @@ class _WorkflowTagChip extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 132),
       padding: EdgeInsets.symmetric(horizontal: compact ? 7 : 9, vertical: 4),
       decoration: BoxDecoration(
-        color: colors.secondaryContainer.withValues(alpha: 0.72),
+        color: colors.primaryContainer.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(kOpenHandRadius10),
-        border: Border.all(color: colors.secondary.withValues(alpha: 0.2)),
+        border: Border.all(color: colors.primary.withValues(alpha: 0.2)),
       ),
       child: Text(
         label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: colors.onSecondaryContainer,
+          color: colors.onPrimaryContainer,
           fontWeight: FontWeight.w700,
         ),
       ),
