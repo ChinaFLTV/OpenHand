@@ -800,6 +800,9 @@ class _DevelopmentParameterItem extends StatelessWidget {
           );
           final typeField = parameter.isWorkflowDefined
               ? TextFormField(
+                  key: ValueKey<String>(
+                    'development-type-${parameter.id}-${field.type.storageValue}',
+                  ),
                   initialValue: field.type.storageValue,
                   enabled: false,
                   decoration: readOnlyDecoration.copyWith(labelText: '类型'),
@@ -808,6 +811,9 @@ class _DevelopmentParameterItem extends StatelessWidget {
                   ),
                 )
               : AnimatedDropdownButtonFormField<WorkflowOutputType>(
+                  key: ValueKey<String>(
+                    'development-type-${parameter.id}-${field.type.storageValue}',
+                  ),
                   initialValue: field.type,
                   isExpanded: true,
                   alignment: Alignment.centerLeft,
@@ -846,8 +852,8 @@ class _DevelopmentParameterItem extends StatelessWidget {
                     }
                   },
                 );
-          final descriptionField = TextFormField(
-            initialValue: field.description,
+          final descriptionField = _DevelopmentParameterDescriptionField(
+            value: field.description,
             enabled: !parameter.isWorkflowDefined,
             onChanged: (description) =>
                 onFieldChanged(field.copyWith(description: description)),
@@ -1077,6 +1083,60 @@ InputDecoration _developmentParameterInputDecoration(
       borderRadius: radius,
       borderSide: BorderSide(color: colors.error, width: 1.6),
     ),
+  );
+}
+
+class _DevelopmentParameterDescriptionField extends StatefulWidget {
+  const _DevelopmentParameterDescriptionField({
+    required this.value,
+    required this.enabled,
+    required this.decoration,
+    required this.onChanged,
+    this.style,
+  });
+
+  final String value;
+  final bool enabled;
+  final InputDecoration decoration;
+  final TextStyle? style;
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<_DevelopmentParameterDescriptionField> createState() =>
+      _DevelopmentParameterDescriptionFieldState();
+}
+
+class _DevelopmentParameterDescriptionFieldState
+    extends State<_DevelopmentParameterDescriptionField> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.value,
+  );
+
+  @override
+  void didUpdateWidget(
+    covariant _DevelopmentParameterDescriptionField oldWidget,
+  ) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value == _controller.text) return;
+    _controller.value = TextEditingValue(
+      text: widget.value,
+      selection: TextSelection.collapsed(offset: widget.value.length),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => TextFormField(
+    controller: _controller,
+    enabled: widget.enabled,
+    onChanged: widget.onChanged,
+    decoration: widget.decoration,
+    style: widget.style,
   );
 }
 
