@@ -32,9 +32,9 @@ class _MachineTerminalBuiltinToolSummaryCard extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: cs.tertiaryContainer.withValues(alpha: 0.24),
+        color: cs.primaryContainer.withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(kOpenHandRadius16),
-        border: Border.all(color: cs.tertiary.withValues(alpha: 0.22)),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.22)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -45,11 +45,11 @@ class _MachineTerminalBuiltinToolSummaryCard extends StatelessWidget {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: cs.tertiary.withValues(alpha: 0.12),
+                color: cs.primary.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(kOpenHandRadius12),
               ),
               alignment: Alignment.center,
-              child: Icon(Icons.terminal_rounded, color: cs.tertiary),
+              child: Icon(Icons.terminal_rounded, color: cs.primary),
             ),
             kOpenHandHGap12,
             Expanded(
