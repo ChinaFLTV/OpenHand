@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../app/support/silent_log.dart';
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
@@ -642,8 +643,8 @@ class _WorkflowCard extends StatelessWidget {
                             )
                           : Icon(
                               workflow.enabled
-                                  ? Icons.power_settings_new_rounded
-                                  : Icons.power_off_rounded,
+                                  ? Icons.stop_rounded
+                                  : Icons.play_arrow_rounded,
                               key: ValueKey<bool>(workflow.enabled),
                             ),
                     ),
@@ -778,20 +779,27 @@ ButtonStyle _workflowCardEnabledButtonStyle(
   required bool enabled,
 }) {
   final colors = theme.colorScheme;
-  return IconButton.styleFrom(
+  final style = IconButton.styleFrom(
     shape: const CircleBorder(),
     padding: EdgeInsets.zero,
     minimumSize: const Size.square(_workflowCardActionSize),
     fixedSize: const Size.square(_workflowCardActionSize),
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    backgroundColor: enabled
-        ? colors.primaryContainer
-        : colors.surfaceContainerHighest.withValues(
-            alpha: _workflowCardActionEnabledAlpha,
-          ),
-    foregroundColor: enabled
-        ? colors.onPrimaryContainer
-        : colors.onSurfaceVariant,
+  );
+  if (!enabled) {
+    return style.copyWith(
+      backgroundColor: WidgetStatePropertyAll<Color>(
+        colors.surfaceContainerHighest.withValues(
+          alpha: _workflowCardActionEnabledAlpha,
+        ),
+      ),
+      foregroundColor: WidgetStatePropertyAll<Color>(colors.onSurfaceVariant),
+    );
+  }
+  final runningStyle = OpenHandStatusColors.runningStopButtonStyle();
+  return style.copyWith(
+    backgroundColor: runningStyle.backgroundColor,
+    foregroundColor: runningStyle.foregroundColor,
   );
 }
 
