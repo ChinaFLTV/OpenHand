@@ -15,11 +15,15 @@ class AppInfo {
 
   factory AppInfo.fromPackageInfo(PackageInfo packageInfo) {
     return AppInfo(
-      appName: packageInfo.appName.isEmpty ? kOpenHandDefaultAppName : packageInfo.appName,
+      appName: packageInfo.appName.isEmpty
+          ? kOpenHandDefaultAppName
+          : packageInfo.appName,
       packageName: packageInfo.packageName.isEmpty
           ? _kDefaultPackageName
           : packageInfo.packageName,
-      version: packageInfo.version.isEmpty ? _kDefaultVersion : packageInfo.version,
+      version: packageInfo.version.isEmpty
+          ? _kDefaultVersion
+          : packageInfo.version,
       buildNumber: packageInfo.buildNumber.isEmpty
           ? _kDefaultBuildNumber
           : packageInfo.buildNumber,

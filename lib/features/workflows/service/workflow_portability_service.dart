@@ -535,10 +535,7 @@ class _WorkflowExportNodeContent {
   final bool controlFlow;
 }
 
-_WorkflowExportNodeContent _nodeContent(
-  WorkflowNode node,
-  ColorScheme colors,
-) {
+_WorkflowExportNodeContent _nodeContent(WorkflowNode node, ColorScheme colors) {
   final descriptor = workflowNodeDescriptor(node.kind, colors);
   final title = node.title.trim();
   return _WorkflowExportNodeContent(
@@ -586,10 +583,7 @@ Future<ui.Image> _renderRaster(
       workflow.name,
       Offset(72 * scale, 126 * scale),
       maxWidth: surface.width - 144 * scale,
-      style: TextStyle(
-        color: colors.onSurfaceVariant,
-        fontSize: 20 * scale,
-      ),
+      style: TextStyle(color: colors.onSurfaceVariant, fontSize: 20 * scale),
     );
     return _pictureToImage(
       recorder.endRecording(),
