@@ -26,6 +26,14 @@ const double _developmentParameterTargetItemHeight = 52;
 
 /// 需容纳最长类型文案（如 array[boolean]）与下拉箭头。
 const double _developmentParameterTypeFieldWidth = 220;
+
+/// 配合固定行高 52，避免浮动标签 + 默认内边距裁切字形下沉部分。
+const EdgeInsets _developmentParameterFieldContentPadding = EdgeInsets.fromLTRB(
+  12,
+  10,
+  10,
+  10,
+);
 const RoundedRectangleBorder _developmentParameterButtonShape =
     RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius12);
 
@@ -792,25 +800,41 @@ class _DevelopmentParameterItem extends StatelessWidget {
               ),
             ),
           );
+          final typeTextStyle = theme.textTheme.bodyMedium?.copyWith(
+            fontFamily: kOpenHandMonospaceFontFamily,
+            fontWeight: FontWeight.w800,
+            height: 1.0,
+            leadingDistribution: TextLeadingDistribution.even,
+          );
           final typeField = parameter.isWorkflowDefined
               ? TextFormField(
                   initialValue: field.type.storageValue,
                   enabled: false,
                   decoration: readOnlyDecoration.copyWith(labelText: '类型'),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontFamily: kOpenHandMonospaceFontFamily,
-                    fontWeight: FontWeight.w800,
+                  style: typeTextStyle?.copyWith(
                     color: colors.onSurface.withValues(alpha: 0.56),
                   ),
                 )
               : AnimatedDropdownButtonFormField<WorkflowOutputType>(
                   initialValue: field.type,
                   isExpanded: true,
+                  alignment: Alignment.centerLeft,
                   decoration: decoration.copyWith(labelText: '类型'),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontFamily: kOpenHandMonospaceFontFamily,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: typeTextStyle,
+                  selectedItemBuilder: (context) => WorkflowOutputType.values
+                      .map(
+                        (type) => Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            type.storageValue,
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.ellipsis,
+                            style: typeTextStyle,
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
                   items: WorkflowOutputType.values
                       .map(
                         (type) => DropdownMenuItem<WorkflowOutputType>(
@@ -1031,6 +1055,7 @@ InputDecoration _developmentParameterInputDecoration(
   return InputDecoration(
     isDense: true,
     filled: true,
+    contentPadding: _developmentParameterFieldContentPadding,
     fillColor: enabled
         ? colors.surface
         : colors.surfaceContainerHighest.withValues(alpha: 0.72),
