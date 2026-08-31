@@ -40,6 +40,7 @@ interface ApiOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   body?: unknown;
   signal?: AbortSignal;
+  accept?: string;
   /** 单次请求超时毫秒数；非法值回落默认值。 */
   timeoutMs?: number;
   /// 设为 true 时不带 Authorization 头（用于 /api/login 自身调用）
@@ -58,7 +59,7 @@ interface ApiHeaderOptions {
   accept?: string;
 }
 
-function createApiHeaders({
+export function createApiRequestHeaders({
   anonymous = false,
   accept,
 }: ApiHeaderOptions = {}): Record<string, string> {
@@ -73,6 +74,11 @@ function createApiHeaders({
   }
   return headers;
 }
+
+type ApiResponseReader<T> = (
+  response: Response,
+  signal: AbortSignal,
+) => Promise<T>;
 
 async function throwIfApiResponseFailed(
   response: Response,
@@ -149,13 +155,16 @@ function timeoutErrorFromAbortSignal(
   return null;
 }
 
-export async function apiRequest<T = unknown>(
+async function readAuthenticatedApiResponse<T>(
   path: string,
-  opts: ApiOptions = {},
+  opts: ApiOptions,
+  readResponse: ApiResponseReader<T>,
 ): Promise<T> {
-  const headers = createApiHeaders({ anonymous: opts.anonymous });
-
-  let body: BodyInit | undefined;
+  const headers = createApiRequestHeaders({
+    anonymous: opts.anonymous,
+    accept: opts.accept,
+  });
+  let body: string | undefined;
   if (opts.body !== undefined) {
     headers['content-type'] = 'application/json; charset=utf-8';
     body = JSON.stringify(opts.body);
@@ -163,17 +172,33 @@ export async function apiRequest<T = unknown>(
 
   const abortSignal = createApiAbortSignal(opts);
   try {
-    const res = await fetch(path, {
+    const response = await fetch(path, {
       method: opts.method ?? 'GET',
       headers,
       body,
+      credentials: 'same-origin',
       signal: abortSignal.signal,
     });
+    await throwIfApiResponseFailed(response, abortSignal.signal);
+    return await readResponse(response, abortSignal.signal!);
+  } catch (error) {
+    throw timeoutErrorFromAbortSignal(abortSignal, error) ?? error;
+  } finally {
+    abortSignal.cleanup();
+  }
+}
 
-    await throwIfApiResponseFailed(res, abortSignal.signal);
-    const text = await readResponseTextBounded(res, {
+export async function apiRequest<T = unknown>(
+  path: string,
+  opts: ApiOptions = {},
+): Promise<T> {
+  return readAuthenticatedApiResponse(path, {
+    ...opts,
+    accept: opts.accept ?? 'application/json, text/plain;q=0.9, */*;q=0.8',
+  }, async (response, signal) => {
+    const text = await readResponseTextBounded(response, {
       maxBytes: MAX_API_RESPONSE_BYTES,
-      signal: abortSignal.signal,
+      signal,
     });
     if (!text) return null as T;
     try {
@@ -181,11 +206,7 @@ export async function apiRequest<T = unknown>(
     } catch {
       return text as T;
     }
-  } catch (error) {
-    throw timeoutErrorFromAbortSignal(abortSignal, error) ?? error;
-  } finally {
-    abortSignal.cleanup();
-  }
+  });
 }
 
 /** 使用统一鉴权头下载受大小和总时限约束的二进制响应。 */
@@ -203,25 +224,16 @@ export async function fetchAuthenticatedBlob(
     timeoutMs?: number;
   },
 ): Promise<AuthenticatedBlobResult> {
-  const headers = createApiHeaders({ accept });
-
-  const abortSignal = createApiAbortSignal({ signal, timeoutMs });
-  try {
-    const response = await fetch(path, {
+  return readAuthenticatedApiResponse(path, {
       method: 'GET',
-      headers,
-      credentials: 'same-origin',
-      signal: abortSignal.signal,
-    });
-    await throwIfApiResponseFailed(response, abortSignal.signal);
+      accept,
+      signal,
+      timeoutMs,
+    }, async (response, requestSignal) => {
     const blob = await readResponseBlobBounded(response, {
       maxBytes,
-      signal: abortSignal.signal,
+      signal: requestSignal,
     });
     return { blob, response };
-  } catch (error) {
-    throw timeoutErrorFromAbortSignal(abortSignal, error) ?? error;
-  } finally {
-    abortSignal.cleanup();
-  }
+  });
 }

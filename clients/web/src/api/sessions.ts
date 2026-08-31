@@ -1,11 +1,10 @@
 import {
   apiRequest,
+  createApiRequestHeaders,
   fetchAuthenticatedBlob,
   type ApiRequestSignalOptions,
 } from './client';
-import { ensureDeviceId, readToken } from '../state/storage';
 import type { PendingWriteApproval } from './session_events';
-import { clientEnvironmentHeaders } from '../utils/client_env';
 import { jsonlExportPickerSuggestedName, normalizeJsonlExportFilename } from '../shared/util/export_filename';
 import { filenameFromContentDisposition, saveBlobWithPicker } from '../utils/save_blob';
 import { ignoreError, isAbortError } from '../shared/util/errors';
@@ -883,15 +882,9 @@ export async function stopMessageTtsPlayback(): Promise<{
 }
 
 export function stopMessageTtsPlaybackOnPageExit(): void {
-  const headers: Record<string, string> = {
-    'x-openhand-device-id': ensureDeviceId(),
-    ...clientEnvironmentHeaders(),
-  };
-  const token = readToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
   void fetch('/api/tts/stop', {
     method: 'POST',
-    headers,
+    headers: createApiRequestHeaders(),
     credentials: 'same-origin',
     keepalive: true,
   }).catch(ignoreError);

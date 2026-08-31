@@ -63,10 +63,19 @@ function refreshFormatSnapshot(): void {
   for (const listener of formatListeners) listener(next);
 }
 
+function handleFormatStorageChange(event: StorageEvent): void {
+  if (
+    event.key != null
+    && event.key !== STORAGE_KEY_MESSAGE_CONTENT_FORMAT
+    && event.key !== STORAGE_KEY_HTML_RENDER_FALLBACK
+  ) return;
+  refreshFormatSnapshot();
+}
+
 function bindFormatStorageListener(): void {
   if (formatStorageBound || typeof window === 'undefined') return;
   formatStorageBound = true;
-  window.addEventListener('storage', refreshFormatSnapshot);
+  window.addEventListener('storage', handleFormatStorageChange);
 }
 
 function unbindFormatStorageListenerIfIdle(): void {
@@ -75,7 +84,7 @@ function unbindFormatStorageListenerIfIdle(): void {
     || formatListeners.size > 0
     || typeof window === 'undefined'
   ) return;
-  window.removeEventListener('storage', refreshFormatSnapshot);
+  window.removeEventListener('storage', handleFormatStorageChange);
   formatStorageBound = false;
 }
 
