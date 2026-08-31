@@ -293,6 +293,11 @@ String defaultWorkflowCode(
 }) {
   final firstInput = inputNames.isEmpty ? 'arg1' : inputNames.first;
   final secondInput = inputNames.length < 2 ? firstInput : inputNames[1];
+  final outputKey = jsonEncode(outputName);
+  final firstInputJson = '${firstInput}_json';
+  final secondInputJson = '${secondInput}_json';
+  final firstInputVariable = '\$$firstInput';
+  final secondInputVariable = '\$$secondInput';
   return switch (language) {
     WorkflowCodeLanguage.python3 =>
       '''def main($firstInput: str, $secondInput: str):
@@ -305,9 +310,30 @@ String defaultWorkflowCode(
     $outputName: $firstInput + $secondInput
   }
 }''',
-    WorkflowCodeLanguage.linuxShell => '#!/bin/sh\nprintf \'{"result":""}\'',
+    WorkflowCodeLanguage.linuxShell =>
+      '''#!/bin/sh
+set -eu
+
+# 获取输入参数：环境变量内容为 JSON 文本。
+$firstInputJson="\${$firstInput:-null}"
+$secondInputJson="\${$secondInput:-null}"
+
+# 在这里编写业务逻辑；可使用上面的参数变量。
+result_json="$firstInputJson"
+
+# 返回值必须是 JSON 对象。
+printf '{$outputKey:%s}\\n' "\$result_json"''',
     WorkflowCodeLanguage.windowsPowerShell =>
-      'param([string]\$ResultPath)\n@{ result = "" } | ConvertTo-Json -Compress | Set-Content -Encoding utf8 \$ResultPath',
+      '''# 获取输入参数。
+$firstInputVariable = \$inputObject.$firstInput
+$secondInputVariable = \$inputObject.$secondInput
+
+# 在这里编写业务逻辑。
+\$result = [ordered]@{
+    '$outputName' = "$firstInputVariable$secondInputVariable"
+}
+
+# 返回值通过 \$result 交给工作流，必须是键值对象。''',
   };
 }
 

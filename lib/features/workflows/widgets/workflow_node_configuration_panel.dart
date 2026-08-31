@@ -402,9 +402,18 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
       node.settings[WorkflowSettingKeys.codeLanguage],
     );
     final runtime = catalog.codeRuntimes[language];
+    final codeInputFields = node.codeInputFields();
+    final inputNames = codeInputFields
+        .map((field) => field.name.trim())
+        .toList(growable: false);
+    final outputName = node.outputFields().firstOrNull?.name.trim() ?? 'result';
     final code = node.stringSetting(
       WorkflowSettingKeys.code,
-      defaultWorkflowCode(language),
+      defaultWorkflowCode(
+        language,
+        inputNames: inputNames,
+        outputName: outputName,
+      ),
     );
     final availableLanguages = WorkflowCodeLanguage.values
         .where((item) {
@@ -420,7 +429,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
     if (!availableLanguages.contains(language)) {
       availableLanguages.insert(0, language);
     }
-    final inputFields = node.codeInputFields();
+    final inputFields = codeInputFields;
     final inputReservedParameterNames = <String, String>{
       ...reservedParameterNames,
       for (final field in node.outputFields())
@@ -993,14 +1002,19 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
         .map((field) => field.name.trim())
         .toList(growable: false);
     final outputName = node.outputFields().firstOrNull?.name.trim() ?? 'result';
+    final previousTemplate = workflowCodeWithInputSignature(
+      defaultWorkflowCode(
+        previous,
+        inputNames: inputNames,
+        outputName: outputName,
+      ),
+      previous,
+      node.codeInputFields(),
+    );
     final replaceTemplate =
         code.trim().isEmpty ||
-        code.trim() ==
-            defaultWorkflowCode(
-              previous,
-              inputNames: inputNames,
-              outputName: outputName,
-            ).trim();
+        _normalizeCodeForComparison(code) ==
+            _normalizeCodeForComparison(previousTemplate);
     final nextCode = replaceTemplate
         ? defaultWorkflowCode(
             next,
@@ -1017,6 +1031,9 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
       ),
     });
   }
+
+  String _normalizeCodeForComparison(String code) =>
+      code.replaceAll('\r\n', '\n').trim().replaceAll(RegExp(r'\s+'), '');
 
   void _syncCodeFieldsFromCode(WorkflowCodeLanguage language, String code) {
     final inputCurrent = <String, WorkflowOutputField>{
