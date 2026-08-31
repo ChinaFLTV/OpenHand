@@ -1958,12 +1958,31 @@ class _RenderDialogInitialHitTestGate extends RenderProxyBox {
     if (!hasSize || !size.contains(position)) {
       return false;
     }
-    if (!_absorbing) {
+    // 动态列表在尺寸动画或首帧布局期间可能暂时存在 geometry 为空的
+    // sliver。此时继续向 RenderViewport 传递命中测试会触发 framework
+    // 内部的 geometry! 断言，因此短暂吸收指针，待下一帧布局稳定后再放行。
+    if (!_absorbing && !_containsUnlaidOutViewport(child)) {
       return super.hitTest(result, position: position);
     }
     result.add(BoxHitTestEntry(this, position));
     return true;
   }
+}
+
+bool _containsUnlaidOutViewport(RenderObject? root) {
+  if (root == null) return false;
+  var unstable = false;
+  void visit(RenderObject descendant) {
+    if (unstable) return;
+    if (descendant is RenderSliver && descendant.geometry == null) {
+      unstable = true;
+      return;
+    }
+    descendant.visitChildren(visit);
+  }
+
+  visit(root);
+  return unstable;
 }
 
 /// 在弹窗外层套一个 MediaQuery 感知的 ConstrainedBox，把最大宽 / 高限制为
