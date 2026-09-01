@@ -805,11 +805,15 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     });
   }
 
-  /// 清空全部 cron 执行历史。返回受影响行数；失败返回 0
-  /// 并 silentLog，不抛异常。仅由全局设置中的"日志清理 / 全部数据清空"
-  /// 触发，调用方负责弹窗二次确认。
+  /// 清空全部 cron 执行历史。仅由全局设置中的“日志清理 / 全部数据清空”
+  /// 触发，失败时向调用方报告，避免界面误报清理成功。
   Future<int> clearAllHistory() async {
-    return _enqueueHistoryOperation<int>('清空全部执行历史', 0, () async {
+    if (_isDisposed || _isPermanentlyStopped) {
+      throw StateError('定时任务控制器已停止。');
+    }
+    return _mutationQueue.enqueue(() async {
+      if (_isDisposed) throw StateError('定时任务控制器已停止。');
+      await _store.ensureTable();
       final affected = await _store.deleteAllHistory();
       _historyCache.clear();
       notifyListeners();
@@ -851,7 +855,10 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       }
       return true;
     });
-    return committed ? removed : 0;
+    if (!committed) {
+      throw StateError(_errorMessage ?? '清空非系统定时任务失败。');
+    }
+    return removed;
   }
 
   Future<void> refresh() async {

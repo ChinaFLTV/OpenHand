@@ -1,8 +1,8 @@
 /// 设计要点：
 /// 1. **所有耗时的文件系统遍历都在 [compute] 里跑**——通过把任务抛进
 ///    后台 isolate，主 isolate 不会被磁盘 IO 阻塞，避免 ANR / 卡顿。
-/// 2. **每个 isolate 任务都有 silentLog 兜底**——单个目录不可读不会让
-///    整个测算失败，结果中只是少计算一些字节。
+/// 2. **体积测算允许返回部分结果**——单个目录不可读时记录原因并标记结果
+///    不完整；实际清理失败必须向 UI 报告，禁止伪装成功。
 /// 3. **数据库访问留在主 isolate**——sqflite_common_ffi 的 Database
 ///    句柄不能跨 isolate；所以 DB 体积探测使用主 isolate 上一次很快的
 ///    `LENGTH(...)` 聚合查询。
@@ -292,6 +292,7 @@ class DataCleanupService {
   Future<void> cleanSessions() async {
     await _aiSessionController.store.clearAll();
     await _aiSessionController.refresh();
+    _requireControllerRefreshSucceeded(_aiSessionController.lastErrorMessage);
   }
 
   /// 清空应用缓存目录。
@@ -340,8 +341,10 @@ class DataCleanupService {
         final db = DatabaseService.instance.database;
         await db.delete('hooks');
         await _hooksController.refresh();
+        _requireControllerRefreshSucceeded(_hooksController.errorMessage);
       } catch (error2, stack2) {
         silentLog('data_cleanup', '清理 Hooks 兜底', error2, stack2);
+        Error.throwWithStackTrace(error2, stack2);
       }
     }
   }
@@ -350,11 +353,7 @@ class DataCleanupService {
   /// 等带 `system` 标签的内置条目会被保留）。controller 内部已负责取消
   /// 调度、清理历史缓存。
   Future<void> cleanCrons() async {
-    try {
-      await _cronsController.clearAllNonSystemCrons();
-    } catch (error, stack) {
-      silentLog('data_cleanup', '清理定时任务', error, stack);
-    }
+    await _cronsController.clearAllNonSystemCrons();
   }
 
   /// 清空全部用户自定义指令条目。
@@ -370,8 +369,12 @@ class DataCleanupService {
         final db = DatabaseService.instance.database;
         await db.delete('user_instructions');
         await _instructionsController.refresh();
+        _requireControllerRefreshSucceeded(
+          _instructionsController.errorMessage,
+        );
       } catch (error2, stack2) {
         silentLog('data_cleanup', '清理用户指令兜底', error2, stack2);
+        Error.throwWithStackTrace(error2, stack2);
       }
     }
   }
@@ -380,11 +383,8 @@ class DataCleanupService {
   Future<void> cleanMcpConfig() async {
     final path = _settingsController.mcpServersFilePath;
     await compute(_isolateDeleteFile, path);
-    try {
-      await _mcpController.refresh();
-    } catch (error, stack) {
-      silentLog('data_cleanup', '清理 MCP 配置后刷新', error, stack);
-    }
+    await _mcpController.refresh();
+    _requireControllerRefreshSucceeded(_mcpController.errorMessage);
   }
 
   Future<void> cleanMcpOpsCache() async {
@@ -401,11 +401,8 @@ class DataCleanupService {
       _isolateDeleteDirectoryContents,
       _settingsController.skillsStoragePath,
     );
-    try {
-      await _skillsController.refresh();
-    } catch (error, stack) {
-      silentLog('data_cleanup', '清理技能目录后刷新', error, stack);
-    }
+    await _skillsController.refresh();
+    _requireControllerRefreshSucceeded(_skillsController.errorMessage);
   }
 
   /// 清空 LSP 安装目录。下次使用对应语言时会触发重新下载。
@@ -419,11 +416,7 @@ class DataCleanupService {
   /// 清空文件变动 ledger（所有会话的 jsonl + state +
   /// blob）。调用后卡片侧 undo/redo 会退化为 metadata-only 列表。
   Future<void> cleanMutationLedger() async {
-    try {
-      await AiFileMutationLedger().clearAll();
-    } catch (error, stack) {
-      silentLog('data_cleanup', '清理文件变动账本', error, stack);
-    }
+    await AiFileMutationLedger().clearAll();
   }
 
   /// 顺序执行所有分类的清理。任何分支抛异常都会被 silentLog 吞掉，
@@ -512,6 +505,11 @@ class DataCleanupService {
   }
 }
 
+void _requireControllerRefreshSucceeded(String? errorMessage) {
+  final message = errorMessage?.trim() ?? '';
+  if (message.isNotEmpty) throw StateError(message);
+}
+
 // Isolate worker 函数必须位于顶层或声明为静态，以便序列化。
 /// 在 isolate 内统计 sessions 目录下所有 `attachments/` 子目录的体积与
 /// 文件数。
@@ -533,8 +531,7 @@ class _DataCleanupScanBudget {
   final MonotonicDeadline _deadline;
   bool _interrupted = false;
 
-  bool get incomplete =>
-      _interrupted || remainingEntries <= 0 || _deadline.isExpired;
+  bool get incomplete => _interrupted;
 
   bool get exhausted => remainingEntries <= 0 || _deadline.isExpired;
 
@@ -565,6 +562,7 @@ class _DataCleanupScanBudget {
 
   bool takeEntry() {
     if (remainingEntries <= 0 || _deadline.isExpired) {
+      _interrupted = true;
       return false;
     }
     remainingEntries -= 1;
@@ -764,89 +762,72 @@ Future<DataCleanupSizeReport> _isolateMeasureFile(String path) async {
 
 Future<void> _isolateDeleteFile(String path) async {
   if (!_isSafeDeleteTarget(path)) {
-    return;
+    throw FileSystemException('拒绝清理不安全的文件路径。', path);
   }
   final budget = _DataCleanupScanBudget();
-  try {
-    await _deletePathWithinCleanupBudget(
-      path,
-      allowedRoot: p.dirname(path),
-      budget: budget,
-    );
-  } catch (error, stack) {
-    // 上层会通过 controller refresh 兜底，单文件删除失败不致命。
-    silentLog('data_cleanup', '删除文件', error, stack);
-  }
+  await _deletePathWithinCleanupBudget(
+    path,
+    allowedRoot: p.dirname(path),
+    budget: budget,
+  );
 }
 
 Future<void> _isolateDeleteAttachments(String sessionsRoot) async {
   if (!_isSafeDeleteTarget(sessionsRoot)) {
-    return;
+    throw FileSystemException('拒绝清理不安全的附件目录。', sessionsRoot);
   }
   final root = Directory(sessionsRoot);
   final budget = _DataCleanupScanBudget();
-  try {
-    if (!await _cleanupDirectoryExists(root, budget: budget)) return;
-    await for (final entity
-        in root.list(followLinks: false).timeout(_dataCleanupScanIdleTimeout)) {
-      if (!budget.takeEntry()) break;
-      if (entity is! Directory) {
-        continue;
-      }
-      final name = p.basename(entity.path);
-      if (name == 'attachments') {
-        await _safeDeleteDirectoryAndRecreate(
-          entity,
-          budget: budget,
-          allowedRoot: root.path,
-        );
-        if (budget.incomplete) break;
-        continue;
-      }
-      final perSession = Directory(p.join(entity.path, 'attachments'));
-      if (await _cleanupDirectoryExists(perSession, budget: budget)) {
-        await _safeDeleteDirectoryAndRecreate(
-          perSession,
-          budget: budget,
-          allowedRoot: root.path,
-        );
-        if (budget.incomplete) break;
-      }
+  var hitSafetyLimit = false;
+  if (!await _cleanupDirectoryExists(root, budget: budget)) return;
+  await for (final entity
+      in root.list(followLinks: false).timeout(_dataCleanupScanIdleTimeout)) {
+    if (!budget.takeEntry()) {
+      hitSafetyLimit = true;
+      break;
     }
-  } catch (error, stack) {
-    // 兜底：保持已删除部分，剩余目录可下次再清。
-    silentLog('data_cleanup', '删除附件目录', error, stack);
+    if (entity is! Directory) continue;
+    final name = p.basename(entity.path);
+    if (name == 'attachments') {
+      await _safeDeleteDirectoryAndRecreate(
+        entity,
+        budget: budget,
+        allowedRoot: root.path,
+      );
+      continue;
+    }
+    final perSession = Directory(p.join(entity.path, 'attachments'));
+    if (await _cleanupDirectoryExists(perSession, budget: budget)) {
+      await _safeDeleteDirectoryAndRecreate(
+        perSession,
+        budget: budget,
+        allowedRoot: root.path,
+      );
+    }
   }
+  if (hitSafetyLimit) throw TimeoutException('附件目录清理达到安全上限。');
 }
 
 Future<void> _isolateDeleteDirectoryContents(String dir) async {
   if (!_isSafeDeleteTarget(dir)) {
-    return;
+    throw FileSystemException('拒绝清理不安全的目录。', dir);
   }
   final root = Directory(dir);
   final budget = _DataCleanupScanBudget();
-  try {
-    if (!await _cleanupDirectoryExists(root, budget: budget)) return;
-    await _safeDeleteDirectoryAndRecreate(root, budget: budget);
-  } catch (error, stack) {
-    silentLog('data_cleanup', '检查待清理目录', error, stack);
-  }
+  if (!await _cleanupDirectoryExists(root, budget: budget)) return;
+  await _safeDeleteDirectoryAndRecreate(root, budget: budget);
 }
 
 Future<void> _isolateDeleteDirectoryContentsExcluding(List<String> args) async {
   if (args.isEmpty) return;
   final dir = args.first;
   if (!_isSafeDeleteTarget(dir)) {
-    return;
+    throw FileSystemException('拒绝清理不安全的目录。', dir);
   }
   final root = Directory(dir);
-  try {
-    if (!await _cleanupDirectoryExists(root)) return;
-    final excludedRoots = args.skip(1).map(p.normalize).toList(growable: false);
-    await _deleteDirectoryContentsExcludingBounded(root, excludedRoots);
-  } catch (error, stack) {
-    silentLog('data_cleanup', '检查带排除项的待清理目录', error, stack);
-  }
+  if (!await _cleanupDirectoryExists(root)) return;
+  final excludedRoots = args.skip(1).map(p.normalize).toList(growable: false);
+  await _deleteDirectoryContentsExcludingBounded(root, excludedRoots);
 }
 
 /// 防误删兜底：拒绝任何看起来像系统根 / HOME 根 / OpenHand 根的路径。
@@ -897,25 +878,15 @@ Future<void> _safeDeleteDirectoryAndRecreate(
   String? allowedRoot,
 }) async {
   final activeBudget = budget ?? _DataCleanupScanBudget();
-  try {
-    await _deletePathWithinCleanupBudget(
-      dir.path,
-      allowedRoot: allowedRoot ?? dir.path,
-      budget: activeBudget,
-    );
-  } catch (error, stack) {
-    // 删除失败时仍尝试 recreate：保持调用方期望的"目录存在"语义。
-    silentLog('data_cleanup', '删除目录', error, stack);
-  }
-  try {
-    await createDirectoryBounded(
-      dir,
-      timeout: activeBudget.nextOperationTimeout(),
-    );
-  } catch (error, stack) {
-    // recreate 失败也不抛——下游写入时会自行重试。
-    silentLog('data_cleanup', '重建目录', error, stack);
-  }
+  await _deletePathWithinCleanupBudget(
+    dir.path,
+    allowedRoot: allowedRoot ?? dir.path,
+    budget: activeBudget,
+  );
+  await createDirectoryBounded(
+    dir,
+    timeout: activeBudget.nextOperationTimeout(),
+  );
 }
 
 Future<BoundedDeleteResult> _deletePathWithinCleanupBudget(
@@ -1031,35 +1002,31 @@ Future<void> _deleteDirectoryContentsExcludingBounded(
 ) async {
   final budget = _DataCleanupScanBudget();
   final pending = <Directory>[root];
+  var hitSafetyLimit = false;
   while (pending.isNotEmpty && !budget.exhausted) {
     final directory = pending.removeLast();
-    try {
-      await for (final entity
-          in directory
-              .list(followLinks: false)
-              .timeout(budget.nextOperationTimeout())) {
-        if (!budget.takeEntry()) return;
-        if (_isExcludedPath(entity.path, excludedRoots)) continue;
-        if (entity is Directory &&
-            _containsExcludedPath(entity, excludedRoots)) {
-          pending.add(entity);
-          continue;
-        }
-        try {
-          await _deletePathWithinCleanupBudget(
-            entity.path,
-            allowedRoot: root.path,
-            budget: budget,
-          );
-        } catch (error, stack) {
-          silentLog('data_cleanup', '删除排除项之外的目录项', error, stack);
-          if (budget.incomplete) return;
-        }
+    await for (final entity
+        in directory
+            .list(followLinks: false)
+            .timeout(budget.nextOperationTimeout())) {
+      if (!budget.takeEntry()) {
+        hitSafetyLimit = true;
+        break;
       }
-    } catch (error, stack) {
-      budget.markInterrupted();
-      silentLog('data_cleanup', '列出排除项之外的目录内容', error, stack);
-      return;
+      if (_isExcludedPath(entity.path, excludedRoots)) continue;
+      if (entity is Directory && _containsExcludedPath(entity, excludedRoots)) {
+        pending.add(entity);
+        continue;
+      }
+      await _deletePathWithinCleanupBudget(
+        entity.path,
+        allowedRoot: root.path,
+        budget: budget,
+      );
     }
+    if (hitSafetyLimit) break;
+  }
+  if (hitSafetyLimit || pending.isNotEmpty) {
+    throw TimeoutException('数据清理达到安全上限。');
   }
 }

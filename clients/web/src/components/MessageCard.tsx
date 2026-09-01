@@ -57,6 +57,7 @@ import { useStickyBottom } from '../hooks/useStickyBottom';
 import { useDelayedVisibility } from '../hooks/useDelayedVisibility';
 import { useDelayedFalse } from '../hooks/useDelayedFalse';
 import { useTimeoutController } from '../hooks/useTimeoutController';
+import { useInterval } from '../hooks/useInterval';
 import { boundedFnv1aHashBase36 } from '../shared/util/hash';
 import {
   knowledgeBaseHitTokenEstimateTotal,
@@ -134,13 +135,11 @@ function useToolLiveElapsedMs(
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
-    if (!live) return undefined;
-    setNowMs(Date.now());
-    const timer = window.setInterval(() => {
-      setNowMs(Date.now());
-    }, TOOL_LIVE_ELAPSED_TICK_MS);
-    return () => window.clearInterval(timer);
+    if (live) setNowMs(Date.now());
   }, [live, startedAtMs]);
+  useInterval(() => setNowMs(Date.now()), TOOL_LIVE_ELAPSED_TICK_MS, {
+    enabled: live,
+  });
 
   const safeStored = storedElapsedMs == null ? null : Math.max(0, storedElapsedMs);
   if (live && startedAtMs != null) {
@@ -3832,18 +3831,16 @@ function KnowledgeVectorDistributionScene({
   );
 
   useEffect(() => {
-    const nextInitial = Math.min(KB_VECTOR_BATCH_SIZE, allPoints.length);
-    setVisibleLimit(nextInitial);
-    if (allPoints.length <= nextInitial) return;
-    const timer = window.setInterval(() => {
-      setVisibleLimit((current) => {
-        const next = Math.min(allPoints.length, current + KB_VECTOR_BATCH_SIZE);
-        if (next >= allPoints.length) window.clearInterval(timer);
-        return next;
-      });
-    }, KB_VECTOR_BATCH_INTERVAL_MS);
-    return () => window.clearInterval(timer);
+    setVisibleLimit(Math.min(KB_VECTOR_BATCH_SIZE, allPoints.length));
   }, [allPoints]);
+  useInterval(
+    () => setVisibleLimit((current) =>
+      Math.min(allPoints.length, current + KB_VECTOR_BATCH_SIZE)),
+    KB_VECTOR_BATCH_INTERVAL_MS,
+    {
+      enabled: visibleLimit < allPoints.length,
+    },
+  );
 
   useEffect(() => {
     if (!selectedId || allPoints.some((point) => point.id === selectedId)) return;

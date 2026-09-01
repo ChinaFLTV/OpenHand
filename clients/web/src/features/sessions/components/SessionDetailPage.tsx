@@ -60,6 +60,7 @@ import {
 } from '../../../api/sessions';
 import { ApiError, UnauthorizedError } from '../../../api/client';
 import { ignoreError, isAbortError } from '../../../shared/util/errors';
+import { useInterval } from '../../../hooks/useInterval';
 import {
   formatLocalDateTimeSecond,
   formatLocalTimeSecond,
@@ -10975,14 +10976,11 @@ function SessionThrottleDialog({
     lastUpdateRef.current = Date.now();
     lastBucketsRef.current = buckets;
   }, [current?.throughputBuckets]);
-  useEffect(() => {
-    if (closing || typeof window === 'undefined') return undefined;
-    const id = window.setInterval(
-      () => setTick((n) => n + 1),
-      THROTTLE_BUCKET_TICK_MS,
-    );
-    return () => window.clearInterval(id);
-  }, [closing]);
+  useInterval(
+    () => setTick((value) => value + 1),
+    THROTTLE_BUCKET_TICK_MS,
+    { enabled: !closing },
+  );
   const displayedBuckets = useMemo(() => {
     void tick;
     const base = lastBucketsRef.current;

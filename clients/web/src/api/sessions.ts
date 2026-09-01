@@ -998,11 +998,11 @@ export async function exportSessionDownload(
     }
     throw error;
   }
-  await saveBlobWithPicker(
+  const saved = await saveBlobWithPicker(
     blob,
     filename,
     [{ description: 'JSONL', accept: { 'application/x-ndjson': ['.jsonl'] } }],
     jsonlExportPickerSuggestedName(filename),
   );
-  return { filename };
+  return { filename: saved.filename };
 }

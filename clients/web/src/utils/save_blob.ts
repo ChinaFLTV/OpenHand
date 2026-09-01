@@ -2,7 +2,6 @@ import {
   MAX_BROWSER_TIMEOUT_MS,
   normalizeDurationMs,
 } from '../shared/util/number';
-import { isAbortError } from '../shared/util/errors';
 
 export interface SaveBlobPickerType {
   description: string;
@@ -21,6 +20,7 @@ interface FileSystemWritableFileStream {
 }
 
 interface FileSystemFileHandle {
+  name: string;
   createWritable(): Promise<FileSystemWritableFileStream>;
 }
 
@@ -32,6 +32,32 @@ interface SaveFilePickerOptions {
 type SaveFilePicker = (options?: SaveFilePickerOptions) => Promise<FileSystemFileHandle>;
 
 const DEFAULT_OBJECT_URL_REVOKE_DELAY_MS = 5_000;
+const MAX_DOWNLOAD_FILENAME_BYTES = 240;
+const INVALID_DOWNLOAD_FILENAME_CHARACTERS = /[\u0000-\u001f\u007f<>:"/\\|?*]+/g;
+const WINDOWS_RESERVED_FILENAME = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i;
+
+function truncateFilenameUtf8(filename: string): string {
+  const encoder = new TextEncoder();
+  if (encoder.encode(filename).byteLength <= MAX_DOWNLOAD_FILENAME_BYTES) {
+    return filename;
+  }
+  const extensionIndex = filename.lastIndexOf('.');
+  const extension = extensionIndex > 0 && filename.length - extensionIndex <= 20
+    ? filename.slice(extensionIndex)
+    : '';
+  const extensionBytes = encoder.encode(extension).byteLength;
+  const baseBudget = Math.max(1, MAX_DOWNLOAD_FILENAME_BYTES - extensionBytes);
+  const base = extension ? filename.slice(0, extensionIndex) : filename;
+  const retained: string[] = [];
+  let retainedBytes = 0;
+  for (const character of base) {
+    const characterBytes = encoder.encode(character).byteLength;
+    if (retainedBytes + characterBytes > baseBudget) break;
+    retained.push(character);
+    retainedBytes += characterBytes;
+  }
+  return `${retained.join('')}${extension}`;
+}
 
 function normalizeRevokeDelayMs(value: number | undefined): number {
   return normalizeDurationMs(value, {
@@ -66,15 +92,41 @@ export function filenameFromContentDisposition(value: string | null): string | n
   const encoded = /filename\*=UTF-8''([^;]+)/i.exec(value);
   if (encoded?.[1]) {
     try {
-      return decodeURIComponent(encoded[1]);
+      return sanitizeDownloadFilename(decodeURIComponent(encoded[1]));
     } catch {
-      return encoded[1];
+      return sanitizeDownloadFilename(encoded[1]);
     }
   }
   const quoted = /filename="([^"]+)"/i.exec(value);
-  if (quoted?.[1]) return quoted[1];
+  if (quoted?.[1]) return sanitizeDownloadFilename(quoted[1]);
   const plain = /filename=([^;]+)/i.exec(value);
-  return plain?.[1]?.trim() ?? null;
+  return plain?.[1] ? sanitizeDownloadFilename(plain[1]) : null;
+}
+
+export function sanitizeDownloadFilename(
+  value: string,
+  fallback = 'download',
+): string {
+  let safeFallback = fallback
+    .trim()
+    .replace(INVALID_DOWNLOAD_FILENAME_CHARACTERS, '_')
+    .replace(/[. ]+$/g, '');
+  if (!safeFallback || safeFallback === '.' || safeFallback === '..') {
+    safeFallback = 'download';
+  }
+  if (WINDOWS_RESERVED_FILENAME.test(safeFallback)) {
+    safeFallback = `_${safeFallback}`;
+  }
+  let filename = value
+    .trim()
+    .replace(INVALID_DOWNLOAD_FILENAME_CHARACTERS, '_')
+    .replace(/[. ]+$/g, '');
+  if (!filename || filename === '.' || filename === '..') {
+    filename = safeFallback;
+  }
+  if (WINDOWS_RESERVED_FILENAME.test(filename)) filename = `_${filename}`;
+  filename = truncateFilenameUtf8(filename);
+  return filename || safeFallback;
 }
 
 export function downloadBlobWithAnchor(
@@ -82,11 +134,12 @@ export function downloadBlobWithAnchor(
   filename: string,
   revokeDelayMs?: number,
 ): void {
+  const safeFilename = sanitizeDownloadFilename(filename);
   const url = URL.createObjectURL(blob);
   try {
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = filename;
+    anchor.download = safeFilename;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
@@ -101,8 +154,11 @@ export async function saveBlobWithPicker(
   types?: SaveBlobPickerType[],
   pickerSuggestedName?: string,
 ): Promise<SaveBlobResult> {
-  const normalizedFilename = filename.trim() || 'download';
-  const suggestedName = pickerSuggestedName?.trim() || normalizedFilename;
+  const normalizedFilename = sanitizeDownloadFilename(filename);
+  const suggestedName = sanitizeDownloadFilename(
+    pickerSuggestedName ?? normalizedFilename,
+    normalizedFilename,
+  );
   const picker = (window as Window & { showSaveFilePicker?: SaveFilePicker }).showSaveFilePicker;
   if (picker) {
     let writable: FileSystemWritableFileStream | null = null;
@@ -111,12 +167,10 @@ export async function saveBlobWithPicker(
       writable = await handle.createWritable();
       await writable.write(blob);
       await writable.close();
-      return { filename: normalizedFilename, picked: true };
+      return { filename: handle.name.trim() || normalizedFilename, picked: true };
     } catch (error) {
       await abortWritableQuietly(writable);
-      if (isAbortError(error)) {
-        throw error;
-      }
+      throw error;
     }
   }
   downloadBlobWithAnchor(blob, normalizedFilename);
@@ -129,6 +183,6 @@ async function abortWritableQuietly(
   try {
     await writable?.abort?.();
   } catch {
-    // 流中止清理失败时仍继续回退下载。
+    // 流中止失败不覆盖原始保存错误。
   }
 }

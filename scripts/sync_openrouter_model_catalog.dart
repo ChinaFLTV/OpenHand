@@ -1,10 +1,26 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 const _modelsUrl = 'https://openrouter.ai/api/v1/models';
+const _responseMaxBytes = 32 * 1024 * 1024;
+const _responseIdleTimeout = Duration(seconds: 30);
+const _responseTotalTimeout = Duration(minutes: 2);
 
 Future<void> main(List<String> arguments) async {
+  if (arguments.contains('--help') || arguments.contains('-h')) {
+    stdout.writeln(
+      '用法：dart run scripts/sync_openrouter_model_catalog.dart [--check]',
+    );
+    return;
+  }
+  final unknownArguments = arguments.where((value) => value != '--check');
+  if (unknownArguments.isNotEmpty) {
+    stderr.writeln('不支持的参数：${unknownArguments.join(' ')}');
+    exitCode = 64;
+    return;
+  }
   final root = File.fromUri(Platform.script).parent.parent;
   final baselineFile = File(
     '${root.path}/lib/features/ai/model/openrouter_exact_model_catalog.dart',
@@ -28,7 +44,7 @@ Future<void> main(List<String> arguments) async {
       exitCode = 1;
       return;
     }
-    final body = await utf8.decoder.bind(response).join();
+    final body = await _readResponseBody(response);
     final payload = jsonDecode(body) as Map<String, Object?>;
     final models =
         (payload['data'] as List<Object?>)
@@ -63,6 +79,24 @@ Future<void> main(List<String> arguments) async {
   } finally {
     client.close(force: true);
   }
+}
+
+Future<String> _readResponseBody(HttpClientResponse response) async {
+  if (response.contentLength > _responseMaxBytes) {
+    throw const FormatException('模型目录响应超过 32 MiB 上限。');
+  }
+  return _collectResponseBody(response).timeout(_responseTotalTimeout);
+}
+
+Future<String> _collectResponseBody(HttpClientResponse response) async {
+  final bytes = BytesBuilder(copy: false);
+  await for (final chunk in response.timeout(_responseIdleTimeout)) {
+    if (chunk.length > _responseMaxBytes - bytes.length) {
+      throw const FormatException('模型目录响应超过 32 MiB 上限。');
+    }
+    bytes.add(chunk);
+  }
+  return utf8.decode(bytes.takeBytes());
 }
 
 String _renderCatalog(

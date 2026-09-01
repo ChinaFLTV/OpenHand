@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
@@ -42,6 +43,7 @@ const Duration _kUpdateRedirectDrainTimeout = Duration(seconds: 2);
 const String _kGitHubReleaseAcceptHeader = kGitHubApiV3AcceptHeader;
 const String _kUpdateCheckerUserAgent = 'OpenHand-UpdateChecker';
 const String _kFallbackUpdateFileName = 'openhand-update';
+final RegExp _kSha256HexPattern = RegExp(r'^[0-9a-f]{64}$');
 const BoundedDeletePolicy _kUpdateCleanupPolicy = BoundedDeletePolicy(
   maxEntries: 16,
   maxDepth: 2,
@@ -59,6 +61,7 @@ class AppReleaseInfo {
     required this.publishedAt,
     required this.downloadUrl,
     required this.downloadSize,
+    this.downloadSha256 = '',
     this.isPreRelease = false,
   });
 
@@ -69,6 +72,7 @@ class AppReleaseInfo {
   final DateTime publishedAt;
   final String downloadUrl;
   final int downloadSize;
+  final String downloadSha256;
   final bool isPreRelease;
 
   /// 比较版本号，返回 true 表示此版本比 [currentVersion] 更新。
@@ -201,6 +205,11 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
     if (release.downloadSize > _kUpdateMaxDownloadBytes) {
       throw const FileSystemException('更新包超过大小上限。');
     }
+    final expectedSha256 = release.downloadSha256.trim().toLowerCase();
+    if (expectedSha256.isNotEmpty &&
+        !_kSha256HexPattern.hasMatch(expectedSha256)) {
+      throw const FormatException('更新包 SHA-256 摘要格式无效。');
+    }
     final client = _createHttpClient(_kUpdateDownloadConnectionTimeout);
     final deadline = MonotonicDeadline(
       _kUpdateDownloadTotalTimeout,
@@ -275,6 +284,11 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       final partialFile = File('$filePath.part');
       BoundedRandomAccessFileLease? output;
       var deleteOnRelease = false;
+      final checksumSink = expectedSha256.isEmpty ? null : _UpdateDigestSink();
+      final checksumInput = checksumSink == null
+          ? null
+          : sha256.startChunkedConversion(checksumSink);
+      var checksumInputClosed = false;
       try {
         final openedOutput = await openBoundedRandomAccessFileLease(
           partialFile,
@@ -304,6 +318,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
           if (chunk.length > expectedLength - received) {
             throw const FileSystemException('更新包大小与发布信息不一致。');
           }
+          checksumInput?.add(chunk);
           await openedOutput.run(
             (file) => file.writeFrom(chunk),
             timeout: shorterDuration(_kUpdateFileIoTimeout, remainingBudget()),
@@ -320,6 +335,12 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         if (received != expectedLength) {
           throw const FileSystemException('更新包下载不完整。');
         }
+        checksumInput?.close();
+        checksumInputClosed = true;
+        if (checksumSink != null &&
+            checksumSink.digest.toString() != expectedSha256) {
+          throw const FileSystemException('更新包 SHA-256 校验失败。');
+        }
         await openedOutput.run(
           (file) => file.flush(),
           timeout: shorterDuration(_kUpdateFileIoTimeout, remainingBudget()),
@@ -329,6 +350,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         );
         output = null;
       } finally {
+        if (!checksumInputClosed) checksumInput?.close();
         if (output != null) deleteOnRelease = true;
         await output?.cleanup();
       }
@@ -506,8 +528,38 @@ AppReleaseInfo? _parseGitHubReleaseInfo(
       selectedAsset?['browser_download_url'],
     ),
     downloadSize: nonNegativeIntFromValue(selectedAsset?['size'], fallback: 0),
+    downloadSha256: _releaseAssetSha256(selectedAsset),
     isPreRelease: boolFromValue(json['prerelease']),
   );
+}
+
+String _releaseAssetSha256(Map<String, Object?>? asset) {
+  const prefix = 'sha256:';
+  final value = stringFromValue(asset?['digest']).trim().toLowerCase();
+  if (value.isEmpty) return '';
+  if (!value.startsWith(prefix)) {
+    throw const FormatException('更新包 SHA-256 摘要格式无效。');
+  }
+  final checksum = value.substring(prefix.length);
+  if (!_kSha256HexPattern.hasMatch(checksum)) {
+    throw const FormatException('更新包 SHA-256 摘要格式无效。');
+  }
+  return checksum;
+}
+
+final class _UpdateDigestSink implements Sink<Digest> {
+  Digest? _digest;
+
+  Digest get digest => _digest ?? (throw StateError('更新包摘要尚未生成。'));
+
+  @override
+  void add(Digest data) {
+    if (_digest != null) throw StateError('更新包摘要被重复写入。');
+    _digest = data;
+  }
+
+  @override
+  void close() {}
 }
 
 Map<String, Object?>? _selectReleaseAsset(

@@ -18,6 +18,7 @@ const int minWorkflowCodeTimeoutSeconds = 1;
 const int maxWorkflowCodeTimeoutSeconds = 120;
 const int defaultWorkflowCodeTimeoutSeconds = 30;
 const Duration workflowValueExpressionTimeout = Duration(seconds: 10);
+const Duration _workflowCodeFileIoTimeout = Duration(seconds: 3);
 
 class WorkflowCodeRuntime {
   const WorkflowCodeRuntime({
@@ -159,7 +160,7 @@ class WorkflowCodeExecutor {
     try {
       temporaryDirectory = await createTemporaryDirectoryBounded(
         prefix: 'openhand-workflow-code-',
-        timeout: const Duration(seconds: 3),
+        timeout: _workflowCodeFileIoTimeout,
       );
       final resultFile = File(p.join(temporaryDirectory.path, 'result.json'));
       final scriptFile = File(
@@ -171,7 +172,7 @@ class WorkflowCodeExecutor {
       await writeTemporaryFileTextBounded(
         scriptFile,
         _wrappedCode(runtime.language, code),
-        timeout: const Duration(seconds: 3),
+        timeout: _workflowCodeFileIoTimeout,
       );
       Object? launchFailure;
       final processResult = await runProcessWithTimeout(
@@ -212,7 +213,10 @@ class WorkflowCodeExecutor {
               : '代码执行失败：$detail',
         );
       }
-      if (!await resultFile.exists()) {
+      if (!await regularFileExistsBounded(
+        resultFile,
+        followLinks: false,
+      )) {
         throw const WorkflowCodeExecutionException('代码未返回有效结果。');
       }
       late final String rawResult;
