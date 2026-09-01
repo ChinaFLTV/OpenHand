@@ -243,6 +243,96 @@ class OpenHandChartTooltip {
   }
 }
 
+Rect? _chartTooltipAnchorRect(BuildContext context) {
+  final box = context.findRenderObject();
+  if (box is! RenderBox || !box.hasSize || !box.attached) return null;
+  return box.localToGlobal(Offset.zero) & box.size;
+}
+
+Timer _startChartTooltipShowTimer({
+  required BuildContext context,
+  required bool Function() shouldShow,
+  required OverlayPortalController portal,
+  required AnimationController transition,
+}) {
+  final delay = openHandTickerMotionEnabled(context)
+      ? _kHeatmapHoverShowDelay
+      : Duration.zero;
+  return startSafeTimer(delay, () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!shouldShow()) return;
+      if (!portal.isShowing) portal.show();
+      transition.forward();
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  });
+}
+
+Timer _startChartTooltipHideTimer({
+  required bool Function() shouldHide,
+  required OverlayPortalController portal,
+  required AnimationController transition,
+  VoidCallback? onHidden,
+}) {
+  return startSafeTimer(_kHeatmapHoverExitGrace, () {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!shouldHide()) return;
+      try {
+        await transition.reverse().orCancel;
+      } on TickerCanceled {
+        return;
+      }
+      if (!shouldHide()) return;
+      if (portal.isShowing) portal.hide();
+      onHidden?.call();
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  });
+}
+
+Widget _buildChartTooltipOverlay({
+  required Rect? anchor,
+  required OpenHandChartTooltip tooltip,
+  required Color accent,
+  required AnimationController transition,
+  required DialogAnimationSettings settings,
+  required VoidCallback onEnter,
+  required VoidCallback onExit,
+}) {
+  return Positioned.fill(
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final metrics = _HeatmapHoverMetrics.resolve(
+          context: context,
+          overlaySize: Size(constraints.maxWidth, constraints.maxHeight),
+          anchor: anchor,
+        );
+        return CustomSingleChildLayout(
+          delegate: _HeatmapHoverLayoutDelegate(metrics),
+          child: MouseRegion(
+            onEnter: (_) => onEnter(),
+            onExit: (_) => onExit(),
+            child: AnimatedBuilder(
+              animation: transition,
+              child: _HeatmapHoverCard(tooltip: tooltip, accent: accent),
+              builder: (context, child) => buildAnimationStyleTransition(
+                animation: transition,
+                settings: settings,
+                profile: OpenHandAnimationTransitionProfile(
+                  alignment: metrics.placedAbove
+                      ? Alignment.bottomCenter
+                      : Alignment.topCenter,
+                ),
+                child: child!,
+              ),
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
 /// 复用运维热力图悬停卡片的通用触发器。
 ///
 /// 适用于状态条、紧凑指标等非图表控件，保持与热力图相同的定位、动画和
@@ -304,13 +394,7 @@ class _OpenHandChartTooltipTriggerState
   }
 
   void _captureAnchor(BuildContext childContext) {
-    final renderObject = childContext.findRenderObject();
-    if (renderObject is RenderBox &&
-        renderObject.hasSize &&
-        renderObject.attached) {
-      _anchorGlobal =
-          renderObject.localToGlobal(Offset.zero) & renderObject.size;
-    }
+    _anchorGlobal = _chartTooltipAnchorRect(childContext) ?? _anchorGlobal;
   }
 
   void _show(BuildContext childContext) {
@@ -323,17 +407,12 @@ class _OpenHandChartTooltipTriggerState
     }
     final generation = ++_generation;
     _showTimer?.cancel();
-    final delay = openHandTickerMotionEnabled(context)
-        ? _kHeatmapHoverShowDelay
-        : Duration.zero;
-    _showTimer = startSafeTimer(delay, () {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_showQueued || generation != _generation) return;
-        if (!_portal.isShowing) _portal.show();
-        _transition.forward();
-      });
-      WidgetsBinding.instance.ensureVisualUpdate();
-    });
+    _showTimer = _startChartTooltipShowTimer(
+      context: context,
+      shouldShow: () => mounted && _showQueued && generation == _generation,
+      portal: _portal,
+      transition: _transition,
+    );
   }
 
   void _scheduleHide() {
@@ -341,59 +420,25 @@ class _OpenHandChartTooltipTriggerState
     _showTimer?.cancel();
     final generation = ++_generation;
     _hideTimer?.cancel();
-    _hideTimer = startSafeTimer(_kHeatmapHoverExitGrace, () {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted || _showQueued || generation != _generation) return;
-        try {
-          await _transition.reverse().orCancel;
-        } on TickerCanceled {
-          return;
-        }
-        if (!mounted || _showQueued || generation != _generation) return;
-        if (_portal.isShowing) _portal.hide();
-      });
-      WidgetsBinding.instance.ensureVisualUpdate();
-    });
+    _hideTimer = _startChartTooltipHideTimer(
+      shouldHide: () => mounted && !_showQueued && generation == _generation,
+      portal: _portal,
+      transition: _transition,
+    );
   }
 
   Widget _buildOverlay(BuildContext overlayContext) {
-    return Positioned.fill(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final metrics = _HeatmapHoverMetrics.resolve(
-            context: context,
-            overlaySize: Size(constraints.maxWidth, constraints.maxHeight),
-            anchor: _anchorGlobal,
-          );
-          return CustomSingleChildLayout(
-            delegate: _HeatmapHoverLayoutDelegate(metrics),
-            child: MouseRegion(
-              onEnter: (_) {
-                _hideTimer?.cancel();
-                _showQueued = true;
-              },
-              onExit: (_) => _scheduleHide(),
-              child: AnimatedBuilder(
-                animation: _transition,
-                child: _HeatmapHoverCard(
-                  tooltip: widget.tooltip,
-                  accent: widget.accent,
-                ),
-                builder: (context, child) => buildAnimationStyleTransition(
-                  animation: _transition,
-                  settings: _settings,
-                  profile: OpenHandAnimationTransitionProfile(
-                    alignment: metrics.placedAbove
-                        ? Alignment.bottomCenter
-                        : Alignment.topCenter,
-                  ),
-                  child: child!,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+    return _buildChartTooltipOverlay(
+      anchor: _anchorGlobal,
+      tooltip: widget.tooltip,
+      accent: widget.accent,
+      transition: _transition,
+      settings: _settings,
+      onEnter: () {
+        _hideTimer?.cancel();
+        _showQueued = true;
+      },
+      onExit: _scheduleHide,
     );
   }
 
@@ -3395,10 +3440,7 @@ class _OpenHandOperationalRankTableState
   }
 
   void _captureAnchor(BuildContext cellContext) {
-    final box = cellContext.findRenderObject();
-    if (box is RenderBox && box.hasSize && box.attached) {
-      _anchorGlobal = box.localToGlobal(Offset.zero) & box.size;
-    }
+    _anchorGlobal = _chartTooltipAnchorRect(cellContext) ?? _anchorGlobal;
   }
 
   void _showCellTip({
@@ -3426,17 +3468,12 @@ class _OpenHandOperationalRankTableState
     }
     final generation = ++_generation;
     _showTimer?.cancel();
-    final delay = openHandTickerMotionEnabled(context)
-        ? _kHeatmapHoverShowDelay
-        : Duration.zero;
-    _showTimer = startSafeTimer(delay, () {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_showQueued || generation != _generation) return;
-        if (!_portal.isShowing) _portal.show();
-        _transition.forward();
-      });
-      WidgetsBinding.instance.ensureVisualUpdate();
-    });
+    _showTimer = _startChartTooltipShowTimer(
+      context: context,
+      shouldShow: () => mounted && _showQueued && generation == _generation,
+      portal: _portal,
+      transition: _transition,
+    );
   }
 
   void _scheduleHideTip() {
@@ -3444,19 +3481,11 @@ class _OpenHandOperationalRankTableState
     _showTimer?.cancel();
     final generation = ++_generation;
     _hideTimer?.cancel();
-    _hideTimer = startSafeTimer(_kHeatmapHoverExitGrace, () {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted || _showQueued || generation != _generation) return;
-        try {
-          await _transition.reverse().orCancel;
-        } on TickerCanceled {
-          return;
-        }
-        if (!mounted || _showQueued || generation != _generation) return;
-        if (_portal.isShowing) _portal.hide();
-      });
-      WidgetsBinding.instance.ensureVisualUpdate();
-    });
+    _hideTimer = _startChartTooltipHideTimer(
+      shouldHide: () => mounted && !_showQueued && generation == _generation,
+      portal: _portal,
+      transition: _transition,
+    );
   }
 
   Widget _buildOverlay(BuildContext overlayContext) {
@@ -3464,40 +3493,17 @@ class _OpenHandOperationalRankTableState
     final accent =
         _activeAccent ?? Theme.of(overlayContext).colorScheme.primary;
     if (tooltip == null) return const SizedBox.shrink();
-    return Positioned.fill(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final metrics = _HeatmapHoverMetrics.resolve(
-            context: context,
-            overlaySize: Size(constraints.maxWidth, constraints.maxHeight),
-            anchor: _anchorGlobal,
-          );
-          return CustomSingleChildLayout(
-            delegate: _HeatmapHoverLayoutDelegate(metrics),
-            child: MouseRegion(
-              onEnter: (_) {
-                _hideTimer?.cancel();
-                _showQueued = true;
-              },
-              onExit: (_) => _scheduleHideTip(),
-              child: AnimatedBuilder(
-                animation: _transition,
-                child: _HeatmapHoverCard(tooltip: tooltip, accent: accent),
-                builder: (context, child) => buildAnimationStyleTransition(
-                  animation: _transition,
-                  settings: _motion,
-                  profile: OpenHandAnimationTransitionProfile(
-                    alignment: metrics.placedAbove
-                        ? Alignment.bottomCenter
-                        : Alignment.topCenter,
-                  ),
-                  child: child!,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+    return _buildChartTooltipOverlay(
+      anchor: _anchorGlobal,
+      tooltip: tooltip,
+      accent: accent,
+      transition: _transition,
+      settings: _motion,
+      onEnter: () {
+        _hideTimer?.cancel();
+        _showQueued = true;
+      },
+      onExit: _scheduleHideTip,
     );
   }
 
@@ -4112,10 +4118,7 @@ class _OpenHandOperationalHeatmapState extends State<OpenHandOperationalHeatmap>
   }
 
   void _captureAnchor(BuildContext cellContext) {
-    final box = cellContext.findRenderObject();
-    if (box is RenderBox && box.hasSize && box.attached) {
-      _anchorGlobal = box.localToGlobal(Offset.zero) & box.size;
-    }
+    _anchorGlobal = _chartTooltipAnchorRect(cellContext) ?? _anchorGlobal;
   }
 
   void _showAt(int index, BuildContext cellContext) {
@@ -4140,17 +4143,12 @@ class _OpenHandOperationalHeatmapState extends State<OpenHandOperationalHeatmap>
     }
     final generation = ++_generation;
     _showTimer?.cancel();
-    final delay = openHandTickerMotionEnabled(context)
-        ? _kHeatmapHoverShowDelay
-        : Duration.zero;
-    _showTimer = startSafeTimer(delay, () {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_showQueued || generation != _generation) return;
-        if (!_portal.isShowing) _portal.show();
-        _transition.forward();
-      });
-      WidgetsBinding.instance.ensureVisualUpdate();
-    });
+    _showTimer = _startChartTooltipShowTimer(
+      context: context,
+      shouldShow: () => mounted && _showQueued && generation == _generation,
+      portal: _portal,
+      transition: _transition,
+    );
   }
 
   void _scheduleHide() {
@@ -4159,25 +4157,17 @@ class _OpenHandOperationalHeatmapState extends State<OpenHandOperationalHeatmap>
     _showTimer?.cancel();
     final generation = ++_generation;
     _hideTimer?.cancel();
-    _hideTimer = startSafeTimer(_kHeatmapHoverExitGrace, () {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted || _showQueued || generation != _generation) return;
-        try {
-          await _transition.reverse().orCancel;
-        } on TickerCanceled {
-          return;
-        }
-        if (!mounted || _showQueued || generation != _generation) return;
-        if (_portal.isShowing) _portal.hide();
-        if (mounted) {
-          setState(() {
-            _hoveredIndex = null;
-            _pressedIndex = null;
-          });
-        }
-      });
-      WidgetsBinding.instance.ensureVisualUpdate();
-    });
+    _hideTimer = _startChartTooltipHideTimer(
+      shouldHide: () => mounted && !_showQueued && generation == _generation,
+      portal: _portal,
+      transition: _transition,
+      onHidden: () {
+        setState(() {
+          _hoveredIndex = null;
+          _pressedIndex = null;
+        });
+      },
+    );
   }
 
   void _togglePin(int index, BuildContext cellContext) {
@@ -4194,40 +4184,17 @@ class _OpenHandOperationalHeatmapState extends State<OpenHandOperationalHeatmap>
     final tooltip = _activeTooltip;
     final accent = _activeAccent ?? widget.color;
     if (tooltip == null) return const SizedBox.shrink();
-    return Positioned.fill(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final metrics = _HeatmapHoverMetrics.resolve(
-            context: context,
-            overlaySize: Size(constraints.maxWidth, constraints.maxHeight),
-            anchor: _anchorGlobal,
-          );
-          return CustomSingleChildLayout(
-            delegate: _HeatmapHoverLayoutDelegate(metrics),
-            child: MouseRegion(
-              onEnter: (_) {
-                _hideTimer?.cancel();
-                _showQueued = true;
-              },
-              onExit: (_) => _scheduleHide(),
-              child: AnimatedBuilder(
-                animation: _transition,
-                child: _HeatmapHoverCard(tooltip: tooltip, accent: accent),
-                builder: (context, child) => buildAnimationStyleTransition(
-                  animation: _transition,
-                  settings: _settings,
-                  profile: OpenHandAnimationTransitionProfile(
-                    alignment: metrics.placedAbove
-                        ? Alignment.bottomCenter
-                        : Alignment.topCenter,
-                  ),
-                  child: child!,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+    return _buildChartTooltipOverlay(
+      anchor: _anchorGlobal,
+      tooltip: tooltip,
+      accent: accent,
+      transition: _transition,
+      settings: _settings,
+      onEnter: () {
+        _hideTimer?.cancel();
+        _showQueued = true;
+      },
+      onExit: _scheduleHide,
     );
   }
 
