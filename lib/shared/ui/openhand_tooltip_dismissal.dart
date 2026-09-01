@@ -7,7 +7,7 @@ const String _kTooltipDismissLogTag = 'tooltip_dismissal';
 
 bool _tooltipDismissScheduled = false;
 
-/// Dismisses Material tooltips without mutating OverlayPortal during layout.
+/// 安全关闭 Material 工具提示，避免在布局阶段修改浮层。
 void dismissOpenHandTooltipsSafely({
   String debugLabel = 'OpenHand.dismissTooltips',
 }) {

@@ -1,4 +1,3 @@
-// Re-export the domain model so external callers reach it through the barrel.
 export 'memory_controller.dart';
 export 'memory_module.dart';
 export 'model/user_memory_entry.dart' show UserMemoryEntry;

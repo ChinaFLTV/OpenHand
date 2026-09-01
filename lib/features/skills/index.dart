@@ -1,4 +1,3 @@
-// Domain model re-exports — external callers reach them through the barrel.
 export 'model/local_skill.dart';
 
 export 'skills_controller.dart';

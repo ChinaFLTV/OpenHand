@@ -1,5 +1,3 @@
-// harness is a widget-bundle feature (no Controller).
-// barrel exposes 入口 widget、领域模型与 home/main 需要的 service 类型。
 export 'data/harness_session_store.dart';
 export 'model/harness_phase.dart';
 export 'model/harness_phase_context_config.dart';

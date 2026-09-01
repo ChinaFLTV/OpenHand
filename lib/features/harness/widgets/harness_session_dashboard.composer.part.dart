@@ -41,16 +41,9 @@ class _HeComposer extends StatelessWidget {
   final bool primaryActionEnabled;
   final VoidCallback onPrimaryAction;
 
-  /// Whether the manual input is for the reviewing phase.
   final bool isManualReviewPhase;
-
-  /// Callback for explicit PASS verdict during manual review.
   final VoidCallback? onReviewPass;
-
-  /// Callback for explicit FAIL verdict during manual review.
   final VoidCallback? onReviewFail;
-
-  /// Whether a review verdict is currently being submitted.
   final bool reviewSubmitting;
 
   @override
@@ -88,7 +81,6 @@ class _HeComposer extends StatelessWidget {
       );
     }
 
-    // The permission button — active, not disabled.
     final buttonFg = fullAccessPermission
         ? OpenHandStatusColors.warning
         : colorScheme.onSurfaceVariant;
@@ -427,8 +419,7 @@ class _HeComposer extends StatelessWidget {
           ),
         ),
         kOpenHandHGap10,
-        // When manual review is active for the reviewing phase, show
-        // explicit Pass / Fail verdict buttons instead of a single Send.
+        // 人工审查阶段直接显示通过和驳回操作。
         if (manualPhaseEnabled && isManualReviewPhase) ...[
           SizedBox(
             height: 52,
@@ -533,7 +524,6 @@ class _HeComposer extends StatelessWidget {
   }
 }
 
-// _HePhaseApprovalBanner — shown between phases when user approval is needed
 class _HePhaseApprovalBanner extends StatelessWidget {
   const _HePhaseApprovalBanner({
     required this.nextPhase,
@@ -817,7 +807,6 @@ class _HePhaseApprovalBanner extends StatelessWidget {
   }
 }
 
-// _HePendingPhaseEditor — allows changing CLI/model for a pending phase
 class _HePendingPhaseEditor extends StatelessWidget {
   const _HePendingPhaseEditor({
     required this.roleConfig,
@@ -876,7 +865,6 @@ class _HePendingPhaseEditor extends StatelessWidget {
             ),
           ),
           kOpenHandGap8,
-          // Execution mode toggle row.
           Row(
             children: [
               ChoiceChip(

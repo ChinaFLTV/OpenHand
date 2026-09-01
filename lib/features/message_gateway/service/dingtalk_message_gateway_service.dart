@@ -2884,13 +2884,15 @@ class DingTalkMessageGatewayService {
     if (text.isEmpty) return const <String, Object?>{};
     try {
       return jsonDecode(text);
-    } catch (_) {
+    } on FormatException {
       for (final line in text.split(RegExp(r'\r?\n')).reversed) {
         final candidate = line.trim();
         if (!(candidate.startsWith('{') || candidate.startsWith('['))) continue;
         try {
           return jsonDecode(candidate);
-        } catch (_) {}
+        } on FormatException {
+          continue;
+        }
       }
     }
     return const <String, Object?>{};

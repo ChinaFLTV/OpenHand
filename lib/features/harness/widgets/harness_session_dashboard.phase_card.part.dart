@@ -40,7 +40,7 @@ class _HePhaseCard extends StatefulWidget {
   /// 非空时允许用户修改等待阶段的 CLI 和模型。
   final ValueChanged<HarnessRoleConfig>? onRoleConfigChanged;
 
-  /// Root directories for file path resolution.
+  /// 解析文件路径时使用的根目录。
   final List<String> filePathRoots;
 
   @override
@@ -49,11 +49,6 @@ class _HePhaseCard extends StatefulWidget {
 
 class _HePhaseCardState extends State<_HePhaseCard> {
   static const _expandSwitchDuration = kOpenHandMotion280;
-
-  @override
-  void didUpdateWidget(covariant _HePhaseCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-  }
 
   String _collapsedPreviewLine(List<String> lines) {
     return lines.lastWhere((line) {
@@ -73,8 +68,6 @@ class _HePhaseCardState extends State<_HePhaseCard> {
     }, orElse: () => '');
   }
 
-  /// Returns the HarnessRoleConfig that drives this phase.
-  /// Mirrors HarnessOrchestrator._roleConfigForPhase.
   HarnessRoleConfig _roleConfig() {
     final c = widget.config;
     return switch (widget.log.phase) {
@@ -95,7 +88,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
   };
 
   IconData get _statusIcon {
-    // Completed reviewing phases with FAIL verdict use a warning icon.
+    // 审查阶段失败时使用警告图标。
     if (widget.log.status == HarnessPhaseStatus.completed &&
         widget.log.reviewVerdictFail) {
       return Icons.unpublished_rounded;
@@ -112,7 +105,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
   }
 
   String _statusText(BuildContext context) {
-    // Completed reviewing phases with FAIL verdict show distinct text.
+    // 审查阶段失败时使用独立状态文案。
     if (widget.log.status == HarnessPhaseStatus.completed &&
         widget.log.reviewVerdictFail) {
       return openHandLocalizedText(
@@ -134,9 +127,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
     final colorScheme = theme.colorScheme;
     final log = widget.log;
     final isZh = widget.isZh;
-    // `context.select` so this card only rebuilds when the cached `aiModels`
-    // reference actually changes, not on every unrelated SettingsController
-    // notification (theme tweaks, animation settings, harness toggles…).
+    // 仅在模型列表变化时重建，忽略设置控制器的其他通知。
     final aiModels = context.select<SettingsController?, List<AiModelConfig>>(
       (controller) => controller?.aiModels ?? const <AiModelConfig>[],
     );
@@ -169,9 +160,6 @@ class _HePhaseCardState extends State<_HePhaseCard> {
       ja: '終了コード',
     );
 
-    // Animate color & border transitions when status changes (e.g. pending →
-    // running → completed). AnimatedContainer handles backgroundColor and
-    // borderColor interpolation automatically.
     return AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion380),
       curve: kOpenHandSwitchInCurve,
@@ -454,8 +442,6 @@ class _HePhaseExpandedBody extends StatelessWidget {
   }
 }
 
-// _HePhaseActionBar — action buttons shown below a selected phase card,
-// matching the _MessageActionButton pattern from AI thread messages.
 class _HePhaseActionBar extends StatelessWidget {
   const _HePhaseActionBar({
     required this.onCopyLog,
@@ -539,7 +525,6 @@ class _HeSweepPill extends StatelessWidget {
   }
 }
 
-// Phase card header pill — mirrors _ToolCallMetaRow
 class _HePhaseMetaRow extends StatelessWidget {
   const _HePhaseMetaRow({
     required this.log,
@@ -567,10 +552,7 @@ class _HePhaseMetaRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // Status-icon indicator with AnimatedSwitcher — transitions smoothly when
-    // the phase status changes (pending → running → completed).
-    // While running the icon position is kept empty; the sweep animation on
-    // the pill itself already signals activity.
+    // 运行状态由扫光表示，隐藏重复的状态图标。
     final statusIndicator = AnimatedSwitcher(
       duration: openHandMotionDuration(context, kOpenHandMotion260),
       transitionBuilder: (child, animation) {
@@ -588,7 +570,6 @@ class _HePhaseMetaRow extends StatelessWidget {
         key: ValueKey<HarnessPhaseStatus>(log.status),
         width: 16,
         height: 16,
-        // Running state: no spinner — the pill sweep conveys activity.
         child: _isRunning
             ? null
             : Icon(
@@ -605,7 +586,6 @@ class _HePhaseMetaRow extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           statusIndicator,
-          // Add spacing only when the icon slot is occupied (non-running).
           if (!_isRunning) kOpenHandHGap8,
           Flexible(
             child: Text(
@@ -632,8 +612,7 @@ class _HePhaseMetaRow extends StatelessWidget {
       ),
     );
 
-    // When running: wrap the pill in the sweep-shimmer overlay.
-    // When idle/done: use a plain container (no animation overhead).
+    // 仅运行时启用扫光，避免空闲状态持续产生动画开销。
     final pillBackground = Colors.black.withValues(alpha: 0.08);
     final pillDecoratedChild = _isRunning
         ? _HeSweepPill(

@@ -21,8 +21,7 @@ class _HeApiToolCallMeta {
   final String command;
   final String workingDirectory;
 
-  /// Scans [lines] for 📥/📤 markers, removes them in-place, and returns
-  /// the extracted metadata. Returns `null` if no markers were found.
+  /// 提取并原地移除 [lines] 中的请求与响应标记；没有标记时返回空。
   static _HeApiToolCallMeta? tryExtract(List<String> lines) {
     String? argsRaw;
     String? statusLine;
@@ -51,8 +50,7 @@ class _HeApiToolCallMeta {
 
     if (argsRaw == null && statusLine == null) return null;
 
-    // Remove marker lines from the list (in reverse order to keep indices
-    // stable).
+    // 倒序移除标记行，保持索引有效。
     final indicesToRemove = <int>[
       if (statusIndex != null) statusIndex,
       if (argsIndex != null) argsIndex,
@@ -61,13 +59,12 @@ class _HeApiToolCallMeta {
       lines.removeAt(idx);
     }
 
-    // Parse arguments JSON — pretty-print for display.
     var argumentsJson = '';
     if (argsRaw != null && argsRaw.isNotEmpty) {
       argumentsJson = formatStructuredTextForDisplay(argsRaw).text;
     }
 
-    // Parse status line: "status: succeeded | 150ms | exit: 0 | cmd: ... | cwd: ..."
+    // 解析格式：status: succeeded | 150ms | exit: 0 | cmd: ... | cwd: ...
     var status = '';
     var durationMs = 0;
     int? exitCode;
@@ -212,10 +209,6 @@ class _HeStructuredToolTrace {
   }) {
     final lines = List<String>.from(segment.lines);
 
-    // ── Try extracting structured markers emitted by HarnessApiPhaseRunner ──
-    // Format:  📥 {json}          ← tool arguments
-    //          📤 status: ... | duration | exit: N | cmd: ... | cwd: ...
-    //          {output lines...}
     final apiMeta = _HeApiToolCallMeta.tryExtract(lines);
 
     final firstContentIndex = _heIndexOfFirstMeaningfulLine(lines);
@@ -223,7 +216,7 @@ class _HeStructuredToolTrace {
         ? lines[firstContentIndex].trim()
         : '';
     final parsedHeader = apiMeta != null
-        ? null // Skip CLI header parsing when structured API markers exist.
+        ? null // 结构化接口标记存在时不再解析命令行头部。
         : _HeParsedToolHeader.tryParse(
             firstContentLine,
             isStreaming: isStreaming,
@@ -236,8 +229,6 @@ class _HeStructuredToolTrace {
 
     final outputLines = <String>[];
     if (apiMeta != null) {
-      // Structured API path — remaining lines (after marker extraction) are
-      // pure tool output.
       outputLines.addAll(lines);
     } else if (parsedHeader != null) {
       if (parsedHeader.inlineResult.isNotEmpty) {
@@ -256,7 +247,6 @@ class _HeStructuredToolTrace {
     final exitCode = apiMeta?.exitCode ?? _heExtractToolExitCode(outputLines);
     var status = apiMeta?.status ?? parsedHeader?.status ?? '';
 
-    // If no status from header, try to extract from output lines.
     if (status.isEmpty) {
       status = _heExtractStatusFromLines(outputLines);
     }
@@ -896,8 +886,7 @@ _HeToolPresentation _heToolPresentationForSegment(
   final role = (segment.roleLabel ?? '').trim().toLowerCase();
   final command = (parsedHeader?.command ?? '').toLowerCase();
 
-  // Match roleLabel set by _heParseOutputSegments for
-  // tool calls detected via '⚙ 工具调用：{ToolName}' format.
+  // 匹配解析“⚙ 工具调用：{ToolName}”格式时写入的角色标签。
   if (role == 'bash' ||
       role == 'exec' ||
       command.contains('/bin/zsh') ||
@@ -992,7 +981,6 @@ _HeToolPresentation _heToolPresentationForSegment(
       isCommandLike: false,
     );
   }
-  // Use roleLabel as-is if it looks like a tool name.
   if (role.isNotEmpty && role.length <= 20) {
     return _HeToolPresentation(
       label: segment.roleLabel!.trim(),
@@ -1400,8 +1388,7 @@ int? _heExtractToolExitCode(List<String> lines) {
   return null;
 }
 
-/// Extracts status from tool output lines.
-/// Matches patterns like 'status: denied', 'status: success', etc.
+/// 从工具输出的 `status: value` 行提取状态。
 final RegExp _heToolOutputStatusPattern = RegExp(
   r'^\s*status\s*:\s*(\w+)',
   caseSensitive: false,

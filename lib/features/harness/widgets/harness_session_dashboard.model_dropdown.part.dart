@@ -16,7 +16,6 @@ class _HeModelDropdown extends StatelessWidget {
     final configuredModelId = roleConfig.modelId.trim();
 
     if (models.isEmpty) {
-      // Free-form text field for model ID.
       return TextFormField(
         key: ValueKey<String>('he-model-text-${roleConfig.cliName}'),
         initialValue: roleConfig.modelId,

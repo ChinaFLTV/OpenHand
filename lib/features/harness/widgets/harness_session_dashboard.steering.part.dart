@@ -16,13 +16,8 @@ class _HeSteeringAssetsDialog extends StatefulWidget {
 }
 
 class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
-  /// The path segments relative to steeringRoot. Empty = root.
   late List<String> _pathSegments;
-
-  /// Cached entries for the current directory.
   List<_HeSteeringEntry> _entries = const [];
-
-  /// Whether we're still scanning.
   bool _loading = true;
   int _scanGeneration = 0;
 
@@ -118,7 +113,6 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
       context: context,
       builder: (_) => _HeSteeringFileEditorDialog(filePath: entry.absolutePath),
     ).then((_) {
-      // Refresh in case file was modified.
       _scanDirectory();
     });
   }
@@ -514,7 +508,6 @@ class _HeSteeringEntryTile extends StatelessWidget {
   }
 }
 
-// _HeSteeringFileEditorDialog — Markdown editor with live preview
 class _HeSteeringFileEditorDialog extends StatefulWidget {
   const _HeSteeringFileEditorDialog({required this.filePath});
 
@@ -535,8 +528,7 @@ class _HeSteeringFileEditorDialogState
   String? _error;
   bool _showPreview = true;
 
-  /// The text as last saved (or as loaded). Used to detect real changes
-  /// vs cursor-only movements (which also fire the controller listener).
+  /// 最近保存的正文，用于排除仅移动光标产生的控制器通知。
   String _savedText = '';
 
   @override
@@ -606,7 +598,6 @@ class _HeSteeringFileEditorDialogState
   }
 
   void _onEdit() {
-    // Fire only when the text itself has changed, not on mere cursor movement.
     final nowDirty = _controller.text != _savedText;
     if (nowDirty != _dirty) setState(() => _dirty = nowDirty);
   }
@@ -680,11 +671,8 @@ class _HeSteeringFileEditorDialogState
     );
   }
 
-  // ── Format helpers ─────────────────────────────────────────────────────────
-
   void _refocus() => _editorFocusNode.requestFocus();
 
-  /// Wraps current selection (or cursor position) with [prefix]/[suffix].
   void _wrapInline(String prefix, [String? suffix]) {
     suffix ??= prefix;
     final v = _controller.value;
@@ -714,7 +702,6 @@ class _HeSteeringFileEditorDialogState
     _refocus();
   }
 
-  /// Prefixes every line covered by the selection with [prefix].
   void _prefixLines(String prefix) {
     final v = _controller.value;
     final text = v.text;
@@ -740,7 +727,6 @@ class _HeSteeringFileEditorDialogState
     _refocus();
   }
 
-  /// Inserts [snippet] at cursor, optionally placing cursor at [cursorOffset].
   void _insertSnippet(String snippet, {int? cursorOffset}) {
     final v = _controller.value;
     final text = v.text;
@@ -757,8 +743,6 @@ class _HeSteeringFileEditorDialogState
     );
     _refocus();
   }
-
-  // ── Format actions ─────────────────────────────────────────────────────────
 
   void _applyHeading(int level) => _prefixLines('${'#' * level} ');
   void _applyBold() => _wrapInline('**');
@@ -798,12 +782,10 @@ class _HeSteeringFileEditorDialogState
     final text = v.text;
     final sel = v.selection;
     if (sel.isValid && !sel.isCollapsed) {
-      // Wrap selection as link text; select "url" placeholder for easy editing.
       final selected = text.substring(sel.start, sel.end);
       final snippet = '[$selected](url)';
       final newText =
           '${text.substring(0, sel.start)}$snippet${text.substring(sel.end)}';
-      // "url" is at sel.start + 1 + selected.length + 2 = sel.start + selected.length + 3
       final urlStart = sel.start + selected.length + 3;
       _controller.value = v.copyWith(
         text: newText,
@@ -813,7 +795,6 @@ class _HeSteeringFileEditorDialogState
         ),
       );
     } else {
-      // No selection: insert [](url) with cursor between brackets.
       final offset = sel.isValid ? sel.start : text.length;
       _controller.value = v.copyWith(
         text: '${text.substring(0, offset)}[](url)${text.substring(offset)}',
@@ -824,8 +805,6 @@ class _HeSteeringFileEditorDialogState
   }
 
   void _insertHR() => _insertSnippet('\n\n---\n\n');
-
-  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -1152,7 +1131,6 @@ class _HeSteeringFileEditorDialogState
               onTap: _applyInlineCode,
             ),
             sep,
-            // Block
             _MdToolbarBtn(
               icon: Icons.data_object_rounded,
               tooltip: openHandCodeBlockLabel(context),
@@ -1172,7 +1150,6 @@ class _HeSteeringFileEditorDialogState
               onTap: _applyBlockquote,
             ),
             sep,
-            // Lists
             _MdToolbarBtn(
               icon: Icons.format_list_bulleted,
               tooltip: openHandLocalizedText(
@@ -1200,7 +1177,6 @@ class _HeSteeringFileEditorDialogState
               onTap: _applyOrderedList,
             ),
             sep,
-            // Misc
             _MdToolbarBtn(
               icon: Icons.link_rounded,
               tooltip: openHandLocalizedText(
@@ -1238,10 +1214,7 @@ class _HeSteeringFileEditorDialogState
     ThemeData theme,
     ColorScheme colorScheme,
   ) {
-    // Clip.antiAliasWithSaveLayer composites to a separate layer before
-    // blending, fully eliminating the white-corner bleed that Clip.antiAlias
-    // produces when a Dialog's white background shows through the rounded
-    // edges during anti-aliasing.
+    // 使用独立合成层，避免弹窗白色背景从圆角边缘渗出。
     return Container(
       clipBehavior: Clip.antiAliasWithSaveLayer,
       decoration: BoxDecoration(
@@ -1265,8 +1238,7 @@ class _HeSteeringFileEditorDialogState
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
-          // Transparent fill prevents InputDecorator from painting its own
-          // opaque background on top of the Container's background colour.
+          // 透明填充避免输入装饰覆盖容器背景。
           filled: true,
           fillColor: Colors.transparent,
           contentPadding: const EdgeInsets.all(14),

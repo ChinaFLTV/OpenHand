@@ -11,8 +11,7 @@ const int _maxHarnessSessionTitleCharacters = 512;
 const int _maxHarnessSessionErrorCharacters = 4000;
 const int _maxHarnessStorageValueCharacters = 64;
 
-/// Persisted metadata for a single Harness Engineering session.
-/// Saved to disk so the session survives app restarts.
+/// 可跨应用重启恢复的 Harness 工程会话元数据。
 class HarnessSessionRecord {
   const HarnessSessionRecord({
     required this.id,
@@ -31,12 +30,12 @@ class HarnessSessionRecord {
 
   final String id;
 
-  /// Short title derived from the first line of [config.task].
+  /// 从任务首行生成的短标题。
   final String title;
 
   final HarnessSessionConfig config;
 
-  /// Serialised status string (uses [HarnessOrchestratorStatus.name]).
+  /// 使用 [HarnessOrchestratorStatus.name] 序列化的状态。
   final String statusValue;
 
   final DateTime createdAt;
@@ -48,7 +47,6 @@ class HarnessSessionRecord {
   final String? queuedManualPhaseInput;
   final String? queuedManualPhaseInputPhaseValue;
 
-  /// Parsed status from [statusValue].
   HarnessOrchestratorStatus get status {
     return enumByNameOr(
       HarnessOrchestratorStatus.values,

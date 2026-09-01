@@ -492,11 +492,7 @@ class _HeMarkdownPreviewBodyState extends State<_HeMarkdownPreviewBody> {
                             (currentHeight - nextHeight).abs() < 0.5) {
                           return;
                         }
-                        // Defer the height-driven setState to the next frame
-                        // so a single layout pass that emits multiple
-                        // intermediate sizes (common with streaming
-                        // markdown) collapses into one rebuild instead of
-                        // many.
+                        // 延至下一帧更新高度，合并流式 Markdown 单次布局产生的多次测量。
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           if (!mounted) return;
                           if (_contentHeight == nextHeight) return;

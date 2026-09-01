@@ -1,5 +1,3 @@
-/// User Instructions UI
-///
 /// 与 [MemoryView] / McpView 等模块对齐：顶部页头 + 操作按钮 +
 /// 列表正文。支持新增、编辑、删除、启停、拖拽排序。
 library;

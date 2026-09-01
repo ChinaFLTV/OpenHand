@@ -24,9 +24,7 @@ Future<void> _jumpToCacheHitTurn(
       ? targetMessageId
       : point.starterMessageId.trim();
   if (targetMessageId.isEmpty) {
-    // Older persisted trend points did not carry the round starter id. Do the
-    // one-time full hydration only for that legacy shape, then rebuild the
-    // trend to recover the same turn without guessing from list positions.
+    // 旧趋势点没有轮次起始消息标识，仅为该旧数据完整加载一次并重建趋势。
     final hydrated = await controller.ensureSessionMessagesHydrated(session.id);
     final source = hydrated ?? controller.sessionById(session.id) ?? session;
     final rebuiltTrend = SessionCacheHitTrend.fromSession(
@@ -577,8 +575,6 @@ class _SessionPlanTimelineBar extends StatefulWidget {
 
 class _SessionPlanTimelineBarState extends State<_SessionPlanTimelineBar> {
   final ScrollController _stepsScrollController = ScrollController();
-  // Per-step keys so we can locate the "current" chip's RenderBox after
-  // layout and animate it into the horizontal centre of the strip.
   final Map<int, GlobalKey> _stepKeys = <int, GlobalKey>{};
   int? _lastCenteredCurrentIndex;
 
@@ -609,9 +605,6 @@ class _SessionPlanTimelineBarState extends State<_SessionPlanTimelineBar> {
       final key = _stepKeys[currentIndex];
       final chipContext = key?.currentContext;
       if (chipContext == null) return;
-      // Prefer Scrollable.ensureVisible with alignment=0.5 so the
-      // horizontal scroller settles with the chip centred. The Q-elastic
-      // feel comes from the elasticOut curve (overshoot + settle).
       Scrollable.ensureVisible(
         chipContext,
         alignment: 0.5,

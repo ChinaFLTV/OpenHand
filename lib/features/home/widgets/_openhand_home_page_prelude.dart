@@ -26,13 +26,10 @@ const double _stackedNavigationMaxHeight = 360;
 const double _composerMinHeight = 168;
 const double _composerDefaultHeight = 196;
 const double _composerMaxHeight = 440;
-// Auto-follow pauses only after a clearer user scroll away. This avoids
-// repeated layout jitter when older markdown/code blocks finish measuring
-// after history prepend.
+// 仅在用户明显向上滚动后暂停自动跟随，避免旧内容测高完成时反复抖动。
 const double _autoFollowPauseHysteresis = 96;
 const String _detachedComposerDraftSessionKey = '__detached_composer_draft__';
-// Long transcripts expose the latest window first; older history expands only
-// when the user asks for it, keeping the active scroll extent stable.
+// 长会话先显示最新窗口，按需展开旧记录，保持当前滚动范围稳定。
 const int _transcriptWindowIncrement =
     TranscriptListWindowing.defaultWindowIncrement;
 const int _transcriptOpenFirstPaintCap =

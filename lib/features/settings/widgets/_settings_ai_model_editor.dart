@@ -1139,11 +1139,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                   kOpenHandGap16,
                   Expanded(
                     child: SingleChildScrollView(
-                      // Disable the macOS trackpad rubber-band / overscroll
-                      // elastic effect. Inside a bounded-height modal dialog
-                      // the bouncing spring simulation combined with rapid
-                      // successive wheel / trackpad events causes the
-                      // visible "pull-back / jitter" glitch.
+                      // 禁用 macOS 触控板回弹，避免限高弹窗快速滚动时抖动。
                       physics: const ClampingScrollPhysics(),
                       child: Form(
                         key: _formKey,
@@ -2854,7 +2850,6 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     _modelIdController = TextEditingController(text: widget.modelId);
     _reservedModelIds = widget.existingModelIds.toSet();
 
-    // Display name: pre-fill with model ID when creating a fresh profile.
     _displayNameController = TextEditingController(
       text:
           p.displayName ??
@@ -3134,7 +3129,6 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     ).toSet();
 
     if (hasExisting) {
-      // User already configured — use their saved values.
       _isMultimodal = p.isMultimodal;
       _supportsAttachments = p.supportsAttachments;
       _requiresReasoningEcho = p.requiresReasoningEcho;
@@ -3147,7 +3141,6 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
         p.capabilities.isNotEmpty ? p.capabilities : effective.capabilities,
       );
     } else {
-      // Fresh profile — try catalog first, fall back to heuristic inference.
       final catalog = AiModelCatalog.lookup(
         widget.modelId,
         widget.protocolType,
@@ -4947,10 +4940,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       content: SizedBox(
         width: 480,
         child: SingleChildScrollView(
-          // Use clamping physics to avoid macOS trackpad rubber-band
-          // overscroll, which inside a modal AlertDialog presents as a
-          // "pull-back / shake" jitter when the user rapidly scrolls to
-          // either edge.
+          // 禁用 macOS 触控板回弹，避免弹窗快速滚动到边缘时抖动。
           physics: const ClampingScrollPhysics(),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -4994,8 +4984,6 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 ),
                 kOpenHandGap12,
               ],
-
-              // Display name
               TextField(
                 controller: _displayNameController,
                 decoration: InputDecoration(
@@ -5007,8 +4995,6 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 ),
               ),
               kOpenHandGap12,
-
-              // Description
               TextField(
                 controller: _descriptionController,
                 decoration: InputDecoration(
@@ -5021,8 +5007,6 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
 
               _buildGlobalDefaultTitleModelControl(),
               kOpenHandGap16,
-
-              // Multimodal toggle (tri-state)
               _buildSectionHeader(
                 AppLocalizations.of(context)!.mdlEdMultimodalSupport,
               ),
@@ -5049,10 +5033,6 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 ],
               ),
               kOpenHandGap16,
-
-              // Supports attachments toggle (tri-state). Drives whether the
-              // composer's attachment button is enabled for sessions using
-              // this model.
               _buildSectionHeader(
                 AppLocalizations.of(context)!.mdlEdSupportsAttachments,
               ),
@@ -5167,8 +5147,6 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     .toList(growable: false),
               ),
               kOpenHandGap16,
-
-              // Capabilities
               _buildSectionHeader(
                 AppLocalizations.of(context)!.mdlEdGenerationCapabilities,
               ),
@@ -5844,8 +5822,6 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 _buildEmbeddingNormalizedControl(),
                 kOpenHandGap16,
               ],
-
-              // Token limits
               _buildSectionHeader(
                 AppLocalizations.of(context)!.mdlEdTokenLimits,
               ),

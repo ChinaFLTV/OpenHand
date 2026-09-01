@@ -5,10 +5,10 @@ import '../../../shared/util/text_clip.dart';
 
 const int _maxHarnessRoleValueCharacters = 1024;
 
-/// Execution mode for a Harness Engineering agent role.
+/// Harness 工程角色的执行模式。
 ///
-/// - [cli]: Invoke an external CLI tool (claude, codex, gemini, etc.)
-/// - [url]: Use an API-based model from OpenHand settings via HTTP
+/// - [cli]：调用外部命令行工具。
+/// - [url]：通过 HTTP 调用 OpenHand 设置中的模型。
 enum HarnessExecutionMode {
   cli('cli'),
   url('url');
@@ -37,22 +37,19 @@ class HarnessRoleConfig {
     this.urlModeModelId,
   });
 
-  /// Execution mode: CLI-based or URL/API-based.
+  /// 命令行或接口执行模式。
   final HarnessExecutionMode executionMode;
 
-  /// CLI display name (e.g. "Claude Code"). Used when [executionMode] == cli.
+  /// 命令行工具显示名称，仅用于命令行模式。
   final String cliName;
 
-  /// Model ID for CLI invocation (e.g. "claude-opus-4-6").
-  /// For URL mode, this is informational only (the actual model comes from
-  /// the referenced AiModelConfig).
+  /// 命令行调用的模型标识；接口模式下仅供展示。
   final String modelId;
 
-  /// ID of the AiModelConfig entry from settings. Used when [executionMode] == url.
+  /// 接口模式使用的模型配置标识。
   final String? aiModelConfigId;
 
-  /// Specific model ID to use within the provider. Used when [executionMode] == url.
-  /// If null, the provider's default [AiModelConfig.modelId] is used.
+  /// 接口模式使用的提供商模型标识；为空时采用提供商默认模型。
   final String? urlModeModelId;
 
   bool get isConfigured {

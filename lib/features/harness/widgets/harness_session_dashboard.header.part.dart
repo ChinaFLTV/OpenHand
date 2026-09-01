@@ -61,7 +61,7 @@ class _HePaneHeader extends StatelessWidget {
           ja: 'Harness Engineering セッション',
         );
 
-  /// Returns a label like "元数据采集 1/3" describing current execution position.
+  /// 返回“元数据采集 1/3”形式的当前执行位置。
   String _phaseProgressLabel(BuildContext context) {
     final logs = orchestrator.phaseLogs;
     final total = logs.length;
@@ -544,8 +544,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final logs = orchestrator.phaseLogs;
-    // `context.select` so the header only rebuilds when the cached aiModels
-    // reference changes, not on every unrelated SettingsController notify.
+    // 仅在模型列表变化时重建，忽略设置控制器的其他通知。
     final aiModels = context.select<SettingsController?, List<AiModelConfig>>(
       (controller) => controller?.aiModels ?? const <AiModelConfig>[],
     );

@@ -1,7 +1,5 @@
 part of 'settings_view.dart';
 
-/// Compact action row that restores every animation bucket to the curated
-/// built-in motion defaults in one persisted transaction.
 class _AnimationRestoreDefaultsSection extends StatelessWidget {
   const _AnimationRestoreDefaultsSection({required this.settingsController});
 
@@ -143,13 +141,6 @@ class _PageAnimationSettingsSection extends StatelessWidget {
   }
 }
 
-/// Animation settings for chip-shaped removable badges throughout the
-/// app — selected skill chip, attachment chips, project reference
-/// chips, queued message chips, editing pill, etc. Drives both the
-/// entrance animation when a chip is added and the exit animation
-/// when its X-button is tapped (the chip animates out, then collapses
-/// its slot in the Wrap/Column before being removed from the data
-/// model).
 class _ChipAnimationSettingsSection extends StatelessWidget {
   const _ChipAnimationSettingsSection({required this.settingsController});
 
@@ -173,9 +164,6 @@ class _ChipAnimationSettingsSection extends StatelessWidget {
   }
 }
 
-/// Animation settings for list-item entrance throughout the app —
-/// MCP servers, memory entries, instruction cards, sidebar threads,
-/// and tool-call cards. Removals use their own confirmation dialog motion.
 class _ListItemAnimationSettingsSection extends StatelessWidget {
   const _ListItemAnimationSettingsSection({required this.settingsController});
 

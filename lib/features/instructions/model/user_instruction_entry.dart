@@ -1,5 +1,3 @@
-/// User Instructions feature — model
-///
 /// 单条用户自定义指令的不可变描述。指令在以下两个位置使用：
 ///   1. 全局指令模块（侧边栏 → 指令）— UI 编辑/排序/启停。
 ///   2. 各线程模板的 system prompt 拼装阶段 — 启用且未被本轮对话临时
@@ -106,8 +104,6 @@ class UserInstructionEntry {
       'updated_at': updatedAt.toUtc().toIso8601String(),
     };
   }
-
-  // === 静态约束 / 工具 ===
 
   static const int maxNameLength = 80;
   static const int maxDescriptionLength = 240;

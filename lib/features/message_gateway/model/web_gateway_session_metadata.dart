@@ -1,8 +1,7 @@
 import 'web_message_platform_config.dart';
 
-/// Builds the stable session metadata shape shared by Web requests and the
-/// gateway history UI. Empty device fields remain present for compatibility
-/// with sessions created by earlier OpenHand versions.
+/// 构建 Web 请求与网关历史界面共用的稳定会话元数据结构。
+/// 保留空设备字段，以兼容旧版本创建的会话。
 Map<String, Object?> buildWebGatewayRequestMetadata({
   required Map<String, Object?> authMetadata,
   required String requestMethod,

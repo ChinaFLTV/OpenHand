@@ -1,7 +1,5 @@
 part of '../openhand_home_page.dart';
 
-// _FileMutationRow — shows file-change indicator for write/edit/multiedit tools
-
 String _fileMutationKind(AiSessionMessage message) =>
     '${message.metadata['file_mutation_kind'] ?? ''}'.trim();
 
@@ -88,7 +86,6 @@ class _FileMutationCard extends StatefulWidget {
   @override
   State<_FileMutationCard> createState() => _FileMutationCardState();
 
-  /// Shorten an absolute path to the last 3 segments for readability.
   static String _shortenFilePath(String filePath) {
     if (filePath.isEmpty) return filePath;
     final normalised = filePath.replaceAll('\\', '/');
@@ -115,7 +112,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
   int _bulkUndoDone = 0;
   bool get _bulkUndoBusy => _bulkUndoTotal > 0;
 
-  // view 超过 _kInitialReveal 条时先只渲染前 _kInitialReveal 条，后续点
+  // 记录超过 _kInitialReveal 条时先只渲染前 _kInitialReveal 条，后续点
   // 「展开剩余 N 条」再按 _kRevealStep 递增。避免一次构造上百个
   // _FileMutationCardRow（每个都含可能巨大的 _InlineDiffPanel build closure）。
   static const int _kInitialReveal = 10;
@@ -455,8 +452,6 @@ class _FileMutationCardState extends State<_FileMutationCard> {
         // 渲染只读多文件行（保留点击查看 diff 对话框的能力）。
         if (views.isEmpty) {
           if (fallbackPaths.isEmpty) return const SizedBox.shrink();
-          // FileMutationCard 走 AppearOnce 入场（fade + 12px 上滑）。
-          // AppearOnce 自身在 reduceMotion 时退化为零时长，无需额外 gate。
           return AppearOnce(
             child: _buildLegacyMultiPath(theme, cs, fallbackPaths),
           );
@@ -757,7 +752,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
             ),
           ),
           // 每次 undo/redo 成功在卡顶发一次温和的 highlight pulse；
-          // HighlightPulse 自带 reduceMotion 守门，不需要我们再 gate。
+          // HighlightPulse 会在减少动态效果时自动禁用动画。
           Positioned(
             top: 0,
             left: 0,
@@ -1001,7 +996,7 @@ class _FileMutationCardRow extends StatelessWidget {
   }
 
   /// 长按 / 右键弹出 ContextMenu，便利动作集中暴露：
-  /// reveal in OS / copy path / copy diff / open inspector / jump-to-toolcall。
+  /// 提供系统定位、复制路径、复制差异、打开检查器和跳转工具调用操作。
   Future<void> _showRowContextMenu(
     BuildContext context, {
     Offset? position,
@@ -1169,7 +1164,6 @@ class _FileMutationCardRow extends StatelessWidget {
                     _showRowContextMenu(context, position: d.globalPosition),
                   );
                 },
-                // row hover 背景轻微高亮，让指针落点更清晰。
                 hoverColor: cs.primary.withValues(alpha: 0.05),
                 splashColor: cs.primary.withValues(alpha: 0.10),
                 highlightColor: cs.primary.withValues(alpha: 0.06),
@@ -1196,7 +1190,6 @@ class _FileMutationCardRow extends StatelessWidget {
                         Icon(_kindIcon, size: 14, color: _kindColor(cs)),
                         kOpenHandHGap6,
                         Expanded(
-                          // hover 显示完整路径，右键 / Ctrl-长按复制路径。
                           child: Tooltip(
                             message: view.record.filePath,
                             waitDuration: kOpenHandTooltipWait,
@@ -2329,8 +2322,6 @@ Future<void> _revealFileMutationPath(
   }
 }
 
-// _FileDiffDialog — displays file content diff when file change card is tapped
-
 class _FileDiffDialog extends StatefulWidget {
   const _FileDiffDialog({required this.filePath, required this.changeKind});
 
@@ -2355,12 +2346,10 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
 
   Future<void> _loadDiff() async {
     try {
-      // Create a new instance since AiFileHistoryService is not a singleton.
       final historyService = AiFileHistoryService();
       final versions = await historyService.getVersionHistory(widget.filePath);
 
       if (versions.isEmpty) {
-        // No history, try to read current file content as 'after'.
         final file = File(widget.filePath);
         if (await isRegularFilePath(file.path, followLinks: true)) {
           final content = await readBoundedFileString(
@@ -2391,8 +2380,6 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
         return;
       }
 
-      // Get oldest version as "before" and read current file as "after".
-      // This shows what changed from the saved snapshot to current state.
       final oldest = versions.last;
 
       final (beforeContent, _) = await historyService.readVersionContent(
@@ -2400,7 +2387,6 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
         versionId: oldest.versionId,
       );
 
-      // Read current file content as "after"
       String? afterContent;
       final currentFile = File(widget.filePath);
       if (await isRegularFilePath(currentFile.path, followLinks: true)) {
@@ -2567,7 +2553,7 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
   }
 }
 
-/// FileMutationCard 渐进式展开尾部按钮。
+/// 文件变动卡片的渐进式展开按钮。
 /// - 文案 / 图标走当前 ColorScheme，与 row 视觉对齐；
 /// - 提供「展开 +30」与「全部展开」两个动作；
 /// - 触发的是父 setState，无内部状态，纯展示组件。
@@ -2715,7 +2701,6 @@ class _FileMutationHistoryInspectorDialogState
               ),
             ),
           ),
-          // zoom 模式提示条 + 退出按钮
           if (_zoomedPath != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
@@ -2759,7 +2744,6 @@ class _FileMutationHistoryInspectorDialogState
                             ),
                           )
                           .toList(growable: false);
-                // zoom 模式 → 只保留该路径
                 final visible = _zoomedPath == null
                     ? filtered
                     : filtered
@@ -3143,7 +3127,7 @@ class _RecordKindBadge extends StatelessWidget {
   }
 }
 
-/// FileMutationCard row 键盘 Enter 触发的 Intent。
+/// 文件变动行通过回车键触发的操作。
 class _OpenLegacyDialogIntent extends Intent {
   const _OpenLegacyDialogIntent();
 }
@@ -3158,8 +3142,7 @@ class _RedoLastIntent extends Intent {
   const _RedoLastIntent();
 }
 
-/// inspector 分组卡 hover 微抬升——
-/// 200ms easeOutCubic 边框 / 阴影 fade，reduceMotion 下退化为零时长。
+/// 检查器分组卡片的悬停抬升效果，减少动态效果时禁用动画。
 class _HoverElevateBox extends StatefulWidget {
   const _HoverElevateBox({
     required this.child,
@@ -3269,9 +3252,7 @@ class _DelayedAppearState extends State<_DelayedAppear> {
   }
 }
 
-/// 批量 undo overlay。BackdropFilter blur 6px + primary 色
-/// tinted glow 渐变背景 + 圆形进度环 + 「N/M」百分比文案。淡入淡出由
-/// 外层 AnimatedSwitcher 控制。
+/// 批量撤销遮罩，由外层动画切换器控制淡入淡出。
 class _BulkUndoOverlay extends StatelessWidget {
   const _BulkUndoOverlay({super.key, required this.done, required this.total});
   final int done;
@@ -3645,8 +3626,7 @@ class _RoundFileMutationSummaryCardState
 
   /// 把本轮全部 ledger 记录序列化为 JSON。
   /// 弹出系统文件选择器让用户挑选保存位置 / 文件名；保存成功 / 失败均弹
-  /// SnackBar 提示。字段直接调 FileMutationRecord.toJson()，再附 toolCallId
-  /// / sourceMessageId 让外部审计/对账能完整反查。
+  /// 操作结果通过提示条反馈；额外记录工具调用和来源消息标识，供外部审计反查。
   Future<void> _exportRoundJson(List<_RoundSummaryRow> rows) async {
     final payload = <String, Object?>{
       'session_id':
@@ -3822,14 +3802,14 @@ class _RoundFileMutationSummaryCardState
               ),
             ),
           ),
-          // HighlightPulse: undo / export 成功后温和高亮顶边。
+          // 撤销或导出成功后温和高亮顶边。
           Positioned(
             top: 0,
             left: 0,
             right: 0,
             child: IgnorePointer(child: HighlightPulse(signal: _pulseSignal)),
           ),
-          // Bulk-undo overlay：blur + 进度环。
+          // 批量撤销遮罩。
           Positioned.fill(
             child: IgnorePointer(
               ignoring: !_bulkUndoBusy,
