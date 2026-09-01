@@ -3861,32 +3861,6 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog>
   @override
   void initState() {
     super.initState();
-    if (_isVideoPreview) {
-      final controller = WebViewController()
-        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..addJavaScriptChannel(
-          'OpenHandMedia',
-          onMessageReceived: _handleMediaMessage,
-        )
-        ..setNavigationDelegate(
-          NavigationDelegate(
-            onPageFinished: (_) {
-              if (!mounted) return;
-              setState(() => _pageLoaded = true);
-            },
-            onWebResourceError: (error) {
-              if (!mounted) return;
-              setState(() {
-                _loadError = error.description;
-              });
-            },
-          ),
-        );
-      if (openHandCanSetWebViewBackgroundColor(defaultTargetPlatform)) {
-        controller.setBackgroundColor(Colors.transparent);
-      }
-      _controller = controller;
-    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _dialogFocus.requestFocus();
     });
@@ -3902,7 +3876,7 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog>
       OpenHandMotionSettingsScope.dialog,
     );
     if (_isVideoPreview) {
-      _bootstrapMediaPage();
+      unawaited(_bootstrapMediaPage());
       _loadTimeoutTimer = startSafeTimer(_mediaLoadTimeout, () {
         if (!mounted || _mediaReady) return;
         setState(() {
@@ -3937,36 +3911,75 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog>
 
   // 本地媒体需把 HTML 写到同目录，确保 WKWebView 获得父目录读取权限。
   Future<void> _bootstrapMediaPage() async {
-    final controller = _controller;
-    if (controller == null) return;
-    final localPath = widget.source.filePath;
-    if (localPath != null && await isRegularFilePath(localPath)) {
-      try {
-        final dir = p.dirname(localPath);
-        final tempName =
-            '.openhand_media_player_${DateTime.now().microsecondsSinceEpoch}_${identityHashCode(this)}.html';
-        final tempFile = File(p.join(dir, tempName));
-        await writeTemporaryFileTextBounded(
-          tempFile,
-          _buildMediaHtml(localOverride: localPath),
-          timeout: _remoteMediaFileIoTimeout,
-          onSecondaryError: (error, stack) =>
-              silentLog('home_message_bubble', '清理媒体预览临时页面', error, stack),
-        );
-        if (!mounted) {
-          await _deleteMediaPreviewTempFile(tempFile.path, '媒体预览：清理未挂载的临时页面');
-          return;
-        }
-        _tempHtmlPath = tempFile.path;
-        await controller.loadFile(tempFile.path);
-        return;
-      } catch (error, stack) {
-        silentLog('home_message_bubble', '媒体预览：本地文件加载失败，回退内嵌页面', error, stack);
-        // 继续回退到内嵌页面，失败时仍可使用系统播放器。
+    try {
+      final controller = WebViewController();
+      await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+      await controller.addJavaScriptChannel(
+        'OpenHandMedia',
+        onMessageReceived: _handleMediaMessage,
+      );
+      await controller.setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (_) {
+            if (!mounted) return;
+            setState(() => _pageLoaded = true);
+          },
+          onWebResourceError: (error) {
+            if (!mounted) return;
+            setState(() => _loadError = error.description);
+          },
+        ),
+      );
+      if (openHandCanSetWebViewBackgroundColor(defaultTargetPlatform)) {
+        await controller.setBackgroundColor(Colors.transparent);
       }
+      if (!mounted) return;
+      setState(() => _controller = controller);
+
+      final localPath = widget.source.filePath;
+      if (localPath != null && await isRegularFilePath(localPath)) {
+        try {
+          final dir = p.dirname(localPath);
+          final tempName =
+              '.openhand_media_player_${DateTime.now().microsecondsSinceEpoch}_${identityHashCode(this)}.html';
+          final tempFile = File(p.join(dir, tempName));
+          await writeTemporaryFileTextBounded(
+            tempFile,
+            _buildMediaHtml(localOverride: localPath),
+            timeout: _remoteMediaFileIoTimeout,
+            onSecondaryError: (error, stack) =>
+                silentLog('home_message_bubble', '清理媒体预览临时页面', error, stack),
+          );
+          if (!mounted) {
+            await _deleteMediaPreviewTempFile(tempFile.path, '媒体预览：清理未挂载的临时页面');
+            return;
+          }
+          _tempHtmlPath = tempFile.path;
+          await controller.loadFile(tempFile.path);
+          return;
+        } catch (error, stack) {
+          silentLog(
+            'home_message_bubble',
+            '媒体预览：本地文件加载失败，回退内嵌页面',
+            error,
+            stack,
+          );
+        }
+      }
+      if (!mounted) return;
+      await controller.loadHtmlString(_buildMediaHtml());
+    } catch (error, stack) {
+      silentLog('home_message_bubble', '初始化媒体预览', error, stack);
+      if (!mounted) return;
+      _loadTimeoutTimer?.cancel();
+      setState(() {
+        _loadError = openHandLocalizedText(
+          context,
+          zh: '媒体预览初始化失败，可使用系统播放器打开。',
+          en: 'Failed to initialize the media preview. Open it with the system player instead.',
+        );
+      });
     }
-    if (!mounted) return;
-    await controller.loadHtmlString(_buildMediaHtml());
   }
 
   @override
@@ -7302,25 +7315,8 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
   void initState() {
     super.initState();
     _currentTime = widget.initialTime;
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..addJavaScriptChannel('OpenHandFs', onMessageReceived: _onJsMessage)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageFinished: (_) {
-            if (!mounted) return;
-            setState(() => _ready = true);
-          },
-          onWebResourceError: (error) {
-            if (!mounted) return;
-            setState(() => _loadError = error.description);
-          },
-        ),
-      );
-    if (openHandCanSetWebViewBackgroundColor(defaultTargetPlatform)) {
-      _controller.setBackgroundColor(Colors.black);
-    }
-    _bootstrap();
+    _controller = WebViewController();
+    unawaited(_bootstrap());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focusNode.requestFocus();
     });
@@ -7344,33 +7340,72 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
   }
 
   Future<void> _bootstrap() async {
-    final localPath = widget.source.filePath;
-    if (localPath != null && await isRegularFilePath(localPath)) {
-      try {
-        final dir = p.dirname(localPath);
-        final tempName =
-            '.openhand_fullscreen_${DateTime.now().microsecondsSinceEpoch}_${identityHashCode(this)}.html';
-        final tempFile = File(p.join(dir, tempName));
-        await writeTemporaryFileTextBounded(
-          tempFile,
-          _buildHtml(localOverride: localPath),
-          timeout: _remoteMediaFileIoTimeout,
-          onSecondaryError: (error, stack) =>
-              silentLog('home_message_bubble', '清理全屏视频临时页面', error, stack),
-        );
-        if (!mounted) {
-          await _deleteMediaPreviewTempFile(tempFile.path, '全屏视频：清理未挂载的临时页面');
-          return;
-        }
-        _tempHtmlPath = tempFile.path;
-        await _controller.loadFile(tempFile.path);
-        return;
-      } catch (error, stack) {
-        silentLog('home_message_bubble', '全屏视频：本地文件加载失败，回退内嵌页面', error, stack);
+    try {
+      await _controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+      await _controller.addJavaScriptChannel(
+        'OpenHandFs',
+        onMessageReceived: _onJsMessage,
+      );
+      await _controller.setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (_) {
+            if (!mounted) return;
+            setState(() => _ready = true);
+          },
+          onWebResourceError: (error) {
+            if (!mounted) return;
+            setState(() => _loadError = error.description);
+          },
+        ),
+      );
+      if (openHandCanSetWebViewBackgroundColor(defaultTargetPlatform)) {
+        await _controller.setBackgroundColor(Colors.black);
       }
+      if (!mounted) return;
+
+      final localPath = widget.source.filePath;
+      if (localPath != null && await isRegularFilePath(localPath)) {
+        try {
+          final dir = p.dirname(localPath);
+          final tempName =
+              '.openhand_fullscreen_${DateTime.now().microsecondsSinceEpoch}_${identityHashCode(this)}.html';
+          final tempFile = File(p.join(dir, tempName));
+          await writeTemporaryFileTextBounded(
+            tempFile,
+            _buildHtml(localOverride: localPath),
+            timeout: _remoteMediaFileIoTimeout,
+            onSecondaryError: (error, stack) =>
+                silentLog('home_message_bubble', '清理全屏视频临时页面', error, stack),
+          );
+          if (!mounted) {
+            await _deleteMediaPreviewTempFile(tempFile.path, '全屏视频：清理未挂载的临时页面');
+            return;
+          }
+          _tempHtmlPath = tempFile.path;
+          await _controller.loadFile(tempFile.path);
+          return;
+        } catch (error, stack) {
+          silentLog(
+            'home_message_bubble',
+            '全屏视频：本地文件加载失败，回退内嵌页面',
+            error,
+            stack,
+          );
+        }
+      }
+      if (!mounted) return;
+      await _controller.loadHtmlString(_buildHtml());
+    } catch (error, stack) {
+      silentLog('home_message_bubble', '初始化全屏视频', error, stack);
+      if (!mounted) return;
+      setState(() {
+        _loadError = openHandLocalizedText(
+          context,
+          zh: '全屏视频初始化失败，请返回后重试。',
+          en: 'Failed to initialize fullscreen video. Go back and try again.',
+        );
+      });
     }
-    if (!mounted) return;
-    await _controller.loadHtmlString(_buildHtml());
   }
 
   String _buildHtml({String? localOverride}) {
