@@ -50,7 +50,7 @@ class BoundedWebEngineHttpResponse {
   }
 
   String errorPreview() {
-    return clipTextWithEllipsis(text(), _webEngineErrorPreviewCharacters - 1);
+    return clipTextWithEllipsis(text(), _webEngineErrorPreviewCharacters);
   }
 }
 

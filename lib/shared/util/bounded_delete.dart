@@ -100,10 +100,7 @@ Future<BoundedDeleteResult> deletePathBounded(
       : _normalizeAllowedRoot(allowedRoot);
   if (allowedRootPath != null &&
       !isPathWithinOrEqual(allowedRootPath, targetPath)) {
-    throw _invalidTarget(
-      targetPath,
-      'Delete target is outside its allowed root.',
-    );
+    throw _invalidTarget(targetPath, '删除目标超出允许的根目录。');
   }
   final progress = _DeleteProgress(targetPath);
   final deadline = _DeleteDeadline(policy);
@@ -114,7 +111,7 @@ Future<BoundedDeleteResult> deletePathBounded(
       if (!allowMissing) {
         throw BoundedDeleteException(
           reason: BoundedDeleteFailureReason.fileSystemFailure,
-          message: 'Delete target does not exist.',
+          message: '删除目标不存在。',
           path: targetPath,
           deletedEntries: 0,
           plannedEntries: 0,
@@ -143,10 +140,7 @@ Future<BoundedDeleteResult> deletePathBounded(
         deadline,
       );
       if (!isPathWithinOrEqual(physicalRoot, physicalTarget)) {
-        throw _invalidTarget(
-          targetPath,
-          'Delete target physically resolves outside its allowed root.',
-        );
+        throw _invalidTarget(targetPath, '删除目标的物理路径超出允许的根目录。');
       }
     }
 
@@ -183,9 +177,7 @@ Future<BoundedDeleteResult> deletePathBounded(
     Error.throwWithStackTrace(
       BoundedDeleteException(
         reason: BoundedDeleteFailureReason.timeout,
-        message:
-            'Bounded deletion timed out after '
-            '${progress.deletedEntries} confirmed deletions.',
+        message: '有界删除超时，已确认删除 ${progress.deletedEntries} 个条目。',
         path: progress.activePath,
         deletedEntries: progress.deletedEntries,
         plannedEntries: progress.plannedEntries,
@@ -198,8 +190,7 @@ Future<BoundedDeleteResult> deletePathBounded(
       BoundedDeleteException(
         reason: BoundedDeleteFailureReason.fileSystemFailure,
         message:
-            'Bounded deletion failed after '
-            '${progress.deletedEntries} confirmed deletions: '
+            '有界删除失败，已确认删除 ${progress.deletedEntries} 个条目：'
             '${error.message}',
         path: error.path ?? progress.activePath,
         deletedEntries: progress.deletedEntries,
@@ -216,10 +207,7 @@ Future<BoundedDeleteResult> deletePathBounded(
 String _normalizeTargetPath(String path) {
   final rawPath = path.trim();
   if (rawPath.isEmpty || rawPath.contains('\u0000') || !p.isAbsolute(rawPath)) {
-    throw _invalidTarget(
-      rawPath,
-      'Delete target must be a non-empty absolute path.',
-    );
+    throw _invalidTarget(rawPath, '删除目标必须是非空绝对路径。');
   }
   final normalized = p.normalize(rawPath);
   _requireSafeNormalizedTarget(normalized);
@@ -229,10 +217,7 @@ String _normalizeTargetPath(String path) {
 String _normalizeAllowedRoot(String path) {
   final rawPath = path.trim();
   if (rawPath.isEmpty || rawPath.contains('\u0000') || !p.isAbsolute(rawPath)) {
-    throw _invalidTarget(
-      rawPath,
-      'Delete allowed root must be a non-empty absolute path.',
-    );
+    throw _invalidTarget(rawPath, '删除操作允许的根目录必须是非空绝对路径。');
   }
   return p.normalize(rawPath);
 }
@@ -243,10 +228,7 @@ void _requireSafeNormalizedTarget(String targetPath) {
       _protectedDeletePaths().any(
         (protectedPath) => p.equals(protectedPath, targetPath),
       )) {
-    throw _invalidTarget(
-      targetPath,
-      'Refusing to delete a protected filesystem path.',
-    );
+    throw _invalidTarget(targetPath, '拒绝删除受保护的文件系统路径。');
   }
 }
 
@@ -295,7 +277,7 @@ Future<_DeletePlan> _buildDeletePlan(
           p.equals(root.path, entityPath)) {
         throw BoundedDeleteException(
           reason: BoundedDeleteFailureReason.invalidTarget,
-          message: 'Directory listing returned a path outside the target.',
+          message: '目录扫描返回了删除目标之外的路径。',
           path: entityPath,
           deletedEntries: 0,
           plannedEntries: nonDirectories.length + directories.length,
@@ -304,7 +286,7 @@ Future<_DeletePlan> _buildDeletePlan(
       if (nonDirectories.length + directories.length >= policy.maxEntries) {
         throw BoundedDeleteException(
           reason: BoundedDeleteFailureReason.entryLimitExceeded,
-          message: 'Delete target exceeds the entry limit.',
+          message: '删除目标超过条目数量上限。',
           path: root.path,
           deletedEntries: 0,
           plannedEntries: nonDirectories.length + directories.length,
@@ -316,7 +298,7 @@ Future<_DeletePlan> _buildDeletePlan(
       if (depth > policy.maxDepth) {
         throw BoundedDeleteException(
           reason: BoundedDeleteFailureReason.depthLimitExceeded,
-          message: 'Delete target exceeds the nesting depth limit.',
+          message: '删除目标超过目录深度上限。',
           path: entityPath,
           deletedEntries: 0,
           plannedEntries: nonDirectories.length + directories.length,

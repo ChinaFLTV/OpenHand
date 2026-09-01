@@ -70,11 +70,19 @@ bool isUtf16HighSurrogateCodeUnit(int codeUnit) =>
 bool isUtf16LowSurrogateCodeUnit(int codeUnit) =>
     codeUnit >= _lowSurrogateMin && codeUnit <= _lowSurrogateMax;
 
+/// 按扩展字符裁剪文本，返回值包含 [suffix] 且不超过 [maxChars] 个字符。
 String clipText(String value, int maxChars, {String suffix = '...'}) {
   final safeMaxChars = maxChars < 0 ? 0 : maxChars;
   final characters = value.characters;
   if (characters.length <= safeMaxChars) return value;
-  return '${characters.take(safeMaxChars)}$suffix';
+  if (safeMaxChars == 0) return '';
+
+  final suffixCharacters = suffix.characters;
+  final suffixLength = suffixCharacters.length;
+  if (suffixLength >= safeMaxChars) {
+    return suffixCharacters.take(safeMaxChars).toString();
+  }
+  return '${characters.take(safeMaxChars - suffixLength)}$suffix';
 }
 
 String clipTextWithEllipsis(String value, int maxChars) {

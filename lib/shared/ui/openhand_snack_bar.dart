@@ -79,11 +79,9 @@ void showOpenHandErrorSnack(
   );
 }
 
-/// Convenience flash for feature views after async/setState/dialog pop.
+/// 在异步更新、状态刷新或弹窗关闭后安全展示提示条。
 ///
-/// Defaults [postFrame] to `true` so callers avoid showing a snack during
-/// an active frame transition. Prefer this over ad-hoc local `_showSnackBar`
-/// wrappers that only forward to [OpenHandSnackBar.flash].
+/// 默认延迟到下一帧，避免在当前帧切换期间插入提示条。
 void flashOpenHandSnack(
   BuildContext context,
   String message, {

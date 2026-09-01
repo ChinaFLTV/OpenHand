@@ -1252,13 +1252,9 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  /// Updates the per-image attachment size cap (bytes).
+  /// 更新单张图片附件的字节上限。
   ///
-  /// Values outside
-  /// `[AppSettingsSnapshot.minAiImageSizeLimitBytes,
-  ///   AppSettingsSnapshot.maxAiImageSizeLimitBytes]`
-  /// are clamped so a misconfigured value cannot break the attachment
-  /// pipeline.
+  /// 越界值会被限制在设置模型定义的安全范围内。
   Future<bool> updateAiImageSizeLimitBytes(int value) async {
     final int normalizedValue;
     if (value <= 0) {
@@ -1813,7 +1809,7 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  /// Updates the active model ID for a specific provider config.
+  /// 更新指定服务商配置的活跃模型 ID。
   ///
   /// [alsoSelectProvider]：是否同时把当前活跃 provider 切到该条目。从首页
   /// composer 切模型时默认 true（隐式切 provider）；从设置页内"模型胶囊"
@@ -1848,8 +1844,7 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  /// Persists the selected reasoning effort for one concrete model without
-  /// replacing unrelated provider or per-model overrides.
+  /// 持久化指定模型的推理强度，不覆盖其他服务商或模型设置。
   Future<bool> updateAiModelReasoningEffort(
     String providerConfigId,
     String modelId,
@@ -2087,8 +2082,7 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  /// Restores every motion bucket as one persisted transaction so observers
-  /// never see a partially reset animation configuration.
+  /// 在一次持久化事务中恢复全部动效设置，避免观察者读到部分重置状态。
   Future<bool> restoreDefaultAnimationSettings() {
     return _commitMutation(() {
       if (_dialogAnimationSettings == OpenHandMotionDefaults.dialog &&

@@ -67,27 +67,18 @@ Future<BoundedDirectoryCopyResult> copyDirectoryBounded(
   final sourcePath = p.normalize(p.absolute(source.path));
   final targetPath = p.normalize(p.absolute(target.path));
   if (p.equals(sourcePath, targetPath) || p.isWithin(sourcePath, targetPath)) {
-    throw FileSystemException(
-      'Copy target must not be the source directory or one of its descendants.',
-      targetPath,
-    );
+    throw FileSystemException('复制目标不能是源目录或其子目录。', targetPath);
   }
   if (await isPhysicalPathWithinOrEqual(
     sourcePath,
     targetPath,
   ).timeout(deadline.nextOperationTimeout())) {
-    throw FileSystemException(
-      'Copy target physically resolves inside the source directory.',
-      targetPath,
-    );
+    throw FileSystemException('复制目标的物理路径位于源目录内。', targetPath);
   }
 
   final sourceType = await _entityType(sourcePath, deadline);
   if (sourceType != FileSystemEntityType.directory) {
-    throw FileSystemException(
-      'Copy source must be a regular directory and not a symbolic link.',
-      sourcePath,
-    );
+    throw FileSystemException('复制源必须是普通目录，不能是符号链接。', sourcePath);
   }
   final targetTypeAtStart = await _validateTarget(
     targetPath,
@@ -112,10 +103,7 @@ Future<BoundedDirectoryCopyResult> copyDirectoryBounded(
     for (final relativePath in plan.directories) {
       final destinationPath = p.join(stagingDirectory.path, relativePath);
       if (!isPathWithinOrEqual(stagingDirectory.path, destinationPath)) {
-        throw FileSystemException(
-          'Copy destination path is unsafe.',
-          relativePath,
-        );
+        throw FileSystemException('复制目标路径不安全。', relativePath);
       }
       await Directory(
         destinationPath,
@@ -125,10 +113,7 @@ Future<BoundedDirectoryCopyResult> copyDirectoryBounded(
     for (final file in plan.files) {
       final destinationPath = p.join(stagingDirectory.path, file.relativePath);
       if (!isPathWithinOrEqual(stagingDirectory.path, destinationPath)) {
-        throw FileSystemException(
-          'Copy destination path is unsafe.',
-          file.relativePath,
-        );
+        throw FileSystemException('复制目标路径不安全。', file.relativePath);
       }
       final copyFuture = _copyPlannedFile(
         file,
@@ -191,10 +176,7 @@ Future<void> copyFileBounded(
   final sourcePath = p.normalize(p.absolute(source.path));
   final targetPath = p.normalize(p.absolute(target.path));
   if (p.equals(sourcePath, targetPath)) {
-    throw FileSystemException(
-      'Copy target must differ from the source.',
-      targetPath,
-    );
+    throw FileSystemException('复制目标不能与复制源相同。', targetPath);
   }
 
   Directory? stagingDirectory;
@@ -203,10 +185,7 @@ Future<void> copyFileBounded(
     final sourceFile = File(sourcePath);
     final sourceStat = await _regularFileStat(sourceFile, deadline);
     if (sourceStat.size > policy.maxBytes) {
-      throw FileSystemException(
-        'Copy source exceeds the byte limit.',
-        sourcePath,
-      );
+      throw FileSystemException('复制源超过字节上限。', sourcePath);
     }
     final targetType = await _entityType(targetPath, deadline);
     if (targetType != FileSystemEntityType.notFound) {
@@ -289,26 +268,17 @@ Future<_DirectoryCopyPlan> _buildDirectoryPlan(
       totalTimeout: remainingTime,
     );
     if (listing.truncated) {
-      throw FileSystemException(
-        'Copy source directory listing exceeded its time or entry limit.',
-        current.directory.path,
-      );
+      throw FileSystemException('复制源目录扫描超过时间或条目数量上限。', current.directory.path);
     }
 
     for (final entity in listing.entries) {
       entryCount += 1;
       if (entryCount > policy.maxEntries) {
-        throw FileSystemException(
-          'Copy source contains too many entries.',
-          source.path,
-        );
+        throw FileSystemException('复制源包含过多条目。', source.path);
       }
       final name = p.basename(entity.path);
       if (name.isEmpty || name == '.' || name == '..') {
-        throw FileSystemException(
-          'Copy source contains an unsafe name.',
-          entity.path,
-        );
+        throw FileSystemException('复制源包含不安全的名称。', entity.path);
       }
       final relativePath = current.relativePath.isEmpty
           ? name
@@ -318,10 +288,7 @@ Future<_DirectoryCopyPlan> _buildDirectoryPlan(
         case FileSystemEntityType.directory:
           final depth = current.depth + 1;
           if (depth > policy.maxDepth) {
-            throw FileSystemException(
-              'Copy source exceeds the directory depth limit.',
-              entity.path,
-            );
+            throw FileSystemException('复制源超过目录深度上限。', entity.path);
           }
           directories.add(relativePath);
           pending.add(
@@ -335,31 +302,19 @@ Future<_DirectoryCopyPlan> _buildDirectoryPlan(
           final file = File(entity.path);
           final stat = await _regularFileStat(file, deadline);
           if (stat.size > policy.maxBytes - totalBytes) {
-            throw FileSystemException(
-              'Copy source exceeds the byte limit.',
-              entity.path,
-            );
+            throw FileSystemException('复制源超过字节上限。', entity.path);
           }
           totalBytes += stat.size;
           files.add(
             _PlannedFile(source: file, relativePath: relativePath, stat: stat),
           );
         case FileSystemEntityType.link:
-          throw FileSystemException(
-            'Copy source must not contain symbolic links.',
-            entity.path,
-          );
+          throw FileSystemException('复制源不能包含符号链接。', entity.path);
         case FileSystemEntityType.notFound:
-          throw FileSystemException(
-            'Copy source changed while it was being scanned.',
-            entity.path,
-          );
+          throw FileSystemException('复制源在扫描期间发生变化。', entity.path);
         case FileSystemEntityType.pipe:
         case FileSystemEntityType.unixDomainSock:
-          throw FileSystemException(
-            'Copy source contains an unsupported filesystem entry.',
-            entity.path,
-          );
+          throw FileSystemException('复制源包含不支持的文件系统条目。', entity.path);
       }
     }
   }
@@ -379,20 +334,14 @@ Future<File> _copyPlannedFile(
 ) async {
   final currentStat = await _regularFileStat(planned.source, deadline);
   if (!_sameFileVersion(planned.stat, currentStat)) {
-    throw FileSystemException(
-      'Copy source changed after it was scanned.',
-      planned.source.path,
-    );
+    throw FileSystemException('复制源在扫描后发生变化。', planned.source.path);
   }
   final copied = await planned.source.copy(destination.path);
   final copiedStat = await _regularFileStat(copied, deadline);
   final finalSourceStat = await _regularFileStat(planned.source, deadline);
   if (copiedStat.size != planned.stat.size ||
       !_sameFileVersion(planned.stat, finalSourceStat)) {
-    throw FileSystemException(
-      'Copy source changed while it was being copied.',
-      planned.source.path,
-    );
+    throw FileSystemException('复制源在复制期间发生变化。', planned.source.path);
   }
   return copied;
 }
@@ -406,10 +355,7 @@ bool _sameFileVersion(FileStat expected, FileStat actual) {
 Future<FileStat> _regularFileStat(File file, _CopyDeadline deadline) async {
   final type = await _entityType(file.path, deadline);
   if (type != FileSystemEntityType.file) {
-    throw FileSystemException(
-      'Copy source must be a regular file and not a symbolic link.',
-      file.path,
-    );
+    throw FileSystemException('复制源必须是普通文件，不能是符号链接。', file.path);
   }
   final stat = await file.stat().timeout(deadline.nextOperationTimeout());
   if (!isRegularFileStat(stat)) {
@@ -441,19 +387,13 @@ Future<void> _prepareTargetForPublish(
   final currentType = await _entityType(targetPath, deadline);
   if (targetTypeAtStart == FileSystemEntityType.notFound) {
     if (currentType != FileSystemEntityType.notFound) {
-      throw FileSystemException(
-        'Copy target was created concurrently.',
-        targetPath,
-      );
+      throw FileSystemException('复制目标被并发创建。', targetPath);
     }
     return;
   }
   if (currentType == FileSystemEntityType.notFound) return;
   if (currentType != FileSystemEntityType.directory) {
-    throw FileSystemException(
-      'Copy target changed during the operation.',
-      targetPath,
-    );
+    throw FileSystemException('复制目标在操作期间发生变化。', targetPath);
   }
   final target = Directory(targetPath);
   await _requireEmptyDirectory(target, deadline);
@@ -472,10 +412,7 @@ Future<void> _requireEmptyDirectory(
     totalTimeout: remaining,
   );
   if (listing.truncated || listing.entries.isNotEmpty) {
-    throw FileSystemException(
-      'Copy target directory must be empty.',
-      directory.path,
-    );
+    throw FileSystemException('复制目标目录必须为空。', directory.path);
   }
 }
 

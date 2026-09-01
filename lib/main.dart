@@ -67,10 +67,57 @@ Future<void> _bootstrap() async {
     cleanupTimeout: const Duration(seconds: 5),
     totalTimeout: _runtimeCleanupTotalTimeout,
   );
+  try {
+    await _bootstrapRuntime(runtimeCleanup);
+  } catch (error, stack) {
+    silentLog('main', '应用启动失败', error, stack);
+    OpenHandFpsMonitor.instance.stop();
+    runApp(
+      OpenHandStartupFailureApp(
+        title: StructuredErrorText.pick(
+          zh: '应用启动失败',
+          en: 'Application startup failed',
+        ),
+        reason: userFailureMessage(
+          error,
+          fallback: StructuredErrorText.pick(
+            zh: '初始化运行时组件时发生异常。',
+            en: 'An error occurred while initializing runtime components.',
+          ),
+        ),
+        suggestionsTitle: StructuredErrorText.pick(
+          zh: '建议处理',
+          en: 'Recommended actions',
+        ),
+        suggestions: <String>[
+          StructuredErrorText.pick(
+            zh: '退出其他 OpenHand 进程后重新启动。',
+            en: 'Exit other OpenHand processes and start again.',
+          ),
+          StructuredErrorText.pick(
+            zh: '检查应用数据目录权限和磁盘剩余空间。',
+            en: 'Check app data directory permissions and free disk space.',
+          ),
+          StructuredErrorText.pick(
+            zh: '若问题持续，请查看运行日志中的首个启动异常。',
+            en: 'If the issue persists, inspect the first startup error in the runtime log.',
+          ),
+        ],
+      ),
+    );
+    _runMainBackgroundTask(() async {
+      await runtimeCleanup.dispose();
+      await killAllTrackedChildren();
+    }(), '释放启动失败资源与子进程');
+  }
+}
+
+Future<void> _bootstrapRuntime(AppRuntimeCleanupRegistry runtimeCleanup) async {
   MediaKit.ensureInitialized();
   iaw.PlatformInAppWebViewController.debugLoggingSettings.enabled = false;
   // 节流自动模式与 UI 卡顿降级会读取 recentFps。
   OpenHandFpsMonitor.instance.start();
+  runtimeCleanup.register('FPS 监控器', OpenHandFpsMonitor.instance.stop);
 
   final originalOnError = FlutterError.onError;
   final originalPlatformOnError = PlatformDispatcher.instance.onError;
@@ -168,8 +215,13 @@ Future<void> _bootstrap() async {
         ],
       ),
     );
+    _runMainBackgroundTask(() async {
+      await runtimeCleanup.dispose();
+      await killAllTrackedChildren();
+    }(), '释放数据库启动失败资源与子进程');
     return;
   }
+  runtimeCleanup.register('数据库', DatabaseService.instance.close);
 
   final settingsControllerFuture = SettingsController.create();
   final appInfoFuture = _loadAppInfo();
@@ -193,7 +245,9 @@ Future<void> _bootstrap() async {
 
   developer.Timeline.startSync('openhand.boot.await_settings_hooks');
   final settingsController = await settingsControllerFuture;
+  runtimeCleanup.register('设置控制器', settingsController.shutdown);
   final hooks = await hooksModuleFuture;
+  runtimeCleanup.register('Hooks 控制器', hooks.controller.shutdown);
   developer.Timeline.finishSync();
   // 启动阶段先写入一次；统一监听器会在所有运行时依赖就绪后注册。
   SystemProxyResolver.instance.applyConfig(settingsController.proxySettings);
@@ -206,6 +260,15 @@ Future<void> _bootstrap() async {
   final machineTerminalFileService = MachineTerminalFileService(
     machineTerminalService,
   );
+  runtimeCleanup
+    ..register('机器终端服务', () async {
+      await machineTerminalService.shutdown();
+      machineTerminalService.dispose();
+    }, timeout: MachineTerminalService.runtimeCleanupTimeout)
+    ..register('机器终端文件服务', () async {
+      await machineTerminalFileService.shutdown();
+      machineTerminalFileService.dispose();
+    }, timeout: MachineTerminalFileService.runtimeCleanupTimeout);
   final aiModuleFuture = AiModule.bootstrap(
     userHooksExecutor: hooks.executor,
     skillsDirProvider: () => settingsController.skillsStoragePath,
@@ -225,13 +288,24 @@ Future<void> _bootstrap() async {
     autoProbeConcurrency: settingsController.mcpAutoProbeConcurrency,
   );
   final skills = await skillsModuleFuture;
+  runtimeCleanup.register('技能控制器', skills.controller.shutdown);
   _runMainBackgroundTask(skills.controller.refresh(), '刷新技能');
   final mcp = await mcpModuleFuture;
+  runtimeCleanup.register(
+    'MCP 控制器',
+    mcp.controller.shutdown,
+    timeout: McpController.runtimeCleanupTimeout,
+  );
   _runMainBackgroundTask(mcp.controller.ensureRuntimeReady(), '恢复 MCP 运行时');
   // MemoryController 只在用户动作路径使用，刷新放到后台以缩短冷启动关键路径。
   final memory = await memoryModuleFuture;
+  runtimeCleanup.register('记忆控制器', memory.controller.shutdown);
   _runMainBackgroundTask(memory.controller.refresh(), '刷新记忆');
   final services = await servicesModuleFuture;
+  runtimeCleanup
+    ..register('AI 模型中转站控制器', services.aiModelProxyController.shutdown)
+    ..register('AI 模型健康巡检控制器', services.aiModelHealthController.dispose)
+    ..register('扫描服务控制器', services.controller.shutdown);
   services.aiModelProxyController.attachModelsProvider(
     () => settingsController.aiModels,
   );
@@ -260,8 +334,10 @@ Future<void> _bootstrap() async {
   // CronsController 先注册托管任务处理器，再把数据库加载和调度器启动放到后台。
   final crons = await cronsModuleFuture;
   final cronsController = crons.controller;
+  runtimeCleanup.register('定时任务控制器', cronsController.shutdown);
   // InstructionsController 不是首屏关键路径，后台刷新即可。
   final instructions = await instructionsModuleFuture;
+  runtimeCleanup.register('指令控制器', instructions.controller.shutdown);
   _runMainBackgroundTask(instructions.controller.refresh(), '刷新指令');
   final appInfo = await appInfoFuture;
   AppRuntimeContext.initialize(appInfo);
@@ -269,12 +345,24 @@ Future<void> _bootstrap() async {
   memoryControllerHandle = memory.controller;
   final ai = await aiModuleFuture;
   final aiSessionController = ai.controller;
+  runtimeCleanup
+    ..register(
+      'AI 会话存储',
+      aiSessionController.store.flush,
+      timeout: AiSessionStore.runtimeCleanupTimeout,
+    )
+    ..register(
+      'AI 会话控制器',
+      aiSessionController.shutdown,
+      timeout: AiSessionController.runtimeCleanupTimeout,
+    );
   developer.Timeline.finishSync();
   // 后台完成系统代理检测，失败时网络客户端继续直连。
   _runMainBackgroundTask(systemProxyFuture, '初始化系统代理');
 
   // 自学习调度器只暴露 Memory / SkillManager 工具，并把流式过程写入自学习卡片。
   final selfLearningChatClient = AiChatService();
+  runtimeCleanup.register('自学习聊天客户端', selfLearningChatClient.dispose);
   final selfLearningRunner = SelfLearningRunner(
     sessionController: aiSessionController,
     memoryController: memory.controller,
@@ -390,6 +478,9 @@ Future<void> _bootstrap() async {
 
   final knowledgeBase = await knowledgeBaseModuleFuture;
   final workflows = await workflowsModuleFuture;
+  runtimeCleanup
+    ..register('知识库控制器', knowledgeBase.controller.shutdown)
+    ..register('工作流控制器', workflows.controller.dispose);
   knowledgeBaseControllerHandle = knowledgeBase.controller;
   mcp.controller.attachOpsRuntimeBindings(
     McpOpsRuntimeBindings(
@@ -405,6 +496,8 @@ Future<void> _bootstrap() async {
       },
     ),
   );
+  final pluginService = await pluginServiceModuleFuture;
+  runtimeCleanup.register('插件服务控制器', pluginService.controller.shutdown);
   final messageGateway = await MessageGatewayModule.bootstrap(
     MessageGatewayDependencies(
       sessionController: aiSessionController,
@@ -421,9 +514,12 @@ Future<void> _bootstrap() async {
       appInfo: appInfo,
     ),
   );
+  runtimeCleanup.register('消息网关控制器', () async {
+    messageGateway.controller.pluginServiceController = null;
+    await messageGateway.controller.shutdown();
+  }, timeout: MessageGatewayController.runtimeCleanupTimeout);
   _runMainBackgroundTask(messageGateway.controller.initialize(), '初始化消息网关');
 
-  final pluginService = await pluginServiceModuleFuture;
   services.controller.attachPluginServiceController(pluginService.controller);
   // 中转站配置为启用时恢复真实 HTTP 监听；只有绑定成功后控制器才会显示运行中。
   if (services.aiModelProxyController.settings.enabled) {
@@ -456,13 +552,18 @@ Future<void> _bootstrap() async {
   );
   _runMainBackgroundTask(MediaCacheService.instance.prewarm(), '预热媒体缓存');
   final templateRuntimeLinkageController = TemplateRuntimeLinkageController();
+  runtimeCleanup.register(
+    '模板运行时联动控制器',
+    templateRuntimeLinkageController.dispose,
+  );
   final throttleAutoSyncService = ThrottleAutoSyncService(
     settingsController: settingsController,
-  )..start();
+  );
+  runtimeCleanup.register('节流自动同步服务', throttleAutoSyncService.dispose);
+  throttleAutoSyncService.start();
 
-  // Provider 外部实例按“底层依赖在前、上层使用者在后”登记，退出时逆序释放。
+  // 进程级资源统一登记，退出时按逆序有界释放；启动中断也会清理已登记资源。
   runtimeCleanup
-    ..register('数据库', DatabaseService.instance.close)
     ..register(
       'AI 使用统计',
       AiUsageTracker.instance.shutdown,
@@ -473,24 +574,6 @@ Future<void> _bootstrap() async {
       AiToolUsagePromotionStore.shared.shutdown,
       timeout: AiToolUsagePromotionStore.runtimeCleanupTimeout,
     )
-    ..register(
-      'AI 会话存储',
-      aiSessionController.store.flush,
-      timeout: AiSessionStore.runtimeCleanupTimeout,
-    )
-    ..register('设置控制器', settingsController.shutdown)
-    ..register('Hooks 控制器', hooks.controller.shutdown)
-    ..register('技能控制器', skills.controller.shutdown)
-    ..register('记忆控制器', memory.controller.shutdown)
-    ..register('插件服务控制器', pluginService.controller.shutdown)
-    ..register('AI 模型中转站控制器', services.aiModelProxyController.shutdown)
-    ..register('AI 模型健康巡检控制器', services.aiModelHealthController.dispose)
-    ..register('扫描服务控制器', services.controller.shutdown)
-    ..register('指令控制器', instructions.controller.shutdown)
-    ..register('模板运行时联动控制器', templateRuntimeLinkageController.dispose)
-    ..register('知识库控制器', knowledgeBase.controller.shutdown)
-    ..register('工作流控制器', workflows.controller.dispose)
-    ..register('自学习聊天客户端', selfLearningChatClient.dispose)
     ..register('AI LSP 会话', AiLspClientService.instance.disposeAll)
     ..register('WebSearch 持久化', () async {
       await Future.wait<void>(<Future<void>>[
@@ -508,38 +591,13 @@ Future<void> _bootstrap() async {
       '媒体缓存',
       MediaCacheService.instance.shutdown,
       timeout: MediaCacheService.runtimeCleanupTimeout,
-    )
-    ..register('机器终端服务', () async {
-      await machineTerminalService.shutdown();
-      machineTerminalService.dispose();
-    }, timeout: MachineTerminalService.runtimeCleanupTimeout)
-    ..register('机器终端文件服务', () async {
-      await machineTerminalFileService.shutdown();
-      machineTerminalFileService.dispose();
-    }, timeout: MachineTerminalFileService.runtimeCleanupTimeout)
-    ..register(
-      'MCP 控制器',
-      mcp.controller.shutdown,
-      timeout: McpController.runtimeCleanupTimeout,
-    )
-    ..register(
-      'AI 会话控制器',
-      aiSessionController.shutdown,
-      timeout: AiSessionController.runtimeCleanupTimeout,
-    )
-    ..register('定时任务控制器', cronsController.shutdown)
-    ..register('消息网关控制器', () async {
-      messageGateway.controller.pluginServiceController = null;
-      await messageGateway.controller.shutdown();
-    }, timeout: MessageGatewayController.runtimeCleanupTimeout)
-    ..register('FPS 监控器', OpenHandFpsMonitor.instance.stop);
+    );
   runtimeCleanup
     ..register('定时任务托管处理器', () => cronsController.registerTaskHandler(null))
     ..register(
       '运行时设置监听器',
       () => settingsController.removeListener(syncRuntimeSettings),
-    )
-    ..register('节流自动同步服务', throttleAutoSyncService.dispose);
+    );
 
   // 所有资源登记完成后再安装信号监听，避免启动期信号先锁定注册表，
   // 导致后续资源无法登记或清理。

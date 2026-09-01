@@ -304,21 +304,7 @@ class AppSettingsSnapshot {
            ),
        aiTranslationSettings =
            aiTranslationSettings ?? AiTranslationSettings.defaults(),
-       proxySettings =
-           proxySettings ??
-           const AppProxySettings(
-             mode: AppProxyMode.automatic,
-             protocols: <AppProxyProtocol>{
-               AppProxyProtocol.http,
-               AppProxyProtocol.https,
-             },
-             host: '',
-             port: 7890,
-             authEnabled: false,
-             username: '',
-             password: '',
-             exceptions: <String>[],
-           ),
+       proxySettings = proxySettings ?? AppProxySettings.defaults(),
        nativeAudioPlaybackSettings =
            (nativeAudioPlaybackSettings ??
                    NativeAudioPlaybackSettings.defaults())

@@ -443,7 +443,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
       final content = collapseInlineWhitespace(
         widget.userMessages[idx].content,
       );
-      final preview = clipText(content, maxLength - 1);
+      final preview = clipTextWithEllipsis(content, maxLength);
       return preview.isEmpty ? '#${idx + 1}' : preview;
     }
 

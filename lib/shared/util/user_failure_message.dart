@@ -33,6 +33,5 @@ String userFailureMessage(
       : normalizedDetail;
   if (maxCharacters <= 0 || message.isEmpty) return '';
   if (message.characters.length <= maxCharacters) return message;
-  if (maxCharacters == 1) return '…';
-  return clipTextWithEllipsis(message, maxCharacters - 1);
+  return clipTextWithEllipsis(message, maxCharacters);
 }

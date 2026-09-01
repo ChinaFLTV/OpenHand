@@ -1,5 +1,6 @@
 import 'dart:collection';
 
+import 'argument_guards.dart';
 import 'text_clip.dart';
 
 enum JsonNonFiniteNumberBehavior { stringify, zero }
@@ -21,11 +22,7 @@ final class BoundedJsonConversionConfig {
     this.cyclicMapPlaceholder = '<cyclic-map>',
     this.cyclicIterablePlaceholder = '<cyclic-iterable>',
     this.truncatedPlaceholder = '<truncated>',
-  }) : assert(maxDepth >= 0),
-       assert(maxContainerItems > 0),
-       assert(maxTotalNodes > 0),
-       assert(maxStringCodeUnits == null || maxStringCodeUnits >= 0),
-       assert(maxTotalStringCodeUnits == null || maxTotalStringCodeUnits >= 0);
+  });
 
   final int maxDepth;
   final int maxContainerItems;
@@ -39,12 +36,27 @@ final class BoundedJsonConversionConfig {
   final String cyclicMapPlaceholder;
   final String cyclicIterablePlaceholder;
   final String truncatedPlaceholder;
+
+  void validate() {
+    requireNonNegativeInt(maxDepth, 'maxDepth');
+    requirePositiveInt(maxContainerItems, 'maxContainerItems');
+    requirePositiveInt(maxTotalNodes, 'maxTotalNodes');
+    final perStringLimit = maxStringCodeUnits;
+    if (perStringLimit != null) {
+      requireNonNegativeInt(perStringLimit, 'maxStringCodeUnits');
+    }
+    final totalStringLimit = maxTotalStringCodeUnits;
+    if (totalStringLimit != null) {
+      requireNonNegativeInt(totalStringLimit, 'maxTotalStringCodeUnits');
+    }
+  }
 }
 
 Object? convertToJsonSafeValue(
   Object? value, {
   BoundedJsonConversionConfig config = const BoundedJsonConversionConfig(),
 }) {
+  config.validate();
   return _BoundedJsonConverter(config).convert(value);
 }
 
@@ -52,6 +64,7 @@ Map<String, Object?> convertToJsonSafeMap(
   Map<Object?, Object?> value, {
   BoundedJsonConversionConfig config = const BoundedJsonConversionConfig(),
 }) {
+  config.validate();
   return Map<String, Object?>.from(
     _BoundedJsonConverter(config).convert(value) as Map<String, Object?>,
   );

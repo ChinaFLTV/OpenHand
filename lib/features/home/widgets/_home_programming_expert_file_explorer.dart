@@ -2652,7 +2652,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
 
   String _truncatePreviewText(String text, {int maxLength = 160}) {
     final normalized = text.replaceAll('\t', '  ').trimRight();
-    return clipText(normalized, math.max(0, maxLength - 1), suffix: '…');
+    return clipTextWithEllipsis(normalized, math.max(0, maxLength));
   }
 
   Future<void> _loadLspLocationPreviews(

@@ -22,8 +22,8 @@ final class BoundedXFileSizeException implements IOException {
   String toString() {
     final actual = actualBytes;
     return actual == null
-        ? 'Selected file exceeds the $maxBytes byte limit.'
-        : 'Selected file is $actual bytes and exceeds the $maxBytes byte limit.';
+        ? '所选文件超过 $maxBytes 字节上限。'
+        : '所选文件大小为 $actual 字节，超过 $maxBytes 字节上限。';
   }
 }
 

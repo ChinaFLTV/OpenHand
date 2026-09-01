@@ -635,9 +635,7 @@ class _TrendPanelState extends State<_TrendPanel> {
   @override
   void didUpdateWidget(_TrendPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // ValueNotifiers are only consumed by the insight dialog callback, not by
-    // build, so syncing immediately avoids a one-frame stale-data window without
-    // any rebuild-loop risk.
+    // 通知器仅供洞察弹窗回调读取，立即同步可消除一帧旧数据且不会触发重建循环。
     _liveSeries.value = widget.series;
     _liveSampleLabels.value = widget.sampleLabels;
   }

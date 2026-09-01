@@ -6,17 +6,9 @@ import 'motion_preference.dart';
 const double kOpenHandMicroPressMinScale = 0.5;
 const double kOpenHandMicroPressMaxScale = 1.0;
 
-/// Wraps a tappable child (typically an [IconButton] or small action
-/// affordance) and provides an 80 ms press-down scale + 140 ms ease-out
-/// rebound on pointer events. The wrapper does NOT consume the tap —
-/// it uses [Listener] with translucent hit-test behavior so the inner
-/// child still receives the actual gesture and runs its `onPressed`.
+/// 为可点击子组件提供 80 毫秒按压缩放和 140 毫秒回弹。
 ///
-/// Honors the shared motion preference, including reduce motion and
-/// `TickerMode`: when motion is unavailable, the child renders directly.
-///
-/// Use sparingly on toolbar buttons / chip actions where a brief
-/// tactile "click" feel is desired.
+/// 透明命中测试不会消费手势；禁用动效或 `TickerMode` 时直接渲染子组件。
 class MicroPressFeedback extends StatefulWidget {
   const MicroPressFeedback({
     super.key,
@@ -27,11 +19,10 @@ class MicroPressFeedback extends StatefulWidget {
 
   final Widget child;
 
-  /// Target scale at the depressed peak. 1.0 = no shrink.
+  /// 按压峰值缩放比例；1 表示不缩放。
   final double scale;
 
-  /// Set to false to bypass the wrapper entirely (e.g. when the child
-  /// is disabled and visually shouldn't react to pointer-down).
+  /// 关闭后不再响应按压动效。
   final bool enabled;
 
   @override
