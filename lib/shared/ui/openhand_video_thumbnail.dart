@@ -171,11 +171,14 @@ class _OpenHandVideoThumbnailCaptureState
         _deleteTemporaryHtmlInBackground();
         return;
       }
-      final controller = WebViewController()
-        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..addJavaScriptChannel('OpenHandThumb', onMessageReceived: _onMessage);
+      final controller = WebViewController();
+      await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+      await controller.addJavaScriptChannel(
+        'OpenHandThumb',
+        onMessageReceived: _onMessage,
+      );
       if (!Platform.isMacOS) {
-        controller.setBackgroundColor(Colors.transparent);
+        await controller.setBackgroundColor(Colors.transparent);
       }
       _controller = controller;
       await awaitWithCancelSignal<bool>(

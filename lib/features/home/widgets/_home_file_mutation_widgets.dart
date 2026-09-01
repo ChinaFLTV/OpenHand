@@ -418,7 +418,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
     if (sessionId.isEmpty) return;
     final ledger = ctrl.toolRuntimeService.mutationLedger;
     if (!mounted) return;
-    showAnimatedDialog(
+    await showAnimatedDialog<void>(
       context: context,
       builder: (ctx) => _FileMutationHistoryInspectorDialog(
         sessionId: sessionId,
@@ -1074,7 +1074,7 @@ class _FileMutationCardRow extends StatelessWidget {
         }
       case 'copyPath':
         if (context.mounted) {
-          _copyPathToClipboard(context, view.record.filePath);
+          await _copyPathToClipboard(context, view.record.filePath);
         }
       case 'copyDiff':
         onCopyDiff();

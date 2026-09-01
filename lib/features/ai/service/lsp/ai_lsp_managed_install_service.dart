@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
@@ -278,7 +279,7 @@ abstract final class AiLspManagedInstallService {
       File(AiLspManagedInstallManifest.manifestPathForRoot(normalizedRoot)),
       jsonEncode(manifest.toJson()),
     );
-    _manifestReads.remove(normalizedRoot);
+    unawaited(_manifestReads.remove(normalizedRoot));
     _storeCachedManifest(normalizedRoot, manifest);
   }
 
@@ -304,7 +305,7 @@ abstract final class AiLspManagedInstallService {
       policy: _managedInstallDeletePolicy,
       allowedRoot: p.dirname(directory.path),
     );
-    _manifestReads.remove(normalizedRoot);
+    unawaited(_manifestReads.remove(normalizedRoot));
     _storeCachedManifest(normalizedRoot, null);
   }
 

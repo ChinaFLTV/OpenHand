@@ -2450,7 +2450,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       return;
     }
     if (!mounted) return;
-    showAnimatedDialog<void>(
+    await showAnimatedDialog<void>(
       context: context,
       builder: (ctx) => _ImagePreviewDialog.file(filePath: path, title: title),
     );

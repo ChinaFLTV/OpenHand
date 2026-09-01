@@ -2337,7 +2337,7 @@ Future<void> _openAttachment(
 
   if (attachment.isImage) {
     if (!context.mounted) return;
-    showAnimatedDialog<void>(
+    await showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) => _ImagePreviewDialog.file(
         filePath: storagePath,
@@ -2349,7 +2349,7 @@ Future<void> _openAttachment(
 
   if (attachment.isVideo) {
     if (!context.mounted) return;
-    showAnimatedDialog<void>(
+    await showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) => MediaPreviewDialog.file(
         filePath: storagePath,
@@ -2363,7 +2363,7 @@ Future<void> _openAttachment(
 
   if (attachment.isAudio) {
     if (!context.mounted) return;
-    showAnimatedDialog<void>(
+    await showAnimatedDialog<void>(
       context: context,
       builder: (dialogContext) => MediaPreviewDialog.file(
         filePath: storagePath,
@@ -2376,7 +2376,7 @@ Future<void> _openAttachment(
   }
 
   if (!context.mounted) return;
-  showAnimatedDialog<void>(
+  await showAnimatedDialog<void>(
     context: context,
     builder: (dialogContext) => _FilePreviewDialog(
       filePath: storagePath,

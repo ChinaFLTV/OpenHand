@@ -137,7 +137,7 @@ class _HeUrlModelField extends StatelessWidget {
                 selectedModelId: roleConfig.urlModeModelId,
               );
               if (result != null) {
-                settingsController?.addRecentModelSelection(
+                await settingsController?.addRecentModelSelection(
                   result.$1,
                   result.$2,
                 );

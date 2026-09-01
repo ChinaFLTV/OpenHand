@@ -1655,7 +1655,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       if (mounted) setState(() => _capturing = false);
     }
     if (!mounted) return;
-    webReverseToolDialogs.show<void>(
+    await webReverseToolDialogs.show<void>(
       context: context,
       builder: (_) => _SnapshotDiffDialog(
         whenA: a.ts,

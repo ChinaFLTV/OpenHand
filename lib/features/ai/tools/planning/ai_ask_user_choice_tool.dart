@@ -186,11 +186,13 @@ class AiAskUserChoiceTool extends AiTool {
 
     AskUserChoiceResponse? response;
     var cancelledBySignal = false;
-    context.cancelSignal?.then<void>(
-      (_) => cancelledBySignal = true,
-      onError: (Object _, StackTrace _) {
-        cancelledBySignal = true;
-      },
+    unawaited(
+      context.cancelSignal?.then<void>(
+        (_) => cancelledBySignal = true,
+        onError: (Object _, StackTrace _) {
+          cancelledBySignal = true;
+        },
+      ),
     );
     try {
       response =

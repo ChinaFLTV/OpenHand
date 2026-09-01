@@ -892,7 +892,7 @@ class DingTalkMessageGatewayService {
       return await task;
     } finally {
       if (identical(_mediaDownloadTasks[taskKey], task)) {
-        _mediaDownloadTasks.remove(taskKey);
+        unawaited(_mediaDownloadTasks.remove(taskKey));
       }
     }
   }

@@ -902,7 +902,7 @@ class _AnimatedDropdownButtonState<T> extends State<AnimatedDropdownButton<T>> {
     if (!_enabled || _menuOpen) return;
     _effectiveFocusNode.requestFocus();
     if (widget._inputDecoration != null && widget.enableFeedback != false) {
-      Feedback.forTap(context);
+      unawaited(Feedback.forTap(context));
     }
     final buttonObject = context.findRenderObject();
     final navigator = Navigator.of(

@@ -791,7 +791,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       );
       return;
     }
-    showOpenHandInfoDialog(
+    await showOpenHandInfoDialog(
       context: context,
       title: 'LSP Hover',
       closeLabel: openHandCloseLabel(context),
@@ -896,7 +896,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     final summary = changes is Map
         ? '${changes.length} files'
         : (docChanges is List ? '${docChanges.length} changes' : 'edit');
-    showOpenHandInfoDialog(
+    await showOpenHandInfoDialog(
       context: context,
       title: openHandLocalizedText(
         context,

@@ -1567,7 +1567,7 @@ class _ProgrammingExpertProjectDialogState
                                   if (!mounted) {
                                     return;
                                   }
-                                  _submit();
+                                  await _submit();
                                 },
                                 child: Container(
                                   width: double.infinity,

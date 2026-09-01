@@ -2059,7 +2059,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
     });
     if (sentOutcome == _SubmitTextOutcome.submitted || shouldRetryBlock) {
-      _processMessageQueueIfNeeded(sessionController);
+      unawaited(_processMessageQueueIfNeeded(sessionController));
     }
   }
 
@@ -6953,7 +6953,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           }
         });
         if (processQueueAfterCompletion) {
-          _processMessageQueueIfNeeded(sessionController);
+          unawaited(_processMessageQueueIfNeeded(sessionController));
         }
       } else if (isActiveSubmission &&
           _submittingSessionId == targetSessionId) {
@@ -8588,7 +8588,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         sourceSession,
       ),
     );
-    _showTitleSummaryRangeDialog(
+    await _showTitleSummaryRangeDialog(
       session: sourceSession,
       userMessages: userMessages,
       model: model,

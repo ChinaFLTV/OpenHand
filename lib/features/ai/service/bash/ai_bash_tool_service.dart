@@ -1591,7 +1591,7 @@ class AiBashToolService {
       return await startFuture;
     } finally {
       if (identical(_persistentSessionStarts[sessionId], startFuture)) {
-        _persistentSessionStarts.remove(sessionId);
+        unawaited(_persistentSessionStarts.remove(sessionId));
       }
     }
   }

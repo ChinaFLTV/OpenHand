@@ -5496,7 +5496,7 @@ class _AiModelTileState extends State<_AiModelTile>
   }
 
   Future<void> _openOfficialWebsite(String url) async {
-    HapticFeedback.selectionClick();
+    await HapticFeedback.selectionClick();
     final launched = await openHttpUrlWithSystemBrowser(
       url,
       tag: 'settings.ai_model_provider.open_website',

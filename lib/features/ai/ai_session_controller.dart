@@ -2211,7 +2211,7 @@ class AiSessionController extends ChangeNotifier {
       return null;
     } finally {
       if (_sessionMessageContentLoadGenerations[taskKey] == generation) {
-        _sessionMessageContentLoadTasks.remove(taskKey);
+        unawaited(_sessionMessageContentLoadTasks.remove(taskKey));
         _sessionMessageContentLoadGenerations.remove(taskKey);
       }
       _releaseDeletedSessionMarkerIfIdle(sessionId);
@@ -2468,7 +2468,7 @@ class AiSessionController extends ChangeNotifier {
       return null;
     } finally {
       if (_isCurrentSessionMessageWindowAttempt(sessionId, generation)) {
-        _sessionMessageWindowHydrationTasks.remove(sessionId);
+        unawaited(_sessionMessageWindowHydrationTasks.remove(sessionId));
         _hydratingSessionMessageIds.remove(sessionId);
         notifyListeners();
       }

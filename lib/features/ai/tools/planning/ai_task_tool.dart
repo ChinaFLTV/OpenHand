@@ -199,11 +199,13 @@ class AiTaskTool extends AiTool {
     final readFiles = <String>{};
     // 异步记录取消状态，确保一批子工具执行期间也能及时停止后续调用。
     var cancelled = false;
-    context.cancelSignal?.then<void>(
-      (_) => cancelled = true,
-      onError: (Object _, StackTrace _) {
-        cancelled = true;
-      },
+    unawaited(
+      context.cancelSignal?.then<void>(
+        (_) => cancelled = true,
+        onError: (Object _, StackTrace _) {
+          cancelled = true;
+        },
+      ),
     );
     final subagentSessionId =
         '${context.sessionId}/task/${_normalizeToken(context.toolCall.id.trim().isEmpty ? canonicalSubagentType : context.toolCall.id)}';

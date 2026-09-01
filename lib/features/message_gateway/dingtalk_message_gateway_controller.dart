@@ -1433,7 +1433,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       return await task;
     } finally {
       if (identical(_mediaHydrationTasks[taskKey], task)) {
-        _mediaHydrationTasks.remove(taskKey);
+        unawaited(_mediaHydrationTasks.remove(taskKey));
         _notify();
       }
     }
@@ -3790,7 +3790,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       if (active != null) {
         await active;
         if (identical(_conversationReconcileTasks[conversation.id], active)) {
-          _conversationReconcileTasks.remove(conversation.id);
+          unawaited(_conversationReconcileTasks.remove(conversation.id));
         }
       }
       if (_disposed ||
@@ -3889,7 +3889,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       return await task;
     } finally {
       if (identical(_conversationReconcileTasks[conversation.id], task)) {
-        _conversationReconcileTasks.remove(conversation.id);
+        unawaited(_conversationReconcileTasks.remove(conversation.id));
       }
     }
   }

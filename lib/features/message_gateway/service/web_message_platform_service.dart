@@ -6064,7 +6064,7 @@ class WebMessagePlatformService {
             'session_id': sessionId,
             'served_at': DateTime.now().toUtc().toIso8601String(),
           });
-          Future<void>.microtask(dispose);
+          unawaited(Future<void>.microtask(dispose));
           return;
         }
         final snapshot = await buildSnapshot(live);
@@ -6232,10 +6232,12 @@ class WebMessagePlatformService {
     _activeSseDisposers.add(dispose);
 
     // 立即推送首帧，避免前端等待第一次 notifyListeners。
-    Future<void>.microtask(() {
-      lastSnapshotHash = null;
-      scheduleSnapshot();
-    });
+    unawaited(
+      Future<void>.microtask(() {
+        lastSnapshotHash = null;
+        scheduleSnapshot();
+      }),
+    );
 
     return shelf.Response.ok(
       controller.stream,

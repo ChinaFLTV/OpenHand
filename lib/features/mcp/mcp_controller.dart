@@ -2129,7 +2129,7 @@ class McpController extends ChangeNotifier {
           previousServerName != changedServerName) {
         _toolCatalogByServerName.remove(previousServerName);
         _toolRefreshGenerationByServerName.remove(previousServerName);
-        _activeToolRefreshes.remove(previousServerName);
+        unawaited(_activeToolRefreshes.remove(previousServerName));
         _healthByServerName.remove(previousServerName);
         _healthCheckGenerationByServerName.remove(previousServerName);
       }

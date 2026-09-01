@@ -784,7 +784,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     // 异步清理底层依赖包（不阻塞 UI）
     if (shouldCleanupDeps && isNpxService && npxPackageName != null) {
       final cleanPkg = npxPackageName.replaceAll(RegExp(r'@[^/]*$'), '');
-      _cleanupNpxDependency(context, cleanPkg, server.name);
+      unawaited(_cleanupNpxDependency(context, cleanPkg, server.name));
     }
 
     flashOpenHandSnack(

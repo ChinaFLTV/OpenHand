@@ -2892,7 +2892,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         },
       );
       if (!Platform.isMacOS) {
-        controller.setBackgroundColor(Colors.transparent);
+        await controller.setBackgroundColor(Colors.transparent);
       }
       final mermaidJs = await _loadMermaidJs();
       final themeColors = _computeMermaidThemeColors();

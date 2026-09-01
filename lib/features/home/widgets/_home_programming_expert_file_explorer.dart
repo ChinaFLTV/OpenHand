@@ -2243,7 +2243,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         completer.completeError(error, stackTrace);
       } finally {
         if (identical(_lspBackendRequests[filePath], request)) {
-          _lspBackendRequests.remove(filePath);
+          unawaited(_lspBackendRequests.remove(filePath));
         }
       }
     }
