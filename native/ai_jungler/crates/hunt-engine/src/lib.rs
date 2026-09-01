@@ -1,6 +1,6 @@
 use anyhow::Context;
 use chrono::{DateTime, Utc};
-use futures::StreamExt;
+use futures::{FutureExt, StreamExt};
 use hunt_core::{
     AuthorizedScope, CANDIDATE_ARTIFACT_TEXT_KEY, CompiledRuleSet, CredentialFinding,
     CredentialState, FingerprintEvidence, MAX_SCAN_CONCURRENCY, MAX_SCAN_TARGETS, NormalizedTarget,
@@ -30,6 +30,7 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
     hash::{DefaultHasher, Hash, Hasher},
     net::IpAddr,
+    panic::AssertUnwindSafe,
     sync::{
         Arc, Mutex as StdMutex, RwLock as StdRwLock,
         atomic::{AtomicU64, Ordering},
@@ -1991,11 +1992,18 @@ impl HuntEngine {
         let engine = self.clone();
         let retention_cancellation = runtime.retention_cancellation.clone();
         tokio::spawn(async move {
-            if let Err(error) = engine
-                .run_job(request, scope, compiled_rules, runtime.clone())
-                .await
-            {
-                engine.fail_job(id, runtime, error).await;
+            let outcome =
+                AssertUnwindSafe(engine.run_job(request, scope, compiled_rules, runtime.clone()))
+                    .catch_unwind()
+                    .await;
+            match outcome {
+                Ok(Ok(())) => {}
+                Ok(Err(error)) => engine.fail_job(id, runtime, error).await,
+                Err(_) => {
+                    engine
+                        .fail_job(id, runtime, anyhow::anyhow!("扫描任务因内部异常终止。"))
+                        .await;
+                }
             }
             tokio::select! {
                 _ = tokio::time::sleep(JOB_RUNTIME_RETENTION) => {},
