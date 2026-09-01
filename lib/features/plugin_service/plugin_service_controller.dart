@@ -33,7 +33,7 @@ String _pluginServiceText({
   );
 }
 
-const Duration _kPluginControllerShutdownTimeout = Duration(seconds: 3);
+const Duration _kPluginControllerOperationDrainTimeout = Duration(seconds: 5);
 
 /// 插件服务控制器。
 ///
@@ -48,6 +48,9 @@ class PluginServiceController extends ManagedChangeNotifier {
 
   final PluginScannerService _scanner;
   final PluginLifecycleService _lifecycle;
+
+  static const Duration runtimeCleanupTimeout =
+      kOpenHandServiceRuntimeCleanupTimeout;
 
   List<PluginInfo> _plugins = const <PluginInfo>[];
   bool _isLoading = true;
@@ -820,12 +823,14 @@ class PluginServiceController extends ManagedChangeNotifier {
   @override
   void dispose() {
     if (isDisposed) return;
+    _scanner.cancelPendingOperations();
+    _lifecycle.cancelPendingOperations();
     final activeOperations = _activeOperations.toList(growable: false);
     _shutdownFuture = activeOperations.isEmpty
         ? Future<void>.value()
         : runAsyncCleanupBounded(
             () => Future.wait<void>(activeOperations),
-            timeout: _kPluginControllerShutdownTimeout,
+            timeout: _kPluginControllerOperationDrainTimeout,
             onError: (error, stack) =>
                 silentLog('plugin_service', '等待插件控制器操作结束', error, stack),
           ).then<void>((_) {});

@@ -182,6 +182,7 @@ class PluginScannerService {
   static final RegExp _quotedJavaVersionPattern = RegExp(
     r'version\s+"([^"]+)"',
   );
+  final Completer<void> _operationCancellation = Completer<void>();
 
   final OpenHandSingleFlight<_PythonRuntimeScan?> _pythonRuntimeProbe =
       OpenHandSingleFlight<_PythonRuntimeScan?>();
@@ -193,6 +194,31 @@ class PluginScannerService {
       OpenHandSingleFlight<String?>();
   final OpenHandSingleFlight<String?> _latestGoogleChromeVersionProbe =
       OpenHandSingleFlight<String?>();
+
+  Future<void> get _cancelSignal => _operationCancellation.future;
+
+  void cancelPendingOperations() {
+    if (!_operationCancellation.isCompleted) {
+      _operationCancellation.complete();
+    }
+  }
+
+  Future<ProcessResult> _runProcessOrFailed(
+    String executable,
+    List<String> arguments, {
+    required Duration timeout,
+    String tag = 'plugin_scanner',
+    Map<String, String>? environment,
+  }) {
+    return runTrackedProcessOrFailed(
+      executable,
+      arguments,
+      timeout: timeout,
+      cancelSignal: _cancelSignal,
+      tag: tag,
+      environment: environment,
+    );
+  }
 
   Future<T> _runWithFallback<T>({
     required String operation,
@@ -212,7 +238,7 @@ class PluginScannerService {
     String tag = 'plugin_scanner.shell_probe',
     Duration timeout = const Duration(seconds: 15),
   }) {
-    return runTrackedProcessOrFailed(
+    return _runProcessOrFailed(
       pluginShellExecutable(),
       ['-c', script],
       timeout: timeout,
@@ -553,15 +579,19 @@ class PluginScannerService {
         connectionTimeout: _googleChromeUpdateCheckTimeout,
       );
       try {
-        final bytes = await fetchBoundedHttpBytes(
-          client: client,
-          uri: _googleChromeVersionHistoryUri(),
-          maxBytes: _googleChromeVersionResponseMaxBytes,
-          openTimeout: _googleChromeUpdateCheckTimeout,
-          idleTimeout: _googleChromeUpdateCheckTimeout,
-          totalTimeout: _googleChromeUpdateCheckTimeout,
-          expectedPrimaryType: 'application',
+        final bytes = await awaitWithCancelSignal(
+          fetchBoundedHttpBytes(
+            client: client,
+            uri: _googleChromeVersionHistoryUri(),
+            maxBytes: _googleChromeVersionResponseMaxBytes,
+            openTimeout: _googleChromeUpdateCheckTimeout,
+            idleTimeout: _googleChromeUpdateCheckTimeout,
+            totalTimeout: _googleChromeUpdateCheckTimeout,
+            expectedPrimaryType: 'application',
+          ),
+          cancelSignal: _cancelSignal,
         );
+        if (bytes == null) return null;
         final decoded = _decodeOptionalJson(utf8.decode(bytes));
         final versions = decoded is Map<String, Object?>
             ? decoded['versions']
@@ -912,7 +942,7 @@ class PluginScannerService {
         whichResult.stdout.toString(),
       );
       if (executable == null || executable.isEmpty) continue;
-      final versionResult = await runTrackedProcessOrFailed(
+      final versionResult = await _runProcessOrFailed(
         executable,
         ['--version'],
         timeout: const Duration(seconds: 5),
@@ -1022,10 +1052,11 @@ class PluginScannerService {
     try {
       final nvm = await _resolveNvmDirect();
       if (nvm != null) {
-        final versionResult = await runTrackedProcessOrFailed(
+        final versionResult = await _runProcessOrFailed(
           nvm.nodeBin,
           ['--version'],
           timeout: const Duration(seconds: 5),
+          tag: 'plugin_scanner.node_probe',
           environment: pluginProxyEnvironment(),
         );
         final version = versionResult.exitCode == 0
@@ -1093,7 +1124,7 @@ class PluginScannerService {
 
   Future<PluginInfo> _scanPipWithRuntime(_PythonRuntimeScan? runtime) async {
     if (runtime == null) return _pipNotInstalled;
-    final pipVersionResult = await runTrackedProcessOrFailed(
+    final pipVersionResult = await _runProcessOrFailed(
       runtime.executable,
       ['-m', 'pip', '--version'],
       timeout: const Duration(seconds: 8),
@@ -1184,7 +1215,9 @@ class PluginScannerService {
     operation: '扫描 Google Chrome',
     fallback: _googleChromeNotInstalled,
     operationBody: () async {
-      final result = await GoogleChromeRuntimeDetector().detect();
+      final result = await GoogleChromeRuntimeDetector(
+        cancelSignal: _cancelSignal,
+      ).detect();
       final executable = result.executablePath;
       if (!result.isInstalled || executable == null) {
         return _googleChromeNotInstalled;
@@ -1246,7 +1279,7 @@ class PluginScannerService {
 
   Future<String?> _queryDingtalkWorkspaceCliRelease(String url) async {
     final result = Platform.isWindows
-        ? await runTrackedProcessOrFailed(
+        ? await _runProcessOrFailed(
             'powershell.exe',
             <String>[
               '-NoLogo',
@@ -1290,12 +1323,13 @@ class PluginScannerService {
     fallback: _dingtalkWorkspaceCliNotInstalled,
     operationBody: () async {
       final executable = await resolvePluginDingtalkWorkspaceCliExecutable(
+        cancelSignal: _cancelSignal,
         tag: 'plugin_scanner.dingtalk_workspace_cli_path',
       );
       if (executable == null || executable.isEmpty) {
         return _dingtalkWorkspaceCliNotInstalled;
       }
-      final versionResult = await runTrackedProcessOrFailed(
+      final versionResult = await _runProcessOrFailed(
         executable,
         const <String>['--version'],
         timeout: const Duration(seconds: 8),
@@ -1307,8 +1341,9 @@ class PluginScannerService {
           ? _extractLooseVersion(output)
           : null;
       final latestVersion = await _queryLatestDingtalkWorkspaceCliVersion();
-      final npmInstallation =
-          await resolvePluginDingtalkWorkspaceCliNpmPackage();
+      final npmInstallation = await resolvePluginDingtalkWorkspaceCliNpmPackage(
+        cancelSignal: _cancelSignal,
+      );
       final installationTarget =
           npmInstallation?.packageDirectory ?? executable;
       return PluginInfo(

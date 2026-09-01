@@ -18,6 +18,10 @@ class GoogleChromeRuntimeProbe {
 }
 
 class GoogleChromeRuntimeDetector {
+  GoogleChromeRuntimeDetector({this.cancelSignal});
+
+  final Future<void>? cancelSignal;
+
   Future<GoogleChromeRuntimeProbe> detect() async {
     final executable = Platform.isMacOS
         ? await _detectMacOS()
@@ -41,6 +45,7 @@ class GoogleChromeRuntimeDetector {
       'mdfind',
       const <String>['kMDItemCFBundleIdentifier == "com.google.Chrome"'],
       timeout: _chromeSpotlightTimeout,
+      cancelSignal: cancelSignal,
       tag: 'google_chrome_runtime_detector',
     );
     final app = spotlight?.stdout
@@ -86,6 +91,7 @@ class GoogleChromeRuntimeDetector {
         '/ve',
       ],
       timeout: _chromeProcessProbeTimeout,
+      cancelSignal: cancelSignal,
       tag: 'google_chrome_runtime_detector',
     );
     final match = RegExp(
@@ -102,6 +108,7 @@ class GoogleChromeRuntimeDetector {
         Platform.isWindows ? 'where.exe' : '/usr/bin/which',
         <String>[command],
         timeout: _chromeProcessProbeTimeout,
+        cancelSignal: cancelSignal,
         tag: 'google_chrome_runtime_detector',
       );
       final path = result?.stdout.toString().split('\n').first.trim();
@@ -118,6 +125,7 @@ class GoogleChromeRuntimeDetector {
         executable,
         const <String>['--version'],
         timeout: _chromeProcessProbeTimeout,
+        cancelSignal: cancelSignal,
         tag: 'google_chrome_runtime_detector',
       );
       final version = result?.stdout.toString().trim();

@@ -49,6 +49,7 @@ String pluginDingtalkWorkspaceCliDefaultExecutablePath() {
 
 Future<String?> resolvePluginDingtalkWorkspaceCliExecutable({
   Duration timeout = const Duration(seconds: 5),
+  Future<void>? cancelSignal,
   String tag = 'plugin_toolchain.dingtalk_workspace_cli_path',
 }) async {
   final defaultPath = pluginDingtalkWorkspaceCliDefaultExecutablePath();
@@ -60,6 +61,7 @@ Future<String?> resolvePluginDingtalkWorkspaceCliExecutable({
           'where.exe',
           const <String>[pluginDingtalkWorkspaceCliCommand],
           timeout: timeout,
+          cancelSignal: cancelSignal,
           tag: tag,
           environment: pluginProxyEnvironment(),
         )
@@ -73,6 +75,7 @@ Future<String?> resolvePluginDingtalkWorkspaceCliExecutable({
             ),
           ],
           timeout: timeout,
+          cancelSignal: cancelSignal,
           tag: tag,
           environment: pluginProxyEnvironment(),
         );
@@ -84,6 +87,7 @@ Future<String?> resolvePluginDingtalkWorkspaceCliExecutable({
 Future<PluginNpmPackageInstallation?>
 resolvePluginDingtalkWorkspaceCliNpmPackage({
   Duration timeout = const Duration(seconds: 5),
+  Future<void>? cancelSignal,
   String tag = 'plugin_toolchain.dingtalk_workspace_cli_npm_root',
 }) async {
   final result = Platform.isWindows
@@ -91,6 +95,7 @@ resolvePluginDingtalkWorkspaceCliNpmPackage({
           'npm.cmd',
           const <String>['root', '-g'],
           timeout: timeout,
+          cancelSignal: cancelSignal,
           tag: tag,
           environment: pluginProxyEnvironment(),
         )
@@ -98,6 +103,7 @@ resolvePluginDingtalkWorkspaceCliNpmPackage({
           'npm',
           const <String>['root', '-g'],
           timeout: timeout,
+          cancelSignal: cancelSignal,
           tag: tag,
           environment: pluginProxyEnvironment(),
         );
@@ -125,6 +131,7 @@ Future<ProcessResult> runPluginToolchainCommandOrFailed(
   String executable,
   List<String> arguments, {
   required Duration timeout,
+  Future<void>? cancelSignal,
   String? tag,
   Map<String, String>? environment,
 }) {
@@ -132,6 +139,7 @@ Future<ProcessResult> runPluginToolchainCommandOrFailed(
     pluginShellExecutable(),
     ['-c', pluginToolchainManagedCommandScript(executable, arguments)],
     timeout: timeout,
+    cancelSignal: cancelSignal,
     tag: tag ?? 'plugin_toolchain.command.$executable',
     environment: environment ?? pluginProxyEnvironment(),
   );
@@ -142,6 +150,7 @@ Future<TrackedProcessLineLogResult> runPluginToolchainCommandWithLineLogging(
   List<String> arguments, {
   required Duration timeout,
   required String tag,
+  Future<void>? cancelSignal,
   ProcessLogLineHandler? onStdoutLine,
   ProcessLogLineHandler? onStderrLine,
   void Function()? onTimeout,
@@ -152,6 +161,7 @@ Future<TrackedProcessLineLogResult> runPluginToolchainCommandWithLineLogging(
     ['-c', pluginToolchainManagedCommandScript(executable, arguments)],
     environment: environment ?? pluginProxyEnvironment(),
     timeout: timeout,
+    cancelSignal: cancelSignal,
     tag: tag,
     onStdoutLine: onStdoutLine,
     onStderrLine: onStderrLine,

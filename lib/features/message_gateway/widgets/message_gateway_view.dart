@@ -16051,6 +16051,12 @@ typedef _DingTalkMediaSaveCallback =
       String destinationPath,
     );
 
+const double _dingtalkTextBubbleBottomSpacing = 6;
+const double _dingtalkMediaRailBottomSpacing = 4;
+const EdgeInsets _dingtalkQuotedCardMotionClearance = EdgeInsets.symmetric(
+  horizontal: 4,
+);
+
 class _DingTalkMessageAnchorRegistry {
   final Map<String, BuildContext> _contexts = <String, BuildContext>{};
 
@@ -16380,8 +16386,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
               final contentTransitionDuration = widget.streaming
                   ? Duration.zero
                   : openHandMotionDuration(context, kOpenHandMotion180);
-              final highlightPrimaryContent =
-                  contentExpanded && widget.message.quotedMessage != null;
               final messageContent = AnimatedSwitcher(
                 duration: contentTransitionDuration,
                 switchInCurve: kOpenHandSwitchInCurve,
@@ -16432,7 +16436,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                 duration: openHandMotionDuration(context, kOpenHandMotion260),
                 curve: kOpenHandEntranceCurve,
                 alignment: bubbleAlignment,
-                child: highlightPrimaryContent
+                child: contentExpanded
                     ? bubbleContent
                     : _buildNavigationHighlight(context, child: bubbleContent),
               );
@@ -16614,6 +16618,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
               foreground: foreground,
             ),
           ),
+        if (hasQuotedMessage) kOpenHandGap8,
         if (media.isNotEmpty)
           AnimatedOpacity(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
@@ -16623,8 +16628,12 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                 : widget.message.ignoredForAiContext
                 ? 0.68
                 : 1,
-            child: hasQuotedMessage && textBubble == null
-                ? _buildNavigationHighlight(context, child: mediaRail)
+            child: textBubble == null
+                ? _buildNavigationHighlight(
+                    context,
+                    child: mediaRail,
+                    bottomInset: _dingtalkMediaRailBottomSpacing,
+                  )
                 : mediaRail,
           ),
         if (hasText && media.isNotEmpty) kOpenHandGap8,
@@ -16632,15 +16641,13 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           Align(
             alignment: childAlignment,
             widthFactor: 1,
-            child: hasQuotedMessage
-                ? IntrinsicWidth(
-                    child: _buildNavigationHighlight(
-                      context,
-                      child: textBubble,
-                      bottomInset: 6,
-                    ),
-                  )
-                : textBubble,
+            child: IntrinsicWidth(
+              child: _buildNavigationHighlight(
+                context,
+                child: textBubble,
+                bottomInset: _dingtalkTextBubbleBottomSpacing,
+              ),
+            ),
           ),
         if (media.isNotEmpty && widget.message.reactions.isNotEmpty)
           _buildReactionRow(context, foreground, topSpacing: 2),
@@ -16659,7 +16666,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     return AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion220),
       curve: kOpenHandSwitchInCurve,
-      margin: const EdgeInsets.only(bottom: 6),
+      margin: const EdgeInsets.only(bottom: _dingtalkTextBubbleBottomSpacing),
       decoration: BoxDecoration(
         color: colors.surfaceContainerLow,
         borderRadius: borderRadius,
@@ -16873,7 +16880,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     final card = AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion220),
       curve: kOpenHandSwitchInCurve,
-      margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
       decoration: BoxDecoration(
         color: Color.alphaBlend(
@@ -16881,7 +16887,10 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           bubbleColor,
         ),
         borderRadius: kOpenHandBorderRadius12,
-        border: Border.all(color: colors.primary.withValues(alpha: 0.24)),
+        border: Border.all(
+          color: colors.primary.withValues(alpha: 0.42),
+          width: 1.2,
+        ),
       ),
       child: Container(
         padding: const EdgeInsets.only(left: 10),
@@ -16959,7 +16968,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         pressScale: 0.985,
         showHoverOverlay: false,
         showFocusRing: true,
-        motionClearance: EdgeInsets.zero,
+        motionClearance: _dingtalkQuotedCardMotionClearance,
         onTap: widget.onOpenQuotedMessage == null
             ? null
             : () {
@@ -16989,7 +16998,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     return AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion220),
       curve: kOpenHandSwitchInCurve,
-      margin: const EdgeInsets.only(bottom: 6),
+      margin: const EdgeInsets.only(bottom: _dingtalkTextBubbleBottomSpacing),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: bubbleColor,
@@ -17033,7 +17042,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         width: 440,
         duration: openHandMotionDuration(context, kOpenHandMotion220),
         curve: kOpenHandSwitchInCurve,
-        margin: const EdgeInsets.only(bottom: 6),
+        margin: const EdgeInsets.only(bottom: _dingtalkTextBubbleBottomSpacing),
         decoration: BoxDecoration(
           color: bubbleColor,
           borderRadius: borderRadius,
@@ -19911,7 +19920,9 @@ class _DingTalkMediaRail extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: _maxWidth),
         child: Padding(
-          padding: const EdgeInsets.only(bottom: 4),
+          padding: const EdgeInsets.only(
+            bottom: _dingtalkMediaRailBottomSpacing,
+          ),
           child: Wrap(
             alignment: mine ? WrapAlignment.end : WrapAlignment.start,
             spacing: 8,

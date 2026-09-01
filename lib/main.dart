@@ -497,7 +497,11 @@ Future<void> _bootstrapRuntime(AppRuntimeCleanupRegistry runtimeCleanup) async {
     ),
   );
   final pluginService = await pluginServiceModuleFuture;
-  runtimeCleanup.register('插件服务控制器', pluginService.controller.shutdown);
+  runtimeCleanup.register(
+    '插件服务控制器',
+    pluginService.controller.shutdown,
+    timeout: PluginServiceController.runtimeCleanupTimeout,
+  );
   final messageGateway = await MessageGatewayModule.bootstrap(
     MessageGatewayDependencies(
       sessionController: aiSessionController,

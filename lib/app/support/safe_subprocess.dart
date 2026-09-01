@@ -1519,6 +1519,7 @@ Future<ProcessResult> runTrackedProcessOrFailed(
   String executable,
   List<String> arguments, {
   Duration timeout = const Duration(seconds: 4),
+  Future<void>? cancelSignal,
   String tag = 'safe_subprocess',
   String? workingDirectory,
   Map<String, String>? environment,
@@ -1530,6 +1531,7 @@ Future<ProcessResult> runTrackedProcessOrFailed(
     executable,
     arguments,
     timeout: timeout,
+    cancelSignal: cancelSignal,
     tag: tag,
     workingDirectory: workingDirectory,
     environment: environment,
