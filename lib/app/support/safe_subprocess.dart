@@ -1283,6 +1283,29 @@ Future<ProcessResult?> runProcessWithTimeout(
     }
   }
 
+  void observeLateLaunch(Future<_TrackedProcessLaunch> launchFuture) {
+    unawaited(
+      launchFuture.then<void>(
+        (lateLaunch) async {
+          try {
+            await _terminateTrackedProcessTree(
+              lateLaunch.process,
+              gracefulTimeout: Duration(milliseconds: effectiveGracefulMs),
+              knownProcessGroupLeader: lateLaunch.isProcessGroupLeader,
+            );
+          } catch (error, stack) {
+            silentLog(tag, '终止延迟启动进程 $executable', error, stack);
+          }
+        },
+        onError: (Object error, StackTrace stack) {
+          if (!_isMissingExecutableProcessException(error)) {
+            silentLog(tag, '延迟启动进程 $executable', error, stack);
+          }
+        },
+      ),
+    );
+  }
+
   try {
     final launchFuture = startInNewProcessGroup
         ? _startTrackedProcessInNewGroup(
@@ -1314,51 +1337,13 @@ Future<ProcessResult?> runProcessWithTimeout(
       ).timeout(processStartTimeout);
       if (launched == null) {
         timedOut = true;
-        unawaited(
-          launchFuture.then<void>(
-            (lateLaunch) async {
-              try {
-                await _terminateTrackedProcessTree(
-                  lateLaunch.process,
-                  gracefulTimeout: Duration(milliseconds: effectiveGracefulMs),
-                  knownProcessGroupLeader: lateLaunch.isProcessGroupLeader,
-                );
-              } catch (error, stack) {
-                silentLog(tag, '终止延迟启动进程 $executable', error, stack);
-              }
-            },
-            onError: (Object error, StackTrace stack) {
-              if (!_isMissingExecutableProcessException(error)) {
-                silentLog(tag, '延迟启动进程 $executable', error, stack);
-              }
-            },
-          ),
-        );
+        observeLateLaunch(launchFuture);
         return timeoutResultBuilder?.call(-1, '', '');
       }
       launch = launched;
     } on TimeoutException {
       timedOut = true;
-      unawaited(
-        launchFuture.then<void>(
-          (lateLaunch) async {
-            try {
-              await _terminateTrackedProcessTree(
-                lateLaunch.process,
-                gracefulTimeout: Duration(milliseconds: effectiveGracefulMs),
-                knownProcessGroupLeader: lateLaunch.isProcessGroupLeader,
-              );
-            } catch (error, stack) {
-              silentLog(tag, '终止延迟启动进程 $executable', error, stack);
-            }
-          },
-          onError: (Object error, StackTrace stack) {
-            if (!_isMissingExecutableProcessException(error)) {
-              silentLog(tag, '延迟启动进程 $executable', error, stack);
-            }
-          },
-        ),
-      );
+      observeLateLaunch(launchFuture);
       return timeoutResultBuilder?.call(-1, '', '');
     }
     process = launch.process;

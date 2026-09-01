@@ -337,15 +337,10 @@ class DataCleanupService {
     } catch (error, stack) {
       silentLog('data_cleanup', '清理 Hooks', error, stack);
       // controller 路径异常时兜底直接走 DB，再 refresh 一次。
-      try {
-        final db = DatabaseService.instance.database;
-        await db.delete('hooks');
-        await _hooksController.refresh();
-        _requireControllerRefreshSucceeded(_hooksController.errorMessage);
-      } catch (error2, stack2) {
-        silentLog('data_cleanup', '清理 Hooks 兜底', error2, stack2);
-        Error.throwWithStackTrace(error2, stack2);
-      }
+      final db = DatabaseService.instance.database;
+      await db.delete('hooks');
+      await _hooksController.refresh();
+      _requireControllerRefreshSucceeded(_hooksController.errorMessage);
     }
   }
 
@@ -365,17 +360,10 @@ class DataCleanupService {
     } catch (error, stack) {
       silentLog('data_cleanup', '清理用户指令', error, stack);
       // controller 路径异常时兜底直接走 DB，再 refresh 一次。
-      try {
-        final db = DatabaseService.instance.database;
-        await db.delete('user_instructions');
-        await _instructionsController.refresh();
-        _requireControllerRefreshSucceeded(
-          _instructionsController.errorMessage,
-        );
-      } catch (error2, stack2) {
-        silentLog('data_cleanup', '清理用户指令兜底', error2, stack2);
-        Error.throwWithStackTrace(error2, stack2);
-      }
+      final db = DatabaseService.instance.database;
+      await db.delete('user_instructions');
+      await _instructionsController.refresh();
+      _requireControllerRefreshSucceeded(_instructionsController.errorMessage);
     }
   }
 

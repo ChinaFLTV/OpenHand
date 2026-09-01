@@ -13,6 +13,7 @@ import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 import '../../app/model/app_settings_snapshot.dart';
+import '../../app/model/hook_config.dart' show HookUsageRecorder;
 import '../../app/support/openhand_paths.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
@@ -377,6 +378,26 @@ class AiSessionController extends ChangeNotifier {
       );
     }
 
+    HookUsageRecorder createHookUsageRecorder(String source) {
+      return (sessionId, records) async {
+        for (final record in records) {
+          await resolvedToolUsagePromotionStore.recordResources(
+            sessionId: sessionId,
+            resources: <AiResourceUsageKind, Iterable<String>>{
+              AiResourceUsageKind.hook: <String>[record.hookId],
+            },
+            subResourceId: record.eventName,
+            toolName: record.eventName,
+            status: record.status,
+            durationMs: record.durationMs,
+            resultSummary: record.resultSummary,
+            errorSummary: record.errorSummary,
+            source: source,
+          );
+        }
+      };
+    }
+
     try {
       await resolvedToolUsagePromotionStore.initialize();
       final resolvedToolRuntimeService =
@@ -407,40 +428,12 @@ class AiSessionController extends ChangeNotifier {
           result: result,
         );
       });
-      resolvedHookService.configureUsageRecorder((sessionId, records) async {
-        for (final record in records) {
-          await resolvedToolUsagePromotionStore.recordResources(
-            sessionId: sessionId,
-            resources: <AiResourceUsageKind, Iterable<String>>{
-              AiResourceUsageKind.hook: <String>[record.hookId],
-            },
-            subResourceId: record.eventName,
-            toolName: record.eventName,
-            status: record.status,
-            durationMs: record.durationMs,
-            resultSummary: record.resultSummary,
-            errorSummary: record.errorSummary,
-            source: 'claude_hook',
-          );
-        }
-      });
-      userHooksExecutor?.configureUsageRecorder((sessionId, records) async {
-        for (final record in records) {
-          await resolvedToolUsagePromotionStore.recordResources(
-            sessionId: sessionId,
-            resources: <AiResourceUsageKind, Iterable<String>>{
-              AiResourceUsageKind.hook: <String>[record.hookId],
-            },
-            subResourceId: record.eventName,
-            toolName: record.eventName,
-            status: record.status,
-            durationMs: record.durationMs,
-            resultSummary: record.resultSummary,
-            errorSummary: record.errorSummary,
-            source: 'user_hook',
-          );
-        }
-      });
+      resolvedHookService.configureUsageRecorder(
+        createHookUsageRecorder('claude_hook'),
+      );
+      userHooksExecutor?.configureUsageRecorder(
+        createHookUsageRecorder('user_hook'),
+      );
       controller = AiSessionController._(
         store: resolvedStore,
         chatClient: resolvedChatClient,

@@ -103,7 +103,7 @@ export function filenameFromContentDisposition(value: string | null): string | n
   return plain?.[1] ? sanitizeDownloadFilename(plain[1]) : null;
 }
 
-export function sanitizeDownloadFilename(
+function sanitizeDownloadFilename(
   value: string,
   fallback = 'download',
 ): string {
