@@ -9,6 +9,7 @@ readonly WEB_DIR="clients/web"
 readonly OUT_DIR="assets/web"
 readonly DEFAULT_PNPM_PACKAGE_MANAGER="pnpm@11.7.0"
 readonly MIN_WEB_NODE_MAJOR=22
+readonly MIN_WEB_NODE_MINOR=12
 readonly COREPACK_BUGGY_NODE_MAJOR=26
 
 PNPM_CMD=()
@@ -36,6 +37,13 @@ node_major_for() {
     2>/dev/null || printf '0'
 }
 
+node_is_compatible() {
+  local candidate="$1"
+  "$candidate" -e \
+    "const [major, minor] = process.versions.node.split('.').map(Number); process.exit(major > $MIN_WEB_NODE_MAJOR || (major === $MIN_WEB_NODE_MAJOR && minor >= $MIN_WEB_NODE_MINOR) ? 0 : 1)" \
+    2>/dev/null
+}
+
 resolve_node_command() {
   local candidates=()
   local current_node
@@ -53,7 +61,7 @@ resolve_node_command() {
   for candidate in "${candidates[@]}"; do
     [[ -x "$candidate" ]] || continue
     major="$(node_major_for "$candidate")"
-    (( major >= MIN_WEB_NODE_MAJOR )) || continue
+    node_is_compatible "$candidate" || continue
     if (( major < COREPACK_BUGGY_NODE_MAJOR && major > preferred_major )); then
       preferred="$candidate"
       preferred_major="$major"
@@ -65,7 +73,7 @@ resolve_node_command() {
 
   NODE_CMD="${preferred:-$fallback}"
   if [[ -z "$NODE_CMD" ]]; then
-    fail "Web 构建需要 Node.js ${MIN_WEB_NODE_MAJOR}+；请安装兼容版本"
+    fail "Web 构建需要 Node.js ${MIN_WEB_NODE_MAJOR}.${MIN_WEB_NODE_MINOR}+；请安装兼容版本"
   fi
   if [[ "$NODE_CMD" != "$current_node" ]]; then
     log "使用兼容 Node $($NODE_CMD -v) ($NODE_CMD)"

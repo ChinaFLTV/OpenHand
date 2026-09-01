@@ -3437,7 +3437,7 @@ final RegExp _htmlTagScanPattern = RegExp(
 ///
 /// 触发场景：AI 回复因 `finish_reason: max_tokens` 被截断，留下未闭合
 /// 的 `<div>` / `<table>` 等。直接交给 WebView 时浏览器虽然会自动闭合，
-/// 但 flutter_widget_from_html_core 旧版回退路径会因此崩溃或渲染出 0
+/// 但 flutter_widget_from_html_core 回退路径可能因此崩溃或渲染出 0
 /// 高度的占位 widget，导致消息卡片出现"空白"或"展开后空"的假死。
 ///
 /// 设计原则：只追加闭合标签、不删除/重排原有字符，保持用户可见内容
@@ -3499,7 +3499,7 @@ String _healUnbalancedHtml(String value) {
 /// HTML 渲染体：调用 `flutter_widget_from_html_core` 的 `HtmlWidget` 解析渲染。
 /// 任何渲染期抛出都会被外层 `_AssistantMessageBodyDispatcher` 的回退链兜住。
 ///
-/// flutter_widget_from_html_core 0.16.x 对 `flex-wrap` / CSS grid 支持有限。
+/// flutter_widget_from_html_core 对 `flex-wrap` / CSS grid 支持有限。
 /// 这里不再剥离 `display:flex`，而是在自定义 factory 里为常见卡片行布局补
 /// Wrap/Grid 兜底，保证消息卡片尽量接近浏览器预览，同时避免窄气泡溢出。
 class _PreparedHtmlRenderData {
