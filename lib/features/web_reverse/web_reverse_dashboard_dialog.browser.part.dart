@@ -1184,6 +1184,15 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
   void showAutocorrectionPromptRect(int start, int end) {}
 
   @override
+  bool onFocusReceived() {
+    if (!mounted || !_cjkInputEnabled || !_surfaceFocus.canRequestFocus) {
+      return false;
+    }
+    _surfaceFocus.requestFocus();
+    return true;
+  }
+
+  @override
   void connectionClosed() {
     _imeConnection = null;
   }
@@ -2596,7 +2605,7 @@ class _TabStripState extends State<_TabStrip> {
               child: ReorderableListView.builder(
                 scrollDirection: Axis.horizontal,
                 buildDefaultDragHandles: false,
-                onReorder: enabled
+                onReorderItem: enabled
                     ? (oldI, newI) {
                         // 只允许在「活跃 Tab」范围内排序；不让用户拖到 closing 占位上。
                         if (oldI >= activeCount) return;

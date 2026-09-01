@@ -14,7 +14,7 @@ PODS:
     - FlutterMacOS
   - pasteboard (0.0.1):
     - FlutterMacOS
-  - record_macos (1.2.1):
+  - record_macos (2.0.0):
     - FlutterMacOS
   - webview_flutter_wkwebview (0.0.1):
     - Flutter
@@ -59,14 +59,14 @@ SPEC CHECKSUMS:
   file_selector_macos: 9e9e068e90ebee155097d00e89ae91edb2374db7
   flutter_inappwebview_macos: c2d68649f9f8f1831bfcd98d73fd6256366d9d1d
   flutter_pty: 1e360feaf8b1a213d2d50da3c076005b8eef1eee
-  FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
+  FlutterMacOS: c232990155153907050900a2e175c7773903ba4e
   media_kit_libs_macos_audio: 06f3cf88d6d89c7c3c87eae57689d1c6adb335b2
   OrderedSet: e539b66b644ff081c73a262d24ad552a69be3a94
   package_info_plus: f0052d280d17aa382b932f399edf32507174e870
   pasteboard: b594eaf838d930b276d7a35a44a32b4f489170cb
-  record_macos: 5d55909f9650314be6424ffd6b123ac75a08c3c1
+  record_macos: 2e43c16b84ce188b8137754ee648322a2dcdf7fa
   webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d
 
-PODFILE CHECKSUM: d4f773fd08719828dfdcfc4a0d2a81358cec2365
+PODFILE CHECKSUM: fe0251f0e184e97aba6ee30819e471dd29564ec2
 
 COCOAPODS: 1.16.2

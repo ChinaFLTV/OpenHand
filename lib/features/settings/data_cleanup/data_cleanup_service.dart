@@ -38,24 +38,16 @@ import 'data_cleanup_models.dart';
 /// 数据清理 service：纯实例化（无全局状态），由 UI 层按需创建。
 class DataCleanupService {
   DataCleanupService({
-    required AiSessionController aiSessionController,
-    required CronsController cronsController,
-    required HooksController hooksController,
-    required InstructionsController instructionsController,
-    required MemoryController memoryController,
-    required McpController mcpController,
-    required MessageGatewayController messageGatewayController,
-    required SkillsController skillsController,
-    required SettingsController settingsController,
-  }) : _aiSessionController = aiSessionController,
-       _cronsController = cronsController,
-       _hooksController = hooksController,
-       _instructionsController = instructionsController,
-       _memoryController = memoryController,
-       _mcpController = mcpController,
-       _messageGatewayController = messageGatewayController,
-       _skillsController = skillsController,
-       _settingsController = settingsController;
+    required this._aiSessionController,
+    required this._cronsController,
+    required this._hooksController,
+    required this._instructionsController,
+    required this._memoryController,
+    required this._mcpController,
+    required this._messageGatewayController,
+    required this._skillsController,
+    required this._settingsController,
+  });
 
   final AiSessionController _aiSessionController;
   final CronsController _cronsController;

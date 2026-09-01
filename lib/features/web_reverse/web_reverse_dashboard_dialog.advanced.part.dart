@@ -3751,7 +3751,7 @@ Future<String> _readWebcrackOutputFile(
         ja: '[webcrack 出力が大きすぎます: $bytes bytes, limit $_kWebcrackMaxOutputBytes bytes]',
       );
     }
-    return readBoundedFileString(
+    return await readBoundedFileString(
       file,
       maxBytes: _kWebcrackMaxOutputBytes,
       totalTimeout: deadline.remaining(),

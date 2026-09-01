@@ -2318,7 +2318,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                 ),
                 SizeTransition(
                   sizeFactor: _fadeAnimation,
-                  axisAlignment: -1.0,
+                  alignment: AlignmentDirectional.topStart,
                   child: FadeTransition(
                     opacity: _fadeAnimation,
                     child: Padding(

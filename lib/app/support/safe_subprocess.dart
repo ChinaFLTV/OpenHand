@@ -2426,7 +2426,7 @@ Future<bool> openExternalUriWithSystemApp(
   }
   if (scheme == 'file') {
     try {
-      return openLocalPathWithSystemApp(uri.toFilePath(), tag: tag);
+      return await openLocalPathWithSystemApp(uri.toFilePath(), tag: tag);
     } catch (error, stack) {
       silentLog('safe_subprocess', '打开文件 URI', error, stack);
       return false;

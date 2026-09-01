@@ -75,18 +75,15 @@ class AiClaudeHookService {
     String Function()? applicationDirectoryPath,
     String Function()? homeDirectoryPath,
     Duration? commandTimeout,
-    Duration invocationTimeout = _defaultAiHookInvocationTimeout,
-    int maxCommandsPerInvocation = _defaultMaxAiHookCommandsPerInvocation,
-    Duration configPresenceCacheTtl = const Duration(seconds: 3),
+    this._invocationTimeout = _defaultAiHookInvocationTimeout,
+    this._maxCommandsPerInvocation = _defaultMaxAiHookCommandsPerInvocation,
+    this._configPresenceCacheTtl = const Duration(seconds: 3),
     DateTime Function()? clock,
   }) : _applicationDirectoryPath =
            applicationDirectoryPath ?? OpenHandPaths.applicationDirectoryPath,
        _homeDirectoryPath =
            homeDirectoryPath ?? OpenHandPaths.homeDirectoryPath,
        _commandTimeout = commandTimeout ?? const Duration(seconds: 12),
-       _invocationTimeout = invocationTimeout,
-       _maxCommandsPerInvocation = maxCommandsPerInvocation,
-       _configPresenceCacheTtl = configPresenceCacheTtl,
        _clock = clock ?? DateTime.now {
     if (_commandTimeout <= Duration.zero ||
         _invocationTimeout <= Duration.zero ||

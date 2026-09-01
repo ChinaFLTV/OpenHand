@@ -10,9 +10,8 @@ import 'ai_operation_http.dart';
 final class AiMiniMaxVoiceService {
   AiMiniMaxVoiceService({
     AiTransportClient? transport,
-    AiEndpointRouter router = const AiEndpointRouter(),
+    this._router = const AiEndpointRouter(),
   }) : _transport = transport ?? AiTransportClient(),
-       _router = router,
        _ownsTransport = transport == null;
 
   static const int _maxResponseBytes = 4 * kBytesPerMiB;

@@ -72,11 +72,10 @@ class ServicesController extends ChangeNotifier {
     AiExposurePreferencesStore? preferencesStore,
     AiExposurePreferences? initialPreferences,
     AiExposureProxyProbe? proxyProbe,
-    Duration proxyInspectionFirstRunDelay = _kProxyInspectionFirstRunDelay,
+    this._proxyInspectionFirstRunDelay = _kProxyInspectionFirstRunDelay,
   }) : _runtime = runtime ?? AiJunglerRuntime(),
        _preferencesStore = preferencesStore ?? AiExposurePreferencesStore(),
-       _proxyProbe = proxyProbe ?? const AiExposureProxyProbe(),
-       _proxyInspectionFirstRunDelay = proxyInspectionFirstRunDelay {
+       _proxyProbe = proxyProbe ?? const AiExposureProxyProbe() {
     final preferences = initialPreferences ?? AiExposurePreferences.defaults();
     _enabledSources = Set<AiExposureSource>.of(preferences.enabledSources);
     _defaultConcurrency = preferences.defaultConcurrency;

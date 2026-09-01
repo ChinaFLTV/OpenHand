@@ -72,7 +72,7 @@ class OpenHandVerticalRevealSwitcher extends StatelessWidget {
         final faded = FadeTransition(opacity: animation, child: child);
         return SizeTransition(
           sizeFactor: animation,
-          axisAlignment: -1,
+          alignment: AlignmentDirectional.topStart,
           child: slideBeginOffsetY == 0
               ? faded
               : SlideTransition(
@@ -151,7 +151,7 @@ class OpenHandInlineRevealSwitcher extends StatelessWidget {
       transitionBuilder: (child, animation) => SizeTransition(
         sizeFactor: animation,
         axis: Axis.horizontal,
-        axisAlignment: -1,
+        alignment: AlignmentDirectional.topStart,
         child: FadeTransition(opacity: animation, child: child),
       ),
       layoutBuilder: (currentChild, previousChildren) => Stack(

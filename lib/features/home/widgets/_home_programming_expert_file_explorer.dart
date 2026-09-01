@@ -11073,7 +11073,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         child: child,
                       );
                     },
-                    onReorder: widget.onReorderTabs,
+                    onReorderItem: widget.onReorderTabs,
                     padding: const EdgeInsets.only(
                       left: 6,
                       top: 5,
@@ -15403,6 +15403,9 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
                             child: SizedBox(
                               width: estimatedContentWidth,
                               child: ListView.builder(
+                                scrollCacheExtent: ScrollCacheExtent.pixels(
+                                  _lineExtent * 48,
+                                ),
                                 key: ValueKey(
                                   'preview-content-${widget.fontSize}',
                                 ),
@@ -15413,7 +15416,6 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
                                   left: 8,
                                   right: 12,
                                 ),
-                                cacheExtent: _lineExtent * 48,
                                 itemCount: lineCount,
                                 itemExtent: _lineExtent,
                                 itemBuilder: (context, index) {

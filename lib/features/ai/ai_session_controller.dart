@@ -182,44 +182,26 @@ typedef AiGoalContinuationYieldPredicate = bool Function(String sessionId);
 
 class AiSessionController extends ChangeNotifier {
   AiSessionController._({
-    required AiSessionStore store,
-    required AiChatClient chatClient,
-    required AiChatClient backgroundChatClient,
-    required AiPromptTemplateRepository templateRepository,
-    required AiPromptBuilder promptBuilder,
-    required AiBashToolService bashToolService,
-    required AiClaudeHookService hookService,
-    required AiToolRuntimeService toolRuntimeService,
-    required AiToolUsagePromotionStore toolUsagePromotionStore,
-    required AiAttachmentService attachmentService,
-    required bool ownsChatClient,
-    required bool ownsBackgroundChatClient,
-    required bool ownsBashToolService,
-    required bool ownsToolRuntimeService,
-    required McpToolDiscoveryService? ownedMcpToolService,
-    required String Function() idGenerator,
-    required DateTime Function() clock,
-    MachineTerminalService? machineTerminalService,
-    HooksExecutor? userHooksExecutor,
-  }) : _store = store,
-       _chatClient = chatClient,
-       _backgroundChatClient = backgroundChatClient,
-       _templateRepository = templateRepository,
-       _promptBuilder = promptBuilder,
-       _bashToolService = bashToolService,
-       _hookService = hookService,
-       _toolRuntimeService = toolRuntimeService,
-       _toolUsagePromotionStore = toolUsagePromotionStore,
-       _attachmentService = attachmentService,
-       _ownsChatClient = ownsChatClient,
-       _ownsBackgroundChatClient = ownsBackgroundChatClient,
-       _ownsBashToolService = ownsBashToolService,
-       _ownsToolRuntimeService = ownsToolRuntimeService,
-       _ownedMcpToolService = ownedMcpToolService,
-       _idGenerator = idGenerator,
-       _clock = clock,
-       _machineTerminalService = machineTerminalService,
-       _userHooksExecutor = userHooksExecutor {
+    required this._store,
+    required this._chatClient,
+    required this._backgroundChatClient,
+    required this._templateRepository,
+    required this._promptBuilder,
+    required this._bashToolService,
+    required this._hookService,
+    required this._toolRuntimeService,
+    required this._toolUsagePromotionStore,
+    required this._attachmentService,
+    required this._ownsChatClient,
+    required this._ownsBackgroundChatClient,
+    required this._ownsBashToolService,
+    required this._ownsToolRuntimeService,
+    required this._ownedMcpToolService,
+    required this._idGenerator,
+    required this._clock,
+    this._machineTerminalService,
+    this._userHooksExecutor,
+  }) {
     _machineTerminalService?.configureMetadataPersister((sessionId, metadata) {
       return _persistMachineTerminalMetadata(sessionId, metadata);
     });
@@ -2353,7 +2335,7 @@ class AiSessionController extends ChangeNotifier {
               true,
         );
         if (containsContentPreviews) {
-          return ensureSessionMessagesHydrated(sessionId);
+          return await ensureSessionMessagesHydrated(sessionId);
         }
         final completed = current.copyWith(
           messageLoadState: AiSessionMessageLoadState.complete,

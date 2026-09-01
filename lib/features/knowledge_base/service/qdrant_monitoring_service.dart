@@ -24,7 +24,7 @@ class QdrantMonitoringSnapshot {
 }
 
 class QdrantMonitoringService {
-  QdrantMonitoringService({required KnowledgeBaseStore store}) : _store = store;
+  QdrantMonitoringService({required this._store});
 
   final KnowledgeBaseStore _store;
 

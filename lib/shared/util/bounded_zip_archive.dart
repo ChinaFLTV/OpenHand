@@ -243,8 +243,8 @@ final class BoundedZipArchive {
 
 final class BoundedZipEntry {
   const BoundedZipEntry._({
-    required Uint8List archiveBytes,
-    required _ZipReadBudget readBudget,
+    required this._archiveBytes,
+    required this._readBudget,
     required this.name,
     required this.compressionMethod,
     required this.compressedSize,
@@ -252,8 +252,7 @@ final class BoundedZipEntry {
     required this.crc32,
     required this.dataOffset,
     required this.isFile,
-  }) : _archiveBytes = archiveBytes,
-       _readBudget = readBudget;
+  });
 
   final Uint8List _archiveBytes;
   final _ZipReadBudget _readBudget;

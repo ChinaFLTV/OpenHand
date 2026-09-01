@@ -367,12 +367,11 @@ class AiChatService implements AiChatClient {
   AiChatService({
     http.Client? client,
     AiImageGenerationService? imageService,
-    AiModelScanner? modelScanner,
+    this._modelScanner,
   }) : _client = client ?? SystemProxyResolver.instance.createHttpClient(),
        _ownsClient = client == null,
        _imageService = imageService ?? AiImageGenerationService(client: client),
-       _ownsImageService = imageService == null,
-       _modelScanner = modelScanner;
+       _ownsImageService = imageService == null;
 
   static const String _availabilityProbePrompt =
       'Reply with OK only if this model configuration works.';

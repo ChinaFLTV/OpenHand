@@ -3,17 +3,11 @@ import '../../service/hook/ai_claude_hook_service.dart';
 
 class AiBashWriteConfirmationGate {
   AiBashWriteConfirmationGate({
-    required AiClaudeHookService hookService,
-    required String sessionId,
-    required String toolName,
-    required Future<BashCommandApprovalDecision> Function(
-      BashCommandApprovalRequest request,
-    )?
-    userConfirmation,
-  }) : _hookService = hookService,
-       _sessionId = sessionId,
-       _toolName = toolName,
-       _userConfirmation = userConfirmation;
+    required this._hookService,
+    required this._sessionId,
+    required this._toolName,
+    required this._userConfirmation,
+  });
 
   final AiClaudeHookService _hookService;
   final String _sessionId;

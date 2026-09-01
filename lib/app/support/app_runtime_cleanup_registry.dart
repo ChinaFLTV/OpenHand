@@ -18,7 +18,7 @@ final class AppRuntimeCleanupRegistry {
   AppRuntimeCleanupRegistry({
     Duration cleanupTimeout = kOpenHandDefaultAsyncCleanupTimeout,
     Duration totalTimeout = kOpenHandDefaultRuntimeCleanupTotalTimeout,
-    AppRuntimeCleanupErrorHandler? onError,
+    this._onError,
   }) : _cleanupTimeout = _positiveCleanupDuration(
          cleanupTimeout,
          'cleanupTimeout',
@@ -27,8 +27,7 @@ final class AppRuntimeCleanupRegistry {
          totalTimeout,
          'totalTimeout',
          maximum: kOpenHandMaxRuntimeCleanupTotalTimeout,
-       ),
-       _onError = onError;
+       );
 
   final Duration _cleanupTimeout;
   final Duration _totalTimeout;

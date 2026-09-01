@@ -9,12 +9,10 @@ import 'model/user_memory_entry.dart';
 
 class MemoryController extends ManagedChangeNotifier {
   MemoryController._({
-    required MemoryStore store,
-    required String Function() idGenerator,
-    required DateTime Function() clock,
-  }) : _store = store,
-       _idGenerator = idGenerator,
-       _clock = clock;
+    required this._store,
+    required this._idGenerator,
+    required this._clock,
+  });
 
   /// 同步创建控制器，不立即加载 SQLite。调用方必须执行 [refresh]，
   /// 通常以 `unawaited(controller.refresh())` 在后台填充内存条目。

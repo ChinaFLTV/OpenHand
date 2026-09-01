@@ -220,7 +220,6 @@ class _ProxyProvidersDialogState extends State<_ProxyProvidersDialog> {
 
   Future<void> _reorder(int oldIndex, int newIndex) async {
     if (_mutatingIds.isNotEmpty) return;
-    if (newIndex > oldIndex) newIndex -= 1;
     final settings = context.read<SettingsController>();
     if (oldIndex < 0 ||
         newIndex < 0 ||
@@ -349,7 +348,7 @@ class _ProxyProvidersDialogState extends State<_ProxyProvidersDialog> {
                   ],
                 ),
                 itemCount: models.length,
-                onReorder: _reorder,
+                onReorderItem: _reorder,
                 proxyDecorator: (child, index, animation) =>
                     buildOpenHandReorderProxy(context, child, animation),
                 itemBuilder: (context, index) {
@@ -1097,7 +1096,6 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
   void _reorderExposedModels(int oldIndex, int newIndex) {
     final proxy = context.read<AiModelProxyController>();
     final routes = List<AiModelProxyRoute>.of(proxy.settings.routes);
-    if (newIndex > oldIndex) newIndex -= 1;
     if (oldIndex < 0 ||
         newIndex < 0 ||
         oldIndex >= routes.length ||
@@ -1118,7 +1116,6 @@ class _ProxyModelsDialogState extends State<_ProxyModelsDialog> {
     );
     if (routeIndex < 0) return;
     final route = proxy.settings.routes[routeIndex];
-    if (newIndex > oldIndex) newIndex -= 1;
     if (oldIndex < 0 ||
         newIndex < 0 ||
         oldIndex >= route.backends.length ||
@@ -1712,7 +1709,7 @@ class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
         proxyDecorator: (child, index, animation) =>
             buildOpenHandReorderProxy(context, child, animation),
         itemCount: _displayedItems.length,
-        onReorder: widget.onReorder!,
+        onReorderItem: widget.onReorder,
         itemBuilder: (context, index) {
           final item = _displayedItems[index];
           final itemId = widget.itemKey(item);
@@ -1742,7 +1739,7 @@ class _AnimatedMappingItemsState<T> extends State<_AnimatedMappingItems<T>> {
               proxyDecorator: (child, index, animation) =>
                   buildOpenHandReorderProxy(context, child, animation),
               itemCount: _displayedItems.length,
-              onReorder: widget.onReorder!,
+              onReorderItem: widget.onReorder,
               itemBuilder: (context, index) {
                 final item = _displayedItems[index];
                 final itemId = widget.itemKey(item);

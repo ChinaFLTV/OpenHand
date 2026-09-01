@@ -1059,19 +1059,15 @@ class _OpenHandRawDialogRoute<T> extends RawDialogRoute<T>
     required super.pageBuilder,
     required RouteTransitionsBuilder transitionBuilder,
     required Duration entranceDuration,
-    required Duration exitDuration,
-    required Curve entranceBarrierCurve,
-    required Curve exitBarrierCurve,
-    required bool barrierDismissible,
+    required this._exitDuration,
+    required this._entranceBarrierCurve,
+    required this._exitBarrierCurve,
+    required this._barrierDismissible,
     required this.dismissOnEscape,
     required super.barrierLabel,
     required super.barrierColor,
     required super.settings,
-  }) : _barrierDismissible = barrierDismissible,
-       _exitDuration = exitDuration,
-       _entranceBarrierCurve = entranceBarrierCurve,
-       _exitBarrierCurve = exitBarrierCurve,
-       super(
+  }) : super(
          transitionBuilder: transitionBuilder,
          transitionDuration: entranceDuration,
          requestFocus: true,
@@ -1943,8 +1939,7 @@ class _DialogInitialHitTestGate extends SingleChildRenderObjectWidget {
 }
 
 class _RenderDialogInitialHitTestGate extends RenderProxyBox {
-  _RenderDialogInitialHitTestGate({required bool absorbing})
-    : _absorbing = absorbing;
+  _RenderDialogInitialHitTestGate({required this._absorbing});
 
   bool _absorbing;
 
@@ -2860,12 +2855,10 @@ class _PaintOffsetTransition extends SingleChildRenderObjectWidget {
 /// 渲染对象仅通过 [markNeedsPaint] 改变绘制偏移，可复用像素位移动画而不改变布局尺寸。
 class _PaintOffsetRenderObject extends RenderProxyBox {
   _PaintOffsetRenderObject({
-    required Animation<double> animation,
-    required double maxYOffset,
-    double maxXOffset = 0,
-  }) : _animation = animation,
-       _maxYOffset = maxYOffset,
-       _maxXOffset = maxXOffset;
+    required this._animation,
+    required this._maxYOffset,
+    this._maxXOffset = 0,
+  });
 
   Animation<double> _animation;
   double _maxYOffset;

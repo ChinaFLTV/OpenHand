@@ -49,11 +49,11 @@ class StdioProcessInfo {
     this.state = StdioProcessState.stopped,
     this.pid,
     this.startedAt,
-    Duration? startedAtElapsed,
+    this._startedAtElapsed,
     this.memoryBytes,
     this.logs = const <String>[],
     this.errorMessage,
-  }) : _startedAtElapsed = startedAtElapsed;
+  });
 
   final StdioProcessState state;
   final int? pid;
@@ -1348,8 +1348,7 @@ class ManagedStdioSession {
 /// 标准输出数据可能跨多个分块到达（尤其是较大的 tools/list 响应），
 /// 因此需要内部缓冲并按行边界解析。
 class _ManagedResponseRouter {
-  _ManagedResponseRouter({required int maxBufferedChars})
-    : _maxBufferedChars = maxBufferedChars;
+  _ManagedResponseRouter({required this._maxBufferedChars});
 
   final Map<String, Completer<Map<String, Object?>?>> _pending = {};
   final StringBuffer _lineBuffer = StringBuffer();

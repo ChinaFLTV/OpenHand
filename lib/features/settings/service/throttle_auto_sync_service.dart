@@ -20,7 +20,7 @@ typedef _ThrottleSyncTarget = ({
 /// 与新操作竞争并覆盖较新的配置。
 class ThrottleAutoSyncService {
   ThrottleAutoSyncService({
-    required SettingsController settingsController,
+    required this._settingsController,
     ThrottleCloudSyncService? cloudSyncService,
     Duration bootPullDelay = const Duration(seconds: 1),
     Duration pushDebounce = const Duration(seconds: 5),
@@ -42,7 +42,6 @@ class ThrottleAutoSyncService {
          disposeTimeout,
          'disposeTimeout',
        ),
-       _settingsController = settingsController,
        _cloudSyncService = cloudSyncService ?? ThrottleCloudSyncService(),
        _ownsService = cloudSyncService == null;
 

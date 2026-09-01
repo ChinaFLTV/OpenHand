@@ -28,14 +28,11 @@ final RegExp _queryRecentDaysPattern = RegExp(
 
 class KnowledgeRetrievalService {
   KnowledgeRetrievalService({
-    required KnowledgeBaseStore store,
-    required KnowledgeEmbeddingService embeddingService,
-    required KnowledgeVectorStore vectorStore,
+    required this._store,
+    required this._embeddingService,
+    required this._vectorStore,
     AiRerankService? rerankService,
-  }) : _store = store,
-       _embeddingService = embeddingService,
-       _vectorStore = vectorStore,
-       _rerankService = rerankService ?? AiRerankService(),
+  }) : _rerankService = rerankService ?? AiRerankService(),
        _ownsRerankService = rerankService == null;
 
   final KnowledgeBaseStore _store;

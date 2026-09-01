@@ -247,7 +247,7 @@ Future<String> _formatDart(String source) async {
     if (result.exitCode != 0) {
       throw FormatException('目录格式化失败：${result.stderr}');
     }
-    return tempFile.readAsString();
+    return await tempFile.readAsString();
   } finally {
     await tempDirectory.delete(recursive: true);
   }

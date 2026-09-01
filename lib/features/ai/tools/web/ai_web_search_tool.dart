@@ -30,10 +30,9 @@ import '../web_reverse_cdp_first_guard.dart';
 /// 旧配置缺失时使用默认引擎。
 class AiWebSearchTool extends AiTool {
   AiWebSearchTool({
-    required AiChatClient backgroundChatClient,
-    required http.Client httpClient,
-  }) : _backgroundChatClient = backgroundChatClient,
-       _httpClient = httpClient;
+    required this._backgroundChatClient,
+    required this._httpClient,
+  });
 
   final AiChatClient _backgroundChatClient;
   final http.Client _httpClient;

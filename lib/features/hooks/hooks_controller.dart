@@ -11,12 +11,9 @@ import 'data/hooks_store.dart';
 ///
 /// 与 SettingsController、McpController 共用 ChangeNotifier 和变更队列模式。
 class HooksController extends ManagedChangeNotifier {
-  HooksController._({
-    required HooksStore store,
-    required List<HookEntry> entries,
-  }) : _store = store,
-       _entries = entries,
-       _entriesView = List<HookEntry>.unmodifiable(entries);
+  HooksController._({required this._store, required List<HookEntry> entries})
+    : _entries = entries,
+      _entriesView = List<HookEntry>.unmodifiable(entries);
 
   static const Uuid _uuid = Uuid();
 

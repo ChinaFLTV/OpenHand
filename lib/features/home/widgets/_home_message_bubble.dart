@@ -2191,7 +2191,7 @@ Future<Uint8List> _downloadClipboardBytes(
     connectionTimeout: _mediaClipboardNetworkTimeout,
   );
   try {
-    return fetchBoundedHttpBytes(
+    return await fetchBoundedHttpBytes(
       client: client,
       uri: uri,
       maxBytes: maxBytes,

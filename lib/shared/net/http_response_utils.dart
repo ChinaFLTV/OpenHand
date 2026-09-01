@@ -430,7 +430,7 @@ Future<bool> cancelByteStream(
       onError: (Object _, StackTrace _) {},
       cancelOnError: true,
     );
-    return cancelStreamSubscriptionBounded<List<int>>(
+    return await cancelStreamSubscriptionBounded<List<int>>(
       subscription,
       timeout: timeout,
       onError: onError,

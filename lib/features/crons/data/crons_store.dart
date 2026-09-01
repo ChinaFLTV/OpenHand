@@ -8,7 +8,7 @@ import '../model/cron_parser.dart';
 
 /// 基于 SQLite 的定时任务与执行历史存储。
 class CronsStore {
-  CronsStore({Database? database}) : _database = database;
+  CronsStore({this._database});
 
   static const String _tableName = 'cron_jobs';
   static const String _historyTable = 'cron_execution_history';

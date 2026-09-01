@@ -30,14 +30,11 @@ import '../web_reverse_cdp_first_guard.dart';
 /// 旧配置缺失时使用默认引擎。
 class AiWebFetchTool extends AiTool {
   AiWebFetchTool({
-    required AiChatClient backgroundChatClient,
-    required http.Client httpClient,
-    required WebFetchScraplingBridge scraplingBridge,
+    required this._backgroundChatClient,
+    required this._httpClient,
+    required this._scraplingBridge,
     Future<List<InternetAddress>> Function(String host)? hostLookup,
-  }) : _backgroundChatClient = backgroundChatClient,
-       _httpClient = httpClient,
-       _scraplingBridge = scraplingBridge,
-       _hostLookup = hostLookup ?? ((host) => InternetAddress.lookup(host));
+  }) : _hostLookup = hostLookup ?? ((host) => InternetAddress.lookup(host));
 
   final AiChatClient _backgroundChatClient;
   final http.Client _httpClient;

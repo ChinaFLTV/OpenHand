@@ -319,7 +319,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
                     opacity: fade,
                     child: SizeTransition(
                       sizeFactor: fade,
-                      axisAlignment: -1,
+                      alignment: AlignmentDirectional.topStart,
                       child: SlideTransition(
                         position: slide,
                         child: ScaleTransition(

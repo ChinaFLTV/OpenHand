@@ -22,11 +22,10 @@ import '../../shared/util/text_clip.dart';
 class WebReverseHarReplayServer {
   WebReverseHarReplayServer._({
     required this.port,
-    required HttpServer server,
+    required this._server,
     required this.entryCount,
-    required Map<String, _HarHit> replayMap,
-  }) : _server = server,
-       _replayMap = replayMap;
+    required this._replayMap,
+  });
 
   final int port;
   final int entryCount;

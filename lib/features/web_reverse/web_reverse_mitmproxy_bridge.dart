@@ -32,20 +32,14 @@ class WebReverseMitmproxyBridge {
   WebReverseMitmproxyBridge._({
     required this.mitmPort,
     required this.callbackPort,
-    required Process process,
-    required HttpServer server,
+    required this._process,
+    required this._server,
     required StreamController<Map<String, Object?>> controller,
-    required StreamSubscription<HttpRequest> serverSub,
-    required StreamSubscription<List<int>> stdoutSub,
-    required StreamSubscription<List<int>> stderrSub,
-    required String addonPath,
-  }) : _process = process,
-       _server = server,
-       _controller = controller,
-       _serverSub = serverSub,
-       _stdoutSub = stdoutSub,
-       _stderrSub = stderrSub,
-       _addonPath = addonPath,
+    required this._serverSub,
+    required this._stdoutSub,
+    required this._stderrSub,
+    required this._addonPath,
+  }) : _controller = controller,
        eventStream = controller.stream;
 
   /// mitmdump 监听端口（用户客户端把流量代理到这）。

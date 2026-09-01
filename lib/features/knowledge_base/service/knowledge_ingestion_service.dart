@@ -31,19 +31,13 @@ const int kKnowledgeTagMaxCharacters = 128;
 
 class KnowledgeIngestionService {
   KnowledgeIngestionService({
-    required KnowledgeBaseStore store,
-    required KnowledgeEmbeddingService embeddingService,
-    required KnowledgeVectorStore vectorStore,
-    KnowledgeChunker chunker = const KnowledgeChunker(),
-    KnowledgeDocumentParserRegistry parserRegistry =
-        const KnowledgeDocumentParserRegistry(),
+    required this._store,
+    required this._embeddingService,
+    required this._vectorStore,
+    this._chunker = const KnowledgeChunker(),
+    this._parserRegistry = const KnowledgeDocumentParserRegistry(),
     KnowledgeReaderConversionService? readerConversionService,
-  }) : _store = store,
-       _embeddingService = embeddingService,
-       _vectorStore = vectorStore,
-       _chunker = chunker,
-       _parserRegistry = parserRegistry,
-       _readerConversionService =
+  }) : _readerConversionService =
            readerConversionService ?? KnowledgeReaderConversionService(),
        _ownsReaderConversionService = readerConversionService == null;
 

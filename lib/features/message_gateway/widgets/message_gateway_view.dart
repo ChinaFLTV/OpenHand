@@ -7,6 +7,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/gestures.dart'
     show PointerScrollEvent, PointerSignalEvent, TapGestureRecognizer;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -2400,7 +2401,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     );
     return SizeTransition(
       sizeFactor: animation,
-      axisAlignment: -1,
+      alignment: AlignmentDirectional.topStart,
       child: FadeTransition(
         opacity: animation,
         child: SlideTransition(
@@ -10490,7 +10491,7 @@ class _AnimatedLogLine extends StatelessWidget {
     );
     return SizeTransition(
       sizeFactor: animation,
-      axisAlignment: -1,
+      alignment: AlignmentDirectional.topStart,
       child: FadeTransition(
         opacity: animation,
         child: SlideTransition(
@@ -12560,6 +12561,10 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                   onNotification:
                                                       _handleMessagesNotification,
                                                   child: ListView.builder(
+                                                    scrollCacheExtent:
+                                                        const ScrollCacheExtent.pixels(
+                                                          _messageCacheExtent,
+                                                        ),
                                                     key: ValueKey<String>(
                                                       selected.id,
                                                     ),
@@ -12573,8 +12578,6 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                     physics:
                                                         kOpenHandClampingPhysics,
                                                     primary: false,
-                                                    cacheExtent:
-                                                        _messageCacheExtent,
                                                     findChildIndexCallback: (key) {
                                                       if (key case ValueKey<
                                                         String
@@ -16391,7 +16394,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                   opacity: animation,
                   child: SizeTransition(
                     sizeFactor: animation,
-                    axisAlignment: -1,
+                    alignment: AlignmentDirectional.topStart,
                     fixedCrossAxisSizeFactor: 1,
                     child: child,
                   ),
@@ -17347,7 +17350,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         opacity: animation,
         child: SizeTransition(
           sizeFactor: animation,
-          axisAlignment: -1,
+          alignment: AlignmentDirectional.topStart,
           fixedCrossAxisSizeFactor: 1,
           child: child,
         ),
@@ -17739,7 +17742,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
       switchOutCurve: kOpenHandSwitchOutCurve,
       transitionBuilder: (child, animation) => SizeTransition(
         sizeFactor: animation,
-        axisAlignment: -1,
+        alignment: AlignmentDirectional.topStart,
         child: FadeTransition(opacity: animation, child: child),
       ),
       child: !recalled && !ignored
@@ -19003,9 +19006,9 @@ class _DingTalkForwardedChatDialogState
           kOpenHandGap14,
           Expanded(
             child: ListView.builder(
+              scrollCacheExtent: const ScrollCacheExtent.pixels(600),
               padding: const EdgeInsets.only(bottom: 8),
               physics: openHandDialogAwareScrollPhysics(context),
-              cacheExtent: 600,
               itemCount: forwarded.length,
               itemBuilder: (context, index) {
                 final item = forwarded[index];
@@ -19191,7 +19194,7 @@ class _DingTalkForwardedChatDialogState
                       opacity: animation,
                       child: SizeTransition(
                         sizeFactor: animation,
-                        axisAlignment: -1,
+                        alignment: AlignmentDirectional.topStart,
                         fixedCrossAxisSizeFactor: 1,
                         child: child,
                       ),

@@ -60,6 +60,10 @@ analyzer:
   exclude:
     # vendor 包含本地维护的第三方补丁，不纳入第一方代码风格检查。
     - vendor/**
+    - build/**
+    - ios/**
+    - windows/**
+    - macos/**
   errors:
     sort_constructors_first: info
     directives_ordering: info

@@ -2036,12 +2036,12 @@ class AiToolUtils {
 
 class AiToolProgressReporter {
   AiToolProgressReporter({
-    required StringBuffer progress,
+    required this._progress,
     required this.command,
     required this.workingDirectory,
     required this.stopwatch,
     required this.onUpdate,
-  }) : _progress = progress;
+  });
 
   final StringBuffer _progress;
   final String command;

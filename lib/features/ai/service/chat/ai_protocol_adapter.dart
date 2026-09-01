@@ -3917,9 +3917,8 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
 
 /// Ollama 的 OpenAI 兼容适配器，兼容其认证、流选项及用量字段差异。
 class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
-  const OllamaProtocolAdapter({
-    List<String> visionModelPatterns = const <String>[],
-  }) : super(AiProtocolType.ollama, visionModelPatterns: visionModelPatterns);
+  const OllamaProtocolAdapter({super.visionModelPatterns})
+    : super(AiProtocolType.ollama);
 
   @override
   Map<String, String> buildHeaders(

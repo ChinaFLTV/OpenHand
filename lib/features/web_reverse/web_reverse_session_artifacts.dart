@@ -25,8 +25,8 @@ import '../../shared/util/timer_safety.dart';
 class WebReverseSessionArtifacts {
   WebReverseSessionArtifacts({
     required this.rootDir,
-    Duration flushInterval = const Duration(milliseconds: 600),
-  }) : _flushInterval = flushInterval;
+    this._flushInterval = const Duration(milliseconds: 600),
+  });
 
   /// 会话工作目录，例如 `~/.openhand/web_reverse/<session_id>`。
   final String rootDir;

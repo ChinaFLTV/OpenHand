@@ -107,7 +107,7 @@ class SkillsRepository {
           fallback: _defaultTemplateDescription,
         ),
       );
-      return _parseSkill(manifestFile, storagePath);
+      return await _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
       return _throwAfterFailedSkillDirectoryOperation(
         action: '创建技能模板',
@@ -168,7 +168,7 @@ class SkillsRepository {
         imageIconBytes: normalizedImageIconBytes,
         defaultPrompt: defaultPrompt,
       );
-      return _parseSkill(manifestFile, storagePath);
+      return await _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
       return _throwAfterFailedSkillDirectoryOperation(
         action: '创建技能',
@@ -215,7 +215,7 @@ class SkillsRepository {
         policy: _directoryImportCopyPolicy,
         allowExistingEmptyTarget: true,
       );
-      return _parseSkill(
+      return await _parseSkill(
         File(p.join(targetDirectory.path, _manifestFileName)),
         storagePath,
       );
@@ -256,7 +256,7 @@ class SkillsRepository {
       if (manifestFile == null) {
         throw const FileSystemException('技能归档中缺少 SKILL.md。');
       }
-      return _parseSkill(manifestFile, storagePath);
+      return await _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
       return _throwAfterFailedSkillDirectoryOperation(
         action: '安装技能归档',
@@ -304,7 +304,7 @@ class SkillsRepository {
         content: normalizedContent,
         fallbackSkill: skill,
       );
-      return _parseSkill(manifestFile, storagePath);
+      return await _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
       return _throwAfterFailedSkillUpdate(
         action: '更新技能清单',
@@ -398,7 +398,7 @@ class SkillsRepository {
           ),
         );
       }
-      return _parseSkill(manifestFile, storagePath);
+      return await _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
       return _throwAfterFailedSkillUpdate(
         action: '更新技能',

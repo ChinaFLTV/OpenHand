@@ -1626,12 +1626,15 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                                   child: SizedBox(
                                     width: contentWidth,
                                     child: ListView.builder(
+                                      scrollCacheExtent:
+                                          const ScrollCacheExtent.pixels(
+                                            _kSourceLineHeight * 80,
+                                          ),
                                       controller: _sourceScroll,
                                       physics: const ClampingScrollPhysics(),
                                       padding: const EdgeInsets.symmetric(
                                         vertical: 8,
                                       ),
-                                      cacheExtent: _kSourceLineHeight * 80,
                                       itemCount: lines.length,
                                       itemExtent: _kSourceLineHeight,
                                       itemBuilder: (_, idx) =>

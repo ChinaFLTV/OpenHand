@@ -204,9 +204,9 @@ class _HeRawFullViewState extends State<_HeRawFullView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ListView.builder(
+          scrollCacheExtent: const ScrollCacheExtent.pixels(800),
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          cacheExtent: 800,
           itemCount: display.length,
           itemBuilder: (_, i) =>
               _LogLine(line: display[i], colorScheme: colorScheme),

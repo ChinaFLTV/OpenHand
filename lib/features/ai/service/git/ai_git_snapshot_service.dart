@@ -19,15 +19,12 @@ typedef AiProcessRunner =
 
 class AiGitSnapshotService {
   AiGitSnapshotService({
-    AiProcessRunner? processRunner,
+    this._processRunner,
     DateTime Function()? clock,
-    Duration cacheTtl = const Duration(seconds: 3),
-    Duration commandTimeout = const Duration(seconds: 2),
+    this._cacheTtl = const Duration(seconds: 3),
+    this._commandTimeout = const Duration(seconds: 2),
     int cacheMaxEntries = 64,
-  }) : _processRunner = processRunner,
-       _clock = clock ?? DateTime.now,
-       _cacheTtl = cacheTtl,
-       _commandTimeout = commandTimeout,
+  }) : _clock = clock ?? DateTime.now,
        _snapshotCache = LifecycleLruCache<_CachedGitSnapshot>(
          maxEntries: cacheMaxEntries,
        );

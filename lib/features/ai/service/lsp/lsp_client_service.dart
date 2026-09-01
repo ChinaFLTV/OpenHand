@@ -1891,25 +1891,15 @@ class _AiLspSessionStart {
 class _AiLspSession {
   _AiLspSession({
     required this.backend,
-    required AiLspProcessLauncher processLauncher,
-    required Duration requestTimeout,
-    required Duration initializationSettleDelay,
-    required Duration shutdownRequestDelay,
-    required Duration shutdownExitDelay,
-    required Future<bool> Function(AiLspWorkspaceEdit edit)? Function()
-    workspaceEditHandlerProvider,
-    required void Function(String filePath, List<AiLspDiagnostic> diagnostics)?
-    Function()
-    diagnosticsPushCallbackProvider,
-    required void Function() onTerminated,
-  }) : _processLauncher = processLauncher,
-       _requestTimeout = requestTimeout,
-       _initializationSettleDelay = initializationSettleDelay,
-       _shutdownRequestDelay = shutdownRequestDelay,
-       _shutdownExitDelay = shutdownExitDelay,
-       _workspaceEditHandlerProvider = workspaceEditHandlerProvider,
-       _diagnosticsPushCallbackProvider = diagnosticsPushCallbackProvider,
-       _onTerminated = onTerminated;
+    required this._processLauncher,
+    required this._requestTimeout,
+    required this._initializationSettleDelay,
+    required this._shutdownRequestDelay,
+    required this._shutdownExitDelay,
+    required this._workspaceEditHandlerProvider,
+    required this._diagnosticsPushCallbackProvider,
+    required this._onTerminated,
+  });
 
   final AiLspBackendResolution backend;
   final AiLspProcessLauncher _processLauncher;

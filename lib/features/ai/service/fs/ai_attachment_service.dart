@@ -35,10 +35,9 @@ class AiAttachmentException implements Exception {
 
 class AiAttachmentService {
   AiAttachmentService({
-    required String attachmentsDirectoryPath,
-    String Function(String sessionId)? perSessionAttachmentsDirectoryPath,
-  }) : _attachmentsDirectoryPath = attachmentsDirectoryPath,
-       _perSessionAttachmentsDirectoryPath = perSessionAttachmentsDirectoryPath;
+    required this._attachmentsDirectoryPath,
+    this._perSessionAttachmentsDirectoryPath,
+  });
 
   static const int _minAttachmentPromptCharactersPerFile = 512;
   int maxInlineImageDimension = 1568;

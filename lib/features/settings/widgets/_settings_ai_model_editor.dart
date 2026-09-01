@@ -758,7 +758,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                 opacity: animation,
                 child: SizeTransition(
                   sizeFactor: animation,
-                  axisAlignment: -1,
+                  alignment: AlignmentDirectional.topStart,
                   child: child,
                 ),
               ),
@@ -1021,7 +1021,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
             opacity: animation,
             child: SizeTransition(
               sizeFactor: animation,
-              axisAlignment: -1,
+              alignment: AlignmentDirectional.topStart,
               child: child,
             ),
           );
@@ -3383,8 +3383,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       return;
     }
     setState(() {
-      final adjustedNewIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
-      final targetIndex = adjustedNewIndex.clamp(
+      final targetIndex = newIndex.clamp(
         0,
         _reasoningEffortOptionDrafts.length - 1,
       );
@@ -4180,7 +4179,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           transitionBuilder: (child, animation) {
             return SizeTransition(
               sizeFactor: animation,
-              axisAlignment: -1,
+              alignment: AlignmentDirectional.topStart,
               child: FadeTransition(opacity: animation, child: child),
             );
           },
@@ -4461,7 +4460,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       proxyDecorator: (child, index, animation) =>
                           buildOpenHandReorderProxy(context, child, animation),
                       itemCount: _reasoningEffortOptionDrafts.length,
-                      onReorder: _reorderReasoningEffortOptionDrafts,
+                      onReorderItem: _reorderReasoningEffortOptionDrafts,
                       itemBuilder: (context, index) {
                         final draft = _reasoningEffortOptionDrafts[index];
                         return Padding(

@@ -227,7 +227,16 @@ class _AnimatedAppearanceState extends State<AnimatedAppearance>
           reverseCurve: widget.settings.curve.reverseCurve,
         ),
         axis: widget.collapseAxis,
-        axisAlignment: widget.collapseAxisAlignment,
+        alignment: switch (widget.collapseAxis) {
+          Axis.horizontal => AlignmentDirectional(
+            widget.collapseAxisAlignment,
+            -1,
+          ),
+          Axis.vertical => AlignmentDirectional(
+            -1,
+            widget.collapseAxisAlignment,
+          ),
+        },
         child: content,
       );
     }

@@ -118,18 +118,15 @@ Map<String, Object?> buildHarnessHandoffFailureRecord({
 /// 上下文接近压缩阈值时生成并持久化交接文档，再由新会话接力执行。
 class HarnessApiPhaseRunner {
   HarnessApiPhaseRunner({
-    required AiChatClient chatClient,
-    required AiToolRuntimeService toolRuntimeService,
-    required AiToolUsagePromotionStore toolUsagePromotionStore,
-    required AiPromptTemplateRepository templateRepository,
+    required this._chatClient,
+    required this._toolRuntimeService,
+    required this._toolUsagePromotionStore,
+    required this._templateRepository,
     required this.usageSessionId,
     this.confirmWriteCommand,
     this.onToolSearchLoaded,
     this.onPhaseEnded,
-  }) : _chatClient = chatClient,
-       _toolRuntimeService = toolRuntimeService,
-       _toolUsagePromotionStore = toolUsagePromotionStore,
-       _templateRepository = templateRepository;
+  });
 
   final AiChatClient _chatClient;
   final AiToolRuntimeService _toolRuntimeService;

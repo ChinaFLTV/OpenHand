@@ -5,7 +5,7 @@ import '../../../shared/db/database_service.dart';
 
 /// 基于 SQLite 的 Hook 配置持久化层。
 class HooksStore {
-  HooksStore({Database? database}) : _database = database;
+  HooksStore({this._database});
 
   static const String _tableName = 'hooks';
 

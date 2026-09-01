@@ -12,12 +12,10 @@ import 'model/user_instruction_entry.dart';
 
 class InstructionsController extends ManagedChangeNotifier {
   InstructionsController._({
-    required InstructionsStore store,
-    required String Function() idGenerator,
-    required DateTime Function() clock,
-  }) : _store = store,
-       _idGenerator = idGenerator,
-       _clock = clock;
+    required this._store,
+    required this._idGenerator,
+    required this._clock,
+  });
 
   factory InstructionsController.uninitialized({
     InstructionsStore? store,

@@ -32,8 +32,8 @@ class AiSandboxProxyLease {
     required this.socksPort,
     required this.environment,
     required this.metadata,
-    required Future<void> Function() close,
-  }) : _close = close;
+    required this._close,
+  });
 
   final int httpPort;
   final int? socksPort;
@@ -864,8 +864,8 @@ class _SocketTunnel {
     required this.remote,
     required this.idleTimeout,
     required this.maxDuration,
-    required void Function() onClosed,
-  }) : _onClosed = onClosed;
+    required this._onClosed,
+  });
 
   static const Duration _cancelTimeout = Duration(seconds: 2);
 

@@ -16,9 +16,8 @@ import '../../model/ai_session_runtime_context.dart';
 class AiWorkspaceInstructionService {
   AiWorkspaceInstructionService({
     DateTime Function()? clock,
-    Duration cacheTtl = const Duration(seconds: 3),
-  }) : _clock = clock ?? DateTime.now,
-       _cacheTtl = cacheTtl;
+    this._cacheTtl = const Duration(seconds: 3),
+  }) : _clock = clock ?? DateTime.now;
 
   int maxDocumentCharacters = 16000;
   static const int _maxDocumentBytes = 256 * kBytesPerKiB;

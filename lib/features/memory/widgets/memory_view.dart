@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -197,10 +198,10 @@ class MemoryView extends StatelessWidget {
 
     return OpenHandRemovableListScope(
       builder: (context, removal) => ListView.separated(
+        scrollCacheExtent: const ScrollCacheExtent.pixels(600),
         key: const ValueKey<String>('memory-list'),
         padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
         itemCount: items.length,
-        cacheExtent: 600,
         separatorBuilder: (context, index) => kOpenHandGap14,
         itemBuilder: (context, index) {
           final entry = items[index];

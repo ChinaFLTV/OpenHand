@@ -826,7 +826,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       connectionTimeout: _kNetworkTimeout,
     );
     try {
-      return fetchBoundedHttpBytes(
+      return await fetchBoundedHttpBytes(
         client: client,
         uri: uri,
         maxBytes: _kClipboardMaxBytes,

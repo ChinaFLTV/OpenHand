@@ -13,14 +13,11 @@ typedef OpenHandTimerErrorHandler =
 
 class OpenHandDebouncer {
   OpenHandDebouncer({
-    required Duration delay,
-    Duration minDelay = Duration.zero,
-    Duration maxDelay = kOpenHandMaxTimerDelay,
-    OpenHandTimerErrorHandler? onError,
-  }) : _delay = delay,
-       _minDelay = minDelay,
-       _maxDelay = maxDelay,
-       _onError = onError;
+    required this._delay,
+    this._minDelay = Duration.zero,
+    this._maxDelay = kOpenHandMaxTimerDelay,
+    this._onError,
+  });
 
   final Duration _delay;
   final Duration _minDelay;

@@ -8,10 +8,9 @@ class HtmlWebViewMountLimiter {
   HtmlWebViewMountLimiter({
     int maxMounted = defaultMaxMounted,
     int maxWaiting = defaultMaxWaiting,
-    void Function(void Function() task)? scheduleGranted,
+    this._scheduleGranted,
   }) : maxMounted = maxMounted.clamp(1, maxAllowedMounted).toInt(),
-       maxWaiting = maxWaiting.clamp(0, maxAllowedWaiting).toInt(),
-       _scheduleGranted = scheduleGranted;
+       maxWaiting = maxWaiting.clamp(0, maxAllowedWaiting).toInt();
 
   static const int defaultMaxMounted = 2;
   static const int defaultMaxWaiting = 64;

@@ -4,7 +4,7 @@
 # OpenHand
 
 [![Flutter](https://img.shields.io/badge/Flutter-SDK-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
-[![Dart SDK](https://img.shields.io/badge/Dart-%5E3.11-0175C2?logo=dart&logoColor=white)](https://dart.dev)
+[![Dart SDK](https://img.shields.io/badge/Dart-%5E3.12-0175C2?logo=dart&logoColor=white)](https://dart.dev)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-555)](#requirements)
 [![Web Gateway](https://img.shields.io/badge/Web%20Gateway-Vite%20%2B%20Preact-646CFF)](#web-message-platform)
 [![Status](https://img.shields.io/badge/status-active-brightgreen)](#)
@@ -103,7 +103,7 @@ The Web client includes:
 
 ## Requirements
 
-- Flutter SDK with Dart `^3.11.0`.
+- Flutter `>=3.44.0` with Dart `^3.12.0`.
 - Desktop targets: macOS and Windows. The repository currently does not include a Linux project directory, so this README does not claim Linux builds.
 - Web asset builds: Node.js, npm / corepack, and `pnpm@11.7.0`. `scripts/build_web.sh` reuses local pnpm first, then falls back to corepack or `npm exec`.
 - Optional dependencies: model API keys, local model services, Chrome / Chromium, Docker + Qdrant, ADB, Frida, jadx, apktool, mitmproxy, and external CLI tools.

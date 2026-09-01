@@ -122,8 +122,7 @@ class InstructionsView extends StatelessWidget {
         proxyDecorator: (child, index, animation) =>
             buildOpenHandReorderProxy(context, child, animation),
         itemCount: snapshot.entries.length,
-        onReorder: (oldIndex, newIndex) async {
-          if (newIndex > oldIndex) newIndex -= 1;
+        onReorderItem: (oldIndex, newIndex) async {
           final ids = snapshot.entries.map((e) => e.id).toList();
           final moved = ids.removeAt(oldIndex);
           ids.insert(newIndex, moved);

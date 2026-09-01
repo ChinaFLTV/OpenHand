@@ -46,9 +46,9 @@ class _HeChangedFilesList extends StatelessWidget {
           ),
           kOpenHandGap8,
           ListView.builder(
+            scrollCacheExtent: const ScrollCacheExtent.pixels(400),
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            cacheExtent: 400,
             itemCount: files.length,
             itemBuilder: (context, index) {
               final file = files[index];
@@ -321,8 +321,10 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                           ),
                         )
                       : ListView.builder(
+                          scrollCacheExtent: const ScrollCacheExtent.pixels(
+                            400,
+                          ),
                           padding: const EdgeInsets.symmetric(vertical: 4),
-                          cacheExtent: 400,
                           itemCount: diffLines.length,
                           itemBuilder: (_, i) => _DiffLine(
                             line: diffLines[i],

@@ -284,8 +284,8 @@ class _WorkflowParameterReferenceFieldState
 class _WorkflowReferenceEditingController extends TextEditingController {
   _WorkflowReferenceEditingController({
     required String serializedText,
-    required List<WorkflowParameterReference> references,
-  }) : _references = references {
+    required this._references,
+  }) {
     replaceSerializedText(serializedText);
   }
 

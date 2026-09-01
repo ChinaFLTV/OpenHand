@@ -59,9 +59,9 @@ String? _homebrewStableVersionFromDecoded(Object? decoded) {
 class PluginOperationResult {
   const PluginOperationResult({
     required this.success,
-    String? message,
+    this._message,
     this.newVersion,
-  }) : _message = message;
+  });
 
   final bool success;
   final String? _message;

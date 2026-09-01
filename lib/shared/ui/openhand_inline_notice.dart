@@ -77,7 +77,7 @@ class _OpenHandInlineNoticeState extends State<OpenHandInlineNotice> {
       transitionBuilder: (child, animation) {
         return SizeTransition(
           sizeFactor: animation,
-          axisAlignment: -1,
+          alignment: AlignmentDirectional.topStart,
           child: FadeTransition(
             opacity: animation,
             child: SlideTransition(

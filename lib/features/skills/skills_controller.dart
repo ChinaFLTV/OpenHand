@@ -8,12 +8,10 @@ import 'model/local_skill.dart';
 
 class SkillsController extends ManagedChangeNotifier {
   SkillsController._({
-    required SkillsRepository repository,
-    required String storagePath,
-    bool isLoading = false,
-  }) : _repository = repository,
-       _storagePath = storagePath,
-       _isLoading = isLoading;
+    required this._repository,
+    required this._storagePath,
+    this._isLoading = false,
+  });
 
   /// 同步创建控制器，不立即扫描文件系统。调用方执行 [refresh] 前，
   /// `isLoading` 保持为 `true`。

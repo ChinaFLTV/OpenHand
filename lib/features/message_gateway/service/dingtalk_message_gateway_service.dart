@@ -1400,7 +1400,7 @@ class DingTalkMessageGatewayService {
       );
       if (exitCode != 0) {
         _logRuntime('ERROR', '钉钉设备流授权进程退出，退出码 $exitCode。');
-        if (_authCancelled) return authStatus();
+        if (_authCancelled) return await authStatus();
         final errorOutput = output.snapshot().join('\n').trim();
         throw StateError(errorOutput.isEmpty ? '钉钉授权未完成。' : errorOutput);
       }

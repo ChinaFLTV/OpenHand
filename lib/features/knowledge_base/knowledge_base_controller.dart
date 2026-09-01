@@ -59,14 +59,12 @@ class KnowledgeBaseController extends ChangeNotifier {
     KnowledgeBaseStore? store,
     KnowledgeEmbeddingService? embeddingService,
     KnowledgeEmbeddingService Function()? queryEmbeddingServiceFactory,
-    KnowledgeDependencyService dependencyService =
-        const KnowledgeDependencyService(),
+    this._dependencyService = const KnowledgeDependencyService(),
   }) : _settingsStore = settingsStore ?? KnowledgeBaseSettingsStore(),
        _store = store ?? KnowledgeBaseStore(),
        _embeddingService = embeddingService ?? KnowledgeEmbeddingService(),
        _queryEmbeddingServiceFactory =
-           queryEmbeddingServiceFactory ?? KnowledgeEmbeddingService.new,
-       _dependencyService = dependencyService;
+           queryEmbeddingServiceFactory ?? KnowledgeEmbeddingService.new;
 
   final KnowledgeBaseSettingsStore _settingsStore;
   final KnowledgeBaseStore _store;

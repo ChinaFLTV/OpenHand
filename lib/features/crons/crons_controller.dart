@@ -27,13 +27,11 @@ const Duration _cronControllerShutdownTimeout = Duration(seconds: 3);
 /// 沿用 HooksController 的 ChangeNotifier 与变更队列模式。
 class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   CronsController._({
-    required CronsStore store,
+    required this._store,
     required List<CronEntry> entries,
-    bool isLoading = false,
-  }) : _store = store,
-       _entries = entries,
-       _entriesView = List<CronEntry>.unmodifiable(entries),
-       _isLoading = isLoading;
+    this._isLoading = false,
+  }) : _entries = entries,
+       _entriesView = List<CronEntry>.unmodifiable(entries);
 
   /// 同步创建控制器，暂不加载 SQLite、补齐系统任务、绑定信号或启动调度器。
   /// [initialize] 完成前保持 `isLoading == true`，条目列表可能为空。

@@ -784,12 +784,10 @@ class AnimatedDropdownButton<T> extends StatefulWidget {
     required this.dropdownMenuItemMouseCursor,
     required this.useRootNavigator,
     required this.animationSettings,
-    required InputDecoration inputDecoration,
-    required bool isEmpty,
+    required InputDecoration this._inputDecoration,
+    required this._isEmpty,
   }) : underline = null,
-       menuWidth = null,
-       _inputDecoration = inputDecoration,
-       _isEmpty = isEmpty;
+       menuWidth = null;
 
   final List<DropdownMenuItem<T>>? items;
   final DropdownButtonBuilder? selectedItemBuilder;

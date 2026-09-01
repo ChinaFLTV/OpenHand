@@ -19,11 +19,7 @@ import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
 class AiTaskTool extends AiTool {
-  AiTaskTool({
-    required AiChatClient backgroundChatClient,
-    required AiClaudeHookService hookService,
-  }) : _backgroundChatClient = backgroundChatClient,
-       _hookService = hookService;
+  AiTaskTool({required this._backgroundChatClient, required this._hookService});
 
   static const int _maxToolRounds = 6;
   static const int _maxToolCallsPerRound = 8;
@@ -483,7 +479,7 @@ class AiTaskTool extends AiTool {
             cancelSignal: context.cancelSignal,
           );
           if (result == null) {
-            return cancelledResult(round);
+            return await cancelledResult(round);
           }
           toolResult = result;
         } catch (error, stack) {

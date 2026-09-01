@@ -376,10 +376,10 @@ class _ToolCatalogBuilder {
 
 class AiToolRuntimeService {
   AiToolRuntimeService({
-    required AiBashToolService bashToolService,
-    required AiClaudeHookService hookService,
-    required McpToolDiscoveryService mcpToolService,
-    required AiChatClient backgroundChatClient,
+    required this._bashToolService,
+    required this._hookService,
+    required this._mcpToolService,
+    required this._backgroundChatClient,
     http.Client? httpClient,
     Future<List<InternetAddress>> Function(String host)? hostLookup,
     AiFileHistoryService? fileHistoryService,
@@ -389,22 +389,16 @@ class AiToolRuntimeService {
     KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
     List<AiModelConfig> Function()? aiModelsProvider,
     MachineTerminalService? machineTerminalService,
-    String Function(String sessionId)? toolOutputDirectoryProvider,
-    AiSubToolExecutionObserver? subToolExecutionObserver,
-  }) : _bashToolService = bashToolService,
-       _hookService = hookService,
-       _mcpToolService = mcpToolService,
-       _backgroundChatClient = backgroundChatClient,
-       _httpClient =
+    this._toolOutputDirectoryProvider,
+    this._subToolExecutionObserver,
+  }) : _httpClient =
            httpClient ?? SystemProxyResolver.instance.createHttpClient(),
        _ownsHttpClient = httpClient == null,
        _scraplingBridge = WebFetchScraplingBridge(),
        _hostLookup = hostLookup ?? ((host) => InternetAddress.lookup(host)),
        _fileHistory = fileHistoryService ?? AiFileHistoryService(),
        _mutationLedger = mutationLedger ?? AiFileMutationLedger(),
-       _machineTerminalService = machineTerminalService,
-       _subToolExecutionObserver = subToolExecutionObserver,
-       _toolOutputDirectoryProvider = toolOutputDirectoryProvider {
+       _machineTerminalService = machineTerminalService {
     _toolRegistry = AiToolRegistry.withServiceDependencies(
       bashToolService: _bashToolService,
       hookService: _hookService,
@@ -1601,7 +1595,7 @@ class AiToolRuntimeService {
       );
       executionRegistration = registration;
       try {
-        return delayUntilCancelled(
+        return await delayUntilCancelled(
           backoff,
           cancelSignal: combineCancelSignals(<Future<void>?>[
             cancelSignal,

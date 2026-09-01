@@ -2052,7 +2052,7 @@ class AiFileMutationLedger {
       final shard = sha.substring(0, 2);
       final file = File(p.join(_blobsDir().path, shard, '$sha.txt'));
       if (!await _entityExists(file)) {
-        return _recoverBlobFromLegacyVersions(sha);
+        return await _recoverBlobFromLegacyVersions(sha);
       }
       return await readBoundedFileString(file, maxBytes: _blobRecoveryMaxBytes);
     } catch (error, stack) {

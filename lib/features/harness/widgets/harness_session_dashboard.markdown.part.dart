@@ -1068,9 +1068,9 @@ class _HeDiffBlock extends StatelessWidget {
         child: ClipRRect(
           borderRadius: kOpenHandBorderRadius16,
           child: ListView.builder(
+            scrollCacheExtent: const ScrollCacheExtent.pixels(600),
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            cacheExtent: 600,
             addRepaintBoundaries: false, // each row is simple — skip overhead
             itemCount: trimmed.length,
             itemBuilder: (_, i) =>

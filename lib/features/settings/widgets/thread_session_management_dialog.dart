@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/support/silent_log.dart';
@@ -1240,25 +1241,24 @@ class _ThreadSessionManagementDialogState
 
     final list = !canReorder
         ? ListView.builder(
+            scrollCacheExtent: const ScrollCacheExtent.pixels(600),
             itemCount: pageItems.length,
-            cacheExtent: 600,
             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
             itemBuilder: (context, index) => rowFor(index),
           )
         : ReorderableListView.builder(
+            scrollCacheExtent: const ScrollCacheExtent.pixels(600),
             buildDefaultDragHandles: false,
             itemCount: pageItems.length,
-            cacheExtent: 600,
             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
             itemBuilder: (context, index) => rowFor(index),
             proxyDecorator: (child, index, animation) =>
                 buildOpenHandReorderProxy(context, child, animation),
-            onReorder: (oldIndex, newIndex) {
+            onReorderItem: (oldIndex, newIndex) {
               setState(() {
                 final list = _localOrder!;
                 final from = pageOffset + oldIndex;
-                var to = pageOffset + newIndex;
-                if (to > from) to -= 1;
+                final to = pageOffset + newIndex;
                 if (from < 0 || from >= list.length) return;
                 final moved = list.removeAt(from);
                 list.insert(to.clamp(0, list.length), moved);

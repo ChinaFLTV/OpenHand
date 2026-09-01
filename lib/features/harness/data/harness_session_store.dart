@@ -11,7 +11,7 @@ import '../model/harness_session_record.dart';
 
 /// 在 SQLite 中持久化单个 Harness Engineering 会话。
 class HarnessSessionStore {
-  HarnessSessionStore({Database? database}) : _database = database;
+  HarnessSessionStore({this._database});
 
   final Database? _database;
   final SerialTaskQueue _operations = SerialTaskQueue();

@@ -163,9 +163,8 @@ void _syncControllerValue<T>(
 }
 
 List<T> _reorderedCopy<T>(List<T> values, int oldIndex, int newIndex) {
-  final adjustedIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
   final result = List<T>.of(values);
-  result.insert(adjustedIndex, result.removeAt(oldIndex));
+  result.insert(newIndex, result.removeAt(oldIndex));
   return result;
 }
 
@@ -1683,7 +1682,6 @@ class _SettingsViewState extends State<SettingsView> {
 
   Future<void> _reorderAiModels(int oldIndex, int newIndex) async {
     if (_mutatingAiModelIds.isNotEmpty) return;
-    if (newIndex > oldIndex) newIndex -= 1;
     if (oldIndex < 0 ||
         oldIndex >= _animatedAiModels.length ||
         newIndex < 0 ||
@@ -3639,7 +3637,7 @@ class _SettingsViewState extends State<SettingsView> {
                                 animation,
                               ),
                           itemCount: _animatedAiModels.length,
-                          onReorder: _reorderAiModels,
+                          onReorderItem: _reorderAiModels,
                           itemBuilder: (context, index) => _buildAiModelRow(
                             context,
                             _animatedAiModels[index],

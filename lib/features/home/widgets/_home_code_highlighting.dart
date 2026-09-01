@@ -226,14 +226,11 @@ void _warmHighlightedCodeSpan({
 
 class _HighlightedCodeBlockBuilder extends MarkdownElementBuilder {
   _HighlightedCodeBlockBuilder({
-    required ThemeData theme,
-    required Color baseColor,
-    required bool darkSurface,
-    required bool selectable,
-  }) : _theme = theme,
-       _baseColor = baseColor,
-       _darkSurface = darkSurface,
-       _selectable = selectable;
+    required this._theme,
+    required this._baseColor,
+    required this._darkSurface,
+    required this._selectable,
+  });
 
   final ThemeData _theme;
   final Color _baseColor;

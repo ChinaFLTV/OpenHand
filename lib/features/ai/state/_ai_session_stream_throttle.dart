@@ -252,13 +252,12 @@ class _StreamCharThrottleBudget {
 class _StreamCharThrottle {
   _StreamCharThrottle({
     required int maxCharsPerSecond,
-    required void Function() onTick,
+    required this._onTick,
     Duration? throttleDuration,
     _StreamCharThrottleBudget? sharedBudget,
   }) : _budget =
            sharedBudget ??
            _StreamCharThrottleBudget(maxCharsPerSecond: maxCharsPerSecond),
-       _onTick = onTick,
        _throttleDuration =
            (throttleDuration != null && throttleDuration.inMilliseconds > 0)
            ? throttleDuration
@@ -451,9 +450,8 @@ class _StreamCharThrottle {
 class _StreamCardThrottle {
   _StreamCardThrottle({
     required int maxCardsPerSecond,
-    required void Function() onCardEmitted,
+    required this._onCardEmitted,
   }) : _maxCardsPerSecond = math.max(0, maxCardsPerSecond),
-       _onCardEmitted = onCardEmitted,
        _budget = math.max(0, maxCardsPerSecond).toDouble(),
        _clock = Stopwatch()..start();
 

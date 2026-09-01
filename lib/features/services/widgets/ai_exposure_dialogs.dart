@@ -1978,7 +1978,7 @@ class _ToolConfigurationCardState extends State<_ToolConfigurationCard> {
                                   borderRadius: kOpenHandBorderRadius8,
                                   child: child,
                                 ),
-                            onReorder: _reorderProfiles,
+                            onReorderItem: _reorderProfiles,
                             itemBuilder: (context, index) {
                               final profile = configuration.profiles[index];
                               return Padding(
@@ -2053,7 +2053,6 @@ class _ToolConfigurationCardState extends State<_ToolConfigurationCard> {
 
   void _reorderProfiles(int oldIndex, int newIndex) {
     final profiles = List<AiExposureToolProfile>.of(_configuration.profiles);
-    if (newIndex > oldIndex) newIndex--;
     final profile = profiles.removeAt(oldIndex);
     profiles.insert(newIndex, profile);
     _updateConfiguration(_configuration.copyWith(profiles: profiles));

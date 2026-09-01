@@ -4,12 +4,8 @@ const int _defaultLifecycleCacheEntryCost = 1;
 const int _maxLifecycleCacheEntryCost = 1 << 62;
 
 class LifecycleLruCache<V> {
-  LifecycleLruCache({
-    required this.maxEntries,
-    int? maxCost,
-    int Function(V value)? costOf,
-  }) : maxCost = maxCost == null || maxCost <= 0 ? null : maxCost,
-       _costOf = costOf;
+  LifecycleLruCache({required this.maxEntries, int? maxCost, this._costOf})
+    : maxCost = maxCost == null || maxCost <= 0 ? null : maxCost;
 
   final int maxEntries;
   final int? maxCost;

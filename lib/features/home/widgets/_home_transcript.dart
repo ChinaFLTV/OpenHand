@@ -234,17 +234,15 @@ class _TranscriptScrollDispatcher {
         if (!completer.isCompleted) completer.complete();
       });
       // 最多每帧探测一次直到超时 / 命中。
-      pollTimer = startSafePeriodicTimer(
-        kOpenHandFramePeriodicTimerInterval,
-        (t) {
-          if (completer.isCompleted) {
-            t.cancel();
-            return;
-          }
-          check();
-        },
-        min: kOpenHandFramePeriodicTimerInterval,
-      );
+      pollTimer = startSafePeriodicTimer(kOpenHandFramePeriodicTimerInterval, (
+        t,
+      ) {
+        if (completer.isCompleted) {
+          t.cancel();
+          return;
+        }
+        check();
+      }, min: kOpenHandFramePeriodicTimerInterval);
       await completer.future;
       state = _statesBySession[sessionId];
     }
@@ -3191,6 +3189,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                 child: NotificationListener<ScrollNotification>(
                   onNotification: widget.onScrollNotification,
                   child: ListView.builder(
+                    scrollCacheExtent: const ScrollCacheExtent.pixels(
+                      _kTranscriptListCacheExtent,
+                    ),
                     key: const ValueKey<String>('session-transcript-list'),
                     controller: widget.controller,
                     keyboardDismissBehavior:
@@ -3198,7 +3199,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
                     padding: const EdgeInsets.only(bottom: 12),
                     physics: kOpenHandClampingPhysics,
                     primary: false,
-                    cacheExtent: _kTranscriptListCacheExtent,
                     itemCount: listItemCount,
                     findChildIndexCallback: (key) =>
                         _findTranscriptListChildIndex(

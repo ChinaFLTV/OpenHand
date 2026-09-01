@@ -226,7 +226,7 @@ Future<Object?> readWebEngineJsonFileIfExists(
     if (!await webEngineEntityExists(file, deadline: effectiveDeadline)) {
       return null;
     }
-    return readWebEngineJsonFile(
+    return await readWebEngineJsonFile(
       file,
       maxBytes: maxBytes,
       deadline: effectiveDeadline,

@@ -27,7 +27,7 @@ class MemoryLoadResult {
 }
 
 class MemoryStore {
-  MemoryStore({Database? database}) : _database = database;
+  MemoryStore({this._database});
 
   final Database? _database;
 

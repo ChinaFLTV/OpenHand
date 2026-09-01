@@ -2130,10 +2130,9 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
         child: OpenHandSafeScrollbar(
           controller: _feedController,
           child: ListView.builder(
+            scrollCacheExtent: const ScrollCacheExtent.pixels(1800),
             controller: _feedController,
             padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
-            // 缓存少量阶段卡片，平衡桌面滚动流畅度与离屏构建成本。
-            cacheExtent: 1800,
             // 等待审批时追加一张审批卡片。
             itemCount:
                 logs.length +

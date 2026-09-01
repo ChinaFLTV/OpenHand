@@ -4,7 +4,7 @@
 # OpenHand
 
 [![Flutter](https://img.shields.io/badge/Flutter-SDK-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
-[![Dart SDK](https://img.shields.io/badge/Dart-%5E3.11-0175C2?logo=dart&logoColor=white)](https://dart.dev)
+[![Dart SDK](https://img.shields.io/badge/Dart-%5E3.12-0175C2?logo=dart&logoColor=white)](https://dart.dev)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-555)](#运行环境)
 [![Web Gateway](https://img.shields.io/badge/Web%20Gateway-Vite%20%2B%20Preact-646CFF)](#web-消息平台)
 [![Status](https://img.shields.io/badge/status-active-brightgreen)](#)
@@ -103,7 +103,7 @@ Web 端覆盖：
 
 ## 运行环境
 
-- Flutter SDK，需包含 Dart `^3.11.0`。
+- Flutter `>=3.44.0`，需包含 Dart `^3.12.0`。
 - 桌面目标：macOS、Windows。当前仓库未提交 Linux 工程目录，因此 README 不声明 Linux 构建目标。
 - Web 资源构建：Node.js、npm / corepack、`pnpm@11.7.0`。`scripts/build_web.sh` 会优先复用本机 pnpm，也可通过 corepack 或 `npm exec` 临时运行。
 - 可选依赖：目标模型 API Key、本地模型服务、Chrome / Chromium、Docker + Qdrant、ADB、Frida、jadx、apktool、mitmproxy、外部 CLI 工具。

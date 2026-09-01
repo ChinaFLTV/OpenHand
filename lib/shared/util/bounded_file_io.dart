@@ -332,10 +332,9 @@ abstract interface class BoundedFileHandleOwner {
 final class BoundedRandomAccessFileLease {
   BoundedRandomAccessFileLease(
     this.file, {
-    Future<void> Function(RandomAccessFile file)? release,
+    this._release,
     Duration cleanupTimeout = _boundedFileCleanupTimeout,
-  }) : _release = release,
-       _cleanupTimeout = cleanupTimeout {
+  }) : _cleanupTimeout = cleanupTimeout {
     requirePositiveDuration(cleanupTimeout, 'cleanupTimeout');
   }
 

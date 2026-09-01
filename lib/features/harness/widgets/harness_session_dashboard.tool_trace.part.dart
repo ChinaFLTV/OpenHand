@@ -1466,9 +1466,9 @@ class _HeStructuredLogLines extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
+      scrollCacheExtent: const ScrollCacheExtent.pixels(600),
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      cacheExtent: 600,
       itemCount: lines.length,
       itemBuilder: (context, index) =>
           _LogLine(line: lines[index], colorScheme: colorScheme),

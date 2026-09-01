@@ -27,10 +27,9 @@ class WebReverseLaunchResult {
     required this.userDataDir,
     required this.browserVersion,
     required this.webSocketDebuggerUrl,
-    required StreamSubscription<String>? stderrSubscription,
-    required StreamSubscription<List<int>>? stdoutSubscription,
-  }) : _stderrSubscription = stderrSubscription,
-       _stdoutSubscription = stdoutSubscription;
+    required this._stderrSubscription,
+    required this._stdoutSubscription,
+  });
 
   final Process process;
   final int cdpPort;

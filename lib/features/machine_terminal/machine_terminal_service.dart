@@ -1688,9 +1688,8 @@ class MachineTerminalSession {
     required this.identity,
     required this.shell,
     required this.workingDirectory,
-    required VoidCallback onChanged,
-  }) : _onChanged = onChanged,
-       terminal = Terminal(
+    required this._onChanged,
+  }) : terminal = Terminal(
          maxLines: _scrollbackLines,
          platform: _terminalTargetPlatform(),
        ) {

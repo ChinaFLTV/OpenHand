@@ -6566,7 +6566,7 @@ List<Widget> buildWebEngineListSection({
       proxyDecorator: (child, index, animation) =>
           buildOpenHandReorderProxy(context, child, animation),
       itemCount: itemCount,
-      onReorder: onReorder,
+      onReorderItem: onReorder,
       itemBuilder: itemBuilder,
     ),
   ];

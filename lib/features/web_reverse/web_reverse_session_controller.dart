@@ -982,9 +982,8 @@ class WebReverseSessionController extends ChangeNotifier {
         newIndex > _pageTargets.length) {
       return;
     }
-    final adjustedNewIndex = newIndex > oldIndex ? newIndex - 1 : newIndex;
     final item = _pageTargets.removeAt(oldIndex);
-    _pageTargets.insert(adjustedNewIndex, item);
+    _pageTargets.insert(newIndex, item);
     _safeNotify();
   }
 

@@ -75,26 +75,18 @@ class McpOpsRuntimeBindings {
 
 class McpController extends ChangeNotifier {
   McpController._({
-    required McpStore store,
-    required McpServerOpsStore opsStore,
-    required McpToolDiscoveryService toolDiscoveryService,
-    required McpKeywordIndexService keywordIndexService,
-    required McpToolCatalogCacheService toolCatalogCacheService,
-    required bool ownsToolDiscoveryService,
-    required Duration healthCheckInterval,
+    required this._store,
+    required this._opsStore,
+    required this._toolDiscoveryService,
+    required this._keywordIndexService,
+    required this._toolCatalogCacheService,
+    required this._ownsToolDiscoveryService,
+    required this._healthCheckInterval,
     required int autoProbeConcurrency,
-    bool isLoading = false,
-  }) : _store = store,
-       _opsStore = opsStore,
-       _toolDiscoveryService = toolDiscoveryService,
-       _keywordIndexService = keywordIndexService,
-       _toolCatalogCacheService = toolCatalogCacheService,
-       _ownsToolDiscoveryService = ownsToolDiscoveryService,
-       _healthCheckInterval = healthCheckInterval,
-       _autoProbeConcurrency = _normalizeAutoProbeConcurrency(
+    this._isLoading = false,
+  }) : _autoProbeConcurrency = _normalizeAutoProbeConcurrency(
          autoProbeConcurrency,
-       ),
-       _isLoading = isLoading;
+       );
 
   /// 同步创建控制器但不加载服务器列表。调用 [refresh] 前保持加载状态，
   /// 用于避免 MCP 文件读取阻塞应用启动。

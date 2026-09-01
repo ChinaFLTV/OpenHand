@@ -107,12 +107,9 @@ class AiTransportResponseException implements Exception {
 }
 
 class AiTransportClient {
-  AiTransportClient({
-    http.Client? client,
-    AiMultipartFileLengthReader? multipartFileLengthReader,
-  }) : _client = client ?? SystemProxyResolver.instance.createHttpClient(),
-       _ownsClient = client == null,
-       _multipartFileLengthReader = multipartFileLengthReader;
+  AiTransportClient({http.Client? client, this._multipartFileLengthReader})
+    : _client = client ?? SystemProxyResolver.instance.createHttpClient(),
+      _ownsClient = client == null;
 
   final http.Client _client;
   final bool _ownsClient;

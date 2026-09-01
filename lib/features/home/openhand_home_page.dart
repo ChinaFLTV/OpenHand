@@ -556,7 +556,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   void _reorderFileTabs(int oldIndex, int newIndex) {
     setState(() {
-      if (newIndex > oldIndex) newIndex -= 1;
       final item = _openFilePaths.removeAt(oldIndex);
       _openFilePaths.insert(newIndex, item);
     });

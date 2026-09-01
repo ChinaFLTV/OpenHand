@@ -75,12 +75,11 @@ Map<String, Object?> migrateAiStreamThrottleConfig(Map<String, Object?> doc) {
 
 class SettingsController extends ChangeNotifier {
   SettingsController._({
-    required SettingsStore store,
+    required this._store,
     required AppSettingsSnapshot snapshot,
     required bool canPersist,
-    SettingsPersistenceIssue? persistenceIssue,
-  }) : _store = store,
-       _themeMode = snapshot.themeMode,
+    this._persistenceIssue,
+  }) : _themeMode = snapshot.themeMode,
        _themePreset = snapshot.themePreset,
        _language = snapshot.language,
        _skillsStoragePath = snapshot.skillsStoragePath,
@@ -227,7 +226,6 @@ class SettingsController extends ChangeNotifier {
        _subprocessGracefulShutdownMs = snapshot.subprocessGracefulShutdownMs,
        _bashOutputMaxBytes = snapshot.bashOutputMaxBytes,
        _maxConcurrentTools = snapshot.maxConcurrentTools,
-       _persistenceIssue = persistenceIssue,
        _canPersistSettings = canPersist {
     openHandAmbientLocale = _language.locale;
   }

@@ -165,9 +165,8 @@ class McpToolCallResult {
 }
 
 class _McpToolCallGuard {
-  _McpToolCallGuard({required Duration timeout, this.cancelSignal})
-    : _timeout = timeout,
-      _stopwatch = Stopwatch()..start() {
+  _McpToolCallGuard({required this._timeout, this.cancelSignal})
+    : _stopwatch = Stopwatch()..start() {
     cancelSignal?.then(
       (_) => _cancelled = true,
       onError: (Object _, StackTrace stackTrace) => _cancelled = true,
@@ -1957,20 +1956,14 @@ class _JsonRpcHttpResponse {
 
 class _LegacySseSession {
   _LegacySseSession._({
-    required http.Client client,
-    required Uri endpointUri,
-    required Map<String, String> headers,
-    required Set<String> sensitiveHeaderNames,
-    required StreamController<Map<String, Object?>> messages,
-    required StreamSubscription<_SseEvent> subscription,
-    required Duration requestTimeout,
-  }) : _client = client,
-       _endpointUri = endpointUri,
-       _headers = headers,
-       _sensitiveHeaderNames = sensitiveHeaderNames,
-       _messages = messages,
-       _subscription = subscription,
-       _requestTimeout = requestTimeout;
+    required this._client,
+    required this._endpointUri,
+    required this._headers,
+    required this._sensitiveHeaderNames,
+    required this._messages,
+    required this._subscription,
+    required this._requestTimeout,
+  });
 
   final http.Client _client;
   final Uri _endpointUri;
@@ -2371,11 +2364,10 @@ String _diagnoseStdioStderr(String stderr) {
 
 class _StdioSession {
   _StdioSession({
-    required Process process,
-    required Duration requestTimeout,
+    required this._process,
+    required this._requestTimeout,
     this.onStderrLine,
-  }) : _process = process,
-       _requestTimeout = requestTimeout {
+  }) {
     _stdoutSubscription = _process.stdout.listen(
       _handleStdoutData,
       onError: (Object error, StackTrace stackTrace) {

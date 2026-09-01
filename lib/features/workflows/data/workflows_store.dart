@@ -6,7 +6,7 @@ import '../../../shared/db/database_service.dart';
 import '../model/workflow_definition.dart';
 
 class WorkflowsStore {
-  WorkflowsStore({Database? database}) : _database = database;
+  WorkflowsStore({this._database});
 
   static const String _tableName = 'workflows';
 

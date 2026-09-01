@@ -33,10 +33,9 @@ const Duration _knowledgeDatabaseQueryTimeout = Duration(seconds: 10);
 
 class AiKnowledgeSearchTool extends AiTool {
   AiKnowledgeSearchTool({
-    KnowledgeBaseController? Function()? knowledgeBaseControllerProvider,
-    List<AiModelConfig> Function()? aiModelsProvider,
-  }) : _knowledgeBaseControllerProvider = knowledgeBaseControllerProvider,
-       _aiModelsProvider = aiModelsProvider;
+    this._knowledgeBaseControllerProvider,
+    this._aiModelsProvider,
+  });
 
   final KnowledgeBaseController? Function()? _knowledgeBaseControllerProvider;
   final List<AiModelConfig> Function()? _aiModelsProvider;

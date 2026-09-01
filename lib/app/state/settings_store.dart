@@ -118,7 +118,7 @@ class SettingsStore {
         }
       }
 
-      return _initializeMissingSettings();
+      return await _initializeMissingSettings();
     } catch (error, stack) {
       silentLog('settings_store', '加载数据库设置', error, stack);
       return SettingsLoadResult(

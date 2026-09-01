@@ -118,10 +118,9 @@ class ThrottleCloudSyncService {
   ThrottleCloudSyncService({
     http.Client? client,
     http.Client Function()? clientFactory,
-    bool registerCloudChangeHandler = true,
+    this._registerCloudChangeHandler = true,
   }) : _client = client,
-       _clientFactory = clientFactory ?? http.Client.new,
-       _registerCloudChangeHandler = registerCloudChangeHandler {
+       _clientFactory = clientFactory ?? http.Client.new {
     requireAtMostOneProvided(
       firstValue: client,
       firstName: 'client',

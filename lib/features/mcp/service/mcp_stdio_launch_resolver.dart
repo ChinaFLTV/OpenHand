@@ -268,7 +268,7 @@ Future<McpNodePackageResolution?> _resolveNpxPackage(
       separator: _lineBreaksPattern,
     );
     if (lines.length < 2) return null;
-    return resolveMcpNodePackageCandidate(
+    return await resolveMcpNodePackageCandidate(
       nodeBin: lines.first,
       packageDirectory: '${lines[1]}/$cleanName',
     );

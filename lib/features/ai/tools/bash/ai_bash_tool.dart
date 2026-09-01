@@ -10,11 +10,7 @@ import 'ai_bash_specialized_tool_policy.dart';
 import 'ai_bash_write_confirmation_gate.dart';
 
 class AiBashTool extends AiTool {
-  AiBashTool({
-    required AiBashToolService bashToolService,
-    required AiClaudeHookService hookService,
-  }) : _bashToolService = bashToolService,
-       _hookService = hookService;
+  AiBashTool({required this._bashToolService, required this._hookService});
 
   final AiBashToolService _bashToolService;
   final AiClaudeHookService _hookService;

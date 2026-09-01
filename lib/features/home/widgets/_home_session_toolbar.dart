@@ -252,7 +252,7 @@ class _SessionToolbar extends StatelessWidget {
               opacity: fade,
               child: SizeTransition(
                 sizeFactor: fade,
-                axisAlignment: -1,
+                alignment: AlignmentDirectional.topStart,
                 child: SlideTransition(
                   position: Tween<Offset>(
                     begin: const Offset(0, -0.04),

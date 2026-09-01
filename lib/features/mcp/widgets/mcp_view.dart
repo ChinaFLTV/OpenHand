@@ -6,6 +6,7 @@ import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
@@ -205,8 +206,8 @@ class _AnimatedMcpServerListState extends State<_AnimatedMcpServerList> {
     );
     final currentNames = widget.servers.map((server) => server.name).toSet();
     return ListView(
+      scrollCacheExtent: const ScrollCacheExtent.pixels(600),
       padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
-      cacheExtent: 600,
       children: [
         ...widget.prefixChildren,
         for (final server in _displayedServers)
@@ -4557,7 +4558,7 @@ class _McpOpsConsoleHeader extends StatelessWidget {
                   opacity: animation,
                   child: SizeTransition(
                     axis: Axis.horizontal,
-                    axisAlignment: -1,
+                    alignment: AlignmentDirectional.topStart,
                     sizeFactor: animation,
                     child: child,
                   ),
@@ -4920,7 +4921,7 @@ class _McpOpsHeaderControls extends StatelessWidget {
                   opacity: animation,
                   child: SizeTransition(
                     axis: Axis.horizontal,
-                    axisAlignment: -1,
+                    alignment: AlignmentDirectional.topStart,
                     sizeFactor: animation,
                     child: child,
                   ),
@@ -10062,7 +10063,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                     transitionBuilder: (child, animation) {
                       return SizeTransition(
                         sizeFactor: animation,
-                        axisAlignment: -1.0,
+                        alignment: AlignmentDirectional.topStart,
                         child: FadeTransition(opacity: animation, child: child),
                       );
                     },
@@ -10317,7 +10318,7 @@ class _McpStdioProcessChip extends StatelessWidget {
             );
             return SizeTransition(
               axis: Axis.horizontal,
-              axisAlignment: -1,
+              alignment: AlignmentDirectional.topStart,
               sizeFactor: sizeMotion,
               child: _mcpChipTransition(child, animation),
             );

@@ -147,10 +147,9 @@ class _AppearTranslate extends SingleChildRenderObjectWidget {
 
 class _AppearTranslateRender extends RenderProxyBox {
   _AppearTranslateRender({
-    required Animation<double> animation,
+    required this._animation,
     required double slideOffset,
-  }) : _animation = animation,
-       _slideOffset = _safeAppearSlideOffset(slideOffset);
+  }) : _slideOffset = _safeAppearSlideOffset(slideOffset);
 
   Animation<double> _animation;
   double _slideOffset;
