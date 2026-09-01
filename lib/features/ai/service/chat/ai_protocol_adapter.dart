@@ -43,9 +43,6 @@ const Duration _inlineMediaWriteTimeout = Duration(seconds: 30);
 abstract final class AiThinkingRequestPolicy {
   static const int _defaultThinkingBudget = 8192;
   static const int _claudeMinimumBudget = 1024;
-  static final RegExp _modelIdSeparatorPattern = RegExp(r'[^a-z0-9]+');
-  static final RegExp _modelIdRepeatedDashPattern = RegExp(r'-+');
-  static final RegExp _modelIdEdgeDashPattern = RegExp(r'^-|-$');
   static const String _reasoningField = 'reasoning';
   static const String _reasoningEffortField = 'reasoning_effort';
   static const String _includeReasoningField = 'include_reasoning';
@@ -240,7 +237,7 @@ abstract final class AiThinkingRequestPolicy {
       };
     }
     // Fable 5 / Mythos 5 省略 thinking 时自动使用自适应思考。
-    if (_usesAlwaysOnClaudeAdaptiveThinking(model)) return null;
+    if (model.usesAlwaysOnClaudeAdaptiveThinking) return null;
     if (!model.resolvedThinkingEnabled) {
       return const <String, Object?>{'type': 'disabled'};
     }
@@ -252,7 +249,7 @@ abstract final class AiThinkingRequestPolicy {
     );
     final effort = _normalizeReasoningEffort(model.resolvedReasoningEffort);
     if (model.resolvedReasoningEffortControlEnabled &&
-        _usesClaudeOutputEffort(model) &&
+        model.usesClaudeOutputEffort &&
         effort != null &&
         !_looksLikeNumericBudget(effort)) {
       return const <String, Object?>{'type': 'adaptive'};
@@ -268,7 +265,7 @@ abstract final class AiThinkingRequestPolicy {
     if (!shouldApply(model) || !model.resolvedReasoningEffortControlEnabled) {
       return null;
     }
-    if (!_usesClaudeOutputEffort(model)) return null;
+    if (!model.usesClaudeOutputEffort) return null;
     final effort = _normalizeReasoningEffort(model.resolvedReasoningEffort);
     if (effort == null || _looksLikeNumericBudget(effort)) return null;
     return <String, Object?>{'effort': effort};
@@ -590,54 +587,6 @@ abstract final class AiThinkingRequestPolicy {
       'high' => 'HIGH',
       _ => effort,
     };
-  }
-
-  static bool _usesClaudeOutputEffort(AiModelConfig model) {
-    if (model.protocolType == AiProtocolType.dots) return true;
-    if (model.protocolType != AiProtocolType.claude &&
-        !lowercaseStringFromValue(model.modelId).contains('claude')) {
-      return false;
-    }
-    final id = lowercaseStringFromValue(model.modelId)
-        .replaceAll(_modelIdSeparatorPattern, '-')
-        .replaceAll(_modelIdRepeatedDashPattern, '-')
-        .replaceAll(_modelIdEdgeDashPattern, '');
-    return id.contains('opus-5') ||
-        id.contains('5-opus') ||
-        id.contains('sonnet-5') ||
-        id.contains('5-sonnet') ||
-        id.contains('fable-5') ||
-        id.contains('5-fable') ||
-        id.contains('mythos-5') ||
-        id.contains('5-mythos') ||
-        id.contains('mythos-preview') ||
-        id.contains('opus-4-8') ||
-        id.contains('4-8-opus') ||
-        id.contains('opus-4-7') ||
-        id.contains('4-7-opus') ||
-        id.contains('opus-4-6') ||
-        id.contains('4-6-opus') ||
-        id.contains('opus-4-5') ||
-        id.contains('4-5-opus') ||
-        id.contains('sonnet-4-6') ||
-        id.contains('4-6-sonnet');
-  }
-
-  static bool _usesAlwaysOnClaudeAdaptiveThinking(AiModelConfig model) {
-    if (model.protocolType == AiProtocolType.dots) return false;
-    if (model.protocolType != AiProtocolType.claude &&
-        !lowercaseStringFromValue(model.modelId).contains('claude')) {
-      return false;
-    }
-    final id = lowercaseStringFromValue(model.modelId)
-        .replaceAll(_modelIdSeparatorPattern, '-')
-        .replaceAll(_modelIdRepeatedDashPattern, '-')
-        .replaceAll(_modelIdEdgeDashPattern, '');
-    return id.contains('fable-5') ||
-        id.contains('5-fable') ||
-        id.contains('mythos-5') ||
-        id.contains('5-mythos') ||
-        id.contains('mythos-preview');
   }
 }
 

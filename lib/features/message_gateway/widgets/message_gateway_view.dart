@@ -11886,6 +11886,105 @@ class _DingTalkMessageTranslation {
   final String translatedText;
 }
 
+class _DingTalkTranslationManager {
+  final AiTranslationService _service = AiTranslationService();
+  final Map<String, _DingTalkMessageTranslation> _translations =
+      <String, _DingTalkMessageTranslation>{};
+  final Set<String> _visibleMessageIds = <String>{};
+  final Set<String> _loadingMessageIds = <String>{};
+  int _generation = 0;
+
+  bool isLoading(String messageId) => _loadingMessageIds.contains(messageId);
+
+  _DingTalkMessageTranslation? visibleTranslation({
+    required String messageId,
+    required String sourceText,
+    required String settingsFingerprint,
+  }) {
+    final cached = _translations[messageId];
+    if (!_visibleMessageIds.contains(messageId) ||
+        cached?.sourceText != sourceText ||
+        cached?.settingsFingerprint != settingsFingerprint) {
+      return null;
+    }
+    return cached;
+  }
+
+  Future<String?> toggle({
+    required String messageId,
+    required String sourceText,
+    required String settingsFingerprint,
+    required AiTranslationSettings settings,
+    required List<AiModelConfig> availableModels,
+    required AiModelConfig? fallbackModel,
+    required bool Function() isMounted,
+    required void Function(VoidCallback mutation) update,
+    required String logAction,
+  }) async {
+    if (_visibleMessageIds.contains(messageId)) {
+      update(() => _visibleMessageIds.remove(messageId));
+      return null;
+    }
+    final cached = _translations[messageId];
+    if (cached != null &&
+        cached.sourceText == sourceText &&
+        cached.settingsFingerprint == settingsFingerprint) {
+      update(() => _visibleMessageIds.add(messageId));
+      return null;
+    }
+    if (_loadingMessageIds.contains(messageId)) return null;
+    final generation = _generation;
+    update(() => _loadingMessageIds.add(messageId));
+    try {
+      final result = await _service.translate(
+        text: sourceText,
+        settings: settings,
+        availableModels: availableModels,
+        fallbackModel: fallbackModel,
+      );
+      if (!isMounted() || generation != _generation) return null;
+      update(() {
+        _loadingMessageIds.remove(messageId);
+        _translations.remove(messageId);
+        _translations[messageId] = _DingTalkMessageTranslation(
+          sourceText: sourceText,
+          settingsFingerprint: settingsFingerprint,
+          translatedText: result.text,
+        );
+        while (_translations.length > _dingtalkTranslationCacheMaxEntries) {
+          final removed = _translations.keys.first;
+          _translations.remove(removed);
+          _visibleMessageIds.remove(removed);
+        }
+        _visibleMessageIds.add(messageId);
+      });
+      return null;
+    } catch (error, stack) {
+      if (generation != _generation) return null;
+      silentLog('dingtalk_gateway', logAction, error, stack);
+      return messageGatewayFailureMessage(error, fallback: '请检查文本翻译设置。');
+    } finally {
+      if (isMounted() &&
+          generation == _generation &&
+          _loadingMessageIds.contains(messageId)) {
+        update(() => _loadingMessageIds.remove(messageId));
+      }
+    }
+  }
+
+  void clear() {
+    _generation++;
+    _translations.clear();
+    _visibleMessageIds.clear();
+    _loadingMessageIds.clear();
+  }
+
+  void dispose() {
+    clear();
+    _service.dispose();
+  }
+}
+
 class _DingTalkMessagesDialog extends StatefulWidget {
   const _DingTalkMessagesDialog({required this.controller});
   final DingTalkMessageGatewayController controller;
@@ -11973,12 +12072,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       AutoFollowProgrammaticScrollWindow();
   final Stopwatch _messagesScrollActivityStopwatch = Stopwatch()..start();
   final AiTtsPlaybackService _ttsPlaybackService = AiTtsPlaybackService();
-  final AiTranslationService _translationService = AiTranslationService();
+  final _DingTalkTranslationManager _translationManager =
+      _DingTalkTranslationManager();
   final LatestTaskQueue _pastedAttachmentPruneQueue = LatestTaskQueue();
-  final Map<String, _DingTalkMessageTranslation> _translations =
-      <String, _DingTalkMessageTranslation>{};
-  final Set<String> _visibleTranslationMessageIds = <String>{};
-  final Set<String> _loadingTranslationMessageIds = <String>{};
   final Set<String> _autoMediaLoadAttemptedMessageIds = <String>{};
   final Set<String> _autoMediaLoadPendingMessageIds = <String>{};
   final _DingTalkMessageAnchorRegistry _messageAnchorRegistry =
@@ -12061,7 +12157,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     _messagesScrollController.dispose();
     _voiceVisual.dispose();
     unawaited(_ttsPlaybackService.dispose());
-    _translationService.dispose();
+    _translationManager.dispose();
     super.dispose();
   }
 
@@ -12693,24 +12789,19 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                             message.media,
                                                           );
                                                       final translation =
-                                                          _translations[message
-                                                              .id];
-                                                      final translationVisible =
-                                                          textActionEnabled &&
-                                                          translation != null &&
-                                                          _visibleTranslationMessageIds
-                                                              .contains(
-                                                                message.id,
-                                                              ) &&
-                                                          translation
-                                                                  .sourceText ==
-                                                              messageTextContent &&
-                                                          translation
-                                                                  .settingsFingerprint ==
-                                                              aiTranslationRequestFingerprint(
-                                                                translationSettings,
-                                                                messageActionFallbackModel,
-                                                              );
+                                                          textActionEnabled
+                                                          ? _translationManager.visibleTranslation(
+                                                              messageId:
+                                                                  message.id,
+                                                              sourceText:
+                                                                  messageTextContent,
+                                                              settingsFingerprint:
+                                                                  aiTranslationRequestFingerprint(
+                                                                    translationSettings,
+                                                                    messageActionFallbackModel,
+                                                                  ),
+                                                            )
+                                                          : null;
                                                       return RepaintBoundary(
                                                         key: ValueKey<String>(
                                                           _dingTalkMessageRenderIdentity(
@@ -12857,17 +12948,16 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                               translationSettings
                                                                   .enabled,
                                                           translationLoading:
-                                                              _loadingTranslationMessageIds
-                                                                  .contains(
+                                                              _translationManager
+                                                                  .isLoading(
                                                                     message.id,
                                                                   ),
                                                           translationVisible:
-                                                              translationVisible,
+                                                              translation !=
+                                                              null,
                                                           translatedContent:
-                                                              translationVisible
-                                                              ? translation
-                                                                    .translatedText
-                                                              : null,
+                                                              translation
+                                                                  ?.translatedText,
                                                           onToggleTranslation:
                                                               textActionEnabled &&
                                                                   translationSettings
@@ -13353,58 +13443,25 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     if (!widget.controller.isServiceEnabled) return;
     final content = _dingtalkTextContent(message.content);
     if (!_hasDingTalkTextContent(message.content, message.media)) return;
-    final messageId = message.id;
-    if (_visibleTranslationMessageIds.contains(messageId)) {
-      setState(() => _visibleTranslationMessageIds.remove(messageId));
-      return;
-    }
     final fingerprint = aiTranslationRequestFingerprint(
       settings,
       fallbackModel,
     );
-    final cached = _translations[messageId];
-    if (cached != null &&
-        cached.sourceText == content &&
-        cached.settingsFingerprint == fingerprint) {
-      setState(() => _visibleTranslationMessageIds.add(messageId));
-      return;
-    }
-    if (_loadingTranslationMessageIds.contains(messageId)) return;
-    setState(() => _loadingTranslationMessageIds.add(messageId));
-    try {
-      final result = await _translationService.translate(
-        text: content,
-        settings: settings,
-        availableModels: widget.controller.aiModels,
-        fallbackModel: fallbackModel,
-      );
-      if (!mounted) return;
-      setState(() {
-        _translations.remove(messageId);
-        _translations[messageId] = _DingTalkMessageTranslation(
-          sourceText: content,
-          settingsFingerprint: fingerprint,
-          translatedText: result.text,
-        );
-        while (_translations.length > _dingtalkTranslationCacheMaxEntries) {
-          final removed = _translations.keys.first;
-          _translations.remove(removed);
-          _visibleTranslationMessageIds.remove(removed);
-        }
-        _visibleTranslationMessageIds.add(messageId);
-      });
-    } catch (error, stack) {
-      silentLog('dingtalk_gateway', '翻译钉钉消息', error, stack);
-      if (mounted) {
-        showOpenHandErrorSnack(
-          context,
-          '翻译失败：${messageGatewayFailureMessage(error, fallback: '请检查文本翻译设置。')}',
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _loadingTranslationMessageIds.remove(messageId));
-      }
+    final failure = await _translationManager.toggle(
+      messageId: message.id,
+      sourceText: content,
+      settingsFingerprint: fingerprint,
+      settings: settings,
+      availableModels: widget.controller.aiModels,
+      fallbackModel: fallbackModel,
+      isMounted: () => mounted,
+      update: (mutation) {
+        if (mounted) setState(mutation);
+      },
+      logAction: '翻译钉钉消息',
+    );
+    if (mounted && failure != null) {
+      showOpenHandErrorSnack(context, '翻译失败：$failure');
     }
   }
 
@@ -13631,9 +13688,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     }
     if (!widget.controller.isServiceEnabled) {
       unawaited(_ttsPlaybackService.stop());
-      _translations.clear();
-      _visibleTranslationMessageIds.clear();
-      _loadingTranslationMessageIds.clear();
+      _translationManager.clear();
       if (_recordingVoice) _cancelVoiceRecording();
       if (_editingConversationId != null ||
           _editingMessageId != null ||
@@ -18836,11 +18891,8 @@ class _DingTalkForwardedChatDialogState
   static const Duration _actionToggleMaxDuration = Duration(milliseconds: 350);
   static const Duration _actionToggleDelay = Duration(milliseconds: 80);
   final AiTtsPlaybackService _ttsPlaybackService = AiTtsPlaybackService();
-  final AiTranslationService _translationService = AiTranslationService();
-  final Map<String, _DingTalkMessageTranslation> _translations =
-      <String, _DingTalkMessageTranslation>{};
-  final Set<String> _visibleTranslationMessageIds = <String>{};
-  final Set<String> _loadingTranslationMessageIds = <String>{};
+  final _DingTalkTranslationManager _translationManager =
+      _DingTalkTranslationManager();
   final Set<String> _copyingMediaMessageIds = <String>{};
   final Set<String> _expandedIgnoredMessageIds = <String>{};
   Offset? _pointerDownPosition;
@@ -18861,7 +18913,7 @@ class _DingTalkForwardedChatDialogState
     widget.controller.removeListener(_handleControllerChanged);
     _ttsPlaybackService.state.removeListener(_handleTtsStateChanged);
     unawaited(_ttsPlaybackService.dispose());
-    _translationService.dispose();
+    _translationManager.dispose();
     super.dispose();
   }
 
@@ -18870,7 +18922,14 @@ class _DingTalkForwardedChatDialogState
   }
 
   void _handleControllerChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    if (!widget.controller.isServiceEnabled) {
+      unawaited(_ttsPlaybackService.stop());
+      _translationManager.clear();
+      _cancelPendingActionToggle();
+      _expandedMessageId = null;
+    }
+    setState(() {});
   }
 
   void _cancelPendingActionToggle() {
@@ -19028,17 +19087,17 @@ class _DingTalkForwardedChatDialogState
                   itemContent,
                   resolvedMedia,
                 );
-                final translation = _translations[itemKey];
                 final translationFingerprint = aiTranslationRequestFingerprint(
                   translationSettings,
                   fallbackModel,
                 );
-                final translationVisible =
-                    textActionEnabled &&
-                    translation != null &&
-                    _visibleTranslationMessageIds.contains(itemKey) &&
-                    translation.sourceText == itemContent &&
-                    translation.settingsFingerprint == translationFingerprint;
+                final translation = textActionEnabled
+                    ? _translationManager.visibleTranslation(
+                        messageId: itemKey,
+                        sourceText: itemContent,
+                        settingsFingerprint: translationFingerprint,
+                      )
+                    : null;
                 final contentExpanded =
                     !item.ignoredForAiContext ||
                     _expandedIgnoredMessageIds.contains(itemKey);
@@ -19053,9 +19112,7 @@ class _DingTalkForwardedChatDialogState
                     actionsVisible:
                         contentExpanded && _expandedMessageId == itemKey,
                     contentExpanded: contentExpanded,
-                    translatedContent: translationVisible
-                        ? translation.translatedText
-                        : null,
+                    translatedContent: translation?.translatedText,
                     speechEnabled: textActionEnabled && ttsSettings.enabled,
                     speechPlaying:
                         textActionEnabled &&
@@ -19064,10 +19121,8 @@ class _DingTalkForwardedChatDialogState
                         _ttsPlaybackService.state.value.messageId == itemKey,
                     translationEnabled:
                         textActionEnabled && translationSettings.enabled,
-                    translationLoading: _loadingTranslationMessageIds.contains(
-                      itemKey,
-                    ),
-                    translationVisible: translationVisible,
+                    translationLoading: _translationManager.isLoading(itemKey),
+                    translationVisible: translation != null,
                     telemetryDebugEnabled: telemetryDebugEnabled,
                     fallbackModel: fallbackModel,
                     ttsSettings: ttsSettings,
@@ -19502,6 +19557,7 @@ class _DingTalkForwardedChatDialogState
     AiTtsSettings settings,
     AiModelConfig? fallbackModel,
   ) async {
+    if (!widget.controller.isServiceEnabled) return;
     try {
       await _ttsPlaybackService.toggleMessage(
         messageId: messageId,
@@ -19527,57 +19583,26 @@ class _DingTalkForwardedChatDialogState
     AiTranslationSettings settings,
     AiModelConfig? fallbackModel,
   ) async {
-    if (_visibleTranslationMessageIds.contains(messageId)) {
-      setState(() => _visibleTranslationMessageIds.remove(messageId));
-      return;
-    }
+    if (!widget.controller.isServiceEnabled) return;
     final fingerprint = aiTranslationRequestFingerprint(
       settings,
       fallbackModel,
     );
-    final cached = _translations[messageId];
-    if (cached != null &&
-        cached.sourceText == content &&
-        cached.settingsFingerprint == fingerprint) {
-      setState(() => _visibleTranslationMessageIds.add(messageId));
-      return;
-    }
-    if (_loadingTranslationMessageIds.contains(messageId)) return;
-    setState(() => _loadingTranslationMessageIds.add(messageId));
-    try {
-      final result = await _translationService.translate(
-        text: content,
-        settings: settings,
-        availableModels: widget.controller.aiModels,
-        fallbackModel: fallbackModel,
-      );
-      if (!mounted) return;
-      setState(() {
-        _translations.remove(messageId);
-        _translations[messageId] = _DingTalkMessageTranslation(
-          sourceText: content,
-          settingsFingerprint: fingerprint,
-          translatedText: result.text,
-        );
-        while (_translations.length > _dingtalkTranslationCacheMaxEntries) {
-          final removed = _translations.keys.first;
-          _translations.remove(removed);
-          _visibleTranslationMessageIds.remove(removed);
-        }
-        _visibleTranslationMessageIds.add(messageId);
-      });
-    } catch (error, stack) {
-      silentLog('dingtalk_gateway', '翻译转发聊天记录消息', error, stack);
-      if (mounted) {
-        showOpenHandErrorSnack(
-          context,
-          '翻译失败：${messageGatewayFailureMessage(error, fallback: '请检查文本翻译设置。')}',
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _loadingTranslationMessageIds.remove(messageId));
-      }
+    final failure = await _translationManager.toggle(
+      messageId: messageId,
+      sourceText: content,
+      settingsFingerprint: fingerprint,
+      settings: settings,
+      availableModels: widget.controller.aiModels,
+      fallbackModel: fallbackModel,
+      isMounted: () => mounted,
+      update: (mutation) {
+        if (mounted) setState(mutation);
+      },
+      logAction: '翻译转发聊天记录消息',
+    );
+    if (mounted && failure != null) {
+      showOpenHandErrorSnack(context, '翻译失败：$failure');
     }
   }
 

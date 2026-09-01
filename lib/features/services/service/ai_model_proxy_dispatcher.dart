@@ -20,6 +20,25 @@ const Duration _kAiModelProxyFailureCooldown = Duration(minutes: 2);
 const int _kAiModelProxyFailureCooldownLimit = 256;
 const int _kAiModelProxyRetryDelayMs = 150;
 const int _kAiModelProxyDirectFallbackAttempts = 2;
+const String _kProxyRouteDirect = 'direct';
+const String _kProxyRouteSystem = 'system';
+const String _kProxyRoutePool = 'pool';
+
+typedef _ProxyNetworkRoute = ({
+  String mode,
+  String endpoint,
+  String remoteHost,
+  String remotePort,
+  AiExposureProxyEndpoint? selected,
+});
+
+const _ProxyNetworkRoute _emptyDirectProxyRoute = (
+  mode: _kProxyRouteDirect,
+  endpoint: '',
+  remoteHost: '',
+  remotePort: '',
+  selected: null,
+);
 
 class AiModelProxyDispatchResult {
   const AiModelProxyDispatchResult({
@@ -90,23 +109,20 @@ class AiModelProxyDispatcher {
     final settings = controller.settings;
     final maxAttempts = _configuredAttemptCount(settings);
     Object? lastError;
-    final failedProxyEndpoints = <String>{};
     final backendPlan = _ProxyBackendAttemptPlan(
       controller: controller,
       exposedModel: exposedModel,
       policy: settings.retryPolicy,
       affinityKey: _backendAffinityKey(headers),
     );
-    var directFallbackEnabled = false;
-    var directFallbackAttempts = 0;
-    AiExposureProxyEndpoint? preferredProxyEndpoint;
+    final retryState = _ProxyRetryState();
     for (
       var attempt = 0;
       attempt < maxAttempts + _kAiModelProxyDirectFallbackAttempts;
       attempt++
     ) {
       final directFallback = attempt >= maxAttempts;
-      if (directFallback && !directFallbackEnabled) break;
+      if (directFallback && !retryState.directFallbackEnabled) break;
       final backend = backendPlan.select(directFallback: directFallback);
       if (backend == null) {
         throw const AiModelProxyException(404, '没有可用的后备模型。');
@@ -167,32 +183,23 @@ class AiModelProxyDispatcher {
         break;
       }
       final startedAt = DateTime.now();
-      var directRouteFallback = directFallback;
-      var network = (
-        mode: 'direct',
-        endpoint: '',
-        remoteHost: '',
-        remotePort: '',
-        selected: null as AiExposureProxyEndpoint?,
-      );
+      var network = _emptyDirectProxyRoute;
       _RoutedChatClient? routedClient;
+      var directRouteFallback = directFallback;
       try {
         network = await _resolveNetworkRoute(
           Uri.tryParse(model.baseUrl),
           excludedProxyEndpoints: <String>{
-            ...failedProxyEndpoints,
+            ...retryState.failedProxyEndpoints,
             ..._coolingProxyEndpoints(),
           },
-          preferredProxyEndpoint: preferredProxyEndpoint,
+          preferredProxyEndpoint: retryState.preferredProxyEndpoint,
           directOnly: directFallback,
         );
-        if (network.mode == 'pool') {
-          preferredProxyEndpoint = network.selected;
-        }
-        directRouteFallback =
-            directFallback ||
-            (network.mode == 'direct' && failedProxyEndpoints.isNotEmpty);
-        if (directRouteFallback) directFallbackAttempts++;
+        directRouteFallback = retryState.recordRoute(
+          network,
+          directFallback: directFallback,
+        );
         routedClient = _usesDefaultChatClient
             ? await _createRoutedChatClient(network)
             : null;
@@ -269,26 +276,19 @@ class AiModelProxyDispatcher {
           attempt: attempt + 1,
         );
         final failureKind = _classifyBackendFailure(error);
-        if (failureKind == _BackendFailureKind.transport) {
-          backendPlan.prepareDirectFallback(backend);
-          final failedEndpoint = network.selected?.url;
-          if (failedEndpoint != null) {
-            failedProxyEndpoints.add(failedEndpoint);
-            _rememberProxyFailure(failedEndpoint);
-          }
-          preferredProxyEndpoint = null;
-          if (!directRouteFallback && network.mode == 'pool') {
-            directFallbackEnabled = true;
-          }
-        } else if (failureKind == _BackendFailureKind.backend) {
-          backendPlan.recordBackendFailure(backend);
-        }
-        if (failureKind == _BackendFailureKind.terminal ||
-            (directRouteFallback &&
-                directFallbackAttempts >=
-                    _kAiModelProxyDirectFallbackAttempts) ||
-            (settings.retryPolicy == AiModelProxyRetryPolicy.failFast &&
-                failureKind != _BackendFailureKind.transport)) {
+        retryState.recordFailure(
+          failureKind: failureKind,
+          route: network,
+          directRouteFallback: directRouteFallback,
+          backend: backend,
+          backendPlan: backendPlan,
+          rememberProxyFailure: _rememberProxyFailure,
+        );
+        if (retryState.shouldStop(
+          failureKind: failureKind,
+          directRouteFallback: directRouteFallback,
+          retryPolicy: settings.retryPolicy,
+        )) {
           break;
         }
         if (failureKind == _BackendFailureKind.backend &&
@@ -319,23 +319,20 @@ class AiModelProxyDispatcher {
     final settings = controller.settings;
     final maxAttempts = _configuredAttemptCount(settings);
     Object? lastError;
-    final failedProxyEndpoints = <String>{};
     final backendPlan = _ProxyBackendAttemptPlan(
       controller: controller,
       exposedModel: exposedModel,
       policy: settings.retryPolicy,
       affinityKey: _backendAffinityKey(headers),
     );
-    var directFallbackEnabled = false;
-    var directFallbackAttempts = 0;
-    AiExposureProxyEndpoint? preferredProxyEndpoint;
+    final retryState = _ProxyRetryState();
     for (
       var attempt = 0;
       attempt < maxAttempts + _kAiModelProxyDirectFallbackAttempts;
       attempt++
     ) {
       final directFallback = attempt >= maxAttempts;
-      if (directFallback && !directFallbackEnabled) break;
+      if (directFallback && !retryState.directFallbackEnabled) break;
       final backend = backendPlan.select(directFallback: directFallback);
       if (backend == null) {
         lastError = const AiModelProxyException(404, '没有可用的后备模型。');
@@ -399,32 +396,23 @@ class AiModelProxyDispatcher {
         break;
       }
       final startedAt = DateTime.now();
-      var directRouteFallback = directFallback;
-      var network = (
-        mode: 'direct',
-        endpoint: '',
-        remoteHost: '',
-        remotePort: '',
-        selected: null as AiExposureProxyEndpoint?,
-      );
+      var network = _emptyDirectProxyRoute;
       _RoutedChatClient? routedClient;
+      var directRouteFallback = directFallback;
       try {
         network = await _resolveNetworkRoute(
           Uri.tryParse(model.baseUrl),
           excludedProxyEndpoints: <String>{
-            ...failedProxyEndpoints,
+            ...retryState.failedProxyEndpoints,
             ..._coolingProxyEndpoints(),
           },
-          preferredProxyEndpoint: preferredProxyEndpoint,
+          preferredProxyEndpoint: retryState.preferredProxyEndpoint,
           directOnly: directFallback,
         );
-        if (network.mode == 'pool') {
-          preferredProxyEndpoint = network.selected;
-        }
-        directRouteFallback =
-            directFallback ||
-            (network.mode == 'direct' && failedProxyEndpoints.isNotEmpty);
-        if (directRouteFallback) directFallbackAttempts++;
+        directRouteFallback = retryState.recordRoute(
+          network,
+          directFallback: directFallback,
+        );
         routedClient = _usesDefaultChatClient
             ? await _createRoutedChatClient(network)
             : null;
@@ -541,26 +529,19 @@ class AiModelProxyDispatcher {
         );
         routedClient?.dispose();
         final failureKind = _classifyBackendFailure(error);
-        if (failureKind == _BackendFailureKind.transport) {
-          backendPlan.prepareDirectFallback(backend);
-          final failedEndpoint = network.selected?.url;
-          if (failedEndpoint != null) {
-            failedProxyEndpoints.add(failedEndpoint);
-            _rememberProxyFailure(failedEndpoint);
-          }
-          preferredProxyEndpoint = null;
-          if (!directRouteFallback && network.mode == 'pool') {
-            directFallbackEnabled = true;
-          }
-        } else if (failureKind == _BackendFailureKind.backend) {
-          backendPlan.recordBackendFailure(backend);
-        }
-        if (failureKind == _BackendFailureKind.terminal ||
-            (directRouteFallback &&
-                directFallbackAttempts >=
-                    _kAiModelProxyDirectFallbackAttempts) ||
-            (settings.retryPolicy == AiModelProxyRetryPolicy.failFast &&
-                failureKind != _BackendFailureKind.transport)) {
+        retryState.recordFailure(
+          failureKind: failureKind,
+          route: network,
+          directRouteFallback: directRouteFallback,
+          backend: backend,
+          backendPlan: backendPlan,
+          rememberProxyFailure: _rememberProxyFailure,
+        );
+        if (retryState.shouldStop(
+          failureKind: failureKind,
+          directRouteFallback: directRouteFallback,
+          retryPolicy: settings.retryPolicy,
+        )) {
           break;
         }
         if (failureKind == _BackendFailureKind.backend &&
@@ -1190,16 +1171,7 @@ class AiModelProxyDispatcher {
     return '$error';
   }
 
-  Future<
-    ({
-      String mode,
-      String endpoint,
-      String remoteHost,
-      String remotePort,
-      AiExposureProxyEndpoint? selected,
-    })
-  >
-  _resolveNetworkRoute(
+  Future<_ProxyNetworkRoute> _resolveNetworkRoute(
     Uri? target, {
     Set<String> excludedProxyEndpoints = const <String>{},
     AiExposureProxyEndpoint? preferredProxyEndpoint,
@@ -1219,7 +1191,7 @@ class AiModelProxyDispatcher {
         !configuration.enabled ||
         (configuration.bypassLocal && _isLocalTarget(remoteHost))) {
       return (
-        mode: 'direct',
+        mode: _kProxyRouteDirect,
         endpoint: '',
         remoteHost: remoteHost,
         remotePort: remotePort,
@@ -1231,7 +1203,7 @@ class AiModelProxyDispatcher {
       final snapshot = SystemProxyResolver.instance.resolveRuntimeRoute();
       final endpoint = snapshot.httpsProxy ?? snapshot.httpProxy;
       return (
-        mode: endpoint == null ? 'direct' : 'system',
+        mode: endpoint == null ? _kProxyRouteDirect : _kProxyRouteSystem,
         endpoint: endpoint == null ? '' : _maskProxyEndpoint(endpoint),
         remoteHost: remoteHost,
         remotePort: remotePort,
@@ -1254,7 +1226,7 @@ class AiModelProxyDispatcher {
       excludedUrls: excludedProxyEndpoints,
     );
     return (
-      mode: endpoint == null ? 'direct' : 'pool',
+      mode: endpoint == null ? _kProxyRouteDirect : _kProxyRoutePool,
       endpoint: endpoint == null ? '' : endpoint.maskedUrl,
       remoteHost: remoteHost,
       remotePort: remotePort,
@@ -1268,16 +1240,9 @@ class AiModelProxyDispatcher {
   }
 
   Future<_RoutedChatClient?> _createRoutedChatClient(
-    ({
-      String mode,
-      String endpoint,
-      String remoteHost,
-      String remotePort,
-      AiExposureProxyEndpoint? selected,
-    })
-    route,
+    _ProxyNetworkRoute route,
   ) async {
-    if (route.mode == 'system') {
+    if (route.mode == _kProxyRouteSystem) {
       final transport = SystemProxyResolver.instance.createHttpClient(
         userAgent: _kAiModelProxyUserAgent,
       );
@@ -1286,7 +1251,7 @@ class AiModelProxyDispatcher {
         transport: transport,
       );
     }
-    if (route.mode != 'pool') {
+    if (route.mode != _kProxyRoutePool) {
       final raw = HttpClient()
         ..connectionTimeout = _kAiModelProxyConnectionTimeout;
       raw.findProxy = (_) => 'DIRECT';
@@ -1350,6 +1315,68 @@ class AiModelProxyDispatcher {
 }
 
 enum _BackendFailureKind { terminal, backend, transport }
+
+/// 统一维护同步与流式中转的代理降级状态，避免两条链路出现重试语义漂移。
+class _ProxyRetryState {
+  final Set<String> failedProxyEndpoints = <String>{};
+  bool directFallbackEnabled = false;
+  int _directFallbackAttempts = 0;
+  AiExposureProxyEndpoint? preferredProxyEndpoint;
+
+  bool isDirectRouteFallback(
+    _ProxyNetworkRoute route, {
+    required bool directFallback,
+  }) {
+    return directFallback ||
+        (route.mode == _kProxyRouteDirect && failedProxyEndpoints.isNotEmpty);
+  }
+
+  bool recordRoute(_ProxyNetworkRoute route, {required bool directFallback}) {
+    if (route.mode == _kProxyRoutePool) preferredProxyEndpoint = route.selected;
+    final usesDirectFallback = isDirectRouteFallback(
+      route,
+      directFallback: directFallback,
+    );
+    if (usesDirectFallback) _directFallbackAttempts++;
+    return usesDirectFallback;
+  }
+
+  void recordFailure({
+    required _BackendFailureKind failureKind,
+    required _ProxyNetworkRoute route,
+    required bool directRouteFallback,
+    required AiModelProxyBackend backend,
+    required _ProxyBackendAttemptPlan backendPlan,
+    required void Function(String endpoint) rememberProxyFailure,
+  }) {
+    if (failureKind == _BackendFailureKind.transport) {
+      backendPlan.prepareDirectFallback(backend);
+      final failedEndpoint = route.selected?.url;
+      if (failedEndpoint != null) {
+        failedProxyEndpoints.add(failedEndpoint);
+        rememberProxyFailure(failedEndpoint);
+      }
+      preferredProxyEndpoint = null;
+      if (!directRouteFallback && route.mode == _kProxyRoutePool) {
+        directFallbackEnabled = true;
+      }
+    } else if (failureKind == _BackendFailureKind.backend) {
+      backendPlan.recordBackendFailure(backend);
+    }
+  }
+
+  bool shouldStop({
+    required _BackendFailureKind failureKind,
+    required bool directRouteFallback,
+    required AiModelProxyRetryPolicy retryPolicy,
+  }) {
+    return failureKind == _BackendFailureKind.terminal ||
+        (directRouteFallback &&
+            _directFallbackAttempts >= _kAiModelProxyDirectFallbackAttempts) ||
+        (retryPolicy == AiModelProxyRetryPolicy.failFast &&
+            failureKind != _BackendFailureKind.transport);
+  }
+}
 
 /// 为单次入口请求维护后备模型重试策略，避免同步与流式链路各自解释策略。
 class _ProxyBackendAttemptPlan {

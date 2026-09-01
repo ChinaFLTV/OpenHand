@@ -74,13 +74,7 @@ final class LatestTaskQueue {
   Future<void> _drain(_LatestTask first) async {
     var current = first;
     while (true) {
-      // 当前任务的异常已经交给对应的 done Future；队列本身必须继续消费
-      // 后续最新任务，不能因单项失败而永久卡住。
-      try {
-        await current.run();
-      } catch (_) {
-        // 保持队列可用，调用方仍可通过当前任务的 done Future 获取原异常。
-      }
+      await current.run();
       final next = _pending;
       _pending = null;
       if (next == null) {

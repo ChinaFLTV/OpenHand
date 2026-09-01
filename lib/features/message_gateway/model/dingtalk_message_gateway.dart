@@ -1792,6 +1792,53 @@ class DingTalkMessageEditRecord {
 
 const int kDingTalkForwardedMessageLimit = 500;
 
+({
+  String id,
+  String content,
+  DateTime createdAt,
+  String senderName,
+  String senderId,
+  List<DingTalkGatewayMedia> media,
+})
+_parseDingTalkEmbeddedMessage(
+  Map<String, Object?> json, {
+  required String recordLabel,
+}) {
+  final createdAt = DateTime.tryParse('${json['created_at'] ?? ''}');
+  if (createdAt == null) {
+    throw FormatException('钉钉$recordLabel时间不完整。');
+  }
+  final id = normalizeDingTalkMessageId(json['id']);
+  final rawContent = stripImageSummaryMarkup('${json['content'] ?? ''}');
+  final projection = parseDingTalkDwsFileProjection(rawContent);
+  final storedMedia = _dingTalkGatewayMediaList(json['media']);
+  final media = storedMedia.isNotEmpty || projection == null
+      ? storedMedia
+      : <DingTalkGatewayMedia>[
+          DingTalkGatewayMedia(
+            resourceId: projection.resourceId,
+            messageId: id,
+            resourceType: DingTalkMediaResourceType.fileId,
+            kind: DingTalkMediaKindX.fromFileName(projection.name),
+            name: projection.name,
+          ),
+        ];
+  final textContent = normalizeDingTalkMediaText(rawContent, media);
+  if (id.isEmpty && textContent.isEmpty && media.isEmpty) {
+    throw FormatException('钉钉$recordLabel内容不完整。');
+  }
+  return (
+    id: id,
+    content: textContent.isEmpty
+        ? media.map((item) => '[${item.displayName}]').join(' ')
+        : textContent,
+    createdAt: createdAt,
+    senderName: _normalizedDingTalkString(json['sender_name']),
+    senderId: _normalizedDingTalkString(json['sender_id']),
+    media: media,
+  );
+}
+
 @immutable
 class DingTalkQuotedMessage {
   const DingTalkQuotedMessage({
@@ -1804,38 +1851,14 @@ class DingTalkQuotedMessage {
   });
 
   factory DingTalkQuotedMessage.fromJson(Map<String, Object?> json) {
-    final createdAt = DateTime.tryParse('${json['created_at'] ?? ''}');
-    if (createdAt == null) {
-      throw const FormatException('钉钉引用消息时间不完整。');
-    }
-    final id = normalizeDingTalkMessageId(json['id']);
-    final rawContent = stripImageSummaryMarkup('${json['content'] ?? ''}');
-    final projection = parseDingTalkDwsFileProjection(rawContent);
-    final storedMedia = _dingTalkGatewayMediaList(json['media']);
-    final media = storedMedia.isNotEmpty || projection == null
-        ? storedMedia
-        : <DingTalkGatewayMedia>[
-            DingTalkGatewayMedia(
-              resourceId: projection.resourceId,
-              messageId: id,
-              resourceType: DingTalkMediaResourceType.fileId,
-              kind: DingTalkMediaKindX.fromFileName(projection.name),
-              name: projection.name,
-            ),
-          ];
-    final textContent = normalizeDingTalkMediaText(rawContent, media);
-    if (id.isEmpty && textContent.isEmpty && media.isEmpty) {
-      throw const FormatException('钉钉引用消息内容不完整。');
-    }
+    final fields = _parseDingTalkEmbeddedMessage(json, recordLabel: '引用消息');
     return DingTalkQuotedMessage(
-      id: id,
-      content: textContent.isEmpty
-          ? media.map((item) => '[${item.displayName}]').join(' ')
-          : textContent,
-      createdAt: createdAt,
-      senderName: _normalizedDingTalkString(json['sender_name']),
-      senderId: _normalizedDingTalkString(json['sender_id']),
-      media: media,
+      id: fields.id,
+      content: fields.content,
+      createdAt: fields.createdAt,
+      senderName: fields.senderName,
+      senderId: fields.senderId,
+      media: fields.media,
     );
   }
 
@@ -1880,35 +1903,14 @@ class DingTalkForwardedMessage {
   });
 
   factory DingTalkForwardedMessage.fromJson(Map<String, Object?> json) {
-    final createdAt = DateTime.tryParse('${json['created_at'] ?? ''}');
-    if (createdAt == null) {
-      throw const FormatException('钉钉转发聊天记录时间不完整。');
-    }
-    final id = normalizeDingTalkMessageId(json['id']);
-    final rawContent = stripImageSummaryMarkup('${json['content'] ?? ''}');
-    final projection = parseDingTalkDwsFileProjection(rawContent);
-    final storedMedia = _dingTalkGatewayMediaList(json['media']);
-    final media = storedMedia.isNotEmpty || projection == null
-        ? storedMedia
-        : <DingTalkGatewayMedia>[
-            DingTalkGatewayMedia(
-              resourceId: projection.resourceId,
-              messageId: id,
-              resourceType: DingTalkMediaResourceType.fileId,
-              kind: DingTalkMediaKindX.fromFileName(projection.name),
-              name: projection.name,
-            ),
-          ];
-    final textContent = normalizeDingTalkMediaText(rawContent, media);
+    final fields = _parseDingTalkEmbeddedMessage(json, recordLabel: '转发聊天记录');
     return DingTalkForwardedMessage(
-      id: id,
-      content: textContent.isEmpty
-          ? media.map((item) => '[${item.displayName}]').join(' ')
-          : textContent,
-      createdAt: createdAt,
-      senderName: _normalizedDingTalkString(json['sender_name']),
-      senderId: _normalizedDingTalkString(json['sender_id']),
-      media: media,
+      id: fields.id,
+      content: fields.content,
+      createdAt: fields.createdAt,
+      senderName: fields.senderName,
+      senderId: fields.senderId,
+      media: fields.media,
       ignoredForAiContext: boolFromValue(json['ignored_for_ai_context']),
     );
   }

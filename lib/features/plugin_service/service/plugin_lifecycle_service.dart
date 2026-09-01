@@ -46,6 +46,59 @@ final RegExp _pluginLifecycleBrewPythonFormulaPathPattern = RegExp(
   r'/(python(?:@[\d.]+)?)(?:/|$)',
 );
 
+class _ManagedDatabaseSpec {
+  const _ManagedDatabaseSpec({
+    required this.label,
+    required this.storageName,
+    required this.containerName,
+    required this.image,
+    required this.port,
+    required this.dataDestination,
+    required this.healthCommand,
+    this.dockerArguments = const <String>[],
+    this.containerArguments = const <String>[],
+  });
+
+  final String label;
+  final String storageName;
+  final String containerName;
+  final String image;
+  final int port;
+  final String dataDestination;
+  final String healthCommand;
+  final List<String> dockerArguments;
+  final List<String> containerArguments;
+}
+
+const _postgresqlManagedDatabase = _ManagedDatabaseSpec(
+  label: 'PostgreSQL',
+  storageName: 'postgresql',
+  containerName: ManagedServiceDefaults.postgresqlContainerName,
+  image: ManagedServiceDefaults.postgresqlImage,
+  port: ManagedServiceDefaults.postgresqlPort,
+  dataDestination: ManagedServiceDefaults.postgresqlDataDestination,
+  healthCommand:
+      'pg_isready -U ${ManagedServiceDefaults.postgresqlUser} -d ${ManagedServiceDefaults.postgresqlDatabase}',
+  dockerArguments: <String>[
+    '-e',
+    'POSTGRES_USER=${ManagedServiceDefaults.postgresqlUser}',
+    '-e',
+    'POSTGRES_PASSWORD=${ManagedServiceDefaults.postgresqlPassword}',
+    '-e',
+    'POSTGRES_DB=${ManagedServiceDefaults.postgresqlDatabase}',
+  ],
+);
+const _redisManagedDatabase = _ManagedDatabaseSpec(
+  label: 'Redis',
+  storageName: 'redis',
+  containerName: ManagedServiceDefaults.redisContainerName,
+  image: ManagedServiceDefaults.redisImage,
+  port: ManagedServiceDefaults.redisPort,
+  dataDestination: ManagedServiceDefaults.redisDataDestination,
+  healthCommand: 'redis-cli ping',
+  containerArguments: <String>['redis-server', '--appendonly', 'yes'],
+);
+
 String? _homebrewStableVersionFromDecoded(Object? decoded) {
   final root = stringKeyedMapFromValue(decoded);
   final formulae = stringKeyedMapListFromValue(root['formulae']);
@@ -2519,55 +2572,26 @@ ${_qdrantHealthWaitScript()}
   Future<PluginOperationResult> installPostgresql({
     void Function(String line)? onProgress,
   }) => _installManagedDatabase(
-    label: 'PostgreSQL',
-    containerName: ManagedServiceDefaults.postgresqlContainerName,
-    image: ManagedServiceDefaults.postgresqlImage,
-    port: ManagedServiceDefaults.postgresqlPort,
-    dataDir: _managedDatabaseDataDirectory('postgresql'),
-    dataDestination: ManagedServiceDefaults.postgresqlDataDestination,
-    dockerArguments: const <String>[
-      '-e',
-      'POSTGRES_USER=${ManagedServiceDefaults.postgresqlUser}',
-      '-e',
-      'POSTGRES_PASSWORD=${ManagedServiceDefaults.postgresqlPassword}',
-      '-e',
-      'POSTGRES_DB=${ManagedServiceDefaults.postgresqlDatabase}',
-    ],
-    healthCommand:
-        'pg_isready -U ${ManagedServiceDefaults.postgresqlUser} -d ${ManagedServiceDefaults.postgresqlDatabase}',
+    spec: _postgresqlManagedDatabase,
     onProgress: onProgress,
   );
 
   Future<PluginOperationResult> installRedis({
     void Function(String line)? onProgress,
   }) => _installManagedDatabase(
-    label: 'Redis',
-    containerName: ManagedServiceDefaults.redisContainerName,
-    image: ManagedServiceDefaults.redisImage,
-    port: ManagedServiceDefaults.redisPort,
-    dataDir: _managedDatabaseDataDirectory('redis'),
-    dataDestination: ManagedServiceDefaults.redisDataDestination,
-    containerArguments: const <String>['redis-server', '--appendonly', 'yes'],
-    healthCommand: 'redis-cli ping',
+    spec: _redisManagedDatabase,
     onProgress: onProgress,
   );
 
   Future<PluginOperationResult> _installManagedDatabase({
-    required String label,
-    required String containerName,
-    required String image,
-    required int port,
-    required String dataDir,
-    required String dataDestination,
-    required String healthCommand,
-    List<String> dockerArguments = const <String>[],
-    List<String> containerArguments = const <String>[],
+    required _ManagedDatabaseSpec spec,
     void Function(String line)? onProgress,
   }) async {
+    final dataDir = _managedDatabaseDataDirectory(spec.storageName);
     if (!await _isExecutableAvailable('docker')) {
       return PluginOperationResult(
         success: false,
-        message: '$label 依赖 Docker，请先安装 Docker。',
+        message: '${spec.label} 依赖 Docker，请先安装 Docker。',
       );
     }
     if (!await _isDockerDaemonAvailable()) {
@@ -2576,20 +2600,20 @@ ${_qdrantHealthWaitScript()}
         message: 'Docker daemon 未运行，请先启动 Docker。',
       );
     }
-    onProgress?.call('正在准备 $label 容器…');
-    final name = posixShellQuote(containerName);
+    onProgress?.call('正在准备 ${spec.label} 容器…');
+    final name = posixShellQuote(spec.containerName);
     final script =
         '''
 set -euo pipefail
 mkdir -p ${posixShellQuote(dataDir)}
-${_managedDatabaseGuard(containerName)}
+${_managedDatabaseGuard(spec.containerName)}
 if docker inspect $name >/dev/null 2>&1; then
   docker start $name >/dev/null
 else
-  docker pull ${posixShellQuote(image)}
-  ${_managedDatabaseRunCommand(containerName: containerName, image: image, port: port, dataDir: dataDir, dataDestination: dataDestination, dockerArguments: dockerArguments, containerArguments: containerArguments)}
+  docker pull ${posixShellQuote(spec.image)}
+  ${_managedDatabaseRunCommand(containerName: spec.containerName, image: spec.image, port: spec.port, dataDir: dataDir, dataDestination: spec.dataDestination, dockerArguments: spec.dockerArguments, containerArguments: spec.containerArguments)}
 fi
-${_managedDatabaseHealthWaitScript(containerName: containerName, healthCommand: healthCommand, label: label)}
+${_managedDatabaseHealthWaitScript(containerName: spec.containerName, healthCommand: spec.healthCommand, label: spec.label)}
 ''';
     final result = await _runWithProgress(
       pluginShellExecutable(),
@@ -2601,12 +2625,12 @@ ${_managedDatabaseHealthWaitScript(containerName: containerName, healthCommand: 
     if (result.exitCode == 0) {
       return PluginOperationResult(
         success: true,
-        message: '$label 已启动，数据目录：$dataDir',
+        message: '${spec.label} 已启动，数据目录：$dataDir',
       );
     }
     return PluginOperationResult(
       success: false,
-      message: '$label 安装/启动失败: ${_processErrorMessage(result)}',
+      message: '${spec.label} 安装/启动失败: ${_processErrorMessage(result)}',
     );
   }
 
@@ -3101,73 +3125,44 @@ ${_qdrantHealthWaitScript()}
   Future<PluginOperationResult> updatePostgresql({
     void Function(String line)? onProgress,
   }) => _updateManagedDatabase(
-    label: 'PostgreSQL',
-    containerName: ManagedServiceDefaults.postgresqlContainerName,
-    image: ManagedServiceDefaults.postgresqlImage,
-    port: ManagedServiceDefaults.postgresqlPort,
-    dataDir: _managedDatabaseDataDirectory('postgresql'),
-    dataDestination: ManagedServiceDefaults.postgresqlDataDestination,
-    dockerArguments: const <String>[
-      '-e',
-      'POSTGRES_USER=${ManagedServiceDefaults.postgresqlUser}',
-      '-e',
-      'POSTGRES_PASSWORD=${ManagedServiceDefaults.postgresqlPassword}',
-      '-e',
-      'POSTGRES_DB=${ManagedServiceDefaults.postgresqlDatabase}',
-    ],
-    healthCommand:
-        'pg_isready -U ${ManagedServiceDefaults.postgresqlUser} -d ${ManagedServiceDefaults.postgresqlDatabase}',
+    spec: _postgresqlManagedDatabase,
     onProgress: onProgress,
   );
 
   Future<PluginOperationResult> updateRedis({
     void Function(String line)? onProgress,
   }) => _updateManagedDatabase(
-    label: 'Redis',
-    containerName: ManagedServiceDefaults.redisContainerName,
-    image: ManagedServiceDefaults.redisImage,
-    port: ManagedServiceDefaults.redisPort,
-    dataDir: _managedDatabaseDataDirectory('redis'),
-    dataDestination: ManagedServiceDefaults.redisDataDestination,
-    containerArguments: const <String>['redis-server', '--appendonly', 'yes'],
-    healthCommand: 'redis-cli ping',
+    spec: _redisManagedDatabase,
     onProgress: onProgress,
   );
 
   Future<PluginOperationResult> _updateManagedDatabase({
-    required String label,
-    required String containerName,
-    required String image,
-    required int port,
-    required String dataDir,
-    required String dataDestination,
-    required String healthCommand,
-    List<String> dockerArguments = const <String>[],
-    List<String> containerArguments = const <String>[],
+    required _ManagedDatabaseSpec spec,
     void Function(String line)? onProgress,
   }) async {
+    final dataDir = _managedDatabaseDataDirectory(spec.storageName);
     if (!await _isDockerDaemonAvailable()) {
       return const PluginOperationResult(
         success: false,
         message: 'Docker daemon 未运行，请先启动 Docker。',
       );
     }
-    onProgress?.call('正在更新 $label 镜像并重建容器…');
-    final name = posixShellQuote(containerName);
+    onProgress?.call('正在更新 ${spec.label} 镜像并重建容器…');
+    final name = posixShellQuote(spec.containerName);
     final script =
         '''
 set -euo pipefail
-docker pull ${posixShellQuote(image)}
-${_managedDatabaseGuard(containerName)}
+docker pull ${posixShellQuote(spec.image)}
+${_managedDatabaseGuard(spec.containerName)}
 if ! docker inspect $name >/dev/null 2>&1; then
-  echo "未找到 OpenHand 托管的 $label 容器" >&2
+  echo "未找到 OpenHand 托管的 ${spec.label} 容器" >&2
   exit 2
 fi
 docker stop $name >/dev/null || true
 docker rm $name >/dev/null || true
 mkdir -p ${posixShellQuote(dataDir)}
-${_managedDatabaseRunCommand(containerName: containerName, image: image, port: port, dataDir: dataDir, dataDestination: dataDestination, dockerArguments: dockerArguments, containerArguments: containerArguments)}
-${_managedDatabaseHealthWaitScript(containerName: containerName, healthCommand: healthCommand, label: label)}
+${_managedDatabaseRunCommand(containerName: spec.containerName, image: spec.image, port: spec.port, dataDir: dataDir, dataDestination: spec.dataDestination, dockerArguments: spec.dockerArguments, containerArguments: spec.containerArguments)}
+${_managedDatabaseHealthWaitScript(containerName: spec.containerName, healthCommand: spec.healthCommand, label: spec.label)}
 ''';
     final result = await _runWithProgress(
       pluginShellExecutable(),
@@ -3179,12 +3174,12 @@ ${_managedDatabaseHealthWaitScript(containerName: containerName, healthCommand: 
     if (result.exitCode == 0) {
       return PluginOperationResult(
         success: true,
-        message: '$label 镜像已更新，数据目录保持不变。',
+        message: '${spec.label} 镜像已更新，数据目录保持不变。',
       );
     }
     return PluginOperationResult(
       success: false,
-      message: '$label 更新失败: ${_processErrorMessage(result)}',
+      message: '${spec.label} 更新失败: ${_processErrorMessage(result)}',
     );
   }
 
@@ -3829,59 +3824,49 @@ echo "已保留 Qdrant 数据目录：${posixShellQuote(dataDir)}"
 
   Future<PluginOperationResult> startPostgresql({
     void Function(String line)? onProgress,
-  }) => _setManagedContainerRunning(
-    label: 'PostgreSQL',
-    containerName: ManagedServiceDefaults.postgresqlContainerName,
-    healthWaitScript: _managedDatabaseHealthWaitScript(
-      containerName: ManagedServiceDefaults.postgresqlContainerName,
-      healthCommand:
-          'pg_isready -U ${ManagedServiceDefaults.postgresqlUser} -d ${ManagedServiceDefaults.postgresqlDatabase}',
-      label: 'PostgreSQL',
-    ),
+  }) => _setManagedDatabaseRunning(
+    spec: _postgresqlManagedDatabase,
     running: true,
     onProgress: onProgress,
   );
 
   Future<PluginOperationResult> stopPostgresql({
     void Function(String line)? onProgress,
-  }) => _setManagedContainerRunning(
-    label: 'PostgreSQL',
-    containerName: ManagedServiceDefaults.postgresqlContainerName,
-    healthWaitScript: _managedDatabaseHealthWaitScript(
-      containerName: ManagedServiceDefaults.postgresqlContainerName,
-      healthCommand:
-          'pg_isready -U ${ManagedServiceDefaults.postgresqlUser} -d ${ManagedServiceDefaults.postgresqlDatabase}',
-      label: 'PostgreSQL',
-    ),
+  }) => _setManagedDatabaseRunning(
+    spec: _postgresqlManagedDatabase,
     running: false,
     onProgress: onProgress,
   );
 
   Future<PluginOperationResult> startRedis({
     void Function(String line)? onProgress,
-  }) => _setManagedContainerRunning(
-    label: 'Redis',
-    containerName: ManagedServiceDefaults.redisContainerName,
-    healthWaitScript: _managedDatabaseHealthWaitScript(
-      containerName: ManagedServiceDefaults.redisContainerName,
-      healthCommand: 'redis-cli ping',
-      label: 'Redis',
-    ),
+  }) => _setManagedDatabaseRunning(
+    spec: _redisManagedDatabase,
     running: true,
     onProgress: onProgress,
   );
 
   Future<PluginOperationResult> stopRedis({
     void Function(String line)? onProgress,
-  }) => _setManagedContainerRunning(
-    label: 'Redis',
-    containerName: ManagedServiceDefaults.redisContainerName,
-    healthWaitScript: _managedDatabaseHealthWaitScript(
-      containerName: ManagedServiceDefaults.redisContainerName,
-      healthCommand: 'redis-cli ping',
-      label: 'Redis',
-    ),
+  }) => _setManagedDatabaseRunning(
+    spec: _redisManagedDatabase,
     running: false,
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> _setManagedDatabaseRunning({
+    required _ManagedDatabaseSpec spec,
+    required bool running,
+    void Function(String line)? onProgress,
+  }) => _setManagedContainerRunning(
+    label: spec.label,
+    containerName: spec.containerName,
+    healthWaitScript: _managedDatabaseHealthWaitScript(
+      containerName: spec.containerName,
+      healthCommand: spec.healthCommand,
+      label: spec.label,
+    ),
+    running: running,
     onProgress: onProgress,
   );
 
@@ -3933,52 +3918,47 @@ ${running ? healthWaitScript : 'echo "$label 已停止"'}
   Future<PluginOperationResult> uninstallPostgresql({
     void Function(String line)? onProgress,
   }) => _uninstallManagedDatabase(
-    label: 'PostgreSQL',
-    containerName: ManagedServiceDefaults.postgresqlContainerName,
-    dataDir: _managedDatabaseDataDirectory('postgresql'),
+    spec: _postgresqlManagedDatabase,
     onProgress: onProgress,
   );
 
   Future<PluginOperationResult> uninstallRedis({
     void Function(String line)? onProgress,
   }) => _uninstallManagedDatabase(
-    label: 'Redis',
-    containerName: ManagedServiceDefaults.redisContainerName,
-    dataDir: _managedDatabaseDataDirectory('redis'),
+    spec: _redisManagedDatabase,
     onProgress: onProgress,
   );
 
   Future<PluginOperationResult> _uninstallManagedDatabase({
-    required String label,
-    required String containerName,
-    required String dataDir,
+    required _ManagedDatabaseSpec spec,
     void Function(String line)? onProgress,
   }) async {
+    final dataDir = _managedDatabaseDataDirectory(spec.storageName);
     if (!await _isExecutableAvailable('docker')) {
       return PluginOperationResult(
         success: true,
-        message: 'docker CLI 不存在，$label 容器无需卸载。',
+        message: 'docker CLI 不存在，${spec.label} 容器无需卸载。',
       );
     }
     if (!await _isDockerDaemonAvailable()) {
       return PluginOperationResult(
         success: false,
-        message: 'Docker daemon 未运行，无法安全检查并卸载 $label 容器。',
+        message: 'Docker daemon 未运行，无法安全检查并卸载 ${spec.label} 容器。',
       );
     }
-    onProgress?.call('正在卸载 $label 容器…');
-    final name = posixShellQuote(containerName);
+    onProgress?.call('正在卸载 ${spec.label} 容器…');
+    final name = posixShellQuote(spec.containerName);
     final script =
         '''
 set -euo pipefail
 if ! docker inspect $name >/dev/null 2>&1; then
-  echo "$label 容器不存在"
+  echo "${spec.label} 容器不存在"
   exit 0
 fi
-${_managedDatabaseGuard(containerName)}
+${_managedDatabaseGuard(spec.containerName)}
 docker stop $name >/dev/null || true
 docker rm $name >/dev/null || true
-echo "已保留 $label 数据目录：${posixShellQuote(dataDir)}"
+echo "已保留 ${spec.label} 数据目录：${posixShellQuote(dataDir)}"
 ''';
     final result = await _runWithProgress(
       pluginShellExecutable(),
@@ -3989,12 +3969,12 @@ echo "已保留 $label 数据目录：${posixShellQuote(dataDir)}"
     if (result.exitCode == 0) {
       return PluginOperationResult(
         success: true,
-        message: '$label 容器已移除，数据目录已保留：$dataDir',
+        message: '${spec.label} 容器已移除，数据目录已保留：$dataDir',
       );
     }
     return PluginOperationResult(
       success: false,
-      message: '$label 卸载失败: ${_processErrorMessage(result)}',
+      message: '${spec.label} 卸载失败: ${_processErrorMessage(result)}',
     );
   }
 

@@ -13,6 +13,36 @@ import 'ai_realtime_config.dart';
 
 const int kInferredModelContextWindowTokens = 128000;
 
+const List<String> _claudeXHighEffortModelMarkers = <String>[
+  'opus-5',
+  '5-opus',
+  'sonnet-5',
+  '5-sonnet',
+  'fable-5',
+  '5-fable',
+  'mythos-5',
+  '5-mythos',
+  'haiku-5',
+  '5-haiku',
+  'mythos-preview',
+  'opus-4-8',
+  '4-8-opus',
+  'opus-4-7',
+  '4-7-opus',
+];
+const List<String> _claudeOutputEffortAdditionalModelMarkers = <String>[
+  'opus-4-6',
+  '4-6-opus',
+  'opus-4-5',
+  '4-5-opus',
+  'sonnet-4-6',
+  '4-6-sonnet',
+];
+
+bool _containsAnyModelMarker(String modelId, List<String> markers) {
+  return markers.any(modelId.contains);
+}
+
 class AiModelArchitectureMetadata {
   const AiModelArchitectureMetadata({
     this.modality,
@@ -2065,45 +2095,18 @@ class AiModelConfig {
   }
 
   static bool _looksLikeClaudeOutputEffortModel(String normalizedModelId) {
-    return normalizedModelId.contains('opus-5') ||
-        normalizedModelId.contains('5-opus') ||
-        normalizedModelId.contains('sonnet-5') ||
-        normalizedModelId.contains('5-sonnet') ||
-        normalizedModelId.contains('fable-5') ||
-        normalizedModelId.contains('5-fable') ||
-        normalizedModelId.contains('mythos-5') ||
-        normalizedModelId.contains('5-mythos') ||
-        normalizedModelId.contains('haiku-5') ||
-        normalizedModelId.contains('5-haiku') ||
-        normalizedModelId.contains('mythos-preview') ||
-        normalizedModelId.contains('opus-4-8') ||
-        normalizedModelId.contains('4-8-opus') ||
-        normalizedModelId.contains('opus-4-7') ||
-        normalizedModelId.contains('4-7-opus') ||
-        normalizedModelId.contains('opus-4-6') ||
-        normalizedModelId.contains('4-6-opus') ||
-        normalizedModelId.contains('opus-4-5') ||
-        normalizedModelId.contains('4-5-opus') ||
-        normalizedModelId.contains('sonnet-4-6') ||
-        normalizedModelId.contains('4-6-sonnet');
+    return _looksLikeClaudeXHighEffortModel(normalizedModelId) ||
+        _containsAnyModelMarker(
+          normalizedModelId,
+          _claudeOutputEffortAdditionalModelMarkers,
+        );
   }
 
   static bool _looksLikeClaudeXHighEffortModel(String normalizedModelId) {
-    return normalizedModelId.contains('opus-5') ||
-        normalizedModelId.contains('5-opus') ||
-        normalizedModelId.contains('sonnet-5') ||
-        normalizedModelId.contains('5-sonnet') ||
-        normalizedModelId.contains('fable-5') ||
-        normalizedModelId.contains('5-fable') ||
-        normalizedModelId.contains('mythos-5') ||
-        normalizedModelId.contains('5-mythos') ||
-        normalizedModelId.contains('haiku-5') ||
-        normalizedModelId.contains('5-haiku') ||
-        normalizedModelId.contains('mythos-preview') ||
-        normalizedModelId.contains('opus-4-8') ||
-        normalizedModelId.contains('4-8-opus') ||
-        normalizedModelId.contains('opus-4-7') ||
-        normalizedModelId.contains('4-7-opus');
+    return _containsAnyModelMarker(
+      normalizedModelId,
+      _claudeXHighEffortModelMarkers,
+    );
   }
 
   /// 是否允许附件；用户未显式配置时默认允许，由协议适配器校验具体类型。
@@ -2117,6 +2120,28 @@ class AiModelConfig {
 
   bool get effectiveExplicitPromptCacheEnabled =>
       supportsExplicitPromptCacheControl && explicitPromptCacheEnabled;
+
+  bool get usesClaudeOutputEffort {
+    if (protocolType == AiProtocolType.dots) return true;
+    if (protocolType != AiProtocolType.claude &&
+        !lowercaseStringFromValue(modelId).contains('claude')) {
+      return false;
+    }
+    return _looksLikeClaudeOutputEffortModel(
+      _normalizeReasoningModelId(modelId),
+    );
+  }
+
+  bool get usesAlwaysOnClaudeAdaptiveThinking {
+    if (protocolType == AiProtocolType.dots) return false;
+    if (protocolType != AiProtocolType.claude &&
+        !lowercaseStringFromValue(modelId).contains('claude')) {
+      return false;
+    }
+    return _looksLikeAlwaysOnClaudeAdaptiveThinking(
+      _normalizeReasoningModelId(modelId),
+    );
+  }
 
   bool get resolvedSupportsThinking {
     final trimmedModelId = nullIfBlank(modelId) ?? '';
