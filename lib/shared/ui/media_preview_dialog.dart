@@ -22,7 +22,6 @@ import '../net/http_redirect_utils.dart';
 import '../net/http_response_utils.dart';
 import '../net/http_status_utils.dart';
 import '../util/async_concurrency.dart';
-import '../util/bounded_directory_io.dart';
 import '../util/bounded_file_io.dart';
 import '../util/byte_size_format.dart';
 import '../util/input_value_parsing.dart';
@@ -70,9 +69,6 @@ const Map<String, String> _mediaExtensionsByMime = <String, String>{
   kVideoWebmMimeType: 'webm',
   kVideoMatroskaMimeType: 'mkv',
 };
-final Set<String> _activeMediaPreviewTempPaths = <String>{};
-
-String _mediaTempPathKey(String path) => p.normalize(p.absolute(path));
 
 String _mediaFileExtension(MediaPreviewKind kind, String? rawMimeType) {
   final mimeType = rawMimeType?.split(';').first.trim().toLowerCase();
@@ -104,60 +100,6 @@ Future<void> _deleteTempFile(
 
 void _reportMediaTempWriteError(Object error, StackTrace stack) {
   silentLog('media_preview_dialog', '清理媒体临时文件', error, stack);
-}
-
-Future<void> _pruneMediaTempFiles(
-  Directory directory, {
-  required String filePrefix,
-  required int maxRetainedFiles,
-  required Duration maxAge,
-  required Duration timeout,
-  int scanLimit = 256,
-}) async {
-  if (timeout <= Duration.zero) return;
-  final deadline = MonotonicDeadline(timeout, timeoutMessage: '清理媒体临时文件超时。');
-  try {
-    final listing = await listDirectoryBounded(
-      directory,
-      maxEntries: scanLimit,
-      idleTimeout: timeout,
-      totalTimeout: timeout,
-    );
-    final files =
-        listing.entries
-            .whereType<File>()
-            .where((file) => p.basename(file.path).startsWith(filePrefix))
-            .toList(growable: false)
-          ..sort(
-            (left, right) =>
-                p.basename(right.path).compareTo(p.basename(left.path)),
-          );
-    final oldestAllowed = DateTime.now()
-        .subtract(maxAge)
-        .microsecondsSinceEpoch;
-    for (var index = 0; index < files.length; index++) {
-      if (_activeMediaPreviewTempPaths.contains(
-        _mediaTempPathKey(files[index].path),
-      )) {
-        continue;
-      }
-      final name = p.basename(files[index].path);
-      final stampEnd = name.indexOf('-', filePrefix.length);
-      final stamp = stampEnd <= filePrefix.length
-          ? null
-          : int.tryParse(name.substring(filePrefix.length, stampEnd));
-      if (index < maxRetainedFiles && stamp != null && stamp >= oldestAllowed) {
-        continue;
-      }
-      final remaining = deadline.remainingOrNull();
-      if (remaining == null) break;
-      await _deleteTempFile(files[index], timeout: remaining);
-    }
-  } catch (error, stack) {
-    silentLog('media_preview_dialog', '清理媒体临时文件', error, stack);
-  } finally {
-    deadline.stop();
-  }
 }
 
 class MediaPreviewDialog extends StatefulWidget {
@@ -578,8 +520,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       if (stat.type != FileSystemEntityType.file) {
         throw FileSystemException('媒体源不是普通文件。', filePath);
       }
-      if (_mediaTempPathKey(source.path) ==
-          _mediaTempPathKey(destination.path)) {
+      if (p.equals(p.absolute(source.path), p.absolute(destination.path))) {
         return;
       }
       await copyFileAtomically(
@@ -848,12 +789,13 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       p.join(Directory.systemTemp.path, _kClipboardTempDirectoryName),
     );
     await dir.create(recursive: true).timeout(_kClipboardTimeout);
-    await _pruneMediaTempFiles(
+    await pruneTemporaryFilesBounded(
       dir,
-      filePrefix: _kClipboardTempFilePrefix,
+      fileNamePrefix: _kClipboardTempFilePrefix,
       maxRetainedFiles: _kClipboardTempMaxFiles - 1,
       maxAge: _kClipboardTempMaxAge,
       timeout: _kClipboardTempCleanupTimeout,
+      onError: _reportMediaTempWriteError,
     );
     final ext = _mediaFileExtension(widget.kind, widget.mimeType);
     final stamp = DateTime.now().microsecondsSinceEpoch;
@@ -1096,12 +1038,13 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
         p.join(Directory.systemTemp.path, _kPreviewTempDirectoryName),
       );
       await tempDirectory.create(recursive: true).timeout(deadline.remaining());
-      await _pruneMediaTempFiles(
+      await pruneTemporaryFilesBounded(
         tempDirectory,
-        filePrefix: _kPreviewTempFilePrefix,
+        fileNamePrefix: _kPreviewTempFilePrefix,
         maxRetainedFiles: _kPreviewTempMaxFiles - 2,
         maxAge: _kPreviewTempMaxAge,
         timeout: _kPreviewTempCleanupTimeout,
+        onError: _reportMediaTempWriteError,
       );
       if (!mounted) return;
       String src;
@@ -1126,17 +1069,24 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
             ? rawExtension
             : _mediaFileExtension(widget.kind, widget.mimeType);
         final mediaFile = _newPreviewTempFile(tempDirectory, extension);
-        await copyFileAtomically(
-          sourceFile,
-          mediaFile,
-          maxBytes: _kTempMediaMaxBytes,
-        );
-        _tempMediaPath = mediaFile.path;
-        _activeMediaPreviewTempPaths.add(_mediaTempPathKey(mediaFile.path));
+        registerActiveTemporaryFile(mediaFile);
+        try {
+          await copyFileAtomically(
+            sourceFile,
+            mediaFile,
+            maxBytes: _kTempMediaMaxBytes,
+          );
+        } catch (_) {
+          unregisterActiveTemporaryFile(mediaFile);
+          await _deleteTempFile(mediaFile);
+          rethrow;
+        }
         if (!mounted) {
-          await _cleanupTempFiles();
+          unregisterActiveTemporaryFile(mediaFile);
+          await _deleteTempFile(mediaFile);
           return;
         }
+        _tempMediaPath = mediaFile.path;
         src = Uri.file(mediaFile.path).toString();
       } else if (widget.bytes != null) {
         if (widget.bytes!.lengthInBytes <= _kInlineDataUrlMaxBytes) {
@@ -1149,18 +1099,24 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
             tempDirectory,
             _mediaFileExtension(widget.kind, widget.mimeType),
           );
-          await writeTemporaryFileBytesBounded(
-            mediaFile,
-            widget.bytes!,
-            timeout: deadline.remaining(),
-            onSecondaryError: _reportMediaTempWriteError,
-          );
-          _tempMediaPath = mediaFile.path;
-          _activeMediaPreviewTempPaths.add(_mediaTempPathKey(mediaFile.path));
+          registerActiveTemporaryFile(mediaFile);
+          try {
+            await writeTemporaryFileBytesBounded(
+              mediaFile,
+              widget.bytes!,
+              timeout: deadline.remaining(),
+              onSecondaryError: _reportMediaTempWriteError,
+            );
+          } catch (_) {
+            unregisterActiveTemporaryFile(mediaFile);
+            rethrow;
+          }
           if (!mounted) {
-            await _cleanupTempFiles();
+            unregisterActiveTemporaryFile(mediaFile);
+            await _deleteTempFile(mediaFile);
             return;
           }
+          _tempMediaPath = mediaFile.path;
           src = Uri.file(mediaFile.path).toString();
         }
       } else {
@@ -1172,18 +1128,25 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
       }
       final html = _buildVideoPlayerHtml(src: src);
       final htmlFile = _newPreviewTempFile(tempDirectory, 'html');
-      await writeTemporaryFileTextBounded(
-        htmlFile,
-        html,
-        timeout: deadline.remaining(),
-        onSecondaryError: _reportMediaTempWriteError,
-      );
-      _tempHtmlPath = htmlFile.path;
-      _activeMediaPreviewTempPaths.add(_mediaTempPathKey(htmlFile.path));
+      registerActiveTemporaryFile(htmlFile);
+      try {
+        await writeTemporaryFileTextBounded(
+          htmlFile,
+          html,
+          timeout: deadline.remaining(),
+          onSecondaryError: _reportMediaTempWriteError,
+        );
+      } catch (_) {
+        unregisterActiveTemporaryFile(htmlFile);
+        rethrow;
+      }
       if (!mounted) {
+        unregisterActiveTemporaryFile(htmlFile);
+        await _deleteTempFile(htmlFile);
         await _cleanupTempFiles();
         return;
       }
+      _tempHtmlPath = htmlFile.path;
       final controller = WebViewController();
       await controller
           .setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -1257,10 +1220,10 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
     _tempHtmlPath = null;
     _tempMediaPath = null;
     if (htmlPath != null) {
-      _activeMediaPreviewTempPaths.remove(_mediaTempPathKey(htmlPath));
+      unregisterActiveTemporaryFile(File(htmlPath));
     }
     if (mediaPath != null) {
-      _activeMediaPreviewTempPaths.remove(_mediaTempPathKey(mediaPath));
+      unregisterActiveTemporaryFile(File(mediaPath));
     }
     await Future.wait<void>(<Future<void>>[
       if (htmlPath != null) _deleteTempFile(File(htmlPath)),

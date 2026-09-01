@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'argument_guards.dart';
 import 'async_concurrency.dart';
 import 'bounded_delete.dart';
+import 'bounded_directory_io.dart';
 import 'byte_size_format.dart';
 import 'path_safety.dart';
 import 'text_clip.dart';
@@ -25,8 +26,116 @@ const Duration defaultBoundedFileReadIdleTimeout = Duration(seconds: 3);
 const Duration defaultBoundedFileReadTotalTimeout = Duration(seconds: 10);
 const int _posixFileTypeMask = 0xF000;
 const int _posixRegularFileType = 0x8000;
+final Set<String> _activeTemporaryFilePaths = <String>{};
 
 enum BoundedFileReadFailure { tooLarge, changedDuringRead }
+
+String _temporaryFilePathKey(String path) => p.normalize(p.absolute(path));
+
+/// 登记正在写入或使用的临时文件，避免同进程清理任务误删。
+void registerActiveTemporaryFile(File file) {
+  _activeTemporaryFilePaths.add(_temporaryFilePathKey(file.path));
+}
+
+/// 临时文件不再使用后解除登记；实际删除由调用方按自身生命周期执行。
+void unregisterActiveTemporaryFile(File file) {
+  _activeTemporaryFilePaths.remove(_temporaryFilePathKey(file.path));
+}
+
+/// 在单个明确目录内清理指定前后缀的临时文件。
+///
+/// 扫描数量、总耗时和单次文件操作均受限；当前进程正在使用的文件不会被删除。
+Future<void> pruneTemporaryFilesBounded(
+  Directory directory, {
+  required String fileNamePrefix,
+  String? fileNameSuffix,
+  required int maxRetainedFiles,
+  required Duration maxAge,
+  required Duration timeout,
+  int scanLimit = 256,
+  OpenHandAsyncCleanupErrorHandler? onError,
+}) async {
+  if (fileNamePrefix.isEmpty) {
+    throw ArgumentError.value(fileNamePrefix, 'fileNamePrefix', '不能为空。');
+  }
+  if (fileNameSuffix != null && fileNameSuffix.isEmpty) {
+    throw ArgumentError.value(fileNameSuffix, 'fileNameSuffix', '不能为空。');
+  }
+  requireNonNegativeInt(maxRetainedFiles, 'maxRetainedFiles');
+  requirePositiveDuration(maxAge, 'maxAge');
+  requirePositiveDuration(timeout, 'timeout');
+  requirePositiveInt(scanLimit, 'scanLimit');
+
+  final deadline = MonotonicDeadline(timeout, timeoutMessage: '清理临时文件超过总时限。');
+  Object? firstError;
+  StackTrace? firstStack;
+  void captureError(Object error, StackTrace stack) {
+    firstError ??= error;
+    firstStack ??= stack;
+  }
+
+  try {
+    final listing = await listDirectoryBounded(
+      directory,
+      maxEntries: scanLimit,
+      idleTimeout: deadline.limit(defaultBoundedDirectoryIdleTimeout),
+      totalTimeout: deadline.remaining(),
+    );
+    final candidates = <({File file, DateTime modified})>[];
+    for (final entry in listing.entries) {
+      if (entry is! File) continue;
+      final name = p.basename(entry.path);
+      if (!name.startsWith(fileNamePrefix) ||
+          (fileNameSuffix != null && !name.endsWith(fileNameSuffix))) {
+        continue;
+      }
+      if (_activeTemporaryFilePaths.contains(
+        _temporaryFilePathKey(entry.path),
+      )) {
+        continue;
+      }
+      try {
+        final stat = await entry.stat().timeout(
+          deadline.limit(defaultBoundedFileReadIdleTimeout),
+        );
+        if (stat.type == FileSystemEntityType.file) {
+          candidates.add((file: entry, modified: stat.modified));
+        }
+      } catch (error, stack) {
+        captureError(error, stack);
+      }
+    }
+    candidates.sort((left, right) => right.modified.compareTo(left.modified));
+    final cutoff = DateTime.now().subtract(maxAge);
+    for (var index = 0; index < candidates.length; index++) {
+      final candidate = candidates[index];
+      if (index < maxRetainedFiles && !candidate.modified.isBefore(cutoff)) {
+        continue;
+      }
+      if (_activeTemporaryFilePaths.contains(
+        _temporaryFilePathKey(candidate.file.path),
+      )) {
+        continue;
+      }
+      try {
+        await candidate.file.delete().timeout(
+          deadline.limit(_boundedFileCleanupTimeout),
+        );
+      } catch (error, stack) {
+        captureError(error, stack);
+      }
+    }
+  } catch (error, stack) {
+    captureError(error, stack);
+  } finally {
+    deadline.stop();
+    final error = firstError;
+    final stack = firstStack;
+    if (error != null && stack != null) {
+      _reportSecondaryFileError(onError, error, stack);
+    }
+  }
+}
 
 /// 在限定时间内读取普通文件大小；文件不存在、类型不符或探测超时返回 null。
 Future<int?> probeFileSizeBounded(

@@ -71,6 +71,10 @@ class _OpenHandVideoThumbnailCaptureState
   static const Duration _captureTimeout = Duration(seconds: 18);
   static const Duration _queueTimeout = Duration(seconds: 30);
   static const Duration _fileOperationTimeout = Duration(seconds: 5);
+  static const Duration _temporaryHtmlMaxAge = Duration(days: 1);
+  static const Duration _temporaryHtmlCleanupTimeout = Duration(seconds: 2);
+  static const int _temporaryHtmlMaxFiles = 8;
+  static const String _temporaryHtmlPrefix = '.openhand_thumb_capture_';
   static const int _maxThumbnailBytes = kBytesPerMiB;
 
   WebViewController? _controller;
@@ -153,24 +157,42 @@ class _OpenHandVideoThumbnailCaptureState
         silentLog('video_thumbnail', '检查视频封面缓存失败', error, stack);
       }
       if (_done || !mounted) return;
+      final temporaryDirectory = Directory(p.dirname(widget.videoPath));
+      await pruneTemporaryFilesBounded(
+        temporaryDirectory,
+        fileNamePrefix: _temporaryHtmlPrefix,
+        fileNameSuffix: '.html',
+        maxRetainedFiles: _temporaryHtmlMaxFiles - 1,
+        maxAge: _temporaryHtmlMaxAge,
+        timeout: _temporaryHtmlCleanupTimeout,
+        onError: (error, stack) =>
+            silentLog('video_thumbnail', '清理残留视频封面临时页面失败', error, stack),
+      );
+      if (_done || !mounted) return;
       final temporaryFile = File(
         p.join(
-          p.dirname(widget.videoPath),
-          '.openhand_thumb_capture_${DateTime.now().microsecondsSinceEpoch}_${identityHashCode(this)}.html',
+          temporaryDirectory.path,
+          '$_temporaryHtmlPrefix${DateTime.now().microsecondsSinceEpoch}_${pid}_${identityHashCode(this)}.html',
         ),
       );
-      _temporaryHtmlPath = temporaryFile.path;
-      await writeTemporaryFileTextBounded(
-        temporaryFile,
-        _buildCaptureHtml(),
-        timeout: _fileOperationTimeout,
-        onSecondaryError: (error, stack) =>
-            silentLog('video_thumbnail', '清理视频封面临时页面失败', error, stack),
-      );
+      registerActiveTemporaryFile(temporaryFile);
+      try {
+        await writeTemporaryFileTextBounded(
+          temporaryFile,
+          _buildCaptureHtml(),
+          timeout: _fileOperationTimeout,
+          onSecondaryError: (error, stack) =>
+              silentLog('video_thumbnail', '清理视频封面临时页面失败', error, stack),
+        );
+      } catch (_) {
+        unregisterActiveTemporaryFile(temporaryFile);
+        rethrow;
+      }
       if (_done || !mounted) {
-        _deleteTemporaryHtmlInBackground();
+        await _deleteTemporaryHtml(temporaryFile.path);
         return;
       }
+      _temporaryHtmlPath = temporaryFile.path;
       final controller = WebViewController();
       await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
       await controller.addJavaScriptChannel(
@@ -259,8 +281,9 @@ class _OpenHandVideoThumbnailCaptureState
   }
 
   static Future<void> _deleteTemporaryHtml(String path) async {
+    final file = File(path);
+    unregisterActiveTemporaryFile(file);
     try {
-      final file = File(path);
       if (await file.exists().timeout(_fileOperationTimeout)) {
         await file.delete().timeout(_fileOperationTimeout);
       }
