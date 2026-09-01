@@ -33,8 +33,12 @@ use tracing::{error, info};
 use uuid::Uuid;
 
 const MAX_TOKEN_BYTES: usize = 4096;
+const MIN_TOKEN_BYTES: usize = 32;
 const MAX_REQUEST_BYTES: usize = 2 * 1024 * 1024;
 const DEFAULT_LIST_LIMIT: usize = 200;
+const MAX_LIST_LIMIT: usize = 2_000;
+const DEFAULT_LISTEN_ADDRESS: &str = "127.0.0.1:0";
+const SSE_KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(15);
 
 #[derive(Clone)]
 struct AppState {
@@ -324,7 +328,7 @@ async fn job_events(
     let stream = initial_stream.chain(live_stream);
     Ok(Sse::new(stream).keep_alive(
         axum::response::sse::KeepAlive::new()
-            .interval(Duration::from_secs(15))
+            .interval(SSE_KEEP_ALIVE_INTERVAL)
             .text("keep-alive"),
     ))
 }
@@ -561,7 +565,7 @@ fn event_to_sse(event: EngineEvent) -> Event {
 }
 
 fn limit(value: Option<usize>) -> usize {
-    value.unwrap_or(DEFAULT_LIST_LIMIT).clamp(1, 2_000)
+    value.unwrap_or(DEFAULT_LIST_LIMIT).clamp(1, MAX_LIST_LIMIT)
 }
 
 struct Config {
@@ -575,11 +579,16 @@ fn parse_args() -> anyhow::Result<Config> {
         bail!("用法：ai_jungler serve --data-dir <目录> [--listen 127.0.0.1:0]");
     }
     let mut data_dir = None;
-    let mut listen = "127.0.0.1:0".to_owned();
+    let mut listen = DEFAULT_LISTEN_ADDRESS.to_owned();
     while let Some(argument) = arguments.next() {
         match argument.as_str() {
-            "--data-dir" => data_dir = arguments.next().map(PathBuf::from),
-            "--listen" => listen = arguments.next().context("--listen 缺少参数")?,
+            "--data-dir" => {
+                data_dir = Some(PathBuf::from(next_option_value(
+                    &mut arguments,
+                    "--data-dir",
+                )?));
+            }
+            "--listen" => listen = next_option_value(&mut arguments, "--listen")?,
             _ => bail!("未知参数：{argument}"),
         }
     }
@@ -587,6 +596,19 @@ fn parse_args() -> anyhow::Result<Config> {
         data_dir: data_dir.context("--data-dir 不能为空")?,
         listen,
     })
+}
+
+fn next_option_value(
+    arguments: &mut impl Iterator<Item = String>,
+    option: &str,
+) -> anyhow::Result<String> {
+    let value = arguments
+        .next()
+        .with_context(|| format!("{option} 缺少参数"))?;
+    if value.trim().is_empty() || value.starts_with("--") {
+        bail!("{option} 缺少参数");
+    }
+    Ok(value)
 }
 
 fn read_session_token() -> anyhow::Result<String> {
@@ -600,7 +622,7 @@ fn read_session_token() -> anyhow::Result<String> {
     }
     let token = String::from_utf8(bytes)?;
     let token = token.trim().to_owned();
-    if token.len() < 32 {
+    if token.len() < MIN_TOKEN_BYTES {
         bail!("会话令牌长度不足。");
     }
     Ok(token)
@@ -609,15 +631,33 @@ fn read_session_token() -> anyhow::Result<String> {
 async fn shutdown_signal() {
     #[cfg(unix)]
     {
-        let mut terminate = signal::unix::signal(signal::unix::SignalKind::terminate())
-            .expect("安装终止信号监听失败");
-        tokio::select! {
-            _ = signal::ctrl_c() => {},
-            _ = terminate.recv() => {},
+        match signal::unix::signal(signal::unix::SignalKind::terminate()) {
+            Ok(mut terminate) => {
+                tokio::select! {
+                    result = signal::ctrl_c() => {
+                        if let Err(error) = result {
+                            error!("监听中断信号失败：{error}");
+                        }
+                    },
+                    received = terminate.recv() => {
+                        if received.is_none() {
+                            error!("终止信号监听已关闭。");
+                        }
+                    },
+                }
+            }
+            Err(error) => {
+                error!("安装终止信号监听失败：{error}");
+                if let Err(error) = signal::ctrl_c().await {
+                    error!("监听中断信号失败：{error}");
+                }
+            }
         }
     }
     #[cfg(not(unix))]
     {
-        let _ = signal::ctrl_c().await;
+        if let Err(error) = signal::ctrl_c().await {
+            error!("监听中断信号失败：{error}");
+        }
     }
 }

@@ -46,6 +46,7 @@ const MAX_RESPONSE_BYTES: usize = 1024 * 1024;
 const EVENT_BUFFER: usize = 512;
 const PROGRESS_PERSIST_INTERVAL: u64 = 8;
 const MAX_ACTIVE_JOBS: usize = 4;
+const MAX_RETAINED_JOB_RUNTIMES: usize = 32;
 const JOB_RUNTIME_RETENTION: Duration = Duration::from_secs(5 * 60);
 const MAX_AI_EXTRACTOR_HEADERS: usize = 32;
 const MAX_AI_EXTRACTION_BYTES: usize = 64 * 1024;
@@ -127,6 +128,7 @@ struct JobRuntime {
     job_id: Uuid,
     progress: Arc<RwLock<ScanProgress>>,
     cancellation: CancellationToken,
+    retention_cancellation: CancellationToken,
     events: broadcast::Sender<EngineEvent>,
 }
 
@@ -1921,8 +1923,16 @@ impl HuntEngine {
         }
         let runtimes: Vec<_> = self.jobs.read().await.values().cloned().collect();
         let mut active_jobs = 0;
+        let mut finished_runtimes = Vec::new();
         for runtime in runtimes {
-            if !is_terminal(runtime.progress.read().await.stage) {
+            let progress = runtime.progress.read().await;
+            if is_terminal(progress.stage) {
+                finished_runtimes.push((
+                    runtime.job_id,
+                    progress.updated_at,
+                    runtime.retention_cancellation.clone(),
+                ));
+            } else {
                 active_jobs += 1;
             }
         }
@@ -1957,15 +1967,29 @@ impl HuntEngine {
             .create_job(id, &request, &progress)
             .await
             .map_err(anyhow::Error::from)?;
+        if active_jobs + finished_runtimes.len() >= MAX_RETAINED_JOB_RUNTIMES {
+            finished_runtimes.sort_unstable_by_key(|(_, updated_at, _)| *updated_at);
+            let remove_count =
+                active_jobs + finished_runtimes.len() - MAX_RETAINED_JOB_RUNTIMES + 1;
+            let mut jobs = self.jobs.write().await;
+            for (id, _, retention_cancellation) in finished_runtimes.into_iter().take(remove_count)
+            {
+                if jobs.remove(&id).is_some() {
+                    retention_cancellation.cancel();
+                }
+            }
+        }
         let (events, _) = broadcast::channel(EVENT_BUFFER);
         let runtime = JobRuntime {
             job_id: id,
             progress: Arc::new(RwLock::new(progress)),
             cancellation: CancellationToken::new(),
+            retention_cancellation: CancellationToken::new(),
             events,
         };
         self.jobs.write().await.insert(id, runtime.clone());
         let engine = self.clone();
+        let retention_cancellation = runtime.retention_cancellation.clone();
         tokio::spawn(async move {
             if let Err(error) = engine
                 .run_job(request, scope, compiled_rules, runtime.clone())
@@ -1973,7 +1997,10 @@ impl HuntEngine {
             {
                 engine.fail_job(id, runtime, error).await;
             }
-            tokio::time::sleep(JOB_RUNTIME_RETENTION).await;
+            tokio::select! {
+                _ = tokio::time::sleep(JOB_RUNTIME_RETENTION) => {},
+                _ = retention_cancellation.cancelled() => {},
+            }
             engine.jobs.write().await.remove(&id);
         });
         Ok(id)
@@ -2068,7 +2095,9 @@ impl HuntEngine {
         {
             return Err(EngineError::JobRunning);
         }
-        self.jobs.write().await.remove(&id);
+        if let Some(runtime) = self.jobs.write().await.remove(&id) {
+            runtime.retention_cancellation.cancel();
+        }
         self.store
             .delete_job(id)
             .await

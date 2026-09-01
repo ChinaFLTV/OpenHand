@@ -32,6 +32,7 @@ export function useDismissibleOverlay({
   onEscape,
   pointerEventName = 'mousedown',
 }: UseDismissibleOverlayOptions): void {
+  const requestDismiss = useEventCallback(onDismiss);
   const requestEscapeClose = useEventCallback(() => {
     (onEscape ?? onDismiss)();
   });
@@ -41,14 +42,14 @@ export function useDismissibleOverlay({
 
     const handlePointer = (event: MouseEvent | PointerEvent) => {
       if (targetInsideOverlay(event.target, targets)) return;
-      onDismiss();
+      requestDismiss();
     };
 
     document.addEventListener(pointerEventName, handlePointer);
     return () => {
       document.removeEventListener(pointerEventName, handlePointer);
     };
-  }, [active, onDismiss, pointerEventName, targets]);
+  }, [active, pointerEventName, requestDismiss, targets]);
 
   useEffect(() => {
     if (!active || typeof window === 'undefined') return undefined;
