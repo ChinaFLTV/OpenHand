@@ -108,6 +108,10 @@ function endProgressDrag(event){if(!dragging)return;dragging=false;progress.rele
 const String openHandVideoPlayerReleaseJavaScript =
     r'''try{var media=document.getElementById('media');if(media){try{media.pause();}catch(_){};try{media.muted=true;}catch(_){};try{media.removeAttribute('src');}catch(_){};try{while(media.firstChild)media.removeChild(media.firstChild);}catch(_){};try{media.load();}catch(_){};}}catch(_){}''';
 
+/// 切换 WebView 视频播放状态；优先复用页面已暴露的媒体实例。
+const String openHandVideoPlayerTogglePlaybackJavaScript =
+    r'''try{var media=window.media||document.getElementById('media');if(media){if(media.paused){var pending=media.play();if(pending&&pending.catch)pending.catch(function(){});}else{media.pause();}}}catch(_){}''';
+
 /// 生成内嵌视频播放器共用的控制栏样式。
 String openHandVideoPlayerControlsCss({
   required int compactBreakpointPx,

@@ -452,13 +452,28 @@ Size _nodeSize(WorkflowNode node) {
   );
 }
 
-({Offset control1, Offset control2}) _connectionControls(
+typedef _ConnectionGeometry = ({
   Offset start,
-  Offset end, {
-  double minimumDistance = 48,
-}) {
+  Offset end,
+  Offset control1,
+  Offset control2,
+});
+
+_ConnectionGeometry _connectionGeometry(
+  WorkflowNode source,
+  WorkflowNode target,
+  _WorkflowExportLayout layout,
+) {
+  final sourceSize = _nodeSize(source);
+  final targetSize = _nodeSize(target);
+  final start = layout.position(
+    Offset(source.x + sourceSize.width, source.y + sourceSize.height / 2),
+  );
+  final end = layout.position(
+    Offset(target.x, target.y + targetSize.height / 2),
+  );
   final distance = math
-      .max(minimumDistance, (end.dx - start.dx).abs() * 0.46)
+      .max(48 * layout.scale, (end.dx - start.dx).abs() * 0.46)
       .toDouble();
   final delta = end - start;
   final magnitude = math.sqrt(delta.dx * delta.dx + delta.dy * delta.dy);
@@ -466,26 +481,23 @@ Size _nodeSize(WorkflowNode node) {
       ? Offset(delta.dx / magnitude, delta.dy / magnitude)
       : const Offset(1, 0);
   return (
+    start: start,
+    end: end,
     control1: Offset(start.dx + distance, start.dy),
     control2: end - direction * distance,
   );
 }
 
-Path _connectionPath(Offset start, Offset end, {double minimumDistance = 48}) {
-  final controls = _connectionControls(
-    start,
-    end,
-    minimumDistance: minimumDistance,
-  );
+Path _connectionPath(_ConnectionGeometry geometry) {
   return Path()
-    ..moveTo(start.dx, start.dy)
+    ..moveTo(geometry.start.dx, geometry.start.dy)
     ..cubicTo(
-      controls.control1.dx,
-      controls.control1.dy,
-      controls.control2.dx,
-      controls.control2.dy,
-      end.dx,
-      end.dy,
+      geometry.control1.dx,
+      geometry.control1.dy,
+      geometry.control2.dx,
+      geometry.control2.dy,
+      geometry.end.dx,
+      geometry.end.dy,
     );
 }
 
@@ -661,31 +673,18 @@ Future<ui.Image> _renderRaster(
     final source = nodesById[connection.sourceNodeId];
     final target = nodesById[connection.targetNodeId];
     if (source == null || target == null) continue;
-    final sourceSize = _nodeSize(source);
-    final targetSize = _nodeSize(target);
-    final start = layout.position(
-      Offset(source.x + sourceSize.width, source.y + sourceSize.height / 2),
-    );
-    final end = layout.position(
-      Offset(target.x, target.y + targetSize.height / 2),
-    );
-    final minimumDistance = 48 * layout.scale;
-    final path = _connectionPath(start, end, minimumDistance: minimumDistance);
+    final geometry = _connectionGeometry(source, target, layout);
+    final path = _connectionPath(geometry);
     canvas.drawPath(path, haloPaint);
     canvas.drawPath(path, linePaint);
-    final controls = _connectionControls(
-      start,
-      end,
-      minimumDistance: minimumDistance,
-    );
     final arrowBase = _connectionArrowBase(
-      end,
-      controls.control2,
+      geometry.end,
+      geometry.control2,
       10 * layout.scale,
       6 * layout.scale,
     );
     final arrow = Path()
-      ..moveTo(end.dx, end.dy)
+      ..moveTo(geometry.end.dx, geometry.end.dy)
       ..lineTo(arrowBase.left.dx, arrowBase.left.dy)
       ..lineTo(arrowBase.right.dx, arrowBase.right.dy)
       ..close();
@@ -1022,27 +1021,15 @@ String _renderSvg(WorkflowDefinition workflow, _WorkflowExportLayout layout) {
     final source = nodesById[connection.sourceNodeId];
     final target = nodesById[connection.targetNodeId];
     if (source == null || target == null) continue;
-    final sourceSize = _nodeSize(source);
-    final targetSize = _nodeSize(target);
-    final start = layout.position(
-      Offset(source.x + sourceSize.width, source.y + sourceSize.height / 2),
-    );
-    final end = layout.position(
-      Offset(target.x, target.y + targetSize.height / 2),
-    );
-    final controls = _connectionControls(
-      start,
-      end,
-      minimumDistance: 48 * scale,
-    );
+    final geometry = _connectionGeometry(source, target, layout);
     final path =
-        'M ${start.dx.toStringAsFixed(2)} ${start.dy.toStringAsFixed(2)} '
-        'C ${controls.control1.dx.toStringAsFixed(2)} ${controls.control1.dy.toStringAsFixed(2)}, '
-        '${controls.control2.dx.toStringAsFixed(2)} ${controls.control2.dy.toStringAsFixed(2)}, '
-        '${end.dx.toStringAsFixed(2)} ${end.dy.toStringAsFixed(2)}';
+        'M ${geometry.start.dx.toStringAsFixed(2)} ${geometry.start.dy.toStringAsFixed(2)} '
+        'C ${geometry.control1.dx.toStringAsFixed(2)} ${geometry.control1.dy.toStringAsFixed(2)}, '
+        '${geometry.control2.dx.toStringAsFixed(2)} ${geometry.control2.dy.toStringAsFixed(2)}, '
+        '${geometry.end.dx.toStringAsFixed(2)} ${geometry.end.dy.toStringAsFixed(2)}';
     final arrowBase = _connectionArrowBase(
-      end,
-      controls.control2,
+      geometry.end,
+      geometry.control2,
       10 * scale,
       6 * scale,
     );
@@ -1056,7 +1043,7 @@ String _renderSvg(WorkflowDefinition workflow, _WorkflowExportLayout layout) {
         'stroke-width="${(_kConnectionStroke * scale).toStringAsFixed(2)}" stroke-linecap="round"/>',
       )
       ..writeln(
-        '<path d="M ${end.dx} ${end.dy} L ${arrowBase.left.dx} '
+        '<path d="M ${geometry.end.dx} ${geometry.end.dy} L ${arrowBase.left.dx} '
         '${arrowBase.left.dy} L ${arrowBase.right.dx} '
         '${arrowBase.right.dy} Z" fill="$primaryHex" fill-opacity="0.88"/>',
       );

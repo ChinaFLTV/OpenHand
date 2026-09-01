@@ -3947,7 +3947,7 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog>
     if (controller == null) return;
     try {
       await controller.runJavaScript(
-        "try{var m=window.media||document.getElementById('media');if(m){if(m.paused){var p=m.play();if(p&&p.catch)p.catch(function(){});}else{m.pause();}}}catch(_){}",
+        openHandVideoPlayerTogglePlaybackJavaScript,
       );
     } catch (error, stack) {
       silentLog('home_message_bubble', '媒体预览：切换播放状态失败', error, stack);
@@ -7568,7 +7568,7 @@ updateVolume();
   Future<void> _togglePlayPause() async {
     try {
       await _controller.runJavaScript(
-        "try{var m=document.getElementById('media');if(m){if(m.paused){var p=m.play();if(p&&p.catch)p.catch(function(){});}else{m.pause();}}}catch(_){}",
+        openHandVideoPlayerTogglePlaybackJavaScript,
       );
     } catch (error, stack) {
       silentLog('home_message_bubble', '全屏视频：切换播放状态失败', error, stack);

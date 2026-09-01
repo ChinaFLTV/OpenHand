@@ -93,6 +93,29 @@ final RegExp _kRankCompactCellPattern = RegExp(
   caseSensitive: false,
 );
 
+KeyEventResult _handleChartNavigationKey({
+  required KeyEvent event,
+  required bool enabled,
+  required ValueChanged<int> moveSelection,
+  required VoidCallback activateSelection,
+}) {
+  if (!enabled || event is! KeyDownEvent) return KeyEventResult.ignored;
+  final key = event.logicalKey;
+  if (key == LogicalKeyboardKey.arrowRight ||
+      key == LogicalKeyboardKey.arrowDown) {
+    moveSelection(1);
+  } else if (key == LogicalKeyboardKey.arrowLeft ||
+      key == LogicalKeyboardKey.arrowUp) {
+    moveSelection(-1);
+  } else if (key == LogicalKeyboardKey.enter ||
+      key == LogicalKeyboardKey.space) {
+    activateSelection();
+  } else {
+    return KeyEventResult.ignored;
+  }
+  return KeyEventResult.handled;
+}
+
 enum _RankColumnKind { datetime, compact, metric, leading, text }
 
 bool _isRankDateTimeCell(String text) => _kRankDateTimePattern.hasMatch(text);
@@ -1634,27 +1657,13 @@ class _OpenHandOperationalTrendChartState
         decreasedValue: hasDrawableData ? '上一个数据点' : null,
         child: Focus(
           autofocus: true,
-          onKeyEvent: (node, event) {
-            if (!hasDrawableData || event is! KeyDownEvent) {
-              return KeyEventResult.ignored;
-            }
-            if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                event.logicalKey == LogicalKeyboardKey.arrowDown) {
-              _moveSelection(1);
-              return KeyEventResult.handled;
-            }
-            if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
-                event.logicalKey == LogicalKeyboardKey.arrowUp) {
-              _moveSelection(-1);
-              return KeyEventResult.handled;
-            }
-            if (event.logicalKey == LogicalKeyboardKey.enter ||
-                event.logicalKey == LogicalKeyboardKey.space) {
-              _activate(_selection ?? _selectionForIndex(0));
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
+          onKeyEvent: (_, event) => _handleChartNavigationKey(
+            event: event,
+            enabled: hasDrawableData,
+            moveSelection: _moveSelection,
+            activateSelection: () =>
+                _activate(_selection ?? _selectionForIndex(0)),
+          ),
           child: SizedBox(
             height: resolvedHeight,
             child: Column(
@@ -2138,27 +2147,12 @@ class _OpenHandOperationalDonutChartState
         decreasedValue: hasDrawableData ? '上一个分段' : null,
         child: Focus(
           autofocus: widget.autofocus,
-          onKeyEvent: (node, event) {
-            if (!hasDrawableData || event is! KeyDownEvent) {
-              return KeyEventResult.ignored;
-            }
-            if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
-                event.logicalKey == LogicalKeyboardKey.arrowDown) {
-              _moveSelection(1);
-              return KeyEventResult.handled;
-            }
-            if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
-                event.logicalKey == LogicalKeyboardKey.arrowUp) {
-              _moveSelection(-1);
-              return KeyEventResult.handled;
-            }
-            if (event.logicalKey == LogicalKeyboardKey.enter ||
-                event.logicalKey == LogicalKeyboardKey.space) {
-              _activateCurrentSelection();
-              return KeyEventResult.handled;
-            }
-            return KeyEventResult.ignored;
-          },
+          onKeyEvent: (_, event) => _handleChartNavigationKey(
+            event: event,
+            enabled: hasDrawableData,
+            moveSelection: _moveSelection,
+            activateSelection: _activateCurrentSelection,
+          ),
           child: SizedBox(
             height: height,
             child: Column(
