@@ -141,12 +141,7 @@ impl HuntStore {
     }
 
     pub async fn postgres_overview(&self) -> Result<Value, StoreError> {
-        let mirror = self
-            .postgres
-            .read()
-            .await
-            .clone()
-            .ok_or_else(|| StoreError::Other(anyhow::anyhow!("PostgreSQL 尚未启用")))?;
+        let mirror = self.configured_postgres().await?;
         Ok(postgres_operation(mirror.overview()).await?)
     }
 
@@ -156,12 +151,7 @@ impl HuntStore {
         limit: u32,
         offset: u32,
     ) -> Result<Value, StoreError> {
-        let mirror = self
-            .postgres
-            .read()
-            .await
-            .clone()
-            .ok_or_else(|| StoreError::Other(anyhow::anyhow!("PostgreSQL 尚未启用")))?;
+        let mirror = self.configured_postgres().await?;
         Ok(postgres_operation(mirror.rows(table, limit, offset)).await?)
     }
 
@@ -170,12 +160,7 @@ impl HuntStore {
         table: &str,
         values: Map<String, Value>,
     ) -> Result<Value, StoreError> {
-        let mirror = self
-            .postgres
-            .read()
-            .await
-            .clone()
-            .ok_or_else(|| StoreError::Other(anyhow::anyhow!("PostgreSQL 尚未启用")))?;
+        let mirror = self.configured_postgres().await?;
         Ok(postgres_operation(mirror.insert_row(table, values)).await?)
     }
 
@@ -185,12 +170,7 @@ impl HuntStore {
         keys: Map<String, Value>,
         values: Map<String, Value>,
     ) -> Result<Option<Value>, StoreError> {
-        let mirror = self
-            .postgres
-            .read()
-            .await
-            .clone()
-            .ok_or_else(|| StoreError::Other(anyhow::anyhow!("PostgreSQL 尚未启用")))?;
+        let mirror = self.configured_postgres().await?;
         Ok(postgres_operation(mirror.update_row(table, keys, values)).await?)
     }
 
@@ -199,23 +179,21 @@ impl HuntStore {
         table: &str,
         keys: Map<String, Value>,
     ) -> Result<Option<Value>, StoreError> {
-        let mirror = self
-            .postgres
-            .read()
-            .await
-            .clone()
-            .ok_or_else(|| StoreError::Other(anyhow::anyhow!("PostgreSQL 尚未启用")))?;
+        let mirror = self.configured_postgres().await?;
         Ok(postgres_operation(mirror.delete_row(table, keys)).await?)
     }
 
     pub async fn query_postgres(&self, statement: &str, limit: u32) -> Result<Value, StoreError> {
-        let mirror = self
-            .postgres
+        let mirror = self.configured_postgres().await?;
+        Ok(postgres_operation(mirror.read_only_query(statement, limit)).await?)
+    }
+
+    async fn configured_postgres(&self) -> Result<PostgresMirror, StoreError> {
+        self.postgres
             .read()
             .await
             .clone()
-            .ok_or_else(|| StoreError::Other(anyhow::anyhow!("PostgreSQL 尚未启用")))?;
-        Ok(postgres_operation(mirror.read_only_query(statement, limit)).await?)
+            .ok_or_else(|| StoreError::Other(anyhow::anyhow!("PostgreSQL 尚未启用")))
     }
 
     pub async fn create_job(
@@ -230,7 +208,7 @@ impl HuntStore {
         self.with_connection(move |connection| {
             connection.execute(
                 "INSERT INTO jobs (id, name, request_json, stage, progress_json, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![id.to_string(), request_name(&request_json), request_json, stage_name(ScanStage::Queued), progress_json, created_at],
+                params![id.to_string(), request_name(&request_json), request_json, ScanStage::Queued.as_str(), progress_json, created_at],
             )?;
             Ok(())
         }).await?;
@@ -245,7 +223,7 @@ impl HuntStore {
 
     pub async fn update_progress(&self, progress: &ScanProgress) -> Result<(), StoreError> {
         let job_id = progress.job_id.to_string();
-        let stage = stage_name(progress.stage);
+        let stage = progress.stage.as_str();
         let progress_json = serde_json::to_string(progress).context("编码扫描进度失败")?;
         let finished_at = matches!(
             progress.stage,
@@ -848,21 +826,6 @@ fn parse_json_enum<T: serde::de::DeserializeOwned>(value: &str) -> rusqlite::Res
 /// 同一凭证指纹或响应指纹在一次扫描中跨这么多其他主机复现时，
 /// 视为蜜罐诱饵/广撒的低可信线索，将其有效性降级为可疑，避免误报“高价值密钥”。
 pub(crate) const HONEYPOT_CROSS_HOST_THRESHOLD: i64 = 5;
-
-fn stage_name(stage: ScanStage) -> &'static str {
-    match stage {
-        ScanStage::Queued => "queued",
-        ScanStage::Discovering => "discovering",
-        ScanStage::Normalizing => "normalizing",
-        ScanStage::Fingerprinting => "fingerprinting",
-        ScanStage::Extracting => "extracting",
-        ScanStage::Validating => "validating",
-        ScanStage::Persisting => "persisting",
-        ScanStage::Completed => "completed",
-        ScanStage::Cancelled => "cancelled",
-        ScanStage::Failed => "failed",
-    }
-}
 
 fn parse_stage(value: &str) -> ScanStage {
     match value {

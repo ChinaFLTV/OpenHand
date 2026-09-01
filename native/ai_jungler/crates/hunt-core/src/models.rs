@@ -150,6 +150,23 @@ pub enum ScanStage {
     Failed,
 }
 
+impl ScanStage {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Queued => "queued",
+            Self::Discovering => "discovering",
+            Self::Normalizing => "normalizing",
+            Self::Fingerprinting => "fingerprinting",
+            Self::Extracting => "extracting",
+            Self::Validating => "validating",
+            Self::Persisting => "persisting",
+            Self::Completed => "completed",
+            Self::Cancelled => "cancelled",
+            Self::Failed => "failed",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScanProgress {

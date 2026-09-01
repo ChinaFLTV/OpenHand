@@ -416,7 +416,7 @@ impl PostgresMirror {
         .bind(id.to_string())
         .bind(&request.name)
         .bind(serde_json::to_value(request)?)
-        .bind(stage_name(progress.stage))
+        .bind(progress.stage.as_str())
         .bind(serde_json::to_value(progress)?)
         .bind(Utc::now())
         .execute(&self.pool)
@@ -435,7 +435,7 @@ impl PostgresMirror {
                finished_at = COALESCE($4, finished_at) WHERE id = $1",
         )
         .bind(progress.job_id.to_string())
-        .bind(stage_name(progress.stage))
+        .bind(progress.stage.as_str())
         .bind(serde_json::to_value(progress)?)
         .bind(finished_at)
         .execute(&self.pool)
@@ -659,19 +659,4 @@ fn json_enum<T: serde::Serialize>(value: T) -> anyhow::Result<String> {
         .as_str()
         .unwrap_or_default()
         .to_owned())
-}
-
-fn stage_name(stage: ScanStage) -> &'static str {
-    match stage {
-        ScanStage::Queued => "queued",
-        ScanStage::Discovering => "discovering",
-        ScanStage::Normalizing => "normalizing",
-        ScanStage::Fingerprinting => "fingerprinting",
-        ScanStage::Extracting => "extracting",
-        ScanStage::Validating => "validating",
-        ScanStage::Persisting => "persisting",
-        ScanStage::Completed => "completed",
-        ScanStage::Cancelled => "cancelled",
-        ScanStage::Failed => "failed",
-    }
 }

@@ -711,6 +711,37 @@ impl DynamicProxySelector {
         };
         runtime.status()
     }
+
+    fn register_observation(
+        &self,
+        runtime: &Arc<ProxyRuntime>,
+        endpoint_index: usize,
+        target: &reqwest::Url,
+    ) -> u64 {
+        runtime.statistics[endpoint_index].mark_selected();
+        let ticket = self
+            .observations
+            .next_ticket
+            .fetch_add(1, Ordering::Relaxed);
+        self.observations
+            .pending
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .insert(
+                ticket,
+                ProxyObservation {
+                    runtime: runtime.clone(),
+                    endpoint_index,
+                    request_id: Uuid::new_v4().to_string(),
+                    endpoint_id: runtime.endpoint_ids[endpoint_index].clone(),
+                    target_host: target.host_str().unwrap_or_default().to_owned(),
+                    selection_reason: proxy_selection_reason(runtime.strategy).to_owned(),
+                    method: None,
+                    timeout_ms: None,
+                },
+            );
+        ticket
+    }
 }
 
 impl HttpRequestObserver for DynamicProxySelector {
@@ -730,31 +761,9 @@ impl HttpRequestObserver for DynamicProxySelector {
             .lock()
             .unwrap_or_else(|error| error.into_inner())
             .client_for(proxy)?;
-        let ticket = route.pool_index().map(|endpoint_index| {
-            runtime.statistics[endpoint_index].mark_selected();
-            let ticket = self
-                .observations
-                .next_ticket
-                .fetch_add(1, Ordering::Relaxed);
-            self.observations
-                .pending
-                .lock()
-                .unwrap_or_else(|error| error.into_inner())
-                .insert(
-                    ticket,
-                    ProxyObservation {
-                        runtime: runtime.clone(),
-                        endpoint_index,
-                        request_id: Uuid::new_v4().to_string(),
-                        endpoint_id: runtime.endpoint_ids[endpoint_index].clone(),
-                        target_host: target.host_str().unwrap_or_default().to_owned(),
-                        selection_reason: proxy_selection_reason(runtime.strategy).to_owned(),
-                        method: None,
-                        timeout_ms: None,
-                    },
-                );
-            ticket
-        });
+        let ticket = route
+            .pool_index()
+            .map(|endpoint_index| self.register_observation(&runtime, endpoint_index, target));
         Ok(Some(HttpRequestObservation { ticket, client }))
     }
 
@@ -791,31 +800,9 @@ impl HttpRequestObserver for DynamicProxySelector {
                 proxy: None,
             });
         };
-        let ticket = route.pool_index().map(|endpoint_index| {
-            runtime.statistics[endpoint_index].mark_selected();
-            let ticket = self
-                .observations
-                .next_ticket
-                .fetch_add(1, Ordering::Relaxed);
-            self.observations
-                .pending
-                .lock()
-                .unwrap_or_else(|error| error.into_inner())
-                .insert(
-                    ticket,
-                    ProxyObservation {
-                        runtime: runtime.clone(),
-                        endpoint_index,
-                        request_id: Uuid::new_v4().to_string(),
-                        endpoint_id: runtime.endpoint_ids[endpoint_index].clone(),
-                        target_host: target.host_str().unwrap_or_default().to_owned(),
-                        selection_reason: proxy_selection_reason(runtime.strategy).to_owned(),
-                        method: None,
-                        timeout_ms: None,
-                    },
-                );
-            ticket
-        });
+        let ticket = route
+            .pool_index()
+            .map(|endpoint_index| self.register_observation(&runtime, endpoint_index, target));
         Ok(ExternalHttpRequestRoute {
             ticket,
             proxy: Some(route.proxy(&runtime).clone()),
