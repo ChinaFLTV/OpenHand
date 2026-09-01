@@ -96,7 +96,7 @@ export async function notifyIfHidden(opts: {
     n.onclick = () => {
       runIgnoringErrors(() => window.focus());
       if (opts.sessionId) {
-        location.href = `/threads/${opts.sessionId}`;
+        location.href = `/threads/${encodeURIComponent(opts.sessionId)}`;
       }
       n.close();
     };

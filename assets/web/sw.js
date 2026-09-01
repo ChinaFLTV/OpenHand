@@ -9,7 +9,9 @@
  * 已安装过 Service Worker 的浏览器继续吃旧 bundle。Vite 派生 chunk/assets 使用
  * 内容 hash 文件名, 可安全 cache-first。
  */
-const CACHE_VERSION = 'openhand-shell-v5';
+const SHELL_CACHE_PREFIX = 'openhand-shell-';
+const CACHE_VERSION = `${SHELL_CACHE_PREFIX}v6`;
+const NETWORK_TIMEOUT_MS = 12_000;
 const APP_SHELL_PRECACHE = [
   '/',
   '/app.js',
@@ -46,9 +48,19 @@ async function cacheResponse(req, res) {
   return res;
 }
 
+async function fetchBounded(req) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), NETWORK_TIMEOUT_MS);
+  try {
+    return await fetch(req, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 async function networkFirst(req, fallbackUrl) {
   try {
-    return await cacheResponse(req, await fetch(req));
+    return await cacheResponse(req, await fetchBounded(req));
   } catch {
     const cached = await caches.match(req);
     if (cached) return cached;
@@ -63,7 +75,7 @@ async function networkFirst(req, fallbackUrl) {
 async function cacheFirst(req) {
   const cached = await caches.match(req);
   if (cached) return cached;
-  return cacheResponse(req, await fetch(req));
+  return cacheResponse(req, await fetchBounded(req));
 }
 
 self.addEventListener('install', (event) => {
@@ -81,7 +93,9 @@ self.addEventListener('activate', (event) => {
     (async () => {
       const keys = await caches.keys();
       await Promise.all(
-        keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k)),
+        keys
+          .filter((key) => key.startsWith(SHELL_CACHE_PREFIX) && key !== CACHE_VERSION)
+          .map((key) => caches.delete(key)),
       );
       await self.clients.claim();
     })(),
@@ -100,7 +114,7 @@ self.addEventListener('fetch', (event) => {
       fetch(req).catch(
         () =>
           new Response(
-            JSON.stringify({ error: 'offline', message: 'network unavailable' }),
+            JSON.stringify({ error: 'offline', message: '网络不可用' }),
             {
               status: 503,
               headers: { 'content-type': 'application/json; charset=utf-8' },
@@ -152,8 +166,9 @@ self.addEventListener('message', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const sessionId = event.notification.data && event.notification.data.sessionId;
-  const target = sessionId ? `/threads/${sessionId}` : '/threads';
+  const rawSessionId = event.notification.data && event.notification.data.sessionId;
+  const sessionId = typeof rawSessionId === 'string' ? rawSessionId.trim() : '';
+  const target = sessionId ? `/threads/${encodeURIComponent(sessionId)}` : '/threads';
   event.waitUntil(
     (async () => {
       const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });

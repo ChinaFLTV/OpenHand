@@ -6,6 +6,7 @@ import process from 'node:process';
 const outDir = path.resolve(process.argv[2] ?? '../../assets/web');
 const errors = [];
 const exportCache = new Map();
+const MAX_EAGER_JS_BYTES = 512 * 1024;
 
 function walkJsFiles(dir) {
   const files = [];
@@ -42,6 +43,15 @@ function resolveRelativeModule(fromFile, specifier) {
   if (!specifier.startsWith('.')) return null;
   const cleanSpecifier = specifier.split(/[?#]/, 1)[0];
   return path.resolve(path.dirname(fromFile), cleanSpecifier);
+}
+
+function validateRelativeModuleExists(fromFile, specifier) {
+  const target = resolveRelativeModule(fromFile, specifier);
+  if (target && !existsSync(target)) {
+    errors.push(
+      `${path.relative(outDir, fromFile)} 缺少引用模块 ${specifier}`,
+    );
+  }
 }
 
 function readExports(file) {
@@ -91,6 +101,9 @@ if (!existsSync(outDir)) {
 
 for (const file of walkJsFiles(outDir)) {
   const source = readFileSync(file, 'utf8');
+  for (const match of source.matchAll(/\b(?:from|import)\s*(?:\(\s*)?["'`]([^"'`]+)["'`]\s*\)?/g)) {
+    validateRelativeModuleExists(file, match[1]);
+  }
   for (const match of source.matchAll(/import\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/g)) {
     validateNamedModuleReference(file, match[1], match[2], '导入');
   }
@@ -99,8 +112,36 @@ for (const file of walkJsFiles(outDir)) {
   }
 }
 
+const indexFile = path.join(outDir, 'index.html');
+const entryFile = path.join(outDir, 'app.js');
+if (!existsSync(indexFile) || !existsSync(entryFile)) {
+  errors.push('缺少 Web 入口产物 index.html 或 app.js');
+} else {
+  const indexSource = readFileSync(indexFile, 'utf8');
+  const eagerFiles = new Set([entryFile]);
+  for (const match of indexSource.matchAll(
+    /<link\b[^>]*\brel=["']modulepreload["'][^>]*\bhref=["']([^"']+)["'][^>]*>/g,
+  )) {
+    const target = path.resolve(outDir, match[1].replace(/^\/+/, ''));
+    if (!existsSync(target)) {
+      errors.push(`入口预加载资源不存在：${match[1]}`);
+      continue;
+    }
+    eagerFiles.add(target);
+  }
+  const eagerBytes = [...eagerFiles].reduce(
+    (total, file) => total + statSync(file).size,
+    0,
+  );
+  if (eagerBytes > MAX_EAGER_JS_BYTES) {
+    errors.push(
+      `首屏 JavaScript 共 ${eagerBytes} 字节，超过 ${MAX_EAGER_JS_BYTES} 字节上限`,
+    );
+  }
+}
+
 if (errors.length > 0) {
-  console.error('[产物校验] 检测到 ESM 导入与导出不匹配：');
+  console.error('[产物校验] 检测到构建产物错误：');
   for (const error of errors) {
     console.error(`- ${error}`);
   }
