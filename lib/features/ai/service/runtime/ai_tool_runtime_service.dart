@@ -28,6 +28,7 @@ import '../../../mcp/index.dart';
 import '../../../memory/index.dart';
 import '../../../skills/index.dart';
 import '../../model/ai_builtin_tool_config.dart';
+import '../../model/ai_builtin_tool_contracts.dart';
 import '../../model/ai_deny_command_rule.dart';
 import '../../model/ai_dingtalk_dws_command.dart';
 import '../../model/ai_model_config.dart';
@@ -3471,17 +3472,7 @@ class AiToolRuntimeService {
         'properties': <String, Object?>{
           'operation': <String, Object?>{
             'type': 'string',
-            'enum': <String>[
-              'goToDefinition',
-              'findReferences',
-              'hover',
-              'documentSymbol',
-              'workspaceSymbol',
-              'goToImplementation',
-              'prepareCallHierarchy',
-              'incomingCalls',
-              'outgoingCalls',
-            ],
+            'enum': aiLspToolOperations,
             'description': 'The LSP operation to perform',
           },
           'file_path': <String, Object?>{
@@ -4239,14 +4230,7 @@ class AiToolRuntimeService {
         'properties': <String, Object?>{
           'action': <String, Object?>{
             'type': 'string',
-            'enum': <String>[
-              'create',
-              'edit',
-              'delete',
-              'patch',
-              'write_file',
-              'remove_file',
-            ],
+            'enum': aiSkillManagerActions,
           },
           'name': <String, Object?>{
             'type': 'string',
@@ -4559,13 +4543,7 @@ class AiToolRuntimeService {
         'properties': <String, Object?>{
           'action': <String, Object?>{
             'type': 'string',
-            'enum': <String>[
-              'list',
-              'append',
-              'upsert_profile',
-              'update',
-              'delete',
-            ],
+            'enum': aiMemoryToolActions,
           },
           'id': <String, Object?>{
             'type': 'string',

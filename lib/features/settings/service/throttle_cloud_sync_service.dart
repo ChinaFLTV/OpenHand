@@ -19,6 +19,14 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 
+const Set<String> throttleCloudSyncConfigFieldKeys = <String>{
+  'throttle_enabled',
+  'auto_mode',
+  'duration_seconds',
+  'max_chars_per_second',
+  'max_message_cards_per_second',
+};
+
 final class _ThrottleHttpResponse {
   const _ThrottleHttpResponse({required this.statusCode, required this.body});
 
@@ -212,13 +220,6 @@ class ThrottleCloudSyncService {
   static const String _githubUserAgent = 'OpenHand-throttle-sync/1';
   static const String _customClientHeader = 'throttle-sync/1';
   static const String _disposedMessage = '云同步服务已释放。';
-  static const Set<String> _configFieldKeys = <String>{
-    'throttle_enabled',
-    'auto_mode',
-    'duration_seconds',
-    'max_chars_per_second',
-    'max_message_cards_per_second',
-  };
 
   /// 把 [config] 推送到云端。`provider == iCloud` 时走 native 端的
   /// NSUbiquitousKeyValueStore。
@@ -493,7 +494,7 @@ class ThrottleCloudSyncService {
   }
 
   static void _validateRemoteConfig(Map<String, Object?> config) {
-    if (!_configFieldKeys.any(config.containsKey)) {
+    if (!throttleCloudSyncConfigFieldKeys.any(config.containsKey)) {
       throw const FormatException('云端配置缺少可识别的节流字段。');
     }
     for (final key in const <String>['throttle_enabled', 'auto_mode']) {

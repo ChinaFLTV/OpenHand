@@ -1,3 +1,4 @@
+import '../../../shared/net/http_methods.dart';
 import '../model/workflow_definition.dart';
 
 class WorkflowCurlEntry {
@@ -167,14 +168,7 @@ WorkflowCurlImport parseWorkflowCurl(String command) {
     throw const FormatException('cURL 命令缺少有效的 HTTP 或 HTTPS 地址。');
   }
   method = method.isEmpty ? (hasRequestBody ? 'POST' : 'GET') : method;
-  if (!const <String>{
-    'GET',
-    'POST',
-    'PUT',
-    'PATCH',
-    'DELETE',
-    'HEAD',
-  }.contains(method)) {
+  if (!kStandardHttpMethods.contains(method)) {
     throw FormatException('暂不支持 $method 请求方式。');
   }
   if (method == 'HEAD' || method == 'GET' && !dataInQuery) {

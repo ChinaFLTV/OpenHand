@@ -46,6 +46,8 @@ import '../../app/theme/openhand_status_colors.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/db/database_service.dart';
+import '../../shared/model/android_reverse_dashboard.dart';
+import '../../shared/model/media_file_extensions.dart';
 import '../../shared/net/bounded_http_request.dart';
 import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/net/http_response_utils.dart';
@@ -4544,21 +4546,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           'exit_code': controller.lastStaticQuickScanResult?.exitCode,
           'timed_out': controller.lastStaticQuickScanResult?.timedOut,
         },
-      'dashboard_tabs': const <String>[
-        'devices',
-        'overview',
-        'toolchain',
-        'mcp',
-        'plugins',
-        'packages',
-        'processes',
-        'logcat',
-        'frida',
-        'network',
-        'static_analysis',
-        'certs',
-        'crypto',
-      ],
+      'dashboard_tabs': androidReverseDashboardTabIds,
       if (controller.config.deviceSerial != null)
         'configured_device_serial': controller.config.deviceSerial,
       if (connected != null)

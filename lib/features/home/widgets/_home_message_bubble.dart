@@ -5003,10 +5003,10 @@ _GeneratedMessageMediaKind? _generatedMediaKindForText(String value) {
   final extension = p
       .extension(Uri.tryParse(value)?.path ?? value)
       .toLowerCase();
-  if (_videoMediaExtensions.contains(extension)) {
+  if (openHandVideoMediaExtensions.contains(extension)) {
     return _GeneratedMessageMediaKind.video;
   }
-  if (_audioMediaExtensions.contains(extension)) {
+  if (openHandAudioMediaExtensions.contains(extension)) {
     return _GeneratedMessageMediaKind.audio;
   }
   return null;
@@ -5104,11 +5104,11 @@ String _normalizeMediaSaveExtension(
   _GeneratedMessageMediaKind kind,
 ) {
   if (kind == _GeneratedMessageMediaKind.video &&
-      _videoMediaExtensions.contains(extension)) {
+      openHandVideoMediaExtensions.contains(extension)) {
     return extension;
   }
   if (kind == _GeneratedMessageMediaKind.audio &&
-      _audioMediaExtensions.contains(extension)) {
+      openHandAudioMediaExtensions.contains(extension)) {
     return extension;
   }
   return kind == _GeneratedMessageMediaKind.video ? '.mp4' : '.mp3';
@@ -5139,29 +5139,11 @@ Future<void> _downloadRemoteMedia(
   );
 }
 
-const Set<String> _videoMediaExtensions = <String>{
-  '.mp4',
-  '.webm',
-  '.mov',
-  '.m4v',
-  '.mkv',
-};
-
 class _MediaDownloadCancelled implements Exception {
   const _MediaDownloadCancelled();
   @override
   String toString() => '媒体下载已取消。';
 }
-
-const Set<String> _audioMediaExtensions = <String>{
-  '.mp3',
-  '.wav',
-  '.m4a',
-  '.aac',
-  '.ogg',
-  '.opus',
-  '.flac',
-};
 
 enum _GoalMessageViewKind {
   autoFollowUp,

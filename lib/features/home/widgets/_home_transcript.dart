@@ -1931,8 +1931,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return false;
     }
     return aiAttachmentKindForPath(path) == AiAttachmentKind.image ||
-        _videoMediaExtensions.contains(extension) ||
-        _audioMediaExtensions.contains(extension);
+        openHandVideoMediaExtensions.contains(extension) ||
+        openHandAudioMediaExtensions.contains(extension);
   }
 
   bool _mimeTypeIsMultimedia(Object? value) {

@@ -5,6 +5,7 @@ import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/text_normalization.dart';
 import '../../../memory/index.dart';
+import '../../model/ai_builtin_tool_contracts.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
@@ -238,13 +239,6 @@ class AiMemoryTool extends AiTool {
 
   static const String _toolName = 'Memory';
   static const String _mutationReason = '记忆存储变更';
-  static const Set<String> _actions = <String>{
-    'list',
-    'append',
-    'upsert_profile',
-    'update',
-    'delete',
-  };
   static const Map<String, Set<String>> _argumentNamesByAction =
       <String, Set<String>>{
         'list': <String>{'action', 'tag', 'purpose'},
@@ -272,9 +266,9 @@ class AiMemoryTool extends AiTool {
       'action',
       maxCharacters: 32,
     ).toLowerCase();
-    if (!_actions.contains(action)) {
+    if (!aiMemoryToolActions.contains(action)) {
       throw _MemoryToolArgumentException(
-        '未知 action“$action”，可选值：${_actions.join(' | ')}。',
+        '未知 action“$action”，可选值：${aiMemoryToolActions.join(' | ')}。',
       );
     }
     final allowedArguments = _argumentNamesByAction[action]!;

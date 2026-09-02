@@ -15,6 +15,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/model/media_file_extensions.dart';
 import '../../../../shared/net/bounded_http_request.dart';
 import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_response_utils.dart';
@@ -101,23 +102,6 @@ class MediaCacheService {
     '.heic',
     '.svg',
   };
-  static const Set<String> _videoExtensions = <String>{
-    '.mp4',
-    '.webm',
-    '.mov',
-    '.m4v',
-    '.mkv',
-  };
-  static const Set<String> _audioExtensions = <String>{
-    '.mp3',
-    '.wav',
-    '.m4a',
-    '.aac',
-    '.ogg',
-    '.opus',
-    '.flac',
-  };
-
   final Map<String, Future<String?>> _inflight = <String, Future<String?>>{};
   final LifecycleLruCache<DateTime> _validatedCachePaths;
   final OpenHandAsyncSemaphore _downloadSemaphore = OpenHandAsyncSemaphore(
@@ -1125,8 +1109,12 @@ class MediaCacheService {
   static MediaCacheKind? _kindFromUrl(String url) {
     final ext = _extensionFromUrl(url, null);
     if (_imageExtensions.contains(ext)) return MediaCacheKind.image;
-    if (_videoExtensions.contains(ext)) return MediaCacheKind.video;
-    if (_audioExtensions.contains(ext)) return MediaCacheKind.audio;
+    if (openHandVideoMediaExtensions.contains(ext)) {
+      return MediaCacheKind.video;
+    }
+    if (openHandAudioMediaExtensions.contains(ext)) {
+      return MediaCacheKind.audio;
+    }
     return null;
   }
 
@@ -1150,12 +1138,12 @@ class MediaCacheService {
     if (ext.isEmpty || ext.length > 8) return false;
     return switch (kind) {
       MediaCacheKind.image => _imageExtensions.contains(ext),
-      MediaCacheKind.video => _videoExtensions.contains(ext),
-      MediaCacheKind.audio => _audioExtensions.contains(ext),
+      MediaCacheKind.video => openHandVideoMediaExtensions.contains(ext),
+      MediaCacheKind.audio => openHandAudioMediaExtensions.contains(ext),
       null =>
         _imageExtensions.contains(ext) ||
-            _videoExtensions.contains(ext) ||
-            _audioExtensions.contains(ext),
+            openHandVideoMediaExtensions.contains(ext) ||
+            openHandAudioMediaExtensions.contains(ext),
     };
   }
 }

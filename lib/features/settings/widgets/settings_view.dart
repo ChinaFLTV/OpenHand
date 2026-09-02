@@ -7669,13 +7669,7 @@ List<_ThrottleDiffRow> _diffThrottleConfig(
     rows.add(_ThrottleDiffRow(key, format(before), format(after)));
   }
 
-  for (final key in const <String>[
-    'throttle_enabled',
-    'auto_mode',
-    'duration_seconds',
-    'max_chars_per_second',
-    'max_message_cards_per_second',
-  ]) {
+  for (final key in throttleCloudSyncConfigFieldKeys) {
     add(key);
   }
   return rows;

@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/bounded_http_request.dart';
+import '../../../shared/net/http_methods.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart'
     show
@@ -1431,14 +1432,7 @@ class WorkflowNodeExecutor {
         .stringSetting(WorkflowSettingKeys.method, 'GET')
         .trim()
         .toUpperCase();
-    if (!const <String>{
-      'GET',
-      'POST',
-      'PUT',
-      'PATCH',
-      'DELETE',
-      'HEAD',
-    }.contains(method)) {
+    if (!kStandardHttpMethods.contains(method)) {
       throw const WorkflowNodeExecutionException('HTTP 请求方式无效。');
     }
     final structured = node.boolSetting(WorkflowSettingKeys.structuredOutput);

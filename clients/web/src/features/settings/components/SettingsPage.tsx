@@ -1,10 +1,3 @@
-// SettingsPage —— 远程修改本机 OpenHand 的核心偏好。
-//
-// 字段范围严格限定在 _getPreferencesHandler 暴露的白名单:
-// reduce_motion / language / ai_message_compression_threshold_chars；
-// dialog_animation_settings 只读同步 App 端弹窗动效。
-// 其余设置必须在 App 端改，避免 Web 误改影响本机正在跑的会话。
-
 import type { ComponentChildren } from 'preact';
 import { StatusBanner } from '../../../components/StatusBanner';
 import { useEffect, useState } from 'preact/hooks';

@@ -441,19 +441,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
 
   bool _isHiddenOrIgnored(String name) {
     if (name.startsWith('.')) return true;
-    const ignored = {
-      'node_modules',
-      'build',
-      '.dart_tool',
-      '__pycache__',
-      '.git',
-      '.idea',
-      '.vscode',
-      'target',
-      'dist',
-      '.gradle',
-    };
-    return ignored.contains(name);
+    return _atMentionIgnoredEntryNames.contains(name);
   }
 
   Future<void> _toggleExpand(_FileNode node) async {

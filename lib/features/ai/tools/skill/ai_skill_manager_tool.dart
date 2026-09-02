@@ -12,6 +12,7 @@ import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/directory_cleanup.dart';
 import '../../../../shared/util/path_safety.dart';
 import '../../../../shared/util/physical_path_safety.dart';
+import '../../model/ai_builtin_tool_contracts.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
@@ -36,14 +37,6 @@ class AiSkillManagerTool extends AiTool {
   static const Duration _skillScanIdleTimeout = Duration(seconds: 3);
   static const Duration _skillScanTotalTimeout = Duration(seconds: 10);
   static const int _maxSidecarContentLength = 2 * kBytesPerMiB;
-  static const List<String> _supportedActions = <String>[
-    'create',
-    'edit',
-    'delete',
-    'patch',
-    'write_file',
-    'remove_file',
-  ];
   int maxSkillContentLength = 100000;
   static final RegExp _nameRegex = RegExp(r'^[a-z0-9][a-z0-9._-]*$');
   static const Set<String> _allowedWriteSubdirs = <String>{
@@ -72,7 +65,7 @@ class AiSkillManagerTool extends AiTool {
     if (action.isEmpty) {
       return AiToolUtils.invalidResult(
         _toolName,
-        '必须提供 action，可选值：${_supportedActions.join(', ')}。',
+        '必须提供 action，可选值：${aiSkillManagerActions.join(', ')}。',
       );
     }
 
@@ -80,7 +73,7 @@ class AiSkillManagerTool extends AiTool {
     if (skillsRoot == null) {
       return AiToolUtils.invalidResult(_toolName, '未配置技能目录。');
     }
-    if (!_supportedActions.contains(action)) {
+    if (!aiSkillManagerActions.contains(action)) {
       return AiToolUtils.invalidResult(_toolName, '未知 action：$action。');
     }
 

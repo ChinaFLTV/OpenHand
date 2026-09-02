@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:path/path.dart' as p;
 
+import '../../model/ai_builtin_tool_contracts.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/lsp/lsp_client_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
@@ -11,18 +12,6 @@ import '../ai_tool_utils.dart';
 
 /// 由 [AiLspClientService] 提供的多语言 LSP 代码分析工具。
 class AiLspTool extends AiTool {
-  static const Set<String> _supportedOperations = <String>{
-    'goToDefinition',
-    'findReferences',
-    'hover',
-    'documentSymbol',
-    'workspaceSymbol',
-    'goToImplementation',
-    'prepareCallHierarchy',
-    'incomingCalls',
-    'outgoingCalls',
-  };
-
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.lsp;
 
@@ -46,7 +35,7 @@ class AiLspTool extends AiTool {
         'operation and filePath (or file_path) are required.',
       );
     }
-    if (!_supportedOperations.contains(operation)) {
+    if (!aiLspToolOperations.contains(operation)) {
       return AiToolUtils.invalidResult(
         'LSP',
         'Unsupported LSP operation "$operation".',

@@ -1,14 +1,3 @@
-// 按 AiSessionMessage.kind 分发到不同视觉模板，与 OpenHand APP 端
-// `_home_transcript.dart` / `tool_call_card.dart` / `reasoning_card.dart` 等
-// 视觉语义对齐。
-//
-// 复刻范围（基于服务端 _messageJson 已经导出的字段）：
-// - user / assistant / system / tool / reasoning
-// - tool_call（解析 ```json``` 入参或纯文本）
-// - mcp / skill / hook / self_learning / file_mutation_summary / status / compression_point
-//
-// Web 端不执行撤销/重做等本地文件 ledger 操作，只做只读审阅展示。
-
 import { KNOWLEDGE_BASE_MESSAGE_METADATA_KEY, type SessionMessage, type SessionMessageFeedback } from '../api/sessions';
 import {
   KNOWLEDGE_VECTOR_DEFAULT_MAX_POINTS,

@@ -636,14 +636,6 @@ String? _heExtractCodeLanguage(String classes) {
   return null;
 }
 
-String? _heNormalizeCodeLanguage(String? language) {
-  final normalized = (language ?? '').trim().toLowerCase();
-  if (normalized.isEmpty || normalized == 'text' || normalized == 'plaintext') {
-    return null;
-  }
-  return normalized;
-}
-
 /// Harness 会话的高亮代码面板，与应用端保持一致。
 class _HeHighlightedCodePanel extends StatefulWidget {
   const _HeHighlightedCodePanel({
@@ -692,7 +684,6 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
   }
 
   void _buildHighlightedSpan() {
-    final effectiveLanguage = _heNormalizeCodeLanguage(widget.language);
     final isDark = widget.darkSurface;
     final baseStyle = TextStyle(
       fontFamily: kOpenHandMonospaceFontFamily,
@@ -709,126 +700,15 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
       return;
     }
 
-    try {
-      final parsed = highlight.highlight.parse(
-        widget.content,
-        language: effectiveLanguage,
-        autoDetection: effectiveLanguage == null,
-      );
-      _highlightedSpan = TextSpan(
-        style: baseStyle,
-        children: _buildNodes(parsed.nodes, baseStyle, isDark),
-      );
-    } catch (_) {
-      _highlightedSpan = TextSpan(text: widget.content, style: baseStyle);
-    }
-  }
-
-  List<InlineSpan> _buildNodes(
-    List<highlight.Node>? nodes,
-    TextStyle baseStyle,
-    bool isDark,
-  ) {
-    if (nodes == null || nodes.isEmpty) return [TextSpan(style: baseStyle)];
-    final spans = <InlineSpan>[];
-    for (final node in nodes) {
-      if (node.value != null) {
-        spans.add(
-          TextSpan(
-            text: node.value,
-            style: node.className == null
-                ? null
-                : _heStyleForClass(node.className, baseStyle, isDark),
-          ),
+    _highlightedSpan =
+        OpenHandCodeSyntaxHighlighter(
+          baseStyle: baseStyle,
+          darkSurface: isDark,
+        ).build(
+          widget.content,
+          language: widget.language,
+          allowAutoDetection: true,
         );
-      } else {
-        spans.add(
-          TextSpan(
-            style: node.className == null
-                ? null
-                : _heStyleForClass(node.className, baseStyle, isDark),
-            children: _buildNodes(node.children, baseStyle, isDark),
-          ),
-        );
-      }
-    }
-    return spans;
-  }
-
-  TextStyle _heStyleForClass(String? className, TextStyle base, bool isDark) {
-    final classes = (className ?? '').split(' ');
-    for (final cls in classes) {
-      if (const {'comment', 'quote'}.contains(cls)) {
-        return base.copyWith(
-          color: isDark ? const Color(0xFF7DD3A7) : const Color(0xFF5B6472),
-          fontStyle: FontStyle.italic,
-        );
-      }
-      if (const {
-        'keyword',
-        'selector-tag',
-        'meta-keyword',
-        'doctag',
-      }.contains(cls)) {
-        return base.copyWith(
-          color: isDark ? const Color(0xFFF9A8D4) : const Color(0xFF0B57D0),
-          fontWeight: FontWeight.w700,
-        );
-      }
-      if (const {
-        'string',
-        'regexp',
-        'attribute',
-        'template-variable',
-      }.contains(cls)) {
-        return base.copyWith(
-          color: isDark ? const Color(0xFFFDE68A) : const Color(0xFFB42318),
-        );
-      }
-      if (const {'number', 'literal', 'symbol', 'bullet'}.contains(cls)) {
-        return base.copyWith(
-          color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8),
-        );
-      }
-      if (const {
-        'title',
-        'function',
-        'section',
-        'title.function_',
-        'title.class_',
-      }.contains(cls)) {
-        return base.copyWith(
-          color: isDark ? const Color(0xFF67E8F9) : const Color(0xFF7C3AED),
-          fontWeight: FontWeight.w700,
-        );
-      }
-      if (const {
-        'type',
-        'built_in',
-        'class',
-        'params',
-        'variable',
-        'selector-id',
-        'selector-class',
-        'property',
-      }.contains(cls)) {
-        return base.copyWith(
-          color: isDark ? const Color(0xFFC4B5FD) : const Color(0xFF8A3C00),
-          fontWeight: FontWeight.w600,
-        );
-      }
-      if (const {'meta', 'attr', 'tag', 'name'}.contains(cls)) {
-        return base.copyWith(
-          color: isDark ? const Color(0xFFCBD5E1) : const Color(0xFF0F4C81),
-        );
-      }
-      if (const {'operator', 'punctuation'}.contains(cls)) {
-        return base.copyWith(
-          color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1F2937),
-        );
-      }
-    }
-    return base;
   }
 
   void _copyCode() {
@@ -870,7 +750,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
     final isDark =
         widget.darkSurface || Theme.of(context).brightness == Brightness.dark;
     final cs = widget.colorScheme;
-    final effectiveLanguage = _heNormalizeCodeLanguage(widget.language);
+    final effectiveLanguage = normalizeOpenHandCodeLanguage(widget.language);
 
     final containerColor = isDark
         ? Colors.white.withValues(alpha: 0.06)

@@ -1,20 +1,3 @@
-// PlanTimeline —— Plan 模式会话顶部的步骤时间线
-//
-// 数据来源（与 App 端 _PlanTimelineData 一致的优先级）:
-//   1) session.todo_items (已批准、执行中)
-//   2) session.pending_plan (按 1./2. 行号 / "-" / "•" 切分)
-//
-// 状态图:
-//   completed     绿色 check
-//   in_progress   主色 spinner + 呼吸动效
-//   failed/blocked/cancelled  m3-error x
-//   pending       灰    step number
-//
-// 交互:
-//   - awaiting_plan_approval=true 时, 渲染批准按钮
-//     批准 = 发送一条 normal 消息 "好"（后端 _looksLikePlanApproval 接住）
-//   - 折叠/展开 (本地 state, 默认展开)
-
 import { useMemo, useState } from 'preact/hooks';
 import { type SendMessageInput, type SessionSummary, type SessionTodoItem, sendMessage } from '../api/sessions';
 import { t } from '../i18n';

@@ -9,6 +9,7 @@ import '../../../app/model/app_settings_snapshot.dart'
 import '../../../app/model/editor_code_theme.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../app/theme/openhand_status_colors.dart';
+import '../../../shared/net/http_methods.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
@@ -1410,22 +1411,14 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
                         isExpanded: true,
                         initialValue: method,
                         decoration: _inputDecoration('方式'),
-                        items:
-                            const <String>[
-                                  'GET',
-                                  'POST',
-                                  'PUT',
-                                  'PATCH',
-                                  'DELETE',
-                                  'HEAD',
-                                ]
-                                .map(
-                                  (item) => DropdownMenuItem<String>(
-                                    value: item,
-                                    child: Text(item),
-                                  ),
-                                )
-                                .toList(growable: false),
+                        items: kStandardHttpMethods
+                            .map(
+                              (item) => DropdownMenuItem<String>(
+                                value: item,
+                                child: Text(item),
+                              ),
+                            )
+                            .toList(growable: false),
                         onChanged: (value) => _setHttpMethod(value ?? 'GET'),
                       ),
                     ),

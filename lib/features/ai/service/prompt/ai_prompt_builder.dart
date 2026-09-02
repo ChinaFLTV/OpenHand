@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/model/android_reverse_dashboard.dart';
 import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
@@ -2819,21 +2820,7 @@ class AiPromptBuilder {
           'warning':
               'No ADB / Frida / IDA Pro MCP tool is callable in # [2] Tool Catalog for this turn. Do not invent adb_* or frida_* names; use adb/frida Bash only after confirming device/tool availability.',
       },
-      'dashboard_tabs': const <String>[
-        'devices',
-        'overview',
-        'toolchain',
-        'mcp',
-        'plugins',
-        'packages',
-        'processes',
-        'logcat',
-        'frida',
-        'network',
-        'static_analysis',
-        'certs',
-        'crypto',
-      ],
+      'dashboard_tabs': androidReverseDashboardTabIds,
       'local_artifacts': <String, Object?>{
         'root_dir': rootDir,
         'logcat_jsonl': p.join(rootDir, 'logcat.jsonl'),

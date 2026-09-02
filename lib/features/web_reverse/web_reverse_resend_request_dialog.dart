@@ -1,12 +1,3 @@
-// 报文重放/改包 (Resend·Edit) Dialog
-// 从 Network 详情面板触发：以一个 [CdpNetworkEntry] 为初始模板，让用户
-// 修改 URL / Method / Headers / Body 后默认通过 CDP 在页面上下文 fetch，
-// 保留 Dart [HttpClient] 直连模式作为显式备选，结果实时展示状态、响应头、响应体。
-// 顶部右侧 segmented action 可一键导出为 curl / Python requests / fetch
-// 代码并复制到剪贴板，方便贴到外部脚本。
-// 动画风格：showAnimatedDialog 自带 Q弹进退场；内部状态切换走
-// AnimatedSwitcher 220ms + easeOutCubic，遵守 MediaQuery 减动效。
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -17,6 +8,7 @@ import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/net/bounded_http_request.dart';
+import '../../shared/net/http_methods.dart';
 import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/net/http_response_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
@@ -69,16 +61,6 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
   static const Duration _kRequestTimeout = Duration(seconds: 30);
   static const Duration _kResponseReadIdleTimeout = Duration(seconds: 5);
 
-  static const _kMethods = [
-    'GET',
-    'POST',
-    'PUT',
-    'PATCH',
-    'DELETE',
-    'HEAD',
-    'OPTIONS',
-  ];
-
   static const _kBrowserFetchForbiddenHeaders = <String>{
     'accept-charset',
     'accept-encoding',
@@ -123,7 +105,10 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
     _bodyCtrl = TextEditingController(
       text: widget.initial.requestPostData ?? '',
     );
-    _method = _kMethods.contains(widget.initial.method.toUpperCase())
+    _method =
+        kStandardHttpMethodsWithOptions.contains(
+          widget.initial.method.toUpperCase(),
+        )
         ? widget.initial.method.toUpperCase()
         : 'GET';
     _transport = widget.controller.isBrowserAlive
@@ -877,7 +862,7 @@ print(resp.text[:2000])''';
               ),
             ),
             options: [
-              for (final m in _kMethods)
+              for (final m in kStandardHttpMethodsWithOptions)
                 WebReverseSelectOption(value: m, label: m),
             ],
             tooltip: 'Method',

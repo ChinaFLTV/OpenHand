@@ -22,6 +22,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/net/bounded_http_request.dart';
+import '../../../shared/net/http_methods.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/network_interface_discovery.dart';
@@ -1492,18 +1493,9 @@ class WebMessagePlatformService {
           ? '2xx'
           : '1xx';
       _statusBuckets[bucketKey] = (_statusBuckets[bucketKey] ?? 0) + 1;
-      // method 分布：MAX 8 个，超出走 OTHER。
+      // 请求方法分布最多 8 个，超出后归入 OTHER。
       final upperMethod = method.toUpperCase();
-      const knownMethods = <String>{
-        'GET',
-        'POST',
-        'PUT',
-        'PATCH',
-        'DELETE',
-        'HEAD',
-        'OPTIONS',
-      };
-      final methodKey = knownMethods.contains(upperMethod)
+      final methodKey = kStandardHttpMethodsWithOptions.contains(upperMethod)
           ? upperMethod
           : 'OTHER';
       _methodCounts[methodKey] = (_methodCounts[methodKey] ?? 0) + 1;
