@@ -176,6 +176,27 @@ List<DingTalkGatewayMedia> mergeDingTalkMediaCache(
       .toList(growable: false);
 }
 
+@visibleForTesting
+bool canResumeDingTalkQueuedResponse({
+  required bool serviceEnabled,
+  required bool queuePaused,
+  required bool responseActive,
+  required bool itemExists,
+}) => serviceEnabled && queuePaused && !responseActive && itemExists;
+
+@visibleForTesting
+bool prioritizeDingTalkQueuedResponse<T>(
+  Queue<T> queue,
+  bool Function(T item) matches,
+) {
+  final item = queue.where(matches).firstOrNull;
+  if (item == null) return false;
+  queue
+    ..remove(item)
+    ..addFirst(item);
+  return true;
+}
+
 enum DingTalkConversationResponseState {
   idle,
   active,
@@ -243,6 +264,7 @@ class _QueuedDingTalkResponse {
   DateTime scheduledAt;
   final int sequence;
   bool forceResponse;
+  bool manuallyPrioritized = false;
   final bool automaticResponse;
   final int? pollingGeneration;
   final Completer<void> completer;
@@ -379,6 +401,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       <String, Completer<void>>{};
   final Map<String, Queue<_QueuedDingTalkResponse>> _responseQueues =
       <String, Queue<_QueuedDingTalkResponse>>{};
+  final Set<String> _pausedResponseQueueConversationIds = <String>{};
   final Set<String> _activeResponseConversationIds = <String>{};
   final Set<String> _seenMessageIds = <String>{};
   final Set<String> _unresolvedOutgoingMessageIds = <String>{};
@@ -1159,6 +1182,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final conversation = _conversations[conversationId];
     if (conversation == null) return;
     await stopConversationResponse(conversationId);
+    _discardQueuedResponses(conversationId, conversation: conversation);
     _conversations.remove(conversationId);
     _responseErrors.remove(conversationId);
     _conversationHistoryStates.remove(conversationId);
@@ -1180,12 +1204,52 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   bool isConversationResponding(String conversationId) {
     final conversation = _conversations[conversationId];
     final sessionId = conversation?.aiSessionId;
-    return _responseInFlight.contains(conversationId) ||
-        _responsePreparingCounts.containsKey(conversationId) ||
-        (_responseQueues[conversationId]?.isNotEmpty ?? false) ||
+    final hasActiveResponse =
+        _responseInFlight.contains(conversationId) ||
+        _activeResponseConversationIds.contains(conversationId) ||
         (sessionId != null &&
             !_responseCancellationVersions.containsKey(conversationId) &&
             _sessionController.canStopResponding(sessionId));
+    if (_pausedResponseQueueConversationIds.contains(conversationId)) {
+      return hasActiveResponse;
+    }
+    return hasActiveResponse ||
+        _responsePreparingCounts.containsKey(conversationId) ||
+        (_responseQueues[conversationId]?.isNotEmpty ?? false);
+  }
+
+  bool isResponseQueuePaused(String conversationId) =>
+      _pausedResponseQueueConversationIds.contains(conversationId.trim()) &&
+      (_responseQueues[conversationId.trim()]?.isNotEmpty ?? false);
+
+  bool canRespondToQueuedResponse(String conversationId, int sequence) {
+    final normalizedId = conversationId.trim();
+    final queue = _responseQueues[normalizedId];
+    return canResumeDingTalkQueuedResponse(
+      serviceEnabled: isServiceEnabled,
+      queuePaused: _pausedResponseQueueConversationIds.contains(normalizedId),
+      responseActive: isConversationResponding(normalizedId),
+      itemExists:
+          queue != null && queue.any((item) => item.sequence == sequence),
+    );
+  }
+
+  bool respondToQueuedResponse(String conversationId, int sequence) {
+    final normalizedId = conversationId.trim();
+    if (!canRespondToQueuedResponse(normalizedId, sequence)) return false;
+    final queue = _responseQueues[normalizedId]!;
+    if (!prioritizeDingTalkQueuedResponse(
+      queue,
+      (item) => item.sequence == sequence,
+    )) {
+      return false;
+    }
+    queue.first.manuallyPrioritized = true;
+    _pausedResponseQueueConversationIds.remove(normalizedId);
+    _responseErrors.remove(normalizedId);
+    _scheduleResponseWorkers();
+    _notify();
+    return true;
   }
 
   String responseStatusText(String conversationId) {
@@ -1231,7 +1295,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         .firstOrNull;
     if (item == null) return false;
     queue.remove(item);
-    if (queue.isEmpty) _responseQueues.remove(normalizedId);
+    if (queue.isEmpty) {
+      _responseQueues.remove(normalizedId);
+      _pausedResponseQueueConversationIds.remove(normalizedId);
+    }
     final conversation = _conversations[normalizedId];
     if (conversation != null) {
       _setMessageAiResponseState(
@@ -1268,34 +1335,23 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   Future<void> stopConversationResponse(String conversationId) async {
     if (_disposed) return;
+    final normalizedId = conversationId.trim();
+    if (normalizedId.isEmpty) return;
+    if (_responseQueues[normalizedId]?.isNotEmpty ?? false) {
+      _pausedResponseQueueConversationIds.add(normalizedId);
+    }
     final mediaCancellation = _activeMediaGenerationCancellations.remove(
-      conversationId,
+      normalizedId,
     );
     if (mediaCancellation != null && !mediaCancellation.isCompleted) {
       mediaCancellation.complete();
     }
-    final nextVersion =
-        (_responseCancellationVersions[conversationId] ?? 0) + 1;
-    _responseCancellationVersions[conversationId] = nextVersion;
-    final conversation = _conversations[conversationId];
+    final nextVersion = (_responseCancellationVersions[normalizedId] ?? 0) + 1;
+    _responseCancellationVersions[normalizedId] = nextVersion;
+    final conversation = _conversations[normalizedId];
     final sessionId = conversation?.aiSessionId;
-    final queue = _responseQueues.remove(conversationId);
-    if (queue != null) {
-      for (final item in queue) {
-        if (conversation != null) {
-          _setMessageAiResponseState(
-            conversation,
-            item.sourceMessageId,
-            DingTalkMessageAiResponseState.cancelled,
-          );
-        }
-        item.complete();
-      }
-      queue.clear();
-    }
-    _responsePreparingCounts.remove(conversationId);
     if (sessionId == null || !_sessionController.canStopResponding(sessionId)) {
-      _responseInFlight.remove(conversationId);
+      _responseInFlight.remove(normalizedId);
       _notify();
       return;
     }
@@ -1306,7 +1362,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog('dingtalk_gateway', '停止钉钉 AI 响应', error, stack);
     } finally {
-      _responseInFlight.remove(conversationId);
+      _responseInFlight.remove(normalizedId);
       _notify();
     }
   }
@@ -2281,6 +2337,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         !isAuthorized ||
         _isSending ||
         _editingMessageInFlight ||
+        isResponseQueuePaused(conversationId) ||
         isConversationResponding(conversationId)) {
       return false;
     }
@@ -5999,13 +6056,17 @@ ${_markdownStructuredFields(response)}''';
   static const int _maxQueuedResponsesPerConversation = 256;
 
   bool _canStartResponseImmediately(String conversationId) {
-    if (_activeResponseConversationIds.contains(conversationId)) return false;
+    if (_activeResponseConversationIds.contains(conversationId) ||
+        _pausedResponseQueueConversationIds.contains(conversationId)) {
+      return false;
+    }
     final availableWorkers =
         _settings.responseWorkerCount - _activeResponseConversationIds.length;
     if (availableWorkers <= 0) return false;
     var readyQueues = 0;
     for (final entry in _responseQueues.entries) {
       if (entry.value.isEmpty ||
+          _pausedResponseQueueConversationIds.contains(entry.key) ||
           _activeResponseConversationIds.contains(entry.key)) {
         continue;
       }
@@ -6291,19 +6352,10 @@ ${_markdownStructuredFields(response)}''';
     // 停止消息服务后，自动响应和手动响应都必须立即退出，不能留下后台任务。
     final queuedConversationIds = _responseQueues.keys.toList(growable: false);
     for (final conversationId in queuedConversationIds) {
-      final queue = _responseQueues.remove(conversationId);
-      if (queue == null) continue;
-      final conversation = _conversations[conversationId];
-      for (final item in queue) {
-        if (conversation != null) {
-          _setMessageAiResponseState(
-            conversation,
-            item.sourceMessageId,
-            DingTalkMessageAiResponseState.cancelled,
-          );
-        }
-        item.complete();
-      }
+      _discardQueuedResponses(
+        conversationId,
+        conversation: _conversations[conversationId],
+      );
     }
     _scheduleResponseWorkers();
     for (final cancellation in _activeMediaGenerationCancellations.values) {
@@ -6364,7 +6416,10 @@ ${_markdownStructuredFields(response)}''';
           }
           item.complete();
         }
-        if (queue.isEmpty) _responseQueues.remove(conversationId);
+        if (queue.isEmpty) {
+          _responseQueues.remove(conversationId);
+          _pausedResponseQueueConversationIds.remove(conversationId);
+        }
       }
 
       final activeItem = _activeAutomaticResponses[conversationId];
@@ -6470,14 +6525,20 @@ ${_markdownStructuredFields(response)}''';
       _QueuedDingTalkResponse? selectedItem;
       for (final entry in _responseQueues.entries) {
         if (entry.value.isEmpty ||
+            _pausedResponseQueueConversationIds.contains(entry.key) ||
             _activeResponseConversationIds.contains(entry.key)) {
           continue;
         }
         final candidate = entry.value.first;
-        if (selectedItem == null ||
-            candidate.scheduledAt.isBefore(selectedItem.scheduledAt) ||
-            (candidate.scheduledAt.isAtSameMomentAs(selectedItem.scheduledAt) &&
-                candidate.sequence < selectedItem.sequence)) {
+        final selected = selectedItem;
+        if (selected == null ||
+            (candidate.manuallyPrioritized && !selected.manuallyPrioritized) ||
+            (candidate.manuallyPrioritized == selected.manuallyPrioritized &&
+                (candidate.scheduledAt.isBefore(selected.scheduledAt) ||
+                    (candidate.scheduledAt.isAtSameMomentAs(
+                          selected.scheduledAt,
+                        ) &&
+                        candidate.sequence < selected.sequence)))) {
           selectedConversationId = entry.key;
           selectedItem = candidate;
         }
@@ -6486,6 +6547,7 @@ ${_markdownStructuredFields(response)}''';
       final conversation = _conversations[selectedConversationId];
       final queue = _responseQueues[selectedConversationId];
       if (conversation == null || queue == null || queue.isEmpty) {
+        _pausedResponseQueueConversationIds.remove(selectedConversationId);
         final discardedQueue = _responseQueues.remove(selectedConversationId);
         if (discardedQueue == null) {
           selectedItem.complete();
@@ -6504,9 +6566,32 @@ ${_markdownStructuredFields(response)}''';
         continue;
       }
       queue.removeFirst();
-      if (queue.isEmpty) _responseQueues.remove(selectedConversationId);
+      if (queue.isEmpty) {
+        _responseQueues.remove(selectedConversationId);
+        _pausedResponseQueueConversationIds.remove(selectedConversationId);
+      }
       _activeResponseConversationIds.add(selectedConversationId);
       unawaited(_runResponseWorker(conversation, selectedItem));
+    }
+  }
+
+  void _discardQueuedResponses(
+    String conversationId, {
+    DingTalkConversation? conversation,
+  }) {
+    final normalizedId = conversationId.trim();
+    final queue = _responseQueues.remove(normalizedId);
+    _pausedResponseQueueConversationIds.remove(normalizedId);
+    if (queue == null) return;
+    for (final item in queue) {
+      if (conversation != null) {
+        _setMessageAiResponseState(
+          conversation,
+          item.sourceMessageId,
+          DingTalkMessageAiResponseState.cancelled,
+        );
+      }
+      item.complete();
     }
   }
 
@@ -7184,6 +7269,7 @@ ${_markdownStructuredFields(response)}''';
       }
     }
     _responseQueues.clear();
+    _pausedResponseQueueConversationIds.clear();
     _activeResponseConversationIds.clear();
     _activeResponseContextMessageIds.clear();
     _activeAutomaticResponses.clear();

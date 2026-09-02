@@ -13022,6 +13022,23 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                 'dingtalk-response-queue:${selected.id}',
                                               ),
                                               messages: selectedQueuedResponses,
+                                              showRespondAction: widget
+                                                  .controller
+                                                  .isResponseQueuePaused(
+                                                    selected.id,
+                                                  ),
+                                              canRespond: (sequence) => widget
+                                                  .controller
+                                                  .canRespondToQueuedResponse(
+                                                    selected.id,
+                                                    sequence,
+                                                  ),
+                                              onRespond: (sequence) => widget
+                                                  .controller
+                                                  .respondToQueuedResponse(
+                                                    selected.id,
+                                                    sequence,
+                                                  ),
                                               animationSettings:
                                                   chipAnimationSettings,
                                               onRemove: (sequence) => widget
@@ -14383,14 +14400,22 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     final loadingHistory = widget.controller.isRefreshingConversationMessages(
       conversation.id,
     );
+    final queuePaused = widget.controller.isResponseQueuePaused(
+      conversation.id,
+    );
     final enabled =
         widget.controller.isServiceEnabled &&
         !_attachmentBusy &&
         !loadingHistory &&
+        !queuePaused &&
         !widget.controller.isSending &&
         !widget.controller.isConversationResponding(conversation.id);
     return Tooltip(
-      message: loadingHistory ? '正在同步会话历史消息' : '强制响应历史消息',
+      message: loadingHistory
+          ? '正在同步会话历史消息'
+          : queuePaused
+          ? '请从等待队列选择响应起点'
+          : '强制响应历史消息',
       child: SizedBox(
         width: _composerIconButtonSize,
         height: _composerIconButtonSize,
@@ -15811,12 +15836,18 @@ class _DingTalkQueuedResponsesPanel extends StatelessWidget {
     super.key,
     required this.messages,
     required this.animationSettings,
+    required this.showRespondAction,
+    required this.canRespond,
+    required this.onRespond,
     required this.onRemove,
     required this.onMove,
   });
 
   final List<DingTalkQueuedResponse> messages;
   final DialogAnimationSettings animationSettings;
+  final bool showRespondAction;
+  final bool Function(int sequence) canRespond;
+  final ValueChanged<int> onRespond;
   final ValueChanged<int> onRemove;
   final void Function(int from, int to) onMove;
 
@@ -15837,6 +15868,7 @@ class _DingTalkQueuedResponsesPanel extends StatelessWidget {
             final message = messages[index];
             final isFirst = index == 0;
             final isLast = index == messages.length - 1;
+            final respondEnabled = canRespond(message.sequence);
             Color actionColor(bool enabled) => enabled
                 ? colors.onSurfaceVariant
                 : colors.onSurfaceVariant.withValues(alpha: 0.3);
@@ -15882,6 +15914,51 @@ class _DingTalkQueuedResponsesPanel extends StatelessWidget {
                         ),
                       ),
                       kOpenHandHGap4,
+                      AnimatedSwitcher(
+                        duration: openHandMotionDuration(
+                          context,
+                          kOpenHandMotion180,
+                        ),
+                        switchInCurve: kOpenHandEntranceCurve,
+                        switchOutCurve: kOpenHandSwitchOutCurve,
+                        transitionBuilder: (child, animation) => SizeTransition(
+                          axis: Axis.horizontal,
+                          sizeFactor: animation,
+                          child: FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          ),
+                        ),
+                        child: showRespondAction
+                            ? MicroPressFeedback(
+                                key: ValueKey<String>(
+                                  'respond:${message.sequence}',
+                                ),
+                                enabled: respondEnabled,
+                                child: IconButton(
+                                  onPressed: respondEnabled
+                                      ? () => onRespond(message.sequence)
+                                      : null,
+                                  icon: Icon(
+                                    Icons.play_arrow_rounded,
+                                    size: 15,
+                                    color: actionColor(respondEnabled),
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  tooltip: respondEnabled
+                                      ? '从此消息开始响应'
+                                      : '正在停止当前响应',
+                                ),
+                              )
+                            : SizedBox.shrink(
+                                key: ValueKey<String>(
+                                  'respond-hidden:${message.sequence}',
+                                ),
+                              ),
+                      ),
+                      if (showRespondAction) kOpenHandHGap4,
                       MicroPressFeedback(
                         enabled: !isFirst,
                         child: IconButton(
