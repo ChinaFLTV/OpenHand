@@ -21,6 +21,8 @@ class MessageGatewayStore {
           );
 
   static const int _maxConfigFileBytes = 4 * kBytesPerMiB;
+  static const int _maxConfigContainerItems = 4096;
+  static const int _maxConfigNodes = 32768;
   static const String _allowedBuiltinToolNamesKey =
       'allowed_builtin_tool_names';
   static const String _retiredBuiltinToolNamePrefix = 'agent';
@@ -56,6 +58,9 @@ class MessageGatewayStore {
       source,
       config.toJson(),
       path: 'message_gateway',
+      maxDepth: 16,
+      maxContainerItems: _maxConfigContainerItems,
+      maxTotalNodes: _maxConfigNodes,
     );
     _expectedContent = raw;
     _hasLoadedSnapshot = true;
@@ -122,7 +127,16 @@ class MessageGatewayStore {
         throw StateError('消息网关配置已被外部修改。');
       }
     }
-    final content = '${prettyPrintJson(config.toJson())}\n';
+    final payload = config.toJson();
+    validateCanonicalJsonSubset(
+      payload,
+      payload,
+      path: 'message_gateway',
+      maxDepth: 16,
+      maxContainerItems: _maxConfigContainerItems,
+      maxTotalNodes: _maxConfigNodes,
+    );
+    final content = '${prettyPrintJson(payload)}\n';
     if (utf8.encode(content).length > _maxConfigFileBytes) {
       throw const FileSystemException('消息网关配置超过大小上限。');
     }

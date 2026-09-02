@@ -67,6 +67,7 @@ class WebGatewayOpsStore {
     if (utf8.encode(content).length > _maxStoreBytes) {
       throw const FileSystemException('Web 网关运维历史超过大小上限。');
     }
+    _decode(content);
     await writeFileAtomically(file, content);
     _expectedContent = content;
   }

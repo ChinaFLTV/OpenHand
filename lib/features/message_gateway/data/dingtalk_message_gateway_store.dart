@@ -40,6 +40,7 @@ class DingTalkMessageGatewayStore {
       const <DingTalkConversation>[];
 
   Future<DingTalkGatewayStoreSnapshot> loadSnapshot() async {
+    _loaded = false;
     final file = File(filePath);
     await recoverAtomicWriteBackupIfNeeded(file);
     if (!await regularFileExistsBounded(file)) {
@@ -58,26 +59,50 @@ class DingTalkMessageGatewayStore {
     final settings = DingTalkGatewaySettings.fromJson(data);
     final conversations = <DingTalkConversation>[];
     final rawConversations = data['conversations'];
-    if (rawConversations is List) {
-      for (final item in rawConversations.take(_maxConversations)) {
-        if (item is! Map) continue;
-        try {
-          final conversation = DingTalkConversation.fromJson(
-            stringKeyedMapFromValue(item),
-          );
-          // 20 条限制只用于首次导入远端历史；重启后恢复全部已持久化消息。
-          final messages = _keepRecentMessages(
-            conversation.messages,
-            maxMessages: _maxMessagesPerConversation,
-          );
-          conversation.messages
-            ..clear()
-            ..addAll(messages);
-          conversations.add(conversation);
-        } on FormatException {
-          continue;
+    if (rawConversations != null && rawConversations is! List) {
+      throw const FormatException('钉钉网关 conversations 必须为列表。');
+    }
+    final rawConversationList = rawConversations is List
+        ? rawConversations
+        : const <Object?>[];
+    if (rawConversationList.length > _maxConversations) {
+      throw const FormatException('钉钉会话数量超过安全上限。');
+    }
+    final conversationIds = <String>{};
+    for (var index = 0; index < rawConversationList.length; index++) {
+      final item = rawConversationList[index];
+      if (item is! Map) {
+        throw FormatException('钉钉会话[$index]必须为对象。');
+      }
+      final conversationJson = stringKeyedMapFromValue(item);
+      final rawMessages = conversationJson['messages'];
+      if (rawMessages != null && rawMessages is! List) {
+        throw FormatException('钉钉会话[$index].messages 必须为列表。');
+      }
+      if (rawMessages is List) {
+        if (rawMessages.length > _maxMessagesPerConversation) {
+          throw FormatException('钉钉会话[$index]消息数量超过安全上限。');
+        }
+        if (rawMessages.any((message) => message is! Map)) {
+          throw FormatException('钉钉会话[$index]包含无效消息。');
         }
       }
+      final conversation = DingTalkConversation.fromJson(conversationJson);
+      if (rawMessages is List &&
+          conversation.messages.length != rawMessages.length) {
+        throw FormatException('钉钉会话[$index]包含损坏消息。');
+      }
+      if (!conversationIds.add(conversation.id)) {
+        throw FormatException('钉钉会话 ID 重复：${conversation.id}');
+      }
+      final messages = _keepRecentMessages(
+        conversation.messages,
+        maxMessages: _maxMessagesPerConversation,
+      );
+      conversation.messages
+        ..clear()
+        ..addAll(messages);
+      conversations.add(conversation);
     }
     _loaded = true;
     _expectedContent = raw;
@@ -112,9 +137,18 @@ class DingTalkMessageGatewayStore {
       throw StateError('钉钉网关配置已被外部修改。');
     }
     final normalized = settings.normalized();
-    final limitedConversations = conversations
-        .take(_maxConversations)
+    final sourceConversations = conversations
+        .take(_maxConversations + 1)
+        .toList(growable: false);
+    if (sourceConversations.length > _maxConversations) {
+      throw const FormatException('钉钉会话数量超过安全上限。');
+    }
+    final conversationIds = <String>{};
+    final limitedConversations = sourceConversations
         .map((conversation) {
+          if (!conversationIds.add(conversation.id)) {
+            throw FormatException('钉钉会话 ID 重复：${conversation.id}');
+          }
           final messages = _keepRecentMessages(
             conversation.messages,
             maxMessages: _maxMessagesPerConversation,
@@ -154,6 +188,9 @@ class DingTalkMessageGatewayStore {
       }
       content = encodePayload();
     }
+    if (utf8.encode(content).length > _maxBytes) {
+      throw const FileSystemException('钉钉网关配置超过大小上限。');
+    }
     await writeFileAtomically(file, content);
     _expectedContent = content;
     _cachedConversations = List<DingTalkConversation>.unmodifiable(
@@ -165,9 +202,12 @@ class DingTalkMessageGatewayStore {
     Iterable<DingTalkGatewayMessage> source, {
     required int maxMessages,
   }) {
-    final messages = source
-        .where((message) => message.content.length <= _maxMessageContentLength)
-        .toList(growable: true);
+    final messages = source.toList(growable: true);
+    if (messages.any(
+      (message) => message.content.length > _maxMessageContentLength,
+    )) {
+      throw const FormatException('钉钉消息内容超过安全上限。');
+    }
     final indexed = messages.asMap().entries.toList(growable: true);
     indexed.sort((left, right) {
       final created = left.value.createdAt.compareTo(right.value.createdAt);
