@@ -158,6 +158,26 @@ String normalizeDingTalkMessageContentForComparison(Object? value) =>
         .replaceAll(_dingtalkWhitespacePattern, ' ')
         .trim();
 
+/// 生成出站消息回流比较值，同时消除钉钉对行内代码和加粗标记的等价转换。
+String normalizeDingTalkOutgoingEchoContentForComparison(Object? value) {
+  var normalized = normalizeDingTalkMessageContentForComparison(value);
+  if (normalized.isEmpty) return normalized;
+  normalized = normalized
+      .replaceAllMapped(
+        RegExp(r'(`+)([^`\n]+)\1'),
+        (match) => match.group(2) ?? '',
+      )
+      .replaceAllMapped(
+        RegExp(r'\*\*([^*\n]+)\*\*'),
+        (match) => match.group(1) ?? '',
+      )
+      .replaceAllMapped(
+        RegExp(r'__([^_\n]+)__'),
+        (match) => match.group(1) ?? '',
+      );
+  return normalizeDingTalkMessageContentForComparison(normalized);
+}
+
 const Map<String, String> _dingtalkReactionEmojiMap = <String, String>{
   '拜托': '🙏',
   '抱拳': '🙏',

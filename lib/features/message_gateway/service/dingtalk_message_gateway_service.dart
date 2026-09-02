@@ -1862,7 +1862,7 @@ class DingTalkMessageGatewayService {
     required DateTime createdAt,
     String senderName = '',
   }) async {
-    final normalizedContent = normalizeDingTalkMessageContentForComparison(
+    final normalizedContent = normalizeDingTalkOutgoingEchoContentForComparison(
       content,
     );
     if (normalizedContent.isEmpty) return null;
@@ -1916,7 +1916,9 @@ class DingTalkMessageGatewayService {
     final exact = candidates
         .where(
           (message) =>
-              normalizeDingTalkMessageContentForComparison(message.content) ==
+              normalizeDingTalkOutgoingEchoContentForComparison(
+                message.content,
+              ) ==
               normalizedContent,
         )
         .toList(growable: true);

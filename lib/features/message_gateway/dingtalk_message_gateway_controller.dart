@@ -24,6 +24,7 @@ import '../../shared/util/physical_path_safety.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/text_normalization.dart';
 import '../../shared/util/timer_safety.dart';
+import '../../shared/util/tool_name_normalization.dart';
 import '../ai/index.dart';
 import '../instructions/index.dart';
 import '../knowledge_base/index.dart';
@@ -39,16 +40,35 @@ import 'service/dingtalk_message_gateway_service.dart';
 
 const String _dingTalkResponseRoundIdMetadataKey = 'dingtalk_response_round_id';
 
+class _DingTalkEagerMcpTool {
+  const _DingTalkEagerMcpTool({
+    required this.name,
+    required this.serverName,
+    required this.description,
+  });
+
+  final String name;
+  final String serverName;
+  final String description;
+}
+
 String _sanitizeDingTalkVisibleText(String value) =>
     stripImageSummaryMarkup(value);
 
 @visibleForTesting
 bool canMergeDingTalkOutgoingEcho({
   required bool incomingIsSelf,
+  required bool incomingIdentityUnresolved,
   required bool unresolvedOutgoing,
   required bool sameContent,
   required bool sameMedia,
-}) => incomingIsSelf && unresolvedOutgoing && (sameContent || sameMedia);
+  required bool withinUnverifiedMatchWindow,
+}) =>
+    unresolvedOutgoing &&
+    (incomingIsSelf && (sameContent || sameMedia) ||
+        incomingIdentityUnresolved &&
+            withinUnverifiedMatchWindow &&
+            sameContent);
 
 @visibleForTesting
 bool matchesDingTalkOutgoingMedia(
@@ -273,6 +293,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const int _maxPendingStatusEventsPerMessage = 24;
   static const int _maxUnresolvedOutgoingMessageIds = 256;
   static const Duration _outgoingEchoWindow = Duration(seconds: 30);
+  static const Duration _unverifiedOutgoingEchoWindow = Duration(seconds: 5);
   static const int _maxAiConversationContextCharacters = 48000;
   static const int _maxAiConversationContextMessages = 200;
   static const int _maxAiContextMessageCharacters = 4000;
@@ -3009,10 +3030,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (incomingId.isEmpty) return false;
     final incomingContent = incoming.content.trim();
     final incomingContentComparison =
-        normalizeDingTalkMessageContentForComparison(incomingContent);
+        normalizeDingTalkOutgoingEchoContentForComparison(incomingContent);
     final incomingSenderId = incoming.senderId.trim();
+    final incomingSenderOpenDingTalkId = incoming.senderOpenDingTalkId.trim();
     final incomingIsSelf = _isSelf(incoming);
-    if (!incomingIsSelf) return false;
+    final incomingIdentityUnresolved =
+        !incomingIsSelf && _isIncomingIdentityUnresolved(incoming);
+    if (!incomingIsSelf && !incomingIdentityUnresolved) return false;
     var localIndex = -1;
     Duration? closestAge;
     for (final entry in conversation.messages.asMap().entries) {
@@ -3030,10 +3054,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       if (age > _outgoingEchoWindow) continue;
       final sameContent =
           incomingContentComparison.isNotEmpty &&
-          (normalizeDingTalkMessageContentForComparison(local.content) ==
+          (normalizeDingTalkOutgoingEchoContentForComparison(local.content) ==
                   incomingContentComparison ||
               local.sourceAiMessageId.trim().isNotEmpty &&
-                  normalizeDingTalkMessageContentForComparison(
+                  normalizeDingTalkOutgoingEchoContentForComparison(
                         _dingTalkRemoteEchoText(local.content),
                       ) ==
                       incomingContentComparison);
@@ -3044,9 +3068,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       );
       if (!canMergeDingTalkOutgoingEcho(
         incomingIsSelf: incomingIsSelf,
+        incomingIdentityUnresolved: incomingIdentityUnresolved,
         unresolvedOutgoing: unresolvedOutgoing,
         sameContent: sameContent,
         sameMedia: sameMedia,
+        withinUnverifiedMatchWindow: age <= _unverifiedOutgoingEchoWindow,
       )) {
         continue;
       }
@@ -3069,6 +3095,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     conversation.messages[refreshedIndex] = merged;
     _unresolvedOutgoingMessageIds.remove(local.id);
     if (incomingSenderId.isNotEmpty) _selfSenderIds.add(incomingSenderId);
+    if (incomingSenderOpenDingTalkId.isNotEmpty) {
+      _selfSenderIds.add(incomingSenderOpenDingTalkId);
+    }
     _remember(incomingId);
     _queuePersist();
     return true;
@@ -3092,14 +3121,16 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       if (localIndex < 0) continue;
       final local = conversation.messages[localIndex];
       final localContentComparison =
-          normalizeDingTalkMessageContentForComparison(local.content);
+          normalizeDingTalkOutgoingEchoContentForComparison(local.content);
       var remoteIndex = -1;
       Duration? closestAge;
       for (final entry in conversation.messages.asMap().entries) {
         final remote = entry.value;
+        final remoteIsSelf = _isSelf(remote);
+        final remoteIdentityUnresolved = _isIncomingIdentityUnresolved(remote);
         if (entry.key == localIndex ||
             remote.isAssistant ||
-            !_isSelf(remote) ||
+            (!remoteIsSelf && !remoteIdentityUnresolved) ||
             _isTemporaryMessageId(remote.id) ||
             remote.conversationType != local.conversationType) {
           continue;
@@ -3107,10 +3138,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         final age = remote.createdAt.difference(local.createdAt).abs();
         if (age > _outgoingEchoWindow) continue;
         final remoteContentComparison =
-            normalizeDingTalkMessageContentForComparison(remote.content);
+            normalizeDingTalkOutgoingEchoContentForComparison(remote.content);
         final sameContent =
             remoteContentComparison.isNotEmpty &&
             remoteContentComparison == localContentComparison;
+        if (!remoteIsSelf &&
+            (!sameContent || age > _unverifiedOutgoingEchoWindow)) {
+          continue;
+        }
         if (!sameContent &&
             !matchesDingTalkOutgoingMedia(
               local.media,
@@ -3135,6 +3170,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         conversation.messages[localIndex - 1] = merged;
       }
       _unresolvedOutgoingMessageIds.remove(local.id);
+      final remoteSenderId = remote.senderId.trim();
+      final remoteSenderOpenDingTalkId = remote.senderOpenDingTalkId.trim();
+      if (remoteSenderId.isNotEmpty) _selfSenderIds.add(remoteSenderId);
+      if (remoteSenderOpenDingTalkId.isNotEmpty) {
+        _selfSenderIds.add(remoteSenderOpenDingTalkId);
+      }
       _remember(remote.id);
       removedCount++;
     }
@@ -3161,12 +3202,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final incomingConversation = _conversationForIncomingMessage(
       normalizedMessage,
     );
-    final subscriptionTargetUpdated =
-        incomingConversation != null &&
-        _updateDirectConversationPeerIdentity(
-          incomingConversation,
-          normalizedMessage,
-        );
     if (incomingConversation != null &&
         _mergeIncomingOutgoingEcho(normalizedMessage, incomingConversation)) {
       if (!allowHistorical && normalizedMessage.contextualMedia.isNotEmpty) {
@@ -3175,6 +3210,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       _notify();
       return;
     }
+    final subscriptionTargetUpdated =
+        incomingConversation != null &&
+        _updateDirectConversationPeerIdentity(
+          incomingConversation,
+          normalizedMessage,
+        );
     final pendingRecall = _pendingRecalledMessageIds.remove(messageId);
     final incoming = pendingRecall && !normalizedMessage.recalled
         ? normalizedMessage.copyWith(recalled: true)
@@ -4454,6 +4495,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         query: source == null ? content : _messageAiContextContent(source),
         serverNames: selectedMcp.map((server) => server.name),
       );
+      final eagerMcpTools = _resolvedEagerMcpTools(
+        selectedMcp,
+        eagerMcpServerNames.toSet(),
+      );
+      final expectedEagerMcpToolNames = eagerMcpTools
+          .map((tool) => tool.name)
+          .toSet();
       final selectedSkills = _skillsController.skills
           .where((skill) => _settings.allowedSkillNames.contains(skill.name))
           .toList(growable: false);
@@ -4739,9 +4787,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
                 : _groupResponseReminder,
             if (mediaRequest != null) mediaRequest.routingReminder,
             if (selectedMcp.isNotEmpty)
-              '钉钉 MCP 路由：已启用 ${selectedMcp.map((server) => server.name).join('、')}。'
-                  '请求与其能力匹配时必须调用 MCP；延迟工具先通过 ToolSearch 查询并调用精确工具。'
-                  '取得工具结果前不得编造事实，也不要输出调用前导语。',
+              _dingTalkMcpRoutingReminder(selectedMcp, eagerMcpTools),
           ],
           userMessageMetadata: <String, Object?>{
             'sent_via': 'dingtalk_gateway',
@@ -4766,6 +4812,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           return;
         }
         if (responseCancelled()) return;
+        if (expectedEagerMcpToolNames.isNotEmpty &&
+            !_roundInvokedAnyTool(
+              currentSession(),
+              messageCountBeforeSend,
+              expectedEagerMcpToolNames,
+            )) {
+          _setResponseError(conversation.id, 'AI 未调用已匹配的 MCP 工具，请重试。');
+          return;
+        }
         if (mediaRequest != null) {
           final roundState = _dingTalkMediaRoundState(
             currentSession(),
@@ -6645,6 +6700,87 @@ ${_markdownStructuredFields(response)}''';
         .toList(growable: false);
   }
 
+  List<_DingTalkEagerMcpTool> _resolvedEagerMcpTools(
+    List<McpServer> selectedServers,
+    Set<String> eagerServerNames,
+  ) {
+    if (eagerServerNames.isEmpty) return const <_DingTalkEagerMcpTool>[];
+    final servers = List<McpServer>.from(selectedServers)
+      ..sort(
+        (left, right) => compareToolNamesForAiRequest(left.name, right.name),
+      );
+    final reservedNames = <String>{};
+    final result = <_DingTalkEagerMcpTool>[];
+    for (final server in servers) {
+      final tools = List<McpTool>.from(
+        _mcpController.toolCatalogFor(server.name).tools,
+      )..sort((left, right) => compareToolNamesForAiRequest(left.id, right.id));
+      for (final tool in tools) {
+        final baseName = compactToolName(
+          prefix: 'mcp__${server.name}',
+          token: tool.id,
+        );
+        var name = baseName;
+        var suffix = 1;
+        while (!reservedNames.add(name)) {
+          name = appendUniqueToolNameSuffix(baseName, suffix++);
+        }
+        if (!eagerServerNames.contains(server.name)) continue;
+        result.add(
+          _DingTalkEagerMcpTool(
+            name: name,
+            serverName: server.name,
+            description: clipTextByCodeUnits(
+              tool.description.replaceAll(RegExp(r'\s+'), ' ').trim(),
+              160,
+              suffix: '…',
+            ),
+          ),
+        );
+      }
+    }
+    return result;
+  }
+
+  String _dingTalkMcpRoutingReminder(
+    List<McpServer> selectedServers,
+    List<_DingTalkEagerMcpTool> eagerTools,
+  ) {
+    final enabledNames = selectedServers.map((server) => server.name).join('、');
+    if (eagerTools.isEmpty) {
+      return '钉钉 MCP 路由：已启用 $enabledNames。请求命中其能力时必须调用 MCP；'
+          '仅延迟工具使用 ToolSearch。取得结果前不得输出前导语或结论。';
+    }
+    final directTools = eagerTools
+        .map(
+          (tool) => tool.description.isEmpty
+              ? '${tool.name}（${tool.serverName}）'
+              : '${tool.name}（${tool.serverName}：${tool.description}）',
+        )
+        .join('；');
+    return '钉钉 MCP 路由：已直接加载 $directTools。请求命中时直接调用准确工具名，'
+        '禁止通过 ToolSearch 查找；仅其他延迟工具使用 ToolSearch。取得结果前不得输出前导语或结论。';
+  }
+
+  bool _roundInvokedAnyTool(
+    AiSession? session,
+    int startIndex,
+    Set<String> expectedToolNames,
+  ) {
+    if (session == null || expectedToolNames.isEmpty) return false;
+    final safeStart = startIndex.clamp(0, session.messages.length);
+    return session.messages
+        .skip(safeStart)
+        .any(
+          (message) =>
+              !message.isDeleted &&
+              message.kind == AiSessionMessageKind.toolCall &&
+              expectedToolNames.contains(
+                '${message.metadata['tool_name'] ?? ''}'.trim(),
+              ),
+        );
+  }
+
   bool _isSelf(DingTalkGatewayMessage message) {
     if (message.isAssistant || message.fromSelf) return true;
     final sender = message.senderId.trim();
@@ -6664,8 +6800,9 @@ ${_markdownStructuredFields(response)}''';
       return true;
     }
     if (senderOpenDingTalkId.isNotEmpty &&
-        currentOpenDingTalkId.isNotEmpty &&
-        senderOpenDingTalkId == currentOpenDingTalkId) {
+        ((currentOpenDingTalkId.isNotEmpty &&
+                senderOpenDingTalkId == currentOpenDingTalkId) ||
+            _selfSenderIds.contains(senderOpenDingTalkId))) {
       return true;
     }
     final senderName = message.senderName.trim();
@@ -6682,6 +6819,12 @@ ${_markdownStructuredFields(response)}''';
       _selfSenderIds.remove(sender);
     }
     return senderNameMatches;
+  }
+
+  bool _isIncomingIdentityUnresolved(DingTalkGatewayMessage message) {
+    if (message.senderName.trim().isNotEmpty) return false;
+    return message.senderId.trim().isNotEmpty ||
+        message.senderOpenDingTalkId.trim().isNotEmpty;
   }
 
   bool _sameIdentityName(String left, String right) {

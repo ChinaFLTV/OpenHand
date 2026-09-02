@@ -93,21 +93,40 @@ class AiToolSearchTool extends AiTool {
                 : definitionsByName.keys.toList(growable: false))
             .toList(growable: false)
           ..sort(_compareToolNames);
+    final directMcpDefinitions = <String, AiToolDefinition>{
+      for (final entry in context.catalog.toolsByName.entries)
+        if (entry.value.source == AiRuntimeToolSource.mcp)
+          entry.key: entry.value.definition,
+    };
     if (deferred.isEmpty) {
+      final directMatches = _runSearch(
+        query: query,
+        maxResults: maxResults,
+        deferred: directMcpDefinitions.keys.toList(growable: false),
+        deferredDefinitions: directMcpDefinitions,
+      );
       final payload = _buildResultPayload(
         query: query,
-        matches: const <String>[],
+        matches: directMatches,
         deferredTotal: 0,
-        functions: const <Map<String, Object?>>[],
-        message: '没有延迟加载的运行时工具，所有可调用工具均已加载。',
+        functions: _buildFunctionDefinitions(
+          directMatches,
+          directMcpDefinitions,
+        ),
+        message: directMatches.isEmpty
+            ? '没有延迟加载的运行时工具，所有可调用工具均已加载。'
+            : '以下 MCP 工具已直接加载；立即按 Schema 直接调用精确工具名，不要再次调用 ToolSearch。',
+        direct: true,
       );
       return AiToolUtils.simpleSuccessResult(
         command: 'ToolSearch query=$query',
         output: _encodePayload(payload),
         durationMs: stopwatch.elapsedMilliseconds,
-        metadata: const <String, Object?>{
-          'tool_search_loaded_names': <String>[],
+        metadata: <String, Object?>{
+          'tool_search_loaded_names': const <String>[],
           'tool_search_total_deferred': 0,
+          if (directMatches.isNotEmpty)
+            'tool_search_direct_names': directMatches,
         },
       );
     }
@@ -117,6 +136,38 @@ class AiToolSearchTool extends AiTool {
       deferred: deferred,
       deferredDefinitions: definitionsByName,
     );
+    if (matches.isEmpty && directMcpDefinitions.isNotEmpty) {
+      final directMatches = _runSearch(
+        query: query,
+        maxResults: maxResults,
+        deferred: directMcpDefinitions.keys.toList(growable: false),
+        deferredDefinitions: directMcpDefinitions,
+      );
+      if (directMatches.isNotEmpty) {
+        final payload = _buildResultPayload(
+          query: query,
+          matches: directMatches,
+          deferredTotal: deferred.length,
+          functions: _buildFunctionDefinitions(
+            directMatches,
+            directMcpDefinitions,
+          ),
+          message: '以下 MCP 工具已直接加载；立即按 Schema 直接调用精确工具名，不要再次调用 ToolSearch。',
+          direct: true,
+        );
+        return AiToolUtils.simpleSuccessResult(
+          command: 'ToolSearch query=$query',
+          output: _encodePayload(payload),
+          durationMs: stopwatch.elapsedMilliseconds,
+          metadata: <String, Object?>{
+            'tool_search_loaded_names': const <String>[],
+            'tool_search_total_deferred': deferred.length,
+            'tool_search_query': query,
+            'tool_search_direct_names': directMatches,
+          },
+        );
+      }
+    }
     final functions = _buildFunctionDefinitions(matches, definitionsByName);
     final payload = _buildResultPayload(
       query: query,
@@ -279,6 +330,7 @@ class AiToolSearchTool extends AiTool {
     required int deferredTotal,
     required List<Map<String, Object?>> functions,
     required String message,
+    bool direct = false,
   }) {
     return <String, Object?>{
       'tool': 'ToolSearch',
@@ -287,6 +339,7 @@ class AiToolSearchTool extends AiTool {
       'matched_count': matches.length,
       'deferred_total': deferredTotal,
       'loaded_tools': matches,
+      if (direct) 'direct_tools': matches,
       'message': message,
       'functions': functions,
     };
