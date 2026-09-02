@@ -8,6 +8,8 @@ import 'package:http/http.dart' as http;
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/async_concurrency.dart';
+import '../../../../shared/util/bounded_json_conversion.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/date_time_format.dart';
 import '../../../../shared/util/serial_task_queue.dart';
 import '../../../../shared/util/text_clip.dart';
@@ -97,6 +99,15 @@ class AiUsageTracker {
   static const int _defaultEstimatedCharactersPerToken = 4;
   static const int _pruneInterval = 256;
   static const int _maxErrorMessageCharacters = 8000;
+  static const BoundedJsonConversionConfig _metadataConversionConfig =
+      BoundedJsonConversionConfig(
+        maxDepth: 16,
+        maxContainerItems: 4096,
+        maxTotalNodes: 32768,
+        maxStringCodeUnits: 16 * kBytesPerKiB,
+        maxTotalStringCodeUnits: 96 * kBytesPerKiB,
+        truncatedStringSuffix: '…',
+      );
   static const Duration runtimeCleanupTimeout =
       kOpenHandServiceRuntimeCleanupTimeout;
 
@@ -535,7 +546,12 @@ class AiUsageTracker {
   String _encodeMetadata(Map<String, Object?> metadata) {
     if (metadata.isEmpty) return '{}';
     try {
-      return jsonEncode(metadata);
+      final encoded = jsonEncode(
+        convertToJsonSafeMap(metadata, config: _metadataConversionConfig),
+      );
+      return utf8ByteLength(encoded) <= aiUsageMaxMetadataBytes
+          ? encoded
+          : '{}';
     } catch (_) {
       return '{}';
     }

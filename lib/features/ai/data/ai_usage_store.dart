@@ -4,6 +4,9 @@ import 'dart:convert';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import '../model/ai_context_usage.dart';
 import '../model/ai_token_usage.dart';
 import '../model/ai_usage_analytics.dart';
@@ -11,6 +14,70 @@ import '../model/ai_usage_analytics.dart';
 /// 库内只存英文调度模式 id；界面文案由调用方按语言映射。key 与 label 必须同一表达式，避免缺省与显式 direct 被拆成两行。
 const String _aiUsageProxyModeSql =
     r"CASE WHEN json_valid(metadata_json) THEN COALESCE(NULLIF(trim(json_extract(metadata_json, '$.proxy_mode')), ''), 'direct') ELSE 'direct' END";
+const int aiUsageMaxMetadataBytes = 512 * kBytesPerKiB;
+const int _maxUsageRecordBytes = kBytesPerMiB;
+const int _maxUsageRequestPageBytes = 64 * kBytesPerMiB;
+const int _maxUsageTextCharacters = 16 * kBytesPerKiB;
+const int _maxUsageErrorCharacters = 16 * kBytesPerKiB;
+const int _maxUsageInteger = 1 << 40;
+const double _maxUsageCost = 1e15;
+const Set<String> _validUsageStatuses = <String>{
+  AiUsageRequestStatus.success,
+  AiUsageRequestStatus.failed,
+  AiUsageRequestStatus.timeout,
+  AiUsageRequestStatus.error,
+  AiUsageRequestStatus.cancelled,
+};
+const List<String> _usageRequiredTextColumns = <String>[
+  'id',
+  'trace_id',
+  'started_at',
+  'ended_at',
+  'local_date',
+  'local_hour',
+  'status',
+  'surface',
+  'source',
+  'operation',
+  'provider_config_id',
+  'provider_name',
+  'protocol',
+  'model_id',
+  'api_family',
+  'metadata_json',
+];
+const List<String> _usageNullableTextColumns = <String>[
+  'error_type',
+  'error_message',
+  'timeout_phase',
+  'session_id',
+  'thread_template_id',
+  'knowledge_base_id',
+];
+const List<String> _usageIntegerColumns = <String>[
+  'duration_ms',
+  'prompt_tokens',
+  'completion_tokens',
+  'cache_creation_tokens',
+  'cache_read_tokens',
+  'cache_input_tokens',
+  'reasoning_tokens',
+  'audio_input_tokens',
+  'image_input_tokens',
+  'video_input_tokens',
+  'web_search_tool_usage',
+  'web_search_page_usage',
+  'total_tokens',
+];
+const List<String> _usageCostColumns = <String>[
+  'input_cost_usd',
+  'output_cost_usd',
+  'cache_read_cost_usd',
+  'cache_write_cost_usd',
+  'total_cost_usd',
+];
+final RegExp _usageLocalDatePattern = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+final RegExp _usageLocalHourPattern = RegExp(r'^\d{4}-\d{2}-\d{2}T\d{2}$');
 
 class AiUsageStorageRecord {
   const AiUsageStorageRecord({
@@ -144,9 +211,11 @@ class AiUsageStore {
   Database get _db => DatabaseService.instance.database;
 
   Future<void> insert(AiUsageStorageRecord record) {
+    final row = record.toRow();
+    _validateRecordRow(row);
     return _db.insert(
       tableName,
-      record.toRow(),
+      row,
       conflictAlgorithm: ConflictAlgorithm.ignore,
     );
   }
@@ -260,14 +329,7 @@ class AiUsageStore {
         'SELECT COUNT(*) AS total FROM $tableName ${where.sql}',
         where.arguments,
       ),
-      _db.rawQuery(
-        '''
-        SELECT * FROM $tableName ${where.sql}
-        ORDER BY started_at DESC
-        LIMIT ? OFFSET ?
-        ''',
-        <Object?>[...where.arguments, safeLimit, safeOffset],
-      ),
+      _loadValidatedRequestRows(where, limit: safeLimit, offset: safeOffset),
     ]);
     final countRows = results[0] as List<Map<String, Object?>>;
     final rows = results[1] as List<Map<String, Object?>>;
@@ -481,12 +543,47 @@ class AiUsageStore {
   }
 
   Future<List<AiUsageRequestRecord>> _loadRecent(_UsageWhere where) async {
-    final rows = await _db.rawQuery('''
+    final rows = await _loadValidatedRequestRows(where, limit: 40);
+    return rows.map(_requestFromRow).toList(growable: false);
+  }
+
+  Future<List<Map<String, Object?>>> _loadValidatedRequestRows(
+    _UsageWhere where, {
+    required int limit,
+    int offset = 0,
+  }) async {
+    final textBytesExpression = <String>[
+      ..._usageRequiredTextColumns,
+      ..._usageNullableTextColumns,
+    ].map((column) => 'COALESCE(LENGTH(CAST($column AS BLOB)), 0)').join(' + ');
+    final arguments = <Object?>[...where.arguments, limit, offset];
+    final usageRows = await _db.rawQuery('''
+      SELECT COALESCE(MAX(payload_bytes), 0) AS max_entry_bytes,
+             COALESCE(SUM(payload_bytes), 0) AS total_bytes
+      FROM (
+        SELECT $textBytesExpression AS payload_bytes
+        FROM $tableName ${where.sql}
+        ORDER BY started_at DESC
+        LIMIT ? OFFSET ?
+      )
+      ''', arguments);
+    final usage = usageRows.firstOrNull;
+    final maxEntryBytes = optionalIntegralIntFromValue(
+      usage?['max_entry_bytes'],
+    );
+    final totalBytes = optionalIntegralIntFromValue(usage?['total_bytes']);
+    if (maxEntryBytes == null || totalBytes == null) {
+      throw const FormatException('AI 用量记录存储统计无效。');
+    }
+    if (maxEntryBytes > _maxUsageRecordBytes ||
+        totalBytes > _maxUsageRequestPageBytes) {
+      throw const FormatException('AI 用量记录页面超过安全上限。');
+    }
+    return _db.rawQuery('''
       SELECT * FROM $tableName ${where.sql}
       ORDER BY started_at DESC
-      LIMIT 40
-      ''', where.arguments);
-    return rows.map(_requestFromRow).toList(growable: false);
+      LIMIT ? OFFSET ?
+      ''', arguments);
   }
 
   Future<List<AiUsageFacet>> _loadFacets(
@@ -563,6 +660,7 @@ class AiUsageStore {
   }
 
   AiUsageRequestRecord _requestFromRow(Map<String, Object?> row) {
+    _validateRecordRow(row);
     final startedAt = DateTime.tryParse(
       '${row['started_at'] ?? ''}',
     )?.toLocal();
@@ -604,10 +702,107 @@ class AiUsageStore {
       usageEstimated: _int(row['usage_estimated']) == 1,
     );
   }
+
+  static void _validateRecordRow(Map<String, Object?> row) {
+    var payloadBytes = 0;
+    for (final column in _usageRequiredTextColumns) {
+      final value = row[column];
+      final maxCharacters = column == 'metadata_json'
+          ? aiUsageMaxMetadataBytes
+          : _maxUsageTextCharacters;
+      if (value is! String || value.isEmpty || value.length > maxCharacters) {
+        throw FormatException('AI 用量字段 $column 无效。');
+      }
+      payloadBytes += utf8ByteLength(value);
+    }
+    for (final column in _usageNullableTextColumns) {
+      final value = row[column];
+      if (value == null) continue;
+      final maxCharacters = column == 'error_message'
+          ? _maxUsageErrorCharacters
+          : _maxUsageTextCharacters;
+      if (value is! String || value.length > maxCharacters) {
+        throw FormatException('AI 用量字段 $column 无效。');
+      }
+      payloadBytes += utf8ByteLength(value);
+    }
+    if (payloadBytes > _maxUsageRecordBytes) {
+      throw const FormatException('AI 用量记录载荷超过安全上限。');
+    }
+
+    final startedAt = DateTime.tryParse(row['started_at'] as String);
+    final endedAt = DateTime.tryParse(row['ended_at'] as String);
+    if (startedAt == null ||
+        endedAt == null ||
+        !startedAt.isUtc ||
+        !endedAt.isUtc ||
+        endedAt.isBefore(startedAt) ||
+        !_usageLocalDatePattern.hasMatch(row['local_date'] as String) ||
+        !_usageLocalHourPattern.hasMatch(row['local_hour'] as String) ||
+        !_validUsageStatuses.contains(row['status'])) {
+      throw const FormatException('AI 用量记录时间或状态无效。');
+    }
+    for (final column in _usageIntegerColumns) {
+      _validateUsageInteger(row[column], column);
+    }
+    for (final column in const <String>['first_token_ms', 'timeout_ms']) {
+      final value = row[column];
+      if (value != null) _validateUsageInteger(value, column);
+    }
+    final httpStatusCode = row['http_status_code'];
+    if (httpStatusCode != null &&
+        (httpStatusCode is! int ||
+            httpStatusCode < 100 ||
+            httpStatusCode > 599)) {
+      throw const FormatException('AI 用量记录 HTTP 状态码无效。');
+    }
+    final usageEstimated = row['usage_estimated'];
+    if (usageEstimated is! int ||
+        (usageEstimated != 0 && usageEstimated != 1)) {
+      throw const FormatException('AI 用量记录估算状态无效。');
+    }
+    for (final column in _usageCostColumns) {
+      final value = row[column];
+      if (value != null &&
+          (value is! num ||
+              !value.isFinite ||
+              value < 0 ||
+              value > _maxUsageCost)) {
+        throw FormatException('AI 用量字段 $column 无效。');
+      }
+    }
+
+    final metadataJson = row['metadata_json'] as String;
+    if (utf8ByteLength(metadataJson) > aiUsageMaxMetadataBytes) {
+      throw const FormatException('AI 用量元数据超过安全上限。');
+    }
+    final metadata = jsonDecode(metadataJson);
+    if (metadata is! Map) {
+      throw const FormatException('AI 用量元数据必须为对象。');
+    }
+    final payload = stringKeyedMapFromValue(metadata);
+    validateCanonicalJsonSubset(
+      payload,
+      payload,
+      path: 'ai_usage.metadata',
+      maxDepth: 16,
+      maxContainerItems: 4096,
+      maxTotalNodes: 32768,
+    );
+  }
+
+  static void _validateUsageInteger(Object? value, String column) {
+    if (value is! int || value < 0 || value > _maxUsageInteger) {
+      throw FormatException('AI 用量字段 $column 无效。');
+    }
+  }
 }
 
 ({int usedTokens, int windowTokens}) _contextUsageFromMetadata(Object? value) {
   if (value is! String || value.isEmpty) {
+    return (usedTokens: 0, windowTokens: 0);
+  }
+  if (utf8ByteLength(value) > aiUsageMaxMetadataBytes) {
     return (usedTokens: 0, windowTokens: 0);
   }
   try {
@@ -629,11 +824,8 @@ class _UsageWhere {
   final List<Object?> arguments;
 }
 
-int _int(Object? value) => switch (value) {
-  int number => number,
-  num number when number.isFinite => number.round(),
-  _ => int.tryParse('$value') ?? 0,
-};
+int _int(Object? value) =>
+    clampedIntFromValue(value, fallback: 0, min: 0, max: 1 << 52);
 
 int? _nullableInt(Object? value) => value == null ? null : _int(value);
 
@@ -645,7 +837,7 @@ double _double(Object? value) => switch (value) {
 
 double _finiteUsageDouble(String value) {
   final parsed = double.tryParse(value.trim());
-  return parsed != null && parsed.isFinite ? parsed : 0;
+  return parsed != null && parsed.isFinite && parsed >= 0 ? parsed : 0;
 }
 
 double? _nullableDouble(Object? value) => value == null ? null : _double(value);
