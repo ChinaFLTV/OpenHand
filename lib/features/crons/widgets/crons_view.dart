@@ -56,6 +56,9 @@ class CronsView extends StatelessWidget {
           ),
         );
     final entries = snapshot.entries;
+    final userEntryCount = entries
+        .where((entry) => entry.scriptType != CronScriptType.managed)
+        .length;
     final controller = context.read<CronsController>();
     final l10n = AppLocalizations.of(context)!;
 
@@ -92,7 +95,10 @@ class CronsView extends StatelessWidget {
                     label: Text(l10n.commonRetry),
                   ),
                 FilledButton.icon(
-                  onPressed: snapshot.isLoading || snapshot.errorMessage != null
+                  onPressed:
+                      snapshot.isLoading ||
+                          snapshot.errorMessage != null ||
+                          userEntryCount >= kCronMaxUserEntryCount
                       ? null
                       : () => _showCronEditorDialog(context, null),
                   icon: const Icon(Icons.add_rounded),

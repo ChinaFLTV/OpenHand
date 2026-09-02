@@ -1,6 +1,12 @@
 import '../../l10n/app_localizations.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 
+const int kCronMaxEntryCount = 256;
+const int kCronMaxUserEntryCount = 240;
+const int kCronMaxEntryPayloadBytes = kBytesPerMiB;
+const int kCronMaxTotalPayloadBytes = 32 * kBytesPerMiB;
+const int kCronMaxHistoryPageSize = 200;
 const int kCronDefaultRetryCount = 0;
 const int kCronMinRetryCount = 0;
 const int kCronMaxRetryCount = 10;

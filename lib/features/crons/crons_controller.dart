@@ -490,6 +490,14 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   // 增删改查
   Future<bool> addCron(CronEntry entry) async {
     return _commitMutation(() async {
+      final userEntryCount = _entries
+          .where((item) => item.scriptType != CronScriptType.managed)
+          .length;
+      if (userEntryCount >= kCronMaxUserEntryCount) {
+        _errorMessage = '用户定时任务不能超过 $kCronMaxUserEntryCount 条。';
+        notifyListeners();
+        return false;
+      }
       final now = DateTime.now();
       final requestedId = entry.id.trim();
       final id = requestedId.isEmpty ? _uuid.v4() : requestedId;

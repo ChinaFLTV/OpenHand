@@ -4,6 +4,7 @@ import '../../../app/model/cron_config.dart';
 import '../../../shared/db/database_service.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import '../model/cron_parser.dart';
 
 /// 基于 SQLite 的定时任务与执行历史存储。
@@ -13,6 +14,33 @@ class CronsStore {
   static const String _tableName = 'cron_jobs';
   static const String _historyTable = 'cron_execution_history';
   static const int _maxStoredCounter = 0x7fffffff;
+  static const List<String> _entryTextColumns = <String>[
+    'id',
+    'name',
+    'description',
+    'script_type',
+    'script_path',
+    'script_content',
+    'cron_expression',
+    'run_as_user',
+    'tags',
+    'status',
+    'on_success_notify',
+    'on_failure_notify',
+    'on_timeout_notify',
+    'on_success_severity',
+    'on_failure_severity',
+    'on_timeout_severity',
+    'on_success_message',
+    'on_failure_message',
+    'on_timeout_message',
+    'working_directory',
+    'environment',
+    'last_run_at',
+    'next_run_at',
+    'created_at',
+    'updated_at',
+  ];
   static const Set<String> _historyStatuses = <String>{
     'success',
     'failed',
@@ -180,13 +208,25 @@ class CronsStore {
 
   // 定时任务读写。
   Future<List<CronEntry>> loadAll() async {
+    await _validateStoredEntryScale();
     final rows = await _db.query(
       _tableName,
       orderBy: 'sort_order ASC, rowid ASC',
+      limit: kCronMaxEntryCount + 1,
     );
+    if (rows.length > kCronMaxEntryCount) {
+      throw const FormatException('定时任务数量超过安全上限。');
+    }
     final entries = <CronEntry>[];
     final seenIds = <String>{};
+    var totalPayloadBytes = 0;
     for (final row in rows) {
+      final payloadBytes = _entryPayloadBytes(row);
+      totalPayloadBytes += payloadBytes;
+      if (payloadBytes > kCronMaxEntryPayloadBytes ||
+          totalPayloadBytes > kCronMaxTotalPayloadBytes) {
+        throw const FormatException('定时任务存储规模超过安全上限。');
+      }
       final entry = _rowToEntry(row);
       if (!seenIds.add(entry.id)) {
         throw FormatException('定时任务 ID 重复：${entry.id}');
@@ -377,13 +417,25 @@ class CronsStore {
   }
 
   Future<void> saveAll(List<CronEntry> entries) async {
+    if (entries.length > kCronMaxEntryCount) {
+      throw const FormatException('定时任务数量超过安全上限。');
+    }
     final rows = <Map<String, Object?>>[];
     final seenIds = <String>{};
+    var totalPayloadBytes = 0;
     for (var index = 0; index < entries.length; index++) {
       final row = _entryToRow(entries[index], sortOrder: index);
       final validated = _rowToEntry(row);
       if (!seenIds.add(validated.id)) {
         throw FormatException('定时任务 ID 重复：${validated.id}');
+      }
+      final payloadBytes = _entryPayloadBytes(row);
+      if (payloadBytes > kCronMaxEntryPayloadBytes) {
+        throw FormatException('定时任务“${validated.name}”超过单项存储安全上限。');
+      }
+      totalPayloadBytes += payloadBytes;
+      if (totalPayloadBytes > kCronMaxTotalPayloadBytes) {
+        throw const FormatException('定时任务总载荷超过存储安全上限。');
       }
       rows.add(row);
     }
@@ -499,6 +551,9 @@ class CronsStore {
     String cronId, {
     int limit = 50,
   }) async {
+    if (limit < 1 || limit > kCronMaxHistoryPageSize) {
+      throw RangeError.range(limit, 1, kCronMaxHistoryPageSize, 'limit');
+    }
     final rows = await _db.query(
       _historyTable,
       where: 'cron_id = ?',
@@ -663,6 +718,41 @@ class CronsStore {
     final exists = rows.any((row) => '${row['name']}' == column);
     if (exists) return;
     await _db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
+  }
+
+  Future<void> _validateStoredEntryScale() async {
+    final payloadExpression = _entryTextColumns
+        .map((column) => 'COALESCE(LENGTH(CAST($column AS BLOB)), 0)')
+        .join(' + ');
+    final rows = await _db.rawQuery('''
+      SELECT COUNT(*) AS entry_count,
+             COALESCE(MAX($payloadExpression), 0) AS max_entry_bytes,
+             COALESCE(SUM($payloadExpression), 0) AS total_payload_bytes
+      FROM $_tableName
+    ''');
+    final row = rows.firstOrNull;
+    final entryCount = optionalIntegralIntFromValue(row?['entry_count']);
+    final maxEntryBytes = optionalIntegralIntFromValue(row?['max_entry_bytes']);
+    final totalPayloadBytes = optionalIntegralIntFromValue(
+      row?['total_payload_bytes'],
+    );
+    if (entryCount == null ||
+        maxEntryBytes == null ||
+        totalPayloadBytes == null) {
+      throw const FormatException('定时任务存储统计无效。');
+    }
+    if (entryCount > kCronMaxEntryCount ||
+        maxEntryBytes > kCronMaxEntryPayloadBytes ||
+        totalPayloadBytes > kCronMaxTotalPayloadBytes) {
+      throw const FormatException('定时任务存储规模超过安全上限。');
+    }
+  }
+
+  int _entryPayloadBytes(Map<String, Object?> row) {
+    return _entryTextColumns.fold<int>(
+      0,
+      (total, column) => total + utf8ByteLength('${row[column] ?? ''}'),
+    );
   }
 }
 
