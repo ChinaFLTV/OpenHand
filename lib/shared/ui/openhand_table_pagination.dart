@@ -496,6 +496,8 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
             decoration: const InputDecoration(
+              filled: false,
+              hoverColor: Colors.transparent,
               isDense: true,
               isCollapsed: true,
               border: InputBorder.none,
