@@ -287,40 +287,49 @@ class _HeStreamingSubConversationState
           ],
         ],
         if (segments.isNotEmpty) _buildSegmentList(segments, animateLast: true),
-        // 流式输出指示器。
-        Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(
-                  strokeWidth: 1.5,
-                  color: colorScheme.primary,
-                ),
-              ),
-              kOpenHandHGap8,
-              Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '正在输出…',
-                  en: 'Streaming…',
-                  zhHant: '正在輸出…',
-                  fr: 'Diffusion…',
-                  de: 'Ausgabe läuft…',
-                  ja: '出力中…',
-                ),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.60),
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
-          ),
-        ),
+        const _HeStreamingIndicator(),
       ],
+    );
+  }
+}
+
+class _HeStreamingIndicator extends StatelessWidget {
+  const _HeStreamingIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: colorScheme.primary,
+            ),
+          ),
+          kOpenHandHGap8,
+          Text(
+            openHandLocalizedText(
+              context,
+              zh: '正在输出…',
+              zhHant: '正在輸出…',
+              en: 'Streaming…',
+              fr: 'Diffusion…',
+              de: 'Ausgabe läuft…',
+              ja: '出力中…',
+            ),
+            style: TextStyle(
+              fontSize: 11,
+              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.60),
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -30,6 +30,18 @@ const int _maxConcurrentLspSessionStarts = 4;
 const Duration _lspProcessStartTimeout = Duration(seconds: 10);
 const Duration _lspSessionStartupTimeout = Duration(seconds: 30);
 
+/// 将 LSP 文件 URI 转为平台路径，非文件 URI 保持原值。
+String aiLspUriToPath(String value) {
+  final uri = Uri.tryParse(value);
+  if (uri?.scheme != 'file') return value;
+  try {
+    return uri!.toFilePath();
+  } catch (error, stack) {
+    silentLog('lsp_client_service', '转换文件 URI', error, stack);
+    return value;
+  }
+}
+
 int _validateLspDocumentText(String filePath, String text) {
   var bytes = 0;
   final units = text.codeUnits;
@@ -1375,7 +1387,7 @@ class AiLspClientService {
       if (uri == null || range == null) {
         continue;
       }
-      locations.add(AiLspLocation(filePath: _uriToPath(uri), range: range));
+      locations.add(AiLspLocation(filePath: aiLspUriToPath(uri), range: range));
     }
     return List<AiLspLocation>.unmodifiable(locations);
   }
@@ -1450,7 +1462,10 @@ class AiLspClientService {
           continue;
         }
         fileEdits.add(
-          AiLspWorkspaceFileEdit(filePath: _uriToPath(entry.key), edits: edits),
+          AiLspWorkspaceFileEdit(
+            filePath: aiLspUriToPath(entry.key),
+            edits: edits,
+          ),
         );
       }
     }
@@ -1470,7 +1485,7 @@ class AiLspClientService {
           continue;
         }
         fileEdits.add(
-          AiLspWorkspaceFileEdit(filePath: _uriToPath(uri), edits: edits),
+          AiLspWorkspaceFileEdit(filePath: aiLspUriToPath(uri), edits: edits),
         );
       }
     }
@@ -1761,7 +1776,7 @@ class AiLspClientService {
     return AiLspWorkspaceSymbol(
       name: name,
       kind: raw['kind'] as int? ?? 0,
-      location: AiLspLocation(filePath: _uriToPath(uri), range: range),
+      location: AiLspLocation(filePath: aiLspUriToPath(uri), range: range),
       containerName: raw['containerName']?.toString(),
       detail: raw['detail']?.toString(),
     );
@@ -1786,18 +1801,6 @@ class AiLspClientService {
         character: ((end['character'] as int?) ?? 0) + 1,
       ),
     );
-  }
-
-  static String _uriToPath(String uri) {
-    try {
-      final parsed = Uri.parse(uri);
-      if (parsed.scheme == 'file') {
-        return parsed.toFilePath();
-      }
-    } catch (error, stack) {
-      silentLog('lsp_client_service', '解析文件 URI', error, stack);
-    }
-    return uri;
   }
 
   static List<_AiLspHoverPart> _flattenHoverContents(Object? contents) {

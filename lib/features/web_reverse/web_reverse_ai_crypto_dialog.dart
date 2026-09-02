@@ -1,14 +1,4 @@
-/// AI 加密参数还原助手。
-///
-/// 流程：
-///   1. 从当前会话已抓的网络请求中按 (Method + path) 聚合 endpoint；
-///   2. 选定一个 endpoint，对所有样本做 body diff，提取变化的字段 +
-///      高熵 / 固定长度的 hash 候选；
-///   3. 通过 `Page.getResourceTree` 拿到所有 frame 上的 Script 资源，
-///      逐个调用 `Page.searchInResource` 搜索这些字段名（小写、原样），
-///      只保留首 5 个命中（含行号）；
-///   4. 把 endpoint + 多份样本 + 嫌疑字段 + JS 命中位置组装成 Markdown
-///      提示词，复制后即可贴到任意 AI 会话让其推断加密算法。
+/// 从请求样本提取疑似加密字段，在脚本资源中定位引用并生成分析提示词。
 library;
 
 import 'dart:async';
@@ -44,7 +34,7 @@ const int _kMaxAiCryptoValueChars = 8 * kBytesPerKiB;
 
 class _EndpointGroup {
   _EndpointGroup({required this.key, required this.entries});
-  final String key; // METHOD path
+  final String key;
   final List<CdpNetworkEntry> entries;
 }
 
@@ -98,14 +88,11 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
     final raw = widget.controller.networkRequests;
     final map = <String, List<CdpNetworkEntry>>{};
     for (final e in raw) {
-      try {
-        final uri = Uri.parse(e.url);
-        final path = uri.path.isEmpty ? '/' : uri.path;
-        final key = '${e.method.toUpperCase()} ${uri.host}$path';
-        (map[key] ??= <CdpNetworkEntry>[]).add(e);
-      } catch (err, st) {
-        silentLog('web_reverse_ai_crypto_dialog', '归组请求数据', err, st);
-      }
+      final uri = Uri.tryParse(e.url);
+      if (uri == null) continue;
+      final path = uri.path.isEmpty ? '/' : uri.path;
+      final key = '${e.method.toUpperCase()} ${uri.host}$path';
+      (map[key] ??= <CdpNetworkEntry>[]).add(e);
     }
     final list =
         map.entries
@@ -122,52 +109,35 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
     });
   }
 
-  // ---------------- 嫌疑字段提取 ----------------
-
   Map<String, String>? _tryParseFlatPairs(String? body) {
     final text = nullIfBlank(body);
     if (text == null) return null;
     final out = <String, String>{};
-    // JSON
-    try {
-      final v = jsonDecode(text);
-      if (v is Map) {
-        for (final entry in v.entries.take(_kMaxAiCryptoFieldsPerSample)) {
-          final k = entry.key;
-          final val = entry.value;
-          final key = '$k';
-          if (key.isEmpty || key.length > _kMaxAiCryptoFieldNameChars) {
-            continue;
-          }
-          if (val is String || val is num || val is bool) {
-            final value = '$val';
-            if (value.length <= _kMaxAiCryptoValueChars) {
-              out[key] = value;
-            }
+    final decoded = tryDecodeJson(text);
+    if (decoded is Map) {
+      for (final entry in decoded.entries.take(_kMaxAiCryptoFieldsPerSample)) {
+        final key = '${entry.key}';
+        final value = entry.value;
+        if (key.isEmpty || key.length > _kMaxAiCryptoFieldNameChars) continue;
+        if (value is String || value is num || value is bool) {
+          final textValue = '$value';
+          if (textValue.length <= _kMaxAiCryptoValueChars) {
+            out[key] = textValue;
           }
         }
-        if (out.isNotEmpty) return out;
       }
-    } catch (error, stack) {
-      silentLog('web_reverse_ai_crypto_dialog', '解析 JSON 请求体', error, stack);
+      if (out.isNotEmpty) return out;
     }
-    // form-urlencoded
-    if (text.contains('=')) {
-      for (final pair in text.split('&')) {
-        if (out.length >= _kMaxAiCryptoFieldsPerSample) break;
-        final eq = pair.indexOf('=');
-        if (eq <= 0) continue;
-        try {
-          final k = Uri.decodeQueryComponent(pair.substring(0, eq));
-          final v = Uri.decodeQueryComponent(pair.substring(eq + 1));
-          if (k.isNotEmpty &&
-              k.length <= _kMaxAiCryptoFieldNameChars &&
-              v.length <= _kMaxAiCryptoValueChars) {
-            out[k] = v;
-          }
-        } catch (error, stack) {
-          silentLog('web_reverse_ai_crypto_dialog', '解析表单字段', error, stack);
-        }
+    for (final entry in decodeQueryParametersAll(
+      text,
+      requireValueSeparator: true,
+    ).entries) {
+      if (out.length >= _kMaxAiCryptoFieldsPerSample) break;
+      final key = entry.key;
+      final value = entry.value.last;
+      if (key.length <= _kMaxAiCryptoFieldNameChars &&
+          value.length <= _kMaxAiCryptoValueChars) {
+        out[key] = value;
       }
     }
     return out.isEmpty ? null : out;
@@ -202,23 +172,21 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
       if (m != null) samples.add(m);
     }
     if (samples.length < 2) {
-      // 也尝试 URL query 参数
       final qs = <Map<String, String>>[];
       for (final e in g.entries.take(_kMaxAiCryptoSamples)) {
-        try {
-          final u = Uri.parse(e.url);
-          if (u.queryParameters.isNotEmpty) {
-            qs.add(Map<String, String>.from(u.queryParameters));
-          }
-        } catch (error, stack) {
-          silentLog('web_reverse_ai_crypto_dialog', '解析查询参数', error, stack);
+        final uri = Uri.tryParse(e.url);
+        if (uri == null) continue;
+        final values = decodeQueryParametersAll(uri.query);
+        if (values.isNotEmpty) {
+          qs.add({
+            for (final entry in values.entries) entry.key: entry.value.last,
+          });
         }
       }
       if (qs.length >= 2) samples.addAll(qs);
     }
     if (samples.isEmpty) return const <String>[];
 
-    // 所有 key 的并集
     final keys = <String>{};
     for (final s in samples) {
       for (final key in s.keys) {
@@ -269,15 +237,13 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
       'x-token',
       'x-bogus',
       'x-gorgon',
-      'msToken',
+      'mstoken',
       'a_bogus',
       'webid',
       'devid',
     ];
     return known.contains(lower);
   }
-
-  // ---------------- JS 资源搜索 ----------------
 
   Future<Map<String, List<_JsHit>>> _searchSuspects(
     List<String> suspects,
@@ -365,8 +331,6 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
     }
     return out;
   }
-
-  // ---------------- prompt 拼装 ----------------
 
   String _buildPrompt(
     _EndpointGroup g,

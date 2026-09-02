@@ -403,7 +403,7 @@ class _DependencyMetricDetailDialogState
       ).toDouble(),
     );
     final growthPerSecond =
-        _seriesRate(samples, (sample) {
+        dependencyCounterRates(samples, (sample) {
           return _integer(
             _postgresqlTelemetry(sample.overview)['databaseSizeBytes'],
           );
@@ -919,13 +919,13 @@ class _DependencyMetricDetailDialogState
     final rollbacks = _integer(telemetry['transactionsRolledBack']);
     final deadlocks = _integer(telemetry['deadlocks']);
     final conflicts = _integer(telemetry['conflicts']);
-    final commitRates = _seriesRate(
+    final commitRates = dependencyCounterRates(
       samples,
       (sample) => _integer(
         _postgresqlTelemetry(sample.overview)['transactionsCommitted'],
       ),
     );
-    final rollbackRates = _seriesRate(
+    final rollbackRates = dependencyCounterRates(
       samples,
       (sample) => _integer(
         _postgresqlTelemetry(sample.overview)['transactionsRolledBack'],
@@ -1072,7 +1072,7 @@ class _DependencyMetricDetailDialogState
       ).toDouble(),
     );
     final growthRate = _lastValue(
-      _seriesRate(
+      dependencyCounterRates(
         samples,
         (sample) =>
             _integer(_redisOverview(sample.overview)['usedMemoryBytes']),
@@ -1444,7 +1444,7 @@ class _DependencyMetricDetailDialogState
   }) {
     final ops = _integer(redis['operationsPerSecond']);
     final totalCommands = _integer(redis['totalCommands']);
-    final measuredRates = _seriesRate(
+    final measuredRates = dependencyCounterRates(
       samples,
       (sample) => _integer(_redisOverview(sample.overview)['totalCommands']),
     );
@@ -1608,11 +1608,11 @@ class _DependencyMetricDetailDialogState
       return dependencySafeRatio(currentHits, currentHits + currentMisses) *
           100;
     });
-    final hitRequestRates = _seriesRate(
+    final hitRequestRates = dependencyCounterRates(
       samples,
       (sample) => _integer(_redisOverview(sample.overview)['keyspaceHits']),
     );
-    final missRequestRates = _seriesRate(
+    final missRequestRates = dependencyCounterRates(
       samples,
       (sample) => _integer(_redisOverview(sample.overview)['keyspaceMisses']),
     );
@@ -1858,12 +1858,12 @@ class _DependencyMetricDetailDialogState
   }) {
     final totalInput = _integer(redis['networkInputBytes']);
     final totalOutput = _integer(redis['networkOutputBytes']);
-    final inputRates = _seriesRate(
+    final inputRates = dependencyCounterRates(
       samples,
       (sample) =>
           _integer(_redisOverview(sample.overview)['networkInputBytes']),
     );
-    final outputRates = _seriesRate(
+    final outputRates = dependencyCounterRates(
       samples,
       (sample) =>
           _integer(_redisOverview(sample.overview)['networkOutputBytes']),
@@ -4136,32 +4136,6 @@ List<double> _sampleValues(
       return value.isFinite && value >= 0 ? value : 0.0;
     })
     .toList(growable: false);
-
-List<double> _seriesRate(
-  List<DependencyTelemetrySample> samples,
-  int Function(DependencyTelemetrySample sample) valueOf,
-) {
-  if (samples.isEmpty) return const <double>[];
-  final rates = <double>[0];
-  for (var index = 1; index < samples.length; index++) {
-    final previous = valueOf(samples[index - 1]).toDouble();
-    final current = valueOf(samples[index]).toDouble();
-    final seconds =
-        samples[index].capturedAt
-            .difference(samples[index - 1].capturedAt)
-            .inMilliseconds /
-        Duration.millisecondsPerSecond;
-    rates.add(
-      previous.isFinite &&
-              current.isFinite &&
-              seconds > 0 &&
-              current >= previous
-          ? (current - previous) / seconds
-          : 0,
-    );
-  }
-  return rates;
-}
 
 double _lastValue(List<double> values) => values.isEmpty ? 0 : values.last;
 

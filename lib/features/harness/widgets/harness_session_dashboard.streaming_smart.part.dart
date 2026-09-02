@@ -224,38 +224,7 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
               );
             }(),
           ),
-        Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(
-                  strokeWidth: 1.5,
-                  color: colorScheme.primary,
-                ),
-              ),
-              kOpenHandHGap8,
-              Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '正在输出…',
-                  zhHant: '正在輸出…',
-                  en: 'Streaming…',
-                  fr: 'Flux en cours…',
-                  de: 'Streaming…',
-                  ja: '出力中…',
-                ),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.60),
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
-          ),
-        ),
+        const _HeStreamingIndicator(),
       ],
     );
   }

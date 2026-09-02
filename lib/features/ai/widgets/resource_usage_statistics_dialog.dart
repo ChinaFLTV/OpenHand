@@ -1519,20 +1519,23 @@ class _UsageEventCard extends StatelessWidget {
             spacing: 12,
             runSpacing: 6,
             children: [
-              _EventMeta(
+              OpenHandInlineIconLabel(
                 icon: Icons.schedule_rounded,
-                text: formatYearMonthDayHmsLocal(event.occurredAt),
+                label: formatYearMonthDayHmsLocal(event.occurredAt),
               ),
-              _EventMeta(
+              OpenHandInlineIconLabel(
                 icon: Icons.timer_outlined,
-                text: openHandTableMetricDuration(event.durationMs),
+                label: openHandTableMetricDuration(event.durationMs),
               ),
-              _EventMeta(
+              OpenHandInlineIconLabel(
                 icon: Icons.forum_outlined,
-                text: _shortIdentifier(event.sessionId),
+                label: _shortIdentifier(event.sessionId),
               ),
               if (event.source.isNotEmpty)
-                _EventMeta(icon: Icons.route_outlined, text: event.source),
+                OpenHandInlineIconLabel(
+                  icon: Icons.route_outlined,
+                  label: event.source,
+                ),
             ],
           ),
           if (event.argumentsSummary.isNotEmpty)
@@ -1582,29 +1585,6 @@ class _UsageEventCard extends StatelessWidget {
             ),
         ],
       ),
-    );
-  }
-}
-
-class _EventMeta extends StatelessWidget {
-  const _EventMeta({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.onSurfaceVariant;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: color),
-        kOpenHandHGap4,
-        Text(
-          text,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
-        ),
-      ],
     );
   }
 }

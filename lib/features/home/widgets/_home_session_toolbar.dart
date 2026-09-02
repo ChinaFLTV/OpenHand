@@ -1313,14 +1313,7 @@ AiSessionMessage? _latestActiveUserMessage(AiSession session) {
 
 DateTime _planTimelineMessageActivityAt(AiSessionMessage message) {
   final editedAt = '${message.metadata['edited_at'] ?? ''}'.trim();
-  if (editedAt.isNotEmpty) {
-    try {
-      return DateTime.parse(editedAt).toUtc();
-    } catch (error, stack) {
-      silentLog('session_toolbar', '解析计划时间线 edited_at', error, stack);
-    }
-  }
-  return message.createdAt;
+  return DateTime.tryParse(editedAt)?.toUtc() ?? message.createdAt;
 }
 
 bool _looksLikePlanRecoveryTimelineMessage(String content) {

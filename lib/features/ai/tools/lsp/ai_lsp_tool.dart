@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:path/path.dart' as p;
 
-import '../../../../app/support/silent_log.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/lsp/lsp_client_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
@@ -207,7 +206,9 @@ class AiLspTool extends AiTool {
       final uri = location?['uri'] as String? ?? '';
       final line = ((start?['line'] as int?) ?? 0) + 1;
       final detailLabel = detail.isEmpty ? '' : ' — $detail';
-      final pathLabel = uri.isEmpty ? 'line $line' : '${_uriToPath(uri)}:$line';
+      final pathLabel = uri.isEmpty
+          ? 'line $line'
+          : '${aiLspUriToPath(uri)}:$line';
       buffer.writeln('  [$kind] $name$detailLabel ($pathLabel)');
     }
     return buffer.toString().trimRight();
@@ -263,21 +264,9 @@ class AiLspTool extends AiTool {
     return (
       name: item['name'] ?? '?',
       kind: _symbolKindName(item['kind'] as int? ?? 0),
-      path: _uriToPath(item['uri'] as String? ?? ''),
+      path: aiLspUriToPath(item['uri'] as String? ?? ''),
       line: ((start?['line'] as int?) ?? 0) + 1,
     );
-  }
-
-  String _uriToPath(String uri) {
-    try {
-      final parsed = Uri.parse(uri);
-      if (parsed.scheme == 'file') {
-        return parsed.toFilePath();
-      }
-    } catch (error, stack) {
-      silentLog('ai_lsp_tool', '解析文件 URI', error, stack);
-    }
-    return uri;
   }
 
   String _symbolKindName(int kind) {

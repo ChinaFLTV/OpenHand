@@ -330,6 +330,31 @@ String decodeUriComponentOrOriginal(String value) {
   return _decodeUriOrOriginal(value, Uri.decodeComponent);
 }
 
+/// 解码查询参数；百分号编码截断或 UTF-8 无效时保留原值。
+String decodeQueryComponentOrOriginal(String value) {
+  return _decodeUriOrOriginal(value, Uri.decodeQueryComponent);
+}
+
+/// 解析查询串；损坏的百分号编码按原值保留。
+Map<String, List<String>> decodeQueryParametersAll(
+  String query, {
+  bool requireValueSeparator = false,
+}) {
+  final parameters = <String, List<String>>{};
+  for (final pair in query.split('&')) {
+    if (pair.isEmpty) continue;
+    final separator = pair.indexOf('=');
+    if (requireValueSeparator && separator < 0) continue;
+    final rawKey = separator < 0 ? pair : pair.substring(0, separator);
+    if (rawKey.isEmpty) continue;
+    final rawValue = separator < 0 ? '' : pair.substring(separator + 1);
+    final key = decodeQueryComponentOrOriginal(rawKey);
+    final value = decodeQueryComponentOrOriginal(rawValue);
+    parameters.putIfAbsent(key, () => <String>[]).add(value);
+  }
+  return parameters;
+}
+
 /// 解码完整 URI 文本；百分号编码截断或 UTF-8 无效时保留原值。
 String decodeUriFullOrOriginal(String value) {
   return _decodeUriOrOriginal(value, Uri.decodeFull);

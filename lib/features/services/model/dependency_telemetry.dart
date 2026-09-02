@@ -83,13 +83,13 @@ double dependencySafeRatio(num numerator, num denominator) {
 
 List<double> dependencyCounterRates(
   List<DependencyTelemetrySample> samples,
-  num Function(Map<String, Object?> overview) valueOf,
+  num Function(DependencyTelemetrySample sample) valueOf,
 ) {
   if (samples.isEmpty) return const <double>[];
   final rates = <double>[0];
   for (var index = 1; index < samples.length; index++) {
-    final previous = valueOf(samples[index - 1].overview).toDouble();
-    final current = valueOf(samples[index].overview).toDouble();
+    final previous = valueOf(samples[index - 1]).toDouble();
+    final current = valueOf(samples[index]).toDouble();
     final seconds =
         samples[index].capturedAt
             .difference(samples[index - 1].capturedAt)

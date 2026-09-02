@@ -20,6 +20,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
+import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_clip.dart';
@@ -1030,13 +1031,15 @@ class _SkillMarketResultTile extends StatelessWidget {
                         spacing: 8,
                         runSpacing: 6,
                         children: [
-                          _TinyMetric(
+                          OpenHandInlineIconLabel(
                             icon: Icons.download_rounded,
-                            value: _formatCount(skill.downloads),
+                            label: _formatCount(skill.downloads),
+                            iconSize: 16,
                           ),
-                          _TinyMetric(
+                          OpenHandInlineIconLabel(
                             icon: Icons.star_rounded,
-                            value: _formatCount(skill.stars),
+                            label: _formatCount(skill.stars),
+                            iconSize: 16,
                           ),
                           if (installed)
                             _TinyTextChip(
@@ -1584,31 +1587,6 @@ class _SecurityChip extends StatelessWidget {
             ? colorScheme.primary.withValues(alpha: 0.42)
             : colorScheme.error.withValues(alpha: 0.42),
       ),
-    );
-  }
-}
-
-class _TinyMetric extends StatelessWidget {
-  const _TinyMetric({required this.icon, required this.value});
-
-  final IconData icon;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: colorScheme.onSurfaceVariant),
-        kOpenHandHGap4,
-        Text(
-          value,
-          style: Theme.of(
-            context,
-          ).textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant),
-        ),
-      ],
     );
   }
 }

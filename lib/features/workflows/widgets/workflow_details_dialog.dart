@@ -612,18 +612,18 @@ class _WorkflowCallRecordTile extends StatelessWidget {
             spacing: 12,
             runSpacing: 5,
             children: [
-              _WorkflowCallMeta(
+              OpenHandInlineIconLabel(
                 icon: Icons.schedule_rounded,
-                text: formatYearMonthDayHmsLocal(event.occurredAt),
+                label: formatYearMonthDayHmsLocal(event.occurredAt),
               ),
-              _WorkflowCallMeta(
+              OpenHandInlineIconLabel(
                 icon: Icons.timer_outlined,
-                text: openHandTableMetricDuration(event.durationMs),
+                label: openHandTableMetricDuration(event.durationMs),
               ),
               if (event.source.trim().isNotEmpty)
-                _WorkflowCallMeta(
+                OpenHandInlineIconLabel(
                   icon: Icons.route_outlined,
-                  text: event.source.trim(),
+                  label: event.source.trim(),
                 ),
             ],
           ),
@@ -638,29 +638,6 @@ class _WorkflowCallRecordTile extends StatelessWidget {
           ],
         ],
       ),
-    );
-  }
-}
-
-class _WorkflowCallMeta extends StatelessWidget {
-  const _WorkflowCallMeta({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.onSurfaceVariant;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: color),
-        kOpenHandHGap4,
-        Text(
-          text,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
-        ),
-      ],
     );
   }
 }

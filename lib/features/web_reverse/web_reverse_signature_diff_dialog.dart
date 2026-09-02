@@ -1,27 +1,10 @@
-/// 接口签名字段变量定位器。
-///
-/// 把当前 dashboard 里抓到的所有请求按 `METHOD path（去 query）` 分组，
-/// 对组内 ≥2 条样本做字段稳定性分析：
-///   * Query 参数（按 key 聚合 value 集合）
-///   * 请求 Header（同上）
-///   * 请求体（仅 JSON / form / urlencoded，扁平递归到叶子节点）
-///
-/// 字段判定：
-///   * `稳定` ：组内所有样本值完全相同（强逆向特征：常量/通道码/版本号）
-///   * `动态` ：组内值集合 >1（典型签名/时间戳/nonce）
-///   * `递增` ：值集合全为数字且严格递增（典型 timestamp/sequence）
-///   * `定长哈希`：动态且每个值长度一致 + hex/base64 字符集（典型 sign）
-///
-/// 这能让用户在「随便点几次」之后，立刻定位到"哪些字段是加密参数"，
-/// 不需要在 Network 面板逐条比对。完全本地计算，不发任何请求。
+/// 对同一接口的请求样本做字段稳定性分析，定位签名、时间戳和随机数。
 library;
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
-import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
@@ -565,12 +548,9 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
   }
 }
 
-// ── 分析逻辑 ─────────────────────────────────────────────────────────
-
 List<_EndpointGroup> _analyse(List<CdpNetworkEntry> entries) {
   final buckets = <String, _EndpointGroup>{};
   for (final e in entries) {
-    // 只关心可能有载荷的 HTTP 请求
     if (e.isWebSocket) continue;
     if (e.url.isEmpty) continue;
     final uri = Uri.tryParse(e.url);
@@ -587,7 +567,6 @@ List<_EndpointGroup> _analyse(List<CdpNetworkEntry> entries) {
     );
     g.samples.add(e);
   }
-  // 只保留 ≥2 次的组
   final groups = buckets.values.where((g) => g.samples.length >= 2).toList()
     ..sort((a, b) => b.samples.length.compareTo(a.samples.length));
   for (final g in groups) {
@@ -604,7 +583,7 @@ List<_FieldStat> _diffQuery(List<CdpNetworkEntry> samples) {
   for (final e in samples) {
     final uri = Uri.tryParse(e.url);
     if (uri == null) continue;
-    uri.queryParametersAll.forEach((k, vs) {
+    decodeQueryParametersAll(uri.query).forEach((k, vs) {
       map.putIfAbsent(k, () => <String>[]).add(vs.join(','));
     });
   }
@@ -612,7 +591,6 @@ List<_FieldStat> _diffQuery(List<CdpNetworkEntry> samples) {
 }
 
 List<_FieldStat> _diffHeaders(List<CdpNetworkEntry> samples) {
-  // 忽略浏览器自动注入 / cookie / 长度类 header；这些 noise 太大。
   const ignored = <String>{
     'content-length',
     kContentTypeHeaderName,
@@ -676,20 +654,14 @@ bool _looksLikeJson(String s) {
 }
 
 void _flattenJson(String body, Map<String, List<String>> out) {
-  Object? decoded;
-  try {
-    decoded = jsonDecode(body);
-  } catch (e, st) {
-    silentLog('web_reverse_signature_diff_dialog', '展平 JSON', e, st);
-    return;
-  }
+  final decoded = tryDecodeJson(body);
+  if (decoded == null) return;
   void walk(Object? node, String path) {
     if (node is Map) {
       node.forEach((k, v) {
         walk(v, path.isEmpty ? '$k' : '$path.$k');
       });
     } else if (node is List) {
-      // 数组只取第一个样本，避免索引爆炸
       if (node.isNotEmpty) walk(node.first, '$path[]');
     } else {
       out.putIfAbsent(path, () => <String>[]).add(node?.toString() ?? '');
@@ -700,14 +672,9 @@ void _flattenJson(String body, Map<String, List<String>> out) {
 }
 
 void _flattenForm(String body, Map<String, List<String>> out) {
-  for (final part in body.split('&')) {
-    if (part.isEmpty) continue;
-    final eq = part.indexOf('=');
-    if (eq <= 0) continue;
-    final k = Uri.decodeQueryComponent(part.substring(0, eq));
-    final v = Uri.decodeQueryComponent(part.substring(eq + 1));
-    out.putIfAbsent(k, () => <String>[]).add(v);
-  }
+  decodeQueryParametersAll(body, requireValueSeparator: true).forEach(
+    (key, values) => out.putIfAbsent(key, () => <String>[]).addAll(values),
+  );
 }
 
 List<_FieldStat> _classifyAll(Map<String, List<String>> map) {
@@ -715,7 +682,6 @@ List<_FieldStat> _classifyAll(Map<String, List<String>> map) {
   map.forEach((k, vs) {
     out.add(_classify(k, vs));
   });
-  // 排序：动态在前 → 定长哈希 → 递增 → 稳定
   int rank(_FieldClass c) => switch (c) {
     _FieldClass.fixedHash => 0,
     _FieldClass.increasing => 1,

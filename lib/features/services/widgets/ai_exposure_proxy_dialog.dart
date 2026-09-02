@@ -28,6 +28,7 @@ import '../../../shared/ui/openhand_table_metric_cells.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
+import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -4420,12 +4421,12 @@ class _ProxyEndpointDetailsDialogState
             spacing: 8,
             runSpacing: 8,
             children: [
-              _ProxyMetric(
+              OpenHandInlineIconLabel(
                 icon: tone.icon,
                 label: tone.label,
                 color: tone.color,
               ),
-              _ProxyMetric(
+              OpenHandInlineIconLabel(
                 icon: Icons.security_rounded,
                 label: _endpoint.identity != null
                     ? _cleanlinessLabel(_endpoint.identity!.cleanliness, text)
@@ -4441,13 +4442,13 @@ class _ProxyEndpointDetailsDialogState
                         colors,
                       ),
               ),
-              _ProxyMetric(
+              OpenHandInlineIconLabel(
                 icon: Icons.public_rounded,
                 label: _networkTypeLabel(_endpoint.identity?.networkType, text),
                 color: colors.primary,
               ),
               if (statistics.lastUsedAt != null)
-                _ProxyMetric(
+                OpenHandInlineIconLabel(
                   icon: Icons.schedule_rounded,
                   label: text(
                     zh: '最近使用 ${_timeLabel(statistics.lastUsedAt!)}',
@@ -4619,7 +4620,7 @@ class _ProxyEndpointDetailsDialogState
               spacing: 10,
               runSpacing: 8,
               children: [
-                _ProxyMetric(
+                OpenHandInlineIconLabel(
                   icon: sample?.gatewayReachable == true
                       ? Icons.dns_outlined
                       : Icons.portable_wifi_off_rounded,
@@ -4630,7 +4631,7 @@ class _ProxyEndpointDetailsDialogState
                       : text(zh: '网关不可达', en: 'Gateway unreachable'),
                   color: gatewayColor,
                 ),
-                _ProxyMetric(
+                OpenHandInlineIconLabel(
                   icon: sample?.reachable == true
                       ? Icons.lock_open_rounded
                       : Icons.link_off_rounded,
@@ -4642,19 +4643,19 @@ class _ProxyEndpointDetailsDialogState
                   color: forwardingColor,
                 ),
                 if (sample?.latencyMs != null)
-                  _ProxyMetric(
+                  OpenHandInlineIconLabel(
                     icon: Icons.speed_rounded,
                     label: '${sample!.latencyMs} ms',
                     color: forwardingColor,
                   ),
                 if (sample?.statusCode != null)
-                  _ProxyMetric(
+                  OpenHandInlineIconLabel(
                     icon: Icons.http_rounded,
                     label: 'HTTP ${sample!.statusCode}',
                     color: forwardingColor,
                   ),
                 if (sample != null)
-                  _ProxyMetric(
+                  OpenHandInlineIconLabel(
                     icon: Icons.schedule_rounded,
                     label: _timeLabel(sample.checkedAt),
                     color: colors.onSurfaceVariant,
@@ -4909,7 +4910,7 @@ class _ProxyEndpointDetailsDialogState
                         runSpacing: 8,
                         children: [
                           if (classificationKnown) ...[
-                            _ProxyMetric(
+                            OpenHandInlineIconLabel(
                               icon: Icons.phone_android_rounded,
                               label: identity.mobile
                                   ? text(zh: '移动网络', en: 'Mobile network')
@@ -4918,7 +4919,7 @@ class _ProxyEndpointDetailsDialogState
                                   ? OpenHandStatusColors.warning
                                   : colors.onSurfaceVariant,
                             ),
-                            _ProxyMetric(
+                            OpenHandInlineIconLabel(
                               icon: Icons.vpn_lock_outlined,
                               label: identity.proxy
                                   ? text(zh: '代理特征已识别', en: 'Proxy detected')
@@ -4927,7 +4928,7 @@ class _ProxyEndpointDetailsDialogState
                                   ? OpenHandStatusColors.warning
                                   : OpenHandStatusColors.success,
                             ),
-                            _ProxyMetric(
+                            OpenHandInlineIconLabel(
                               icon: Icons.cloud_outlined,
                               label: identity.hosting
                                   ? text(zh: '数据中心托管', en: 'Hosting network')
@@ -4937,7 +4938,7 @@ class _ProxyEndpointDetailsDialogState
                                   : OpenHandStatusColors.success,
                             ),
                           ] else
-                            _ProxyMetric(
+                            OpenHandInlineIconLabel(
                               icon: Icons.help_outline_rounded,
                               label: text(
                                 zh: '风险特征数据不足',
@@ -4945,7 +4946,7 @@ class _ProxyEndpointDetailsDialogState
                               ),
                               color: colors.onSurfaceVariant,
                             ),
-                          _ProxyMetric(
+                          OpenHandInlineIconLabel(
                             icon: Icons.update_rounded,
                             label: _timeLabel(identity.observedAt),
                             color: colors.onSurfaceVariant,
@@ -5879,14 +5880,14 @@ class _ProxyEndpointCard extends StatelessWidget {
                 runSpacing: 6,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  _ProxyMetric(
+                  OpenHandInlineIconLabel(
                     icon: tone.icon,
                     label: tone.label,
                     color: tone.color,
                   ),
                   if (sample?.gatewayReachable == true &&
                       sample?.reachable != true)
-                    _ProxyMetric(
+                    OpenHandInlineIconLabel(
                       icon: Icons.dns_outlined,
                       label: text(zh: '网关已连接', en: 'Gateway connected'),
                       color: OpenHandStatusColors.warning,
@@ -5895,13 +5896,13 @@ class _ProxyEndpointCard extends StatelessWidget {
                     presentKey: const ValueKey<String>('probe-latency'),
                     child: sample?.latencyMs == null
                         ? null
-                        : _ProxyMetric(
+                        : OpenHandInlineIconLabel(
                             icon: Icons.speed_rounded,
                             label: '${sample!.latencyMs} ms',
                             color: tone.color,
                           ),
                   ),
-                  _ProxyMetric(
+                  OpenHandInlineIconLabel(
                     icon: Icons.route_outlined,
                     label: text(
                       zh: '请求 ${statistics.requests}',
@@ -5909,7 +5910,7 @@ class _ProxyEndpointCard extends StatelessWidget {
                     ),
                     color: colors.onSurfaceVariant,
                   ),
-                  _ProxyMetric(
+                  OpenHandInlineIconLabel(
                     icon: Icons.check_circle_outline_rounded,
                     label: text(
                       zh: '成功 ${statistics.successes}',
@@ -5917,7 +5918,7 @@ class _ProxyEndpointCard extends StatelessWidget {
                     ),
                     color: OpenHandStatusColors.success,
                   ),
-                  _ProxyMetric(
+                  OpenHandInlineIconLabel(
                     icon: Icons.error_outline_rounded,
                     label: text(
                       zh: '失败 ${statistics.failures}',
@@ -5925,7 +5926,7 @@ class _ProxyEndpointCard extends StatelessWidget {
                     ),
                     color: OpenHandStatusColors.error,
                   ),
-                  _ProxyMetric(
+                  OpenHandInlineIconLabel(
                     icon: Icons.timer_off_outlined,
                     label: text(
                       zh: '超时 ${statistics.timeouts}',
@@ -5933,7 +5934,7 @@ class _ProxyEndpointCard extends StatelessWidget {
                     ),
                     color: OpenHandStatusColors.warning,
                   ),
-                  _ProxyMetric(
+                  OpenHandInlineIconLabel(
                     icon: Icons.av_timer_rounded,
                     label: '${statistics.averageResponseTimeMs} ms',
                     color: colors.primary,
@@ -5942,7 +5943,7 @@ class _ProxyEndpointCard extends StatelessWidget {
                     presentKey: const ValueKey<String>('probe-time'),
                     child: sample == null
                         ? null
-                        : _ProxyMetric(
+                        : OpenHandInlineIconLabel(
                             icon: Icons.schedule_rounded,
                             label: _timeLabel(sample.checkedAt),
                             color: colors.onSurfaceVariant,
@@ -6511,31 +6512,6 @@ class _ProxyCleanupMenuItem extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ProxyMetric extends StatelessWidget {
-  const _ProxyMetric({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(icon, size: 14, color: color),
-      kOpenHandHGap4,
-      Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
-      ),
-    ],
-  );
 }
 
 _ProxyEndpointHealth _proxyEndpointHealth(AiExposureProxyEndpoint endpoint) {

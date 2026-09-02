@@ -3517,7 +3517,7 @@ _entityDependencyHistoryTrend(
         metricSamples.length >= 2) {
       final rates = dependencyCounterRates(
         metricSamples,
-        (overview) => overview['value'] as num,
+        (sample) => sample.overview['value'] as num,
       );
       candidates[metric] = [
         for (var index = 0; index < metricSamples.length; index++)

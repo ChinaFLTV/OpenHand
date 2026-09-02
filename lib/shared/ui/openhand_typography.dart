@@ -12,6 +12,8 @@ library;
 
 import 'package:flutter/material.dart';
 
+import 'openhand_spacing.dart';
+
 const String kOpenHandMonospaceFontFamily = 'monospace';
 
 /// 代码 / 差异面板正文的等宽字号与行高。
@@ -34,4 +36,37 @@ TextStyle openHandCodeBodyTextStyle(ThemeData theme, {required Color color}) {
         height: kOpenHandCodeBodyLineHeight,
         fontFeatures: features,
       ).copyWith(color: color);
+}
+
+/// 图标与次级短文本组成的紧凑行内标签。
+class OpenHandInlineIconLabel extends StatelessWidget {
+  const OpenHandInlineIconLabel({
+    super.key,
+    required this.icon,
+    required this.label,
+    this.color,
+    this.iconSize = 14,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color? color;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final foreground = color ?? theme.colorScheme.onSurfaceVariant;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: iconSize, color: foreground),
+        kOpenHandHGap4,
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(color: foreground),
+        ),
+      ],
+    );
+  }
 }
