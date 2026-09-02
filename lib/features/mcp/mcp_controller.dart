@@ -42,11 +42,34 @@ import 'model/mcp_server_health.dart';
 import 'model/mcp_server_ops.dart';
 import 'model/mcp_tool.dart';
 import 'service/mcp_keyword_index.dart';
+import 'service/mcp_keyword_tokenizer.dart';
 import 'service/mcp_ops_endpoint.dart';
 import 'service/mcp_server_ops_runtime.dart';
 import 'service/mcp_stdio_process_manager.dart';
 import 'service/mcp_tool_catalog_cache.dart';
 import 'service/mcp_tool_discovery_service.dart';
+
+const Set<String> _genericMcpRoutingTokens = <String>{
+  '查询',
+  '请求',
+  '获取',
+  '调用',
+  '使用',
+  '工具',
+  '服务',
+  '接口',
+  '信息',
+  '数据',
+  'query',
+  'request',
+  'fetch',
+  'call',
+  'use',
+  'service',
+  'info',
+  'information',
+  'data',
+};
 
 class McpOpsRuntimeBindings {
   const McpOpsRuntimeBindings({
@@ -327,10 +350,17 @@ class McpController extends ChangeNotifier {
   /// 首次对话仅扫描本地缓存缺失的服务，并限制前台等待时间。
   Future<void> ensureRuntimeToolCatalogs({
     Duration maxWait = const Duration(seconds: 9),
+    Iterable<String>? serverNames,
   }) async {
     await ensureRuntimeReady();
     if (_isDisposed || !_hasTrustedSnapshot) return;
-    final warmup = _runtimeCatalogWarmupFlight.run(_warmRuntimeToolCatalogs);
+    final targets = serverNames
+        ?.map(_normalizeServerName)
+        .where((name) => name.isNotEmpty)
+        .toSet();
+    final warmup = targets == null
+        ? _runtimeCatalogWarmupFlight.run(_warmRuntimeToolCatalogs)
+        : _warmRuntimeToolCatalogs(serverNames: targets);
     try {
       await warmup.timeout(maxWait);
     } on TimeoutException {
@@ -338,15 +368,15 @@ class McpController extends ChangeNotifier {
     }
   }
 
-  Future<void> _warmRuntimeToolCatalogs() async {
+  Future<void> _warmRuntimeToolCatalogs({Set<String>? serverNames}) async {
     final targets = runtimeServers
         .where(
           (server) =>
               server.enabled &&
+              (serverNames == null || serverNames.contains(server.name)) &&
               (toolCatalogFor(server.name).status !=
                       McpToolCatalogStatus.ready ||
-                  !toolCatalogFor(server.name).isComplete) &&
-              !toolCatalogFor(server.name).isLoading,
+                  !toolCatalogFor(server.name).isComplete),
         )
         .toList(growable: false);
     await forEachIndexWithConcurrencyLimit(
@@ -481,6 +511,45 @@ class McpController extends ChangeNotifier {
         ..write(tool.description);
     }
     return buffer.toString();
+  }
+
+  /// 请求语义命中且工具较少时直接暴露该 MCP，避免简单能力被全量懒加载隐藏。
+  List<String> matchedSmallRuntimeServerNames({
+    required String query,
+    required Iterable<String> serverNames,
+    int maxTools = 8,
+  }) {
+    final queryTokens = <String>{...tokenizeForMcpKeywordIndex(query)}
+      ..removeAll(_genericMcpRoutingTokens);
+    if (queryTokens.isEmpty) return const <String>[];
+    final allowedNames = serverNames
+        .map(_normalizeServerName)
+        .where((name) => name.isNotEmpty)
+        .toSet();
+    final matched = <String>[];
+    for (final server in runtimeServers) {
+      if (!server.enabled || !allowedNames.contains(server.name)) continue;
+      final catalog = toolCatalogFor(server.name);
+      if (catalog.status != McpToolCatalogStatus.ready ||
+          !catalog.isComplete ||
+          catalog.tools.isEmpty ||
+          catalog.tools.length > maxTools) {
+        continue;
+      }
+      final capabilityText = StringBuffer(server.name);
+      for (final tool in catalog.tools) {
+        capabilityText
+          ..write(' ')
+          ..write(tool.name)
+          ..write(' ')
+          ..write(tool.description);
+      }
+      final capabilityTokens = <String>{
+        ...tokenizeForMcpKeywordIndex(capabilityText.toString()),
+      }..removeAll(_genericMcpRoutingTokens);
+      if (capabilityTokens.any(queryTokens.contains)) matched.add(server.name);
+    }
+    return matched;
   }
 
   McpServerHealth healthStatusFor(String serverName) {

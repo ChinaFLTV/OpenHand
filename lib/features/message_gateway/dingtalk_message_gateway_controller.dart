@@ -4415,7 +4415,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           _settingsController.aiMaxWorkspaceDocumentCharacters;
       final preparedResources = await Future.wait<Object?>(<Future<Object?>>[
         _mcpController
-            .ensureRuntimeToolCatalogs(maxWait: const Duration(seconds: 6))
+            .ensureRuntimeToolCatalogs(
+              maxWait: const Duration(seconds: 6),
+              serverNames: _settings.allowedMcpServerNames,
+            )
             .then<Object?>((_) => null),
         if (_settingsController.memoryEnabled && selectedMemoryIds.isNotEmpty)
           _memoryController
@@ -4441,9 +4444,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       if (responseCancelled()) return;
       final selectedMcp = _mcpController.runtimeServers
           .where(
-            (server) => _settings.allowedMcpServerNames.contains(server.name),
+            (server) =>
+                server.enabled &&
+                _settings.allowedMcpServerNames.contains(server.name),
           )
           .toList(growable: false);
+      final eagerMcpServerNames = _mcpController.matchedSmallRuntimeServerNames(
+        query: source == null ? content : _messageAiContextContent(source),
+        serverNames: selectedMcp.map((server) => server.name),
+      );
       final selectedSkills = _skillsController.skills
           .where((skill) => _settings.allowedSkillNames.contains(skill.name))
           .toList(growable: false);
@@ -4509,6 +4518,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         templateId: templateId,
         toolExecutionMetadata: <String, Object?>{
           'source': 'dingtalk_gateway',
+          if (eagerMcpServerNames.isNotEmpty)
+            mcpEagerServerNamesMetadataKey: eagerMcpServerNames,
           'dingtalk_excluded_message_ids': conversation.messages
               .where((message) => message.isExcludedFromAiContext)
               .map((message) => message.id)
@@ -4726,6 +4737,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
                 ? _directResponseReminder
                 : _groupResponseReminder,
             if (mediaRequest != null) mediaRequest.routingReminder,
+            if (selectedMcp.isNotEmpty)
+              '钉钉 MCP 路由：已启用 ${selectedMcp.map((server) => server.name).join('、')}。'
+                  '请求与其能力匹配时必须调用 MCP；延迟工具先通过 ToolSearch 查询并调用精确工具。'
+                  '取得工具结果前不得编造事实，也不要输出调用前导语。',
           ],
           userMessageMetadata: <String, Object?>{
             'sent_via': 'dingtalk_gateway',
@@ -4797,9 +4812,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         _sessionController.removeListener(onSessionChanged);
         if (!responseCancelled()) {
           // 请求失败时同样收敛：已流式发出的消息应停留在最后已生成内容，
-          // 避免钉钉端留下与本地不一致的半途文本。
+          // 避免钉钉端留下与本地不一致的半途文本；未发送的正式响应仅在
+          // 整轮成功后投递，失败场景统一发送明确的失败提示。
           final session = currentSession();
-          if (session != null) echoCoordinator.complete(session);
+          if (session != null) {
+            echoCoordinator.complete(
+              session,
+              includeUnsentFinalResponse: responseCompleted,
+            );
+          }
           try {
             await echoCoordinator.flush().timeout(const Duration(seconds: 45));
           } on TimeoutException {
@@ -5939,6 +5960,8 @@ ${_markdownStructuredFields(response)}''';
               .firstOrNull;
     if (automaticResponse &&
         (sourceMessage == null ||
+            sourceMessage.aiResponseState !=
+                DingTalkMessageAiResponseState.none ||
             !_isAutomaticResponseEligible(sourceMessage, pollingGeneration))) {
       return Future<void>.value();
     }
@@ -5954,6 +5977,17 @@ ${_markdownStructuredFields(response)}''';
         .firstOrNull;
     if (source != null &&
         (source.isAssistant || source.isExcludedFromAiContext)) {
+      return Future<void>.value();
+    }
+    if (automaticResponse &&
+        ((_activeResponseContextMessageIds[conversation.id]?.contains(
+                  sourceId,
+                ) ??
+                false) ||
+            (_responseQueues[conversation.id]?.any(
+                  (item) => item.sourceMessageId == sourceId,
+                ) ??
+                false))) {
       return Future<void>.value();
     }
     if (automaticResponse) {
@@ -6960,7 +6994,11 @@ class _DingTalkEchoCoordinator {
   Future<void>? _activeDrain;
   bool _disposed = false;
 
-  void ingest(AiSession session, {bool finalizing = false}) {
+  void ingest(
+    AiSession session, {
+    bool finalizing = false,
+    bool includeUnsentFinalResponse = true,
+  }) {
     if (_disposed || _isCancelled()) return;
     final roundStartIndex = session.messages.lastIndexWhere(
       (message) =>
@@ -6980,6 +7018,15 @@ class _DingTalkEchoCoordinator {
       final state = _states[message.id];
       final queued = _pending[message.id];
       final resolvedType = _typeOf(message, session.messages);
+      // 正式响应必须等待整轮结束。否则工具调用出现前的首段前导语会被误发为
+      // 最终卡片，并因卡片类型已锁定而留下残缺内容。
+      if (state == null &&
+          message.kind == AiSessionMessageKind.assistant &&
+          resolvedType == DingTalkResponseEchoType.finalResponse &&
+          (!finalizing || !includeUnsentFinalResponse)) {
+        _pending.remove(message.id);
+        continue;
+      }
       // 未发送前允许消息类型随会话状态变化，避免助手消息由正式响应变为过程响应时
       // 仍沿用首次解析结果；已发送消息保持原卡片生命周期不变。
       if (state == null &&
@@ -7025,9 +7072,13 @@ class _DingTalkEchoCoordinator {
   }
 
   /// 轮次收敛：按会话最终状态做最后一次采集，确保终态文本在 flush 前入队。
-  void complete(AiSession session) {
+  void complete(AiSession session, {bool includeUnsentFinalResponse = true}) {
     if (_disposed || _isCancelled()) return;
-    ingest(session, finalizing: true);
+    ingest(
+      session,
+      finalizing: true,
+      includeUnsentFinalResponse: includeUnsentFinalResponse,
+    );
   }
 
   DateTime _nextReadyAt({

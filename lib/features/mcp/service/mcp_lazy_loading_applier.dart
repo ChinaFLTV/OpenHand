@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import '../../ai/index.dart';
 import '../model/mcp_lazy_loading_mode.dart';
 
+const String mcpEagerServerNamesMetadataKey = 'mcp_eager_server_names';
+
 class McpLazyLoadingApplier {
   const McpLazyLoadingApplier();
 
@@ -53,11 +55,13 @@ class McpLazyLoadingApplier {
       return keepToolSearchWhenIdle ? catalog : _stripToolSearch(catalog);
     }
 
+    final eagerServerNames = _eagerServerNames(runtimeContext);
     final deferredEntries =
         mcpEntries
             .where(
               (entry) =>
-                  !promotedToolNames.contains(entry.value.definition.name),
+                  !promotedToolNames.contains(entry.value.definition.name) &&
+                  !eagerServerNames.contains(entry.value.mcpServer?.name),
             )
             .toList(growable: true)
           ..sort((a, b) => compareToolNamesForAiRequest(a.key, b.key));
@@ -142,5 +146,15 @@ class McpLazyLoadingApplier {
       }
     }
     return (totalChars / charsPerToken).ceil();
+  }
+
+  static Set<String> _eagerServerNames(AiSessionRuntimeContext runtimeContext) {
+    final raw =
+        runtimeContext.toolExecutionMetadata[mcpEagerServerNamesMetadataKey];
+    if (raw is! Iterable) return const <String>{};
+    return raw
+        .map((value) => '$value'.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet();
   }
 }
