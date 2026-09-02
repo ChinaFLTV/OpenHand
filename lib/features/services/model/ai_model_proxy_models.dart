@@ -1,7 +1,9 @@
 import 'dart:math' as math;
 
 import '../../../shared/net/tcp_port_utils.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
 
 const String aiModelProxyDefaultListenHost = '127.0.0.1';
@@ -48,6 +50,7 @@ const int aiModelProxyMaxConcurrentRequests = 16;
 const int aiModelProxyTelemetryBucketMs = 60000;
 const int aiModelProxyTelemetryRetentionDays = 90;
 const int aiModelProxyTelemetryLoadLimit = 2880;
+const int aiModelProxyMaxRequestTextCharacters = 8 * kBytesPerKiB;
 
 bool isAiModelProxyStatusPath(String path) {
   final value = path.trim();
@@ -696,26 +699,26 @@ class AiModelProxyRequestRecord {
     return AiModelProxyRequestRecord(
       id: 'proxy-${capturedAt.microsecondsSinceEpoch}',
       startedAt: capturedAt,
-      providerId: providerId,
-      modelId: modelId,
-      apiStyle: apiStyle,
+      providerId: _boundedProxyRequestText(providerId),
+      modelId: _boundedProxyRequestText(modelId),
+      apiStyle: _boundedProxyRequestText(apiStyle),
       tokens: tokens.clamp(0, 1 << 30),
       durationMs: durationMs.clamp(0, 1 << 30),
       success: success,
-      error: error,
-      clientIp: clientIp,
-      clientPort: clientPort,
-      clientUserAgent: clientUserAgent,
-      clientProcessId: clientProcessId,
-      clientProcessName: clientProcessName,
-      clientServiceName: clientServiceName,
-      clientMacAddress: clientMacAddress,
-      proxyMode: proxyMode,
-      proxyEndpoint: proxyEndpoint,
-      remoteHost: remoteHost,
-      remotePort: remotePort,
-      exposedModel: exposedModel,
-      requestPath: requestPath,
+      error: _boundedNullableProxyRequestText(error),
+      clientIp: _boundedProxyRequestText(clientIp),
+      clientPort: _boundedProxyRequestText(clientPort),
+      clientUserAgent: _boundedProxyRequestText(clientUserAgent),
+      clientProcessId: _boundedProxyRequestText(clientProcessId),
+      clientProcessName: _boundedProxyRequestText(clientProcessName),
+      clientServiceName: _boundedProxyRequestText(clientServiceName),
+      clientMacAddress: _boundedProxyRequestText(clientMacAddress),
+      proxyMode: _boundedProxyRequestText(proxyMode),
+      proxyEndpoint: _boundedProxyRequestText(proxyEndpoint),
+      remoteHost: _boundedProxyRequestText(remoteHost),
+      remotePort: _boundedProxyRequestText(remotePort),
+      exposedModel: _boundedProxyRequestText(exposedModel),
+      requestPath: _boundedProxyRequestText(requestPath),
       promptTokens: promptTokens.clamp(0, 1 << 30),
       completionTokens: completionTokens.clamp(0, 1 << 30),
       inboundBytes: inboundBytes.clamp(0, 1 << 30),
@@ -729,30 +732,30 @@ class AiModelProxyRequestRecord {
   factory AiModelProxyRequestRecord.fromJson(Object? raw) {
     final json = stringKeyedMapFromValue(raw);
     return AiModelProxyRequestRecord(
-      id: '${json['id'] ?? ''}',
+      id: _boundedProxyRequestText(json['id']),
       startedAt:
           DateTime.tryParse('${json['started_at'] ?? ''}')?.toLocal() ??
           DateTime.now(),
-      providerId: '${json['provider_id'] ?? ''}',
-      modelId: '${json['model_id'] ?? ''}',
-      apiStyle: '${json['api_style'] ?? ''}',
+      providerId: _boundedProxyRequestText(json['provider_id']),
+      modelId: _boundedProxyRequestText(json['model_id']),
+      apiStyle: _boundedProxyRequestText(json['api_style']),
       tokens: _proxyBoundedInt(json['tokens'], 0, 0, 1 << 31),
       durationMs: _proxyBoundedInt(json['duration_ms'], 0, 0, 1 << 31),
       success: boolFromValue(json['success']),
-      error: nullIfBlank('${json['error'] ?? ''}'),
-      clientIp: '${json['client_ip'] ?? ''}',
-      clientPort: '${json['client_port'] ?? ''}',
-      clientUserAgent: '${json['client_user_agent'] ?? ''}',
-      clientProcessId: '${json['client_process_id'] ?? ''}',
-      clientProcessName: '${json['client_process_name'] ?? ''}',
-      clientServiceName: '${json['client_service_name'] ?? ''}',
-      clientMacAddress: '${json['client_mac_address'] ?? ''}',
-      proxyMode: '${json['proxy_mode'] ?? ''}',
-      proxyEndpoint: '${json['proxy_endpoint'] ?? ''}',
-      remoteHost: '${json['remote_host'] ?? ''}',
-      remotePort: '${json['remote_port'] ?? ''}',
-      exposedModel: '${json['exposed_model'] ?? ''}',
-      requestPath: '${json['request_path'] ?? ''}',
+      error: _boundedNullableProxyRequestText(json['error']),
+      clientIp: _boundedProxyRequestText(json['client_ip']),
+      clientPort: _boundedProxyRequestText(json['client_port']),
+      clientUserAgent: _boundedProxyRequestText(json['client_user_agent']),
+      clientProcessId: _boundedProxyRequestText(json['client_process_id']),
+      clientProcessName: _boundedProxyRequestText(json['client_process_name']),
+      clientServiceName: _boundedProxyRequestText(json['client_service_name']),
+      clientMacAddress: _boundedProxyRequestText(json['client_mac_address']),
+      proxyMode: _boundedProxyRequestText(json['proxy_mode']),
+      proxyEndpoint: _boundedProxyRequestText(json['proxy_endpoint']),
+      remoteHost: _boundedProxyRequestText(json['remote_host']),
+      remotePort: _boundedProxyRequestText(json['remote_port']),
+      exposedModel: _boundedProxyRequestText(json['exposed_model']),
+      requestPath: _boundedProxyRequestText(json['request_path']),
       promptTokens: _proxyBoundedInt(json['prompt_tokens'], 0, 0, 1 << 31),
       completionTokens: _proxyBoundedInt(
         json['completion_tokens'],
@@ -837,6 +840,15 @@ class AiModelProxyRequestRecord {
     if (attempt > 1) 'attempt': attempt,
     if (stream) 'stream': true,
   };
+}
+
+String _boundedProxyRequestText(Object? value) {
+  final text = value == null ? '' : '$value'.trim();
+  return clipText(text, aiModelProxyMaxRequestTextCharacters, suffix: '');
+}
+
+String? _boundedNullableProxyRequestText(Object? value) {
+  return nullIfBlank(_boundedProxyRequestText(value));
 }
 
 /// 分钟级中转站遥测桶。计数与字节采用增量合并，连接数据采用采样峰值。
