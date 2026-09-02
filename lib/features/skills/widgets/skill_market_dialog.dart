@@ -41,6 +41,7 @@ Future<void> showSkillMarketDialog(BuildContext context) {
 /// 档位是上限语义，套上去会把这里的固定尺寸一起改掉。
 const double _kSkillMarketDialogWidth = 1220;
 const double _kSkillMarketDialogHeight = 840;
+const int _kSkillMarketPagerCount = 5;
 
 class _SkillMarketDialog extends StatefulWidget {
   const _SkillMarketDialog();
@@ -385,6 +386,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
           total: result?.total ?? 0,
           page: result?.page ?? _page,
           pageSize: result?.pageSize ?? _pageSize,
+          maxPageButtons: _kSkillMarketPagerCount,
           enabled: !_isSearching && result != null,
           onPageChanged: _goToPage,
           onPageSizeChanged: (size) {

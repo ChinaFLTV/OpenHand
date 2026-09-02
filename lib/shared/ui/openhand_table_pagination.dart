@@ -81,7 +81,8 @@ final class OpenHandPageWindow {
       return <int>[for (var i = 1; i <= pageCount; i++) i];
     }
     final items = <int>[1];
-    if (currentPage <= 4) {
+    final edgeThreshold = (maxButtons + 1) ~/ 2;
+    if (currentPage <= edgeThreshold) {
       final end = maxButtons - 2;
       for (var i = 2; i <= end; i++) {
         items.add(i);
@@ -91,7 +92,7 @@ final class OpenHandPageWindow {
         ..add(pageCount);
       return items;
     }
-    if (currentPage >= pageCount - 3) {
+    if (currentPage >= pageCount - edgeThreshold + 1) {
       items.add(_kOpenHandPagerEllipsis);
       final start = pageCount - (maxButtons - 3);
       for (var i = start < 2 ? 2 : start; i <= pageCount; i++) {
@@ -99,11 +100,13 @@ final class OpenHandPageWindow {
       }
       return items;
     }
+    final middleCount = maxButtons - 4;
+    final middleStart = currentPage - middleCount ~/ 2;
+    items.add(_kOpenHandPagerEllipsis);
+    for (var i = 0; i < middleCount; i++) {
+      items.add(middleStart + i);
+    }
     items
-      ..add(_kOpenHandPagerEllipsis)
-      ..add(currentPage - 1)
-      ..add(currentPage)
-      ..add(currentPage + 1)
       ..add(_kOpenHandPagerEllipsis)
       ..add(pageCount);
     return items;
@@ -248,6 +251,7 @@ class OpenHandTablePagination extends StatefulWidget {
     this.pageSizes = kOpenHandTablePageSizes,
     this.enabled = true,
     this.showPageNumbers = true,
+    this.maxPageButtons = kOpenHandTablePagerCount,
     this.showJumper = true,
     this.showPageSize = true,
     this.showTotal = true,
@@ -267,6 +271,7 @@ class OpenHandTablePagination extends StatefulWidget {
   final List<int> pageSizes;
   final bool enabled;
   final bool showPageNumbers;
+  final int maxPageButtons;
   final bool showJumper;
   final bool showPageSize;
   final bool showTotal;
@@ -398,6 +403,7 @@ class _OpenHandTablePaginationState extends State<OpenHandTablePagination> {
           for (final item in OpenHandPageWindow.pagerItems(
             currentPage: window.page,
             pageCount: pageCount,
+            maxButtons: widget.maxPageButtons,
           )) ...[
             const SizedBox(width: kOpenHandTablePagerGap),
             if (item == _kOpenHandPagerEllipsis)
@@ -566,9 +572,16 @@ class _PagerSplitBar extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Align(alignment: Alignment.centerLeft, child: left),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: left,
+              ),
               const SizedBox(height: kOpenHandTablePagerGap),
-              Align(alignment: Alignment.centerRight, child: right),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                reverse: true,
+                child: right,
+              ),
             ],
           );
         }
@@ -763,6 +776,7 @@ class _PagerNumberButton extends StatelessWidget {
         enabled: enabled,
         onPressed: onPressed,
         duration: duration,
+        fitContent: true,
         child: AnimatedDefaultTextStyle(
           duration: duration,
           curve: kOpenHandSwitchInCurve,
@@ -771,7 +785,7 @@ class _PagerNumberButton extends StatelessWidget {
             fontWeight: FontWeight.w800,
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
-          child: Text('$page'),
+          child: Text('$page', maxLines: 1, softWrap: false),
         ),
       ),
     );
@@ -785,6 +799,7 @@ class _PagerChrome extends StatelessWidget {
     required this.onPressed,
     required this.child,
     this.duration,
+    this.fitContent = false,
   });
 
   final bool selected;
@@ -792,6 +807,7 @@ class _PagerChrome extends StatelessWidget {
   final VoidCallback onPressed;
   final Widget child;
   final Duration? duration;
+  final bool fitContent;
 
   @override
   Widget build(BuildContext context) {
@@ -806,8 +822,14 @@ class _PagerChrome extends StatelessWidget {
         child: AnimatedContainer(
           duration: motion,
           curve: kOpenHandSwitchInCurve,
-          width: kOpenHandTablePagerButtonSize,
+          width: fitContent ? null : kOpenHandTablePagerButtonSize,
           height: kOpenHandTablePagerButtonSize,
+          constraints: const BoxConstraints(
+            minWidth: kOpenHandTablePagerButtonSize,
+          ),
+          padding: fitContent
+              ? const EdgeInsets.symmetric(horizontal: 8)
+              : null,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: selected ? colors.primary : colors.surfaceContainerHighest,
