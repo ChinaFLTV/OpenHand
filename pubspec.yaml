@@ -46,6 +46,8 @@ dependencies:
   xterm: ^4.0.0
   flutter_pty: ^0.4.2
 dev_dependencies:
+  flutter_test:
+    sdk: flutter
   flutter_lints: ^6.0.0
 
 dependency_overrides:

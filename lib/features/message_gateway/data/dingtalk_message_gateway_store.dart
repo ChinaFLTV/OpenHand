@@ -122,7 +122,7 @@ class DingTalkMessageGatewayStore {
           return conversation.snapshot(messages: messages);
         })
         .toList(growable: true);
-    limitedConversations.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    limitedConversations.sort(compareDingTalkConversationsByRecent);
     String encodePayload() {
       final payload = <String, Object?>{
         ...normalized.toJson(),

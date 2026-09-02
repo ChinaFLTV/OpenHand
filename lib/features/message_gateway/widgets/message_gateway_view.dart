@@ -12134,10 +12134,22 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       builder: (context, _) {
         final serviceEnabled = widget.controller.isServiceEnabled;
         final conversations = widget.controller.conversations;
+        final conversationIndexById = <String, int>{
+          for (var index = 0; index < conversations.length; index++)
+            conversations[index].id: index,
+        };
         // 初次打开只展示空状态，必须由用户明确点击会话后再进入消息内容。
         final selected = conversations
             .where((item) => item.id == _selectedId)
             .firstOrNull;
+        // Sliver delegate 在下一次父级 rebuild 前仍可能因滚动/Ticker 再次取 child；
+        // 固定本次 build 的消息快照和 key/index 拓扑，禁止与可变列表交叉使用。
+        final selectedMessages = selected == null
+            ? const <DingTalkGatewayMessage>[]
+            : List<DingTalkGatewayMessage>.unmodifiable(selected.messages);
+        final messageTopology = selected == null
+            ? null
+            : DingTalkMessageRenderTopology(selectedMessages);
         final selectedQueuedResponses = selected == null
             ? const <DingTalkQueuedResponse>[]
             : widget.controller.queuedResponses(selected.id);
@@ -12304,6 +12316,14 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                       12,
                                     ),
                                     itemCount: conversations.length,
+                                    findItemIndexCallback: (key) {
+                                      if (key case ValueKey<String>(
+                                        value: final conversationId,
+                                      )) {
+                                        return conversationIndexById[conversationId];
+                                      }
+                                      return null;
+                                    },
                                     separatorBuilder: (_, index) =>
                                         kOpenHandGap4,
                                     itemBuilder: (context, index) {
@@ -12312,6 +12332,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                       final responseState = widget.controller
                                           .conversationResponseState(item.id);
                                       return Builder(
+                                        key: ValueKey<String>(item.id),
                                         builder: (itemContext) => Material(
                                           color: active
                                               ? colors.primaryContainer
@@ -12531,7 +12552,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                       ),
                                     ),
                                     Expanded(
-                                      child: selected.messages.isEmpty
+                                      child: selectedMessages.isEmpty
                                           ? Center(
                                               child: AnimatedSwitcher(
                                                 duration:
@@ -12625,22 +12646,10 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                       >(
                                                         value: final identity,
                                                       )) {
-                                                        final messageIndex =
-                                                            selected.messages
-                                                                .lastIndexWhere(
-                                                                  (message) =>
-                                                                      _dingTalkMessageRenderIdentity(
-                                                                        message,
-                                                                      ) ==
-                                                                      identity,
-                                                                );
-                                                        if (messageIndex >= 0) {
-                                                          return selected
-                                                                  .messages
-                                                                  .length -
-                                                              messageIndex -
-                                                              1;
-                                                        }
+                                                        return messageTopology
+                                                            ?.reverseIndexOf(
+                                                              identity,
+                                                            );
                                                       }
                                                       return null;
                                                     },
@@ -12652,8 +12661,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                           12,
                                                         ),
                                                     itemCount:
-                                                        selected
-                                                            .messages
+                                                        selectedMessages
                                                             .length +
                                                         (selectedHasOlderMessages ||
                                                                 selectedLoadingOlderMessages
@@ -12665,8 +12673,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                           selectedLoadingOlderMessages;
                                                       if (historyHeaderVisible &&
                                                           index ==
-                                                              selected
-                                                                  .messages
+                                                              selectedMessages
                                                                   .length) {
                                                         final loading =
                                                             selectedLoadingOlderMessages;
@@ -12708,13 +12715,18 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                           ),
                                                         );
                                                       }
+                                                      final messageIndex =
+                                                          selectedMessages
+                                                              .length -
+                                                          index -
+                                                          1;
                                                       final message =
-                                                          selected
-                                                              .messages[selected
-                                                                  .messages
-                                                                  .length -
-                                                              index -
-                                                              1];
+                                                          selectedMessages[messageIndex];
+                                                      final renderIdentity =
+                                                          messageTopology!
+                                                              .identityAt(
+                                                                messageIndex,
+                                                              );
                                                       _scheduleVisibleMediaLoad(
                                                         selected.id,
                                                         message,
@@ -12749,12 +12761,12 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                           : null;
                                                       return RepaintBoundary(
                                                         key: ValueKey<String>(
-                                                          _dingTalkMessageRenderIdentity(
-                                                            message,
-                                                          ),
+                                                          renderIdentity,
                                                         ),
                                                         child: _DingTalkMessageBubble(
                                                           message: message,
+                                                          renderIdentity:
+                                                              renderIdentity,
                                                           anchorRegistry:
                                                               _messageAnchorRegistry,
                                                           mine: _isMine(
@@ -15993,11 +16005,6 @@ class _DingTalkResponseErrorBanner extends StatelessWidget {
   }
 }
 
-String _dingTalkMessageRenderIdentity(DingTalkGatewayMessage message) {
-  final sourceId = message.sourceAiMessageId.trim();
-  return sourceId.isEmpty ? 'message:${message.id}' : 'ai:$sourceId';
-}
-
 String _dingTalkForwardedChatTitle(DingTalkGatewayMessage message) {
   final names = <String>[];
   for (final item in message.forwardedMessages) {
@@ -16090,6 +16097,7 @@ class _DingTalkMessageAnchorRegistry {
 class _DingTalkMessageBubble extends StatefulWidget {
   const _DingTalkMessageBubble({
     required this.message,
+    required this.renderIdentity,
     required this.mine,
     required this.actionsVisible,
     required this.onToggleActions,
@@ -16120,6 +16128,7 @@ class _DingTalkMessageBubble extends StatefulWidget {
   });
 
   final DingTalkGatewayMessage message;
+  final String renderIdentity;
   final bool mine;
   final bool actionsVisible;
   final VoidCallback onToggleActions;
@@ -16195,8 +16204,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
       oldWidget.anchorRegistry.unbind(oldWidget.message.id, context);
     }
     widget.anchorRegistry.bind(widget.message.id, context);
-    if (_dingTalkMessageRenderIdentity(oldWidget.message) !=
-        _dingTalkMessageRenderIdentity(widget.message)) {
+    if (oldWidget.renderIdentity != widget.renderIdentity) {
       _cancelPendingActionToggle();
       _showRawContent = false;
       _showFullText = false;

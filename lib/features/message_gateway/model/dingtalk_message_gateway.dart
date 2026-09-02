@@ -2361,6 +2361,167 @@ class DingTalkGatewayMessage {
   };
 }
 
+/// 规范化同一会话内的消息身份，并修复旧快照留下的歧义关联。
+({List<DingTalkGatewayMessage> messages, bool changed})
+normalizeDingTalkConversationMessages(Iterable<DingTalkGatewayMessage> source) {
+  final original = source.toList(growable: false);
+  final byMessageId =
+      <String, ({DingTalkGatewayMessage message, int originalIndex})>{};
+  var changed = false;
+
+  bool isLater(
+    ({DingTalkGatewayMessage message, int originalIndex}) candidate,
+    ({DingTalkGatewayMessage message, int originalIndex}) current,
+  ) {
+    final created = candidate.message.createdAt.compareTo(
+      current.message.createdAt,
+    );
+    return created > 0 ||
+        created == 0 && candidate.originalIndex > current.originalIndex;
+  }
+
+  for (var index = 0; index < original.length; index++) {
+    final message = original[index];
+    final messageId = normalizeDingTalkMessageId(message.id);
+    if (messageId.isEmpty) {
+      changed = true;
+      continue;
+    }
+    final sourceId = message.isAssistant
+        ? message.sourceAiMessageId.trim()
+        : '';
+    final normalized =
+        message.id == messageId && message.sourceAiMessageId == sourceId
+        ? message
+        : message.copyWith(id: messageId, sourceAiMessageId: sourceId);
+    if (!identical(normalized, message)) changed = true;
+    final candidate = (message: normalized, originalIndex: index);
+    final previous = byMessageId[messageId];
+    if (previous == null) {
+      byMessageId[messageId] = candidate;
+    } else {
+      changed = true;
+      if (isLater(candidate, previous)) byMessageId[messageId] = candidate;
+    }
+  }
+
+  final entries = byMessageId.values.toList(growable: true);
+  final sourceOwners =
+      <String, ({DingTalkGatewayMessage message, int originalIndex})>{};
+  for (final entry in entries) {
+    final sourceId = entry.message.sourceAiMessageId;
+    if (sourceId.isEmpty) continue;
+    final previous = sourceOwners[sourceId];
+    if (previous == null || isLater(entry, previous)) {
+      sourceOwners[sourceId] = entry;
+    }
+  }
+  for (var index = 0; index < entries.length; index++) {
+    final entry = entries[index];
+    final sourceId = entry.message.sourceAiMessageId;
+    if (sourceId.isEmpty ||
+        sourceOwners[sourceId]?.originalIndex == entry.originalIndex) {
+      continue;
+    }
+    entries[index] = (
+      message: entry.message.copyWith(sourceAiMessageId: ''),
+      originalIndex: entry.originalIndex,
+    );
+    changed = true;
+  }
+
+  final orderBeforeSort = entries
+      .map((entry) => entry.originalIndex)
+      .toList(growable: false);
+  entries.sort((left, right) {
+    final created = left.message.createdAt.compareTo(right.message.createdAt);
+    if (created != 0) return created;
+    final messageId = left.message.id.compareTo(right.message.id);
+    return messageId != 0
+        ? messageId
+        : left.originalIndex.compareTo(right.originalIndex);
+  });
+  if (!changed) {
+    for (var index = 0; index < entries.length; index++) {
+      if (entries[index].originalIndex != orderBeforeSort[index]) {
+        changed = true;
+        break;
+      }
+    }
+  }
+  return (
+    messages: List<DingTalkGatewayMessage>.unmodifiable(
+      entries.map((entry) => entry.message),
+    ),
+    changed: changed,
+  );
+}
+
+/// 消息列表一次 build 使用的不可变 key/index 拓扑。
+///
+/// 正常 AI 回显使用 source ID 维持本地到远端 ID 绑定时的 State 连续性；
+/// 损坏数据则退回物理 ID，并用确定性后缀保证 sibling key 严格唯一。
+class DingTalkMessageRenderTopology {
+  factory DingTalkMessageRenderTopology(List<DingTalkGatewayMessage> messages) {
+    final identities = _buildIdentities(messages);
+    return DingTalkMessageRenderTopology._(
+      identities,
+      Map<String, int>.unmodifiable(<String, int>{
+        for (var index = 0; index < identities.length; index++)
+          identities[index]: identities.length - index - 1,
+      }),
+    );
+  }
+
+  const DingTalkMessageRenderTopology._(
+    this._identities,
+    this._reverseIndexByIdentity,
+  );
+
+  final List<String> _identities;
+  final Map<String, int> _reverseIndexByIdentity;
+
+  int get length => _identities.length;
+
+  String identityAt(int messageIndex) => _identities[messageIndex];
+
+  int? reverseIndexOf(String identity) => _reverseIndexByIdentity[identity];
+
+  static List<String> _buildIdentities(List<DingTalkGatewayMessage> messages) {
+    final sourceCounts = <String, int>{};
+    for (final message in messages) {
+      final sourceId = message.isAssistant
+          ? message.sourceAiMessageId.trim()
+          : '';
+      if (sourceId.isNotEmpty) {
+        sourceCounts[sourceId] = (sourceCounts[sourceId] ?? 0) + 1;
+      }
+    }
+
+    final identities = <String>[];
+    final baseOccurrences = <String, int>{};
+    final used = <String>{};
+    for (final message in messages) {
+      final sourceId = message.isAssistant
+          ? message.sourceAiMessageId.trim()
+          : '';
+      final messageId = normalizeDingTalkMessageId(message.id);
+      final base = sourceId.isNotEmpty && sourceCounts[sourceId] == 1
+          ? 'ai:$sourceId'
+          : 'message:${messageId.isEmpty ? '<invalid>' : messageId}';
+      final occurrence = (baseOccurrences[base] ?? 0) + 1;
+      baseOccurrences[base] = occurrence;
+      var identity = occurrence == 1 ? base : '$base#$occurrence';
+      var collision = 1;
+      while (!used.add(identity)) {
+        identity = '$base#$occurrence:${collision++}';
+      }
+      identities.add(identity);
+    }
+    return List<String>.unmodifiable(identities);
+  }
+}
+
 class DingTalkConversation {
   DingTalkConversation({
     required this.id,
@@ -2479,6 +2640,14 @@ class DingTalkConversation {
       messages.isEmpty ? createdAt : messages.last.createdAt;
 
   String get preview => messages.isEmpty ? '' : messages.last.content;
+}
+
+int compareDingTalkConversationsByRecent(
+  DingTalkConversation left,
+  DingTalkConversation right,
+) {
+  final updated = right.updatedAt.compareTo(left.updatedAt);
+  return updated != 0 ? updated : left.id.compareTo(right.id);
 }
 
 @immutable

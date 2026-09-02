@@ -1045,7 +1045,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   List<DingTalkConversation> get conversations {
     final values = _conversations.values.toList(growable: false);
-    return values..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return values..sort(compareDingTalkConversationsByRecent);
   }
 
   Future<List<DingTalkConversationTarget>> searchTargets({
@@ -1783,6 +1783,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         feedback: feedback,
         clearFeedback: feedback == null,
       );
+      _normalizeConversationMessages(conversation);
       _queuePersist();
       _clearError();
       _notify();
@@ -1921,8 +1922,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         );
       _seenMessageIds.clear();
       final persistedMessages = <DingTalkGatewayMessage>[];
+      var repairedMessageIdentities = false;
       var repairedResponseStates = false;
       for (final conversation in _conversations.values) {
+        repairedMessageIdentities =
+            _normalizeConversationMessages(conversation) ||
+            repairedMessageIdentities;
         for (var index = 0; index < conversation.messages.length; index++) {
           final message = conversation.messages[index];
           if (message.aiResponseState !=
@@ -1953,7 +1958,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             _collapseOutgoingEchoDuplicates(conversation) > 0 ||
             repairedOutgoingEchoes;
       }
-      if (repairedResponseStates ||
+      if (repairedMessageIdentities ||
+          repairedResponseStates ||
           repairedEchoContent ||
           repairedOutgoingEchoes) {
         _queuePersist();
@@ -2670,9 +2676,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     DingTalkGatewayMessage localMessage,
     String? remoteMessageId,
   ) {
-    final id = remoteMessageId?.trim() ?? '';
+    final id = normalizeDingTalkMessageId(remoteMessageId);
+    final localMessageId = normalizeDingTalkMessageId(localMessage.id);
     final localIndex = conversation.messages.indexWhere(
-      (message) => message.id == localMessage.id,
+      (message) => normalizeDingTalkMessageId(message.id) == localMessageId,
     );
     final outgoingIndex = localIndex >= 0
         ? localIndex
@@ -2701,9 +2708,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       return outgoing;
     }
     _unresolvedOutgoingMessageIds.remove(outgoing.id);
-    if (id == outgoing.id) return outgoing;
+    if (id == normalizeDingTalkMessageId(outgoing.id)) return outgoing;
     final remoteIndex = conversation.messages.indexWhere(
-      (message) => message.id == id && message.id != outgoing.id,
+      (message) =>
+          normalizeDingTalkMessageId(message.id) == id &&
+          normalizeDingTalkMessageId(message.id) !=
+              normalizeDingTalkMessageId(outgoing.id),
     );
     // 实时回流可能已先把临时消息替换成真实 ID，发送接口返回后直接复用该消息，
     // 避免 AI 请求继续引用已经不存在的 local-* 标识。
@@ -2730,7 +2740,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       );
       conversation.messages.removeAt(remoteIndex);
       final refreshedIndex = conversation.messages.indexWhere(
-        (message) => message.id == outgoing.id,
+        (message) =>
+            normalizeDingTalkMessageId(message.id) ==
+            normalizeDingTalkMessageId(outgoing.id),
       );
       if (refreshedIndex < 0) return merged;
       conversation.messages[refreshedIndex] = merged;
@@ -2888,7 +2900,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         _conversations.values
             .where((conversation) => conversation.id.trim().isNotEmpty)
             .toList(growable: true)
-          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+          ..sort(compareDingTalkConversationsByRecent);
     if (conversations.isEmpty) return;
     final reconcileCount = math.min(
       conversations.length,
@@ -4079,7 +4091,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }) {
     final effectiveSettings = settings ?? _settings;
     final recentConversations = _conversations.values.toList(growable: true)
-      ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
+      ..sort(compareDingTalkConversationsByRecent);
     final targets = <DingTalkConversationTarget>[
       ...effectiveSettings.allowedGroupTargets,
       ...effectiveSettings.allowedContactTargets,
@@ -6929,6 +6941,17 @@ ${_markdownStructuredFields(response)}''';
   bool isMessageFromCurrentUser(DingTalkGatewayMessage message) =>
       _isSelf(message);
 
+  bool _normalizeConversationMessages(DingTalkConversation conversation) {
+    final normalized = normalizeDingTalkConversationMessages(
+      conversation.messages,
+    );
+    if (!normalized.changed) return false;
+    conversation.messages
+      ..clear()
+      ..addAll(normalized.messages);
+    return true;
+  }
+
   void _appendMessage(
     DingTalkConversation conversation,
     DingTalkGatewayMessage message,
@@ -6940,16 +6963,15 @@ ${_markdownStructuredFields(response)}''';
         )) {
       return;
     }
-    final last = conversation.messages.isEmpty
-        ? null
-        : conversation.messages.last;
-    if (last == null || !message.createdAt.isBefore(last.createdAt)) {
-      conversation.messages.add(message);
-    } else {
-      conversation.messages
-        ..add(message)
-        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    }
+    final sourceId = message.isAssistant
+        ? message.sourceAiMessageId.trim()
+        : '';
+    final normalizedMessage =
+        message.id == messageId && message.sourceAiMessageId == sourceId
+        ? message
+        : message.copyWith(id: messageId, sourceAiMessageId: sourceId);
+    conversation.messages.add(normalizedMessage);
+    _normalizeConversationMessages(conversation);
     _queuePersist();
   }
 
