@@ -19,7 +19,7 @@ class DatabaseService {
   Database? _database;
   BoundedRandomAccessFileLease? _instanceLock;
 
-  static const int schemaVersion = 19;
+  static const int schemaVersion = 20;
   static const String _databaseFileName = 'openhand.db';
   static const String _harnessSessionsTable = 'harness_sessions';
   static const String _harnessEngineeringTemplateId = 'harness_engineering';
@@ -835,6 +835,10 @@ class DatabaseService {
     }
     if (oldVersion < 19) {
       await db.execute(_createAiModelProxyTelemetryTableSql);
+    }
+    // v20：Harness 命名迁移已完成，移除不再读取且持续占用空间的旧表。
+    if (oldVersion < 20) {
+      await db.execute('DROP TABLE IF EXISTS $_legacyHarnessSessionsTable');
     }
   }
 
