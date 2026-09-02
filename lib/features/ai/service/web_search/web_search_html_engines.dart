@@ -107,9 +107,16 @@ class WebSearchDuckDuckGoEngine extends WebSearchEngine {
 class WebSearchBingEngine extends WebSearchEngine {
   WebSearchBingEngine({required super.config, required super.httpClient});
 
-  static final RegExp _resultPattern = RegExp(
-    r'<li class="b_algo">[\s\S]*?<h2><a[^>]*href="([^"]+)"[^>]*>(.*?)</a></h2>'
-    r'[\s\S]*?<p[^>]*>(.*?)</p>',
+  static final RegExp _resultBlockPattern = RegExp(
+    r'''<li\b[^>]*class=["'][^"']*\bb_algo\b[^"']*["'][^>]*>([\s\S]*?)</li>''',
+    caseSensitive: false,
+  );
+  static final RegExp _titleLinkPattern = RegExp(
+    r'''<h2\b[^>]*>[\s\S]*?<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)</a>''',
+    caseSensitive: false,
+  );
+  static final RegExp _snippetPattern = RegExp(
+    r'<p\b[^>]*>([\s\S]*?)</p>',
     caseSensitive: false,
   );
 
@@ -132,12 +139,30 @@ class WebSearchBingEngine extends WebSearchEngine {
       throw WebEngineHttpException('Bing ${response.statusCode}');
     }
     final html = response.body;
-    return _parseHtmlSearchHits(
-      html: html,
-      pattern: _resultPattern,
-      maxResults: req.maxResults,
-      source: 'bing',
-    );
+    final hits = <WebSearchEngineHit>[];
+    for (final result in _resultBlockPattern.allMatches(html)) {
+      final block = result.group(1) ?? '';
+      final titleLink = _titleLinkPattern.firstMatch(block);
+      if (titleLink == null) continue;
+      final url = AiToolUtils.htmlToText(titleLink.group(1) ?? '');
+      final title = AiToolUtils.htmlToText(titleLink.group(2) ?? '');
+      if (url.isEmpty || title.isEmpty) continue;
+      hits.add(
+        WebSearchEngineHit(
+          title: title,
+          url: url,
+          snippet: AiToolUtils.htmlToText(
+            _snippetPattern.firstMatch(block)?.group(1) ?? '',
+          ),
+          source: 'bing',
+        ),
+      );
+      if (hits.length >= req.maxResults) break;
+    }
+    if (hits.isEmpty && _resultBlockPattern.hasMatch(html)) {
+      throw WebEngineHttpException('Bing result parsing failed');
+    }
+    return hits;
   }
 }
 

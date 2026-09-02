@@ -188,11 +188,12 @@ class AiWebSearchTool extends AiTool {
 
     AiToolExecutionResult errorResult(
       BashToolExecutionStatus status,
-      String message,
-    ) => progressReporter.errorResult(
+      String message, {
+      Map<String, Object?>? metadata,
+    }) => progressReporter.errorResult(
       status: status,
       message: message,
-      metadata: meta(),
+      metadata: metadata ?? meta(),
     );
 
     progressReporter.emit('searching', '正在调度已启用的搜索引擎。');
@@ -297,32 +298,45 @@ class AiWebSearchTool extends AiTool {
 
     final merged = orchestrationResult.merged;
     if (merged.isEmpty) {
+      final engineDiagnostics = orchestrationResult.engineRuns
+          .map((r) => '${r.kind.name}:${r.error ?? "ok"}')
+          .toList(growable: false);
       final allFailed = orchestrationResult.engineRuns.every(
-        (r) => !r.isSuccess,
+        (r) => r.error != null,
       );
       final detail = allFailed
-          ? '所有已启用的搜索引擎均未返回结果或发生错误，请查看 `engines` 元数据中的引擎诊断。'
-          : '没有符合当前筛选条件的搜索结果。';
-      progressReporter.emit('completed', detail);
+          ? '所有已启用的搜索引擎均执行失败，请稍后重试或检查 WebSearch 引擎配置。'
+          : '搜索引擎执行完成，但没有符合当前筛选条件的结果。';
+      progressReporter.emit(allFailed ? 'failed' : 'completed', detail);
       recordTelemetry(
-        cacheStatus: settings.cacheEnabled ? 'miss-empty' : 'disabled',
+        cacheStatus: allFailed
+            ? 'bypass'
+            : settings.cacheEnabled
+            ? 'miss-empty'
+            : 'disabled',
         success: !allFailed,
         summaryChars: 0,
         orchestration: orchestrationResult,
       );
+      final metadata = meta(
+        resultCount: 0,
+        engines: engineDiagnostics,
+        fallbackUsed: orchestrationResult.fallbackUsed,
+      );
+      if (allFailed) {
+        return errorResult(
+          BashToolExecutionStatus.failed,
+          detail,
+          metadata: metadata,
+        );
+      }
       return AiToolUtils.progressSuccessResult(
         command: command,
         workingDirectory: workingDirectory,
         progress: progress,
         durationMs: stopwatch.elapsedMilliseconds,
         resultText: detail,
-        metadata: meta(
-          resultCount: 0,
-          engines: orchestrationResult.engineRuns
-              .map((r) => '${r.kind.name}:${r.error ?? "ok"}')
-              .toList(growable: false),
-          fallbackUsed: orchestrationResult.fallbackUsed,
-        ),
+        metadata: metadata,
       );
     }
 
