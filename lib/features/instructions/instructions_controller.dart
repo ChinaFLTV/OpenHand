@@ -98,6 +98,11 @@ class InstructionsController extends ManagedChangeNotifier {
       dedupeCaseInsensitive: true,
     );
     return _enqueueMutation(() async {
+      if (_entries.length >= UserInstructionEntry.maxEntries) {
+        _errorMessage = '用户指令不能超过 ${UserInstructionEntry.maxEntries} 条。';
+        notifyListeners();
+        return false;
+      }
       final now = _clock().toUtc();
       final id = _idGenerator().trim();
       if (id.isEmpty || _entries.any((entry) => entry.id == id)) return false;

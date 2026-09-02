@@ -60,7 +60,11 @@ class InstructionsView extends StatelessWidget {
           label: Text(l10n.instructionRefresh),
         ),
         FilledButton.icon(
-          onPressed: () => _openEditor(context, controller, null),
+          onPressed:
+              snapshot.isLoading ||
+                  snapshot.entries.length >= UserInstructionEntry.maxEntries
+              ? null
+              : () => _openEditor(context, controller, null),
           icon: const Icon(Icons.add_rounded),
           label: Text(l10n.instructionNewEntry),
         ),

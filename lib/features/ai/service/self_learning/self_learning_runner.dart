@@ -654,11 +654,11 @@ $slice
   static String _renderBoundedAutoLearnedHistory(
     List<UserMemoryEntry> entries,
   ) {
-    final rendered = renderLinesWithinBudget<UserMemoryEntry>(
+    final rendered = renderItemsWithinBudget<UserMemoryEntry>(
       items: entries,
       maxItems: _selfLearningHistoryMaxEntries,
       maxCharacters: _selfLearningHistoryMaxCharacters,
-      lineBuilder: (entry) {
+      itemBuilder: (entry) {
         final content = clipTextWithOmissionMarker(
           entry.content,
           maxCodeUnits: _selfLearningHistoryEntryMaxCharacters - 2,

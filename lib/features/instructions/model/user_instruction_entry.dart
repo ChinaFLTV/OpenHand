@@ -106,6 +106,7 @@ class UserInstructionEntry {
   }
 
   static const int maxNameLength = 80;
+  static const int maxEntries = 256;
   static const int maxDescriptionLength = 240;
   static const int maxApplyToLength = 240;
   static const int maxNoteLength = 240;

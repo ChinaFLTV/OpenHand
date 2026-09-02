@@ -57,6 +57,8 @@ const int _userMemoryPromptMaxEntries = 64;
 const int _userMemoryPromptEntryMaxCharacters = 2 * kBytesPerKiB;
 const int _userMemoryPromptTagsMaxCharacters = 320;
 const int _userMemoryPromptMaxCharacters = 24 * kBytesPerKiB;
+const int _userInstructionsPromptMaxEntries = 64;
+const int _userInstructionsPromptMaxCharacters = 128 * kBytesPerKiB;
 
 class AiPromptBuildResult {
   const AiPromptBuildResult({
@@ -4175,11 +4177,11 @@ $tail''';
     if (filtered.isEmpty) {
       return 'No saved user memory entries.';
     }
-    final render = renderLinesWithinBudget<UserMemoryEntry>(
+    final render = renderItemsWithinBudget<UserMemoryEntry>(
       items: filtered,
       maxItems: _userMemoryPromptMaxEntries,
       maxCharacters: _userMemoryPromptMaxCharacters,
-      lineBuilder: (entry) {
+      itemBuilder: (entry) {
         final promptTags = _memoryTagsForPrompt(entry);
         final tags = promptTags.isEmpty
             ? ''
@@ -4348,36 +4350,46 @@ $tail''';
     if (instructions.isEmpty) return '';
     final visible = _userInstructionsForPrompt(instructions, skippedIds);
     if (visible.isEmpty) return '';
-    final buf = StringBuffer();
-    for (int i = 0; i < visible.length; i++) {
-      final entry = visible[i];
-      final body = entry.body.trim();
-      final name = entry.name.trim().isEmpty
-          ? 'Instruction'
-          : entry.name.trim();
-      // 携带 id，供 [3d] Dynamic State 中的
-      // `skipped_user_instruction_ids` 精准定位。
-      buf.writeln('## ${i + 1}. $name (v${entry.version}, id=${entry.id})');
-      if (entry.description.trim().isNotEmpty) {
-        buf.writeln('_${entry.description.trim()}_');
-      }
-      if (entry.applyTo.trim().isNotEmpty) {
-        buf.writeln('- applyTo: ${entry.applyTo.trim()}');
-      }
-      final taskTypes = _instructionTaskTypesForPrompt(entry);
-      if (taskTypes.isNotEmpty) {
-        buf.writeln('- taskTypes: ${taskTypes.join(", ")}');
-      }
-      final keywords = _instructionKeywordsForPrompt(entry);
-      if (keywords.isNotEmpty) {
-        buf.writeln('- keywords: ${keywords.join(", ")}');
-      }
-      buf
-        ..writeln()
-        ..writeln(body)
-        ..writeln();
-    }
-    return buf.toString();
+    final indexed = visible.indexed.toList(growable: false);
+    final render = renderItemsWithinBudget<(int, UserInstructionEntry)>(
+      items: indexed,
+      maxItems: _userInstructionsPromptMaxEntries,
+      maxCharacters: _userInstructionsPromptMaxCharacters,
+      itemBuilder: (item) {
+        final entry = item.$2;
+        final name = entry.name.trim().isEmpty
+            ? 'Instruction'
+            : entry.name.trim();
+        final buffer = StringBuffer()
+          // 携带 id，供动态状态按条目精准跳过。
+          ..writeln(
+            '## ${item.$1 + 1}. $name (v${entry.version}, id=${entry.id})',
+          );
+        if (entry.description.trim().isNotEmpty) {
+          buffer.writeln('_${entry.description.trim()}_');
+        }
+        if (entry.applyTo.trim().isNotEmpty) {
+          buffer.writeln('- applyTo: ${entry.applyTo.trim()}');
+        }
+        final taskTypes = _instructionTaskTypesForPrompt(entry);
+        if (taskTypes.isNotEmpty) {
+          buffer.writeln('- taskTypes: ${taskTypes.join(", ")}');
+        }
+        final keywords = _instructionKeywordsForPrompt(entry);
+        if (keywords.isNotEmpty) {
+          buffer.writeln('- keywords: ${keywords.join(", ")}');
+        }
+        buffer
+          ..writeln()
+          ..writeln(entry.body.trim());
+        return buffer.toString().trimRight();
+      },
+      omissionMarkerBuilder: (omitted) =>
+          '[user_instruction_entries_omitted: $omitted entries]',
+      separator: '\n\n',
+    );
+    assert(render.text.length <= _userInstructionsPromptMaxCharacters);
+    return render.text;
   }
 
   List<UserInstructionEntry> _userInstructionsForPrompt(

@@ -21,7 +21,11 @@ class InstructionsStore {
     final rows = await _db.query(
       _table,
       orderBy: 'sort_order ASC, created_at ASC',
+      limit: UserInstructionEntry.maxEntries + 1,
     );
+    if (rows.length > UserInstructionEntry.maxEntries) {
+      throw const FormatException('用户指令数量超过安全上限。');
+    }
     final result = <UserInstructionEntry>[];
     final seenIds = <String>{};
     for (final row in rows) {
@@ -35,6 +39,9 @@ class InstructionsStore {
   }
 
   Future<void> saveAll(List<UserInstructionEntry> entries) async {
+    if (entries.length > UserInstructionEntry.maxEntries) {
+      throw const FormatException('用户指令数量超过安全上限。');
+    }
     final batch = _db.batch();
     batch.delete(_table);
     for (final entry in entries) {
