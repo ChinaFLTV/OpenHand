@@ -250,7 +250,6 @@ class McpStdioProcessManager extends ChangeNotifier {
         responseRouter: responseRouter,
       );
       _processes[name] = managed;
-      notifyListeners();
 
       // 监听标准输出，同时用于日志、握手响应检测和工具发现响应路由。
       stdoutSubscription = process.stdout
@@ -323,10 +322,23 @@ class McpStdioProcessManager extends ChangeNotifier {
           );
 
       // 持有订阅句柄，停止进程时显式取消，避免管道未及时关闭时泄漏监听器。
+      final current = _processes[name];
+      if (current == null ||
+          current.generation != generation ||
+          !identical(current.process, process) ||
+          !current.info.isRunning) {
+        await _terminateUnmanagedProcess(
+          process,
+          stdoutSubscription: stdoutSubscription,
+          stderrSubscription: stderrSubscription,
+        );
+        return;
+      }
       _processes[name] = managed.copyWith(
         stdoutSubscription: stdoutSubscription,
         stderrSubscription: stderrSubscription,
       );
+      notifyListeners();
 
       // 监听进程退出
       void handleProcessExit({int? code, Object? error, StackTrace? stack}) {

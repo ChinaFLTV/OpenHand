@@ -27,6 +27,7 @@ enum WebReverseLspStatus { idle, starting, ready, notInstalled, failed }
 
 const int _kMaxLspFrameBytes = 8 * kBytesPerMiB;
 const int _kMaxLspHeaderBytes = 64 * kBytesPerKiB;
+const int _kMaxLspBufferedBytes = _kMaxLspFrameBytes + _kMaxLspHeaderBytes;
 const int _kMaxLspStderrCharacters = 256;
 const Duration _kDefaultLspRequestTimeout = Duration(seconds: 8);
 const Duration _kDefaultLspStartupTimeout = Duration(seconds: 8);
@@ -608,6 +609,10 @@ class WebReverseLspClient {
     if (p == null) return false;
     try {
       final body = utf8.encode(jsonEncode(msg));
+      if (body.length > _kMaxLspFrameBytes) {
+        lastError = 'LSP 出站消息超过 $_kMaxLspFrameBytes 字节上限';
+        return false;
+      }
       final header = 'Content-Length: ${body.length}\r\n\r\n';
       p.stdin.add(utf8.encode(header));
       p.stdin.add(body);
@@ -619,6 +624,10 @@ class WebReverseLspClient {
   }
 
   void _onStdout(List<int> bytes) {
+    if (bytes.length > _kMaxLspBufferedBytes - _buf.length) {
+      _failProtocol('LSP 输出缓冲超过 $_kMaxLspBufferedBytes 字节上限');
+      return;
+    }
     _buf.addAll(bytes);
     if (_bufferDrainScheduled) return;
     _drainStdoutBuffer();
