@@ -1,9 +1,13 @@
+import 'dart:convert';
+
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/stable_hash.dart';
 import '../../../shared/util/text_clip.dart';
 import '../model/knowledge_base_settings.dart';
 import '../model/knowledge_chunk.dart';
 import '../model/knowledge_source.dart';
+
+final RegExp _markdownHeadingPattern = RegExp(r'^(#{1,6})\s+(.+)$');
 
 class KnowledgeChunker {
   const KnowledgeChunker();
@@ -18,23 +22,36 @@ class KnowledgeChunker {
     if (normalized.isEmpty) return const <KnowledgeChunk>[];
     final strategy = KnowledgeChunkStrategy.normalize(settings.chunkStrategy);
     final sections = strategy == KnowledgeChunkStrategy.markdownHeadingRecursive
-        ? _markdownSections(normalized)
+        ? _markdownSections(
+            normalized,
+            maxSections: kKnowledgeMaxChunkCountPerSource,
+          )
         : <_Section>[
             _Section(title: '', headingPath: '', content: normalized, start: 0),
           ];
     final chunks = <KnowledgeChunk>[];
     final now = DateTime.now().toUtc();
     for (final section in sections) {
+      final remaining = kKnowledgeMaxChunkCountPerSource - chunks.length;
+      if (remaining <= 0) {
+        throw StateError('知识源分块数量超过安全上限。');
+      }
       final windows = switch (strategy) {
         KnowledgeChunkStrategy.fixedTokenWindow => _fixedWindows(
           section.content,
           settings,
+          maxWindows: remaining,
         ),
         KnowledgeChunkStrategy.semanticLight => _semanticWindows(
           section.content,
           settings,
+          maxWindows: remaining,
         ),
-        _ => _paragraphWindows(section.content, settings),
+        _ => _paragraphWindows(
+          section.content,
+          settings,
+          maxWindows: remaining,
+        ),
       };
       for (final window in windows) {
         final index = chunks.length;
@@ -82,8 +99,7 @@ class KnowledgeChunker {
     return chunks;
   }
 
-  List<_Section> _markdownSections(String text) {
-    final lines = text.split('\n');
+  List<_Section> _markdownSections(String text, {required int maxSections}) {
     final sections = <_Section>[];
     final headingStack = <String>[];
     final buffer = StringBuffer();
@@ -92,6 +108,9 @@ class KnowledgeChunker {
     void flush() {
       final content = buffer.toString().trim();
       if (content.isEmpty) return;
+      if (sections.length >= maxSections) {
+        throw StateError('知识源章节数量超过安全上限。');
+      }
       final headingPath = headingStack.join(' > ');
       sections.add(
         _Section(
@@ -105,8 +124,8 @@ class KnowledgeChunker {
     }
 
     var offset = 0;
-    for (final line in lines) {
-      final heading = RegExp(r'^(#{1,6})\s+(.+)$').firstMatch(line);
+    for (final line in LineSplitter.split(text)) {
+      final heading = _markdownHeadingPattern.firstMatch(line);
       if (heading != null) {
         flush();
         final level = heading.group(1)!.length;
@@ -128,21 +147,39 @@ class KnowledgeChunker {
     return sections;
   }
 
-  List<_Window> _paragraphWindows(String text, KnowledgeBaseSettings settings) {
+  List<_Window> _paragraphWindows(
+    String text,
+    KnowledgeBaseSettings settings, {
+    required int maxWindows,
+  }) {
     final tuning = _tuning(settings);
     if (text.length <= tuning.hardMaxChars) {
+      if (maxWindows <= 0) {
+        throw StateError('知识源分块数量超过安全上限。');
+      }
       return <_Window>[_Window(text: text, start: 0, end: text.length)];
     }
-    return _windowsFromUnits(_paragraphUnits(text), settings);
+    return _windowsFromUnits(
+      _paragraphUnits(text),
+      settings,
+      maxWindows: maxWindows,
+    );
   }
 
-  List<_Window> _fixedWindows(String text, KnowledgeBaseSettings settings) {
+  List<_Window> _fixedWindows(
+    String text,
+    KnowledgeBaseSettings settings, {
+    required int maxWindows,
+  }) {
     final tuning = _tuning(settings);
     final windowChars = _clampInt(tuning.targetChars, 1, tuning.hardMaxChars);
     final overlapChars = _clampInt(tuning.overlapChars, 0, windowChars - 1);
     final windows = <_Window>[];
     var start = 0;
     while (start < text.length) {
+      if (windows.length >= maxWindows) {
+        throw StateError('知识源分块数量超过安全上限。');
+      }
       final end = _clampInt(start + windowChars, start + 1, text.length);
       windows.add(
         _Window(text: text.substring(start, end), start: start, end: end),
@@ -153,97 +190,127 @@ class KnowledgeChunker {
     return windows;
   }
 
-  List<_Window> _semanticWindows(String text, KnowledgeBaseSettings settings) {
+  List<_Window> _semanticWindows(
+    String text,
+    KnowledgeBaseSettings settings, {
+    required int maxWindows,
+  }) {
     final tuning = _tuning(settings);
     if (text.length <= tuning.hardMaxChars) {
+      if (maxWindows <= 0) {
+        throw StateError('知识源分块数量超过安全上限。');
+      }
       return <_Window>[_Window(text: text, start: 0, end: text.length)];
     }
-    return _windowsFromUnits(_sentenceUnits(text), settings);
+    return _windowsFromUnits(
+      _sentenceUnits(text),
+      settings,
+      maxWindows: maxWindows,
+    );
   }
 
   List<_Window> _windowsFromUnits(
-    List<_Window> units,
-    KnowledgeBaseSettings settings,
-  ) {
-    if (units.isEmpty) return const <_Window>[];
+    Iterable<_Window> units,
+    KnowledgeBaseSettings settings, {
+    required int maxWindows,
+  }) {
+    final iterator = units.iterator;
+    if (!iterator.moveNext()) return const <_Window>[];
     final tuning = _tuning(settings);
     final windows = <_Window>[];
     final buffer = StringBuffer();
-    var start = units.first.start;
+    var start = iterator.current.start;
     var end = start;
-    for (final unit in units) {
+
+    void addWindow(_Window window) {
+      if (windows.length >= maxWindows) {
+        throw StateError('知识源分块数量超过安全上限。');
+      }
+      windows.add(window);
+    }
+
+    do {
+      final unit = iterator.current;
       if (unit.text.length > tuning.hardMaxChars) {
         if (buffer.isNotEmpty) {
           final chunkText = buffer.toString().trim();
-          windows.add(_Window(text: chunkText, start: start, end: end));
+          addWindow(_Window(text: chunkText, start: start, end: end));
           buffer.clear();
         }
-        windows.addAll(
-          _fixedWindows(unit.text, settings).map(
-            (window) => _Window(
+        for (final window in _fixedWindows(
+          unit.text,
+          settings,
+          maxWindows: maxWindows - windows.length,
+        )) {
+          addWindow(
+            _Window(
               text: window.text,
               start: unit.start + window.start,
               end: unit.start + window.end,
             ),
-          ),
-        );
+          );
+        }
         start = unit.end;
         end = unit.end;
         continue;
       }
+      if (buffer.isEmpty) start = unit.start;
       final separator = buffer.isEmpty ? 0 : 2;
       if (buffer.length + separator + unit.text.length > tuning.targetChars &&
           buffer.isNotEmpty) {
         final chunkText = buffer.toString().trim();
-        windows.add(_Window(text: chunkText, start: start, end: end));
+        addWindow(_Window(text: chunkText, start: start, end: end));
         final overlap = _tailOverlap(chunkText, tuning.overlapChars);
-        buffer
-          ..clear()
-          ..writeln(overlap)
-          ..writeln();
-        start = _clampInt(end - overlap.length, 0, end);
+        buffer.clear();
+        if (overlap.isEmpty) {
+          start = unit.start;
+        } else {
+          buffer
+            ..writeln(overlap)
+            ..writeln();
+          start = _clampInt(end - overlap.length, 0, end);
+        }
       }
       buffer
         ..writeln(unit.text)
         ..writeln();
       end = unit.end;
-    }
+    } while (iterator.moveNext());
     final tail = buffer.toString().trim();
     if (tail.isNotEmpty) {
-      windows.add(_Window(text: tail, start: start, end: end));
+      addWindow(_Window(text: tail, start: start, end: end));
     }
     return windows;
   }
 
-  List<_Window> _paragraphUnits(String text) {
-    final separators = RegExp(r'\n{2,}').allMatches(text).toList();
-    final units = <_Window>[];
+  Iterable<_Window> _paragraphUnits(String text) sync* {
     var start = 0;
-    for (final separator in separators) {
-      _addTrimmedUnit(units, text, start, separator.start);
+    for (final separator in RegExp(r'\n{2,}').allMatches(text)) {
+      final unit = _trimmedUnit(text, start, separator.start);
+      if (unit != null) yield unit;
       start = separator.end;
     }
-    _addTrimmedUnit(units, text, start, text.length);
-    return units;
+    final tail = _trimmedUnit(text, start, text.length);
+    if (tail != null) yield tail;
   }
 
-  List<_Window> _sentenceUnits(String text) {
-    final units = <_Window>[];
+  Iterable<_Window> _sentenceUnits(String text) sync* {
     for (final paragraph in _paragraphUnits(text)) {
       var start = paragraph.start;
       for (var i = paragraph.start; i < paragraph.end; i++) {
         if (!_isSentenceBreakChar(text[i])) continue;
         final end = i + 1;
-        _addTrimmedUnit(units, text, start, end);
+        final unit = _trimmedUnit(text, start, end);
+        if (unit != null) yield unit;
         start = end;
       }
-      _addTrimmedUnit(units, text, start, paragraph.end);
+      final tail = _trimmedUnit(text, start, paragraph.end);
+      if (tail != null) yield tail;
     }
-    return units.isEmpty ? _paragraphUnits(text) : units;
   }
 
-  void _addTrimmedUnit(List<_Window> units, String text, int start, int end) {
-    if (end <= start) return;
+  _Window? _trimmedUnit(String text, int start, int end) {
+    if (end <= start) return null;
     var trimmedStart = start;
     var trimmedEnd = end;
     while (trimmedStart < trimmedEnd && text[trimmedStart].trim().isEmpty) {
@@ -252,13 +319,11 @@ class KnowledgeChunker {
     while (trimmedEnd > trimmedStart && text[trimmedEnd - 1].trim().isEmpty) {
       trimmedEnd -= 1;
     }
-    if (trimmedEnd <= trimmedStart) return;
-    units.add(
-      _Window(
-        text: text.substring(trimmedStart, trimmedEnd),
-        start: trimmedStart,
-        end: trimmedEnd,
-      ),
+    if (trimmedEnd <= trimmedStart) return null;
+    return _Window(
+      text: text.substring(trimmedStart, trimmedEnd),
+      start: trimmedStart,
+      end: trimmedEnd,
     );
   }
 

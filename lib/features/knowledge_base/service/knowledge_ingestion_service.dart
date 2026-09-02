@@ -26,9 +26,6 @@ import 'knowledge_reader_conversion_service.dart';
 import 'knowledge_source_storage.dart';
 import 'knowledge_vector_store.dart';
 
-const int kKnowledgeTagMaxCount = 64;
-const int kKnowledgeTagMaxCharacters = 128;
-
 class KnowledgeIngestionService {
   KnowledgeIngestionService({
     required this._store,

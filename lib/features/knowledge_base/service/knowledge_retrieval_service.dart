@@ -96,22 +96,26 @@ class KnowledgeRetrievalService {
       if (chunk == null) continue;
       final source = sourcesById[chunk.sourceId];
       if (source == null) continue;
+      final sourceTags = source.metadata['tags'];
+      final effectiveChunk = chunk.tags.isNotEmpty || sourceTags is! List
+          ? chunk
+          : chunk.copyWith(tags: sourceTags.cast<String>());
       final finalScore = _hybridScore(
         query: query,
         vectorScore: raw.score,
         title: '${raw.payload['source_title'] ?? source.title}',
-        tags: chunk.tags,
-        documentTime: chunk.documentTime ?? source.documentTime,
+        tags: effectiveChunk.tags,
+        documentTime: effectiveChunk.documentTime ?? source.documentTime,
         settings: settings,
       );
       scored.add(
         KnowledgeRetrievalHit(
-          chunk: chunk,
+          chunk: effectiveChunk,
           source: source,
           score: raw.score,
           vector: raw.vector,
           finalScore: finalScore,
-          timeField: chunk.documentTime != null
+          timeField: effectiveChunk.documentTime != null
               ? 'document_time'
               : source.documentTime != null
               ? 'source.document_time'

@@ -20,7 +20,6 @@ import '../knowledge_base_controller.dart';
 import '../knowledge_base_errors.dart';
 import '../model/knowledge_source.dart';
 import '../service/knowledge_indexing_control.dart';
-import '../service/knowledge_ingestion_service.dart';
 import 'knowledge_dialog_widgets.dart';
 import 'knowledge_indexing_progress_dialog.dart';
 

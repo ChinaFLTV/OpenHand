@@ -1,7 +1,21 @@
-import 'dart:convert';
-
-import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/byte_size_format.dart';
 import 'knowledge_model_codec.dart';
+
+const int kKnowledgeMaxSourceCount = 10000;
+const int kKnowledgeMaxSourceQueryCharacters = 1024;
+const int kKnowledgeMaxSourceIdCharacters = 512;
+const int kKnowledgeMaxSourceFieldCharacters = 32 * kBytesPerKiB;
+const int kKnowledgeMaxSourcePayloadBytes = 2 * kBytesPerMiB;
+const int kKnowledgeMaxTotalSourcePayloadBytes = 256 * kBytesPerMiB;
+const int kKnowledgeTagMaxCount = 64;
+const int kKnowledgeTagMaxCharacters = 128;
+const Set<String> _knowledgeSourceStatuses = <String>{
+  'pending',
+  'indexing',
+  'indexed',
+  'cancelled',
+  'failed',
+};
 
 class KnowledgeSource {
   const KnowledgeSource({
@@ -88,28 +102,116 @@ class KnowledgeSource {
       'indexed_at': indexedAt?.toUtc().toIso8601String(),
       'created_at': createdAt.toUtc().toIso8601String(),
       'updated_at': updatedAt.toUtc().toIso8601String(),
-      'metadata_json': jsonEncode(metadata),
+      'metadata_json': knowledgeEncodeJsonMap(
+        metadata,
+        field: '知识源 metadata_json',
+      ),
     };
   }
 
   static KnowledgeSource fromRow(Map<String, Object?> row) {
+    final id = knowledgeText(
+      row,
+      'id',
+      allowEmpty: false,
+      maxCharacters: kKnowledgeMaxSourceIdCharacters,
+    );
+    final title = knowledgeText(
+      row,
+      'title',
+      allowEmpty: false,
+      maxCharacters: kKnowledgeMaxSourceFieldCharacters,
+    );
+    final kind = knowledgeText(
+      row,
+      'kind',
+      allowEmpty: false,
+      maxCharacters: 64,
+    );
+    final status = knowledgeText(
+      row,
+      'status',
+      allowEmpty: false,
+      maxCharacters: 32,
+    );
+    if (id.trim() != id ||
+        title.trim() != title ||
+        kind.trim() != kind ||
+        status.trim() != status ||
+        !_knowledgeSourceStatuses.contains(status)) {
+      throw FormatException('知识源字段格式无效：$id');
+    }
+    final metadata = knowledgeJsonMap(
+      row['metadata_json'],
+      field: '知识源 metadata_json',
+    );
+    final tags = metadata['tags'];
+    if (tags != null &&
+        (tags is! List ||
+            tags.length > kKnowledgeTagMaxCount ||
+            tags.any(
+              (tag) =>
+                  tag is! String ||
+                  tag.isEmpty ||
+                  tag.trim() != tag ||
+                  tag.length > kKnowledgeTagMaxCharacters,
+            ))) {
+      throw FormatException('知识源标签无效：$id');
+    }
+    if (tags is List &&
+        tags.cast<String>().map((tag) => tag.toLowerCase()).toSet().length !=
+            tags.length) {
+      throw FormatException('知识源标签重复：$id');
+    }
     return KnowledgeSource(
-      id: '${row['id'] ?? ''}',
-      title: '${row['title'] ?? ''}',
-      kind: '${row['kind'] ?? 'note'}',
-      originalPath: '${row['original_path'] ?? ''}',
-      storedPath: '${row['stored_path'] ?? ''}',
-      mimeType: '${row['mime_type'] ?? ''}',
-      sizeBytes: nonNegativeIntFromValue(row['size_bytes'], fallback: 0),
-      contentHash: '${row['content_hash'] ?? ''}',
-      status: '${row['status'] ?? 'pending'}',
-      errorMessage: '${row['error_message'] ?? ''}',
-      documentTime: knowledgeDate(row['document_time']),
-      importedAt: knowledgeDate(row['imported_at']) ?? DateTime.now().toUtc(),
-      indexedAt: knowledgeDate(row['indexed_at']),
-      createdAt: knowledgeDate(row['created_at']) ?? DateTime.now().toUtc(),
-      updatedAt: knowledgeDate(row['updated_at']) ?? DateTime.now().toUtc(),
-      metadata: knowledgeJsonMap(row['metadata_json']),
+      id: id,
+      title: title,
+      kind: kind,
+      originalPath: knowledgeText(
+        row,
+        'original_path',
+        maxCharacters: kKnowledgeMaxSourceFieldCharacters,
+      ),
+      storedPath: knowledgeText(
+        row,
+        'stored_path',
+        maxCharacters: kKnowledgeMaxSourceFieldCharacters,
+      ),
+      mimeType: knowledgeText(row, 'mime_type', maxCharacters: 256),
+      sizeBytes: knowledgeNonNegativeInt(row, 'size_bytes'),
+      contentHash: knowledgeText(
+        row,
+        'content_hash',
+        allowEmpty: false,
+        maxCharacters: 128,
+      ),
+      status: status,
+      errorMessage: knowledgeText(
+        row,
+        'error_message',
+        maxCharacters: kKnowledgeMaxSourceFieldCharacters,
+      ),
+      documentTime: knowledgeDate(
+        row['document_time'],
+        field: '知识源 document_time',
+      ),
+      importedAt: knowledgeDate(
+        row['imported_at'],
+        field: '知识源 imported_at',
+        nullable: false,
+      )!,
+      indexedAt: knowledgeDate(row['indexed_at'], field: '知识源 indexed_at'),
+      createdAt: knowledgeDate(
+        row['created_at'],
+        field: '知识源 created_at',
+        nullable: false,
+      )!,
+      updatedAt: knowledgeDate(
+        row['updated_at'],
+        field: '知识源 updated_at',
+        nullable: false,
+      )!,
+      metadata: metadata,
     );
   }
 }

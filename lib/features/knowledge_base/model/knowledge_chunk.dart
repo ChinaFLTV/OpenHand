@@ -1,7 +1,13 @@
-import 'dart:convert';
-
-import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/byte_size_format.dart';
 import 'knowledge_model_codec.dart';
+import 'knowledge_source.dart';
+
+const int kKnowledgeMaxChunkCountPerSource = 10000;
+const int kKnowledgeMaxChunkCount = 100000;
+const int kKnowledgeMaxChunkLookupIds = 10000;
+const int kKnowledgeMaxChunkIdCharacters = 768;
+const int kKnowledgeMaxChunkPayloadBytes = 16 * kBytesPerMiB;
+const int kKnowledgeMaxTotalChunkPayloadBytes = 320 * kBytesPerMiB;
 
 class KnowledgeChunk {
   const KnowledgeChunk({
@@ -44,6 +50,29 @@ class KnowledgeChunk {
   final Map<String, Object?> metadata;
   final List<String> tags;
 
+  KnowledgeChunk copyWith({List<String>? tags}) {
+    return KnowledgeChunk(
+      id: id,
+      sourceId: sourceId,
+      chunkIndex: chunkIndex,
+      parentChunkId: parentChunkId,
+      title: title,
+      headingPath: headingPath,
+      content: content,
+      contentHash: contentHash,
+      charCount: charCount,
+      tokenEstimate: tokenEstimate,
+      startOffset: startOffset,
+      endOffset: endOffset,
+      pageNumber: pageNumber,
+      documentTime: documentTime,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      metadata: metadata,
+      tags: tags ?? this.tags,
+    );
+  }
+
   Map<String, Object?> toRow() {
     return <String, Object?>{
       'id': id,
@@ -62,7 +91,10 @@ class KnowledgeChunk {
       'document_time': documentTime?.toUtc().toIso8601String(),
       'created_at': createdAt.toUtc().toIso8601String(),
       'updated_at': updatedAt.toUtc().toIso8601String(),
-      'metadata_json': jsonEncode(metadata),
+      'metadata_json': knowledgeEncodeJsonMap(<String, Object?>{
+        ...metadata,
+        if (tags.isNotEmpty) 'tags': List<String>.from(tags),
+      }, field: '知识分块 metadata_json'),
     };
   }
 
@@ -103,28 +135,101 @@ class KnowledgeChunk {
     Map<String, Object?> row, {
     List<String> tags = const <String>[],
   }) {
+    final id = knowledgeText(
+      row,
+      'id',
+      allowEmpty: false,
+      maxCharacters: kKnowledgeMaxChunkIdCharacters,
+    );
+    final sourceId = knowledgeText(
+      row,
+      'source_id',
+      allowEmpty: false,
+      maxCharacters: 512,
+    );
+    final content = knowledgeText(
+      row,
+      'content',
+      allowEmpty: false,
+      maxCharacters: 4 * kBytesPerMiB,
+    );
+    final charCount = knowledgeNonNegativeInt(row, 'char_count');
+    final metadata = knowledgeJsonMap(
+      row['metadata_json'],
+      field: '知识分块 metadata_json',
+    );
+    final storedTags = metadata['tags'];
+    if (storedTags != null &&
+        (storedTags is! List || storedTags.any((item) => item is! String))) {
+      throw FormatException('知识分块标签无效：$id');
+    }
+    final effectiveTags = tags.isNotEmpty
+        ? tags
+        : storedTags == null
+        ? const <String>[]
+        : List<String>.unmodifiable((storedTags as List).cast<String>());
+    if (id.trim() != id ||
+        sourceId.trim() != sourceId ||
+        charCount != content.length ||
+        effectiveTags.length > kKnowledgeTagMaxCount ||
+        effectiveTags.any(
+          (tag) =>
+              tag.isEmpty ||
+              tag.trim() != tag ||
+              tag.length > kKnowledgeTagMaxCharacters,
+        ) ||
+        effectiveTags.map((tag) => tag.toLowerCase()).toSet().length !=
+            effectiveTags.length) {
+      throw FormatException('知识分块字段格式无效：$id');
+    }
+    final startOffset = knowledgeOptionalNonNegativeInt(row, 'start_offset');
+    final endOffset = knowledgeOptionalNonNegativeInt(row, 'end_offset');
+    if (startOffset != null && endOffset != null && endOffset < startOffset) {
+      throw FormatException('知识分块偏移范围无效：$id');
+    }
     return KnowledgeChunk(
-      id: '${row['id'] ?? ''}',
-      sourceId: '${row['source_id'] ?? ''}',
-      chunkIndex: nonNegativeIntFromValue(row['chunk_index'], fallback: 0),
-      parentChunkId: knowledgeNullableString(row['parent_chunk_id']),
-      title: '${row['title'] ?? ''}',
-      headingPath: '${row['heading_path'] ?? ''}',
-      content: '${row['content'] ?? ''}',
-      contentHash: '${row['content_hash'] ?? ''}',
-      charCount: nonNegativeIntFromValue(row['char_count'], fallback: 0),
-      tokenEstimate: nonNegativeIntFromValue(
-        row['token_estimate'],
-        fallback: 0,
+      id: id,
+      sourceId: sourceId,
+      chunkIndex: knowledgeNonNegativeInt(row, 'chunk_index'),
+      parentChunkId: knowledgeNullableString(
+        row['parent_chunk_id'],
+        field: '知识分块 parent_chunk_id',
+        maxCharacters: kKnowledgeMaxChunkIdCharacters,
       ),
-      startOffset: optionalNonNegativeIntFromValue(row['start_offset']),
-      endOffset: optionalNonNegativeIntFromValue(row['end_offset']),
-      pageNumber: optionalNonNegativeIntFromValue(row['page_number']),
-      documentTime: knowledgeDate(row['document_time']),
-      createdAt: knowledgeDate(row['created_at']) ?? DateTime.now().toUtc(),
-      updatedAt: knowledgeDate(row['updated_at']) ?? DateTime.now().toUtc(),
-      metadata: knowledgeJsonMap(row['metadata_json']),
-      tags: tags,
+      title: knowledgeText(row, 'title', maxCharacters: 32 * kBytesPerKiB),
+      headingPath: knowledgeText(
+        row,
+        'heading_path',
+        maxCharacters: 64 * kBytesPerKiB,
+      ),
+      content: content,
+      contentHash: knowledgeText(
+        row,
+        'content_hash',
+        allowEmpty: false,
+        maxCharacters: 128,
+      ),
+      charCount: charCount,
+      tokenEstimate: knowledgeNonNegativeInt(row, 'token_estimate'),
+      startOffset: startOffset,
+      endOffset: endOffset,
+      pageNumber: knowledgeOptionalNonNegativeInt(row, 'page_number'),
+      documentTime: knowledgeDate(
+        row['document_time'],
+        field: '知识分块 document_time',
+      ),
+      createdAt: knowledgeDate(
+        row['created_at'],
+        field: '知识分块 created_at',
+        nullable: false,
+      )!,
+      updatedAt: knowledgeDate(
+        row['updated_at'],
+        field: '知识分块 updated_at',
+        nullable: false,
+      )!,
+      metadata: metadata,
+      tags: effectiveTags,
     );
   }
 }
