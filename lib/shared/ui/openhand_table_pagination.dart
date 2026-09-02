@@ -579,7 +579,6 @@ class _PagerSplitBar extends StatelessWidget {
               const SizedBox(height: kOpenHandTablePagerGap),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                reverse: true,
                 child: right,
               ),
             ],
