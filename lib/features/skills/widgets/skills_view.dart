@@ -1067,8 +1067,6 @@ class _SkillCard extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _SkillCardAvatar(skill: skill),
-                    kOpenHandHGap14,
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1162,79 +1160,6 @@ class _SkillCard extends StatelessWidget {
   }
 }
 
-class _SkillCardAvatar extends StatelessWidget {
-  const _SkillCardAvatar({required this.skill});
-
-  final LocalSkill skill;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Container(
-      width: 52,
-      height: 52,
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(kOpenHandRadius18),
-      ),
-      clipBehavior: Clip.antiAlias,
-      alignment: Alignment.center,
-      child: skill.hasIcon
-          ? _SkillCardIcon(
-              skill: skill,
-              fallback: _SkillCardAvatarFallback(skill: skill),
-            )
-          : skill.hasEmojiIcon
-          ? _SkillCardEmojiIcon(skill: skill)
-          : _SkillCardAvatarFallback(skill: skill),
-    );
-  }
-}
-
-class _SkillCardIcon extends StatelessWidget {
-  const _SkillCardIcon({required this.skill, required this.fallback});
-
-  final LocalSkill skill;
-  final Widget fallback;
-
-  @override
-  Widget build(BuildContext context) {
-    final iconPath = skill.iconPath;
-    final iconKind = skill.iconKind;
-    if (iconPath == null || iconKind == null) {
-      return fallback;
-    }
-
-    return SizedBox.expand(
-      child: switch (iconKind) {
-        LocalSkillIconKind.svg => buildLocalSvgPicture(
-          iconPath,
-          fit: BoxFit.cover,
-          fallback: fallback,
-        ),
-        LocalSkillIconKind.raster => buildLocalRasterImage(
-          iconPath,
-          fit: BoxFit.cover,
-          fallback: fallback,
-        ),
-      },
-    );
-  }
-}
-
-class _SkillCardEmojiIcon extends StatelessWidget {
-  const _SkillCardEmojiIcon({required this.skill});
-
-  final LocalSkill skill;
-
-  @override
-  Widget build(BuildContext context) {
-    return _SkillEmojiGlyph(emoji: skill.emojiIcon!, fontSize: 24);
-  }
-}
-
 class _SkillEmojiGlyph extends StatelessWidget {
   const _SkillEmojiGlyph({required this.emoji, required this.fontSize});
 
@@ -1267,23 +1192,6 @@ class _SkillEmojiGlyph extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _SkillCardAvatarFallback extends StatelessWidget {
-  const _SkillCardAvatarFallback({required this.skill});
-
-  final LocalSkill skill;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Text(
-      skill.initials,
-      style: Theme.of(
-        context,
-      ).textTheme.titleLarge?.copyWith(color: colorScheme.onPrimaryContainer),
     );
   }
 }
