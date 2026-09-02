@@ -13,10 +13,6 @@ import '../model/workflow_definition.dart';
 import '../workflow_node_presentation.dart';
 import 'workflow_auto_layout.dart';
 
-const int kMaxWorkflowImportBytes = 4 * 1024 * 1024;
-const int _kMaxWorkflowNodes = 1000;
-const int _kMaxWorkflowConnections = 5000;
-const int _kMaxWorkflowAnnotations = 500;
 const int _kMaxYamlDepth = 64;
 const int _kMaxYamlValues = 100000;
 const double _kNodeWidth = kWorkflowNodeWidth;
@@ -137,38 +133,24 @@ WorkflowDefinition decodeWorkflowYaml(String source) {
   final nodes = workflow['nodes'];
   final connections = workflow['connections'];
   final annotations = workflow['annotations'];
-  if (nodes is List && nodes.length > _kMaxWorkflowNodes) {
+  if (nodes is List && nodes.length > maxWorkflowNodeCount) {
     throw const WorkflowPortabilityException(
-      '工作流节点数量超过 $_kMaxWorkflowNodes 个安全上限。',
+      '工作流节点数量超过 $maxWorkflowNodeCount 个安全上限。',
     );
   }
-  if (connections is List && connections.length > _kMaxWorkflowConnections) {
+  if (connections is List && connections.length > maxWorkflowConnectionCount) {
     throw const WorkflowPortabilityException(
-      '工作流连线数量超过 $_kMaxWorkflowConnections 条安全上限。',
+      '工作流连线数量超过 $maxWorkflowConnectionCount 条安全上限。',
     );
   }
-  if (annotations is List && annotations.length > _kMaxWorkflowAnnotations) {
+  if (annotations is List && annotations.length > maxWorkflowAnnotationCount) {
     throw const WorkflowPortabilityException(
-      '工作流注释数量超过 $_kMaxWorkflowAnnotations 个安全上限。',
+      '工作流注释数量超过 $maxWorkflowAnnotationCount 个安全上限。',
     );
   }
   try {
     final definition = WorkflowDefinition.fromJson(workflow);
-    if (nodes is List && definition.nodes.length != nodes.length) {
-      throw const WorkflowPortabilityException('工作流包含无法识别的节点数据。');
-    }
-    if (connections is List &&
-        definition.connections.length != connections.length) {
-      throw const WorkflowPortabilityException('工作流包含无效或断开的连线。');
-    }
-    if (annotations is List &&
-        definition.annotations.length != annotations.length) {
-      throw const WorkflowPortabilityException('工作流包含无法识别的注释数据。');
-    }
-    if (definition.name.runes.length > 120) {
-      throw const WorkflowPortabilityException('工作流名称不能超过 120 个字符。');
-    }
-    if (utf8.encode(definition.encode()).length > kMaxWorkflowImportBytes) {
+    if (utf8.encode(definition.encode()).length > maxWorkflowEncodedBytes) {
       throw const WorkflowPortabilityException('工作流解码后的数据超过 4 MiB 安全上限。');
     }
     return definition;
@@ -215,9 +197,9 @@ Future<WorkflowExportArtifact> buildWorkflowExportArtifact(
   void Function(double progress, String message)? onProgress,
 }) async {
   onProgress?.call(0.12, '正在检查工作流结构…');
-  if (workflow.nodes.length > _kMaxWorkflowNodes ||
-      workflow.connections.length > _kMaxWorkflowConnections ||
-      workflow.annotations.length > _kMaxWorkflowAnnotations) {
+  if (workflow.nodes.length > maxWorkflowNodeCount ||
+      workflow.connections.length > maxWorkflowConnectionCount ||
+      workflow.annotations.length > maxWorkflowAnnotationCount) {
     throw const WorkflowPortabilityException('工作流规模超过导出安全上限。');
   }
   if (format == WorkflowExportFormat.yaml) {

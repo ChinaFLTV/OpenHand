@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../shared/util/byte_size_format.dart';
+
 enum WorkflowNodeKind {
   start('start'),
   condition('condition'),
@@ -92,6 +94,8 @@ const int kWorkflowDescriptionMaxCharacters = 240;
 const int kWorkflowDetailsMaxCharacters = 4000;
 const int kWorkflowMaxTags = 24;
 const int kWorkflowTagMaxCharacters = 40;
+const int maxWorkflowNameCharacters = 120;
+const int maxWorkflowEncodedBytes = 4 * kBytesPerMiB;
 
 @immutable
 class WorkflowAnnotationTextStyleRange {
@@ -899,6 +903,9 @@ const Set<String> workflowHttpFixedOutputNames = <String>{
 };
 const int maxWorkflowNestedNodeCount = 128;
 const int maxWorkflowHumanActionCount = 8;
+const int maxWorkflowNodeCount = 1000;
+const int maxWorkflowConnectionCount = 5000;
+const int maxWorkflowAnnotationCount = 500;
 const int maxWorkflowHumanActionTitleLength = 100;
 const int defaultWorkflowHumanTimeout = 3;
 const String workflowHumanDeliveryMethodInAppDialog = 'in_app_dialog';
@@ -1808,6 +1815,52 @@ class WorkflowNode {
   };
 }
 
+typedef WorkflowNodeBranch = ({String id, String label});
+
+bool isWorkflowBranchingKind(WorkflowNodeKind kind) =>
+    kind == WorkflowNodeKind.condition ||
+    kind == WorkflowNodeKind.humanIntervention;
+
+bool workflowNodeHasBranches(WorkflowNode node) =>
+    isWorkflowBranchingKind(node.kind) ||
+    const <WorkflowNodeKind>{
+          WorkflowNodeKind.codeExecution,
+          WorkflowNodeKind.llm,
+          WorkflowNodeKind.httpRequest,
+        }.contains(node.kind) &&
+        WorkflowErrorStrategy.fromStorage(
+              node.settings[WorkflowSettingKeys.errorStrategy],
+            ) ==
+            WorkflowErrorStrategy.failBranch;
+
+List<WorkflowNodeBranch> workflowNodeBranches(WorkflowNode node) =>
+    switch (node.kind) {
+      WorkflowNodeKind.condition => <WorkflowNodeBranch>[
+        if (node.conditionCases().isEmpty)
+          (id: 'legacy-if', label: 'IF')
+        else
+          for (final item in node.conditionCases().indexed)
+            (id: item.$2.id, label: item.$1 == 0 ? 'IF' : 'ELIF ${item.$1}'),
+        (id: 'else', label: 'ELSE'),
+      ],
+      WorkflowNodeKind.humanIntervention => <WorkflowNodeBranch>[
+        ...node.humanActions().map(
+          (action) => (id: action.id, label: action.title.trim()),
+        ),
+        (id: workflowHumanTimeoutHandleId, label: '超时'),
+      ],
+      WorkflowNodeKind.codeExecution ||
+      WorkflowNodeKind.llm ||
+      WorkflowNodeKind.httpRequest =>
+        workflowNodeHasBranches(node)
+            ? const <WorkflowNodeBranch>[
+                (id: workflowSuccessHandleId, label: '成功'),
+                (id: workflowFailureHandleId, label: '异常'),
+              ]
+            : const <WorkflowNodeBranch>[],
+      _ => const <WorkflowNodeBranch>[],
+    };
+
 @immutable
 class WorkflowAnnotation {
   const WorkflowAnnotation({
@@ -2121,8 +2174,8 @@ String? validateWorkflowParameterNames(List<WorkflowNode> nodes) {
   return null;
 }
 
-/// 校验参数引用的来源、执行顺序与作用域，避免保存后在运行时才发现失效引用。
-String? validateWorkflowParameterReferences(
+/// 统一校验参数名称、引用来源、执行顺序与作用域。
+String? validateWorkflowParameters(
   List<WorkflowNode> nodes,
   List<WorkflowConnection> connections,
 ) {
@@ -2802,10 +2855,20 @@ class WorkflowDefinition {
     if (id.isEmpty || name.isEmpty || createdAt == null || updatedAt == null) {
       throw const FormatException('工作流数据不完整。');
     }
+    if (name.runes.length > maxWorkflowNameCharacters) {
+      throw const FormatException('工作流名称不能超过 $maxWorkflowNameCharacters 个字符。');
+    }
+    final nodesValue = json['nodes'];
+    if (nodesValue != null && nodesValue is! List) {
+      throw const FormatException('工作流节点列表格式无效。');
+    }
+    if (nodesValue is List &&
+        (nodesValue.length > maxWorkflowNodeCount ||
+            nodesValue.any((node) => node is! Map))) {
+      throw const FormatException('工作流节点列表无效或超过安全上限。');
+    }
     final nodes = normalizeWorkflowSystemOutputNames(
-      _mapList(
-        json['nodes'],
-      ).map(WorkflowNode.fromJson).toList(growable: false),
+      _mapList(nodesValue).map(WorkflowNode.fromJson).toList(growable: false),
     );
     final nodeIds = nodes.map((node) => node.id).toSet();
     if (nodeIds.length != nodes.length) {
@@ -2819,8 +2882,9 @@ class WorkflowDefinition {
       throw const FormatException('工作流注释列表格式无效。');
     }
     if (annotationsValue is List &&
-        annotationsValue.any((annotation) => annotation is! Map)) {
-      throw const FormatException('工作流包含无效注释。');
+        (annotationsValue.length > maxWorkflowAnnotationCount ||
+            annotationsValue.any((annotation) => annotation is! Map))) {
+      throw const FormatException('工作流注释无效或超过安全上限。');
     }
     final annotations = _mapList(
       annotationsValue,
@@ -2852,17 +2916,27 @@ class WorkflowDefinition {
     )) {
       throw const FormatException('退出循环节点不能位于顶层工作流。');
     }
-    final connections = _mapList(json['connections'])
-        .map(WorkflowConnection.fromJson)
-        .where(
-          (edge) =>
-              edge.id.isNotEmpty &&
-              edge.sourceNodeId != edge.targetNodeId &&
-              nodeIds.contains(edge.sourceNodeId) &&
-              nodeIds.contains(edge.targetNodeId),
-        )
-        .toList(growable: false);
+    final connectionsValue = json['connections'];
+    if (connectionsValue != null && connectionsValue is! List) {
+      throw const FormatException('工作流连线列表格式无效。');
+    }
+    if (connectionsValue is List &&
+        (connectionsValue.length > maxWorkflowConnectionCount ||
+            connectionsValue.any((connection) => connection is! Map))) {
+      throw const FormatException('工作流连线列表无效或超过安全上限。');
+    }
+    final connections = _mapList(
+      connectionsValue,
+    ).map(WorkflowConnection.fromJson).toList(growable: false);
+    final connectionIds = <String>{};
     for (final edge in connections) {
+      if (edge.id.isEmpty ||
+          !connectionIds.add(edge.id) ||
+          edge.sourceNodeId == edge.targetNodeId ||
+          !nodeIds.contains(edge.sourceNodeId) ||
+          !nodeIds.contains(edge.targetNodeId)) {
+        throw const FormatException('工作流包含无效或重复连线。');
+      }
       final source = nodesById[edge.sourceNodeId]!;
       final target = nodesById[edge.targetNodeId]!;
       if (source.kind == WorkflowNodeKind.loopExit) {

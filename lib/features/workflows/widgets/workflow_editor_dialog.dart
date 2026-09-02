@@ -30,6 +30,7 @@ import '../model/workflow_definition.dart';
 import '../service/workflow_auto_layout.dart';
 import '../service/workflow_code_executor.dart';
 import '../service/workflow_development_parameters.dart';
+import '../service/workflow_graph_analysis.dart';
 import '../service/workflow_node_executor.dart';
 import '../workflow_node_presentation.dart';
 import 'workflow_annotation_card.dart';
@@ -246,6 +247,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   Timer? _nodeLayoutAnimationTimer;
   AnimationController? _viewportAnimationController;
   Animation<Matrix4>? _viewportAnimation;
+  List<WorkflowConnection>? _connectionGraphSource;
+  WorkflowGraphAnalysis? _connectionGraphCache;
 
   WorkflowNode? get _selectedNode {
     final id = _selectedNodeId;
@@ -974,6 +977,13 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   }
 
   void _addAnnotation(Size viewportSize) {
+    if (_annotations.length >= maxWorkflowAnnotationCount) {
+      showOpenHandInfoSnack(
+        context,
+        '工作流注释不能超过 $maxWorkflowAnnotationCount 个。',
+      );
+      return;
+    }
     final offset = (_annotations.length % 6) * 18.0;
     final center =
         _visibleCanvasRect(viewportSize).center + Offset(offset, offset);
@@ -1078,6 +1088,13 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   }
 
   void _duplicateAnnotation(String id) {
+    if (_annotations.length >= maxWorkflowAnnotationCount) {
+      showOpenHandInfoSnack(
+        context,
+        '工作流注释不能超过 $maxWorkflowAnnotationCount 个。',
+      );
+      return;
+    }
     final source = _annotations
         .where((annotation) => annotation.id == id)
         .firstOrNull;
@@ -1318,8 +1335,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
                 ),
               ),
             ),
-          if (_workflowNodeHasBranches(node))
-            for (final branch in _workflowNodeBranches(node).indexed)
+          if (workflowNodeHasBranches(node))
+            for (final branch in workflowNodeBranches(node).indexed)
               Positioned(
                 left: _nodeWidth - _nodeAddButtonHitSize / 2,
                 top:
@@ -1671,9 +1688,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
               ),
           ],
         ),
-        if (_workflowNodeHasBranches(node)) ...[
+        if (workflowNodeHasBranches(node)) ...[
           kOpenHandGap8,
-          ..._workflowNodeBranches(node).map(
+          ...workflowNodeBranches(node).map(
             (branch) => SizedBox(
               height: _conditionBranchSpacing,
               child: Row(
@@ -1714,7 +1731,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
           ),
           const Spacer(),
         ],
-        if (!_workflowNodeHasBranches(node))
+        if (!workflowNodeHasBranches(node))
           Row(
             children: [
               const Spacer(),
@@ -2061,6 +2078,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     WorkflowNode target, {
     String? sourceHandleId,
   }) {
+    if (_connections.length >= maxWorkflowConnectionCount) {
+      return '工作流连线不能超过 $maxWorkflowConnectionCount 条。';
+    }
     if (source.id == target.id) return '节点不能连接到自身。';
     if (isWorkflowTerminalNodeKind(source.kind)) {
       return source.kind == WorkflowNodeKind.loopExit
@@ -2073,8 +2093,8 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         (!source.isContainer || target.parentNodeId != source.id)) {
       return '内部起点只能连接当前容器内的节点。';
     }
-    if (_workflowNodeHasBranches(source) &&
-        !_workflowNodeBranches(
+    if (workflowNodeHasBranches(source) &&
+        !workflowNodeBranches(
           source,
         ).any((branch) => branch.id == sourceHandleId)) {
       return '请从节点的具体分支发起连接。';
@@ -2106,22 +2126,22 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   }
 
   bool _wouldCreateConnectionCycle(String sourceId, String targetId) {
-    final visited = <String>{};
-    final pending = <String>[targetId];
-    while (pending.isNotEmpty) {
-      final current = pending.removeLast();
-      if (current == sourceId) return true;
-      if (!visited.add(current)) continue;
-      for (final connection in _connections) {
-        if (connection.sourceNodeId == current) {
-          pending.add(connection.targetNodeId);
-        }
-      }
+    if (!identical(_connectionGraphSource, _connections)) {
+      _connectionGraphSource = _connections;
+      _connectionGraphCache = analyzeWorkflowGraph(
+        nodeIds: _nodes.map((node) => node.id),
+        connections: _connections,
+        startNodeIds: const <String>[],
+      );
     }
-    return false;
+    return _connectionGraphCache!.canReach(targetId, sourceId);
   }
 
   void _addNode(WorkflowNodeKind kind) {
+    if (_nodes.length >= maxWorkflowNodeCount) {
+      showOpenHandInfoSnack(context, '工作流节点不能超过 $maxWorkflowNodeCount 个。');
+      return;
+    }
     if (kind == WorkflowNodeKind.loopExit) {
       showOpenHandInfoSnack(context, '退出循环节点只能添加到循环节点内部。');
       return;
@@ -2171,6 +2191,11 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     WorkflowNodeKind kind, {
     String? sourceHandleId,
   }) {
+    if (_nodes.length >= maxWorkflowNodeCount ||
+        _connections.length >= maxWorkflowConnectionCount) {
+      showOpenHandInfoSnack(context, '工作流节点或连线已达到安全上限。');
+      return;
+    }
     final parentNodeId = _connectionScopeForSource(source, sourceHandleId);
     final parent = parentNodeId == null
         ? null
@@ -2234,7 +2259,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
   ) {
     final parent = _nodes.where((node) => node.id == parentNodeId).firstOrNull;
     if (parent == null) return Offset(source.x, source.y);
-    final targetHeight = _isWorkflowBranchingKind(targetKind)
+    final targetHeight = isWorkflowBranchingKind(targetKind)
         ? _conditionBranchStart + _conditionBranchSpacing + 32
         : _nodeHeight;
     final fromStart = source.id == parent.id;
@@ -2287,7 +2312,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         : _nodeWidth;
     final targetHeight = isWorkflowContainerKind(targetKind)
         ? _containerMinHeight
-        : _isWorkflowBranchingKind(targetKind)
+        : isWorkflowBranchingKind(targetKind)
         ? _conditionBranchStart + _conditionBranchSpacing + 32
         : _nodeHeight;
     final maxX = _canvasWidth - targetWidth - 16;
@@ -2543,9 +2568,9 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
               .toList(growable: false),
         ),
       );
-      if (_workflowNodeHasBranches(updated) ||
-          (previous != null && _workflowNodeHasBranches(previous))) {
-        final branches = _workflowNodeBranches(updated);
+      if (workflowNodeHasBranches(updated) ||
+          (previous != null && workflowNodeHasBranches(previous))) {
+        final branches = workflowNodeBranches(updated);
         final branchIds = branches.map((branch) => branch.id).toSet();
         final renamedHandles = <String, String>{};
         if (updated.kind == WorkflowNodeKind.humanIntervention &&
@@ -3897,10 +3922,10 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
       if (!internalStart && !sameNestedScope && !topLevel) {
         return '节点“${source.title}”存在跨工作流作用域的连线。';
       }
-      if (!_workflowNodeHasBranches(source)) {
+      if (!workflowNodeHasBranches(source)) {
         continue;
       }
-      final branchIds = _workflowNodeBranches(
+      final branchIds = workflowNodeBranches(
         source,
       ).map((branch) => branch.id).toSet();
       if (!branchIds.contains(connection.sourceHandleId)) {
@@ -3909,9 +3934,7 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
     }
     final graphError = _validateTopLevelGraph();
     if (graphError != null) return graphError;
-    final parameterError = validateWorkflowParameterNames(_nodes);
-    return parameterError ??
-        validateWorkflowParameterReferences(_nodes, _connections);
+    return validateWorkflowParameters(_nodes, _connections);
   }
 
   String? _validateTopLevelGraph() {
@@ -3935,59 +3958,25 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
               edge.sourceHandleId != workflowContainerStartHandleId,
         )
         .toList(growable: false);
-    for (final node in nodes) {
-      final outgoing = edges
-          .where((edge) => edge.sourceNodeId == node.id)
-          .toList(growable: false);
-      if (node.kind == WorkflowNodeKind.end) {
-        if (outgoing.isNotEmpty) return '结束节点不能连接后续节点。';
-        continue;
-      }
-      if (_workflowNodeHasBranches(node)) {
-        for (final branch in _workflowNodeBranches(node)) {
-          if (!outgoing.any((edge) => edge.sourceHandleId == branch.id)) {
-            return '节点“${node.title}”的“${branch.label}”分支尚未连接后续节点。';
-          }
-        }
-      } else if (outgoing.isEmpty) {
-        return '节点“${node.title}”尚未连接后续节点。';
-      }
-    }
+    final graph = analyzeWorkflowGraph(
+      nodeIds: nodeIds,
+      connections: edges,
+      startNodeIds: <String>[starts.single.id],
+    );
+    final connectionError = validateWorkflowOutgoingConnections(
+      nodes: nodes,
+      graph: graph,
+    );
+    if (connectionError != null) return connectionError;
 
-    final reachable = <String>{};
-    final pending = <String>[starts.single.id];
-    while (pending.isNotEmpty) {
-      final nodeId = pending.removeLast();
-      if (!reachable.add(nodeId)) continue;
-      for (final edge in edges) {
-        if (edge.sourceNodeId == nodeId) pending.add(edge.targetNodeId);
-      }
-    }
-    final unreachable = nodes.where((node) => !reachable.contains(node.id));
+    final unreachable = nodes.where(
+      (node) => !graph.reachableNodeIds.contains(node.id),
+    );
     if (unreachable.isNotEmpty) {
       return '节点“${unreachable.first.title}”无法从开始节点到达。';
     }
 
-    final incoming = <String, int>{for (final node in nodes) node.id: 0};
-    for (final edge in edges) {
-      incoming[edge.targetNodeId] = incoming[edge.targetNodeId]! + 1;
-    }
-    final ready = nodes
-        .where((node) => incoming[node.id] == 0)
-        .map((node) => node.id)
-        .toList(growable: true);
-    var sortedCount = 0;
-    while (ready.isNotEmpty) {
-      final nodeId = ready.removeLast();
-      sortedCount += 1;
-      for (final edge in edges) {
-        if (edge.sourceNodeId != nodeId) continue;
-        final remaining = incoming[edge.targetNodeId]! - 1;
-        incoming[edge.targetNodeId] = remaining;
-        if (remaining == 0) ready.add(edge.targetNodeId);
-      }
-    }
-    return sortedCount == nodes.length ? null : '工作流不能包含循环连线。';
+    return graph.isAcyclic ? null : '工作流不能包含循环连线。';
   }
 
   String? _validateContainerGraph(WorkflowNode container) {
@@ -4009,22 +3998,6 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
         .map((edge) => edge.targetNodeId)
         .toList(growable: false);
     if (starts.isEmpty) return '节点“${container.title}”的内部起点尚未连接执行节点。';
-    final reachable = <String>{};
-    final pending = <String>[...starts];
-    while (pending.isNotEmpty) {
-      final current = pending.removeLast();
-      if (!reachable.add(current)) continue;
-      for (final edge in _connections) {
-        if (edge.sourceNodeId == current &&
-            childIds.contains(edge.targetNodeId)) {
-          pending.add(edge.targetNodeId);
-        }
-      }
-    }
-    final unreachable = children.where((node) => !reachable.contains(node.id));
-    if (unreachable.isNotEmpty) {
-      return '节点“${container.title}”包含未连接的内部节点“${unreachable.first.title}”。';
-    }
     final childEdges = _connections
         .where(
           (edge) =>
@@ -4032,29 +4005,18 @@ class _WorkflowEditorDialogState extends State<WorkflowEditorDialog>
               childIds.contains(edge.targetNodeId),
         )
         .toList(growable: false);
-    final incomingCounts = <String, int>{
-      for (final child in children) child.id: 0,
-    };
-    for (final edge in childEdges) {
-      incomingCounts[edge.targetNodeId] =
-          incomingCounts[edge.targetNodeId]! + 1;
+    final graph = analyzeWorkflowGraph(
+      nodeIds: childIds,
+      connections: childEdges,
+      startNodeIds: starts,
+    );
+    final unreachable = children.where(
+      (node) => !graph.reachableNodeIds.contains(node.id),
+    );
+    if (unreachable.isNotEmpty) {
+      return '节点“${container.title}”包含未连接的内部节点“${unreachable.first.title}”。';
     }
-    final ready = children
-        .where((child) => incomingCounts[child.id] == 0)
-        .map((child) => child.id)
-        .toList(growable: true);
-    var sortedCount = 0;
-    while (ready.isNotEmpty) {
-      final current = ready.removeLast();
-      sortedCount += 1;
-      for (final edge in childEdges) {
-        if (edge.sourceNodeId != current) continue;
-        final remaining = incomingCounts[edge.targetNodeId]! - 1;
-        incomingCounts[edge.targetNodeId] = remaining;
-        if (remaining == 0) ready.add(edge.targetNodeId);
-      }
-    }
-    if (sortedCount != children.length) {
+    if (!graph.isAcyclic) {
       return '节点“${container.title}”的内部工作流不能包含循环连线。';
     }
     return null;
@@ -4906,7 +4868,7 @@ class _WorkflowMetadataDialogState extends State<_WorkflowMetadataDialog> {
                 child: TextField(
                   controller: _nameController,
                   focusNode: _nameFocusNode,
-                  maxLength: 120,
+                  maxLength: maxWorkflowNameCharacters,
                   buildCounter: openHandHiddenTextFieldCounter,
                   textInputAction: TextInputAction.next,
                   decoration: _decoration(
@@ -5278,8 +5240,8 @@ Offset _workflowConnectionStart(
           ),
     );
   }
-  if (_workflowNodeHasBranches(source) && sourceHandleId != null) {
-    final index = _workflowNodeBranches(
+  if (workflowNodeHasBranches(source) && sourceHandleId != null) {
+    final index = workflowNodeBranches(
       source,
     ).indexWhere((branch) => branch.id == sourceHandleId);
     if (index >= 0) {
@@ -5331,62 +5293,6 @@ Path _workflowConnectionPathBetween(Offset start, Offset end) {
       end.dy,
     );
 }
-
-bool _isWorkflowBranchingKind(WorkflowNodeKind kind) =>
-    kind == WorkflowNodeKind.condition ||
-    kind == WorkflowNodeKind.humanIntervention;
-
-bool _workflowNodeHasBranches(WorkflowNode node) =>
-    _isWorkflowBranchingKind(node.kind) ||
-    const <WorkflowNodeKind>{
-          WorkflowNodeKind.codeExecution,
-          WorkflowNodeKind.llm,
-          WorkflowNodeKind.httpRequest,
-        }.contains(node.kind) &&
-        WorkflowErrorStrategy.fromStorage(
-              node.settings[WorkflowSettingKeys.errorStrategy],
-            ) ==
-            WorkflowErrorStrategy.failBranch;
-
-List<({String id, String label})> _workflowNodeBranches(WorkflowNode node) =>
-    switch (node.kind) {
-      WorkflowNodeKind.condition => <({String id, String label})>[
-        if (node.conditionCases().isEmpty)
-          (id: 'legacy-if', label: 'IF')
-        else
-          for (final item in node.conditionCases().indexed)
-            (id: item.$2.id, label: item.$1 == 0 ? 'IF' : 'ELIF ${item.$1}'),
-        (id: 'else', label: 'ELSE'),
-      ],
-      WorkflowNodeKind.humanIntervention => <({String id, String label})>[
-        ...node.humanActions().map(
-          (action) => (id: action.id, label: action.title.trim()),
-        ),
-        (id: workflowHumanTimeoutHandleId, label: '超时'),
-      ],
-      WorkflowNodeKind.codeExecution =>
-        _workflowNodeHasBranches(node)
-            ? const <({String id, String label})>[
-                (id: workflowSuccessHandleId, label: '成功'),
-                (id: workflowFailureHandleId, label: '异常'),
-              ]
-            : const <({String id, String label})>[],
-      WorkflowNodeKind.llm =>
-        _workflowNodeHasBranches(node)
-            ? const <({String id, String label})>[
-                (id: workflowSuccessHandleId, label: '成功'),
-                (id: workflowFailureHandleId, label: '异常'),
-              ]
-            : const <({String id, String label})>[],
-      WorkflowNodeKind.httpRequest =>
-        _workflowNodeHasBranches(node)
-            ? const <({String id, String label})>[
-                (id: workflowSuccessHandleId, label: '成功'),
-                (id: workflowFailureHandleId, label: '异常'),
-              ]
-            : const <({String id, String label})>[],
-      _ => const <({String id, String label})>[],
-    };
 
 List<WorkflowAnnotation> _normalizeWorkflowAnnotationsForCanvas(
   Iterable<WorkflowAnnotation> annotations,
@@ -5493,8 +5399,8 @@ double _nodeHeightFor(WorkflowNode node) {
       ),
     );
   }
-  if (!_workflowNodeHasBranches(node)) return _nodeHeight;
-  final branchCount = _workflowNodeBranches(node).length;
+  if (!workflowNodeHasBranches(node)) return _nodeHeight;
+  final branchCount = workflowNodeBranches(node).length;
   return math.max(
     _nodeHeight,
     _conditionBranchStart + (branchCount - 1) * _conditionBranchSpacing + 32,

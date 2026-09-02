@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -27,6 +26,7 @@ import '../../memory/index.dart' show UserMemoryEntry;
 import '../../skills/index.dart' show LocalSkill;
 import '../model/workflow_definition.dart';
 import 'workflow_code_executor.dart';
+import 'workflow_graph_analysis.dart';
 
 const int _maxWorkflowHttpResponseBytes = 4 * 1024 * 1024;
 const int _maxWorkflowPromptCharacters = 256 * 1024;
@@ -484,16 +484,13 @@ class WorkflowNodeExecutor {
     Map<String, Object?> inputs = const <String, Object?>{},
   }) async {
     resources.cancellation?.throwIfCancelled();
-    final parameterError = validateWorkflowParameterNames(nodes);
+    if (nodes.length > maxWorkflowNodeCount ||
+        connections.length > maxWorkflowConnectionCount) {
+      throw const WorkflowNodeExecutionException('工作流规模超过执行安全上限。');
+    }
+    final parameterError = validateWorkflowParameters(nodes, connections);
     if (parameterError != null) {
       throw WorkflowNodeExecutionException(parameterError);
-    }
-    final referenceError = validateWorkflowParameterReferences(
-      nodes,
-      connections,
-    );
-    if (referenceError != null) {
-      throw WorkflowNodeExecutionException(referenceError);
     }
     final topLevelNodes = nodes
         .where((node) => node.parentNodeId == null)
@@ -518,42 +515,23 @@ class WorkflowNodeExecutor {
               edge.sourceHandleId != workflowContainerStartHandleId,
         )
         .toList(growable: false);
-    final reachable = <String>{};
-    final pending = <String>[starts.single.id];
-    while (pending.isNotEmpty) {
-      final nodeId = pending.removeLast();
-      if (!reachable.add(nodeId)) continue;
-      for (final edge in edges) {
-        if (edge.sourceNodeId == nodeId) pending.add(edge.targetNodeId);
-      }
-    }
-    if (reachable.length != topLevelNodes.length) {
+    final graph = analyzeWorkflowGraph(
+      nodeIds: nodesById.keys,
+      connections: edges,
+      startNodeIds: <String>[starts.single.id],
+    );
+    if (graph.reachableNodeIds.length != topLevelNodes.length) {
       throw const WorkflowNodeExecutionException('工作流包含无法从开始节点到达的节点。');
     }
-    final incoming = <String, int>{
-      for (final node in topLevelNodes) node.id: 0,
-    };
-    for (final edge in edges) {
-      incoming[edge.targetNodeId] = incoming[edge.targetNodeId]! + 1;
-    }
-    final ready = ListQueue<String>.from(
-      topLevelNodes
-          .where((node) => incoming[node.id] == 0)
-          .map((node) => node.id),
-    );
-    final order = <String>[];
-    while (ready.isNotEmpty) {
-      final nodeId = ready.removeFirst();
-      order.add(nodeId);
-      for (final edge in edges) {
-        if (edge.sourceNodeId != nodeId) continue;
-        final remaining = incoming[edge.targetNodeId]! - 1;
-        incoming[edge.targetNodeId] = remaining;
-        if (remaining == 0) ready.add(edge.targetNodeId);
-      }
-    }
-    if (order.length != topLevelNodes.length) {
+    if (!graph.isAcyclic) {
       throw const WorkflowNodeExecutionException('工作流包含循环连线，无法开始测试。');
+    }
+    final connectionError = validateWorkflowOutgoingConnections(
+      nodes: topLevelNodes,
+      graph: graph,
+    );
+    if (connectionError != null) {
+      throw WorkflowNodeExecutionException(connectionError);
     }
 
     var executedSteps = 0;
@@ -571,7 +549,7 @@ class WorkflowNodeExecutor {
     Object? output;
     var reachedEnd = false;
     final stopwatch = Stopwatch()..start();
-    for (final nodeId in order) {
+    for (final nodeId in graph.topologicalNodeIds) {
       resources.cancellation?.throwIfCancelled();
       if (!activeNodeIds.contains(nodeId)) continue;
       final node = nodesById[nodeId];
@@ -2479,34 +2457,19 @@ class WorkflowNodeExecutor {
     final childEdges = internalEdges
         .where((edge) => childrenById.containsKey(edge.sourceNodeId))
         .toList(growable: false);
-    final incomingCounts = <String, int>{
-      for (final child in children) child.id: 0,
-    };
-    for (final edge in childEdges) {
-      incomingCounts[edge.targetNodeId] =
-          incomingCounts[edge.targetNodeId]! + 1;
-    }
-    final ready = ListQueue<String>.from(
-      children
-          .where((child) => incomingCounts[child.id] == 0)
-          .map((child) => child.id),
+    final graph = analyzeWorkflowGraph(
+      nodeIds: childrenById.keys,
+      connections: childEdges,
+      startNodeIds: activeNodeIds,
     );
-    final executionOrder = <String>[];
-    while (ready.isNotEmpty) {
-      final nodeId = ready.removeFirst();
-      executionOrder.add(nodeId);
-      for (final edge in childEdges) {
-        if (edge.sourceNodeId != nodeId) continue;
-        final remaining = incomingCounts[edge.targetNodeId]! - 1;
-        incomingCounts[edge.targetNodeId] = remaining;
-        if (remaining == 0) ready.add(edge.targetNodeId);
-      }
+    if (graph.reachableNodeIds.length != children.length) {
+      throw WorkflowNodeExecutionException('节点“${parent.title}”包含未连接的内部节点。');
     }
-    if (executionOrder.length != children.length) {
+    if (!graph.isAcyclic) {
       throw WorkflowNodeExecutionException('节点“${parent.title}”的内部工作流存在循环连线。');
     }
     final resolvedVariables = <String, Object?>{...variables};
-    for (final nodeId in executionOrder) {
+    for (final nodeId in graph.topologicalNodeIds) {
       resources.cancellation?.throwIfCancelled();
       if (!activeNodeIds.contains(nodeId)) continue;
       final child = childrenById[nodeId];

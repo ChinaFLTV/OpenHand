@@ -44,18 +44,24 @@ class WorkflowsController extends ManagedChangeNotifier {
         notifyListeners();
         return false;
       }
-      final parameterError = validateWorkflowParameterNames(workflow.nodes);
-      if (parameterError != null) {
-        _errorMessage = parameterError;
+      if (normalizedName.runes.length > maxWorkflowNameCharacters) {
+        _errorMessage = '工作流名称不能超过 $maxWorkflowNameCharacters 个字符。';
         notifyListeners();
         return false;
       }
-      final referenceError = validateWorkflowParameterReferences(
+      if (workflow.nodes.length > maxWorkflowNodeCount ||
+          workflow.connections.length > maxWorkflowConnectionCount ||
+          workflow.annotations.length > maxWorkflowAnnotationCount) {
+        _errorMessage = '工作流规模超过安全上限。';
+        notifyListeners();
+        return false;
+      }
+      final parameterError = validateWorkflowParameters(
         workflow.nodes,
         workflow.connections,
       );
-      if (referenceError != null) {
-        _errorMessage = referenceError;
+      if (parameterError != null) {
+        _errorMessage = parameterError;
         notifyListeners();
         return false;
       }

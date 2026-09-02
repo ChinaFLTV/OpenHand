@@ -254,7 +254,7 @@ class _WorkflowsViewState extends State<WorkflowsView> {
       );
       final source = await readBoundedFileString(
         File(selected.path),
-        maxBytes: kMaxWorkflowImportBytes,
+        maxBytes: maxWorkflowEncodedBytes,
       );
       final imported = await decodeWorkflowYamlInIsolate(source);
       await loadingDialog.dismiss(logTag: '工作流导入', logAction: '关闭工作流导入加载弹窗');
@@ -381,7 +381,7 @@ class _WorkflowsViewState extends State<WorkflowsView> {
                   controller: nameController,
                   autofocus: true,
                   inputFormatters: <TextInputFormatter>[
-                    LengthLimitingTextInputFormatter(120),
+                    LengthLimitingTextInputFormatter(maxWorkflowNameCharacters),
                   ],
                   textInputAction: TextInputAction.done,
                   decoration: InputDecoration(

@@ -35,7 +35,7 @@ class WorkflowsStore {
     return rows
         .map((row) {
           final raw = row['definition_json'];
-          if (raw is! String || raw.length > 4 * 1024 * 1024) {
+          if (raw is! String || _exceedsWorkflowEncodedLimit(raw)) {
             throw const FormatException('工作流配置大小无效。');
           }
           final decoded = jsonDecode(raw);
@@ -48,10 +48,14 @@ class WorkflowsStore {
   }
 
   Future<void> save(WorkflowDefinition workflow) async {
+    final encoded = workflow.encode();
+    if (_exceedsWorkflowEncodedLimit(encoded)) {
+      throw const FormatException('工作流配置超过存储安全上限。');
+    }
     await _db.insert(_tableName, <String, Object?>{
       'id': workflow.id,
       'name': workflow.name,
-      'definition_json': workflow.encode(),
+      'definition_json': encoded,
       'created_at': workflow.createdAt.toUtc().toIso8601String(),
       'updated_at': workflow.updatedAt.toUtc().toIso8601String(),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -61,3 +65,7 @@ class WorkflowsStore {
     await _db.delete(_tableName, where: 'id = ?', whereArgs: <Object?>[id]);
   }
 }
+
+bool _exceedsWorkflowEncodedLimit(String value) =>
+    value.length > maxWorkflowEncodedBytes ||
+    utf8.encode(value).length > maxWorkflowEncodedBytes;
