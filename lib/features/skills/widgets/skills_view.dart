@@ -33,6 +33,8 @@ enum _SkillCardAction { openDirectory, edit, delete }
 /// 技能图标预览框的边长（逻辑像素）。
 const double _kSkillIconPreviewExtent = 48;
 const EdgeInsets _kSkillDialogContentPadding = EdgeInsets.all(24);
+const int _kSkillDescriptionCompactMaxLines = 2;
+const int _kSkillDescriptionExpandedMaxLines = 5;
 
 const List<String> _skillEmojiOptions = <String>[
   '🧠',
@@ -1053,6 +1055,7 @@ class _SkillCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
+    final defaultPrompt = skill.defaultPrompt;
 
     return HoverLift(
       child: Card(
@@ -1080,7 +1083,9 @@ class _SkillCard extends StatelessWidget {
                           kOpenHandGap6,
                           Text(
                             skill.description,
-                            maxLines: 2,
+                            maxLines: defaultPrompt != null
+                                ? _kSkillDescriptionCompactMaxLines
+                                : _kSkillDescriptionExpandedMaxLines,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: colorScheme.onSurfaceVariant,
@@ -1111,7 +1116,7 @@ class _SkillCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (skill.defaultPrompt != null) ...[
+                if (defaultPrompt != null) ...[
                   kOpenHandGap16,
                   Container(
                     width: double.infinity,
@@ -1131,7 +1136,7 @@ class _SkillCard extends StatelessWidget {
                         kOpenHandHGap10,
                         Expanded(
                           child: Text(
-                            skill.defaultPrompt!,
+                            defaultPrompt,
                             maxLines: 3,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall?.copyWith(
