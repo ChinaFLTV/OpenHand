@@ -178,7 +178,9 @@ class _OpenHandSafeMarkdownBodyState extends State<OpenHandSafeMarkdownBody>
 
     final previousRecognizers = List<GestureRecognizer>.of(_recognizers);
     _recognizers.clear();
-    final source = widget.data.isEmpty ? ' ' : widget.data;
+    final source = normalizeOpenHandMarkdownSource(
+      widget.data.isEmpty ? ' ' : widget.data,
+    );
     try {
       final styleSheet = MarkdownStyleSheet.fromTheme(
         Theme.of(context),

@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
@@ -15,7 +14,10 @@ import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/image_editor_dialog.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/local_file_media.dart';
+import '../../../shared/ui/markdown_ast_sanitizer.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_message_markdown_theme.dart';
+import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -420,9 +422,19 @@ class _SkillsViewState extends State<SkillsView> {
       if (!context.mounted) {
         return;
       }
+      final markdownContent = stripOpenHandMarkdownFrontMatter(content);
       await showAnimatedDialog<void>(
         context: context,
         builder: (dialogContext) {
+          final theme = Theme.of(dialogContext);
+          final colorScheme = theme.colorScheme;
+          final markdownBackground = colorScheme.surfaceContainerLow;
+          final markdownTheme = OpenHandMessageMarkdownThemeData.resolve(
+            theme: theme,
+            backgroundColor: markdownBackground,
+            textColor: colorScheme.onSurface,
+            useCustomCodeBlockBuilder: false,
+          );
           return buildOpenHandToolDialogShell(
             context: dialogContext,
             maxHeight: kOpenHandDialogHeightTall,
@@ -431,15 +443,12 @@ class _SkillsViewState extends State<SkillsView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    skill.name,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
+                  Text(skill.name, style: theme.textTheme.headlineSmall),
                   kOpenHandGap8,
                   Text(
                     skill.displayDirectoryPath,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
                     ),
                   ),
                   if (skill.defaultPrompt != null) ...[
@@ -448,16 +457,14 @@ class _SkillsViewState extends State<SkillsView> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHigh,
+                        color: colorScheme.surfaceContainerHigh,
                         borderRadius: BorderRadius.circular(kOpenHandRadius18),
                       ),
                       child: Text(
                         skill.defaultPrompt!,
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium,
+                        style: theme.textTheme.bodyMedium,
                       ),
                     ),
                   ],
@@ -466,13 +473,15 @@ class _SkillsViewState extends State<SkillsView> {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(kOpenHandRadius24),
                       child: ColoredBox(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerLow,
-                        child: Markdown(
-                          data: content,
-                          selectable: true,
+                        color: markdownBackground,
+                        child: SingleChildScrollView(
                           padding: const EdgeInsets.all(20),
+                          child: OpenHandSafeMarkdownBody(
+                            data: markdownContent,
+                            selectable: true,
+                            styleSheet: markdownTheme.styleSheet,
+                            builders: {'code': markdownTheme.inlineCodeBuilder},
+                          ),
                         ),
                       ),
                     ),

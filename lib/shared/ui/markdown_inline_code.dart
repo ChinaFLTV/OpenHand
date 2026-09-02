@@ -35,7 +35,8 @@ class OpenHandMarkdownInlineCodeBuilder extends MarkdownElementBuilder {
     TextStyle? parentStyle,
   ) {
     final text = element.textContent;
-    if (text.isEmpty) return null;
+    // 块级代码由 pre 构建器处理；Markdown 解析器会为其保留结尾换行。
+    if (text.isEmpty || text.endsWith('\n')) return null;
     return Text.rich(
       WidgetSpan(
         alignment: PlaceholderAlignment.baseline,

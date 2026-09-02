@@ -1677,38 +1677,6 @@ bool _canRenderMarkdownAsPlainText(String source) {
   return !_markdownStructuralPattern.hasMatch(normalized);
 }
 
-final RegExp _fencedCodeBlockPattern = RegExp(
-  r'^[ ]{0,3}((`{3,}|~{3,}))[^\n]*$',
-);
-
-String _closeUnterminatedFencedCodeBlock(String source) {
-  final fencePattern = _fencedCodeBlockPattern;
-  String? openFence;
-  String? openFenceMarker;
-  for (final line in const LineSplitter().convert(source)) {
-    final match = fencePattern.firstMatch(line);
-    if (match == null) {
-      continue;
-    }
-    final delimiter = match.group(1)!;
-    final marker = delimiter[0];
-    if (openFence == null) {
-      openFence = delimiter;
-      openFenceMarker = marker;
-      continue;
-    }
-    if (marker == openFenceMarker && delimiter.length >= openFence.length) {
-      openFence = null;
-      openFenceMarker = null;
-    }
-  }
-  if (openFence == null) {
-    return source;
-  }
-  final separator = source.isEmpty || source.endsWith('\n') ? '' : '\n';
-  return '$source$separator$openFence';
-}
-
 typedef _CodeSyntaxHighlighter = OpenHandCodeSyntaxHighlighter;
 
 String? _extractCodeLanguage(md.Element? element) {

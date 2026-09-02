@@ -1183,207 +1183,6 @@ class _RenderMeasureSize extends RenderProxyBox {
   }
 }
 
-class _MessageMarkdownThemeData {
-  const _MessageMarkdownThemeData({
-    required this.styleSheet,
-    required this.inlineCodeBuilder,
-  });
-
-  factory _MessageMarkdownThemeData.fromMessageBubble({
-    required ThemeData theme,
-    required Color backgroundColor,
-    required Color textColor,
-    required bool useDarkCodeSurface,
-  }) {
-    // 进程级缓存。`MarkdownStyleSheet.fromTheme + copyWith` 创建
-    // 数十个 TextStyle / BoxDecoration，60+ 长会话首次打开会重复触发
-    // N 次。按 (theme palette + bubble bg + text color + dark surface)
-    // 签名命中率极高（同 role/状态的 bubble 共享同一份 stylesheet），
-    // 命中后跳过整个工厂方法的重建工作。
-    final cacheKey = Object.hash(
-      theme.brightness.index,
-      theme.colorScheme.primary.toARGB32(),
-      theme.colorScheme.primaryContainer.toARGB32(),
-      theme.textTheme.bodyLarge?.fontSize,
-      theme.textTheme.bodyMedium?.fontSize,
-      backgroundColor.toARGB32(),
-      textColor.toARGB32(),
-      useDarkCodeSurface,
-    );
-    final cached = _markdownThemeDataCache[cacheKey];
-    if (cached != null) {
-      _markdownThemeDataCache.remove(cacheKey);
-      _markdownThemeDataCache[cacheKey] = cached; // touch LRU
-      return cached;
-    }
-    final result = _buildFromMessageBubble(
-      theme: theme,
-      backgroundColor: backgroundColor,
-      textColor: textColor,
-      useDarkCodeSurface: useDarkCodeSurface,
-    );
-    _markdownThemeDataCache[cacheKey] = result;
-    while (_markdownThemeDataCache.length > 64) {
-      _markdownThemeDataCache.remove(_markdownThemeDataCache.keys.first);
-    }
-    return result;
-  }
-
-  static _MessageMarkdownThemeData _buildFromMessageBubble({
-    required ThemeData theme,
-    required Color backgroundColor,
-    required Color textColor,
-    required bool useDarkCodeSurface,
-  }) {
-    final colorScheme = theme.colorScheme;
-    final palette = theme.extension<OpenHandPalette>();
-    final tones = OpenHandMarkdownSurfaceTones.resolve(
-      colorScheme: colorScheme,
-      background: backgroundColor,
-    );
-    final bubbleIsDark = tones.isDark;
-    final overlayBase = tones.overlayBase;
-    final subtleSurface = tones.subtleSurface;
-    final elevatedSurface = tones.elevatedSurface;
-    final inlineCodeSurface = Color.alphaBlend(
-      overlayBase.withValues(alpha: bubbleIsDark ? 0.12 : 0.055),
-      backgroundColor,
-    );
-    final accentColor = tones.accent;
-    final linkColor = tones.link;
-    final borderColor =
-        palette?.outlineSoft.withValues(alpha: bubbleIsDark ? 0.72 : 0.88) ??
-        Color.alphaBlend(
-          overlayBase.withValues(alpha: bubbleIsDark ? 0.18 : 0.12),
-          backgroundColor,
-        );
-    final quoteSurface = Color.alphaBlend(
-      accentColor.withValues(alpha: bubbleIsDark ? 0.16 : 0.07),
-      elevatedSurface,
-    );
-    final secondaryTextColor = textColor.withValues(
-      alpha: bubbleIsDark ? 0.92 : 0.88,
-    );
-    final bodyFontSize = theme.textTheme.bodyMedium?.fontSize ?? 14;
-    final bodyStyle =
-        theme.textTheme.bodyMedium?.copyWith(
-          color: textColor,
-          fontSize: bodyFontSize * 1.04,
-          height: 1.5,
-          letterSpacing: 0.02,
-        ) ??
-        TextStyle(color: textColor, fontSize: bodyFontSize, height: 1.5);
-    final headingStyle = bodyStyle.copyWith(height: 1.24, letterSpacing: -0.22);
-    final tableBodyStyle = bodyStyle.copyWith(
-      fontSize: bodyFontSize * 0.95,
-      height: 1.42,
-    );
-    final codeStyle =
-        theme.textTheme.bodyMedium?.copyWith(
-          color: textColor,
-          fontFamily: kOpenHandMonospaceFontFamily,
-          fontSize: bodyFontSize * 0.92,
-          fontWeight: FontWeight.w500,
-          height: 1.28,
-        ) ??
-        TextStyle(
-          color: textColor,
-          fontFamily: kOpenHandMonospaceFontFamily,
-          fontSize: bodyFontSize * 0.92,
-          fontWeight: FontWeight.w500,
-          height: 1.28,
-        );
-    return _MessageMarkdownThemeData(
-      inlineCodeBuilder: OpenHandMarkdownInlineCodeBuilder(
-        textStyle: codeStyle,
-        backgroundColor: inlineCodeSurface,
-      ),
-      styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-        a: bodyStyle.copyWith(
-          color: linkColor,
-          fontWeight: FontWeight.w600,
-          decoration: TextDecoration.underline,
-          decorationColor: linkColor.withValues(alpha: 0.78),
-        ),
-        p: bodyStyle,
-        pPadding: EdgeInsets.zero,
-        code: codeStyle,
-        h1: headingStyle.copyWith(
-          fontSize: bodyFontSize * 1.46,
-          fontWeight: FontWeight.w800,
-        ),
-        h1Padding: const EdgeInsets.only(top: 4, bottom: 2),
-        h2: headingStyle.copyWith(
-          fontSize: bodyFontSize * 1.28,
-          fontWeight: FontWeight.w800,
-        ),
-        h2Padding: const EdgeInsets.only(top: 3, bottom: 1),
-        h3: headingStyle.copyWith(
-          fontSize: bodyFontSize * 1.15,
-          fontWeight: FontWeight.w700,
-        ),
-        h3Padding: const EdgeInsets.only(top: 2),
-        h4: headingStyle.copyWith(
-          fontSize: bodyFontSize * 1.07,
-          fontWeight: FontWeight.w700,
-        ),
-        h4Padding: const EdgeInsets.only(top: 1),
-        h5: headingStyle.copyWith(fontWeight: FontWeight.w700),
-        h6: headingStyle.copyWith(
-          color: secondaryTextColor,
-          fontWeight: FontWeight.w700,
-        ),
-        em: bodyStyle.copyWith(fontStyle: FontStyle.italic),
-        strong: bodyStyle.copyWith(fontWeight: FontWeight.w700),
-        del: bodyStyle.copyWith(decoration: TextDecoration.lineThrough),
-        blockquote: bodyStyle.copyWith(color: secondaryTextColor),
-        blockSpacing: 10,
-        listIndent: 22,
-        listBullet: bodyStyle.copyWith(
-          color: secondaryTextColor,
-          fontWeight: FontWeight.w700,
-        ),
-        listBulletPadding: const EdgeInsets.only(right: 7),
-        tableHead: bodyStyle.copyWith(fontWeight: FontWeight.w700),
-        tableBody: tableBodyStyle,
-        tableBorder: TableBorder.all(
-          color: borderColor,
-          borderRadius: kOpenHandBorderRadius12,
-        ),
-        tablePadding: const EdgeInsets.symmetric(vertical: 2),
-        tableCellsPadding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        tableCellsDecoration: BoxDecoration(color: subtleSurface),
-        tableHeadCellsPadding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        tableHeadCellsDecoration: BoxDecoration(color: elevatedSurface),
-        tableColumnWidth: const IntrinsicColumnWidth(),
-        blockquotePadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 11,
-        ),
-        blockquoteDecoration: BoxDecoration(
-          color: quoteSurface,
-          borderRadius: kOpenHandBorderRadius12,
-          border: Border(left: BorderSide(color: accentColor, width: 2.5)),
-        ),
-        // 代码面板自行裁剪圆角，外层仅约束边界，避免重复裁剪削薄四角边框。
-        codeblockPadding: EdgeInsets.zero,
-        codeblockDecoration: const BoxDecoration(),
-        horizontalRuleDecoration: BoxDecoration(
-          border: Border(top: BorderSide(color: borderColor)),
-        ),
-      ),
-    );
-  }
-
-  final MarkdownStyleSheet styleSheet;
-  final OpenHandMarkdownInlineCodeBuilder inlineCodeBuilder;
-}
-
-/// [_MessageMarkdownThemeData] 的 LRU 缓存。容量 64 足以覆盖
-/// 「亮/暗 × user/assistant/tool/reasoning × 选中/未选中」全部组合。
-final LinkedHashMap<int, _MessageMarkdownThemeData> _markdownThemeDataCache =
-    LinkedHashMap<int, _MessageMarkdownThemeData>();
-
 class _SafeMarkdownBody extends StatefulWidget {
   const _SafeMarkdownBody({
     required this.data,
@@ -1501,182 +1300,6 @@ int _markdownAstCacheKeyFor(String normalizedSource, _SafeMarkdownBody widget) {
   );
 }
 
-final RegExp _markdownSetextEscapePattern = RegExp(
-  r'(^|\n)(\s*)(=+|\^+)(?=\n|$)',
-);
-final RegExp _markdownInlineFencedBlockLinePattern = RegExp(
-  r'^( {0,3})(`{3,}|~{3,})([^\n]*)$',
-);
-final RegExp _markdownFenceInfoTokenPattern = RegExp(
-  r'^([A-Za-z0-9_+#\.-]+)(?:\s+|$)',
-);
-
-/// 匹配模型偶尔泄漏的工具调用脚手架行。
-/// visible markdown body, e.g. a bare `Tool: Bash`, `工具: Bash`,
-/// `工具调用：xxx`, `[tool_call] ...`, or `function_calls: ...`.
-///
-/// 这些内容应由结构化工具调用气泡展示，因此在 Markdown 解析前移除。
-final RegExp _markdownToolScaffoldingLinePattern = RegExp(
-  r'^\s*(?:'
-  r'tool\s*:\s*\w[\w\-\.]*'
-  r'|工具\s*[:：]\s*\w[\w\-\.]*'
-  r'|工具调用\s*[:：].*'
-  r'|\[?tool_call\]?\s*[:：]?\s*.*'
-  r'|function_calls?\s*[:：].*'
-  r'|<?function_calls?>?\s*$'
-  r'|</?invoke[^>]*>\s*$'
-  r')\s*$',
-  caseSensitive: false,
-  multiLine: true,
-);
-
-/// sanitize 结果缓存。同一次解析周期内 `_parseMarkdownMaybeDeferred`（为算
-/// AST cache key）与 `_parseMarkdownInner` 会各跑一次 sanitize，而 sanitize
-/// 本身是数次全串扫描 + 两次 split，对长消息是实打实的毫秒级开销。缓存后
-/// 每条消息只付一次，AST 缓存的收益也不再被「为查缓存先算一遍」抵消。
-class _MarkdownSanitizeCache {
-  static const int _maxEntries = 256;
-  // 单条准入阈值必须远小于总预算，否则一条超大消息插入后会把整个缓存
-  // （连同它自己）全部淘汰，命中率恒为 0，比不加缓存更差。
-  static const int _maxEntryChars = 256 * kBytesPerKiB;
-  static const int _maxTotalChars = 2 * kBytesPerMiB;
-
-  final LinkedHashMap<String, String> _entries =
-      LinkedHashMap<String, String>();
-  int _chars = 0;
-
-  String resolve(String source, String Function(String) compute) {
-    final cached = _entries.remove(source);
-    if (cached != null) {
-      _entries[source] = cached;
-      return cached;
-    }
-    final value = compute(source);
-    if (source.length > _maxEntryChars) return value;
-    _entries[source] = value;
-    _chars += source.length + value.length;
-    while (_entries.length > _maxEntries || _chars > _maxTotalChars) {
-      final key = _entries.keys.first;
-      final removed = _entries.remove(key);
-      if (removed == null) break;
-      _chars -= key.length + removed.length;
-    }
-    return value;
-  }
-}
-
-final _MarkdownSanitizeCache _markdownSanitizeCache = _MarkdownSanitizeCache();
-
-String _sanitizeMarkdownSource(String source) {
-  return _markdownSanitizeCache.resolve(
-    source,
-    _computeSanitizedMarkdownSource,
-  );
-}
-
-String _computeSanitizedMarkdownSource(String source) {
-  final normalized = source.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-  final normalizedFences = _normalizeInlineFencedCodeBlocks(normalized);
-  final stripped = _stripToolScaffoldingFromMarkdown(normalizedFences);
-  return _closeUnterminatedFencedCodeBlock(stripped).replaceAllMapped(
-    _markdownSetextEscapePattern,
-    (match) => '${match[1]}${match[2]}\\${match[3]}',
-  );
-}
-
-String _normalizeInlineFencedCodeBlocks(String source) {
-  if (source.isEmpty || !source.contains('```') && !source.contains('~~~')) {
-    return source;
-  }
-  final lines = source.split('\n');
-  var changed = false;
-  final normalizedLines = <String>[];
-  for (final line in lines) {
-    final match = _markdownInlineFencedBlockLinePattern.firstMatch(line);
-    if (match == null) {
-      normalizedLines.add(line);
-      continue;
-    }
-    final indent = match.group(1)!;
-    final fence = match.group(2)!;
-    final afterFence = match.group(3)!;
-    final closingIndex = afterFence.lastIndexOf(fence);
-    if (closingIndex <= 0) {
-      normalizedLines.add(line);
-      continue;
-    }
-    final inlineSegment = afterFence.substring(0, closingIndex).trimLeft();
-    final trailingSegment = afterFence.substring(closingIndex + fence.length);
-    if (inlineSegment.isEmpty) {
-      normalizedLines.add(line);
-      continue;
-    }
-    String openingFence = '$indent$fence';
-    var codeBody = inlineSegment;
-    final infoMatch = _markdownFenceInfoTokenPattern.firstMatch(inlineSegment);
-    if (infoMatch != null) {
-      final infoToken = infoMatch.group(1)!;
-      final remainder = inlineSegment.substring(infoMatch.end).trimLeft();
-      if (remainder.isNotEmpty) {
-        openingFence = '$openingFence$infoToken';
-        codeBody = remainder;
-      }
-    }
-    if (codeBody.trim().isEmpty) {
-      normalizedLines.add(line);
-      continue;
-    }
-    changed = true;
-    normalizedLines.add(openingFence);
-    normalizedLines.add(codeBody.trimRight());
-    normalizedLines.add('$indent$fence');
-    final trailing = trailingSegment.trimLeft();
-    if (trailing.isNotEmpty) {
-      normalizedLines.add(trailing);
-    }
-  }
-  if (!changed) {
-    return source;
-  }
-  return normalizedLines.join('\n');
-}
-
-String _stripToolScaffoldingFromMarkdown(String source) {
-  if (!_markdownToolScaffoldingLinePattern.hasMatch(source)) {
-    return source;
-  }
-  final lines = source.split('\n');
-  final buffer = StringBuffer();
-  var inFence = false;
-  String? fenceMarker;
-  for (var i = 0; i < lines.length; i++) {
-    final line = lines[i];
-    final trimmed = line.trimLeft();
-    if (inFence) {
-      if (fenceMarker != null && trimmed.startsWith(fenceMarker)) {
-        inFence = false;
-        fenceMarker = null;
-      }
-      buffer.write(line);
-      if (i != lines.length - 1) buffer.write('\n');
-      continue;
-    }
-    if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
-      inFence = true;
-      fenceMarker = trimmed.startsWith('```') ? '```' : '~~~';
-      buffer.write(line);
-      if (i != lines.length - 1) buffer.write('\n');
-      continue;
-    }
-    if (_markdownToolScaffoldingLinePattern.hasMatch(line)) {
-      continue;
-    }
-    buffer.write(line);
-    if (i != lines.length - 1) buffer.write('\n');
-  }
-  return buffer.toString();
-}
-
 void _warmMarkdownAst({
   required String data,
   required String parseKey,
@@ -1687,7 +1310,10 @@ void _warmMarkdownAst({
       _canRenderMarkdownAsPlainText(data)) {
     return;
   }
-  final normalizedSource = _sanitizeMarkdownSource(data.isEmpty ? ' ' : data);
+  final normalizedSource = normalizeOpenHandMarkdownSource(
+    data.isEmpty ? ' ' : data,
+    stripMessageScaffolding: true,
+  );
   final effectiveInlineSyntaxes = withOpenHandMarkdownMathInlineSyntaxes(
     inlineSyntaxes,
   );
@@ -1996,8 +1622,9 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   /// 大体量 Markdown 冷解析延迟到共享帧预算；缓存命中时同步复用 AST。
   /// 流式更新保留上一棵富文本树，避免内容在富文本和占位之间反复切换。
   void _parseMarkdownMaybeDeferred({required bool initial}) {
-    final normalizedSource = _sanitizeMarkdownSource(
+    final normalizedSource = normalizeOpenHandMarkdownSource(
       widget.data.isEmpty ? ' ' : widget.data,
+      stripMessageScaffolding: true,
     );
     final astCacheKey = _markdownAstCacheKeyFor(normalizedSource, widget);
     final hasWarmAst =
@@ -2177,8 +1804,9 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     final effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
       Theme.of(context),
     ).merge(widget.styleSheet);
-    final normalizedSource = _sanitizeMarkdownSource(
+    final normalizedSource = normalizeOpenHandMarkdownSource(
       widget.data.isEmpty ? ' ' : widget.data,
+      stripMessageScaffolding: true,
     );
     _lastThemeSignature = _computeThemeSignature();
     _lastData = widget.data;

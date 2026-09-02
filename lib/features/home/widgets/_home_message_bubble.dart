@@ -332,7 +332,7 @@ class _MessageBubbleState extends State<_MessageBubble>
   // 缓存高成本对象，避免每次构建重复分配。
   List<md.InlineSyntax>? _cachedInlineSyntaxes;
   Map<String, MarkdownElementBuilder>? _cachedBuilders;
-  _MessageMarkdownThemeData? _cachedMarkdownThemeData;
+  OpenHandMessageMarkdownThemeData? _cachedMarkdownThemeData;
   String? _cachedFilePathParseKey;
   List<String>? _cachedFilePathRoots;
 
@@ -769,7 +769,7 @@ class _MessageBubbleState extends State<_MessageBubble>
       _lastCacheMessageId = message.id;
       _lastCacheEnvironmentKey = environmentKey;
       _lastCacheThemeSignature = themeSignature;
-      _cachedMarkdownThemeData = _MessageMarkdownThemeData.fromMessageBubble(
+      _cachedMarkdownThemeData = OpenHandMessageMarkdownThemeData.resolve(
         theme: theme,
         backgroundColor: backgroundColor,
         textColor: textColor,
