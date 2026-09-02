@@ -17419,10 +17419,12 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
               key: const ValueKey<String>('dingtalk-long-message-expanded'),
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (streaming && !widget.message.isToolCallEcho)
+                if (widget.message.isAssistant &&
+                    widget.message.sourceAiMessageId.isNotEmpty &&
+                    !_showRawContent)
                   StreamingTextRevealText(
                     text: displayContent,
-                    streaming: true,
+                    streaming: streaming,
                     // 气泡外层已有 AnimatedSize，关闭内部尺寸动画避免竞争。
                     animateSize: false,
                     builder: (context, visibleText) => _buildMessageBody(
@@ -17433,6 +17435,15 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                       foreground: foreground,
                       canCollapse: canCollapse,
                       streaming: true,
+                    ),
+                    settledBuilder: (context, visibleText) => _buildMessageBody(
+                      context,
+                      theme: theme,
+                      text: visibleText,
+                      bodyStyle: bodyStyle,
+                      foreground: foreground,
+                      canCollapse: canCollapse,
+                      streaming: false,
                     ),
                   )
                 else

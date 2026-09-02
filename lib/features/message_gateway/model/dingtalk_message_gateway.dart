@@ -164,6 +164,10 @@ String normalizeDingTalkOutgoingEchoContentForComparison(Object? value) {
   if (normalized.isEmpty) return normalized;
   normalized = normalized
       .replaceAllMapped(
+        RegExp(r'\\([\\`*_{}\[\]()#+.!|>~-])'),
+        (match) => match.group(1) ?? '',
+      )
+      .replaceAllMapped(
         RegExp(r'(`+)([^`\n]+)\1'),
         (match) => match.group(2) ?? '',
       )
@@ -174,7 +178,13 @@ String normalizeDingTalkOutgoingEchoContentForComparison(Object? value) {
       .replaceAllMapped(
         RegExp(r'__([^_\n]+)__'),
         (match) => match.group(1) ?? '',
-      );
+      )
+      // 钉钉会移除代码标记、合并列表换行，并把正文中的单个波浪号转义为双写。
+      .replaceAll(RegExp(r'`+'), '')
+      .replaceAll('**', '')
+      .replaceAll(RegExp(r'~+'), '~')
+      .replaceAll(_dingtalkWhitespacePattern, ' ')
+      .replaceAll(RegExp(r'\s*-\s+(?=[\p{L}\p{N}👉])', unicode: true), '-');
   return normalizeDingTalkMessageContentForComparison(normalized);
 }
 

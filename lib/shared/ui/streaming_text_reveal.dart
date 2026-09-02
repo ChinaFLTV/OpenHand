@@ -232,12 +232,14 @@ class StreamingTextRevealText extends StatefulWidget {
     required this.text,
     required this.streaming,
     required this.builder,
+    this.settledBuilder,
     this.animateSize = true,
   });
 
   final String text;
   final bool streaming;
   final StreamingTextRevealBuilder builder;
+  final StreamingTextRevealBuilder? settledBuilder;
   final bool animateSize;
 
   @override
@@ -250,24 +252,26 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
   static const int _kSmallBacklogThreshold = 24;
   static const int _kMediumBacklogThreshold = 120;
   static const int _kLargeBacklogThreshold = 480;
-  static const int _kMaxGraphemesPerTick = 24;
+  static const int _kMaxGraphemesPerTick = 10;
   static const int _kFrameBudgetMs = 16;
-  static const int _kCatchUpFrameBudgetMs = 8;
+  static const int _kCatchUpFrameBudgetMs = 12;
 
   late final Ticker _ticker;
   List<int> _graphemeEnds = const <int>[];
   int _visibleGraphemes = 0;
   int _lastRevealMs = 0;
+  bool _revealActive = false;
 
   int get _targetGraphemes => _graphemeEnds.length;
   bool get _bypassReveal =>
-      !widget.streaming || widget.text.length > _kStreamingTextRevealMaxLength;
+      !_revealActive || widget.text.length > _kStreamingTextRevealMaxLength;
 
   @override
   void initState() {
     super.initState();
     _ticker = createTicker(_onTick);
     _rebuildGraphemeEnds();
+    _revealActive = widget.streaming;
     _visibleGraphemes = _bypassReveal ? _targetGraphemes : 0;
   }
 
@@ -276,6 +280,7 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
     super.didChangeDependencies();
     if (!openHandTickerMotionEnabled(context)) {
       _visibleGraphemes = _targetGraphemes;
+      if (!widget.streaming) _revealActive = false;
       _stopTicker();
     } else {
       _startTickerIfNeeded();
@@ -286,6 +291,12 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
   void didUpdateWidget(covariant StreamingTextRevealText oldWidget) {
     super.didUpdateWidget(oldWidget);
     final previousText = oldWidget.text;
+    final wasCaughtUp = _visibleGraphemes >= _targetGraphemes;
+    if (widget.streaming) {
+      _revealActive = true;
+    } else if (wasCaughtUp && widget.text == previousText) {
+      _revealActive = false;
+    }
     _syncGraphemeEnds(previousText);
     if (_bypassReveal) {
       _visibleGraphemes = _targetGraphemes;
@@ -294,6 +305,7 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
     }
     if (!openHandTickerMotionEnabled(context)) {
       _visibleGraphemes = _targetGraphemes;
+      if (!widget.streaming) _revealActive = false;
       _stopTicker();
       return;
     }
@@ -353,7 +365,11 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
 
   void _startTickerIfNeeded() {
     if (mounted && !openHandTickerMotionEnabled(context)) return;
-    if (_visibleGraphemes >= _targetGraphemes || _ticker.isActive) return;
+    if (!_revealActive ||
+        _visibleGraphemes >= _targetGraphemes ||
+        _ticker.isActive) {
+      return;
+    }
     _lastRevealMs = 0;
     _ticker.start();
   }
@@ -368,6 +384,7 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
   void _onTick(Duration elapsed) {
     if (!mounted) return;
     if (_bypassReveal || _visibleGraphemes >= _targetGraphemes) {
+      if (!widget.streaming) _revealActive = false;
       _stopTicker();
       return;
     }
@@ -383,6 +400,9 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
     final step = _stepForBacklog(backlog);
     setState(() {
       _visibleGraphemes = math.min(_targetGraphemes, _visibleGraphemes + step);
+      if (_visibleGraphemes >= _targetGraphemes && !widget.streaming) {
+        _revealActive = false;
+      }
     });
     if (_visibleGraphemes >= _targetGraphemes) {
       _stopTicker();
@@ -408,7 +428,7 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
     final motionEnabled = openHandTickerMotionEnabled(context);
     final visibleText = _visibleText(motionEnabled);
     if (!motionEnabled || _bypassReveal) {
-      return widget.builder(context, visibleText);
+      return (widget.settledBuilder ?? widget.builder)(context, visibleText);
     }
     return _StreamingTextFadeMask(
       textLength: visibleText.length,

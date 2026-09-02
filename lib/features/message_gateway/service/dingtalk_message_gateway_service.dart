@@ -1890,8 +1890,14 @@ class DingTalkMessageGatewayService {
         })
         .toList(growable: true);
     if (candidates.isEmpty) return null;
-    final expectedSender = senderName.trim();
-    if (expectedSender.isNotEmpty) {
+    final selfMatches = candidates
+        .where((message) => message.fromSelf)
+        .toList(growable: false);
+    if (selfMatches.isNotEmpty) {
+      // DWS 的发送身份标签可能与通讯录昵称不同，平台自回流标记比名称更可靠。
+      candidates = selfMatches;
+    } else if (senderName.trim().isNotEmpty) {
+      final expectedSender = senderName.trim();
       final senderMatches = candidates
           .where((message) {
             final candidateSender = message.senderName.trim();
@@ -1909,10 +1915,6 @@ class DingTalkMessageGatewayService {
         return null;
       }
     }
-    final selfMatches = candidates
-        .where((message) => message.fromSelf)
-        .toList(growable: false);
-    if (selfMatches.isNotEmpty) candidates = selfMatches;
     final exact = candidates
         .where(
           (message) =>
@@ -3174,6 +3176,7 @@ class DingTalkMessageGatewayService {
           ? DingTalkConversationType.direct
           : fallbackConversationType ?? DingTalkConversationType.direct;
       final recalled = _messageRecalled(map);
+      final sentThroughDws = _messageWasSentThroughDws(map);
       result.add(
         DingTalkGatewayMessage(
           id: id,
@@ -3214,7 +3217,8 @@ class DingTalkMessageGatewayService {
               _asBool(map['isMine']) ||
               _asBool(map['is_mine']) ||
               _asBool(map['isSelfLoop']) ||
-              _asBool(map['is_self_loop']),
+              _asBool(map['is_self_loop']) ||
+              sentThroughDws,
           readByPeer: _asBool(
             map['readByPeer'] ??
                 map['read_by_peer'] ??
@@ -3620,6 +3624,7 @@ class DingTalkMessageGatewayService {
         _asBool(map['at_me']) ||
         _asBool(map['isInAtList']) ||
         _asBool(map['is_in_at_list']);
+    final sentThroughDws = _messageWasSentThroughDws(map);
     final message = DingTalkGatewayMessage(
       id: messageId,
       conversationId: conversationId,
@@ -3663,7 +3668,8 @@ class DingTalkMessageGatewayService {
           _asBool(map['isMine']) ||
           _asBool(map['is_mine']) ||
           _asBool(map['isSelfLoop']) ||
-          _asBool(map['is_self_loop']),
+          _asBool(map['is_self_loop']) ||
+          sentThroughDws,
       mentionedCurrentUser: mentionedCurrentUser,
     );
     return DingTalkGatewayEvent(
@@ -4546,4 +4552,13 @@ class DingTalkMessageGatewayService {
     final normalized = '$value'.trim().toLowerCase();
     return normalized == 'true' || normalized == '1' || normalized == 'yes';
   }
+
+  bool _messageWasSentThroughDws(Map<String, Object?> map) =>
+      _first(map, const <String>[
+        'messageAiSendFlag',
+        'message_ai_send_flag',
+        'aiSendFlag',
+        'ai_send_flag',
+      ]).toLowerCase() ==
+      'dws';
 }
