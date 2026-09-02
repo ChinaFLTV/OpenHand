@@ -1,3 +1,4 @@
+import '../../../../shared/util/bounded_json_conversion.dart';
 import '../../model/ai_model_config.dart';
 
 /// 将 OpenRouter 的模型目录条目转换为 OpenHand 的模型档案。
@@ -121,22 +122,7 @@ Map<String, Object?> _stringKeyedMap(Object? value) {
 
 Map<String, Object?> _jsonMap(Object? value) {
   final map = _stringKeyedMap(value);
-  return _sanitizeMap(map);
-}
-
-Map<String, Object?> _sanitizeMap(Map<String, Object?> value) {
-  return <String, Object?>{
-    for (final entry in value.entries) entry.key: _sanitizeJson(entry.value),
-  };
-}
-
-Object? _sanitizeJson(Object? value) {
-  if (value is Map) return _sanitizeMap(_stringKeyedMap(value));
-  if (value is List) return value.map(_sanitizeJson).toList(growable: false);
-  if (value is String || value is num || value is bool || value == null) {
-    return value;
-  }
-  return '$value';
+  return convertToJsonSafeMap(map);
 }
 
 List<String> _stringList(Object? value) {

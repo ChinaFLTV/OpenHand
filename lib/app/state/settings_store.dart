@@ -78,15 +78,7 @@ class SettingsStore {
 
       if (rows.isNotEmpty) {
         try {
-          final jsonStr = rows.first['value'];
-          if (jsonStr is! String || jsonStr.trim().isEmpty) {
-            throw const FormatException(_emptySettingsJsonMessage);
-          }
-          final decoded = jsonDecode(jsonStr);
-          if (decoded is! Map) {
-            throw const FormatException(_invalidSettingsRootMessage);
-          }
-          final source = stringKeyedMapFromValue(decoded);
+          final source = _decodeSettingsJson(rows.first['value']);
           final removedRetiredTools = _removeRetiredBuiltinToolConfigs(source);
           final snapshot = _snapshotFromJson(source);
           try {
@@ -133,7 +125,7 @@ class SettingsStore {
   }
 
   Future<void> save(AppSettingsSnapshot snapshot) async {
-    final jsonStr = jsonEncode(_snapshotToJson(snapshot));
+    final jsonStr = _encodeSettingsSnapshot(snapshot);
     await _db.insert('app_settings', <String, Object?>{
       'key': _dbSettingsKey,
       'value': jsonStr,
@@ -210,9 +202,10 @@ class SettingsStore {
         final snapshot = markerAppeared
             ? AppSettingsSnapshot.defaults()
             : candidate;
+        final encodedSnapshot = _encodeSettingsSnapshot(snapshot);
         await txn.insert('app_settings', <String, Object?>{
           'key': _dbSettingsKey,
-          'value': jsonEncode(_snapshotToJson(snapshot)),
+          'value': encodedSnapshot,
         }, conflictAlgorithm: ConflictAlgorithm.abort);
         if (currentMarkerRows.isEmpty) {
           await txn.insert(legacyMigrationMetaTable, <String, Object?>{
@@ -242,16 +235,10 @@ class SettingsStore {
       if (racedRows.isEmpty) {
         throw StateError('设置初始化期间目标记录丢失。');
       }
-      final raw = racedRows.first['value'];
-      if (raw is! String || raw.trim().isEmpty) {
-        throw const FormatException(_emptySettingsJsonMessage);
-      }
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map) {
-        throw const FormatException(_invalidSettingsRootMessage);
-      }
       return SettingsLoadResult(
-        snapshot: _snapshotFromJson(stringKeyedMapFromValue(decoded)),
+        snapshot: _snapshotFromJson(
+          _decodeSettingsJson(racedRows.first['value']),
+        ),
         canPersist: true,
       );
     } on FormatException catch (error, stack) {
@@ -274,6 +261,31 @@ class SettingsStore {
           filePath: issuePath,
         ),
       );
+    }
+  }
+
+  static Map<String, Object?> _decodeSettingsJson(Object? value) {
+    if (value is! String || value.trim().isEmpty) {
+      throw const FormatException(_emptySettingsJsonMessage);
+    }
+    _validateSettingsJsonSize(value);
+    final decoded = jsonDecode(value);
+    if (decoded is! Map) {
+      throw const FormatException(_invalidSettingsRootMessage);
+    }
+    return stringKeyedMapFromValue(decoded);
+  }
+
+  static String _encodeSettingsSnapshot(AppSettingsSnapshot snapshot) {
+    final encoded = jsonEncode(_snapshotToJson(snapshot));
+    _validateSettingsJsonSize(encoded);
+    return encoded;
+  }
+
+  static void _validateSettingsJsonSize(String value) {
+    if (value.length > maxSettingsDocumentBytes ||
+        utf8.encode(value).length > maxSettingsDocumentBytes) {
+      throw const FormatException('设置 JSON 超过存储安全上限。');
     }
   }
 

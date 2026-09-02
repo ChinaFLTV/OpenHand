@@ -1,32 +1,33 @@
 part of '../openhand_home_page.dart';
 
+const BoundedJsonConversionConfig _auditJsonConversionConfig =
+    BoundedJsonConversionConfig(
+      maxDepth: 48,
+      maxContainerItems: 4096,
+      maxTotalNodes: 32768,
+      maxStringCodeUnits: 256 * kBytesPerKiB,
+      maxTotalStringCodeUnits: 2 * kBytesPerMiB,
+      truncatedStringSuffix: '…',
+      maxDepthPlaceholder: '<达到最大深度>',
+      cyclicMapPlaceholder: '<循环映射>',
+      cyclicIterablePlaceholder: '<循环集合>',
+      truncatedPlaceholder: '<内容已截断>',
+    );
+
 /// 将类 JSON 值稳定格式化为可读文本。
 String _auditFormatJson(Object? value) {
   try {
-    return prettyPrintJson(_auditSanitizeValue(value));
+    return prettyPrintJson(
+      convertToJsonSafeValue(value, config: _auditJsonConversionConfig),
+    );
   } catch (_) {
-    // 无法编码时回退到字符串，保证循环结构等异常数据仍可查看。
-    return '${value ?? '—'}';
+    // 极端对象连字符串转换也可能失败，最终保留稳定占位文本。
+    try {
+      return '${value ?? '—'}';
+    } catch (_) {
+      return '<无法读取的数据>';
+    }
   }
-}
-
-Object? _auditSanitizeValue(Object? value) {
-  if (value == null || value is String || value is num || value is bool) {
-    return value;
-  }
-  if (value is DateTime) {
-    return value.toIso8601String();
-  }
-  if (value is Map) {
-    return <String, Object?>{
-      for (final entry in value.entries)
-        '${entry.key}': _auditSanitizeValue(entry.value),
-    };
-  }
-  if (value is Iterable) {
-    return value.map(_auditSanitizeValue).toList(growable: false);
-  }
-  return value.toString();
 }
 
 String _auditFormatInstant(DateTime? value) {

@@ -121,6 +121,7 @@ import '../../shared/util/bounded_copy.dart';
 import '../../shared/util/bounded_delete.dart';
 import '../../shared/util/bounded_directory_io.dart';
 import '../../shared/util/bounded_file_io.dart';
+import '../../shared/util/bounded_json_conversion.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/duration_bounds.dart';

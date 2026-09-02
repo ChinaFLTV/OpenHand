@@ -8,7 +8,7 @@ import '../../app/support/openhand_paths.dart';
 import '../util/bounded_file_io.dart';
 import '../util/byte_size_format.dart';
 
-const int maxLegacySettingsBytes = 8 * kBytesPerMiB;
+const int maxSettingsDocumentBytes = 8 * kBytesPerMiB;
 const int maxLegacyMemoryBytes = 64 * kBytesPerMiB;
 const String legacyMigrationMetaTable = 'migration_meta';
 const String legacyMigrationStatusNotFound = 'not_found';
@@ -90,7 +90,7 @@ Future<File?> findLegacySettingsFile() async {
 Future<LegacySettingsDocument> readLegacySettingsDocument(File file) async {
   final raw = await readBoundedFileString(
     file,
-    maxBytes: maxLegacySettingsBytes,
+    maxBytes: maxSettingsDocumentBytes,
   );
   return parseLegacySettingsDocument(raw);
 }
@@ -98,7 +98,7 @@ Future<LegacySettingsDocument> readLegacySettingsDocument(File file) async {
 Future<String?> readLegacyConfiguredMemoryFilePath(File file) async {
   final raw = await readBoundedFileString(
     file,
-    maxBytes: maxLegacySettingsBytes,
+    maxBytes: maxSettingsDocumentBytes,
   );
   for (final rawLine in const LineSplitter().convert(raw)) {
     final trimmed = rawLine.trimLeft();
