@@ -1,4 +1,4 @@
-// Traditional Chinese (zh-Hant) dictionary. Keys MUST stay 1:1 with dict_zh.
+// 繁体中文字典，键必须与 dict_zh 一一对应。
 
 export const dict_zhHant: Record<string, string> = {
   'app.brand': 'OpenHand · Web 通用訊息平台',

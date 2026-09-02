@@ -1,8 +1,8 @@
 import 'ai_model_config.dart';
 
-/// Generated from OpenRouter GET /api/v1/models.
+/// 由 OpenRouter `GET /api/v1/models` 生成。
 ///
-/// Provides exact-ID profiles for all currently online OpenRouter models.
+/// 提供当前在线 OpenRouter 模型的精确 ID 配置。
 final Map<String, AiModelProfile>
 openRouterExactModelProfiles = <String, AiModelProfile>{
   "ai21/jamba-large-1.7": const AiModelProfile(

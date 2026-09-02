@@ -172,8 +172,7 @@ class TokenPopupCacheHitTrendChart extends StatefulWidget {
   final SessionCacheHitDisplayMode displayMode;
   final ValueChanged<SessionCacheHitDisplayMode>? onDisplayModeChanged;
 
-  /// Called after a concrete trend point is tapped/clicked. The point keeps
-  /// the round starter message id so callers can reveal the matching turn.
+  /// 点击趋势点后回传所属轮次，供调用方定位对应消息。
   final ValueChanged<SessionCacheHitTurnPoint>? onPointSelected;
 
   @override
@@ -181,7 +180,6 @@ class TokenPopupCacheHitTrendChart extends StatefulWidget {
       _TokenPopupCacheHitTrendChartState();
 }
 
-// Uses two AnimationControllers: the chart entrance and the hover tooltip.
 class _TokenPopupCacheHitTrendChartState
     extends State<TokenPopupCacheHitTrendChart>
     with TickerProviderStateMixin {
@@ -274,7 +272,7 @@ class _TokenPopupCacheHitTrendChartState
     });
   }
 
-  /// Hover tooltip follows the global menu motion in both directions.
+  /// 悬浮提示的进退场动效跟随全局菜单设置。
   DialogAnimationSettings _hoverSettingsFor(BuildContext context) {
     return openHandMotionSettingsOf(context, OpenHandMotionSettingsScope.menu);
   }
@@ -393,8 +391,7 @@ class _TokenPopupCacheHitTrendChartState
         nearestDistance = distance;
       }
     }
-    // Keep the touch target forgiving while avoiding accidental selections
-    // from taps on the axis labels or surrounding controls.
+    // 保留容错点按区域，同时避免误选坐标轴标签或周边控件。
     return nearestDistance <= 30 ? nearest : null;
   }
 

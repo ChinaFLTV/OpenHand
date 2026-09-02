@@ -1,4 +1,4 @@
-// Japanese dictionary. Keys MUST stay 1:1 with dict_zh.
+// 日文字典，键必须与 dict_zh 一一对应。
 
 export const dict_ja: Record<string, string> = {
   'app.brand': 'OpenHand · Web メッセージングプラットフォーム',

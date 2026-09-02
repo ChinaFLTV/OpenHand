@@ -1423,8 +1423,7 @@ class _SkillMarketAvatar extends StatelessWidget {
               fit: BoxFit.cover,
               width: size,
               height: size,
-              // Avatar rendered at `size` logical px; decode at ~3x DPR
-              // to keep retina sharpness while skipping full resolution.
+              // 按约 3 倍像素比解码，兼顾高分屏清晰度与内存占用。
               cacheWidth: (size * 3).round(),
               cacheHeight: (size * 3).round(),
               errorBuilder: (context, error, stackTrace) => fallback,

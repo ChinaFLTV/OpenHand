@@ -40,8 +40,7 @@ Widget maybeAnimatedSize({
   required AlignmentGeometry alignment,
   required Widget child,
 }) {
-  // RenderAnimatedSize may synchronously restart a zero-duration animation
-  // during layout and trip "mutated in performLayout"; skip the render object.
+  // RenderAnimatedSize 可能在布局期间同步重启零时长动画，因此直接跳过渲染对象。
   if (duration <= Duration.zero) {
     return key == null ? child : KeyedSubtree(key: key, child: child);
   }

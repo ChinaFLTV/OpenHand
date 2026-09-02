@@ -1034,13 +1034,8 @@ class AppSettingsSnapshot {
   /// 用户可在 snackbar 上点 Cancel 撤销发送，超时则提交。范围 1..30。
   final int toolSearchReplayCancelWindowSeconds;
 
-  /// 2026-05 — 用户层减少动画总开关。true 时所有自定义动画
-  /// 时长压到 0；built-in 动画（路由/弹窗/HeroAnimation）通过
-  /// MediaQuery.disableAnimations 同步禁用，自研动画组件经由
-  /// InheritedWidget 读取。
-  /// 默认 false（OS-level reduceMotion 仍会被 MediaQuery 自动
-  /// 抓取，所以即便此处为 false，开了系统辅助功能用户也能拿到
-  /// 减弱动画体验）。
+  /// 用户级减少动画开关。开启后禁用自定义和 Flutter 内置动画；
+  /// 系统级减少动画仍由 MediaQuery 自动接管。
   final bool reduceMotion;
 
   /// 系统级代理配置。`SystemProxyResolver` 会从此处读取生效模式与

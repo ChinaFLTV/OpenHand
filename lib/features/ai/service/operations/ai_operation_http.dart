@@ -148,10 +148,8 @@ final class AiOperationHttp {
     );
   }
 
-  /// Throws when a provider reports an application-level failure inside a
-  /// successful HTTP response. MiniMax consistently returns these failures in
-  /// `base_resp.status_code`, so checking only the HTTP status would otherwise
-  /// turn a useful provider error into a misleading "empty payload" error.
+  /// HTTP 成功但 `base_resp.status_code` 表示失败时抛出服务端错误，
+  /// 避免将 MiniMax 的业务错误误报为空响应。
   static void throwIfProviderFailed(
     Map<String, Object?> payload, {
     required String contextHint,

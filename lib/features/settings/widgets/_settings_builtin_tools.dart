@@ -185,8 +185,6 @@ class _BuiltinToolMetricChip extends StatelessWidget {
   }
 }
 
-// Builtin Tool Tile (list item in the tool catalog overview)
-
 class _BuiltinToolTile extends StatelessWidget {
   const _BuiltinToolTile({
     required this.config,
@@ -954,7 +952,6 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                       ),
                       kOpenHandGap14,
 
-                      // ── WebSearch-specific section ──
                       if (widget.initial.kind == AiBuiltinToolKind.webSearch &&
                           _webSearchSettings != null) ...[
                         _WebSearchSettingsEditor(
@@ -967,7 +964,6 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                         kOpenHandGap14,
                       ],
 
-                      // ── WebFetch-specific section ──
                       if (widget.initial.kind == AiBuiltinToolKind.webFetch &&
                           _webFetchSettings != null) ...[
                         _WebFetchSettingsEditor(

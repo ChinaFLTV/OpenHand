@@ -1369,7 +1369,6 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                                     ),
                             ),
                             kOpenHandGap20,
-                            // ── Model scan section ──
                             Row(
                               children: [
                                 Text(
@@ -1608,7 +1607,6 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                               },
                             ),
                             kOpenHandGap16,
-                            // ── Request configuration section ──
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 final stacked = constraints.maxWidth < 640;
@@ -2468,7 +2466,6 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog>
                               },
                             ),
                             kOpenHandGap20,
-                            // ── Custom headers section ──
                             Row(
                               children: [
                                 Text(

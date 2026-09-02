@@ -621,10 +621,7 @@ class SettingsController extends ChangeNotifier {
   int get toolSearchReplayCancelWindowSeconds =>
       _toolSearchReplayCancelWindowSeconds;
 
-  /// 2026-05 — 用户层减少动画总开关。true 时自研动画时长归 0，
-  /// 同时通过 MediaQuery.disableAnimations 同步禁用 Flutter 内置动画
-  /// （路由/弹窗/Hero）。默认 false；OS-level reduceMotion 仍由
-  /// MediaQuery 自动接管。
+  /// 用户级减少动画开关，系统级设置仍由 MediaQuery 自动接管。
   bool get reduceMotion => _reduceMotion;
 
   /// 系统级代理配置（模式、协议、主机、端口、鉴权与例外名单）。
@@ -2250,7 +2247,6 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  // 2026-05 — 减少动画总开关。
   Future<bool> updateReduceMotion(bool value) async {
     return _commitMutation(() {
       if (_reduceMotion == value) {
@@ -2360,8 +2356,6 @@ class SettingsController extends ChangeNotifier {
   String createAiAllowCommandRuleId() {
     return _uuid.v4();
   }
-
-  // Builtin Tool Config mutations
 
   Future<bool> updateBuiltinToolConfigs(
     List<AiBuiltinToolConfig> configs,

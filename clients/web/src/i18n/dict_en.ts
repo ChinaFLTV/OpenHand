@@ -1,4 +1,4 @@
-// English dictionary. Keys MUST stay in 1:1 sync with dict_zh.
+// 英文字典，键必须与 dict_zh 一一对应。
 
 export const dict_en: Record<string, string> = {
   'app.brand': 'OpenHand · Web Messaging Platform',
@@ -48,7 +48,7 @@ export const dict_en: Record<string, string> = {
   'settings.tts.voice.female': 'Female voice',
   'settings.tts.voice.male': 'Male voice',
   'settings.tts.voice.child': 'Child voice',
-  // Duration units (used by tDuration)
+  // tDuration 使用的时长单位。
   'common.duration.day': 'd',
   'common.duration.hour': 'h',
   'common.duration.minute': 'm',
@@ -98,7 +98,7 @@ export const dict_en: Record<string, string> = {
   'message.androidReverseRequest.chip.request': 'Android Reverse Request',
   'message.androidReverseRequest.chip.template': 'Android Reverse',
   'message.androidReverseRequest.chip.apk': 'APK',
-  // Plural example: cleanup result file / directory counts
+  // 清理结果中文件和目录数量的单复数形式。
   'ops.cleanup.files.one': '{count} file',
   'ops.cleanup.files.other': '{count} files',
   'ops.cleanup.dirs.one': '{count} directory',

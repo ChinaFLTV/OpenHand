@@ -22,8 +22,7 @@ class AiWriteTool extends AiTool {
         'Write requires a non-empty file_path.',
       );
     }
-    // Resolve relative paths to absolute using the working directory rather
-    // than hard-rejecting them — models sometimes omit the leading '/'.
+    // 模型可能省略开头斜杠，相对路径统一按工作目录解析。
     final filePath = AiToolUtils.resolvePathForContext(context, rawFilePath);
     final boundaryError = await AiToolUtils.validatePathWithinWorkingDirectory(
       context: context,

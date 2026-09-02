@@ -466,10 +466,10 @@ class _WsDialogState extends State<_WsDialog> {
       try {
         return jsonEncode(parsed);
       } catch (_) {
-        /* fallthrough */
+        // JSON 重新编码失败时改用字节变异。
       }
     }
-    // 字节级 fuzz
+    // 字节级模糊测试
     final bytes = utf8.encode(payload).toList();
     if (bytes.isEmpty) return payload;
     final ops = intensity.clamp(1, 5);

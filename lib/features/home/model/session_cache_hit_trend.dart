@@ -228,9 +228,8 @@ class SessionCacheHitTrend {
   bool get hasEnoughPoints => points.length >= 2;
 
   SessionCacheHitDisplayData displayData(SessionCacheHitDisplayMode mode) {
-    // A cache point is one model request + one model response. Tool-result
-    // continuations are first-class requests; the default view only removes the
-    // cold first request and true long-idle expiry misses.
+    // 每个点代表一次完整的模型请求响应。工具结果续请仍计入，
+    // 默认仅排除首次冷请求和长时间空闲导致的过期未命中。
     final chartPoints = switch (mode) {
       SessionCacheHitDisplayMode.includeExpiredMisses => points,
       SessionCacheHitDisplayMode.excludeExpiredMisses =>

@@ -37,10 +37,7 @@ retryCompressionWindowAfterPromptTooLong(
     );
   }
 
-  // Emergency fallback for a single oversized group. Compression prompts are
-  // summarization payloads, not provider tool-call history, so preserving every
-  // tool exchange boundary is less important than avoiding a hard context
-  // overflow. Keep the newest message(s) as the recovery anchor.
+  // 单个分组超限时优先避免上下文溢出，并保留最新消息作为恢复锚点。
   final dropMessageCount = math.min(
     messages.length - _minCompressionPromptRetryMessages,
     math.max(1, (messages.length * dropRatio).ceil()),

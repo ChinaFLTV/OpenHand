@@ -133,8 +133,7 @@ class AiReadLintsTool extends AiTool {
     final stderr = (result.stderr as String).trimRight();
     final exitCode = result.exitCode;
 
-    // dart/flutter analyze returns exit code 0 for success, non-zero for issues found
-    // Both cases are valid — we want to show the diagnostics
+    // analyze 发现问题时返回非零状态码，仍应向模型返回诊断结果。
     final combined = <String>[];
     if (stdout.isNotEmpty) combined.add(stdout);
     if (stderr.isNotEmpty && exitCode != 0) combined.add(stderr);

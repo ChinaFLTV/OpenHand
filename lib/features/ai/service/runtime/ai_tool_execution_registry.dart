@@ -202,9 +202,8 @@ class AiToolExecutionRegistry with ChangeNotifier {
         Zone.current[_registrationZoneKey] as AiToolExecutionRegistration?;
     if (registration != null) {
       if (registration.toolCallId != normalizedToolCallId) return null;
-      // A replaced execution still owns its detached entry. This lets a
-      // process that finishes launching after cancellation attach its killer
-      // without ever mutating the newer same-ID record.
+      // 已替换的执行仍持有独立记录，便于取消后迟到的进程绑定清理器，
+      // 同时避免改动同 ID 的新记录。
       return registration._entry;
     }
     _RegisteredEntry? match;

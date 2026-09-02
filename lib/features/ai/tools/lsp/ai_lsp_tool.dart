@@ -9,7 +9,7 @@ import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
-/// Multi-language LSP code intelligence tool backed by [AiLspClientService].
+/// 由 [AiLspClientService] 提供的多语言 LSP 代码分析工具。
 class AiLspTool extends AiTool {
   static const Set<String> _supportedOperations = <String>{
     'goToDefinition',

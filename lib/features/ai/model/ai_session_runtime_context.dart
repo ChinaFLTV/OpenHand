@@ -397,92 +397,88 @@ class AiSessionRuntimeContext {
   final bool memoryEnabled;
   final List<UserMemoryEntry> memoryEntries;
 
-  /// Identifier of the thread template currently active for this session.
-  /// Used by the tool runtime to scope template-specific builtins such as
-  /// `skill_manager` (Hermes Talker only).
+  /// 当前会话的线程模板 ID，用于限定 `skill_manager` 等模板专用内置工具。
   final String templateId;
   final int singleRoundToolCallLimit;
   final int sequentialToolRoundLimit;
 
-  /// Group A — 会话错误记录保留上限。
+  /// 会话错误记录保留上限。
   final int maxRecentErrors;
 
-  /// Group A — plan_history 保留上限。
+  /// plan_history 保留上限。
   final int maxPlanHistoryEntries;
 
-  /// Group A — 超长响应被截断后的自动续接轮次上限。
+  /// 超长响应被截断后的自动续接轮次上限。
   final int maxTruncationContinuations;
 
-  /// Group A — token 估算系数（每个 token 平均多少字符）。
+  /// token 估算系数（每个 token 的平均字符数）。
   final int estimatedCharactersPerToken;
 
-  /// Group B — 工具输出字符上限（超出截断）。
+  /// 工具输出字符上限，超出后截断。
   final int maxToolOutputChars;
 
-  /// Group B — 写命令确认超时（毫秒）。
+  /// 写命令确认超时（毫秒）。
   final int writeConfirmationTimeoutMs;
 
-  /// Group B — Fast-path 写命令静态分析阈值（命令字符数）。
+  /// 快速路径写命令的静态分析阈值（命令字符数）。
   final int fastPathWriteAnalysisThreshold;
 
-  /// Group B — Hook 文本输出字符上限。
+  /// Hook 文本输出字符上限。
   final int maxHookTextCharacters;
 
-  /// 2026-05 — 工具加固：子进程 graceful shutdown 等待窗口（毫秒）。
+  /// 子进程优雅退出等待窗口（毫秒）。
   final int subprocessGracefulShutdownMs;
 
-  /// 2026-05 — 工具加固：单次 bash 调用 stdout+stderr 合并捕获上限。
+  /// 单次 Bash 调用的标准输出与标准错误合并捕获上限。
   final int bashOutputMaxBytes;
 
-  /// 2026-05 — 工具加固：同会话并发派发工具调用上限。
+  /// 同会话并发派发工具调用上限。
   final int maxConcurrentTools;
 
-  /// Group C — 附件图片解码最大边长（像素）。
+  /// 附件图片解码最大边长（像素）。
   final int attachmentMaxInlineImageDimension;
 
-  /// Group C — 附件文本原始字节读取上限。
+  /// 附件文本原始字节读取上限。
   final int attachmentMaxTextRawBytes;
 
-  /// Group C — 附件 PDF 原始字节读取上限。
+  /// 附件 PDF 原始字节读取上限。
   final int attachmentMaxPdfRawBytes;
 
-  /// Group C — 附件图片原始字节读取上限。
+  /// 附件图片原始字节读取上限。
   final int attachmentMaxImageRawBytes;
 
-  /// Group C — Chat 流式行缓冲字节上限。
+  /// 聊天流式行缓冲字节上限。
   final int chatMaxStreamLineBufferBytes;
 
-  /// Group D — FallbackTitleMaxCharacters.
+  /// 备用标题的字符上限。
   final int fallbackTitleMaxCharacters;
 
-  /// Group D — GeneratedTitleMaxCharacters.
+  /// 生成标题的字符上限。
   final int generatedTitleMaxCharacters;
 
-  /// Group D — MinimumMeaningfulTitleCharacters.
+  /// 有效标题的最少字符数。
   final int minimumMeaningfulTitleCharacters;
 
-  /// Group D — MinimumMeaningfulLatinTitleWords.
+  /// 有效拉丁文标题的最少单词数。
   final int minimumMeaningfulLatinTitleWords;
 
-  /// Group E — Skill 内容字符上限。
+  /// 技能内容字符上限。
   final int maxSkillContentLength;
 
-  /// Group E — 工作区指令文档字符上限。
+  /// 工作区指令文档字符上限。
   final int maxWorkspaceDocumentCharacters;
 
-  /// Per-image attachment size cap (bytes). When the user picks an image
-  /// larger than this value, the attachment pipeline auto-compresses it
-  /// before persisting and before the editor opens.
+  /// 单张附件图片的字节上限，超限图片在持久化和打开编辑器前自动压缩。
   final int imageSizeLimitBytes;
   final bool writeCommandConfirmationEnabled;
 
-  /// HTTP connection/send timeout for AI requests (seconds).
+  /// AI 请求的 HTTP 连接与发送超时（秒）。
   final int connectTimeoutSeconds;
 
-  /// Response timeout for non-streaming AI requests (seconds).
+  /// 非流式 AI 请求的响应超时（秒）。
   final int responseTimeoutSeconds;
 
-  /// Per-chunk stream idle timeout for streaming AI requests (seconds).
+  /// 流式 AI 请求的分块空闲超时（秒）。
   final int streamIdleTimeoutSeconds;
 
   /// 流式输出节流：每秒最多向当前流式卡片追加渲染的用户感知字符数。
@@ -515,29 +511,26 @@ class AiSessionRuntimeContext {
     return streamMaxMessageCardsPerSecond;
   }
 
-  /// Whether to auto-generate session titles.
+  /// 是否自动生成会话标题。
   final bool autoTitleEnabled;
 
-  /// How automatic title generation is scheduled for the first text turn.
+  /// 首个文本轮次的自动标题调度方式。
   final AiAutoTitleFetchMode autoTitleFetchMode;
 
   /// 线程会话标题获取最大重试次数。
   final int autoTitleMaxRetryCount;
 
-  /// Whether telemetry debug mode is enabled (populates request/response
-  /// metadata on messages for the audit dialogs).
+  /// 是否开启遥测调试模式，开启后在消息元数据中记录请求响应信息。
   final bool telemetryDebugEnabled;
 
-  /// Whether to persist the raw AI response body alongside other telemetry.
+  /// 是否在遥测数据中持久化 AI 原始响应体。
   final bool telemetryCaptureRawPayload;
 
-  /// Whether to capture process environment variables, working directory
-  /// and platform info into message metadata. Off by default because env
-  /// vars can contain secrets.
+  /// 是否在消息元数据中记录进程环境、工作目录和平台信息。
+  /// 环境变量可能包含密钥，因此默认关闭。
   final bool telemetryCaptureEnvironment;
 
-  /// Hard cap on how many characters of captured payload to persist per
-  /// message to keep on-disk session files bounded.
+  /// 每条消息持久化的遥测载荷字符上限。
   final int telemetryMaxPayloadChars;
   final String platformName;
   final String workingDirectory;

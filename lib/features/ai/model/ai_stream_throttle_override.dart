@@ -1,8 +1,6 @@
 import '../../../shared/util/input_value_parsing.dart';
 import 'ai_stream_throttle_policy.dart';
 
-/// Per-thread-template override for stream output throttle settings.
-///
 /// 流式输出节流的「每个线程模板独立覆盖」。当用户希望某
 /// 个线程模板（比如 Hermes Talker）使用与全局不同的节流速率时，可以在
 /// 设置面板里给该模板写一份覆盖；运行时按 templateId 查表，命中即用，

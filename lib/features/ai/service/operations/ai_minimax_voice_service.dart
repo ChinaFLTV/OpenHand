@@ -6,7 +6,7 @@ import '../runtime/ai_endpoint_router.dart';
 import '../runtime/ai_transport_client.dart';
 import 'ai_operation_http.dart';
 
-/// Loads provider-managed MiniMax voices for the TTS settings surface.
+/// 加载 MiniMax 服务端管理的语音，供语音设置使用。
 final class AiMiniMaxVoiceService {
   AiMiniMaxVoiceService({
     AiTransportClient? transport,

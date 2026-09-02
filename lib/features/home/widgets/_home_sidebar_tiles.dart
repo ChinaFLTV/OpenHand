@@ -305,7 +305,6 @@ class _HarnessStatusCapsule extends StatelessWidget {
       );
     }
 
-    // Static capsule for terminal states.
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -452,8 +451,7 @@ class _ActiveThreadBadge extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isApprovalPhase = sendPhase == AiSendPhase.awaitingApproval;
-    // Use an amber/warning palette for the approval state so it stands out
-    // from the regular "active" badge and draws the user's attention.
+    // 待批准状态使用琼色警示色，与常规活动标记区分。
     final foregroundColor = isApprovalPhase
         ? _kHomeSidebarAmber
         : isSelected
@@ -541,9 +539,7 @@ class _PulsingDotState extends State<_PulsingDot>
     if (!_controller.isAnimating) {
       _controller.repeat(reverse: true);
     }
-    // Bake the pulsing opacity into the BoxDecoration color. Wrapping the dot
-    // in `Opacity` allocates a saveLayer, which is wasted overhead for a small
-    // circle with no child to composite.
+    // 脉冲透明度直接写入装饰色，避免 `Opacity` 为简单圆点创建 saveLayer。
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {

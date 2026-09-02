@@ -1,20 +1,16 @@
 import '../../../../shared/util/text_normalization.dart';
 
-/// Parses `<image_summary attachment_id="…">…</image_summary>` directives the
-/// assistant is instructed to emit alongside its visible reply, exposes the
-/// extracted summaries keyed by attachment id, and returns the reply with the
-/// directives stripped so the user-visible transcript stays clean.
+/// 提取助手回复中的 `<image_summary>` 指令，并从用户可见文本中移除该指令。
 class AiImageSummaryExtractionResult {
   const AiImageSummaryExtractionResult({
     required this.summariesByAttachmentId,
     required this.strippedContent,
   });
 
-  /// Map of attachment id → trimmed summary text.
+  /// 附件 ID 到已去除首尾空白的摘要映射。
   final Map<String, String> summariesByAttachmentId;
 
-  /// The original assistant reply with all `<image_summary …>` blocks
-  /// removed.
+  /// 已移除所有 `<image_summary>` 块的助手回复。
   final String strippedContent;
 }
 
@@ -42,7 +38,7 @@ class AiImageSummaryExtractor {
       if (id.isEmpty || summary.isEmpty) {
         continue;
       }
-      // Last writer wins if the same id appears multiple times.
+      // 同一 ID 重复出现时保留最后一条摘要。
       summaries[id] = summary;
     }
     final stripped = stripImageSummaryMarkup(content);

@@ -1283,10 +1283,8 @@ class AiSession {
         .toList(growable: false);
   }
 
-  /// Same slice as [activeConversationMessages] but additionally retains
-  /// `reasoning` messages so the prompt builder can echo prior chain-of-
-  /// thought back to thinking-mode gateways (e.g. `deepseek-v4-pro`) which
-  /// require `reasoning_content` to be passed back on follow-up requests.
+  /// 与 [activeConversationMessages] 使用相同切片，但额外保留 `reasoning` 消息，
+  /// 以便在续请时向要求 `reasoning_content` 的思考模式网关回传。
   List<AiSessionMessage> get activeConversationMessagesForPrompt {
     final latestCompressionPointIndex = this.latestCompressionPointIndex;
     bool keep(AiSessionMessage item) {

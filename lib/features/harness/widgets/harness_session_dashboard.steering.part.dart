@@ -283,8 +283,6 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
   }
 }
 
-// ── Entry model ──
-
 class _HeSteeringEntry {
   const _HeSteeringEntry({
     required this.name,
@@ -1304,7 +1302,6 @@ class _HeSteeringFileEditorDialogState
   }
 }
 
-// _MdToolbarBtn — compact toolbar button (icon or text label)
 class _MdToolbarBtn extends StatelessWidget {
   const _MdToolbarBtn({
     this.icon,

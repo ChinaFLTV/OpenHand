@@ -211,8 +211,7 @@ class _WorkspaceView extends StatelessWidget {
   final bool fullAccessPermission;
   final ValueChanged<bool> onToggleFullAccessPermission;
   final _QueuedMessagesPanel queuedPanel;
-  // When true, the message list widget will immediately jump to the bottom
-  // on its first frame instead of relying on the parent's scroll scheduler.
+  // 首帧直接跳到底部，避免依赖父级滚动调度。
   final bool jumpToBottomOnInit;
   final bool fileExplorerVisible;
   final VoidCallback? onFileExplorerToggled;

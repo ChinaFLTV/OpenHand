@@ -86,7 +86,6 @@ class _HeReviewVerdictCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Header with role label ──────────────────────────────
             Row(
               children: [
                 Icon(
@@ -150,7 +149,6 @@ class _HeReviewVerdictCard extends StatelessWidget {
                 ],
               ),
             ),
-            // ── Comment body ────────────────────────────────────────
             if (comment.isNotEmpty) ...[
               kOpenHandGap12,
               Text(
@@ -168,7 +166,6 @@ class _HeReviewVerdictCard extends StatelessWidget {
   }
 }
 
-// _HeSegmentBody — renders markdown content within a segment card
 class _HeSegmentBody extends StatelessWidget {
   const _HeSegmentBody({
     required this.content,
@@ -688,5 +685,3 @@ class _HeCommandStripState extends State<_HeCommandStrip>
     );
   }
 }
-
-// ── Markdown content with collapse/expand ─────────────────────────────────

@@ -268,11 +268,6 @@ class OpenHandAsyncSemaphore {
     }
   }
 
-  /// 等待许可；取消信号先完成时从队列移除并返回 `false`。
-  Future<bool> acquireUnlessCancelled(Future<void> cancelSignal) {
-    return _acquire(cancelSignal: cancelSignal);
-  }
-
   /// 在限定时间内等待许可；超时或收到取消信号后从等待队列移除并返回 `false`。
   Future<bool> acquireWithin(
     Duration timeout, {

@@ -836,7 +836,6 @@ class HarnessApiPhaseRunner {
       '📋 上下文接近阈值（${totalChars ~/ kBytesPerKiB}KB / ${effectiveCharThreshold ~/ kBytesPerKiB}KB），正在生成交接文档…',
     );
 
-    // ── Step 1: Generate handoff document via the model ──────────────────
     final handoffPrompt = _buildHandoffPrompt(conversation, phase);
     final handoffConversation = <AiChatTurn>[
       const AiChatTurn(role: AiChatRole.system, content: _handoffSystemPrompt),
@@ -942,7 +941,6 @@ class HarnessApiPhaseRunner {
       return null;
     }
 
-    // ── Step 2: Persist the handoff document ─────────────────────────────
     _handoffSessionCounter++;
     final ts = DateTime.now()
         .toIso8601String()
@@ -983,7 +981,6 @@ class HarnessApiPhaseRunner {
     emit('📋 正在启动新会话，载入交接文档…');
     emit('');
 
-    // ── Step 3: Build fresh conversation with handoff context ────────────
     final freshConversation = <AiChatTurn>[
       AiChatTurn(role: AiChatRole.system, content: systemContent),
       AiChatTurn(

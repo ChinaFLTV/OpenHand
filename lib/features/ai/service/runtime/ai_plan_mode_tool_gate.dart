@@ -1,10 +1,7 @@
 import '../../../../shared/util/text_normalization.dart';
 
-/// Shared Plan-mode tool gate rules.
-///
-/// The controller filters the runtime catalog with these rules; prompt builders
-/// render the same state back to the model so the visible prompt matches the
-/// actual tool surface for the current turn.
+/// 计划模式的统一工具准入规则。控制器与提示词共用此规则，
+/// 保证模型看到的工具状态与当前运行时一致。
 abstract final class AiPlanModeToolGate {
   static const List<String> planningToolNames = <String>[
     'AskUserChoice',

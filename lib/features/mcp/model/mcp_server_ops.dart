@@ -419,9 +419,8 @@ class McpOpsToolInvocationResult {
   final Map<String, Object?> metadata;
 }
 
-/// Coarse classification of an audit event's protocol stage ("环节"), used to
-/// drive titles, icons and accent colors in the audit UI. Kept independent of
-/// [McpOpsAuditEntry.status] so a blocked handshake still reads as a handshake.
+/// 审计事件的协议阶段，用于确定审计界面的标题、图标和强调色。
+/// 独立于 [McpOpsAuditEntry.status]，确保被拦截的握手仍归类为握手。
 enum McpOpsAuditKind {
   handshake,
   heartbeat,
@@ -579,9 +578,8 @@ class McpOpsApprovalRequest {
   final String argumentsPreview;
 }
 
-/// Minute-level rollup of MCP traffic. Backs the trend/latency charts so the
-/// dashboard reflects *every* request (initialize/list/stream/call), not only
-/// audited tool calls.
+/// MCP 流量的分钟级汇总，为趋势和延迟图提供全量请求数据，
+/// 包括初始化、列表、流和调用请求。
 class McpOpsTrafficSample {
   const McpOpsTrafficSample({
     required this.minute,
@@ -592,7 +590,7 @@ class McpOpsTrafficSample {
     this.p95LatencyMs = 0,
   });
 
-  /// UTC minute-aligned bucket start.
+  /// 按 UTC 分钟对齐的时间桶起点。
   final DateTime minute;
   final int success;
   final int blocked;
@@ -700,7 +698,7 @@ class McpOpsRuntimeSnapshot {
   final Map<String, int> protocolDistribution;
   final List<McpOpsTrafficSample> trafficSeries;
 
-  /// Live SSE streams held open beyond the request/response cycle.
+  /// 跨越单次请求响应周期的 SSE 长连接数。
   int get idleStreams =>
       (currentConnections - activeRequests).clamp(0, 1 << 30);
   int get successTotal =>

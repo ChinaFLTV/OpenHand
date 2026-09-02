@@ -185,7 +185,6 @@ class _HePhaseCardState extends State<_HePhaseCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Card header pill (mirrors _ToolCallMetaRow) ───────────────
             _HePhaseMetaRow(
               log: log,
               phaseName: phaseName,
@@ -274,7 +273,6 @@ class _HePhaseCardState extends State<_HePhaseCard> {
               ),
             ],
 
-            // ── Edit CLI/model for retryable and not-yet-executed phases ───
             if (widget.onRoleConfigChanged != null) ...[
               kOpenHandGap10,
               _HePendingPhaseEditor(
