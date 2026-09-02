@@ -4744,11 +4744,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           messageId: messageId,
           text: text,
         ),
-        resolveRemoteId: (sourceMessageId, sentText) =>
+        resolveRemoteId: (sourceMessageId, sentText, taskId) =>
             _resolveEchoRemoteMessageId(
               conversation: conversation,
               sourceMessageId: sourceMessageId,
               sentText: sentText,
+              taskId: taskId,
             ),
         markStreaming: _setEchoStreaming,
         newUuid: _uuid.v4,
@@ -5275,7 +5276,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         );
   }
 
-  Future<String?> _sendDingTalkEcho({
+  Future<DingTalkSentMessage?> _sendDingTalkEcho({
     required DingTalkConversation conversation,
     required AiSessionMessage source,
     required DingTalkResponseEchoType type,
@@ -5365,7 +5366,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (resolvedId.isEmpty && !_isTemporaryMessageId(bound.id)) {
       resolvedId = bound.id.trim();
     }
-    return resolvedId.isEmpty ? null : resolvedId;
+    final taskId = sent?.taskId?.trim() ?? '';
+    if (resolvedId.isEmpty && taskId.isEmpty) return null;
+    return DingTalkSentMessage(
+      messageId: resolvedId.isEmpty ? null : resolvedId,
+      conversationId: sent?.conversationId,
+      taskId: taskId.isEmpty ? null : taskId,
+    );
   }
 
   Future<DingTalkSentMessage?> _sendDingTalkTextWithResolvedId({
@@ -5397,6 +5404,29 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }) async {
     if (!isServiceEnabled) return sent;
     if (sent?.messageId?.trim().isNotEmpty == true) return sent;
+    var resolvedDetails = sent;
+    final taskId = sent?.taskId?.trim() ?? '';
+    if (taskId.isNotEmpty) {
+      try {
+        final taskResult = await _service.resolveSentMessageByTaskId(taskId);
+        resolvedDetails = DingTalkSentMessage(
+          messageId: taskResult?.messageId ?? sent?.messageId,
+          conversationId: sent?.conversationId ?? taskResult?.conversationId,
+          taskId: taskResult?.taskId ?? taskId,
+        );
+        if (resolvedDetails.messageId?.trim().isNotEmpty == true) {
+          return resolvedDetails;
+        }
+      } on DingTalkGatewayCommandException catch (error, stack) {
+        if (!error.isRetryable && !error.isCancelled) {
+          silentLog('dingtalk_gateway', '查询钉钉消息发送状态', error, stack);
+        }
+      } on TimeoutException {
+        // 状态查询超时后继续按会话正文反查。
+      } catch (error, stack) {
+        silentLog('dingtalk_gateway', '查询钉钉消息发送状态', error, stack);
+      }
+    }
     try {
       final resolved = await _service.resolveRecentSentMessage(
         conversation: conversation,
@@ -5407,7 +5437,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       if (resolved?.messageId?.trim().isNotEmpty == true) {
         return DingTalkSentMessage(
           messageId: resolved!.messageId,
-          conversationId: sent?.conversationId ?? resolved.conversationId,
+          conversationId:
+              resolvedDetails?.conversationId ?? resolved.conversationId,
+          taskId: resolvedDetails?.taskId,
         );
       }
     } on DingTalkGatewayCommandException catch (error, stack) {
@@ -5419,7 +5451,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog('dingtalk_gateway', '补齐钉钉已发送消息标识', error, stack);
     }
-    return sent;
+    return resolvedDetails;
   }
 
   Future<void> _editDingTalkEcho({
@@ -5464,11 +5496,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     return null;
   }
 
-  /// 发送接口未返回消息标识时，通过会话消息列表补齐远端标识并绑定本地消息。
+  /// 发送接口未返回消息标识时，查询任务状态并保底精确反查。
   Future<String?> _resolveEchoRemoteMessageId({
     required DingTalkConversation conversation,
     required String sourceMessageId,
     required String sentText,
+    required String taskId,
   }) async {
     if (!isServiceEnabled ||
         !identical(_conversations[conversation.id], conversation)) {
@@ -5489,7 +5522,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       content: remoteText,
       createdAt: local.createdAt,
       senderName: _authStatus.identity.label.trim(),
-      sent: null,
+      sent: taskId.trim().isEmpty
+          ? null
+          : DingTalkSentMessage(taskId: taskId.trim()),
     );
     final resolvedId = resolved?.messageId?.trim() ?? '';
     if (resolvedId.isEmpty ||
@@ -7205,7 +7240,7 @@ typedef _DingTalkEchoTextBuilder =
     String Function(AiSessionMessage message, List<AiSessionMessage> messages);
 typedef _DingTalkEchoTerminalResolver = bool Function(AiSessionMessage message);
 typedef _DingTalkEchoSender =
-    Future<String?> Function(
+    Future<DingTalkSentMessage?> Function(
       AiSessionMessage source,
       DingTalkResponseEchoType type,
       String text,
@@ -7218,7 +7253,11 @@ typedef _DingTalkEchoEditor =
       String text,
     );
 typedef _DingTalkEchoRemoteIdResolver =
-    Future<String?> Function(String sourceMessageId, String sentText);
+    Future<String?> Function(
+      String sourceMessageId,
+      String sentText,
+      String taskId,
+    );
 typedef _DingTalkEchoStreamingMarker =
     void Function(String sourceMessageId, bool streaming);
 typedef _DingTalkEchoErrorHandler =
@@ -7531,12 +7570,14 @@ class _DingTalkEchoCoordinator {
       if (!state.sent) {
         // 插入本地气泡前先标记流式，避免正文先完整展开再收缩渐显。
         _markStreaming(sourceId, true);
-        state.remoteMessageId = await _send(
+        final sent = await _send(
           pending.source,
           pending.type,
           pending.text,
           state.uuid,
         );
+        state.remoteMessageId = sent?.messageId;
+        state.remoteTaskId = sent?.taskId;
         if (_disposed || _isCancelled()) return;
         state.sent = true;
         _deliveryFailures.remove(sourceId);
@@ -7544,7 +7585,7 @@ class _DingTalkEchoCoordinator {
         final messageId = await _remoteMessageIdForEdit(sourceId, state);
         if (_disposed || _isCancelled()) return;
         if (messageId.isEmpty) {
-          // 消息列表存在短暂可见性延迟，终态更新保留并做有限补偿，
+          // 发送任务和消息列表均可能短暂不可见，终态更新保留并做有限补偿，
           // 避免本地已成功而钉钉仍停在等待状态。
           state.lastMutationAt = DateTime.now();
           if (state.remoteIdResolveAttempts < _maxRemoteIdResolveAttempts) {
@@ -7559,7 +7600,7 @@ class _DingTalkEchoCoordinator {
             _deliveryFailures.add(sourceId);
             _onError(
               '编辑钉钉 AI 回显消息',
-              StateError('多次反查后仍缺少远端消息标识，无法同步终态内容。'),
+              StateError('多次查询后仍缺少远端消息标识，无法同步终态内容。'),
               StackTrace.current,
               notifyUser: false,
             );
@@ -7626,7 +7667,7 @@ class _DingTalkEchoCoordinator {
     _markStreaming(sourceId, state.sent && !state.finished);
   }
 
-  /// 部分 dws 版本发送接口不返回消息标识，编辑前按有限次数补齐远端标识。
+  /// 发送接口先返回任务标识时，编辑前按有限次数补齐远端消息标识。
   Future<String> _remoteMessageIdForEdit(
     String sourceId,
     _DingTalkEchoDeliveryState state,
@@ -7638,8 +7679,16 @@ class _DingTalkEchoCoordinator {
     }
     state.remoteIdResolveAttempts++;
     final resolved =
-        (await _resolveRemoteId(sourceId, state.lastText))?.trim() ?? '';
-    if (resolved.isNotEmpty) state.remoteMessageId = resolved;
+        (await _resolveRemoteId(
+          sourceId,
+          state.lastText,
+          state.remoteTaskId?.trim() ?? '',
+        ))?.trim() ??
+        '';
+    if (resolved.isNotEmpty) {
+      state.remoteMessageId = resolved;
+      state.remoteTaskId = null;
+    }
     return resolved;
   }
 
@@ -7718,6 +7767,7 @@ class _DingTalkEchoDeliveryState {
   final DingTalkResponseEchoType type;
   final String uuid;
   String? remoteMessageId;
+  String? remoteTaskId;
   String lastText = '';
   DateTime lastMutationAt = DateTime.fromMillisecondsSinceEpoch(0);
   int remoteIdResolveAttempts = 0;

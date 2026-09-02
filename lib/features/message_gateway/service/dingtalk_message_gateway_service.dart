@@ -57,10 +57,11 @@ class _DingTalkMessagePageResult {
 }
 
 class DingTalkSentMessage {
-  const DingTalkSentMessage({this.messageId, this.conversationId});
+  const DingTalkSentMessage({this.messageId, this.conversationId, this.taskId});
 
   final String? messageId;
   final String? conversationId;
+  final String? taskId;
 }
 
 class DingTalkDwsCommandExecution {
@@ -234,6 +235,7 @@ class DingTalkMessageGatewayService {
   static const Duration _sentMessageLookupWindow = Duration(minutes: 2);
   // 为网络请求和子进程回收保留充足时间，避免反查消息标识频繁超时。
   static const Duration _sentMessageLookupTimeout = Duration(seconds: 15);
+  static const Duration _sentMessageStatusTimeout = Duration(seconds: 10);
   static const int _sentMessageLookupLimit = 50;
   static const int _messageQueryPageSize = 50;
   static const Duration _minimumMessageQueryWindow = Duration(seconds: 1);
@@ -1855,7 +1857,28 @@ class DingTalkMessageGatewayService {
     return _sentMessageDetails(result);
   }
 
-  /// dws 发送接口部分版本只返回 success/result=[]，通过会话消息列表补齐真实消息标识。
+  /// 个人消息发送是异步任务，优先通过任务标识取得可编辑的远端消息标识。
+  Future<DingTalkSentMessage?> resolveSentMessageByTaskId(String taskId) async {
+    final normalizedTaskId = taskId.trim();
+    if (normalizedTaskId.isEmpty) return null;
+    final result = await _runJson(<String>[
+      'chat',
+      'message',
+      'query-send-status',
+      '--open-task-id',
+      normalizedTaskId,
+      '--format',
+      'json',
+    ], timeout: _sentMessageStatusTimeout);
+    final resolved = _sentMessageDetails(result);
+    return DingTalkSentMessage(
+      messageId: resolved?.messageId,
+      conversationId: resolved?.conversationId,
+      taskId: resolved?.taskId ?? normalizedTaskId,
+    );
+  }
+
+  /// 发送状态仍未提供消息标识时，通过会话消息列表补齐真实标识。
   Future<DingTalkSentMessage?> resolveRecentSentMessage({
     required DingTalkConversation conversation,
     required String content,
@@ -2012,68 +2035,50 @@ class DingTalkMessageGatewayService {
   }
 
   DingTalkSentMessage? _sentMessageDetails(Object? value) {
-    String find(Object? current, int depth) {
+    String find(Object? current, List<String> keys, int depth) {
       if (depth > 4) return '';
       if (current is List) {
         for (final item in current) {
-          final id = find(item, depth + 1);
-          if (id.isNotEmpty) return id;
+          final value = find(item, keys, depth + 1);
+          if (value.isNotEmpty) return value;
         }
         return '';
       }
       if (current is! Map) return '';
       final map = _asMap(current);
-      for (final key in const <String>[
-        'open_message_id',
-        'openMessageId',
-        'open_msg_id',
-        'openMsgId',
-        'message_id',
-        'messageId',
-        'msg_id',
-        'msgId',
-      ]) {
-        final id = '${map[key] ?? ''}'.trim();
-        if (id.isNotEmpty && id != 'null') return id;
+      for (final key in keys) {
+        final value = '${map[key] ?? ''}'.trim();
+        if (value.isNotEmpty && value != 'null') return value;
       }
       for (final child in map.values) {
-        final id = find(child, depth + 1);
-        if (id.isNotEmpty) return id;
+        final value = find(child, keys, depth + 1);
+        if (value.isNotEmpty) return value;
       }
       return '';
     }
 
-    String findOpenConversationId(Object? current, int depth) {
-      if (depth > 4) return '';
-      if (current is List) {
-        for (final item in current) {
-          final id = findOpenConversationId(item, depth + 1);
-          if (id.isNotEmpty) return id;
-        }
-        return '';
-      }
-      if (current is! Map) return '';
-      final map = _asMap(current);
-      for (final key in const <String>[
-        'open_conversation_id',
-        'openConversationId',
-      ]) {
-        final id = '${map[key] ?? ''}'.trim();
-        if (id.isNotEmpty && id != 'null') return id;
-      }
-      for (final child in map.values) {
-        final id = findOpenConversationId(child, depth + 1);
-        if (id.isNotEmpty) return id;
-      }
-      return '';
+    final messageId = find(value, const <String>[
+      'open_message_id',
+      'openMessageId',
+      'open_msg_id',
+      'openMsgId',
+      'message_id',
+      'messageId',
+      'msg_id',
+      'msgId',
+    ], 0);
+    final conversationId = find(value, const <String>[
+      'open_conversation_id',
+      'openConversationId',
+    ], 0);
+    final taskId = find(value, const <String>['open_task_id', 'openTaskId'], 0);
+    if (messageId.isEmpty && conversationId.isEmpty && taskId.isEmpty) {
+      return null;
     }
-
-    final messageId = find(value, 0);
-    final conversationId = findOpenConversationId(value, 0);
-    if (messageId.isEmpty && conversationId.isEmpty) return null;
     return DingTalkSentMessage(
       messageId: messageId.isEmpty ? null : messageId,
       conversationId: conversationId.isEmpty ? null : conversationId,
+      taskId: taskId.isEmpty ? null : taskId,
     );
   }
 
@@ -4541,7 +4546,8 @@ class DingTalkMessageGatewayService {
         values[1] == 'message' &&
         (values[2] == 'list' ||
             values[2] == 'list-all' ||
-            values[2] == 'list-mentions');
+            values[2] == 'list-mentions' ||
+            values[2] == 'query-send-status');
   }
 
   Map<String, Object?> _asMap(Object? value) => value is Map
