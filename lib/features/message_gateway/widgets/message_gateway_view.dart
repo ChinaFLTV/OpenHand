@@ -5512,7 +5512,7 @@ class _WebOpsInsightDialog extends StatelessWidget {
                       ],
                     ),
                   ),
-                  _WebOpsIconButton(
+                  OpenHandToolbarIconButton(
                     icon: Icons.close_rounded,
                     tooltip: MaterialLocalizations.of(
                       context,
@@ -5717,7 +5717,6 @@ class _WebOpsInsightDialog extends StatelessWidget {
 
 const double _webOpsOuterRadius = 24;
 const double _webOpsShellRadius = 18;
-const double _webOpsControlRadius = 12;
 const double _webOpsGridGap = 14;
 const double _webOpsHoverScale = 1.012;
 
@@ -6039,43 +6038,43 @@ class _WebOpsConsoleHeader extends StatelessWidget {
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              _WebOpsIconButton(
+              OpenHandToolbarIconButton(
                 icon: Icons.play_arrow_rounded,
                 tooltip: startLabel,
                 onPressed: !isRunning && !serviceControlsDisabled
                     ? onStart
                     : null,
               ),
-              _WebOpsIconButton(
+              OpenHandToolbarIconButton(
                 icon: Icons.stop_rounded,
                 tooltip: stopLabel,
                 onPressed: isRunning && !serviceControlsDisabled
                     ? onStop
                     : null,
               ),
-              _WebOpsIconButton(
+              OpenHandToolbarIconButton(
                 icon: Icons.restart_alt_rounded,
                 tooltip: restartLabel,
                 onPressed: serviceControlsDisabled ? null : onRestart,
               ),
-              _WebOpsIconButton(
+              OpenHandToolbarIconButton(
                 icon: Icons.sync_rounded,
                 tooltip: reloadLabel,
                 onPressed: serviceControlsDisabled ? null : onReload,
               ),
-              _WebOpsIconButton(
+              OpenHandToolbarIconButton(
                 icon: Icons.healing_rounded,
                 tooltip: hotFixLabel,
                 onPressed: serviceControlsDisabled ? null : onHotFix,
               ),
-              _WebOpsIconButton(
+              OpenHandToolbarIconButton(
                 icon: healthChecking
                     ? Icons.hourglass_top_rounded
                     : Icons.monitor_heart_outlined,
                 tooltip: healthLabel,
                 onPressed: healthChecking ? null : onHealthCheck,
               ),
-              _WebOpsIconButton(
+              OpenHandToolbarIconButton(
                 icon: cleaning
                     ? Icons.hourglass_bottom_rounded
                     : Icons.cleaning_services_outlined,
@@ -6204,12 +6203,12 @@ class _WebOpsHeaderActions extends StatelessWidget {
       alignment: WrapAlignment.end,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        _WebOpsIconButton(
+        OpenHandToolbarIconButton(
           icon: Icons.delete_sweep_outlined,
           tooltip: _messageGatewayClearLogsLabel(context),
           onPressed: cleaning ? null : onClearLogs,
         ),
-        _WebOpsIconButton(
+        OpenHandToolbarIconButton(
           icon: Icons.folder_delete_outlined,
           tooltip: openHandLocalizedText(
             context,
@@ -6222,66 +6221,12 @@ class _WebOpsHeaderActions extends StatelessWidget {
           ),
           onPressed: cleaning ? null : onClearCache,
         ),
-        _WebOpsIconButton(
+        OpenHandToolbarIconButton(
           icon: Icons.close_rounded,
           tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
           onPressed: onClose,
         ),
       ],
-    );
-  }
-}
-
-class _WebOpsIconButton extends StatelessWidget {
-  const _WebOpsIconButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final enabled = onPressed != null;
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(_webOpsControlRadius),
-          hoverColor: cs.primary.withValues(alpha: .08),
-          splashColor: cs.primary.withValues(alpha: .10),
-          highlightColor: cs.primary.withValues(alpha: .06),
-          onTap: onPressed,
-          child: AnimatedContainer(
-            duration: openHandMotionDurationMs(context, 160),
-            curve: kOpenHandSwitchInCurve,
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: enabled
-                  ? cs.surfaceContainerHigh.withValues(alpha: .82)
-                  : cs.surfaceContainerHighest.withValues(alpha: .40),
-              borderRadius: BorderRadius.circular(_webOpsControlRadius),
-              border: Border.all(
-                color: cs.outlineVariant.withValues(alpha: enabled ? .72 : .40),
-              ),
-            ),
-            child: Icon(
-              icon,
-              size: 22,
-              color: enabled
-                  ? cs.onSurfaceVariant
-                  : cs.onSurfaceVariant.withValues(alpha: .42),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

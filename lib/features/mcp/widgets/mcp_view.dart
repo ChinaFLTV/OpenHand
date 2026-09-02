@@ -4678,7 +4678,7 @@ class _McpOpsHeaderTopActions extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         const _McpOpsHeaderTabButtons(),
-        _McpOpsIconButton(
+        OpenHandToolbarIconButton(
           icon: Icons.close_rounded,
           tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
           onPressed: onClose,
@@ -4868,32 +4868,32 @@ class _McpOpsHeaderControls extends StatelessWidget {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            _McpOpsIconButton(
+            OpenHandToolbarIconButton(
               icon: Icons.radar_rounded,
               tooltip: _localizedText(context, zh: '连通性测试', en: 'Test'),
               onPressed: busy ? null : onConnectivityTest,
             ),
-            _McpOpsIconButton(
+            OpenHandToolbarIconButton(
               icon: Icons.play_arrow_rounded,
               tooltip: _localizedText(context, zh: '启动', en: 'Start'),
               onPressed: canStart ? onStart : null,
             ),
-            _McpOpsIconButton(
+            OpenHandToolbarIconButton(
               icon: Icons.restart_alt_rounded,
               tooltip: _localizedText(context, zh: '重启', en: 'Restart'),
               onPressed: running && !busy ? onRestart : null,
             ),
-            _McpOpsIconButton(
+            OpenHandToolbarIconButton(
               icon: Icons.stop_rounded,
               tooltip: _localizedText(context, zh: '关闭', en: 'Stop'),
               onPressed: canStop ? onStop : null,
             ),
-            _McpOpsIconButton(
+            OpenHandToolbarIconButton(
               icon: Icons.copy_rounded,
               tooltip: _localizedText(context, zh: '复制入口', en: 'Copy endpoint'),
               onPressed: onCopyEndpoint,
             ),
-            _McpOpsIconButton(
+            OpenHandToolbarIconButton(
               icon: Icons.integration_instructions_rounded,
               tooltip: _localizedText(
                 context,
@@ -4902,7 +4902,7 @@ class _McpOpsHeaderControls extends StatelessWidget {
               ),
               onPressed: onCopyCursorConfig,
             ),
-            _McpOpsIconButton(
+            OpenHandToolbarIconButton(
               icon: Icons.cleaning_services_outlined,
               tooltip: _localizedText(
                 context,
@@ -5138,62 +5138,6 @@ class _McpOpsHeaderMessage extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _McpOpsIconButton extends StatelessWidget {
-  const _McpOpsIconButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final enabled = onPressed != null;
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
-          hoverColor: cs.primary.withValues(alpha: 0.08),
-          splashColor: cs.primary.withValues(alpha: 0.10),
-          highlightColor: cs.primary.withValues(alpha: 0.06),
-          onTap: onPressed,
-          child: AnimatedContainer(
-            duration: openHandMotionDuration(context, kOpenHandMotion160),
-            curve: kOpenHandSwitchInCurve,
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: enabled
-                  ? cs.surfaceContainerHigh.withValues(alpha: 0.78)
-                  : cs.surfaceContainerHighest.withValues(alpha: 0.40),
-              borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
-              border: Border.all(
-                color: cs.outlineVariant.withValues(
-                  alpha: enabled ? 0.72 : 0.4,
-                ),
-              ),
-            ),
-            child: Icon(
-              icon,
-              size: 22,
-              color: enabled
-                  ? cs.onSurfaceVariant
-                  : cs.onSurfaceVariant.withValues(alpha: 0.42),
-            ),
-          ),
         ),
       ),
     );
@@ -6907,7 +6851,7 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _McpOpsIconButton(
+          OpenHandToolbarIconButton(
             icon: _sourcePreviewExpanded
                 ? Icons.visibility_off_rounded
                 : Icons.visibility_rounded,
@@ -6923,7 +6867,7 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
             ),
           ),
           kOpenHandHGap8,
-          _McpOpsIconButton(
+          OpenHandToolbarIconButton(
             icon: Icons.copy_rounded,
             tooltip: _localizedText(context, zh: '复制', en: 'Copy'),
             onPressed: () => copyOpenHandTextToClipboard(
@@ -7422,7 +7366,7 @@ class _McpOpsSchemaFieldEditorCard extends StatelessWidget {
                 ),
               ),
               _McpOpsSchemaRequiredSwitch(field: field, onChanged: onChanged),
-              _McpOpsIconButton(
+              OpenHandToolbarIconButton(
                 icon: Icons.delete_outline_rounded,
                 tooltip: _localizedText(
                   context,

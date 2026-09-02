@@ -168,6 +168,10 @@ List<T> _reorderedCopy<T>(List<T> values, int oldIndex, int newIndex) {
   return result;
 }
 
+List<T> _replacedCopy<T>(List<T> values, int index, T value) {
+  return List<T>.of(values)..[index] = value;
+}
+
 Future<bool> _confirmClearLocalCache({
   required BuildContext context,
   required String toolLabel,

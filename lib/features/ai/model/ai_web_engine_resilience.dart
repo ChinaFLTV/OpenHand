@@ -199,6 +199,56 @@ abstract final class AiWebEngineExecutionPolicy {
   );
 }
 
+/// WebFetch 与 WebSearch 单引擎配置的公共边界。
+abstract final class AiWebEngineConfigPolicy {
+  static const int defaultWeight = 50;
+  static const int minWeight = 1;
+  static const int maxWeight = 100;
+  static const int defaultMaxRetries = 3;
+  static const int minTruncationChars = 1000;
+  static const int maxTruncationChars = 400000;
+  static const int maxSerializedEngineEntries = 128;
+
+  static const IntValueRange weightRange = IntValueRange(
+    fallback: defaultWeight,
+    min: minWeight,
+    max: maxWeight,
+  );
+  static const IntValueRange maxRetriesRange = IntValueRange(
+    fallback: defaultMaxRetries,
+    min: 0,
+    max: AiWebEngineExecutionPolicy.maxRetries,
+  );
+}
+
+/// 按持久化顺序解码、去重并补齐全部 Web 引擎配置。
+List<C> decodeOrderedAiWebEngineConfigs<E, C>({
+  required Object? raw,
+  required List<E> kinds,
+  required C? Function(Map<String, Object?> json) decode,
+  required E Function(C config) kindOf,
+  required C Function(E kind) createDefault,
+}) {
+  final configs = <C>[];
+  final seenKinds = <E>{};
+  if (raw is List) {
+    for (final entry in raw.take(
+      AiWebEngineConfigPolicy.maxSerializedEngineEntries,
+    )) {
+      if (entry is! Map) continue;
+      final config = decode(stringKeyedMapFromValue(entry));
+      if (config != null && seenKinds.add(kindOf(config))) {
+        configs.add(config);
+        if (seenKinds.length == kinds.length) break;
+      }
+    }
+  }
+  for (final kind in kinds) {
+    if (seenKinds.add(kind)) configs.add(createDefault(kind));
+  }
+  return configs;
+}
+
 /// WebFetch 与 WebSearch 共用的本地缓存取值边界。
 ///
 /// 默认 TTL 因用途不同由各自的设置类定义（抓取的正文变化慢、搜索的结果变化快），

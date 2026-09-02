@@ -689,7 +689,12 @@ class _TaskStatusTrendSection extends StatelessWidget {
             spacing: 12,
             runSpacing: 6,
             children: series
-                .map((item) => _OpsLegend(label: item.label, color: item.color))
+                .map(
+                  (item) => OpenHandChartLegendLabel(
+                    label: item.label,
+                    color: item.color,
+                  ),
+                )
                 .toList(growable: false),
           ),
           kOpenHandGap8,

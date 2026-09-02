@@ -21,6 +21,73 @@ typedef AnimatedOverlayEntryBuilder =
       VoidCallback onExitCompleted,
     );
 
+/// 锚定到输入框等目标组件的动画浮层。
+///
+/// 统一处理点击外部关闭、ESC 关闭、跟随定位和全局菜单进退场动画，避免各功能
+/// 重复拼装浮层骨架后出现行为偏差。
+class OpenHandAnchoredAnimatedOverlay extends StatelessWidget {
+  const OpenHandAnchoredAnimatedOverlay({
+    super.key,
+    required this.link,
+    required this.targetAnchor,
+    required this.followerAnchor,
+    required this.offset,
+    required this.constraints,
+    required this.onDismiss,
+    required this.visibility,
+    required this.onExitCompleted,
+    required this.child,
+    this.customSettings,
+  });
+
+  final LayerLink link;
+  final Alignment targetAnchor;
+  final Alignment followerAnchor;
+  final Offset offset;
+  final BoxConstraints constraints;
+  final VoidCallback onDismiss;
+  final ValueListenable<bool> visibility;
+  final VoidCallback onExitCompleted;
+  final Widget child;
+  final DialogAnimationSettings? customSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    return OpenHandEscapeDismissScope(
+      onDismiss: onDismiss,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: onDismiss,
+            ),
+          ),
+          CompositedTransformFollower(
+            link: link,
+            showWhenUnlinked: false,
+            targetAnchor: targetAnchor,
+            followerAnchor: followerAnchor,
+            offset: offset,
+            child: TextFieldTapRegion(
+              child: ConstrainedBox(
+                constraints: constraints,
+                child: AnimatedOverlayContent(
+                  customSettings: customSettings,
+                  visibility: visibility,
+                  onExitCompleted: onExitCompleted,
+                  alignment: followerAnchor,
+                  child: child,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// 统一管理 [OverlayEntry] 及其动画可见性信号。
 ///
 /// 退场期间调用 [show] 会复用并重新打开原条目；[close] 播放退场动画，

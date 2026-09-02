@@ -2355,6 +2355,40 @@ class _ChartTooltip extends StatelessWidget {
   }
 }
 
+/// 运维图表共用的圆点图例标签。
+class OpenHandChartLegendLabel extends StatelessWidget {
+  const OpenHandChartLegendLabel({
+    super.key,
+    required this.label,
+    required this.color,
+    this.indicatorSize = 8,
+    this.gap = 5,
+    this.textStyle,
+  });
+
+  final String label;
+  final Color color;
+  final double indicatorSize;
+  final double gap;
+  final TextStyle? textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: indicatorSize,
+          height: indicatorSize,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        SizedBox(width: gap),
+        Text(label, style: textStyle ?? Theme.of(context).textTheme.labelSmall),
+      ],
+    );
+  }
+}
+
 class _ChartLegend extends StatelessWidget {
   const _ChartLegend({required this.segments, required this.onTap});
 

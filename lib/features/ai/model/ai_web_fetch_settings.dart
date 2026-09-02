@@ -77,32 +77,28 @@ class AiWebFetchEngineConfig {
     this.endpointOverride,
   });
 
-  static const int defaultWeight = 50;
-  static const int minWeight = 1;
-  static const int maxWeight = 100;
-  static const int defaultMaxRetries = 3;
+  static const int defaultWeight = AiWebEngineConfigPolicy.defaultWeight;
+  static const int minWeight = AiWebEngineConfigPolicy.minWeight;
+  static const int maxWeight = AiWebEngineConfigPolicy.maxWeight;
+  static const int defaultMaxRetries =
+      AiWebEngineConfigPolicy.defaultMaxRetries;
   static const int maxRetriesUpperBound = AiWebEngineExecutionPolicy.maxRetries;
 
   /// 用户层标注「tokens」，按 ~4 字符 / token 估算 → 25000 tokens ≈ 100000 字符。
   static const int defaultTruncationChars = 100000;
-  static const int minTruncationChars = 1000;
-  static const int maxTruncationChars = 400000;
+  static const int minTruncationChars =
+      AiWebEngineConfigPolicy.minTruncationChars;
+  static const int maxTruncationChars =
+      AiWebEngineConfigPolicy.maxTruncationChars;
   static const int defaultConnectionTimeoutSeconds = 10;
   static const int minConnectionTimeoutSeconds = 1;
   static const int maxConnectionTimeoutSeconds = 120;
   static const int defaultResponseTimeoutSeconds = 30;
   static const int minResponseTimeoutSeconds = 5;
   static const int maxResponseTimeoutSeconds = 300;
-  static const IntValueRange _weightRange = IntValueRange(
-    fallback: defaultWeight,
-    min: minWeight,
-    max: maxWeight,
-  );
-  static const IntValueRange _maxRetriesRange = IntValueRange(
-    fallback: defaultMaxRetries,
-    min: 0,
-    max: maxRetriesUpperBound,
-  );
+  static const IntValueRange _weightRange = AiWebEngineConfigPolicy.weightRange;
+  static const IntValueRange _maxRetriesRange =
+      AiWebEngineConfigPolicy.maxRetriesRange;
   static const IntValueRange _truncationCharsRange = IntValueRange(
     fallback: defaultTruncationChars,
     min: minTruncationChars,
@@ -389,24 +385,13 @@ class AiWebFetchSettings {
     final json = optionalStringKeyedMapFromValueOrJsonText(raw);
     if (json == null) return null;
 
-    final rawEngines = json['engines'];
-    final engines = <AiWebFetchEngineConfig>[];
-    final seenKinds = <AiWebFetchEngineKind>{};
-    if (rawEngines is List) {
-      for (final entry in rawEngines) {
-        if (entry is Map) {
-          final cfg = AiWebFetchEngineConfig.fromJson(
-            stringKeyedMapFromValue(entry),
-          );
-          if (cfg != null && seenKinds.add(cfg.kind)) engines.add(cfg);
-        }
-      }
-    }
-    for (final kind in AiWebFetchEngineKind.values) {
-      if (!seenKinds.contains(kind)) {
-        engines.add(AiWebFetchEngineConfig(kind: kind));
-      }
-    }
+    final engines = decodeOrderedAiWebEngineConfigs(
+      raw: json['engines'],
+      kinds: AiWebFetchEngineKind.values,
+      decode: AiWebFetchEngineConfig.fromJson,
+      kindOf: (config) => config.kind,
+      createDefault: (kind) => AiWebFetchEngineConfig(kind: kind),
+    );
     final resilience = AiWebEngineResilienceSettings.fromJson(json);
 
     return AiWebFetchSettings(

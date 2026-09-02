@@ -747,7 +747,10 @@ class _TrendPanelState extends State<_TrendPanel> {
               runSpacing: 6,
               children: widget.series
                   .map(
-                    (item) => _OpsLegend(label: item.label, color: item.color),
+                    (item) => OpenHandChartLegendLabel(
+                      label: item.label,
+                      color: item.color,
+                    ),
                   )
                   .toList(growable: false),
             ),
@@ -1040,26 +1043,6 @@ class _OpsSectionIcon extends StatelessWidget {
       child: Icon(icon, size: 19, color: colors.primary),
     );
   }
-}
-
-class _OpsLegend extends StatelessWidget {
-  const _OpsLegend({required this.label, required this.color});
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      ),
-      kOpenHandHGap5,
-      Text(label, style: Theme.of(context).textTheme.labelSmall),
-    ],
-  );
 }
 
 Color _sourceColor(AiExposureSource source, ColorScheme colors) =>

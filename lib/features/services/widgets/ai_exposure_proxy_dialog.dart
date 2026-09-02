@@ -3117,19 +3117,19 @@ class _ProxyRequestTelemetryDialogState
                         spacing: 12,
                         runSpacing: 6,
                         children: [
-                          _ProxyLegend(
+                          OpenHandChartLegendLabel(
                             label: text(zh: '总请求', en: 'Total'),
                             color: OpenHandStatusColors.info,
                           ),
-                          _ProxyLegend(
+                          OpenHandChartLegendLabel(
                             label: text(zh: '成功', en: 'Success'),
                             color: OpenHandStatusColors.success,
                           ),
-                          _ProxyLegend(
+                          OpenHandChartLegendLabel(
                             label: text(zh: '失败', en: 'Failed'),
                             color: OpenHandStatusColors.error,
                           ),
-                          _ProxyLegend(
+                          OpenHandChartLegendLabel(
                             label: text(zh: '超时', en: 'Timeout'),
                             color: OpenHandStatusColors.warning,
                           ),
@@ -4182,26 +4182,6 @@ class _ProxyDetailTrendTooltip extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ProxyLegend extends StatelessWidget {
-  const _ProxyLegend({required this.label, required this.color});
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      ),
-      kOpenHandHGap5,
-      Text(label, style: Theme.of(context).textTheme.labelSmall),
-    ],
-  );
 }
 
 Future<AiExposureProxyEndpoint?> _showEndpointEditor(

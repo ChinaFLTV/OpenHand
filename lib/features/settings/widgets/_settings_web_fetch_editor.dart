@@ -30,10 +30,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
           WebFetchEngineStat,
           WebFetchEngineSample
         > {
-  late TextEditingController _resultCountController;
-  late TextEditingController _cacheTtlController;
-  late TextEditingController _cacheMaxBytesController;
-  late TextEditingController _parallelWorkersController;
+  late final _WebEngineEditorControllers _commonControllers;
 
   WebFetchScraplingProbeStatus _scraplingProbe =
       const WebFetchScraplingProbeStatus(
@@ -49,17 +46,11 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
   @override
   void initState() {
     super.initState();
-    _resultCountController = TextEditingController(
-      text: '${widget.value.resultCount}',
-    );
-    _cacheTtlController = TextEditingController(
-      text: '${widget.value.cacheTtlSeconds}',
-    );
-    _cacheMaxBytesController = TextEditingController(
-      text: formatMegabytesInput(widget.value.cacheMaxBytes),
-    );
-    _parallelWorkersController = TextEditingController(
-      text: '${widget.value.parallelWorkers}',
+    _commonControllers = _WebEngineEditorControllers(
+      resultCount: widget.value.resultCount,
+      cacheTtlSeconds: widget.value.cacheTtlSeconds,
+      cacheMaxBytes: widget.value.cacheMaxBytes,
+      parallelWorkers: widget.value.parallelWorkers,
     );
     _scraplingProbe = context
         .read<AiSessionController>()
@@ -318,36 +309,22 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
   @override
   void didUpdateWidget(covariant _WebFetchSettingsEditor old) {
     super.didUpdateWidget(old);
-    _syncControllerValue(
-      _resultCountController,
-      old.value.resultCount,
-      widget.value.resultCount,
-    );
-    _syncControllerValue(
-      _cacheTtlController,
-      old.value.cacheTtlSeconds,
-      widget.value.cacheTtlSeconds,
-    );
-    _syncControllerValue(
-      _cacheMaxBytesController,
-      old.value.cacheMaxBytes,
-      widget.value.cacheMaxBytes,
-      format: formatMegabytesInput,
-    );
-    _syncControllerValue(
-      _parallelWorkersController,
-      old.value.parallelWorkers,
-      widget.value.parallelWorkers,
+    _commonControllers.sync(
+      oldResultCount: old.value.resultCount,
+      resultCount: widget.value.resultCount,
+      oldCacheTtlSeconds: old.value.cacheTtlSeconds,
+      cacheTtlSeconds: widget.value.cacheTtlSeconds,
+      oldCacheMaxBytes: old.value.cacheMaxBytes,
+      cacheMaxBytes: widget.value.cacheMaxBytes,
+      oldParallelWorkers: old.value.parallelWorkers,
+      parallelWorkers: widget.value.parallelWorkers,
     );
   }
 
   @override
   void dispose() {
     _pendingScraplingProbeSettings = null;
-    _resultCountController.dispose();
-    _cacheTtlController.dispose();
-    _cacheMaxBytesController.dispose();
-    _parallelWorkersController.dispose();
+    _commonControllers.dispose();
     super.dispose();
   }
 
@@ -373,9 +350,11 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
   }
 
   void _updateEngine(int index, AiWebFetchEngineConfig next) {
-    final list = List<AiWebFetchEngineConfig>.from(widget.value.engines);
-    list[index] = next;
-    _emit(widget.value.copyWith(engines: list));
+    _emit(
+      widget.value.copyWith(
+        engines: _replacedCopy(widget.value.engines, index, next),
+      ),
+    );
   }
 
   @override
@@ -415,7 +394,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
 
         _WebEngineDispatchControls(
           featureName: 'WebFetch',
-          resultCountController: _resultCountController,
+          resultCountController: _commonControllers.resultCount,
           defaultResultCount: AiWebFetchSettings.defaultResultCount,
           minResultCount: AiWebFetchSettings.minResultCount,
           maxResultCount: AiWebFetchSettings.maxResultCount,
@@ -423,7 +402,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
               _emit(v.copyWith(resultCount: value)),
           parallel: v.parallel,
           onParallelChanged: (value) => _emit(v.copyWith(parallel: value)),
-          parallelWorkersController: _parallelWorkersController,
+          parallelWorkersController: _commonControllers.parallelWorkers,
           onParallelWorkersChanged: (value) =>
               _emit(v.copyWith(parallelWorkers: value)),
         ),
@@ -453,8 +432,8 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
         kOpenHandGap8,
         _buildWebEngineCacheFields(
           context: context,
-          ttlController: _cacheTtlController,
-          maxBytesController: _cacheMaxBytesController,
+          ttlController: _commonControllers.cacheTtl,
+          maxBytesController: _commonControllers.cacheMaxBytes,
           defaultTtlSeconds: AiWebFetchSettings.defaultCacheTtlSeconds,
           currentMaxBytes: v.cacheMaxBytes,
           onTtlChanged: (value) => _emit(v.copyWith(cacheTtlSeconds: value)),

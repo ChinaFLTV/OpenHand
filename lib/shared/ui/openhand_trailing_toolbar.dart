@@ -1,6 +1,73 @@
 import 'package:flutter/material.dart';
 import 'package:openhand/shared/ui/openhand_spacing.dart';
 
+import 'motion_durations.dart';
+import 'motion_preference.dart';
+
+const double kOpenHandToolbarIconButtonSize = 44;
+const double kOpenHandToolbarIconSize = 22;
+
+/// 运维与控制台头部共用的动画图标按钮。
+class OpenHandToolbarIconButton extends StatelessWidget {
+  const OpenHandToolbarIconButton({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.radius = kOpenHandRadius12,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final enabled = onPressed != null;
+    final borderRadius = BorderRadius.circular(radius);
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: borderRadius,
+          hoverColor: colors.primary.withValues(alpha: 0.08),
+          splashColor: colors.primary.withValues(alpha: 0.10),
+          highlightColor: colors.primary.withValues(alpha: 0.06),
+          onTap: onPressed,
+          child: AnimatedContainer(
+            duration: openHandMotionDuration(context, kOpenHandMotion160),
+            curve: kOpenHandSwitchInCurve,
+            width: kOpenHandToolbarIconButtonSize,
+            height: kOpenHandToolbarIconButtonSize,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: enabled
+                  ? colors.surfaceContainerHigh.withValues(alpha: 0.80)
+                  : colors.surfaceContainerHighest.withValues(alpha: 0.40),
+              borderRadius: borderRadius,
+              border: Border.all(
+                color: colors.outlineVariant.withValues(
+                  alpha: enabled ? 0.72 : 0.40,
+                ),
+              ),
+            ),
+            child: Icon(
+              icon,
+              size: kOpenHandToolbarIconSize,
+              color: enabled
+                  ? colors.onSurfaceVariant
+                  : colors.onSurfaceVariant.withValues(alpha: 0.42),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// 右对齐的横向工具栏。空间不足时从左侧溢出，优先保留末端操作可见。
 class OpenHandTrailingToolbar extends StatelessWidget {
   const OpenHandTrailingToolbar({

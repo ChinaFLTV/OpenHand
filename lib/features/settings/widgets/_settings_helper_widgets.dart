@@ -6038,6 +6038,58 @@ class _AiModelTileState extends State<_AiModelTile>
   }
 }
 
+/// WebSearch 与 WebFetch 共用的调度、缓存输入控制器集合。
+final class _WebEngineEditorControllers {
+  _WebEngineEditorControllers({
+    required int resultCount,
+    required int cacheTtlSeconds,
+    required int cacheMaxBytes,
+    required int parallelWorkers,
+  }) : resultCount = TextEditingController(text: '$resultCount'),
+       cacheTtl = TextEditingController(text: '$cacheTtlSeconds'),
+       cacheMaxBytes = TextEditingController(
+         text: formatMegabytesInput(cacheMaxBytes),
+       ),
+       parallelWorkers = TextEditingController(text: '$parallelWorkers');
+
+  final TextEditingController resultCount;
+  final TextEditingController cacheTtl;
+  final TextEditingController cacheMaxBytes;
+  final TextEditingController parallelWorkers;
+
+  void sync({
+    required int oldResultCount,
+    required int resultCount,
+    required int oldCacheTtlSeconds,
+    required int cacheTtlSeconds,
+    required int oldCacheMaxBytes,
+    required int cacheMaxBytes,
+    required int oldParallelWorkers,
+    required int parallelWorkers,
+  }) {
+    _syncControllerValue(this.resultCount, oldResultCount, resultCount);
+    _syncControllerValue(cacheTtl, oldCacheTtlSeconds, cacheTtlSeconds);
+    _syncControllerValue(
+      this.cacheMaxBytes,
+      oldCacheMaxBytes,
+      cacheMaxBytes,
+      format: formatMegabytesInput,
+    );
+    _syncControllerValue(
+      this.parallelWorkers,
+      oldParallelWorkers,
+      parallelWorkers,
+    );
+  }
+
+  void dispose() {
+    resultCount.dispose();
+    cacheTtl.dispose();
+    cacheMaxBytes.dispose();
+    parallelWorkers.dispose();
+  }
+}
+
 class _WebEngineDispatchControls extends StatelessWidget {
   const _WebEngineDispatchControls({
     required this.featureName,

@@ -30,33 +30,24 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
           WebSearchEngineStat,
           WebSearchEngineSample
         > {
-  late TextEditingController _resultCountController;
+  late final _WebEngineEditorControllers _commonControllers;
   late TextEditingController _summaryMinController;
   late TextEditingController _summaryMaxController;
-  late TextEditingController _cacheTtlController;
-  late TextEditingController _cacheMaxBytesController;
-  late TextEditingController _parallelWorkersController;
 
   @override
   void initState() {
     super.initState();
-    _resultCountController = TextEditingController(
-      text: '${widget.value.resultCount}',
+    _commonControllers = _WebEngineEditorControllers(
+      resultCount: widget.value.resultCount,
+      cacheTtlSeconds: widget.value.cacheTtlSeconds,
+      cacheMaxBytes: widget.value.cacheMaxBytes,
+      parallelWorkers: widget.value.parallelWorkers,
     );
     _summaryMinController = TextEditingController(
       text: '${widget.value.summaryMinChars}',
     );
     _summaryMaxController = TextEditingController(
       text: '${widget.value.summaryMaxChars}',
-    );
-    _cacheTtlController = TextEditingController(
-      text: '${widget.value.cacheTtlSeconds}',
-    );
-    _cacheMaxBytesController = TextEditingController(
-      text: formatMegabytesInput(widget.value.cacheMaxBytes),
-    );
-    _parallelWorkersController = TextEditingController(
-      text: '${widget.value.parallelWorkers}',
     );
     _refreshCacheBytesOnDisk();
     _refreshTelemetry();
@@ -159,10 +150,15 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
   @override
   void didUpdateWidget(covariant _WebSearchSettingsEditor old) {
     super.didUpdateWidget(old);
-    _syncControllerValue(
-      _resultCountController,
-      old.value.resultCount,
-      widget.value.resultCount,
+    _commonControllers.sync(
+      oldResultCount: old.value.resultCount,
+      resultCount: widget.value.resultCount,
+      oldCacheTtlSeconds: old.value.cacheTtlSeconds,
+      cacheTtlSeconds: widget.value.cacheTtlSeconds,
+      oldCacheMaxBytes: old.value.cacheMaxBytes,
+      cacheMaxBytes: widget.value.cacheMaxBytes,
+      oldParallelWorkers: old.value.parallelWorkers,
+      parallelWorkers: widget.value.parallelWorkers,
     );
     _syncControllerValue(
       _summaryMinController,
@@ -174,32 +170,13 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
       old.value.summaryMaxChars,
       widget.value.summaryMaxChars,
     );
-    _syncControllerValue(
-      _cacheTtlController,
-      old.value.cacheTtlSeconds,
-      widget.value.cacheTtlSeconds,
-    );
-    _syncControllerValue(
-      _cacheMaxBytesController,
-      old.value.cacheMaxBytes,
-      widget.value.cacheMaxBytes,
-      format: formatMegabytesInput,
-    );
-    _syncControllerValue(
-      _parallelWorkersController,
-      old.value.parallelWorkers,
-      widget.value.parallelWorkers,
-    );
   }
 
   @override
   void dispose() {
-    _resultCountController.dispose();
+    _commonControllers.dispose();
     _summaryMinController.dispose();
     _summaryMaxController.dispose();
-    _cacheTtlController.dispose();
-    _cacheMaxBytesController.dispose();
-    _parallelWorkersController.dispose();
     super.dispose();
   }
 
@@ -266,9 +243,11 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
   }
 
   void _updateEngine(int index, AiWebSearchEngineConfig next) {
-    final list = List<AiWebSearchEngineConfig>.from(widget.value.engines);
-    list[index] = next;
-    _emit(widget.value.copyWith(engines: list));
+    _emit(
+      widget.value.copyWith(
+        engines: _replacedCopy(widget.value.engines, index, next),
+      ),
+    );
   }
 
   @override
@@ -376,7 +355,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
 
         _WebEngineDispatchControls(
           featureName: 'WebSearch',
-          resultCountController: _resultCountController,
+          resultCountController: _commonControllers.resultCount,
           defaultResultCount: AiWebSearchSettings.defaultResultCount,
           minResultCount: AiWebSearchSettings.minResultCount,
           maxResultCount: AiWebSearchSettings.maxResultCount,
@@ -384,7 +363,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
               _emit(v.copyWith(resultCount: value)),
           parallel: v.parallel,
           onParallelChanged: (value) => _emit(v.copyWith(parallel: value)),
-          parallelWorkersController: _parallelWorkersController,
+          parallelWorkersController: _commonControllers.parallelWorkers,
           onParallelWorkersChanged: (value) =>
               _emit(v.copyWith(parallelWorkers: value)),
         ),
@@ -536,8 +515,8 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
         kOpenHandGap8,
         _buildWebEngineCacheFields(
           context: context,
-          ttlController: _cacheTtlController,
-          maxBytesController: _cacheMaxBytesController,
+          ttlController: _commonControllers.cacheTtl,
+          maxBytesController: _commonControllers.cacheMaxBytes,
           defaultTtlSeconds: AiWebSearchSettings.defaultCacheTtlSeconds,
           currentMaxBytes: v.cacheMaxBytes,
           onTtlChanged: (value) => _emit(v.copyWith(cacheTtlSeconds: value)),

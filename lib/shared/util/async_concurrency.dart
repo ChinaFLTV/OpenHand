@@ -279,21 +279,10 @@ class OpenHandAsyncSemaphore {
     Future<void>? cancelSignal,
   }) async {
     requirePositiveDuration(timeout, 'timeout');
-    final timeoutSignal = Completer<void>();
-    final timer = Timer(timeout, timeoutSignal.complete);
-    try {
-      return await acquireUnlessCancelled(
-        combineCancelSignals(<Future<void>?>[
-          cancelSignal,
-          timeoutSignal.future,
-        ])!,
-      );
-    } finally {
-      timer.cancel();
-    }
+    return _acquire(cancelSignal: cancelSignal, timeout: timeout);
   }
 
-  Future<bool> _acquire({Future<void>? cancelSignal}) async {
+  Future<bool> _acquire({Future<void>? cancelSignal, Duration? timeout}) async {
     final cancellationGeneration = _waiterCancellationGeneration;
     if (cancelSignal != null && await isCancelSignalCompleted(cancelSignal)) {
       return false;
@@ -309,20 +298,29 @@ class OpenHandAsyncSemaphore {
     final waiter = _OpenHandAsyncSemaphoreWaiter();
     _waiters.add(waiter);
     if (cancelSignal != null) {
-      unawaited(
-        cancelSignal.then<void>(
-          (_) => _cancelWaiter(waiter),
-          onError: (Object _, StackTrace _) => _cancelWaiter(waiter),
-        ),
-      );
+      waiter.removeCancelListener = _cancelSignalState(
+        cancelSignal,
+      ).addListener(() => _cancelWaiter(waiter));
+    }
+    if (timeout != null) {
+      waiter.timeoutTimer = Timer(timeout, () => _cancelWaiter(waiter));
     }
     return waiter.completer.future;
   }
 
   void _cancelWaiter(_OpenHandAsyncSemaphoreWaiter waiter) {
     if (waiter.settled || !_waiters.remove(waiter)) return;
+    _settleWaiter(waiter, false);
+  }
+
+  void _settleWaiter(_OpenHandAsyncSemaphoreWaiter waiter, bool acquired) {
+    if (waiter.settled) return;
     waiter.settled = true;
-    waiter.completer.complete(false);
+    waiter.timeoutTimer?.cancel();
+    waiter.timeoutTimer = null;
+    waiter.removeCancelListener?.call();
+    waiter.removeCancelListener = null;
+    waiter.completer.complete(acquired);
   }
 
   /// 取消全部排队任务，不影响已持有的许可。
@@ -331,8 +329,7 @@ class OpenHandAsyncSemaphore {
     while (_waiters.isNotEmpty) {
       final waiter = _waiters.removeFirst();
       if (waiter.settled) continue;
-      waiter.settled = true;
-      waiter.completer.complete(false);
+      _settleWaiter(waiter, false);
     }
   }
 
@@ -340,8 +337,7 @@ class OpenHandAsyncSemaphore {
     while (_waiters.isNotEmpty) {
       final waiter = _waiters.removeFirst();
       if (waiter.settled) continue;
-      waiter.settled = true;
-      waiter.completer.complete(true);
+      _settleWaiter(waiter, true);
       return;
     }
     if (_available >= maxPermits) {
@@ -362,31 +358,94 @@ class OpenHandAsyncSemaphore {
 
 class _OpenHandAsyncSemaphoreWaiter {
   final Completer<bool> completer = Completer<bool>();
+  Timer? timeoutTimer;
+  void Function()? removeCancelListener;
   bool settled = false;
 }
 
-Future<bool> isCancelSignalCompleted(Future<void>? cancelSignal) {
-  if (cancelSignal == null) return Future<bool>.value(false);
-  return Future.any<bool>([
-    cancelSignal.then((_) => true, onError: (_) => true),
-    Future<void>.delayed(Duration.zero).then((_) => false),
-  ]);
+final Expando<_OpenHandCancelSignalState> _cancelSignalStates =
+    Expando<_OpenHandCancelSignalState>('OpenHand 取消信号状态');
+
+_OpenHandCancelSignalState _cancelSignalState(Future<void> signal) {
+  final cached = _cancelSignalStates[signal];
+  if (cached != null) return cached;
+  final state = _OpenHandCancelSignalState(signal);
+  _cancelSignalStates[signal] = state;
+  return state;
+}
+
+final class _OpenHandCancelSignalState {
+  _OpenHandCancelSignalState(Future<void> signal) {
+    unawaited(
+      signal.then<void>(
+        (_) => _complete(),
+        onError: (Object error, StackTrace stack) => _complete(),
+      ),
+    );
+  }
+
+  final Map<int, void Function()> _listeners = <int, void Function()>{};
+  bool _completed = false;
+  int _nextListenerId = 0;
+
+  bool get isCompleted => _completed;
+
+  void Function() addListener(void Function() listener) {
+    if (_completed) {
+      scheduleMicrotask(listener);
+      return () {};
+    }
+    final id = _nextListenerId++;
+    _listeners[id] = listener;
+    return () => _listeners.remove(id);
+  }
+
+  void _complete() {
+    if (_completed) return;
+    _completed = true;
+    final listeners = _listeners.values.toList(growable: false);
+    _listeners.clear();
+    for (final listener in listeners) {
+      try {
+        listener();
+      } catch (error, stack) {
+        Zone.current.handleUncaughtError(error, stack);
+      }
+    }
+  }
+}
+
+Future<bool> isCancelSignalCompleted(Future<void>? cancelSignal) async {
+  if (cancelSignal == null) return false;
+  final state = _cancelSignalState(cancelSignal);
+  if (state.isCompleted) return true;
+  await Future<void>.delayed(Duration.zero);
+  return state.isCompleted;
 }
 
 /// 合并多个取消信号；任一信号正常或异常完成时，合并信号均正常完成。
 ///
 /// 空集合返回 `null`，避免调用方重复维护空集合和单信号分支。
 Future<void>? combineCancelSignals(Iterable<Future<void>?> signals) {
-  final normalized = signals
-      .whereType<Future<void>>()
-      .map(
-        (signal) =>
-            signal.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
-      )
-      .toList(growable: false);
+  final normalized = signals.whereType<Future<void>>().toSet().toList(
+    growable: false,
+  );
   if (normalized.isEmpty) return null;
-  if (normalized.length == 1) return normalized.single;
-  return Future.any<void>(normalized);
+  final completer = Completer<void>();
+  final removers = <void Function()>[];
+  void complete() {
+    if (completer.isCompleted) return;
+    completer.complete();
+    for (final remove in removers) {
+      remove();
+    }
+    removers.clear();
+  }
+
+  for (final signal in normalized) {
+    removers.add(_cancelSignalState(signal).addListener(complete));
+  }
+  return completer.future;
 }
 
 Future<bool> delayUntilCancelled(
@@ -398,10 +457,20 @@ Future<bool> delayUntilCancelled(
     await Future<void>.delayed(delay);
     return false;
   }
-  return Future.any<bool>([
-    cancelSignal.then((_) => true, onError: (_) => true),
-    Future<void>.delayed(delay).then((_) => false),
-  ]);
+  final completer = Completer<bool>();
+  Timer? timer;
+  late final void Function() removeCancelListener;
+  removeCancelListener = _cancelSignalState(cancelSignal).addListener(() {
+    timer?.cancel();
+    if (!completer.isCompleted) completer.complete(true);
+  });
+  if (!completer.isCompleted) {
+    timer = Timer(delay, () {
+      removeCancelListener();
+      if (!completer.isCompleted) completer.complete(false);
+    });
+  }
+  return completer.future;
 }
 
 Future<T?> awaitWithCancelSignal<T>(
@@ -409,16 +478,30 @@ Future<T?> awaitWithCancelSignal<T>(
   Future<void>? cancelSignal,
 }) async {
   if (cancelSignal == null) return future;
-  final sentinel = Object();
-  final firstResult = await Future.any<Object?>([
-    future.then<Object?>((value) => value),
-    cancelSignal.then<Object?>((_) => sentinel, onError: (_) => sentinel),
-  ]);
-  if (identical(firstResult, sentinel)) {
-    unawaited(future.then<void>((_) {}, onError: (Object _, StackTrace _) {}));
-    return null;
-  }
-  return firstResult as T;
+  final completer = Completer<T?>();
+  var cancelled = false;
+  late final void Function() removeCancelListener;
+  removeCancelListener = _cancelSignalState(cancelSignal).addListener(() {
+    if (completer.isCompleted) return;
+    cancelled = true;
+    completer.complete(null);
+  });
+  unawaited(
+    future.then<void>(
+      (value) {
+        if (completer.isCompleted) return;
+        removeCancelListener();
+        completer.complete(value);
+      },
+      onError: (Object error, StackTrace stack) {
+        if (completer.isCompleted) return;
+        removeCancelListener();
+        completer.completeError(error, stack);
+      },
+    ),
+  );
+  final result = await completer.future;
+  return cancelled ? null : result;
 }
 
 int _boundedConcurrency({required int itemCount, required int maxConcurrency}) {
