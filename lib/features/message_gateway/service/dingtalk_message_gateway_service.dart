@@ -293,6 +293,7 @@ class DingTalkMessageGatewayService {
   final Map<String, DateTime> _conversationQueryUnavailableUntil =
       <String, DateTime>{};
   StreamController<DingTalkGatewayEvent>? _eventController;
+  bool _eventControllerHasBeenListened = false;
   Future<Stream<DingTalkGatewayEvent>>? _eventStartFuture;
   int _eventGeneration = 0;
   String? _executable;
@@ -526,7 +527,15 @@ class DingTalkMessageGatewayService {
     if (generation != _eventGeneration) {
       throw StateError('钉钉实时事件监听已取消。');
     }
-    final controller = StreamController<DingTalkGatewayEvent>();
+    late final StreamController<DingTalkGatewayEvent> controller;
+    controller = StreamController<DingTalkGatewayEvent>(
+      onListen: () {
+        if (identical(_eventController, controller)) {
+          _eventControllerHasBeenListened = true;
+        }
+      },
+    );
+    _eventControllerHasBeenListened = false;
     _eventController = controller;
     try {
       final specs = _eventSubscriptionSpecs(targets);
@@ -832,18 +841,31 @@ class DingTalkMessageGatewayService {
     final processes = List<_DingTalkEventProcessHandle>.from(_eventProcesses);
     _eventProcesses.clear();
     final controller = _eventController;
+    final controllerHasBeenListened = _eventControllerHasBeenListened;
     _eventController = null;
+    _eventControllerHasBeenListened = false;
+    final drainSubscription = controller != null && !controllerHasBeenListened
+        ? controller.stream.listen(null)
+        : null;
     if (processes.isNotEmpty) {
       _logRuntime('INFO', '正在停止钉钉实时事件监听。');
       await Future.wait<void>(processes.map(_terminateEventProcess));
       _logRuntime('SUCCESS', '钉钉实时事件监听已停止。');
     }
-    await runAsyncCleanupBounded(
-      () => controller?.close(),
-      timeout: _eventCleanupTimeout,
-      onError: (error, stack) =>
-          silentLog('dingtalk_gateway', '关闭钉钉实时事件流', error, stack),
-    );
+    if (controller != null) {
+      await runAsyncCleanupBounded(
+        () async {
+          try {
+            await controller.close();
+          } finally {
+            await drainSubscription?.cancel();
+          }
+        },
+        timeout: _eventCleanupTimeout,
+        onError: (error, stack) =>
+            silentLog('dingtalk_gateway', '关闭钉钉实时事件流', error, stack),
+      );
+    }
   }
 
   /// 将钉钉消息中的媒体资源下载到确定性本地缓存。缓存文件不存在时会自动重取，

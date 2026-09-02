@@ -335,9 +335,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   final Set<String> _responseInFlight = <String>{};
   final Map<String, Set<String>> _activeResponseContextMessageIds =
       <String, Set<String>>{};
-  final Map<String, int> _activeAutomaticResponseGenerations = <String, int>{};
+  final Map<String, _QueuedDingTalkResponse> _activeAutomaticResponses =
+      <String, _QueuedDingTalkResponse>{};
   final Map<String, int> _responsePreparingCounts = <String, int>{};
   final Map<String, String> _responseErrors = <String, String>{};
+  final Set<String> _responseFailureReplySuppressed = <String>{};
   final Set<String> _pendingInitialContextHydration = <String>{};
 
   /// 每次停止响应都会递增。正在执行的响应携带启动时版本，前置异步
@@ -2129,6 +2131,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }
     }
     _settings = normalized;
+    await _cancelDisallowedAutomaticResponses();
     _scheduleResponseWorkers();
     _queuePersist();
     final task = _persistInFlight;
@@ -4334,6 +4337,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (!isServiceEnabled ||
         (automaticResponse &&
             (source == null ||
+                !_canAutomaticallyRespondToMessage(source) ||
                 !_isAutomaticResponseEligible(source, pollingGeneration))) ||
         !_responseInFlight.add(conversation.id)) {
       return;
@@ -4343,14 +4347,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       sourceMessageId,
     };
     final responseVersion = _responseCancellationVersions[conversation.id] ?? 0;
-    if (automaticResponse) {
-      _activeAutomaticResponseGenerations[conversation.id] =
-          pollingGeneration ?? _pollingGeneration;
-    }
     bool responseCancelled() =>
         _isResponseCancelled(conversation.id, responseVersion) ||
         (automaticResponse &&
             (source == null ||
+                !_canAutomaticallyRespondToMessage(source) ||
                 !_isAutomaticResponseEligible(source, pollingGeneration)));
     _notify();
     try {
@@ -4831,6 +4832,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
               StackTrace.current,
             );
           }
+          if (echoCoordinator.hasDeliveryFailure) {
+            responseCompleted = false;
+            _responseFailureReplySuppressed.add(conversation.id);
+          }
         }
         echoCoordinator.dispose();
       }
@@ -4843,19 +4848,16 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       _setMessageAiResponseState(
         conversation,
         sourceMessageId,
-        responseCompleted
-            ? DingTalkMessageAiResponseState.responded
-            : responseCancelled()
+        responseCancelled()
             ? DingTalkMessageAiResponseState.cancelled
+            : responseCompleted
+            ? DingTalkMessageAiResponseState.responded
             : _responseErrors.containsKey(conversation.id)
             ? DingTalkMessageAiResponseState.failed
             : DingTalkMessageAiResponseState.cancelled,
       );
       _responseInFlight.remove(conversation.id);
       _activeResponseContextMessageIds.remove(conversation.id);
-      if (automaticResponse) {
-        _activeAutomaticResponseGenerations.remove(conversation.id);
-      }
       if (_responseCancellationVersions[conversation.id] == responseVersion) {
         _responseCancellationVersions.remove(conversation.id);
       }
@@ -6176,7 +6178,74 @@ ${_markdownStructuredFields(response)}''';
         }
       }),
     );
-    _activeAutomaticResponseGenerations.clear();
+    _activeAutomaticResponses.clear();
+  }
+
+  Future<void> _cancelDisallowedAutomaticResponses() async {
+    final disallowedConversationIds = _conversations.values
+        .where(
+          (conversation) => !_settings.allowsAutomaticResponseFor(
+            _targetFromConversation(conversation),
+          ),
+        )
+        .map((conversation) => conversation.id)
+        .toSet();
+    if (disallowedConversationIds.isEmpty) return;
+
+    final stopTasks = <Future<void>>[];
+    for (final conversationId in disallowedConversationIds) {
+      final queue = _responseQueues[conversationId];
+      final conversation = _conversations[conversationId];
+      if (queue != null) {
+        for (final item in queue.toList(growable: false)) {
+          if (!item.automaticResponse) continue;
+          queue.remove(item);
+          if (conversation != null) {
+            _setMessageAiResponseState(
+              conversation,
+              item.sourceMessageId,
+              DingTalkMessageAiResponseState.cancelled,
+            );
+          }
+          item.complete();
+        }
+        if (queue.isEmpty) _responseQueues.remove(conversationId);
+      }
+
+      final activeItem = _activeAutomaticResponses[conversationId];
+      if (activeItem == null) continue;
+      _responseCancellationVersions[conversationId] =
+          (_responseCancellationVersions[conversationId] ?? 0) + 1;
+      if (conversation != null) {
+        _setMessageAiResponseState(
+          conversation,
+          activeItem.sourceMessageId,
+          DingTalkMessageAiResponseState.cancelled,
+        );
+      }
+      final mediaCancellation = _activeMediaGenerationCancellations.remove(
+        conversationId,
+      );
+      if (mediaCancellation != null && !mediaCancellation.isCompleted) {
+        mediaCancellation.complete();
+      }
+      final sessionId = conversation?.aiSessionId;
+      if (sessionId == null ||
+          !_sessionController.canStopResponding(sessionId)) {
+        continue;
+      }
+      stopTasks.add(() async {
+        try {
+          await _sessionController
+              .stopResponding(sessionId)
+              .timeout(_stopResponseTimeout);
+        } catch (error, stack) {
+          silentLog('dingtalk_gateway', '撤销白名单后停止钉钉自动响应', error, stack);
+        }
+      }());
+    }
+    await Future.wait(stopTasks);
+    _scheduleResponseWorkers();
   }
 
   void _cancelResponseUsingExcludedMessage(
@@ -6221,6 +6290,7 @@ ${_markdownStructuredFields(response)}''';
           !candidate.isExcludedFromAiContext &&
           !_isSkippedAiResponseMessage(candidate) &&
           candidate.content.trim().isNotEmpty &&
+          _canAutomaticallyRespondToMessage(candidate) &&
           _isAutomaticResponseEligible(candidate, pollingGeneration)) {
         return candidate;
       }
@@ -6290,6 +6360,9 @@ ${_markdownStructuredFields(response)}''';
     _QueuedDingTalkResponse item,
   ) async {
     final responseVersion = _responseCancellationVersions[conversation.id] ?? 0;
+    if (item.automaticResponse) {
+      _activeAutomaticResponses[conversation.id] = item;
+    }
     try {
       if (isServiceEnabled) {
         if (item.automaticResponse &&
@@ -6330,6 +6403,7 @@ ${_markdownStructuredFields(response)}''';
         }
         if (item.automaticResponse &&
             (source == null ||
+                !_canAutomaticallyRespondToMessage(source) ||
                 !_isAutomaticResponseEligible(
                   source,
                   item.pollingGeneration,
@@ -6365,6 +6439,7 @@ ${_markdownStructuredFields(response)}''';
           if (source == null ||
               source.isAssistant ||
               source.isExcludedFromAiContext ||
+              !_canAutomaticallyRespondToMessage(source) ||
               !_isAutomaticResponseEligible(source, item.pollingGeneration)) {
             return;
           }
@@ -6413,10 +6488,17 @@ ${_markdownStructuredFields(response)}''';
         );
         sourceState = DingTalkMessageAiResponseState.cancelled;
       }
-      if (sourceState == DingTalkMessageAiResponseState.failed) {
+      final suppressFailureReply = _responseFailureReplySuppressed.remove(
+        conversation.id,
+      );
+      if (sourceState == DingTalkMessageAiResponseState.failed &&
+          !suppressFailureReply) {
         await _sendResponseFailureReply(conversation);
       }
       item.complete();
+      if (identical(_activeAutomaticResponses[conversation.id], item)) {
+        _activeAutomaticResponses.remove(conversation.id);
+      }
       _activeResponseConversationIds.remove(conversation.id);
       if (!_responseQueues.containsKey(conversation.id) &&
           !_responseInFlight.contains(conversation.id) &&
@@ -6827,9 +6909,10 @@ ${_markdownStructuredFields(response)}''';
     _responseQueues.clear();
     _activeResponseConversationIds.clear();
     _activeResponseContextMessageIds.clear();
-    _activeAutomaticResponseGenerations.clear();
+    _activeAutomaticResponses.clear();
     _responsePreparingCounts.clear();
     _responseErrors.clear();
+    _responseFailureReplySuppressed.clear();
     _responseCancellationVersions.clear();
     for (final cancellation in _activeMediaGenerationCancellations.values) {
       if (!cancellation.isCompleted) cancellation.complete();
@@ -6993,6 +7076,9 @@ class _DingTalkEchoCoordinator {
   DateTime? _scheduledAt;
   Future<void>? _activeDrain;
   bool _disposed = false;
+  final Set<String> _deliveryFailures = <String>{};
+
+  bool get hasDeliveryFailure => _deliveryFailures.isNotEmpty;
 
   void ingest(
     AiSession session, {
@@ -7217,6 +7303,7 @@ class _DingTalkEchoCoordinator {
         );
         if (_disposed || _isCancelled()) return;
         state.sent = true;
+        _deliveryFailures.remove(sourceId);
       } else {
         final messageId = await _remoteMessageIdForEdit(sourceId, state);
         if (_disposed || _isCancelled()) return;
@@ -7268,6 +7355,7 @@ class _DingTalkEchoCoordinator {
         stack,
         notifyUser: !state.sent,
       );
+      if (!state.sent) _deliveryFailures.add(sourceId);
       _settle(sourceId, state, pending);
     }
   }
@@ -7328,6 +7416,7 @@ class _DingTalkEchoCoordinator {
     }
     _pending.clear();
     _states.clear();
+    _deliveryFailures.clear();
   }
 
   void _cancelScheduledDrain() {
