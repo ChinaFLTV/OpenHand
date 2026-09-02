@@ -1831,11 +1831,14 @@ class McpController extends ChangeNotifier {
               ? cachedCatalog.catalog
               : const McpToolCatalog()
         : currentCatalog;
-    final preserveDuringRefresh =
+    final preserveVisibleState =
+        !clearCachedTools &&
+        previousCatalog.status != McpToolCatalogStatus.idle;
+    final preserveUsableCatalog =
         !clearCachedTools &&
         previousCatalog.status == McpToolCatalogStatus.ready &&
         previousCatalog.isComplete;
-    if (!preserveDuringRefresh) {
+    if (!preserveVisibleState) {
       _toolCatalogByServerName[normalizedServerName] = previousCatalog.copyWith(
         status: McpToolCatalogStatus.loading,
         clearErrorMessage: true,
@@ -1879,7 +1882,7 @@ class McpController extends ChangeNotifier {
         return;
       }
       if (discoveredCatalog.status != McpToolCatalogStatus.ready) {
-        _toolCatalogByServerName[normalizedServerName] = preserveDuringRefresh
+        _toolCatalogByServerName[normalizedServerName] = preserveUsableCatalog
             ? previousCatalog.copyWith(
                 warningMessage:
                     discoveredCatalog.errorMessage ??
@@ -1968,7 +1971,7 @@ class McpController extends ChangeNotifier {
         errorMessage: message,
         lastScannedAt: DateTime.now().toUtc(),
       );
-      if (preserveDuringRefresh) {
+      if (preserveUsableCatalog) {
         _toolCatalogByServerName[normalizedServerName] = previousCatalog
             .copyWith(
               warningMessage: message,

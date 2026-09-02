@@ -32,6 +32,7 @@ import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_bottom_pinned_scroll_controller.dart';
 import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
@@ -170,6 +171,8 @@ class _AnimatedMcpServerList extends StatefulWidget {
 }
 
 class _AnimatedMcpServerListState extends State<_AnimatedMcpServerList> {
+  final ScrollController _scrollController =
+      OpenHandBottomPinnedScrollController(debugLabel: 'MCP 服务列表');
   late List<McpServer> _displayedServers;
 
   @override
@@ -200,12 +203,19 @@ class _AnimatedMcpServerListState extends State<_AnimatedMcpServerList> {
   }
 
   @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final settings = context.select(
       (SettingsController controller) => controller.listItemAnimationSettings,
     );
     final currentNames = widget.servers.map((server) => server.name).toSet();
     return ListView(
+      controller: _scrollController,
       scrollCacheExtent: const ScrollCacheExtent.pixels(600),
       padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
       children: [
@@ -9481,6 +9491,10 @@ class _McpServerCard extends StatefulWidget {
   State<_McpServerCard> createState() => _McpServerCardState();
 }
 
+bool _matchesDismissedDiagnostic(String message, String? dismissed) {
+  return dismissed != null && mcpDiagnosticsAreEquivalent(message, dismissed);
+}
+
 class _McpServerCardState extends State<_McpServerCard> {
   McpServer get server => widget.server;
   McpServerHealth get healthStatus => widget.healthStatus;
@@ -9496,6 +9510,17 @@ class _McpServerCardState extends State<_McpServerCard> {
   final _toolSearchFocusNode = FocusNode();
   bool _showToolSearch = false;
   String _toolSearchKeyword = '';
+  String? _dismissedHealthError;
+  String? _dismissedToolError;
+  String? _dismissedToolWarning;
+
+  @override
+  void didUpdateWidget(covariant _McpServerCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!healthStatus.hasError) _dismissedHealthError = null;
+    if (!toolCatalog.hasError) _dismissedToolError = null;
+    if (!toolCatalog.hasWarning) _dismissedToolWarning = null;
+  }
 
   @override
   void dispose() {
@@ -9535,6 +9560,25 @@ class _McpServerCardState extends State<_McpServerCard> {
               .where((id) => !_mcpThreadTemplateIds.contains(id))
               .toList(growable: true);
     unknownVisibleTemplateIds.sort();
+    final toolErrorDuplicatesHealth =
+        healthStatus.hasError &&
+        toolCatalog.hasError &&
+        mcpDiagnosticsAreEquivalent(
+          healthStatus.errorMessage!,
+          toolCatalog.errorMessage!,
+        );
+    final toolWarningDuplicatesVisibleError =
+        toolCatalog.hasWarning &&
+        (healthStatus.hasError &&
+                mcpDiagnosticsAreEquivalent(
+                  healthStatus.errorMessage!,
+                  toolCatalog.warningMessage!,
+                ) ||
+            toolCatalog.hasError &&
+                mcpDiagnosticsAreEquivalent(
+                  toolCatalog.errorMessage!,
+                  toolCatalog.warningMessage!,
+                ));
 
     return HoverLift(
       child: RepaintBoundary(
@@ -9962,36 +10006,65 @@ class _McpServerCardState extends State<_McpServerCard> {
                     ],
                   ),
                   OpenHandInlineNoticeSlot(
-                    child: healthStatus.hasError
+                    child:
+                        healthStatus.hasError &&
+                            !_matchesDismissedDiagnostic(
+                              healthStatus.errorMessage!,
+                              _dismissedHealthError,
+                            )
                         ? Padding(
                             padding: const EdgeInsets.only(top: 14),
                             child: OpenHandInlineNoticeFactory.error(
                               context,
                               healthStatus.errorMessage!,
+                              onDismiss: () => setState(
+                                () => _dismissedHealthError =
+                                    healthStatus.errorMessage,
+                              ),
                               maxMessageHeight: _mcpNoticeMaxMessageHeight,
                             ),
                           )
                         : null,
                   ),
                   OpenHandInlineNoticeSlot(
-                    child: toolCatalog.hasError
+                    child:
+                        toolCatalog.hasError &&
+                            !toolErrorDuplicatesHealth &&
+                            !_matchesDismissedDiagnostic(
+                              toolCatalog.errorMessage!,
+                              _dismissedToolError,
+                            )
                         ? Padding(
                             padding: const EdgeInsets.only(top: 14),
                             child: OpenHandInlineNoticeFactory.error(
                               context,
                               toolCatalog.errorMessage!,
+                              onDismiss: () => setState(
+                                () => _dismissedToolError =
+                                    toolCatalog.errorMessage,
+                              ),
                               maxMessageHeight: _mcpNoticeMaxMessageHeight,
                             ),
                           )
                         : null,
                   ),
                   OpenHandInlineNoticeSlot(
-                    child: toolCatalog.hasWarning
+                    child:
+                        toolCatalog.hasWarning &&
+                            !toolWarningDuplicatesVisibleError &&
+                            !_matchesDismissedDiagnostic(
+                              toolCatalog.warningMessage!,
+                              _dismissedToolWarning,
+                            )
                         ? Padding(
                             padding: const EdgeInsets.only(top: 14),
                             child: OpenHandInlineNoticeFactory.warning(
                               context,
                               toolCatalog.warningMessage!,
+                              onDismiss: () => setState(
+                                () => _dismissedToolWarning =
+                                    toolCatalog.warningMessage,
+                              ),
                               maxMessageHeight: _mcpNoticeMaxMessageHeight,
                             ),
                           )

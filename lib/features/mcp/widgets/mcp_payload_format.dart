@@ -4,6 +4,21 @@ import 'package:openhand/shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/text_normalization.dart';
+
+final RegExp _mcpJsonRpcRequestIdPattern = RegExp(
+  r'''"id"\s*:\s*(?:"(?:\\.|[^"\\])*"|-?\d+(?:\.\d+)?|null)''',
+  caseSensitive: false,
+);
+
+/// 忽略每次请求都会变化的 JSON-RPC id，识别实际内容相同的诊断信息。
+bool mcpDiagnosticsAreEquivalent(String first, String second) {
+  String identity(String value) => removeInlineWhitespace(
+    value.replaceAll(_mcpJsonRpcRequestIdPattern, '"id":*'),
+  );
+
+  return identity(first) == identity(second);
+}
 
 Object? coerceMcpPayloadValue(String value) {
   final trimmed = value.trim();
