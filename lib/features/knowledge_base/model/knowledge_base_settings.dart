@@ -1,11 +1,14 @@
 import 'dart:convert';
 
 import '../../../shared/net/tcp_port_utils.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/reader_file_type.dart';
+import '../../../shared/util/text_clip.dart';
 
 const _skipDualCapabilityRerankJsonKey =
     'skip_model_rerank_when_embedding_supports_rerank';
+const int _maxKnowledgeBaseSettingsBytes = kBytesPerMiB;
 final RegExp _knowledgeCollectionNameUnsafeCharsPattern = RegExp(
   r'[^a-zA-Z0-9_]+',
 );
@@ -1210,18 +1213,42 @@ class KnowledgeBaseSettings {
     };
   }
 
-  String encode() => jsonEncode(toJson());
+  String encode() {
+    final payload = toJson();
+    _validateJson(payload);
+    final encoded = jsonEncode(payload);
+    if (utf8ByteLength(encoded) > _maxKnowledgeBaseSettingsBytes) {
+      throw const FormatException('知识库配置超过安全上限。');
+    }
+    return encoded;
+  }
 
   static KnowledgeBaseSettings decode(String value) {
     final text = nullIfBlank(value);
     if (text == null) {
       throw const FormatException('知识库配置为空。');
     }
+    if (utf8ByteLength(text) > _maxKnowledgeBaseSettingsBytes) {
+      throw const FormatException('知识库配置超过安全上限。');
+    }
     final decoded = jsonDecode(text);
     if (decoded is! Map) {
       throw const FormatException('知识库配置必须是 JSON 对象。');
     }
-    return KnowledgeBaseSettings.fromJson(stringKeyedMapFromValue(decoded));
+    final payload = stringKeyedMapFromValue(decoded);
+    _validateJson(payload);
+    return KnowledgeBaseSettings.fromJson(payload);
+  }
+
+  static void _validateJson(Map<String, Object?> payload) {
+    validateCanonicalJsonSubset(
+      payload,
+      payload,
+      path: 'knowledge_base_settings',
+      maxDepth: 8,
+      maxContainerItems: 256,
+      maxTotalNodes: 4096,
+    );
   }
 
   static String _string(Object? value, [String fallback = '']) {

@@ -10,6 +10,7 @@ import '../../../shared/util/text_clip.dart';
 import '../model/ai_model_health.dart';
 
 const int _maxHealthRecordCount = 10000;
+const int _maxHealthSettingsBytes = 64 * kBytesPerKiB;
 const int _maxHealthRecordBytes = kBytesPerMiB;
 const int _maxHealthRecordsTotalBytes = 64 * kBytesPerMiB;
 const int _maxHealthMetadataBytes = 512 * kBytesPerKiB;
@@ -43,9 +44,7 @@ class AiModelHealthStore {
         limit: 1,
       );
       if (rows.isEmpty) return const AiModelHealthSettings();
-      return AiModelHealthSettings.fromJson(
-        jsonDecode('${rows.first['value']}'),
-      );
+      return _decodeSettings(rows.first['value']);
     } catch (error, stack) {
       silentLog('ai_model_health_store', '读取模型健康巡检设置', error, stack);
       return const AiModelHealthSettings();
@@ -53,9 +52,10 @@ class AiModelHealthStore {
   }
 
   Future<void> saveSettings(AiModelHealthSettings settings) async {
+    final encoded = _encodeSettings(settings);
     await _database.insert('app_settings', <String, Object?>{
       'key': settingsKey,
-      'value': jsonEncode(settings.toJson()),
+      'value': encoded,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
@@ -257,6 +257,45 @@ class AiModelHealthStore {
         totalBytes > _maxHealthRecordsTotalBytes) {
       throw const FormatException('模型健康记录存储规模超过安全上限。');
     }
+  }
+
+  static AiModelHealthSettings _decodeSettings(Object? value) {
+    if (value is! String || value.trim().isEmpty) {
+      throw const FormatException('模型健康巡检设置为空或类型无效。');
+    }
+    if (utf8ByteLength(value) > _maxHealthSettingsBytes) {
+      throw const FormatException('模型健康巡检设置超过安全上限。');
+    }
+    final decoded = jsonDecode(value);
+    if (decoded is! Map) {
+      throw const FormatException('模型健康巡检设置必须为对象。');
+    }
+    return _settingsFromPayload(stringKeyedMapFromValue(decoded));
+  }
+
+  static String _encodeSettings(AiModelHealthSettings settings) {
+    final payload = settings.toJson();
+    _settingsFromPayload(payload);
+    final encoded = jsonEncode(payload);
+    if (utf8ByteLength(encoded) > _maxHealthSettingsBytes) {
+      throw const FormatException('模型健康巡检设置超过安全上限。');
+    }
+    return encoded;
+  }
+
+  static AiModelHealthSettings _settingsFromPayload(
+    Map<String, Object?> payload,
+  ) {
+    final settings = AiModelHealthSettings.fromJson(payload);
+    validateCanonicalJsonSubset(
+      payload,
+      settings.toJson(),
+      path: 'ai_model_health_settings',
+      maxDepth: 4,
+      maxContainerItems: 32,
+      maxTotalNodes: 64,
+    );
+    return settings;
   }
 
   String _requiredText(
