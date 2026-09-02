@@ -14,6 +14,7 @@ import '../../app/state/settings_controller.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
+import '../../shared/model/assistant_response_completion.dart';
 import '../../shared/model/dingtalk_multimodal_capability.dart';
 import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/util/async_concurrency.dart';
@@ -336,6 +337,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       '钉钉网关规则：仅回复本轮最后一条触发消息；此前消息仅作上下文，不逐条回复。直接输出适合发送给对方的回复。';
   static const String _forcedResponseReminder =
       '钉钉网关规则：回复本轮最后一条有效消息；此前消息仅作上下文。直接输出一条适合发送的回复。';
+  static const String _responseCompletionReminder =
+      '钉钉回复必须完整、可直接发送。若声明查询、调用、重试或继续，立即完成对应动作；不得以冒号、半句或未闭合结构结束。';
   static const String _overloadBusyReply = 'AI 当前较忙，请稍后再试。';
   static const String _responseFailureReply = 'AI 响应失败，请稍后重试。';
   static const int _maxConversationReconcileCount = 12;
@@ -4837,6 +4840,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
                 : conversation.type == DingTalkConversationType.direct
                 ? _directResponseReminder
                 : _groupResponseReminder,
+            _responseCompletionReminder,
             if (mediaRequest != null) mediaRequest.routingReminder,
             if (selectedMcp.isNotEmpty)
               _dingTalkMcpRoutingReminder(selectedMcp, eagerMcpTools),
@@ -5220,6 +5224,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     List<AiSessionMessage> sessionMessages,
   ) {
     if (message.isDeleted) return null;
+    if (message.metadata[assistantResponseContinuationMetadataKey] == true ||
+        message.kind == AiSessionMessageKind.assistant &&
+            assistantResponseNeedsContinuation(message.content)) {
+      return null;
+    }
     if (_isToolEchoArtifact(message)) return null;
     if (message.kind == AiSessionMessageKind.assistant &&
         isDingTalkMediaInvocationPreamble(message.content)) {
@@ -7385,13 +7394,13 @@ class _DingTalkEchoCoordinator {
       final state = _states[message.id];
       final queued = _pending[message.id];
       final resolvedType = _typeOf(message, session.messages);
-      // 已命中工具路由时，调用前的助手文本仍可能被后续判为过程消息；
-      // 等工具活动出现后再确定类型，避免多发一张残缺的正式响应卡。
+      final terminal = _isTerminal(message);
+      // 正式回复至少等待当前模型流完成；否则未完整的中间文本会先被当成
+      // 最终答案发送，后续即使自动续接也会留下突兀的半句。
       if (state == null &&
-          _expectToolActivity &&
-          !followsToolActivity &&
           resolvedType == DingTalkResponseEchoType.finalResponse &&
-          !finalizing) {
+          !finalizing &&
+          (!terminal || _expectToolActivity && !followsToolActivity)) {
         _pending.remove(message.id);
         continue;
       }
@@ -7414,7 +7423,6 @@ class _DingTalkEchoCoordinator {
       final text = _textFor(message, session.messages).trim();
       if (text.isEmpty) continue;
       if (state?.finished == true && state?.lastText == text) continue;
-      final terminal = _isTerminal(message);
       if (state != null && state.lastText == text) {
         if (terminal) {
           state.finished = true;

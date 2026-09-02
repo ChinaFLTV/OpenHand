@@ -18,6 +18,7 @@ import '../../app/support/openhand_paths.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
+import '../../shared/model/assistant_response_completion.dart';
 import '../../shared/net/sse_line_parsing.dart';
 import '../../shared/ui/structured_error_text.dart';
 import '../../shared/util/async_concurrency.dart';
@@ -314,6 +315,11 @@ class AiSessionController extends ChangeNotifier {
     'issue',
   };
   static const String _emptyPlanContinuationReplyError = '工具执行后，助手返回了空的后续响应。';
+  static const String _incompleteResponseContinuationError =
+      '模型连续返回未完成的回复，已停止自动续接。';
+  static const String _incompleteResponseContinuationNotice =
+      '上一条助手回复声明将继续执行，但未完成工具调用或最终结论。立即完成对应动作，不要重复前导语。';
+  static const int _maxIncompleteResponseContinuations = 3;
   static const String _plainTextPlanApprovalRequestError =
       '计划模式审批必须使用 ExitPlanMode。禁止通过普通对话或 AskUserChoice 请求审批；必要时先刷新 TodoWrite，再调用 ExitPlanMode。';
   static const String _sessionMessagesLoadingError = '会话消息仍在加载中。';
@@ -7194,6 +7200,10 @@ class AiSessionController extends ChangeNotifier {
     // 用实例字段会互相污染——另一个会话开始时把计数清零，本会话的截断续接
     // 上限就永远触发不了，退化成无限续接。
     var truncationContinuationCount = 0;
+    var incompleteResponseContinuationCount = 0;
+    final isDingTalkGatewayResponse =
+        '${runtimeContext.toolExecutionMetadata['source'] ?? ''}' ==
+        'dingtalk_gateway';
     final effectiveCreationRequest = _resolveCreationRequestForRound(
       session: session,
       latestUserMessageId: latestUserMessageId,
@@ -8907,6 +8917,59 @@ class AiSessionController extends ChangeNotifier {
       }
 
       if (result.toolCalls.isEmpty) {
+        if (isDingTalkGatewayResponse &&
+            !result.wasTruncated &&
+            !didCancelStream &&
+            !workingSession.awaitingPlanApproval &&
+            assistantResponseNeedsContinuation(sanitizedFinalReply)) {
+          if (incompleteResponseContinuationCount <
+              _maxIncompleteResponseContinuations) {
+            incompleteResponseContinuationCount += 1;
+            final statusMessage = AiSessionMessage.status(
+              id: _idGenerator(),
+              content: _incompleteResponseContinuationNotice,
+              createdAt: _clock().toUtc(),
+              metadata: <String, Object?>{
+                assistantResponseContinuationMetadataKey: true,
+                'continuation_attempt': incompleteResponseContinuationCount,
+              },
+            );
+            workingSession = _rebuildSession(
+              workingSession.copyWith(
+                updatedAt: statusMessage.createdAt,
+                messages: <AiSessionMessage>[
+                  ...workingSession.messages,
+                  statusMessage,
+                ],
+              ),
+            );
+            if (!await _commitSessionLocked(workingSession)) {
+              _setLastSendErrorMessage(workingSession.id, '保存自动续接状态失败。');
+              return false;
+            }
+            activeLatestUserMessageId = null;
+            continue;
+          }
+          await _emitStopFailureHook(
+            sessionId: workingSession.id,
+            stage: 'chat_continuation_request',
+            detail: _incompleteResponseContinuationError,
+          );
+          final failedSession = _appendError(
+            workingSession,
+            stage: 'chat_continuation_request',
+            message: _incompleteResponseContinuationError,
+            detail: _incompleteResponseContinuationError,
+          );
+          await _commitSessionLocked(_rebuildSession(failedSession));
+          _setLastSendErrorMessage(
+            workingSession.id,
+            _incompleteResponseContinuationError,
+          );
+          notifyListeners();
+          return false;
+        }
+        incompleteResponseContinuationCount = 0;
         // 模型输出因令牌上限截断且没有工具调用时自动续传，有界计数防止死循环。
         if (result.wasTruncated &&
             !didCancelStream &&
@@ -9050,6 +9113,7 @@ class AiSessionController extends ChangeNotifier {
       }
       // 模型已产生工具调用，说明流程正常推进，重置截断计数。
       truncationContinuationCount = 0;
+      incompleteResponseContinuationCount = 0;
       toolCallCount += result.toolCalls.length;
       if (toolCallCount > singleRoundToolCallLimit) {
         final limitedToolSession = _markPendingToolCallsFailed(
