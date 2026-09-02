@@ -24,6 +24,8 @@ import '../model/ai_token_usage.dart';
 
 enum AiSessionPersistenceIssueKind { recoveredInvalidFile }
 
+const String aiSessionEditorTabsSettingPrefix = 'editor_tabs_';
+
 class AiSessionPersistenceIssue {
   const AiSessionPersistenceIssue({
     required this.kind,
@@ -137,6 +139,8 @@ class AiSessionStore {
   static const int _pendingSessionCleanupMaxBytes = 256 * kBytesPerKiB;
   static const String _pendingSessionCleanupSettingPrefix =
       'ai_session_cleanup:';
+  static const String _legacyEmptyEditorTabsPayload =
+      '{"open_files":[],"active_file":null}';
   static const BoundedDeletePolicy _pendingSessionCleanupDeletePolicy =
       BoundedDeletePolicy(
         maxEntries: 100000,
@@ -1697,6 +1701,13 @@ class AiSessionStore {
               where: 'id = ?',
               whereArgs: <Object?>[normalizedSessionId],
             );
+            await txn.delete(
+              'app_settings',
+              where: 'key = ?',
+              whereArgs: <Object?>[
+                '$aiSessionEditorTabsSettingPrefix$normalizedSessionId',
+              ],
+            );
           });
           await _deleteSessionArtifacts(normalizedSessionId);
           await _deletePendingSessionCleanup(normalizedSessionId);
@@ -1733,6 +1744,7 @@ class AiSessionStore {
     return _sessionCleanupQueue.enqueue(() async {
       try {
         await _migratePendingSessionCleanupFile();
+        await _pruneEditorTabsSettings();
         final pending = await _loadPendingSessionCleanups();
         if (pending.isEmpty) return;
         for (final sessionId in pending) {
@@ -1823,6 +1835,28 @@ class AiSessionStore {
     );
   }
 
+  Future<void> _pruneEditorTabsSettings() async {
+    await _db.rawDelete(
+      '''
+      DELETE FROM app_settings
+      WHERE key GLOB ?
+        AND (
+          value = ?
+          OR NOT EXISTS (
+            SELECT 1
+            FROM sessions
+            WHERE app_settings.key = ? || sessions.id
+          )
+        )
+      ''',
+      <Object?>[
+        '$aiSessionEditorTabsSettingPrefix*',
+        _legacyEmptyEditorTabsPayload,
+        aiSessionEditorTabsSettingPrefix,
+      ],
+    );
+  }
+
   Future<void> _migratePendingSessionCleanupFile() async {
     final file = _pendingSessionCleanupFile;
     try {
@@ -1887,7 +1921,14 @@ class AiSessionStore {
   /// 调用前应确保控制器没有活动流；完成后由调用方刷新内存状态。
   Future<void> clearAll() async {
     _savedMessagesShadowBySessionId.clear();
-    await _db.delete('sessions');
+    await _db.transaction((txn) async {
+      await txn.delete('sessions');
+      await txn.delete(
+        'app_settings',
+        where: 'key GLOB ?',
+        whereArgs: const <Object?>['$aiSessionEditorTabsSettingPrefix*'],
+      );
+    });
     final root = Directory(_sessionsDirectoryPath);
     await deletePathBounded(
       p.absolute(root.path),

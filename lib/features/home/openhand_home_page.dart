@@ -134,6 +134,7 @@ import '../../shared/util/path_safety.dart';
 import '../../shared/util/physical_path_safety.dart';
 import '../../shared/util/platform_shell.dart';
 import '../../shared/util/stable_hash.dart';
+import '../../shared/util/storage_identifier.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/text_fingerprint.dart';
 import '../../shared/util/text_normalization.dart';
@@ -465,6 +466,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   final Set<String> _visibleMachineTerminalPanelSessionIds = <String>{};
   final List<String> _openFilePaths = [];
   static const int _maxOpenEditorTabs = 24;
+  static const int _maxEditorTabPathCharacters = 16 * kBytesPerKiB;
+  static const int _maxEditorTabsPayloadBytes = 512 * kBytesPerKiB;
   String? _activeFilePath;
   String? _editorTabsSessionId;
   late final OpenHandDebouncer _editorTabsSaveDebouncer = OpenHandDebouncer(
@@ -569,15 +572,35 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   Future<void> _persistEditorTabs() async {
     final sessionId = _editorTabsSessionId;
-    if (sessionId == null || sessionId.trim().isEmpty) return;
+    final settingKey = sessionId == null
+        ? null
+        : _editorTabsSettingKey(sessionId);
+    if (settingKey == null) return;
     try {
       final db = DatabaseService.instance.database;
+      final openFiles = _openFilePaths
+          .where(_isPersistableEditorTabPath)
+          .take(_maxOpenEditorTabs)
+          .toList(growable: false);
+      if (openFiles.isEmpty) {
+        await db.delete(
+          'app_settings',
+          where: 'key = ?',
+          whereArgs: <Object?>[settingKey],
+        );
+        return;
+      }
       final payload = jsonEncode(<String, Object?>{
-        'open_files': _openFilePaths,
-        'active_file': _activeFilePath,
+        'open_files': openFiles,
+        'active_file': openFiles.contains(_activeFilePath)
+            ? _activeFilePath
+            : null,
       });
+      if (utf8ByteLength(payload) > _maxEditorTabsPayloadBytes) {
+        throw const FormatException('编辑器标签页状态超过安全上限。');
+      }
       await db.insert('app_settings', <String, Object?>{
-        'key': 'editor_tabs_$sessionId',
+        'key': settingKey,
         'value': payload,
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     } catch (error, stack) {
@@ -586,39 +609,46 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   Future<void> _restoreEditorTabs(String sessionId) async {
+    final settingKey = _editorTabsSettingKey(sessionId);
+    if (settingKey == null) return;
     try {
       final db = DatabaseService.instance.database;
       final rows = await db.query(
         'app_settings',
         where: 'key = ?',
-        whereArgs: <Object?>['editor_tabs_$sessionId'],
+        whereArgs: <Object?>[settingKey],
         limit: 1,
       );
       if (!mounted || _editorTabsSessionId != sessionId) return;
       if (rows.isEmpty) return;
-      final jsonStr = rows.first['value'] as String?;
-      if (jsonStr == null || jsonStr.isEmpty) return;
+      final jsonStr = rows.first['value'];
+      if (jsonStr is! String || jsonStr.isEmpty) return;
+      if (utf8ByteLength(jsonStr) > _maxEditorTabsPayloadBytes) {
+        throw const FormatException('编辑器标签页状态超过安全上限。');
+      }
       final decoded = jsonDecode(jsonStr);
-      if (decoded is! Map<String, Object?>) return;
-      final openFiles = decoded['open_files'];
-      final activeFile = decoded['active_file'] as String?;
+      if (decoded is! Map) return;
+      final payload = stringKeyedMapFromValue(decoded);
+      final openFiles = payload['open_files'];
+      final activeFile = payload['active_file'];
       if (openFiles is List) {
+        if (openFiles.length > _maxOpenEditorTabs) {
+          throw const FormatException('编辑器标签页数量超过安全上限。');
+        }
         final validFiles = <String>[];
         final seenFiles = <String>{};
         for (final item in openFiles) {
-          if (item is String && item.isNotEmpty && seenFiles.add(item)) {
-            validFiles.add(item);
+          if (_isPersistableEditorTabPath(item) && seenFiles.add(item)) {
+            final itemPath = item as String;
+            validFiles.add(itemPath);
           }
-        }
-        if (validFiles.length > _maxOpenEditorTabs) {
-          validFiles.removeRange(0, validFiles.length - _maxOpenEditorTabs);
         }
         if (validFiles.isNotEmpty) {
           setState(() {
             _openFilePaths.clear();
             _openFilePaths.addAll(validFiles);
             _activeFilePath =
-                activeFile != null && validFiles.contains(activeFile)
+                activeFile is String && validFiles.contains(activeFile)
                 ? activeFile
                 : validFiles.last;
           });
@@ -627,6 +657,20 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     } catch (error, stack) {
       silentLog('openhand_home_page', '恢复编辑器标签页', error, stack);
     }
+  }
+
+  static String? _editorTabsSettingKey(String sessionId) {
+    final normalized = sessionId.trim();
+    return isSafeStorageIdentifier(normalized)
+        ? '$aiSessionEditorTabsSettingPrefix$normalized'
+        : null;
+  }
+
+  static bool _isPersistableEditorTabPath(Object? value) {
+    return value is String &&
+        value.isNotEmpty &&
+        value.length <= _maxEditorTabPathCharacters &&
+        !value.contains('\u0000');
   }
 
   void _syncEditorTabsForSession(String? sessionId) {
