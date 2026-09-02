@@ -2,6 +2,81 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:openhand/features/message_gateway/model/dingtalk_message_gateway.dart';
 
 void main() {
+  group('钉钉消息身份', () {
+    test('dws 发送标记不代表当前用户', () {
+      expect(
+        isDingTalkMessageExplicitlyFromSelf(<String, Object?>{
+          'messageAiSendFlag': 'dws',
+        }),
+        isFalse,
+      );
+      expect(
+        isDingTalkMessageExplicitlyFromSelf(<String, Object?>{
+          'messageAiSendFlag': 'dws',
+          'isSelf': true,
+        }),
+        isTrue,
+      );
+    });
+  });
+
+  group('钉钉贴表情', () {
+    test('解析同一贴表情的多个用户并保持顺序去重', () {
+      final payload = <String, Object?>{
+        'reactions': <String, Object?>{
+          'details': <Object?>[
+            <String, Object?>{
+              'reaction': '鼓掌',
+              'replyUsers': <Object?>[
+                <String, Object?>{'name': '王秀杰'},
+                <String, Object?>{'name': '王秀杰'},
+                <String, Object?>{'userName': '唐皓伦'},
+              ],
+            },
+            <String, Object?>{
+              'reaction': '如何呢',
+              'replyUsers': <Object?>[
+                <String, Object?>{'displayName': '王秀杰'},
+              ],
+            },
+          ],
+        },
+      };
+
+      expect(parseDingTalkMessageReactions(payload), <String>['👏', '如何呢']);
+      expect(parseDingTalkReactionUsers(payload), <String, List<String>>{
+        '👏': <String>['王秀杰', '唐皓伦'],
+        '如何呢': <String>['王秀杰'],
+      });
+    });
+
+    test('兼容旧快照并持久化贴表情用户', () {
+      final createdAt = DateTime.utc(2026, 9, 2, 20, 25);
+      final legacy = DingTalkGatewayMessage.fromJson(<String, Object?>{
+        'id': 'legacy-message',
+        'conversation_id': 'conversation',
+        'conversation_type': 'group',
+        'role': 'user',
+        'content': '旧消息',
+        'created_at': createdAt.toIso8601String(),
+        'reactions': <String>['鼓掌'],
+      });
+      expect(legacy.reactions, <String>['👏']);
+      expect(legacy.reactionUsers, isEmpty);
+
+      final current = legacy.copyWith(
+        reactionUsers: <String, List<String>>{
+          '👏': <String>['王秀杰', '唐皓伦'],
+        },
+      );
+      final restored = DingTalkGatewayMessage.fromJson(current.toJson());
+      expect(restored.reactions, <String>['👏']);
+      expect(restored.reactionUsers, <String, List<String>>{
+        '👏': <String>['王秀杰', '唐皓伦'],
+      });
+    });
+  });
+
   group('normalizeDingTalkConversationMessages', () {
     test(
       'repairs malformed IDs and duplicate source ownership deterministically',

@@ -2149,6 +2149,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         _outgoingEchoContentSnapshots.clear();
       }
       _authStatus = next;
+      if (_repairPersistedMessageOwnership()) _queuePersist();
       if (!_authStatus.authenticated && _isPolling) {
         unawaited(stopPolling());
       }
@@ -3569,6 +3570,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final mentionChanged =
         remote.mentionedCurrentUser && !current.mentionedCurrentUser;
     final readChanged = remote.readByPeer && !current.readByPeer;
+    final remoteFromSelf = remote.fromSelf || _matchesCurrentIdentity(remote);
+    final ownershipChanged =
+        current.fromSelf != remoteFromSelf &&
+        (remoteFromSelf || _hasResolvedOtherIdentity(remote));
     final reactions = remote.reactionSnapshotComplete
         ? remote.reactions
         : <String>{
@@ -3576,6 +3581,19 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             ...remote.reactions,
           }.take(kDingTalkMaxReactionTypes).toList(growable: false);
     final reactionsChanged = !listEquals(reactions, current.reactions);
+    final reactionUsers = remote.reactionSnapshotComplete
+        ? remote.reactionUsers
+        : <String, List<String>>{
+            for (final entry in current.reactionUsers.entries)
+              entry.key: List<String>.from(entry.value),
+            for (final entry in remote.reactionUsers.entries)
+              entry.key: <String>{
+                ...current.reactionUsers[entry.key] ?? const <String>[],
+                ...entry.value,
+              }.take(kDingTalkMaxReactionUsers).toList(growable: false),
+          };
+    final reactionUsersChanged =
+        jsonEncode(reactionUsers) != jsonEncode(current.reactionUsers);
     if (!contentChanged &&
         !recalledChanged &&
         !mediaChanged &&
@@ -3584,7 +3602,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         !automaticReplyChanged &&
         !mentionChanged &&
         !readChanged &&
-        !reactionsChanged) {
+        !ownershipChanged &&
+        !reactionsChanged &&
+        !reactionUsersChanged) {
       return;
     }
 
@@ -3639,8 +3659,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           : null,
       mentionedCurrentUser: mentionChanged ? true : null,
       readByPeer: readChanged ? true : null,
+      fromSelf: ownershipChanged ? remoteFromSelf : null,
       recalled: recalledChanged ? true : null,
       reactions: reactionsChanged ? reactions : null,
+      reactionUsers: reactionUsersChanged ? reactionUsers : null,
       editHistory: history,
     );
     _queuePersist();
@@ -3804,18 +3826,42 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           updated = current.copyWith(recalled: true);
         }
       case DingTalkGatewayEventType.reaction:
-        final reaction = event.reaction.trim();
+        final reaction = normalizeDingTalkReaction(event.reaction);
         if (reaction.isEmpty) return true;
         final reactions = List<String>.from(current.reactions);
+        final reactionUsers = <String, List<String>>{
+          for (final entry in current.reactionUsers.entries)
+            entry.key: List<String>.from(entry.value),
+        };
+        final reactionUser = event.reactionUser.trim();
         if (event.reactionRemoved) {
-          reactions.remove(reaction);
+          if (reactionUser.isEmpty) {
+            reactions.remove(reaction);
+            reactionUsers.remove(reaction);
+          } else {
+            final users = reactionUsers[reaction];
+            users?.remove(reactionUser);
+            if (users != null && users.isEmpty) {
+              reactionUsers.remove(reaction);
+              reactions.remove(reaction);
+            }
+          }
         } else if (!reactions.contains(reaction) &&
             reactions.length < kDingTalkMaxReactionTypes) {
           reactions.add(reaction);
         }
-        if (!listEquals(reactions, current.reactions)) {
+        if (!event.reactionRemoved && reactionUser.isNotEmpty) {
+          final users = reactionUsers.putIfAbsent(reaction, () => <String>[]);
+          if (!users.contains(reactionUser) &&
+              users.length < kDingTalkMaxReactionUsers) {
+            users.add(reactionUser);
+          }
+        }
+        if (!listEquals(reactions, current.reactions) ||
+            jsonEncode(reactionUsers) != jsonEncode(current.reactionUsers)) {
           updated = current.copyWith(
             reactions: reactions.toList(growable: false),
+            reactionUsers: reactionUsers,
           );
         }
       case DingTalkGatewayEventType.message:
@@ -3845,6 +3891,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       (item) =>
           item.type == event.type &&
           item.reaction == event.reaction &&
+          item.reactionUser == event.reactionUser &&
           item.reactionRemoved == event.reactionRemoved,
     );
     if (!duplicate) {
@@ -6966,8 +7013,7 @@ ${_markdownStructuredFields(response)}''';
         );
   }
 
-  bool _isSelf(DingTalkGatewayMessage message) {
-    if (message.isAssistant || message.fromSelf) return true;
+  bool _matchesCurrentIdentity(DingTalkGatewayMessage message) {
     final sender = message.senderId.trim();
     final senderOpenDingTalkId = message.senderOpenDingTalkId.trim();
     final current = _authStatus.identity.userId.trim();
@@ -6985,9 +7031,58 @@ ${_markdownStructuredFields(response)}''';
       return true;
     }
     if (senderOpenDingTalkId.isNotEmpty &&
-        ((currentOpenDingTalkId.isNotEmpty &&
-                senderOpenDingTalkId == currentOpenDingTalkId) ||
-            _selfSenderIds.contains(senderOpenDingTalkId))) {
+        currentOpenDingTalkId.isNotEmpty &&
+        senderOpenDingTalkId == currentOpenDingTalkId) {
+      return true;
+    }
+    final senderName = message.senderName.trim();
+    final identityName = _authStatus.identity.name.trim();
+    final identityLabel = _authStatus.identity.label.trim();
+    final senderNameMatches =
+        senderName.isNotEmpty &&
+        ((identityName.isNotEmpty &&
+                _sameIdentityName(senderName, identityName)) ||
+            (identityLabel.isNotEmpty &&
+                _sameIdentityName(senderName, identityLabel)));
+    return senderNameMatches;
+  }
+
+  bool _hasResolvedOtherIdentity(DingTalkGatewayMessage message) {
+    final senderName = message.senderName.trim();
+    final identityName = _authStatus.identity.name.trim();
+    return senderName.isNotEmpty &&
+        identityName.isNotEmpty &&
+        !_sameIdentityName(senderName, identityName);
+  }
+
+  bool _repairPersistedMessageOwnership() {
+    var changed = false;
+    for (final conversation in _conversations.values) {
+      for (var index = 0; index < conversation.messages.length; index++) {
+        final message = conversation.messages[index];
+        if (message.isAssistant ||
+            !message.fromSelf ||
+            _matchesCurrentIdentity(message) ||
+            !_hasResolvedOtherIdentity(message)) {
+          continue;
+        }
+        _selfSenderIds
+          ..remove(message.senderId.trim())
+          ..remove(message.senderOpenDingTalkId.trim());
+        conversation.messages[index] = message.copyWith(fromSelf: false);
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  bool _isSelf(DingTalkGatewayMessage message) {
+    if (message.isAssistant || message.fromSelf) return true;
+    if (_matchesCurrentIdentity(message)) return true;
+    final sender = message.senderId.trim();
+    final senderOpenDingTalkId = message.senderOpenDingTalkId.trim();
+    if (senderOpenDingTalkId.isNotEmpty &&
+        _selfSenderIds.contains(senderOpenDingTalkId)) {
       return true;
     }
     final senderName = message.senderName.trim();
@@ -7003,7 +7098,7 @@ ${_markdownStructuredFields(response)}''';
       if (senderName.isEmpty || senderNameMatches) return true;
       _selfSenderIds.remove(sender);
     }
-    return senderNameMatches;
+    return false;
   }
 
   bool _isIncomingIdentityUnresolved(DingTalkGatewayMessage message) {

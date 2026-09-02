@@ -484,6 +484,156 @@ String normalizeDingTalkReaction(Object? value) {
 }
 
 const int kDingTalkMaxReactionTypes = 12;
+const int kDingTalkMaxReactionUsers = 50;
+
+/// 仅识别钉钉明确返回的本人标记，发送通道不代表消息发送人。
+bool isDingTalkMessageExplicitlyFromSelf(Map<String, Object?> message) =>
+    const <String>[
+      'isSelf',
+      'is_self',
+      'isMine',
+      'is_mine',
+      'isSelfLoop',
+      'is_self_loop',
+    ].any((key) => boolFromValue(message[key]));
+
+List<String> _dingTalkReactionUserNames(Object? value) {
+  final result = <String>[];
+
+  void visit(Object? current, int depth) {
+    if (current == null ||
+        depth > 3 ||
+        result.length >= kDingTalkMaxReactionUsers) {
+      return;
+    }
+    if (current is List) {
+      for (final item in current) {
+        visit(item, depth + 1);
+        if (result.length >= kDingTalkMaxReactionUsers) return;
+      }
+      return;
+    }
+    if (current is Map) {
+      final map = stringKeyedMapFromValue(current);
+      final name =
+          const <String>[
+                'name',
+                'nick',
+                'nickname',
+                'userName',
+                'user_name',
+                'displayName',
+                'display_name',
+              ]
+              .map((key) => _normalizedDingTalkString(map[key]))
+              .firstWhere((item) => item.isNotEmpty, orElse: () => '');
+      if (name.isNotEmpty && !result.contains(name)) result.add(name);
+      for (final key in const <String>['user', 'member', 'operator']) {
+        if (map.containsKey(key)) visit(map[key], depth + 1);
+      }
+      return;
+    }
+    final name = _normalizedDingTalkString(current);
+    if (name.isNotEmpty && !result.contains(name)) result.add(name);
+  }
+
+  visit(value, 0);
+  return result.toList(growable: false);
+}
+
+/// 解析每种贴表情对应的用户，兼容查询结果与本地持久化格式。
+Map<String, List<String>> parseDingTalkReactionUsers(
+  Map<String, Object?> message,
+) {
+  final result = <String, List<String>>{};
+
+  void add(Object? rawReaction, Object? rawUsers) {
+    final reaction = normalizeDingTalkReaction(rawReaction);
+    if (reaction.isEmpty ||
+        !result.containsKey(reaction) &&
+            result.length >= kDingTalkMaxReactionTypes) {
+      return;
+    }
+    final users = result.putIfAbsent(reaction, () => <String>[]);
+    for (final user in _dingTalkReactionUserNames(rawUsers)) {
+      if (users.length >= kDingTalkMaxReactionUsers) break;
+      if (!users.contains(user)) users.add(user);
+    }
+    if (users.isEmpty) result.remove(reaction);
+  }
+
+  final stored = message['reaction_users'] ?? message['reactionUsers'];
+  if (stored is Map) {
+    for (final entry in stored.entries) {
+      add(entry.key, entry.value);
+    }
+  }
+
+  void visit(Object? value, int depth) {
+    if (value == null || depth > 4) return;
+    if (value is List) {
+      for (final item in value) {
+        visit(item, depth + 1);
+      }
+      return;
+    }
+    if (value is! Map) return;
+    final map = stringKeyedMapFromValue(value);
+    Object? reaction;
+    for (final key in const <String>[
+      'reaction',
+      'emoji',
+      'emoji_code',
+      'emojiCode',
+      'reaction_text',
+      'reactionText',
+      'reaction_name',
+      'reactionName',
+      'reaction_type',
+      'reactionType',
+      'type',
+      'value',
+      'content',
+    ]) {
+      final candidate = map[key];
+      if ((candidate is String || candidate is num) &&
+          normalizeDingTalkReaction(candidate).isNotEmpty) {
+        reaction = candidate;
+        break;
+      }
+    }
+    final users = const <String>[
+      'replyUsers',
+      'reply_users',
+      'users',
+      'userNames',
+      'user_names',
+      'reactors',
+    ].where(map.containsKey).expand((key) => <Object?>[map[key]]).toList();
+    if (reaction != null && users.isNotEmpty) add(reaction, users);
+    for (final key in const <String>[
+      'details',
+      'emotionReplyList',
+      'emotion_reply_list',
+      'reactions',
+      'reactionList',
+      'reaction_list',
+    ]) {
+      if (map.containsKey(key)) visit(map[key], depth + 1);
+    }
+  }
+
+  visit(<Object?>[
+    message['emotionReplyList'],
+    message['emotion_reply_list'],
+    message['reactions'],
+    message['reactionList'],
+    message['reaction_list'],
+  ], 0);
+  return result.map(
+    (reaction, users) => MapEntry(reaction, users.toList(growable: false)),
+  );
+}
 
 /// 解析钉钉消息查询结果中的全部贴表情，兼容新旧字段和嵌套结构。
 List<String> parseDingTalkMessageReactions(Map<String, Object?> message) {
@@ -505,11 +655,16 @@ List<String> parseDingTalkMessageReactions(Map<String, Object?> message) {
     if (value is Map) {
       final map = stringKeyedMapFromValue(value);
       for (final key in const <String>[
+        'details',
         'emotionReplyList',
         'emotion_reply_list',
         'reactions',
         'reactionList',
         'reaction_list',
+      ]) {
+        if (map.containsKey(key)) visit(map[key], depth + 1);
+      }
+      for (final key in const <String>[
         'reaction',
         'emoji',
         'emoji_code',
@@ -524,7 +679,11 @@ List<String> parseDingTalkMessageReactions(Map<String, Object?> message) {
         'value',
         'content',
       ]) {
-        if (map.containsKey(key)) visit(map[key], depth + 1);
+        final candidate = map[key];
+        if (candidate is! String && candidate is! num) continue;
+        if (normalizeDingTalkReaction(candidate).isEmpty) continue;
+        visit(candidate, depth + 1);
+        break;
       }
       return;
     }
@@ -542,6 +701,12 @@ List<String> parseDingTalkMessageReactions(Map<String, Object?> message) {
     message['reaction_list'],
     message['reaction'],
   ], 0);
+  for (final reaction in parseDingTalkReactionUsers(message).keys) {
+    if (!result.contains(reaction) &&
+        result.length < kDingTalkMaxReactionTypes) {
+      result.add(reaction);
+    }
+  }
   return result.toList(growable: false);
 }
 
@@ -1068,6 +1233,7 @@ class DingTalkGatewayEvent {
     required this.conversationType,
     this.message,
     this.reaction = '',
+    this.reactionUser = '',
     this.reactionRemoved = false,
   });
 
@@ -1077,6 +1243,7 @@ class DingTalkGatewayEvent {
   final DingTalkConversationType conversationType;
   final DingTalkGatewayMessage? message;
   final String reaction;
+  final String reactionUser;
   final bool reactionRemoved;
 }
 
@@ -2052,6 +2219,7 @@ class DingTalkGatewayMessage {
     this.recalled = false,
     this.ignoredForAiContext = false,
     this.reactions = const <String>[],
+    this.reactionUsers = const <String, List<String>>{},
     this.reactionSnapshotComplete = false,
     this.editHistory = const <DingTalkMessageEditRecord>[],
     this.sourceAiMessageId = '',
@@ -2165,6 +2333,7 @@ class DingTalkGatewayMessage {
     final content = textContent.isEmpty && media.isNotEmpty
         ? media.map((item) => '[${item.displayName}]').join(' ')
         : textContent;
+    final reactionUsers = parseDingTalkReactionUsers(json);
     return DingTalkGatewayMessage(
       id: id,
       conversationId: conversationId,
@@ -2201,6 +2370,7 @@ class DingTalkGatewayMessage {
       ),
       ignoredForAiContext: boolFromValue(json['ignored_for_ai_context']),
       reactions: parseDingTalkMessageReactions(json),
+      reactionUsers: reactionUsers,
       editHistory: editHistory,
       sourceAiMessageId: '${json['source_ai_message_id'] ?? ''}'.trim(),
       responseEchoType: DingTalkResponseEchoType.fromStorage(
@@ -2234,6 +2404,7 @@ class DingTalkGatewayMessage {
   final bool recalled;
   final bool ignoredForAiContext;
   final List<String> reactions;
+  final Map<String, List<String>> reactionUsers;
   // 仅表示当前对象来自完整查询结果，不写入持久化数据。
   final bool reactionSnapshotComplete;
   final List<DingTalkMessageEditRecord> editHistory;
@@ -2283,6 +2454,7 @@ class DingTalkGatewayMessage {
     bool? recalled,
     bool? ignoredForAiContext,
     List<String>? reactions,
+    Map<String, List<String>>? reactionUsers,
     bool? reactionSnapshotComplete,
     List<DingTalkMessageEditRecord>? editHistory,
     String? sourceAiMessageId,
@@ -2316,6 +2488,7 @@ class DingTalkGatewayMessage {
       recalled: recalled ?? this.recalled,
       ignoredForAiContext: ignoredForAiContext ?? this.ignoredForAiContext,
       reactions: reactions ?? this.reactions,
+      reactionUsers: reactionUsers ?? this.reactionUsers,
       reactionSnapshotComplete:
           reactionSnapshotComplete ?? this.reactionSnapshotComplete,
       editHistory: editHistory ?? this.editHistory,
@@ -2352,6 +2525,7 @@ class DingTalkGatewayMessage {
     'recalled': recalled,
     'ignored_for_ai_context': ignoredForAiContext,
     'reactions': reactions,
+    'reaction_users': reactionUsers,
     'edit_history': editHistory
         .map((item) => item.toJson())
         .toList(growable: false),

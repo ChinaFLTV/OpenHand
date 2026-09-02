@@ -16649,7 +16649,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     }
     final read =
         widget.message.readByPeer ||
-        (!widget.message.isAssistant && !widget.message.fromSelf);
+        (!widget.message.isAssistant && !widget.mine);
     return read
         ? (icon: Icons.mark_email_read_outlined, label: '已读')
         : (icon: Icons.mark_email_unread_outlined, label: '未读');
@@ -17746,7 +17746,13 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     final reactions = widget.message.reactions
         .map(normalizeDingTalkReaction)
         .where((reaction) => reaction.isNotEmpty)
-        .map((label) => (label: label, isEmoji: isDingTalkReactionEmoji(label)))
+        .map(
+          (label) => (
+            label: label,
+            isEmoji: isDingTalkReactionEmoji(label),
+            users: widget.message.reactionUsers[label] ?? const <String>[],
+          ),
+        )
         .toList(growable: false);
     if (reactions.isEmpty) return const SizedBox.shrink();
     final motionDuration = openHandMotionDuration(context, kOpenHandMotion220);
@@ -17786,45 +17792,80 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                   );
                 },
                 child: Semantics(
-                  label: '贴表情：${reactions[index].label}',
+                  label:
+                      '贴表情：${reactions[index].label}'
+                      '${reactions[index].users.isEmpty ? '' : '，用户：${reactions[index].users.join(',')}'}',
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 148),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Color.alphaBlend(
-                          containerColors[index % containerColors.length]
-                              .withValues(alpha: 0.22),
-                          colors.surfaceContainerHigh,
-                        ),
-                        borderRadius: kOpenHandPillBorderRadius,
-                        border: Border.all(
-                          color: containerColors[index % containerColors.length]
-                              .withValues(alpha: 0.48),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: colors.shadow.withValues(alpha: 0.08),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
+                    constraints: const BoxConstraints(maxWidth: 260),
+                    child: SizedBox(
+                      height: 30,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Color.alphaBlend(
+                            containerColors[index % containerColors.length]
+                                .withValues(alpha: 0.22),
+                            colors.surfaceContainerHigh,
                           ),
-                        ],
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 3,
+                          borderRadius: kOpenHandPillBorderRadius,
+                          border: Border.all(
+                            color:
+                                containerColors[index % containerColors.length]
+                                    .withValues(alpha: 0.48),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: colors.shadow.withValues(alpha: 0.08),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
-                        child: Text(
-                          reactions[index].label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: foreground,
-                            fontSize: reactions[index].isEmoji ? 16 : 12,
-                            fontWeight: reactions[index].isEmoji
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                            height: 1,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 9),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 96),
+                                child: Text(
+                                  reactions[index].label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    color: foreground,
+                                    fontSize: reactions[index].isEmoji
+                                        ? 16
+                                        : 12,
+                                    fontWeight: reactions[index].isEmoji
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                                    height: 1,
+                                  ),
+                                ),
+                              ),
+                              if (reactions[index].users.isNotEmpty) ...[
+                                const SizedBox(width: 7),
+                                Container(
+                                  width: 1,
+                                  height: 14,
+                                  color: foreground.withValues(alpha: 0.2),
+                                ),
+                                const SizedBox(width: 7),
+                                Flexible(
+                                  child: Text(
+                                    reactions[index].users.join(','),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: foreground.withValues(alpha: 0.76),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      height: 1,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ),

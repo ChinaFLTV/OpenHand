@@ -3181,7 +3181,6 @@ class DingTalkMessageGatewayService {
           ? DingTalkConversationType.direct
           : fallbackConversationType ?? DingTalkConversationType.direct;
       final recalled = _messageRecalled(map);
-      final sentThroughDws = _messageWasSentThroughDws(map);
       result.add(
         DingTalkGatewayMessage(
           id: id,
@@ -3216,14 +3215,7 @@ class DingTalkMessageGatewayService {
           quotedMessage: quotedMessage,
           forwardedMessages: forwarded.messages,
           forwardedMessageCount: forwarded.totalCount,
-          fromSelf:
-              _asBool(map['isSelf']) ||
-              _asBool(map['is_self']) ||
-              _asBool(map['isMine']) ||
-              _asBool(map['is_mine']) ||
-              _asBool(map['isSelfLoop']) ||
-              _asBool(map['is_self_loop']) ||
-              sentThroughDws,
+          fromSelf: isDingTalkMessageExplicitlyFromSelf(map),
           readByPeer: _asBool(
             map['readByPeer'] ??
                 map['read_by_peer'] ??
@@ -3233,6 +3225,7 @@ class DingTalkMessageGatewayService {
           ),
           recalled: recalled,
           reactions: parseDingTalkMessageReactions(map),
+          reactionUsers: parseDingTalkReactionUsers(map),
           reactionSnapshotComplete: true,
           mentionedCurrentUser:
               mentionedCurrentUser ||
@@ -3544,6 +3537,16 @@ class DingTalkMessageGatewayService {
           conversationId: conversationId,
           conversationType: conversationType,
           reaction: reaction,
+          reactionUser: _eventString(map, const <String>[
+            'operatorName',
+            'operator_name',
+            'userName',
+            'user_name',
+            'senderName',
+            'sender_name',
+            'nick',
+            'name',
+          ]),
           reactionRemoved:
               _asBool(map['removed']) ||
               _asBool(map['is_removed']) ||
@@ -3629,7 +3632,6 @@ class DingTalkMessageGatewayService {
         _asBool(map['at_me']) ||
         _asBool(map['isInAtList']) ||
         _asBool(map['is_in_at_list']);
-    final sentThroughDws = _messageWasSentThroughDws(map);
     final message = DingTalkGatewayMessage(
       id: messageId,
       conversationId: conversationId,
@@ -3667,14 +3669,9 @@ class DingTalkMessageGatewayService {
       quotedMessage: quotedMessage,
       forwardedMessages: forwarded.messages,
       forwardedMessageCount: forwarded.totalCount,
-      fromSelf:
-          _asBool(map['isSelf']) ||
-          _asBool(map['is_self']) ||
-          _asBool(map['isMine']) ||
-          _asBool(map['is_mine']) ||
-          _asBool(map['isSelfLoop']) ||
-          _asBool(map['is_self_loop']) ||
-          sentThroughDws,
+      fromSelf: isDingTalkMessageExplicitlyFromSelf(map),
+      reactions: parseDingTalkMessageReactions(map),
+      reactionUsers: parseDingTalkReactionUsers(map),
       mentionedCurrentUser: mentionedCurrentUser,
     );
     return DingTalkGatewayEvent(
@@ -4558,13 +4555,4 @@ class DingTalkMessageGatewayService {
     final normalized = '$value'.trim().toLowerCase();
     return normalized == 'true' || normalized == '1' || normalized == 'yes';
   }
-
-  bool _messageWasSentThroughDws(Map<String, Object?> map) =>
-      _first(map, const <String>[
-        'messageAiSendFlag',
-        'message_ai_send_flag',
-        'aiSendFlag',
-        'ai_send_flag',
-      ]).toLowerCase() ==
-      'dws';
 }
