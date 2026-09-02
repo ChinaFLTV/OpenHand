@@ -65,7 +65,10 @@ class HooksView extends StatelessWidget {
             label: Text(l10n.commonRetry),
           ),
         FilledButton.icon(
-          onPressed: snapshot.isLoading || snapshot.errorMessage != null
+          onPressed:
+              snapshot.isLoading ||
+                  snapshot.errorMessage != null ||
+                  snapshot.entries.length >= HookEntry.maxEntries
               ? null
               : () => _showHookEditorDialog(context, null),
           icon: const Icon(Icons.add_rounded),

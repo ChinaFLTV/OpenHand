@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:convert';
 
 String? nullIfBlank(String? value) {
@@ -383,13 +384,34 @@ void validateCanonicalJsonSubset(
     throw ArgumentError('JSON 校验边界无效。');
   }
   final pending =
-      <({Object? source, Object? canonical, String path, int depth})>[
-        (source: source, canonical: canonical, path: path, depth: 0),
+      <
+        ({
+          Object? source,
+          Object? canonical,
+          String path,
+          int depth,
+          bool exiting,
+        })
+      >[
+        (
+          source: source,
+          canonical: canonical,
+          path: path,
+          depth: 0,
+          exiting: false,
+        ),
       ];
+  final activeSources = HashSet<Object>.identity();
+  final activeCanonicals = HashSet<Object>.identity();
   var visitedNodes = 0;
 
   while (pending.isNotEmpty) {
     final current = pending.removeLast();
+    if (current.exiting) {
+      activeSources.remove(current.source);
+      activeCanonicals.remove(current.canonical);
+      continue;
+    }
     visitedNodes += 1;
     if (visitedNodes > maxTotalNodes) {
       throw FormatException('${current.path} 的节点数量超过限制。');
@@ -404,6 +426,10 @@ void validateCanonicalJsonSubset(
       if (currentCanonical is! Map) {
         throw FormatException('${current.path} 必须是对象。');
       }
+      if (!activeSources.add(currentSource) ||
+          !activeCanonicals.add(currentCanonical)) {
+        throw FormatException('${current.path} 包含循环引用。');
+      }
       if (currentSource.length > maxContainerItems) {
         throw FormatException('${current.path} 的字段数量超过限制。');
       }
@@ -414,6 +440,13 @@ void validateCanonicalJsonSubset(
           throw FormatException('${current.path} 包含不支持的字段：$key。');
         }
       }
+      pending.add((
+        source: currentSource,
+        canonical: currentCanonical,
+        path: current.path,
+        depth: current.depth,
+        exiting: true,
+      ));
       for (var index = entries.length - 1; index >= 0; index -= 1) {
         final entry = entries[index];
         final key = '${entry.key}';
@@ -422,6 +455,7 @@ void validateCanonicalJsonSubset(
           canonical: currentCanonical[key],
           path: '${current.path}.$key',
           depth: current.depth + 1,
+          exiting: false,
         ));
       }
       continue;
@@ -431,15 +465,27 @@ void validateCanonicalJsonSubset(
           currentSource.length != currentCanonical.length) {
         throw FormatException('${current.path} 包含无效集合项。');
       }
+      if (!activeSources.add(currentSource) ||
+          !activeCanonicals.add(currentCanonical)) {
+        throw FormatException('${current.path} 包含循环引用。');
+      }
       if (currentSource.length > maxContainerItems) {
         throw FormatException('${current.path} 的集合项数超过限制。');
       }
+      pending.add((
+        source: currentSource,
+        canonical: currentCanonical,
+        path: current.path,
+        depth: current.depth,
+        exiting: true,
+      ));
       for (var index = currentSource.length - 1; index >= 0; index -= 1) {
         pending.add((
           source: currentSource[index],
           canonical: currentCanonical[index],
           path: '${current.path}[$index]',
           depth: current.depth + 1,
+          exiting: false,
         ));
       }
       continue;

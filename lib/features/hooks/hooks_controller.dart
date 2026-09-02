@@ -58,6 +58,7 @@ class HooksController extends ManagedChangeNotifier {
 
   Future<bool> addHook(HookEntry entry) async {
     return _commitMutation(() async {
+      if (_entries.length >= HookEntry.maxEntries) return false;
       final requestedId = entry.id.trim();
       final id = requestedId.isEmpty ? _uuid.v4() : requestedId;
       if (_entries.any((item) => item.id == id)) return false;

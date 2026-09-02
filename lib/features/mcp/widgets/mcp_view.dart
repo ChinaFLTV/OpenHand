@@ -411,7 +411,9 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
           label: Text(_localizedText(context, zh: 'MCP服务器', en: 'MCP Server')),
         ),
         FilledButton.icon(
-          onPressed: mcpSnapshot.errorMessage == null
+          onPressed:
+              mcpSnapshot.errorMessage == null &&
+                  mcpSnapshot.servers.length < kMcpMaxServerCount
               ? () => _showServerDialog(context)
               : null,
           icon: const Icon(Icons.add_rounded),

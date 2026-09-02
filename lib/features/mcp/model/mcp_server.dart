@@ -1,5 +1,22 @@
 import 'package:characters/characters.dart';
 
+import '../../../shared/util/byte_size_format.dart';
+
+const int kMcpMaxServerCount = 256;
+const int kMcpMaxServerNameCharacters = 160;
+const int kMcpMaxUrlCharacters = 8 * kBytesPerKiB;
+const int kMcpMaxCommandCharacters = 16 * kBytesPerKiB;
+const int kMcpMaxArgumentCount = 256;
+const int kMcpMaxArgumentCharacters = 32 * kBytesPerKiB;
+const int kMcpMaxHeaderCount = 128;
+const int kMcpMaxHeaderNameCharacters = 256;
+const int kMcpMaxHeaderValueCharacters = 16 * kBytesPerKiB;
+const int kMcpMaxEnvironmentCount = 256;
+const int kMcpMaxEnvironmentNameCharacters = 256;
+const int kMcpMaxEnvironmentValueCharacters = 64 * kBytesPerKiB;
+const int kMcpMaxVisibleTemplateCount = 128;
+const int kMcpMaxTemplateIdCharacters = 256;
+
 enum McpServerType {
   streamableHttp('streamable_http'),
   sse('sse'),

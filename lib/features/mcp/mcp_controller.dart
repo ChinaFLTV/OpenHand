@@ -1650,11 +1650,12 @@ class McpController extends ChangeNotifier {
         );
       }
       final duplicateExists = updatedServers.any(
-        (item) => item.name == normalizedName,
+        (item) => item.name.toLowerCase() == normalizedName.toLowerCase(),
       );
       if (duplicateExists) {
         return false;
       }
+      if (updatedServers.length >= kMcpMaxServerCount) return false;
       updatedServers.add(normalizedServer);
       updatedServers.sort(
         (left, right) =>

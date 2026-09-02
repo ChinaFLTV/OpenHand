@@ -1,4 +1,5 @@
 import '../../l10n/app_localizations.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 
 /// Hook 执行结果状态，供内置 Hook 与用户 Hook 统一记录。
@@ -94,6 +95,12 @@ class HookEntry {
   static const int defaultTimeoutSeconds = 12;
   static const int minTimeoutSeconds = 1;
   static const int maxTimeoutSeconds = 60;
+  static const int maxEntries = 128;
+  static const int maxIdCharacters = 128;
+  static const int maxLabelCharacters = 160;
+  static const int maxScriptPathCharacters = 16 * kBytesPerKiB;
+  static const int maxEntryPayloadBytes = 512 * kBytesPerKiB;
+  static const int maxTotalPayloadBytes = 16 * kBytesPerMiB;
   static const IntValueRange _timeoutSecondsRange = IntValueRange(
     fallback: defaultTimeoutSeconds,
     min: minTimeoutSeconds,
