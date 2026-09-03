@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
@@ -1160,14 +1159,7 @@ class _ResourceDetailCard extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      colors.primaryContainer,
-                      colors.tertiaryContainer.withValues(alpha: 0.85),
-                    ],
-                  ),
+                  color: colors.primaryContainer,
                   borderRadius: BorderRadius.circular(kOpenHandRadius12),
                 ),
                 child: Icon(
@@ -1261,14 +1253,7 @@ class _ResourceDetailCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    colors.surfaceContainerLowest,
-                    colors.primaryContainer.withValues(alpha: 0.18),
-                  ],
-                ),
+                color: colors.surfaceContainerLowest,
                 borderRadius: BorderRadius.circular(kOpenHandRadius14),
                 border: Border.all(color: colors.outlineVariant),
               ),
@@ -1391,16 +1376,9 @@ class _TotalBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colors.primary.withValues(alpha: 0.14),
-            colors.tertiary.withValues(alpha: 0.12),
-          ],
-        ),
+        color: colors.primaryContainer,
         borderRadius: BorderRadius.circular(kOpenHandRadius14),
-        border: Border.all(color: colors.primary.withValues(alpha: 0.22)),
+        border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -1408,7 +1386,7 @@ class _TotalBadge extends StatelessWidget {
           Text(
             _metricTotalLabel(context),
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colors.primary,
+              color: colors.onPrimaryContainer,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1418,7 +1396,7 @@ class _TotalBadge extends StatelessWidget {
                 TextSpan(
                   text: '$total',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: colors.primary,
+                    color: colors.onPrimaryContainer,
                     fontWeight: FontWeight.w800,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
@@ -1426,7 +1404,7 @@ class _TotalBadge extends StatelessWidget {
                 TextSpan(
                   text: ' ${_callUnitLabel(context)}',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colors.primary.withValues(alpha: 0.78),
+                    color: colors.onPrimaryContainer.withValues(alpha: 0.78),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -1459,20 +1437,20 @@ class _MetricPill extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final (Color foreground, Color background) = switch (tone) {
       _MetricTone.success => (
-        OpenHandStatusColors.success,
-        OpenHandStatusColors.success.withValues(alpha: 0.12),
+        colors.onPrimaryContainer,
+        colors.primaryContainer,
       ),
       _MetricTone.error => (
-        colors.error,
-        colors.errorContainer.withValues(alpha: 0.85),
+        colors.onErrorContainer,
+        colors.errorContainer,
       ),
       _MetricTone.info => (
-        OpenHandStatusColors.info,
-        OpenHandStatusColors.info.withValues(alpha: 0.12),
+        colors.onSecondaryContainer,
+        colors.secondaryContainer,
       ),
       _MetricTone.accent => (
-        colors.primary,
-        colors.primary.withValues(alpha: 0.12),
+        colors.onTertiaryContainer,
+        colors.tertiaryContainer,
       ),
       _MetricTone.neutral => (
         colors.onSurfaceVariant,
@@ -1487,7 +1465,7 @@ class _MetricPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: background,
         borderRadius: kOpenHandPillBorderRadius,
-        border: Border.all(color: foreground.withValues(alpha: 0.16)),
+        border: Border.all(color: colors.outlineVariant),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1666,17 +1644,12 @@ class _UsageEventCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colors.surfaceContainerLow,
-            statusColor.withValues(alpha: 0.06),
-          ],
-        ),
+        color: colors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(kOpenHandRadius17),
         border: Border.all(
-          color: statusColor.withValues(alpha: 0.18),
+          color: event.succeeded
+              ? colors.outlineVariant
+              : colors.error.withValues(alpha: 0.35),
         ),
       ),
       child: Column(
@@ -1689,14 +1662,9 @@ class _UsageEventCard extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      statusColor.withValues(alpha: 0.18),
-                      colors.primaryContainer.withValues(alpha: 0.55),
-                    ],
-                  ),
+                  color: event.succeeded
+                      ? colors.primaryContainer
+                      : colors.errorContainer,
                   borderRadius: BorderRadius.circular(kOpenHandRadius12),
                 ),
                 child: Icon(
@@ -1704,7 +1672,9 @@ class _UsageEventCard extends StatelessWidget {
                       ? Icons.bolt_rounded
                       : Icons.error_outline_rounded,
                   size: 18,
-                  color: statusColor,
+                  color: event.succeeded
+                      ? colors.onPrimaryContainer
+                      : colors.onErrorContainer,
                 ),
               ),
               kOpenHandHGap12,
@@ -1846,18 +1816,14 @@ class _EventSummaryLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final accent = error ? colors.error : colors.primary;
+    final accent = error ? colors.onErrorContainer : colors.primary;
     return Container(
       margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: error
-            ? colors.errorContainer.withValues(alpha: 0.35)
-            : colors.surfaceContainerLowest,
+        color: error ? colors.errorContainer : colors.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(kOpenHandRadius12),
-        border: Border.all(
-          color: accent.withValues(alpha: error ? 0.22 : 0.14),
-        ),
+        border: Border.all(color: colors.outlineVariant),
       ),
       child: Text.rich(
         TextSpan(
@@ -1875,7 +1841,7 @@ class _EventSummaryLine extends StatelessWidget {
         maxLines: 3,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: colors.onSurfaceVariant,
+          color: error ? colors.onErrorContainer : colors.onSurfaceVariant,
           height: 1.45,
         ),
       ),

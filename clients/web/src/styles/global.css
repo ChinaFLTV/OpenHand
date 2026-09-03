@@ -3454,9 +3454,7 @@ button.oh-message-context-capsule {
   padding: 14px;
   border: 1px solid var(--m3-outline-variant);
   border-radius: 18px;
-  background:
-    linear-gradient(145deg, color-mix(in srgb, var(--m3-primary) 5%, transparent), transparent 42%),
-    var(--m3-surface-container-low);
+  background: var(--m3-surface-container-low);
 }
 .oh-resource-usage-detail-card > header {
   display: grid;
@@ -3471,8 +3469,7 @@ button.oh-message-context-capsule {
   place-items: center;
   border-radius: 12px;
   color: var(--m3-on-primary-container);
-  background:
-    linear-gradient(145deg, var(--m3-primary-container), color-mix(in srgb, var(--m3-tertiary-container, var(--m3-secondary-container)) 72%, var(--m3-primary-container)));
+  background: var(--m3-primary-container);
   font-size: 18px;
   font-weight: 800;
 }
@@ -3503,20 +3500,19 @@ button.oh-message-context-capsule {
   justify-items: end;
   gap: 2px;
   padding: 7px 12px;
-  border: 1px solid color-mix(in srgb, var(--m3-primary) 22%, transparent);
+  border: 1px solid var(--m3-outline-variant);
   border-radius: 14px;
-  background:
-    linear-gradient(145deg, color-mix(in srgb, var(--m3-primary) 14%, transparent), color-mix(in srgb, var(--m3-tertiary, var(--m3-secondary)) 12%, transparent));
+  background: var(--m3-primary-container);
 }
 .oh-resource-usage-total-badge > small {
-  color: var(--m3-primary);
+  color: var(--m3-on-primary-container);
   font: 700 10px/1.1 var(--oh-font-sans, inherit);
 }
 .oh-resource-usage-total-badge > b {
   display: inline-flex;
   align-items: baseline;
   gap: 3px;
-  color: var(--m3-primary);
+  color: var(--m3-on-primary-container);
   font-size: 18px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -3526,7 +3522,7 @@ button.oh-message-context-capsule {
   font-style: normal;
 }
 .oh-resource-usage-total-badge > b i {
-  color: color-mix(in srgb, var(--m3-primary) 78%, transparent);
+  color: color-mix(in srgb, var(--m3-on-primary-container) 78%, transparent);
   font-size: 10px;
   font-style: normal;
   font-weight: 650;
@@ -3576,29 +3572,29 @@ button.oh-message-context-capsule {
   font-size: 11px;
 }
 .oh-resource-usage-metric.is-success {
-  color: #15803d;
-  background: color-mix(in srgb, #22c55e 12%, transparent);
-  border-color: color-mix(in srgb, #22c55e 16%, transparent);
+  color: var(--m3-primary);
+  background: var(--m3-primary-container);
+  border-color: var(--m3-outline-variant);
 }
 .oh-resource-usage-metric.is-error {
-  color: var(--m3-error);
-  background: color-mix(in srgb, var(--m3-error-container) 85%, transparent);
-  border-color: color-mix(in srgb, var(--m3-error) 16%, transparent);
+  color: var(--m3-on-error-container);
+  background: var(--m3-error-container);
+  border-color: color-mix(in srgb, var(--m3-error) 24%, var(--m3-outline-variant));
 }
 .oh-resource-usage-metric.is-info {
-  color: #1d4ed8;
-  background: color-mix(in srgb, #3b82f6 12%, transparent);
-  border-color: color-mix(in srgb, #3b82f6 16%, transparent);
+  color: var(--m3-on-secondary-container, var(--m3-on-surface-variant));
+  background: var(--m3-secondary-container, var(--m3-surface-container-high));
+  border-color: var(--m3-outline-variant);
 }
 .oh-resource-usage-metric.is-accent {
-  color: var(--m3-primary);
-  background: color-mix(in srgb, var(--m3-primary) 12%, transparent);
-  border-color: color-mix(in srgb, var(--m3-primary) 16%, transparent);
+  color: var(--m3-on-tertiary-container, var(--m3-primary));
+  background: var(--m3-tertiary-container, var(--m3-primary-container));
+  border-color: var(--m3-outline-variant);
 }
 .oh-resource-usage-metric.is-neutral {
   color: var(--m3-on-surface-variant);
   background: var(--m3-surface-container-high);
-  border-color: color-mix(in srgb, var(--m3-outline-variant) 70%, transparent);
+  border-color: var(--m3-outline-variant);
 }
 .oh-resource-usage-subresources {
   display: grid;
@@ -3607,8 +3603,7 @@ button.oh-message-context-capsule {
   padding: 10px 12px 8px;
   border: 1px solid var(--m3-outline-variant);
   border-radius: 14px;
-  background:
-    linear-gradient(145deg, var(--m3-surface-container-lowest, var(--m3-surface)), color-mix(in srgb, var(--m3-primary-container) 18%, transparent));
+  background: var(--m3-surface-container-lowest, var(--m3-surface));
 }
 .oh-resource-usage-subresource {
   padding: 8px 0;
@@ -3639,16 +3634,12 @@ button.oh-message-context-capsule {
   white-space: nowrap;
 }
 .oh-resource-usage-event {
-  background:
-    linear-gradient(145deg, color-mix(in srgb, var(--m3-primary) 6%, transparent), transparent 48%),
-    var(--m3-surface-container-low);
-  border-color: color-mix(in srgb, var(--m3-primary) 16%, var(--m3-outline-variant));
+  background: var(--m3-surface-container-low);
+  border-color: var(--m3-outline-variant);
 }
 .oh-resource-usage-event.is-error {
-  background:
-    linear-gradient(145deg, color-mix(in srgb, var(--m3-error) 8%, transparent), transparent 48%),
-    var(--m3-surface-container-low);
-  border-color: color-mix(in srgb, var(--m3-error) 22%, var(--m3-outline-variant));
+  background: var(--m3-surface-container-low);
+  border-color: color-mix(in srgb, var(--m3-error) 35%, var(--m3-outline-variant));
 }
 .oh-resource-usage-event > header {
   display: grid;
@@ -3662,17 +3653,15 @@ button.oh-message-context-capsule {
   display: grid;
   place-items: center;
   border-radius: 12px;
-  color: var(--m3-primary);
-  background:
-    linear-gradient(145deg, color-mix(in srgb, var(--m3-primary) 18%, transparent), color-mix(in srgb, var(--m3-primary-container) 55%, transparent));
+  color: var(--m3-on-primary-container);
+  background: var(--m3-primary-container);
   font-size: 15px;
   font-weight: 800;
   line-height: 1;
 }
 .oh-resource-usage-event.is-error .oh-resource-usage-event-icon {
-  color: var(--m3-error);
-  background:
-    linear-gradient(145deg, color-mix(in srgb, var(--m3-error) 16%, transparent), color-mix(in srgb, var(--m3-error-container) 70%, transparent));
+  color: var(--m3-on-error-container);
+  background: var(--m3-error-container);
 }
 .oh-resource-usage-event-title {
   min-width: 0;
@@ -3697,18 +3686,18 @@ button.oh-message-context-capsule {
 }
 .oh-resource-usage-event-status {
   padding: 5px 10px;
-  border: 1px solid color-mix(in srgb, var(--m3-primary) 28%, transparent);
+  border: 1px solid var(--m3-outline-variant);
   border-radius: 999px;
-  color: var(--m3-primary);
-  background: color-mix(in srgb, var(--m3-primary) 12%, transparent);
+  color: var(--m3-on-primary-container);
+  background: var(--m3-primary-container);
   font-size: 10px;
   font-weight: 780;
   white-space: nowrap;
 }
 .oh-resource-usage-event.is-error .oh-resource-usage-event-status {
-  color: var(--m3-error);
-  border-color: color-mix(in srgb, var(--m3-error) 28%, transparent);
-  background: color-mix(in srgb, var(--m3-error) 12%, transparent);
+  color: var(--m3-on-error-container);
+  border-color: var(--m3-outline-variant);
+  background: var(--m3-error-container);
 }
 .oh-resource-usage-event .oh-resource-usage-detail-metrics {
   margin-top: 11px;
@@ -3718,10 +3707,10 @@ button.oh-message-context-capsule {
   gap: 8px;
   margin: 10px 0 0;
   padding: 8px 10px;
-  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 80%, transparent);
+  border: 1px solid var(--m3-outline-variant);
   border-radius: 12px;
   color: var(--m3-on-surface-variant);
-  background: color-mix(in srgb, var(--m3-surface-container-lowest, var(--m3-surface)) 88%, transparent);
+  background: var(--m3-surface-container-lowest, var(--m3-surface));
   font-size: 10px;
   line-height: 1.45;
 }
@@ -3731,11 +3720,12 @@ button.oh-message-context-capsule {
   font-weight: 780;
 }
 .oh-resource-usage-event-summary.is-error {
-  border-color: color-mix(in srgb, var(--m3-error) 22%, transparent);
-  background: color-mix(in srgb, var(--m3-error-container) 35%, transparent);
+  border-color: var(--m3-outline-variant);
+  background: var(--m3-error-container);
+  color: var(--m3-on-error-container);
 }
 .oh-resource-usage-event-summary.is-error b {
-  color: var(--m3-error);
+  color: var(--m3-on-error-container);
 }
 .oh-resource-usage-event-summary span {
   display: -webkit-box;
