@@ -42,8 +42,12 @@ const CACHE_FIRST_PREFIXES = [
 
 async function cacheResponse(req, res) {
   if (res && res.status === 200 && res.type === 'basic') {
-    const cache = await caches.open(CACHE_VERSION);
-    await cache.put(req, res.clone());
+    try {
+      const cache = await caches.open(CACHE_VERSION);
+      await cache.put(req, res.clone());
+    } catch {
+      // 缓存配额或存储异常不能覆盖已成功取得的网络响应。
+    }
   }
   return res;
 }
@@ -58,9 +62,10 @@ async function fetchBounded(req) {
   }
 }
 
-async function networkFirst(req, fallbackUrl) {
+async function networkFirst(req, { fallbackUrl, writeCache = false } = {}) {
   try {
-    return await cacheResponse(req, await fetchBounded(req));
+    const response = await fetchBounded(req);
+    return writeCache ? cacheResponse(req, response) : response;
   } catch {
     const cached = await caches.match(req);
     if (cached) return cached;
@@ -127,23 +132,24 @@ self.addEventListener('fetch', (event) => {
 
   // SPA 路由: 网络优先, 离线时回退 HTML shell。
   if (req.mode === 'navigate' || APP_SHELL_ROUTE_FALLBACK.has(url.pathname)) {
-    event.respondWith(networkFirst(req, '/'));
+    event.respondWith(networkFirst(req, { fallbackUrl: '/' }));
     return;
   }
 
   // 固定文件名 bundle: 网络优先, 离线只回退同一路径缓存, 避免把 HTML 当 JS/CSS 返回。
   if (APP_SHELL_NETWORK_FIRST.has(url.pathname)) {
-    event.respondWith(networkFirst(req));
+    event.respondWith(networkFirst(req, { writeCache: url.search === '' }));
     return;
   }
 
   // Vite 派生静态资源: 文件名含内容 hash, 可 cache-first；入口 app.js/css 仍在上方网络优先。
   if (CACHE_FIRST_PREFIXES.some((prefix) => url.pathname.startsWith(prefix))) {
-    event.respondWith(cacheFirst(req));
+    event.respondWith(url.search === '' ? cacheFirst(req) : fetchBounded(req));
     return;
   }
 
-  event.respondWith(networkFirst(req, '/'));
+  // 未声明为壳资源的普通请求不缓存，也不使用 HTML 兜底。
+  event.respondWith(fetchBounded(req));
 });
 
 // 来自页面 postMessage 的「新消息桌面通知」请求。
