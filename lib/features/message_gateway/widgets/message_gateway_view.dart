@@ -29,6 +29,7 @@ import '../../../shared/model/dingtalk_multimodal_capability.dart';
 import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
 import '../../../shared/ui/data_cleanup_range_dialog.dart';
 import '../../../shared/ui/feature_page_shell.dart';
@@ -402,6 +403,23 @@ const double _kGatewayDetailDialogWidth = 860;
 const double _kGatewayDetailDialogHeight = 760;
 const double _kMetricTileSpacing = 10;
 
+/// 消息网关平台卡片：与服务板块同族，但保留网关专属层次与仪表盘质感。
+const double _kGatewayCardRadius = 22;
+const double _kGatewayIdentityExtent = 64;
+const double _kGatewayIdentityIconSize = 31;
+const double _kGatewayHeaderBreakpoint = 820;
+const double _kGatewayFactIconSize = 14;
+const double _kGatewayFactRadius = 10;
+const EdgeInsets _kGatewayFactPadding = EdgeInsets.symmetric(
+  horizontal: 10,
+  vertical: 6,
+);
+const EdgeInsets _kGatewayCardPadding = EdgeInsets.all(18);
+const EdgeInsets _kGatewayMetricsPadding = EdgeInsets.symmetric(
+  horizontal: 14,
+  vertical: 14,
+);
+
 Widget _buildMetricTileGrid({
   required double width,
   required int columns,
@@ -534,11 +552,20 @@ class _MessageGatewayViewState extends State<MessageGatewayView>
       );
     }
     return ListView(
+      key: const ValueKey<String>('message-gateway-list'),
       padding: const EdgeInsets.fromLTRB(0, 2, 0, 16),
       children: [
-        _WebPlatformServiceCard(controller: controller),
+        SettingsAwareAppearOnce(
+          child: RepaintBoundary(
+            child: _WebPlatformServiceCard(controller: controller),
+          ),
+        ),
         kOpenHandGap14,
-        _DingTalkGatewayCard(controller: controller),
+        SettingsAwareAppearOnce(
+          child: RepaintBoundary(
+            child: _DingTalkGatewayCard(controller: controller),
+          ),
+        ),
       ],
     );
   }
@@ -552,6 +579,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final config = controller.config;
     final runtime = controller.runtimeSnapshot();
     final isRunning = controller.isRunning;
@@ -560,80 +588,343 @@ class _WebPlatformServiceCard extends StatelessWidget {
         isRunning && boundPort != null && boundPort != config.listenPort;
     final stateColor = switch (controller.runtimeState) {
       WebGatewayRuntimeState.running => OpenHandStatusColors.success,
-      WebGatewayRuntimeState.crashed => theme.colorScheme.error,
+      WebGatewayRuntimeState.crashed => cs.error,
       WebGatewayRuntimeState.starting ||
       WebGatewayRuntimeState.stopping => OpenHandStatusColors.warning,
-      WebGatewayRuntimeState.stopped => theme.colorScheme.onSurfaceVariant,
+      WebGatewayRuntimeState.stopped => cs.onSurfaceVariant,
     };
+    final statusPills = <Widget>[
+      OpenHandStatusPill(
+        icon: config.enabled
+            ? Icons.check_circle_outline_rounded
+            : Icons.pause_circle_outline_rounded,
+        label: config.enabled
+            ? openHandEnabledLabel(context)
+            : openHandDisabledLabel(context),
+        color: config.enabled ? OpenHandStatusColors.success : cs.outline,
+      ),
+      OpenHandStatusPill(
+        icon: Icons.lock_outline_rounded,
+        label: config.authEnabled
+            ? openHandLocalizedText(
+                context,
+                zh: '鉴权开启',
+                zhHant: '鑑權開啟',
+                en: 'Auth enabled',
+                fr: 'Auth activée',
+                de: 'Auth aktiviert',
+                ja: '認証有効',
+              )
+            : openHandLocalizedText(
+                context,
+                zh: '免鉴权',
+                zhHant: '免鑑權',
+                en: 'Auth disabled',
+                fr: 'Auth désactivée',
+                de: 'Auth deaktiviert',
+                ja: '認証なし',
+              ),
+        color: config.authEnabled ? cs.primary : cs.onSurfaceVariant,
+      ),
+      OpenHandStatusPill(
+        icon: Icons.analytics_outlined,
+        label: config.telemetryEnabled
+            ? openHandLocalizedText(
+                context,
+                zh: '遥测开启',
+                zhHant: '遙測開啟',
+                en: 'Telemetry enabled',
+                fr: 'Télémétrie activée',
+                de: 'Telemetrie aktiviert',
+                ja: 'テレメトリ有効',
+              )
+            : openHandLocalizedText(
+                context,
+                zh: '遥测关闭',
+                zhHant: '遙測關閉',
+                en: 'Telemetry disabled',
+                fr: 'Télémétrie désactivée',
+                de: 'Telemetrie deaktiviert',
+                ja: 'テレメトリ無効',
+              ),
+        color: config.telemetryEnabled ? cs.secondary : cs.outline,
+      ),
+      OpenHandStatusPill(
+        icon: Icons.article_outlined,
+        label: config.loggingEnabled
+            ? openHandLocalizedText(
+                context,
+                zh: '日志开启',
+                zhHant: '日誌開啟',
+                en: 'Logging enabled',
+                fr: 'Journaux activés',
+                de: 'Protokolle aktiviert',
+                ja: 'ログ有効',
+              )
+            : openHandLocalizedText(
+                context,
+                zh: '日志关闭',
+                zhHant: '日誌關閉',
+                en: 'Logging disabled',
+                fr: 'Journaux désactivés',
+                de: 'Protokolle deaktiviert',
+                ja: 'ログ無効',
+              ),
+        color: config.loggingEnabled ? cs.tertiary : cs.outline,
+      ),
+      OpenHandStatusPill(
+        icon: Icons.link_rounded,
+        label: isRunning
+            ? controller.webUrl
+            : '${config.listenHost}:${config.listenPort}',
+        color: isRunning ? OpenHandStatusColors.info : cs.onSurfaceVariant,
+      ),
+      if (controller.hasPendingRuntimeConfig)
+        OpenHandStatusPill(
+          icon: Icons.pending_actions_rounded,
+          label: openHandLocalizedText(
+            context,
+            zh: '待重启生效',
+            zhHant: '待重啟生效',
+            en: 'Pending restart',
+            fr: 'Redémarrage en attente',
+            de: 'Neustart ausstehend',
+            ja: '再起動待ち',
+          ),
+          color: OpenHandStatusColors.warning,
+        ),
+      if (usingFallbackPort)
+        OpenHandStatusPill(
+          icon: Icons.warning_amber_rounded,
+          label: openHandLocalizedText(
+            context,
+            zh: '${config.listenPort} 被占用，临时端口 $boundPort',
+            zhHant: '${config.listenPort} 已被占用，臨時連接埠 $boundPort',
+            en: '${config.listenPort} is in use, temporary port $boundPort',
+            fr: '${config.listenPort} est occupé, port temporaire $boundPort',
+            de: '${config.listenPort} ist belegt, temporärer Port $boundPort',
+            ja: '${config.listenPort} は使用中、一時ポート $boundPort',
+          ),
+          color: OpenHandStatusColors.warning,
+        ),
+    ];
+    final factChips = <Widget>[
+      _GatewayFactChip(
+        icon: Icons.rocket_launch_outlined,
+        label: config.autoStartOnLaunch
+            ? openHandLocalizedText(
+                context,
+                zh: '冷启动自启',
+                zhHant: '冷啟動自啟',
+                en: 'Auto-start on launch',
+                fr: 'Démarrage auto au lancement',
+                de: 'Autostart beim Start',
+                ja: '起動時に自動開始',
+              )
+            : openHandLocalizedText(
+                context,
+                zh: '冷启动不干预',
+                zhHant: '冷啟動不干預',
+                en: 'No launch auto-start',
+                fr: 'Pas de démarrage auto',
+                de: 'Kein Autostart',
+                ja: '起動時は自動開始しない',
+              ),
+        color: config.autoStartOnLaunch ? cs.secondary : cs.onSurfaceVariant,
+      ),
+      _GatewayFactChip(
+        icon: Icons.sync_rounded,
+        label: config.autoReloadOnChange
+            ? openHandLocalizedText(
+                context,
+                zh: '配置自动重载',
+                zhHant: '設定自動重載',
+                en: 'Auto-reload config',
+                fr: 'Rechargement auto',
+                de: 'Konfiguration automatisch neu laden',
+                ja: '設定を自動再読み込み',
+              )
+            : openHandLocalizedText(
+                context,
+                zh: '配置重启生效',
+                zhHant: '設定重啟生效',
+                en: 'Restart required for config',
+                fr: 'Redémarrage requis',
+                de: 'Neustart für Konfiguration nötig',
+                ja: '設定反映には再起動が必要',
+              ),
+        color: config.autoReloadOnChange ? cs.tertiary : cs.onSurfaceVariant,
+      ),
+      _GatewayFactChip(
+        icon: Icons.bolt_rounded,
+        label: openHandLocalizedText(
+          context,
+          zh: '并发 ${config.maxConcurrentRequests}',
+          zhHant: '並發 ${config.maxConcurrentRequests}',
+          en: 'Concurrency ${config.maxConcurrentRequests}',
+          fr: 'Concurrence ${config.maxConcurrentRequests}',
+          de: 'Parallelität ${config.maxConcurrentRequests}',
+          ja: '同時実行 ${config.maxConcurrentRequests}',
+        ),
+        color: cs.primary,
+      ),
+      _GatewayFactChip(
+        icon: Icons.chat_bubble_outline_rounded,
+        label: openHandLocalizedText(
+          context,
+          zh: '单消息 ${config.singleMessageTokenLimit} tokens',
+          zhHant: '單訊息 ${config.singleMessageTokenLimit} tokens',
+          en: '${config.singleMessageTokenLimit} tokens/message',
+          fr: '${config.singleMessageTokenLimit} tokens/message',
+          de: '${config.singleMessageTokenLimit} Tokens/Nachricht',
+          ja: '1メッセージ ${config.singleMessageTokenLimit} tokens',
+        ),
+        color: cs.tertiary,
+      ),
+      _GatewayFactChip(
+        icon: Icons.forum_outlined,
+        label: openHandLocalizedText(
+          context,
+          zh: '单会话 ${config.maxMessagesPerSession} 条',
+          zhHant: '單會話 ${config.maxMessagesPerSession} 則',
+          en: '${config.maxMessagesPerSession} messages/session',
+          fr: '${config.maxMessagesPerSession} messages/session',
+          de: '${config.maxMessagesPerSession} Nachrichten/Sitzung',
+          ja: '1セッション ${config.maxMessagesPerSession} 件',
+        ),
+        color: cs.secondary,
+      ),
+      _GatewayFactChip(
+        icon: Icons.manage_accounts_outlined,
+        label: config.sessionManagementEnabled
+            ? openHandLocalizedText(
+                context,
+                zh: '会话可管理',
+                zhHant: '會話可管理',
+                en: 'Sessions manageable',
+                fr: 'Sessions gérables',
+                de: 'Sitzungen verwaltbar',
+                ja: 'セッション管理可',
+              )
+            : openHandLocalizedText(
+                context,
+                zh: '会话只读',
+                zhHant: '會話唯讀',
+                en: 'Sessions read-only',
+                fr: 'Sessions en lecture seule',
+                de: 'Sitzungen schreibgeschützt',
+                ja: 'セッション読み取り専用',
+              ),
+        color: config.sessionManagementEnabled
+            ? OpenHandStatusColors.info
+            : cs.onSurfaceVariant,
+      ),
+      _GatewayFactChip(
+        icon: Icons.library_books_outlined,
+        label: config.knowledgeBaseEnabled
+            ? openHandLocalizedText(
+                context,
+                zh: '知识库开启',
+                zhHant: '知識庫開啟',
+                en: 'Knowledge base enabled',
+                fr: 'Base de connaissances activée',
+                de: 'Wissensdatenbank aktiviert',
+                ja: 'ナレッジベース有効',
+              )
+            : openHandLocalizedText(
+                context,
+                zh: '知识库关闭',
+                zhHant: '知識庫關閉',
+                en: 'Knowledge base disabled',
+                fr: 'Base de connaissances désactivée',
+                de: 'Wissensdatenbank deaktiviert',
+                ja: 'ナレッジベース無効',
+              ),
+        color: config.knowledgeBaseEnabled ? cs.primary : cs.onSurfaceVariant,
+      ),
+      _GatewayFactChip(
+        icon: Icons.folder_open_rounded,
+        label: config.workspaceFileWriteEnabled
+            ? openHandLocalizedText(
+                context,
+                zh: '文件浏览 / 可操作',
+                zhHant: '檔案瀏覽 / 可操作',
+                en: 'Files browsable / writable',
+                fr: 'Fichiers consultables / modifiables',
+                de: 'Dateien durchsuchbar / schreibbar',
+                ja: 'ファイル閲覧 / 操作可',
+              )
+            : openHandLocalizedText(
+                context,
+                zh: '文件浏览 / 只读',
+                zhHant: '檔案瀏覽 / 唯讀',
+                en: 'Files browsable / read-only',
+                fr: 'Fichiers consultables / lecture seule',
+                de: 'Dateien durchsuchbar / schreibgeschützt',
+                ja: 'ファイル閲覧 / 読み取り専用',
+              ),
+        color: config.workspaceFileWriteEnabled
+            ? cs.tertiary
+            : cs.onSurfaceVariant,
+      ),
+    ];
     return Card(
+      key: const ValueKey<String>('web-message-platform-card'),
       elevation: 0,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
-        borderRadius: kOpenHandBorderRadius22,
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(_kGatewayCardRadius),
+        side: BorderSide(color: cs.outlineVariant),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: _kGatewayCardPadding,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             LayoutBuilder(
               builder: (context, constraints) {
-                final compact = constraints.maxWidth < 760;
-                final title = Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Container(
-                          width: 46,
-                          height: 46,
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(
-                              kOpenHandRadius18,
-                            ),
-                          ),
-                          child: Icon(
-                            Icons.language_rounded,
-                            color: theme.colorScheme.onPrimaryContainer,
-                          ),
-                        ),
-                        Positioned(
-                          right: -2,
-                          bottom: -2,
-                          child: _StatusDot(color: stateColor),
-                        ),
-                      ],
-                    ),
-                    kOpenHandHGap14,
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            webMessagePlatformBuiltinName,
-                            style: theme.textTheme.titleLarge,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          kOpenHandGap6,
-                          Text(
-                            config.description,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                final compact = constraints.maxWidth < _kGatewayHeaderBreakpoint;
+                final identity = _GatewayPlatformIdentity(
+                  icon: Icons.language_rounded,
+                  title: webMessagePlatformBuiltinName,
+                  description: config.description,
+                  statusColor: stateColor,
                 );
                 final actions = Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   alignment: WrapAlignment.end,
                   children: [
+                    IconButton.filled(
+                      tooltip: isRunning
+                          ? openHandStopLabel(context)
+                          : openHandStartLabel(context),
+                      onPressed: controller.isOperating
+                          ? null
+                          : () => _runServiceAction(
+                              context,
+                              controller,
+                              stop: isRunning,
+                            ),
+                      style: (isRunning
+                              ? OpenHandStatusColors.runningStopButtonStyle()
+                              : IconButton.styleFrom())
+                          .copyWith(
+                            shape: const WidgetStatePropertyAll<OutlinedBorder>(
+                              CircleBorder(),
+                            ),
+                          ),
+                      icon: controller.isOperating
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              isRunning
+                                  ? Icons.stop_rounded
+                                  : Icons.play_arrow_rounded,
+                            ),
+                    ),
                     _FeatureIconButton(
                       tooltip: config.loggingEnabled
                           ? openHandLocalizedText(
@@ -723,7 +1014,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                       icon: Icons.speed_rounded,
                       onPressed: () => _showOps(context, controller),
                     ),
-                    IconButton.filledTonal(
+                    _FeatureIconButton(
                       tooltip: openHandLocalizedText(
                         context,
                         zh: '编辑配置',
@@ -733,49 +1024,34 @@ class _WebPlatformServiceCard extends StatelessWidget {
                         de: 'Konfiguration bearbeiten',
                         ja: '設定を編集',
                       ),
+                      enabled: true,
+                      icon: Icons.edit_rounded,
                       onPressed: () => _showEditor(context, controller),
-                      icon: const Icon(Icons.edit_rounded),
-                    ),
-                    IconButton.filled(
-                      tooltip: isRunning
-                          ? openHandStopLabel(context)
-                          : openHandStartLabel(context),
-                      onPressed: controller.isOperating
-                          ? null
-                          : () => _runServiceAction(
-                              context,
-                              controller,
-                              stop: isRunning,
-                            ),
-                      style: isRunning
-                          ? OpenHandStatusColors.runningStopButtonStyle()
-                          : null,
-                      icon: Icon(
-                        isRunning
-                            ? Icons.stop_rounded
-                            : Icons.play_arrow_rounded,
-                      ),
                     ),
                   ],
                 );
                 if (compact) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [title, kOpenHandGap14, actions],
+                    children: [
+                      identity,
+                      kOpenHandGap16,
+                      Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: actions,
+                      ),
+                    ],
                   );
                 }
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: title),
-                    kOpenHandHGap18,
+                    Expanded(child: identity),
+                    kOpenHandHGap16,
                     Flexible(
                       child: Align(
-                        alignment: Alignment.topRight,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 620),
-                          child: actions,
-                        ),
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: actions,
                       ),
                     ),
                   ],
@@ -783,355 +1059,64 @@ class _WebPlatformServiceCard extends StatelessWidget {
               },
             ),
             kOpenHandGap16,
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _InfoChip(
-                  icon: Icons.power_settings_new_rounded,
-                  label: config.enabled
-                      ? openHandEnabledLabel(context)
-                      : openHandDisabledLabel(context),
-                  tone: config.enabled
-                      ? _InfoChipTone.positive
-                      : _InfoChipTone.neutral,
-                ),
-                _InfoChip(
-                  icon: Icons.rocket_launch_outlined,
-                  label: config.autoStartOnLaunch
-                      ? openHandLocalizedText(
-                          context,
-                          zh: '冷启动自启',
-                          zhHant: '冷啟動自啟',
-                          en: 'Auto-start on launch',
-                          fr: 'Démarrage auto au lancement',
-                          de: 'Autostart beim Start',
-                          ja: '起動時に自動開始',
-                        )
-                      : openHandLocalizedText(
-                          context,
-                          zh: '冷启动不干预',
-                          zhHant: '冷啟動不干預',
-                          en: 'No launch auto-start',
-                          fr: 'Pas de démarrage auto',
-                          de: 'Kein Autostart',
-                          ja: '起動時は自動開始しない',
-                        ),
-                  tone: config.autoStartOnLaunch
-                      ? _InfoChipTone.config
-                      : _InfoChipTone.neutral,
-                ),
-                _InfoChip(
-                  icon: Icons.sync_rounded,
-                  label: config.autoReloadOnChange
-                      ? openHandLocalizedText(
-                          context,
-                          zh: '配置自动重载',
-                          zhHant: '設定自動重載',
-                          en: 'Auto-reload config',
-                          fr: 'Rechargement auto',
-                          de: 'Konfiguration automatisch neu laden',
-                          ja: '設定を自動再読み込み',
-                        )
-                      : openHandLocalizedText(
-                          context,
-                          zh: '配置重启生效',
-                          zhHant: '設定重啟生效',
-                          en: 'Restart required for config',
-                          fr: 'Redémarrage requis',
-                          de: 'Neustart für Konfiguration nötig',
-                          ja: '設定反映には再起動が必要',
-                        ),
-                  tone: config.autoReloadOnChange
-                      ? _InfoChipTone.config
-                      : _InfoChipTone.neutral,
-                ),
-                if (controller.hasPendingRuntimeConfig)
-                  _InfoChip(
-                    icon: Icons.pending_actions_rounded,
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '待重启生效',
-                      zhHant: '待重啟生效',
-                      en: 'Pending restart',
-                      fr: 'Redémarrage en attente',
-                      de: 'Neustart ausstehend',
-                      ja: '再起動待ち',
-                    ),
-                    tone: _InfoChipTone.warn,
-                  ),
-                _InfoChip(
-                  icon: Icons.link_rounded,
-                  label: isRunning
-                      ? controller.webUrl
-                      : '${config.listenHost}:${config.listenPort}',
-                  tone: isRunning
-                      ? _InfoChipTone.positive
-                      : _InfoChipTone.neutral,
-                ),
-                if (usingFallbackPort)
-                  _InfoChip(
-                    icon: Icons.warning_amber_rounded,
-                    label: openHandLocalizedText(
-                      context,
-                      zh: '${config.listenPort} 被占用，临时端口 $boundPort',
-                      zhHant: '${config.listenPort} 已被占用，臨時連接埠 $boundPort',
-                      en: '${config.listenPort} is in use, temporary port $boundPort',
-                      fr: '${config.listenPort} est occupé, port temporaire $boundPort',
-                      de: '${config.listenPort} ist belegt, temporärer Port $boundPort',
-                      ja: '${config.listenPort} は使用中、一時ポート $boundPort',
-                    ),
-                    tone: _InfoChipTone.warn,
-                  ),
-                _InfoChip(
-                  icon: Icons.lock_outline_rounded,
-                  label: config.authEnabled
-                      ? openHandLocalizedText(
-                          context,
-                          zh: '鉴权开启',
-                          zhHant: '鑑權開啟',
-                          en: 'Auth enabled',
-                          fr: 'Auth activée',
-                          de: 'Auth aktiviert',
-                          ja: '認証有効',
-                        )
-                      : openHandLocalizedText(
-                          context,
-                          zh: '免鉴权',
-                          zhHant: '免鑑權',
-                          en: 'Auth disabled',
-                          fr: 'Auth désactivée',
-                          de: 'Auth deaktiviert',
-                          ja: '認証なし',
-                        ),
-                  tone: config.authEnabled
-                      ? _InfoChipTone.positive
-                      : _InfoChipTone.neutral,
-                ),
-                _InfoChip(
-                  icon: Icons.analytics_outlined,
-                  label: config.telemetryEnabled
-                      ? openHandLocalizedText(
-                          context,
-                          zh: '遥测开启',
-                          zhHant: '遙測開啟',
-                          en: 'Telemetry enabled',
-                          fr: 'Télémétrie activée',
-                          de: 'Telemetrie aktiviert',
-                          ja: 'テレメトリ有効',
-                        )
-                      : openHandLocalizedText(
-                          context,
-                          zh: '遥测关闭',
-                          zhHant: '遙測關閉',
-                          en: 'Telemetry disabled',
-                          fr: 'Télémétrie désactivée',
-                          de: 'Telemetrie deaktiviert',
-                          ja: 'テレメトリ無効',
-                        ),
-                  tone: config.telemetryEnabled
-                      ? _InfoChipTone.positive
-                      : _InfoChipTone.neutral,
-                ),
-                _InfoChip(
-                  icon: Icons.article_outlined,
-                  label: config.loggingEnabled
-                      ? openHandLocalizedText(
-                          context,
-                          zh: '日志开启',
-                          zhHant: '日誌開啟',
-                          en: 'Logging enabled',
-                          fr: 'Journaux activés',
-                          de: 'Protokolle aktiviert',
-                          ja: 'ログ有効',
-                        )
-                      : openHandLocalizedText(
-                          context,
-                          zh: '日志关闭',
-                          zhHant: '日誌關閉',
-                          en: 'Logging disabled',
-                          fr: 'Journaux désactivés',
-                          de: 'Protokolle deaktiviert',
-                          ja: 'ログ無効',
-                        ),
-                  tone: config.loggingEnabled
-                      ? _InfoChipTone.positive
-                      : _InfoChipTone.neutral,
-                ),
-                _InfoChip(
-                  icon: Icons.security_rounded,
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '并发 ${config.maxConcurrentRequests}',
-                    zhHant: '並發 ${config.maxConcurrentRequests}',
-                    en: 'Concurrency ${config.maxConcurrentRequests}',
-                    fr: 'Concurrence ${config.maxConcurrentRequests}',
-                    de: 'Parallelität ${config.maxConcurrentRequests}',
-                    ja: '同時実行 ${config.maxConcurrentRequests}',
-                  ),
-                  tone: _InfoChipTone.config,
-                ),
-                _InfoChip(
-                  icon: Icons.chat_bubble_outline_rounded,
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '单消息 ${config.singleMessageTokenLimit} tokens',
-                    zhHant: '單訊息 ${config.singleMessageTokenLimit} tokens',
-                    en: '${config.singleMessageTokenLimit} tokens/message',
-                    fr: '${config.singleMessageTokenLimit} tokens/message',
-                    de: '${config.singleMessageTokenLimit} Tokens/Nachricht',
-                    ja: '1メッセージ ${config.singleMessageTokenLimit} tokens',
-                  ),
-                  tone: _InfoChipTone.config,
-                ),
-                _InfoChip(
-                  icon: Icons.forum_outlined,
-                  label: openHandLocalizedText(
-                    context,
-                    zh: '单会话 ${config.maxMessagesPerSession} 条',
-                    zhHant: '單會話 ${config.maxMessagesPerSession} 則',
-                    en: '${config.maxMessagesPerSession} messages/session',
-                    fr: '${config.maxMessagesPerSession} messages/session',
-                    de: '${config.maxMessagesPerSession} Nachrichten/Sitzung',
-                    ja: '1セッション ${config.maxMessagesPerSession} 件',
-                  ),
-                  tone: _InfoChipTone.config,
-                ),
-                _InfoChip(
-                  icon: Icons.manage_accounts_outlined,
-                  label: config.sessionManagementEnabled
-                      ? openHandLocalizedText(
-                          context,
-                          zh: '会话可管理',
-                          zhHant: '會話可管理',
-                          en: 'Sessions manageable',
-                          fr: 'Sessions gérables',
-                          de: 'Sitzungen verwaltbar',
-                          ja: 'セッション管理可',
-                        )
-                      : openHandLocalizedText(
-                          context,
-                          zh: '会话只读',
-                          zhHant: '會話唯讀',
-                          en: 'Sessions read-only',
-                          fr: 'Sessions en lecture seule',
-                          de: 'Sitzungen schreibgeschützt',
-                          ja: 'セッション読み取り専用',
-                        ),
-                  tone: config.sessionManagementEnabled
-                      ? _InfoChipTone.positive
-                      : _InfoChipTone.neutral,
-                ),
-                _InfoChip(
-                  icon: Icons.library_books_outlined,
-                  label: config.knowledgeBaseEnabled
-                      ? openHandLocalizedText(
-                          context,
-                          zh: '知识库开启',
-                          zhHant: '知識庫開啟',
-                          en: 'Knowledge base enabled',
-                          fr: 'Base de connaissances activée',
-                          de: 'Wissensdatenbank aktiviert',
-                          ja: 'ナレッジベース有効',
-                        )
-                      : openHandLocalizedText(
-                          context,
-                          zh: '知识库关闭',
-                          zhHant: '知識庫關閉',
-                          en: 'Knowledge base disabled',
-                          fr: 'Base de connaissances désactivée',
-                          de: 'Wissensdatenbank deaktiviert',
-                          ja: 'ナレッジベース無効',
-                        ),
-                  tone: config.knowledgeBaseEnabled
-                      ? _InfoChipTone.positive
-                      : _InfoChipTone.neutral,
-                ),
-                _InfoChip(
-                  icon: Icons.folder_open_rounded,
-                  label: config.workspaceFileWriteEnabled
-                      ? openHandLocalizedText(
-                          context,
-                          zh: '文件浏览 / 可操作',
-                          zhHant: '檔案瀏覽 / 可操作',
-                          en: 'Files browsable / writable',
-                          fr: 'Fichiers consultables / modifiables',
-                          de: 'Dateien durchsuchbar / schreibbar',
-                          ja: 'ファイル閲覧 / 操作可',
-                        )
-                      : openHandLocalizedText(
-                          context,
-                          zh: '文件浏览 / 只读',
-                          zhHant: '檔案瀏覽 / 唯讀',
-                          en: 'Files browsable / read-only',
-                          fr: 'Fichiers consultables / lecture seule',
-                          de: 'Dateien durchsuchbar / schreibgeschützt',
-                          ja: 'ファイル閲覧 / 読み取り専用',
-                        ),
-                  tone: config.workspaceFileWriteEnabled
-                      ? _InfoChipTone.positive
-                      : _InfoChipTone.config,
-                ),
-              ],
-            ),
-            // 监听通配符地址（0.0.0.0 / ::）时由 service.accessibleUrls 列出
-            // 全部可访问 URL（含 LAN IP），点 chip 即拷贝。仅当 URL 数量 >1
-            // 时渲染，避免与上方"已运行单 URL"的 InfoChip 重复。
+            Wrap(spacing: 10, runSpacing: 10, children: statusPills),
+            kOpenHandGap12,
+            Wrap(spacing: 8, runSpacing: 8, children: factChips),
+            // 监听通配符地址时列出全部可访问 URL；仅多地址时展示，避免与状态层重复。
             if (isRunning && controller.webUrls.length > 1) ...[
-              kOpenHandGap12,
+              kOpenHandGap14,
               _AccessibleUrlsBar(urls: controller.webUrls),
             ],
             kOpenHandGap16,
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final columns = constraints.maxWidth < 820 ? 1 : 4;
-                return _buildMetricTileGrid(
-                  width: constraints.maxWidth,
-                  columns: columns,
-                  children: [
-                    _MetricTile(
-                      label: openHandLocalizedText(
-                        context,
-                        zh: '状态',
-                        zhHant: '狀態',
-                        en: 'Status',
-                        fr: 'État',
-                        de: 'Status',
-                        ja: '状態',
-                      ),
-                      value: _runtimeStateLabel(context, runtime.state),
-                    ),
-                    _MetricTile(
-                      label: openHandRequestsLabel(context),
-                      value: '${runtime.totalRequests}',
-                    ),
-                    _MetricTile(
-                      label: openHandLocalizedText(
-                        context,
-                        zh: '错误数',
-                        zhHant: '錯誤數',
-                        en: 'Errors',
-                        fr: 'Erreurs',
-                        de: 'Fehler',
-                        ja: 'エラー数',
-                      ),
-                      value: '${runtime.totalErrors}',
-                    ),
-                    _MetricTile(
-                      label: openHandLocalizedText(
-                        context,
-                        zh: '运行时长',
-                        zhHant: '執行時間',
-                        en: 'Uptime',
-                        fr: 'Temps actif',
-                        de: 'Laufzeit',
-                        ja: '稼働時間',
-                      ),
-                      value: formatCompactDurationMs(runtime.uptimeMs),
-                    ),
-                  ],
-                );
-              },
+            _GatewayRuntimeMetricsStrip(
+              items: [
+                (
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '状态',
+                    zhHant: '狀態',
+                    en: 'Status',
+                    fr: 'État',
+                    de: 'Status',
+                    ja: '状態',
+                  ),
+                  value: _runtimeStateLabel(context, runtime.state),
+                  accent: stateColor,
+                ),
+                (
+                  label: openHandRequestsLabel(context),
+                  value: '${runtime.totalRequests}',
+                  accent: cs.primary,
+                ),
+                (
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '错误数',
+                    zhHant: '錯誤數',
+                    en: 'Errors',
+                    fr: 'Erreurs',
+                    de: 'Fehler',
+                    ja: 'エラー数',
+                  ),
+                  value: '${runtime.totalErrors}',
+                  accent: runtime.totalErrors > 0
+                      ? cs.error
+                      : cs.onSurfaceVariant,
+                ),
+                (
+                  label: openHandLocalizedText(
+                    context,
+                    zh: '运行时长',
+                    zhHant: '執行時間',
+                    en: 'Uptime',
+                    fr: 'Temps actif',
+                    de: 'Laufzeit',
+                    ja: '稼働時間',
+                  ),
+                  value: formatCompactDurationMs(runtime.uptimeMs),
+                  accent: cs.tertiary,
+                ),
+              ],
             ),
           ],
         ),
@@ -7693,6 +7678,7 @@ class _FeatureIconButton extends StatelessWidget {
       message: tooltip,
       child: IconButton.filledTonal(
         style: IconButton.styleFrom(
+          shape: const CircleBorder(),
           disabledBackgroundColor: theme.colorScheme.surfaceContainerHighest
               .withValues(alpha: .42),
           disabledForegroundColor: theme.colorScheme.onSurfaceVariant
@@ -7705,81 +7691,299 @@ class _FeatureIconButton extends StatelessWidget {
   }
 }
 
-/// 信息芯片语义色：保持扁平布局，只用很浅的容器色区分含义。
-enum _InfoChipTone { neutral, positive, config, warn }
+/// 消息网关平台身份区：大图标 + 状态点 + 标题描述，与服务卡片同族但独立复用。
+class _GatewayPlatformIdentity extends StatelessWidget {
+  const _GatewayPlatformIdentity({
+    required this.title,
+    required this.description,
+    required this.statusColor,
+    this.icon,
+    this.iconChild,
+  }) : assert(icon != null || iconChild != null);
 
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({
-    required this.icon,
-    required this.label,
-    this.tone = _InfoChipTone.neutral,
-  });
-
-  final IconData icon;
-  final String label;
-  final _InfoChipTone tone;
+  final IconData? icon;
+  final Widget? iconChild;
+  final String title;
+  final String description;
+  final Color statusColor;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final (Color foreground, Color background, Color border) = switch (tone) {
-      _InfoChipTone.positive => (
-        Color.alphaBlend(
-          colors.primary.withValues(alpha: 0.72),
-          colors.onSurface,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: _kGatewayIdentityExtent,
+              height: _kGatewayIdentityExtent,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    colors.primaryContainer,
+                    Color.alphaBlend(
+                      colors.tertiaryContainer.withValues(alpha: 0.55),
+                      colors.primaryContainer,
+                    ),
+                  ],
+                ),
+                borderRadius: kOpenHandBorderRadius18,
+                border: Border.all(
+                  color: colors.primary.withValues(alpha: 0.14),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: colors.primary.withValues(alpha: 0.10),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child:
+                  iconChild ??
+                  Icon(
+                    icon,
+                    size: _kGatewayIdentityIconSize,
+                    color: colors.onPrimaryContainer,
+                  ),
+            ),
+            Positioned(
+              right: -3,
+              bottom: -3,
+              child: _StatusDot(color: statusColor),
+            ),
+          ],
         ),
-        Color.alphaBlend(
-          colors.primaryContainer.withValues(alpha: 0.58),
-          colors.surface,
+        kOpenHandHGap16,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.headlineSmall,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              kOpenHandGap8,
+              Text(
+                description,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  height: 1.45,
+                ),
+              ),
+            ],
+          ),
         ),
-        colors.primary.withValues(alpha: 0.18),
+      ],
+    );
+  }
+}
+
+/// 配置事实芯片：次级信息，视觉权重低于状态胶囊。
+class _GatewayFactChip extends StatelessWidget {
+  const _GatewayFactChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: _kGatewayFactPadding,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(_kGatewayFactRadius),
+        border: Border.all(color: color.withValues(alpha: 0.26)),
       ),
-      _InfoChipTone.config => (
-        Color.alphaBlend(
-          colors.secondary.withValues(alpha: 0.68),
-          colors.onSurface,
-        ),
-        Color.alphaBlend(
-          colors.secondaryContainer.withValues(alpha: 0.52),
-          colors.surface,
-        ),
-        colors.secondary.withValues(alpha: 0.16),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: _kGatewayFactIconSize, color: color),
+          kOpenHandHGap6,
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
-      _InfoChipTone.warn => (
-        Color.alphaBlend(
-          colors.tertiary.withValues(alpha: 0.72),
-          colors.onSurface,
-        ),
-        Color.alphaBlend(
-          colors.tertiaryContainer.withValues(alpha: 0.58),
-          colors.surface,
-        ),
-        colors.tertiary.withValues(alpha: 0.20),
+    );
+  }
+}
+
+/// 卡片底部运行指标条：一体式仪表盘分区，替代零散灰块。
+class _GatewayRuntimeMetricsStrip extends StatelessWidget {
+  const _GatewayRuntimeMetricsStrip({required this.items});
+
+  final List<({String label, String value, Color accent})> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 720 || items.length <= 1;
+        if (compact) {
+          return Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final item in items)
+                SizedBox(
+                  width: constraints.maxWidth < 420
+                      ? constraints.maxWidth
+                      : (constraints.maxWidth - 10) / 2,
+                  child: _GatewayMetricCell(item: item),
+                ),
+            ],
+          );
+        }
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                cs.surfaceContainerHigh.withValues(alpha: 0.72),
+                cs.surfaceContainerLowest.withValues(alpha: 0.92),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(kOpenHandRadius16),
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: 0.85),
+            ),
+          ),
+          child: Padding(
+            padding: _kGatewayMetricsPadding,
+            child: IntrinsicHeight(
+              child: Row(
+                children: [
+                  for (var i = 0; i < items.length; i++) ...[
+                    if (i > 0)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: VerticalDivider(
+                          width: 1,
+                          thickness: 1,
+                          color: cs.outlineVariant.withValues(alpha: 0.85),
+                        ),
+                      ),
+                    Expanded(child: _GatewayMetricCell(item: items[i])),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _GatewayMetricCell extends StatelessWidget {
+  const _GatewayMetricCell({required this.item});
+
+  final ({String label, String value, Color accent}) item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return AnimatedContainer(
+      duration: openHandMotionDurationMs(context, 180),
+      curve: kOpenHandSwitchInCurve,
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: item.accent,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: item.accent.withValues(alpha: 0.35),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+              ),
+              kOpenHandHGap8,
+              Expanded(
+                child: Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          kOpenHandGap8,
+          Text(
+            item.value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: item.accent,
+              fontWeight: FontWeight.w800,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
       ),
-      _InfoChipTone.neutral => (
-        colors.onSurfaceVariant,
-        colors.surfaceContainerHighest,
-        colors.outlineVariant,
-      ),
-    };
-    return Chip(
-      avatar: Icon(icon, size: 14, color: foreground),
-      label: Text(
-        label,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.labelMedium?.copyWith(
-          color: foreground,
-          fontWeight: FontWeight.w600,
-          height: 1.1,
-        ),
-      ),
-      backgroundColor: background,
-      side: BorderSide(color: border),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: const VisualDensity(horizontal: -3, vertical: -3),
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      labelPadding: const EdgeInsets.only(left: 2, right: 6),
+    );
+  }
+}
+
+/// 弹窗内轻量信息芯片：复用状态胶囊，保持与卡片状态层一致的语义色。
+const double _kGatewayUrlPillIconSize = 15;
+const double _kGatewayUrlPillActionSize = 30;
+const EdgeInsets _kGatewayUrlPillPadding = EdgeInsets.symmetric(
+  horizontal: 10,
+  vertical: 5,
+);
+
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return OpenHandStatusPill(
+      icon: icon,
+      label: label,
+      color: cs.onSurfaceVariant,
     );
   }
 }
@@ -7873,8 +8077,21 @@ class _AccessibleUrlsBar extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(Icons.lan_outlined, size: 16, color: cs.onSurfaceVariant),
-            kOpenHandHGap6,
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: OpenHandStatusColors.info.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(kOpenHandRadius8),
+              ),
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.lan_outlined,
+                size: 14,
+                color: OpenHandStatusColors.info,
+              ),
+            ),
+            kOpenHandHGap8,
             Text(
               openHandLocalizedText(
                 context,
@@ -7885,16 +8102,17 @@ class _AccessibleUrlsBar extends StatelessWidget {
                 de: 'Erreichbare URLs (kopieren / öffnen)',
                 ja: 'アクセス可能なURL（コピー / 開く）',
               ),
-              style: theme.textTheme.labelMedium?.copyWith(
+              style: theme.textTheme.labelLarge?.copyWith(
                 color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
         ),
-        kOpenHandGap6,
+        kOpenHandGap10,
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: 10,
+          runSpacing: 10,
           children: [
             for (final url in urls)
               _AccessibleUrlPill(
@@ -7924,16 +8142,15 @@ class _AccessibleUrlPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    const accent = OpenHandStatusColors.info;
     return Container(
       constraints: kOpenHandContentMaxWidth360,
       decoration: BoxDecoration(
-        color: cs.primaryContainer.withValues(alpha: 0.42),
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.88),
         borderRadius: kOpenHandPillBorderRadius,
-        border: Border.all(
-          color: cs.primary.withValues(alpha: 0.32),
-          width: 0.6,
-        ),
+        border: Border.all(color: accent.withValues(alpha: 0.28)),
       ),
+      padding: _kGatewayUrlPillPadding,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -7951,17 +8168,20 @@ class _AccessibleUrlPill extends StatelessWidget {
               onPressed: onCopy,
               style: IconButton.styleFrom(
                 backgroundColor: Colors.transparent,
-                foregroundColor: cs.onPrimaryContainer,
-                hoverColor: cs.primary.withValues(alpha: 0.08),
-                highlightColor: cs.primary.withValues(alpha: 0.12),
-                focusColor: cs.primary.withValues(alpha: 0.10),
+                foregroundColor: accent,
+                hoverColor: accent.withValues(alpha: 0.10),
+                highlightColor: accent.withValues(alpha: 0.14),
+                focusColor: accent.withValues(alpha: 0.12),
                 padding: EdgeInsets.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               icon: const Icon(Icons.content_copy_rounded),
-              iconSize: 14,
+              iconSize: _kGatewayUrlPillIconSize,
               visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+              constraints: const BoxConstraints.tightFor(
+                width: _kGatewayUrlPillActionSize,
+                height: _kGatewayUrlPillActionSize,
+              ),
             ),
           ),
           Flexible(
@@ -7971,9 +8191,8 @@ class _AccessibleUrlPill extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelMedium?.copyWith(
                 fontFeatures: const [FontFeature.tabularFigures()],
-                color: cs.onPrimaryContainer,
+                color: cs.onSurface,
                 fontWeight: FontWeight.w600,
-                height: 1.1,
               ),
             ),
           ),
@@ -7991,17 +8210,20 @@ class _AccessibleUrlPill extends StatelessWidget {
               onPressed: onOpen,
               style: IconButton.styleFrom(
                 backgroundColor: Colors.transparent,
-                foregroundColor: cs.onPrimaryContainer,
-                hoverColor: cs.primary.withValues(alpha: 0.08),
-                highlightColor: cs.primary.withValues(alpha: 0.12),
-                focusColor: cs.primary.withValues(alpha: 0.10),
+                foregroundColor: accent,
+                hoverColor: accent.withValues(alpha: 0.10),
+                highlightColor: accent.withValues(alpha: 0.14),
+                focusColor: accent.withValues(alpha: 0.12),
                 padding: EdgeInsets.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               icon: const Icon(Icons.open_in_browser_rounded),
-              iconSize: 15,
+              iconSize: _kGatewayUrlPillIconSize,
               visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+              constraints: const BoxConstraints.tightFor(
+                width: _kGatewayUrlPillActionSize,
+                height: _kGatewayUrlPillActionSize,
+              ),
             ),
           ),
         ],
@@ -11482,8 +11704,8 @@ String _messageGatewayWaitingForTrafficLabel(BuildContext context) {
 class _DingTalkGatewayCard extends StatelessWidget {
   const _DingTalkGatewayCard({required this.controller});
 
-  // 使用显式居中约束，避免 46px 卡片的紧约束把 SVG 强制拉伸到满尺寸。
-  static const double _iconSize = 24;
+  // SVG 在 64 身份区内居中，避免被拉伸到满尺寸。
+  static const double _iconSize = 30;
 
   final MessageGatewayController controller;
 
@@ -11494,102 +11716,116 @@ class _DingTalkGatewayCard extends StatelessWidget {
       builder: (context, _) {
         final ding = controller.dingtalk;
         final theme = Theme.of(context);
+        final cs = theme.colorScheme;
         final statusColor = ding.isAuthenticating
-            ? theme.colorScheme.primary
+            ? OpenHandStatusColors.info
             : ding.isPolling
             ? OpenHandStatusColors.success
-            : theme.colorScheme.onSurfaceVariant;
+            : cs.onSurfaceVariant;
+        final statusPills = <Widget>[
+          OpenHandStatusPill(
+            icon: ding.isAuthorized
+                ? Icons.verified_user_outlined
+                : Icons.gpp_bad_outlined,
+            label: ding.isAuthorized
+                ? '已授权${ding.authStatus.identity.label.isEmpty ? '' : ' · ${ding.authStatus.identity.label}'}'
+                : '未授权',
+            color: ding.isAuthorized
+                ? OpenHandStatusColors.success
+                : OpenHandStatusColors.warning,
+          ),
+          OpenHandStatusPill(
+            icon: ding.isPolling
+                ? Icons.sensors_rounded
+                : Icons.sensors_off_rounded,
+            label: ding.isPolling
+                ? ding.isRealtimeListening
+                      ? '实时监听中'
+                      : ding.isPollingFallback
+                      ? '轮询兜底 · ${ding.settings.pollIntervalSeconds}s'
+                      : '正在连接实时监听'
+                : '实时监听已停止',
+            color: ding.isPolling
+                ? (ding.isRealtimeListening
+                      ? OpenHandStatusColors.success
+                      : cs.secondary)
+                : cs.outline,
+          ),
+          if (ding.warningMessage != null)
+            OpenHandStatusPill(
+              icon: Icons.info_outline_rounded,
+              label: ding.warningMessage!,
+              color: OpenHandStatusColors.warning,
+            ),
+        ];
+        final factChips = <Widget>[
+          _GatewayFactChip(
+            icon: Icons.forum_outlined,
+            label: '会话 ${ding.conversations.length}',
+            color: cs.primary,
+          ),
+          if (ding.unreadCount > 0)
+            _GatewayFactChip(
+              icon: Icons.mark_email_unread_outlined,
+              label: '未读 ${ding.unreadCount}',
+              color: OpenHandStatusColors.warning,
+            ),
+          _GatewayFactChip(
+            icon: ding.isInstalled
+                ? Icons.extension_rounded
+                : Icons.extension_off_outlined,
+            label: ding.isInstalled ? 'dws 已就绪' : '未检测到 dws',
+            color: ding.isInstalled ? cs.tertiary : cs.onSurfaceVariant,
+          ),
+        ];
         return Card(
+          key: const ValueKey<String>('dingtalk-message-platform-card'),
           elevation: 0,
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(
-            borderRadius: kOpenHandBorderRadius22,
-            side: BorderSide(color: theme.colorScheme.outlineVariant),
+            borderRadius: BorderRadius.circular(_kGatewayCardRadius),
+            side: BorderSide(color: cs.outlineVariant),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(18),
+            padding: _kGatewayCardPadding,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 LayoutBuilder(
                   builder: (context, constraints) {
-                    final title = Row(
-                      children: [
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              width: 46,
-                              height: 46,
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primaryContainer,
-                                borderRadius: BorderRadius.circular(
-                                  kOpenHandRadius18,
-                                ),
-                              ),
-                              alignment: Alignment.center,
-                              child: SvgPicture.asset(
-                                'assets/icons/plugins/dingtalk-workspace-cli.svg',
-                                width: _iconSize,
-                                height: _iconSize,
-                              ),
-                            ),
-                            Positioned(
-                              right: -2,
-                              bottom: -2,
-                              child: _StatusDot(color: statusColor),
-                            ),
-                          ],
-                        ),
-                        kOpenHandHGap14,
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                openHandLocalizedText(
-                                  context,
-                                  zh: '钉钉消息平台',
-                                  zhHant: '釘釘訊息平台',
-                                  en: 'DingTalk Message Platform',
-                                  fr: 'Plateforme de messages DingTalk',
-                                  de: 'DingTalk-Nachrichtenplattform',
-                                  ja: 'DingTalk メッセージプラットフォーム',
-                                ),
-                                style: theme.textTheme.titleLarge,
-                              ),
-                              kOpenHandGap6,
-                              Text(
-                                '钉钉消息接入与 OpenHand AI 会话',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                    final compact =
+                        constraints.maxWidth < _kGatewayHeaderBreakpoint;
+                    final identity = _GatewayPlatformIdentity(
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '钉钉消息平台',
+                        zhHant: '釘釘訊息平台',
+                        en: 'DingTalk Message Platform',
+                        fr: 'Plateforme de messages DingTalk',
+                        de: 'DingTalk-Nachrichtenplattform',
+                        ja: 'DingTalk メッセージプラットフォーム',
+                      ),
+                      description: openHandLocalizedText(
+                        context,
+                        zh: '钉钉消息接入与 OpenHand AI 会话',
+                        zhHant: '釘釘訊息接入與 OpenHand AI 會話',
+                        en: 'Connect DingTalk messages to OpenHand AI sessions',
+                        fr: 'Connecter DingTalk aux sessions OpenHand AI',
+                        de: 'DingTalk-Nachrichten mit OpenHand-AI-Sitzungen verbinden',
+                        ja: 'DingTalk メッセージを OpenHand AI セッションに接続',
+                      ),
+                      statusColor: statusColor,
+                      iconChild: SvgPicture.asset(
+                        'assets/icons/plugins/dingtalk-workspace-cli.svg',
+                        width: _iconSize,
+                        height: _iconSize,
+                      ),
                     );
                     final actions = Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       alignment: WrapAlignment.end,
                       children: [
-                        _DingTalkActionButton(
-                          tooltip: ding.isAuthenticating
-                              ? '取消设备流授权'
-                              : ding.isAuthorized
-                              ? '取消钉钉授权'
-                              : '登录授权',
-                          icon: ding.isAuthenticating
-                              ? Icons.close_rounded
-                              : ding.isAuthorized
-                              ? Icons.person_remove_rounded
-                              : Icons.verified_user_rounded,
-                          onPressed: ding.isAuthenticating
-                              ? () => ding.cancelAuthorization()
-                              : () => _toggleDingTalkAuth(context, ding),
-                        ),
                         _DingTalkActionButton(
                           tooltip: ding.isPolling
                               ? ding.isRealtimeListening
@@ -11605,6 +11841,21 @@ class _DingTalkGatewayCard extends StatelessWidget {
                                     : ding.startPolling()
                               : null,
                           filled: ding.isPolling,
+                        ),
+                        _DingTalkActionButton(
+                          tooltip: ding.isAuthenticating
+                              ? '取消设备流授权'
+                              : ding.isAuthorized
+                              ? '取消钉钉授权'
+                              : '登录授权',
+                          icon: ding.isAuthenticating
+                              ? Icons.close_rounded
+                              : ding.isAuthorized
+                              ? Icons.person_remove_rounded
+                              : Icons.verified_user_rounded,
+                          onPressed: ding.isAuthenticating
+                              ? () => ding.cancelAuthorization()
+                              : () => _toggleDingTalkAuth(context, ding),
                         ),
                         _DingTalkActionButton(
                           tooltip: '消息列表',
@@ -11634,20 +11885,27 @@ class _DingTalkGatewayCard extends StatelessWidget {
                         ),
                       ],
                     );
-                    if (constraints.maxWidth < 760) {
+                    if (compact) {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [title, kOpenHandGap14, actions],
+                        children: [
+                          identity,
+                          kOpenHandGap16,
+                          Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: actions,
+                          ),
+                        ],
                       );
                     }
                     return Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(child: title),
-                        kOpenHandHGap18,
+                        Expanded(child: identity),
+                        kOpenHandHGap16,
                         Flexible(
                           child: Align(
-                            alignment: Alignment.topRight,
+                            alignment: AlignmentDirectional.centerEnd,
                             child: actions,
                           ),
                         ),
@@ -11656,59 +11914,16 @@ class _DingTalkGatewayCard extends StatelessWidget {
                   },
                 ),
                 kOpenHandGap16,
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _InfoChip(
-                      icon: Icons.verified_user_outlined,
-                      label: ding.isAuthorized
-                          ? '已授权${ding.authStatus.identity.label.isEmpty ? '' : ' · ${ding.authStatus.identity.label}'}'
-                          : '未授权',
-                      tone: ding.isAuthorized
-                          ? _InfoChipTone.positive
-                          : _InfoChipTone.warn,
-                    ),
-                    _InfoChip(
-                      icon: Icons.sync_rounded,
-                      label: ding.isPolling
-                          ? ding.isRealtimeListening
-                                ? '实时监听中'
-                                : ding.isPollingFallback
-                                ? '轮询兜底 · ${ding.settings.pollIntervalSeconds}s'
-                                : '正在连接实时监听'
-                          : '实时监听已停止',
-                      tone: ding.isPolling
-                          ? (ding.isRealtimeListening
-                                ? _InfoChipTone.positive
-                                : _InfoChipTone.config)
-                          : _InfoChipTone.neutral,
-                    ),
-                    _InfoChip(
-                      icon: Icons.forum_outlined,
-                      label: '会话 ${ding.conversations.length}',
-                      tone: _InfoChipTone.config,
-                    ),
-                    if (ding.unreadCount > 0)
-                      _InfoChip(
-                        icon: Icons.mark_email_unread_outlined,
-                        label: '未读 ${ding.unreadCount}',
-                        tone: _InfoChipTone.warn,
-                      ),
-                    if (ding.warningMessage != null)
-                      _InfoChip(
-                        icon: Icons.info_outline_rounded,
-                        label: ding.warningMessage!,
-                        tone: _InfoChipTone.warn,
-                      ),
-                  ],
-                ),
+                Wrap(spacing: 10, runSpacing: 10, children: statusPills),
+                kOpenHandGap12,
+                Wrap(spacing: 8, runSpacing: 8, children: factChips),
                 if (ding.errorMessage != null) ...[
                   kOpenHandGap12,
                   Text(
                     ding.errorMessage!,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.error,
+                      color: cs.error,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -11723,7 +11938,7 @@ class _DingTalkGatewayCard extends StatelessWidget {
                   SelectableText(
                     ding.deviceUrl!,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.primary,
+                      color: cs.primary,
                     ),
                   ),
                 ],
@@ -11732,7 +11947,7 @@ class _DingTalkGatewayCard extends StatelessWidget {
                   Text(
                     '未检测到 dws，请先在插件板块安装 DingTalk Workspace CLI。',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                      color: cs.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -11765,23 +11980,21 @@ class _DingTalkActionButton extends StatelessWidget {
     final child = Icon(icon);
     final style = _dingtalkDisabledActionStyle(
       context,
-      base: filled ? OpenHandStatusColors.runningStopButtonStyle() : null,
+      base: (filled
+              ? OpenHandStatusColors.runningStopButtonStyle()
+              : IconButton.styleFrom())
+          .copyWith(
+            shape: const WidgetStatePropertyAll<OutlinedBorder>(CircleBorder()),
+          ),
     );
     return Tooltip(
       message: resolvedTooltip,
-      child: filled
-          ? IconButton.filledTonal(
-              tooltip: resolvedTooltip,
-              onPressed: onPressed,
-              icon: child,
-              style: style,
-            )
-          : IconButton.filledTonal(
-              tooltip: resolvedTooltip,
-              onPressed: onPressed,
-              icon: child,
-              style: style,
-            ),
+      child: IconButton.filledTonal(
+        tooltip: resolvedTooltip,
+        onPressed: onPressed,
+        icon: child,
+        style: style,
+      ),
     );
   }
 }
