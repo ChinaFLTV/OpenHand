@@ -15,7 +15,7 @@ import { clampNumber, finiteNumberFromText } from '../shared/util/number';
 import { basenameFromPath } from '../shared/util/path';
 import { strictStringFromUnknown } from '../shared/util/value';
 import { copyBlobToClipboard, copyTextToClipboard } from '../utils/clipboard';
-import { isAbortError } from '../shared/util/errors';
+import { ignoreError, isAbortError } from '../shared/util/errors';
 import {
   revokeObjectUrlQuietly,
   saveBlobWithPicker,
@@ -71,6 +71,11 @@ const REMOTE_MEDIA_CACHE_MAX_BYTES: Record<MediaKind, number> = {
   video: 512 * 1024 * 1024,
   file: 0,
 };
+const REMOTE_MEDIA_CACHE_MAX_ENTRIES = 24;
+const REMOTE_MEDIA_CACHE_MAX_TOTAL_BYTES = 1024 * 1024 * 1024;
+const REMOTE_MEDIA_CACHE_MAX_PENDING_WRITES = 2;
+const REMOTE_MEDIA_CACHE_DOWNLOAD_CONCURRENCY = 2;
+const REMOTE_MEDIA_CACHE_TIMESTAMP_HEADER = 'x-openhand-cached-at';
 const MEDIA_FILE_DOWNLOAD_MAX_BYTES = 512 * 1024 * 1024;
 const PREVIEW_VIEWPORT_GAP = 16;
 const PREVIEW_CONTENT_PADDING = 12;
@@ -534,6 +539,77 @@ async function objectUrlFromCachedResponse(
   return URL.createObjectURL(blob);
 }
 
+interface RemoteMediaCacheEntry {
+  request: Request;
+  size: number;
+  cachedAt: number;
+}
+
+let remoteMediaCacheWriteTail: Promise<void> = Promise.resolve();
+let remoteMediaCachePendingWrites = 0;
+
+async function pruneRemoteMediaCache(cache: Cache, incomingBytes: number): Promise<void> {
+  const requests = await cache.keys();
+  const entries: RemoteMediaCacheEntry[] = [];
+  for (let index = 0; index < requests.length; index += 1) {
+    const request = requests[index];
+    const response = await cache.match(request);
+    const size = finiteNumberFromText(response?.headers.get('content-length') ?? '');
+    if (!response || size == null || size <= 0) {
+      await cache.delete(request);
+      continue;
+    }
+    const cachedAt = finiteNumberFromText(
+      response.headers.get(REMOTE_MEDIA_CACHE_TIMESTAMP_HEADER) ?? '',
+    );
+    entries.push({ request, size, cachedAt: cachedAt ?? index });
+  }
+
+  entries.sort((left, right) => left.cachedAt - right.cachedAt);
+  let totalBytes = entries.reduce((total, entry) => total + entry.size, 0);
+  let entryCount = entries.length;
+  for (const entry of entries) {
+    if (
+      entryCount < REMOTE_MEDIA_CACHE_MAX_ENTRIES
+      && totalBytes + incomingBytes <= REMOTE_MEDIA_CACHE_MAX_TOTAL_BYTES
+    ) {
+      break;
+    }
+    if (await cache.delete(entry.request)) {
+      entryCount -= 1;
+      totalBytes -= entry.size;
+    }
+  }
+}
+
+function storeRemoteMediaBlob(
+  cache: Cache,
+  url: string,
+  blob: Blob,
+  contentType: string,
+  signal: AbortSignal,
+): Promise<void> {
+  if (remoteMediaCachePendingWrites >= REMOTE_MEDIA_CACHE_MAX_PENDING_WRITES) {
+    return Promise.resolve();
+  }
+  remoteMediaCachePendingWrites += 1;
+  const write = remoteMediaCacheWriteTail.then(async () => {
+    if (signal.aborted || await cache.match(url)) return;
+    await pruneRemoteMediaCache(cache, blob.size);
+    if (signal.aborted) return;
+    const headers = new Headers();
+    headers.set('content-type', contentType);
+    headers.set('content-length', String(blob.size));
+    headers.set(REMOTE_MEDIA_CACHE_TIMESTAMP_HEADER, String(Date.now()));
+    await cache.put(url, new Response(blob, { headers }));
+  });
+  const settled = write.finally(() => {
+    remoteMediaCachePendingWrites -= 1;
+  });
+  remoteMediaCacheWriteTail = settled.catch(ignoreError);
+  return settled;
+}
+
 async function resolveBrowserCachedMediaUrl(
   item: MediaItem,
   url: string,
@@ -558,11 +634,13 @@ async function resolveBrowserCachedMediaUrl(
   if (signal.aborted || blob.size <= 0 || blob.size > REMOTE_MEDIA_CACHE_MAX_BYTES[item.kind]) {
     return null;
   }
-  const headers = new Headers();
-  headers.set('content-type', blob.type || response.headers.get('content-type') || 'application/octet-stream');
-  headers.set('content-length', String(blob.size));
-  headers.set('x-openhand-source-url', url);
-  await cache.put(url, new Response(blob, { headers }));
+  void storeRemoteMediaBlob(
+    cache,
+    url,
+    blob,
+    blob.type || response.headers.get('content-type') || 'application/octet-stream',
+    signal,
+  ).catch(ignoreError);
   return URL.createObjectURL(blob);
 }
 
@@ -1472,16 +1550,23 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
       return;
     }
     let disposed = false;
-    const timedControllers: ReturnType<typeof createTimedAbortController>[] = [];
+    const timedControllers = new Set<ReturnType<typeof createTimedAbortController>>();
     setCachedEntryUrls({});
-    for (const entry of entries) {
-      if (!canCacheRemoteMedia(entry.item, entry.url)) continue;
-      const timed = createTimedAbortController(REMOTE_MEDIA_CACHE_TIMEOUT_MS);
-      timedControllers.push(timed);
-      resolveBrowserCachedMediaUrl(entry.item, entry.url, timed.controller.signal)
-        .then((objectUrl) => {
-          timed.dispose();
-          if (!objectUrl) return;
+    const cacheableEntries = entries.filter((entry) => canCacheRemoteMedia(entry.item, entry.url));
+    let nextEntryIndex = 0;
+    const resolveNext = async () => {
+      while (!disposed && nextEntryIndex < cacheableEntries.length) {
+        const entry = cacheableEntries[nextEntryIndex];
+        nextEntryIndex += 1;
+        const timed = createTimedAbortController(REMOTE_MEDIA_CACHE_TIMEOUT_MS);
+        timedControllers.add(timed);
+        try {
+          const objectUrl = await resolveBrowserCachedMediaUrl(
+            entry.item,
+            entry.url,
+            timed.controller.signal,
+          );
+          if (!objectUrl) continue;
           if (disposed) {
             revokeObjectUrlQuietly(objectUrl);
             return;
@@ -1496,10 +1581,20 @@ export function MessageMedia({ message, sessionId, presentation = 'auto' }: Mess
               ? current
               : { ...current, [entry.key]: objectUrl }
           ));
-        })
-        .catch(() => {
+        } catch {
+          // 单项缓存失败时继续处理其余媒体，原始远程地址仍可直接展示。
+        } finally {
           timed.dispose();
-        });
+          timedControllers.delete(timed);
+        }
+      }
+    };
+    const workerCount = Math.min(
+      REMOTE_MEDIA_CACHE_DOWNLOAD_CONCURRENCY,
+      cacheableEntries.length,
+    );
+    for (let index = 0; index < workerCount; index += 1) {
+      void resolveNext();
     }
     return () => {
       disposed = true;
