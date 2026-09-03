@@ -1936,16 +1936,6 @@ class DingTalkGatewaySettings {
   }
 }
 
-bool isDingTalkAutomaticResponseCandidate(DingTalkGatewayMessage message) {
-  if (message.isAssistant ||
-      message.fromSelf ||
-      message.isExcludedFromAiContext) {
-    return false;
-  }
-  return message.conversationType == DingTalkConversationType.direct ||
-      message.mentionedCurrentUser;
-}
-
 class DingTalkIdentity {
   const DingTalkIdentity({
     this.profile = '',

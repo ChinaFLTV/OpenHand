@@ -5452,10 +5452,5 @@ String _trajectoryDateTimeLabel(DateTime? value) {
       ja: '利用不可',
     );
   }
-  final local = value.toLocal();
-  String two(int number) => number.toString().padLeft(2, '0');
-  String three(int number) => number.toString().padLeft(3, '0');
-  return '${local.year}-${two(local.month)}-${two(local.day)} '
-      '${two(local.hour)}:${two(local.minute)}:${two(local.second)}.'
-      '${three(local.millisecond)}';
+  return formatYearMonthDayHmsMillisLocal(value);
 }

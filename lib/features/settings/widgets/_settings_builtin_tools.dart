@@ -780,7 +780,6 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                       ),
                       kOpenHandGap14,
 
-                      // Priority & Load Strategy row
                       Row(
                         children: [
                           Expanded(
@@ -843,7 +842,6 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                       ),
                       kOpenHandGap14,
 
-                      // Max output chars & Timeout
                       Row(
                         children: [
                           Expanded(
@@ -882,7 +880,6 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                       ),
                       kOpenHandGap14,
 
-                      // Retry on failure / Max retries
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -924,7 +921,6 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                       ),
                       kOpenHandGap14,
 
-                      // Retry backoff base (ms)
                       TextField(
                         controller: _retryBackoffMsController,
                         enabled: _retryOnFailure,
@@ -944,7 +940,6 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                       ),
                       kOpenHandGap14,
 
-                      // Require confirmation
                       _RequireConfirmationField(
                         value: _requireConfirmation,
                         onChanged: (v) =>
@@ -976,7 +971,6 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                         kOpenHandGap14,
                       ],
 
-                      // Tags
                       TextField(
                         controller: _tagsController,
                         decoration: InputDecoration(
@@ -989,7 +983,6 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                 ),
               ),
 
-              // ── Actions ──
               kOpenHandGap20,
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,

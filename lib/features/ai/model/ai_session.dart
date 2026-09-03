@@ -987,7 +987,7 @@ class AiSession {
 
   AiSessionMessage? get latestCompressionPoint {
     final index = latestCompressionPointIndex;
-    // Guard against stale cache or concurrent modification.
+    // 缓存可能过期，或消息列表已被并发更新。
     if (index == null || index < 0 || index >= messages.length) {
       return null;
     }

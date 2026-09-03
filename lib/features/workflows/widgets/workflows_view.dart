@@ -23,6 +23,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../../ai/index.dart';
 import '../model/workflow_definition.dart';
 import '../service/workflow_portability_service.dart';
@@ -897,8 +898,5 @@ String _ensureExportExtension(String filePath, String extension) {
 }
 
 String _timeText(DateTime value) {
-  final local = value.toLocal();
-  String two(int number) => number.toString().padLeft(2, '0');
-  return '${local.year}-${two(local.month)}-${two(local.day)} '
-      '${two(local.hour)}:${two(local.minute)}';
+  return formatYearMonthDayHmLocal(value);
 }

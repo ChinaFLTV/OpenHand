@@ -7171,7 +7171,7 @@ class _TraceLanesInlineState extends State<_TraceLanesInline> {
   }
 }
 
-/// Trace lane name + color metadata.
+/// 性能轨迹泳道名称与颜色。
 const List<
   ({
     String zh,

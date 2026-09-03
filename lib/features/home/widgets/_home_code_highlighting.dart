@@ -1266,9 +1266,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       _highlightIsPlaceholder = false;
       return;
     }
-    // 大代码块交由全局调度器逐帧高亮，每帧最多处理一个。
-    // The LRU cache ensures that on second expand (user's observation: "再次
-    // 打开折叠消息卡片，卡顿情况会减少很多"), the highlight is instant.
+    // 大代码块交由全局调度器逐帧高亮，每帧最多处理一个；二次展开直接命中缓存。
     if (widget.content.length > _highlightDeferThresholdChars) {
       _highlightedSpan = TextSpan(
         text: widget.content,

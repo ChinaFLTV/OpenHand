@@ -2019,11 +2019,7 @@ String _machineTerminalDirectorySizeLabel(
 );
 
 String _formatMachineTerminalFileTime(DateTime? value) {
-  if (value == null) return '-';
-  final local = value.toLocal();
-  String two(int number) => number.toString().padLeft(2, '0');
-  return '${local.year}-${two(local.month)}-${two(local.day)} '
-      '${two(local.hour)}:${two(local.minute)}';
+  return value == null ? '-' : formatYearMonthDayHmLocal(value);
 }
 
 class _MachineTerminalFileDetailsDialog extends StatelessWidget {
@@ -3256,10 +3252,9 @@ String _machineTerminalTransferDuration(Duration duration) {
       (milliseconds % Duration.millisecondsPerMinute) ~/
       Duration.millisecondsPerSecond;
   final tenths = (milliseconds % Duration.millisecondsPerSecond) ~/ 100;
-  String two(int value) => value.toString().padLeft(2, '0');
   return hours > 0
-      ? '${two(hours)}:${two(minutes)}:${two(seconds)}'
-      : '${two(minutes)}:${two(seconds)}.$tenths';
+      ? '${twoDigit(hours)}:${twoDigit(minutes)}:${twoDigit(seconds)}'
+      : '${twoDigit(minutes)}:${twoDigit(seconds)}.$tenths';
 }
 
 String _machineTerminalTransferStatsLabel(

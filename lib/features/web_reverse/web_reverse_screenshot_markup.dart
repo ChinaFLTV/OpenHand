@@ -539,7 +539,7 @@ class _MarkupPainter extends CustomPainter {
         case _MarkupTool.arrow:
           paintArrow(r);
         case _MarkupTool.blur:
-          // already painted
+          // 模糊区域已在前一阶段绘制。
           break;
         case _MarkupTool.draw:
         case _MarkupTool.text:

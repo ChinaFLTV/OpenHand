@@ -502,7 +502,7 @@ class _HeTokenUsageDialState extends State<_HeTokenUsageDial> {
   }
 }
 
-// _HeSessionMetadataDialog — full metadata dialog matching _SessionMetadataDialog
+// Harness 会话元数据弹窗，与普通会话元数据弹窗保持一致。
 class _HeSessionMetadataDialog extends StatelessWidget {
   const _HeSessionMetadataDialog({
     required this.config,

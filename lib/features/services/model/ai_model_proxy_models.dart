@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
@@ -151,10 +152,7 @@ String aiModelProxyRequestDispatchLabel(
 }
 
 String aiModelProxyDayKey(DateTime value) {
-  final local = value.toLocal();
-  return '${local.year.toString().padLeft(4, '0')}-'
-      '${local.month.toString().padLeft(2, '0')}-'
-      '${local.day.toString().padLeft(2, '0')}';
+  return formatYearMonthDayLocal(value);
 }
 
 String aiModelProxyStatusUrl({
