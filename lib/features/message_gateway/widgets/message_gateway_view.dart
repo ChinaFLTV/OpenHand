@@ -884,12 +884,6 @@ class _WebPlatformServiceCard extends StatelessWidget {
             LayoutBuilder(
               builder: (context, constraints) {
                 final compact = constraints.maxWidth < _kGatewayHeaderBreakpoint;
-                final identity = _GatewayPlatformIdentity(
-                  icon: Icons.language_rounded,
-                  title: webMessagePlatformBuiltinName,
-                  description: config.description,
-                  statusColor: stateColor,
-                );
                 final actions = Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -1030,29 +1024,22 @@ class _WebPlatformServiceCard extends StatelessWidget {
                     ),
                   ],
                 );
-                if (compact) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      identity,
-                      kOpenHandGap16,
-                      Align(
-                        alignment: AlignmentDirectional.centerEnd,
-                        child: actions,
-                      ),
-                    ],
-                  );
-                }
-                return Row(
+                final identity = _GatewayPlatformIdentity(
+                  icon: Icons.language_rounded,
+                  title: webMessagePlatformBuiltinName,
+                  description: config.description,
+                  statusColor: stateColor,
+                  trailing: compact ? null : actions,
+                );
+                if (!compact) return identity;
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: identity),
-                    kOpenHandHGap16,
-                    Flexible(
-                      child: Align(
-                        alignment: AlignmentDirectional.centerEnd,
-                        child: actions,
-                      ),
+                    identity,
+                    kOpenHandGap16,
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: actions,
                     ),
                   ],
                 );
@@ -7691,7 +7678,7 @@ class _FeatureIconButton extends StatelessWidget {
   }
 }
 
-/// 消息网关平台身份区：大图标 + 状态点 + 标题描述，与服务卡片同族但独立复用。
+/// 消息网关平台身份区：标题与操作同一行，介绍铺满图标右侧整宽。
 class _GatewayPlatformIdentity extends StatelessWidget {
   const _GatewayPlatformIdentity({
     required this.title,
@@ -7699,6 +7686,7 @@ class _GatewayPlatformIdentity extends StatelessWidget {
     required this.statusColor,
     this.icon,
     this.iconChild,
+    this.trailing,
   }) : assert(icon != null || iconChild != null);
 
   final IconData? icon;
@@ -7707,10 +7695,14 @@ class _GatewayPlatformIdentity extends StatelessWidget {
   final String description;
   final Color statusColor;
 
+  /// 宽屏时放在标题右侧；介绍始终在下方占满剩余宽度。
+  final Widget? trailing;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final actions = trailing;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -7751,16 +7743,27 @@ class _GatewayPlatformIdentity extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: theme.textTheme.headlineSmall,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(top: actions == null ? 0 : 6),
+                      child: Text(
+                        title,
+                        style: theme.textTheme.headlineSmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  if (actions != null) ...[kOpenHandHGap12, actions],
+                ],
               ),
               kOpenHandGap8,
               Text(
                 description,
-                maxLines: 3,
+                maxLines: 4,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colors.onSurfaceVariant,
@@ -11762,32 +11765,6 @@ class _DingTalkGatewayCard extends StatelessWidget {
                   builder: (context, constraints) {
                     final compact =
                         constraints.maxWidth < _kGatewayHeaderBreakpoint;
-                    final identity = _GatewayPlatformIdentity(
-                      title: openHandLocalizedText(
-                        context,
-                        zh: '钉钉消息平台',
-                        zhHant: '釘釘訊息平台',
-                        en: 'DingTalk Message Platform',
-                        fr: 'Plateforme de messages DingTalk',
-                        de: 'DingTalk-Nachrichtenplattform',
-                        ja: 'DingTalk メッセージプラットフォーム',
-                      ),
-                      description: openHandLocalizedText(
-                        context,
-                        zh: '钉钉消息接入与 OpenHand AI 会话',
-                        zhHant: '釘釘訊息接入與 OpenHand AI 會話',
-                        en: 'Connect DingTalk messages to OpenHand AI sessions',
-                        fr: 'Connecter DingTalk aux sessions OpenHand AI',
-                        de: 'DingTalk-Nachrichten mit OpenHand-AI-Sitzungen verbinden',
-                        ja: 'DingTalk メッセージを OpenHand AI セッションに接続',
-                      ),
-                      statusColor: statusColor,
-                      iconChild: SvgPicture.asset(
-                        'assets/icons/plugins/dingtalk-workspace-cli.svg',
-                        width: _iconSize,
-                        height: _iconSize,
-                      ),
-                    );
                     final actions = Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -11852,29 +11829,42 @@ class _DingTalkGatewayCard extends StatelessWidget {
                         ),
                       ],
                     );
-                    if (compact) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          identity,
-                          kOpenHandGap16,
-                          Align(
-                            alignment: AlignmentDirectional.centerEnd,
-                            child: actions,
-                          ),
-                        ],
-                      );
-                    }
-                    return Row(
+                    final identity = _GatewayPlatformIdentity(
+                      title: openHandLocalizedText(
+                        context,
+                        zh: '钉钉消息平台',
+                        zhHant: '釘釘訊息平台',
+                        en: 'DingTalk Message Platform',
+                        fr: 'Plateforme de messages DingTalk',
+                        de: 'DingTalk-Nachrichtenplattform',
+                        ja: 'DingTalk メッセージプラットフォーム',
+                      ),
+                      description: openHandLocalizedText(
+                        context,
+                        zh: '钉钉消息接入与 OpenHand AI 会话',
+                        zhHant: '釘釘訊息接入與 OpenHand AI 會話',
+                        en: 'Connect DingTalk messages to OpenHand AI sessions',
+                        fr: 'Connecter DingTalk aux sessions OpenHand AI',
+                        de: 'DingTalk-Nachrichten mit OpenHand-AI-Sitzungen verbinden',
+                        ja: 'DingTalk メッセージを OpenHand AI セッションに接続',
+                      ),
+                      statusColor: statusColor,
+                      iconChild: SvgPicture.asset(
+                        'assets/icons/plugins/dingtalk-workspace-cli.svg',
+                        width: _iconSize,
+                        height: _iconSize,
+                      ),
+                      trailing: compact ? null : actions,
+                    );
+                    if (!compact) return identity;
+                    return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(child: identity),
-                        kOpenHandHGap16,
-                        Flexible(
-                          child: Align(
-                            alignment: AlignmentDirectional.centerEnd,
-                            child: actions,
-                          ),
+                        identity,
+                        kOpenHandGap16,
+                        Align(
+                          alignment: AlignmentDirectional.centerEnd,
+                          child: actions,
                         ),
                       ],
                     );
