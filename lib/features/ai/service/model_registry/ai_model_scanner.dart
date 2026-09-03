@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
@@ -343,7 +342,10 @@ class AiModelScanner {
         );
       }
 
-      final json = jsonDecode(response.body);
+      final json = AiOperationHttp.decodeJsonResponse(
+        response.body,
+        contextHint: 'Gemini 模型目录',
+      );
       if (json is! Map<String, dynamic>) {
         return AiModelScanResult(
           modelIds: const <String>[],
@@ -445,7 +447,10 @@ class AiModelScanner {
           );
         }
 
-        final json = jsonDecode(response.body);
+        final json = AiOperationHttp.decodeJsonResponse(
+          response.body,
+          contextHint: 'Claude 模型目录',
+        );
         if (json is! Map<String, dynamic>) {
           if (allIds.isNotEmpty) break;
           return AiModelScanResult(
@@ -531,8 +536,7 @@ class AiModelScanner {
         allIds.sort();
         return AiModelScanResult(modelIds: allIds);
       }
-      // 其他未后续被上层 try/on 处理的错误（比如 jsonDecode
-      // 报 FormatException）会随同 rethrow，由 scan() 顶层统一格式化。
+      // 其余格式错误交由 scan() 顶层统一转换。
       rethrow;
     }
   }
@@ -600,7 +604,10 @@ class AiModelScanner {
   AiModelScanResult _parseOpenAiModelsResponse(String body, {String? url}) {
     final Object? json;
     try {
-      json = jsonDecode(body);
+      json = AiOperationHttp.decodeJsonResponse(
+        body,
+        contextHint: 'OpenAI 模型目录',
+      );
     } on FormatException catch (error) {
       return AiModelScanResult(
         modelIds: const <String>[],
@@ -635,7 +642,10 @@ class AiModelScanner {
 
   /// 解析 Ollama `{ "models": [ { "name": "llama3:latest" }, ... ] }`。
   AiModelScanResult _parseOllamaTagsResponse(String body) {
-    final json = jsonDecode(body);
+    final json = AiOperationHttp.decodeJsonResponse(
+      body,
+      contextHint: 'Ollama 模型目录',
+    );
     if (json is! Map<String, dynamic>) {
       return const AiModelScanResult(modelIds: <String>[], error: '响应格式异常。');
     }

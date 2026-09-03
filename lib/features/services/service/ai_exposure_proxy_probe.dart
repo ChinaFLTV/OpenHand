@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import '../../../shared/net/bounded_http_request.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/ai_exposure_models.dart';
@@ -15,6 +16,9 @@ const Duration _kProxyIdentityTimeout = Duration(seconds: 8);
 const int _kMaxProxyResponseLineBytes = 2048;
 const int _kMaxProxyResponseHeaderBytes = 16 * kBytesPerKiB;
 const int _kMaxProxyIdentityResponseBytes = 64 * kBytesPerKiB;
+const int _kMaxProxyIdentityJsonDepth = 16;
+const int _kMaxProxyIdentityJsonContainerItems = 1024;
+const int _kMaxProxyIdentityJsonNodes = 8192;
 const List<({String host, int port})> _kProxyProbeTargets = [
   (host: 'cp.cloudflare.com', port: 443),
   (host: 'connectivitycheck.gstatic.com', port: 443),
@@ -555,7 +559,15 @@ Future<Uint8List> _readRawIdentityResponse(Socket socket) async {
 }
 
 AiExposureProxyIdentity _parseIdentity(Uint8List body) {
-  final decoded = jsonDecode(utf8.decode(body));
+  final decoded = decodeJsonTextWithinBounds(
+    utf8.decode(body),
+    maxTextCodeUnits: _kMaxProxyIdentityResponseBytes,
+    maxDepth: _kMaxProxyIdentityJsonDepth,
+    maxContainerItems: _kMaxProxyIdentityJsonContainerItems,
+    maxTotalNodes: _kMaxProxyIdentityJsonNodes,
+    maxStringCodeUnits: _kMaxProxyIdentityResponseBytes,
+    maxTotalStringCodeUnits: _kMaxProxyIdentityResponseBytes,
+  );
   if (decoded is! Map || decoded['success'] == false) {
     final message = decoded is Map ? '${decoded['message'] ?? ''}'.trim() : '';
     throw FormatException(message.isEmpty ? '代理身份响应格式无效' : message);

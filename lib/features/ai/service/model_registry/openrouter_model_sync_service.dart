@@ -1,8 +1,8 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import '../../../../shared/net/http_status_utils.dart';
+import '../../../../shared/util/bounded_json_conversion.dart';
 import '../../data/openrouter_model_profile_store.dart';
 import '../../model/ai_model_config.dart';
 import '../runtime/ai_transport_client.dart';
@@ -69,6 +69,9 @@ class OpenRouterModelSyncService {
 
   static const int _batchSize = 400;
   static const int _maxResponseBytes = 128 * 1024 * 1024;
+  static const int _maxJsonDepth = 64;
+  static const int _maxJsonContainerItems = 524288;
+  static const int _maxJsonNodes = 4194304;
   static const Duration _requestTimeout = Duration(minutes: 2);
 
   final AiTransportClient _transport;
@@ -140,7 +143,15 @@ class OpenRouterModelSyncService {
         );
       }
       report(phase: OpenRouterSyncPhase.decoding, detail: '正在解析模型目录数据');
-      final decoded = jsonDecode(response.body);
+      final decoded = decodeJsonTextWithinBounds(
+        response.body,
+        maxTextCodeUnits: _maxResponseBytes,
+        maxDepth: _maxJsonDepth,
+        maxContainerItems: _maxJsonContainerItems,
+        maxTotalNodes: _maxJsonNodes,
+        maxStringCodeUnits: _maxResponseBytes,
+        maxTotalStringCodeUnits: _maxResponseBytes,
+      );
       if (decoded is! Map) {
         throw const FormatException('OpenRouter 响应不是 JSON 对象。');
       }

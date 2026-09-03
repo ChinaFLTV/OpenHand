@@ -15,6 +15,7 @@ import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
@@ -212,6 +213,9 @@ class ThrottleCloudSyncService {
   static const Duration _responseIdleTimeout = Duration(seconds: 5);
   static const int _maxRequestBytes = kBytesPerMiB;
   static const int _maxResponseBytes = 2 * kBytesPerMiB;
+  static const int _maxJsonDepth = 32;
+  static const int _maxJsonContainerItems = 4096;
+  static const int _maxJsonNodes = 65536;
   static const int _httpErrorPreviewLength = 256;
   static const String _payloadKind = 'openhand.throttle_config';
   static const String _gistFileName = 'openhand_throttle.json';
@@ -313,7 +317,7 @@ class ThrottleCloudSyncService {
       if (isHttpFailureStatus(resp.statusCode)) {
         return _httpFailure(resp, '自定义端点');
       }
-      final decoded = jsonDecode(resp.body);
+      final decoded = _decodeCloudJson(resp.body);
       if (decoded is! Map) {
         return ThrottleCloudSyncResult.failure('云端响应不是 JSON 对象。');
       }
@@ -612,7 +616,7 @@ class ThrottleCloudSyncService {
           'iCloud 配置超过 $_maxResponseBytes 字节上限。',
         );
       }
-      final decoded = jsonDecode(raw);
+      final decoded = _decodeCloudJson(raw);
       if (decoded is! Map) {
         return ThrottleCloudSyncResult.failure('iCloud 配置不是 JSON 对象。');
       }
@@ -741,7 +745,7 @@ class ThrottleCloudSyncService {
       if (isHttpFailureStatus(resp.statusCode)) {
         return _httpFailure(resp, 'GitHub Gist');
       }
-      final decoded = jsonDecode(resp.body);
+      final decoded = _decodeCloudJson(resp.body);
       if (decoded is! Map) {
         return ThrottleCloudSyncResult.failure('GitHub Gist 响应不是 JSON 对象。');
       }
@@ -764,7 +768,7 @@ class ThrottleCloudSyncService {
       if (content is! String) {
         return ThrottleCloudSyncResult.failure('GitHub Gist 文件内容不是字符串。');
       }
-      final inner = jsonDecode(content);
+      final inner = _decodeCloudJson(content);
       if (inner is! Map) {
         return ThrottleCloudSyncResult.failure('GitHub Gist 文件不是 JSON 对象。');
       }
@@ -783,6 +787,18 @@ class ThrottleCloudSyncService {
       scheme: 'https',
       host: _gistApiHost,
       pathSegments: <String>['gists', if (id != null) id],
+    );
+  }
+
+  static Object? _decodeCloudJson(String text) {
+    return decodeJsonTextWithinBounds(
+      text,
+      maxTextCodeUnits: _maxResponseBytes,
+      maxDepth: _maxJsonDepth,
+      maxContainerItems: _maxJsonContainerItems,
+      maxTotalNodes: _maxJsonNodes,
+      maxStringCodeUnits: _maxResponseBytes,
+      maxTotalStringCodeUnits: _maxResponseBytes,
     );
   }
 }

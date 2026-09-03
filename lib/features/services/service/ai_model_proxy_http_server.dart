@@ -8,6 +8,8 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/net/bounded_server_bind.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/stable_hash.dart';
 import '../../ai/index.dart';
@@ -39,7 +41,11 @@ class AiModelProxyHttpServer {
   static const String _corsApiMethods = 'GET, POST, OPTIONS';
   static const String _corsReadMethods = 'GET, HEAD, OPTIONS';
 
-  static const int _maxRequestBodyBytes = 8 * 1024 * 1024;
+  static const int _maxRequestBodyBytes = 8 * kBytesPerMiB;
+  static const int _maxNativeResponseBytes = 16 * kBytesPerMiB;
+  static const int _maxJsonDepth = 64;
+  static const int _maxJsonContainerItems = 262144;
+  static const int _maxJsonNodes = 1048576;
   static const Duration _bindTimeout = Duration(seconds: 10);
   static const Duration _requestReadIdleTimeout = Duration(seconds: 30);
   static const Duration _requestReadTotalTimeout = Duration(minutes: 2);
@@ -436,7 +442,10 @@ class AiModelProxyHttpServer {
     }
     final text = utf8.decode(bytes).trim();
     if (text.isEmpty) throw const FormatException('请求体不能为空。');
-    final decoded = jsonDecode(text);
+    final decoded = _decodeBoundedJson(
+      text,
+      maxTextCodeUnits: _maxRequestBodyBytes,
+    );
     if (decoded is! Map) throw const FormatException('请求体必须是 JSON 对象。');
     return (
       payload: Map<String, Object?>.from(decoded),
@@ -1074,7 +1083,10 @@ class AiModelProxyHttpServer {
   ) {
     if (rawResponse == null || rawResponse.trim().isEmpty) return null;
     try {
-      final decoded = jsonDecode(rawResponse);
+      final decoded = _decodeBoundedJson(
+        rawResponse,
+        maxTextCodeUnits: _maxNativeResponseBytes,
+      );
       if (decoded is! Map) return null;
       final map = Map<String, Object?>.from(decoded);
       final matches = switch (route) {
@@ -2328,13 +2340,31 @@ class AiModelProxyHttpServer {
     return '$value'.trim();
   }
 
-  static Object _decodeJsonObject(String value) {
+  static Object? _decodeJsonObject(String value) {
     try {
-      final decoded = jsonDecode(value);
+      final decoded = _decodeBoundedJson(
+        value,
+        maxTextCodeUnits: _maxNativeResponseBytes,
+      );
       return decoded is Map ? Map<String, Object?>.from(decoded) : decoded;
     } on Object {
       return const <String, Object?>{};
     }
+  }
+
+  static Object? _decodeBoundedJson(
+    String text, {
+    required int maxTextCodeUnits,
+  }) {
+    return decodeJsonTextWithinBounds(
+      text,
+      maxTextCodeUnits: maxTextCodeUnits,
+      maxDepth: _maxJsonDepth,
+      maxContainerItems: _maxJsonContainerItems,
+      maxTotalNodes: _maxJsonNodes,
+      maxStringCodeUnits: maxTextCodeUnits,
+      maxTotalStringCodeUnits: maxTextCodeUnits,
+    );
   }
 
   static Object _resolveListenAddress(String host) {
