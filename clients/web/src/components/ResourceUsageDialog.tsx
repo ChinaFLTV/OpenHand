@@ -81,6 +81,23 @@ function formatDuration(milliseconds: number): string {
   return `${(milliseconds / 60000).toFixed(1)} min`;
 }
 
+function formatAverageDuration(milliseconds: number, sampleCount: number): string {
+  if (!Number.isFinite(sampleCount) || sampleCount <= 0) return '—';
+  return formatDuration(milliseconds);
+}
+
+type MetricTone = 'neutral' | 'success' | 'error' | 'info' | 'accent';
+
+function subResourceLabel(resourceId: string): string {
+  if (resourceId === 'prompt_context') {
+    return t('resourceUsage.sub.promptContext', '提示词注入');
+  }
+  if (resourceId === 'prompt_selection') {
+    return t('resourceUsage.sub.promptSelection', '技能选择');
+  }
+  return resourceId;
+}
+
 export function ResourceUsageDialog({ kind, labels = {}, onClose }: ResourceUsageDialogProps) {
   const { closing, requestClose } = useDialogExitMotion(onClose);
   const [snapshot, setSnapshot] = useState<ResourceUsageSnapshot | null>(null);
@@ -165,7 +182,11 @@ export function ResourceUsageDialog({ kind, labels = {}, onClose }: ResourceUsag
               <SummaryCard icon="↗" label={t('resourceUsage.total', '调用总量')} value={String(level.total ?? 0)} />
               <SummaryCard icon="✓" label={t('resourceUsage.success', '成功调用')} value={String(level.successes ?? 0)} />
               <SummaryCard icon="!" label={t('resourceUsage.failure', '失败调用')} value={String(level.failures ?? 0)} tone={level.failures > 0 ? 'error' : 'normal'} />
-              <SummaryCard icon="◷" label={t('resourceUsage.latency', '平均耗时')} value={formatDuration(level.average_duration_ms ?? 0)} />
+              <SummaryCard
+                icon="◷"
+                label={t('resourceUsage.latency', '平均耗时')}
+                value={formatAverageDuration(level.average_duration_ms ?? 0, level.duration_sample_count ?? 0)}
+              />
               <SummaryCard icon="◇" label={t('resourceUsage.sessions', '活跃会话')} value={String(level.session_count ?? 0)} />
               <SummaryCard icon="★" label={t('resourceUsage.top', '首位资源')} value={top ? (labels[top[0]] || top[0]) : '—'} />
             </section>
@@ -459,6 +480,7 @@ function Ranking(props: { entries: Array<[string, number]>; labels: Record<strin
   if (props.entries.length === 0) return <EmptyChart label={t('resourceUsage.emptyMap', '当前周期尚无调用记录')} />;
   const visible = props.entries;
   const max = Math.max(1, visible[0][1]);
+  const unit = t('resourceUsage.callUnit', '次');
   return (
     <ol class="oh-resource-usage-ranking">
       {visible.map((entry, index) => (
@@ -466,7 +488,7 @@ function Ranking(props: { entries: Array<[string, number]>; labels: Record<strin
           <span>{String(index + 1).padStart(2, '0')}</span>
           <div class="oh-resource-usage-rank-label"><strong title={entry[0]}>{props.labels[entry[0]] || entry[0]}</strong>{props.labels[entry[0]] ? <small>{entry[0]}</small> : null}</div>
           <div class="oh-resource-usage-rank-bar"><i style={{ width: `${entry[1] * 100 / max}%` }} /></div>
-          <b>{entry[1]}</b>
+          <b class="oh-resource-usage-rank-count"><em>{entry[1]}</em><small>{unit}</small></b>
         </li>
       ))}
     </ol>
@@ -479,30 +501,91 @@ function ResourceDetails(props: { resources: ResourceUsageResourceSnapshot[]; la
     <div class="oh-resource-usage-details">
       {props.resources.map((resource) => {
         const label = props.labels[resource.resource_id] || resource.resource_id;
+        const rateText = resource.success_rate == null ? '—' : `${(resource.success_rate * 100).toFixed(1)}%`;
         return (
           <article key={resource.resource_id} class="oh-resource-usage-detail-card">
             <header>
               <span aria-hidden="true">{resource.sub_resources.length > 0 ? '⌘' : '◇'}</span>
-              <div><strong title={label}>{label}</strong>{label !== resource.resource_id ? <small>{resource.resource_id}</small> : null}</div>
-              <b>{resource.total}</b>
+              <div>
+                <strong title={label}>{label}</strong>
+                {label !== resource.resource_id ? <small>{resource.resource_id}</small> : null}
+              </div>
+              <div class="oh-resource-usage-total-badge">
+                <small>{t('resourceUsage.metricTotal', '合计')}</small>
+                <b><em>{resource.total}</em><i>{t('resourceUsage.callUnit', '次')}</i></b>
+              </div>
             </header>
             <div class="oh-resource-usage-detail-metrics">
-              <MetricPill label={`✓ ${resource.successes} · ${resource.success_rate == null ? '—' : `${(resource.success_rate * 100).toFixed(1)}%`}`} />
-              <MetricPill label={`! ${resource.failures}`} error={resource.failures > 0} />
-              <MetricPill label={`◷ ${formatDuration(resource.average_duration_ms)}`} />
-              <MetricPill label={`◇ ${resource.session_count}`} />
-              {resource.last_called_at ? <MetricPill label={`◴ ${formatLocalDateTimeSecond(resource.last_called_at, '—')}`} /> : null}
+              <MetricPill
+                label={t('resourceUsage.metricSuccess', '成功')}
+                value={String(resource.successes)}
+                tone="success"
+              />
+              <MetricPill
+                label={t('resourceUsage.metricRate', '成功率')}
+                value={rateText}
+                tone="accent"
+              />
+              <MetricPill
+                label={t('resourceUsage.metricFailure', '失败')}
+                value={String(resource.failures)}
+                tone={resource.failures > 0 ? 'error' : 'neutral'}
+              />
+              <MetricPill
+                label={t('resourceUsage.metricLatency', '耗时')}
+                value={formatAverageDuration(resource.average_duration_ms, resource.duration_sample_count)}
+                tone="info"
+              />
+              <MetricPill
+                label={t('resourceUsage.metricSessions', '会话')}
+                value={String(resource.session_count)}
+              />
+              {resource.last_called_at ? (
+                <MetricPill
+                  label={t('resourceUsage.metricLast', '最近')}
+                  value={formatLocalDateTimeSecond(resource.last_called_at, '—')}
+                />
+              ) : null}
             </div>
             {resource.sub_resources.length > 0 ? (
               <div class="oh-resource-usage-subresources">
-                {resource.sub_resources.map((subResource) => (
-                  <div key={subResource.resource_id}>
-                    <span title={subResource.resource_id}>↳ {subResource.resource_id}</span>
-                    <small>{subResource.successes} / {subResource.failures}</small>
-                    <em>{formatDuration(subResource.average_duration_ms)}</em>
-                    <b>{subResource.total}</b>
-                  </div>
-                ))}
+                {resource.sub_resources.map((subResource) => {
+                  const display = subResourceLabel(subResource.resource_id);
+                  return (
+                    <div key={subResource.resource_id} class="oh-resource-usage-subresource">
+                      <div class="oh-resource-usage-subresource-head">
+                        <span title={subResource.resource_id}>↳ {display}</span>
+                        {display !== subResource.resource_id ? <small>{subResource.resource_id}</small> : null}
+                      </div>
+                      <div class="oh-resource-usage-detail-metrics is-compact">
+                        <MetricPill
+                          label={t('resourceUsage.metricSuccess', '成功')}
+                          value={String(subResource.successes)}
+                          tone="success"
+                          compact
+                        />
+                        <MetricPill
+                          label={t('resourceUsage.metricFailure', '失败')}
+                          value={String(subResource.failures)}
+                          tone={subResource.failures > 0 ? 'error' : 'neutral'}
+                          compact
+                        />
+                        <MetricPill
+                          label={t('resourceUsage.metricLatency', '耗时')}
+                          value={formatAverageDuration(subResource.average_duration_ms, subResource.duration_sample_count)}
+                          tone="info"
+                          compact
+                        />
+                        <MetricPill
+                          label={t('resourceUsage.metricTotal', '合计')}
+                          value={String(subResource.total)}
+                          tone="accent"
+                          compact
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : null}
           </article>
@@ -512,8 +595,23 @@ function ResourceDetails(props: { resources: ResourceUsageResourceSnapshot[]; la
   );
 }
 
-function MetricPill({ label, error = false }: { label: string; error?: boolean }) {
-  return <span class={`oh-resource-usage-metric${error ? ' is-error' : ''}`}>{label}</span>;
+function MetricPill({
+  label,
+  value,
+  tone = 'neutral',
+  compact = false,
+}: {
+  label: string;
+  value: string;
+  tone?: MetricTone;
+  compact?: boolean;
+}) {
+  return (
+    <span class={`oh-resource-usage-metric is-${tone}${compact ? ' is-compact' : ''}`}>
+      <small>{label}</small>
+      <b>{value}</b>
+    </span>
+  );
 }
 
 function RecentEvents({ events }: { events: ResourceUsageEvent[] }) {

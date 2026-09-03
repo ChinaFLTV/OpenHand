@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
@@ -19,6 +20,8 @@ import '../ai_session_controller.dart';
 import '../service/runtime/ai_tool_usage_promotion_store.dart';
 
 const double _kUsageListMaxHeight = 420;
+
+enum _MetricTone { neutral, success, error, info, accent }
 
 Future<void> showResourceUsageStatisticsDialog(
   BuildContext context, {
@@ -520,7 +523,10 @@ class _SummaryGrid extends StatelessWidget {
           de: 'Mittlere Latenz',
           ja: '平均所要時間',
         ),
-        value: _formatDuration(level.averageDurationMs.round()),
+        value: _formatAverageDuration(
+          level.averageDurationMs,
+          level.durationSampleCount,
+        ),
       ),
       _SummaryCard(
         icon: Icons.forum_outlined,
@@ -1035,14 +1041,34 @@ class _ResourceRanking extends StatelessWidget {
                     ),
                     kOpenHandHGap14,
                     SizedBox(
-                      width: 48,
-                      child: Text(
-                        '${pageItems[index].value}',
-                        textAlign: TextAlign.end,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          fontFeatures: const [FontFeature.tabularFigures()],
+                      width: 64,
+                      child: Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '${pageItems[index].value}',
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                            ),
+                            TextSpan(
+                              text:
+                                  ' ${_callUnitLabel(context)}',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ],
                         ),
+                        textAlign: TextAlign.end,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -1112,6 +1138,9 @@ class _ResourceDetailCard extends StatelessWidget {
         ? label!.trim()
         : resource.resourceId;
     final children = resource.subResources;
+    final rateText = resource.successRate == null
+        ? kOpenHandTableMetricEmpty
+        : '${(resource.successRate! * 100).toStringAsFixed(1)}%';
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
@@ -1128,7 +1157,14 @@ class _ResourceDetailCard extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: colors.primaryContainer,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      colors.primaryContainer,
+                      colors.tertiaryContainer.withValues(alpha: 0.85),
+                    ],
+                  ),
                   borderRadius: BorderRadius.circular(kOpenHandRadius12),
                 ),
                 child: Icon(
@@ -1165,14 +1201,7 @@ class _ResourceDetailCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Text(
-                '${resource.totalCount}',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: colors.primary,
-                  fontWeight: FontWeight.w800,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
+              _TotalBadge(total: resource.totalCount),
             ],
           ),
           kOpenHandGap12,
@@ -1182,26 +1211,43 @@ class _ResourceDetailCard extends StatelessWidget {
             children: [
               _MetricPill(
                 icon: Icons.check_rounded,
-                label:
-                    '${resource.successCount} · ${resource.successRate == null ? '—' : '${(resource.successRate! * 100).toStringAsFixed(1)}%'}',
+                label: _metricSuccessLabel(context),
+                value: '${resource.successCount}',
+                tone: _MetricTone.success,
+              ),
+              _MetricPill(
+                icon: Icons.percent_rounded,
+                label: _metricRateLabel(context),
+                value: rateText,
+                tone: _MetricTone.accent,
               ),
               _MetricPill(
                 icon: Icons.close_rounded,
-                label: '${resource.failureCount}',
-                error: resource.failureCount > 0,
+                label: _metricFailureLabel(context),
+                value: '${resource.failureCount}',
+                tone: resource.failureCount > 0
+                    ? _MetricTone.error
+                    : _MetricTone.neutral,
               ),
               _MetricPill(
                 icon: Icons.timer_outlined,
-                label: _formatDuration(resource.averageDurationMs.round()),
+                label: _metricLatencyLabel(context),
+                value: _formatAverageDuration(
+                  resource.averageDurationMs,
+                  resource.durationSampleCount,
+                ),
+                tone: _MetricTone.info,
               ),
               _MetricPill(
                 icon: Icons.forum_outlined,
-                label: '${resource.sessionCount}',
+                label: _metricSessionLabel(context),
+                value: '${resource.sessionCount}',
               ),
               if (resource.lastCalledAt != null)
                 _MetricPill(
                   icon: Icons.schedule_rounded,
-                  label: formatYearMonthDayHms(
+                  label: _metricLastLabel(context),
+                  value: formatYearMonthDayHms(
                     resource.lastCalledAt!.toLocal(),
                   ),
                 ),
@@ -1210,65 +1256,25 @@ class _ResourceDetailCard extends StatelessWidget {
           if (children.isNotEmpty) ...[
             kOpenHandGap13,
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
               decoration: BoxDecoration(
-                color: colors.surfaceContainerLowest,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    colors.surfaceContainerLowest,
+                    colors.primaryContainer.withValues(alpha: 0.18),
+                  ],
+                ),
                 borderRadius: BorderRadius.circular(kOpenHandRadius14),
                 border: Border.all(color: colors.outlineVariant),
               ),
               child: Column(
                 children: [
                   for (var index = 0; index < children.length; index++) ...[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.subdirectory_arrow_right_rounded,
-                            size: 17,
-                            color: colors.primary,
-                          ),
-                          kOpenHandHGap8,
-                          Expanded(
-                            child: Text(
-                              children[index].resourceId,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          Text(
-                            '${children[index].successCount} / ${children[index].failureCount}',
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(color: colors.onSurfaceVariant),
-                          ),
-                          kOpenHandHGap12,
-                          SizedBox(
-                            width: 62,
-                            child: Text(
-                              _formatDuration(
-                                children[index].averageDurationMs.round(),
-                              ),
-                              textAlign: TextAlign.end,
-                              style: Theme.of(context).textTheme.labelSmall,
-                            ),
-                          ),
-                          kOpenHandHGap12,
-                          SizedBox(
-                            width: 38,
-                            child: Text(
-                              '${children[index].totalCount}',
-                              textAlign: TextAlign.end,
-                              style: Theme.of(context).textTheme.labelLarge
-                                  ?.copyWith(fontWeight: FontWeight.w800),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    _SubResourceRow(resource: children[index]),
                     if (index != children.length - 1)
-                      Divider(height: 1, color: colors.outlineVariant),
+                      Divider(height: 14, color: colors.outlineVariant),
                   ],
                 ],
               ),
@@ -1280,37 +1286,229 @@ class _ResourceDetailCard extends StatelessWidget {
   }
 }
 
-class _MetricPill extends StatelessWidget {
-  const _MetricPill({
-    required this.icon,
-    required this.label,
-    this.error = false,
-  });
+class _SubResourceRow extends StatelessWidget {
+  const _SubResourceRow({required this.resource});
 
-  final IconData icon;
-  final String label;
-  final bool error;
+  final AiResourceUsageResourceSnapshot resource;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    final color = error ? colors.error : colors.onSurfaceVariant;
+    final displayLabel = _subResourceDisplayLabel(context, resource.resourceId);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.subdirectory_arrow_right_rounded,
+                size: 17,
+                color: colors.primary,
+              ),
+              kOpenHandHGap8,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (displayLabel != resource.resourceId)
+                      Text(
+                        resource.resourceId,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          fontFamily: kOpenHandMonospaceFontFamily,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          kOpenHandGap8,
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _MetricPill(
+                label: _metricSuccessLabel(context),
+                value: '${resource.successCount}',
+                tone: _MetricTone.success,
+                compact: true,
+              ),
+              _MetricPill(
+                label: _metricFailureLabel(context),
+                value: '${resource.failureCount}',
+                tone: resource.failureCount > 0
+                    ? _MetricTone.error
+                    : _MetricTone.neutral,
+                compact: true,
+              ),
+              _MetricPill(
+                label: _metricLatencyLabel(context),
+                value: _formatAverageDuration(
+                  resource.averageDurationMs,
+                  resource.durationSampleCount,
+                ),
+                tone: _MetricTone.info,
+                compact: true,
+              ),
+              _MetricPill(
+                label: _metricTotalLabel(context),
+                value: '${resource.totalCount}',
+                tone: _MetricTone.accent,
+                compact: true,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TotalBadge extends StatelessWidget {
+  const _TotalBadge({required this.total});
+
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        color: error ? colors.errorContainer : colors.surfaceContainerHigh,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colors.primary.withValues(alpha: 0.14),
+            colors.tertiary.withValues(alpha: 0.12),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(kOpenHandRadius14),
+        border: Border.all(color: colors.primary.withValues(alpha: 0.22)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(
+            _metricTotalLabel(context),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colors.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '$total',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colors.primary,
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                TextSpan(
+                  text: ' ${_callUnitLabel(context)}',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colors.primary.withValues(alpha: 0.78),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricPill extends StatelessWidget {
+  const _MetricPill({
+    required this.label,
+    required this.value,
+    this.icon,
+    this.tone = _MetricTone.neutral,
+    this.compact = false,
+  });
+
+  final String label;
+  final String value;
+  final IconData? icon;
+  final _MetricTone tone;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final (Color foreground, Color background) = switch (tone) {
+      _MetricTone.success => (
+        OpenHandStatusColors.success,
+        OpenHandStatusColors.success.withValues(alpha: 0.12),
+      ),
+      _MetricTone.error => (
+        colors.error,
+        colors.errorContainer.withValues(alpha: 0.85),
+      ),
+      _MetricTone.info => (
+        OpenHandStatusColors.info,
+        OpenHandStatusColors.info.withValues(alpha: 0.12),
+      ),
+      _MetricTone.accent => (
+        colors.primary,
+        colors.primary.withValues(alpha: 0.12),
+      ),
+      _MetricTone.neutral => (
+        colors.onSurfaceVariant,
+        colors.surfaceContainerHigh,
+      ),
+    };
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 10,
+        vertical: compact ? 5 : 7,
+      ),
+      decoration: BoxDecoration(
+        color: background,
         borderRadius: kOpenHandPillBorderRadius,
+        border: Border.all(color: foreground.withValues(alpha: 0.16)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: color),
-          kOpenHandHGap5,
+          if (icon != null) ...[
+            Icon(icon, size: compact ? 12 : 14, color: foreground),
+            SizedBox(width: compact ? 4 : 5),
+          ],
           Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
+              color: foreground.withValues(alpha: 0.82),
+              fontWeight: FontWeight.w600,
+              fontSize: compact ? 10 : null,
+            ),
+          ),
+          SizedBox(width: compact ? 5 : 6),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: foreground,
+              fontWeight: FontWeight.w800,
+              fontSize: compact ? 11 : null,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],
@@ -1722,8 +1920,132 @@ String _shortIdentifier(String value) {
   return '…${trimmed.substring(start)}';
 }
 
-String _formatDuration(int milliseconds) =>
-    openHandTableMetricDuration(milliseconds);
+String _formatAverageDuration(num milliseconds, int sampleCount) {
+  if (sampleCount <= 0 || !milliseconds.isFinite || milliseconds < 0) {
+    return kOpenHandTableMetricEmpty;
+  }
+  return openHandTableMetricDuration(milliseconds);
+}
+
+String _callUnitLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '次',
+    zhHant: '次',
+    en: 'x',
+    fr: 'x',
+    de: 'x',
+    ja: '回',
+  );
+}
+
+String _metricTotalLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '合计',
+    zhHant: '合計',
+    en: 'Total',
+    fr: 'Total',
+    de: 'Summe',
+    ja: '合計',
+  );
+}
+
+String _metricSuccessLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '成功',
+    zhHant: '成功',
+    en: 'OK',
+    fr: 'OK',
+    de: 'OK',
+    ja: '成功',
+  );
+}
+
+String _metricFailureLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '失败',
+    zhHant: '失敗',
+    en: 'Fail',
+    fr: 'Échec',
+    de: 'Fehler',
+    ja: '失敗',
+  );
+}
+
+String _metricRateLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '成功率',
+    zhHant: '成功率',
+    en: 'Rate',
+    fr: 'Taux',
+    de: 'Rate',
+    ja: '成功率',
+  );
+}
+
+String _metricLatencyLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '耗时',
+    zhHant: '耗時',
+    en: 'Latency',
+    fr: 'Latence',
+    de: 'Latenz',
+    ja: '所要時間',
+  );
+}
+
+String _metricSessionLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '会话',
+    zhHant: '會話',
+    en: 'Sessions',
+    fr: 'Sessions',
+    de: 'Sitzungen',
+    ja: 'セッション',
+  );
+}
+
+String _metricLastLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '最近',
+    zhHant: '最近',
+    en: 'Last',
+    fr: 'Dernier',
+    de: 'Zuletzt',
+    ja: '最新',
+  );
+}
+
+String _subResourceDisplayLabel(BuildContext context, String resourceId) {
+  return switch (resourceId) {
+    'prompt_context' => openHandLocalizedText(
+      context,
+      zh: '提示词注入',
+      zhHant: '提示詞注入',
+      en: 'Prompt context',
+      fr: 'Contexte prompt',
+      de: 'Prompt-Kontext',
+      ja: 'プロンプト注入',
+    ),
+    'prompt_selection' => openHandLocalizedText(
+      context,
+      zh: '技能选择',
+      zhHant: '技能選擇',
+      en: 'Skill selection',
+      fr: 'Sélection de skill',
+      de: 'Skill-Auswahl',
+      ja: 'スキル選択',
+    ),
+    _ => resourceId,
+  };
+}
 
 String _statusLabel(BuildContext context, String status) {
   if (status == 'success') {

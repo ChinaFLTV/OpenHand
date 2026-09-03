@@ -3365,7 +3365,7 @@ button.oh-message-context-capsule {
 .oh-resource-usage-ranking li {
   min-height: 48px;
   display: grid;
-  grid-template-columns: 30px minmax(140px, 4fr) minmax(120px, 5fr) 46px;
+  grid-template-columns: 30px minmax(140px, 4fr) minmax(120px, 5fr) 64px;
   align-items: center;
   gap: 13px;
   border-bottom: 1px solid color-mix(in srgb, var(--m3-outline-variant) 72%, transparent);
@@ -3410,11 +3410,29 @@ button.oh-message-context-capsule {
   border-radius: inherit;
   background: var(--m3-primary);
 }
-.oh-resource-usage-ranking li > b {
+.oh-resource-usage-ranking li > b,
+.oh-resource-usage-rank-count {
   color: var(--m3-on-surface);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
   text-align: right;
+  white-space: nowrap;
+}
+.oh-resource-usage-rank-count {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 3px;
+  min-width: 52px;
+}
+.oh-resource-usage-rank-count em {
+  font-style: normal;
+  font-weight: 800;
+}
+.oh-resource-usage-rank-count small {
+  color: var(--m3-on-surface-variant);
+  font-size: 10px;
+  font-weight: 650;
 }
 .oh-resource-usage-details,
 .oh-resource-usage-events {
@@ -3436,7 +3454,9 @@ button.oh-message-context-capsule {
   padding: 14px;
   border: 1px solid var(--m3-outline-variant);
   border-radius: 18px;
-  background: var(--m3-surface-container-low);
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--m3-primary) 5%, transparent), transparent 42%),
+    var(--m3-surface-container-low);
 }
 .oh-resource-usage-detail-card > header {
   display: grid;
@@ -3451,7 +3471,8 @@ button.oh-message-context-capsule {
   place-items: center;
   border-radius: 12px;
   color: var(--m3-on-primary-container);
-  background: var(--m3-primary-container);
+  background:
+    linear-gradient(145deg, var(--m3-primary-container), color-mix(in srgb, var(--m3-tertiary-container, var(--m3-secondary-container)) 72%, var(--m3-primary-container)));
   font-size: 18px;
   font-weight: 800;
 }
@@ -3477,10 +3498,38 @@ button.oh-message-context-capsule {
   color: var(--m3-on-surface-variant);
   font: 9px ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
 }
-.oh-resource-usage-detail-card > header > b {
+.oh-resource-usage-total-badge {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  padding: 7px 12px;
+  border: 1px solid color-mix(in srgb, var(--m3-primary) 22%, transparent);
+  border-radius: 14px;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--m3-primary) 14%, transparent), color-mix(in srgb, var(--m3-tertiary, var(--m3-secondary)) 12%, transparent));
+}
+.oh-resource-usage-total-badge > small {
   color: var(--m3-primary);
-  font-size: 21px;
+  font: 700 10px/1.1 var(--oh-font-sans, inherit);
+}
+.oh-resource-usage-total-badge > b {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  color: var(--m3-primary);
+  font-size: 18px;
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.oh-resource-usage-total-badge > b em {
+  font-style: normal;
+}
+.oh-resource-usage-total-badge > b i {
+  color: color-mix(in srgb, var(--m3-primary) 78%, transparent);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 650;
 }
 .oh-resource-usage-detail-metrics {
   display: flex;
@@ -3488,55 +3537,106 @@ button.oh-message-context-capsule {
   gap: 7px;
   margin-top: 11px;
 }
+.oh-resource-usage-detail-metrics.is-compact {
+  margin-top: 8px;
+  gap: 6px;
+}
 .oh-resource-usage-metric {
-  padding: 5px 8px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
   border-radius: 999px;
   color: var(--m3-on-surface-variant);
   background: var(--m3-surface-container-high);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 720;
+  font-variant-numeric: tabular-nums;
+}
+.oh-resource-usage-metric > small {
+  color: color-mix(in srgb, currentColor 82%, transparent);
+  font-size: 10px;
+  font-weight: 650;
+}
+.oh-resource-usage-metric > b {
+  color: inherit;
+  font-size: 11px;
+  font-weight: 800;
+}
+.oh-resource-usage-metric.is-compact {
+  padding: 5px 8px;
+  gap: 5px;
+  font-size: 10px;
+}
+.oh-resource-usage-metric.is-compact > small {
+  font-size: 9px;
+}
+.oh-resource-usage-metric.is-compact > b {
+  font-size: 11px;
+}
+.oh-resource-usage-metric.is-success {
+  color: #15803d;
+  background: color-mix(in srgb, #22c55e 12%, transparent);
+  border-color: color-mix(in srgb, #22c55e 16%, transparent);
 }
 .oh-resource-usage-metric.is-error {
-  color: var(--m3-on-error-container);
-  background: var(--m3-error-container);
+  color: var(--m3-error);
+  background: color-mix(in srgb, var(--m3-error-container) 85%, transparent);
+  border-color: color-mix(in srgb, var(--m3-error) 16%, transparent);
+}
+.oh-resource-usage-metric.is-info {
+  color: #1d4ed8;
+  background: color-mix(in srgb, #3b82f6 12%, transparent);
+  border-color: color-mix(in srgb, #3b82f6 16%, transparent);
+}
+.oh-resource-usage-metric.is-accent {
+  color: var(--m3-primary);
+  background: color-mix(in srgb, var(--m3-primary) 12%, transparent);
+  border-color: color-mix(in srgb, var(--m3-primary) 16%, transparent);
+}
+.oh-resource-usage-metric.is-neutral {
+  color: var(--m3-on-surface-variant);
+  background: var(--m3-surface-container-high);
+  border-color: color-mix(in srgb, var(--m3-outline-variant) 70%, transparent);
 }
 .oh-resource-usage-subresources {
+  display: grid;
+  gap: 0;
   margin-top: 12px;
-  padding: 5px 11px;
+  padding: 10px 12px 8px;
   border: 1px solid var(--m3-outline-variant);
   border-radius: 14px;
-  background: var(--m3-surface-container-lowest, var(--m3-surface));
+  background:
+    linear-gradient(145deg, var(--m3-surface-container-lowest, var(--m3-surface)), color-mix(in srgb, var(--m3-primary-container) 18%, transparent));
 }
-.oh-resource-usage-subresources > div {
-  min-height: 38px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 64px 70px 38px;
-  align-items: center;
-  gap: 10px;
+.oh-resource-usage-subresource {
+  padding: 8px 0;
   border-bottom: 1px solid var(--m3-outline-variant);
-  font-size: 10px;
 }
-.oh-resource-usage-subresources > div:last-child {
+.oh-resource-usage-subresource:last-child {
   border-bottom: 0;
+  padding-bottom: 4px;
 }
-.oh-resource-usage-subresources span {
+.oh-resource-usage-subresource-head {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.oh-resource-usage-subresource-head span {
   overflow: hidden;
   color: var(--m3-on-surface);
-  font-weight: 680;
+  font-size: 12px;
+  font-weight: 720;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.oh-resource-usage-subresources small,
-.oh-resource-usage-subresources em {
+.oh-resource-usage-subresource-head small {
+  overflow: hidden;
   color: var(--m3-on-surface-variant);
-  font-size: 9px;
-  font-style: normal;
-  text-align: right;
-}
-.oh-resource-usage-subresources b {
-  color: var(--m3-on-surface);
-  font-size: 11px;
-  text-align: right;
+  font: 9px ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .oh-resource-usage-event > header {
   display: grid;
@@ -3672,12 +3772,14 @@ button.oh-message-context-capsule {
   .oh-resource-usage-rank-bar {
     display: none;
   }
-  .oh-resource-usage-subresources > div {
-    grid-template-columns: minmax(0, 1fr) 40px;
+  .oh-resource-usage-total-badge {
+    padding: 6px 9px;
   }
-  .oh-resource-usage-subresources small,
-  .oh-resource-usage-subresources em {
-    display: none;
+  .oh-resource-usage-total-badge > b {
+    font-size: 16px;
+  }
+  .oh-resource-usage-rank-count {
+    min-width: 40px;
   }
   .oh-resource-usage-ranking,
   .oh-resource-usage-details,
