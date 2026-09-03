@@ -11,6 +11,7 @@ const MAX_SESSIONS_LIST_ROUTE_BYTES = 128 * 1024;
 const MAX_SESSION_DETAIL_ROUTE_BYTES = 768 * 1024;
 const MAX_LOGO_BYTES = 256 * 1024;
 const EXPECTED_LOGO_SIZE = 512;
+const SERVICE_WORKER_BUILD_ID_PATTERN = /const CACHE_VERSION = `\$\{SHELL_CACHE_PREFIX\}[a-f0-9]{16}`;/;
 
 function walkJsFiles(dir) {
   const files = [];
@@ -200,6 +201,19 @@ if (!existsSync(logoFile)) {
   }
   if (logo.length > MAX_LOGO_BYTES) {
     errors.push(`Web Logo 共 ${logo.length} 字节，超过 ${MAX_LOGO_BYTES} 字节上限`);
+  }
+}
+
+const serviceWorkerFile = path.join(outDir, 'sw.js');
+if (!existsSync(serviceWorkerFile)) {
+  errors.push('缺少 Web Service Worker 产物 sw.js');
+} else {
+  const serviceWorkerSource = readFileSync(serviceWorkerFile, 'utf8');
+  if (
+    serviceWorkerSource.includes('__OPENHAND_BUILD_ID__')
+    || !SERVICE_WORKER_BUILD_ID_PATTERN.test(serviceWorkerSource)
+  ) {
+    errors.push('Web Service Worker 缓存版本未正确写入构建指纹');
   }
 }
 
