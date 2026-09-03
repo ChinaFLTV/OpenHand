@@ -20,6 +20,7 @@ import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_base64.dart';
 import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/bounded_json_conversion.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
@@ -76,6 +77,9 @@ class AiTtsPlaybackService {
   static const int _maxControlResponseBytes = kBytesPerMiB;
   static const int _maxDoubaoFrameChars = 16 * kBytesPerMiB;
   static const int _maxWebSocketEventChars = 16 * kBytesPerMiB;
+  static const int _maxJsonDepth = 32;
+  static const int _maxJsonContainerItems = 65536;
+  static const int _maxJsonNodes = 262144;
   static const int _mimoMaxVoiceSampleBase64Bytes = 10 * kBytesPerMiB;
   static const int _mimoMaxVoiceSampleRawBytes =
       (_mimoMaxVoiceSampleBase64Bytes ~/ 4) * 3;
@@ -1181,7 +1185,10 @@ class AiTtsPlaybackService {
             if (event.length > _maxWebSocketEventChars) {
               throw const FormatException('讯飞 TTS 事件超过安全上限。');
             }
-            final decoded = jsonDecode(event);
+            final decoded = _decodeTtsJson(
+              event,
+              maxTextCodeUnits: _maxWebSocketEventChars,
+            );
             if (decoded is! Map) continue;
             final code = decoded['code'];
             if (code is int && code != 0) {
@@ -1319,7 +1326,10 @@ class AiTtsPlaybackService {
         uri: uri,
       );
     }
-    final decoded = jsonDecode(response.body);
+    final decoded = _decodeTtsJson(
+      response.body,
+      maxTextCodeUnits: _maxAudioJsonResponseBytes,
+    );
     if (decoded is! Map || decoded['audioContent'] is! String) {
       throw StateError('Google TTS 返回了无效音频数据。');
     }
@@ -1842,7 +1852,10 @@ class AiTtsPlaybackService {
         uri: uri,
       );
     }
-    final decoded = jsonDecode(response.body);
+    final decoded = _decodeTtsJson(
+      response.body,
+      maxTextCodeUnits: _maxControlResponseBytes,
+    );
     if (decoded is! Map || decoded['access_token'] is! String) {
       throw StateError('百度 TTS 令牌响应无效。');
     }
@@ -2097,7 +2110,10 @@ class AiTtsPlaybackService {
     String payload, {
     required void Function(String audioBase64) onAudio,
   }) {
-    final decoded = jsonDecode(payload);
+    final decoded = _decodeTtsJson(
+      payload,
+      maxTextCodeUnits: _maxDoubaoFrameChars,
+    );
     if (decoded is! Map) return;
     final code = decoded['code'];
     if (code is int && code != 0 && code != _doubaoTtsSuccessCode) {
@@ -2129,6 +2145,18 @@ class AiTtsPlaybackService {
     } on BoundedBase64FormatException {
       throw const FormatException('TTS 音频 Base64 格式无效。');
     }
+  }
+
+  static Object? _decodeTtsJson(String text, {required int maxTextCodeUnits}) {
+    return decodeJsonTextWithinBounds(
+      text,
+      maxTextCodeUnits: maxTextCodeUnits,
+      maxDepth: _maxJsonDepth,
+      maxContainerItems: _maxJsonContainerItems,
+      maxTotalNodes: _maxJsonNodes,
+      maxStringCodeUnits: maxTextCodeUnits,
+      maxTotalStringCodeUnits: maxTextCodeUnits,
+    );
   }
 
   static void _appendBoundedBase64Audio(
@@ -2163,7 +2191,10 @@ class AiTtsPlaybackService {
     }
     final Object? decoded;
     try {
-      decoded = jsonDecode(body);
+      decoded = _decodeTtsJson(
+        body,
+        maxTextCodeUnits: _maxAudioJsonResponseBytes,
+      );
     } on FormatException catch (error) {
       throw StateError('Mimo TTS 返回了无效 JSON：${error.message}');
     }

@@ -10,6 +10,7 @@ import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/bounded_json_conversion.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/message_frame_scan.dart';
@@ -1948,6 +1949,9 @@ class _AiLspSession {
   static const int _maxOpenDocumentBytes = 32 * kBytesPerMiB;
   static const int _maxLspFrameBytes = 8 * kBytesPerMiB;
   static const int _maxLspHeaderBytes = 64 * kBytesPerKiB;
+  static const int _maxLspJsonDepth = 64;
+  static const int _maxLspJsonContainerItems = 262144;
+  static const int _maxLspJsonNodes = 1048576;
   static const int _maxMessagesPerDrain = 64;
   static const int _maxQueuedServerRequests = 32;
   static const Duration _serverRequestResponseTimeout = Duration(seconds: 15);
@@ -2642,7 +2646,15 @@ class _AiLspSession {
       _responseBuffer.removeRange(0, bodyEnd);
 
       try {
-        final decoded = jsonDecode(utf8.decode(body));
+        final decoded = decodeJsonTextWithinBounds(
+          utf8.decode(body),
+          maxTextCodeUnits: _maxLspFrameBytes,
+          maxDepth: _maxLspJsonDepth,
+          maxContainerItems: _maxLspJsonContainerItems,
+          maxTotalNodes: _maxLspJsonNodes,
+          maxStringCodeUnits: _maxLspFrameBytes,
+          maxTotalStringCodeUnits: _maxLspFrameBytes,
+        );
         if (decoded is! Map) {
           _failProtocol(const FormatException('LSP JSON-RPC 载荷必须为对象。'));
           return;

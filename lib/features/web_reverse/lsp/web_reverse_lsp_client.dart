@@ -14,6 +14,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/message_frame_scan.dart';
@@ -28,6 +29,9 @@ enum WebReverseLspStatus { idle, starting, ready, notInstalled, failed }
 const int _kMaxLspFrameBytes = 8 * kBytesPerMiB;
 const int _kMaxLspHeaderBytes = 64 * kBytesPerKiB;
 const int _kMaxLspBufferedBytes = _kMaxLspFrameBytes + _kMaxLspHeaderBytes;
+const int _kMaxLspJsonDepth = 64;
+const int _kMaxLspJsonContainerItems = 262144;
+const int _kMaxLspJsonNodes = 1048576;
 const int _kMaxLspStderrCharacters = 256;
 const Duration _kDefaultLspRequestTimeout = Duration(seconds: 8);
 const Duration _kDefaultLspStartupTimeout = Duration(seconds: 8);
@@ -667,7 +671,15 @@ class WebReverseLspClient {
       final body = _buf.sublist(bodyStart, bodyEnd);
       _buf.removeRange(0, bodyEnd);
       try {
-        final decoded = jsonDecode(utf8.decode(body));
+        final decoded = decodeJsonTextWithinBounds(
+          utf8.decode(body),
+          maxTextCodeUnits: _kMaxLspFrameBytes,
+          maxDepth: _kMaxLspJsonDepth,
+          maxContainerItems: _kMaxLspJsonContainerItems,
+          maxTotalNodes: _kMaxLspJsonNodes,
+          maxStringCodeUnits: _kMaxLspFrameBytes,
+          maxTotalStringCodeUnits: _kMaxLspFrameBytes,
+        );
         if (decoded is Map && decoded['id'] is num) {
           final id = (decoded['id'] as num).toInt();
           final c = _pending.remove(id);

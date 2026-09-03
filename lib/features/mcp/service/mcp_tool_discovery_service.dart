@@ -17,6 +17,7 @@ import '../../../shared/net/sse_line_parsing.dart';
 import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_delete.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -52,6 +53,9 @@ const int _mcpServerResponseDisplayMaxCharacters = 64 * kBytesPerKiB;
 const int _mcpLegacySseMaxLineBytes = 4 * kBytesPerMiB;
 const int _mcpLegacySseMaxEventBytes = 4 * kBytesPerMiB;
 const int _mcpStdioStderrMaxCharacters = 4 * kBytesPerKiB;
+const int _mcpMaxJsonDepth = 64;
+const int _mcpMaxJsonContainerItems = 262144;
+const int _mcpMaxJsonNodes = 1048576;
 const Duration _mcpHttpDiscardTimeout = Duration(seconds: 3);
 const Duration _mcpStreamCleanupTimeout = Duration(milliseconds: 500);
 const Duration _mcpSessionCloseTimeout = Duration(seconds: 2);
@@ -117,6 +121,18 @@ Future<void> _drainMcpHttpResponse(
     response.stream,
     idleTimeout: totalTimeout,
     totalTimeout: totalTimeout,
+  );
+}
+
+Object? _decodeMcpJson(String text, {required int maxTextCodeUnits}) {
+  return decodeJsonTextWithinBounds(
+    text,
+    maxTextCodeUnits: maxTextCodeUnits,
+    maxDepth: _mcpMaxJsonDepth,
+    maxContainerItems: _mcpMaxJsonContainerItems,
+    maxTotalNodes: _mcpMaxJsonNodes,
+    maxStringCodeUnits: maxTextCodeUnits,
+    maxTotalStringCodeUnits: maxTextCodeUnits,
   );
 }
 
@@ -1342,7 +1358,10 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
 
     late final Object? decoded;
     try {
-      decoded = jsonDecode(body);
+      decoded = _decodeMcpJson(
+        body,
+        maxTextCodeUnits: _mcpHttpMaxResponseBytes,
+      );
     } on FormatException {
       throw McpToolDiscoveryException(
         '工具扫描失败：MCP 服务返回的内容不是有效 JSON。'
@@ -1482,7 +1501,10 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         continue;
       }
       try {
-        final decoded = jsonDecode(event.data);
+        final decoded = _decodeMcpJson(
+          event.data,
+          maxTextCodeUnits: _mcpHttpMaxResponseBytes,
+        );
         final message = _firstJsonRpcMessageForRequestId(decoded, requestId);
         if (message != null) {
           return message;
@@ -2095,7 +2117,10 @@ class _LegacySseSession {
         }
       } else if (event.name.isEmpty || event.name == 'message') {
         try {
-          final decoded = jsonDecode(event.data);
+          final decoded = _decodeMcpJson(
+            event.data,
+            maxTextCodeUnits: _mcpLegacySseMaxEventBytes,
+          );
           final decodedMessages = _jsonRpcMessagesFromDecoded(
             decoded,
           ).toList(growable: false);
@@ -2588,7 +2613,11 @@ class _StdioSession {
       }
       Object? decoded;
       try {
-        decoded = jsonDecode(payload);
+        decoded = _decodeMcpJson(
+          payload,
+          maxTextCodeUnits:
+              DefaultMcpToolDiscoveryService._maxStdioStdoutBufferBytes,
+        );
       } on FormatException {
         throw McpToolDiscoveryException(
           '工具扫描失败：stdio MCP 服务返回的内容不是有效 JSON。'
