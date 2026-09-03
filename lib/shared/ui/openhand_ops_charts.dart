@@ -1242,13 +1242,10 @@ Path _smoothPath(List<Offset> points) {
   for (var index = 0; index < points.length - 1; index++) {
     final current = points[index];
     final next = points[index + 1];
-    final midpoint = Offset(
-      (current.dx + next.dx) / 2,
-      (current.dy + next.dy) / 2,
-    );
-    path.quadraticBezierTo(current.dx, current.dy, midpoint.dx, midpoint.dy);
+    final controlX = (current.dx + next.dx) / 2;
+    path.cubicTo(controlX, current.dy, controlX, next.dy, next.dx, next.dy);
   }
-  return path..lineTo(points.last.dx, points.last.dy);
+  return path;
 }
 
 Path _linearPath(List<Offset> points) {

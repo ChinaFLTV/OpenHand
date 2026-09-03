@@ -401,15 +401,10 @@ function smoothPath(points: Array<{ x: number; y: number }>): string {
   if (points.length === 0) return '';
   let path = `M ${points[0].x} ${points[0].y}`;
   for (let index = 0; index < points.length - 1; index++) {
-    const previous = points[Math.max(0, index - 1)];
     const current = points[index];
     const next = points[index + 1];
-    const afterNext = points[Math.min(points.length - 1, index + 2)];
-    const control1X = current.x + (next.x - previous.x) / 6;
-    const control1Y = current.y + (next.y - previous.y) / 6;
-    const control2X = next.x - (afterNext.x - current.x) / 6;
-    const control2Y = next.y - (afterNext.y - current.y) / 6;
-    path += ` C ${control1X} ${control1Y}, ${control2X} ${control2Y}, ${next.x} ${next.y}`;
+    const controlX = (current.x + next.x) / 2;
+    path += ` C ${controlX} ${current.y}, ${controlX} ${next.y}, ${next.x} ${next.y}`;
   }
   return path;
 }
