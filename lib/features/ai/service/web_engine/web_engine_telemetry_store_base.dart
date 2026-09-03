@@ -594,7 +594,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
                 entry.value,
                 limit: maxHistorySamples,
                 fromEnd: true,
-              ).map(jsonSafeMap).toList(growable: false);
+              ).map(jsonSafeMap).toList(growable: true);
             }
           }
         } on FormatException {

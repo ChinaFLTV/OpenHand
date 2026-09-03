@@ -570,6 +570,7 @@ class AiSessionController extends ChangeNotifier {
     milliseconds: 250,
   );
   static const int _transientModelRequestMaxRetries = 1;
+  static const int _emptyResponseMaxRetries = 1;
   static const Duration _transientModelRequestRetryDelay = Duration(
     milliseconds: 500,
   );
@@ -7292,6 +7293,7 @@ class AiSessionController extends ChangeNotifier {
     var toolRoundCount = 0;
     var toolCallCount = 0;
     var transientModelRequestRetryCount = 0;
+    var emptyResponseRetryCount = 0;
     Future<bool> retryTransientModelRequest(
       Object error, {
       required bool inputCacheEnabled,
@@ -7314,6 +7316,35 @@ class AiSessionController extends ChangeNotifier {
       await delayUntilCancelled(
         _transientModelRequestRetryDelay,
         cancelSignal: stopSignal,
+      );
+      return !_isStopRequestedForSession(workingSession.id);
+    }
+
+    Future<bool> retryEmptyResponse({
+      required Object error,
+      required AiSession partialSession,
+      required Set<String> partialMessageIds,
+    }) async {
+      if (error is! AiChatEmptyResponseException ||
+          emptyResponseRetryCount >= _emptyResponseMaxRetries ||
+          _isStopRequestedForSession(workingSession.id)) {
+        return false;
+      }
+      emptyResponseRetryCount += 1;
+      workingSession = _removeMessagesByIds(
+        partialSession,
+        messageIds: partialMessageIds,
+      );
+      workingSession = _recordTransientModelRequestRetry(
+        session: workingSession,
+        messageId: activeRoundAnchorMessageId,
+        error: error,
+        attempt: emptyResponseRetryCount,
+      );
+      _previewSession(workingSession);
+      await delayUntilCancelled(
+        _transientModelRequestRetryDelay,
+        cancelSignal: _stopSignalForSession(workingSession.id),
       );
       return !_isStopRequestedForSession(workingSession.id);
     }
@@ -8441,6 +8472,21 @@ class AiSessionController extends ChangeNotifier {
         materializePendingReasoningPreview();
         streamedSession = setReasoningStreamingState(streamedSession, false);
         flushPreview();
+        if (_isStopRequestedForSession(workingSession.id)) {
+          return true;
+        }
+        if (await retryEmptyResponse(
+          error: error,
+          partialSession: streamedSession,
+          partialMessageIds: <String>{
+            if (assistantMessageId != null) assistantMessageId!,
+            if (reasoningMessageId != null) reasoningMessageId!,
+            ...toolCallMessageIds.values,
+            ...partialDsmlPreviewMessageIds.values,
+          },
+        )) {
+          continue;
+        }
         final hasObservableModelOutput =
             assistantRawBuffer.isNotEmpty ||
             reasoningRawBuffer.isNotEmpty ||
@@ -9009,39 +9055,31 @@ class AiSessionController extends ChangeNotifier {
         // 模型正常结束后重置截断续传计数。
         truncationContinuationCount = 0;
 
-        // 未取消却没有正文、推理和工具调用时，按异常空响应处理。
+        // 未取消却没有正文和工具调用时，不能把仅有推理的结果当作成功。
         final hasReply = sanitizedReply.trim().isNotEmpty;
-        final hasReasoning = result.reasoning.trim().isNotEmpty;
-        final isEmptyResponse = !hasReply && !hasReasoning && !didCancelStream;
+        final isEmptyResponse =
+            !hasReply && result.toolCalls.isEmpty && !didCancelStream;
         if (isEmptyResponse && !workingSession.awaitingPlanApproval) {
-          // 首轮空响应直接报错；后续轮次缺少结束原因时同样报错。
-          final treatAsError =
-              toolRoundCount == 0 ||
-              result.finishReason == null ||
-              result.finishReason!.isEmpty;
-          if (treatAsError) {
-            final errorDetail = result.finishReason == null
-                ? '模型返回空响应，且响应流关闭时没有结束原因。'
-                      '可能由网络中断、API 错误或内容过滤导致。'
-                : '模型返回空响应'
-                      '(finish_reason: ${result.finishReason}). '
-                      '可能由内容过滤或 API 端异常导致。';
-            await _emitStopFailureHook(
-              sessionId: workingSession.id,
-              stage: 'chat_stream',
-              detail: errorDetail,
-            );
-            final erroredSession = _appendError(
-              workingSession,
-              stage: 'chat_stream',
-              message: errorDetail,
-              detail: errorDetail,
-            );
-            await _commitSessionLocked(_rebuildSession(erroredSession));
-            _setLastSendErrorMessage(workingSession.id, errorDetail);
-            notifyListeners();
-            return false;
-          }
+          final errorDetail = result.finishReason == null
+              ? '模型返回空响应，未包含可见正文或工具调用。'
+                    '可能由网络中断、API 错误或内容过滤导致。'
+              : '模型返回空响应'
+                    '(finish_reason: ${result.finishReason})，未包含可见正文或工具调用。';
+          await _emitStopFailureHook(
+            sessionId: workingSession.id,
+            stage: 'chat_stream',
+            detail: errorDetail,
+          );
+          final erroredSession = _appendError(
+            workingSession,
+            stage: 'chat_stream',
+            message: errorDetail,
+            detail: errorDetail,
+          );
+          await _commitSessionLocked(_rebuildSession(erroredSession));
+          _setLastSendErrorMessage(workingSession.id, errorDetail);
+          notifyListeners();
+          return false;
         }
 
         final settledPlanSession = _archiveCompletedPlanStateIfNeeded(

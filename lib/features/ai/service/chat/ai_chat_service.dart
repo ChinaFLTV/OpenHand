@@ -43,6 +43,7 @@ const String aiChatRequestFallbackThinkingMarkersRejected =
     'thinking_markers_rejected';
 const String aiChatRequestFallbackResponsesUnsupported =
     'responses_unsupported';
+const String aiChatEmptyResponseMessage = '模型返回空响应：未包含可见正文或工具调用。';
 
 final RegExp _mediaPromptHeaderPattern = RegExp(r'^#\s*\[\d+\]\s*[^\n]*\n+');
 
@@ -1765,6 +1766,24 @@ class AiChatService implements AiChatClient {
       unawaited(cancelResponseStream());
     }
 
+    void failEmptyResponse() {
+      if (resultCompleter.isCompleted) return;
+      resultCompleter.completeError(
+        AiChatEmptyResponseException(
+          telemetry: telemetrySnapshot(
+            rawResponse: rawResponseBuffer.toString(),
+            finishReason: finishReason,
+            error: aiChatEmptyResponseMessage,
+          ),
+        ),
+        StackTrace.current,
+      );
+      if (!eventController.isClosed) {
+        unawaited(eventController.close());
+      }
+      unawaited(cancelResponseStream());
+    }
+
     void emitGeneratedMediaIfPresent(Object? decoded) {
       final media = _extractStreamingGeneratedMedia(decoded);
       if (media == null || emittedMediaUrls.contains(media.url)) {
@@ -1830,6 +1849,12 @@ class AiChatService implements AiChatClient {
           dsmlExtraction.hasTrailingIncompleteMarkup && finishReason == null
           ? 'length'
           : finishReason;
+      if (!wasCancelled &&
+          dsmlExtraction.sanitizedText.trim().isEmpty &&
+          effectiveToolCalls.isEmpty) {
+        failEmptyResponse();
+        return;
+      }
 
       resultCompleter.complete(
         AiChatStreamResult(
@@ -2419,12 +2444,23 @@ class AiChatService implements AiChatClient {
         return;
       }
       if (!wasCancelled &&
-          completedResponse == null &&
-          replyExtraction.sanitizedText.isEmpty &&
-          reasoningBuffer.toString().trim().isEmpty &&
+          replyExtraction.sanitizedText.trim().isEmpty &&
           resolvedToolCalls.isEmpty) {
         resultCompleter.completeError(
-          const AiResponsesPayloadException('Responses API 响应流未返回助手内容或工具调用。'),
+          AiChatEmptyResponseException(
+            telemetry: AiChatRequestTelemetry(
+              requestUrl: request.url,
+              requestMethod: request.method,
+              requestHeaders: capturedHeaders,
+              requestBody: capturedBody,
+              rawResponse: rawResponseBuffer.toString(),
+              startedAt: streamStartedAt,
+              endedAt: DateTime.now().toUtc(),
+              finishReason: finishReason,
+              error: aiChatEmptyResponseMessage,
+              requestFallbacks: List<String>.unmodifiable(requestFallbacks),
+            ),
+          ),
           StackTrace.current,
         );
         unawaited(closeEvents());
@@ -3585,6 +3621,11 @@ class AiChatException implements Exception {
 
   @override
   String toString() => message;
+}
+
+class AiChatEmptyResponseException extends AiChatException {
+  const AiChatEmptyResponseException({super.telemetry})
+    : super(aiChatEmptyResponseMessage);
 }
 
 class AiChatCancelledException implements Exception {
