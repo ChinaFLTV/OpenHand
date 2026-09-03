@@ -86,6 +86,13 @@ function formatAverageDuration(milliseconds: number, sampleCount: number): strin
   return formatDuration(milliseconds);
 }
 
+function formatEventDuration(milliseconds: number, source: string): string {
+  if ((!Number.isFinite(milliseconds) || milliseconds <= 0) && source.trim().toLowerCase() === 'prompt') {
+    return '—';
+  }
+  return formatDuration(milliseconds);
+}
+
 type MetricTone = 'neutral' | 'success' | 'error' | 'info' | 'accent';
 
 function subResourceLabel(resourceId: string): string {
@@ -96,6 +103,13 @@ function subResourceLabel(resourceId: string): string {
     return t('resourceUsage.sub.promptSelection', '技能选择');
   }
   return resourceId;
+}
+
+function sourceDisplayLabel(source: string): string {
+  if (source.trim().toLowerCase() === 'prompt') {
+    return t('resourceUsage.source.prompt', '提示注入');
+  }
+  return source.trim() || '—';
 }
 
 export function ResourceUsageDialog({ kind, labels = {}, onClose }: ResourceUsageDialogProps) {
@@ -207,7 +221,7 @@ export function ResourceUsageDialog({ kind, labels = {}, onClose }: ResourceUsag
               <ResourceDetails resources={level.resources ?? []} labels={labels} />
             </AnalyticsPanel>
             <AnalyticsPanel title={t('resourceUsage.recent', '最近调用记录')} subtitle={t('resourceUsage.recentSubtitle', '实时更新 · 参数与结果已脱敏并限制长度')}>
-              <RecentEvents events={level.recent_events ?? []} />
+              <RecentEvents events={level.recent_events ?? []} labels={labels} />
             </AnalyticsPanel>
           </>
         ) : null}
@@ -614,37 +628,79 @@ function MetricPill({
   );
 }
 
-function RecentEvents({ events }: { events: ResourceUsageEvent[] }) {
+function RecentEvents({ events, labels }: { events: ResourceUsageEvent[]; labels: Record<string, string> }) {
   if (events.length === 0) return <EmptyChart label={t('resourceUsage.emptyRecent', '当前周期暂无详细调用记录')} />;
   return (
     <div class="oh-resource-usage-events">
-      {events.map((event) => (
-        <article key={event.event_id} class={`oh-resource-usage-event${event.succeeded ? '' : ' is-error'}`}>
-          <header>
-            <i />
-            <strong title={`${event.resource_id}/${event.sub_resource_id}`}>{event.resource_id}{event.sub_resource_id ? ` / ${event.sub_resource_id}` : ''}</strong>
-            <b>{statusLabel(event.status)}</b>
-          </header>
-          <div class="oh-resource-usage-event-meta">
-            <span>◴ {formatLocalDateTimeSecond(event.occurred_at, '—')}</span>
-            <span>◷ {formatDuration(event.duration_ms)}</span>
-            <span title={event.session_id}>◇ {shortBucket(event.session_id)}</span>
-            {event.source ? <span>↗ {event.source}</span> : null}
-          </div>
-          {event.arguments_summary ? <EventSummary label={t('resourceUsage.arguments', '参数')} value={event.arguments_summary} /> : null}
-          {event.error_summary
-            ? <EventSummary label={t('resourceUsage.error', '错误')} value={event.error_summary} error />
-            : event.result_summary
-              ? <EventSummary label={t('resourceUsage.result', '结果')} value={event.result_summary} />
-              : null}
-        </article>
-      ))}
+      {events.map((event) => {
+        const resourceLabel = labels[event.resource_id] || event.resource_id;
+        const subLabel = event.sub_resource_id ? subResourceLabel(event.sub_resource_id) : '';
+        const subtitleParts = [
+          subLabel,
+          resourceLabel !== event.resource_id ? shortBucket(event.resource_id) : '',
+        ].filter(Boolean);
+        return (
+          <article
+            key={event.event_id}
+            class={`oh-resource-usage-event${event.succeeded ? '' : ' is-error'}`}
+          >
+            <header>
+              <span class="oh-resource-usage-event-icon" aria-hidden="true">{event.succeeded ? '⚡' : '!'}</span>
+              <div class="oh-resource-usage-event-title">
+                <strong title={`${event.resource_id}${event.sub_resource_id ? ` / ${event.sub_resource_id}` : ''}`}>
+                  {resourceLabel}
+                </strong>
+                {subtitleParts.length > 0 ? <small>{subtitleParts.join(' · ')}</small> : null}
+              </div>
+              <b class="oh-resource-usage-event-status">{statusLabel(event.status)}</b>
+            </header>
+            <div class="oh-resource-usage-detail-metrics is-compact">
+              <MetricPill
+                label={t('resourceUsage.metricLast', '最近')}
+                value={formatLocalDateTimeSecond(event.occurred_at, '—')}
+                tone="info"
+                compact
+              />
+              <MetricPill
+                label={t('resourceUsage.metricLatency', '耗时')}
+                value={formatEventDuration(event.duration_ms, event.source)}
+                tone="accent"
+                compact
+              />
+              <MetricPill
+                label={t('resourceUsage.metricSessions', '会话')}
+                value={shortBucket(event.session_id)}
+                compact
+              />
+              {event.source ? (
+                <MetricPill
+                  label={t('resourceUsage.metricSource', '来源')}
+                  value={sourceDisplayLabel(event.source)}
+                  tone="success"
+                  compact
+                />
+              ) : null}
+            </div>
+            {event.arguments_summary ? <EventSummary label={t('resourceUsage.arguments', '参数')} value={event.arguments_summary} /> : null}
+            {event.error_summary
+              ? <EventSummary label={t('resourceUsage.error', '错误')} value={event.error_summary} error />
+              : event.result_summary
+                ? <EventSummary label={t('resourceUsage.result', '结果')} value={event.result_summary} />
+                : null}
+          </article>
+        );
+      })}
     </div>
   );
 }
 
 function EventSummary({ label, value, error = false }: { label: string; value: string; error?: boolean }) {
-  return <p class={`oh-resource-usage-event-summary${error ? ' is-error' : ''}`}><b>{label}</b><span>{value}</span></p>;
+  return (
+    <p class={`oh-resource-usage-event-summary${error ? ' is-error' : ''}`}>
+      <b>{label}</b>
+      <span>{value}</span>
+    </p>
+  );
 }
 
 function statusLabel(status: string): string {

@@ -630,6 +630,8 @@ export const dict_en: Record<string, string> = {
   'resourceUsage.metricLatency': 'Latency',
   'resourceUsage.metricSessions': 'Sessions',
   'resourceUsage.metricLast': 'Last',
+  'resourceUsage.metricSource': 'Source',
+  'resourceUsage.source.prompt': 'Prompt',
   'resourceUsage.sub.promptContext': 'Prompt context',
   'resourceUsage.sub.promptSelection': 'Skill selection',
   'resourceUsage.other': 'Other resources',

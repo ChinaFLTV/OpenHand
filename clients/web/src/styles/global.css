@@ -3638,54 +3638,101 @@ button.oh-message-context-capsule {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.oh-resource-usage-event {
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--m3-primary) 6%, transparent), transparent 48%),
+    var(--m3-surface-container-low);
+  border-color: color-mix(in srgb, var(--m3-primary) 16%, var(--m3-outline-variant));
+}
+.oh-resource-usage-event.is-error {
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--m3-error) 8%, transparent), transparent 48%),
+    var(--m3-surface-container-low);
+  border-color: color-mix(in srgb, var(--m3-error) 22%, var(--m3-outline-variant));
+}
 .oh-resource-usage-event > header {
   display: grid;
-  grid-template-columns: 9px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 9px;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 11px;
 }
-.oh-resource-usage-event > header i {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--m3-primary);
+.oh-resource-usage-event-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--m3-primary);
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--m3-primary) 18%, transparent), color-mix(in srgb, var(--m3-primary-container) 55%, transparent));
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
 }
-.oh-resource-usage-event > header strong {
+.oh-resource-usage-event.is-error .oh-resource-usage-event-icon {
+  color: var(--m3-error);
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--m3-error) 16%, transparent), color-mix(in srgb, var(--m3-error-container) 70%, transparent));
+}
+.oh-resource-usage-event-title {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.oh-resource-usage-event-title strong {
   overflow: hidden;
   color: var(--m3-on-surface);
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 760;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.oh-resource-usage-event > header b {
-  color: var(--m3-primary);
-  font-size: 10px;
-}
-.oh-resource-usage-event.is-error > header i {
-  background: var(--m3-error);
-}
-.oh-resource-usage-event.is-error > header b {
-  color: var(--m3-error);
-}
-.oh-resource-usage-event-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 13px;
-  margin-top: 8px;
+.oh-resource-usage-event-title small {
+  overflow: hidden;
   color: var(--m3-on-surface-variant);
-  font-size: 9px;
+  font-size: 10px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oh-resource-usage-event-status {
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--m3-primary) 28%, transparent);
+  border-radius: 999px;
+  color: var(--m3-primary);
+  background: color-mix(in srgb, var(--m3-primary) 12%, transparent);
+  font-size: 10px;
+  font-weight: 780;
+  white-space: nowrap;
+}
+.oh-resource-usage-event.is-error .oh-resource-usage-event-status {
+  color: var(--m3-error);
+  border-color: color-mix(in srgb, var(--m3-error) 28%, transparent);
+  background: color-mix(in srgb, var(--m3-error) 12%, transparent);
+}
+.oh-resource-usage-event .oh-resource-usage-detail-metrics {
+  margin-top: 11px;
 }
 .oh-resource-usage-event-summary {
   display: flex;
   gap: 8px;
-  margin: 8px 0 0;
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--m3-outline-variant) 80%, transparent);
+  border-radius: 12px;
   color: var(--m3-on-surface-variant);
+  background: color-mix(in srgb, var(--m3-surface-container-lowest, var(--m3-surface)) 88%, transparent);
   font-size: 10px;
   line-height: 1.45;
 }
 .oh-resource-usage-event-summary b {
   flex: none;
   color: var(--m3-primary);
+  font-weight: 780;
+}
+.oh-resource-usage-event-summary.is-error {
+  border-color: color-mix(in srgb, var(--m3-error) 22%, transparent);
+  background: color-mix(in srgb, var(--m3-error-container) 35%, transparent);
 }
 .oh-resource-usage-event-summary.is-error b {
   color: var(--m3-error);

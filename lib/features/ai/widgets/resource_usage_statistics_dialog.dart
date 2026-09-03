@@ -420,7 +420,10 @@ class _ResourceUsageStatisticsDialogState
             de: 'Live · Inhalte geschützt und begrenzt',
             ja: 'リアルタイム · 内容はマスク・制限済み',
           ),
-          child: _RecentUsageEvents(events: level.recentEvents),
+          child: _RecentUsageEvents(
+            events: level.recentEvents,
+            labels: widget.resourceLabels,
+          ),
         ),
       ],
     );
@@ -1518,9 +1521,10 @@ class _MetricPill extends StatelessWidget {
 }
 
 class _RecentUsageEvents extends StatefulWidget {
-  const _RecentUsageEvents({required this.events});
+  const _RecentUsageEvents({required this.events, required this.labels});
 
   final List<AiResourceUsageEvent> events;
+  final Map<String, String> labels;
 
   @override
   State<_RecentUsageEvents> createState() => _RecentUsageEventsState();
@@ -1570,7 +1574,10 @@ class _RecentUsageEventsState extends State<_RecentUsageEvents> {
           child: Column(
             children: [
               for (var index = 0; index < pageEvents.length; index++) ...[
-                _UsageEventCard(event: pageEvents[index]),
+                _UsageEventCard(
+                  event: pageEvents[index],
+                  labels: widget.labels,
+                ),
                 if (index != pageEvents.length - 1) kOpenHandGap9,
               ],
             ],
@@ -1636,9 +1643,10 @@ class _BoundedAnalyticsListState extends State<_BoundedAnalyticsList> {
 }
 
 class _UsageEventCard extends StatelessWidget {
-  const _UsageEventCard({required this.event});
+  const _UsageEventCard({required this.event, required this.labels});
 
   final AiResourceUsageEvent event;
+  final Map<String, String> labels;
 
   @override
   Widget build(BuildContext context) {
@@ -1647,28 +1655,88 @@ class _UsageEventCard extends StatelessWidget {
       colors,
       event.status,
     );
+    final resourceLabel = () {
+      final mapped = labels[event.resourceId]?.trim() ?? '';
+      return mapped.isEmpty ? event.resourceId : mapped;
+    }();
+    final subLabel = event.subResourceId.isEmpty
+        ? ''
+        : _subResourceDisplayLabel(context, event.subResourceId);
+    final showResourceId = resourceLabel != event.resourceId;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colors.surfaceContainerLow,
+            statusColor.withValues(alpha: 0.06),
+          ],
+        ),
         borderRadius: BorderRadius.circular(kOpenHandRadius17),
-        border: Border.all(color: colors.outlineVariant),
+        border: Border.all(
+          color: statusColor.withValues(alpha: 0.18),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      statusColor.withValues(alpha: 0.18),
+                      colors.primaryContainer.withValues(alpha: 0.55),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius12),
+                ),
+                child: Icon(
+                  event.succeeded
+                      ? Icons.bolt_rounded
+                      : Icons.error_outline_rounded,
+                  size: 18,
+                  color: statusColor,
+                ),
+              ),
+              kOpenHandHGap12,
               Expanded(
-                child: Text(
-                  event.subResourceId.isEmpty
-                      ? event.resourceId
-                      : '${event.resourceId}  /  ${event.subResourceId}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      resourceLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (subLabel.isNotEmpty || showResourceId) ...[
+                      kOpenHandGap3,
+                      Text(
+                        [
+                          if (subLabel.isNotEmpty) subLabel,
+                          if (showResourceId)
+                            _shortIdentifier(event.resourceId),
+                        ].join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               kOpenHandHGap9,
@@ -1678,27 +1746,38 @@ class _UsageEventCard extends StatelessWidget {
               ),
             ],
           ),
-          kOpenHandGap8,
+          kOpenHandGap11,
           Wrap(
-            spacing: 12,
+            spacing: 6,
             runSpacing: 6,
             children: [
-              OpenHandInlineIconLabel(
+              _MetricPill(
                 icon: Icons.schedule_rounded,
-                label: formatYearMonthDayHmsLocal(event.occurredAt),
+                label: _metricLastLabel(context),
+                value: formatYearMonthDayHmsLocal(event.occurredAt),
+                tone: _MetricTone.info,
+                compact: true,
               ),
-              OpenHandInlineIconLabel(
+              _MetricPill(
                 icon: Icons.timer_outlined,
-                label: openHandTableMetricDuration(event.durationMs),
+                label: _metricLatencyLabel(context),
+                value: _formatEventDuration(event.durationMs, event.source),
+                tone: _MetricTone.accent,
+                compact: true,
               ),
-              OpenHandInlineIconLabel(
+              _MetricPill(
                 icon: Icons.forum_outlined,
-                label: _shortIdentifier(event.sessionId),
+                label: _metricSessionLabel(context),
+                value: _shortIdentifier(event.sessionId),
+                compact: true,
               ),
               if (event.source.isNotEmpty)
-                OpenHandInlineIconLabel(
+                _MetricPill(
                   icon: Icons.route_outlined,
-                  label: event.source,
+                  label: _metricSourceLabel(context),
+                  value: _usageSourceDisplayLabel(context, event.source),
+                  tone: _MetricTone.success,
+                  compact: true,
                 ),
             ],
           ),
@@ -1767,15 +1846,26 @@ class _EventSummaryLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
+    final accent = error ? colors.error : colors.primary;
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: error
+            ? colors.errorContainer.withValues(alpha: 0.35)
+            : colors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(kOpenHandRadius12),
+        border: Border.all(
+          color: accent.withValues(alpha: error ? 0.22 : 0.14),
+        ),
+      ),
       child: Text.rich(
         TextSpan(
           children: [
             TextSpan(
               text: '$label  ',
               style: TextStyle(
-                color: error ? colors.error : colors.primary,
+                color: accent,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -1925,6 +2015,40 @@ String _formatAverageDuration(num milliseconds, int sampleCount) {
     return kOpenHandTableMetricEmpty;
   }
   return openHandTableMetricDuration(milliseconds);
+}
+
+String _formatEventDuration(int milliseconds, String source) {
+  if (milliseconds <= 0 && source.trim().toLowerCase() == 'prompt') {
+    return kOpenHandTableMetricEmpty;
+  }
+  return openHandTableMetricDuration(milliseconds);
+}
+
+String _metricSourceLabel(BuildContext context) {
+  return openHandLocalizedText(
+    context,
+    zh: '来源',
+    zhHant: '來源',
+    en: 'Source',
+    fr: 'Source',
+    de: 'Quelle',
+    ja: 'ソース',
+  );
+}
+
+String _usageSourceDisplayLabel(BuildContext context, String source) {
+  return switch (source.trim().toLowerCase()) {
+    'prompt' => openHandLocalizedText(
+      context,
+      zh: '提示注入',
+      zhHant: '提示注入',
+      en: 'Prompt',
+      fr: 'Prompt',
+      de: 'Prompt',
+      ja: 'プロンプト',
+    ),
+    _ => source.trim().isEmpty ? kOpenHandTableMetricEmpty : source.trim(),
+  };
 }
 
 String _callUnitLabel(BuildContext context) {

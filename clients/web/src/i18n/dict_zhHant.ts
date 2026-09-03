@@ -628,6 +628,8 @@ export const dict_zhHant: Record<string, string> = {
   'resourceUsage.metricLatency': '耗時',
   'resourceUsage.metricSessions': '會話',
   'resourceUsage.metricLast': '最近',
+  'resourceUsage.metricSource': '來源',
+  'resourceUsage.source.prompt': '提示注入',
   'resourceUsage.sub.promptContext': '提示詞注入',
   'resourceUsage.sub.promptSelection': '技能選擇',
   'resourceUsage.other': '其他資源',

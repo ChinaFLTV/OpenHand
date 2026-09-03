@@ -629,6 +629,8 @@ export const dict_zh: Record<string, string> = {
   'resourceUsage.metricLatency': '耗时',
   'resourceUsage.metricSessions': '会话',
   'resourceUsage.metricLast': '最近',
+  'resourceUsage.metricSource': '来源',
+  'resourceUsage.source.prompt': '提示注入',
   'resourceUsage.sub.promptContext': '提示词注入',
   'resourceUsage.sub.promptSelection': '技能选择',
   'resourceUsage.other': '其他资源',

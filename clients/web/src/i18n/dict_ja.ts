@@ -628,6 +628,8 @@ export const dict_ja: Record<string, string> = {
   'resourceUsage.metricLatency': '所要時間',
   'resourceUsage.metricSessions': 'セッション',
   'resourceUsage.metricLast': '最新',
+  'resourceUsage.metricSource': 'ソース',
+  'resourceUsage.source.prompt': 'プロンプト',
   'resourceUsage.sub.promptContext': 'プロンプト注入',
   'resourceUsage.sub.promptSelection': 'スキル選択',
   'resourceUsage.other': 'その他のリソース',
