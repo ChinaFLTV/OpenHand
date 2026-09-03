@@ -101,8 +101,8 @@ class OpenHandStatusPill extends StatelessWidget {
           children: [
             Icon(icon, size: 17, color: color),
             kOpenHandHGap7,
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 280),
+            // Flexible：在卡片等窄约束下收缩省略，避免固定 maxWidth 把 Row 撑爆。
+            Flexible(
               child: Text(
                 label,
                 maxLines: 1,

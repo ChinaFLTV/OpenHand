@@ -1140,8 +1140,8 @@ class _SkillCard extends StatelessWidget {
                       ),
                       style: IconButton.styleFrom(
                         shape: const CircleBorder(),
-                        backgroundColor: cs.secondaryContainer,
-                        foregroundColor: cs.onSecondaryContainer,
+                        backgroundColor: cs.surfaceContainerHighest,
+                        foregroundColor: cs.onSurfaceVariant,
                       ),
                       icon: const Icon(Icons.more_vert_rounded),
                       onSelected: onActionSelected,
@@ -1180,7 +1180,7 @@ class _SkillCard extends StatelessWidget {
                 OpenHandStatusPill(
                   icon: Icons.folder_outlined,
                   label: skill.displayDirectoryPath,
-                  color: cs.secondary,
+                  color: cs.tertiary,
                 ),
               ],
             ),
