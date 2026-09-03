@@ -591,7 +591,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
       WebGatewayRuntimeState.crashed => cs.error,
       WebGatewayRuntimeState.starting ||
       WebGatewayRuntimeState.stopping => OpenHandStatusColors.warning,
-      WebGatewayRuntimeState.stopped => cs.onSurfaceVariant,
+      WebGatewayRuntimeState.stopped => cs.outline,
     };
     final statusPills = <Widget>[
       OpenHandStatusPill(
@@ -624,7 +624,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 de: 'Auth deaktiviert',
                 ja: '認証なし',
               ),
-        color: config.authEnabled ? cs.primary : cs.onSurfaceVariant,
+        color: config.authEnabled ? cs.primary : cs.outline,
       ),
       OpenHandStatusPill(
         icon: Icons.analytics_outlined,
@@ -677,7 +677,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
         label: isRunning
             ? controller.webUrl
             : '${config.listenHost}:${config.listenPort}',
-        color: isRunning ? OpenHandStatusColors.info : cs.onSurfaceVariant,
+        color: isRunning ? cs.primary : cs.outline,
       ),
       if (controller.hasPendingRuntimeConfig)
         OpenHandStatusPill(
@@ -816,7 +816,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 ja: 'セッション読み取り専用',
               ),
         color: config.sessionManagementEnabled
-            ? OpenHandStatusColors.info
+            ? cs.secondary
             : cs.onSurfaceVariant,
       ),
       _GatewayFactChip(
@@ -7721,28 +7721,8 @@ class _GatewayPlatformIdentity extends StatelessWidget {
               width: _kGatewayIdentityExtent,
               height: _kGatewayIdentityExtent,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    colors.primaryContainer,
-                    Color.alphaBlend(
-                      colors.tertiaryContainer.withValues(alpha: 0.55),
-                      colors.primaryContainer,
-                    ),
-                  ],
-                ),
+                color: colors.primaryContainer,
                 borderRadius: kOpenHandBorderRadius18,
-                border: Border.all(
-                  color: colors.primary.withValues(alpha: 0.14),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: colors.primary.withValues(alpha: 0.10),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
               ),
               alignment: Alignment.center,
               child:
@@ -7756,7 +7736,13 @@ class _GatewayPlatformIdentity extends StatelessWidget {
             Positioned(
               right: -3,
               bottom: -3,
-              child: _StatusDot(color: statusColor),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.circle, color: statusColor, size: 18),
+              ),
             ),
           ],
         ),
@@ -7859,18 +7845,9 @@ class _GatewayRuntimeMetricsStrip extends StatelessWidget {
         }
         return DecoratedBox(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                cs.surfaceContainerHigh.withValues(alpha: 0.72),
-                cs.surfaceContainerLowest.withValues(alpha: 0.92),
-              ],
-            ),
+            color: cs.surfaceContainerHigh,
             borderRadius: BorderRadius.circular(kOpenHandRadius16),
-            border: Border.all(
-              color: cs.outlineVariant.withValues(alpha: 0.85),
-            ),
+            border: Border.all(color: cs.outlineVariant),
           ),
           child: Padding(
             padding: _kGatewayMetricsPadding,
@@ -7884,7 +7861,7 @@ class _GatewayRuntimeMetricsStrip extends StatelessWidget {
                         child: VerticalDivider(
                           width: 1,
                           thickness: 1,
-                          color: cs.outlineVariant.withValues(alpha: 0.85),
+                          color: cs.outlineVariant,
                         ),
                       ),
                     Expanded(child: _GatewayMetricCell(item: items[i])),
@@ -7924,12 +7901,6 @@ class _GatewayMetricCell extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: item.accent,
                   shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: item.accent.withValues(alpha: 0.35),
-                      blurRadius: 6,
-                    ),
-                  ],
                 ),
               ),
               kOpenHandHGap8,
@@ -8081,15 +8052,11 @@ class _AccessibleUrlsBar extends StatelessWidget {
               width: 22,
               height: 22,
               decoration: BoxDecoration(
-                color: OpenHandStatusColors.info.withValues(alpha: 0.12),
+                color: cs.primary.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(kOpenHandRadius8),
               ),
               alignment: Alignment.center,
-              child: const Icon(
-                Icons.lan_outlined,
-                size: 14,
-                color: OpenHandStatusColors.info,
-              ),
+              child: Icon(Icons.lan_outlined, size: 14, color: cs.primary),
             ),
             kOpenHandHGap8,
             Text(
@@ -8142,13 +8109,13 @@ class _AccessibleUrlPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    const accent = OpenHandStatusColors.info;
+    final accent = cs.primary;
     return Container(
       constraints: kOpenHandContentMaxWidth360,
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.88),
+        color: accent.withValues(alpha: 0.10),
         borderRadius: kOpenHandPillBorderRadius,
-        border: Border.all(color: accent.withValues(alpha: 0.28)),
+        border: Border.all(color: accent.withValues(alpha: 0.26)),
       ),
       padding: _kGatewayUrlPillPadding,
       child: Row(
@@ -8191,7 +8158,7 @@ class _AccessibleUrlPill extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelMedium?.copyWith(
                 fontFeatures: const [FontFeature.tabularFigures()],
-                color: cs.onSurface,
+                color: accent,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -11718,10 +11685,10 @@ class _DingTalkGatewayCard extends StatelessWidget {
         final theme = Theme.of(context);
         final cs = theme.colorScheme;
         final statusColor = ding.isAuthenticating
-            ? OpenHandStatusColors.info
+            ? cs.primary
             : ding.isPolling
             ? OpenHandStatusColors.success
-            : cs.onSurfaceVariant;
+            : cs.outline;
         final statusPills = <Widget>[
           OpenHandStatusPill(
             icon: ding.isAuthorized
