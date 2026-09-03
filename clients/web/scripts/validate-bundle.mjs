@@ -7,6 +7,7 @@ const outDir = path.resolve(process.argv[2] ?? '../../assets/web');
 const errors = [];
 const exportCache = new Map();
 const MAX_EAGER_JS_BYTES = 512 * 1024;
+const MAX_SESSIONS_LIST_ROUTE_BYTES = 128 * 1024;
 
 function walkJsFiles(dir) {
   const files = [];
@@ -118,6 +119,7 @@ if (!existsSync(indexFile) || !existsSync(entryFile)) {
   errors.push('缺少 Web 入口产物 index.html 或 app.js');
 } else {
   const indexSource = readFileSync(indexFile, 'utf8');
+  const entrySource = readFileSync(entryFile, 'utf8');
   const eagerFiles = new Set([entryFile]);
   for (const match of indexSource.matchAll(
     /<link\b[^>]*\brel=["']modulepreload["'][^>]*\bhref=["']([^"']+)["'][^>]*>/g,
@@ -137,6 +139,25 @@ if (!existsSync(indexFile) || !existsSync(entryFile)) {
     errors.push(
       `首屏 JavaScript 共 ${eagerBytes} 字节，超过 ${MAX_EAGER_JS_BYTES} 字节上限`,
     );
+  }
+
+  // 会话详情体积较大，禁止再次通过列表 barrel 合入列表路由。
+  const sessionListChunks = new Set(
+    [...entrySource.matchAll(/chunks\/(sessions-[A-Za-z0-9_-]+\.js)/g)]
+      .map((match) => path.join(outDir, 'chunks', match[1])),
+  );
+  if (sessionListChunks.size !== 1) {
+    errors.push(`无法唯一识别会话列表路由产物：${sessionListChunks.size} 个`);
+  } else {
+    const [sessionListChunk] = sessionListChunks;
+    const sessionListBytes = existsSync(sessionListChunk)
+      ? statSync(sessionListChunk).size
+      : 0;
+    if (sessionListBytes > MAX_SESSIONS_LIST_ROUTE_BYTES) {
+      errors.push(
+        `会话列表路由共 ${sessionListBytes} 字节，超过 ${MAX_SESSIONS_LIST_ROUTE_BYTES} 字节上限`,
+      );
+    }
   }
 }
 

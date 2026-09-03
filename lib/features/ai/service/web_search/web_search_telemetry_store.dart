@@ -17,8 +17,6 @@ class WebSearchTelemetryStore
 
   static final WebSearchTelemetryStore instance = WebSearchTelemetryStore._();
 
-  static const int maxRecentCalls = 200;
-
   @override
   String get subdir => 'web_search';
 
@@ -36,21 +34,12 @@ class WebSearchTelemetryStore
     WebSearchCallLog call, {
     required WebEngineCooldownConfig cooldownConfig,
   }) {
-    return recordCallRaw(
+    return recordMetricCall(
       callJson: call.toJson(),
       timestampMs: call.timestampMs,
-      perEngine: call.perEngine
-          .map(
-            (per) => WebEngineCallEvent(
-              kindName: per.kind.name,
-              success: per.success,
-              elapsedMs: per.elapsedMs,
-              error: per.error,
-              aggregateBumps: <String, num>{'total_hits': per.hitCount},
-              historyExtras: <String, Object?>{'hits': per.hitCount},
-            ),
-          )
-          .toList(growable: false),
+      perEngine: call.perEngine,
+      aggregateMetricKey: 'total_hits',
+      historyMetricKey: 'hits',
       cooldownConfig: cooldownConfig,
     );
   }
@@ -109,9 +98,9 @@ class WebSearchCallLog {
       mergedHitCount: webEngineNonNegativeIntFromValue(m['merged_hit_count']),
       fallbackUsed: m['fallback_used'] == true,
       summaryChars: webEngineNonNegativeIntFromValue(m['summary_chars']),
-      errorMessage: m['error_message'] as String?,
-      modelProtocol: m['model_protocol'] as String?,
-      modelId: m['model_id'] as String?,
+      errorMessage: optionalStringFromValue(m['error_message']),
+      modelProtocol: optionalStringFromValue(m['model_protocol']),
+      modelId: optionalStringFromValue(m['model_id']),
       perEngine: perEngine,
     );
   }
@@ -147,7 +136,7 @@ class WebSearchCallLog {
   };
 }
 
-class WebSearchPerEngineLog {
+class WebSearchPerEngineLog implements WebEngineMetricCall {
   const WebSearchPerEngineLog({
     required this.kind,
     required this.success,
@@ -167,15 +156,24 @@ class WebSearchPerEngineLog {
       success: m['success'] == true,
       hitCount: webEngineNonNegativeIntFromValue(m['hit_count']),
       elapsedMs: webEngineNonNegativeIntFromValue(m['elapsed_ms']),
-      error: m['error'] as String?,
+      error: optionalStringFromValue(m['error']),
     );
   }
 
   final AiWebSearchEngineKind kind;
+  @override
   final bool success;
   final int hitCount;
+  @override
   final int elapsedMs;
+  @override
   final String? error;
+
+  @override
+  String get kindName => kind.name;
+
+  @override
+  int get metricValue => hitCount;
 
   Map<String, Object?> toJson() => {
     'kind': kind.name,

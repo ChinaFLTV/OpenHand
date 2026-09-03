@@ -8,6 +8,8 @@ import '../model/knowledge_chunk.dart';
 import '../model/knowledge_source.dart';
 
 final RegExp _markdownHeadingPattern = RegExp(r'^(#{1,6})\s+(.+)$');
+const String _chunkLimitExceededMessage = '知识源分块数量超过安全上限。';
+const String _sectionLimitExceededMessage = '知识源章节数量超过安全上限。';
 
 class KnowledgeChunker {
   const KnowledgeChunker();
@@ -34,7 +36,7 @@ class KnowledgeChunker {
     for (final section in sections) {
       final remaining = kKnowledgeMaxChunkCountPerSource - chunks.length;
       if (remaining <= 0) {
-        throw StateError('知识源分块数量超过安全上限。');
+        throw StateError(_chunkLimitExceededMessage);
       }
       final windows = switch (strategy) {
         KnowledgeChunkStrategy.fixedTokenWindow => _fixedWindows(
@@ -109,7 +111,7 @@ class KnowledgeChunker {
       final content = buffer.toString().trim();
       if (content.isEmpty) return;
       if (sections.length >= maxSections) {
-        throw StateError('知识源章节数量超过安全上限。');
+        throw StateError(_sectionLimitExceededMessage);
       }
       final headingPath = headingStack.join(' > ');
       sections.add(
@@ -152,17 +154,11 @@ class KnowledgeChunker {
     KnowledgeBaseSettings settings, {
     required int maxWindows,
   }) {
-    final tuning = _tuning(settings);
-    if (text.length <= tuning.hardMaxChars) {
-      if (maxWindows <= 0) {
-        throw StateError('知识源分块数量超过安全上限。');
-      }
-      return <_Window>[_Window(text: text, start: 0, end: text.length)];
-    }
-    return _windowsFromUnits(
-      _paragraphUnits(text),
+    return _unitBasedWindows(
+      text,
       settings,
       maxWindows: maxWindows,
+      units: _paragraphUnits,
     );
   }
 
@@ -178,7 +174,7 @@ class KnowledgeChunker {
     var start = 0;
     while (start < text.length) {
       if (windows.length >= maxWindows) {
-        throw StateError('知识源分块数量超过安全上限。');
+        throw StateError(_chunkLimitExceededMessage);
       }
       final end = _clampInt(start + windowChars, start + 1, text.length);
       windows.add(
@@ -195,18 +191,28 @@ class KnowledgeChunker {
     KnowledgeBaseSettings settings, {
     required int maxWindows,
   }) {
+    return _unitBasedWindows(
+      text,
+      settings,
+      maxWindows: maxWindows,
+      units: _sentenceUnits,
+    );
+  }
+
+  List<_Window> _unitBasedWindows(
+    String text,
+    KnowledgeBaseSettings settings, {
+    required int maxWindows,
+    required Iterable<_Window> Function(String text) units,
+  }) {
     final tuning = _tuning(settings);
     if (text.length <= tuning.hardMaxChars) {
       if (maxWindows <= 0) {
-        throw StateError('知识源分块数量超过安全上限。');
+        throw StateError(_chunkLimitExceededMessage);
       }
       return <_Window>[_Window(text: text, start: 0, end: text.length)];
     }
-    return _windowsFromUnits(
-      _sentenceUnits(text),
-      settings,
-      maxWindows: maxWindows,
-    );
+    return _windowsFromUnits(units(text), settings, maxWindows: maxWindows);
   }
 
   List<_Window> _windowsFromUnits(
@@ -224,7 +230,7 @@ class KnowledgeChunker {
 
     void addWindow(_Window window) {
       if (windows.length >= maxWindows) {
-        throw StateError('知识源分块数量超过安全上限。');
+        throw StateError(_chunkLimitExceededMessage);
       }
       windows.add(window);
     }

@@ -27,6 +27,7 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_table_pagination.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/duration_bounds.dart';
@@ -54,6 +55,7 @@ part 'ai_exposure_monitoring_log.dart';
 
 const Duration _kOperationsRefreshInterval = Duration(seconds: 8);
 const Duration _kOperationsMetadataTimeout = Duration(seconds: 2);
+const int _kOperationsMetadataConcurrency = 8;
 
 // AI 暴露监控分类语义色板（图表/标签/卡片统一引用）。
 const Color _kAiExposureColorHighValue = Color(0xffa855f7);

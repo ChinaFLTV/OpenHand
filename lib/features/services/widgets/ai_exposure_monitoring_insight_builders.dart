@@ -2360,9 +2360,13 @@ Future<Map<String, FileStat>> _loadLocalFileStats(List<String> paths) async {
   final uniquePaths = paths
       .map((path) => path.trim())
       .where((path) => path.isNotEmpty)
-      .toSet();
-  final entries = await Future.wait(
-    uniquePaths.map((path) async {
+      .toSet()
+      .toList(growable: false);
+  final entries = await runOrderedWithConcurrencyLimit(
+    itemCount: uniquePaths.length,
+    maxConcurrency: _kOperationsMetadataConcurrency,
+    task: (index) async {
+      final path = uniquePaths[index];
       try {
         final stat = await File(
           path,
@@ -2377,7 +2381,7 @@ Future<Map<String, FileStat>> _loadLocalFileStats(List<String> paths) async {
       } on UnsupportedError {
         return null;
       }
-    }),
+    },
   );
   return Map<String, FileStat>.unmodifiable({
     for (final entry in entries.whereType<MapEntry<String, FileStat>>())

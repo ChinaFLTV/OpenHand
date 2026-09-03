@@ -12,6 +12,8 @@ import 'web_engine_json_utils.dart';
 import 'web_engine_persistence_io.dart';
 import 'web_engine_value_parsing.dart';
 
+const int webEngineDefaultRecentCalls = 200;
+
 /// WebSearch / WebFetch 调用日志共用的冷却阈值配置。
 class WebEngineCooldownConfig {
   const WebEngineCooldownConfig({
@@ -87,6 +89,15 @@ class WebEngineCallEvent {
   final Map<String, Object?> historyExtras;
 }
 
+/// 带单个领域指标的引擎调用记录，由搜索命中数、抓取字节数等实现。
+abstract interface class WebEngineMetricCall {
+  String get kindName;
+  bool get success;
+  int get elapsedMs;
+  String? get error;
+  int get metricValue;
+}
+
 abstract class WebEngineStatBase {
   const WebEngineStatBase({
     required this.totalCalls,
@@ -107,7 +118,7 @@ abstract class WebEngineStatBase {
       totalDurationMs = webEngineNonNegativeIntFromValue(
         json['total_duration_ms'],
       ),
-      lastError = json['last_error'] as String?,
+      lastError = optionalStringFromValue(json['last_error']),
       lastFailureAt = webEngineOptionalNonNegativeIntFromValue(
         json['last_failure_at'],
       ),
@@ -120,7 +131,7 @@ abstract class WebEngineStatBase {
       cooldownUntilMs = webEngineOptionalNonNegativeIntFromValue(
         json['cooldown_until_ms'],
       ),
-      lastQuotaError = json['last_quota_error'] as String?,
+      lastQuotaError = optionalStringFromValue(json['last_quota_error']),
       lastQuotaAt = webEngineOptionalNonNegativeIntFromValue(
         json['last_quota_at'],
       );
@@ -222,7 +233,11 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
   Future<List<Map<String, Object?>>> rawCalls() async {
     final decoded = await _readRawJson(_callsFileName, '读取原始调用记录');
     if (decoded is! List) return const [];
-    return stringKeyedMapListFromValue(decoded);
+    return stringKeyedMapListFromValue(
+      decoded,
+      limit: _maxPersistedCalls,
+      fromEnd: true,
+    );
   }
 
   /// 读取最近调用，按新 → 旧排序，并统一处理非正 limit。
@@ -239,9 +254,9 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     if (decoded is! Map) return const {};
     final out = <String, Map<String, Object?>>{};
     for (final entry in decoded.entries) {
-      if (entry.value is Map) {
-        out['${entry.key}'] = stringKeyedMapFromValue(entry.value);
-      }
+      final name = '${entry.key}';
+      if (parseKind(name) == null || entry.value is! Map) continue;
+      out[name] = stringKeyedMapFromValue(entry.value);
     }
     return out;
   }
@@ -252,9 +267,13 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     if (decoded is! Map) return const {};
     final out = <String, List<Map<String, Object?>>>{};
     for (final entry in decoded.entries) {
-      if (entry.value is List) {
-        out['${entry.key}'] = stringKeyedMapListFromValue(entry.value);
-      }
+      final name = '${entry.key}';
+      if (parseKind(name) == null || entry.value is! List) continue;
+      out[name] = stringKeyedMapListFromValue(
+        entry.value,
+        limit: _maxPersistedHistorySamples,
+        fromEnd: true,
+      );
     }
     return out;
   }
@@ -356,6 +375,34 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
   }
 
   // 写入入口（子类的 typed `recordCall(...)` 包装它）
+  Future<void> recordMetricCall({
+    required Map<String, Object?> callJson,
+    required int timestampMs,
+    required Iterable<WebEngineMetricCall> perEngine,
+    required String aggregateMetricKey,
+    required String historyMetricKey,
+    required WebEngineCooldownConfig cooldownConfig,
+  }) {
+    return recordCallRaw(
+      callJson: callJson,
+      timestampMs: timestampMs,
+      perEngine: <WebEngineCallEvent>[
+        for (final item in perEngine)
+          WebEngineCallEvent(
+            kindName: item.kindName,
+            success: item.success,
+            elapsedMs: item.elapsedMs,
+            error: item.error,
+            aggregateBumps: <String, num>{aggregateMetricKey: item.metricValue},
+            historyExtras: <String, Object?>{
+              historyMetricKey: item.metricValue,
+            },
+          ),
+      ],
+      cooldownConfig: cooldownConfig,
+    );
+  }
+
   /// 把一条调用日志（[callJson]）+ per-engine 事件批量写盘：
   /// 1) 追加到 calls.json（FIFO 上限 [maxRecentCalls]）。
   /// 2) 把每个 [perEngine] 折叠到 engines.json：累加 `total_calls/success_calls/
@@ -369,7 +416,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     required int timestampMs,
     required List<WebEngineCallEvent> perEngine,
     required WebEngineCooldownConfig cooldownConfig,
-    int maxRecentCalls = 200,
+    int maxRecentCalls = webEngineDefaultRecentCalls,
     int maxHistorySamples = AiWebEngineResiliencePolicy.maxThrottlePerMinute,
   }) async {
     if (_shuttingDown) return;
@@ -424,9 +471,13 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
           deadline: deadline,
         );
         if (decoded is List) {
-          for (final item in decoded) {
-            if (item is Map) calls.add(stringKeyedMapFromValue(item));
-          }
+          calls.addAll(
+            stringKeyedMapListFromValue(
+              decoded,
+              limit: maxRecentCalls,
+              fromEnd: true,
+            ),
+          );
         }
       } on FormatException {
         /* 文件损坏时丢弃旧记录。 */
@@ -445,9 +496,9 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
         );
         if (decoded is Map) {
           for (final entry in decoded.entries) {
-            if (entry.value is Map) {
-              agg['${entry.key}'] = stringKeyedMapFromValue(entry.value);
-            }
+            final name = '${entry.key}';
+            if (parseKind(name) == null || entry.value is! Map) continue;
+            agg[name] = stringKeyedMapFromValue(entry.value);
           }
         }
       } on FormatException {
@@ -472,7 +523,9 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
         int? cooldownUntilMs = webEngineOptionalNonNegativeIntFromValue(
           cur['cooldown_until_ms'],
         );
-        String? lastQuotaError = cur['last_quota_error'] as String?;
+        String? lastQuotaError = optionalStringFromValue(
+          cur['last_quota_error'],
+        );
         int? lastQuotaAt = webEngineOptionalNonNegativeIntFromValue(
           cur['last_quota_at'],
         );
@@ -535,12 +588,13 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
           );
           if (decoded is Map) {
             for (final entry in decoded.entries) {
-              if (entry.value is List) {
-                hist['${entry.key}'] = (entry.value as List)
-                    .whereType<Map>()
-                    .map((m) => jsonSafeMap(stringKeyedMapFromValue(m)))
-                    .toList();
-              }
+              final name = '${entry.key}';
+              if (parseKind(name) == null || entry.value is! List) continue;
+              hist[name] = stringKeyedMapListFromValue(
+                entry.value,
+                limit: maxHistorySamples,
+                fromEnd: true,
+              ).map(jsonSafeMap).toList(growable: false);
             }
           }
         } on FormatException {

@@ -136,6 +136,20 @@ function virtualMessageBottom(
   return virtualMessageTop(prefix, index, gapPx) + heights[index]!;
 }
 
+function firstIndexMatching(length: number, matches: (index: number) => boolean): number {
+  let low = 0;
+  let high = length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (matches(middle)) {
+      high = middle;
+    } else {
+      low = middle + 1;
+    }
+  }
+  return low;
+}
+
 export function virtualMessageTotalHeight(
   prefix: number[],
   count: number,
@@ -151,17 +165,10 @@ function firstVirtualMessageIntersecting(
   targetY: number,
   gapPx = MESSAGE_LIST_GAP_PX,
 ): number {
-  let lo = 0;
-  let hi = heights.length;
-  while (lo < hi) {
-    const mid = Math.floor((lo + hi) / 2);
-    if (virtualMessageBottom(prefix, heights, mid, gapPx) < targetY) {
-      lo = mid + 1;
-    } else {
-      hi = mid;
-    }
-  }
-  return Math.min(lo, heights.length);
+  return firstIndexMatching(
+    heights.length,
+    (index) => virtualMessageBottom(prefix, heights, index, gapPx) >= targetY,
+  );
 }
 
 function firstVirtualMessageAfter(
@@ -170,17 +177,10 @@ function firstVirtualMessageAfter(
   targetY: number,
   gapPx = MESSAGE_LIST_GAP_PX,
 ): number {
-  let lo = 0;
-  let hi = heights.length;
-  while (lo < hi) {
-    const mid = Math.floor((lo + hi) / 2);
-    if (virtualMessageTop(prefix, mid, gapPx) <= targetY) {
-      lo = mid + 1;
-    } else {
-      hi = mid;
-    }
-  }
-  return Math.min(lo, heights.length);
+  return firstIndexMatching(
+    heights.length,
+    (index) => virtualMessageTop(prefix, index, gapPx) > targetY,
+  );
 }
 
 /** 首帧优先展示最新尾部，使会话贴近底部且无需挂载全部历史。 */

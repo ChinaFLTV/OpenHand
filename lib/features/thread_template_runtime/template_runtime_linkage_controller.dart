@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../shared/core/managed_change_notifier.dart';
 import '../../shared/util/input_value_parsing.dart';
 
 class TemplateRuntimeCapabilityState {
@@ -84,10 +85,9 @@ class TemplateRuntimeSessionLinkage {
   };
 }
 
-class TemplateRuntimeLinkageController extends ChangeNotifier {
+class TemplateRuntimeLinkageController extends ManagedChangeNotifier {
   final Map<String, TemplateRuntimeSessionLinkage> _sessions =
       <String, TemplateRuntimeSessionLinkage>{};
-  bool _isDisposed = false;
 
   TemplateRuntimeCapabilityState? latestCapabilityState(
     String templateId,
@@ -132,7 +132,7 @@ class TemplateRuntimeLinkageController extends ChangeNotifier {
     required String templateId,
     required Iterable<TemplateRuntimeCapabilityState> capabilities,
   }) {
-    if (_isDisposed) return;
+    if (isDisposed) return;
     final normalizedSessionId = nullIfBlank(sessionId);
     final normalizedTemplateId = nullIfBlank(templateId);
     if (normalizedSessionId == null || normalizedTemplateId == null) return;
@@ -166,7 +166,7 @@ class TemplateRuntimeLinkageController extends ChangeNotifier {
   }
 
   void removeSession(String sessionId) {
-    if (_isDisposed) return;
+    if (isDisposed) return;
     final normalizedSessionId = nullIfBlank(sessionId);
     if (normalizedSessionId != null &&
         _sessions.remove(normalizedSessionId) != null) {
@@ -176,8 +176,7 @@ class TemplateRuntimeLinkageController extends ChangeNotifier {
 
   @override
   void dispose() {
-    if (_isDisposed) return;
-    _isDisposed = true;
+    if (isDisposed) return;
     _sessions.clear();
     super.dispose();
   }

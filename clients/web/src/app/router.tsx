@@ -87,7 +87,9 @@ const SessionsPage = lazyRoute(() =>
   import('../features/sessions').then((module) => module.SessionsPage),
 );
 const SessionDetailPage = lazyRoute(() =>
-  import('../features/sessions').then((module) => module.SessionDetailPage),
+  import('../features/sessions/detail').then(
+    (module) => module.SessionDetailPage,
+  ),
 );
 const SettingsPage = lazyRoute(() =>
   import('../features/settings').then((module) => module.SettingsPage),

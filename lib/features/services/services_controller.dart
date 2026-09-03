@@ -22,6 +22,7 @@ const int _kAiExposureLogTrimBatchSize = 250;
 const int _kAiExposureMaxCachedHistoryJobs = 20;
 const int _kAiExposureMaxCachedLogsPerJob = 2000;
 const int _kAiExposureLogFetchBatchSize = 500;
+const int _kAiExposureLogRefreshConcurrency = 4;
 const int _kProxyInspectionCheckpointSize = 512;
 const int _kEventStreamReconnectLimit = 3;
 const Duration _kProxyInspectionFirstRunDelay = Duration(seconds: 10);
@@ -1536,12 +1537,15 @@ class ServicesController extends ChangeNotifier {
       final recent = _history
           .take(_kAiExposureMaxCachedHistoryJobs)
           .toList(growable: false);
-      final batches = await Future.wait(
-        recent.map((entry) async {
+      final batches = await runOrderedWithConcurrencyLimit(
+        itemCount: recent.length,
+        maxConcurrency: _kAiExposureLogRefreshConcurrency,
+        task: (index) async {
+          final entry = recent[index];
           final cached = force ? null : _cachedHistoryLogs(entry.id);
           if (cached != null) return cached;
           return client.logs(entry.id, limit: _kAiExposureLogFetchBatchSize);
-        }),
+        },
       );
       if (!_isCurrentClient(client)) return;
       for (var index = 0; index < recent.length; index++) {

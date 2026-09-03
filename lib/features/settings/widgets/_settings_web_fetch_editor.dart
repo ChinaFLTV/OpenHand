@@ -107,7 +107,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
   @override
   Future<List<WebFetchCallLog>> _loadCallsForExport() {
     return WebFetchTelemetryStore.instance.recentCalls(
-      limit: WebFetchTelemetryStore.maxRecentCalls,
+      limit: webEngineDefaultRecentCalls,
     );
   }
 

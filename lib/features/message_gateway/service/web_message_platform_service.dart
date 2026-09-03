@@ -3610,8 +3610,9 @@ class WebMessagePlatformService {
     operation,
   ) async {
     final body = await _readJsonBody(request, maxBytes: 1024);
-    final pluginId = body['plugin_id'] as String?;
-    if (pluginId == null || pluginId.isEmpty) {
+    final pluginIdValue = body['plugin_id'];
+    final pluginId = pluginIdValue is String ? pluginIdValue.trim() : '';
+    if (pluginId.isEmpty) {
       return _json(HttpStatus.badRequest, <String, Object?>{
         'success': false,
         'message': 'plugin_id is required',
@@ -6639,7 +6640,11 @@ class WebMessagePlatformService {
     }
     final body = await _readJsonBody(request);
     final target = _string(body['target'], 'all').trim().toLowerCase();
-    final expiredOnly = body['expired_only'] as bool? ?? false;
+    final expiredOnlyValue = body['expired_only'];
+    if (expiredOnlyValue != null && expiredOnlyValue is! bool) {
+      return _errorJson(HttpStatus.badRequest, 'invalid_cleanup_expired_only');
+    }
+    final expiredOnly = expiredOnlyValue == true;
     final logs = target == 'logs' || target == 'all';
     final uploads = target == 'uploads' || target == 'all';
     if (!logs && !uploads) {

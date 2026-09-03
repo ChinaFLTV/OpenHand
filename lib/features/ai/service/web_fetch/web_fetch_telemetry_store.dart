@@ -13,8 +13,6 @@ class WebFetchTelemetryStore
 
   static final WebFetchTelemetryStore instance = WebFetchTelemetryStore._();
 
-  static const int maxRecentCalls = 200;
-
   @override
   String get subdir => 'web_fetch';
 
@@ -30,21 +28,12 @@ class WebFetchTelemetryStore
     WebFetchCallLog call, {
     required WebEngineCooldownConfig cooldownConfig,
   }) {
-    return recordCallRaw(
+    return recordMetricCall(
       callJson: call.toJson(),
       timestampMs: call.timestampMs,
-      perEngine: call.perEngine
-          .map(
-            (per) => WebEngineCallEvent(
-              kindName: per.kind.name,
-              success: per.success,
-              elapsedMs: per.elapsedMs,
-              error: per.error,
-              aggregateBumps: <String, num>{'total_bytes': per.contentBytes},
-              historyExtras: <String, Object?>{'bytes': per.contentBytes},
-            ),
-          )
-          .toList(growable: false),
+      perEngine: call.perEngine,
+      aggregateMetricKey: 'total_bytes',
+      historyMetricKey: 'bytes',
       cooldownConfig: cooldownConfig,
     );
   }
@@ -102,7 +91,7 @@ class WebFetchCallLog {
       totalDurationMs: webEngineNonNegativeIntFromValue(m['total_duration_ms']),
       contentChars: webEngineNonNegativeIntFromValue(m['content_chars']),
       fallbackUsed: m['fallback_used'] == true,
-      errorMessage: m['error_message'] as String?,
+      errorMessage: optionalStringFromValue(m['error_message']),
       winningEngine: winning,
       perEngine: perEngine,
     );
@@ -135,7 +124,7 @@ class WebFetchCallLog {
   };
 }
 
-class WebFetchPerEngineLog {
+class WebFetchPerEngineLog implements WebEngineMetricCall {
   const WebFetchPerEngineLog({
     required this.kind,
     required this.success,
@@ -155,15 +144,24 @@ class WebFetchPerEngineLog {
       success: m['success'] == true,
       contentBytes: webEngineNonNegativeIntFromValue(m['content_bytes']),
       elapsedMs: webEngineNonNegativeIntFromValue(m['elapsed_ms']),
-      error: m['error'] as String?,
+      error: optionalStringFromValue(m['error']),
     );
   }
 
   final AiWebFetchEngineKind kind;
+  @override
   final bool success;
   final int contentBytes;
+  @override
   final int elapsedMs;
+  @override
   final String? error;
+
+  @override
+  String get kindName => kind.name;
+
+  @override
+  int get metricValue => contentBytes;
 
   Map<String, Object?> toJson() => {
     'kind': kind.name,

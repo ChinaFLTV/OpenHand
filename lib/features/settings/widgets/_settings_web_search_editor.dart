@@ -99,7 +99,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
   @override
   Future<List<WebSearchCallLog>> _loadCallsForExport() {
     return WebSearchTelemetryStore.instance.recentCalls(
-      limit: WebSearchTelemetryStore.maxRecentCalls,
+      limit: webEngineDefaultRecentCalls,
     );
   }
 
