@@ -10959,6 +10959,7 @@ class AiSessionController extends ChangeNotifier {
       activeConversationMessages,
     );
     final threshold = _effectiveCompressionThresholdChars(
+      session: session,
       runtimeContext: runtimeContext,
       model: model,
     );
@@ -13275,6 +13276,7 @@ $tail''';
     AiModelConfig model,
   ) {
     final threshold = _effectiveCompressionThresholdChars(
+      session: session,
       runtimeContext: runtimeContext,
       model: model,
     );
@@ -13298,15 +13300,52 @@ $tail''';
   }
 
   int _effectiveCompressionThresholdChars({
+    required AiSession session,
     required AiSessionRuntimeContext runtimeContext,
     required AiModelConfig model,
   }) {
     final configuredThreshold = runtimeContext.compressionThresholdChars;
     final modelCharacterBudget = _estimatedCharacterBudgetForModel(model);
-    if (modelCharacterBudget == null) {
-      return configuredThreshold;
+    var threshold = modelCharacterBudget == null
+        ? configuredThreshold
+        : math.min(configuredThreshold, modelCharacterBudget);
+    final metadata = session.lastPromptMetadata;
+    if ('${metadata['current_model_id'] ?? ''}'.trim() != model.modelId) {
+      return threshold;
     }
-    return math.min(configuredThreshold, modelCharacterBudget);
+    final estimatedPromptTokens = optionalNonNegativeIntegralIntFromValue(
+      metadata['context_budget_estimated_prompt_tokens'],
+    );
+    final autoCompactThresholdTokens = optionalNonNegativeIntegralIntFromValue(
+      metadata['context_budget_auto_compact_threshold_tokens'],
+    );
+    if (estimatedPromptTokens == null ||
+        autoCompactThresholdTokens == null ||
+        estimatedPromptTokens < autoCompactThresholdTokens) {
+      return threshold;
+    }
+    final charactersPerToken =
+        optionalNonNegativeIntegralIntFromValue(
+          metadata['context_budget_estimated_chars_per_token'],
+        ) ??
+        math.max(1, runtimeContext.estimatedCharactersPerToken).toInt();
+    final activeCharacters = session.activeConversationMessages
+        .where(
+          (message) =>
+              message.kind != AiSessionMessageKind.compressionPoint &&
+              message.isConversationTurn,
+        )
+        .fold<int>(0, (sum, message) => sum + message.characterCount);
+    final requiredReduction =
+        ((estimatedPromptTokens - autoCompactThresholdTokens) *
+                    math.max(1, charactersPerToken) +
+                _compressionCheckpointMaxChars)
+            .toInt();
+    threshold = math.min(
+      threshold,
+      math.max(1, activeCharacters - requiredReduction),
+    );
+    return threshold;
   }
 
   int? _estimatedCharacterBudgetForModel(AiModelConfig model) {

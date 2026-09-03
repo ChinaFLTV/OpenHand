@@ -22,6 +22,7 @@ import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/physical_path_safety.dart';
+import '../../shared/util/stable_hash.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/text_normalization.dart';
 import '../../shared/util/timer_safety.dart';
@@ -40,8 +41,22 @@ import 'model/dingtalk_message_gateway.dart';
 import 'service/dingtalk_message_gateway_service.dart';
 
 const String _dingTalkResponseRoundIdMetadataKey = 'dingtalk_response_round_id';
+const String _dingTalkRuntimeProfileMetadataKey =
+    'dingtalk_runtime_profile_sha256';
 final RegExp _dingTalkToolCallIdentityPattern = RegExp(
   r'\b(?:call|toolu|hook)[-_][A-Za-z0-9_-]{6,}\b',
+  caseSensitive: false,
+);
+final RegExp _dingTalkDwsRequestPattern = RegExp(
+  r'(^|[^a-z0-9])dws([^a-z0-9]|$)',
+  caseSensitive: false,
+);
+final RegExp _dingTalkMcpRequestPattern = RegExp(
+  r'(^|[^a-z0-9])mcp([^a-z0-9]|$)',
+  caseSensitive: false,
+);
+final RegExp _dingTalkToolUseRequestPattern = RegExp(
+  r'用|使用|调用|通过|查询|搜索|查找|检索|搜一下|查一下|use|using|call|invoke|search|query|look\s*up',
   caseSensitive: false,
 );
 
@@ -4597,10 +4612,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         forceResponse: forceResponse,
       );
       if (aiContent.isEmpty) return;
+      final requestContent = source == null
+          ? content.trim()
+          : _messageAiContextContent(source);
       final enabledMultimodalCapabilities =
           _validMultimodalCapabilitiesForRuntime();
       final detectedMediaRequest = detectDingTalkMultimodalGenerationRequest(
-        source == null ? content : _messageAiContextContent(source),
+        requestContent,
       );
       final mediaRequest =
           detectedMediaRequest != null &&
@@ -4663,7 +4681,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           )
           .toList(growable: false);
       final eagerMcpServerNames = _mcpController.matchedSmallRuntimeServerNames(
-        query: source == null ? content : _messageAiContextContent(source),
+        query: requestContent,
         serverNames: selectedMcp.map((server) => server.name),
       );
       final eagerMcpTools = _resolvedEagerMcpTools(
@@ -4673,6 +4691,26 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final expectedEagerMcpToolNames = eagerMcpTools
           .map((tool) => tool.name)
           .toSet();
+      final normalizedRequestContent = requestContent.toLowerCase();
+      final explicitlyRequestsToolUse = _dingTalkToolUseRequestPattern.hasMatch(
+        requestContent,
+      );
+      final mcpExplicitlyRequested =
+          explicitlyRequestsToolUse &&
+          (_dingTalkMcpRequestPattern.hasMatch(requestContent) ||
+              selectedMcp.any(
+                (server) =>
+                    server.name.trim().isNotEmpty &&
+                    normalizedRequestContent.contains(
+                      server.name.trim().toLowerCase(),
+                    ),
+              ));
+      final explicitlyRequestedMcpToolNames = mcpExplicitlyRequested
+          ? _resolvedEagerMcpTools(
+              selectedMcp,
+              selectedMcp.map((server) => server.name).toSet(),
+            ).map((tool) => tool.name).toSet()
+          : const <String>{};
       final selectedSkills = _skillsController.skills
           .where((skill) => _settings.allowedSkillNames.contains(skill.name))
           .toList(growable: false);
@@ -4680,8 +4718,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           .where(
             (workflow) =>
                 workflow.enabled &&
-                (_settings.allowedWorkflowIds.isEmpty ||
-                    _settings.allowedWorkflowIds.contains(workflow.id)),
+                _settings.allowedWorkflowIds.contains(workflow.id),
           )
           .toList(growable: false);
       final selectedMemory =
@@ -4712,9 +4749,65 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             ),
           )
           .toList(growable: false);
+      final dwsExplicitlyRequested =
+          explicitlyRequestsToolUse &&
+          _dingTalkDwsRequestPattern.hasMatch(requestContent);
+      final dwsToolNames = <String>{};
+      final reservedDwsToolNames = <String>{};
+      for (final command in dwsCatalog) {
+        dwsToolNames.add(
+          dingtalkDwsToolName(command, usedNames: reservedDwsToolNames),
+        );
+      }
+      final dwsUnavailableForRequest =
+          dwsExplicitlyRequested && dwsCatalog.isEmpty;
+      final mcpUnavailableForRequest =
+          mcpExplicitlyRequested && selectedMcp.isEmpty;
+      final configuredCapabilityUnavailableForRequest =
+          dwsUnavailableForRequest || mcpUnavailableForRequest;
+      final requiredToolGroups = <Set<String>>[
+        if (expectedEagerMcpToolNames.isNotEmpty) expectedEagerMcpToolNames,
+        if (mcpExplicitlyRequested && selectedMcp.isNotEmpty)
+          <String>{'ToolSearch', ...explicitlyRequestedMcpToolNames},
+        if (dwsExplicitlyRequested && dwsCatalog.isNotEmpty)
+          <String>{'DingTalkToolSearchTool', ...dwsToolNames},
+      ];
+      final echoRequiredToolGroups = <Set<String>>[
+        ...requiredToolGroups,
+        if (configuredCapabilityUnavailableForRequest)
+          const <String>{'requested_capability_not_enabled'},
+      ];
+      final echoRequiredToolNames = echoRequiredToolGroups
+          .expand((group) => group)
+          .toSet();
       final repositorySnapshot = preparedResources[3] as AiRepositorySnapshot;
       final workspaceInstructionDocuments =
           preparedResources[4] as List<AiWorkspaceInstructionDocument>;
+      List<String> sortedValues(Iterable<String> values) =>
+          values
+              .map((value) => value.trim())
+              .where((value) => value.isNotEmpty)
+              .toSet()
+              .toList(growable: false)
+            ..sort();
+      final runtimeProfileFingerprint = stableJsonSha256(<String, Object?>{
+        'version': 1,
+        'template_id': templateId,
+        'model_provider_config_id': model.id,
+        'model_id': model.modelId,
+        'working_directory': _settings.workingDirectory,
+        'full_access_permission': _settings.fullAccessPermission,
+        'mcp_servers': sortedValues(_settings.allowedMcpServerNames),
+        'dws_commands': sortedValues(_settings.allowedDingTalkDwsCommandIds),
+        'skills': sortedValues(_settings.allowedSkillNames),
+        'memories': sortedValues(_settings.allowedMemoryIds),
+        'instructions': sortedValues(_settings.allowedInstructionIds),
+        'knowledge_sources': sortedValues(
+          _settings.allowedKnowledgeBaseSourceIds,
+        ),
+        'workflows': sortedValues(_settings.allowedWorkflowIds),
+        'multimodal': sortedValues(enabledMultimodalCapabilities),
+      });
       final runtimeContext = buildAiSessionRuntimeContext(
         settingsController: _settingsController,
         appInfo: _appInfo,
@@ -4784,7 +4877,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final existingSession = sessionId == null
           ? null
           : _sessionController.sessionById(sessionId);
-      if (existingSession == null || existingSession.templateId != templateId) {
+      final existingRuntimeProfile =
+          '${existingSession?.metadata[_dingTalkRuntimeProfileMetadataKey] ?? ''}'
+              .trim();
+      if (existingSession == null ||
+          existingSession.templateId != templateId ||
+          existingRuntimeProfile != runtimeProfileFingerprint) {
         sessionId = null;
         conversation.aiSessionId = null;
         conversation.aiContextCheckpointMessageId = null;
@@ -4800,6 +4898,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           metadata: <String, Object?>{
             'created_via': 'dingtalk_gateway',
             'dingtalk_conversation_id': conversation.id,
+            _dingTalkRuntimeProfileMetadataKey: runtimeProfileFingerprint,
           },
           selectAfterCreate: false,
         );
@@ -4817,7 +4916,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           if (candidate.isDingTalkGatewaySession &&
               candidate.templateId == templateId &&
               candidate.metadata['dingtalk_conversation_id'] ==
-                  conversation.id) {
+                  conversation.id &&
+              candidate.metadata[_dingTalkRuntimeProfileMetadataKey] ==
+                  runtimeProfileFingerprint) {
             sessionId = candidate.id;
             break;
           }
@@ -4847,14 +4948,31 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final echoCoordinator = _DingTalkEchoCoordinator(
         responseRoundId: responseRoundId,
         deliveredSourceMessageIds: deliveredSourceMessageIds,
-        expectToolActivity: selectedMcp.isNotEmpty || mediaRequest != null,
+        expectToolActivity:
+            selectedMcp.isNotEmpty ||
+            dwsCatalog.isNotEmpty ||
+            mediaRequest != null ||
+            configuredCapabilityUnavailableForRequest,
+        requiredToolGroups: echoRequiredToolGroups,
         isTypeEnabled: (type) => _settings.responseEchoTypes.contains(type),
         typeOf: (message, messages) {
           if (mediaRequest != null &&
               message.kind == AiSessionMessageKind.assistant) {
             return null;
           }
-          return _echoTypeOf(message, messages);
+          final type = _echoTypeOf(message, messages);
+          if (configuredCapabilityUnavailableForRequest &&
+              type != DingTalkResponseEchoType.finalResponse) {
+            return null;
+          }
+          if (type == DingTalkResponseEchoType.toolCall &&
+              echoRequiredToolNames.isNotEmpty &&
+              !echoRequiredToolNames.contains(
+                '${message.metadata['tool_name'] ?? ''}'.trim(),
+              )) {
+            return null;
+          }
+          return type;
         },
         textFor: _echoTextForMessage,
         isTerminal: _isEchoTerminal,
@@ -4918,91 +5036,122 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
                   _settingsController.aiWriteCommandConfirmationEnabled,
             );
         if (responseCancelled()) return;
-        final messageCountBeforeSend = currentSession()?.messages.length ?? 0;
-        final sent = await _sessionController.sendMessage(
-          sessionId: sessionId,
-          content: aiContent,
-          model: model,
-          runtimeContext: runtimeContext,
-          attachmentFilePaths: attachmentPaths,
-          denyCommandRules: _settingsController.aiDenyCommandRules,
-          requireWriteCommandConfirmation: requireWriteConfirmation,
-          confirmWriteCommand: requireWriteConfirmation
-              ? (request) {
-                  if (_settingsController.aiAllowCommandRules.any(
-                    (rule) => rule.matches(request.command),
-                  )) {
-                    return Future<BashCommandApprovalDecision>.value(
-                      BashCommandApprovalDecision.approved,
-                    );
+        var validatedRoundStartIndex = currentSession()?.messages.length ?? 0;
+        for (var attempt = 0; attempt < 2; attempt++) {
+          final correctingToolUse = attempt > 0;
+          final messageCountBeforeSend = currentSession()?.messages.length ?? 0;
+          final correctionContent = configuredCapabilityUnavailableForRequest
+              ? '纠正上一轮：当前钉钉网关未启用用户指定的能力。不要调用其他工具替代；仅准确说明当前配置无法执行该请求，并提示用户在网关设置中启用所需能力。'
+              : '纠正上一轮：重新回答上一条用户请求，并先调用当前工具目录中匹配的必需工具；取得真实结果后再作答。';
+          final sent = await _sessionController.sendMessage(
+            sessionId: sessionId,
+            content: correctingToolUse ? correctionContent : aiContent,
+            model: model,
+            runtimeContext: runtimeContext,
+            attachmentFilePaths: correctingToolUse
+                ? const <String>[]
+                : attachmentPaths,
+            denyCommandRules: _settingsController.aiDenyCommandRules,
+            requireWriteCommandConfirmation: requireWriteConfirmation,
+            confirmWriteCommand: requireWriteConfirmation
+                ? (request) {
+                    if (_settingsController.aiAllowCommandRules.any(
+                      (rule) => rule.matches(request.command),
+                    )) {
+                      return Future<BashCommandApprovalDecision>.value(
+                        BashCommandApprovalDecision.approved,
+                      );
+                    }
+                    final handler = _writeApprovalHandler;
+                    if (handler == null) {
+                      return Future<BashCommandApprovalDecision>.value(
+                        BashCommandApprovalDecision.rejected,
+                      );
+                    }
+                    return handler(sessionId!, request);
                   }
-                  final handler = _writeApprovalHandler;
-                  if (handler == null) {
-                    return Future<BashCommandApprovalDecision>.value(
-                      BashCommandApprovalDecision.rejected,
-                    );
-                  }
-                  return handler(sessionId!, request);
-                }
-              : null,
-          additionalSystemReminders: <String>[
-            forceResponse
-                ? _forcedResponseReminder
-                : !automaticResponse
-                ? _standardResponseReminder
-                : conversation.type == DingTalkConversationType.direct
-                ? _directResponseReminder
-                : _groupResponseReminder,
-            _responseCompletionReminder,
-            if (mediaRequest != null) mediaRequest.routingReminder,
-            if (selectedMcp.isNotEmpty)
-              _dingTalkMcpRoutingReminder(selectedMcp, eagerMcpTools),
-          ],
-          userMessageMetadata: <String, Object?>{
-            'sent_via': 'dingtalk_gateway',
-            _dingTalkResponseRoundIdMetadataKey: responseRoundId,
-            if (forceResponse) 'dingtalk_force_response': true,
-            'dingtalk_source_message_id': sourceMessageId,
-            'dingtalk_context_message_ids': contextMessageIds.toList(
-              growable: false,
-            ),
-          },
-        );
-        if (!sent) {
-          if (!responseCancelled()) {
-            _setResponseError(
-              conversation.id,
-              nonBlankStringOr(
-                _sessionController.lastErrorMessageForSession(sessionId),
-                'AI 未返回响应，请检查模型配置与运行日志。',
+                : null,
+            additionalSystemReminders: <String>[
+              forceResponse
+                  ? _forcedResponseReminder
+                  : !automaticResponse
+                  ? _standardResponseReminder
+                  : conversation.type == DingTalkConversationType.direct
+                  ? _directResponseReminder
+                  : _groupResponseReminder,
+              _responseCompletionReminder,
+              _dingTalkCapabilityContractReminder(
+                model: model,
+                mcpServerNames: selectedMcp.map((item) => item.name),
+                dwsCommandCount: dwsCatalog.length,
+                skillCount: selectedSkills.length,
+                memoryCount: selectedMemory.length,
+                instructionCount: selectedInstructions.length,
+                knowledgeSourceCount: selectedKnowledgeSourceIds.length,
+                workflowCount: selectedWorkflows.length,
               ),
-            );
+              if (mediaRequest != null) mediaRequest.routingReminder,
+              if (selectedMcp.isNotEmpty)
+                _dingTalkMcpRoutingReminder(selectedMcp, eagerMcpTools),
+            ],
+            userMessageMetadata: <String, Object?>{
+              'sent_via': 'dingtalk_gateway',
+              _dingTalkResponseRoundIdMetadataKey: responseRoundId,
+              if (forceResponse) 'dingtalk_force_response': true,
+              if (correctingToolUse) 'dingtalk_tool_correction': true,
+              'dingtalk_source_message_id': sourceMessageId,
+              'dingtalk_context_message_ids': contextMessageIds.toList(
+                growable: false,
+              ),
+            },
+          );
+          if (!sent) {
+            if (!responseCancelled()) {
+              _setResponseError(
+                conversation.id,
+                nonBlankStringOr(
+                  _sessionController.lastErrorMessageForSession(sessionId),
+                  'AI 未返回响应，请检查模型配置与运行日志。',
+                ),
+              );
+            }
+            return;
           }
-          return;
-        }
-        if (responseCancelled()) return;
-        if (expectedEagerMcpToolNames.isNotEmpty &&
-            !_roundInvokedAnyTool(
-              currentSession(),
-              messageCountBeforeSend,
-              expectedEagerMcpToolNames,
-            )) {
-          _setResponseError(conversation.id, 'AI 未调用已匹配的 MCP 工具，请重试。');
+          if (responseCancelled()) return;
+          final invokedToolNames = _roundInvokedToolNames(
+            currentSession(),
+            messageCountBeforeSend,
+          );
+          final missedRequiredTool = requiredToolGroups.any(
+            (group) => invokedToolNames.intersection(group).isEmpty,
+          );
+          final usedReplacementForUnavailableCapability =
+              configuredCapabilityUnavailableForRequest &&
+              invokedToolNames.isNotEmpty;
+          if (!missedRequiredTool && !usedReplacementForUnavailableCapability) {
+            validatedRoundStartIndex = messageCountBeforeSend;
+            break;
+          }
+          if (!correctingToolUse) continue;
+          _setResponseError(
+            conversation.id,
+            configuredCapabilityUnavailableForRequest
+                ? 'AI 尝试用其他工具替代未启用的指定能力，已阻止错误回复。'
+                : 'AI 连续未调用当前请求所需工具，已阻止无依据回复。',
+          );
           return;
         }
         if (mediaRequest != null) {
           final roundState = _dingTalkMediaRoundState(
             currentSession(),
-            messageCountBeforeSend,
+            validatedRoundStartIndex,
             mediaRequest,
           );
           if (!roundState.attempted) {
             await _executeDingTalkMediaGenerationFallback(
               conversation: conversation,
               capability: mediaRequest,
-              prompt: source == null
-                  ? content.trim()
-                  : _messageAiContextContent(source),
+              prompt: requestContent,
               referenceImagePaths: attachmentPaths,
               responseCancelled: responseCancelled,
             );
@@ -6839,11 +6988,15 @@ ${_markdownStructuredFields(response)}''';
 
   AiSession? _aiSessionForConversation(DingTalkConversation conversation) {
     final sessionId = conversation.aiSessionId?.trim() ?? '';
-    for (final session in _sessionController.sessions) {
-      if ((sessionId.isNotEmpty && session.id == sessionId) ||
-          (session.isDingTalkGatewaySession &&
-              session.metadata['dingtalk_conversation_id'] ==
-                  conversation.id)) {
+    if (sessionId.isNotEmpty) {
+      for (final session in _sessionController.sessions) {
+        if (session.id == sessionId) return session;
+      }
+      return null;
+    }
+    for (final session in _sessionController.sessions.reversed) {
+      if (session.isDingTalkGatewaySession &&
+          session.metadata['dingtalk_conversation_id'] == conversation.id) {
         return session;
       }
     }
@@ -7001,23 +7154,42 @@ ${_markdownStructuredFields(response)}''';
         '禁止通过 ToolSearch 查找；仅其他延迟工具使用 ToolSearch。取得结果前不得输出前导语或结论。';
   }
 
-  bool _roundInvokedAnyTool(
-    AiSession? session,
-    int startIndex,
-    Set<String> expectedToolNames,
-  ) {
-    if (session == null || expectedToolNames.isEmpty) return false;
+  String _dingTalkCapabilityContractReminder({
+    required AiModelConfig model,
+    required Iterable<String> mcpServerNames,
+    required int dwsCommandCount,
+    required int skillCount,
+    required int memoryCount,
+    required int instructionCount,
+    required int knowledgeSourceCount,
+    required int workflowCount,
+  }) {
+    final mcpNames = mcpServerNames
+        .map((name) => name.trim())
+        .where((name) => name.isNotEmpty)
+        .toList(growable: false);
+    final mcpState = mcpNames.isEmpty ? '未启用' : mcpNames.join('、');
+    return '钉钉运行契约：当前模型为 ${model.displayName}（${model.modelId}）。'
+        '当前能力：MCP=$mcpState；DWS=$dwsCommandCount 项；技能=$skillCount 项；'
+        '记忆=$memoryCount 项；指令=$instructionCount 项；知识库=$knowledgeSourceCount 项；'
+        '工作流=$workflowCount 项。工具目录是唯一可调用能力。用户明确指定能力时，'
+        '已启用则必须先调用；未启用则准确说明配置状态，不得改用无关工具。'
+        '外部事实只能依据当前上下文或工具结果；无证据不得猜测或编造。';
+  }
+
+  Set<String> _roundInvokedToolNames(AiSession? session, int startIndex) {
+    if (session == null) return const <String>{};
     final safeStart = startIndex.clamp(0, session.messages.length);
     return session.messages
         .skip(safeStart)
-        .any(
+        .where(
           (message) =>
               !message.isDeleted &&
-              message.kind == AiSessionMessageKind.toolCall &&
-              expectedToolNames.contains(
-                '${message.metadata['tool_name'] ?? ''}'.trim(),
-              ),
-        );
+              message.kind == AiSessionMessageKind.toolCall,
+        )
+        .map((message) => '${message.metadata['tool_name'] ?? ''}'.trim())
+        .where((name) => name.isNotEmpty)
+        .toSet();
   }
 
   bool _matchesCurrentIdentity(DingTalkGatewayMessage message) {
@@ -7518,6 +7690,7 @@ class _DingTalkEchoCoordinator {
     required this._responseRoundId,
     required this._deliveredSourceMessageIds,
     required this._expectToolActivity,
+    required this._requiredToolGroups,
     required this._isTypeEnabled,
     required this._typeOf,
     required this._textFor,
@@ -7551,6 +7724,7 @@ class _DingTalkEchoCoordinator {
   final String _responseRoundId;
   final Set<String> _deliveredSourceMessageIds;
   final bool _expectToolActivity;
+  final List<Set<String>> _requiredToolGroups;
   final bool Function(DingTalkResponseEchoType type) _isTypeEnabled;
   final _DingTalkEchoTypeResolver _typeOf;
   final _DingTalkEchoTextBuilder _textFor;
@@ -7590,13 +7764,18 @@ class _DingTalkEchoCoordinator {
     if (roundStartIndex < 0) return;
     final roundStartedAt = session.messages[roundStartIndex].createdAt;
     final now = DateTime.now();
-    var hasPriorToolActivity = false;
+    var hasPriorRequiredToolActivity = false;
+    final invokedToolNames = <String>{};
     for (final message in session.messages.skip(roundStartIndex + 1)) {
-      final followsToolActivity = hasPriorToolActivity;
-      if (message.kind == AiSessionMessageKind.toolCall ||
-          message.kind == AiSessionMessageKind.hook ||
-          message.kind.isToolResultKind) {
-        hasPriorToolActivity = true;
+      final followsRequiredToolActivity = hasPriorRequiredToolActivity;
+      if (message.kind == AiSessionMessageKind.toolCall) {
+        final toolName = '${message.metadata['tool_name'] ?? ''}'.trim();
+        if (toolName.isNotEmpty) invokedToolNames.add(toolName);
+        hasPriorRequiredToolActivity = _requiredToolGroups.isEmpty
+            ? invokedToolNames.isNotEmpty
+            : _requiredToolGroups.every(
+                (group) => invokedToolNames.intersection(group).isNotEmpty,
+              );
       }
       if (message.createdAt.isBefore(roundStartedAt) ||
           _deliveredSourceMessageIds.contains(message.id)) {
@@ -7611,7 +7790,7 @@ class _DingTalkEchoCoordinator {
       if (state == null &&
           resolvedType == DingTalkResponseEchoType.finalResponse &&
           !finalizing &&
-          (!terminal || _expectToolActivity && !followsToolActivity)) {
+          (!terminal || _expectToolActivity && !followsRequiredToolActivity)) {
         _pending.remove(message.id);
         continue;
       }

@@ -443,6 +443,7 @@ class AiPromptBuilder {
     );
     final dynamicSessionState = _buildCompactDynamicSessionState(
       session: session,
+      model: model,
       runtimeContext: runtimeContext,
       postCompactRehydration: postCompactRehydration,
       availableToolNames: availableToolNames,
@@ -1159,6 +1160,7 @@ class AiPromptBuilder {
   bool _isVolatileDynamicSessionStateKey(String key) {
     return switch (key) {
       'mode' ||
+      'current_model' ||
       'rehydration' ||
       'web_reverse_runtime' ||
       'android_reverse_runtime' ||
@@ -1735,6 +1737,7 @@ class AiPromptBuilder {
 
   Map<String, Object?> _buildCompactDynamicSessionState({
     required AiSession session,
+    required AiModelConfig model,
     required AiSessionRuntimeContext runtimeContext,
     required Map<String, Object?> postCompactRehydration,
     required List<String> availableToolNames,
@@ -1743,7 +1746,12 @@ class AiPromptBuilder {
     required bool planModeExecutionApprovedForSend,
     required bool planModeRecoveryInspectionRequired,
   }) {
-    final dynamicState = <String, Object?>{};
+    final dynamicState = <String, Object?>{
+      'current_model': <String, String>{
+        'id': model.modelId,
+        'label': model.displayName,
+      },
+    };
 
     // 缓存友好策略：[3d] 只保留「会话内会变 && 模型实际会用」的字段。
     // session.title 与 git 快照不进入 prompt：标题对执行无约束价值，git

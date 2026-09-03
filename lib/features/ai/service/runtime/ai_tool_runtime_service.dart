@@ -770,6 +770,7 @@ class AiToolRuntimeService {
     final commands = runtimeContext.availableDingTalkDwsCommands
         .where((item) => item.cliPath.trim().isNotEmpty)
         .toList(growable: false);
+    if (commands.isEmpty) return;
     final deferredTools = <String, AiResolvedTool>{};
     final deferredDefinitions = <String, AiToolDefinition>{};
     final usedToolNames = <String>{};
