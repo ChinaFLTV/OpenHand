@@ -328,6 +328,20 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     'ps1': 'Windows PowerShell',
     'windowspowershell': 'Windows PowerShell',
   };
+  static final RegExp _languageSeparatorPattern = RegExp(r'[\s_-]+');
+  static final RegExp _pythonDedentPattern = RegExp(
+    r'^(?:elif|else|except|finally)\b',
+  );
+  static final RegExp _pythonBlockOpeningPattern = RegExp(
+    r'^(?:async\s+)?(?:def|class|if|elif|else|for|while|try|except|finally|with|match|case)\b',
+  );
+  static final RegExp _shellDedentPattern = RegExp(
+    r'^(?:fi|done|esac|elif|else)\b|^\}',
+  );
+  static final RegExp _shellBlockOpeningPattern = RegExp(
+    r'(?:\bthen|\bdo)\s*(?:#.*)?$|^case\b.*\bin\s*$|^(?:else|elif)\b',
+  );
+  static final RegExp _continuationPattern = RegExp(r'(?:[+\-*/%=&|.,]|\\)$');
 
   late final _HighlightingCodeController _controller =
       _HighlightingCodeController(
@@ -703,7 +717,7 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
 
   XTypeGroup _codeFileTypeGroup() {
     final languageKey = widget.language.trim().toLowerCase().replaceAll(
-      RegExp(r'[\s_-]+'),
+      _languageSeparatorPattern,
       '',
     );
     final extensions = _codeFileExtensions[languageKey] ?? <String>['txt'];
@@ -813,7 +827,7 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     if (lines.isEmpty) return '';
 
     final languageKey = language.trim().toLowerCase().replaceAll(
-      RegExp(r'[\s_-]+'),
+      _languageSeparatorPattern,
       '',
     );
     final isPython = languageKey == 'python' || languageKey == 'python3';
@@ -893,23 +907,17 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
     return formattedLines.isEmpty ? '' : '${formattedLines.join('\n')}\n';
   }
 
-  bool _isPythonDedentLine(String line) =>
-      RegExp(r'^(?:elif|else|except|finally)\b').hasMatch(line);
+  bool _isPythonDedentLine(String line) => _pythonDedentPattern.hasMatch(line);
 
   bool _isPythonBlockOpeningLine(String line) {
     if (!line.endsWith(':')) return false;
-    return RegExp(
-      r'^(?:async\s+)?(?:def|class|if|elif|else|for|while|try|except|finally|with|match|case)\b',
-    ).hasMatch(line);
+    return _pythonBlockOpeningPattern.hasMatch(line);
   }
 
-  bool _isShellDedentLine(String line) =>
-      RegExp(r'^(?:fi|done|esac|elif|else)\b|^\}').hasMatch(line);
+  bool _isShellDedentLine(String line) => _shellDedentPattern.hasMatch(line);
 
   bool _isShellBlockOpeningLine(String line) =>
-      RegExp(r'(?:\bthen|\bdo)\s*(?:#.*)?$').hasMatch(line) ||
-      RegExp(r'^case\b.*\bin\s*$').hasMatch(line) ||
-      RegExp(r'^(?:else|elif)\b').hasMatch(line);
+      _shellBlockOpeningPattern.hasMatch(line);
 
   int _leadingClosingDelimiterCount(String line) {
     var count = 0;
@@ -970,7 +978,7 @@ class _OpenHandCodeEditorState extends State<OpenHandCodeEditor> {
 
   bool _continuesPreviousLine(String line) {
     if (line.isEmpty) return false;
-    return RegExp(r'(?:[+\-*/%=&|.,]|\\)$').hasMatch(line);
+    return _continuationPattern.hasMatch(line);
   }
 
   void _undo() {

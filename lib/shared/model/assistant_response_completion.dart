@@ -2,6 +2,8 @@ const String assistantResponseContinuationMetadataKey =
     'assistant_response_continuation';
 
 final RegExp _unfinishedEndingPattern = RegExp(r'[:：(\[{（【｛]\s*$');
+final RegExp _backtickFencePattern = RegExp(r'^\s*```', multiLine: true);
+final RegExp _tildeFencePattern = RegExp(r'^\s*~~~', multiLine: true);
 final RegExp _pendingChineseActionPattern = RegExp(
   r'(?:^|[。！？!?\n])\s*'
   r'(?:(?:我|让我|这就|现在|马上|立即|接下来|下面|然后|重新|继续|再|正在)[^。！？!?\n]{0,32})?'
@@ -26,14 +28,8 @@ bool assistantResponseNeedsContinuation(String value) {
   if (text.isEmpty) return false;
   if (_unfinishedEndingPattern.hasMatch(text)) return true;
 
-  final backtickFences = RegExp(
-    r'^\s*```',
-    multiLine: true,
-  ).allMatches(text).length;
-  final tildeFences = RegExp(
-    r'^\s*~~~',
-    multiLine: true,
-  ).allMatches(text).length;
+  final backtickFences = _backtickFencePattern.allMatches(text).length;
+  final tildeFences = _tildeFencePattern.allMatches(text).length;
   if (backtickFences.isOdd || tildeFences.isOdd) return true;
 
   final tail = text.length <= 120 ? text : text.substring(text.length - 120);

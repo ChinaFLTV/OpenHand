@@ -1,4 +1,5 @@
 import '../util/input_value_parsing.dart';
+import '../util/text_normalization.dart';
 
 final RegExp _dingTalkMediaGenerationActionPattern = RegExp(
   r'(?:生成|制作|创作|绘制|画(?:一|个|张|幅)|合成|创建|做(?:一|个|张|段|首)?|来(?:一|个|张|段|首)|写(?:一|段|首)|generate|create|make|draw|compose|synthesize)',
@@ -26,6 +27,9 @@ final RegExp _dingTalkAudioGenerationTargetPattern = RegExp(
 final RegExp _dingTalkMediaInvocationPreamblePattern = RegExp(
   r'^(?:(?:我|现在|接下来|下面|立即|正在|即将|准备|先)\s*)?(?:调用|使用|启动).{0,160}(?:工具|生成).{0,80}[：:]?$',
   caseSensitive: false,
+);
+final RegExp _dingTalkMediaCompletionPattern = RegExp(
+  r'(?:已生成|已发送|生成失败|发送失败|成功完成)',
 );
 
 /// 钉钉网关可直接注入提示词的多模态生成能力。
@@ -88,9 +92,9 @@ AiDingTalkMultimodalCapability? detectDingTalkMultimodalGenerationRequest(
 }
 
 bool isDingTalkMediaInvocationPreamble(String value) {
-  final text = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+  final text = value.replaceAll(kInlineWhitespacePattern, ' ').trim();
   if (text.isEmpty || text.length > 180) return false;
-  if (RegExp(r'(?:已生成|已发送|生成失败|发送失败|成功完成)').hasMatch(text)) {
+  if (_dingTalkMediaCompletionPattern.hasMatch(text)) {
     return false;
   }
   return _dingTalkMediaInvocationPreamblePattern.hasMatch(text) &&

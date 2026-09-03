@@ -89,6 +89,8 @@ const Duration _terminalPtyWritePace = Duration(milliseconds: 1);
 const Duration _terminalUploadReadyTimeout = Duration(seconds: 10);
 const Duration _terminalUploadFinalizeTimeout = Duration(minutes: 2);
 const Duration _terminalEchoReadyTimeout = Duration(seconds: 3);
+final RegExp _terminalIdPattern = RegExp(r'^term-(\d+)$');
+final RegExp _terminalCommandIdPattern = RegExp(r'^cmd-(\d+)$');
 
 typedef MachineTerminalUploadProgress = void Function(int transferredBytes);
 typedef MachineTerminalUploadPauseWaiter = Future<void> Function();
@@ -1364,7 +1366,7 @@ class MachineTerminalService extends ChangeNotifier {
   }
 
   void _rememberTerminalIdForCounter(String terminalId) {
-    final match = RegExp(r'^term-(\d+)$').firstMatch(terminalId);
+    final match = _terminalIdPattern.firstMatch(terminalId);
     final value = optionalIntFromValue(match?.group(1));
     if (value != null && value > _terminalCounter) {
       _terminalCounter = value;
@@ -2943,9 +2945,8 @@ List<MachineTerminalCommandRecord> _restoredCommandHistory(
 
 int _restoredCommandSequence(List<MachineTerminalCommandRecord> records) {
   var maxSequence = 0;
-  final pattern = RegExp(r'^cmd-(\d+)$');
   for (final record in records) {
-    final match = pattern.firstMatch(record.id);
+    final match = _terminalCommandIdPattern.firstMatch(record.id);
     final value = optionalIntFromValue(match?.group(1));
     if (value != null && value > maxSequence) {
       maxSequence = value;
