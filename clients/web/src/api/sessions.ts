@@ -447,11 +447,13 @@ export function writeMachineTerminal(
     appendNewline?: boolean;
     includeHistory?: boolean;
   },
+  options: ApiRequestSignalOptions = {},
 ): Promise<{ ok: boolean; terminal?: MachineTerminalWorkspace | null }> {
   return apiRequest<{ ok: boolean; terminal?: MachineTerminalWorkspace | null }>(
     `/api/sessions/${encodeURIComponent(id)}/terminal/write`,
     {
       method: 'POST',
+      ...options,
       body: {
         data: input.data,
         ...(input.terminalId ? { terminal_id: input.terminalId } : {}),

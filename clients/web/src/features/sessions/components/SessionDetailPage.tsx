@@ -1527,10 +1527,23 @@ const MACHINE_TERMINAL_XTERM_THEME = {
 } as const;
 const MACHINE_TERMINAL_POLL_INTERVAL_MS = 1200;
 const MACHINE_TERMINAL_POLL_TIMEOUT_MS = 15_000;
+const MACHINE_TERMINAL_WRITE_TIMEOUT_MS = 15_000;
+const MACHINE_TERMINAL_INPUT_CHUNK_CODE_UNITS = 32 * 1024;
+const MACHINE_TERMINAL_MAX_BUFFERED_CODE_UNITS = 512 * 1024;
 let machineTerminalRuntimePromise: Promise<{
   TerminalConstructor: typeof Terminal;
   FitAddonConstructor: typeof FitAddon;
 }> | null = null;
+
+function machineTerminalInputPrefixLength(value: string, maxCodeUnits: number): number {
+  const end = Math.min(value.length, Math.max(0, maxCodeUnits));
+  if (end === 0 || end >= value.length) return end;
+  const previous = value.charCodeAt(end - 1);
+  const next = value.charCodeAt(end);
+  return previous >= 0xD800 && previous <= 0xDBFF && next >= 0xDC00 && next <= 0xDFFF
+    ? end - 1
+    : end;
+}
 
 function loadMachineTerminalRuntime() {
   if (machineTerminalRuntimePromise) return machineTerminalRuntimePromise;
@@ -1553,7 +1566,6 @@ function loadMachineTerminalRuntime() {
 function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
-  const fitRef = useRef<FitAddon | null>(null);
   const lastAnsiOutputRef = useRef('');
   const writeErrorShownRef = useRef(false);
   const activeTerminalIdRef = useRef<string | undefined>(undefined);
@@ -1594,6 +1606,11 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
     let dataDisposable: { dispose: () => void } | null = null;
     let resizeObserver: ResizeObserver | null = null;
     let scheduleResize: (() => void) | null = null;
+    let pendingInputs: Array<{ data: string; terminalId?: string }> = [];
+    let bufferedInputCodeUnits = 0;
+    let writingInput = false;
+    let inputOverflowShown = false;
+    const writeAbortController = new AbortController();
 
     void loadMachineTerminalRuntime()
       .then(({ TerminalConstructor, FitAddonConstructor }) => {
@@ -1619,20 +1636,72 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
         }
         terminal.focus();
         terminalRef.current = terminal;
-        fitRef.current = fit;
-        dataDisposable = terminal.onData((data) => {
-          void writeMachineTerminal(sessionId, { data })
-            .then((res) => {
+        const flushInput = async () => {
+          if (writingInput || disposed) return;
+          writingInput = true;
+          try {
+            while (!disposed && pendingInputs.length > 0) {
+              const pending = pendingInputs[0];
+              const chunkLength = machineTerminalInputPrefixLength(
+                pending.data,
+                MACHINE_TERMINAL_INPUT_CHUNK_CODE_UNITS,
+              );
+              const data = pending.data.slice(0, chunkLength);
+              const terminalId = pending.terminalId;
+              pending.data = pending.data.slice(chunkLength);
+              bufferedInputCodeUnits -= chunkLength;
+              if (!pending.data) pendingInputs.shift();
+              if (bufferedInputCodeUnits < MACHINE_TERMINAL_MAX_BUFFERED_CODE_UNITS / 2) {
+                inputOverflowShown = false;
+              }
+              const res = await writeMachineTerminal(
+                sessionId,
+                { data, terminalId },
+                {
+                  signal: writeAbortController.signal,
+                  timeoutMs: MACHINE_TERMINAL_WRITE_TIMEOUT_MS,
+                },
+              );
               if (disposed) return;
               writeErrorShownRef.current = false;
               if (res.terminal) setWorkspace(res.terminal);
-            })
-            .catch((error) => {
-              if (disposed || writeErrorShownRef.current) return;
+            }
+          } catch (error) {
+            pendingInputs = [];
+            bufferedInputCodeUnits = 0;
+            if (disposed || isAbortError(error)) return;
+            if (!writeErrorShownRef.current) {
               writeErrorShownRef.current = true;
               const message = error instanceof Error ? error.message : String(error);
               showSnackbar(`${t('terminal.write.failed', '终端写入失败')}：${message}`, { tone: 'error' });
-            });
+            }
+          } finally {
+            writingInput = false;
+            if (!disposed && pendingInputs.length > 0) void flushInput();
+          }
+        };
+        dataDisposable = terminal.onData((data) => {
+          if (disposed || !data) return;
+          const remaining = MACHINE_TERMINAL_MAX_BUFFERED_CODE_UNITS - bufferedInputCodeUnits;
+          const acceptedLength = machineTerminalInputPrefixLength(data, remaining);
+          if (acceptedLength > 0) {
+            const terminalId = activeTerminalIdRef.current;
+            const last = pendingInputs[pendingInputs.length - 1];
+            if (last && last.terminalId === terminalId) {
+              last.data += data.slice(0, acceptedLength);
+            } else {
+              pendingInputs.push({ data: data.slice(0, acceptedLength), terminalId });
+            }
+            bufferedInputCodeUnits += acceptedLength;
+          }
+          if (acceptedLength < data.length && !inputOverflowShown) {
+            inputOverflowShown = true;
+            showSnackbar(
+              t('terminal.write.bufferFull', '终端输入缓冲区已满，超出部分未发送。'),
+              { tone: 'error' },
+            );
+          }
+          void flushInput();
         });
         const publishResize = () => {
           if (disposed || !terminal || root.clientWidth <= 0 || root.clientHeight <= 0) return;
@@ -1686,6 +1755,9 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
 
     return () => {
       disposed = true;
+      pendingInputs = [];
+      bufferedInputCodeUnits = 0;
+      writeAbortController.abort();
       dataDisposable?.dispose();
       resizeObserver?.disconnect();
       if (scheduleResize) window.removeEventListener('resize', scheduleResize);
@@ -1695,7 +1767,6 @@ function MachineTerminalPanel({ sessionId }: { sessionId: string }) {
       }
       terminal?.dispose();
       terminalRef.current = null;
-      fitRef.current = null;
       requestTerminalFitRef.current = null;
       lastAnsiOutputRef.current = '';
     };
