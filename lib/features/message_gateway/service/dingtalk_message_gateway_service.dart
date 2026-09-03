@@ -3028,7 +3028,10 @@ class DingTalkMessageGatewayService {
         : _maxDwsJsonOutputCharacters;
 
     Object? decodeCandidate(String candidate) {
-      if (!_hasBoundedJsonNesting(candidate)) {
+      if (!isJsonTextNestingWithinBounds(
+        candidate,
+        maxDepth: _maxDwsJsonDepth,
+      )) {
         throw const FormatException('JSON 嵌套层级超过处理上限。');
       }
       final decoded = jsonDecode(candidate);
@@ -3065,34 +3068,6 @@ class DingTalkMessageGatewayService {
     throw FormatException(
       'dws 返回内容不是有效 JSON：${decodeError?.message ?? '未知格式错误'}',
     );
-  }
-
-  bool _hasBoundedJsonNesting(String text) {
-    var depth = 0;
-    var inString = false;
-    var escaped = false;
-    for (var index = 0; index < text.length; index++) {
-      final codeUnit = text.codeUnitAt(index);
-      if (inString) {
-        if (escaped) {
-          escaped = false;
-        } else if (codeUnit == 0x5c) {
-          escaped = true;
-        } else if (codeUnit == 0x22) {
-          inString = false;
-        }
-        continue;
-      }
-      if (codeUnit == 0x22) {
-        inString = true;
-      } else if (codeUnit == 0x7b || codeUnit == 0x5b) {
-        depth += 1;
-        if (depth > _maxDwsJsonDepth) return false;
-      } else if (codeUnit == 0x7d || codeUnit == 0x5d) {
-        depth -= 1;
-      }
-    }
-    return true;
   }
 
   List<DingTalkGatewayMessage> _parseMessages(

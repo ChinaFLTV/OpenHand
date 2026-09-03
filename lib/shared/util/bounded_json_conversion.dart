@@ -9,6 +9,36 @@ typedef JsonMapValueTransformer = Object? Function(String key, Object? value);
 
 typedef JsonValueMetrics = ({int nodeCount, int stringCodeUnits});
 
+/// 在解码前检查 JSON 文本的括号嵌套深度，字符串内括号不计入。
+bool isJsonTextNestingWithinBounds(String text, {required int maxDepth}) {
+  requireNonNegativeInt(maxDepth, 'maxDepth');
+  var depth = 0;
+  var inString = false;
+  var escaped = false;
+  for (var index = 0; index < text.length; index++) {
+    final codeUnit = text.codeUnitAt(index);
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (codeUnit == 0x5c) {
+        escaped = true;
+      } else if (codeUnit == 0x22) {
+        inString = false;
+      }
+      continue;
+    }
+    if (codeUnit == 0x22) {
+      inString = true;
+    } else if (codeUnit == 0x7b || codeUnit == 0x5b) {
+      depth += 1;
+      if (depth > maxDepth) return false;
+    } else if (codeUnit == 0x7d || codeUnit == 0x5d) {
+      depth -= 1;
+    }
+  }
+  return true;
+}
+
 /// 非递归校验 JSON 值的结构预算；超限、循环引用或非 JSON 类型返回 null。
 JsonValueMetrics? measureJsonValueWithinBounds(
   Object? value, {

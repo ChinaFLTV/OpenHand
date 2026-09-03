@@ -31,6 +31,7 @@ import '../../../shared/util/bounded_base64.dart';
 import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/directory_cleanup.dart';
@@ -324,6 +325,11 @@ class WebMessagePlatformService {
   /// AiSessionController 的通知间隔远小于这个值，若按防抖实现（每次通知都
   /// 取消并重排定时器），定时器会被无限推迟、整段回复期间 Web 端一帧都收不到。
   static const Duration _sseSnapshotMinInterval = Duration(milliseconds: 80);
+  static const int _maxSseEventJsonCharacters = 16 * kBytesPerMiB;
+  static const int _maxSseEventStringCharacters = 2 * kBytesPerMiB;
+  static const int _maxSseEventJsonDepth = 64;
+  static const int _maxSseEventJsonContainerItems = 50000;
+  static const int _maxSseEventJsonNodes = 50000;
   static const int _maxLatencyBuffer = 256;
   static const int _maxMessageWindowLimit = 200;
   static const int _sseMessageWindowSize = 20;
@@ -359,6 +365,11 @@ class WebMessagePlatformService {
   static const Duration _localAddressesCacheTtl = Duration(seconds: 30);
   static const Duration _requestBodyIdleTimeout = Duration(seconds: 30);
   static const Duration _requestBodyTotalTimeout = Duration(minutes: 2);
+  static const int _maxRequestJsonDepth = 64;
+  static const int _maxRequestJsonContainerItems = 65536;
+  static const int _maxRequestJsonNodes = 262144;
+  static const int _maxInstructionIdCharacters = 256;
+  static const int _maxWorkspacePathCharacters = 4096;
   static const Duration _sessionAssetReadIdleTimeout = Duration(seconds: 30);
   static const Duration _sessionAssetReadTotalTimeout = Duration(minutes: 30);
   static const Duration _artifactCleanupQueueTimeout = Duration(
@@ -1847,8 +1858,10 @@ class WebMessagePlatformService {
   }
 
   Future<bool> _refreshLocalAddresses() async {
+    final runtimeGeneration = _runtimeGeneration;
     try {
       final next = await discoverAdvertisableIpv4Hosts();
+      if (!_isRuntimeRequestCurrent(runtimeGeneration)) return false;
       final changed = !listEquals(_localAddressesCache, next);
       if (changed) _localAddressesCache = next;
       _localAddressesRefreshedAtMs = _monotonicStopwatch.elapsedMilliseconds;
@@ -3831,6 +3844,7 @@ class WebMessagePlatformService {
   }
 
   Future<shelf.Response> _login(shelf.Request request) async {
+    final runtimeGeneration = _runtimeGeneration;
     final now = DateTime.now().toUtc();
     final remoteAddress = _requestRemoteAddress(request);
     if (!_admitLoginAttempt(remoteAddress, _monotonicStopwatch.elapsed)) {
@@ -3843,6 +3857,9 @@ class WebMessagePlatformService {
       }).change(headers: const <String, String>{'retry-after': '60'});
     }
     final body = await _readJsonBody(request, maxBytes: _maxLoginBodyBytes);
+    if (!_isRuntimeRequestCurrent(runtimeGeneration)) {
+      return _runtimeUnavailableResponse();
+    }
     final source = WebGatewayLoginSource.fromStorage(
       _boundedAuthText(body['source'], _maxAuthMetadataCharacters),
     );
@@ -4899,10 +4916,35 @@ class WebMessagePlatformService {
     // 仅作用于本次 send，不持久化。
     final skippedInstructionIds = <String>{};
     final skippedRaw = body['skipped_instruction_ids'];
+    if (skippedRaw != null && skippedRaw is! List) {
+      await _deleteMaterializedAttachments(attachments);
+      return _errorJson(HttpStatus.badRequest, 'invalid_skipped_instructions');
+    }
     if (skippedRaw is List) {
+      if (skippedRaw.length > UserInstructionEntry.maxEntries) {
+        await _deleteMaterializedAttachments(attachments);
+        return _errorJson(
+          HttpStatus.badRequest,
+          'too_many_skipped_instructions',
+        );
+      }
       for (final item in skippedRaw) {
-        final id = '$item'.trim();
-        if (id.isNotEmpty) skippedInstructionIds.add(id);
+        if (item is! String) {
+          await _deleteMaterializedAttachments(attachments);
+          return _errorJson(
+            HttpStatus.badRequest,
+            'invalid_skipped_instructions',
+          );
+        }
+        final id = item.trim();
+        if (id.isEmpty || id.length > _maxInstructionIdCharacters) {
+          await _deleteMaterializedAttachments(attachments);
+          return _errorJson(
+            HttpStatus.badRequest,
+            'invalid_skipped_instructions',
+          );
+        }
+        skippedInstructionIds.add(id);
       }
     }
     final creationRequest = _creationRequestFor(
@@ -5471,9 +5513,13 @@ class WebMessagePlatformService {
     _WebGatewayAuthSession auth,
     String sessionId,
   ) async {
+    final runtimeGeneration = _runtimeGeneration;
     final session = _findAuthorizedSession(auth, sessionId);
     if (session == null) return _sessionMissingResponse();
     final body = await _readJsonBody(request);
+    if (!_isRuntimeRequestCurrent(runtimeGeneration)) {
+      return _runtimeUnavailableResponse();
+    }
     final rawHasPending =
         body['has_pending'] ?? body['hasPending'] ?? body['pending'];
     final hasPendingQueue = boolFromValue(rawHasPending);
@@ -6009,21 +6055,36 @@ class WebMessagePlatformService {
     }
 
     final controller = StreamController<List<int>>();
+    late void Function() dispose;
 
-    void emit(String event, Object payload) {
-      if (disposed || paused || controller.isClosed) return;
+    bool emit(String event, Object payload) {
+      if (disposed || paused || controller.isClosed) return false;
       try {
+        if (measureJsonValueWithinBounds(
+              payload,
+              maxDepth: _maxSseEventJsonDepth,
+              maxContainerItems: _maxSseEventJsonContainerItems,
+              maxTotalNodes: _maxSseEventJsonNodes,
+              maxStringCodeUnits: _maxSseEventStringCharacters,
+              maxTotalStringCodeUnits: _maxSseEventStringCharacters,
+            ) ==
+            null) {
+          return false;
+        }
         final body = jsonEncode(payload);
+        if (body.length > _maxSseEventJsonCharacters) {
+          return false;
+        }
         final frame = 'event: $event\ndata: $body\n\n';
         final bytes = utf8.encode(frame);
         controller.add(bytes);
         _recordStreamingOutboundBytes(bytes.length);
+        return true;
       } catch (error, stack) {
         silentLog('web_message_platform_service', '发送 SSE 事件', error, stack);
+        return false;
       }
     }
-
-    late void Function() dispose;
 
     bool authStillValid() {
       if (!_config.authEnabled) return auth.token == 'anonymous';
@@ -6062,6 +6123,10 @@ class WebMessagePlatformService {
         }
         final snapshot = await buildSnapshot(live);
         if (disposed) return;
+        if (paused) {
+          snapshotQueued = true;
+          return;
+        }
         if (!authStillValid()) {
           closeUnauthorizedStream();
           return;
@@ -6089,8 +6154,17 @@ class WebMessagePlatformService {
         final hash =
             '${sessionPayload['title']}|${sessionPayload['updated_at']}|${sessionPayload['message_count']}|${sessionPayload['last_model_key']}|${sessionPayload['full_access_permission']}|${snapshot['send_phase']}|${snapshot['last_error']}|${(snapshot['pending_write_approval'] as Map?)?['id'] ?? ''}|goal=$goalStateSig|model_lock=$modelSelectionLocked|throttle=${throttlePayload?['chars_per_second'] ?? 0}:${throttlePayload?['cards_per_second'] ?? 0}:${throttlePayload?['has_session_override'] ?? false}:${throttlePayload?['duration_expired'] ?? false}:$bucketsSig|tokens=$tokenStatsSig|context=$contextUsageSig|messages=${_messagePayloadWindowSignature(messagesPayload)}';
         if (hash == lastSnapshotHash) return;
+        if (!emit('snapshot', snapshot)) {
+          _log(
+            WebGatewayLogLevel.warn,
+            'SSE',
+            'SSE 快照超过安全上限，已关闭订阅',
+            <String, Object?>{'session_id': sessionId},
+          );
+          unawaited(Future<void>.microtask(dispose));
+          return;
+        }
         lastSnapshotHash = hash;
-        emit('snapshot', snapshot);
       } catch (error, stack) {
         silentLog('web_message_platform_service', '生成 SSE 快照', error, stack);
       } finally {
@@ -6257,11 +6331,14 @@ class WebMessagePlatformService {
     final session = _findAuthorizedSession(auth, sessionId);
     if (session == null) return _sessionMissingResponse();
     final requested = request.requestedUri.queryParameters['path'] ?? '';
-    if (requested.isEmpty) {
-      return _errorJson(HttpStatus.badRequest, 'missing_path');
+    if (requested.isEmpty ||
+        requested.length > aiMessageAttachmentMaxPathCharacters) {
+      return _errorJson(
+        HttpStatus.badRequest,
+        requested.isEmpty ? 'missing_path' : 'invalid_path',
+      );
     }
-    final whitelist = _collectSessionAssetPaths(session);
-    if (!whitelist.contains(requested)) {
+    if (!_sessionReferencesAssetPath(session, requested)) {
       return _errorJson(HttpStatus.forbidden, 'asset_not_in_whitelist');
     }
     final file = File(requested);
@@ -6378,36 +6455,41 @@ class WebMessagePlatformService {
     );
   }
 
-  /// 收集 session 内所有消息的 metadata 中可能指向本地媒体文件的字段,
-  /// 形成白名单 (绝对路径集合)。
-  Set<String> _collectSessionAssetPaths(AiSession session) {
-    final out = <String>{};
-    void addCandidate(Object? raw) {
+  /// 检查媒体路径是否被会话消息显式引用，命中后立即停止扫描。
+  bool _sessionReferencesAssetPath(AiSession session, String requested) {
+    bool matches(Object? raw) {
       if (raw is String) {
         final s = raw.trim();
-        if (s.isNotEmpty &&
+        return s == requested &&
             !s.startsWith('http://') &&
             !s.startsWith('https://') &&
             !s.startsWith('data:') &&
-            !s.startsWith('blob:')) {
-          out.add(s);
-        }
+            !s.startsWith('blob:');
       }
+      return false;
     }
 
-    for (final msg in session.displayMessages) {
+    final messages = session.displayMessages;
+    final start = math.max(
+      0,
+      messages.length - kWebGatewayMaxMessagesPerSession,
+    );
+    for (var index = start; index < messages.length; index++) {
+      final msg = messages[index];
       final meta = msg.metadata;
       // 用户附件: [{kind, path}] / [{file_path}] / [{storage_path}]
       final atts = meta['attachments'];
       if (atts is List) {
-        for (final entry in atts) {
+        for (final entry in atts.take(aiMessageAttachmentLimit * 5)) {
           if (entry is Map) {
-            addCandidate(entry['path']);
-            addCandidate(entry['file_path']);
-            addCandidate(entry['storage_path']);
-            addCandidate(entry['original_source_path']);
-          } else if (entry is String) {
-            addCandidate(entry);
+            if (matches(entry['path']) ||
+                matches(entry['file_path']) ||
+                matches(entry['storage_path']) ||
+                matches(entry['original_source_path'])) {
+              return true;
+            }
+          } else if (matches(entry)) {
+            return true;
           }
         }
       }
@@ -6429,19 +6511,21 @@ class WebMessagePlatformService {
         'media_paths',
       ]) {
         final v = meta[key];
-        if (v is String) {
-          addCandidate(v);
+        if (matches(v)) {
+          return true;
         } else if (v is List) {
-          for (final e in v) {
-            addCandidate(e);
+          for (final e in v.take(aiMessageAttachmentLimit * 5)) {
+            if (matches(e)) return true;
           }
         }
       }
-      for (final path in _collectMessageContentAssetPaths(msg.content)) {
-        addCandidate(path);
+      if (msg.content.contains(requested)) {
+        for (final path in _collectMessageContentAssetPaths(msg.content)) {
+          if (matches(path)) return true;
+        }
       }
     }
-    return out;
+    return false;
   }
 
   Iterable<String> _collectMessageContentAssetPaths(String content) sync* {
@@ -7309,6 +7393,7 @@ class WebMessagePlatformService {
     BashCommandApprovalRequest request, {
     required String source,
   }) async {
+    if (_disposed) return BashCommandApprovalDecision.cancelled;
     if (_pendingWriteApprovals.length >= _maxPendingWriteApprovals) {
       _log(
         WebGatewayLogLevel.warn,
@@ -8920,8 +9005,26 @@ class WebMessagePlatformService {
     }
     if (bytes.isEmpty) return <String, Object?>{};
     try {
-      final decoded = jsonDecode(utf8.decode(bytes));
-      if (decoded is Map) return stringKeyedMapFromValue(decoded);
+      final text = utf8.decode(bytes);
+      if (!isJsonTextNestingWithinBounds(
+        text,
+        maxDepth: _maxRequestJsonDepth,
+      )) {
+        throw const FormatException('JSON 嵌套层级超过处理上限。');
+      }
+      final decoded = jsonDecode(text);
+      if (decoded is Map &&
+          measureJsonValueWithinBounds(
+                decoded,
+                maxDepth: _maxRequestJsonDepth,
+                maxContainerItems: _maxRequestJsonContainerItems,
+                maxTotalNodes: _maxRequestJsonNodes,
+                maxStringCodeUnits: maxBytes,
+                maxTotalStringCodeUnits: maxBytes,
+              ) !=
+              null) {
+        return stringKeyedMapFromValue(decoded);
+      }
     } on FormatException {
       // 统一映射为下方的客户端错误。
     }
@@ -9224,6 +9327,7 @@ class WebMessagePlatformService {
 
   Future<String?> _resolveWorkspacePath(String rawPath) async {
     final root = _workspaceDirectoryPath;
+    if (rawPath.length > _maxWorkspacePathCharacters) return null;
     final normalizedInput = rawPath.trim().replaceAll('\\', '/');
     if (normalizedInput.startsWith('/')) return null;
     final resolved = p.normalize(p.join(root, normalizedInput));
