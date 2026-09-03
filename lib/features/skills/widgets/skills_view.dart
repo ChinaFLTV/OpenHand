@@ -15,6 +15,7 @@ import '../../../shared/ui/image_editor_dialog.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/local_file_media.dart';
 import '../../../shared/ui/markdown_ast_sanitizer.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_message_markdown_theme.dart';
 import '../../../shared/ui/openhand_safe_markdown_body.dart';
@@ -37,6 +38,17 @@ const double _kSkillIconPreviewExtent = 48;
 const EdgeInsets _kSkillDialogContentPadding = EdgeInsets.all(24);
 const int _kSkillDescriptionCompactMaxLines = 2;
 const int _kSkillDescriptionExpandedMaxLines = 5;
+
+/// 技能网格卡片：与服务板块同族的纯色外壳与分层信息。
+const double _kSkillCardRadius = 22;
+const double _kSkillCardMainAxisExtent = 280;
+const EdgeInsets _kSkillCardPadding = EdgeInsets.all(18);
+const int _kSkillPromptMaxLines = 3;
+const double _kSkillPromptIconSize = 17;
+const EdgeInsets _kSkillPromptPadding = EdgeInsets.symmetric(
+  horizontal: 12,
+  vertical: 10,
+);
 
 const List<String> _skillEmojiOptions = <String>[
   '🧠',
@@ -289,7 +301,7 @@ class _SkillsViewState extends State<SkillsView> {
               maxCrossAxisExtent: maxCrossAxisExtent,
               mainAxisSpacing: 16,
               crossAxisSpacing: 16,
-              mainAxisExtent: 272,
+              mainAxisExtent: _kSkillCardMainAxisExtent,
             ),
             itemCount: filteredSkills.length,
             itemBuilder: (context, index) {
@@ -1062,17 +1074,26 @@ class _SkillCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final cs = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
-    final defaultPrompt = skill.defaultPrompt;
+    final defaultPrompt = skill.defaultPrompt?.trim();
+    final hasPrompt = defaultPrompt != null && defaultPrompt.isNotEmpty;
+    final radius = BorderRadius.circular(_kSkillCardRadius);
 
     return HoverLift(
       child: Card(
+        key: ValueKey<String>('skill-card-${skill.directoryPath}'),
+        elevation: 0,
         clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: radius,
+          side: BorderSide(color: cs.outlineVariant),
+        ),
         child: InkWell(
           onTap: onOpen,
+          borderRadius: radius,
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: _kSkillCardPadding,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1087,17 +1108,20 @@ class _SkillCard extends StatelessWidget {
                             skill.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                          kOpenHandGap6,
+                          kOpenHandGap8,
                           Text(
                             skill.description,
-                            maxLines: defaultPrompt != null
+                            maxLines: hasPrompt
                                 ? _kSkillDescriptionCompactMaxLines
                                 : _kSkillDescriptionExpandedMaxLines,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
+                              color: cs.onSurfaceVariant,
+                              height: 1.45,
                             ),
                           ),
                         ],
@@ -1105,71 +1129,144 @@ class _SkillCard extends StatelessWidget {
                     ),
                     kOpenHandHGap8,
                     AnimatedPopupMenuButton<_SkillCardAction>(
+                      tooltip: openHandLocalizedText(
+                        context,
+                        zh: '技能操作',
+                        zhHant: '技能操作',
+                        en: 'Skill actions',
+                        fr: 'Actions de compétence',
+                        de: 'Skill-Aktionen',
+                        ja: 'スキル操作',
+                      ),
+                      style: IconButton.styleFrom(
+                        shape: const CircleBorder(),
+                        backgroundColor: cs.secondaryContainer,
+                        foregroundColor: cs.onSecondaryContainer,
+                      ),
+                      icon: const Icon(Icons.more_vert_rounded),
                       onSelected: onActionSelected,
-                      itemBuilder: (context) {
-                        return [
-                          PopupMenuItem<_SkillCardAction>(
-                            value: _SkillCardAction.openDirectory,
-                            child: Text(l10n.skillsOpenDirectory),
+                      itemBuilder: (context) => [
+                        PopupMenuItem<_SkillCardAction>(
+                          value: _SkillCardAction.openDirectory,
+                          child: _SkillMenuRow(
+                            icon: Icons.folder_open_rounded,
+                            label: l10n.skillsOpenDirectory,
                           ),
-                          PopupMenuItem<_SkillCardAction>(
-                            value: _SkillCardAction.edit,
-                            child: Text(l10n.skillsEdit),
-                          ),
-                          PopupMenuItem<_SkillCardAction>(
-                            value: _SkillCardAction.delete,
-                            child: Text(l10n.skillsDelete),
-                          ),
-                        ];
-                      },
-                    ),
-                  ],
-                ),
-                if (defaultPrompt != null) ...[
-                  kOpenHandGap16,
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(kOpenHandRadius18),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.auto_awesome_outlined,
-                          size: 18,
-                          color: colorScheme.primary,
                         ),
-                        kOpenHandHGap10,
-                        Expanded(
-                          child: Text(
-                            defaultPrompt,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
+                        PopupMenuItem<_SkillCardAction>(
+                          value: _SkillCardAction.edit,
+                          child: _SkillMenuRow(
+                            icon: Icons.edit_rounded,
+                            label: l10n.skillsEdit,
+                          ),
+                        ),
+                        PopupMenuItem<_SkillCardAction>(
+                          value: _SkillCardAction.delete,
+                          child: _SkillMenuRow(
+                            icon: Icons.delete_outline_rounded,
+                            label: l10n.skillsDelete,
+                            destructive: true,
                           ),
                         ),
                       ],
                     ),
-                  ),
+                  ],
+                ),
+                if (hasPrompt) ...[
+                  kOpenHandGap14,
+                  _SkillPromptPanel(prompt: defaultPrompt),
                 ],
                 const Spacer(),
-                Chip(
-                  avatar: const Icon(Icons.description_outlined, size: 18),
-                  label: Text(
-                    skill.displayDirectoryPath,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                OpenHandStatusPill(
+                  icon: Icons.folder_outlined,
+                  label: skill.displayDirectoryPath,
+                  color: cs.secondary,
                 ),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 默认提示块：与服务能力芯片同色系（primary 浅底 + 描边），支持多行。
+class _SkillPromptPanel extends StatelessWidget {
+  const _SkillPromptPanel({required this.prompt});
+
+  final String prompt;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final accent = cs.primary;
+    return Container(
+      width: double.infinity,
+      padding: _kSkillPromptPadding,
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(kOpenHandRadius12),
+        border: Border.all(color: accent.withValues(alpha: 0.26)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.auto_awesome_rounded,
+            size: _kSkillPromptIconSize,
+            color: accent,
+          ),
+          kOpenHandHGap8,
+          Expanded(
+            child: Text(
+              prompt,
+              maxLines: _kSkillPromptMaxLines,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: accent,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SkillMenuRow extends StatelessWidget {
+  const _SkillMenuRow({
+    required this.icon,
+    required this.label,
+    this.destructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final color = destructive ? cs.error : cs.onSurface;
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        kOpenHandHGap10,
+        Expanded(
+          child: Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
