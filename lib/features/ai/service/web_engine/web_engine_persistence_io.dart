@@ -12,6 +12,7 @@ import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/hex_encoding.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/serial_task_queue.dart';
+import 'web_engine_json_utils.dart';
 
 const int webEngineMaxJsonFileBytes = 16 * kBytesPerMiB;
 const int webEngineMaxPayloadFileBytes = 64 * kBytesPerMiB;
@@ -213,7 +214,7 @@ Future<Object?> readWebEngineJsonFile(
     idleTimeout: idleTimeout,
     totalTimeout: totalTimeout,
   );
-  return jsonDecode(raw);
+  return decodeWebEngineJsonText(raw, maxTextCodeUnits: maxBytes);
 }
 
 Future<Object?> readWebEngineJsonFileIfExists(

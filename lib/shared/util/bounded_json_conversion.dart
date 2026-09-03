@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:convert';
 
 import 'argument_guards.dart';
 import 'text_clip.dart';
@@ -37,6 +38,38 @@ bool isJsonTextNestingWithinBounds(String text, {required int maxDepth}) {
     }
   }
   return true;
+}
+
+/// 在明确预算内解码 JSON，超限或格式错误时抛出 [FormatException]。
+Object? decodeJsonTextWithinBounds(
+  String text, {
+  required int maxTextCodeUnits,
+  required int maxDepth,
+  required int maxContainerItems,
+  required int maxTotalNodes,
+  required int maxStringCodeUnits,
+  required int maxTotalStringCodeUnits,
+}) {
+  requirePositiveInt(maxTextCodeUnits, 'maxTextCodeUnits');
+  if (text.length > maxTextCodeUnits) {
+    throw const FormatException('JSON 文本长度超过处理上限。');
+  }
+  if (!isJsonTextNestingWithinBounds(text, maxDepth: maxDepth)) {
+    throw const FormatException('JSON 嵌套层级超过处理上限。');
+  }
+  final decoded = jsonDecode(text);
+  if (measureJsonValueWithinBounds(
+        decoded,
+        maxDepth: maxDepth,
+        maxContainerItems: maxContainerItems,
+        maxTotalNodes: maxTotalNodes,
+        maxStringCodeUnits: maxStringCodeUnits,
+        maxTotalStringCodeUnits: maxTotalStringCodeUnits,
+      ) ==
+      null) {
+    throw const FormatException('JSON 结构超过处理上限。');
+  }
+  return decoded;
 }
 
 /// 非递归校验 JSON 值的结构预算；超限、循环引用或非 JSON 类型返回 null。

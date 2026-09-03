@@ -1,6 +1,5 @@
 // 应用更新检查服务。
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -13,6 +12,7 @@ import '../../shared/net/http_response_utils.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_delete.dart';
 import '../../shared/util/bounded_file_io.dart';
+import '../../shared/util/bounded_json_conversion.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/duration_bounds.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -31,6 +31,9 @@ const Duration _kUpdateCheckTotalTimeout = Duration(seconds: 45);
 const Duration _kUpdateDownloadTotalTimeout = Duration(minutes: 30);
 const Duration _kUpdateFileIoTimeout = Duration(seconds: 30);
 const int _kUpdateMetadataMaxBytes = 2 * kBytesPerMiB;
+const int _kUpdateMetadataMaxJsonDepth = 32;
+const int _kUpdateMetadataMaxJsonContainerItems = 4096;
+const int _kUpdateMetadataMaxJsonNodes = 65536;
 const int _kUpdateMaxDownloadBytes = 2 * kBytesPerGiB;
 const int _kUpdateMaxReleaseAssets = 256;
 const int _kUpdateTagMaxCharacters = 128;
@@ -166,7 +169,15 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
         );
       }
       final release = _parseGitHubReleaseInfo(
-        jsonDecode(body),
+        decodeJsonTextWithinBounds(
+          body,
+          maxTextCodeUnits: _kUpdateMetadataMaxBytes,
+          maxDepth: _kUpdateMetadataMaxJsonDepth,
+          maxContainerItems: _kUpdateMetadataMaxJsonContainerItems,
+          maxTotalNodes: _kUpdateMetadataMaxJsonNodes,
+          maxStringCodeUnits: _kUpdateMetadataMaxBytes,
+          maxTotalStringCodeUnits: _kUpdateMetadataMaxBytes,
+        ),
         platformAssetSuffix: _platformAssetSuffix(),
       );
       if (release == null) {

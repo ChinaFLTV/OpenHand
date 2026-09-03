@@ -9,6 +9,18 @@ const BoundedJsonConversionConfig _webEngineJsonConversionConfig =
       nonFiniteNumberBehavior: JsonNonFiniteNumberBehavior.zero,
     );
 
+Object? decodeWebEngineJsonText(String text, {required int maxTextCodeUnits}) {
+  return decodeJsonTextWithinBounds(
+    text,
+    maxTextCodeUnits: maxTextCodeUnits,
+    maxDepth: _webEngineJsonConversionConfig.maxDepth,
+    maxContainerItems: _webEngineJsonConversionConfig.maxContainerItems,
+    maxTotalNodes: _webEngineJsonConversionConfig.maxTotalNodes,
+    maxStringCodeUnits: maxTextCodeUnits,
+    maxTotalStringCodeUnits: maxTextCodeUnits,
+  );
+}
+
 /// JSON 解析容错：忽略空值、自动 trim，统一返回 String。
 String stringOf(Object? raw, {String fallback = ''}) {
   if (raw == null) return fallback;
@@ -30,7 +42,10 @@ Map<String, Object?> decodeJsonObjectBytes(
   if (text.isEmpty) {
     throw FormatException('$source is empty.');
   }
-  final decoded = jsonDecode(text);
+  final decoded = decodeWebEngineJsonText(
+    text,
+    maxTextCodeUnits: bodyBytes.length,
+  );
   if (decoded is! Map) {
     throw FormatException('$source must be a JSON object.');
   }

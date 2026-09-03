@@ -15,6 +15,7 @@ import '../../../../shared/net/sse_line_parsing.dart';
 import '../../../../shared/ui/error_source.dart';
 import '../../../../shared/ui/structured_error_text.dart';
 import '../../../../shared/util/async_concurrency.dart';
+import '../../../../shared/util/bounded_json_conversion.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_dialect.dart';
@@ -1084,18 +1085,29 @@ class AiChatService implements AiChatClient {
         );
       }
       try {
-        final parsedReply = await adapter.parseAssistantMessage(response.body);
-        final parsedToolCalls = adapter.parseToolCalls(response.body);
+        final decodedResponse = decodeJsonTextWithinBounds(
+          response.body,
+          maxTextCodeUnits: _maxChatHttpResponseBytes,
+          maxDepth: _maxChatJsonDepth,
+          maxContainerItems: _maxChatJsonContainerItems,
+          maxTotalNodes: _maxChatJsonNodes,
+          maxStringCodeUnits: _maxChatJsonStringCodeUnits,
+          maxTotalStringCodeUnits: _maxChatHttpResponseBytes,
+        );
+        final parsedReply = await adapter.parseAssistantMessage(
+          decodedResponse,
+        );
+        final parsedToolCalls = adapter.parseToolCalls(decodedResponse);
         final dsmlExtraction = extractDsmlToolCalls(parsedReply);
         // 单独提取推理模型专用字段中的思考内容。
-        final reasoningText = _extractReasoningContent(response.body);
+        final reasoningText = _extractReasoningContent(decodedResponse);
         // 正文为空时解析器会用推理内容兜底，此处去重以免 UI 重复展示。
         final replyIsReasoning =
             reasoningText != null && nullIfBlank(parsedReply) == reasoningText;
         return AiChatCompletion(
           reply: replyIsReasoning ? '' : dsmlExtraction.sanitizedText,
           reasoningContent: reasoningText,
-          usage: adapter.parseUsage(response.body),
+          usage: adapter.parseUsage(decodedResponse),
           rawResponse: response.body,
           toolCalls: parsedToolCalls.isNotEmpty
               ? parsedToolCalls
@@ -1133,40 +1145,30 @@ class AiChatService implements AiChatClient {
   }
 
   /// 从 OpenAI 兼容响应中提取 `reasoning_content`，缺失或为空时返回 null。
-  static String? _extractReasoningContent(String rawResponse) {
-    try {
-      final decoded = jsonDecode(rawResponse);
-      if (decoded is! Map<String, Object?>) return null;
-      final choices = decoded['choices'];
-      if (choices is List && choices.isNotEmpty) {
-        final first = choices.first;
-        final message = first is Map ? first['message'] : null;
-        if (message is Map) {
-          final reasoning =
-              message['reasoning_content'] ?? message['reasoning'];
-          if (reasoning is String) return nullIfBlank(reasoning);
-        }
+  static String? _extractReasoningContent(Object? decoded) {
+    if (decoded is! Map<String, Object?>) return null;
+    final choices = decoded['choices'];
+    if (choices is List && choices.isNotEmpty) {
+      final first = choices.first;
+      final message = first is Map ? first['message'] : null;
+      if (message is Map) {
+        final reasoning = message['reasoning_content'] ?? message['reasoning'];
+        if (reasoning is String) return nullIfBlank(reasoning);
       }
-      final content = decoded['content'];
-      if (content is List) {
-        final reasoning = content
-            .whereType<Map>()
-            .where(
-              (block) => lowercaseStringFromValue(block['type']) == 'thinking',
-            )
-            .map(
-              (block) =>
-                  optionalStringFromValue(block['thinking']) ??
-                  optionalStringFromValue(block['text']),
-            )
-            .whereType<String>()
-            .join('\n');
-        return nullIfBlank(reasoning);
-      }
-    } catch (error, stack) {
-      silentLog('ai_chat_service', '提取 reasoning_content', error, stack);
     }
-    return null;
+    final content = decoded['content'];
+    if (content is! List) return null;
+    final reasoning = content
+        .whereType<Map>()
+        .where((block) => lowercaseStringFromValue(block['type']) == 'thinking')
+        .map(
+          (block) =>
+              optionalStringFromValue(block['thinking']) ??
+              optionalStringFromValue(block['text']),
+        )
+        .whereType<String>()
+        .join('\n');
+    return nullIfBlank(reasoning);
   }
 
   @override
@@ -3760,6 +3762,10 @@ class _MutableToolCall {
 const int _maxAiChatRedirects = 4;
 const int _maxChatHttpErrorBytes = kBytesPerMiB;
 const int _maxChatHttpResponseBytes = 16 * kBytesPerMiB;
+const int _maxChatJsonDepth = 64;
+const int _maxChatJsonContainerItems = 1000000;
+const int _maxChatJsonNodes = 2000000;
+const int _maxChatJsonStringCodeUnits = 16 * kBytesPerMiB;
 const int _maxRetainedStreamResponseCharacters = 16 * kBytesPerMiB;
 const int _maxRetainedStreamToolCalls =
     AiToolCallLimitPolicy.maxSingleRoundToolCallLimit;

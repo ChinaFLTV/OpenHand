@@ -1,10 +1,9 @@
-import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
 import '../../../../shared/net/http_error_message.dart';
 import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
+import '../../../../shared/util/bounded_json_conversion.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
 import '../../model/ai_model_config.dart';
@@ -19,6 +18,9 @@ final class AiOperationHttp {
   static const String _xApiKeyHeader = 'x-api-key';
   static const String _apiKeyHeader = 'api-key';
   static const String _xGoogApiKeyHeader = 'x-goog-api-key';
+  static const int _maxJsonDepth = 64;
+  static const int _maxJsonContainerItems = 1048576;
+  static const int _maxJsonNodes = 4194304;
   static const Duration defaultRequestTimeout = Duration(seconds: 60);
 
   static const String extrasGlobalKey = 'global';
@@ -117,7 +119,15 @@ final class AiOperationHttp {
     required String contextHint,
   }) {
     try {
-      return jsonDecode(body);
+      return decodeJsonTextWithinBounds(
+        body,
+        maxTextCodeUnits: defaultAiTransportResponseMaxBytes,
+        maxDepth: _maxJsonDepth,
+        maxContainerItems: _maxJsonContainerItems,
+        maxTotalNodes: _maxJsonNodes,
+        maxStringCodeUnits: defaultAiTransportResponseMaxBytes,
+        maxTotalStringCodeUnits: defaultAiTransportResponseMaxBytes,
+      );
     } on FormatException catch (error) {
       throw FormatException(
         'Invalid JSON response for $contextHint: ${error.message}',

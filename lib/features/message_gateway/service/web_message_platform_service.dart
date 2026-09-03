@@ -9006,25 +9006,16 @@ class WebMessagePlatformService {
     if (bytes.isEmpty) return <String, Object?>{};
     try {
       final text = utf8.decode(bytes);
-      if (!isJsonTextNestingWithinBounds(
+      final decoded = decodeJsonTextWithinBounds(
         text,
+        maxTextCodeUnits: maxBytes,
         maxDepth: _maxRequestJsonDepth,
-      )) {
-        throw const FormatException('JSON 嵌套层级超过处理上限。');
-      }
-      final decoded = jsonDecode(text);
-      if (decoded is Map &&
-          measureJsonValueWithinBounds(
-                decoded,
-                maxDepth: _maxRequestJsonDepth,
-                maxContainerItems: _maxRequestJsonContainerItems,
-                maxTotalNodes: _maxRequestJsonNodes,
-                maxStringCodeUnits: maxBytes,
-                maxTotalStringCodeUnits: maxBytes,
-              ) !=
-              null) {
-        return stringKeyedMapFromValue(decoded);
-      }
+        maxContainerItems: _maxRequestJsonContainerItems,
+        maxTotalNodes: _maxRequestJsonNodes,
+        maxStringCodeUnits: maxBytes,
+        maxTotalStringCodeUnits: maxBytes,
+      );
+      if (decoded is Map) return stringKeyedMapFromValue(decoded);
     } on FormatException {
       // 统一映射为下方的客户端错误。
     }

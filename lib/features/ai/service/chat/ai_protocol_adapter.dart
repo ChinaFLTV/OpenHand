@@ -1494,11 +1494,11 @@ abstract class AiProtocolAdapter {
     );
   }
 
-  AiTokenUsage? parseUsage(String rawResponse) {
+  AiTokenUsage? parseUsage(Object? decoded) {
     return null;
   }
 
-  List<AiToolCall> parseToolCalls(String rawResponse) {
+  List<AiToolCall> parseToolCalls(Object? decoded) {
     return const <AiToolCall>[];
   }
 
@@ -1533,7 +1533,7 @@ abstract class AiProtocolAdapter {
     return base64Encode(bytes);
   }
 
-  Future<String> parseAssistantMessage(String rawResponse);
+  Future<String> parseAssistantMessage(Object? decoded);
 
   String extractErrorMessage(String rawResponse) {
     return extractApiErrorMessage(rawResponse, emptyFallback: '');
@@ -2159,8 +2159,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
   }
 
   @override
-  AiTokenUsage? parseUsage(String rawResponse) {
-    final decoded = jsonDecode(rawResponse);
+  AiTokenUsage? parseUsage(Object? decoded) {
     if (decoded is! Map<String, Object?>) {
       return null;
     }
@@ -2175,8 +2174,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
   }
 
   @override
-  Future<String> parseAssistantMessage(String rawResponse) async {
-    final decoded = jsonDecode(rawResponse);
+  Future<String> parseAssistantMessage(Object? decoded) async {
     if (decoded is! Map<String, Object?>) {
       throw const FormatException('Unexpected response payload.');
     }
@@ -2228,8 +2226,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
   }
 
   @override
-  List<AiToolCall> parseToolCalls(String rawResponse) {
-    final decoded = jsonDecode(rawResponse);
+  List<AiToolCall> parseToolCalls(Object? decoded) {
     if (decoded is! Map<String, Object?>) {
       return const <AiToolCall>[];
     }
@@ -2630,10 +2627,10 @@ class MimoOpenAiProtocolAdapter extends OpenAiProtocolAdapter {
   }
 
   @override
-  Future<String> parseAssistantMessage(String rawResponse) async {
-    final text = await super.parseAssistantMessage(rawResponse);
-    final citations = _mimoCitations(rawResponse);
-    final warning = _mimoWebSearchWarning(rawResponse);
+  Future<String> parseAssistantMessage(Object? decoded) async {
+    final text = await super.parseAssistantMessage(decoded);
+    final citations = _mimoCitations(decoded);
+    final warning = _mimoWebSearchWarning(decoded);
     return trimmedNonEmptyStrings(<String?>[
       text,
       if (warning != null) '> 联网搜索提示：$warning',
@@ -2760,54 +2757,44 @@ class MimoOpenAiProtocolAdapter extends OpenAiProtocolAdapter {
     };
   }
 
-  static List<String> _mimoCitations(String rawResponse) {
-    try {
-      final decoded = jsonDecode(rawResponse);
-      if (decoded is! Map) return const <String>[];
-      final choices = decoded['choices'];
-      if (choices is! List || choices.isEmpty || choices.first is! Map) {
-        return const <String>[];
-      }
-      final message = (choices.first as Map)['message'];
-      if (message is! Map || message['annotations'] is! List) {
-        return const <String>[];
-      }
-      final seen = <String>{};
-      final citations = <String>[];
-      for (final raw in message['annotations'] as List) {
-        if (raw is! Map) continue;
-        final citation = raw['url_citation'] is Map
-            ? stringKeyedMapFromValue(raw['url_citation'])
-            : stringKeyedMapFromValue(raw);
-        final url = optionalStringFromValue(citation['url']);
-        if (url == null || !seen.add(url)) continue;
-        final title =
-            optionalStringFromValue(citation['title']) ??
-            optionalStringFromValue(citation['site_name']) ??
-            url;
-        citations.add('- [$title]($url)');
-      }
-      return citations;
-    } catch (_) {
+  static List<String> _mimoCitations(Object? decoded) {
+    if (decoded is! Map) return const <String>[];
+    final choices = decoded['choices'];
+    if (choices is! List || choices.isEmpty || choices.first is! Map) {
       return const <String>[];
     }
+    final message = (choices.first as Map)['message'];
+    if (message is! Map || message['annotations'] is! List) {
+      return const <String>[];
+    }
+    final seen = <String>{};
+    final citations = <String>[];
+    for (final raw in message['annotations'] as List) {
+      if (raw is! Map) continue;
+      final citation = raw['url_citation'] is Map
+          ? stringKeyedMapFromValue(raw['url_citation'])
+          : stringKeyedMapFromValue(raw);
+      final url = optionalStringFromValue(citation['url']);
+      if (url == null || !seen.add(url)) continue;
+      final title =
+          optionalStringFromValue(citation['title']) ??
+          optionalStringFromValue(citation['site_name']) ??
+          url;
+      citations.add('- [$title]($url)');
+    }
+    return citations;
   }
 
-  static String? _mimoWebSearchWarning(String rawResponse) {
-    try {
-      final decoded = jsonDecode(rawResponse);
-      if (decoded is! Map) return null;
-      return firstErrorMessageFromPayloads(<Object?>[
-        if (decoded['choices'] is List &&
-            (decoded['choices'] as List).isNotEmpty &&
-            (decoded['choices'] as List).first is Map)
-          ((decoded['choices'] as List).first as Map)['message'],
-        decoded['web_search'],
-        decoded['webSearch'],
-      ]);
-    } catch (_) {
-      return null;
-    }
+  static String? _mimoWebSearchWarning(Object? decoded) {
+    if (decoded is! Map) return null;
+    return firstErrorMessageFromPayloads(<Object?>[
+      if (decoded['choices'] is List &&
+          (decoded['choices'] as List).isNotEmpty &&
+          (decoded['choices'] as List).first is Map)
+        ((decoded['choices'] as List).first as Map)['message'],
+      decoded['web_search'],
+      decoded['webSearch'],
+    ]);
   }
 }
 
@@ -3298,8 +3285,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
   }
 
   @override
-  AiTokenUsage? parseUsage(String rawResponse) {
-    final decoded = jsonDecode(rawResponse);
+  AiTokenUsage? parseUsage(Object? decoded) {
     if (decoded is! Map<String, Object?>) {
       return null;
     }
@@ -3314,8 +3300,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
   }
 
   @override
-  Future<String> parseAssistantMessage(String rawResponse) async {
-    final decoded = jsonDecode(rawResponse);
+  Future<String> parseAssistantMessage(Object? decoded) async {
     if (decoded is! Map<String, Object?>) {
       throw const FormatException('Unexpected response payload.');
     }
@@ -3374,8 +3359,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
   }
 
   @override
-  List<AiToolCall> parseToolCalls(String rawResponse) {
-    final decoded = jsonDecode(rawResponse);
+  List<AiToolCall> parseToolCalls(Object? decoded) {
     if (decoded is! Map<String, Object?>) {
       return const <AiToolCall>[];
     }
@@ -3720,8 +3704,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
   }
 
   @override
-  AiTokenUsage? parseUsage(String rawResponse) {
-    final decoded = jsonDecode(rawResponse);
+  AiTokenUsage? parseUsage(Object? decoded) {
     if (decoded is! Map<String, Object?>) {
       return null;
     }
@@ -3736,8 +3719,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
   }
 
   @override
-  Future<String> parseAssistantMessage(String rawResponse) async {
-    final decoded = jsonDecode(rawResponse);
+  Future<String> parseAssistantMessage(Object? decoded) async {
     if (decoded is! Map<String, Object?>) {
       throw const FormatException('Unexpected response payload.');
     }
@@ -3824,8 +3806,7 @@ class GeminiProtocolAdapter extends AiProtocolAdapter {
   }
 
   @override
-  List<AiToolCall> parseToolCalls(String rawResponse) {
-    final decoded = jsonDecode(rawResponse);
+  List<AiToolCall> parseToolCalls(Object? decoded) {
     if (decoded is! Map<String, Object?>) {
       return const <AiToolCall>[];
     }
@@ -3901,31 +3882,26 @@ class OllamaProtocolAdapter extends OpenAiProtocolAdapter {
   }
 
   @override
-  AiTokenUsage? parseUsage(String rawResponse) {
+  AiTokenUsage? parseUsage(Object? decoded) {
     // 优先解析标准 OpenAI 用量字段。
-    final standardUsage = super.parseUsage(rawResponse);
+    final standardUsage = super.parseUsage(decoded);
     if (standardUsage != null && !standardUsage.isEmpty) {
       return standardUsage;
     }
     // 兼容 Ollama 原生用量字段。
-    try {
-      final decoded = jsonDecode(rawResponse);
-      if (decoded is! Map<String, Object?>) return null;
-      final promptEval = optionalNonNegativeIntegralIntFromValue(
-        decoded['prompt_eval_count'],
-      );
-      final evalCount = optionalNonNegativeIntegralIntFromValue(
-        decoded['eval_count'],
-      );
-      if (promptEval == null && evalCount == null) return null;
-      return AiTokenUsage(
-        promptTokens: promptEval,
-        completionTokens: evalCount,
-        totalTokens: (promptEval ?? 0) + (evalCount ?? 0),
-      );
-    } catch (_) {
-      return null;
-    }
+    if (decoded is! Map<String, Object?>) return null;
+    final promptEval = optionalNonNegativeIntegralIntFromValue(
+      decoded['prompt_eval_count'],
+    );
+    final evalCount = optionalNonNegativeIntegralIntFromValue(
+      decoded['eval_count'],
+    );
+    if (promptEval == null && evalCount == null) return null;
+    return AiTokenUsage(
+      promptTokens: promptEval,
+      completionTokens: evalCount,
+      totalTokens: (promptEval ?? 0) + (evalCount ?? 0),
+    );
   }
 
   // 共享错误提取器已覆盖 Ollama 的文本和 JSON 错误。

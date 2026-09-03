@@ -8,6 +8,7 @@ import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/sse_line_parsing.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../model/ai_exposure_models.dart';
 
@@ -17,6 +18,9 @@ const int _kAiJunglerMaxRequestBytes = 2 * kBytesPerMiB;
 const int _kAiJunglerMaxJsonResponseBytes = 8 * kBytesPerMiB;
 const int _kAiJunglerMaxErrorResponseBytes = 64 * kBytesPerKiB;
 const int _kAiJunglerMaxSseLineBytes = 256 * kBytesPerKiB;
+const int _kAiJunglerMaxJsonDepth = 64;
+const int _kAiJunglerMaxJsonContainerItems = 131072;
+const int _kAiJunglerMaxJsonNodes = 1048576;
 const int _kAiJunglerDefaultHistoryLimit = 500;
 const int _kAiJunglerDefaultLogLimit = 2000;
 const int _kAiJunglerDefaultResultLimit = 1000;
@@ -312,7 +316,10 @@ class AiJunglerClient {
         if (payload == null || payload.isEmpty) continue;
         final Object? decoded;
         try {
-          decoded = jsonDecode(payload);
+          decoded = _decodeAiJunglerJson(
+            payload,
+            maxTextCodeUnits: _kAiJunglerMaxSseLineBytes,
+          );
         } on FormatException {
           // 跳过格式错误的 SSE 行而非终止整个事件流，
           // 避免单条坏行导致扫描实时监控中断。
@@ -377,7 +384,10 @@ class AiJunglerClient {
       }
       if (text.trim().isEmpty) return null;
       try {
-        return jsonDecode(text);
+        return _decodeAiJunglerJson(
+          text,
+          maxTextCodeUnits: _kAiJunglerMaxJsonResponseBytes,
+        );
       } on FormatException {
         throw AiJunglerApiException(
           '扫描引擎返回了无法解析的数据。',
@@ -438,7 +448,10 @@ class AiJunglerClient {
 
   AiJunglerApiException _textError(int statusCode, String text) {
     try {
-      final decoded = jsonDecode(text);
+      final decoded = _decodeAiJunglerJson(
+        text,
+        maxTextCodeUnits: _kAiJunglerMaxErrorResponseBytes,
+      );
       if (decoded is Map && decoded['error'] is String) {
         return AiJunglerApiException(
           decoded['error'] as String,
@@ -455,6 +468,18 @@ class AiJunglerClient {
   }
 
   void close() => _httpClient.close(force: true);
+}
+
+Object? _decodeAiJunglerJson(String text, {required int maxTextCodeUnits}) {
+  return decodeJsonTextWithinBounds(
+    text,
+    maxTextCodeUnits: maxTextCodeUnits,
+    maxDepth: _kAiJunglerMaxJsonDepth,
+    maxContainerItems: _kAiJunglerMaxJsonContainerItems,
+    maxTotalNodes: _kAiJunglerMaxJsonNodes,
+    maxStringCodeUnits: maxTextCodeUnits,
+    maxTotalStringCodeUnits: maxTextCodeUnits,
+  );
 }
 
 Future<String> _readUtf8Response(

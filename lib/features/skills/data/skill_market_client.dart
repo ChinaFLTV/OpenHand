@@ -12,6 +12,7 @@ import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/lifecycle_cache.dart';
@@ -36,6 +37,9 @@ class SkillMarketClient {
   static const int maxPageSize = 200;
   static const int _maxDownloadBytes = 48 * kBytesPerMiB;
   static const int _maxJsonResponseBytes = 4 * kBytesPerMiB;
+  static const int _maxJsonDepth = 64;
+  static const int _maxJsonContainerItems = 65536;
+  static const int _maxJsonNodes = 524288;
   static const int _maxTextResponseBytes = 4 * kBytesPerMiB;
   static const int _maxSearchCacheEntries = 32;
   static const int _maxMetadataCacheEntries = 128;
@@ -463,7 +467,15 @@ class SkillMarketClient {
       } on ByteStreamSizeLimitException {
         throw const SkillMarketException('技能市场响应超过大小上限。');
       }
-      final decoded = jsonDecode(utf8.decode(body));
+      final decoded = decodeJsonTextWithinBounds(
+        utf8.decode(body),
+        maxTextCodeUnits: _maxJsonResponseBytes,
+        maxDepth: _maxJsonDepth,
+        maxContainerItems: _maxJsonContainerItems,
+        maxTotalNodes: _maxJsonNodes,
+        maxStringCodeUnits: _maxJsonResponseBytes,
+        maxTotalStringCodeUnits: _maxJsonResponseBytes,
+      );
       if (decoded is Map<String, Object?>) {
         return decoded;
       }

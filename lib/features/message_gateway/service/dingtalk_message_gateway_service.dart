@@ -3028,25 +3028,15 @@ class DingTalkMessageGatewayService {
         : _maxDwsJsonOutputCharacters;
 
     Object? decodeCandidate(String candidate) {
-      if (!isJsonTextNestingWithinBounds(
+      return decodeJsonTextWithinBounds(
         candidate,
+        maxTextCodeUnits: maxTotalStringCodeUnits,
         maxDepth: _maxDwsJsonDepth,
-      )) {
-        throw const FormatException('JSON 嵌套层级超过处理上限。');
-      }
-      final decoded = jsonDecode(candidate);
-      if (measureJsonValueWithinBounds(
-            decoded,
-            maxDepth: _maxDwsJsonDepth,
-            maxContainerItems: _maxDwsJsonContainerItems,
-            maxTotalNodes: maxNodes,
-            maxStringCodeUnits: maxStringCodeUnits,
-            maxTotalStringCodeUnits: maxTotalStringCodeUnits,
-          ) ==
-          null) {
-        throw const FormatException('JSON 结构超过处理上限。');
-      }
-      return decoded;
+        maxContainerItems: _maxDwsJsonContainerItems,
+        maxTotalNodes: maxNodes,
+        maxStringCodeUnits: maxStringCodeUnits,
+        maxTotalStringCodeUnits: maxTotalStringCodeUnits,
+      );
     }
 
     FormatException? decodeError;
