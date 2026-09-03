@@ -44,6 +44,7 @@ import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -7688,7 +7689,7 @@ class _FeatureIconButton extends StatelessWidget {
 }
 
 /// 消息网关平台身份区：大图标 + 状态点 + 标题描述。
-/// 宽屏由外层把操作按钮放在右侧固有宽度区，介绍扩展到首个按钮左侧空隙。
+/// 宽屏由外层 Row 把操作按钮放在右侧固有宽度区，介绍可扩展到按钮左侧空隙。
 class _GatewayPlatformIdentity extends StatelessWidget {
   const _GatewayPlatformIdentity({
     required this.title,
@@ -11683,18 +11684,26 @@ class _DingTalkGatewayCard extends StatelessWidget {
         final cs = theme.colorScheme;
         final statusColor = ding.isAuthenticating
             ? cs.primary
+            : ding.isLoggingOut
+            ? OpenHandStatusColors.warning
             : ding.isPolling
             ? OpenHandStatusColors.success
             : cs.outline;
         final statusPills = <Widget>[
           OpenHandStatusPill(
-            icon: ding.isAuthorized
+            icon: ding.isLoggingOut
+                ? Icons.logout_rounded
+                : ding.isAuthorized
                 ? Icons.verified_user_outlined
                 : Icons.gpp_bad_outlined,
-            label: ding.isAuthorized
+            label: ding.isLoggingOut
+                ? '正在取消授权'
+                : ding.isAuthorized
                 ? '已授权${ding.authStatus.identity.label.isEmpty ? '' : ' · ${ding.authStatus.identity.label}'}'
                 : '未授权',
-            color: ding.isAuthorized
+            color: ding.isLoggingOut
+                ? OpenHandStatusColors.warning
+                : ding.isAuthorized
                 ? OpenHandStatusColors.success
                 : OpenHandStatusColors.warning,
           ),
@@ -11773,7 +11782,7 @@ class _DingTalkGatewayCard extends StatelessWidget {
                           icon: ding.isPolling
                               ? Icons.pause_rounded
                               : Icons.play_arrow_rounded,
-                          onPressed: ding.isAuthorized
+                          onPressed: ding.isAuthorized && !ding.isLoggingOut
                               ? () => ding.isPolling
                                     ? ding.stopPolling()
                                     : ding.startPolling()
@@ -11781,7 +11790,9 @@ class _DingTalkGatewayCard extends StatelessWidget {
                           filled: ding.isPolling,
                         ),
                         _DingTalkActionButton(
-                          tooltip: ding.isAuthenticating
+                          tooltip: ding.isLoggingOut
+                              ? '正在取消钉钉授权'
+                              : ding.isAuthenticating
                               ? '取消设备流授权'
                               : ding.isAuthorized
                               ? '取消钉钉授权'
@@ -11791,9 +11802,12 @@ class _DingTalkGatewayCard extends StatelessWidget {
                               : ding.isAuthorized
                               ? Icons.person_remove_rounded
                               : Icons.verified_user_rounded,
-                          onPressed: ding.isAuthenticating
+                          onPressed: ding.isLoggingOut
+                              ? null
+                              : ding.isAuthenticating
                               ? () => ding.cancelAuthorization()
                               : () => _toggleDingTalkAuth(context, ding),
+                          loading: ding.isLoggingOut,
                         ),
                         _DingTalkActionButton(
                           tooltip: '消息列表',
@@ -11925,18 +11939,22 @@ class _DingTalkActionButton extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     this.filled = false,
+    this.loading = false,
   });
 
   final String tooltip;
   final IconData icon;
   final VoidCallback? onPressed;
   final bool filled;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
     final disabled = onPressed == null;
-    final resolvedTooltip = disabled ? '$tooltip（当前不可用）' : tooltip;
-    final child = Icon(icon);
+    final resolvedTooltip = disabled && !loading
+        ? '$tooltip（当前不可用）'
+        : tooltip;
+    final child = OpenHandBusyStatusIcon(busy: loading, icon: icon, size: 22);
     final style = _dingtalkDisabledActionStyle(
       context,
       base: (filled
@@ -11983,6 +12001,7 @@ Future<void> _toggleDingTalkAuth(
   BuildContext context,
   DingTalkMessageGatewayController controller,
 ) async {
+  if (controller.isLoggingOut) return;
   if (controller.isAuthorized) {
     final confirmed = await showOpenHandConfirmDialog(
       context: context,

@@ -469,6 +469,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   bool _notificationQueued = false;
   DingTalkWriteApprovalHandler? _writeApprovalHandler;
   bool _isAuthenticating = false;
+  bool _isLoggingOut = false;
   bool _isPolling = false;
   bool _isSending = false;
   bool _editingMessageInFlight = false;
@@ -491,6 +492,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   bool get isInstalled => _service.cachedExecutable != null;
   bool get isAuthenticating => _isAuthenticating;
+  bool get isLoggingOut => _isLoggingOut;
   bool get isAuthorized => _authStatus.authenticated;
   bool get isPolling => _isPolling;
 
@@ -498,6 +500,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   bool get isServiceEnabled =>
       !_disposed &&
       !_shutdownRequested &&
+      !_isLoggingOut &&
       _authStatus.authenticated &&
       _isPolling;
   bool get isRealtimeListening => _isPolling && _eventSubscription != null;
@@ -2206,7 +2209,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   Future<void> authorize(Future<void> Function(String url) openUrl) async {
-    if (_isAuthenticating) return;
+    if (_isAuthenticating || _isLoggingOut) return;
     _isAuthenticating = true;
     _clearError();
     _notify();
@@ -2241,21 +2244,31 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    if (_isLoggingOut || _isAuthenticating || _disposed || _shutdownRequested) {
+      return;
+    }
+    _isLoggingOut = true;
+    _clearError();
+    _notify();
     // 立即停止轮询，即使底层注销命令失败也不留下后台定时任务。
     final profile = _authStatus.identity.profile;
-    await stopPolling();
-    await _cancelMediaDownloads();
-    _authStatus = const DingTalkAuthStatus(authenticated: false);
-    _notify();
     try {
-      await _service.logout(profile: profile);
+      await stopPolling();
+      await _cancelMediaDownloads();
+      _authStatus = await _service.logout(profile: profile);
       _clearError();
     } catch (error, stack) {
-      _setError('取消钉钉授权', error, stack);
-    } finally {
+      // 注销可能已生效但 CLI 输出异常，先以实际授权状态校准结果。
       await refreshAuthStatus();
+      if (_authStatus.authenticated) {
+        _setError('取消钉钉授权', error, stack);
+      } else {
+        _clearError();
+      }
+    } finally {
+      _isLoggingOut = false;
+      _notify();
     }
-    _notify();
   }
 
   Future<void> updateSettings(DingTalkGatewaySettings value) async {
@@ -2315,10 +2328,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   Future<void> startPolling() async {
-    if (_isPolling || !isAuthorized) return;
+    if (_isPolling || !isAuthorized || _isLoggingOut) return;
     final stopping = _pollingStopInFlight;
     if (stopping != null) await stopping;
-    if (_isPolling || !isAuthorized || _disposed) return;
+    if (_isPolling || !isAuthorized || _isLoggingOut || _disposed) return;
     final startedAt = DateTime.now();
     _isPolling = true;
     _pollStartedAt = startedAt;

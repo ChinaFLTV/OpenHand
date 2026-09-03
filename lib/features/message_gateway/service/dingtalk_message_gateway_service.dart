@@ -542,7 +542,7 @@ class DingTalkMessageGatewayService {
     // dws 输出可能包含授权码、令牌或密钥，日志只保留诊断所需的结构。
     value = value.replaceAll(
       RegExp(
-        r'''((?:access[_-]?token|refresh[_-]?token|client[_-]?secret|authorization|user[_-]?code|secret)\s*[:=]\s*)([^,\s}"']+)''',
+        r'''((?:access[_-]?token|refresh[_-]?token|client[_-]?secret|authorization|user[_-]?code|secret)["']?\s*[:=]\s*["']?(?:Bearer\s+)?)([^,\s}"'&]+)''',
         caseSensitive: false,
       ),
       r'$1<已脱敏>',
@@ -1475,7 +1475,9 @@ class DingTalkMessageGatewayService {
         _logRuntime('ERROR', '钉钉设备流授权进程退出，退出码 $exitCode。');
         if (_authCancelled) return await authStatus();
         final errorOutput = output.snapshot().join('\n').trim();
-        throw StateError(errorOutput.isEmpty ? '钉钉授权未完成。' : errorOutput);
+        throw StateError(
+          errorOutput.isEmpty ? '钉钉授权未完成。' : _safeProcessLogLine(errorOutput),
+        );
       }
       _logRuntime('SUCCESS', '钉钉设备流授权进程已完成。');
       return await authStatus();
@@ -1509,7 +1511,8 @@ class DingTalkMessageGatewayService {
       args.addAll(<String>['--profile', profile.trim()]);
     }
     args.addAll(const <String>['--yes', '--format', 'json']);
-    await _runJson(args);
+    // 部分 dws 版本的 logout 即使指定 JSON，成功时仍返回普通文本。
+    await _runJson(args, allowUnstructuredSuccess: true);
     return authStatus();
   }
 
@@ -2846,6 +2849,7 @@ class DingTalkMessageGatewayService {
     String? workingDirectory,
     Duration? timeout,
     Future<void>? cancelSignal,
+    bool allowUnstructuredSuccess = false,
   }) async {
     final operation = arguments.take(3).join(' ');
     final effectiveTimeout = timeout ?? _commandTimeout;
@@ -2939,16 +2943,18 @@ class DingTalkMessageGatewayService {
         allowLargeStructure: isSchemaCatalog,
       );
     } on FormatException catch (error) {
-      final message = result.exitCode == 0
+      if (result.exitCode == 0 && allowUnstructuredSuccess) {
+        _logRuntime('SUCCESS', 'dws 执行结束：$operation，退出码 0。');
+        return const <String, Object?>{};
+      }
+      final rawMessage = result.exitCode == 0
           ? error.message
           : nonBlankStringOr(
               result.stderr,
               'dws 执行失败（退出码 ${result.exitCode}）。',
             );
-      _logRuntime(
-        isMessageQuery ? 'WARN' : 'ERROR',
-        'dws 返回无法处理：${_safeProcessLogLine(message)}',
-      );
+      final message = _safeProcessLogLine(rawMessage);
+      _logRuntime(isMessageQuery ? 'WARN' : 'ERROR', 'dws 返回无法处理：$message');
       throw DingTalkGatewayCommandException(
         message: message,
         reason: result.exitCode == 0 ? 'invalid_output' : 'process_exit',
@@ -2974,18 +2980,16 @@ class DingTalkMessageGatewayService {
           ? 'dws 执行失败。'
           : 'dws 执行失败（退出码 ${result.exitCode}）。';
       if (explicitFailure) fallbackMessage = 'dws 返回 success=false。';
-      final message =
+      final rawMessage =
           nullIfBlank(error['message']?.toString()) ??
           nullIfBlank(payload['message']?.toString()) ??
           nonBlankStringOr(result.stderr, fallbackMessage);
+      final message = _safeProcessLogLine(rawMessage);
       final retryAfterSeconds = int.tryParse(
         '${error['retry_after_seconds'] ?? error['retryAfterSeconds'] ?? ''}',
       );
       final hasStructuredError = error.isNotEmpty;
-      _logRuntime(
-        isMessageQuery ? 'WARN' : 'ERROR',
-        'dws 业务调用失败：${_safeProcessLogLine(message)}',
-      );
+      _logRuntime(isMessageQuery ? 'WARN' : 'ERROR', 'dws 业务调用失败：$message');
       String? fallbackReason;
       if (explicitFailure) {
         fallbackReason = 'business_error';
