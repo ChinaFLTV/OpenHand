@@ -73,6 +73,7 @@ const DARK_PURPLE_LEFT: Rgb = [24, 19, 40];
 
 const EFFORT_PIXEL_FRAME_MS = 33;
 const EFFORT_STREAM_FRAME_MS = 33;
+const EFFORT_CANVAS_RESIZE_DEBOUNCE_MS = 80;
 /** 主岸线左侧碎裂前导（相对轨长，再乘 softScale）。 */
 const EFFORT_TIDE_SOFT_LEAD = 0.07;
 /** 主岸线右侧飞沫漫出。 */
@@ -232,6 +233,80 @@ interface PixelCell {
   depth: number;
 }
 
+interface EffortAnimationLoopOptions {
+  frameIntervalMs: number;
+  shouldAnimate: () => boolean;
+  draw: (time: number) => void;
+  now: () => number;
+}
+
+function createEffortAnimationLoop({
+  frameIntervalMs,
+  shouldAnimate,
+  draw,
+  now,
+}: EffortAnimationLoopOptions): { ensure: () => void; destroy: () => void } {
+  let frameId: number | null = null;
+  let running = false;
+  let destroyed = false;
+  let lastFrame = 0;
+
+  const step = (frameTime: number) => {
+    if (!running || destroyed) return;
+    if (!shouldAnimate()) {
+      running = false;
+      frameId = null;
+      draw(now());
+      return;
+    }
+    if (frameTime - lastFrame >= frameIntervalMs) {
+      lastFrame = frameTime;
+      draw(now());
+    }
+    frameId = window.requestAnimationFrame(step);
+  };
+
+  return {
+    ensure: () => {
+      if (running || destroyed) return;
+      if (!shouldAnimate()) {
+        draw(now());
+        return;
+      }
+      running = true;
+      lastFrame = 0;
+      frameId = window.requestAnimationFrame(step);
+    },
+    destroy: () => {
+      destroyed = true;
+      running = false;
+      if (frameId != null) window.cancelAnimationFrame(frameId);
+      frameId = null;
+    },
+  };
+}
+
+function observeEffortCanvasResize(
+  canvas: HTMLCanvasElement,
+  resize: () => void,
+): () => void {
+  let timer: number | null = null;
+  const observer = new ResizeObserver(() => {
+    if (timer != null) window.clearTimeout(timer);
+    timer = window.setTimeout(() => {
+      timer = null;
+      resize();
+    }, EFFORT_CANVAS_RESIZE_DEBOUNCE_MS);
+  });
+  observer.observe(canvas);
+  resize();
+  return () => {
+    observer.disconnect();
+    if (timer != null) window.clearTimeout(timer);
+    timer = null;
+  };
+}
+
 export interface EffortPixelFieldHandle {
   setParams: (params: {
     active: boolean;
@@ -273,11 +348,7 @@ export function attachEffortPixelField(
   let grid: PixelCell[] = [];
   let cellSize = 6;
   let gapBase = 1.1;
-  let rafId: number | null = null;
-  let loopRunning = false;
-  let lastFrame = 0;
   let destroyed = false;
-  let resizeDebounce = 0;
 
   const buildGrid = () => {
     const cell = width < 280 ? 5 : 6;
@@ -490,37 +561,13 @@ export function attachEffortPixelField(
     ctx.globalAlpha = 1;
   };
 
-  const ensureLoop = () => {
-    if (loopRunning || destroyed || !active) return;
-    if (reduced) {
-      draw(Date.now());
-      return;
-    }
-    loopRunning = true;
-    lastFrame = 0;
-    const step = (t: number) => {
-      if (!loopRunning || destroyed) return;
-      if (!active) {
-        loopRunning = false;
-        rafId = null;
-        draw(Date.now());
-        return;
-      }
-      if (t - lastFrame >= EFFORT_PIXEL_FRAME_MS) {
-        lastFrame = t;
-        draw(Date.now());
-      }
-      rafId = window.requestAnimationFrame(step);
-    };
-    rafId = window.requestAnimationFrame(step);
-  };
-
-  const resizeObserver = new ResizeObserver(() => {
-    window.clearTimeout(resizeDebounce);
-    resizeDebounce = window.setTimeout(resize, 80);
+  const animationLoop = createEffortAnimationLoop({
+    frameIntervalMs: EFFORT_PIXEL_FRAME_MS,
+    shouldAnimate: () => active && !reduced,
+    draw,
+    now: Date.now,
   });
-  resizeObserver.observe(canvas);
-  resize();
+  const stopObservingResize = observeEffortCanvasResize(canvas, resize);
 
   return {
     setParams: (params) => {
@@ -533,17 +580,13 @@ export function attachEffortPixelField(
       reduced = params.reducedMotion;
       if (active && !wasActive) startedAt = Date.now();
       wasActive = active;
-      if (active) ensureLoop();
-      else if (!loopRunning) draw(Date.now());
+      animationLoop.ensure();
     },
     resize,
     destroy: () => {
       destroyed = true;
-      if (rafId != null) window.cancelAnimationFrame(rafId);
-      rafId = null;
-      loopRunning = false;
-      resizeObserver.disconnect();
-      window.clearTimeout(resizeDebounce);
+      animationLoop.destroy();
+      stopObservingResize();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     },
   };
@@ -580,12 +623,8 @@ export function attachEffortStreamField(
   let width = 0;
   let height = 0;
   let ratio = 1;
-  let rafId: number | null = null;
-  let loopRunning = false;
-  let lastFrame = 0;
   let startedAt = performance.now();
   let destroyed = false;
-  let resizeDebounce = 0;
 
   const resize = () => {
     if (destroyed) return;
@@ -678,37 +717,13 @@ export function attachEffortStreamField(
     ctx.globalCompositeOperation = 'source-over';
   };
 
-  const ensureLoop = () => {
-    if (loopRunning || destroyed) return;
-    if (reduced || intensity <= 0.001 || opacity <= 0.01) {
-      draw(performance.now());
-      return;
-    }
-    loopRunning = true;
-    lastFrame = 0;
-    const step = (t: number) => {
-      if (!loopRunning || destroyed) return;
-      if (intensity <= 0.001 || opacity <= 0.01) {
-        loopRunning = false;
-        rafId = null;
-        draw(t);
-        return;
-      }
-      if (t - lastFrame >= EFFORT_STREAM_FRAME_MS) {
-        lastFrame = t;
-        draw(t);
-      }
-      rafId = window.requestAnimationFrame(step);
-    };
-    rafId = window.requestAnimationFrame(step);
-  };
-
-  const resizeObserver = new ResizeObserver(() => {
-    window.clearTimeout(resizeDebounce);
-    resizeDebounce = window.setTimeout(resize, 80);
+  const animationLoop = createEffortAnimationLoop({
+    frameIntervalMs: EFFORT_STREAM_FRAME_MS,
+    shouldAnimate: () => !reduced && intensity > 0.001 && opacity > 0.01,
+    draw,
+    now: () => performance.now(),
   });
-  resizeObserver.observe(canvas);
-  resize();
+  const stopObservingResize = observeEffortCanvasResize(canvas, resize);
 
   return {
     setParams: (params) => {
@@ -719,16 +734,13 @@ export function attachEffortStreamField(
       dark = params.dark;
       reduced = params.reducedMotion;
       if (wasOff && intensity > 0.001) startedAt = performance.now();
-      ensureLoop();
+      animationLoop.ensure();
     },
     resize,
     destroy: () => {
       destroyed = true;
-      if (rafId != null) window.cancelAnimationFrame(rafId);
-      rafId = null;
-      loopRunning = false;
-      resizeObserver.disconnect();
-      window.clearTimeout(resizeDebounce);
+      animationLoop.destroy();
+      stopObservingResize();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     },
   };
