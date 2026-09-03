@@ -1029,18 +1029,27 @@ class _WebPlatformServiceCard extends StatelessWidget {
                   title: webMessagePlatformBuiltinName,
                   description: config.description,
                   statusColor: stateColor,
-                  trailing: compact ? null : actions,
                 );
-                if (!compact) return identity;
-                return Column(
+                if (compact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      identity,
+                      kOpenHandGap16,
+                      Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: actions,
+                      ),
+                    ],
+                  );
+                }
+                // 操作区固有宽度贴右；介绍 Expanded 扩展到首个按钮左侧，中间留 16 空隙。
+                return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    identity,
-                    kOpenHandGap16,
-                    Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: actions,
-                    ),
+                    Expanded(child: identity),
+                    kOpenHandHGap16,
+                    actions,
                   ],
                 );
               },
@@ -7678,7 +7687,8 @@ class _FeatureIconButton extends StatelessWidget {
   }
 }
 
-/// 消息网关平台身份区：标题与操作同一行，介绍铺满图标右侧整宽。
+/// 消息网关平台身份区：大图标 + 状态点 + 标题描述。
+/// 宽屏由外层把操作按钮放在右侧固有宽度区，介绍扩展到首个按钮左侧空隙。
 class _GatewayPlatformIdentity extends StatelessWidget {
   const _GatewayPlatformIdentity({
     required this.title,
@@ -7686,7 +7696,6 @@ class _GatewayPlatformIdentity extends StatelessWidget {
     required this.statusColor,
     this.icon,
     this.iconChild,
-    this.trailing,
   }) : assert(icon != null || iconChild != null);
 
   final IconData? icon;
@@ -7695,14 +7704,10 @@ class _GatewayPlatformIdentity extends StatelessWidget {
   final String description;
   final Color statusColor;
 
-  /// 宽屏时放在标题右侧；介绍始终在下方占满剩余宽度。
-  final Widget? trailing;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final actions = trailing;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -7743,27 +7748,16 @@ class _GatewayPlatformIdentity extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(top: actions == null ? 0 : 6),
-                      child: Text(
-                        title,
-                        style: theme.textTheme.headlineSmall,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  if (actions != null) ...[kOpenHandHGap12, actions],
-                ],
+              Text(
+                title,
+                style: theme.textTheme.headlineSmall,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               kOpenHandGap8,
               Text(
                 description,
-                maxLines: 4,
+                maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colors.onSurfaceVariant,
@@ -11854,18 +11848,26 @@ class _DingTalkGatewayCard extends StatelessWidget {
                         width: _iconSize,
                         height: _iconSize,
                       ),
-                      trailing: compact ? null : actions,
                     );
-                    if (!compact) return identity;
-                    return Column(
+                    if (compact) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          identity,
+                          kOpenHandGap16,
+                          Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: actions,
+                          ),
+                        ],
+                      );
+                    }
+                    return Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        identity,
-                        kOpenHandGap16,
-                        Align(
-                          alignment: AlignmentDirectional.centerEnd,
-                          child: actions,
-                        ),
+                        Expanded(child: identity),
+                        kOpenHandHGap16,
+                        actions,
                       ],
                     );
                   },
