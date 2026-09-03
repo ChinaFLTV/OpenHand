@@ -1058,8 +1058,7 @@ class _ResourceRanking extends StatelessWidget {
                                   ),
                             ),
                             TextSpan(
-                              text:
-                                  ' ${_callUnitLabel(context)}',
+                              text: ' ${_callUnitLabel(context)}',
                               style: Theme.of(context).textTheme.labelSmall
                                   ?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
@@ -1440,10 +1439,7 @@ class _MetricPill extends StatelessWidget {
         colors.onPrimaryContainer,
         colors.primaryContainer,
       ),
-      _MetricTone.error => (
-        colors.onErrorContainer,
-        colors.errorContainer,
-      ),
+      _MetricTone.error => (colors.onErrorContainer, colors.errorContainer),
       _MetricTone.info => (
         colors.onSecondaryContainer,
         colors.secondaryContainer,
@@ -1830,10 +1826,7 @@ class _EventSummaryLine extends StatelessWidget {
           children: [
             TextSpan(
               text: '$label  ',
-              style: TextStyle(
-                color: accent,
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(color: accent, fontWeight: FontWeight.w700),
             ),
             TextSpan(text: value),
           ],

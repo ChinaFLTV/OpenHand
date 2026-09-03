@@ -2872,59 +2872,38 @@ impl SourceRegistry {
     }
 
     pub async fn quotas(&self, credentials: &SourceCredentials) -> Vec<SourceQuota> {
-        let github = self
-            .sources
-            .get(&SourceKind::Github)
-            .expect("内置 GitHub 数据源必须存在")
-            .as_ref();
-        let gitee = self
-            .sources
-            .get(&SourceKind::Gitee)
-            .expect("内置 Gitee 数据源必须存在")
-            .as_ref();
-        let gitcode = self
-            .sources
-            .get(&SourceKind::Gitcode)
-            .expect("内置 GitCode 数据源必须存在")
-            .as_ref();
-        let fofa = self
-            .sources
-            .get(&SourceKind::Fofa)
-            .expect("内置 FOFA 数据源必须存在")
-            .as_ref();
-        let shodan = self
-            .sources
-            .get(&SourceKind::Shodan)
-            .expect("内置 Shodan 数据源必须存在")
-            .as_ref();
-        let nodeseek = self
-            .sources
-            .get(&SourceKind::Nodeseek)
-            .expect("内置 NodeSeek 数据源必须存在")
-            .as_ref();
-        let linux_do = self
-            .sources
-            .get(&SourceKind::LinuxDo)
-            .expect("内置 LINUX DO 数据源必须存在")
-            .as_ref();
-        let v2ex = self
-            .sources
-            .get(&SourceKind::V2ex)
-            .expect("内置 V2EX 数据源必须存在")
-            .as_ref();
-        let (github, gitee, gitcode, fofa, shodan, nodeseek, linux_do, v2ex) = futures::join!(
-            quota_or_status(github, credentials),
-            quota_or_status(gitee, credentials),
-            quota_or_status(gitcode, credentials),
-            quota_or_status(fofa, credentials),
-            quota_or_status(shodan, credentials),
-            quota_or_status(nodeseek, credentials),
-            quota_or_status(linux_do, credentials),
-            quota_or_status(v2ex, credentials),
-        );
-        vec![
-            github, gitee, gitcode, fofa, shodan, nodeseek, linux_do, v2ex,
-        ]
+        const QUOTA_SOURCES: [SourceKind; 8] = [
+            SourceKind::Github,
+            SourceKind::Gitee,
+            SourceKind::Gitcode,
+            SourceKind::Fofa,
+            SourceKind::Shodan,
+            SourceKind::Nodeseek,
+            SourceKind::LinuxDo,
+            SourceKind::V2ex,
+        ];
+        futures::future::join_all(QUOTA_SOURCES.into_iter().map(|kind| async move {
+            let Some(source) = self.sources.get(&kind) else {
+                let checked_at = Utc::now();
+                return SourceQuota {
+                    source: kind,
+                    configured: false,
+                    available: false,
+                    remaining: None,
+                    limit: None,
+                    resets_at: None,
+                    message: "数据源未注册。".to_owned(),
+                    checked_at: Some(checked_at),
+                    latency_ms: Some(0),
+                    http_status: None,
+                    error_code: Some("source_not_registered".to_owned()),
+                    last_success_at: None,
+                    last_failure_at: Some(checked_at),
+                };
+            };
+            quota_or_status(source.as_ref(), credentials).await
+        }))
+        .await
     }
 }
 
@@ -4767,6 +4746,24 @@ mod tests {
         let second = credentials.begin(SourceToolKind::Github).unwrap();
         assert_eq!(second.profile.id, successful_id);
         second.complete(true);
+    }
+
+    #[tokio::test]
+    async fn missing_quota_sources_return_unavailable_status() {
+        ensure_rustls_crypto_provider();
+        let observer = Arc::new(CompletionObserver::default());
+        let client = ObservedHttpClient::new(Client::new(), observer);
+        let mut registry = SourceRegistry::new(client);
+        registry.sources.clear();
+
+        let quotas = registry.quotas(&SourceCredentials::default()).await;
+
+        assert_eq!(quotas.len(), 8);
+        assert!(quotas.iter().all(|quota| {
+            !quota.available
+                && quota.error_code.as_deref() == Some("source_not_registered")
+                && quota.message == "数据源未注册。"
+        }));
     }
 
     #[test]

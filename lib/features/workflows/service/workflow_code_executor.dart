@@ -213,10 +213,7 @@ class WorkflowCodeExecutor {
               : '代码执行失败：$detail',
         );
       }
-      if (!await regularFileExistsBounded(
-        resultFile,
-        followLinks: false,
-      )) {
+      if (!await regularFileExistsBounded(resultFile, followLinks: false)) {
         throw const WorkflowCodeExecutionException('代码未返回有效结果。');
       }
       late final String rawResult;

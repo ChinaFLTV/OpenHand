@@ -884,7 +884,8 @@ class _WebPlatformServiceCard extends StatelessWidget {
           children: [
             LayoutBuilder(
               builder: (context, constraints) {
-                final compact = constraints.maxWidth < _kGatewayHeaderBreakpoint;
+                final compact =
+                    constraints.maxWidth < _kGatewayHeaderBreakpoint;
                 final actions = Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -901,14 +902,16 @@ class _WebPlatformServiceCard extends StatelessWidget {
                               controller,
                               stop: isRunning,
                             ),
-                      style: (isRunning
-                              ? OpenHandStatusColors.runningStopButtonStyle()
-                              : IconButton.styleFrom())
-                          .copyWith(
-                            shape: const WidgetStatePropertyAll<OutlinedBorder>(
-                              CircleBorder(),
-                            ),
-                          ),
+                      style:
+                          (isRunning
+                                  ? OpenHandStatusColors.runningStopButtonStyle()
+                                  : IconButton.styleFrom())
+                              .copyWith(
+                                shape:
+                                    const WidgetStatePropertyAll<
+                                      OutlinedBorder
+                                    >(CircleBorder()),
+                              ),
                       icon: controller.isOperating
                           ? const SizedBox.square(
                               dimension: 18,
@@ -11951,18 +11954,19 @@ class _DingTalkActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final disabled = onPressed == null;
-    final resolvedTooltip = disabled && !loading
-        ? '$tooltip（当前不可用）'
-        : tooltip;
+    final resolvedTooltip = disabled && !loading ? '$tooltip（当前不可用）' : tooltip;
     final child = OpenHandBusyStatusIcon(busy: loading, icon: icon, size: 22);
     final style = _dingtalkDisabledActionStyle(
       context,
-      base: (filled
-              ? OpenHandStatusColors.runningStopButtonStyle()
-              : IconButton.styleFrom())
-          .copyWith(
-            shape: const WidgetStatePropertyAll<OutlinedBorder>(CircleBorder()),
-          ),
+      base:
+          (filled
+                  ? OpenHandStatusColors.runningStopButtonStyle()
+                  : IconButton.styleFrom())
+              .copyWith(
+                shape: const WidgetStatePropertyAll<OutlinedBorder>(
+                  CircleBorder(),
+                ),
+              ),
     );
     return Tooltip(
       message: resolvedTooltip,
