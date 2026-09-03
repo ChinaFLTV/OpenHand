@@ -26,6 +26,7 @@ import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
+import '../../shared/util/bounded_base64.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
@@ -122,10 +123,11 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
           if (r == null || r['error'] != null) continue;
           var content = r['content']?.toString() ?? '';
           final base64Encoded = r['base64Encoded'] == true;
+          final maxBytes = _maxScriptKb * kBytesPerKiB;
           if (base64Encoded) {
             try {
               content = utf8.decode(
-                base64.decode(content),
+                decodeFlexibleBase64Bounded(content, maxDecodedBytes: maxBytes),
                 allowMalformed: true,
               );
             } catch (e, st) {
@@ -133,7 +135,6 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
               continue;
             }
           }
-          final maxBytes = _maxScriptKb * kBytesPerKiB;
           final end = safeUtf8PrefixCodeUnits(content, maxBytes);
           if (end < content.length) {
             content = content.substring(0, end);

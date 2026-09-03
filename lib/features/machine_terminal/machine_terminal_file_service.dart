@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 
 import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
+import '../../shared/util/bounded_base64.dart';
 import '../../shared/util/bounded_delete.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
@@ -34,6 +35,9 @@ const int _machineTerminalInlineCommandBytes = 240;
 const int _machineTerminalStagedCommandChunkCharacters = 1024;
 const int _machineTerminalMaxStagedCommandBytes = 16 * kBytesPerKiB;
 const int _machineTerminalMaxStagedPathCharacters = 4096;
+const int _machineTerminalMaxStagedPathBytes =
+    _machineTerminalMaxStagedPathCharacters * 4;
+const int _machineTerminalMaxProtocolFieldBytes = 64 * kBytesPerKiB;
 const String _machineTerminalReadChunkBegin = '__OPENHAND_FILE_CHUNK__';
 const String _machineTerminalReadChunkEnd = '__OPENHAND_FILE_CHUNK_END__';
 const String _machineTerminalStagedPathBegin = '__OPENHAND_STAGED_PATH_BEGIN__';
@@ -377,7 +381,17 @@ class MachineTerminalFileService extends ChangeNotifier {
         final match = _machineTerminalReadChunkPattern.firstMatch(output);
         if (match == null) throw const FormatException('无法解析文件内容分块。');
         final encoded = match.group(1)!;
-        if (encoded.isNotEmpty) bytes.addAll(base64Decode(encoded));
+        if (encoded.isNotEmpty) {
+          bytes.addAll(
+            _decodeMachineTerminalBase64(
+              encoded,
+              maxDecodedBytes: math.min(
+                _machineTerminalReadChunkBytes,
+                math.max(0, entry.size - bytes.length),
+              ),
+            ),
+          );
+        }
         onProgress?.call(
           MachineTerminalFileProgress(
             command: command,
@@ -839,7 +853,15 @@ class MachineTerminalFileService extends ChangeNotifier {
         final match = _machineTerminalReadChunkPattern.firstMatch(output);
         if (match == null) throw const FormatException('无法解析下载文件分块。');
         final encoded = match.group(1)!;
-        final chunk = encoded.isEmpty ? const <int>[] : base64Decode(encoded);
+        final chunk = encoded.isEmpty
+            ? const <int>[]
+            : _decodeMachineTerminalBase64(
+                encoded,
+                maxDecodedBytes: math.min(
+                  _machineTerminalReadChunkBytes,
+                  math.max(0, expectedBytes - downloadedBytes),
+                ),
+              );
         if (chunk.length > expectedBytes - downloadedBytes) {
           throw StateError('文件下载期间发生变化，请刷新后重试。');
         }
@@ -1348,7 +1370,12 @@ String parseMachineTerminalStagedPathProtocol(String output) {
   String? temporaryPath;
   for (final match in _machineTerminalStagedPathPattern.allMatches(output)) {
     try {
-      final path = utf8.decode(base64Decode(match.group(1)!));
+      final path = utf8.decode(
+        _decodeMachineTerminalBase64(
+          match.group(1)!,
+          maxDecodedBytes: _machineTerminalMaxStagedPathBytes,
+        ),
+      );
       if (path.length <= _machineTerminalMaxStagedPathCharacters &&
           path.startsWith('/') &&
           !_machineTerminalUnsafePathCharacterPattern.hasMatch(path) &&
@@ -1874,7 +1901,24 @@ DateTime? _dateTimeFromEpoch(String value) {
 
 String _decodeProtocolText(String value) {
   if (value.isEmpty) return '';
-  return utf8.decode(base64Decode(value), allowMalformed: true);
+  return utf8.decode(
+    _decodeMachineTerminalBase64(
+      value,
+      maxDecodedBytes: _machineTerminalMaxProtocolFieldBytes,
+    ),
+    allowMalformed: true,
+  );
+}
+
+List<int> _decodeMachineTerminalBase64(
+  String value, {
+  required int maxDecodedBytes,
+}) {
+  try {
+    return decodeBase64Bounded(value, maxDecodedBytes: maxDecodedBytes);
+  } on BoundedBase64Exception {
+    throw const FormatException('远端返回的 Base64 数据无效或超过安全上限。');
+  }
 }
 
 String? _decodeProtocolTextOrNull(String value) {
