@@ -366,6 +366,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const int _maxConversationReconcileCount = 12;
   static const int _conversationReconcileConcurrency = 4;
   static const int _maxConversationReconcileFailureCount = 6;
+  static final RegExp _mentionTrailingBoundary = RegExp(
+    r'[\s，。！？、,:：;；）)\]】>…]',
+  );
   final AiSessionController _sessionController;
   final SettingsController _settingsController;
   final SkillsController _skillsController;
@@ -3338,25 +3341,24 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         : normalizedMessage;
     final existingConversation = _conversationContainingMessage(messageId);
     if (existingConversation != null) {
-      final previous = existingConversation.messages
-          .where((item) => normalizeDingTalkMessageId(item.id) == messageId)
-          .firstOrNull;
       _mergeQueriedMessage(existingConversation, incoming);
       _applyPendingStatusEvents(existingConversation, messageId);
       _remember(messageId);
       if (!allowHistorical && incoming.contextualMedia.isNotEmpty) {
         unawaited(_cacheIncomingMedia(existingConversation, incoming));
       }
-      if (previous != null &&
-          allowResponse &&
-          !previous.mentionedCurrentUser &&
-          incoming.mentionedCurrentUser &&
-          !incoming.recalled &&
-          !_isSelf(previous) &&
-          !_isSelf(incoming) &&
-          _isAutomaticResponseEligible(incoming) &&
-          _canAutomaticallyRespondToMessage(incoming)) {
-        _enqueueIncomingMessage(existingConversation, incoming);
+      final current = existingConversation.messages
+          .where((item) => normalizeDingTalkMessageId(item.id) == messageId)
+          .firstOrNull;
+      // 对账可能先以“只同步”模式写入消息。后续实时事件或轮询到达时，
+      // 只要仍未调度就幂等补入队，避免依赖 @ 标记必须发生一次状态跳变。
+      if (current != null &&
+          current.aiResponseState == DingTalkMessageAiResponseState.none &&
+          _shouldAutomaticallyRespondToMessage(
+            current,
+            allowResponse: allowResponse,
+          )) {
+        _enqueueIncomingMessage(existingConversation, current);
       }
       if (subscriptionTargetUpdated &&
           _isPolling &&
@@ -4393,7 +4395,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   bool _canAutomaticallyRespondToMessage(DingTalkGatewayMessage message) {
-    if (!isDingTalkAutomaticResponseCandidate(message)) return false;
+    if (message.isAssistant ||
+        message.fromSelf ||
+        message.isExcludedFromAiContext ||
+        message.conversationType == DingTalkConversationType.group &&
+            !message.mentionedCurrentUser &&
+            !_messageMentionsCurrentIdentity(message)) {
+      return false;
+    }
     return _settings.allowsAutomaticResponseFor(
       _targetFromIncomingMessage(message),
     );
@@ -6328,19 +6337,17 @@ ${_markdownStructuredFields(response)}''';
         completer,
       );
       if (automaticResponse) {
-        final sourceIndex = conversation.messages.indexWhere(
-          (message) => message.id == sourceId,
-        );
         final ordered = queue.toList(growable: true);
         final insertIndex = ordered.indexWhere((item) {
           if (!item.automaticResponse ||
               item.pollingGeneration != pollingGeneration) {
             return false;
           }
-          final itemSourceIndex = conversation.messages.indexWhere(
-            (message) => message.id == item.sourceMessageId,
+          final timeOrder = queuedResponse.scheduledAt.compareTo(
+            item.scheduledAt,
           );
-          return itemSourceIndex >= 0 && itemSourceIndex > sourceIndex;
+          return timeOrder < 0 ||
+              timeOrder == 0 && queuedResponse.sequence < item.sequence;
         });
         if (insertIndex < 0) {
           queue.add(queuedResponse);
@@ -7045,6 +7052,29 @@ ${_markdownStructuredFields(response)}''';
             (identityLabel.isNotEmpty &&
                 _sameIdentityName(senderName, identityLabel)));
     return senderNameMatches;
+  }
+
+  bool _messageMentionsCurrentIdentity(DingTalkGatewayMessage message) {
+    final content = message.content.toLowerCase();
+    if (content.isEmpty) return false;
+    final names = <String>{
+      _authStatus.identity.name.trim().toLowerCase(),
+      _authStatus.identity.label.trim().toLowerCase(),
+    }..remove('');
+    for (final name in names) {
+      for (final marker in <String>['@$name', '＠$name']) {
+        var index = content.indexOf(marker);
+        while (index >= 0) {
+          final end = index + marker.length;
+          if (end == content.length ||
+              _mentionTrailingBoundary.hasMatch(content[end])) {
+            return true;
+          }
+          index = content.indexOf(marker, index + marker.length);
+        }
+      }
+    }
+    return false;
   }
 
   bool _hasResolvedOtherIdentity(DingTalkGatewayMessage message) {
