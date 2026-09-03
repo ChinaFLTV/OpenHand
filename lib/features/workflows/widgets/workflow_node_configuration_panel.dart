@@ -47,7 +47,6 @@ const double _formControlHeight = 52;
 const double _configurationActionSize = 44;
 const double _parameterTypeControlWidth = 146;
 const double _valueSourceControlWidth = 112;
-const Set<String> _httpMethodsWithoutBody = <String>{'GET', 'HEAD'};
 const RoundedRectangleBorder _workflowButtonShape = RoundedRectangleBorder(
   borderRadius: kOpenHandBorderRadius12,
 );
@@ -1388,7 +1387,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
         .stringSetting(WorkflowSettingKeys.method, 'GET')
         .trim()
         .toUpperCase();
-    final bodyVisible = !_httpMethodsWithoutBody.contains(method);
+    final bodyVisible = !kWorkflowHttpMethodsWithoutBody.contains(method);
     final bodyFormat = WorkflowHttpBodyFormat.fromStorage(
       node.settings[WorkflowSettingKeys.bodyFormat],
     );
@@ -2445,7 +2444,7 @@ class WorkflowNodeConfigurationPanel extends StatelessWidget {
   }
 
   void _setHttpMethod(String method) {
-    final clearBody = _httpMethodsWithoutBody.contains(method);
+    final clearBody = kWorkflowHttpMethodsWithoutBody.contains(method);
     _setValues(<String, Object?>{
       WorkflowSettingKeys.method: method,
       if (clearBody)

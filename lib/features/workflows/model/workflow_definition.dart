@@ -733,6 +733,8 @@ enum WorkflowHttpBodyFormat {
   }
 }
 
+const Set<String> kWorkflowHttpMethodsWithoutBody = <String>{'GET', 'HEAD'};
+
 enum WorkflowConditionLogic {
   all('and'),
   any('or');
@@ -2767,7 +2769,7 @@ void _clearInactiveWorkflowNodeSettings(
   final method = '${settings[WorkflowSettingKeys.method] ?? 'GET'}'
       .trim()
       .toUpperCase();
-  if (const <String>{'GET', 'HEAD'}.contains(method)) {
+  if (kWorkflowHttpMethodsWithoutBody.contains(method)) {
     settings[WorkflowSettingKeys.bodyFormat] =
         WorkflowHttpBodyFormat.none.storageValue;
     settings[WorkflowSettingKeys.body] = '';

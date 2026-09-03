@@ -9,6 +9,7 @@ import '../../../shared/net/bounded_http_request.dart';
 import '../../../shared/net/http_methods.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_base64.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart'
     show
@@ -31,7 +32,9 @@ import '../model/workflow_definition.dart';
 import 'workflow_code_executor.dart';
 import 'workflow_graph_analysis.dart';
 
+const int _maxWorkflowHttpRequestBytes = 4 * 1024 * 1024;
 const int _maxWorkflowHttpResponseBytes = 4 * 1024 * 1024;
+const String _workflowHttpRequestTooLargeMessage = 'HTTP 请求体超过 4 MiB 上限。';
 const int _maxWorkflowPromptCharacters = 256 * 1024;
 const int _maxWorkflowResourceCharacters = 96 * 1024;
 const int _maxWorkflowMcpTools = 64;
@@ -39,6 +42,13 @@ const Duration _humanInterventionTimeoutGrace = Duration(seconds: 1);
 const int _maxWorkflowToolRounds = 8;
 const int _maxWorkflowToolCalls = 32;
 const int _maxWorkflowToolOutputCharacters = 128 * 1024;
+
+final RegExp _workflowBase64DataUrlPattern = RegExp(
+  r'^data:[^;,]+;base64,(.*)$',
+  caseSensitive: false,
+  dotAll: true,
+);
+final RegExp _workflowMultipartNameUnsafePattern = RegExp(r'["\r\n]');
 
 typedef WorkflowMcpToolInvoker =
     Future<WorkflowMcpToolInvocationResult> Function({
@@ -1448,7 +1458,9 @@ class WorkflowNodeExecutor {
     final errorStrategy = WorkflowErrorStrategy.fromStorage(
       node.settings[WorkflowSettingKeys.errorStrategy],
     );
-    _validateHttpRequestBody(node, variables);
+    final requestBody = kWorkflowHttpMethodsWithoutBody.contains(method)
+        ? null
+        : _prepareHttpRequestBody(node, variables);
     final retries = node.retryEnabled()
         ? node
               .intSetting(
@@ -1481,7 +1493,7 @@ class WorkflowNodeExecutor {
           method: method,
           uri: uri,
           headers: headers,
-          variables: variables,
+          requestBody: requestBody,
           cancellation: resources.cancellation,
         );
         resources.cancellation?.throwIfCancelled();
@@ -1578,7 +1590,7 @@ class WorkflowNodeExecutor {
     required String method,
     required Uri uri,
     required Map<String, String> headers,
-    required Map<String, Object?> variables,
+    required _WorkflowHttpRequestBody? requestBody,
     required WorkflowExecutionCancellationToken? cancellation,
   }) async {
     final connectSeconds = node
@@ -1642,8 +1654,13 @@ class WorkflowNodeExecutor {
       for (final entry in headers.entries) {
         request.headers.set(entry.key, entry.value);
       }
-      if (!const <String>{'GET', 'HEAD'}.contains(method)) {
-        _writeHttpBody(request, node, variables);
+      if (requestBody != null) {
+        if (requestBody.forceContentType) {
+          request.headers.contentType = requestBody.contentType;
+        } else {
+          request.headers.contentType ??= requestBody.contentType;
+        }
+        request.add(requestBody.bytes);
         await request.flush().timeout(
           Duration(seconds: writeSeconds),
           onTimeout: () {
@@ -1703,8 +1720,7 @@ class WorkflowNodeExecutor {
     }
   }
 
-  void _writeHttpBody(
-    HttpClientRequest request,
+  _WorkflowHttpRequestBody? _prepareHttpRequestBody(
     WorkflowNode node,
     Map<String, Object?> variables,
   ) {
@@ -1715,37 +1731,53 @@ class WorkflowNodeExecutor {
       node.stringSetting(WorkflowSettingKeys.body),
       variables,
     );
+    Never bodyTooLarge() => throw const WorkflowNodeExecutionException(
+      _workflowHttpRequestTooLargeMessage,
+    );
+
+    List<int> encodeText(String value) {
+      if (value.length > _maxWorkflowHttpRequestBytes) bodyTooLarge();
+      final bytes = utf8.encode(value);
+      if (bytes.length > _maxWorkflowHttpRequestBytes) bodyTooLarge();
+      return bytes;
+    }
+
+    _WorkflowHttpRequestBody prepared(
+      List<int> bytes,
+      ContentType contentType, {
+      bool forceContentType = false,
+    }) {
+      if (bytes.length > _maxWorkflowHttpRequestBytes) bodyTooLarge();
+      return _WorkflowHttpRequestBody(
+        bytes: bytes,
+        contentType: contentType,
+        forceContentType: forceContentType,
+      );
+    }
+
     switch (format) {
       case WorkflowHttpBodyFormat.none:
-        return;
+        return null;
       case WorkflowHttpBodyFormat.json:
+        if (body.length > _maxWorkflowHttpRequestBytes) bodyTooLarge();
         try {
-          request.add(utf8.encode(jsonEncode(jsonDecode(body))));
+          return prepared(
+            encodeText(jsonEncode(jsonDecode(body))),
+            ContentType.json,
+          );
         } on FormatException {
           throw const WorkflowNodeExecutionException('请求体不是有效 JSON。');
         }
-        request.headers.contentType ??= ContentType.json;
-        return;
       case WorkflowHttpBodyFormat.text:
-        request.headers.contentType ??= ContentType.text;
-        request.add(utf8.encode(body));
-        return;
+        return prepared(encodeText(body), ContentType.text);
       case WorkflowHttpBodyFormat.formUrlEncoded:
         final values = _bodyEntries(node, variables);
-        request.headers.contentType ??= ContentType(
-          'application',
-          'x-www-form-urlencoded',
-          charset: 'utf-8',
+        return prepared(
+          encodeText(Uri(queryParameters: values).query),
+          ContentType('application', 'x-www-form-urlencoded', charset: 'utf-8'),
         );
-        request.add(utf8.encode(Uri(queryParameters: values).query));
-        return;
       case WorkflowHttpBodyFormat.formData:
         final boundary = 'openhand-${DateTime.now().microsecondsSinceEpoch}';
-        request.headers.contentType = ContentType(
-          'multipart',
-          'form-data',
-          parameters: <String, String>{'boundary': boundary},
-        );
         final buffer = StringBuffer();
         for (final entry in _bodyEntries(node, variables).entries) {
           buffer
@@ -1757,49 +1789,37 @@ class WorkflowNodeExecutor {
             ..write('\r\n');
         }
         buffer.write('--$boundary--\r\n');
-        request.add(utf8.encode(buffer.toString()));
-        return;
+        return prepared(
+          encodeText(buffer.toString()),
+          ContentType(
+            'multipart',
+            'form-data',
+            parameters: <String, String>{'boundary': boundary},
+          ),
+          forceContentType: true,
+        );
       case WorkflowHttpBodyFormat.binary:
-        request.headers.contentType ??= ContentType.binary;
-        request.add(_binaryHttpBody(node, variables));
-        return;
-    }
-  }
-
-  void _validateHttpRequestBody(
-    WorkflowNode node,
-    Map<String, Object?> variables,
-  ) {
-    final format = WorkflowHttpBodyFormat.fromStorage(
-      node.settings[WorkflowSettingKeys.bodyFormat],
-    );
-    switch (format) {
-      case WorkflowHttpBodyFormat.json:
-        try {
-          jsonDecode(
-            renderWorkflowTemplate(
-              node.stringSetting(WorkflowSettingKeys.body),
-              variables,
-            ),
-          );
-        } on FormatException {
-          throw const WorkflowNodeExecutionException('请求体不是有效 JSON。');
-        }
-      case WorkflowHttpBodyFormat.formUrlEncoded ||
-          WorkflowHttpBodyFormat.formData:
-        _bodyEntries(node, variables);
-      case WorkflowHttpBodyFormat.binary:
-        _binaryHttpBody(node, variables);
-      case WorkflowHttpBodyFormat.none || WorkflowHttpBodyFormat.text:
-        return;
+        return prepared(_binaryHttpBody(node, variables), ContentType.binary);
     }
   }
 
   List<int> _binaryHttpBody(WorkflowNode node, Map<String, Object?> variables) {
     final source = node.stringSetting(WorkflowSettingKeys.body);
     final resolved = resolveWorkflowTemplateValue(source, variables);
-    if (resolved is Uint8List) return resolved;
+    if (resolved is Uint8List) {
+      if (resolved.length > _maxWorkflowHttpRequestBytes) {
+        throw const WorkflowNodeExecutionException(
+          _workflowHttpRequestTooLargeMessage,
+        );
+      }
+      return Uint8List.fromList(resolved);
+    }
     if (resolved is List) {
+      if (resolved.length > _maxWorkflowHttpRequestBytes) {
+        throw const WorkflowNodeExecutionException(
+          _workflowHttpRequestTooLargeMessage,
+        );
+      }
       final bytes = <int>[];
       for (final value in resolved) {
         if (value is! int || value < 0 || value > 255) {
@@ -1810,20 +1830,24 @@ class WorkflowNodeExecutor {
       return bytes;
     }
     final text = '$resolved';
-    final dataUrl = RegExp(
-      r'^data:[^;,]+;base64,(.*)$',
-      caseSensitive: false,
-      dotAll: true,
-    ).firstMatch(text.trim());
+    final trimmed = text.trim();
+    final dataUrl = _workflowBase64DataUrlPattern.firstMatch(trimmed);
     final encoded =
         dataUrl?.group(1) ??
-        (text.trim().startsWith('base64:')
-            ? text.trim().substring('base64:'.length)
+        (trimmed.startsWith('base64:')
+            ? trimmed.substring('base64:'.length)
             : null);
     if (encoded == null) return utf8.encode(text);
     try {
-      return base64Decode(encoded.replaceAll(RegExp(r'\s+'), ''));
-    } on FormatException {
+      return decodeFlexibleBase64Bounded(
+        encoded,
+        maxDecodedBytes: _maxWorkflowHttpRequestBytes,
+      );
+    } on BoundedBase64SizeException {
+      throw const WorkflowNodeExecutionException(
+        _workflowHttpRequestTooLargeMessage,
+      );
+    } on BoundedBase64FormatException {
       throw const WorkflowNodeExecutionException('二进制请求体包含无效的 Base64 内容。');
     }
   }
@@ -1869,7 +1893,7 @@ class WorkflowNodeExecutor {
   }
 
   String _escapeMultipartName(String value) =>
-      value.replaceAll(RegExp(r'["\r\n]'), '_');
+      value.replaceAll(_workflowMultipartNameUnsafePattern, '_');
 
   Future<WorkflowNodeExecutionResult> _executeCondition(
     WorkflowNode node,
@@ -3242,6 +3266,18 @@ class _WorkflowHttpResponse {
   final Map<String, String> headers;
   final String body;
   final List<Map<String, Object?>> files;
+}
+
+class _WorkflowHttpRequestBody {
+  const _WorkflowHttpRequestBody({
+    required this.bytes,
+    required this.contentType,
+    required this.forceContentType,
+  });
+
+  final List<int> bytes;
+  final ContentType contentType;
+  final bool forceContentType;
 }
 
 List<Map<String, Object?>> _httpResponseFiles(
